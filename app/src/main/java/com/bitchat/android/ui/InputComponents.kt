@@ -37,9 +37,10 @@ fun MessageInput(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val navigationBarInsets = WindowInsets.navigationBars.asPaddingValues()
     
     Row(
-        modifier = modifier.padding(horizontal = 12.dp, vertical = 8.dp), // Reduced padding
+        modifier = modifier.padding(horizontal = 12.dp, vertical = 8.dp).paddingFromBaseline(bottom = navigationBarInsets.calculateBottomPadding()), // Reduced padding
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Prompt

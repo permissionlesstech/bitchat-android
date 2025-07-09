@@ -68,6 +68,9 @@ dependencies {
     // AppCompat for theme support
     implementation("androidx.appcompat:appcompat:1.6.1")
     
+    // EdgeToEdge
+    implementation("com.github.JailedBird:EdgeUtils:1.0.0")
+    
     // ViewModel and LiveData
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
     implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.7.0")

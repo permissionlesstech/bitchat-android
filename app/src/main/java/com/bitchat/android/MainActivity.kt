@@ -4,6 +4,7 @@ import android.Manifest
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import cn.jailedbird.edgeutils.EdgeUtils
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -40,6 +41,8 @@ class MainActivity : ComponentActivity() {
         
         // Request necessary permissions
         requestPermissions()
+        
+        EdgeUtils.setEdgeToEdge(this)
         
         setContent {
             BitchatTheme {
