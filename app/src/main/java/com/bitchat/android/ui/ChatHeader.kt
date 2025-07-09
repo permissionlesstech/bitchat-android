@@ -6,6 +6,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -15,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -198,13 +200,7 @@ private fun PrivateChatHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = onBackClick) {
-            Text(
-                text = "← back",
-                style = MaterialTheme.typography.bodyMedium,
-                color = colorScheme.primary
-            )
-        }
+       HeaderReturnButton(colorScheme, onBackClick)
         
         Spacer(modifier = Modifier.weight(1f))
         
@@ -232,6 +228,27 @@ private fun PrivateChatHeader(
 }
 
 @Composable
+private fun HeaderReturnButton(
+    colorScheme: ColorScheme,
+    onBackClick: () -> Unit
+) {
+    Row(modifier = Modifier
+        .clickable(onClick = onBackClick),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(imageVector = Icons.Default.ArrowBack,
+            contentDescription = "back"
+        )
+        Text(
+            text = "back",
+            style = MaterialTheme.typography.bodyMedium,
+            color = colorScheme.primary
+        )
+    }
+}
+
+@Composable
 private fun ChannelHeader(
     channel: String,
     onBackClick: () -> Unit,
@@ -245,13 +262,8 @@ private fun ChannelHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = onBackClick) {
-            Text(
-                text = "← back",
-                style = MaterialTheme.typography.bodyMedium,
-                color = colorScheme.primary
-            )
-        }
+
+       HeaderReturnButton(colorScheme, onBackClick)
         
         Spacer(modifier = Modifier.weight(1f))
         
