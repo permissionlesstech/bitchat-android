@@ -44,6 +44,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application), B
         privateChatManager = privateChatManager,
         coroutineScope = viewModelScope,
         onHapticFeedback = { ChatViewModelUtils.triggerHapticFeedback(context) },
+        setNotification = { message -> NotificationHandler.showChatNotification(context, message) },
         getMyPeerID = { meshService.myPeerID }
     )
     

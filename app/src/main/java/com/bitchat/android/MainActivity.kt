@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.lifecycleScope
 import com.bitchat.android.ui.ChatScreen
 import com.bitchat.android.ui.ChatViewModel
+import com.bitchat.android.ui.NotificationHandler
 import com.bitchat.android.ui.theme.BitchatTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -43,6 +44,9 @@ class MainActivity : ComponentActivity() {
         
         // Request necessary permissions
         requestPermissions()
+
+        // create notification channels
+        NotificationHandler.createNotificationChannels(this)
         
         setContent {
             BitchatTheme {

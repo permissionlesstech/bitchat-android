@@ -20,6 +20,7 @@ class MeshDelegateHandler(
     private val privateChatManager: PrivateChatManager,
     private val coroutineScope: CoroutineScope,
     private val onHapticFeedback: () -> Unit,
+    private val setNotification: (BitchatMessage) -> Unit,
     private val getMyPeerID: () -> String
 ) : BluetoothMeshDelegate {
     
@@ -41,6 +42,7 @@ class MeshDelegateHandler(
             
             // Trigger haptic feedback
             onHapticFeedback()
+            setNotification(message)
 
             if (message.isPrivate) {
                 // Private message
