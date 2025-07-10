@@ -447,7 +447,7 @@ class BluetoothConnectionManager(
         
         Log.i(TAG, "GATT server setup complete")
     }
-    
+
     @Suppress("DEPRECATION")
     private fun startAdvertising() {
         if (!hasBluetoothPermissions() || bleAdvertiser == null || !isActive) return
