@@ -38,9 +38,16 @@ jobs:
       - name: Grant execute permission for Gradlew
         run: chmod +x ./gradlew
 
+      - name: Set versionName from release tag
+        run: echo "VERSION_NAME=${GITHUB_REF##*/}" >> $GITHUB_ENV
+
       - name: Build APK
-        run: ./gradlew assembleRelease --no-daemon --stacktrace
-      
+        run: ./gradlew assembleRelease \
+          --no-daemon \
+          --stacktrace \
+          -PversionName=${{ env.VERSION_NAME }} \
+          -PversionCode=${{ github.run_id }}
+
       - name: List APK files
         run: |
           echo "APK files built:"
@@ -49,19 +56,7 @@ jobs:
       - name: Rename APK
         run: |
           mv app/build/outputs/apk/release/app-release-unsigned.apk app/build/outputs/apk/release/bitchat.apk
-      
-      - name: DEBUG
-        run: |
-          set -x
 
-          pwd
-
-          ls -all
-
-          cd app/build/outputs/
-          ls -all
-          tree
-      
       # Optional: Sign APK (requires secrets)
       # - name: Sign APK
       #   uses: r0adkll/sign-android-release@v1
