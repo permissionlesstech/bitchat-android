@@ -16,4 +16,30 @@
     <string name="online_users">Online Users</string>
     <string name="no_one_connected">No one connected</string>
     <string name="emergency_clear_hint">Triple tap to clear all data</string>
+
+    <string name="permission_explanation_title">Welcome to bitchat*</string>
+    <string name="permission_explanation_subtitle">Decentralized mesh messaging over Bluetooth</string>
+    <string name="permission_explanation_box1_title">Your Privacy is Protected</string>
+    <string name="permission_explanation_box1_1">"• bitchat doesn't track you or collect personal data"</string>
+    <string name="permission_explanation_box1_2">"• No servers, no internet required, no data logging"</string>
+    <string name="permission_explanation_box1_3">"• Location permission is only used by Android for Bluetooth scanning"</string>
+    <string name="permission_explanation_box1_4">"• Your messages stay on your device and peer devices only"</string>
+
+    <string name="permission_explanation_box2_title">"To work properly, bitchat needs these permissions:</string>
+
+    <string name="permission_explanation_button_grant">"Grant Permissions"</string>
+    <string name="permission_explanation_button_exit">"Exit App"</string>
+
+    <string name="permission_precise_location_title">"Precise Location"</string>
+    <string name="permission_precise_location_description">"Required by Android for Bluetooth scanning."</string>
+    <string name="permission_precise_location_system_description">"Allow bitchat to access this device's location"</string>
+    <string name="permission_precise_location_system_description_2">"bitchat does NOT use GPS or track location"</string>
+
+    <string name="permission_nearby_title">"Nearby Devices"</string>
+    <string name="permission_nearby_description">"Required to discover and connect to other bitchat users via Bluetooth"</string>
+    <string name="permission_nearby_system_description">"Allow bitchat to connect to nearby devices"</string>
+
+    <string name="permission_notification_title">"Notifications"</string>
+    <string name="permission_notification_description">"Show notifications when you receive private messages while the app is in background"</string>
+    <string name="permission_notification_system_description">"Allow bitchat to send you notifications"</string>
 </resources>

@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import androidx.core.content.ContextCompat
+import com.bitchat.android.R
 
 /**
  * Centralized permission management for bitchat app
@@ -115,11 +116,11 @@ class PermissionManager(private val context: Context) {
 
         categories.add(
             PermissionCategory(
-                name = "Nearby Devices",
-                description = "Required to discover and connect to other bitchat users via Bluetooth",
+                name = context.getString(R.string.permission_nearby_title),
+                description = context.getString(R.string.permission_nearby_description),
                 permissions = bluetoothPermissions,
                 isGranted = bluetoothPermissions.all { isPermissionGranted(it) },
-                systemDescription = "Allow bitchat to connect to nearby devices"
+                systemDescription = context.getString(R.string.permission_nearby_system_description)
             )
         )
 
@@ -131,11 +132,11 @@ class PermissionManager(private val context: Context) {
 
         categories.add(
             PermissionCategory(
-                name = "Precise Location",
-                description = "Required by Android for Bluetooth scanning.",
+                name = context.getString(R.string.permission_precise_location_title),
+                description = context.getString(R.string.permission_precise_location_description),
                 permissions = locationPermissions,
                 isGranted = locationPermissions.all { isPermissionGranted(it) },
-                systemDescription = "Allow bitchat to access this device's location"
+                systemDescription = context.getString(R.string.permission_precise_location_system_description)
             )
         )
 
@@ -143,11 +144,11 @@ class PermissionManager(private val context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             categories.add(
                 PermissionCategory(
-                    name = "Notifications",
-                    description = "Show notifications when you receive private messages while the app is in background",
+                    name = context.getString(R.string.permission_notification_title),
+                    description = context.getString(R.string.permission_notification_description),
                     permissions = listOf(Manifest.permission.POST_NOTIFICATIONS),
                     isGranted = isPermissionGranted(Manifest.permission.POST_NOTIFICATIONS),
-                    systemDescription = "Allow bitchat to send you notifications"
+                    systemDescription = context.getString(R.string.permission_notification_system_description)
                 )
             )
         }
