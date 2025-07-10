@@ -23,6 +23,9 @@ import com.bitchat.android.ui.ChatViewModel
 import com.bitchat.android.ui.theme.BitchatTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import android.app.Activity
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
 
 class MainActivity : ComponentActivity() {
     
@@ -41,6 +44,19 @@ class MainActivity : ComponentActivity() {
         INITIALIZING,
         COMPLETE,
         ERROR
+    }
+    
+    // Add launcher for enabling Bluetooth
+    private val enableBluetoothLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            // Bluetooth enabled, continue initialization
+            initializeApp()
+        } else {
+            // User denied, show error and allow retry
+            handleOnboardingFailed("Bluetooth is required to use this app.")
+        }
     }
     
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -130,7 +146,7 @@ class MainActivity : ComponentActivity() {
             } else if (permissionManager.areAllPermissionsGranted()) {
                 android.util.Log.d("MainActivity", "Existing user with permissions, initializing app")
                 onboardingState = OnboardingState.INITIALIZING
-                initializeApp()
+                ensureBluetoothEnabled()
             } else {
                 android.util.Log.d("MainActivity", "Existing user missing permissions, showing explanation")
                 onboardingState = OnboardingState.PERMISSION_EXPLANATION
@@ -139,9 +155,9 @@ class MainActivity : ComponentActivity() {
     }
     
     private fun handleOnboardingComplete() {
-        android.util.Log.d("MainActivity", "Onboarding completed, initializing app")
+        android.util.Log.d("MainActivity", "Onboarding completed, checking Bluetooth state")
         onboardingState = OnboardingState.INITIALIZING
-        initializeApp()
+        ensureBluetoothEnabled()
     }
     
     private fun handleOnboardingFailed(message: String) {
@@ -185,6 +201,22 @@ class MainActivity : ComponentActivity() {
                 android.util.Log.e("MainActivity", "Failed to initialize app", e)
                 handleOnboardingFailed("Failed to initialize the app: ${e.message}")
             }
+        }
+    }
+    
+    // Add function to check and request Bluetooth
+    private fun ensureBluetoothEnabled() {
+        val bluetoothManager = getSystemService(BluetoothManager::class.java)
+        val bluetoothAdapter = bluetoothManager?.adapter
+        if (bluetoothAdapter == null) {
+            handleOnboardingFailed("This device does not support Bluetooth.")
+            return
+        }
+        if (!bluetoothAdapter.isEnabled) {
+            val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+            enableBluetoothLauncher.launch(enableBtIntent)
+        } else {
+            initializeApp()
         }
     }
     
