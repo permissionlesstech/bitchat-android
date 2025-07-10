@@ -41,6 +41,7 @@ dependency-reduced-pom.xml
 
 # Other
 *.log
+.androidide
 .cxx/
 *build/
 out/

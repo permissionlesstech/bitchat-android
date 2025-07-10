@@ -194,7 +194,7 @@ private fun PrivateChatHeader(
     val peerNickname = peerNicknames[peerID] ?: peerID
     
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp).windowInsetsPadding(WindowInsets.statusBars),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -241,7 +241,7 @@ private fun ChannelHeader(
     val colorScheme = MaterialTheme.colorScheme
     
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp).windowInsetsPadding(WindowInsets.statusBars),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -290,7 +290,7 @@ private fun MainHeader(
     val isConnected by viewModel.isConnected.observeAsState(false)
     
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp).windowInsetsPadding(WindowInsets.statusBars),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

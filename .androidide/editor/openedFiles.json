@@ -1,62 +1,17 @@
 {
   "allFiles": [
     {
-      "file": "/storage/emulated/0/AndroidIDEProjects/bitchat-android/app/src/main/java/com/bitchat/android/ui/ChatUIUtils.kt",
+      "file": "/storage/emulated/0/AndroidIDEProjects/bitchat-android/app/src/main/java/com/bitchat/android/ui/ChatScreen.kt",
       "selection": {
         "end": {
-          "column": 0,
-          "index": 0,
-          "line": 0
+          "column": 96,
+          "index": 4278,
+          "line": 88
         },
         "start": {
-          "column": 0,
-          "index": 0,
-          "line": 0
-        }
-      }
-    },
-    {
-      "file": "/storage/emulated/0/AndroidIDEProjects/bitchat-android/app/src/main/java/com/bitchat/android/ui/ChatState.kt",
-      "selection": {
-        "end": {
-          "column": 0,
-          "index": 0,
-          "line": 0
-        },
-        "start": {
-          "column": 0,
-          "index": 0,
-          "line": 0
-        }
-      }
-    },
-    {
-      "file": "/storage/emulated/0/AndroidIDEProjects/bitchat-android/app/src/main/java/com/bitchat/android/ui/ChatViewModel.kt",
-      "selection": {
-        "end": {
-          "column": 0,
-          "index": 0,
-          "line": 0
-        },
-        "start": {
-          "column": 0,
-          "index": 0,
-          "line": 0
-        }
-      }
-    },
-    {
-      "file": "/storage/emulated/0/AndroidIDEProjects/bitchat-android/app/src/main/java/com/bitchat/android/MainActivity.kt",
-      "selection": {
-        "end": {
-          "column": 53,
-          "index": 1758,
-          "line": 49
-        },
-        "start": {
-          "column": 53,
-          "index": 1758,
-          "line": 49
+          "column": 96,
+          "index": 4278,
+          "line": 88
         }
       }
     },
@@ -64,14 +19,44 @@
       "file": "/storage/emulated/0/AndroidIDEProjects/bitchat-android/app/src/main/java/com/bitchat/android/ui/InputComponents.kt",
       "selection": {
         "end": {
-          "column": 14,
-          "index": 2270,
-          "line": 57
+          "column": 44,
+          "index": 2521,
+          "line": 67
         },
         "start": {
-          "column": 14,
-          "index": 2270,
-          "line": 57
+          "column": 44,
+          "index": 2521,
+          "line": 67
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/bitchat-android/app/src/main/java/com/bitchat/android/ui/ChatHeader.kt",
+      "selection": {
+        "end": {
+          "column": 4,
+          "index": 2498,
+          "line": 77
+        },
+        "start": {
+          "column": 4,
+          "index": 2498,
+          "line": 77
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/bitchat-android/app/src/main/java/com/bitchat/android/MainActivity.kt",
+      "selection": {
+        "end": {
+          "column": 47,
+          "index": 1630,
+          "line": 44
+        },
+        "start": {
+          "column": 47,
+          "index": 1630,
+          "line": 44
         }
       }
     },
@@ -79,47 +64,17 @@
       "file": "/storage/emulated/0/AndroidIDEProjects/bitchat-android/app/build.gradle.kts",
       "selection": {
         "end": {
-          "column": 51,
-          "index": 1980,
-          "line": 71
+          "column": 47,
+          "index": 1381,
+          "line": 58
         },
         "start": {
-          "column": 20,
-          "index": 1949,
-          "line": 71
-        }
-      }
-    },
-    {
-      "file": "/storage/emulated/0/AndroidIDEProjects/bitchat-android/settings.gradle.kts",
-      "selection": {
-        "end": {
-          "column": 50,
-          "index": 322,
-          "line": 12
-        },
-        "start": {
-          "column": 50,
-          "index": 322,
-          "line": 12
-        }
-      }
-    },
-    {
-      "file": "/storage/emulated/0/AndroidIDEProjects/bitchat-android/app/src/main/java/com/bitchat/android/ui/theme/Theme.kt",
-      "selection": {
-        "end": {
-          "column": 0,
-          "index": 0,
-          "line": 0
-        },
-        "start": {
-          "column": 0,
-          "index": 0,
-          "line": 0
+          "column": 47,
+          "index": 1381,
+          "line": 58
         }
       }
     }
   ],
-  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/bitchat-android/app/src/main/java/com/bitchat/android/ui/InputComponents.kt"
+  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/bitchat-android/app/src/main/java/com/bitchat/android/MainActivity.kt"
 }

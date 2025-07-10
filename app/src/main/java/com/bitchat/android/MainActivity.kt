@@ -4,7 +4,6 @@ import android.Manifest
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import cn.jailedbird.edgeutils.EdgeUtils
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -16,6 +15,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.view.WindowCompat
 import com.bitchat.android.ui.ChatScreen
 import com.bitchat.android.ui.ChatViewModel
 import com.bitchat.android.ui.theme.BitchatTheme
@@ -42,7 +42,7 @@ class MainActivity : ComponentActivity() {
         // Request necessary permissions
         requestPermissions()
         
-        EdgeUtils.setEdgeToEdge(this)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         
         setContent {
             BitchatTheme {
