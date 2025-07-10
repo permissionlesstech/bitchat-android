@@ -33,8 +33,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application), B
     private val dataManager = DataManager(context)
     private val messageManager = MessageManager(state)
     private val channelManager = ChannelManager(state, messageManager, dataManager, viewModelScope)
-    private val privateChatManager = PrivateChatManager(state, messageManager, dataManager)
+    val privateChatManager = PrivateChatManager(state, messageManager, dataManager)
     private val commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager)
+    private val notificationManager = NotificationManager(application.applicationContext)
     
     // Delegate handler for mesh callbacks
     private val meshDelegateHandler = MeshDelegateHandler(
@@ -42,6 +43,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application), B
         messageManager = messageManager,
         channelManager = channelManager,
         privateChatManager = privateChatManager,
+        notificationManager = notificationManager,
         coroutineScope = viewModelScope,
         onHapticFeedback = { ChatViewModelUtils.triggerHapticFeedback(context) },
         getMyPeerID = { meshService.myPeerID }
@@ -67,6 +69,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application), B
     val hasUnreadPrivateMessages = state.hasUnreadPrivateMessages
     val showCommandSuggestions: LiveData<Boolean> = state.showCommandSuggestions
     val commandSuggestions: LiveData<List<CommandSuggestion>> = state.commandSuggestions
+    val favoritePeers: LiveData<Set<String>> = state.favoritePeers
     
     init {
         meshService.delegate = this
@@ -94,6 +97,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application), B
         
         // Load other data
         dataManager.loadFavorites()
+        state.setFavoritePeers(dataManager.favoritePeers)
         dataManager.loadBlockedUsers()
         
         // Start mesh service
@@ -145,11 +149,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application), B
     // MARK: - Private Chat Management (delegated)
     
     fun startPrivateChat(peerID: String) {
-        privateChatManager.startPrivateChat(peerID, meshService)
+        val success = privateChatManager.startPrivateChat(peerID, meshService)
+        if (success) {
+            // Notify notification manager about current private chat
+            setCurrentPrivateChatPeer(peerID)
+            // Clear notifications for this sender since user is now viewing the chat
+            clearNotificationsForSender(peerID)
+        }
     }
     
     fun endPrivateChat() {
         privateChatManager.endPrivateChat()
+        // Notify notification manager that no private chat is active
+        setCurrentPrivateChatPeer(null)
     }
     
     // MARK: - Message Sending
@@ -257,6 +269,24 @@ class ChatViewModel(application: Application) : AndroidViewModel(application), B
             delay(1000)
             meshService.startServices()
         }
+    }
+    
+    fun setAppBackgroundState(inBackground: Boolean) {
+        // Forward to connection manager for power optimization
+        meshService.connectionManager.setAppBackgroundState(inBackground)
+        
+        // Forward to notification manager for notification logic
+        notificationManager.setAppBackgroundState(inBackground)
+    }
+    
+    fun setCurrentPrivateChatPeer(peerID: String?) {
+        // Update notification manager with current private chat peer
+        notificationManager.setCurrentPrivateChatPeer(peerID)
+    }
+    
+    fun clearNotificationsForSender(peerID: String) {
+        // Clear notifications when user opens a chat
+        notificationManager.clearNotificationsForSender(peerID)
     }
     
     // MARK: - Command Autocomplete (delegated)

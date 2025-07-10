@@ -44,7 +44,7 @@ class BluetoothMeshService(private val context: Context) {
     private val securityManager = SecurityManager(encryptionService, myPeerID)
     private val storeForwardManager = StoreForwardManager()
     private val messageHandler = MessageHandler(myPeerID)
-    private val connectionManager = BluetoothConnectionManager(context, myPeerID)
+    internal val connectionManager = BluetoothConnectionManager(context, myPeerID) // Made internal for access
     private val packetProcessor = PacketProcessor(myPeerID)
     
     // Delegate for message callbacks (maintains same interface)
@@ -55,6 +55,26 @@ class BluetoothMeshService(private val context: Context) {
     
     init {
         setupDelegates()
+        startPeriodicDebugLogging()
+    }
+    
+    /**
+     * Start periodic debug logging every 10 seconds
+     */
+    private fun startPeriodicDebugLogging() {
+        serviceScope.launch {
+            while (isActive) {
+                try {
+                    delay(10000) // 10 seconds
+                    val debugInfo = getDebugStatus()
+                    Log.d(TAG, "=== PERIODIC DEBUG STATUS ===")
+                    Log.d(TAG, debugInfo)
+                    Log.d(TAG, "=== END DEBUG STATUS ===")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error in periodic debug logging: ${e.message}")
+                }
+            }
+        }
     }
     
     /**
@@ -330,10 +350,7 @@ class BluetoothMeshService(private val context: Context) {
                 )
                 
                 // Send with random delay and retry for reliability
-                delay(Random.nextLong(50, 500))
-                connectionManager.broadcastPacket(packet)
-                
-                delay(300 + Random.nextLong(0, 200))
+                // delay(Random.nextLong(50, 500))
                 connectionManager.broadcastPacket(packet)
             }
         }

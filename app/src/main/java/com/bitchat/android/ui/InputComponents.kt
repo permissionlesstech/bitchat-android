@@ -7,6 +7,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -42,11 +44,11 @@ fun MessageInput(
         modifier = modifier.padding(horizontal = 12.dp, vertical = 8.dp).windowInsetsPadding(WindowInsets.navigationBars), // Reduced padding
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Prompt
+        // Fixed: Remove arrow from private message input
         Text(
             text = when {
-                selectedPrivatePeer != null -> "<@$nickname> →"
-                currentChannel != null -> "<@$nickname> →"  // Could show if channel is encrypted
+                selectedPrivatePeer != null -> "<@$nickname>"  // Removed arrow for private
+                currentChannel != null -> "<@$nickname> →"  // Keep arrow for channels
                 else -> "<@$nickname>"
             },
             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
@@ -76,7 +78,7 @@ fun MessageInput(
         
         Spacer(modifier = Modifier.width(8.dp)) // Reduced spacing
         
-        // Send button - solid bright green background with thick transparent arrow
+        // Fixed: Make send button orange in private mode to match nickname color
         IconButton(
             onClick = onSend,
             modifier = Modifier.size(32.dp)
@@ -85,7 +87,10 @@ fun MessageInput(
                 modifier = Modifier
                     .size(30.dp)
                     .background(
-                        color = if (colorScheme.background == Color.Black) {
+                        color = if (selectedPrivatePeer != null) {
+                            // Orange for private messages to match nickname color
+                            Color(0xFFFF8C00).copy(alpha = 0.75f)
+                        } else if (colorScheme.background == Color.Black) {
                             Color(0xFF00FF00).copy(alpha = 0.75f) // Bright green for dark theme
                         } else {
                             Color(0xFF008000).copy(alpha = 0.75f) // Dark green for light theme
@@ -94,17 +99,18 @@ fun MessageInput(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "↑",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold
-                    ),
-                    color = if (colorScheme.background == Color.Black) {
+                Icon(
+                    imageVector = Icons.Filled.KeyboardArrowUp,
+                    contentDescription = "Send message",
+                    modifier = Modifier.size(20.dp),
+                    tint = if (selectedPrivatePeer != null) {
+                        // Black arrow on orange in private mode
+                        Color.Black
+                    } else if (colorScheme.background == Color.Black) {
                         Color.Black // Black arrow on bright green in dark theme
                     } else {
                         Color.White // White arrow on dark green in light theme
-                    },
+                    }
                 )
             }
         }

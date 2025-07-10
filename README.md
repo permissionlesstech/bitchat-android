@@ -1,14 +1,25 @@
+<p align="center">
+    <img src="https://github.com/user-attachments/assets/188c42f8-d249-4a72-b27a-e2b4f10a00a8" alt="Bitchat Android Logo" width="480">
+</p>
+
+> [!WARNING]
+> This software has not received external security review and may contain vulnerabilities and may not necessarily meet its stated security goals. Do not use it for sensitive use cases, and do not rely on its security until it has been reviewed. Work in progress.
+
 # bitchat for Android
 
 A secure, decentralized, peer-to-peer messaging app that works over Bluetooth mesh networks. No internet required, no servers, no phone numbers - just pure encrypted communication.
 
 This is the **Android port** of the original [bitchat iOS app](https://github.com/jackjackbits/bitchat), maintaining 100% protocol compatibility for cross-platform communication.
 
-## About This Port
+## Install bitchat
 
-This Android implementation maintains full protocol compatibility with the original iOS version, allowing seamless communication between iPhone and Android users in the same mesh network. All core features including encryption, channels, private messaging, and mesh networking work identically across platforms.
+You can download the latest version of bitchat for Android from the [GitHub Releases page](https://github.com/callebtc/bitchat-android/releases).
 
-**Original iOS Version**: [github.com/jackjackbits/bitchat](https://github.com/jackjackbits/bitchat)
+**Instructions:**
+
+1.  **Download the APK:** On your Android device, navigate to the link above and download the latest `.apk` file. Open it.
+2.  **Allow Unknown Sources:** On some devices, before you can install the APK, you may need to enable "Install from unknown sources" in your device's settings. This is typically found under **Settings > Security** or **Settings > Apps & notifications > Special app access**.
+3.  **Install:** Open the downloaded `.apk` file to begin the installation.
 
 ## License
 
@@ -220,7 +231,7 @@ bitchat uses an efficient binary protocol optimized for Bluetooth LE:
 
 The Android implementation maintains 100% binary protocol compatibility with iOS:
 - **Header Format**: Identical 13-byte header structure
-- **Packet Types**: Same message types and routing logic  
+- **Packet Types**: Same message types and routing logic
 - **Encryption**: Identical cryptographic algorithms and key exchange
 - **UUIDs**: Same Bluetooth service and characteristic identifiers
 - **Fragmentation**: Compatible message fragmentation for large content
@@ -277,7 +288,7 @@ This Android port enables seamless communication with the original iOS bitchat a
 Contributions are welcome! Key areas for enhancement:
 
 1. **Performance**: Battery optimization and connection reliability
-2. **UI/UX**: Additional Material Design 3 features  
+2. **UI/UX**: Additional Material Design 3 features
 3. **Security**: Enhanced cryptographic features
 4. **Testing**: Unit and integration test coverage
 5. **Documentation**: API documentation and development guides
@@ -285,7 +296,7 @@ Contributions are welcome! Key areas for enhancement:
 ## Support & Issues
 
 - **Bug Reports**: [Create an issue](../../issues) with device info and logs
-- **Feature Requests**: [Start a discussion](../../discussions) 
+- **Feature Requests**: [Start a discussion](../../discussions)
 - **Security Issues**: Email security concerns privately
 - **iOS Compatibility**: Cross-reference with [original iOS repo](https://github.com/jackjackbits/bitchat)
 

@@ -78,6 +78,12 @@ class ChatState {
     private val _commandSuggestions = MutableLiveData<List<CommandSuggestion>>(emptyList())
     val commandSuggestions: LiveData<List<CommandSuggestion>> = _commandSuggestions
     
+    // Favorites
+    private val _favoritePeers = MutableLiveData<Set<String>>(emptySet())
+    val favoritePeers: LiveData<Set<String>> = _favoritePeers
+    
+    val peerIDToPublicKeyFingerprint = mutableMapOf<String, String>()
+    
     // Unread state computed properties
     val hasUnreadChannels: MediatorLiveData<Boolean> = MediatorLiveData<Boolean>()
     val hasUnreadPrivateMessages: MediatorLiveData<Boolean> = MediatorLiveData<Boolean>()
@@ -110,6 +116,7 @@ class ChatState {
     fun getShowSidebarValue() = _showSidebar.value ?: false
     fun getShowCommandSuggestionsValue() = _showCommandSuggestions.value ?: false
     fun getCommandSuggestionsValue() = _commandSuggestions.value ?: emptyList()
+    fun getFavoritePeersValue() = _favoritePeers.value ?: emptySet()
     
     // Setters for state updates
     fun setMessages(messages: List<BitchatMessage>) {
@@ -179,4 +186,9 @@ class ChatState {
     fun setCommandSuggestions(suggestions: List<CommandSuggestion>) {
         _commandSuggestions.value = suggestions
     }
+
+    fun setFavoritePeers(favorites: Set<String>) {
+        _favoritePeers.value = favorites
+    }
+
 }

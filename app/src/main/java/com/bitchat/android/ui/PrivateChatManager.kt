@@ -104,6 +104,7 @@ class PrivateChatManager(
         } else {
             dataManager.addFavorite(fingerprint)
         }
+        state.setFavoritePeers(dataManager.favoritePeers)
     }
     
     fun isFavorite(peerID: String): Boolean {

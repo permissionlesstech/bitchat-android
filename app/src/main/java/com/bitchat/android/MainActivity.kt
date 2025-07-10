@@ -1,6 +1,7 @@
 package com.bitchat.android
 
 import android.Manifest
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -16,31 +17,44 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.lifecycleScope
+import com.bitchat.android.onboarding.*
 import com.bitchat.android.ui.ChatScreen
 import com.bitchat.android.ui.ChatViewModel
 import com.bitchat.android.ui.theme.BitchatTheme
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     
+    private lateinit var permissionManager: PermissionManager
+    private lateinit var onboardingCoordinator: OnboardingCoordinator
     private val chatViewModel: ChatViewModel by viewModels()
     
-    private val permissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        val allPermissionsGranted = permissions.values.all { it }
-        if (allPermissionsGranted) {
-            // Permissions granted, the mesh service should start automatically
-        } else {
-            // Handle permission denial
-            finish()
-        }
+    // UI state for onboarding flow
+    private var onboardingState by mutableStateOf(OnboardingState.CHECKING)
+    private var errorMessage by mutableStateOf("")
+    
+    enum class OnboardingState {
+        CHECKING,
+        PERMISSION_EXPLANATION,
+        PERMISSION_REQUESTING,
+        INITIALIZING,
+        COMPLETE,
+        ERROR
     }
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Request necessary permissions
-        requestPermissions()
+        // Initialize permission management
+        permissionManager = PermissionManager(this)
+        onboardingCoordinator = OnboardingCoordinator(
+            activity = this,
+            permissionManager = permissionManager,
+            onOnboardingComplete = ::handleOnboardingComplete,
+            onOnboardingFailed = ::handleOnboardingFailed
+        )
         
         WindowCompat.setDecorFitsSystemWindows(window, false)
         
@@ -50,51 +64,191 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    ChatScreen(viewModel = chatViewModel)
+                    OnboardingFlowScreen()
                 }
+            }
+        }
+        
+        // Start the onboarding process
+        checkOnboardingStatus()
+    }
+    
+    @Composable
+    private fun OnboardingFlowScreen() {
+        when (onboardingState) {
+            OnboardingState.CHECKING -> {
+                InitializingScreen()
+            }
+            
+            OnboardingState.PERMISSION_EXPLANATION -> {
+                PermissionExplanationScreen(
+                    permissionCategories = permissionManager.getCategorizedPermissions(),
+                    onContinue = {
+                        onboardingState = OnboardingState.PERMISSION_REQUESTING
+                        onboardingCoordinator.requestPermissions()
+                    },
+                    onCancel = {
+                        finish()
+                    }
+                )
+            }
+            
+            OnboardingState.PERMISSION_REQUESTING -> {
+                InitializingScreen()
+            }
+            
+            OnboardingState.INITIALIZING -> {
+                InitializingScreen()
+            }
+            
+            OnboardingState.COMPLETE -> {
+                ChatScreen(viewModel = chatViewModel)
+            }
+            
+            OnboardingState.ERROR -> {
+                InitializationErrorScreen(
+                    errorMessage = errorMessage,
+                    onRetry = {
+                        onboardingState = OnboardingState.CHECKING
+                        checkOnboardingStatus()
+                    },
+                    onOpenSettings = {
+                        onboardingCoordinator.openAppSettings()
+                    }
+                )
             }
         }
     }
     
-    private fun requestPermissions() {
-        val permissions = mutableListOf<String>()
+    private fun checkOnboardingStatus() {
+        android.util.Log.d("MainActivity", "Checking onboarding status")
         
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-            permissions.addAll(listOf(
-                Manifest.permission.BLUETOOTH_ADVERTISE,
-                Manifest.permission.BLUETOOTH_CONNECT,
-                Manifest.permission.BLUETOOTH_SCAN
-            ))
-        } else {
-            permissions.addAll(listOf(
-                Manifest.permission.BLUETOOTH,
-                Manifest.permission.BLUETOOTH_ADMIN
-            ))
+        lifecycleScope.launch {
+            // Small delay to show the checking state
+            delay(500)
+            
+            if (permissionManager.isFirstTimeLaunch()) {
+                android.util.Log.d("MainActivity", "First time launch, showing permission explanation")
+                onboardingState = OnboardingState.PERMISSION_EXPLANATION
+            } else if (permissionManager.areAllPermissionsGranted()) {
+                android.util.Log.d("MainActivity", "Existing user with permissions, initializing app")
+                onboardingState = OnboardingState.INITIALIZING
+                initializeApp()
+            } else {
+                android.util.Log.d("MainActivity", "Existing user missing permissions, showing explanation")
+                onboardingState = OnboardingState.PERMISSION_EXPLANATION
+            }
         }
+    }
+    
+    private fun handleOnboardingComplete() {
+        android.util.Log.d("MainActivity", "Onboarding completed, initializing app")
+        onboardingState = OnboardingState.INITIALIZING
+        initializeApp()
+    }
+    
+    private fun handleOnboardingFailed(message: String) {
+        android.util.Log.e("MainActivity", "Onboarding failed: $message")
+        errorMessage = message
+        onboardingState = OnboardingState.ERROR
+    }
+    
+    private fun initializeApp() {
+        android.util.Log.d("MainActivity", "Starting app initialization")
         
-        permissions.addAll(listOf(
-            Manifest.permission.ACCESS_COARSE_LOCATION,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ))
-        
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+        lifecycleScope.launch {
+            try {
+                // Initialize the app with a proper delay to ensure Bluetooth stack is ready
+                // This solves the issue where app needs restart to work on first install
+                delay(1000) // Give the system time to process permission grants
+                
+                android.util.Log.d("MainActivity", "Permissions verified, starting mesh service")
+                
+                // Ensure all permissions are still granted (user might have revoked in settings)
+                if (!permissionManager.areAllPermissionsGranted()) {
+                    val missing = permissionManager.getMissingPermissions()
+                    android.util.Log.w("MainActivity", "Permissions revoked during initialization: $missing")
+                    handleOnboardingFailed("Some permissions were revoked. Please grant all permissions to continue.")
+                    return@launch
+                }
+                
+                // Initialize chat view model - this will start the mesh service
+                chatViewModel.meshService.startServices()
+                
+                // Handle any notification intent
+                handleNotificationIntent(intent)
+                
+                // Small delay to ensure mesh service is fully initialized
+                delay(500)
+                
+                android.util.Log.d("MainActivity", "App initialization complete")
+                onboardingState = OnboardingState.COMPLETE
+                
+            } catch (e: Exception) {
+                android.util.Log.e("MainActivity", "Failed to initialize app", e)
+                handleOnboardingFailed("Failed to initialize the app: ${e.message}")
+            }
         }
+    }
+    
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        // Handle notification intents when app is already running
+        if (onboardingState == OnboardingState.COMPLETE) {
+            intent?.let { handleNotificationIntent(it) }
+        }
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        // Only set background state if app is fully initialized
+        if (onboardingState == OnboardingState.COMPLETE) {
+            chatViewModel.setAppBackgroundState(false)
+        }
+    }
+    
+    override fun onPause() {
+        super.onPause()
+        // Only set background state if app is fully initialized
+        if (onboardingState == OnboardingState.COMPLETE) {
+            chatViewModel.setAppBackgroundState(true)
+        }
+    }
+    
+    /**
+     * Handle intents from notification clicks - open specific private chat
+     */
+    private fun handleNotificationIntent(intent: Intent) {
+        val shouldOpenPrivateChat = intent.getBooleanExtra(
+            com.bitchat.android.ui.NotificationManager.EXTRA_OPEN_PRIVATE_CHAT, 
+            false
+        )
         
-        permissionLauncher.launch(permissions.toTypedArray())
+        if (shouldOpenPrivateChat) {
+            val peerID = intent.getStringExtra(com.bitchat.android.ui.NotificationManager.EXTRA_PEER_ID)
+            val senderNickname = intent.getStringExtra(com.bitchat.android.ui.NotificationManager.EXTRA_SENDER_NICKNAME)
+            
+            if (peerID != null) {
+                android.util.Log.d("MainActivity", "Opening private chat with $senderNickname (peerID: $peerID) from notification")
+                
+                // Open the private chat with this peer
+                chatViewModel.startPrivateChat(peerID)
+                
+                // Clear notifications for this sender since user is now viewing the chat
+                chatViewModel.clearNotificationsForSender(peerID)
+            }
+        }
     }
     
     override fun onDestroy() {
         super.onDestroy()
-        // FIXED: Ensure Bluetooth resources are cleaned up when the activity is destroyed
-        // This addresses the issue where stale Bluetooth advertisements interfere with 
-        // restart discovery times. This is more reliable than relying solely on 
-        // ChatViewModel.onCleared() which may not be called when the app is swiped away.
-        try {
-            chatViewModel.meshService.stopServices()
-        } catch (e: Exception) {
-            // Log error, but don't crash the app on exit
-            android.util.Log.w("MainActivity", "Error stopping mesh services in onDestroy: ${e.message}")
+        // Only stop mesh services if they were started
+        if (onboardingState == OnboardingState.COMPLETE) {
+            try {
+                chatViewModel.meshService.stopServices()
+            } catch (e: Exception) {
+                android.util.Log.w("MainActivity", "Error stopping mesh services in onDestroy: ${e.message}")
+            }
         }
     }
 }
