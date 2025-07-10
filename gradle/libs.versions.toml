@@ -1,0 +1,138 @@
+[versions]
+# Android and Kotlin
+agp = "8.2.0"
+kotlin = "1.9.20"
+compileSdk = "34"
+minSdk = "26" # API 26 for proper BLE support
+targetSdk = "34"
+
+# AndroidX Core
+core-ktx = "1.12.0"
+lifecycle-runtime = "2.7.0"
+activity-compose = "1.8.2"
+appcompat = "1.6.1"
+
+# Compose
+compose-bom = "2023.10.01"
+compose-compiler = "1.5.5"
+
+# Navigation
+navigation-compose = "2.7.6"
+
+# Accompanist
+accompanist-permissions = "0.32.0"
+
+# Cryptography
+bouncycastle = "1.70"
+tink-android = "1.10.0"
+
+# JSON
+gson = "2.10.1"
+
+# Coroutines
+kotlinx-coroutines = "1.7.3"
+
+# Bluetooth
+nordic-ble = "2.6.1"
+
+# Compression
+lz4-java = "1.8.0"
+
+# Security
+security-crypto = "1.1.0-alpha06"
+
+# Testing
+junit = "4.13.2"
+androidx-test-ext = "1.1.5"
+espresso = "3.5.1"
+
+[libraries]
+# AndroidX Core
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "core-ktx" }
+androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycle-runtime" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }
+androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
+
+# Compose
+androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose-bom" }
+androidx-compose-ui = { module = "androidx.compose.ui:ui" }
+androidx-compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
+androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
+androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
+androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
+androidx-compose-runtime-livedata = { module = "androidx.compose.runtime:runtime-livedata" }
+androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
+
+# Lifecycle
+androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle-runtime" }
+androidx-lifecycle-livedata-ktx = { module = "androidx.lifecycle:lifecycle-livedata-ktx", version.ref = "lifecycle-runtime" }
+
+# Navigation
+androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigation-compose" }
+
+# Accompanist
+accompanist-permissions = { module = "com.google.accompanist:accompanist-permissions", version.ref = "accompanist-permissions" }
+
+# Cryptography
+bouncycastle-bcprov = { module = "org.bouncycastle:bcprov-jdk15on", version.ref = "bouncycastle" }
+google-tink-android = { module = "com.google.crypto.tink:tink-android", version.ref = "tink-android" }
+
+# JSON
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+
+# Coroutines
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
+
+# Bluetooth
+nordic-ble = { module = "no.nordicsemi.android:ble", version.ref = "nordic-ble" }
+
+# Compression
+lz4-java = { module = "org.lz4:lz4-java", version.ref = "lz4-java" }
+
+# Security
+androidx-security-crypto = { module = "androidx.security:security-crypto", version.ref = "security-crypto" }
+
+# Testing
+junit = { module = "junit:junit", version.ref = "junit" }
+androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidx-test-ext" }
+androidx-test-espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "espresso" }
+androidx-compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
+androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-parcelize = { id = "kotlin-parcelize" }
+
+[bundles]
+compose = [
+    "androidx-compose-ui",
+    "androidx-compose-ui-graphics",
+    "androidx-compose-ui-tooling-preview",
+    "androidx-compose-material3",
+    "androidx-compose-runtime-livedata",
+    "androidx-compose-material-icons-extended"
+]
+
+lifecycle = [
+    "androidx-lifecycle-runtime-ktx",
+    "androidx-lifecycle-viewmodel-compose",
+    "androidx-lifecycle-livedata-ktx"
+]
+
+cryptography = [
+    "bouncycastle-bcprov",
+    "google-tink-android"
+]
+
+testing = [
+    "junit",
+    "androidx-test-ext-junit",
+    "androidx-test-espresso-core"
+]
+
+compose-testing = [
+    "androidx-compose-ui-test-junit4",
+    "androidx-compose-ui-test-manifest"
+] 

@@ -23,7 +23,7 @@ You can download the latest version of bitchat for Android from the [GitHub Rele
 
 ## License
 
-This project is released into the public domain. See the [LICENSE](LICENSE) file for details.
+This project is released into the public domain. See the [LICENSE](LICENSE.md) file for details.
 
 ## Features
 
