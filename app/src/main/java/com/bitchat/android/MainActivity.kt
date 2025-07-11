@@ -353,8 +353,12 @@ class MainActivity : ComponentActivity() {
 
                 android.util.Log.d("MainActivity", "App initialization complete")
                 // Show nickname prompt instead of directly completing onboarding
-                onboardingState = OnboardingState.NICKNAME_PROMPT
-
+                val savedNickname = chatViewModel.nickname.value
+                onboardingState = if (savedNickname.isNullOrBlank()) {
+                    OnboardingState.NICKNAME_PROMPT
+                } else {
+                    OnboardingState.COMPLETE
+                }
             } catch (e: Exception) {
                 android.util.Log.e("MainActivity", "Failed to initialize app", e)
                 handleOnboardingFailed("Failed to initialize the app: ${e.message}")
