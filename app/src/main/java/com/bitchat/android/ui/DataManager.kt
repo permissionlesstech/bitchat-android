@@ -25,16 +25,9 @@ class DataManager(private val context: Context) {
     val channelMembers: Map<String, MutableSet<String>> get() = _channelMembers
     
     // MARK: - Nickname Management
-    
-    fun loadNickname(): String {
-        val savedNickname = prefs.getString("nickname", null)
-        return if (savedNickname != null) {
-            savedNickname
-        } else {
-            val randomNickname = "anon${Random.nextInt(1000, 9999)}"
-            saveNickname(randomNickname)
-            randomNickname
-        }
+
+    fun loadNickname(): String? {
+        return prefs.getString("nickname", null)
     }
     
     fun saveNickname(nickname: String) {
