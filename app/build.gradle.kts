@@ -1,7 +1,38 @@
+import java.io.ByteArrayOutputStream
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.parcelize)
+}
+
+
+
+val gitTag: String? by lazy {
+    try {
+        val stdout = ByteArrayOutputStream()
+        exec {
+            commandLine = listOf("git", "describe", "--tags", "--abbrev=0")
+            standardOutput = stdout
+            isIgnoreExitValue = true
+        }
+        stdout.toString().trim().removePrefix("v")
+    } catch (e: Exception) {
+        "0.0.0"
+    }
+}
+
+val gitCommitCount: Int by lazy {
+    try {
+        val stdout = ByteArrayOutputStream()
+        exec {
+            commandLine = listOf("git", "rev-list", "--count", "HEAD")
+            standardOutput = stdout
+        }
+        stdout.toString().trim().toInt()
+    } catch (e: Exception) {
+        1
+    }
 }
 
 android {
@@ -12,8 +43,8 @@ android {
         applicationId = "com.bitchat.android"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = gitCommitCount
+        versionName = gitTag ?: "0.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
