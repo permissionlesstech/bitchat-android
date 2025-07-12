@@ -1,28 +1,38 @@
 package com.bitchat.android.ui
 
-import android.app.Application
 import android.content.Context
-import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryAck
 import com.bitchat.android.model.ReadReceipt
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
-import java.util.*
+import kotlinx.coroutines.launch
+import java.util.Date
 import kotlin.random.Random
 
-/**
- * Refactored ChatViewModel - Main coordinator for bitchat functionality
- * Delegates specific responsibilities to specialized managers while maintaining 100% iOS compatibility
- */
-class ChatViewModel(application: Application) : AndroidViewModel(application), BluetoothMeshDelegate {
-    
-    private val context: Context = application.applicationContext
-    
+// This is a temporary solution to create a ChatViewModel instance with a Context, we should
+// ideally use a dependency injection framework like Hilt or Koin for better management.
+// For now, we will use a ViewModelProvider.Factory to pass the context to the ViewModel.
+class ChatViewModelFactory(private val context: Context) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(ChatViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return ChatViewModel(context.applicationContext) as T
+        }
+
+        throw IllegalArgumentException("Unknown ViewModel class")
+    }
+}
+
+class ChatViewModel(
+    context: Context,
+) : ViewModel(), BluetoothMeshDelegate {
+
     // Core services
     val meshService = BluetoothMeshService(context)
     
@@ -35,8 +45,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application), B
     private val channelManager = ChannelManager(state, messageManager, dataManager, viewModelScope)
     val privateChatManager = PrivateChatManager(state, messageManager, dataManager)
     private val commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager)
-    private val notificationManager = NotificationManager(application.applicationContext)
-    
+    private val notificationManager = NotificationManager(context)
+
     // Delegate handler for mesh callbacks
     private val meshDelegateHandler = MeshDelegateHandler(
         state = state,
