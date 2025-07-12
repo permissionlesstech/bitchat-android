@@ -79,7 +79,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application), B
     private fun loadAndInitialize() {
         // Load nickname
         val nickname = dataManager.loadNickname()
-        state.setNickname(nickname)
+        if (!nickname.isNullOrBlank()) {
+            state.setNickname(nickname)
+        }
         
         // Load data
         val (joinedChannels, protectedChannels) = channelManager.loadChannelData()
