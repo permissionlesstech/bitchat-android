@@ -3,6 +3,7 @@ package com.bitchat.android
 import android.Manifest
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -30,7 +31,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var onboardingCoordinator: OnboardingCoordinator
     private lateinit var bluetoothStatusManager: BluetoothStatusManager
     private val chatViewModel: ChatViewModel by viewModels()
-    
+
     // UI state for onboarding flow
     private var onboardingState by mutableStateOf(OnboardingState.CHECKING)
     private var bluetoothStatus by mutableStateOf(BluetoothStatus.ENABLED)
@@ -82,6 +83,30 @@ class MainActivity : ComponentActivity() {
     
     @Composable
     private fun OnboardingFlowScreen() {
+        val context = LocalContext.current
+
+        DisposableEffect(context, bluetoothStatusManager) {
+
+            val receiver = bluetoothStatusManager.monitorBluetoothState(
+                context = context,
+                bluetoothStatusManager = bluetoothStatusManager,
+                onBluetoothStateChanged = { status ->
+                    if (status == BluetoothStatus.ENABLED && onboardingState == OnboardingState.BLUETOOTH_CHECK) {
+                        checkBluetoothAndProceed()
+                    }
+                }
+            )
+
+            onDispose {
+                try {
+                    context.unregisterReceiver(receiver)
+                    Log.d("BluetoothStatusUI", "BroadcastReceiver unregistered")
+                } catch (e: IllegalStateException) {
+                    Log.w("BluetoothStatusUI", "Receiver was not registered")
+                }
+            }
+        }
+
         when (onboardingState) {
             OnboardingState.CHECKING -> {
                 InitializingScreen()
@@ -317,7 +342,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
+
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
         // Handle notification intents when app is already running
