@@ -116,11 +116,13 @@ class PermissionManager(private val context: Context) {
 
         categories.add(
             PermissionCategory(
+                type = PermissionCategoryType.NEARBY_DEVICES,
                 name = context.getString(R.string.permission_nearby_title),
                 description = context.getString(R.string.permission_nearby_description),
                 permissions = bluetoothPermissions,
                 isGranted = bluetoothPermissions.all { isPermissionGranted(it) },
-                systemDescription = context.getString(R.string.permission_nearby_system_description)
+                systemDescription = context.getString(R.string.permission_nearby_system_description),
+                emoji = context.getString(R.string.emoji_nearby_devices)
             )
         )
 
@@ -132,11 +134,13 @@ class PermissionManager(private val context: Context) {
 
         categories.add(
             PermissionCategory(
+                type = PermissionCategoryType.PRECISE_LOCATION,
                 name = context.getString(R.string.permission_precise_location_title),
                 description = context.getString(R.string.permission_precise_location_description),
                 permissions = locationPermissions,
                 isGranted = locationPermissions.all { isPermissionGranted(it) },
-                systemDescription = context.getString(R.string.permission_precise_location_system_description)
+                systemDescription = context.getString(R.string.permission_precise_location_system_description),
+                emoji = context.getString(R.string.emoji_precise_location)
             )
         )
 
@@ -144,11 +148,13 @@ class PermissionManager(private val context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             categories.add(
                 PermissionCategory(
+                    type = PermissionCategoryType.NOTIFICATIONS,
                     name = context.getString(R.string.permission_notification_title),
                     description = context.getString(R.string.permission_notification_description),
                     permissions = listOf(Manifest.permission.POST_NOTIFICATIONS),
                     isGranted = isPermissionGranted(Manifest.permission.POST_NOTIFICATIONS),
-                    systemDescription = context.getString(R.string.permission_notification_system_description)
+                    systemDescription = context.getString(R.string.permission_notification_system_description),
+                    emoji = context.getString(R.string.emoji_notifications)
                 )
             )
         }
@@ -194,13 +200,21 @@ class PermissionManager(private val context: Context) {
     }
 }
 
+enum class PermissionCategoryType {
+    NEARBY_DEVICES,
+    PRECISE_LOCATION,
+    NOTIFICATIONS
+}
+
 /**
  * Data class representing a category of related permissions
  */
 data class PermissionCategory(
+    val type: PermissionCategoryType,
     val name: String,
     val description: String,
     val permissions: List<String>,
     val isGranted: Boolean,
-    val systemDescription: String
+    val systemDescription: String,
+    val emoji: String
 )

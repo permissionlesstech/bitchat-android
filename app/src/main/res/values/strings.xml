@@ -20,10 +20,7 @@
     <string name="permission_explanation_title">Welcome to bitchat*</string>
     <string name="permission_explanation_subtitle">Decentralized mesh messaging over Bluetooth</string>
     <string name="permission_explanation_box1_title">Your Privacy is Protected</string>
-    <string name="permission_explanation_box1_1">"• bitchat doesn't track you or collect personal data"</string>
-    <string name="permission_explanation_box1_2">"• No servers, no internet required, no data logging"</string>
-    <string name="permission_explanation_box1_3">"• Location permission is only used by Android for Bluetooth scanning"</string>
-    <string name="permission_explanation_box1_4">"• Your messages stay on your device and peer devices only"</string>
+    <string name="permission_explanation_box1_text">• bitchat doesn\'t track you or collect personal data\n• No servers, no internet required, no data logging\n• Location permission is only used by Android for Bluetooth scanning\n• Your messages stay on your device and peer devices only</string>
 
     <string name="permission_explanation_box2_title">"To work properly, bitchat needs these permissions:</string>
 

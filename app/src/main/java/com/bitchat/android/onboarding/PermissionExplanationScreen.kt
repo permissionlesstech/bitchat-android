@@ -97,10 +97,7 @@ fun PermissionExplanationScreen(
                 }
                 
                 Text(
-                    text = "${stringResource(R.string.permission_explanation_box1_1)}\n" +
-                            "${stringResource(R.string.permission_explanation_box1_2)}\n" +
-                            "${stringResource(R.string.permission_explanation_box1_3)}\n" +
-                            stringResource(R.string.permission_explanation_box1_4),
+                    text = stringResource(R.string.permission_explanation_box1_text),
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontFamily = FontFamily.Monospace,
                         color = colorScheme.onSurface.copy(alpha = 0.8f)
@@ -192,9 +189,9 @@ private fun PermissionCategoryCard(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = getPermissionEmoji(category.name),
+                    text = category.emoji,
                     style = MaterialTheme.typography.titleLarge,
-                    color = getPermissionIconColor(category.name),
+                    color = category.type.getPermissionIconColor(),
                     modifier = Modifier.size(24.dp)
                 )
                 
@@ -242,21 +239,10 @@ private fun PermissionCategoryCard(
 }
 
 @Composable
-private fun getPermissionEmoji(categoryName: String): String {
-    return when (categoryName) {
-        stringResource(R.string.permission_nearby_title) -> "📱"
-        stringResource(R.string.permission_precise_location_title) -> "📍"
-        stringResource(R.string.permission_notification_title) -> "🔔"
-        else -> "🔧"
-    }
-}
-
-@Composable
-private fun getPermissionIconColor(categoryName: String): Color {
-    return when (categoryName) {
-        stringResource(R.string.permission_nearby_title) -> Color(0xFF2196F3) // Blue
-        stringResource(R.string.permission_precise_location_title)  -> Color(0xFFFF9800) // Orange
-        stringResource(R.string.permission_notification_title) -> Color(0xFF4CAF50) // Green
-        else -> Color(0xFF9C27B0) // Purple
+private fun PermissionCategoryType.getPermissionIconColor(): Color {
+    return when (this) {
+        PermissionCategoryType.NEARBY_DEVICES -> Color(0xFF2196F3) // Blue
+        PermissionCategoryType.PRECISE_LOCATION -> Color(0xFFFF9800) // Orange
+        PermissionCategoryType.NOTIFICATIONS -> Color(0xFF4CAF50) // Green
     }
 }
