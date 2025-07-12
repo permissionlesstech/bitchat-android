@@ -4,7 +4,7 @@
     <string name="permission_bluetooth_rationale">يعد إذن البلوتوث ضروريًا للمراسلة عبر الإنترنت.</string>
     <string name="permission_location_rationale">تحتاج إلى إذن بالترجمة لاكتشاف الأجهزة التالية عبر Bluetooth.</string>
     <string name="permission_notification_rationale">يلزم الحصول على إذن الإشعارات لتنبيه الرسائل الجديدة.</string>
-    <string name="nickname_hint">apelido</string>
+    <string name="nickname_hint">اسم العائلة</string>
     <string name="message_hint">رقمي رسالة...</string>
     <string name="channel_password_hint">كلمة المرور</string>
     <string name="join_channel">انضمام إلى قناة</string>
