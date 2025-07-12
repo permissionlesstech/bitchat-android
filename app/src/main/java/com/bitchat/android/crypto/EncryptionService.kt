@@ -91,7 +91,7 @@ class EncryptionService(private val context: Context) {
      * 96 bytes total: 32 (X25519) + 32 (Ed25519 signing) + 32 (Ed25519 identity)
      */
     fun getCombinedPublicKeyData(): ByteArray {
-        val combined = ByteArray(96)
+        val combined = ByteArray(PUBLIC_KEY_DATA_SIZE)
         System.arraycopy(publicKey.encoded, 0, combined, 0, 32)  // X25519 key
         System.arraycopy(signingPublicKey.encoded, 0, combined, 32, 32)  // Ed25519 signing key
         System.arraycopy(identityPublicKey.encoded, 0, combined, 64, 32)  // Ed25519 identity key
@@ -103,7 +103,7 @@ class EncryptionService(private val context: Context) {
      */
     @Throws(Exception::class)
     fun addPeerPublicKey(peerID: String, publicKeyData: ByteArray) {
-        if (publicKeyData.size != 96) {
+        if (publicKeyData.size != PUBLIC_KEY_DATA_SIZE) {
             throw Exception("Invalid public key data size: ${publicKeyData.size}, expected 96")
         }
         
@@ -254,6 +254,10 @@ class EncryptionService(private val context: Context) {
         }
         
         return result
+    }
+
+    companion object {
+        const val PUBLIC_KEY_DATA_SIZE = 96
     }
 }
 
