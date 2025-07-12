@@ -73,7 +73,7 @@ class CommandProcessor(
                 timestamp = Date(),
                 isRelay = false
             )
-            messageManager.addMessage(systemMessage)
+            messageManager.addMessage(systemMessage, state.currentChannel.value)
         }
     }
     
@@ -125,7 +125,7 @@ class CommandProcessor(
                 timestamp = Date(),
                 isRelay = false
             )
-            messageManager.addMessage(systemMessage)
+            messageManager.addMessage(systemMessage, state.currentChannel.value)
         }
     }
     
@@ -146,7 +146,7 @@ class CommandProcessor(
             timestamp = Date(),
             isRelay = false
         )
-        messageManager.addMessage(systemMessage)
+        messageManager.addMessage(systemMessage, state.currentChannel.value)
     }
     
     private fun handleClearCommand() {
@@ -227,7 +227,7 @@ class CommandProcessor(
                 timestamp = Date(),
                 isRelay = false
             )
-            messageManager.addMessage(systemMessage)
+            messageManager.addMessage(systemMessage, state.currentChannel.value)
         }
     }
     
@@ -242,7 +242,7 @@ class CommandProcessor(
                 timestamp = Date(),
                 isRelay = false
             )
-            messageManager.addMessage(systemMessage)
+            messageManager.addMessage(systemMessage, state.currentChannel.value)
         }
     }
     
@@ -295,7 +295,7 @@ class CommandProcessor(
                 timestamp = Date(),
                 isRelay = false
             )
-            messageManager.addMessage(systemMessage)
+            messageManager.addMessage(systemMessage, state.currentChannel.value)
         }
     }
     
@@ -313,7 +313,7 @@ class CommandProcessor(
             timestamp = Date(),
             isRelay = false
         )
-        messageManager.addMessage(systemMessage)
+        messageManager.addMessage(systemMessage, state.currentChannel.value)
     }
     
     private fun handleUnknownCommand(cmd: String) {
@@ -323,7 +323,7 @@ class CommandProcessor(
             timestamp = Date(),
             isRelay = false
         )
-        messageManager.addMessage(systemMessage)
+        messageManager.addMessage(systemMessage, state.currentChannel.value)
     }
     
     // MARK: - Command Autocomplete

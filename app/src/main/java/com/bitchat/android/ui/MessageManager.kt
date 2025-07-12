@@ -18,11 +18,15 @@ class MessageManager(private val state: ChatState) {
     
     // MARK: - Public Message Management
     
-    fun addMessage(message: BitchatMessage) {
-        val currentMessages = state.getMessagesValue().toMutableList()
-        currentMessages.add(message)
-        currentMessages.sortBy { it.timestamp }
-        state.setMessages(currentMessages)
+    fun addMessage(message: BitchatMessage, channel: String? = null) {
+        if (channel == null) {
+            val currentMessages = state.getMessagesValue().toMutableList()
+            currentMessages.add(message)
+            currentMessages.sortBy { it.timestamp }
+            state.setMessages(currentMessages)
+        }else {
+            addChannelMessage(channel, message)
+        }
     }
     
     fun clearMessages() {
