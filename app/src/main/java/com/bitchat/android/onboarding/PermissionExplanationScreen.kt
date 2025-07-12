@@ -8,11 +8,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bitchat.android.R
 
 /**
  * Permission explanation screen shown before requesting permissions
@@ -41,7 +43,7 @@ fun PermissionExplanationScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Welcome to bitchat*",
+                text = stringResource(R.string.permission_explanation_title),
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
@@ -53,7 +55,7 @@ fun PermissionExplanationScreen(
             Spacer(modifier = Modifier.height(8.dp))
             
             Text(
-                text = "Decentralized mesh messaging over Bluetooth",
+                text = stringResource(R.string.permission_explanation_subtitle),
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontFamily = FontFamily.Monospace,
                     color = colorScheme.onSurface.copy(alpha = 0.7f)
@@ -86,7 +88,7 @@ fun PermissionExplanationScreen(
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
-                        text = "Your Privacy is Protected",
+                        text = stringResource(R.string.permission_explanation_box1_title),
                         style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = FontWeight.Bold,
                             color = colorScheme.onSurface
@@ -95,10 +97,7 @@ fun PermissionExplanationScreen(
                 }
                 
                 Text(
-                    text = "• bitchat doesn't track you or collect personal data\n" +
-                            "• No servers, no internet required, no data logging\n" +
-                            "• Location permission is only used by Android for Bluetooth scanning\n" +
-                            "• Your messages stay on your device and peer devices only",
+                    text = stringResource(R.string.permission_explanation_box1_text),
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontFamily = FontFamily.Monospace,
                         color = colorScheme.onSurface.copy(alpha = 0.8f)
@@ -110,7 +109,7 @@ fun PermissionExplanationScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "To work properly, bitchat needs these permissions:",
+            text = stringResource(R.string.permission_explanation_box2_title),
             style = MaterialTheme.typography.bodyMedium.copy(
                 fontWeight = FontWeight.Medium,
                 color = colorScheme.onSurface
@@ -140,7 +139,7 @@ fun PermissionExplanationScreen(
                 )
             ) {
                 Text(
-                    text = "Grant Permissions",
+                    text = stringResource(R.string.permission_explanation_button_grant),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold
@@ -157,7 +156,7 @@ fun PermissionExplanationScreen(
                 )
             ) {
                 Text(
-                    text = "Exit App",
+                    text = stringResource(R.string.permission_explanation_button_exit),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontFamily = FontFamily.Monospace
                     ),
@@ -190,9 +189,9 @@ private fun PermissionCategoryCard(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = getPermissionEmoji(category.name),
+                    text = category.emoji,
                     style = MaterialTheme.typography.titleLarge,
-                    color = getPermissionIconColor(category.name),
+                    color = category.type.getPermissionIconColor(),
                     modifier = Modifier.size(24.dp)
                 )
                 
@@ -214,7 +213,7 @@ private fun PermissionCategoryCard(
                 )
             )
 
-            if (category.name == "Precise Location") {
+            if (category.name == stringResource(R.string.permission_precise_location_title)) {
                 // Extra emphasis for location permission
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -226,7 +225,7 @@ private fun PermissionCategoryCard(
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
-                        text = "bitchat does NOT use GPS or track location",
+                        text = stringResource(R.string.permission_precise_location_system_description_2),
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Medium,
@@ -239,20 +238,11 @@ private fun PermissionCategoryCard(
     }
 }
 
-private fun getPermissionEmoji(categoryName: String): String {
-    return when (categoryName) {
-        "Nearby Devices" -> "📱"
-        "Precise Location" -> "📍"
-        "Notifications" -> "🔔"
-        else -> "🔧"
-    }
-}
-
-private fun getPermissionIconColor(categoryName: String): Color {
-    return when (categoryName) {
-        "Nearby Devices" -> Color(0xFF2196F3) // Blue
-        "Precise Location" -> Color(0xFFFF9800) // Orange
-        "Notifications" -> Color(0xFF4CAF50) // Green
-        else -> Color(0xFF9C27B0) // Purple
+@Composable
+private fun PermissionCategoryType.getPermissionIconColor(): Color {
+    return when (this) {
+        PermissionCategoryType.NEARBY_DEVICES -> Color(0xFF2196F3) // Blue
+        PermissionCategoryType.PRECISE_LOCATION -> Color(0xFFFF9800) // Orange
+        PermissionCategoryType.NOTIFICATIONS -> Color(0xFF4CAF50) // Green
     }
 }
