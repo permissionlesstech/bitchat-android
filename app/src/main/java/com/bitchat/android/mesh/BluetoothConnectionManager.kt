@@ -20,7 +20,8 @@ import java.util.concurrent.CopyOnWriteArrayList
  */
 class BluetoothConnectionManager(
     private val context: Context, 
-    private val myPeerID: String
+    private val myPeerID: String,
+    private val fragmentManager: FragmentManager? = null
 ) : PowerManagerDelegate {
     
     companion object {
@@ -201,13 +202,38 @@ class BluetoothConnectionManager(
     
     /**
      * Broadcast packet to connected devices with connection limit enforcement
+     * Automatically fragments large packets to fit within BLE MTU limits
      */
     fun broadcastPacket(packet: BitchatPacket) {
         if (!isActive) return
         
+        // Check if we need to fragment
+        if (fragmentManager != null) {
+            val fragments = fragmentManager.createFragments(packet)
+            if (fragments.size > 1) {
+                Log.d(TAG, "Fragmenting packet into ${fragments.size} fragments")
+                connectionScope.launch {
+                    fragments.forEach { fragment ->
+                        sendSinglePacket(fragment)
+                        // 20ms delay between fragments (matching iOS/Rust)
+                        delay(20)
+                    }
+                }
+                return
+            }
+        }
+        
+        // Send single packet if no fragmentation needed
+        sendSinglePacket(packet)
+    }
+    
+    /**
+     * Send a single packet (fragment or whole) to all connected devices
+     */
+    private fun sendSinglePacket(packet: BitchatPacket) {
         val data = packet.toBinaryData() ?: return
         
-        Log.d(TAG, "Broadcasting packet type ${packet.type} to ${subscribedDevices.size} server + ${connectedDevices.size} client connections")
+        Log.d(TAG, "Sending packet type ${packet.type} (${data.size} bytes) to ${subscribedDevices.size} server + ${connectedDevices.size} client connections")
         
         // Send to server connections (devices connected to our GATT server)
         subscribedDevices.forEach { device ->
