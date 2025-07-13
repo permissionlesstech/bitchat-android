@@ -139,7 +139,7 @@ private fun appendFormattedContent(
             }
             "mention" -> {
                 builder.pushStyle(SpanStyle(
-                    color = Color(0xFFFF8C00), // Orange
+                    color = Color(0xFFFF9500), // Orange
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold
                 ))

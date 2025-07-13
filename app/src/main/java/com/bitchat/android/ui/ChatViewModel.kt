@@ -1,9 +1,9 @@
 package com.bitchat.android.ui
 
 import android.content.Context
+import android.util.Log
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.mesh.BluetoothMeshService
@@ -15,26 +15,16 @@ import kotlinx.coroutines.launch
 import java.util.Date
 import kotlin.random.Random
 
-// This is a temporary solution to create a ChatViewModel instance with a Context, we should
-// ideally use a dependency injection framework like Hilt or Koin for better management.
-// For now, we will use a ViewModelProvider.Factory to pass the context to the ViewModel.
-class ChatViewModelFactory(private val context: Context) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(ChatViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return ChatViewModel(context.applicationContext) as T
-        }
-
-        throw IllegalArgumentException("Unknown ViewModel class")
-    }
-}
-
+/**
+ * Refactored ChatViewModel - Main coordinator for bitchat functionality
+ * Delegates specific responsibilities to specialized managers while maintaining 100% iOS compatibility
+ */
 class ChatViewModel(
-    context: Context,
-) : ViewModel(), BluetoothMeshDelegate {
+    application: Application,
+    val meshService: BluetoothMeshService
+) : AndroidViewModel(application), BluetoothMeshDelegate {
 
-    // Core services
-    val meshService = BluetoothMeshService(context)
+    private val context: Context = application.applicationContext
     
     // State management
     private val state = ChatState()
@@ -80,9 +70,10 @@ class ChatViewModel(
     val showCommandSuggestions: LiveData<Boolean> = state.showCommandSuggestions
     val commandSuggestions: LiveData<List<CommandSuggestion>> = state.commandSuggestions
     val favoritePeers: LiveData<Set<String>> = state.favoritePeers
-    
+    val showAppInfo: LiveData<Boolean> = state.showAppInfo
+
     init {
-        meshService.delegate = this
+        // Note: Mesh service delegate is now set by MainActivity
         loadAndInitialize()
     }
     
@@ -110,8 +101,11 @@ class ChatViewModel(
         state.setFavoritePeers(dataManager.favoritePeers)
         dataManager.loadBlockedUsers()
         
-        // Start mesh service
-        meshService.startServices()
+        // Log all favorites at startup
+        dataManager.logAllFavorites()
+        logCurrentFavoriteState()
+
+        // Note: Mesh service is now started by MainActivity
         
         // Show welcome message if no peers after delay
         viewModelScope.launch {
@@ -130,7 +124,7 @@ class ChatViewModel(
     
     override fun onCleared() {
         super.onCleared()
-        meshService.stopServices()
+        // Note: Mesh service lifecycle is now managed by MainActivity
     }
     
     // MARK: - Nickname Management
@@ -260,11 +254,19 @@ class ChatViewModel(
     }
     
     fun toggleFavorite(peerID: String) {
+        Log.d("ChatViewModel", "toggleFavorite called for peerID: $peerID")
         privateChatManager.toggleFavorite(peerID)
+
+        // Log current state after toggle
+        logCurrentFavoriteState()
     }
     
-    fun registerPeerPublicKey(peerID: String, publicKeyData: ByteArray) {
-        privateChatManager.registerPeerPublicKey(peerID, publicKeyData)
+    private fun logCurrentFavoriteState() {
+        Log.i("ChatViewModel", "=== CURRENT FAVORITE STATE ===")
+        Log.i("ChatViewModel", "LiveData favorite peers: ${favoritePeers.value}")
+        Log.i("ChatViewModel", "DataManager favorite peers: ${dataManager.favoritePeers}")
+        Log.i("ChatViewModel", "Peer fingerprints: ${privateChatManager.getAllPeerFingerprints()}")
+        Log.i("ChatViewModel", "==============================")
     }
     
     // MARK: - Debug and Troubleshooting
@@ -273,18 +275,10 @@ class ChatViewModel(
         return meshService.getDebugStatus()
     }
     
-    fun restartMeshServices() {
-        viewModelScope.launch {
-            meshService.stopServices()
-            delay(1000)
-            meshService.startServices()
-        }
-    }
+    // Note: Mesh service restart is now handled by MainActivity
+    // This function is no longer needed
     
     fun setAppBackgroundState(inBackground: Boolean) {
-        // Forward to connection manager for power optimization
-        meshService.connectionManager.setAppBackgroundState(inBackground)
-        
         // Forward to notification manager for notification logic
         notificationManager.setAppBackgroundState(inBackground)
     }
@@ -351,6 +345,10 @@ class ChatViewModel(
         return meshDelegateHandler.isFavorite(peerID)
     }
     
+    override fun registerPeerPublicKey(peerID: String, publicKeyData: ByteArray) {
+        privateChatManager.registerPeerPublicKey(peerID, publicKeyData)
+    }
+
     // MARK: - Emergency Clear
     
     fun panicClearAllData() {
@@ -365,13 +363,62 @@ class ChatViewModel(
         state.setNickname(newNickname)
         dataManager.saveNickname(newNickname)
         
-        // Disconnect from mesh
-        meshService.stopServices()
-        
-        // Restart services with new identity
-        viewModelScope.launch {
-            delay(500)
-            meshService.startServices()
+        // Note: Mesh service restart is now handled by MainActivity
+        // This method now only clears data, not mesh service lifecycle
+    }
+
+    // MARK: - Navigation Management
+
+    fun showAppInfo() {
+        state.setShowAppInfo(true)
+    }
+
+    fun hideAppInfo() {
+        state.setShowAppInfo(false)
+    }
+
+    fun showSidebar() {
+        state.setShowSidebar(true)
+    }
+
+    fun hideSidebar() {
+        state.setShowSidebar(false)
+    }
+
+    /**
+     * Handle Android back navigation
+     * Returns true if the back press was handled, false if it should be passed to the system
+     */
+    fun handleBackPressed(): Boolean {
+        return when {
+            // Close app info dialog
+            state.getShowAppInfoValue() -> {
+                hideAppInfo()
+                true
+            }
+            // Close sidebar
+            state.getShowSidebarValue() -> {
+                hideSidebar()
+                true
+            }
+            // Close password dialog
+            state.getShowPasswordPromptValue() -> {
+                state.setShowPasswordPrompt(false)
+                state.setPasswordPromptChannel(null)
+                true
+            }
+            // Exit private chat
+            state.getSelectedPrivateChatPeerValue() != null -> {
+                endPrivateChat()
+                true
+            }
+            // Exit channel view
+            state.getCurrentChannelValue() != null -> {
+                switchToChannel(null)
+                true
+            }
+            // No special navigation state - let system handle (usually exits app)
+            else -> false
         }
     }
 }

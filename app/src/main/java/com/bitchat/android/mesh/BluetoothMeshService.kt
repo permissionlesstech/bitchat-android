@@ -47,6 +47,9 @@ class BluetoothMeshService(private val context: Context) {
     internal val connectionManager = BluetoothConnectionManager(context, myPeerID) // Made internal for access
     private val packetProcessor = PacketProcessor(myPeerID)
     
+    // Service state management
+    private var isActive = false
+    
     // Delegate for message callbacks (maintains same interface)
     var delegate: BluetoothMeshDelegate? = null
     
@@ -66,10 +69,10 @@ class BluetoothMeshService(private val context: Context) {
             while (isActive) {
                 try {
                     delay(10000) // 10 seconds
-                    val debugInfo = getDebugStatus()
-                    Log.d(TAG, "=== PERIODIC DEBUG STATUS ===")
-                    Log.d(TAG, debugInfo)
-                    Log.d(TAG, "=== END DEBUG STATUS ===")
+                    if (isActive) { // Double-check before logging
+                        val debugInfo = getDebugStatus()
+                        Log.d(TAG, "=== PERIODIC DEBUG STATUS ===\n$debugInfo\n=== END DEBUG STATUS ===")
+                    }
                 } catch (e: Exception) {
                     Log.e(TAG, "Error in periodic debug logging: ${e.message}")
                 }
@@ -98,7 +101,10 @@ class BluetoothMeshService(private val context: Context) {
         
         // SecurityManager delegate for key exchange notifications
         securityManager.delegate = object : SecurityManagerDelegate {
-            override fun onKeyExchangeCompleted(peerID: String) {
+            override fun onKeyExchangeCompleted(peerID: String, peerPublicKeyData: ByteArray) {
+                // Notify delegate about key exchange completion so it can register peer fingerprint
+                delegate?.registerPeerPublicKey(peerID, peerPublicKeyData)
+                
                 // Send announcement and cached messages after key exchange
                 serviceScope.launch {
                     delay(100)
@@ -276,9 +282,16 @@ class BluetoothMeshService(private val context: Context) {
      * Start the mesh service
      */
     fun startServices() {
+        // Prevent double starts (defensive programming)
+        if (isActive) {
+            Log.w(TAG, "Mesh service already active, ignoring duplicate start request")
+            return
+        }
+        
         Log.i(TAG, "Starting Bluetooth mesh service with peer ID: $myPeerID")
         
         if (connectionManager.startServices()) {
+            isActive = true
             Log.i(TAG, "Bluetooth services started successfully")
             
             // Send initial announcements after services are ready
@@ -295,7 +308,13 @@ class BluetoothMeshService(private val context: Context) {
      * Stop all mesh services
      */
     fun stopServices() {
+        if (!isActive) {
+            Log.w(TAG, "Mesh service not active, ignoring stop request")
+            return
+        }
+        
         Log.i(TAG, "Stopping Bluetooth mesh service")
+        isActive = false
         
         // Send leave announcement
         sendLeaveAnnouncement()
@@ -547,4 +566,5 @@ interface BluetoothMeshDelegate {
     fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String?
     fun getNickname(): String?
     fun isFavorite(peerID: String): Boolean
+    fun registerPeerPublicKey(peerID: String, publicKeyData: ByteArray)
 }

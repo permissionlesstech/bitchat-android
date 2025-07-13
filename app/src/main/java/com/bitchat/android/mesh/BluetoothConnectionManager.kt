@@ -128,15 +128,17 @@ class BluetoothConnectionManager(
         
         try {
             isActive = true
+            
+            // Setup GATT server first
             setupGattServer()
             
             // Start power manager and services
             connectionScope.launch {
                 powerManager.start()
-                delay(500) // Ensure GATT server is ready
+                delay(300) // Brief delay to ensure GATT server is ready
                 
                 startAdvertising()
-                delay(200)
+                delay(100)
                 
                 if (powerManager.shouldUseDutyCycle()) {
                     Log.i(TAG, "Using power-aware duty cycling")
@@ -146,13 +148,14 @@ class BluetoothConnectionManager(
                 
                 startPeriodicCleanup()
                 
-                Log.i(TAG, "Power-optimized Bluetooth services started successfully (CLIENT ONLY)")
+                Log.i(TAG, "Power-optimized Bluetooth services started successfully")
             }
             
             return true
             
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start Bluetooth services: ${e.message}")
+            isActive = false
             return false
         }
     }
@@ -355,6 +358,12 @@ class BluetoothConnectionManager(
         
         val serverCallback = object : BluetoothGattServerCallback() {
             override fun onConnectionStateChange(device: BluetoothDevice, status: Int, newState: Int) {
+                // Guard against callbacks after service shutdown
+                if (!isActive) {
+                    Log.d(TAG, "Server: Ignoring connection state change after shutdown")
+                    return
+                }
+                
                 when (newState) {
                     BluetoothProfile.STATE_CONNECTED -> {
                         Log.d(TAG, "Server: Device connected ${device.address}")
@@ -371,6 +380,20 @@ class BluetoothConnectionManager(
                 }
             }
             
+            override fun onServiceAdded(status: Int, service: BluetoothGattService) {
+                // Guard against callbacks after service shutdown
+                if (!isActive) {
+                    Log.d(TAG, "Server: Ignoring service added callback after shutdown")
+                    return
+                }
+                
+                if (status == BluetoothGatt.GATT_SUCCESS) {
+                    Log.d(TAG, "Server: Service added successfully: ${service.uuid}")
+                } else {
+                    Log.e(TAG, "Server: Failed to add service: ${service.uuid}, status: $status")
+                }
+            }
+            
             override fun onCharacteristicWriteRequest(
                 device: BluetoothDevice,
                 requestId: Int,
@@ -380,11 +403,22 @@ class BluetoothConnectionManager(
                 offset: Int,
                 value: ByteArray
             ) {
+                // Guard against callbacks after service shutdown
+                if (!isActive) {
+                    Log.d(TAG, "Server: Ignoring characteristic write after shutdown")
+                    return
+                }
+                
                 if (characteristic.uuid == CHARACTERISTIC_UUID) {
+                    Log.d(TAG, "Server: Received packet from ${device.address}, size: ${value.size} bytes")
                     val packet = BitchatPacket.fromBinaryData(value)
                     if (packet != null) {
                         val peerID = String(packet.senderID).replace("\u0000", "")
+                        Log.d(TAG, "Server: Parsed packet type ${packet.type} from $peerID")
                         delegate?.onPacketReceived(packet, peerID, device)
+                    } else {
+                        Log.w(TAG, "Server: Failed to parse packet from ${device.address}, size: ${value.size} bytes")
+                        Log.w(TAG, "Server: Packet data: ${value.joinToString(" ") { "%02x".format(it) }}")
                     }
                     
                     if (responseNeeded) {
@@ -402,13 +436,21 @@ class BluetoothConnectionManager(
                 offset: Int,
                 value: ByteArray
             ) {
+                // Guard against callbacks after service shutdown
+                if (!isActive) {
+                    Log.d(TAG, "Server: Ignoring descriptor write after shutdown")
+                    return
+                }
+                
                 if (BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE.contentEquals(value)) {
                     Log.d(TAG, "Device ${device.address} subscribed to notifications")
                     subscribedDevices.add(device)
                     
                     connectionScope.launch {
                         delay(100)
-                        delegate?.onDeviceConnected(device)
+                        if (isActive) { // Check if still active
+                            delegate?.onDeviceConnected(device)
+                        }
                     }
                 }
                 
@@ -418,9 +460,25 @@ class BluetoothConnectionManager(
             }
         }
         
-        // Clean up existing server
-        gattServer?.close()
+        // Proper cleanup sequencing to prevent race conditions
+        gattServer?.let { server ->
+            Log.d(TAG, "Cleaning up existing GATT server")
+            try {
+                server.close()
+            } catch (e: Exception) {
+                Log.w(TAG, "Error closing existing GATT server: ${e.message}")
+            }
+        }
         
+        // Small delay to ensure cleanup is complete
+        Thread.sleep(100)
+        
+        if (!isActive) {
+            Log.d(TAG, "Service inactive, skipping GATT server creation")
+            return
+        }
+        
+        // Create new server
         gattServer = bluetoothManager.openGattServer(context, serverCallback)
         
         // Create characteristic with notification support
@@ -782,10 +840,15 @@ class BluetoothConnectionManager(
             
             override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
                 val value = characteristic.value
+                Log.d(TAG, "Client: Received packet from ${gatt.device.address}, size: ${value.size} bytes")
                 val packet = BitchatPacket.fromBinaryData(value)
                 if (packet != null) {
                     val peerID = String(packet.senderID).replace("\u0000", "")
+                    Log.d(TAG, "Client: Parsed packet type ${packet.type} from $peerID")
                     delegate?.onPacketReceived(packet, peerID, gatt.device)
+                } else {
+                    Log.w(TAG, "Client: Failed to parse packet from ${gatt.device.address}, size: ${value.size} bytes")
+                    Log.w(TAG, "Client: Packet data: ${value.joinToString(" ") { "%02x".format(it) }}")
                 }
             }
         }

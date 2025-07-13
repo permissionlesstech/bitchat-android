@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicTextField
@@ -103,7 +104,7 @@ fun PeerCounter(
                 imageVector = Icons.Filled.Email,
                 contentDescription = "Unread private messages",
                 modifier = Modifier.size(16.dp),
-                tint = Color(0xFFFF8C00) // Orange to match private message theme
+                tint = Color(0xFFFF9500) // Orange to match private message theme
             )
             Spacer(modifier = Modifier.width(6.dp))
         }
@@ -151,11 +152,17 @@ fun ChatHeaderContent(
     
     when {
         selectedPrivatePeer != null -> {
-            // Private chat header
+            // Private chat header - ensure state synchronization
+            val favoritePeers by viewModel.favoritePeers.observeAsState(emptySet())
+            val fingerprint = viewModel.privateChatManager.getPeerFingerprint(selectedPrivatePeer)
+            val isFavorite = favoritePeers.contains(fingerprint)
+            
+            Log.d("ChatHeader", "Header recomposing: peer=$selectedPrivatePeer, fingerprint=$fingerprint, isFav=$isFavorite")
+            
             PrivateChatHeader(
                 peerID = selectedPrivatePeer,
                 peerNicknames = viewModel.meshService.getPeerNicknames(),
-                isFavorite = viewModel.isFavorite(selectedPrivatePeer),
+                isFavorite = isFavorite,
                 onBackClick = onBackClick,
                 onToggleFavorite = { viewModel.toggleFavorite(selectedPrivatePeer) }
             )
@@ -201,19 +208,18 @@ private fun PrivateChatHeader(
     val colorScheme = MaterialTheme.colorScheme
     val peerNickname = peerNicknames[peerID] ?: peerID
     
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Fixed: Make back button wider to prevent text cropping
+    Box(modifier = Modifier.fillMaxWidth()) {
+        // Back button - positioned all the way to the left with minimal margin
         Button(
             onClick = onBackClick,
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color.Transparent,
                 contentColor = colorScheme.primary
             ),
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp), // Reduced horizontal padding
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .offset(x = (-8).dp) // Move even further left to minimize margin
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically
@@ -233,27 +239,33 @@ private fun PrivateChatHeader(
             }
         }
         
-        Spacer(modifier = Modifier.weight(1f))
-        
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        // Title - perfectly centered regardless of other elements
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.align(Alignment.Center)
+        ) {
             Icon(
                 imageVector = Icons.Filled.Lock,
                 contentDescription = "Private chat",
                 modifier = Modifier.size(16.dp),
-                tint = Color(0xFFFF8C00) // Orange to match private message theme
+                tint = Color(0xFFFF9500) // Orange to match private message theme
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = peerNickname,
                 style = MaterialTheme.typography.titleMedium,
-                color = Color(0xFFFF8C00) // Orange
+                color = Color(0xFFFF9500) // Orange
             )
         }
         
-        Spacer(modifier = Modifier.weight(1f))
-        
-        // Favorite button with proper filled/outlined star
-        IconButton(onClick = onToggleFavorite) {
+        // Favorite button - positioned on the right
+        IconButton(
+            onClick = {
+                Log.d("ChatHeader", "Header toggle favorite: peerID=$peerID, currentFavorite=$isFavorite")
+                onToggleFavorite()
+            },
+            modifier = Modifier.align(Alignment.CenterEnd)
+        ) {
             Icon(
                 imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
                 contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
@@ -273,12 +285,19 @@ private fun ChannelHeader(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(onClick = onBackClick) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        // Back button - positioned all the way to the left with minimal margin
+        Button(
+            onClick = onBackClick,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color.Transparent,
+                contentColor = colorScheme.primary
+            ),
+            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp), // Reduced horizontal padding
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .offset(x = (-8).dp) // Move even further left to minimize margin
+        ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -297,18 +316,21 @@ private fun ChannelHeader(
             }
         }
         
-        Spacer(modifier = Modifier.weight(1f))
-        
+        // Title - perfectly centered regardless of other elements
         Text(
             text = "channel: $channel",
             style = MaterialTheme.typography.titleMedium,
-            color = Color(0xFF0080FF), // Blue
-            modifier = Modifier.clickable { onSidebarClick() }
+            color = Color(0xFFFF9500), // Orange to match input field
+            modifier = Modifier
+                .align(Alignment.Center)
+                .clickable { onSidebarClick() }
         )
         
-        Spacer(modifier = Modifier.weight(1f))
-        
-        TextButton(onClick = onLeaveChannel) {
+        // Leave button - positioned on the right
+        TextButton(
+            onClick = onLeaveChannel,
+            modifier = Modifier.align(Alignment.CenterEnd)
+        ) {
             Text(
                 text = "leave",
                 style = MaterialTheme.typography.bodySmall,

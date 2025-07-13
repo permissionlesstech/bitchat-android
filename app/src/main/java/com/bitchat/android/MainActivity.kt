@@ -14,6 +14,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.ViewModelProvider
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.addCallback
+import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.onboarding.BluetoothCheckScreen
 import com.bitchat.android.onboarding.BluetoothStatus
 import com.bitchat.android.onboarding.BluetoothStatusManager
@@ -34,10 +38,18 @@ class MainActivity : ComponentActivity() {
     private lateinit var permissionManager: PermissionManager
     private lateinit var onboardingCoordinator: OnboardingCoordinator
     private lateinit var bluetoothStatusManager: BluetoothStatusManager
-    private val chatViewModel: ChatViewModel by viewModels{
-        ChatViewModelFactory(this.applicationContext)
-    }
 
+    // Core mesh service - managed at app level
+    private lateinit var meshService: BluetoothMeshService
+    private val chatViewModel: ChatViewModel by viewModels {
+        object : ViewModelProvider.Factory {
+            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                @Suppress("UNCHECKED_CAST")
+                return ChatViewModel(application, meshService) as T
+            }
+        }
+    }
+    
     // UI state for onboarding flow
     private var onboardingState by mutableStateOf(OnboardingState.CHECKING)
     private var bluetoothStatus by mutableStateOf(BluetoothStatus.ENABLED)
@@ -57,6 +69,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        // Initialize core mesh service first
+        meshService = BluetoothMeshService(this)
+
         // Initialize permission management
         permissionManager = PermissionManager(this)
         bluetoothStatusManager = BluetoothStatusManager(
@@ -114,9 +129,6 @@ class MainActivity : ComponentActivity() {
                     onContinue = {
                         onboardingState = OnboardingState.PERMISSION_REQUESTING
                         onboardingCoordinator.requestPermissions()
-                    },
-                    onCancel = {
-                        finish()
                     }
                 )
             }
@@ -130,6 +142,24 @@ class MainActivity : ComponentActivity() {
             }
             
             OnboardingState.COMPLETE -> {
+                // Set up back navigation handling for the chat screen
+                val backCallback = object : OnBackPressedCallback(true) {
+                    override fun handleOnBackPressed() {
+                        // Let ChatViewModel handle navigation state
+                        val handled = chatViewModel.handleBackPressed()
+                        if (!handled) {
+                            // If ChatViewModel doesn't handle it, disable this callback
+                            // and let the system handle it (which will exit the app)
+                            this.isEnabled = false
+                            onBackPressedDispatcher.onBackPressed()
+                            this.isEnabled = true
+                        }
+                    }
+                }
+
+                // Add the callback - this will be automatically removed when the activity is destroyed
+                onBackPressedDispatcher.addCallback(this, backCallback)
+
                 ChatScreen(viewModel = chatViewModel)
             }
             
@@ -296,7 +326,7 @@ class MainActivity : ComponentActivity() {
                 // This solves the issue where app needs restart to work on first install
                 delay(1000) // Give the system time to process permission grants
                 
-                android.util.Log.d("MainActivity", "Permissions verified, starting mesh service")
+                android.util.Log.d("MainActivity", "Permissions verified, initializing chat system")
                 
                 // Ensure all permissions are still granted (user might have revoked in settings)
                 if (!permissionManager.areAllPermissionsGranted()) {
@@ -306,8 +336,11 @@ class MainActivity : ComponentActivity() {
                     return@launch
                 }
                 
-                // Initialize chat view model - this will start the mesh service
-                chatViewModel.meshService.startServices()
+                // Set up mesh service delegate and start services
+                meshService.delegate = chatViewModel
+                meshService.startServices()
+
+                android.util.Log.d("MainActivity", "Mesh service started successfully")
                 
                 // Handle any notification intent
                 handleNotificationIntent(intent)
@@ -337,6 +370,8 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         // Check Bluetooth status on resume and handle accordingly
         if (onboardingState == OnboardingState.COMPLETE) {
+            // Set app foreground state
+            meshService.connectionManager.setAppBackgroundState(false)
             chatViewModel.setAppBackgroundState(false)
             
             // Check if Bluetooth was disabled while app was backgrounded
@@ -354,6 +389,8 @@ class MainActivity : ComponentActivity() {
         super.onPause()
         // Only set background state if app is fully initialized
         if (onboardingState == OnboardingState.COMPLETE) {
+            // Set app background state
+            meshService.connectionManager.setAppBackgroundState(true)
             chatViewModel.setAppBackgroundState(true)
         }
     }
@@ -383,12 +420,32 @@ class MainActivity : ComponentActivity() {
         }
     }
     
+    /**
+     * Restart mesh services (for debugging/troubleshooting)
+     */
+    fun restartMeshServices() {
+        if (onboardingState == OnboardingState.COMPLETE) {
+            lifecycleScope.launch {
+                try {
+                    android.util.Log.d("MainActivity", "Restarting mesh services")
+                    meshService.stopServices()
+                    delay(1000)
+                    meshService.startServices()
+                    android.util.Log.d("MainActivity", "Mesh services restarted successfully")
+                } catch (e: Exception) {
+                    android.util.Log.e("MainActivity", "Error restarting mesh services: ${e.message}")
+                }
+            }
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
-        // Only stop mesh services if they were started
+        // Stop mesh services if app was fully initialized
         if (onboardingState == OnboardingState.COMPLETE) {
             try {
-                chatViewModel.meshService.stopServices()
+                meshService.stopServices()
+                android.util.Log.d("MainActivity", "Mesh services stopped successfully")
             } catch (e: Exception) {
                 android.util.Log.w("MainActivity", "Error stopping mesh services in onDestroy: ${e.message}")
             }
