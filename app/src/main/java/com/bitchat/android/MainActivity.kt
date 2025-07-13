@@ -29,7 +29,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
-    
+
     private lateinit var permissionManager: PermissionManager
     private lateinit var onboardingCoordinator: OnboardingCoordinator
     private lateinit var bluetoothStatusManager: BluetoothStatusManager
@@ -44,13 +44,13 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
+
     // UI state for onboarding flow
     private var onboardingState by mutableStateOf(OnboardingState.CHECKING)
     private var bluetoothStatus by mutableStateOf(BluetoothStatus.ENABLED)
     private var errorMessage by mutableStateOf("")
     private var isBluetoothLoading by mutableStateOf(false)
-    
+
     enum class OnboardingState {
         CHECKING,
         BLUETOOTH_CHECK,
@@ -61,10 +61,14 @@ class MainActivity : ComponentActivity() {
         COMPLETE,
         ERROR
     }
-    
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
+
+        // Initialize core mesh service first
+        meshService = BluetoothMeshService(this)
+
         // Initialize permission management
         permissionManager = PermissionManager(this)
         bluetoothStatusManager = BluetoothStatusManager(
@@ -79,7 +83,7 @@ class MainActivity : ComponentActivity() {
             onOnboardingComplete = ::handleOnboardingComplete,
             onOnboardingFailed = ::handleOnboardingFailed
         )
-        
+
         setContent {
             BitchatTheme {
                 Surface(
@@ -90,18 +94,18 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-        
+
         // Start the onboarding process
         checkOnboardingStatus()
     }
-    
+
     @Composable
     private fun OnboardingFlowScreen() {
         when (onboardingState) {
             OnboardingState.CHECKING -> {
                 InitializingScreen()
             }
-            
+
             OnboardingState.BLUETOOTH_CHECK -> {
                 BluetoothCheckScreen(
                     status = bluetoothStatus,
@@ -115,7 +119,7 @@ class MainActivity : ComponentActivity() {
                     isLoading = isBluetoothLoading
                 )
             }
-            
+
             OnboardingState.PERMISSION_EXPLANATION -> {
                 PermissionExplanationScreen(
                     permissionCategories = permissionManager.getCategorizedPermissions(),
@@ -125,15 +129,15 @@ class MainActivity : ComponentActivity() {
                     }
                 )
             }
-            
+
             OnboardingState.PERMISSION_REQUESTING -> {
                 InitializingScreen()
             }
-            
+
             OnboardingState.INITIALIZING -> {
                 InitializingScreen()
             }
-            
+
             OnboardingState.COMPLETE -> {
                 // Set up back navigation handling for the chat screen
                 val backCallback = object : OnBackPressedCallback(true) {
@@ -154,8 +158,9 @@ class MainActivity : ComponentActivity() {
                 onBackPressedDispatcher.addCallback(this, backCallback)
 
                 ChatScreen(viewModel = chatViewModel)
+
             }
-            
+
             OnboardingState.ERROR -> {
                 InitializationErrorScreen(
                     errorMessage = errorMessage,
@@ -179,48 +184,53 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
+
     private fun checkOnboardingStatus() {
         android.util.Log.d("MainActivity", "Checking onboarding status")
-        
+
         lifecycleScope.launch {
             // Small delay to show the checking state
             delay(500)
-            
+
             // First check Bluetooth status (always required)
             checkBluetoothAndProceed()
         }
     }
-    
+
     /**
      * Check Bluetooth status and proceed with onboarding flow
      */
     private fun checkBluetoothAndProceed() {
         android.util.Log.d("MainActivity", "Checking Bluetooth status")
-        
+
         // For first-time users, skip Bluetooth check and go straight to permissions
         // We'll check Bluetooth after permissions are granted
         if (permissionManager.isFirstTimeLaunch()) {
-            android.util.Log.d("MainActivity", "First-time launch, skipping Bluetooth check - will check after permissions")
+            android.util.Log.d(
+                "MainActivity",
+                "First-time launch, skipping Bluetooth check - will check after permissions"
+            )
             proceedWithPermissionCheck()
             return
         }
-        
+
         // For existing users, check Bluetooth status first
         bluetoothStatusManager.logBluetoothStatus()
         bluetoothStatus = bluetoothStatusManager.checkBluetoothStatus()
-        
+
         when (bluetoothStatus) {
             BluetoothStatus.ENABLED -> {
                 // Bluetooth is enabled, proceed with permission/onboarding check
                 proceedWithPermissionCheck()
             }
+
             BluetoothStatus.DISABLED -> {
                 // Show Bluetooth enable screen (should have permissions as existing user)
                 android.util.Log.d("MainActivity", "Bluetooth disabled, showing enable screen")
                 onboardingState = OnboardingState.BLUETOOTH_CHECK
                 isBluetoothLoading = false
             }
+
             BluetoothStatus.NOT_SUPPORTED -> {
                 // Device doesn't support Bluetooth
                 android.util.Log.e("MainActivity", "Bluetooth not supported")
@@ -229,30 +239,39 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
+
     /**
-     * Proceed with permission checking 
+     * Proceed with permission checking
      */
     private fun proceedWithPermissionCheck() {
         android.util.Log.d("MainActivity", "Proceeding with permission check")
-        
+
         lifecycleScope.launch {
             delay(200) // Small delay for smooth transition
-            
+
             if (permissionManager.isFirstTimeLaunch()) {
-                android.util.Log.d("MainActivity", "First time launch, showing permission explanation")
+                android.util.Log.d(
+                    "MainActivity",
+                    "First time launch, showing permission explanation"
+                )
                 onboardingState = OnboardingState.PERMISSION_EXPLANATION
             } else if (permissionManager.areAllPermissionsGranted()) {
-                android.util.Log.d("MainActivity", "Existing user with permissions, initializing app")
+                android.util.Log.d(
+                    "MainActivity",
+                    "Existing user with permissions, initializing app"
+                )
                 onboardingState = OnboardingState.INITIALIZING
                 initializeApp()
             } else {
-                android.util.Log.d("MainActivity", "Existing user missing permissions, showing explanation")
+                android.util.Log.d(
+                    "MainActivity",
+                    "Existing user missing permissions, showing explanation"
+                )
                 onboardingState = OnboardingState.PERMISSION_EXPLANATION
             }
         }
     }
-    
+
     /**
      * Handle Bluetooth enabled callback
      */
@@ -262,7 +281,7 @@ class MainActivity : ComponentActivity() {
         bluetoothStatus = BluetoothStatus.ENABLED
         proceedWithPermissionCheck()
     }
-    
+
     /**
      * Handle Bluetooth disabled callback
      */
@@ -270,34 +289,46 @@ class MainActivity : ComponentActivity() {
         android.util.Log.w("MainActivity", "Bluetooth disabled or failed: $message")
         isBluetoothLoading = false
         bluetoothStatus = bluetoothStatusManager.checkBluetoothStatus()
-        
+
         when {
             bluetoothStatus == BluetoothStatus.NOT_SUPPORTED -> {
                 // Show permanent error for unsupported devices
                 errorMessage = message
                 onboardingState = OnboardingState.ERROR
             }
+
             message.contains("Permission") && permissionManager.isFirstTimeLaunch() -> {
                 // During first-time onboarding, if Bluetooth enable fails due to permissions,
                 // proceed to permission explanation screen where user will grant permissions first
-                android.util.Log.d("MainActivity", "Bluetooth enable requires permissions, proceeding to permission explanation")
+                android.util.Log.d(
+                    "MainActivity",
+                    "Bluetooth enable requires permissions, proceeding to permission explanation"
+                )
                 proceedWithPermissionCheck()
             }
+
             message.contains("Permission") -> {
                 // For existing users, redirect to permission explanation to grant missing permissions
-                android.util.Log.d("MainActivity", "Bluetooth enable requires permissions, showing permission explanation")
+                android.util.Log.d(
+                    "MainActivity",
+                    "Bluetooth enable requires permissions, showing permission explanation"
+                )
                 onboardingState = OnboardingState.PERMISSION_EXPLANATION
             }
+
             else -> {
                 // Stay on Bluetooth check screen for retry
                 onboardingState = OnboardingState.BLUETOOTH_CHECK
             }
         }
     }
-    
+
     private fun handleOnboardingComplete() {
-        android.util.Log.d("MainActivity", "Onboarding completed, checking Bluetooth again before initializing app")
-        
+        android.util.Log.d(
+            "MainActivity",
+            "Onboarding completed, checking Bluetooth again before initializing app"
+        )
+
         // After permissions are granted, re-check Bluetooth status
         val currentBluetoothStatus = bluetoothStatusManager.checkBluetoothStatus()
         if (currentBluetoothStatus == BluetoothStatus.ENABLED) {
@@ -306,57 +337,73 @@ class MainActivity : ComponentActivity() {
             initializeApp()
         } else {
             // Bluetooth still disabled, but now we have permissions to enable it
-            android.util.Log.d("MainActivity", "Permissions granted, but Bluetooth still disabled. Showing Bluetooth enable screen.")
+            android.util.Log.d(
+                "MainActivity",
+                "Permissions granted, but Bluetooth still disabled. Showing Bluetooth enable screen."
+            )
             bluetoothStatus = currentBluetoothStatus
             onboardingState = OnboardingState.BLUETOOTH_CHECK
             isBluetoothLoading = false
         }
     }
-    
+
     private fun handleOnboardingFailed(message: String) {
         android.util.Log.e("MainActivity", "Onboarding failed: $message")
         errorMessage = message
         onboardingState = OnboardingState.ERROR
     }
-    
+
     private fun initializeApp() {
         android.util.Log.d("MainActivity", "Starting app initialization")
-        
+
         lifecycleScope.launch {
             try {
                 // Initialize the app with a proper delay to ensure Bluetooth stack is ready
                 // This solves the issue where app needs restart to work on first install
                 delay(1000) // Give the system time to process permission grants
-                
-                android.util.Log.d("MainActivity", "Permissions verified, starting mesh service")
-                
+
+
+                android.util.Log.d("MainActivity", "Permissions verified, initializing chat system")
+
                 // Ensure all permissions are still granted (user might have revoked in settings)
                 if (!permissionManager.areAllPermissionsGranted()) {
                     val missing = permissionManager.getMissingPermissions()
-                    android.util.Log.w("MainActivity", "Permissions revoked during initialization: $missing")
+                    android.util.Log.w(
+                        "MainActivity",
+                        "Permissions revoked during initialization: $missing"
+                    )
                     handleOnboardingFailed("Some permissions were revoked. Please grant all permissions to continue.")
                     return@launch
                 }
-                
-                // Initialize chat view model - this will start the mesh service
-                chatViewModel.meshService.startServices()
-                
+
+
+                // Set up mesh service delegate and start services
+                meshService.delegate = chatViewModel
+                meshService.startServices()
+
+                android.util.Log.d("MainActivity", "Mesh service started successfully")
+
                 // Handle any notification intent
                 handleNotificationIntent(intent)
-                
+
                 // Small delay to ensure mesh service is fully initialized
                 delay(500)
-                
+
                 android.util.Log.d("MainActivity", "App initialization complete")
-                onboardingState = OnboardingState.COMPLETE
-                
+                // Show nickname prompt instead of directly completing onboarding
+                val savedNickname = chatViewModel.nickname.value
+                onboardingState = if (savedNickname.isNullOrBlank()) {
+                    OnboardingState.NICKNAME_PROMPT
+                } else {
+                    OnboardingState.COMPLETE
+                }
             } catch (e: Exception) {
                 android.util.Log.e("MainActivity", "Failed to initialize app", e)
                 handleOnboardingFailed("Failed to initialize the app: ${e.message}")
             }
         }
     }
-    
+
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
         // Handle notification intents when app is already running
@@ -372,7 +419,7 @@ class MainActivity : ComponentActivity() {
             // Set app foreground state
             meshService.connectionManager.setAppBackgroundState(false)
             chatViewModel.setAppBackgroundState(false)
-            
+
             // Check if Bluetooth was disabled while app was backgrounded
             val currentBluetoothStatus = bluetoothStatusManager.checkBluetoothStatus()
             if (currentBluetoothStatus != BluetoothStatus.ENABLED) {
@@ -383,7 +430,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
+
     override fun onPause() {
         super.onPause()
         // Only set background state if app is fully initialized
@@ -393,13 +440,13 @@ class MainActivity : ComponentActivity() {
             chatViewModel.setAppBackgroundState(true)
         }
     }
-    
+
     /**
      * Handle intents from notification clicks - open specific private chat
      */
     private fun handleNotificationIntent(intent: Intent) {
         val shouldOpenPrivateChat = intent.getBooleanExtra(
-            com.bitchat.android.ui.NotificationManager.EXTRA_OPEN_PRIVATE_CHAT, 
+            com.bitchat.android.ui.NotificationManager.EXTRA_OPEN_PRIVATE_CHAT,
             false
         )
 
@@ -423,7 +470,28 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
+
+
+    /**
+     * Restart mesh services (for debugging/troubleshooting)
+     */
+    fun restartMeshServices() {
+        if (onboardingState == OnboardingState.COMPLETE) {
+            lifecycleScope.launch {
+                try {
+                    android.util.Log.d("MainActivity", "Restarting mesh services")
+                    meshService.stopServices()
+                    delay(1000)
+                    meshService.startServices()
+                    android.util.Log.d("MainActivity", "Mesh services restarted successfully")
+                } catch (e: Exception) {
+                    android.util.Log.e("MainActivity", "Error restarting mesh services: ${e.message}")
+                }
+            }
+        }
+    }
+
+
     override fun onDestroy() {
         super.onDestroy()
         // Stop mesh services if app was fully initialized
@@ -432,7 +500,10 @@ class MainActivity : ComponentActivity() {
                 meshService.stopServices()
                 android.util.Log.d("MainActivity", "Mesh services stopped successfully")
             } catch (e: Exception) {
-                android.util.Log.w("MainActivity", "Error stopping mesh services in onDestroy: ${e.message}")
+                android.util.Log.w(
+                    "MainActivity",
+                    "Error stopping mesh services in onDestroy: ${e.message}"
+                )
             }
         }
     }
