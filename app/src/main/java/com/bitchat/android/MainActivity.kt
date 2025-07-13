@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
+
     private val chatViewModel: ChatViewModel by viewModels()
 
     // UI state for onboarding flow
@@ -54,6 +54,7 @@ class MainActivity : ComponentActivity() {
     private var locationStatus by mutableStateOf(LocationStatus.ENABLED)
     private var errorMessage by mutableStateOf("")
     private var isBluetoothLoading by mutableStateOf(false)
+
     private var isLocationLoading by mutableStateOf(false)
 
 
@@ -160,11 +161,11 @@ class MainActivity : ComponentActivity() {
             OnboardingState.PERMISSION_REQUESTING -> {
                 InitializingScreen()
             }
-
+            
             OnboardingState.INITIALIZING -> {
                 InitializingScreen()
             }
-
+            
             OnboardingState.COMPLETE -> {
                 // Set up back navigation handling for the chat screen
                 val backCallback = object : OnBackPressedCallback(true) {
@@ -187,7 +188,7 @@ class MainActivity : ComponentActivity() {
                 ChatScreen(viewModel = chatViewModel)
 
             }
-
+            
             OnboardingState.ERROR -> {
                 InitializationErrorScreen(
                     errorMessage = errorMessage,
@@ -211,27 +212,27 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-
+    
     private fun checkOnboardingStatus() {
         android.util.Log.d("MainActivity", "Checking onboarding status")
-
+        
         lifecycleScope.launch {
             // Small delay to show the checking state
             delay(500)
-
+            
             // First check Bluetooth status (always required)
             checkBluetoothAndProceed()
         }
     }
-
+    
     /**
      * Check Bluetooth status and proceed with onboarding flow
      */
     private fun checkBluetoothAndProceed() {
         // android.util.Log.d("MainActivity", "Checking Bluetooth status")
-        
-        android.util.Log.d("MainActivity", "Checking Bluetooth status")
 
+        android.util.Log.d("MainActivity", "Checking Bluetooth status")
+        
         // For first-time users, skip Bluetooth check and go straight to permissions
         // We'll check Bluetooth after permissions are granted
         if (permissionManager.isFirstTimeLaunch()) {
@@ -392,11 +393,13 @@ class MainActivity : ComponentActivity() {
                 android.util.Log.d("MainActivity", "Bluetooth enable requires permissions, proceeding to permission explanation")
                 proceedWithPermissionCheck()
             }
+
             message.contains("Permission") -> {
                 // For existing users, redirect to permission explanation to grant missing permissions
                 android.util.Log.d("MainActivity", "Bluetooth enable requires permissions, showing permission explanation")
                 onboardingState = OnboardingState.PERMISSION_EXPLANATION
             }
+
             else -> {
                 // Stay on Bluetooth check screen for retry
                 onboardingState = OnboardingState.BLUETOOTH_CHECK
@@ -465,14 +468,14 @@ class MainActivity : ComponentActivity() {
                 meshService.startServices()
 
                 android.util.Log.d("MainActivity", "Mesh service started successfully")
-                
+
 
                 // Initialize chat view model - this will start the mesh service
                 chatViewModel.meshService.startServices()
 
                 // Handle any notification intent
                 handleNotificationIntent(intent)
-
+                
                 // Small delay to ensure mesh service is fully initialized
                 delay(500)
 
@@ -498,7 +501,7 @@ class MainActivity : ComponentActivity() {
             handleNotificationIntent(intent)
         }
     }
-    
+
     override fun onResume() {
         super.onResume()
         // Check Bluetooth and Location status on resume and handle accordingly
@@ -537,7 +540,7 @@ class MainActivity : ComponentActivity() {
             chatViewModel.setAppBackgroundState(true)
         }
     }
-
+    
     /**
      * Handle intents from notification clicks - open specific private chat
      */
@@ -546,7 +549,7 @@ class MainActivity : ComponentActivity() {
             com.bitchat.android.ui.NotificationManager.EXTRA_OPEN_PRIVATE_CHAT,
             false
         )
-        
+
         if (shouldOpenPrivateChat) {
             val peerID =
                 intent.getStringExtra(com.bitchat.android.ui.NotificationManager.EXTRA_PEER_ID)
@@ -555,10 +558,10 @@ class MainActivity : ComponentActivity() {
 
             if (peerID != null) {
                 android.util.Log.d("MainActivity", "Opening private chat with $senderNickname (peerID: $peerID) from notification")
-                
+
                 // Open the private chat with this peer
                 chatViewModel.startPrivateChat(peerID)
-                
+
                 // Clear notifications for this sender since user is now viewing the chat
                 chatViewModel.clearNotificationsForSender(peerID)
             }
@@ -601,7 +604,10 @@ class MainActivity : ComponentActivity() {
                 meshService.stopServices()
                 android.util.Log.d("MainActivity", "Mesh services stopped successfully")
             } catch (e: Exception) {
-                android.util.Log.w("MainActivity", "Error stopping mesh services in onDestroy: ${e.message}")
+                android.util.Log.w(
+                    "MainActivity",
+                    "Error stopping mesh services in onDestroy: ${e.message}"
+                )
             }
         }
     }
