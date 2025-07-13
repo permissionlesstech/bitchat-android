@@ -353,11 +353,11 @@ class MainActivity : ComponentActivity() {
         }
     }
     
-    override fun onNewIntent(intent: Intent?) {
+    override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         // Handle notification intents when app is already running
         if (onboardingState == OnboardingState.COMPLETE) {
-            intent?.let { handleNotificationIntent(it) }
+            handleNotificationIntent(intent)
         }
     }
     

@@ -5,6 +5,7 @@ import android.util.Log
 import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.crypto.MessagePadding
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.model.DeliveryAck
 import com.bitchat.android.model.ReadReceipt
 import com.bitchat.android.protocol.BitchatPacket
@@ -101,10 +102,14 @@ class BluetoothMeshService(private val context: Context) {
         
         // SecurityManager delegate for key exchange notifications
         securityManager.delegate = object : SecurityManagerDelegate {
-            override fun onKeyExchangeCompleted(peerID: String, peerPublicKeyData: ByteArray) {
+            override fun onKeyExchangeCompleted(peerID: String, peerPublicKeyData: ByteArray, receivedAddress: String?) {
                 // Notify delegate about key exchange completion so it can register peer fingerprint
                 delegate?.registerPeerPublicKey(peerID, peerPublicKeyData)
                 
+                receivedAddress?.let { address ->
+                    connectionManager.addressPeerMap[address] = peerID
+                }
+
                 // Send announcement and cached messages after key exchange
                 serviceScope.launch {
                     delay(100)
@@ -127,7 +132,7 @@ class BluetoothMeshService(private val context: Context) {
             }
             
             override fun sendPacket(packet: BitchatPacket) {
-                connectionManager.broadcastPacket(packet)
+                connectionManager.broadcastPacket(RoutedPacket(packet))
             }
         }
         
@@ -160,11 +165,11 @@ class BluetoothMeshService(private val context: Context) {
             
             // Packet operations
             override fun sendPacket(packet: BitchatPacket) {
-                connectionManager.broadcastPacket(packet)
+                connectionManager.broadcastPacket(RoutedPacket(packet))
             }
             
-            override fun relayPacket(packet: BitchatPacket) {
-                connectionManager.broadcastPacket(packet)
+            override fun relayPacket(routed: RoutedPacket) {
+                connectionManager.broadcastPacket(routed)
             }
             
             override fun getBroadcastRecipient(): ByteArray {
@@ -221,32 +226,32 @@ class BluetoothMeshService(private val context: Context) {
                 peerManager.updatePeerLastSeen(peerID)
             }
             
-            override fun handleKeyExchange(packet: BitchatPacket, peerID: String): Boolean {
-                return runBlocking { securityManager.handleKeyExchange(packet, peerID) }
+            override fun handleKeyExchange(routed: RoutedPacket): Boolean {
+                return runBlocking { securityManager.handleKeyExchange(routed) }
             }
             
-            override fun handleAnnounce(packet: BitchatPacket, peerID: String) {
-                serviceScope.launch { messageHandler.handleAnnounce(packet, peerID) }
+            override fun handleAnnounce(routed: RoutedPacket) {
+                serviceScope.launch { messageHandler.handleAnnounce(routed) }
             }
             
-            override fun handleMessage(packet: BitchatPacket, peerID: String) {
-                serviceScope.launch { messageHandler.handleMessage(packet, peerID) }
+            override fun handleMessage(routed: RoutedPacket) {
+                serviceScope.launch { messageHandler.handleMessage(routed) }
             }
             
-            override fun handleLeave(packet: BitchatPacket, peerID: String) {
-                serviceScope.launch { messageHandler.handleLeave(packet, peerID) }
+            override fun handleLeave(routed: RoutedPacket) {
+                serviceScope.launch { messageHandler.handleLeave(routed) }
             }
             
             override fun handleFragment(packet: BitchatPacket): BitchatPacket? {
                 return fragmentManager.handleFragment(packet)
             }
             
-            override fun handleDeliveryAck(packet: BitchatPacket, peerID: String) {
-                serviceScope.launch { messageHandler.handleDeliveryAck(packet, peerID) }
+            override fun handleDeliveryAck(routed: RoutedPacket) {
+                serviceScope.launch { messageHandler.handleDeliveryAck(routed) }
             }
             
-            override fun handleReadReceipt(packet: BitchatPacket, peerID: String) {
-                serviceScope.launch { messageHandler.handleReadReceipt(packet, peerID) }
+            override fun handleReadReceipt(routed: RoutedPacket) {
+                serviceScope.launch { messageHandler.handleReadReceipt(routed) }
             }
             
             override fun sendAnnouncementToPeer(peerID: String) {
@@ -257,15 +262,15 @@ class BluetoothMeshService(private val context: Context) {
                 storeForwardManager.sendCachedMessages(peerID)
             }
             
-            override fun relayPacket(packet: BitchatPacket) {
-                connectionManager.broadcastPacket(packet)
+            override fun relayPacket(routed: RoutedPacket) {
+                connectionManager.broadcastPacket(routed)
             }
         }
         
         // BluetoothConnectionManager delegates
         connectionManager.delegate = object : BluetoothConnectionManagerDelegate {
             override fun onPacketReceived(packet: BitchatPacket, peerID: String, device: android.bluetooth.BluetoothDevice?) {
-                packetProcessor.processPacket(packet, peerID)
+                packetProcessor.processPacket(RoutedPacket(packet, peerID, device?.address))
             }
             
             override fun onDeviceConnected(device: android.bluetooth.BluetoothDevice) {
@@ -370,7 +375,7 @@ class BluetoothMeshService(private val context: Context) {
                 
                 // Send with random delay and retry for reliability
                 // delay(Random.nextLong(50, 500))
-                connectionManager.broadcastPacket(packet)
+                connectionManager.broadcastPacket(RoutedPacket(packet))
             }
         }
     }
@@ -423,7 +428,7 @@ class BluetoothMeshService(private val context: Context) {
                         
                         // Send with delay
                         delay(Random.nextLong(50, 500))
-                        connectionManager.broadcastPacket(packet)
+                        connectionManager.broadcastPacket(RoutedPacket(packet))
                     }
                     
                 } catch (e: Exception) {
@@ -449,13 +454,13 @@ class BluetoothMeshService(private val context: Context) {
             
             // Send multiple times for reliability
             delay(Random.nextLong(0, 500))
-            connectionManager.broadcastPacket(announcePacket)
+            connectionManager.broadcastPacket(RoutedPacket(announcePacket))
             
             delay(500 + Random.nextLong(0, 500))
-            connectionManager.broadcastPacket(announcePacket)
+            connectionManager.broadcastPacket(RoutedPacket(announcePacket))
             
             delay(1000 + Random.nextLong(0, 500))
-            connectionManager.broadcastPacket(announcePacket)
+            connectionManager.broadcastPacket(RoutedPacket(announcePacket))
         }
     }
     
@@ -473,7 +478,7 @@ class BluetoothMeshService(private val context: Context) {
             payload = nickname.toByteArray()
         )
         
-        connectionManager.broadcastPacket(packet)
+        connectionManager.broadcastPacket(RoutedPacket(packet))
         peerManager.markPeerAsAnnouncedTo(peerID)
     }
     
@@ -489,7 +494,7 @@ class BluetoothMeshService(private val context: Context) {
             payload = publicKeyData
         )
         
-        connectionManager.broadcastPacket(packet)
+        connectionManager.broadcastPacket(RoutedPacket(packet))
         Log.d(TAG, "Sent key exchange")
     }
     
@@ -505,7 +510,7 @@ class BluetoothMeshService(private val context: Context) {
             payload = nickname.toByteArray()
         )
         
-        connectionManager.broadcastPacket(packet)
+        connectionManager.broadcastPacket(RoutedPacket(packet))
     }
     
     /**

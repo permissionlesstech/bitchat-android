@@ -5,6 +5,7 @@ import com.bitchat.android.crypto.MessagePadding
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryAck
 import com.bitchat.android.model.ReadReceipt
+import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import kotlinx.coroutines.*
@@ -30,7 +31,10 @@ class MessageHandler(private val myPeerID: String) {
     /**
      * Handle announce message
      */
-    suspend fun handleAnnounce(packet: BitchatPacket, peerID: String): Boolean {
+    suspend fun handleAnnounce(routed: RoutedPacket): Boolean {
+        val packet = routed.packet
+        val peerID = routed.peerID ?: "unknown"
+
         if (peerID == myPeerID) return false
         
         val nickname = String(packet.payload, Charsets.UTF_8)
@@ -43,7 +47,7 @@ class MessageHandler(private val myPeerID: String) {
         if (packet.ttl > 1u) {
             val relayPacket = packet.copy(ttl = (packet.ttl - 1u).toUByte())
             delay(Random.nextLong(100, 300))
-            delegate?.relayPacket(relayPacket)
+            delegate?.relayPacket(RoutedPacket(relayPacket, peerID, routed.relayAddress))
         }
         
         return isFirstAnnounce
@@ -52,27 +56,31 @@ class MessageHandler(private val myPeerID: String) {
     /**
      * Handle broadcast or private message
      */
-    suspend fun handleMessage(packet: BitchatPacket, peerID: String) {
+    suspend fun handleMessage(routed: RoutedPacket) {
+        val packet = routed.packet
+        val peerID = routed.peerID ?: "unknown"
         if (peerID == myPeerID) return
         
         val recipientID = packet.recipientID?.takeIf { !it.contentEquals(delegate?.getBroadcastRecipient()) }
         
         if (recipientID == null) {
             // BROADCAST MESSAGE
-            handleBroadcastMessage(packet, peerID)
+            handleBroadcastMessage(routed)
         } else if (String(recipientID).replace("\u0000", "") == myPeerID) {
             // PRIVATE MESSAGE FOR US
             handlePrivateMessage(packet, peerID)
         } else if (packet.ttl > 0u) {
             // RELAY MESSAGE
-            relayMessage(packet)
+            relayMessage(routed)
         }
     }
     
     /**
      * Handle broadcast message
      */
-    private suspend fun handleBroadcastMessage(packet: BitchatPacket, peerID: String) {
+    private suspend fun handleBroadcastMessage(routed: RoutedPacket) {
+        val packet = routed.packet
+        val peerID = routed.peerID ?: "unknown"
         try {
             // Parse message
             val message = BitchatMessage.fromBinaryPayload(packet.payload)
@@ -104,7 +112,7 @@ class MessageHandler(private val myPeerID: String) {
             }
             
             // Relay broadcast messages
-            relayMessage(packet)
+            relayMessage(routed)
             
         } catch (e: Exception) {
             Log.e(TAG, "Failed to process broadcast message: ${e.message}")
@@ -162,7 +170,9 @@ class MessageHandler(private val myPeerID: String) {
     /**
      * Handle leave message
      */
-    suspend fun handleLeave(packet: BitchatPacket, peerID: String) {
+    suspend fun handleLeave(routed: RoutedPacket) {
+        val packet = routed.packet
+        val peerID = routed.peerID ?: "unknown"
         val content = String(packet.payload, Charsets.UTF_8)
         
         if (content.startsWith("#")) {
@@ -180,14 +190,16 @@ class MessageHandler(private val myPeerID: String) {
         // Relay if TTL > 0
         if (packet.ttl > 1u) {
             val relayPacket = packet.copy(ttl = (packet.ttl - 1u).toUByte())
-            delegate?.relayPacket(relayPacket)
+            delegate?.relayPacket(routed.copy(packet = relayPacket))
         }
     }
     
     /**
      * Handle delivery acknowledgment
      */
-    suspend fun handleDeliveryAck(packet: BitchatPacket, peerID: String) {
+    suspend fun handleDeliveryAck(routed: RoutedPacket) {
+        val packet = routed.packet
+        val peerID = routed.peerID ?: "unknown"
         if (packet.recipientID != null && String(packet.recipientID).replace("\u0000", "") == myPeerID) {
             try {
                 val decryptedData = delegate?.decryptFromPeer(packet.payload, peerID)
@@ -200,17 +212,19 @@ class MessageHandler(private val myPeerID: String) {
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to decrypt delivery ACK: ${e.message}")
             }
-        } else if (packet.ttl > 0u) {
+        } else if (packet.ttl > 0u && String(packet.senderID).replace("\u0000", "") != myPeerID) {
             // Relay 
             val relayPacket = packet.copy(ttl = (packet.ttl - 1u).toUByte())
-            delegate?.relayPacket(relayPacket)
+            delegate?.relayPacket(routed.copy(packet = relayPacket))
         }
     }
     
     /**
      * Handle read receipt
      */
-    suspend fun handleReadReceipt(packet: BitchatPacket, peerID: String) {
+    suspend fun handleReadReceipt(routed: RoutedPacket) {
+        val packet = routed.packet
+        val peerID = routed.peerID ?: "unknown"
         if (packet.recipientID != null && String(packet.recipientID).replace("\u0000", "") == myPeerID) {
             try {
                 val decryptedData = delegate?.decryptFromPeer(packet.payload, peerID)
@@ -223,17 +237,18 @@ class MessageHandler(private val myPeerID: String) {
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to decrypt read receipt: ${e.message}")
             }
-        } else if (packet.ttl > 0u) {
+        } else if (packet.ttl > 0u && String(packet.senderID).replace("\u0000", "") != myPeerID) {
             // Relay
             val relayPacket = packet.copy(ttl = (packet.ttl - 1u).toUByte())
-            delegate?.relayPacket(relayPacket)
+            delegate?.relayPacket(routed.copy(packet = relayPacket))
         }
     }
     
     /**
      * Relay message with adaptive probability (same as iOS)
      */
-    private suspend fun relayMessage(packet: BitchatPacket) {
+    private suspend fun relayMessage(routed: RoutedPacket) {
+        val packet = routed.packet
         if (packet.ttl == 0u.toUByte()) return
         
         val relayPacket = packet.copy(ttl = (packet.ttl - 1u).toUByte())
@@ -253,7 +268,7 @@ class MessageHandler(private val myPeerID: String) {
         if (shouldRelay) {
             val delay = Random.nextLong(50, 500) // Random delay like iOS
             delay(delay)
-            delegate?.relayPacket(relayPacket)
+            delegate?.relayPacket(routed.copy(packet = relayPacket))
         }
     }
     
@@ -326,7 +341,7 @@ interface MessageHandlerDelegate {
     
     // Packet operations
     fun sendPacket(packet: BitchatPacket)
-    fun relayPacket(packet: BitchatPacket)
+    fun relayPacket(routed: RoutedPacket)
     fun getBroadcastRecipient(): ByteArray
     
     // Cryptographic operations
