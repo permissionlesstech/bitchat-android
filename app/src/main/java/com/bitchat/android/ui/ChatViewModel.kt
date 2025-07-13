@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import android.app.Application
 import android.content.Context
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
