@@ -37,8 +37,9 @@ class CommandProcessor(
         when (cmd) {
             "/j", "/join" -> handleJoinCommand(parts, myPeerID)
             "/m", "/msg" -> handleMessageCommand(parts, meshService)
-            "/w" -> handleWhoCommand()
+            "/w" -> handleWhoCommand(meshService)
             "/clear" -> handleClearCommand()
+            "/pass" -> handlePassCommand(parts, myPeerID)
             "/block" -> handleBlockCommand(parts, meshService)
             "/unblock" -> handleUnblockCommand(parts, meshService)
             "/hug" -> handleActionCommand(parts, "gives", "a warm hug 🫂", meshService, myPeerID, onSendMessage)
@@ -54,7 +55,8 @@ class CommandProcessor(
         if (parts.size > 1) {
             val channelName = parts[1]
             val channel = if (channelName.startsWith("#")) channelName else "#$channelName"
-            val success = channelManager.joinChannel(channel, null, myPeerID)
+            val password = if (parts.size > 2) parts[2] else null
+            val success = channelManager.joinChannel(channel, password, myPeerID)
             if (success) {
                 val systemMessage = BitchatMessage(
                     sender = "system",
@@ -127,11 +129,11 @@ class CommandProcessor(
         }
     }
     
-    private fun handleWhoCommand() {
+    private fun handleWhoCommand(meshService: Any) {
         val connectedPeers = state.getConnectedPeersValue()
         val peerList = connectedPeers.joinToString(", ") { peerID ->
-            // This would need mesh service access for nicknames
-            peerID // For now just use peer ID
+            // Convert peerID to nickname using the mesh service
+            getPeerNickname(peerID, meshService)
         }
         
         val systemMessage = BitchatMessage(
@@ -163,6 +165,52 @@ class CommandProcessor(
                 // Clear main messages
                 messageManager.clearMessages()
             }
+        }
+    }
+
+    private fun handlePassCommand(parts: List<String>, peerID: String) {
+        val currentChannel = state.getCurrentChannelValue()
+
+        if (currentChannel == null) {
+            val systemMessage = BitchatMessage(
+                sender = "system",
+                content = "you must be in a channel to set a password.",
+                timestamp = Date(),
+                isRelay = false
+            )
+            messageManager.addMessage(systemMessage)
+            return
+        }
+
+        if (parts.size == 2){
+            if(!channelManager.isChannelCreator(channel = currentChannel, peerID = peerID)){
+                val systemMessage = BitchatMessage(
+                    sender = "system",
+                    content = "you must be the channel creator to set a password.",
+                    timestamp = Date(),
+                    isRelay = false
+                )
+                channelManager.addChannelMessage(currentChannel,systemMessage,null)
+                return
+            }
+            val newPassword = parts[1]
+            channelManager.setChannelPassword(currentChannel, newPassword)
+            val systemMessage = BitchatMessage(
+                sender = "system",
+                content = "password changed for channel $currentChannel",
+                timestamp = Date(),
+                isRelay = false
+            )
+            channelManager.addChannelMessage(currentChannel,systemMessage,null)
+        }
+        else{
+            val systemMessage = BitchatMessage(
+                sender = "system",
+                content = "usage: /pass <password>",
+                timestamp = Date(),
+                isRelay = false
+            )
+            channelManager.addChannelMessage(currentChannel,systemMessage,null)
         }
     }
     

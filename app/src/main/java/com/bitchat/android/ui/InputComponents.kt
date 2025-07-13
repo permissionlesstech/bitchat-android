@@ -44,20 +44,17 @@ fun MessageInput(
         modifier = modifier.padding(horizontal = 12.dp, vertical = 8.dp), // Reduced padding
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Fixed: Remove arrow from private message input
+        // Remove arrow from both private and channel inputs to match DM style
         Text(
-            text = when {
-                selectedPrivatePeer != null -> "<@$nickname>"  // Removed arrow for private
-                currentChannel != null -> "<@$nickname> →"  // Keep arrow for channels
-                else -> "<@$nickname>"
-            },
+            text = "<@$nickname>",  // No arrow for both private and channel
             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
             color = when {
-                selectedPrivatePeer != null -> Color(0xFFFF8C00) // Orange for private
-                currentChannel != null -> Color(0xFFFF8C00) // Orange if encrypted channel
+                selectedPrivatePeer != null -> Color(0xFFFF9500) // Orange for private
+                currentChannel != null -> Color(0xFFFF9500) // Orange for channels too
                 else -> colorScheme.primary
             },
-            fontFamily = FontFamily.Monospace
+            fontFamily = FontFamily.Monospace,
+            fontSize = 14.sp
         )
         
         Spacer(modifier = Modifier.width(8.dp))
@@ -78,7 +75,7 @@ fun MessageInput(
         
         Spacer(modifier = Modifier.width(8.dp)) // Reduced spacing
         
-        // Fixed: Make send button orange in private mode to match nickname color
+        // Update send button to match input field colors
         IconButton(
             onClick = onSend,
             modifier = Modifier.size(32.dp)
@@ -87,9 +84,9 @@ fun MessageInput(
                 modifier = Modifier
                     .size(30.dp)
                     .background(
-                        color = if (selectedPrivatePeer != null) {
-                            // Orange for private messages to match nickname color
-                            Color(0xFFFF8C00).copy(alpha = 0.75f)
+                        color = if (selectedPrivatePeer != null || currentChannel != null) {
+                            // Orange for both private messages and channels to match nickname color
+                            Color(0xFFFF9500).copy(alpha = 0.75f)
                         } else if (colorScheme.background == Color.Black) {
                             Color(0xFF00FF00).copy(alpha = 0.75f) // Bright green for dark theme
                         } else {
@@ -100,11 +97,11 @@ fun MessageInput(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Filled.KeyboardArrowUp,
+                    imageVector = Icons.Filled.KeyboardArrowRight,
                     contentDescription = "Send message",
                     modifier = Modifier.size(20.dp),
-                    tint = if (selectedPrivatePeer != null) {
-                        // Black arrow on orange in private mode
+                    tint = if (selectedPrivatePeer != null || currentChannel != null) {
+                        // Black arrow on orange for both private and channel modes
                         Color.Black
                     } else if (colorScheme.background == Color.Black) {
                         Color.Black // Black arrow on bright green in dark theme

@@ -154,4 +154,8 @@ class MeshDelegateHandler(
     override fun isFavorite(peerID: String): Boolean {
         return privateChatManager.isFavorite(peerID)
     }
+    
+    override fun registerPeerPublicKey(peerID: String, publicKeyData: ByteArray) {
+        privateChatManager.registerPeerPublicKey(peerID, publicKeyData)
+    }
 }

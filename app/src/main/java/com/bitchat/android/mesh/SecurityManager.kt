@@ -113,7 +113,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
             Log.d(TAG, "Successfully processed key exchange from $peerID")
             
             // Notify delegate
-            delegate?.onKeyExchangeCompleted(peerID)
+            delegate?.onKeyExchangeCompleted(peerID, packet.payload)
             
             return true
             
@@ -315,5 +315,5 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
  * Delegate interface for security manager callbacks
  */
 interface SecurityManagerDelegate {
-    fun onKeyExchangeCompleted(peerID: String)
+    fun onKeyExchangeCompleted(peerID: String, peerPublicKeyData: ByteArray)
 }
