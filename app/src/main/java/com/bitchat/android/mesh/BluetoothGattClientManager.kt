@@ -13,6 +13,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.*
+import kotlinx.coroutines.Job
 
 /**
  * Manages GATT client operations, scanning, and client-side connections
@@ -31,6 +32,10 @@ class BluetoothGattClientManager(
         // Use exact same UUIDs as iOS version
         private val SERVICE_UUID = UUID.fromString("F47B5E2D-4A9E-4C5A-9B3F-8E1D2C3A4B5C")
         private val CHARACTERISTIC_UUID = UUID.fromString("A1B2C3D4-E5F6-4A5B-8C9D-0E1F2A3B4C5D")
+        private val DESCRIPTOR_UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+        
+        // RSSI monitoring constants
+        private const val RSSI_UPDATE_INTERVAL = 5000L // 5 seconds
     }
     
     // Core Bluetooth components
@@ -47,6 +52,9 @@ class BluetoothGattClientManager(
     private var lastScanStopTime = 0L
     private var isCurrentlyScanning = false
     private val scanRateLimit = 5000L // Minimum 5 seconds between scan start attempts
+    
+    // RSSI monitoring state
+    private var rssiMonitoringJob: Job? = null
     
     // State management
     private var isActive = false
@@ -78,6 +86,9 @@ class BluetoothGattClientManager(
             } else {
                 startScanning()
             }
+            
+            // Start RSSI monitoring
+            startRSSIMonitoring()
         }
         
         return true
@@ -91,6 +102,7 @@ class BluetoothGattClientManager(
         
         connectionScope.launch {
             stopScanning()
+            stopRSSIMonitoring()
             Log.i(TAG, "GATT client manager stopped")
         }
     }
@@ -104,6 +116,41 @@ class BluetoothGattClientManager(
         } else {
             stopScanning()
         }
+    }
+    
+    /**
+     * Start periodic RSSI monitoring for all client connections
+     */
+    private fun startRSSIMonitoring() {
+        rssiMonitoringJob?.cancel()
+        rssiMonitoringJob = connectionScope.launch {
+            while (isActive) {
+                try {
+                    // Request RSSI from all client connections
+                    val connectedDevices = connectionTracker.getConnectedDevices()
+                    connectedDevices.values.filter { it.isClient && it.gatt != null }.forEach { deviceConn ->
+                        try {
+                            Log.d(TAG, "Requesting RSSI from ${deviceConn.device.address}")
+                            deviceConn.gatt?.readRemoteRssi()
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Failed to request RSSI from ${deviceConn.device.address}: ${e.message}")
+                        }
+                    }
+                    delay(RSSI_UPDATE_INTERVAL)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error in RSSI monitoring: ${e.message}")
+                    delay(RSSI_UPDATE_INTERVAL)
+                }
+            }
+        }
+    }
+    
+    /**
+     * Stop RSSI monitoring
+     */
+    private fun stopRSSIMonitoring() {
+        rssiMonitoringJob?.cancel()
+        rssiMonitoringJob = null
     }
     
     /**
@@ -230,6 +277,9 @@ class BluetoothGattClientManager(
             return
         }
         
+        // Store RSSI from scan results for later use (especially for server connections)
+        connectionTracker.updateScanRSSI(deviceAddress, rssi)
+        
         // Power-aware RSSI filtering
         if (rssi < powerManager.getRSSIThreshold()) {
             Log.d(TAG, "Skipping device $deviceAddress due to weak signal: $rssi < ${powerManager.getRSSIThreshold()}")
@@ -340,7 +390,7 @@ class BluetoothGattClientManager(
                             }
                             
                             gatt.setCharacteristicNotification(characteristic, true)
-                            val descriptor = characteristic.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"))
+                            val descriptor = characteristic.getDescriptor(DESCRIPTOR_UUID)
                             if (descriptor != null) {
                                 descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
                                 gatt.writeDescriptor(descriptor)
@@ -379,6 +429,21 @@ class BluetoothGattClientManager(
                 } else {
                     Log.w(TAG, "Client: Failed to parse packet from ${gatt.device.address}, size: ${value.size} bytes")
                     Log.w(TAG, "Client: Packet data: ${value.joinToString(" ") { "%02x".format(it) }}")
+                }
+            }
+            
+            override fun onReadRemoteRssi(gatt: BluetoothGatt, rssi: Int, status: Int) {
+                val deviceAddress = gatt.device.address
+                if (status == BluetoothGatt.GATT_SUCCESS) {
+                    Log.d(TAG, "Client: RSSI updated for $deviceAddress: $rssi dBm")
+                    
+                    // Update the connection tracker with new RSSI value
+                    connectionTracker.getDeviceConnection(deviceAddress)?.let { deviceConn ->
+                        val updatedConn = deviceConn.copy(rssi = rssi)
+                        connectionTracker.updateDeviceConnection(deviceAddress, updatedConn)
+                    }
+                } else {
+                    Log.w(TAG, "Client: Failed to read RSSI for $deviceAddress, status: $status")
                 }
             }
         }

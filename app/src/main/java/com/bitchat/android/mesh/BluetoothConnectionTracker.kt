@@ -31,6 +31,9 @@ class BluetoothConnectionTracker(
     private val subscribedDevices = CopyOnWriteArrayList<BluetoothDevice>()
     val addressPeerMap = ConcurrentHashMap<String, String>()
     
+    // RSSI tracking from scan results (for devices we discover but may connect as servers)
+    private val scanRSSI = ConcurrentHashMap<String, Int>()
+    
     // Connection attempt tracking with automatic cleanup
     private val pendingConnections = ConcurrentHashMap<String, ConnectionAttempt>()
     
@@ -115,6 +118,31 @@ class BluetoothConnectionTracker(
      */
     fun getSubscribedDevices(): List<BluetoothDevice> {
         return subscribedDevices.toList()
+    }
+    
+    /**
+     * Get current RSSI for a device address
+     */
+    fun getDeviceRSSI(deviceAddress: String): Int? {
+        return connectedDevices[deviceAddress]?.rssi?.takeIf { it != Int.MIN_VALUE }
+    }
+    
+    /**
+     * Store RSSI from scan results
+     */
+    fun updateScanRSSI(deviceAddress: String, rssi: Int) {
+        scanRSSI[deviceAddress] = rssi
+    }
+    
+    /**
+     * Get best available RSSI for a device (connection RSSI preferred, then scan RSSI)
+     */
+    fun getBestRSSI(deviceAddress: String): Int? {
+        // Prefer connection RSSI if available and valid
+        connectedDevices[deviceAddress]?.rssi?.takeIf { it != Int.MIN_VALUE }?.let { return it }
+        
+        // Fall back to scan RSSI
+        return scanRSSI[deviceAddress]
     }
     
     /**
@@ -249,6 +277,7 @@ class BluetoothConnectionTracker(
         subscribedDevices.clear()
         addressPeerMap.clear()
         pendingConnections.clear()
+        scanRSSI.clear()
     }
     
     /**
@@ -299,6 +328,11 @@ class BluetoothConnectionTracker(
             pendingConnections.forEach { (address, attempt) ->
                 val elapsed = (now - attempt.lastAttempt) / 1000
                 appendLine("  - $address: ${attempt.attempts} attempts, last ${elapsed}s ago")
+            }
+            appendLine()
+            appendLine("Scan RSSI Cache: ${scanRSSI.size}")
+            scanRSSI.forEach { (address, rssi) ->
+                appendLine("  - $address: $rssi dBm")
             }
         }
     }

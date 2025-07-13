@@ -41,11 +41,22 @@ class BluetoothConnectionManager(
     // Delegate for component managers to call back to main manager
     private val componentDelegate = object : BluetoothConnectionManagerDelegate {
         override fun onPacketReceived(packet: BitchatPacket, peerID: String, device: BluetoothDevice?) {
+            device?.let { bluetoothDevice ->
+                // Get current RSSI for this device and update if available
+                val currentRSSI = connectionTracker.getBestRSSI(bluetoothDevice.address)
+                if (currentRSSI != null) {
+                    delegate?.onRSSIUpdated(bluetoothDevice.address, currentRSSI)
+                }
+            }
             delegate?.onPacketReceived(packet, peerID, device)
         }
         
         override fun onDeviceConnected(device: BluetoothDevice) {
             delegate?.onDeviceConnected(device)
+        }
+        
+        override fun onRSSIUpdated(deviceAddress: String, rssi: Int) {
+            delegate?.onRSSIUpdated(deviceAddress, rssi)
         }
     }
     
@@ -231,4 +242,5 @@ class BluetoothConnectionManager(
 interface BluetoothConnectionManagerDelegate {
     fun onPacketReceived(packet: BitchatPacket, peerID: String, device: BluetoothDevice?)
     fun onDeviceConnected(device: BluetoothDevice)
+    fun onRSSIUpdated(deviceAddress: String, rssi: Int)
 }

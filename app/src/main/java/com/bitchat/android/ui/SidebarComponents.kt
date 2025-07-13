@@ -39,6 +39,7 @@ fun SidebarOverlay(
     val currentChannel by viewModel.currentChannel.observeAsState()
     val selectedPrivatePeer by viewModel.selectedPrivateChatPeer.observeAsState()
     val nickname by viewModel.nickname.observeAsState("")
+    val unreadChannelMessages by viewModel.unreadChannelMessages.observeAsState(emptyMap())
     
     // Get peer data from mesh service
     val peerNicknames = viewModel.meshService.getPeerNicknames()
@@ -94,7 +95,8 @@ fun SidebarOverlay(
                                 },
                                 onLeaveChannel = { channel ->
                                     viewModel.leaveChannel(channel)
-                                }
+                                },
+                                unreadChannelMessages = unreadChannelMessages
                             )
                         }
                         
@@ -155,7 +157,8 @@ fun ChannelsSection(
     currentChannel: String?,
     colorScheme: ColorScheme,
     onChannelClick: (String) -> Unit,
-    onLeaveChannel: (String) -> Unit
+    onLeaveChannel: (String) -> Unit,
+    unreadChannelMessages: Map<String, Int> = emptyMap()
 ) {
     Column {
         Row(
@@ -181,6 +184,7 @@ fun ChannelsSection(
         
         channels.forEach { channel ->
             val isSelected = channel == currentChannel
+            val unreadCount = unreadChannelMessages[channel] ?: 0
             
             Row(
                 modifier = Modifier
@@ -193,6 +197,13 @@ fun ChannelsSection(
                     .padding(horizontal = 24.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Unread badge for channels
+                UnreadBadge(
+                    count = unreadCount,
+                    colorScheme = colorScheme,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                
                 Text(
                     text = channel, // Channel already contains the # prefix
                     style = MaterialTheme.typography.bodyMedium,
@@ -288,7 +299,7 @@ fun PeopleSection(
                 PeerItem(
                     peerID = peerID,
                     displayName = if (peerID == nickname) "You" else (peerNicknames[peerID] ?: peerID),
-                    signalStrength = peerRSSI[peerID] ?: 0,
+                    signalStrength = convertRSSIToSignalStrength(peerRSSI[peerID]),
                     isSelected = peerID == selectedPrivatePeer,
                     isFavorite = isFavorite,
                     hasUnreadDM = hasUnreadPrivateMessages.contains(peerID),
@@ -297,7 +308,11 @@ fun PeopleSection(
                     onToggleFavorite = { 
                         Log.d("SidebarComponents", "Sidebar toggle favorite: peerID=$peerID, currentFavorite=$isFavorite")
                         viewModel.toggleFavorite(peerID) 
-                    }
+                    },
+                    unreadCount = privateChats[peerID]?.count { msg -> 
+                        // Count unread messages from this peer (messages not from the current user)
+                        msg.sender != nickname && hasUnreadPrivateMessages.contains(peerID)
+                    } ?: if (hasUnreadPrivateMessages.contains(peerID)) 1 else 0
                 )
             }
         }
@@ -314,7 +329,8 @@ private fun PeerItem(
     hasUnreadDM: Boolean,
     colorScheme: ColorScheme,
     onItemClick: () -> Unit,
-    onToggleFavorite: () -> Unit
+    onToggleFavorite: () -> Unit,
+    unreadCount: Int = 0
 ) {
     Row(
         modifier = Modifier
@@ -327,13 +343,11 @@ private fun PeerItem(
             .padding(horizontal = 24.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Show filled mail icon instead of signal strength when user has unread DMs
+        // Show unread badge or signal strength
         if (hasUnreadDM) {
-            Icon(
-                imageVector = Icons.Filled.Email,
-                contentDescription = "Unread messages",
-                modifier = Modifier.size(16.dp),
-                tint = Color(0xFFFF9500) // Orange to match private message theme
+            UnreadBadge(
+                count = unreadCount,
+                colorScheme = colorScheme
             )
         } else {
             // Signal strength indicators
@@ -389,5 +403,59 @@ private fun SignalStrengthIndicator(
             )
             if (index < 2) Spacer(modifier = Modifier.width(2.dp))
         }
+    }
+}
+
+/**
+ * Reusable unread badge component for both channels and private messages
+ */
+@Composable
+private fun UnreadBadge(
+    count: Int,
+    colorScheme: ColorScheme,
+    modifier: Modifier = Modifier
+) {
+    if (count > 0) {
+        Box(
+            modifier = modifier
+                .background(
+                    color = Color(0xFFFFD700), // Yellow color
+                    shape = RoundedCornerShape(10.dp)
+                )
+                .padding(horizontal = 2.dp, vertical = 0.dp)
+                .defaultMinSize(minWidth = 14.dp, minHeight = 14.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = if (count > 99) "99+" else count.toString(),
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                ),
+                color = Color.Black // Black text on yellow background
+            )
+        }
+    }
+}
+
+/**
+ * Convert RSSI value (dBm) to signal strength percentage (0-100)
+ * RSSI typically ranges from -30 (excellent) to -100 (very poor)
+ * Maps to 0-100 scale where:
+ * - 0-32: No signal (0 bars)
+ * - 33-65: Weak (1 bar) 
+ * - 66-98: Good (2 bars)
+ * - 99-100: Excellent (3 bars)
+ */
+private fun convertRSSIToSignalStrength(rssi: Int?): Int {
+    if (rssi == null) return 0
+    
+    return when {
+        rssi >= -40 -> 100  // Excellent signal
+        rssi >= -55 -> 85   // Very good signal  
+        rssi >= -70 -> 70   // Good signal
+        rssi >= -85 -> 50   // Fair signal
+        rssi >= -100 -> 25  // Poor signal
+        else -> 0           // Very poor or no signal
     }
 }

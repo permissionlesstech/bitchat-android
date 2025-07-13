@@ -49,15 +49,13 @@ class MeshDelegateHandler(
                 
                 // Show notification with enhanced information - now includes senderPeerID 
                 message.senderPeerID?.let { senderPeerID ->
-                    if (state.getSelectedPrivateChatPeerValue() != senderPeerID) {
-                        // Use nickname if available, fall back to sender or senderPeerID
-                        val senderNickname = message.sender.takeIf { it != senderPeerID } ?: senderPeerID
-                        notificationManager.showPrivateMessageNotification(
-                            senderPeerID = senderPeerID, 
-                            senderNickname = senderNickname, 
-                            messageContent = message.content
-                        )
-                    }
+                    // Use nickname if available, fall back to sender or senderPeerID
+                    val senderNickname = message.sender.takeIf { it != senderPeerID } ?: senderPeerID
+                    notificationManager.showPrivateMessageNotification(
+                        senderPeerID = senderPeerID, 
+                        senderNickname = senderNickname, 
+                        messageContent = message.content
+                    )
                 }
             } else if (message.channel != null) {
                 // Channel message

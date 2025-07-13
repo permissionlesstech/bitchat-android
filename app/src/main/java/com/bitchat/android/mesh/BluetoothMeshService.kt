@@ -280,6 +280,13 @@ class BluetoothMeshService(private val context: Context) {
                     sendKeyExchangeToDevice()
                 }
             }
+            
+            override fun onRSSIUpdated(deviceAddress: String, rssi: Int) {
+                // Find the peer ID for this device address and update RSSI in PeerManager
+                connectionManager.addressPeerMap[deviceAddress]?.let { peerID ->
+                    peerManager.updatePeerRSSI(peerID, rssi)
+                }
+            }
         }
     }
     

@@ -5,10 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.7]
+
+### Added
+- Location services check during app startup with educational UI
+- Message text selection functionality in chat interface
+- Enhanced RSSI tracking and unread message indicators
+- Major Bluetooth connection architecture refactoring with dedicated managers
 
 ### Fixed
-- Permission onboarding screen UX: removed "Exit App" button and fixed "Grant Permissions" button positioning to always be visible
+- **Critical**: Android-iOS message fragmentation compatibility issues
+  - Fixed fragment size (500→150 bytes) and ID generation for cross-platform messaging
+  - Ensures Android can properly communicate with iOS devices
+- DirectMessage notifications and text copying functionality
+- Smart routing optimizations (no relay loops, targeted delivery)
+- Build system compilation issues and null pointer exceptions
+
+### Changed
+- Comprehensive dependency updates (AGP 8.10.1, Kotlin 2.2.0, Compose 2025.06.01)
+- Optimized BLE scan intervals for better battery performance
+- Reduced excessive logging output
+
+### Improved
+- Cross-platform compatibility with iOS and Rust implementations
+- Connection stability through architectural improvements
+- Battery performance via scan duty cycling
+- User onboarding with location services education
 
 ## [0.6]
 
