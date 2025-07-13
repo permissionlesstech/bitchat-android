@@ -45,7 +45,7 @@ class BluetoothMeshService(private val context: Context) {
     private val securityManager = SecurityManager(encryptionService, myPeerID)
     private val storeForwardManager = StoreForwardManager()
     private val messageHandler = MessageHandler(myPeerID)
-    internal val connectionManager = BluetoothConnectionManager(context, myPeerID) // Made internal for access
+    internal val connectionManager = BluetoothConnectionManager(context, myPeerID, fragmentManager) // Made internal for access
     private val packetProcessor = PacketProcessor(myPeerID)
     
     // Service state management
@@ -296,9 +296,7 @@ class BluetoothMeshService(private val context: Context) {
         Log.i(TAG, "Starting Bluetooth mesh service with peer ID: $myPeerID")
         
         if (connectionManager.startServices()) {
-            isActive = true
-            Log.i(TAG, "Bluetooth services started successfully")
-            
+            isActive = true            
             // Send initial announcements after services are ready
             serviceScope.launch {
                 delay(1000)
@@ -524,6 +522,27 @@ class BluetoothMeshService(private val context: Context) {
     fun getPeerRSSI(): Map<String, Int> = peerManager.getAllPeerRSSI()
     
     /**
+     * Get device address for a specific peer ID
+     */
+    fun getDeviceAddressForPeer(peerID: String): String? {
+        return connectionManager.addressPeerMap.entries.find { it.value == peerID }?.key
+    }
+    
+    /**
+     * Get all device addresses mapped to their peer IDs
+     */
+    fun getDeviceAddressToPeerMapping(): Map<String, String> {
+        return connectionManager.addressPeerMap.toMap()
+    }
+    
+    /**
+     * Print device addresses for all connected peers
+     */
+    fun printDeviceAddressesForPeers(): String {
+        return peerManager.getDebugInfoWithDeviceAddresses(connectionManager.addressPeerMap)
+    }
+
+    /**
      * Get debug status information
      */
     fun getDebugStatus(): String {
@@ -533,7 +552,7 @@ class BluetoothMeshService(private val context: Context) {
             appendLine()
             appendLine(connectionManager.getDebugInfo())
             appendLine()
-            appendLine(peerManager.getDebugInfo())
+            appendLine(peerManager.getDebugInfo(connectionManager.addressPeerMap))
             appendLine()
             appendLine(fragmentManager.getDebugInfo())
             appendLine()
