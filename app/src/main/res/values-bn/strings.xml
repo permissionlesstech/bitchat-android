@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">বিটচ্যাট</string>
+    
+    <!-- Permission explanations -->
+    <string name="permission_bluetooth_rationale">ইন্টারনেট ছাড়াই পিয়ার-টু-পিয়ার মেসেজিংয়ের জন্য ব্লুটুথ অনুমতি প্রয়োজন।</string>
+    <string name="permission_location_rationale">ব্লুটুথের মাধ্যমে কাছাকাছি ডিভাইসগুলি খুঁজে পেতে অবস্থান অনুমতি প্রয়োজন।</string>
+    <string name="permission_notification_rationale">নতুন বার্তার বিজ্ঞপ্তি দিতে নোটিফিকেশন অনুমতি প্রয়োজন।</string>
+    
+    <!-- Input hints -->
+    <string name="nickname_hint">ডাকনাম</string>
+    <string name="message_hint">একটি বার্তা টাইপ করুন…</string>
+    <string name="channel_password_hint">পাসওয়ার্ড</string>
+    
+    <!-- Buttons -->
+    <string name="join_channel">চ্যানেলে যোগ দিন</string>
+    <string name="leave_channel">ছেড়ে দিন</string>
+    <string name="send_message">পাঠান</string>
+    <string name="back">পিছনে</string>
+    <string name="leave">ছাড়ুন</string>
+    <string name="join">যোগ দিন</string>
+    <string name="cancel">বাতিল</string>
+    <string name="ok">ঠিক আছে</string>
+    <string name="try_again">আবার চেষ্টা করুন</string>
+    <string name="open_settings">সেটিংস খুলুন</string>
+    <string name="grant_permissions">অনুমতি প্রদান করুন</string>
+    
+    <!-- Navigation and sections -->
+    <string name="people">মানুষ</string>
+    <string name="channels">চ্যানেলসমূহ</string>
+    <string name="online_users">অনলাইন ব্যবহারকারী</string>
+    <string name="no_one_connected">কেউ সংযুক্ত নেই</string>
+    <string name="your_network">আপনার নেটওয়ার্ক</string>
+    
+    <!-- Onboarding -->
+    <string name="welcome_title">বিটচ্যাট*-এ স্বাগতম</string>
+    <string name="app_description">ব্লুটুথের মাধ্যমে বিকেন্দ্রীভূত মেশ মেসেজিং</string>
+    <string name="privacy_title">আপনার গোপনীয়তা সুরক্ষিত</string>
+    <string name="privacy_description">• বিটচ্যাট আপনাকে ট্র্যাক করে না বা ব্যক্তিগত তথ্য সংগ্রহ করে না\n• সমস্ত বার্তা এন্ড-টু-এন্ড এনক্রিপ্ট করা\n• কোন সার্ভার, অ্যাকাউন্ট বা ফোন নম্বরের প্রয়োজন নেই\n• আপনার ডেটা আপনার ডিভাইসেই থাকে</string>
+    <string name="permissions_intro">সঠিকভাবে কাজ করার জন্য, বিটচ্যাটের এই অনুমতিগুলো প্রয়োজন:</string>
+    <string name="location_warning_icon">⚠️</string>
+    <string name="location_warning">বিটচ্যাট জিপিএস ব্যবহার করে না বা অবস্থান ট্র্যাক করে না</string>
+    
+    <!-- Initialization -->
+    <string name="initializing_title">মেশ নেটওয়ার্ক প্রাথমিক করা হচ্ছে</string>
+    <string name="initializing_description">ব্লুটুথ মেশ নেটওয়ার্কিং সেটআপ করা হচ্ছে…</string>
+    <string name="initializing_subtitle">এটি মাত্র কয়েক সেকেন্ড সময় নেওয়া উচিত</string>
+    <string name="setup_not_complete">সেটআপ সম্পূর্ণ হয়নি</string>
+    
+    <!-- Dialogs -->
+    <string name="enter_channel_password">চ্যানেল পাসওয়ার্ড লিখুন</string>
+    <string name="channel_password_prompt">চ্যানেল %1$s পাসওয়ার্ড দিয়ে সুরক্ষিত। যোগ দিতে পাসওয়ার্ড লিখুন।</string>
+    <string name="about_bitchat">বিটচ্যাট* সম্পর্কে</string>
+    <string name="about_description">ব্লুটুথ LE এর মাধ্যমে বিকেন্দ্রীভূত মেশ মেসেজিং\n\nকোন ইন্টারনেট, সার্ভার বা ট্র্যাকিং নেই।\nকেবল নিরাপদ পিয়ার-টু-পিয়ার যোগাযোগ।\n\nসংস্করণ %1$s</string>
+    
+    <!-- Notifications -->
+    <string name="notification_channel_description">অন্যান্য ব্যবহারকারীদের ব্যক্তিগত বার্তার জন্য বিজ্ঞপ্তি</string>
+    <string name="notification_summary_more">এবং আরও %1$d টি</string>
+    <string name="notification_multiple_messages">%2$d জনের কাছ থেকে %1$d টি বার্তা</string>
+    <string name="notification_multiple_conversations">এবং আরও %1$d টি কথোপকথন</string>
+    
+    <!-- Channel and messages -->
+    <string name="channel_prefix">চ্যানেল: %1$s</string>
+    <string name="emergency_clear_hint">সমস্ত ডেটা মুছে ফেলতে তিনবার ট্যাপ করুন</string>
+    
+    <!-- Message status indicators -->
+    <string name="message_status_pending">○</string>
+    <string name="message_status_sent">✓</string>
+    <string name="message_status_delivered">✓✓</string>
+    <string name="message_status_acknowledged">✓✓</string>
+    <string name="message_status_failed">⚠</string>
+    
+    <!-- Mesh network status -->
+    <string name="mesh_status_format">✓%1$d/%2$d</string>
+    
+    <!-- Welcome message -->
+    <string name="welcome_message">আশেপাশের লোকদের বিটচ্যাট ডাউনলোড করতে বলুন…এবং এখানে তাদের সাথে চ্যাট করুন!</string>
+    
+    <!-- Channel leave message -->
+    <string name="left_channel">%1$s ছেড়েছেন</string>
+    
+    <!-- Anonymous nickname prefix -->
+    <string name="anonymous_nickname_prefix">বেনামী</string>
+</resources>

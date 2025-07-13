@@ -6,6 +6,7 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.viewModelScope
+import com.bitchat.android.R
 import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
@@ -114,7 +115,7 @@ class ChatViewModel(
             if (state.getConnectedPeersValue().isEmpty() && state.getMessagesValue().isEmpty()) {
                 val welcomeMessage = BitchatMessage(
                     sender = "system",
-                    content = "get people around you to download bitchat…and chat with them here!",
+                    content = context.getString(R.string.welcome_message),
                     timestamp = Date(),
                     isRelay = false
                 )
@@ -148,7 +149,7 @@ class ChatViewModel(
     
     fun leaveChannel(channel: String) {
         channelManager.leaveChannel(channel)
-        meshService.sendMessage("left $channel")
+        meshService.sendMessage(context.getString(R.string.left_channel, channel))
     }
     
     // MARK: - Private Chat Management (delegated)
@@ -360,7 +361,7 @@ class ChatViewModel(
         dataManager.clearAllData()
         
         // Reset nickname
-        val newNickname = "anon${Random.nextInt(1000, 9999)}"
+        val newNickname = "${context.getString(R.string.anonymous_nickname_prefix)}${Random.nextInt(1000, 9999)}"
         state.setNickname(newNickname)
         dataManager.saveNickname(newNickname)
         
