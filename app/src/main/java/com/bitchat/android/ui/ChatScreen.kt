@@ -1,40 +1,54 @@
 package com.bitchat.android.ui
 
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.*
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.EaseInCubic
+import androidx.compose.animation.core.EaseOutCubic
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.bitchat.android.model.BitchatMessage
-import com.bitchat.android.model.DeliveryStatus
-import com.bitchat.android.mesh.BluetoothMeshService
-import java.text.SimpleDateFormat
-import java.util.*
 
 /**
  * Main ChatScreen - REFACTORED to use component-based architecture
@@ -64,6 +78,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val showCommandSuggestions by viewModel.showCommandSuggestions.observeAsState(false)
     val commandSuggestions by viewModel.commandSuggestions.observeAsState(emptyList())
     val showAppInfo by viewModel.showAppInfo.observeAsState(false)
+    val selectedMessages by viewModel.selectedMessages.observeAsState(emptySet())
+    val isSelectionMode by viewModel.isSelectionMode.observeAsState(false)
     
     var messageText by remember { mutableStateOf("") }
     var showPasswordPrompt by remember { mutableStateOf(false) }
@@ -105,6 +121,14 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     messages = displayMessages,
                     currentUserNickname = nickname,
                     meshService = viewModel.meshService,
+                    onMessageLongClick = { message: BitchatMessage ->
+                        viewModel.onMessageLongClick(message)
+                    },
+                    onMessageTap = { message: BitchatMessage ->
+                        viewModel.onMessageTap(message)
+                    },
+                    selectedMessages = selectedMessages,
+                    isSelectionMode = isSelectionMode,
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -135,17 +159,40 @@ fun ChatScreen(viewModel: ChatViewModel) {
         }
         
         // Floating header - positioned absolutely at top, ignores keyboard
-        ChatFloatingHeader(
-            headerHeight = headerHeight,
-            selectedPrivatePeer = selectedPrivatePeer,
-            currentChannel = currentChannel,
-            nickname = nickname,
-            viewModel = viewModel,
-            colorScheme = colorScheme,
-            onSidebarToggle = { viewModel.showSidebar() },
-            onShowAppInfo = { viewModel.showAppInfo() },
-            onPanicClear = { viewModel.panicClearAllData() }
-        )
+        if (isSelectionMode) {
+            SelectionModeHeader(
+                headerHeight = headerHeight,
+                selectedCount = selectedMessages.size,
+                onClearSelection = { viewModel.clearSelection() },
+                onSelectAll = { viewModel.selectAllMessages() },
+                onCopySelected = { viewModel.copySelectedMessages() },
+                onShareSelected = { viewModel.shareSelectedMessages() },
+                colorScheme = colorScheme
+            )
+        } else {
+            ChatFloatingHeader(
+                headerHeight = headerHeight,
+                selectedPrivatePeer = selectedPrivatePeer,
+                currentChannel = currentChannel,
+                nickname = nickname,
+                viewModel = viewModel,
+                colorScheme = colorScheme,
+                onSidebarToggle = { viewModel.showSidebar() },
+                onShowAppInfo = { viewModel.showAppInfo() },
+                onPanicClear = { viewModel.panicClearAllData() }
+            )
+        }
+        
+        // Divider under header
+        if (!isSelectionMode) {
+            Divider(
+                color = colorScheme.outline.copy(alpha = 0.3f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(y = headerHeight)
+                    .zIndex(1f)
+            )
+        }
         
         // Sidebar overlay
         AnimatedVisibility(
@@ -240,6 +287,83 @@ private fun ChatInputSection(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+private fun SelectionModeHeader(
+    headerHeight: Dp,
+    selectedCount: Int,
+    onClearSelection: () -> Unit,
+    onSelectAll: () -> Unit,
+    onCopySelected: () -> Unit,
+    onShareSelected: () -> Unit,
+    colorScheme: ColorScheme
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(headerHeight)
+            .zIndex(1f)
+            .windowInsetsPadding(WindowInsets.statusBars),
+        color = colorScheme.background.copy(alpha = 0.95f),
+        shadowElevation = 8.dp
+    ) {
+        TopAppBar(
+            title = {
+                Text(
+                    text = "$selectedCount selected",
+                    color = colorScheme.onSurface
+                )
+            },
+            navigationIcon = {
+                IconButton(onClick = onClearSelection) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Cancel selection",
+                        tint = colorScheme.onSurface
+                    )
+                }
+            },
+            actions = {
+                // Select All button
+                IconButton(onClick = onSelectAll) {
+                    Icon(
+                        imageVector = Icons.Default.SelectAll,
+                        contentDescription = "Select all",
+                        tint = colorScheme.onSurface
+                    )
+                }
+                
+                // Copy button
+                IconButton(
+                    onClick = onCopySelected,
+                    enabled = selectedCount > 0
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ContentCopy,
+                        contentDescription = "Copy messages",
+                        tint = if (selectedCount > 0) colorScheme.primary else colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                // Share button
+                IconButton(
+                    onClick = onShareSelected,
+                    enabled = selectedCount > 0
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Share,
+                        contentDescription = "Share messages",
+                        tint = if (selectedCount > 0) colorScheme.primary else colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.Transparent
+            )
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 private fun ChatFloatingHeader(
     headerHeight: Dp,
     selectedPrivatePeer: String?,
@@ -283,15 +407,6 @@ private fun ChatFloatingHeader(
             )
         )
     }
-    
-    // Divider under header
-    Divider(
-        color = colorScheme.outline.copy(alpha = 0.3f),
-        modifier = Modifier
-            .fillMaxWidth()
-            .offset(y = headerHeight)
-            .zIndex(1f)
-    )
 }
 
 @Composable

@@ -26,7 +26,10 @@ class ChatState {
     // Core messages and peer state
     private val _messages = MutableLiveData<List<BitchatMessage>>(emptyList())
     val messages: LiveData<List<BitchatMessage>> = _messages
-    
+
+    private val _selectedMessages = MutableLiveData<Set<BitchatMessage>>( emptySet())
+    val selectedMessages : LiveData<Set<BitchatMessage>> = _selectedMessages
+
     private val _connectedPeers = MutableLiveData<List<String>>(emptyList())
     val connectedPeers: LiveData<List<String>> = _connectedPeers
     
@@ -92,6 +95,9 @@ class ChatState {
     // Unread state computed properties
     val hasUnreadChannels: MediatorLiveData<Boolean> = MediatorLiveData<Boolean>()
     val hasUnreadPrivateMessages: MediatorLiveData<Boolean> = MediatorLiveData<Boolean>()
+
+    private val _isSelectionMode  = MutableLiveData(false)
+    val selectionMode: LiveData<Boolean> = _isSelectionMode
     
     init {
         // Initialize unread state mediators
@@ -127,6 +133,14 @@ class ChatState {
     // Setters for state updates
     fun setMessages(messages: List<BitchatMessage>) {
         _messages.value = messages
+    }
+
+    fun setSelectedMessages(selectedMessages: Set<BitchatMessage>) {
+        _selectedMessages.value = selectedMessages
+    }
+
+    fun setSelectionMode(enabled: Boolean) {
+        _isSelectionMode.value = enabled
     }
     
     fun setConnectedPeers(peers: List<String>) {

@@ -72,6 +72,8 @@ class ChatViewModel(
     val commandSuggestions: LiveData<List<CommandSuggestion>> = state.commandSuggestions
     val favoritePeers: LiveData<Set<String>> = state.favoritePeers
     val showAppInfo: LiveData<Boolean> = state.showAppInfo
+    val selectedMessages: LiveData<Set<BitchatMessage>> = state.selectedMessages
+    val isSelectionMode: LiveData<Boolean> = state.selectionMode
     
     init {
         // Note: Mesh service delegate is now set by MainActivity
@@ -420,6 +422,121 @@ class ChatViewModel(
             }
             // No special navigation state - let system handle (usually exits app)
             else -> false
+        }
+    }
+
+    fun onMessageTap(message: BitchatMessage) {
+        if (state.selectionMode.value == true) {
+            val currentSelection = state.selectedMessages.value ?: emptySet()
+            val newSelection = if (currentSelection.contains(message)) {
+                currentSelection - message
+            } else {
+                currentSelection + message
+            }
+            state.setSelectedMessages(newSelection)
+
+            // If no messages selected, exit selection mode
+            if (newSelection.isEmpty()) {
+                state.setSelectionMode(false)
+            }
+        } else {
+            // Handle normal tap behavior (show details, open private chat, etc.)
+            Log.d("ChatViewModel", "Message tapped: ${message.content}")
+
+            // If it's a private message, switch to that chat
+            if (message.senderPeerID != null && message.senderPeerID != meshService.myPeerID) {
+                startPrivateChat(message.senderPeerID)
+            } else if (message.channel != null) {
+                // Switch to the message's channel
+                switchToChannel(message.channel)
+            }
+        }
+    }
+
+    fun onMessageLongClick(message: BitchatMessage): Boolean {
+        state.setSelectionMode(true)
+        // Add the long-clicked message to selection
+        val currentSelection = state.selectedMessages.value ?: emptySet()
+        state.setSelectedMessages(currentSelection + message)
+
+        Log.d("ChatViewModel", "Message long clicked: ${message.content}")
+        return true // Indicate that the long click was handled
+    }
+
+    // MARK: - Message Selection Actions
+
+    fun clearSelection(enableSelectionMode: Boolean = false) {
+        state.setSelectedMessages(emptySet())
+        state.setSelectionMode(enableSelectionMode)
+    }
+
+    fun selectAllMessages() {
+
+        // Get current visible messages based on context
+        val allMessages = when {
+            state.getSelectedPrivateChatPeerValue() != null -> {
+                state.getPrivateChatsValue()[state.getSelectedPrivateChatPeerValue()] ?: emptyList()
+            }
+
+            state.getCurrentChannelValue() != null -> {
+                state.getChannelMessagesValue()[state.getCurrentChannelValue()] ?: emptyList()
+            }
+
+            else -> state.getMessagesValue()
+        }
+
+        if (allMessages.size == selectedMessages.value?.size) {
+            // If all messages are already selected, clear selection
+            clearSelection(enableSelectionMode = true)
+            return
+        }
+
+        state.setSelectedMessages(allMessages.toSet())
+    }
+
+    fun copySelectedMessages(): String {
+        val selectedMessages = state.selectedMessages.value ?: emptySet()
+        if (selectedMessages.isEmpty()) return ""
+
+        val formatter =
+            java.text.SimpleDateFormat("MMM dd, yyyy HH:mm:ss", Locale.getDefault())
+        val sortedMessages = selectedMessages.sortedBy { it.timestamp }
+
+        val formattedText = sortedMessages.joinToString("\n\n") { message ->
+            val timestamp = formatter.format(message.timestamp)
+            val sender = message.sender
+            val content = message.content
+            val prefix = if (message.channel != null) "[#${message.channel}] " else ""
+            "$prefix$sender ($timestamp): $content"
+        }
+
+        // Copy to clipboard
+        val clipboard =
+            getApplication<Application>().getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        val clip = android.content.ClipData.newPlainText("Bitchat Messages", formattedText)
+        clipboard.setPrimaryClip(clip)
+
+        return formattedText
+    }
+
+    fun shareSelectedMessages() {
+        val formattedText = copySelectedMessages()
+        if (formattedText.isEmpty()) return
+
+        val shareIntent = android.content.Intent().apply {
+            action = android.content.Intent.ACTION_SEND
+            type = "text/plain"
+            putExtra(android.content.Intent.EXTRA_TEXT, formattedText)
+            putExtra(android.content.Intent.EXTRA_SUBJECT, "Bitchat Messages")
+        }
+
+        val chooserIntent = android.content.Intent.createChooser(shareIntent, "Share Messages")
+        chooserIntent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+
+        try {
+            getApplication<Application>().startActivity(chooserIntent)
+        } catch (e: Exception) {
+            Log.e("ChatViewModel", "Failed to share messages", e)
         }
     }
 }
