@@ -56,7 +56,7 @@ android {
     }
 }
 
-dependencies {\n    implementation("androidx.core:core-ktx:1.13.1")\n
+dependencies {\n    implementation("androidx.core:core-ktx:1.13.1")\n\n    implementation("androidx.core:core-ktx:1.13.1")\n
     // Core Android dependencies
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
