@@ -5,8 +5,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import com.bitchat.android.R
 
 /**
  * Dialog components for ChatScreen
@@ -29,7 +32,7 @@ fun PasswordPromptDialog(
             onDismissRequest = onDismiss,
             title = {
                 Text(
-                    text = "Enter Channel Password",
+                    text = stringResource(R.string.enter_channel_password),
                     style = MaterialTheme.typography.titleMedium,
                     color = colorScheme.onSurface
                 )
@@ -37,7 +40,7 @@ fun PasswordPromptDialog(
             text = {
                 Column {
                     Text(
-                        text = "Channel $channelName is password protected. Enter the password to join.",
+                        text = stringResource(R.string.channel_password_prompt, channelName),
                         style = MaterialTheme.typography.bodyMedium,
                         color = colorScheme.onSurface
                     )
@@ -46,7 +49,7 @@ fun PasswordPromptDialog(
                     OutlinedTextField(
                         value = passwordInput,
                         onValueChange = onPasswordChange,
-                        label = { Text("Password", style = MaterialTheme.typography.bodyMedium) },
+                        label = { Text(stringResource(R.string.channel_password_hint), style = MaterialTheme.typography.bodyMedium) },
                         textStyle = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = FontFamily.Monospace
                         ),
@@ -60,7 +63,7 @@ fun PasswordPromptDialog(
             confirmButton = {
                 TextButton(onClick = onConfirm) {
                     Text(
-                        text = "Join",
+                        text = stringResource(R.string.join),
                         style = MaterialTheme.typography.bodyMedium,
                         color = colorScheme.primary
                     )
@@ -69,7 +72,7 @@ fun PasswordPromptDialog(
             dismissButton = {
                 TextButton(onClick = onDismiss) {
                     Text(
-                        text = "Cancel",
+                        text = stringResource(R.string.cancel),
                         style = MaterialTheme.typography.bodyMedium,
                         color = colorScheme.onSurface
                     )
@@ -88,24 +91,22 @@ fun AppInfoDialog(
 ) {
     if (show) {
         val colorScheme = MaterialTheme.colorScheme
+        val context = LocalContext.current
+        val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+        val versionName = packageInfo.versionName
         
         AlertDialog(
             onDismissRequest = onDismiss,
             title = {
                 Text(
-                    text = "About bitchat*",
+                    text = stringResource(R.string.about_bitchat),
                     style = MaterialTheme.typography.titleMedium,
                     color = colorScheme.onSurface
                 )
             },
             text = {
                 Text(
-                    text = "Decentralized mesh messaging over Bluetooth LE\n\n" +
-                            "• No servers or internet required\n" +
-                            "• End-to-end encrypted private messages\n" +
-                            "• Password-protected channels\n" +
-                            "• Store-and-forward for offline peers\n\n" +
-                            "Triple-click title to emergency clear all data",
+                    text = stringResource(R.string.about_description, versionName),
                     style = MaterialTheme.typography.bodyMedium,
                     color = colorScheme.onSurface
                 )
@@ -113,7 +114,7 @@ fun AppInfoDialog(
             confirmButton = {
                 TextButton(onClick = onDismiss) {
                     Text(
-                        text = "OK",
+                        text = stringResource(R.string.ok),
                         style = MaterialTheme.typography.bodyMedium,
                         color = colorScheme.primary
                     )

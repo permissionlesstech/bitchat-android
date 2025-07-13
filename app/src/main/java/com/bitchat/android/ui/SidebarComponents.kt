@@ -16,11 +16,13 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import com.bitchat.android.R
 
 /**
  * Sidebar components for ChatScreen
@@ -140,7 +142,7 @@ private fun SidebarHeader() {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = "YOUR NETWORK",
+            text = stringResource(R.string.your_network),
             style = MaterialTheme.typography.titleMedium.copy(
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace
@@ -175,7 +177,7 @@ fun ChannelsSection(
             )
             Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = "CHANNELS",
+                text = stringResource(R.string.channels),
                 style = MaterialTheme.typography.labelSmall,
                 color = colorScheme.onSurface.copy(alpha = 0.6f),
                 fontWeight = FontWeight.Bold
@@ -255,7 +257,7 @@ fun PeopleSection(
             )
             Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = "PEOPLE",
+                text = stringResource(R.string.people),
                 style = MaterialTheme.typography.labelSmall,
                 color = colorScheme.onSurface.copy(alpha = 0.6f),
                 fontWeight = FontWeight.Bold
@@ -264,7 +266,7 @@ fun PeopleSection(
         
         if (connectedPeers.isEmpty()) {
             Text(
-                text = "No one connected",
+                text = stringResource(R.string.no_one_connected),
                 style = MaterialTheme.typography.bodyMedium,
                 color = colorScheme.onSurface.copy(alpha = 0.5f),
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)

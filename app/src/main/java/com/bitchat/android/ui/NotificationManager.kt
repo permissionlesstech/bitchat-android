@@ -63,8 +63,8 @@ class NotificationManager(private val context: Context) {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val name = "Direct Messages"
-            val descriptionText = "Notifications for private messages from other users"
+            val name = context.getString(R.string.app_name)
+            val descriptionText = context.getString(R.string.notification_channel_description)
             val importance = NotificationManager.IMPORTANCE_HIGH
             val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
                 description = descriptionText
@@ -193,7 +193,7 @@ class NotificationManager(private val context: Context) {
             }
             
             if (messageCount > 5) {
-                style.setSummaryText("and ${messageCount - 5} more")
+                style.setSummaryText(context.getString(R.string.notification_summary_more, messageCount - 5))
             }
             
             builder.setStyle(style)
@@ -232,7 +232,7 @@ class NotificationManager(private val context: Context) {
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("bitchat")
-            .setContentText("$totalMessages messages from $senderCount people")
+            .setContentText(context.getString(R.string.notification_multiple_messages, totalMessages, senderCount))
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -256,7 +256,7 @@ class NotificationManager(private val context: Context) {
         }
         
         if (pendingNotifications.size > 5) {
-            style.setSummaryText("and ${pendingNotifications.size - 5} more conversations")
+            style.setSummaryText(context.getString(R.string.notification_multiple_conversations, pendingNotifications.size - 5))
         }
         
         builder.setStyle(style)

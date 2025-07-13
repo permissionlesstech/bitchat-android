@@ -1,19 +1,84 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">bitchat</string>
+    
+    <!-- Permission explanations -->
     <string name="permission_bluetooth_rationale">Bluetooth permission is required for peer-to-peer messaging without internet.</string>
     <string name="permission_location_rationale">Location permission is required to discover nearby devices via Bluetooth.</string>
     <string name="permission_notification_rationale">Notification permission is required to alert you of new messages.</string>
+    
+    <!-- Input hints -->
     <string name="nickname_hint">nickname</string>
     <string name="message_hint">type a message…</string>
     <string name="channel_password_hint">Password</string>
+    
+    <!-- Buttons -->
     <string name="join_channel">Join Channel</string>
     <string name="leave_channel">Leave</string>
     <string name="send_message">Send</string>
     <string name="back">Back</string>
+    <string name="leave">leave</string>
+    <string name="join">Join</string>
+    <string name="cancel">Cancel</string>
+    <string name="ok">OK</string>
+    <string name="try_again">Try Again</string>
+    <string name="open_settings">Open Settings</string>
+    <string name="grant_permissions">Grant Permissions</string>
+    
+    <!-- Navigation and sections -->
     <string name="people">People</string>
     <string name="channels">Channels</string>
     <string name="online_users">Online Users</string>
     <string name="no_one_connected">No one connected</string>
+    <string name="your_network">YOUR NETWORK</string>
+    
+    <!-- Onboarding -->
+    <string name="welcome_title">Welcome to bitchat*</string>
+    <string name="app_description">Decentralized mesh messaging over Bluetooth</string>
+    <string name="privacy_title">Your Privacy is Protected</string>
+    <string name="privacy_description">• bitchat doesn\'t track you or collect personal data\n• All messages are encrypted end-to-end\n• No servers, no accounts, no phone numbers required\n• Your data stays on your device</string>
+    <string name="permissions_intro">To work properly, bitchat needs these permissions:</string>
+    <string name="location_warning_icon">⚠️</string>
+    <string name="location_warning">bitchat does NOT use GPS or track location</string>
+    
+    <!-- Initialization -->
+    <string name="initializing_title">Initializing mesh network</string>
+    <string name="initializing_description">Setting up Bluetooth mesh networking...</string>
+    <string name="initializing_subtitle">This should only take a few seconds</string>
+    <string name="setup_not_complete">Setup Not Complete</string>
+    
+    <!-- Dialogs -->
+    <string name="enter_channel_password">Enter Channel Password</string>
+    <string name="channel_password_prompt">Channel %1$s is password protected. Enter the password to join.</string>
+    <string name="about_bitchat">About bitchat*</string>
+    <string name="about_description">Decentralized mesh messaging over Bluetooth LE\n\nNo internet, no servers, no tracking.\nJust secure peer-to-peer communication.\n\nVersion %1$s</string>
+    
+    <!-- Notifications -->
+    <string name="notification_channel_description">Notifications for private messages from other users</string>
+    <string name="notification_summary_more">and %1$d more</string>
+    <string name="notification_multiple_messages">%1$d messages from %2$d people</string>
+    <string name="notification_multiple_conversations">and %1$d more conversations</string>
+    
+    <!-- Channel and messages -->
+    <string name="channel_prefix">channel: %1$s</string>
     <string name="emergency_clear_hint">Triple tap to clear all data</string>
+    
+    <!-- Message status indicators -->
+    <string name="message_status_pending">○</string>
+    <string name="message_status_sent">✓</string>
+    <string name="message_status_delivered">✓✓</string>
+    <string name="message_status_acknowledged">✓✓</string>
+    <string name="message_status_failed">⚠</string>
+    
+    <!-- Mesh network status -->
+    <string name="mesh_status_format">✓%1$d/%2$d</string>
+    
+    <!-- Welcome message -->
+    <string name="welcome_message">get people around you to download bitchat…and chat with them here!</string>
+    
+    <!-- Channel leave message -->
+    <string name="left_channel">left %1$s</string>
+    
+    <!-- Anonymous nickname prefix -->
+    <string name="anonymous_nickname_prefix">anon</string>
 </resources>
