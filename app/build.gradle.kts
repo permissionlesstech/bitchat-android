@@ -57,6 +57,8 @@ android {
     }
 }
 
+
+
 dependencies {
     // Core Android dependencies
     implementation(libs.androidx.core.ktx)
@@ -98,8 +100,9 @@ dependencies {
     implementation(libs.cbor)
     
     // JNA for CDK FFI bindings
-    implementation(libs.jna)
-    implementation(libs.jna.platform)
+    //implementation(libs.jna)
+    //implementation(libs.jna.platform)
+    implementation("net.java.dev.jna:jna:5.13.0@aar")
     
     // QR Code generation
     implementation(libs.zxing.core)
