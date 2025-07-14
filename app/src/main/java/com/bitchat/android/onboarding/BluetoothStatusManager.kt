@@ -238,7 +238,8 @@ class BluetoothStatusManager(
                     BluetoothAdapter.STATE_OFF -> {
                         Log.d(TAG, "Bluetooth turned OFF")
                         onBluetoothStateChanged(BluetoothStatus.DISABLED)
-                        bluetoothStatusManager.handleBluetoothStatus(BluetoothStatus.DISABLED)
+//                        bluetoothStatusManager.handleBluetoothStatus(BluetoothStatus.DISABLED)
+                        bluetoothStatusManager.onBluetoothDisabled("User has turned off their Blue")
                     }
                     BluetoothAdapter.STATE_TURNING_ON, BluetoothAdapter.STATE_OFF -> {
                         Log.d(TAG, "Bluetooth state transitioning: ${bluetoothStatusManager.getAdapterStateName(intent.getIntExtra(
@@ -255,7 +256,7 @@ class BluetoothStatusManager(
         //Check initial Bluetooth state
         val initialStatus = bluetoothStatusManager.checkBluetoothStatus()
         onBluetoothStateChanged(initialStatus)
-        bluetoothStatusManager.handleBluetoothStatus(initialStatus)
+//        bluetoothStatusManager.handleBluetoothStatus(initialStatus)
 
 
         return receiver
