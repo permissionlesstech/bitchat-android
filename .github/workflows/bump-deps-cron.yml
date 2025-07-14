@@ -1,0 +1,42 @@
+name: Rust Dependency Update
+
+on:
+  schedule:
+    - cron: '0 0 * * 1'  # Weekly on Monday
+  workflow_dispatch:     # Manual trigger
+
+jobs:
+  bump-deps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+          override: true
+
+      - name: Install cargo-edit
+        run: cargo install cargo-edit --locked
+
+      - name: Update dependencies
+        run: cargo update
+
+      - name: Verify updates
+        run: |
+          cargo build --verbose
+          cargo test --verbose
+          cargo clippy -- -D warnings
+          cargo fmt -- --check
+
+      - name: Create PR
+        if: success()
+        uses: peter-evans/create-pull-request@v5
+        with:
+          commit-message: "chore(deps): update Rust crates"
+          title: "Update Rust dependencies"
+          body: "Automated dependency update"
+          branch: "rust-deps/$(date +%s)"
+          draft: true
