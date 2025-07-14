@@ -1,27 +1,34 @@
 package com.bitchat.android
 
-import android.Manifest
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.viewModels
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.ViewModelProvider
 import androidx.activity.OnBackPressedCallback
-import androidx.activity.addCallback
+import androidx.activity.compose.setContent
+import androidx.activity.viewModels
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import com.bitchat.android.mesh.BluetoothMeshService
-import com.bitchat.android.onboarding.*
+import com.bitchat.android.onboarding.BluetoothCheckScreen
+import com.bitchat.android.onboarding.BluetoothStatus
+import com.bitchat.android.onboarding.BluetoothStatusManager
+import com.bitchat.android.onboarding.InitializationErrorScreen
+import com.bitchat.android.onboarding.InitializingScreen
+import com.bitchat.android.onboarding.LocationCheckScreen
+import com.bitchat.android.onboarding.LocationStatus
+import com.bitchat.android.onboarding.LocationStatusManager
+import com.bitchat.android.onboarding.NicknamePromptScreen
+import com.bitchat.android.onboarding.OnboardingCoordinator
+import com.bitchat.android.onboarding.PermissionExplanationScreen
+import com.bitchat.android.onboarding.PermissionManager
 import com.bitchat.android.ui.ChatScreen
 import com.bitchat.android.ui.ChatViewModel
 import com.bitchat.android.ui.theme.BitchatTheme
@@ -46,7 +53,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private val chatViewModel: ChatViewModel by viewModels()
 
     // UI state for onboarding flow
     private var onboardingState by mutableStateOf(OnboardingState.CHECKING)
@@ -494,9 +500,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onNewIntent(intent: Intent?) {
+    override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // Handle notification intents when app is already running
         if (onboardingState == OnboardingState.COMPLETE) {
             handleNotificationIntent(intent)
         }
