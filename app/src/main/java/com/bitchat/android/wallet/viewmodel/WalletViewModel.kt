@@ -495,6 +495,9 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                     // Save quote for tracking
                     repository.saveMeltQuote(quote)
                     loadPendingQuotes()
+                    
+                    // kick off the polling
+                    startPolling()
                 }.onFailure { error ->
                     _errorMessage.value = "Failed to process invoice: ${error.message}"
                 }
