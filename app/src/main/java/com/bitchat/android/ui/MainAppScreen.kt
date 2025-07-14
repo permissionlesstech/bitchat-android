@@ -31,8 +31,11 @@ fun MainAppScreen(
     Column(modifier = modifier.fillMaxSize()) {
         // Content based on selected tab
         when (selectedTab) {
-            0 -> ChatScreen(viewModel = chatViewModel) // Existing chat screen
-            1 -> WalletScreen(walletViewModel = walletViewModel) // New wallet screen
+            0 -> ChatScreen(
+                viewModel = chatViewModel,
+                onWalletClick = { selectedTab = 1 } // Switch to wallet tab when header button is clicked
+            ) 
+            1 -> WalletScreen(walletViewModel = walletViewModel)
         }
         
         // Bottom Navigation

@@ -27,7 +27,8 @@ import android.util.Log
 @Composable
 fun ParsedMessageContent(
     elements: List<MessageElement>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onCashuPaymentClick: ((ParsedCashuToken) -> Unit)? = null
 ) {
     // Use a Column with proper text and special element rendering
     Column(
@@ -52,6 +53,7 @@ fun ParsedMessageContent(
                     // Show the payment chip on its own row
                     CashuPaymentChip(
                         token = element.token,
+                        onPaymentClick = onCashuPaymentClick,
                         modifier = Modifier.padding(vertical = 2.dp)
                     )
                 }
@@ -96,14 +98,17 @@ fun TextRow(elements: List<MessageElement>) {
 @Composable
 fun CashuPaymentChip(
     token: ParsedCashuToken,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onPaymentClick: ((ParsedCashuToken) -> Unit)? = null
 ) {
     Card(
         modifier = modifier
-            .clickable { handleCashuPayment(token) },
+            .clickable { 
+                onPaymentClick?.invoke(token) ?: handleCashuPayment(token)
+            },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF2E8B57) // Sea green
+            containerColor = Color(0xFF00C851) // bitchat green
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
@@ -113,36 +118,58 @@ fun CashuPaymentChip(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Payment icon
+            // Payment icon  
             Text(
                 text = "⚡",
                 fontSize = 16.sp,
                 color = Color.White
             )
             
-            // Payment text
-            Text(
-                text = "Cashu Payment: ${token.amount} ${token.unit}",
-                fontSize = 13.sp,
-                color = Color.White,
-                fontWeight = FontWeight.Medium,
-                fontFamily = FontFamily.Monospace
-            )
+            // Payment info
+            Column {
+                Text(
+                    text = "Cashu Payment",
+                    fontSize = 12.sp,
+                    color = Color.White.copy(alpha = 0.9f),
+                    fontWeight = FontWeight.Medium,
+                    fontFamily = FontFamily.Monospace
+                )
+                Text(
+                    text = "${token.amount} ${token.unit}",
+                    fontSize = 14.sp,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
+                if (token.memo?.isNotBlank() == true) {
+                    Text(
+                        text = "\"${token.memo}\"",
+                        fontSize = 10.sp,
+                        color = Color.White.copy(alpha = 0.8f),
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.weight(1f))
             
             // Receive button
             Button(
-                onClick = { handleCashuPayment(token) },
-                modifier = Modifier.height(28.dp),
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                onClick = { 
+                    onPaymentClick?.invoke(token) ?: handleCashuPayment(token)
+                },
+                modifier = Modifier.height(32.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color.White,
-                    contentColor = Color(0xFF2E8B57)
+                    contentColor = Color(0xFF00C851)
                 )
             ) {
                 Text(
                     text = "Receive",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
                 )
             }
         }

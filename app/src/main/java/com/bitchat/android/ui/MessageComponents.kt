@@ -20,6 +20,7 @@ import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.parsing.MessageElement
 import com.bitchat.android.parsing.ParsedMessageContent
+import com.bitchat.android.parsing.ParsedCashuToken
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -33,7 +34,8 @@ fun MessagesList(
     messages: List<BitchatMessage>,
     currentUserNickname: String,
     meshService: BluetoothMeshService,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onCashuPaymentClick: ((ParsedCashuToken) -> Unit)? = null
 ) {
     val listState = rememberLazyListState()
     
@@ -54,7 +56,8 @@ fun MessagesList(
                 MessageItem(
                     message = message,
                     currentUserNickname = currentUserNickname,
-                    meshService = meshService
+                    meshService = meshService,
+                    onCashuPaymentClick = onCashuPaymentClick
                 )
             }
         }
@@ -65,7 +68,8 @@ fun MessagesList(
 fun MessageItem(
     message: BitchatMessage,
     currentUserNickname: String,
-    meshService: BluetoothMeshService
+    meshService: BluetoothMeshService,
+    onCashuPaymentClick: ((ParsedCashuToken) -> Unit)? = null
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val timeFormatter = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
@@ -96,6 +100,7 @@ fun MessageItem(
                 // Parsed content with inline special elements
                 ParsedMessageContent(
                     elements = parsedElements,
+                    onCashuPaymentClick = onCashuPaymentClick,
                     modifier = Modifier.padding(start = 16.dp) // Indent content slightly
                 )
             }

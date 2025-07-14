@@ -33,6 +33,7 @@ import androidx.compose.ui.zIndex
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.mesh.BluetoothMeshService
+import com.bitchat.android.parsing.ParsedCashuToken
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -48,7 +49,10 @@ import java.util.*
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatScreen(viewModel: ChatViewModel) {
+fun ChatScreen(
+    viewModel: ChatViewModel,
+    onWalletClick: () -> Unit = {}
+) {
     val colorScheme = MaterialTheme.colorScheme
     val messages by viewModel.messages.observeAsState(emptyList())
     val connectedPeers by viewModel.connectedPeers.observeAsState(emptyList())
@@ -105,6 +109,12 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     messages = displayMessages,
                     currentUserNickname = nickname,
                     meshService = viewModel.meshService,
+                    onCashuPaymentClick = { token ->
+                        // Open wallet with the receive dialog pre-filled with this token
+                        onWalletClick()
+                        // TODO: We need to pass the token to the wallet somehow
+                        // This could be done through a shared state, intent, or callback
+                    },
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -144,7 +154,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
             colorScheme = colorScheme,
             onSidebarToggle = { viewModel.showSidebar() },
             onShowAppInfo = { viewModel.showAppInfo() },
-            onPanicClear = { viewModel.panicClearAllData() }
+            onPanicClear = { viewModel.panicClearAllData() },
+            onWalletClick = onWalletClick
         )
         
         // Sidebar overlay
@@ -249,7 +260,8 @@ private fun ChatFloatingHeader(
     colorScheme: ColorScheme,
     onSidebarToggle: () -> Unit,
     onShowAppInfo: () -> Unit,
-    onPanicClear: () -> Unit
+    onPanicClear: () -> Unit,
+    onWalletClick: () -> Unit = {}
 ) {
     Surface(
         modifier = Modifier
@@ -275,7 +287,8 @@ private fun ChatFloatingHeader(
                     },
                     onSidebarClick = onSidebarToggle,
                     onTripleClick = onPanicClear,
-                    onShowAppInfo = onShowAppInfo
+                    onShowAppInfo = onShowAppInfo,
+                    onWalletClick = onWalletClick
                 )
             },
             colors = TopAppBarDefaults.topAppBarColors(

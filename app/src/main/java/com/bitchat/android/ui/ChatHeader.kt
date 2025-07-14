@@ -145,7 +145,8 @@ fun ChatHeaderContent(
     onBackClick: () -> Unit,
     onSidebarClick: () -> Unit,
     onTripleClick: () -> Unit,
-    onShowAppInfo: () -> Unit
+    onShowAppInfo: () -> Unit,
+    onWalletClick: () -> Unit = {}
 ) {
     val colorScheme = MaterialTheme.colorScheme
     var tripleClickCount by remember { mutableStateOf(0) }
@@ -191,6 +192,7 @@ fun ChatHeaderContent(
                     }
                 },
                 onSidebarClick = onSidebarClick,
+                onWalletClick = onWalletClick,
                 viewModel = viewModel
             )
         }
@@ -346,6 +348,7 @@ private fun MainHeader(
     onNicknameChange: (String) -> Unit,
     onTitleClick: () -> Unit,
     onSidebarClick: () -> Unit,
+    onWalletClick: () -> Unit = {},
     viewModel: ChatViewModel
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -376,13 +379,30 @@ private fun MainHeader(
             )
         }
         
-        PeerCounter(
-            connectedPeers = connectedPeers.filter { it != viewModel.meshService.myPeerID },
-            joinedChannels = joinedChannels,
-            hasUnreadChannels = hasUnreadChannels,
-            hasUnreadPrivateMessages = hasUnreadPrivateMessages,
-            isConnected = isConnected,
-            onClick = onSidebarClick
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // Wallet button
+            IconButton(
+                onClick = onWalletClick,
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.AccountBalanceWallet,
+                    contentDescription = "Open Wallet",
+                    modifier = Modifier.size(18.dp),
+                    tint = Color(0xFF00C851) // bitchat green
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(8.dp))
+            
+            PeerCounter(
+                connectedPeers = connectedPeers.filter { it != viewModel.meshService.myPeerID },
+                joinedChannels = joinedChannels,
+                hasUnreadChannels = hasUnreadChannels,
+                hasUnreadPrivateMessages = hasUnreadPrivateMessages,
+                isConnected = isConnected,
+                onClick = onSidebarClick
+            )
+        }
     }
 }
