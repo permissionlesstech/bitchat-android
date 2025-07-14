@@ -18,6 +18,9 @@
     
     <!-- Haptic feedback permission -->
     <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- Internet permission -->
+    <uses-permission android:name="android.permission.INTERNET" />
     
     <!-- Hardware features -->
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />

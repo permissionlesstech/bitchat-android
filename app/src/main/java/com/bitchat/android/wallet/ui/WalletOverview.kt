@@ -46,8 +46,6 @@ fun WalletOverview(
             .background(Color.Black)
             .padding(16.dp)
     ) {
-        // CDK Status Banner
-        CdkStatusBanner(activeMint = activeMint)
         
         Spacer(modifier = Modifier.height(16.dp))
         
@@ -85,120 +83,6 @@ fun WalletOverview(
                 message = message,
                 onDismiss = { viewModel.clearError() }
             )
-        }
-    }
-}
-
-@Composable
-private fun CdkStatusBanner(activeMint: String?) {
-    val cashuService = CashuService.getInstance()
-    val isCdkAvailable = cashuService.isCdkAvailable()
-    
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isCdkAvailable) Color(0xFF001a0f) else Color(0xFF1a1a00)
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // CDK Logo/Icon
-                Card(
-                    shape = RoundedCornerShape(4.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isCdkAvailable) Color(0xFF00C851) else Color(0xFFFFA500)
-                    )
-                ) {
-                    Text(
-                        text = if (isCdkAvailable) "CDK" else "DEMO",
-                        color = Color.Black,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                    )
-                }
-                
-                Spacer(modifier = Modifier.width(8.dp))
-                
-                Column {
-                    Text(
-                        text = if (isCdkAvailable) "✅ Real Cashu Wallet Active" else "⚠️ Demo Mode Active",
-                        color = if (isCdkAvailable) Color(0xFF00C851) else Color(0xFFFFA500),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
-                    )
-                    
-                    activeMint?.let { mint ->
-                        Text(
-                            text = if (isCdkAvailable) "Connected to: ${extractMintName(mint)}" 
-                                  else "Demo wallet: ${extractMintName(mint)}",
-                            color = Color.Gray,
-                            fontSize = 10.sp,
-                            fontFamily = FontFamily.Monospace
-                        )
-                    }
-                }
-                
-                Spacer(modifier = Modifier.weight(1f))
-                
-                // Connection status
-                Icon(
-                    imageVector = if (isCdkAvailable) Icons.Filled.CheckCircle else Icons.Filled.Warning,
-                    contentDescription = if (isCdkAvailable) "CDK Available" else "Demo Mode",
-                    tint = if (isCdkAvailable) Color(0xFF00C851) else Color(0xFFFFA500),
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Technical details
-            if (isCdkAvailable) {
-                Text(
-                    text = "• Using Cashu Development Kit (CDK) FFI bindings",
-                    color = Color.Gray,
-                    fontSize = 9.sp,
-                    fontFamily = FontFamily.Monospace
-                )
-                Text(
-                    text = "• Real Bitcoin Lightning Network integration",
-                    color = Color.Gray,
-                    fontSize = 9.sp,
-                    fontFamily = FontFamily.Monospace
-                )
-                Text(
-                    text = "• Actual ecash minting and melting operations",
-                    color = Color.Gray,
-                    fontSize = 9.sp,
-                    fontFamily = FontFamily.Monospace
-                )
-            } else {
-                Text(
-                    text = "• CDK not available on this device architecture",
-                    color = Color.Gray,
-                    fontSize = 9.sp,
-                    fontFamily = FontFamily.Monospace
-                )
-                Text(
-                    text = "• Running in demonstration mode with simulated operations",
-                    color = Color.Gray,
-                    fontSize = 9.sp,
-                    fontFamily = FontFamily.Monospace
-                )
-                Text(
-                    text = "• No real Bitcoin transactions - for testing only",
-                    color = Color.Gray,
-                    fontSize = 9.sp,
-                    fontFamily = FontFamily.Monospace
-                )
-            }
         }
     }
 }

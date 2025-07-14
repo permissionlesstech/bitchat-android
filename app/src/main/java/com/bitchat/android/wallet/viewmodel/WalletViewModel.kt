@@ -114,7 +114,7 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                     if (activeMintUrl.isNullOrEmpty()) {
                         Log.d(TAG, "No active mint, setting default")
                         // Use default mint URL from CashuService
-                        cashuService.initializeWallet("https://mint.minibits.cash/Bitcoin").onSuccess {
+                        cashuService.initializeWallet("https://testnut.cashu.space").onSuccess {
                             refreshBalance()
                         }
                     }
