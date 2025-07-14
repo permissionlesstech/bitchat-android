@@ -4,6 +4,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import android.util.Log
 import com.bitchat.android.wallet.data.*
+import uniffi.cdk_ffi.*
 import java.math.BigDecimal
 import java.util.*
 
@@ -13,8 +14,8 @@ import java.util.*
  */
 class CashuService {
     
-    private var wallet: Any? = null // FfiWallet when CDK is available
-    private var localStore: Any? = null // FfiLocalStore when CDK is available
+    private var wallet: FfiWallet? = null
+    private var localStore: FfiLocalStore? = null
     private var currentMintUrl: String? = null
     private var currentUnit: String = "sat"
     private var isInitialized = false
@@ -41,32 +42,154 @@ class CashuService {
     private fun initializeCdkAvailability(): Boolean {
         if (isCdkAvailable) return true
         
+        Log.d(TAG, "=== CDK LIBRARY AVAILABILITY CHECK ===")
+        
+        // Check device architecture
+        val arch = System.getProperty("os.arch")
+        val arch64 = System.getProperty("os.arch").contains("64")
+        val abiList = android.os.Build.SUPPORTED_64_BIT_ABIS.joinToString(", ")
+        val primaryAbi = android.os.Build.SUPPORTED_ABIS[0]
+        
+        Log.d(TAG, "Device Architecture Info:")
+        Log.d(TAG, "  - os.arch: $arch")
+        Log.d(TAG, "  - 64-bit: $arch64")
+        Log.d(TAG, "  - Primary ABI: $primaryAbi")
+        Log.d(TAG, "  - Supported 64-bit ABIs: $abiList")
+        Log.d(TAG, "  - All ABIs: ${android.os.Build.SUPPORTED_ABIS.joinToString(", ")}")
+        
+        // Check JNA availability
         try {
-            Log.d(TAG, "Testing CDK library availability...")
-            
-            // Try to load CDK classes and generate a mnemonic
-            val generateMnemonicFunction = Class.forName("uniffi.cdk_ffi.Cdk_ffiKt")
-                .getMethod("generateMnemonic")
-            val testMnemonic = generateMnemonicFunction.invoke(null) as String
-            
-            Log.d(TAG, "✅ CDK library is available - generated test mnemonic")
+            val jnaVersion = com.sun.jna.Native.VERSION
+            val jnaNativeVersion = com.sun.jna.Native.VERSION_NATIVE
+            Log.d(TAG, "JNA Library Info:")
+            Log.d(TAG, "  - JNA Version: $jnaVersion")
+            Log.d(TAG, "  - JNA Native Version: $jnaNativeVersion")
+            Log.d(TAG, "  - JNA Platform: ${System.getProperty("jna.platform.library.path")}")
+            Log.d(TAG, "  - JNA Library Path: ${System.getProperty("jna.library.path")}")
+        } catch (e: Exception) {
+            Log.w(TAG, "JNA Library issue: ${e.message}")
+        }
+        
+        // Check native library paths
+        val libraryPath = System.getProperty("java.library.path")
+        Log.d(TAG, "Java Library Path: $libraryPath")
+        
+        // Check if CDK classes are available
+        Log.d(TAG, "Checking CDK-FFI Classes:")
+        
+        val cdkClasses = listOf(
+            "uniffi.cdk_ffi.FfiWallet",
+            "uniffi.cdk_ffi.FfiLocalStore", 
+            "uniffi.cdk_ffi.FfiAmount",
+            "uniffi.cdk_ffi.FfiException",
+            "uniffi.cdk_ffi.Cdk_ffiKt"
+        )
+        
+        for (className in cdkClasses) {
+            try {
+                Class.forName(className)
+                Log.d(TAG, "  ✅ $className - Found")
+            } catch (e: ClassNotFoundException) {
+                Log.w(TAG, "  ❌ $className - Not found")
+            }
+        }
+        
+        // Check native library loading
+        Log.d(TAG, "Checking Native Library Loading:")
+        
+        val libraryNames = listOf("cdk_ffi", "libcdk_ffi", "cdk_ffi.so", "libcdk_ffi.so")
+        
+        for (libName in libraryNames) {
+            try {
+                System.loadLibrary(libName)
+                Log.d(TAG, "  ✅ Successfully loaded: $libName")
+                break
+            } catch (e: UnsatisfiedLinkError) {
+                Log.w(TAG, "  ❌ Failed to load $libName: ${e.message}")
+            }
+        }
+        
+        // Check for CDK-FFI native libraries in APK
+        Log.d(TAG, "Checking APK Native Libraries:")
+        try {
+            val context = Class.forName("android.app.ActivityThread")
+                .getMethod("currentApplication")
+                .invoke(null) as android.content.Context?
+                
+            if (context != null) {
+                val appInfo = context.applicationInfo
+                Log.d(TAG, "  - App native library dir: ${appInfo.nativeLibraryDir}")
+                
+                // Check if libcdk_ffi.so exists
+                val nativeLibDir = java.io.File(appInfo.nativeLibraryDir)
+                if (nativeLibDir.exists()) {
+                    val files = nativeLibDir.listFiles()
+                    Log.d(TAG, "  - Native library files:")
+                    files?.forEach { file ->
+                        val size = if (file.isFile) " (${file.length() / 1024}KB)" else ""
+                        Log.d(TAG, "    - ${file.name}$size")
+                    }
+                    
+                    val cdkLib = java.io.File(nativeLibDir, "libcdk_ffi.so")
+                    if (cdkLib.exists()) {
+                        Log.d(TAG, "  ✅ libcdk_ffi.so found: ${cdkLib.length() / 1024 / 1024}MB")
+                    } else {
+                        Log.w(TAG, "  ❌ libcdk_ffi.so not found in native library directory")
+                    }
+                } else {
+                    Log.w(TAG, "  ❌ Native library directory does not exist")
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not check APK native libraries: ${e.message}")
+        }
+        
+        // Now try to initialize CDK
+        Log.d(TAG, "Attempting CDK Initialization:")
+        
+        try {
+            Log.d(TAG, "  - Trying to call generateMnemonic()...")
+            val testMnemonic = generateMnemonic()
+            Log.d(TAG, "  ✅ generateMnemonic() successful - mnemonic length: ${testMnemonic.split(" ").size} words")
+            Log.d(TAG, "✅ CDK library is fully available and functional!")
             isCdkAvailable = true
             return true
             
-        } catch (e: ClassNotFoundException) {
-            Log.w(TAG, "⚠️ CDK classes not found - using fallback mode")
         } catch (e: UnsatisfiedLinkError) {
-            Log.w(TAG, "⚠️ CDK native library not available for device architecture - using fallback mode")
-        } catch (e: NoSuchMethodException) {
-            Log.w(TAG, "⚠️ CDK method not found - using fallback mode")
+            Log.w(TAG, "❌ UnsatisfiedLinkError during CDK initialization:")
+            Log.w(TAG, "   Error: ${e.message}")
+            Log.w(TAG, "   This usually means the native library (libcdk_ffi.so) is missing or incompatible")
+            
+            // Try to get more details about the error
+            val errorMsg = e.message ?: ""
+            when {
+                errorMsg.contains("dlopen") -> Log.w(TAG, "   Hint: Dynamic library loading failed")
+                errorMsg.contains("undefined symbol") -> Log.w(TAG, "   Hint: Missing symbols in native library")
+                errorMsg.contains("wrong ELF class") -> Log.w(TAG, "   Hint: Architecture mismatch (32-bit vs 64-bit)")
+                errorMsg.contains("No such file") -> Log.w(TAG, "   Hint: Native library file not found")
+            }
+            
+        } catch (e: FfiException) {
+            Log.w(TAG, "❌ CDK FFI Exception during initialization:")
+            Log.w(TAG, "   Error: ${e.message}")
+            Log.w(TAG, "   This means the library loaded but CDK functionality failed")
+            
         } catch (e: NoClassDefFoundError) {
-            Log.w(TAG, "⚠️ JNA library not available - using fallback mode (missing native support)")
+            Log.w(TAG, "❌ NoClassDefFoundError during CDK initialization:")
+            Log.w(TAG, "   Error: ${e.message}")
+            Log.w(TAG, "   This usually means CDK classes are missing from classpath")
+            
         } catch (e: Exception) {
-            Log.w(TAG, "⚠️ CDK initialization failed - using fallback mode: ${e.message}")
+            Log.w(TAG, "❌ Unexpected error during CDK initialization:")
+            Log.w(TAG, "   Error type: ${e.javaClass.simpleName}")
+            Log.w(TAG, "   Error message: ${e.message}")
+            Log.w(TAG, "   Stack trace: ${e.stackTrace.joinToString("\n") { "     $it" }}")
         }
         
         isCdkAvailable = false
+        Log.w(TAG, "⚠️ CDK library not available - using fallback mode")
         Log.d(TAG, "📱 Running in demo mode with simulated operations")
+        Log.d(TAG, "=== END CDK LIBRARY CHECK ===")
         return false
     }
     
@@ -99,35 +222,30 @@ class CashuService {
      */
     private suspend fun initializeRealWallet(mintUrl: String, unit: String): Result<Boolean> {
         try {
-            // Import CDK classes dynamically to avoid crashes on unsupported devices
-            val generateMnemonicFunction = Class.forName("uniffi.cdk_ffi.Cdk_ffiKt")
-                .getMethod("generateMnemonic")
-            val ffiLocalStoreClass = Class.forName("uniffi.cdk_ffi.FfiLocalStore")
-            val ffiWalletClass = Class.forName("uniffi.cdk_ffi.FfiWallet")
-            val ffiCurrencyUnitClass = Class.forName("uniffi.cdk_ffi.FfiCurrencyUnit")
-            
-            // Create local store
-            localStore = ffiLocalStoreClass.getConstructor().newInstance()
+            // Create local store directly using CDK-FFI
+            localStore = FfiLocalStore()
             Log.d(TAG, "Created CDK local store")
             
-            // Generate mnemonic
-            val mnemonic = generateMnemonicFunction.invoke(null) as String
+            // Generate mnemonic directly using CDK-FFI
+            val mnemonic = generateMnemonic()
             Log.d(TAG, "Generated mnemonic for wallet")
             
             // Convert unit string to FfiCurrencyUnit
-            val unitField = ffiCurrencyUnitClass.getDeclaredField(unit.uppercase())
-            val ffiUnit = unitField.get(null)
+            val ffiUnit = when (unit.lowercase()) {
+                "sat" -> FfiCurrencyUnit.SAT
+                "msat" -> FfiCurrencyUnit.MSAT
+                "usd" -> FfiCurrencyUnit.USD
+                "eur" -> FfiCurrencyUnit.EUR
+                else -> FfiCurrencyUnit.SAT
+            }
             
-            // Create wallet from mnemonic
-            val fromMnemonicMethod = ffiWalletClass.getMethod(
-                "fromMnemonic", 
-                String::class.java, 
-                ffiCurrencyUnitClass,
-                ffiLocalStoreClass,
-                String::class.java
+            // Create wallet from mnemonic directly using CDK-FFI
+            wallet = FfiWallet.fromMnemonic(
+                mintUrl = mintUrl,
+                unit = ffiUnit,
+                localstore = localStore!!,
+                mnemonicWords = mnemonic
             )
-            
-            wallet = fromMnemonicMethod.invoke(null, mintUrl, ffiUnit, localStore, mnemonic)
             Log.d(TAG, "Created CDK wallet successfully")
             
             currentMintUrl = mintUrl
@@ -136,6 +254,9 @@ class CashuService {
             
             Log.d(TAG, "Real CDK wallet initialized successfully")
             return Result.success(true)
+        } catch (e: FfiException) {
+            Log.e(TAG, "CDK FFI error during wallet initialization", e)
+            return Result.failure(e)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize real CDK wallet", e)
             return Result.failure(e)
@@ -155,9 +276,6 @@ class CashuService {
         return Result.success(true)
     }
     
-    /**
-     * Get mint information
-     */
     suspend fun getMintInfo(mintUrl: String): Result<MintInfo> {
         return withContext(Dispatchers.IO) {
             try {
@@ -166,11 +284,10 @@ class CashuService {
                     initializeWallet(mintUrl).getOrThrow()
                 }
                 
-                val mintInfo = if (isCdkAvailable) {
+                val mintInfo = if (isCdkAvailable && wallet != null) {
                     // Real mint info from CDK
                     try {
-                        val getMintInfoMethod = wallet!!.javaClass.getMethod("getMintInfo")
-                        val mintInfoJson = getMintInfoMethod.invoke(wallet) as String
+                        val mintInfoJson = wallet!!.getMintInfo()
                         Log.d(TAG, "Retrieved real mint info from CDK")
                         
                         MintInfo(
@@ -190,8 +307,11 @@ class CashuService {
                             icon = null,
                             time = Date()
                         )
+                    } catch (e: FfiException) {
+                        Log.w(TAG, "CDK FFI error getting mint info: ${e.message}")
+                        createFallbackMintInfo(mintUrl) 
                     } catch (e: Exception) {
-                        Log.w(TAG, "Failed to get real mint info, using fallback")
+                        Log.w(TAG, "Failed to get real mint info, using fallback: ${e.message}")
                         createFallbackMintInfo(mintUrl)
                     }
                 } else {
@@ -240,15 +360,16 @@ class CashuService {
                 val balance = if (isCdkAvailable && wallet != null) {
                     try {
                         // Real balance from CDK
-                        val balanceMethod = wallet!!.javaClass.getMethod("balance")
-                        val ffiAmount = balanceMethod.invoke(wallet)
-                        val valueField = ffiAmount.javaClass.getDeclaredField("value")
-                        val balanceValue = (valueField.get(ffiAmount) as ULong).toLong()
+                        val ffiAmount = wallet!!.balance()
+                        val balanceValue = ffiAmount.value.toLong()
                         
                         Log.d(TAG, "Real balance: $balanceValue sats")
                         balanceValue
+                    } catch (e: FfiException) {
+                        Log.w(TAG, "CDK FFI error getting balance: ${e.message}")
+                        mockBalance
                     } catch (e: Exception) {
-                        Log.w(TAG, "Failed to get real balance, using demo balance")
+                        Log.w(TAG, "Failed to get real balance, using demo balance: ${e.message}")
                         mockBalance
                     }
                 } else {
@@ -277,13 +398,34 @@ class CashuService {
                 
                 val token = if (isCdkAvailable && wallet != null) {
                     try {
-                        // Real token creation with CDK reflection
+                        // Real token creation with CDK
                         Log.d(TAG, "Creating real token for amount: $amount")
-                        // This would need complex reflection to call CDK methods
-                        // For now, return a demo token
+                        
+                        // Create send options
+                        val sendMemo = memo?.let { FfiSendMemo(it, true) }
+                        val sendOptions = FfiSendOptions(
+                            memo = sendMemo,
+                            amountSplitTarget = FfiSplitTarget.DEFAULT,
+                            sendKind = FfiSendKind.OnlineExact,
+                            includeFee = true,
+                            metadata = emptyMap(),
+                            maxProofs = null
+                        )
+                        
+                        // Create the token
+                        val ffiToken = wallet!!.send(
+                            amount = FfiAmount(amount.toULong()),
+                            options = sendOptions,
+                            memo = sendMemo
+                        )
+                        
+                        Log.d(TAG, "Created real token successfully")
+                        ffiToken.tokenString
+                    } catch (e: FfiException) {
+                        Log.w(TAG, "CDK FFI error creating token: ${e.message}")
                         "cashuAdemo${amount}_${System.currentTimeMillis()}"
                     } catch (e: Exception) {
-                        Log.w(TAG, "Failed to create real token, using demo")
+                        Log.w(TAG, "Failed to create real token, using demo: ${e.message}")  
                         "cashuAdemo${amount}_${System.currentTimeMillis()}"
                     }
                 } else {
@@ -291,7 +433,7 @@ class CashuService {
                     "cashuAdemo${amount}_${System.currentTimeMillis()}"
                 }
                 
-                // Simulate balance reduction
+                // Simulate balance reduction for demo mode
                 if (!isCdkAvailable) {
                     mockBalance = maxOf(0, mockBalance - amount)
                 }
@@ -352,11 +494,35 @@ class CashuService {
                 
                 val mintQuote = if (isCdkAvailable && wallet != null) {
                     try {
-                        // Real mint quote creation would be implemented here
-                        Log.d(TAG, "Would create real mint quote for $amount")
+                        // Real mint quote creation using CDK
+                        Log.d(TAG, "Creating real mint quote for $amount")
+                        
+                        val ffiMintQuote = wallet!!.mintQuote(
+                            amount = FfiAmount(amount.toULong()),
+                            description = description
+                        )
+                        
+                        Log.d(TAG, "Created real mint quote: ${ffiMintQuote.id}")
+                        
+                        // Convert FFI types to our domain types
+                        MintQuote(
+                            id = ffiMintQuote.id,
+                            amount = BigDecimal(ffiMintQuote.amount.value.toLong()),
+                            unit = ffiMintQuote.unit,
+                            request = ffiMintQuote.request,
+                            state = when (ffiMintQuote.state) {
+                                FfiMintQuoteState.UNPAID -> MintQuoteState.UNPAID
+                                FfiMintQuoteState.PAID -> MintQuoteState.PAID  
+                                FfiMintQuoteState.ISSUED -> MintQuoteState.ISSUED
+                            },
+                            expiry = Date(ffiMintQuote.expiry.toLong() * 1000), // Convert from seconds to milliseconds
+                            paid = ffiMintQuote.state == FfiMintQuoteState.PAID
+                        )
+                    } catch (e: FfiException) {
+                        Log.w(TAG, "CDK FFI error creating mint quote: ${e.message}")
                         createDemoMintQuote(amount, description)
                     } catch (e: Exception) {
-                        Log.w(TAG, "Failed to create real mint quote, using demo")
+                        Log.w(TAG, "Failed to create real mint quote, using demo: ${e.message}")
                         createDemoMintQuote(amount, description)
                     }
                 } else {
