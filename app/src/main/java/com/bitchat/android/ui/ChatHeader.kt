@@ -145,7 +145,8 @@ fun ChatHeaderContent(
     onBackClick: () -> Unit,
     onSidebarClick: () -> Unit,
     onTripleClick: () -> Unit,
-    onShowAppInfo: () -> Unit
+    onShowAppInfo: () -> Unit,
+    onShowSettings: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
     var tripleClickCount by remember { mutableStateOf(0) }
@@ -191,7 +192,8 @@ fun ChatHeaderContent(
                     }
                 },
                 onSidebarClick = onSidebarClick,
-                viewModel = viewModel
+                viewModel = viewModel,
+                onShowSettings = onShowSettings
             )
         }
     }
@@ -346,7 +348,8 @@ private fun MainHeader(
     onNicknameChange: (String) -> Unit,
     onTitleClick: () -> Unit,
     onSidebarClick: () -> Unit,
-    viewModel: ChatViewModel
+    viewModel: ChatViewModel,
+    onShowSettings: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val connectedPeers by viewModel.connectedPeers.observeAsState(emptyList())
@@ -376,13 +379,30 @@ private fun MainHeader(
             )
         }
         
-        PeerCounter(
-            connectedPeers = connectedPeers.filter { it != viewModel.meshService.myPeerID },
-            joinedChannels = joinedChannels,
-            hasUnreadChannels = hasUnreadChannels,
-            hasUnreadPrivateMessages = hasUnreadPrivateMessages,
-            isConnected = isConnected,
-            onClick = onSidebarClick
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            IconButton(
+                onClick = onShowSettings,
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings",
+                    tint = colorScheme.onSurface,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            
+            PeerCounter(
+                connectedPeers = connectedPeers.filter { it != viewModel.meshService.myPeerID },
+                joinedChannels = joinedChannels,
+                hasUnreadChannels = hasUnreadChannels,
+                hasUnreadPrivateMessages = hasUnreadPrivateMessages,
+                isConnected = isConnected,
+                onClick = onSidebarClick
+            )
+        }
     }
 }

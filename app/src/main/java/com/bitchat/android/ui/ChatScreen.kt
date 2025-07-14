@@ -64,6 +64,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val showCommandSuggestions by viewModel.showCommandSuggestions.observeAsState(false)
     val commandSuggestions by viewModel.commandSuggestions.observeAsState(emptyList())
     val showAppInfo by viewModel.showAppInfo.observeAsState(false)
+    val showSettings by viewModel.showSettings.observeAsState(false)
+    val currentTheme by viewModel.settingsManager::themePreference
     
     var messageText by remember { mutableStateOf("") }
     var showPasswordPrompt by remember { mutableStateOf(false) }
@@ -188,7 +190,11 @@ fun ChatScreen(viewModel: ChatViewModel) {
             passwordInput = ""
         },
         showAppInfo = showAppInfo,
-        onAppInfoDismiss = { viewModel.hideAppInfo() }
+        onAppInfoDismiss = { viewModel.hideAppInfo() },
+        showSettings = showSettings,
+        onSettingsDismiss = { viewModel.hideSettings() },
+        currentTheme = currentTheme,
+        onThemeChange = { preference -> viewModel.updateThemePreference(preference) }
     )
 }
 
@@ -275,7 +281,8 @@ private fun ChatFloatingHeader(
                     },
                     onSidebarClick = onSidebarToggle,
                     onTripleClick = onPanicClear,
-                    onShowAppInfo = onShowAppInfo
+                    onShowAppInfo = onShowAppInfo,
+                    onShowSettings = { viewModel.showSettings() }
                 )
             },
             colors = TopAppBarDefaults.topAppBarColors(
@@ -303,7 +310,11 @@ private fun ChatDialogs(
     onPasswordConfirm: () -> Unit,
     onPasswordDismiss: () -> Unit,
     showAppInfo: Boolean,
-    onAppInfoDismiss: () -> Unit
+    onAppInfoDismiss: () -> Unit,
+    showSettings: Boolean,
+    onSettingsDismiss: () -> Unit,
+    currentTheme: SettingsManager.ThemePreference,
+    onThemeChange: (SettingsManager.ThemePreference) -> Unit
 ) {
     // Password dialog
     PasswordPromptDialog(
@@ -319,5 +330,13 @@ private fun ChatDialogs(
     AppInfoDialog(
         show = showAppInfo,
         onDismiss = onAppInfoDismiss
+    )
+    
+    // Settings dialog
+    SettingsDialog(
+        show = showSettings,
+        currentTheme = currentTheme,
+        onThemeChange = onThemeChange,
+        onDismiss = onSettingsDismiss
     )
 }

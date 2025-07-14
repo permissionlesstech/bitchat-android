@@ -37,6 +37,9 @@ class ChatViewModel(
     val privateChatManager = PrivateChatManager(state, messageManager, dataManager)
     private val commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager)
     private val notificationManager = NotificationManager(application.applicationContext)
+    private var _settingsManager: SettingsManager? = null
+    val settingsManager: SettingsManager
+        get() = _settingsManager ?: SettingsManager(context).also { _settingsManager = it }
     
     // Delegate handler for mesh callbacks
     private val meshDelegateHandler = MeshDelegateHandler(
@@ -72,6 +75,10 @@ class ChatViewModel(
     val commandSuggestions: LiveData<List<CommandSuggestion>> = state.commandSuggestions
     val favoritePeers: LiveData<Set<String>> = state.favoritePeers
     val showAppInfo: LiveData<Boolean> = state.showAppInfo
+    
+    // Settings state
+    private val _showSettings = androidx.lifecycle.MutableLiveData(false)
+    val showSettings: LiveData<Boolean> = _showSettings
     
     init {
         // Note: Mesh service delegate is now set by MainActivity
@@ -386,12 +393,38 @@ class ChatViewModel(
         state.setShowSidebar(false)
     }
     
+    // MARK: - Settings Management
+    
+    fun showSettings() {
+        _showSettings.value = true
+    }
+    
+    fun hideSettings() {
+        _showSettings.value = false
+    }
+    
+    fun updateThemePreference(preference: SettingsManager.ThemePreference) {
+        settingsManager.updateThemePreference(preference)
+    }
+    
+    /**
+     * Set the shared SettingsManager instance from MainActivity
+     */
+    fun setSettingsManager(manager: SettingsManager) {
+        _settingsManager = manager
+    }
+    
     /**
      * Handle Android back navigation
      * Returns true if the back press was handled, false if it should be passed to the system
      */
     fun handleBackPressed(): Boolean {
         return when {
+            // Close settings dialog
+            _showSettings.value == true -> {
+                hideSettings()
+                true
+            }
             // Close app info dialog
             state.getShowAppInfoValue() -> {
                 hideAppInfo()
