@@ -47,7 +47,7 @@ security-crypto = "1.1.0-beta01"
 cbor = "0.9"
 
 # JNA (Java Native Access) - Required for CDK FFI
-jna = "5.13.0"
+jna = "5.15.0"
 
 # QR Code generation
 zxing-core = "3.5.1"
@@ -111,6 +111,7 @@ cbor = { module = "co.nstant.in:cbor", version.ref = "cbor" }
 
 # JNA (Java Native Access) - Required for CDK FFI
 jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
+jna-platform = { module = "net.java.dev.jna:jna-platform", version.ref = "jna" }
 
 # QR Code generation
 zxing-core = { module = "com.google.zxing:core", version.ref = "zxing-core" }

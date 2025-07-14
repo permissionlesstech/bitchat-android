@@ -46,6 +46,9 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+        jniLibs {
+            useLegacyPackaging = true
+        }
     }
     lint {
         baseline = file("lint-baseline.xml")
@@ -96,6 +99,7 @@ dependencies {
     
     // JNA for CDK FFI bindings
     implementation(libs.jna)
+    implementation(libs.jna.platform)
     
     // QR Code generation
     implementation(libs.zxing.core)

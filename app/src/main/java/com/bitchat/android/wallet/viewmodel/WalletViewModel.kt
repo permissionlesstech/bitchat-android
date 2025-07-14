@@ -91,6 +91,80 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     init {
         loadInitialData()
         startPolling()
+        initializeDefaultWallet()
+    }
+    
+    /**
+     * Initialize with default mint if no mints are configured
+     */
+    private fun initializeDefaultWallet() {
+        viewModelScope.launch {
+            try {
+                // Check if we have mints configured
+                repository.getMints().onSuccess { mintList ->
+                    if (mintList.isEmpty()) {
+                        Log.d(TAG, "No mints found, initializing with default mint")
+                        // Add default mint
+                        addDefaultMint()
+                    }
+                }
+                
+                // Ensure we have an active mint
+                repository.getActiveMint().onSuccess { activeMintUrl ->
+                    if (activeMintUrl.isNullOrEmpty()) {
+                        Log.d(TAG, "No active mint, setting default")
+                        // Use default mint URL from CashuService
+                        cashuService.initializeWallet("https://mint.minibits.cash/Bitcoin").onSuccess {
+                            refreshBalance()
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error initializing default wallet", e)
+            }
+        }
+    }
+    
+    /**
+     * Add default mint for testing
+     */
+    private fun addDefaultMint() {
+        viewModelScope.launch {
+            val defaultMintUrl = "https://mint.minibits.cash/Bitcoin"
+            val defaultMintNickname = "Minibits"
+            
+            try {
+                cashuService.getMintInfo(defaultMintUrl).onSuccess { mintInfo ->
+                    val mint = Mint(
+                        url = defaultMintUrl,
+                        nickname = defaultMintNickname,
+                        info = mintInfo,
+                        keysets = emptyList(),
+                        active = true,
+                        dateAdded = Date()
+                    )
+                    
+                    repository.saveMint(mint).onSuccess {
+                        repository.setActiveMint(defaultMintUrl)
+                        _activeMint.value = defaultMintUrl
+                        repository.getMints().onSuccess { mintList ->
+                            _mints.value = mintList
+                        }
+                        // Initialize wallet with this mint
+                        initializeWalletWithMint(defaultMintUrl)
+                    }
+                }.onFailure { error ->
+                    Log.e(TAG, "Failed to add default mint", error)
+                    // Fallback - still initialize wallet even if mint info fails
+                    cashuService.initializeWallet(defaultMintUrl).onSuccess {
+                        _activeMint.value = defaultMintUrl
+                        refreshBalance()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Exception adding default mint", e)
+            }
+        }
     }
     
     /**
