@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">الدردشة الثنائية</string>
+    <string name="app_name">بيتشات</string>
     <string name="permission_bluetooth_rationale">يعد إذن البلوتوث ضروريًا للمراسلة عبر الإنترنت.</string>
     <string name="permission_location_rationale">تحتاج إلى إذن بالترجمة لاكتشاف الأجهزة التالية عبر Bluetooth.</string>
     <string name="permission_notification_rationale">يلزم الحصول على إذن الإشعارات لتنبيه الرسائل الجديدة.</string>
