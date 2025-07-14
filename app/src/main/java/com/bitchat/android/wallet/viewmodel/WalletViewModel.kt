@@ -274,6 +274,11 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                         val updatedQuote = quote.copy(paid = true, state = MintQuoteState.PAID)
                         repository.saveMintQuote(updatedQuote)
                         
+                        // Update currentMintQuote if it's the same quote
+                        if (_currentMintQuote.value?.id == quote.id) {
+                            _currentMintQuote.value = updatedQuote
+                        }
+                        
                         val transaction = WalletTransaction(
                             id = UUID.randomUUID().toString(),
                             type = TransactionType.LIGHTNING_RECEIVE,
@@ -370,6 +375,22 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     
     fun clearError() {
         _errorMessage.value = null
+    }
+    
+    /**
+     * Set a specific mint quote as current (for reopening from transaction list)
+     */
+    fun setCurrentMintQuote(quoteId: String) {
+        viewModelScope.launch {
+            repository.getMintQuotes().onSuccess { quotes ->
+                val quote = quotes.find { it.id == quoteId }
+                if (quote != null) {
+                    _currentMintQuote.value = quote
+                    _receiveType.value = ReceiveType.LIGHTNING
+                    showReceiveDialog()
+                }
+            }
+        }
     }
     
     // Wallet Operations

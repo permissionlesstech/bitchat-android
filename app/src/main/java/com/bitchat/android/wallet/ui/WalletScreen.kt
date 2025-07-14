@@ -25,29 +25,49 @@ fun WalletScreen(
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableStateOf(0) }
+    var showReceiveView by remember { mutableStateOf(false) }
     val showSendDialog by walletViewModel.showSendDialog.observeAsState(false)
     val showReceiveDialog by walletViewModel.showReceiveDialog.observeAsState(false)
     
-    Column(modifier = modifier.fillMaxSize()) {
-        // Content
-        when (selectedTab) {
-            0 -> WalletOverview(viewModel = walletViewModel, modifier = Modifier.weight(1f))
-            1 -> TransactionHistory(
-                transactions = walletViewModel.getAllTransactions().observeAsState(initial = emptyList()).value,
-                modifier = Modifier.weight(1f)
-            )
-            2 -> MintsScreen(viewModel = walletViewModel, modifier = Modifier.weight(1f))
-            3 -> WalletSettings(
-                viewModel = walletViewModel,
-                onBackClick = { /* No back action needed in tab navigation */ }
+    if (showReceiveView) {
+        // Full-screen ReceiveView
+        ReceiveView(
+            viewModel = walletViewModel,
+            onNavigateBack = { 
+                showReceiveView = false 
+                walletViewModel.hideReceiveDialog()
+            }
+        )
+    } else {
+        Column(modifier = modifier.fillMaxSize()) {
+            // Content
+            when (selectedTab) {
+                0 -> WalletOverview(viewModel = walletViewModel, modifier = Modifier.weight(1f))
+                1 -> TransactionHistory(
+                    transactions = walletViewModel.getAllTransactions().observeAsState(initial = emptyList()).value,
+                    modifier = Modifier.weight(1f),
+                    onTransactionClick = { transaction ->
+                        // For lightning receive transactions, open the receive view with the quote
+                        if (transaction.type == com.bitchat.android.wallet.data.TransactionType.LIGHTNING_RECEIVE && 
+                            transaction.quote != null) {
+                            walletViewModel.setCurrentMintQuote(transaction.quote!!)
+                            showReceiveView = true
+                        }
+                    }
+                )
+                2 -> MintsScreen(viewModel = walletViewModel, modifier = Modifier.weight(1f))
+                3 -> WalletSettings(
+                    viewModel = walletViewModel,
+                    onBackClick = { /* No back action needed in tab navigation */ }
+                )
+            }
+            
+            // Bottom Navigation
+            WalletBottomNavigation(
+                selectedTab = selectedTab,
+                onTabSelected = { selectedTab = it }
             )
         }
-        
-        // Bottom Navigation
-        WalletBottomNavigation(
-            selectedTab = selectedTab,
-            onTabSelected = { selectedTab = it }
-        )
     }
     
     // Dialogs
@@ -59,10 +79,11 @@ fun WalletScreen(
     }
     
     if (showReceiveDialog) {
-        ReceiveDialog(
-            viewModel = walletViewModel,
-            onDismiss = { walletViewModel.hideReceiveDialog() }
-        )
+        LaunchedEffect(showReceiveDialog) {
+            if (showReceiveDialog) {
+                showReceiveView = true
+            }
+        }
     }
 }
 

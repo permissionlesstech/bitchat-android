@@ -27,10 +27,11 @@ fun QRCodeCanvas(
     size: Dp = 200.dp
 ) {
     val density = LocalDensity.current
-    val sizePx = with(density) { size.toPx() }.toInt()
     
+    // Use a larger fixed size for better quality
     val qrCodeBitMatrix = remember(text) {
         try {
+            val sizePx = with(density) { 512.dp.toPx() }.toInt() // Fixed high resolution
             val writer = QRCodeWriter()
             writer.encode(text, BarcodeFormat.QR_CODE, sizePx, sizePx)
         } catch (e: WriterException) {
@@ -40,20 +41,21 @@ fun QRCodeCanvas(
     
     Canvas(
         modifier = modifier
-            .size(size)
             .background(Color.White)
     ) {
         qrCodeBitMatrix?.let { bitMatrix ->
-            drawQRCode(bitMatrix, sizePx)
+            // Use the actual canvas size, not a calculated size
+            val canvasSize = minOf(this.size.width, this.size.height)
+            drawQRCode(bitMatrix, canvasSize)
         }
     }
 }
 
 private fun DrawScope.drawQRCode(
     bitMatrix: com.google.zxing.common.BitMatrix,
-    sizePx: Int
+    sizePx: Float
 ) {
-    val cellSize = sizePx.toFloat() / bitMatrix.width
+    val cellSize = sizePx / bitMatrix.width
     
     for (x in 0 until bitMatrix.width) {
         for (y in 0 until bitMatrix.height) {
