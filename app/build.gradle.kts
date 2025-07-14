@@ -91,6 +91,15 @@ dependencies {
     // Security preferences
     implementation(libs.androidx.security.crypto)
     
+    // CBOR for Cashu token parsing
+    implementation(libs.cbor)
+    
+    // JNA for CDK FFI bindings
+    implementation(libs.jna)
+    
+    // QR Code generation
+    implementation(libs.zxing.core)
+    
     // Testing
     testImplementation(libs.bundles.testing)
     androidTestImplementation(platform(libs.androidx.compose.bom))

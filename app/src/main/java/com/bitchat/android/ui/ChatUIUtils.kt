@@ -8,6 +8,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.mesh.BluetoothMeshService
+import com.bitchat.android.parsing.MessageParser
+import com.bitchat.android.parsing.MessageElement
 import androidx.compose.material3.ColorScheme
 import java.text.SimpleDateFormat
 import java.util.*
@@ -28,6 +30,14 @@ fun getRSSIColor(rssi: Int): Color {
         rssi >= -80 -> Color(0xFFFF8000) // Orange
         else -> Color(0xFFFF4444) // Red
     }
+}
+
+/**
+ * Parse message content and return list of message elements.
+ * This replaces formatMessageAsAnnotatedString for messages that contain special content.
+ */
+fun parseMessageContent(content: String): List<MessageElement> {
+    return MessageParser.instance.parseMessage(content)
 }
 
 /**

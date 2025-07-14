@@ -31,6 +31,9 @@ gson = "2.13.1"
 # Coroutines
 kotlinx-coroutines = "1.10.2"
 
+# Serialization 
+kotlinx-serialization = "1.7.3"
+
 # Bluetooth
 nordic-ble = "2.6.1"
 
@@ -39,6 +42,15 @@ lz4-java = "1.8.0"
 
 # Security
 security-crypto = "1.1.0-beta01"
+
+# CBOR  
+cbor = "0.9"
+
+# JNA (Java Native Access) - Required for CDK FFI
+jna = "5.13.0"
+
+# QR Code generation
+zxing-core = "3.5.1"
 
 # Testing
 junit = "4.13.2"
@@ -82,6 +94,9 @@ gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 # Coroutines
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
 
+# Serialization
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+
 # Bluetooth
 nordic-ble = { module = "no.nordicsemi.android:ble", version.ref = "nordic-ble" }
 
@@ -90,6 +105,15 @@ lz4-java = { module = "org.lz4:lz4-java", version.ref = "lz4-java" }
 
 # Security
 androidx-security-crypto = { module = "androidx.security:security-crypto", version.ref = "security-crypto" }
+
+# CBOR
+cbor = { module = "co.nstant.in:cbor", version.ref = "cbor" }
+
+# JNA (Java Native Access) - Required for CDK FFI
+jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
+
+# QR Code generation
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxing-core" }
 
 # Testing
 junit = { module = "junit:junit", version.ref = "junit" }
@@ -104,6 +128,7 @@ android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-parcelize = { id = "kotlin-parcelize" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 
 [bundles]
 compose = [

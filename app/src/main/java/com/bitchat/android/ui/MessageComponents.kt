@@ -18,6 +18,8 @@ import androidx.compose.ui.unit.sp
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.mesh.BluetoothMeshService
+import com.bitchat.android.parsing.MessageElement
+import com.bitchat.android.parsing.ParsedMessageContent
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -73,26 +75,102 @@ fun MessageItem(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Top
     ) {
-        // Single text view for natural wrapping (like iOS)
-        Text(
-            text = formatMessageAsAnnotatedString(
-                message = message,
-                currentUserNickname = currentUserNickname,
-                meshService = meshService,
-                colorScheme = colorScheme,
-                timeFormatter = timeFormatter
-            ),
-            modifier = Modifier.weight(1f),
-            fontFamily = FontFamily.Monospace,
-            softWrap = true,
-            overflow = TextOverflow.Visible
-        )
+        // Check if message contains special content (like Cashu tokens)
+        val parsedElements = parseMessageContent(message.content)
+        val hasSpecialContent = parsedElements.any { it !is MessageElement.Text }
+        
+        if (hasSpecialContent) {
+            // Use new parsed message layout for special content
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                // Timestamp and sender header
+                MessageHeader(
+                    message = message,
+                    currentUserNickname = currentUserNickname,
+                    meshService = meshService,
+                    colorScheme = colorScheme,
+                    timeFormatter = timeFormatter
+                )
+                
+                // Parsed content with inline special elements
+                ParsedMessageContent(
+                    elements = parsedElements,
+                    modifier = Modifier.padding(start = 16.dp) // Indent content slightly
+                )
+            }
+        } else {
+            // Use existing text-only layout
+            Text(
+                text = formatMessageAsAnnotatedString(
+                    message = message,
+                    currentUserNickname = currentUserNickname,
+                    meshService = meshService,
+                    colorScheme = colorScheme,
+                    timeFormatter = timeFormatter
+                ),
+                modifier = Modifier.weight(1f),
+                fontFamily = FontFamily.Monospace,
+                softWrap = true,
+                overflow = TextOverflow.Visible
+            )
+        }
         
         // Delivery status for private messages
         if (message.isPrivate && message.sender == currentUserNickname) {
             message.deliveryStatus?.let { status ->
                 DeliveryStatusIcon(status = status)
             }
+        }
+    }
+}
+
+@Composable
+fun MessageHeader(
+    message: BitchatMessage,
+    currentUserNickname: String,
+    meshService: BluetoothMeshService,
+    colorScheme: ColorScheme,
+    timeFormatter: SimpleDateFormat
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Timestamp
+        val timestampColor = if (message.sender == "system") Color.Gray else colorScheme.primary.copy(alpha = 0.7f)
+        Text(
+            text = "[${timeFormatter.format(message.timestamp)}] ",
+            fontSize = 12.sp,
+            color = timestampColor,
+            fontFamily = FontFamily.Monospace
+        )
+        
+        if (message.sender != "system") {
+            // Sender
+            val senderColor = when {
+                message.sender == currentUserNickname -> colorScheme.primary
+                else -> {
+                    val peerID = message.senderPeerID
+                    val rssi = peerID?.let { meshService.getPeerRSSI()[it] } ?: -60
+                    getRSSIColor(rssi)
+                }
+            }
+            
+            Text(
+                text = "<@${message.sender}> ",
+                fontSize = 14.sp,
+                color = senderColor,
+                fontWeight = FontWeight.Medium,
+                fontFamily = FontFamily.Monospace
+            )
+        } else {
+            // System message prefix
+            Text(
+                text = "* ",
+                fontSize = 12.sp,
+                color = Color.Gray,
+                fontFamily = FontFamily.Monospace
+            )
         }
     }
 }

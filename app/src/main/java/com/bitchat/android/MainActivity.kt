@@ -24,6 +24,7 @@ import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.onboarding.*
 import com.bitchat.android.ui.ChatScreen
 import com.bitchat.android.ui.ChatViewModel
+import com.bitchat.android.ui.MainAppScreen
 import com.bitchat.android.ui.theme.BitchatTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -161,7 +162,7 @@ class MainActivity : ComponentActivity() {
             }
             
             OnboardingState.COMPLETE -> {
-                // Set up back navigation handling for the chat screen
+                // Set up back navigation handling for the main app screen
                 val backCallback = object : OnBackPressedCallback(true) {
                     override fun handleOnBackPressed() {
                         // Let ChatViewModel handle navigation state
@@ -179,7 +180,7 @@ class MainActivity : ComponentActivity() {
                 // Add the callback - this will be automatically removed when the activity is destroyed
                 onBackPressedDispatcher.addCallback(this, backCallback)
                 
-                ChatScreen(viewModel = chatViewModel)
+                MainAppScreen(chatViewModel = chatViewModel)
             }
             
             OnboardingState.ERROR -> {

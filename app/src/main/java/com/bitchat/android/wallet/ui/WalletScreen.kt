@@ -1,0 +1,182 @@
+package com.bitchat.android.wallet.ui
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.bitchat.android.wallet.viewmodel.WalletViewModel
+
+/**
+ * Main wallet screen with bottom navigation
+ */
+@Composable
+fun WalletScreen(
+    walletViewModel: WalletViewModel = viewModel(),
+    modifier: Modifier = Modifier
+) {
+    var selectedTab by remember { mutableStateOf(0) }
+    val showSendDialog by walletViewModel.showSendDialog.observeAsState(false)
+    val showReceiveDialog by walletViewModel.showReceiveDialog.observeAsState(false)
+    
+    Column(modifier = modifier.fillMaxSize()) {
+        // Content
+        when (selectedTab) {
+            0 -> WalletOverview(viewModel = walletViewModel, modifier = Modifier.weight(1f))
+            1 -> TransactionHistory(
+                transactions = walletViewModel.getAllTransactions().observeAsState(initial = emptyList()).value,
+                modifier = Modifier.weight(1f)
+            )
+            2 -> MintsScreen(viewModel = walletViewModel, modifier = Modifier.weight(1f))
+            3 -> WalletSettings(
+                viewModel = walletViewModel,
+                onBackClick = { /* No back action needed in tab navigation */ }
+            )
+        }
+        
+        // Bottom Navigation
+        WalletBottomNavigation(
+            selectedTab = selectedTab,
+            onTabSelected = { selectedTab = it }
+        )
+    }
+    
+    // Dialogs
+    if (showSendDialog) {
+        SendDialog(
+            viewModel = walletViewModel,
+            onDismiss = { walletViewModel.hideSendDialog() }
+        )
+    }
+    
+    if (showReceiveDialog) {
+        ReceiveDialog(
+            viewModel = walletViewModel,
+            onDismiss = { walletViewModel.hideReceiveDialog() }
+        )
+    }
+}
+
+@Composable
+private fun WalletBottomNavigation(
+    selectedTab: Int,
+    onTabSelected: (Int) -> Unit
+) {
+    NavigationBar(
+        containerColor = Color(0xFF1A1A1A),
+        tonalElevation = 8.dp
+    ) {
+        NavigationBarItem(
+            icon = {
+                Icon(
+                    imageVector = Icons.Filled.AccountBalanceWallet,
+                    contentDescription = "Wallet",
+                    modifier = Modifier.size(20.dp)
+                )
+            },
+            label = {
+                Text(
+                    text = "Wallet",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 12.sp
+                )
+            },
+            selected = selectedTab == 0,
+            onClick = { onTabSelected(0) },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = Color(0xFF00C851),
+                selectedTextColor = Color(0xFF00C851),
+                unselectedIconColor = Color.Gray,
+                unselectedTextColor = Color.Gray,
+                indicatorColor = Color(0xFF00C851).copy(alpha = 0.2f)
+            )
+        )
+        
+        NavigationBarItem(
+            icon = {
+                Icon(
+                    imageVector = Icons.Filled.History,
+                    contentDescription = "History",
+                    modifier = Modifier.size(20.dp)
+                )
+            },
+            label = {
+                Text(
+                    text = "History",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 12.sp
+                )
+            },
+            selected = selectedTab == 1,
+            onClick = { onTabSelected(1) },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = Color(0xFF00C851),
+                selectedTextColor = Color(0xFF00C851),
+                unselectedIconColor = Color.Gray,
+                unselectedTextColor = Color.Gray,
+                indicatorColor = Color(0xFF00C851).copy(alpha = 0.2f)
+            )
+        )
+        
+        NavigationBarItem(
+            icon = {
+                Icon(
+                    imageVector = Icons.Filled.AccountBalance,
+                    contentDescription = "Mints",
+                    modifier = Modifier.size(20.dp)
+                )
+            },
+            label = {
+                Text(
+                    text = "Mints",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 12.sp
+                )
+            },
+            selected = selectedTab == 2,
+            onClick = { onTabSelected(2) },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = Color(0xFF00C851),
+                selectedTextColor = Color(0xFF00C851),
+                unselectedIconColor = Color.Gray,
+                unselectedTextColor = Color.Gray,
+                indicatorColor = Color(0xFF00C851).copy(alpha = 0.2f)
+            )
+        )
+        
+        NavigationBarItem(
+            icon = {
+                Icon(
+                    imageVector = Icons.Filled.Settings,
+                    contentDescription = "Settings",
+                    modifier = Modifier.size(20.dp)
+                )
+            },
+            label = {
+                Text(
+                    text = "Settings",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 12.sp
+                )
+            },
+            selected = selectedTab == 3,
+            onClick = { onTabSelected(3) },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = Color(0xFF00C851),
+                selectedTextColor = Color(0xFF00C851),
+                unselectedIconColor = Color.Gray,
+                unselectedTextColor = Color.Gray,
+                indicatorColor = Color(0xFF00C851).copy(alpha = 0.2f)
+            )
+        )
+    }
+}
