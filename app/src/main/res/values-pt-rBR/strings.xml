@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources> 
-    <string name="app_name">vadia</string> 
+    <string name="app_name">bitchat</string> 
     <string name="permission_bluetooth_rationale">A permissão Bluetooth é necessária para mensagens ponto a ponto sem internet.</string> 
     <string name="permission_location_rationale">É necessária permissão de localização para descobrir dispositivos próximos via Bluetooth.</string> 
     <string name="permission_notification_rationale">A permissão de notificação é necessária para alertá-lo sobre novas mensagens.</string> 
