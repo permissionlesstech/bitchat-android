@@ -16,92 +16,54 @@ import java.util.*
 
 /**
  * ViewModel for managing Cashu wallet state and operations
+ * Now refactored to use specialized manager classes for better organization
  */
 class WalletViewModel(application: Application) : AndroidViewModel(application) {
     
     private val repository = WalletRepository.getInstance(application)
     private val cashuService = CashuService.getInstance()
     
+    // Manager instances
+    private val mintManager = MintManager(repository, cashuService, viewModelScope)
+    private val tokenManager = TokenManager(repository, cashuService, viewModelScope)
+    private val lightningManager = LightningManager(repository, cashuService, viewModelScope)
+    private val transactionManager = TransactionManager(repository, viewModelScope)
+    private val uiStateManager = UIStateManager()
+    
     companion object {
         private const val TAG = "WalletViewModel"
         private const val POLLING_INTERVAL = 5000L // 5 seconds
     }
     
-    // Observable data
+    // Core wallet data
     private val _balance = MutableLiveData<Long>(0L)
     val balance: LiveData<Long> = _balance
     
-    private val _isLoading = MutableLiveData<Boolean>(false)
-    val isLoading: LiveData<Boolean> = _isLoading
-    
-    private val _errorMessage = MutableLiveData<String?>(null)
-    val errorMessage: LiveData<String?> = _errorMessage
-    
-    private val _mints = MutableLiveData<List<Mint>>(emptyList())
-    val mints: LiveData<List<Mint>> = _mints
-    
-    private val _activeMint = MutableLiveData<String?>(null)
-    val activeMint: LiveData<String?> = _activeMint
-    
-    private val _transactions = MutableLiveData<List<WalletTransaction>>(emptyList())
-    val transactions: LiveData<List<WalletTransaction>> = _transactions
-    
-    private val _pendingMintQuotes = MutableLiveData<List<MintQuote>>(emptyList())
-    val pendingMintQuotes: LiveData<List<MintQuote>> = _pendingMintQuotes
-    
-    private val _pendingMeltQuotes = MutableLiveData<List<MeltQuote>>(emptyList())
-    val pendingMeltQuotes: LiveData<List<MeltQuote>> = _pendingMeltQuotes
-    
-    // Send/Receive dialog state
-    private val _showSendDialog = MutableLiveData<Boolean>(false)
-    val showSendDialog: LiveData<Boolean> = _showSendDialog
-    
-    private val _showReceiveDialog = MutableLiveData<Boolean>(false)
-    val showReceiveDialog: LiveData<Boolean> = _showReceiveDialog
-    
-    private val _sendType = MutableLiveData<SendType>(SendType.CASHU)
-    val sendType: LiveData<SendType> = _sendType
-    
-    private val _receiveType = MutableLiveData<ReceiveType>(ReceiveType.CASHU)
-    val receiveType: LiveData<ReceiveType> = _receiveType
-    
-    // Mints tab state  
-    private val _showAddMintDialog = MutableLiveData<Boolean>(false)
-    val showAddMintDialog: LiveData<Boolean> = _showAddMintDialog
-    
-    // Current operations state
-    private val _generatedToken = MutableLiveData<String?>(null)
-    val generatedToken: LiveData<String?> = _generatedToken
-    
-    private val _decodedToken = MutableLiveData<CashuToken?>(null)
-    val decodedToken: LiveData<CashuToken?> = _decodedToken
-    
-    private val _currentMintQuote = MutableLiveData<MintQuote?>(null)
-    val currentMintQuote: LiveData<MintQuote?> = _currentMintQuote
-    
-    private val _currentMeltQuote = MutableLiveData<MeltQuote?>(null)
-    val currentMeltQuote: LiveData<MeltQuote?> = _currentMeltQuote
-    
-    // Token input state for receive dialog
-    private val _tokenInput = MutableLiveData<String>("")
-    val tokenInput: LiveData<String> = _tokenInput
-    
-    // Success animation state
-    private val _showSuccessAnimation = MutableLiveData<Boolean>(false)
-    val showSuccessAnimation: LiveData<Boolean> = _showSuccessAnimation
-    
-    private val _successAnimationData = MutableLiveData<SuccessAnimationData?>(null)
-    val successAnimationData: LiveData<SuccessAnimationData?> = _successAnimationData
-    
-    // Failure animation state
-    private val _showFailureAnimation = MutableLiveData<Boolean>(false)
-    val showFailureAnimation: LiveData<Boolean> = _showFailureAnimation
-    
-    private val _failureAnimationData = MutableLiveData<FailureAnimationData?>(null)
-    val failureAnimationData: LiveData<FailureAnimationData?> = _failureAnimationData
-    
     // State management
     private var pollingJob: kotlinx.coroutines.Job? = null
+    
+    // Expose LiveData from managers
+    val mints: LiveData<List<Mint>> = mintManager.mints
+    val activeMint: LiveData<String?> = mintManager.activeMint
+    val transactions: LiveData<List<WalletTransaction>> = transactionManager.transactions
+    val generatedToken: LiveData<String?> = tokenManager.generatedToken
+    val decodedToken: LiveData<CashuToken?> = tokenManager.decodedToken
+    val tokenInput: LiveData<String> = tokenManager.tokenInput
+    val currentMintQuote: LiveData<MintQuote?> = lightningManager.currentMintQuote
+    val currentMeltQuote: LiveData<MeltQuote?> = lightningManager.currentMeltQuote
+    val pendingMintQuotes: LiveData<List<MintQuote>> = lightningManager.pendingMintQuotes
+    val pendingMeltQuotes: LiveData<List<MeltQuote>> = lightningManager.pendingMeltQuotes
+    val showSendDialog: LiveData<Boolean> = uiStateManager.showSendDialog
+    val showReceiveDialog: LiveData<Boolean> = uiStateManager.showReceiveDialog
+    val sendType: LiveData<SendType> = uiStateManager.sendType
+    val receiveType: LiveData<ReceiveType> = uiStateManager.receiveType
+    val showAddMintDialog: LiveData<Boolean> = uiStateManager.showAddMintDialog
+    val showSuccessAnimation: LiveData<Boolean> = uiStateManager.showSuccessAnimation
+    val successAnimationData: LiveData<SuccessAnimationData?> = uiStateManager.successAnimationData
+    val showFailureAnimation: LiveData<Boolean> = uiStateManager.showFailureAnimation
+    val failureAnimationData: LiveData<FailureAnimationData?> = uiStateManager.failureAnimationData
+    val isLoading: LiveData<Boolean> = uiStateManager.isLoading
+    val errorMessage: LiveData<String?> = uiStateManager.errorMessage
     
     enum class SendType { CASHU, LIGHTNING }
     enum class ReceiveType { CASHU, LIGHTNING }
@@ -141,72 +103,8 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
      * Initialize with default mint if no mints are configured
      */
     private fun initializeDefaultWallet() {
-        viewModelScope.launch {
-            try {
-                // Check if we have mints configured
-                repository.getMints().onSuccess { mintList ->
-                    if (mintList.isEmpty()) {
-                        Log.d(TAG, "No mints found, initializing with default mint")
-                        // Add default mint
-                        addDefaultMint()
-                    }
-                }
-                
-                // Ensure we have an active mint
-                repository.getActiveMint().onSuccess { activeMintUrl ->
-                    if (activeMintUrl.isNullOrEmpty()) {
-                        Log.d(TAG, "No active mint, setting default")
-                        // Use default mint URL from CashuService
-                        cashuService.initializeWallet("https://testnut.cashu.space").onSuccess {
-                            refreshBalance()
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error initializing default wallet", e)
-            }
-        }
-    }
-    
-    /**
-     * Add default mint for testing
-     */
-    private fun addDefaultMint() {
-        viewModelScope.launch {
-            val defaultMintUrl = "https://mint.minibits.cash/Bitcoin"
-            val defaultMintNickname = "Minibits"
-            
-            try {
-                cashuService.getMintInfo(defaultMintUrl).onSuccess { mintInfo ->
-                    val mint = Mint(
-                        url = defaultMintUrl,
-                        nickname = defaultMintNickname,
-                        info = mintInfo,
-                        keysets = emptyList(),
-                        active = true,
-                        dateAdded = Date()
-                    )
-                    
-                    repository.saveMint(mint).onSuccess {
-                        repository.setActiveMint(defaultMintUrl)
-                        _activeMint.value = defaultMintUrl
-                        repository.getMints().onSuccess { mintList ->
-                            _mints.value = mintList
-                        }
-                        // Initialize wallet with this mint
-                        initializeWalletWithMint(defaultMintUrl)
-                    }
-                }.onFailure { error ->
-                    Log.e(TAG, "Failed to add default mint", error)
-                    // Fallback - still initialize wallet even if mint info fails
-                    cashuService.initializeWallet(defaultMintUrl).onSuccess {
-                        _activeMint.value = defaultMintUrl
-                        refreshBalance()
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Exception adding default mint", e)
-            }
+        mintManager.initializeDefaultWallet {
+            refreshBalance()
         }
     }
     
@@ -214,59 +112,9 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
      * Load initial wallet data 
      */
     private fun loadInitialData() {
-        viewModelScope.launch {
-            try {
-                // Load mints
-                repository.getMints().onSuccess { mintList ->
-                    _mints.value = mintList
-                }
-                
-                // Load active mint and initialize wallet
-                repository.getActiveMint().onSuccess { mintUrl ->
-                    if (!mintUrl.isNullOrEmpty()) {
-                        _activeMint.value = mintUrl
-                        initializeWalletWithMint(mintUrl)
-                    } else {
-                        // Load mints first and set first as active if none selected
-                        repository.getMints().onSuccess { mintList ->
-                            _mints.value = mintList
-                            if (mintList.isNotEmpty()) {
-                                val firstMint = mintList.first().url
-                                setActiveMint(firstMint)
-                            }
-                        }
-                    }
-                }
-                
-                // Load transactions
-                loadTransactions()
-                
-                // Load pending quotes
-                loadPendingQuotes()
-                
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to load initial data", e)
-                _errorMessage.value = "Failed to load wallet data: ${e.message}"
-            }
-        }
-    }
-    
-    /**
-     * Initialize wallet with specific mint
-     */
-    private suspend fun initializeWalletWithMint(mintUrl: String) {
-        try {
-            _isLoading.value = true
-            cashuService.initializeWallet(mintUrl).onSuccess {
-                refreshBalance()
-                Log.d(TAG, "Wallet initialized with mint: $mintUrl")
-            }.onFailure { error ->
-                Log.e(TAG, "Failed to initialize wallet with mint: $mintUrl", error)
-                _errorMessage.value = "Failed to connect to mint: ${error.message}"
-            }
-        } finally {
-            _isLoading.value = false
-        }
+        mintManager.loadMints()
+        transactionManager.loadTransactions()
+        lightningManager.loadPendingQuotes()
     }
     
     /**
@@ -293,7 +141,10 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         pollingJob = viewModelScope.launch {
             while (true) {
                 try {
-                    checkPendingQuotes()
+                    lightningManager.checkPendingQuotes(
+                        onTransactionSaved = { transactionManager.loadTransactions() },
+                        onBalanceRefresh = { refreshBalance() }
+                    )
                     delay(POLLING_INTERVAL)
                 } catch (e: Exception) {
                     Log.e(TAG, "Error during polling", e)
@@ -303,227 +154,75 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
     
-    /**
-     * Check pending quotes for updates
-     */
-    private suspend fun checkPendingQuotes() {
-        // Check mint quotes
-        repository.getMintQuotes().onSuccess { quotes ->
-            val unpaidQuotes = quotes.filter { !it.paid }
-            for (quote in unpaidQuotes) {
-                cashuService.checkAndMintQuote(quote.id).onSuccess { success ->
-                    if (success) {
-                        // Update quote status and add transaction
-                        val updatedQuote = quote.copy(paid = true, state = MintQuoteState.PAID)
-                        repository.saveMintQuote(updatedQuote).onSuccess {
-                            // Update currentMintQuote if it's the same quote
-                            if (_currentMintQuote.value?.id == quote.id) {
-                                _currentMintQuote.value = updatedQuote
-                            }
-                            
-                            val transaction = WalletTransaction(
-                                id = UUID.randomUUID().toString(),
-                                type = TransactionType.LIGHTNING_RECEIVE,
-                                amount = quote.amount,
-                                unit = quote.unit,
-                                status = TransactionStatus.CONFIRMED,
-                                timestamp = Date(),
-                                description = "Lightning payment received",
-                                quote = quote.id
-                            )
-                            repository.saveTransaction(transaction).onSuccess {
-                                loadTransactions()
-                                refreshBalance()
-                                
-                                Log.d(TAG, "Mint quote ${quote.id} was paid and minted")
-                            }.onFailure { error ->
-                                Log.e(TAG, "Failed to save transaction for mint quote ${quote.id}", error)
-                            }
-                        }.onFailure { error ->
-                            Log.e(TAG, "Failed to save updated mint quote ${quote.id}", error)
-                        }
-                    }
-                }
-            }
-            _pendingMintQuotes.value = unpaidQuotes
-        }
-        
-        // Note: Melt quotes typically don't need polling as they're immediately processed
-        repository.getMeltQuotes().onSuccess { quotes ->
-            _pendingMeltQuotes.value = quotes.filter { it.state != MeltQuoteState.PAID }
-        }
-    }
+    // UI Action Methods - Delegate to UIStateManager
     
-    /**
-     * Load transaction history
-     */
-    private fun loadTransactions() {
-        viewModelScope.launch {
-            repository.getLastTransactions(10).onSuccess { txList ->
-                _transactions.value = txList
-            }
-        }
-    }
-    
-    /**
-     * Load pending quotes
-     */
-    private fun loadPendingQuotes() {
-        viewModelScope.launch {
-            repository.getMintQuotes().onSuccess { quotes ->
-                _pendingMintQuotes.value = quotes.filter { !it.paid }
-            }
-            
-            repository.getMeltQuotes().onSuccess { quotes ->
-                _pendingMeltQuotes.value = quotes.filter { it.state != MeltQuoteState.PAID }
-            }
-        }
-    }
-    
-    // UI Action Methods
-    
-    fun showSendDialog() {
-        _showSendDialog.value = true
-    }
+    fun showSendDialog() = uiStateManager.showSendDialog()
     
     fun hideSendDialog() {
-        _showSendDialog.value = false
-        _generatedToken.value = null
-        _currentMeltQuote.value = null
-        _sendType.value = SendType.CASHU
+        uiStateManager.hideSendDialog()
+        tokenManager.clearGeneratedToken()
+        lightningManager.clearCurrentMeltQuote()
     }
     
-    fun showReceiveDialog() {
-        _showReceiveDialog.value = true
-    }
+    fun showReceiveDialog() = uiStateManager.showReceiveDialog()
     
     fun hideReceiveDialog() {
-        _showReceiveDialog.value = false
-        _decodedToken.value = null
-        _currentMintQuote.value = null
-        _receiveType.value = ReceiveType.CASHU
-        clearTokenInput()
+        uiStateManager.hideReceiveDialog()
+        tokenManager.clearTokenInput()
+        lightningManager.clearCurrentMintQuote()
     }
     
-    fun setSendType(type: SendType) {
-        _sendType.value = type
-    }
+    fun setSendType(type: SendType) = uiStateManager.setSendType(type)
     
-    fun setReceiveType(type: ReceiveType) {
-        _receiveType.value = type
-    }
+    fun setReceiveType(type: ReceiveType) = uiStateManager.setReceiveType(type)
     
-    fun showAddMintDialog() {
-        _showAddMintDialog.value = true
-    }
+    fun showAddMintDialog() = uiStateManager.showAddMintDialog()
     
-    fun hideAddMintDialog() {
-        _showAddMintDialog.value = false
-    }
+    fun hideAddMintDialog() = uiStateManager.hideAddMintDialog()
     
-    fun clearError() {
-        _errorMessage.value = null
-    }
+    fun clearError() = uiStateManager.clearError()
     
-    // Token input management
-    fun setTokenInput(token: String) {
-        _tokenInput.value = token
-        if (token.isNotEmpty() && token.startsWith("cashu")) {
-            decodeCashuToken(token)
-        }
-    }
+    // Token input management - Delegate to TokenManager
+    fun setTokenInput(token: String) = tokenManager.setTokenInput(token)
     
-    fun clearTokenInput() {
-        _tokenInput.value = ""
-        _decodedToken.value = null
-    }
+    fun clearTokenInput() = tokenManager.clearTokenInput()
     
-    // Success animation management
-    fun showSuccessAnimation(animationData: SuccessAnimationData) {
-        _successAnimationData.value = animationData
-        _showSuccessAnimation.value = true
-    }
+    // Animation management - Delegate to UIStateManager
+    fun showSuccessAnimation(animationData: SuccessAnimationData) = uiStateManager.showSuccessAnimation(animationData)
     
-    fun hideSuccessAnimation() {
-        _showSuccessAnimation.value = false
-        _successAnimationData.value = null
-    }
+    fun hideSuccessAnimation() = uiStateManager.hideSuccessAnimation()
     
-    // Failure animation management
-    fun showFailureAnimation(animationData: FailureAnimationData) {
-        _failureAnimationData.value = animationData
-        _showFailureAnimation.value = true
-    }
+    fun showFailureAnimation(animationData: FailureAnimationData) = uiStateManager.showFailureAnimation(animationData)
     
-    fun hideFailureAnimation() {
-        _showFailureAnimation.value = false
-        _failureAnimationData.value = null
-    }
+    fun hideFailureAnimation() = uiStateManager.hideFailureAnimation()
     
-    // Back navigation handler
-    private var backHandler: (() -> Boolean)? = null
+    // Back navigation - Delegate to UIStateManager
+    fun setBackHandler(handler: () -> Boolean) = uiStateManager.setBackHandler(handler)
     
-    fun setBackHandler(handler: () -> Boolean) {
-        backHandler = handler
-    }
-    
-    fun handleBackPress(): Boolean {
-        return backHandler?.invoke() ?: false
-    }
+    fun handleBackPress(): Boolean = uiStateManager.handleBackPress()
     
     /**
      * Set a specific mint quote as current (for reopening from transaction list)
      */
     fun setCurrentMintQuote(quoteId: String) {
-        viewModelScope.launch {
-            repository.getMintQuotes().onSuccess { quotes ->
-                val quote = quotes.find { it.id == quoteId }
-                if (quote != null) {
-                    _currentMintQuote.value = quote
-                    _receiveType.value = ReceiveType.LIGHTNING
-                    showReceiveDialog()
-                }
-            }
+        lightningManager.setCurrentMintQuote(quoteId) {
+            uiStateManager.setReceiveType(ReceiveType.LIGHTNING)
+            showReceiveDialog()
         }
     }
     
-    // Wallet Operations
+    // Wallet Operations - Delegate to appropriate managers
     
     /**
      * Create a Cashu token 
      */
     fun createCashuToken(amount: Long, memo: String? = null) {
-        viewModelScope.launch {
-            try {
-                _isLoading.value = true
-                cashuService.createToken(amount, memo).onSuccess { token ->
-                    _generatedToken.value = token
-                    
-                    // Add transaction
-                    val transaction = WalletTransaction(
-                        id = UUID.randomUUID().toString(),
-                        type = TransactionType.CASHU_SEND,
-                        amount = BigDecimal(amount),
-                        unit = "sat",
-                        status = TransactionStatus.CONFIRMED,
-                        timestamp = Date(),
-                        description = memo ?: "Cashu token sent",
-                        token = token
-                    )
-                    repository.saveTransaction(transaction).onSuccess {
-                        loadTransactions()
-                        refreshBalance()
-                    }.onFailure { error ->
-                        Log.e(TAG, "Failed to save transaction", error)
-                        _errorMessage.value = "Failed to save transaction: ${error.message}"
-                    }
-                }.onFailure { error ->
-                    _errorMessage.value = "Failed to create token: ${error.message}"
-                }
-            } finally {
-                _isLoading.value = false
-            }
-        }
+        tokenManager.createCashuToken(
+            amount = amount,
+            memo = memo,
+            onTransactionSaved = { transactionManager.loadTransactions() },
+            onBalanceRefresh = { refreshBalance() }
+        )
     }
     
     /**
@@ -535,238 +234,60 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         onSuccess: (String) -> Unit,
         onError: (String) -> Unit
     ) {
-        viewModelScope.launch {
-            try {
-                cashuService.createToken(amount, memo).onSuccess { token ->
-                    
-                    // Add transaction
-                    val transaction = WalletTransaction(
-                        id = UUID.randomUUID().toString(),
-                        type = TransactionType.CASHU_SEND,
-                        amount = BigDecimal(amount),
-                        unit = "sat",
-                        status = TransactionStatus.CONFIRMED,
-                        timestamp = Date(),
-                        description = memo ?: "Cashu token sent",
-                        token = token
-                    )
-                    
-                    repository.saveTransaction(transaction).onSuccess {
-                        loadTransactions()
-                        refreshBalance()
-                        
-                        // Success callback with token
-                        onSuccess(token)
-                        
-                    }.onFailure { error ->
-                        Log.e(TAG, "Failed to save transaction", error)
-                        onError("Failed to save transaction: ${error.message}")
-                    }
-                    
-                }.onFailure { error ->
-                    onError("Failed to create token: ${error.message}")
-                }
-                
-            } catch (e: Exception) {
-                Log.e(TAG, "Exception creating payment token", e)
-                onError(e.message ?: "Unknown error occurred")
-            }
-        }
+        tokenManager.createCashuTokenForPayment(
+            amount = amount,
+            memo = memo,
+            onSuccess = onSuccess,
+            onError = onError,
+            onTransactionSaved = { transactionManager.loadTransactions() },
+            onBalanceRefresh = { refreshBalance() }
+        )
     }
     
     /**
      * Decode a Cashu token to show information
      */
-    fun decodeCashuToken(token: String) {
-        viewModelScope.launch {
-            try {
-                _isLoading.value = true
-                cashuService.decodeToken(token).onSuccess { decodedToken ->
-                    _decodedToken.value = decodedToken
-                }.onFailure { error ->
-                    _errorMessage.value = "Invalid token: ${error.message}"
-                }
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
+    fun decodeCashuToken(token: String) = tokenManager.decodeCashuToken(token)
     
     /**
      * Receive a Cashu token
      */
     fun receiveCashuToken(token: String) {
-        viewModelScope.launch {
-            try {
-                _isLoading.value = true
-                
-                // Get decoded token and current mints
-                val decodedToken = _decodedToken.value
-                if (decodedToken == null) {
-                    val failureData = FailureAnimationData(
-                        errorMessage = "Failed to decode token",
-                        operationType = "Token Receive"
-                    )
-                    showFailureAnimation(failureData)
-                    clearTokenInput()
-                    delay(500)
-                    hideReceiveDialog()
-                    return@launch
-                }
-
-                val currentMints = _mints.value ?: emptyList()
-                
-                // Use the new CashuService.receiveToken with mint management
-                cashuService.receiveToken(
-                    token = token,
-                    autoAdd = true, // Enable automatic mint addition
-                    currentMints = currentMints,
-                    decodedToken = decodedToken
-                ).onSuccess { amount ->
-                    
-                    // Add transaction
-                    val transaction = WalletTransaction(
-                        id = UUID.randomUUID().toString(),
-                        type = TransactionType.CASHU_RECEIVE,
-                        amount = BigDecimal(amount),
-                        unit = "sat",
-                        status = TransactionStatus.CONFIRMED,
-                        timestamp = Date(),
-                        description = "Cashu token received",
-                        token = token
-                    )
-                    repository.saveTransaction(transaction).onSuccess {
-                        loadTransactions()
-                        refreshBalance()
-                        // Reload mints in case a new one was added
-                        repository.getMints().onSuccess { mintList ->
-                            _mints.value = mintList
-                        }
-                        
-                        // Clear token input immediately
-                        clearTokenInput()
-                        
-                        // Show success animation
-                        val animationData = SuccessAnimationData(
-                            type = SuccessAnimationType.CASHU_RECEIVED,
-                            amount = amount,
-                            unit = "sat",
-                            description = "Cashu token received successfully!"
-                        )
-                        showSuccessAnimation(animationData)
-                        
-                        // Close receive dialog after animation starts
-                        delay(500) // Short delay to let animation start
-                        hideReceiveDialog()
-                        
-                    }.onFailure { error ->
-                        Log.e(TAG, "Failed to save transaction", error)
-                        
-                        // Clear token input and close dialog
-                        clearTokenInput()
-                        
-                        // Show failure animation for transaction save error
-                        val failureData = FailureAnimationData(
-                            errorMessage = "Failed to save transaction: ${error.message}",
-                            operationType = "Token Receive"
-                        )
-                        showFailureAnimation(failureData)
-                        
-                        // Close receive dialog after animation starts
-                        delay(500)
-                        hideReceiveDialog()
-                    }
-                }.onFailure { error ->
-                    Log.e(TAG, "Failed to receive token", error)
-                    
-                    // Clear token input and close dialog
-                    clearTokenInput()
-                    
-                    // Show failure animation for token receive error
-                    val failureData = FailureAnimationData(
-                        errorMessage = error.message ?: "Unknown error occurred",
-                        operationType = "Token Receive"
-                    )
-                    showFailureAnimation(failureData)
-                    
-                    // Close receive dialog after animation starts
+        tokenManager.receiveCashuToken(
+            token = token,
+            currentMints = mintManager.getCurrentMints(),
+            onSuccess = { animationData ->
+                showSuccessAnimation(animationData)
+                viewModelScope.launch {
                     delay(500)
                     hideReceiveDialog()
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Exception in receiveCashuToken", e)
-                
-                // Clear token input and close dialog
-                clearTokenInput()
-                
-                // Show failure animation for unexpected error
-                val failureData = FailureAnimationData(
-                    errorMessage = e.message ?: "Unexpected error occurred",
-                    operationType = "Token Receive"
-                )
+            },
+            onFailure = { failureData ->
                 showFailureAnimation(failureData)
-                
-                // Close receive dialog after animation starts
-                delay(500)
-                hideReceiveDialog()
-            } finally {
-                _isLoading.value = false
-            }
-        }
+                viewModelScope.launch {
+                    delay(500)
+                    hideReceiveDialog()
+                }
+            },
+            onTransactionSaved = { transactionManager.loadTransactions() },
+            onBalanceRefresh = { refreshBalance() },
+            onMintsUpdated = { mintManager.loadMints() }
+        )
     }
     
     /**
      * Create Lightning mint quote (for receiving)
      */
-    fun createMintQuote(amount: Long, description: String? = null) {
-        viewModelScope.launch {
-            try {
-                _isLoading.value = true
-                cashuService.createMintQuote(amount, description).onSuccess { quote ->
-                    _currentMintQuote.value = quote
-                    
-                    // Save quote for tracking
-                    repository.saveMintQuote(quote).onSuccess {
-                        loadPendingQuotes()
-                    }.onFailure { error ->
-                        Log.e(TAG, "Failed to save mint quote", error)
-                        _errorMessage.value = "Failed to save invoice: ${error.message}"
-                    }
-                }.onFailure { error ->
-                    _errorMessage.value = "Failed to create invoice: ${error.message}"
-                }
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
+    fun createMintQuote(amount: Long, description: String? = null) = lightningManager.createMintQuote(amount, description)
     
     /**
      * Create Lightning melt quote (for sending)
      */
     fun createMeltQuote(invoice: String) {
-        viewModelScope.launch {
-            try {
-                _isLoading.value = true
-                cashuService.createMeltQuote(invoice).onSuccess { quote ->
-                    _currentMeltQuote.value = quote
-                    
-                    // Save quote for tracking
-                    repository.saveMeltQuote(quote).onSuccess {
-                        loadPendingQuotes()
-                        
-                        // kick off the polling
-                        startPolling()
-                    }.onFailure { error ->
-                        Log.e(TAG, "Failed to save melt quote", error)
-                        _errorMessage.value = "Failed to save quote: ${error.message}"
-                    }
-                }.onFailure { error ->
-                    _errorMessage.value = "Failed to process invoice: ${error.message}"
-                }
-            } finally {
-                _isLoading.value = false
-            }
+        lightningManager.createMeltQuote(invoice) {
+            // Restart polling when a new melt quote is created
+            startPolling()
         }
     }
     
@@ -774,177 +295,43 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
      * Pay Lightning invoice (melt)
      */
     fun payLightningInvoice(quoteId: String) {
-        viewModelScope.launch {
-            try {
-                _isLoading.value = true
-                cashuService.payInvoice(quoteId).onSuccess { success ->
-                    if (success) {
-                        // Update quote status and add transaction
-                        val quote = _currentMeltQuote.value
-                        if (quote != null) {
-                            val updatedQuote = quote.copy(paid = true, state = MeltQuoteState.PAID)
-                            repository.saveMeltQuote(updatedQuote).onSuccess {
-                                val transaction = WalletTransaction(
-                                    id = UUID.randomUUID().toString(),
-                                    type = TransactionType.LIGHTNING_SEND,
-                                    amount = quote.amount,
-                                    unit = quote.unit,
-                                    status = TransactionStatus.CONFIRMED,
-                                    timestamp = Date(),
-                                    description = "Lightning payment sent",
-                                    quote = quote.id,
-                                    fee = quote.feeReserve
-                                )
-                                repository.saveTransaction(transaction).onSuccess {
-                                    loadTransactions()
-                                    refreshBalance()
-                                    hideSendDialog()
-                                }.onFailure { error ->
-                                    Log.e(TAG, "Failed to save transaction", error)
-                                    _errorMessage.value = "Failed to save transaction: ${error.message}"
-                                }
-                            }.onFailure { error ->
-                                Log.e(TAG, "Failed to save melt quote", error)
-                                _errorMessage.value = "Failed to save quote: ${error.message}"
-                            }
-                        }
-                    } else {
-                        _errorMessage.value = "Payment failed"
-                    }
-                }.onFailure { error ->
-                    _errorMessage.value = "Payment failed: ${error.message}"
-                }
-            } finally {
-                _isLoading.value = false
-            }
-        }
+        lightningManager.payLightningInvoice(
+            quoteId = quoteId,
+            onTransactionSaved = { transactionManager.loadTransactions() },
+            onBalanceRefresh = { refreshBalance() },
+            onPaymentComplete = { hideSendDialog() }
+        )
     }
     
-    // Mint Management
+    // Mint Management - Delegate to MintManager
     
     /**
      * Add a new mint
      */
     fun addMint(mintUrl: String, nickname: String) {
-        viewModelScope.launch {
-            try {
-                _isLoading.value = true
-                cashuService.getMintInfo(mintUrl).onSuccess { mintInfo ->
-                    val mint = Mint(
-                        url = mintUrl,
-                        nickname = nickname.ifEmpty { mintInfo.name },
-                        info = mintInfo,
-                        keysets = emptyList(), // Will be populated by CDK
-                        active = true,
-                        dateAdded = Date()
-                    )
-                    
-                    repository.saveMint(mint).onSuccess {
-                        // Reload mints
-                        repository.getMints().onSuccess { mintList ->
-                            _mints.value = mintList
-                        }
-                        
-                        // Set as active mint if it's the first one
-                        if (_activeMint.value.isNullOrEmpty()) {
-                            setActiveMint(mintUrl)
-                        }
-                        
-                        hideAddMintDialog()
-                    }.onFailure { error ->
-                        _errorMessage.value = "Failed to save mint: ${error.message}"
-                    }
-                }.onFailure { error ->
-                    _errorMessage.value = "Failed to connect to mint: ${error.message}"
-                }
-            } finally {
-                _isLoading.value = false
-            }
+        mintManager.addMint(mintUrl, nickname) {
+            hideAddMintDialog()
         }
     }
-    
-
     
     /**
      * Set the active mint
      */
     fun setActiveMint(mintUrl: String) {
-        viewModelScope.launch {
-            try {
-                _isLoading.value = true
-                repository.setActiveMint(mintUrl).onSuccess {
-                    _activeMint.value = mintUrl
-                    initializeWalletWithMint(mintUrl)
-                }.onFailure { error ->
-                    _errorMessage.value = "Failed to set active mint: ${error.message}"
-                }
-            } finally {
-                _isLoading.value = false
-            }
+        mintManager.setActiveMint(mintUrl) {
+            refreshBalance()
         }
     }
     
     /**
      * Update mint nickname
      */
-    fun updateMintNickname(mintUrl: String, newNickname: String) {
-        viewModelScope.launch {
-            val currentMints = _mints.value ?: emptyList()
-            val mintToUpdate = currentMints.find { it.url == mintUrl }
-            if (mintToUpdate != null) {
-                val updatedMint = mintToUpdate.copy(nickname = newNickname)
-                repository.saveMint(updatedMint).onSuccess {
-                    // Reload mints
-                    repository.getMints().onSuccess { mintList ->
-                        _mints.value = mintList
-                    }
-                }.onFailure { error ->
-                    _errorMessage.value = "Failed to update mint nickname: ${error.message}"
-                }
-            }
-        }
-    }
+    fun updateMintNickname(mintUrl: String, newNickname: String) = mintManager.updateMintNickname(mintUrl, newNickname)
     
     /**
      * Sync all mints - refresh mint information and keysets
      */
-    fun syncAllMints() {
-        viewModelScope.launch {
-            try {
-                _isLoading.value = true
-                val currentMints = _mints.value ?: emptyList()
-                
-                for (mint in currentMints) {
-                    try {
-                        cashuService.getMintInfo(mint.url).onSuccess { mintInfo ->
-                            val updatedMint = mint.copy(
-                                info = mintInfo,
-                                lastSync = Date()
-                            )
-                            repository.saveMint(updatedMint).onSuccess {
-                                // Mint updated successfully
-                            }.onFailure { error ->
-                                Log.e(TAG, "Failed to save updated mint ${mint.url}", error)
-                            }
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error syncing mint ${mint.url}", e)
-                    }
-                }
-                
-                // Reload mints list
-                repository.getMints().onSuccess { mintList ->
-                    _mints.value = mintList
-                }
-                
-            } catch (e: Exception) {
-                Log.e(TAG, "Error syncing mints", e)
-                _errorMessage.value = "Failed to sync mints: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
+    fun syncAllMints() = mintManager.syncAllMints()
     
     /**
      * Clear all wallet data
@@ -952,7 +339,7 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     fun clearAllWalletData() {
         viewModelScope.launch {
             try {
-                _isLoading.value = true
+                uiStateManager.setLoading(true)
                 pollingJob?.cancel()
                 
                 // Clear all data
@@ -960,24 +347,18 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                 
                 // Reset state
                 _balance.value = 0L
-                _mints.value = emptyList()
-                _activeMint.value = null
-                _transactions.value = emptyList()
-                _pendingMintQuotes.value = emptyList()
-                _pendingMeltQuotes.value = emptyList()
-                _currentMintQuote.value = null
-                _currentMeltQuote.value = null
-                _generatedToken.value = null
-                _decodedToken.value = null
                 
                 // Restart polling
                 startPolling()
                 
+                // Reload all data
+                loadInitialData()
+                
             } catch (e: Exception) {
                 Log.e(TAG, "Error clearing wallet data", e)
-                _errorMessage.value = "Failed to clear data: ${e.message}"
+                uiStateManager.setError("Failed to clear data: ${e.message}")
             } finally {
-                _isLoading.value = false
+                uiStateManager.setLoading(false)
             }
         }
     }
@@ -989,9 +370,9 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             try {
                 val exportData = mapOf(
-                    "mints" to _mints.value,
-                    "transactions" to _transactions.value,
-                    "activeMint" to _activeMint.value,
+                    "mints" to mintManager.getCurrentMints(),
+                    "transactions" to transactionManager.getCurrentTransactions(),
+                    "activeMint" to mintManager.getCurrentActiveMint(),
                     "balance" to _balance.value,
                     "exportDate" to Date().toString(),
                     "version" to "1.0"
@@ -1007,7 +388,7 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                 
             } catch (e: Exception) {
                 Log.e(TAG, "Error exporting wallet data", e)
-                _errorMessage.value = "Failed to export data: ${e.message}"
+                uiStateManager.setError("Failed to export data: ${e.message}")
             }
         }
     }
@@ -1029,26 +410,22 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
             try {
                 // Clear any existing state first
                 hideReceiveDialog()
-                _tokenInput.value = ""
-                _decodedToken.value = null
+                tokenManager.clearTokenInput()
                 
                 // Set the receive type to Cashu
-                _receiveType.value = ReceiveType.CASHU
+                uiStateManager.setReceiveType(ReceiveType.CASHU)
                 
                 // Set the token input which will trigger decoding
-                _tokenInput.value = tokenString
-                
-                // Decode the token
-                decodeCashuToken(tokenString)
+                tokenManager.setTokenInput(tokenString)
                 
                 // Show the receive dialog
-                _showReceiveDialog.value = true
+                uiStateManager.showReceiveDialog()
                 
                 Log.d(TAG, "Opened receive dialog with token: ${tokenString.take(20)}...")
                 
             } catch (e: Exception) {
                 Log.e(TAG, "Error opening receive dialog with token", e)
-                _errorMessage.value = "Failed to process token: ${e.message}"
+                uiStateManager.setError("Failed to process token: ${e.message}")
             }
         }
     }
@@ -1060,14 +437,13 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         try {
             // Clear any existing state first
             hideReceiveDialog()
-            _tokenInput.value = ""
-            _decodedToken.value = null
+            tokenManager.clearTokenInput()
             
             // Set the receive type to Cashu
-            _receiveType.value = ReceiveType.CASHU
+            uiStateManager.setReceiveType(ReceiveType.CASHU)
             
             // Set the token input
-            _tokenInput.value = parsedToken.originalString
+            tokenManager.setTokenInput(parsedToken.originalString)
             
             // Create CashuToken from ParsedCashuToken immediately (no async needed)
             val cashuToken = com.bitchat.android.wallet.data.CashuToken(
@@ -1079,29 +455,21 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
             )
             
             // Set the decoded token immediately
-            _decodedToken.value = cashuToken
+            tokenManager.setDecodedToken(cashuToken)
             
             // Show the receive dialog immediately
-            _showReceiveDialog.value = true
+            uiStateManager.showReceiveDialog()
             
             Log.d(TAG, "Opened receive dialog with parsed token: ${parsedToken.amount} ${parsedToken.unit}")
             
         } catch (e: Exception) {
             Log.e(TAG, "Error opening receive dialog with parsed token", e)
-            _errorMessage.value = "Failed to process token: ${e.message}"
+            uiStateManager.setError("Failed to process token: ${e.message}")
         }
     }
     
     /**
      * Get full transaction history (not just last 10)
      */
-    fun getAllTransactions(): LiveData<List<WalletTransaction>> {
-        val allTransactions = MutableLiveData<List<WalletTransaction>>()
-        viewModelScope.launch {
-            repository.getAllTransactions().onSuccess { txList ->
-                allTransactions.value = txList
-            }
-        }
-        return allTransactions
-    }
+    fun getAllTransactions(): LiveData<List<WalletTransaction>> = transactionManager.getAllTransactions()
 }
