@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import android.util.Log
 import android.content.Context
 import com.bitchat.android.wallet.data.*
+import com.bitchat.android.parsing.CashuTokenParser
 import uniffi.cdk_ffi.*
 import java.math.BigDecimal
 import java.util.*
@@ -283,8 +284,9 @@ class CashuService {
                 
                 Log.d(TAG, "Token validation successful, amount: $amount")
                 
-                // In real CDK implementation, tokens are auto-received when sent
-                // Here we're just validating and returning the amount
+                // receive with CDK:
+                wallet!!.receive(token)
+                
                 Result.success(amount)
                 
             } catch (e: FfiException) {
@@ -481,20 +483,25 @@ class CashuService {
     suspend fun decodeToken(token: String): Result<CashuToken> {
         return withContext(Dispatchers.IO) {
             try {
-                // For now, do simple parsing - CDK might have better token parsing functions
-                val amount = parseTokenAmount(token)
-                val memo = parseTokenMemo(token)
+                // Use the proper CashuTokenParser for real token parsing
+                val parser = CashuTokenParser()
+                val parsedToken = parser.parseToken(token)
                 
-                val cashuToken = CashuToken(
-                    token = token,
-                    amount = BigDecimal(amount),
-                    unit = "sat",
-                    mint = currentMintUrl ?: DEFAULT_MINT_URL,
-                    memo = memo
-                )
-                
-                Log.d(TAG, "Decoded token: amount=$amount")
-                Result.success(cashuToken)
+                if (parsedToken != null) {
+                    val cashuToken = CashuToken(
+                        token = token,
+                        amount = BigDecimal(parsedToken.amount),
+                        unit = parsedToken.unit,
+                        mint = parsedToken.mintUrl,
+                        memo = parsedToken.memo
+                    )
+                    
+                    Log.d(TAG, "Decoded token: amount=${parsedToken.amount} ${parsedToken.unit} from ${parsedToken.mintUrl}")
+                    Result.success(cashuToken)
+                } else {
+                    Log.e(TAG, "Failed to parse token: invalid format")
+                    Result.failure(Exception("Invalid token format"))
+                }
                 
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to decode token", e)
@@ -548,40 +555,5 @@ class CashuService {
         }
     }
     
-    private fun parseTokenAmount(token: String): Long {
-        return try {
-            when {
-                token.startsWith("cashuAdemo") -> {
-                    // Extract amount from demo token
-                    val parts = token.split("_")
-                    if (parts.size >= 2) {
-                        parts[0].removePrefix("cashuAdemo").toLongOrNull() ?: 1000L
-                    } else {
-                        1000L
-                    }
-                }
-                token.startsWith("cashuA") -> {
-                    // Real token parsing would be more complex
-                    // For now, return default
-                    1000L
-                }
-                else -> 1000L
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "Error parsing token amount", e)
-            1000L
-        }
-    }
-    
-    private fun parseTokenMemo(token: String): String? {
-        return try {
-            when {
-                token.startsWith("cashuAdemo") -> "Demo token"
-                token.contains("memo") -> "Cashu token"
-                else -> null
-            }
-        } catch (e: Exception) {
-            null
-        }
-    }
+
 }
