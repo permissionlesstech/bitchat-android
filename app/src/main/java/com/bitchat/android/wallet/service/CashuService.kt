@@ -283,11 +283,8 @@ class CashuService {
                 val amount = decodedToken.amount.toLong()
                 
                 Log.d(TAG, "Token validation successful, amount: $amount")
-                
-                // TODO: Implement proper token receiving using CDK FFI
-                // The CDK FFI doesn't have a direct receive() method
-                // This might involve using prepareSend() or another approach
-                // wallet!!.receive(token)
+
+                wallet!!.receive(token)
                 
                 Result.success(amount)
                 

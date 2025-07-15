@@ -748,6 +748,8 @@ internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
 
 
 
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -800,6 +802,8 @@ internal interface UniffiLib : Library {
     fun uniffi_cdk_ffi_fn_method_ffiwallet_mint_url(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_cdk_ffi_fn_method_ffiwallet_prepare_send(`ptr`: Pointer,`amount`: RustBuffer.ByValue,`options`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_cdk_ffi_fn_method_ffiwallet_receive(`ptr`: Pointer,`token`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_cdk_ffi_fn_method_ffiwallet_send(`ptr`: Pointer,`amount`: RustBuffer.ByValue,`options`: RustBuffer.ByValue,`memo`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -939,6 +943,8 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_cdk_ffi_checksum_method_ffiwallet_prepare_send(
     ): Short
+    fun uniffi_cdk_ffi_checksum_method_ffiwallet_receive(
+    ): Short
     fun uniffi_cdk_ffi_checksum_method_ffiwallet_send(
     ): Short
     fun uniffi_cdk_ffi_checksum_method_ffiwallet_unit(
@@ -996,6 +1002,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_cdk_ffi_checksum_method_ffiwallet_prepare_send() != 46706.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_cdk_ffi_checksum_method_ffiwallet_receive() != 57605.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_cdk_ffi_checksum_method_ffiwallet_send() != 15473.toShort()) {
@@ -1598,6 +1607,11 @@ public interface FfiWalletInterface {
     
     fun `prepareSend`(`amount`: FfiAmount, `options`: FfiSendOptions): FfiPreparedSend
     
+    /**
+     * Receive token
+     */
+    fun `receive`(`token`: kotlin.String): FfiAmount
+    
     fun `send`(`amount`: FfiAmount, `options`: FfiSendOptions, `memo`: FfiSendMemo?): FfiToken
     
     fun `unit`(): kotlin.String
@@ -1806,6 +1820,22 @@ open class FfiWallet: Disposable, AutoCloseable, FfiWalletInterface {
     uniffiRustCallWithError(FfiException) { _status ->
     UniffiLib.INSTANCE.uniffi_cdk_ffi_fn_method_ffiwallet_prepare_send(
         it, FfiConverterTypeFFIAmount.lower(`amount`),FfiConverterTypeFFISendOptions.lower(`options`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Receive token
+     */
+    @Throws(FfiException::class)override fun `receive`(`token`: kotlin.String): FfiAmount {
+            return FfiConverterTypeFFIAmount.lift(
+    callWithPointer {
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.INSTANCE.uniffi_cdk_ffi_fn_method_ffiwallet_receive(
+        it, FfiConverterString.lower(`token`),_status)
 }
     }
     )
