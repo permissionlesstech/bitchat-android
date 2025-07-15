@@ -21,12 +21,33 @@ import com.bitchat.android.wallet.viewmodel.WalletViewModel
 @Composable
 fun MainAppScreen(
     chatViewModel: ChatViewModel,
+    onBackPress: (backHandler: () -> Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     
     // Get wallet ViewModel scoped to this composable
     val walletViewModel: WalletViewModel = viewModel()
+    
+    // Handle back navigation
+    fun handleBackPress(): Boolean {
+        return when (selectedTab) {
+            0 -> {
+                // Chat tab - let ChatViewModel handle it
+                chatViewModel.handleBackPressed()
+            }
+            1 -> {
+                // Wallet tab - let WalletViewModel handle it
+                walletViewModel.handleBackPress()
+            }
+            else -> false
+        }
+    }
+    
+    // Expose back handler to MainActivity
+    LaunchedEffect(Unit) {
+        onBackPress { handleBackPress() }
+    }
     
     Column(modifier = modifier.fillMaxSize()) {
         // Content based on selected tab
@@ -35,7 +56,10 @@ fun MainAppScreen(
                 viewModel = chatViewModel,
                 onWalletClick = { selectedTab = 1 } // Switch to wallet tab when header button is clicked
             ) 
-            1 -> WalletScreen(walletViewModel = walletViewModel)
+            1 -> WalletScreen(
+                walletViewModel = walletViewModel,
+                onBackToChat = { selectedTab = 0 }
+            )
         }
         
         // Bottom Navigation
@@ -43,6 +67,33 @@ fun MainAppScreen(
             selectedTab = selectedTab,
             onTabSelected = { selectedTab = it }
         )
+    }
+    
+    // Set up back handler for wallet
+    LaunchedEffect(selectedTab) {
+        if (selectedTab == 1) {
+            // When wallet is active, set up its back handler
+            walletViewModel.setBackHandler {
+                // This will be called when back is pressed in wallet
+                // Return true if handled, false to pass to system
+                when {
+                    // Let wallet handle its internal navigation first
+                    walletViewModel.showSendDialog.value == true -> {
+                        walletViewModel.hideSendDialog()
+                        true
+                    }
+                    walletViewModel.showReceiveDialog.value == true -> {
+                        walletViewModel.hideReceiveDialog()
+                        true
+                    }
+                    else -> {
+                        // Go back to chat
+                        selectedTab = 0
+                        true
+                    }
+                }
+            }
+        }
     }
 }
 

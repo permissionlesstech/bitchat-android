@@ -381,6 +381,17 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         _errorMessage.value = null
     }
     
+    // Back navigation handler
+    private var backHandler: (() -> Boolean)? = null
+    
+    fun setBackHandler(handler: () -> Boolean) {
+        backHandler = handler
+    }
+    
+    fun handleBackPress(): Boolean {
+        return backHandler?.invoke() ?: false
+    }
+    
     /**
      * Set a specific mint quote as current (for reopening from transaction list)
      */

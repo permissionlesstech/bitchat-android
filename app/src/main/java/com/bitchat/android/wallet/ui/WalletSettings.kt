@@ -31,33 +31,8 @@ fun WalletSettings(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(colorScheme.surface)
+            .background(Color.Black)
     ) {
-        // Header
-        TopAppBar(
-            title = {
-                Text(
-                    text = "Wallet Settings",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            navigationIcon = {
-                IconButton(onClick = onBackClick) {
-                    Icon(
-                        imageVector = Icons.Filled.ArrowBack,
-                        contentDescription = "Back"
-                    )
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = colorScheme.surface,
-                titleContentColor = colorScheme.onSurface,
-                navigationIconContentColor = colorScheme.onSurface
-            )
-        )
-        
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
@@ -169,21 +144,21 @@ fun WalletSettings(
                                 fontFamily = FontFamily.Monospace,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = colorScheme.onSurface
+                                color = Color.White
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = "A privacy-focused Cashu ecash wallet integrated with bitchat mesh networking.",
                                 fontFamily = FontFamily.Monospace,
                                 fontSize = 12.sp,
-                                color = colorScheme.onSurface.copy(alpha = 0.7f)
+                                color = Color.White.copy(alpha = 0.7f)
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
                                 text = "Built with the Cashu Development Kit (CDK)",
                                 fontFamily = FontFamily.Monospace,
                                 fontSize = 10.sp,
-                                color = colorScheme.onSurface.copy(alpha = 0.5f)
+                                color = Color.White.copy(alpha = 0.5f)
                             )
                         }
                     }
@@ -298,7 +273,7 @@ private fun SettingsSection(
             fontFamily = FontFamily.Monospace,
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
+            color = Color(0xFF00C851),
             modifier = Modifier.padding(bottom = 8.dp)
         )
         content()
@@ -313,9 +288,9 @@ private fun SettingsCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = Color(0xFF1A1A1A)
         ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        border = BorderStroke(1.dp, Color(0xFF2A2A2A))
     ) {
         content()
     }
@@ -327,7 +302,7 @@ private fun SettingsItem(
     title: String,
     description: String,
     onClick: () -> Unit,
-    textColor: Color = MaterialTheme.colorScheme.onSurface
+    textColor: Color = Color.White
 ) {
     SettingsCard {
         Row(
@@ -382,14 +357,14 @@ private fun InfoRow(
             text = "$label:",
             fontFamily = FontFamily.Monospace,
             fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            color = Color.White.copy(alpha = 0.7f)
         )
         Text(
             text = value,
             fontFamily = FontFamily.Monospace,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface
+            color = Color.White
         )
     }
 }

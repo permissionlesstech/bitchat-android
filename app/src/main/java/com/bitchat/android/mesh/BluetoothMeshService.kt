@@ -59,7 +59,7 @@ class BluetoothMeshService(private val context: Context) {
     
     init {
         setupDelegates()
-        startPeriodicDebugLogging()
+        // startPeriodicDebugLogging()
     }
     
     /**

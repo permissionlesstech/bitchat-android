@@ -22,12 +22,40 @@ import com.bitchat.android.wallet.viewmodel.WalletViewModel
 @Composable
 fun WalletScreen(
     walletViewModel: WalletViewModel = viewModel(),
+    onBackToChat: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     var showReceiveView by remember { mutableStateOf(false) }
     val showSendDialog by walletViewModel.showSendDialog.observeAsState(false)
     val showReceiveDialog by walletViewModel.showReceiveDialog.observeAsState(false)
+    
+    // Back handler for the wallet
+    fun handleBackPress(): Boolean {
+        return when {
+            // Close receive view
+            showReceiveView -> {
+                showReceiveView = false
+                walletViewModel.hideReceiveDialog()
+                true
+            }
+            // Close send dialog
+            showSendDialog -> {
+                walletViewModel.hideSendDialog()
+                true
+            }
+            // If we're not in the wallet tab, go back to wallet tab
+            selectedTab != 0 -> {
+                selectedTab = 0
+                true
+            }
+            // If we're in the wallet tab, go back to chat
+            else -> {
+                onBackToChat()
+                true
+            }
+        }
+    }
     
     if (showReceiveView) {
         // Full-screen ReceiveView
@@ -42,7 +70,11 @@ fun WalletScreen(
         Column(modifier = modifier.fillMaxSize()) {
             // Content
             when (selectedTab) {
-                0 -> WalletOverview(viewModel = walletViewModel, modifier = Modifier.weight(1f))
+                0 -> WalletOverview(
+                    viewModel = walletViewModel,
+                    onBackToChat = onBackToChat,
+                    modifier = Modifier.weight(1f)
+                )
                 1 -> TransactionHistory(
                     transactions = walletViewModel.getAllTransactions().observeAsState(initial = emptyList()).value,
                     modifier = Modifier.weight(1f),
@@ -85,6 +117,10 @@ fun WalletScreen(
             }
         }
     }
+    
+    // Expose the back handler to the parent
+    // This will be called from MainAppScreen
+    walletViewModel.setBackHandler { handleBackPress() }
 }
 
 @Composable

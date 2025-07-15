@@ -162,13 +162,16 @@ class MainActivity : ComponentActivity() {
             }
             
             OnboardingState.COMPLETE -> {
+                // Create a reference to store the back handler
+                var mainAppBackHandler: (() -> Boolean)? = null
+                
                 // Set up back navigation handling for the main app screen
                 val backCallback = object : OnBackPressedCallback(true) {
                     override fun handleOnBackPressed() {
-                        // Let ChatViewModel handle navigation state
-                        val handled = chatViewModel.handleBackPressed()
+                        // Try to handle back press through MainAppScreen
+                        val handled = mainAppBackHandler?.invoke() ?: false
                         if (!handled) {
-                            // If ChatViewModel doesn't handle it, disable this callback 
+                            // If MainAppScreen doesn't handle it, disable this callback 
                             // and let the system handle it (which will exit the app)
                             this.isEnabled = false
                             onBackPressedDispatcher.onBackPressed()
@@ -180,7 +183,13 @@ class MainActivity : ComponentActivity() {
                 // Add the callback - this will be automatically removed when the activity is destroyed
                 onBackPressedDispatcher.addCallback(this, backCallback)
                 
-                MainAppScreen(chatViewModel = chatViewModel)
+                MainAppScreen(
+                    chatViewModel = chatViewModel,
+                    onBackPress = { handler ->
+                        // Store the back handler from MainAppScreen
+                        mainAppBackHandler = handler
+                    }
+                )
             }
             
             OnboardingState.ERROR -> {

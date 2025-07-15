@@ -32,6 +32,7 @@ import java.util.*
 @Composable
 fun WalletOverview(
     viewModel: WalletViewModel,
+    onBackToChat: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val balance by viewModel.balance.observeAsState(0L)
@@ -46,8 +47,34 @@ fun WalletOverview(
             .background(Color.Black)
             .padding(16.dp)
     ) {
-        
-        Spacer(modifier = Modifier.height(16.dp))
+        // Back to Chat button
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            horizontalArrangement = Arrangement.Start
+        ) {
+            TextButton(
+                onClick = onBackToChat,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = Color(0xFF00C851)
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.ArrowBack,
+                    contentDescription = "Back to Chat",
+                    modifier = Modifier.size(16.dp),
+                    tint = Color(0xFF00C851)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "Chat",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 14.sp,
+                    color = Color(0xFF00C851)
+                )
+            }
+        }
         
         // Balance Card
         BalanceCard(
