@@ -284,8 +284,10 @@ class CashuService {
                 
                 Log.d(TAG, "Token validation successful, amount: $amount")
 
-                wallet!!.receive(token)
-                
+                val ffiAmount = wallet!!.receive(token)
+
+                Log.d(TAG, "FFI amount: ${ffiAmount}")
+
                 Result.success(amount)
                 
             } catch (e: FfiException) {

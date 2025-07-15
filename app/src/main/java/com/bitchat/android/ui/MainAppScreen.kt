@@ -58,6 +58,7 @@ fun MainAppScreen(
         // Chat is always the base view
         ChatScreen(
             viewModel = chatViewModel,
+            walletViewModel = walletViewModel,
             onWalletClick = { showWallet = true },
             onWalletClickWithToken = { parsedToken ->
                 // Open wallet and show receive dialog with the parsed token immediately

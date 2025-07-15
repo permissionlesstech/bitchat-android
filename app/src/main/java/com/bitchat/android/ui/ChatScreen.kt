@@ -34,6 +34,9 @@ import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.parsing.ParsedCashuToken
+import com.bitchat.android.ui.payment.PaymentStatusIndicator
+import com.bitchat.android.ui.payment.PaymentStatus
+import com.bitchat.android.wallet.viewmodel.WalletViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -51,9 +54,17 @@ import java.util.*
 @Composable
 fun ChatScreen(
     viewModel: ChatViewModel,
+    walletViewModel: WalletViewModel? = null,
     onWalletClick: () -> Unit = {},
     onWalletClickWithToken: ((com.bitchat.android.parsing.ParsedCashuToken) -> Unit)? = null
 ) {
+    // Initialize payment manager when wallet ViewModel is available
+    LaunchedEffect(walletViewModel) {
+        walletViewModel?.let { wallet ->
+            viewModel.initializePaymentManager(wallet)
+        }
+    }
+    
     val colorScheme = MaterialTheme.colorScheme
     val messages by viewModel.messages.observeAsState(emptyList())
     val connectedPeers by viewModel.connectedPeers.observeAsState(emptyList())
@@ -69,6 +80,9 @@ fun ChatScreen(
     val showCommandSuggestions by viewModel.showCommandSuggestions.observeAsState(false)
     val commandSuggestions by viewModel.commandSuggestions.observeAsState(emptyList())
     val showAppInfo by viewModel.showAppInfo.observeAsState(false)
+    
+    // Observe payment status
+    val paymentStatus by viewModel.getPaymentStatus().collectAsState()
     
     var messageText by remember { mutableStateOf("") }
     var showPasswordPrompt by remember { mutableStateOf(false) }
@@ -139,7 +153,9 @@ fun ChatScreen(
                 selectedPrivatePeer = selectedPrivatePeer,
                 currentChannel = currentChannel,
                 nickname = nickname,
-                colorScheme = colorScheme
+                colorScheme = colorScheme,
+                paymentStatus = paymentStatus,
+                onClearPaymentStatus = { viewModel.clearPaymentStatus() }
             )
         }
         
@@ -214,7 +230,9 @@ private fun ChatInputSection(
     selectedPrivatePeer: String?,
     currentChannel: String?,
     nickname: String,
-    colorScheme: ColorScheme
+    colorScheme: ColorScheme,
+    paymentStatus: PaymentStatus?,
+    onClearPaymentStatus: () -> Unit
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -234,6 +252,13 @@ private fun ChatInputSection(
                 
                 Divider(color = colorScheme.outline.copy(alpha = 0.2f))
             }
+            
+            // Payment status indicator
+            PaymentStatusIndicator(
+                status = paymentStatus,
+                onDismiss = onClearPaymentStatus,
+                modifier = Modifier.fillMaxWidth()
+            )
             
             MessageInput(
                 value = messageText,

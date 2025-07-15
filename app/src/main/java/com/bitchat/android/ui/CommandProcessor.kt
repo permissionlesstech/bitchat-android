@@ -21,6 +21,7 @@ class CommandProcessor(
         CommandSuggestion("/hug", emptyList(), "<nickname>", "send someone a warm hug"),
         CommandSuggestion("/j", listOf("/join"), "<channel>", "join or create a channel"),
         CommandSuggestion("/m", listOf("/msg"), "<nickname> [message]", "send private message"),
+        CommandSuggestion("/pay", emptyList(), "<amount>", "send Cashu payment"),
         CommandSuggestion("/slap", emptyList(), "<nickname>", "slap someone with a trout"),
         CommandSuggestion("/unblock", emptyList(), "<nickname>", "unblock a peer"),
         CommandSuggestion("/w", emptyList(), null, "see who's online")
@@ -28,7 +29,13 @@ class CommandProcessor(
     
     // MARK: - Command Processing
     
-    fun processCommand(command: String, meshService: Any, myPeerID: String, onSendMessage: (String, List<String>, String?) -> Unit): Boolean {
+    fun processCommand(
+        command: String, 
+        meshService: Any, 
+        myPeerID: String, 
+        onSendMessage: (String, List<String>, String?) -> Unit,
+        onPaymentRequest: ((Long) -> Unit)? = null
+    ): Boolean {
         if (!command.startsWith("/")) return false
         
         val parts = command.split(" ")
@@ -45,6 +52,7 @@ class CommandProcessor(
             "/hug" -> handleActionCommand(parts, "gives", "a warm hug 🫂", meshService, myPeerID, onSendMessage)
             "/slap" -> handleActionCommand(parts, "slaps", "around a bit with a large trout 🐟", meshService, myPeerID, onSendMessage)
             "/channels" -> handleChannelsCommand()
+            "/pay" -> handlePayCommand(parts, onPaymentRequest)
             else -> handleUnknownCommand(cmd)
         }
         
@@ -314,6 +322,47 @@ class CommandProcessor(
             isRelay = false
         )
         messageManager.addMessage(systemMessage)
+    }
+    
+    private fun handlePayCommand(parts: List<String>, onPaymentRequest: ((Long) -> Unit)?) {
+        if (parts.size < 2) {
+            val systemMessage = BitchatMessage(
+                sender = "system",
+                content = "usage: /pay <amount> - send Cashu payment in sats",
+                timestamp = Date(),
+                isRelay = false
+            )
+            messageManager.addMessage(systemMessage)
+            return
+        }
+        
+        val amountStr = parts[1]
+        val amount = amountStr.toLongOrNull()
+        
+        if (amount == null || amount <= 0) {
+            val systemMessage = BitchatMessage(
+                sender = "system", 
+                content = "invalid amount: '$amountStr'. please enter a positive number of sats.",
+                timestamp = Date(),
+                isRelay = false
+            )
+            messageManager.addMessage(systemMessage)
+            return
+        }
+        
+        if (amount > 1_000_000) {
+            val systemMessage = BitchatMessage(
+                sender = "system",
+                content = "amount too large: $amount sats. maximum is 1,000,000 sats.",
+                timestamp = Date(),
+                isRelay = false
+            )
+            messageManager.addMessage(systemMessage)
+            return
+        }
+        
+        // Trigger payment creation
+        onPaymentRequest?.invoke(amount)
     }
     
     private fun handleUnknownCommand(cmd: String) {

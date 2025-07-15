@@ -6,19 +6,25 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.viewModelScope
-import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.mesh.BluetoothMeshService
+import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryAck
 import com.bitchat.android.model.ReadReceipt
+import com.bitchat.android.model.RoutedPacket
+import com.bitchat.android.ui.payment.PaymentManager
+import com.bitchat.android.ui.payment.PaymentStatus
+import com.bitchat.android.wallet.viewmodel.WalletViewModel
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import java.util.*
 import kotlin.random.Random
 
 /**
- * Refactored ChatViewModel - Main coordinator for bitchat functionality
- * Delegates specific responsibilities to specialized managers while maintaining 100% iOS compatibility
+ * ViewModel for managing the chat functionality
+ * Refactored to use composition over inheritance for better code organization
  */
 class ChatViewModel(
     application: Application,
@@ -37,6 +43,14 @@ class ChatViewModel(
     val privateChatManager = PrivateChatManager(state, messageManager, dataManager)
     private val commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager)
     private val notificationManager = NotificationManager(application.applicationContext)
+    
+    // Payment manager (lazily initialized with wallet ViewModel)
+    private var paymentManager: PaymentManager? = null
+    
+    // Initialize payment manager with wallet ViewModel
+    fun initializePaymentManager(walletViewModel: WalletViewModel) {
+        paymentManager = PaymentManager(viewModelScope, walletViewModel)
+    }
     
     // Delegate handler for mesh callbacks
     private val meshDelegateHandler = MeshDelegateHandler(
@@ -170,31 +184,39 @@ class ChatViewModel(
     }
     
     // MARK: - Message Sending
-    
+
     fun sendMessage(content: String) {
         if (content.isEmpty()) return
-        
+
         // Check for commands
         if (content.startsWith("/")) {
-            commandProcessor.processCommand(content, meshService, meshService.myPeerID) { messageContent, mentions, channel ->
-                meshService.sendMessage(messageContent, mentions, channel)
-            }
+            commandProcessor.processCommand(
+                command = content, 
+                meshService = meshService, 
+                myPeerID = meshService.myPeerID,
+                onSendMessage = { messageContent, mentions, channel ->
+                    meshService.sendMessage(messageContent, mentions, channel)
+                },
+                onPaymentRequest = { amount ->
+                    handlePaymentRequest(amount)
+                }
+            )
             return
         }
-        
+
         val mentions = messageManager.parseMentions(content, meshService.getPeerNicknames().values.toSet(), state.getNicknameValue())
         val channels = messageManager.parseChannels(content)
-        
+
         // Auto-join mentioned channels
         channels.forEach { channel ->
             if (!state.getJoinedChannelsValue().contains(channel)) {
                 joinChannel(channel)
             }
         }
-        
+
         val selectedPeer = state.getSelectedPrivateChatPeerValue()
         val currentChannelValue = state.getCurrentChannelValue()
-        
+
         if (selectedPeer != null) {
             // Send private message
             val recipientNickname = meshService.getPeerNicknames()[selectedPeer]
@@ -246,6 +268,72 @@ class ChatViewModel(
                 meshService.sendMessage(content, mentions, null)
             }
         }
+    }
+    
+    // MARK: - Payment Management 
+    
+    /**
+     * Handle payment request from /pay command
+     */
+    private fun handlePaymentRequest(amount: Long) {
+        paymentManager?.createPayment(amount) { token ->
+            // Send the created token to the current chat
+            sendCashuTokenToChat(token)
+        }
+    }
+    
+    /**
+     * Send a Cashu token to the current chat
+     */
+    private fun sendCashuTokenToChat(token: String) {
+        val selectedPeer = state.getSelectedPrivateChatPeerValue()
+        val currentChannelValue = state.getCurrentChannelValue()
+        
+        if (selectedPeer != null) {
+            // Send token as private message
+            val recipientNickname = meshService.getPeerNicknames()[selectedPeer]
+            privateChatManager.sendPrivateMessage(
+                token, 
+                selectedPeer, 
+                recipientNickname,
+                state.getNicknameValue(),
+                meshService.myPeerID
+            ) { messageContent, peerID, recipientNicknameParam, messageId ->
+                meshService.sendPrivateMessage(messageContent, peerID, recipientNicknameParam, messageId)
+            }
+        } else {
+            // Send token as public/channel message
+            val message = BitchatMessage(
+                sender = state.getNicknameValue() ?: meshService.myPeerID,
+                content = token,
+                timestamp = Date(),
+                isRelay = false,
+                senderPeerID = meshService.myPeerID,
+                channel = currentChannelValue
+            )
+            
+            if (currentChannelValue != null) {
+                channelManager.addChannelMessage(currentChannelValue, message, meshService.myPeerID)
+                meshService.sendMessage(token, emptyList(), currentChannelValue)
+            } else {
+                messageManager.addMessage(message)
+                meshService.sendMessage(token, emptyList(), null)
+            }
+        }
+    }
+    
+    /**
+     * Get payment status for UI
+     */
+    fun getPaymentStatus(): StateFlow<PaymentStatus?> {
+        return paymentManager?.paymentStatus ?: kotlinx.coroutines.flow.MutableStateFlow(null).asStateFlow()
+    }
+    
+    /**
+     * Clear payment status
+     */
+    fun clearPaymentStatus() {
+        paymentManager?.clearStatus()
     }
     
     // MARK: - Utility Functions

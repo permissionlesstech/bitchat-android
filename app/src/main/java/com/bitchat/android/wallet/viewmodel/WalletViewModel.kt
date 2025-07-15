@@ -527,6 +527,54 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     }
     
     /**
+     * Create a Cashu token for payments (with callbacks for /pay command)
+     */
+    fun createCashuTokenForPayment(
+        amount: Long, 
+        memo: String? = null,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                cashuService.createToken(amount, memo).onSuccess { token ->
+                    
+                    // Add transaction
+                    val transaction = WalletTransaction(
+                        id = UUID.randomUUID().toString(),
+                        type = TransactionType.CASHU_SEND,
+                        amount = BigDecimal(amount),
+                        unit = "sat",
+                        status = TransactionStatus.CONFIRMED,
+                        timestamp = Date(),
+                        description = memo ?: "Cashu token sent",
+                        token = token
+                    )
+                    
+                    repository.saveTransaction(transaction).onSuccess {
+                        loadTransactions()
+                        refreshBalance()
+                        
+                        // Success callback with token
+                        onSuccess(token)
+                        
+                    }.onFailure { error ->
+                        Log.e(TAG, "Failed to save transaction", error)
+                        onError("Failed to save transaction: ${error.message}")
+                    }
+                    
+                }.onFailure { error ->
+                    onError("Failed to create token: ${error.message}")
+                }
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Exception creating payment token", e)
+                onError(e.message ?: "Unknown error occurred")
+            }
+        }
+    }
+    
+    /**
      * Decode a Cashu token to show information
      */
     fun decodeCashuToken(token: String) {
