@@ -1,5 +1,7 @@
 package com.bitchat.android.ui
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -50,21 +52,82 @@ fun MainAppScreen(
     }
     
     Column(modifier = modifier.fillMaxSize()) {
-        // Content based on selected tab
-        when (selectedTab) {
-            0 -> ChatScreen(
-                viewModel = chatViewModel,
-                onWalletClick = { selectedTab = 1 }, // Switch to wallet tab when header button is clicked
-                onWalletClickWithToken = { token ->
-                    // Switch to wallet and open receive dialog with the token
-                    selectedTab = 1
-                    walletViewModel.openReceiveDialogWithToken(token)
+        // Animated content with slide transitions
+        AnimatedContent(
+            targetState = selectedTab,
+            transitionSpec = {
+                // Slide in from right when going to wallet (0 -> 1)
+                // Slide out to right when going back to chat (1 -> 0)
+                if (targetState > initialState) {
+                    // Going forward (chat -> wallet)
+                    slideInHorizontally(
+                        initialOffsetX = { fullWidth -> fullWidth },
+                        animationSpec = tween(
+                            durationMillis = 300,
+                            easing = FastOutSlowInEasing
+                        )
+                    ) + fadeIn(
+                        animationSpec = tween(
+                            durationMillis = 300,
+                            easing = FastOutSlowInEasing
+                        )
+                    ) togetherWith slideOutHorizontally(
+                        targetOffsetX = { fullWidth -> -fullWidth },
+                        animationSpec = tween(
+                            durationMillis = 300,
+                            easing = FastOutSlowInEasing
+                        )
+                    ) + fadeOut(
+                        animationSpec = tween(
+                            durationMillis = 300,
+                            easing = FastOutSlowInEasing
+                        )
+                    )
+                } else {
+                    // Going back (wallet -> chat)
+                    slideInHorizontally(
+                        initialOffsetX = { fullWidth -> -fullWidth },
+                        animationSpec = tween(
+                            durationMillis = 300,
+                            easing = FastOutSlowInEasing
+                        )
+                    ) + fadeIn(
+                        animationSpec = tween(
+                            durationMillis = 300,
+                            easing = FastOutSlowInEasing
+                        )
+                    ) togetherWith slideOutHorizontally(
+                        targetOffsetX = { fullWidth -> fullWidth },
+                        animationSpec = tween(
+                            durationMillis = 300,
+                            easing = FastOutSlowInEasing
+                        )
+                    ) + fadeOut(
+                        animationSpec = tween(
+                            durationMillis = 300,
+                            easing = FastOutSlowInEasing
+                        )
+                    )
                 }
-            ) 
-            1 -> WalletScreen(
-                walletViewModel = walletViewModel,
-                onBackToChat = { selectedTab = 0 }
-            )
+            },
+            label = "tab_transition",
+            modifier = Modifier.weight(1f)
+        ) { tabIndex ->
+            when (tabIndex) {
+                0 -> ChatScreen(
+                    viewModel = chatViewModel,
+                    onWalletClick = { selectedTab = 1 }, // Switch to wallet tab when header button is clicked
+                    onWalletClickWithToken = { parsedToken ->
+                        // Switch to wallet and open receive dialog with the parsed token immediately
+                        selectedTab = 1
+                        walletViewModel.openReceiveDialogWithParsedToken(parsedToken)
+                    }
+                ) 
+                1 -> WalletScreen(
+                    walletViewModel = walletViewModel,
+                    onBackToChat = { selectedTab = 0 }
+                )
+            }
         }
         
         // Bottom Navigation

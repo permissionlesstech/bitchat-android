@@ -52,7 +52,7 @@ import java.util.*
 fun ChatScreen(
     viewModel: ChatViewModel,
     onWalletClick: () -> Unit = {},
-    onWalletClickWithToken: ((String) -> Unit)? = null
+    onWalletClickWithToken: ((com.bitchat.android.parsing.ParsedCashuToken) -> Unit)? = null
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val messages by viewModel.messages.observeAsState(emptyList())
@@ -112,7 +112,7 @@ fun ChatScreen(
                     meshService = viewModel.meshService,
                     onCashuPaymentClick = { parsedToken ->
                         // Open wallet with the receive dialog pre-filled with this token
-                        onWalletClickWithToken?.invoke(parsedToken.originalString) ?: onWalletClick()
+                        onWalletClickWithToken?.invoke(parsedToken)
                     },
                     modifier = Modifier.fillMaxSize()
                 )

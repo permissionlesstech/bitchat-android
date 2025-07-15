@@ -977,6 +977,45 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     }
     
     /**
+     * Open receive dialog with pre-parsed Cashu token data (immediate display)
+     */
+    fun openReceiveDialogWithParsedToken(parsedToken: com.bitchat.android.parsing.ParsedCashuToken) {
+        try {
+            // Clear any existing state first
+            hideReceiveDialog()
+            _tokenInput.value = ""
+            _decodedToken.value = null
+            
+            // Set the receive type to Cashu
+            _receiveType.value = ReceiveType.CASHU
+            
+            // Set the token input
+            _tokenInput.value = parsedToken.originalString
+            
+            // Create CashuToken from ParsedCashuToken immediately (no async needed)
+            val cashuToken = com.bitchat.android.wallet.data.CashuToken(
+                token = parsedToken.originalString,
+                amount = java.math.BigDecimal(parsedToken.amount),
+                unit = parsedToken.unit,
+                mint = parsedToken.mintUrl,
+                memo = parsedToken.memo
+            )
+            
+            // Set the decoded token immediately
+            _decodedToken.value = cashuToken
+            
+            // Show the receive dialog immediately
+            _showReceiveDialog.value = true
+            
+            Log.d(TAG, "Opened receive dialog with parsed token: ${parsedToken.amount} ${parsedToken.unit}")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error opening receive dialog with parsed token", e)
+            _errorMessage.value = "Failed to process token: ${e.message}"
+        }
+    }
+    
+    /**
      * Get full transaction history (not just last 10)
      */
     fun getAllTransactions(): LiveData<List<WalletTransaction>> {
