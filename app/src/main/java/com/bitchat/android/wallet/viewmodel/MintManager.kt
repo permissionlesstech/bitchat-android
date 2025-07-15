@@ -16,7 +16,8 @@ import java.util.*
 class MintManager(
     private val repository: WalletRepository,
     private val cashuService: CashuService,
-    private val coroutineScope: CoroutineScope
+    private val coroutineScope: CoroutineScope,
+    private val uiStateManager: UIStateManager
 ) {
     companion object {
         private const val TAG = "MintManager"
@@ -120,7 +121,7 @@ class MintManager(
      */
     private suspend fun initializeWalletWithMint(mintUrl: String, onWalletInitialized: () -> Unit) {
         try {
-            _isLoading.value = true
+            uiStateManager.setLoading(true)
             cashuService.initializeWallet(mintUrl).onSuccess {
                 onWalletInitialized()
                 Log.d(TAG, "Wallet initialized with mint: $mintUrl")
@@ -129,7 +130,7 @@ class MintManager(
                 _errorMessage.value = "Failed to connect to mint: ${error.message}"
             }
         } finally {
-            _isLoading.value = false
+            uiStateManager.setLoading(false)
         }
     }
     
@@ -154,7 +155,7 @@ class MintManager(
     fun addMint(mintUrl: String, nickname: String, onSuccess: () -> Unit = {}) {
         coroutineScope.launch {
             try {
-                _isLoading.value = true
+                uiStateManager.setLoading(true)
                 cashuService.getMintInfo(mintUrl).onSuccess { mintInfo ->
                     val mint = Mint(
                         url = mintUrl,
@@ -184,7 +185,7 @@ class MintManager(
                     _errorMessage.value = "Failed to connect to mint: ${error.message}"
                 }
             } finally {
-                _isLoading.value = false
+                uiStateManager.setLoading(false)
             }
         }
     }
@@ -195,7 +196,7 @@ class MintManager(
     fun setActiveMint(mintUrl: String, onWalletInitialized: () -> Unit = {}) {
         coroutineScope.launch {
             try {
-                _isLoading.value = true
+                uiStateManager.setLoading(true)
                 repository.setActiveMint(mintUrl).onSuccess {
                     _activeMint.value = mintUrl
                     initializeWalletWithMint(mintUrl, onWalletInitialized)
@@ -203,7 +204,7 @@ class MintManager(
                     _errorMessage.value = "Failed to set active mint: ${error.message}"
                 }
             } finally {
-                _isLoading.value = false
+                uiStateManager.setLoading(false)
             }
         }
     }
@@ -235,7 +236,7 @@ class MintManager(
     fun syncAllMints() {
         coroutineScope.launch {
             try {
-                _isLoading.value = true
+                uiStateManager.setLoading(true)
                 val currentMints = _mints.value ?: emptyList()
                 
                 for (mint in currentMints) {
@@ -265,7 +266,7 @@ class MintManager(
                 Log.e(TAG, "Error syncing mints", e)
                 _errorMessage.value = "Failed to sync mints: ${e.message}"
             } finally {
-                _isLoading.value = false
+                uiStateManager.setLoading(false)
             }
         }
     }

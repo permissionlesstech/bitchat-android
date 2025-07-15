@@ -15,7 +15,8 @@ import java.util.*
 class LightningManager(
     private val repository: WalletRepository,
     private val cashuService: CashuService,
-    private val coroutineScope: CoroutineScope
+    private val coroutineScope: CoroutineScope,
+    private val uiStateManager: UIStateManager
 ) {
     companion object {
         private const val TAG = "LightningManager"
@@ -34,9 +35,6 @@ class LightningManager(
     private val _pendingMeltQuotes = MutableLiveData<List<MeltQuote>>(emptyList())
     val pendingMeltQuotes: androidx.lifecycle.LiveData<List<MeltQuote>> = _pendingMeltQuotes
     
-    private val _isLoading = MutableLiveData<Boolean>(false)
-    val isLoading: androidx.lifecycle.LiveData<Boolean> = _isLoading
-    
     private val _errorMessage = MutableLiveData<String?>(null)
     val errorMessage: androidx.lifecycle.LiveData<String?> = _errorMessage
     
@@ -46,7 +44,7 @@ class LightningManager(
     fun createMintQuote(amount: Long, description: String? = null) {
         coroutineScope.launch {
             try {
-                _isLoading.value = true
+                uiStateManager.setLoading(true)
                 cashuService.createMintQuote(amount, description).onSuccess { quote ->
                     _currentMintQuote.value = quote
                     
@@ -61,7 +59,7 @@ class LightningManager(
                     _errorMessage.value = "Failed to create invoice: ${error.message}"
                 }
             } finally {
-                _isLoading.value = false
+                uiStateManager.setLoading(false)
             }
         }
     }
@@ -72,7 +70,7 @@ class LightningManager(
     fun createMeltQuote(invoice: String, onQuoteCreated: () -> Unit = {}) {
         coroutineScope.launch {
             try {
-                _isLoading.value = true
+                uiStateManager.setLoading(true)
                 cashuService.createMeltQuote(invoice).onSuccess { quote ->
                     _currentMeltQuote.value = quote
                     
@@ -88,7 +86,7 @@ class LightningManager(
                     _errorMessage.value = "Failed to process invoice: ${error.message}"
                 }
             } finally {
-                _isLoading.value = false
+                uiStateManager.setLoading(false)
             }
         }
     }
@@ -104,7 +102,7 @@ class LightningManager(
     ) {
         coroutineScope.launch {
             try {
-                _isLoading.value = true
+                uiStateManager.setLoading(true)
                 cashuService.payInvoice(quoteId).onSuccess { success ->
                     if (success) {
                         // Update quote status and add transaction
@@ -143,7 +141,7 @@ class LightningManager(
                     _errorMessage.value = "Payment failed: ${error.message}"
                 }
             } finally {
-                _isLoading.value = false
+                uiStateManager.setLoading(false)
             }
         }
     }

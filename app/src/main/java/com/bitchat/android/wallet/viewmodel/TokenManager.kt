@@ -21,7 +21,8 @@ import java.util.*
 class TokenManager(
     private val repository: WalletRepository,
     private val cashuService: CashuService,
-    private val coroutineScope: CoroutineScope
+    private val coroutineScope: CoroutineScope,
+    private val uiStateManager: UIStateManager
 ) {
     companion object {
         private const val TAG = "TokenManager"
@@ -37,9 +38,6 @@ class TokenManager(
     private val _tokenInput = MutableLiveData<String>("")
     val tokenInput: androidx.lifecycle.LiveData<String> = _tokenInput
     
-    private val _isLoading = MutableLiveData<Boolean>(false)
-    val isLoading: androidx.lifecycle.LiveData<Boolean> = _isLoading
-    
     private val _errorMessage = MutableLiveData<String?>(null)
     val errorMessage: androidx.lifecycle.LiveData<String?> = _errorMessage
     
@@ -54,7 +52,7 @@ class TokenManager(
     ) {
         coroutineScope.launch {
             try {
-                _isLoading.value = true
+                uiStateManager.setLoading(true)
                 cashuService.createToken(amount, memo).onSuccess { token ->
                     _generatedToken.value = token
                     
@@ -80,7 +78,7 @@ class TokenManager(
                     _errorMessage.value = "Failed to create token: ${error.message}"
                 }
             } finally {
-                _isLoading.value = false
+                uiStateManager.setLoading(false)
             }
         }
     }
@@ -141,14 +139,14 @@ class TokenManager(
     fun decodeCashuToken(token: String) {
         coroutineScope.launch {
             try {
-                _isLoading.value = true
+                uiStateManager.setLoading(true)
                 cashuService.decodeToken(token).onSuccess { decodedToken ->
                     _decodedToken.value = decodedToken
                 }.onFailure { error ->
                     _errorMessage.value = "Invalid token: ${error.message}"
                 }
             } finally {
-                _isLoading.value = false
+                uiStateManager.setLoading(false)
             }
         }
     }
@@ -167,7 +165,7 @@ class TokenManager(
     ) {
         coroutineScope.launch {
             try {
-                _isLoading.value = true
+                uiStateManager.setLoading(true)
                 
                 // Get decoded token
                 val decodedToken = _decodedToken.value
@@ -257,7 +255,7 @@ class TokenManager(
                 )
                 onFailure(failureData)
             } finally {
-                _isLoading.value = false
+                uiStateManager.setLoading(false)
             }
         }
     }

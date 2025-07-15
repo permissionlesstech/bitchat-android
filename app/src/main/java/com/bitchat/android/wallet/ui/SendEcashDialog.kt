@@ -137,7 +137,8 @@ fun SendEcashDialog(
             // Amount input
             OutlinedTextField(
                 value = amount,
-                onValueChange = { amount = it },
+                onValueChange = { if (!isLoading) amount = it },
+                enabled = !isLoading,
                 label = {
                     Text(
                         text = "Amount (sats)",
@@ -151,7 +152,10 @@ fun SendEcashDialog(
                     unfocusedBorderColor = Color(0xFF2A2A2A),
                     unfocusedLabelColor = Color.Gray,
                     unfocusedTextColor = Color.White,
-                    focusedTextColor = Color.White
+                    focusedTextColor = Color.White,
+                    disabledBorderColor = Color.Gray,
+                    disabledLabelColor = Color.Gray,
+                    disabledTextColor = Color.Gray
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -162,7 +166,8 @@ fun SendEcashDialog(
             // Memo input
             OutlinedTextField(
                 value = memo,
-                onValueChange = { memo = it },
+                onValueChange = { if (!isLoading) memo = it },
+                enabled = !isLoading,
                 label = {
                     Text(
                         text = "Memo (optional)",
@@ -175,7 +180,10 @@ fun SendEcashDialog(
                     unfocusedBorderColor = Color(0xFF2A2A2A),
                     unfocusedLabelColor = Color.Gray,
                     unfocusedTextColor = Color.White,
-                    focusedTextColor = Color.White
+                    focusedTextColor = Color.White,
+                    disabledBorderColor = Color.Gray,
+                    disabledLabelColor = Color.Gray,
+                    disabledTextColor = Color.Gray
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -195,16 +203,30 @@ fun SendEcashDialog(
                     .fillMaxWidth()
                     .height(56.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF00C851),
+                    containerColor = if (isLoading) Color(0xFF2A2A2A) else Color(0xFF00C851),
                     disabledContainerColor = Color(0xFF2A2A2A)
                 ),
                 shape = RoundedCornerShape(16.dp)
             ) {
                 if (isLoading) {
-                    CircularProgressIndicator(
-                        color = Color.Black,
-                        modifier = Modifier.size(24.dp)
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "CREATING TOKEN...",
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            letterSpacing = 1.sp
+                        )
+                    }
                 } else {
                     Row(
                         verticalAlignment = Alignment.CenterVertically

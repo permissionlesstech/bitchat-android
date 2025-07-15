@@ -24,11 +24,11 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     private val cashuService = CashuService.getInstance()
     
     // Manager instances
-    private val mintManager = MintManager(repository, cashuService, viewModelScope)
-    private val tokenManager = TokenManager(repository, cashuService, viewModelScope)
-    private val lightningManager = LightningManager(repository, cashuService, viewModelScope)
-    private val transactionManager = TransactionManager(repository, viewModelScope)
     private val uiStateManager = UIStateManager()
+    private val mintManager = MintManager(repository, cashuService, viewModelScope, uiStateManager)
+    private val tokenManager = TokenManager(repository, cashuService, viewModelScope, uiStateManager)
+    private val lightningManager = LightningManager(repository, cashuService, viewModelScope, uiStateManager)
+    private val transactionManager = TransactionManager(repository, viewModelScope)
     
     companion object {
         private const val TAG = "WalletViewModel"

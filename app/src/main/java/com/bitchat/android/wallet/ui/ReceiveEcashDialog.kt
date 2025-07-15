@@ -119,16 +119,30 @@ fun ReceiveEcashDialog(
                     .fillMaxWidth()
                     .height(56.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF00C851),
+                    containerColor = if (isLoading) Color(0xFF2A2A2A) else Color(0xFF00C851),
                     disabledContainerColor = Color(0xFF2A2A2A)
                 ),
                 shape = RoundedCornerShape(16.dp)
             ) {
                 if (isLoading) {
-                    CircularProgressIndicator(
-                        color = Color.Black,
-                        modifier = Modifier.size(24.dp)
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "RECEIVING TOKEN...",
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            letterSpacing = 1.sp
+                        )
+                    }
                 } else {
                     Row(
                         verticalAlignment = Alignment.CenterVertically
@@ -161,8 +175,11 @@ fun ReceiveEcashDialog(
             OutlinedTextField(
                 value = token,
                 onValueChange = { 
-                    viewModel.setTokenInput(it)
+                    if (!isLoading) {
+                        viewModel.setTokenInput(it)
+                    }
                 },
+                enabled = !isLoading,
                 label = {
                     Text(
                         text = "Cashu Token",
@@ -182,7 +199,10 @@ fun ReceiveEcashDialog(
                     unfocusedBorderColor = Color(0xFF2A2A2A),
                     unfocusedLabelColor = Color.Gray,
                     unfocusedTextColor = Color.White,
-                    focusedTextColor = Color.White
+                    focusedTextColor = Color.White,
+                    disabledBorderColor = Color.Gray,
+                    disabledLabelColor = Color.Gray,
+                    disabledTextColor = Color.Gray
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -193,13 +213,16 @@ fun ReceiveEcashDialog(
                 trailingIcon = {
                     IconButton(
                         onClick = {
-                            // TODO: Implement QR code scanning
-                        }
+                            if (!isLoading) {
+                                // TODO: Implement QR code scanning
+                            }
+                        },
+                        enabled = !isLoading
                     ) {
                         Icon(
                             imageVector = Icons.Filled.QrCode,
                             contentDescription = "Scan QR",
-                            tint = Color(0xFF00C851)
+                            tint = if (isLoading) Color.Gray else Color(0xFF00C851)
                         )
                     }
                 }
@@ -214,6 +237,7 @@ fun ReceiveEcashDialog(
                         }
                     }
                 },
+                enabled = !isLoading,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
@@ -222,7 +246,7 @@ fun ReceiveEcashDialog(
                 ),
                 border = BorderStroke(
                     2.dp, 
-                    Color(0xFF00C851)
+                    if (isLoading) Color.Gray else Color(0xFF00C851)
                 ),
                 shape = RoundedCornerShape(16.dp)
             ) {
@@ -232,13 +256,13 @@ fun ReceiveEcashDialog(
                     Icon(
                         imageVector = Icons.Filled.ContentPaste,
                         contentDescription = "Paste",
-                        tint = Color(0xFF00C851),
+                        tint = if (isLoading) Color.Gray else Color(0xFF00C851),
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
                         text = "PASTE FROM CLIPBOARD",
-                        color = Color(0xFF00C851),
+                        color = if (isLoading) Color.Gray else Color(0xFF00C851),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
