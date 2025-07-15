@@ -115,7 +115,8 @@ fun WalletScreen(
                     2 -> MintsScreen(viewModel = walletViewModel, modifier = Modifier.weight(1f))
                     3 -> WalletSettings(
                         viewModel = walletViewModel,
-                        onBackClick = { /* No back action needed in tab navigation */ }
+                        onBackClick = { /* No back action needed in tab navigation */ },
+                        modifier = Modifier.weight(1f)
                     )
                 }
                 

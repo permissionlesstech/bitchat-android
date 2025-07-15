@@ -95,7 +95,7 @@ fun TextRow(elements: List<MessageElement>) {
 }
 
 /**
- * Chip component for displaying Cashu payments inline
+ * Chip component for displaying Cashu payments inline pill
  */
 @Composable
 fun CashuPaymentChip(
@@ -132,7 +132,7 @@ fun CashuPaymentChip(
                 // Top row: Bitcoin icon and "bitcoin" text
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                    horizontalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
                     // Orange Bitcoin circle with symbol inside
                     Box(
@@ -146,9 +146,16 @@ fun CashuPaymentChip(
                     ) {
                         Text(
                             text = "₿",
-                            fontSize = 8.sp,
+                            fontSize = 10.sp,
                             color = Color(0xFF140C01),
-                            fontFamily = FontFamily.Monospace
+                            fontFamily = FontFamily.Monospace,
+                            textAlign = TextAlign.Center,
+                            style = androidx.compose.ui.text.TextStyle(
+                                lineHeight = 10.sp,
+                                platformStyle = androidx.compose.ui.text.PlatformTextStyle(
+                                    includeFontPadding = false
+                                )
+                            )
                         )
                     }
                     

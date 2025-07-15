@@ -22,22 +22,20 @@ import com.bitchat.android.wallet.viewmodel.WalletViewModel
 @Composable
 fun WalletSettings(
     viewModel: WalletViewModel = viewModel(),
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
     var showClearDataDialog by remember { mutableStateOf(false) }
     var showExportDialog by remember { mutableStateOf(false) }
     
-    Column(
-        modifier = Modifier
+    LazyColumn(
+        modifier = modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(Color.Black),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
             // Wallet Info Section
             item {
                 SettingsSection(title = "Wallet Information") {
@@ -165,7 +163,6 @@ fun WalletSettings(
                 }
             }
         }
-    }
     
     // Clear Data Confirmation Dialog
     if (showClearDataDialog) {
