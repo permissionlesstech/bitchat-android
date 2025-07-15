@@ -10,6 +10,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
@@ -19,6 +21,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bitchat.android.parsing.CashuTokenParser
+import com.bitchat.android.wallet.ui.WalletUtils
 import com.bitchat.android.wallet.viewmodel.WalletViewModel
 
 /**
@@ -34,8 +38,13 @@ fun SendEcashDialog(
     var amount by remember { mutableStateOf("") }
     var memo by remember { mutableStateOf("") }
     val clipboardManager = LocalClipboardManager.current
+    val focusRequester = remember { FocusRequester() }
     
     if (generatedToken != null) {
+        // Parse token to extract information
+        val parser = remember { CashuTokenParser() }
+        val parsedToken = remember(generatedToken) { parser.parseToken(generatedToken) }
+        
         // Show generated token
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -65,7 +74,7 @@ fun SendEcashDialog(
                     Spacer(modifier = Modifier.height(16.dp))
                     
                     Text(
-                        text = "CASHU TOKEN CREATED",
+                        text = "CASHU TOKEN",
                         color = Color(0xFF00C851),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
@@ -73,9 +82,36 @@ fun SendEcashDialog(
                         letterSpacing = 1.sp
                     )
                     
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Token amount and mint info
+                    parsedToken?.let { token ->
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = WalletUtils.formatSats(token.amount),
+                                color = Color.White,
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            Text(
+                                text = "From: ${token.mintUrl}",
+                                color = Color(0xFF888888),
+                                fontSize = 12.sp,
+                                fontFamily = FontFamily.Monospace,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                    
                     Spacer(modifier = Modifier.height(24.dp))
                     
-                    // Token display
+                    // Token display (truncated)
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
@@ -83,7 +119,11 @@ fun SendEcashDialog(
                     ) {
                         SelectionContainer {
                             Text(
-                                text = generatedToken,
+                                text = if (generatedToken.length > 50) {
+                                    "${generatedToken.take(50)}..."
+                                } else {
+                                    generatedToken
+                                },
                                 color = Color.White,
                                 fontSize = 12.sp,
                                 fontFamily = FontFamily.Monospace,
@@ -134,6 +174,11 @@ fun SendEcashDialog(
         Column(
             modifier = Modifier.fillMaxWidth()
         ) {
+            // Request focus on the amount input when dialog opens
+            LaunchedEffect(Unit) {
+                focusRequester.requestFocus()
+            }
+            
             // Amount input
             OutlinedTextField(
                 value = amount,
@@ -159,7 +204,8 @@ fun SendEcashDialog(
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 16.dp),
+                    .padding(bottom = 16.dp)
+                    .focusRequester(focusRequester),
                 shape = RoundedCornerShape(16.dp)
             )
             
