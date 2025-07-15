@@ -27,6 +27,7 @@ fun WalletScreen(
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     var showReceiveView by remember { mutableStateOf(false) }
+    var showSendView by remember { mutableStateOf(false) }
     val showSendDialog by walletViewModel.showSendDialog.observeAsState(false)
     val showReceiveDialog by walletViewModel.showReceiveDialog.observeAsState(false)
     
@@ -37,6 +38,12 @@ fun WalletScreen(
             showReceiveView -> {
                 showReceiveView = false
                 walletViewModel.hideReceiveDialog()
+                true
+            }
+            // Close send view
+            showSendView -> {
+                showSendView = false
+                walletViewModel.hideSendDialog()
                 true
             }
             // Close send dialog
@@ -64,6 +71,15 @@ fun WalletScreen(
             onNavigateBack = { 
                 showReceiveView = false 
                 walletViewModel.hideReceiveDialog()
+            }
+        )
+    } else if (showSendView) {
+        // Full-screen SendView
+        SendView(
+            viewModel = walletViewModel,
+            onNavigateBack = { 
+                showSendView = false 
+                walletViewModel.hideSendDialog()
             }
         )
     } else {
@@ -102,12 +118,13 @@ fun WalletScreen(
         }
     }
     
-    // Dialogs
+    // Handle dialog states
     if (showSendDialog) {
-        SendDialog(
-            viewModel = walletViewModel,
-            onDismiss = { walletViewModel.hideSendDialog() }
-        )
+        LaunchedEffect(showSendDialog) {
+            if (showSendDialog) {
+                showSendView = true
+            }
+        }
     }
     
     if (showReceiveDialog) {
