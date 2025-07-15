@@ -18,7 +18,7 @@ import com.bitchat.android.wallet.ui.WalletScreen
 import com.bitchat.android.wallet.viewmodel.WalletViewModel
 
 /**
- * Main app screen with bottom navigation between Chat and Wallet
+ * Main app screen with wallet access via header button only
  */
 @Composable
 fun MainAppScreen(
@@ -26,23 +26,26 @@ fun MainAppScreen(
     onBackPress: (backHandler: () -> Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    var selectedTab by remember { mutableStateOf(0) }
+    var showWallet by remember { mutableStateOf(false) }
     
     // Get wallet ViewModel scoped to this composable
     val walletViewModel: WalletViewModel = viewModel()
     
     // Handle back navigation
     fun handleBackPress(): Boolean {
-        return when (selectedTab) {
-            0 -> {
-                // Chat tab - let ChatViewModel handle it
+        return when {
+            showWallet -> {
+                // Wallet is showing - let WalletViewModel handle it first
+                walletViewModel.handleBackPress().takeIf { it } ?: run {
+                    // If wallet doesn't handle it, close wallet
+                    showWallet = false
+                    true
+                }
+            }
+            else -> {
+                // Chat is showing - let ChatViewModel handle it
                 chatViewModel.handleBackPressed()
             }
-            1 -> {
-                // Wallet tab - let WalletViewModel handle it
-                walletViewModel.handleBackPress()
-            }
-            else -> false
         }
     }
     
@@ -51,179 +54,51 @@ fun MainAppScreen(
         onBackPress { handleBackPress() }
     }
     
-    Column(modifier = modifier.fillMaxSize()) {
-        // Animated content with slide transitions
-        AnimatedContent(
-            targetState = selectedTab,
-            transitionSpec = {
-                // Slide in from right when going to wallet (0 -> 1)
-                // Slide out to right when going back to chat (1 -> 0)
-                if (targetState > initialState) {
-                    // Going forward (chat -> wallet)
-                    slideInHorizontally(
-                        initialOffsetX = { fullWidth -> fullWidth },
-                        animationSpec = tween(
-                            durationMillis = 300,
-                            easing = FastOutSlowInEasing
-                        )
-                    ) + fadeIn(
-                        animationSpec = tween(
-                            durationMillis = 300,
-                            easing = FastOutSlowInEasing
-                        )
-                    ) togetherWith slideOutHorizontally(
-                        targetOffsetX = { fullWidth -> -fullWidth },
-                        animationSpec = tween(
-                            durationMillis = 300,
-                            easing = FastOutSlowInEasing
-                        )
-                    ) + fadeOut(
-                        animationSpec = tween(
-                            durationMillis = 300,
-                            easing = FastOutSlowInEasing
-                        )
-                    )
-                } else {
-                    // Going back (wallet -> chat)
-                    slideInHorizontally(
-                        initialOffsetX = { fullWidth -> -fullWidth },
-                        animationSpec = tween(
-                            durationMillis = 300,
-                            easing = FastOutSlowInEasing
-                        )
-                    ) + fadeIn(
-                        animationSpec = tween(
-                            durationMillis = 300,
-                            easing = FastOutSlowInEasing
-                        )
-                    ) togetherWith slideOutHorizontally(
-                        targetOffsetX = { fullWidth -> fullWidth },
-                        animationSpec = tween(
-                            durationMillis = 300,
-                            easing = FastOutSlowInEasing
-                        )
-                    ) + fadeOut(
-                        animationSpec = tween(
-                            durationMillis = 300,
-                            easing = FastOutSlowInEasing
-                        )
-                    )
-                }
-            },
-            label = "tab_transition",
-            modifier = Modifier.weight(1f)
-        ) { tabIndex ->
-            when (tabIndex) {
-                0 -> ChatScreen(
-                    viewModel = chatViewModel,
-                    onWalletClick = { selectedTab = 1 }, // Switch to wallet tab when header button is clicked
-                    onWalletClickWithToken = { parsedToken ->
-                        // Switch to wallet and open receive dialog with the parsed token immediately
-                        selectedTab = 1
-                        walletViewModel.openReceiveDialogWithParsedToken(parsedToken)
-                    }
-                ) 
-                1 -> WalletScreen(
-                    walletViewModel = walletViewModel,
-                    onBackToChat = { selectedTab = 0 }
-                )
+    Box(modifier = modifier.fillMaxSize()) {
+        // Chat is always the base view
+        ChatScreen(
+            viewModel = chatViewModel,
+            onWalletClick = { showWallet = true },
+            onWalletClickWithToken = { parsedToken ->
+                // Open wallet and show receive dialog with the parsed token immediately
+                showWallet = true
+                walletViewModel.openReceiveDialogWithParsedToken(parsedToken)
             }
-        }
-        
-        // Bottom Navigation
-        AppBottomNavigation(
-            selectedTab = selectedTab,
-            onTabSelected = { selectedTab = it }
-        )
-    }
-    
-    // Set up back handler for wallet
-    LaunchedEffect(selectedTab) {
-        if (selectedTab == 1) {
-            // When wallet is active, set up its back handler
-            walletViewModel.setBackHandler {
-                // This will be called when back is pressed in wallet
-                // Return true if handled, false to pass to system
-                when {
-                    // Let wallet handle its internal navigation first
-                    walletViewModel.showSendDialog.value == true -> {
-                        walletViewModel.hideSendDialog()
-                        true
-                    }
-                    walletViewModel.showReceiveDialog.value == true -> {
-                        walletViewModel.hideReceiveDialog()
-                        true
-                    }
-                    else -> {
-                        // Go back to chat
-                        selectedTab = 0
-                        true
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun AppBottomNavigation(
-    selectedTab: Int,
-    onTabSelected: (Int) -> Unit
-) {
-    NavigationBar(
-        containerColor = Color(0xFF1A1A1A),
-        tonalElevation = 8.dp
-    ) {
-        NavigationBarItem(
-            icon = {
-                Icon(
-                    imageVector = Icons.Filled.Chat,
-                    contentDescription = "Chat",
-                    modifier = Modifier.size(20.dp)
-                )
-            },
-            label = {
-                Text(
-                    text = "Chat",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp
-                )
-            },
-            selected = selectedTab == 0,
-            onClick = { onTabSelected(0) },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = Color(0xFF00C851),
-                selectedTextColor = Color(0xFF00C851),
-                unselectedIconColor = Color.Gray,
-                unselectedTextColor = Color.Gray,
-                indicatorColor = Color(0xFF00C851).copy(alpha = 0.2f)
-            )
         )
         
-        NavigationBarItem(
-            icon = {
-                Icon(
-                    imageVector = Icons.Filled.AccountBalanceWallet,
-                    contentDescription = "Wallet",
-                    modifier = Modifier.size(20.dp)
+        // Wallet slides in from right when needed
+        AnimatedVisibility(
+            visible = showWallet,
+            enter = slideInHorizontally(
+                initialOffsetX = { fullWidth -> fullWidth },
+                animationSpec = tween(
+                    durationMillis = 300,
+                    easing = FastOutSlowInEasing
                 )
-            },
-            label = {
-                Text(
-                    text = "Wallet",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp
+            ) + fadeIn(
+                animationSpec = tween(
+                    durationMillis = 300,
+                    easing = FastOutSlowInEasing
                 )
-            },
-            selected = selectedTab == 1,
-            onClick = { onTabSelected(1) },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = Color(0xFF00C851),
-                selectedTextColor = Color(0xFF00C851),
-                unselectedIconColor = Color.Gray,
-                unselectedTextColor = Color.Gray,
-                indicatorColor = Color(0xFF00C851).copy(alpha = 0.2f)
+            ),
+            exit = slideOutHorizontally(
+                targetOffsetX = { fullWidth -> fullWidth },
+                animationSpec = tween(
+                    durationMillis = 300,
+                    easing = FastOutSlowInEasing
+                )
+            ) + fadeOut(
+                animationSpec = tween(
+                    durationMillis = 300,
+                    easing = FastOutSlowInEasing
+                )
+            ),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            WalletScreen(
+                walletViewModel = walletViewModel,
+                onBackToChat = { showWallet = false }
             )
-        )
+        }
     }
 }
