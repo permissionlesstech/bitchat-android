@@ -59,8 +59,14 @@ fun MainAppScreen(
         ChatScreen(
             viewModel = chatViewModel,
             walletViewModel = walletViewModel,
-            onWalletClick = { showWallet = true },
+            onWalletClick = { 
+                // Close the keyboard if it's open
+                chatViewModel.hideKeyboard()
+                showWallet = true 
+            },
             onWalletClickWithToken = { parsedToken ->
+                // Close the keyboard if it's open
+                chatViewModel.hideKeyboard()
                 // Open wallet and show receive dialog with the parsed token immediately
                 showWallet = true
                 walletViewModel.openReceiveDialogWithParsedToken(parsedToken)

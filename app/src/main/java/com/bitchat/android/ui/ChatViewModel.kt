@@ -3,6 +3,7 @@ package com.bitchat.android.ui
 import android.app.Application
 import android.content.Context
 import android.util.Log
+import androidx.compose.ui.focus.FocusManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.viewModelScope
@@ -33,6 +34,9 @@ class ChatViewModel(
     
     private val context: Context = application.applicationContext
     
+    // Focus manager for keyboard control
+    private var focusManager: FocusManager? = null
+    
     // State management
     private val state = ChatState()
     
@@ -50,6 +54,16 @@ class ChatViewModel(
     // Initialize payment manager with wallet ViewModel
     fun initializePaymentManager(walletViewModel: WalletViewModel) {
         paymentManager = PaymentManager(viewModelScope, walletViewModel)
+    }
+    
+    // Initialize focus manager for keyboard control
+    fun setFocusManager(focusManager: FocusManager) {
+        this.focusManager = focusManager
+    }
+    
+    // Hide keyboard
+    fun hideKeyboard() {
+        focusManager?.clearFocus()
     }
     
     // Delegate handler for mesh callbacks

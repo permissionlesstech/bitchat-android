@@ -58,11 +58,19 @@ fun ChatScreen(
     onWalletClick: () -> Unit = {},
     onWalletClickWithToken: ((com.bitchat.android.parsing.ParsedCashuToken) -> Unit)? = null
 ) {
+    // Get focus manager for keyboard control
+    val focusManager = LocalFocusManager.current
+    
     // Initialize payment manager when wallet ViewModel is available
     LaunchedEffect(walletViewModel) {
         walletViewModel?.let { wallet ->
             viewModel.initializePaymentManager(wallet)
         }
+    }
+    
+    // Initialize focus manager for keyboard control
+    LaunchedEffect(focusManager) {
+        viewModel.setFocusManager(focusManager)
     }
     
     val colorScheme = MaterialTheme.colorScheme
