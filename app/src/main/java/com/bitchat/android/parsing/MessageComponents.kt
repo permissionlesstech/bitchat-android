@@ -132,7 +132,7 @@ fun CashuPaymentChip(
                 // Top row: Bitcoin icon and "bitcoin" text
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     // Orange Bitcoin circle with symbol inside
                     Box(

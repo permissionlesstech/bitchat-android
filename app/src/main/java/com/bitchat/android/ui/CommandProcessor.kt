@@ -34,7 +34,7 @@ class CommandProcessor(
         meshService: Any, 
         myPeerID: String, 
         onSendMessage: (String, List<String>, String?) -> Unit,
-        onPaymentRequest: ((Long) -> Unit)? = null
+        onPaymentRequest: ((Long, String?) -> Unit)? = null
     ): Boolean {
         if (!command.startsWith("/")) return false
         
@@ -324,11 +324,11 @@ class CommandProcessor(
         messageManager.addMessage(systemMessage)
     }
     
-    private fun handlePayCommand(parts: List<String>, onPaymentRequest: ((Long) -> Unit)?) {
+    private fun handlePayCommand(parts: List<String>, onPaymentRequest: ((Long, String?) -> Unit)?) {
         if (parts.size < 2) {
             val systemMessage = BitchatMessage(
                 sender = "system",
-                content = "usage: /pay <amount> - send Cashu payment in sats",
+                content = "usage: /pay <amount> <memo> - send Cashu payment in sats",
                 timestamp = Date(),
                 isRelay = false
             )
@@ -338,6 +338,11 @@ class CommandProcessor(
         
         val amountStr = parts[1]
         val amount = amountStr.toLongOrNull()
+
+        var memo: String? = null;
+        if (parts.size > 2) {
+            memo = parts.drop(2).joinToString(" ")
+        }
         
         if (amount == null || amount <= 0) {
             val systemMessage = BitchatMessage(
@@ -362,7 +367,7 @@ class CommandProcessor(
         }
         
         // Trigger payment creation
-        onPaymentRequest?.invoke(amount)
+        onPaymentRequest?.invoke(amount, memo)
     }
     
     private fun handleUnknownCommand(cmd: String) {

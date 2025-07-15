@@ -37,6 +37,7 @@ class PaymentManager(
      */
     fun createPayment(
         amount: Long,
+        memo: String? = null,
         onTokenCreated: (String) -> Unit
     ) {
         Log.d(TAG, "Creating payment for $amount sats")
@@ -49,7 +50,7 @@ class PaymentManager(
                 // Use WalletViewModel's createCashuToken method
                 walletViewModel.createCashuTokenForPayment(
                     amount = amount,
-                    memo = "Payment via /pay command",
+                    memo = memo,
                     onSuccess = { token ->
                         Log.d(TAG, "Payment token created successfully: ${token.take(20)}...")
                         

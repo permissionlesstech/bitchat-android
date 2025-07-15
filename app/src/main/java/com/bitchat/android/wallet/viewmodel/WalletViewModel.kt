@@ -259,7 +259,9 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
             onSuccess = { animationData ->
                 showSuccessAnimation(animationData)
                 viewModelScope.launch {
-                    delay(500)
+                    // Delay navigation until partway through the success animation
+                    // This allows the view transition to happen during the animation fade-out
+                    delay(1200) // Animation is visible for 2000ms, start transition at 1200ms
                     hideReceiveDialog()
                 }
             },

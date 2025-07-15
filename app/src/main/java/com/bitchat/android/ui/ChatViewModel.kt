@@ -204,6 +204,11 @@ class ChatViewModel(
 
         // Check for commands
         if (content.startsWith("/")) {
+            var memo: String? = null
+            if (content.startsWith("/pay") && content.split(" ").size > 1) {
+                // command is /pay <amount> <memo can be multiple words>
+                memo = content.split(" ").drop(2).joinToString(" ")
+            }
             commandProcessor.processCommand(
                 command = content, 
                 meshService = meshService, 
@@ -211,8 +216,8 @@ class ChatViewModel(
                 onSendMessage = { messageContent, mentions, channel ->
                     meshService.sendMessage(messageContent, mentions, channel)
                 },
-                onPaymentRequest = { amount ->
-                    handlePaymentRequest(amount)
+                onPaymentRequest = { amount, memo ->
+                    handlePaymentRequest(amount, memo)
                 }
             )
             return
@@ -289,8 +294,8 @@ class ChatViewModel(
     /**
      * Handle payment request from /pay command
      */
-    private fun handlePaymentRequest(amount: Long) {
-        paymentManager?.createPayment(amount) { token ->
+    private fun handlePaymentRequest(amount: Long, memo: String? = null) {
+        paymentManager?.createPayment(amount, memo) { token ->
             // Send the created token to the current chat
             sendCashuTokenToChat(token)
         }
