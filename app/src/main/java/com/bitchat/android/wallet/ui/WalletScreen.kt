@@ -35,6 +35,8 @@ fun WalletScreen(
     val showReceiveDialog by walletViewModel.showReceiveDialog.observeAsState(false)
     val showSuccessAnimation by walletViewModel.showSuccessAnimation.observeAsState(false)
     val successAnimationData by walletViewModel.successAnimationData.observeAsState()
+    val showFailureAnimation by walletViewModel.showFailureAnimation.observeAsState(false)
+    val failureAnimationData by walletViewModel.failureAnimationData.observeAsState()
     
     // Back handler for the wallet
     fun handleBackPress(): Boolean {
@@ -131,6 +133,18 @@ fun WalletScreen(
                 animationData = successAnimationData!!,
                 onAnimationComplete = {
                     walletViewModel.hideSuccessAnimation()
+                },
+                modifier = Modifier.zIndex(10f)
+            )
+        }
+        
+        // Failure animation overlay
+        if (showFailureAnimation && failureAnimationData != null) {
+            FailureAnimation(
+                errorMessage = failureAnimationData!!.errorMessage,
+                operationType = failureAnimationData!!.operationType,
+                onAnimationComplete = {
+                    walletViewModel.hideFailureAnimation()
                 },
                 modifier = Modifier.zIndex(10f)
             )

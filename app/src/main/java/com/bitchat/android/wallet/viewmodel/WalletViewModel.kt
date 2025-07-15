@@ -93,6 +93,13 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     private val _successAnimationData = MutableLiveData<SuccessAnimationData?>(null)
     val successAnimationData: LiveData<SuccessAnimationData?> = _successAnimationData
     
+    // Failure animation state
+    private val _showFailureAnimation = MutableLiveData<Boolean>(false)
+    val showFailureAnimation: LiveData<Boolean> = _showFailureAnimation
+    
+    private val _failureAnimationData = MutableLiveData<FailureAnimationData?>(null)
+    val failureAnimationData: LiveData<FailureAnimationData?> = _failureAnimationData
+    
     // State management
     private var pollingJob: kotlinx.coroutines.Job? = null
     
@@ -107,6 +114,14 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         val amount: Long,
         val unit: String,
         val description: String
+    )
+    
+    /**
+     * Data for failure animation display
+     */
+    data class FailureAnimationData(
+        val errorMessage: String,
+        val operationType: String = "Token Receive"
     )
     
     enum class SuccessAnimationType {
@@ -434,6 +449,17 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         _successAnimationData.value = null
     }
     
+    // Failure animation management
+    fun showFailureAnimation(animationData: FailureAnimationData) {
+        _failureAnimationData.value = animationData
+        _showFailureAnimation.value = true
+    }
+    
+    fun hideFailureAnimation() {
+        _showFailureAnimation.value = false
+        _failureAnimationData.value = null
+    }
+    
     // Back navigation handler
     private var backHandler: (() -> Boolean)? = null
     
@@ -560,11 +586,54 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                         
                     }.onFailure { error ->
                         Log.e(TAG, "Failed to save transaction", error)
-                        _errorMessage.value = "Failed to save transaction: ${error.message}"
+                        
+                        // Clear token input and close dialog
+                        clearTokenInput()
+                        
+                        // Show failure animation for transaction save error
+                        val failureData = FailureAnimationData(
+                            errorMessage = "Failed to save transaction: ${error.message}",
+                            operationType = "Token Receive"
+                        )
+                        showFailureAnimation(failureData)
+                        
+                        // Close receive dialog after animation starts
+                        delay(500)
+                        hideReceiveDialog()
                     }
                 }.onFailure { error ->
-                    _errorMessage.value = "Failed to receive token: ${error.message}"
+                    Log.e(TAG, "Failed to receive token", error)
+                    
+                    // Clear token input and close dialog
+                    clearTokenInput()
+                    
+                    // Show failure animation for token receive error
+                    val failureData = FailureAnimationData(
+                        errorMessage = error.message ?: "Unknown error occurred",
+                        operationType = "Token Receive"
+                    )
+                    showFailureAnimation(failureData)
+                    
+                    // Close receive dialog after animation starts
+                    delay(500)
+                    hideReceiveDialog()
                 }
+            } catch (e: Exception) {
+                Log.e(TAG, "Exception in receiveCashuToken", e)
+                
+                // Clear token input and close dialog
+                clearTokenInput()
+                
+                // Show failure animation for unexpected error
+                val failureData = FailureAnimationData(
+                    errorMessage = e.message ?: "Unexpected error occurred",
+                    operationType = "Token Receive"
+                )
+                showFailureAnimation(failureData)
+                
+                // Close receive dialog after animation starts
+                delay(500)
+                hideReceiveDialog()
             } finally {
                 _isLoading.value = false
             }
