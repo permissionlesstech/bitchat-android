@@ -599,7 +599,30 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             try {
                 _isLoading.value = true
-                cashuService.receiveToken(token).onSuccess { amount ->
+                
+                // Get decoded token and current mints
+                val decodedToken = _decodedToken.value
+                if (decodedToken == null) {
+                    val failureData = FailureAnimationData(
+                        errorMessage = "Failed to decode token",
+                        operationType = "Token Receive"
+                    )
+                    showFailureAnimation(failureData)
+                    clearTokenInput()
+                    delay(500)
+                    hideReceiveDialog()
+                    return@launch
+                }
+
+                val currentMints = _mints.value ?: emptyList()
+                
+                // Use the new CashuService.receiveToken with mint management
+                cashuService.receiveToken(
+                    token = token,
+                    autoAdd = true, // Enable automatic mint addition
+                    currentMints = currentMints,
+                    decodedToken = decodedToken
+                ).onSuccess { amount ->
                     
                     // Add transaction
                     val transaction = WalletTransaction(
@@ -615,6 +638,10 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                     repository.saveTransaction(transaction).onSuccess {
                         loadTransactions()
                         refreshBalance()
+                        // Reload mints in case a new one was added
+                        repository.getMints().onSuccess { mintList ->
+                            _mints.value = mintList
+                        }
                         
                         // Clear token input immediately
                         clearTokenInput()
@@ -835,6 +862,8 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
             }
         }
     }
+    
+
     
     /**
      * Set the active mint

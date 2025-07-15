@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import android.util.Log
 import android.content.Context
 import com.bitchat.android.wallet.data.*
+import com.bitchat.android.wallet.repository.WalletRepository
 import com.bitchat.android.parsing.CashuTokenParser
 import uniffi.cdk_ffi.*
 import java.math.BigDecimal
@@ -21,6 +22,7 @@ class CashuService {
     private var currentUnit: String = "sat"
     private var isInitialized = false
     private var isCdkAvailable = false
+    private var repository: WalletRepository? = null
     
     companion object {
         private const val TAG = "CashuService"
@@ -32,6 +34,108 @@ class CashuService {
         fun getInstance(): CashuService {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: CashuService().also { INSTANCE = it }
+            }
+        }
+    }
+    
+    /**
+     * Initialize the repository instance
+     */
+    private fun initializeRepository() {
+        if (repository == null) {
+            val context = getApplicationContext()
+            repository = WalletRepository.getInstance(context)
+        }
+    }
+    
+    /**
+     * Check if a mint exists in the user's mint list
+     */
+    private fun checkMintExists(mintUrl: String, mints: List<Mint>): Boolean {
+        return mints.any { it.url == mintUrl }
+    }
+    
+    /**
+     * Add a mint if authorized (autoAdd = true)
+     */
+    private suspend fun addMintIfAuthorized(mintUrl: String, autoAdd: Boolean): Result<Boolean> {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (!autoAdd) {
+                    Log.d(TAG, "Auto-add not authorized for mint: $mintUrl")
+                    return@withContext Result.success(false)
+                }
+                
+                initializeRepository()
+                val repo = repository ?: return@withContext Result.failure(Exception("Repository not available"))
+                
+                Log.d(TAG, "Adding mint automatically: $mintUrl")
+                
+                val mintInfoResult = getMintInfo(mintUrl)
+                if (mintInfoResult.isFailure) {
+                    val error = mintInfoResult.exceptionOrNull() ?: Exception("Unknown error")
+                    Log.e(TAG, "Failed to get mint info for: $mintUrl", error)
+                    return@withContext Result.failure(error)
+                }
+                
+                val mintInfo = mintInfoResult.getOrThrow()
+                val mint = Mint(
+                    url = mintUrl,
+                    nickname = mintInfo.name.ifEmpty { "Auto-added Mint" },
+                    info = mintInfo,
+                    keysets = emptyList(), // Will be populated by CDK
+                    active = true,
+                    dateAdded = Date()
+                )
+                
+                val saveMintResult = repo.saveMint(mint)
+                if (saveMintResult.isFailure) {
+                    val error = saveMintResult.exceptionOrNull() ?: Exception("Unknown error")
+                    Log.e(TAG, "Failed to save mint: $mintUrl", error)
+                    return@withContext Result.failure(error)
+                }
+                
+                Log.d(TAG, "Successfully added mint: $mintUrl")
+                return@withContext Result.success(true)
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Exception while adding mint: $mintUrl", e)
+                return@withContext Result.failure(e)
+            }
+        }
+    }
+    
+    /**
+     * Set the active mint and initialize wallet with it
+     */
+    private suspend fun setActiveMintAndInitialize(mintUrl: String): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                initializeRepository()
+                val repo = repository ?: return@withContext Result.failure(Exception("Repository not available"))
+                
+                // Set active mint in repository
+                val setActiveMintResult = repo.setActiveMint(mintUrl)
+                if (setActiveMintResult.isFailure) {
+                    val error = setActiveMintResult.exceptionOrNull() ?: Exception("Unknown error")
+                    Log.e(TAG, "Failed to set active mint: $mintUrl", error)
+                    return@withContext Result.failure(error)
+                }
+                
+                // Initialize wallet with the mint
+                val initWalletResult = initializeWallet(mintUrl)
+                if (initWalletResult.isFailure) {
+                    val error = initWalletResult.exceptionOrNull() ?: Exception("Unknown error")
+                    Log.e(TAG, "Failed to initialize wallet with mint: $mintUrl", error)
+                    return@withContext Result.failure(error)
+                }
+                
+                Log.d(TAG, "Set active mint and initialized wallet: $mintUrl")
+                return@withContext Result.success(Unit)
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Exception while setting active mint: $mintUrl", e)
+                return@withContext Result.failure(e)
             }
         }
     }
@@ -263,31 +367,73 @@ class CashuService {
     }
     
     /**
-     * Receive a Cashu token
-     * Note: CDK doesn't have explicit "receive" - tokens are auto-received when sent
-     * This function decodes and validates the token
+     * Receive a Cashu token with mint management
+     * @param token The Cashu token to receive
+     * @param autoAdd Whether to automatically add unknown mints
+     * @param currentMints The current list of user's mints
+     * @param decodedToken Optional pre-decoded token to avoid re-decoding
      */
-    suspend fun receiveToken(token: String): Result<Long> {
+    suspend fun receiveToken(
+        token: String, 
+        autoAdd: Boolean = true, 
+        currentMints: List<Mint> = emptyList(),
+        decodedToken: CashuToken? = null
+    ): Result<Long> {
         return withContext(Dispatchers.IO) {
             try {
-                if (!isInitialized) {
-                    initializeWallet(DEFAULT_MINT_URL).getOrThrow()
+                // Decode token if not provided
+                val tokenData = decodedToken ?: decodeToken(token).getOrThrow()
+                val mintUrl = tokenData.mint
+                val amount = tokenData.amount.toLong()
+                
+                Log.d(TAG, "Processing token: amount=$amount from mint=$mintUrl")
+                
+                // Check if mint exists
+                val mintExists = checkMintExists(mintUrl, currentMints)
+                
+                if (!mintExists) {
+                    Log.d(TAG, "Mint $mintUrl not found, attempting to add...")
+                    
+                    // Try to add the mint if authorized
+                    addMintIfAuthorized(mintUrl, autoAdd).fold(
+                        onSuccess = { added ->
+                            if (!added) {
+                                return@withContext Result.failure(
+                                    Exception("Mint $mintUrl not found and auto-add not authorized")
+                                )
+                            }
+                        },
+                        onFailure = { error ->
+                            Log.e(TAG, "Failed to add mint $mintUrl", error)
+                            return@withContext Result.failure(
+                                Exception("Failed to add mint: $mintUrl - ${error.message}")
+                            )
+                        }
+                    )
                 }
                 
+                // Set active mint and initialize wallet with it
+                setActiveMintAndInitialize(mintUrl).fold(
+                    onSuccess = {
+                        Log.d(TAG, "Successfully set active mint: $mintUrl")
+                    },
+                    onFailure = { error ->
+                        Log.e(TAG, "Failed to set active mint: $mintUrl", error)
+                        return@withContext Result.failure(
+                            Exception("Failed to set active mint: $mintUrl - ${error.message}")
+                        )
+                    }
+                )
+                
+                // Now receive the token with the properly initialized wallet
                 if (!isCdkAvailable || wallet == null) {
                     return@withContext Result.failure(Exception("CDK not available"))
                 }
                 
-                // Decode the token to get amount
-                val decodedToken = decodeToken(token).getOrThrow()
-                val amount = decodedToken.amount.toLong()
-                
-                Log.d(TAG, "Token validation successful, amount: $amount")
-
+                Log.d(TAG, "Receiving token with amount: $amount")
                 val ffiAmount = wallet!!.receive(token)
-
-                Log.d(TAG, "FFI amount: ${ffiAmount}")
-
+                
+                Log.d(TAG, "Successfully received token: ${ffiAmount.value}")
                 Result.success(ffiAmount.value.toLong())
                 
             } catch (e: FfiException) {
