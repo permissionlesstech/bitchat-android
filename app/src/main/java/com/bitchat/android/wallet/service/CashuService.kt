@@ -237,7 +237,7 @@ class CashuService {
                     memo = sendMemo,
                     amountSplitTarget = FfiSplitTarget.DEFAULT,
                     sendKind = FfiSendKind.OnlineExact,
-                    includeFee = true,
+                    includeFee = false,
                     metadata = emptyMap(),
                     maxProofs = null
                 )
@@ -288,7 +288,7 @@ class CashuService {
 
                 Log.d(TAG, "FFI amount: ${ffiAmount}")
 
-                Result.success(amount)
+                Result.success(ffiAmount.value.toLong())
                 
             } catch (e: FfiException) {
                 Log.e(TAG, "CDK FFI error receiving token: ${e.message}")

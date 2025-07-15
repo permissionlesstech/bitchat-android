@@ -107,19 +107,19 @@ class BluetoothConnectionManager(
                 // Start power manager
                 powerManager.start()
                 
-                // // Start server manager
-                // if (!serverManager.start()) {
-                //     Log.e(TAG, "Failed to start server manager")
-                //     this@BluetoothConnectionManager.isActive = false
-                //     return@launch
-                // }
+                // Start server manager
+                if (!serverManager.start()) {
+                    Log.e(TAG, "Failed to start server manager")
+                    this@BluetoothConnectionManager.isActive = false
+                    return@launch
+                }
                 
-                // // Start client manager
-                // if (!clientManager.start()) {
-                //     Log.e(TAG, "Failed to start client manager")
-                //     this@BluetoothConnectionManager.isActive = false
-                //     return@launch
-                // }
+                // Start client manager
+                if (!clientManager.start()) {
+                    Log.e(TAG, "Failed to start client manager")
+                    this@BluetoothConnectionManager.isActive = false
+                    return@launch
+                }
                 
                 Log.i(TAG, "Bluetooth services started successfully")
             }
