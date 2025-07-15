@@ -174,7 +174,7 @@ private fun CashuReceiveContent(
     decodedToken: CashuToken?,
     isLoading: Boolean
 ) {
-    var token by remember { mutableStateOf("") }
+    val token by viewModel.tokenInput.observeAsState("")
     val clipboardManager = LocalClipboardManager.current
     
     if (decodedToken != null) {
@@ -302,10 +302,7 @@ private fun CashuReceiveContent(
             OutlinedTextField(
                 value = token,
                 onValueChange = { 
-                    token = it
-                    if (it.isNotEmpty() && it.startsWith("cashu")) {
-                        viewModel.decodeCashuToken(it)
-                    }
+                    viewModel.setTokenInput(it)
                 },
                 label = {
                     Text(
@@ -354,8 +351,7 @@ private fun CashuReceiveContent(
                 onClick = {
                     clipboardManager.getText()?.text?.let { clipText ->
                         if (clipText.startsWith("cashu")) {
-                            token = clipText
-                            viewModel.decodeCashuToken(clipText)
+                            viewModel.setTokenInput(clipText)
                         }
                     }
                 },

@@ -82,11 +82,39 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     private val _currentMeltQuote = MutableLiveData<MeltQuote?>(null)
     val currentMeltQuote: LiveData<MeltQuote?> = _currentMeltQuote
     
+    // Token input state for receive dialog
+    private val _tokenInput = MutableLiveData<String>("")
+    val tokenInput: LiveData<String> = _tokenInput
+    
+    // Success animation state
+    private val _showSuccessAnimation = MutableLiveData<Boolean>(false)
+    val showSuccessAnimation: LiveData<Boolean> = _showSuccessAnimation
+    
+    private val _successAnimationData = MutableLiveData<SuccessAnimationData?>(null)
+    val successAnimationData: LiveData<SuccessAnimationData?> = _successAnimationData
+    
     // State management
     private var pollingJob: kotlinx.coroutines.Job? = null
     
     enum class SendType { CASHU, LIGHTNING }
     enum class ReceiveType { CASHU, LIGHTNING }
+    
+    /**
+     * Data for success animation display
+     */
+    data class SuccessAnimationData(
+        val type: SuccessAnimationType,
+        val amount: Long,
+        val unit: String,
+        val description: String
+    )
+    
+    enum class SuccessAnimationType {
+        CASHU_RECEIVED,
+        CASHU_SENT, 
+        LIGHTNING_RECEIVED,
+        LIGHTNING_SENT
+    }
     
     init {
         loadInitialData()
@@ -359,6 +387,7 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
         _decodedToken.value = null
         _currentMintQuote.value = null
         _receiveType.value = ReceiveType.CASHU
+        clearTokenInput()
     }
     
     fun setSendType(type: SendType) {
@@ -379,6 +408,30 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     
     fun clearError() {
         _errorMessage.value = null
+    }
+    
+    // Token input management
+    fun setTokenInput(token: String) {
+        _tokenInput.value = token
+        if (token.isNotEmpty() && token.startsWith("cashu")) {
+            decodeCashuToken(token)
+        }
+    }
+    
+    fun clearTokenInput() {
+        _tokenInput.value = ""
+        _decodedToken.value = null
+    }
+    
+    // Success animation management
+    fun showSuccessAnimation(animationData: SuccessAnimationData) {
+        _successAnimationData.value = animationData
+        _showSuccessAnimation.value = true
+    }
+    
+    fun hideSuccessAnimation() {
+        _showSuccessAnimation.value = false
+        _successAnimationData.value = null
     }
     
     // Back navigation handler
@@ -488,7 +541,23 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                     repository.saveTransaction(transaction).onSuccess {
                         loadTransactions()
                         refreshBalance()
+                        
+                        // Clear token input immediately
+                        clearTokenInput()
+                        
+                        // Show success animation
+                        val animationData = SuccessAnimationData(
+                            type = SuccessAnimationType.CASHU_RECEIVED,
+                            amount = amount,
+                            unit = "sat",
+                            description = "Cashu token received successfully!"
+                        )
+                        showSuccessAnimation(animationData)
+                        
+                        // Close receive dialog after animation starts
+                        delay(500) // Short delay to let animation start
                         hideReceiveDialog()
+                        
                     }.onFailure { error ->
                         Log.e(TAG, "Failed to save transaction", error)
                         _errorMessage.value = "Failed to save transaction: ${error.message}"
@@ -793,6 +862,47 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
             } catch (e: Exception) {
                 Log.e(TAG, "Error exporting wallet data", e)
                 _errorMessage.value = "Failed to export data: ${e.message}"
+            }
+        }
+    }
+    
+    // Utility function to format sats
+    private fun formatSats(sats: Long): String {
+        return when {
+            sats >= 100_000_000 -> String.format("%.2f BTC", sats / 100_000_000.0)
+            sats >= 1000 -> String.format("%,d sats", sats)
+            else -> "$sats sats"
+        }
+    }
+    
+    /**
+     * Open receive dialog with a pre-filled Cashu token (for external integrations like chat)
+     */
+    fun openReceiveDialogWithToken(tokenString: String) {
+        viewModelScope.launch {
+            try {
+                // Clear any existing state first
+                hideReceiveDialog()
+                _tokenInput.value = ""
+                _decodedToken.value = null
+                
+                // Set the receive type to Cashu
+                _receiveType.value = ReceiveType.CASHU
+                
+                // Set the token input which will trigger decoding
+                _tokenInput.value = tokenString
+                
+                // Decode the token
+                decodeCashuToken(tokenString)
+                
+                // Show the receive dialog
+                _showReceiveDialog.value = true
+                
+                Log.d(TAG, "Opened receive dialog with token: ${tokenString.take(20)}...")
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Error opening receive dialog with token", e)
+                _errorMessage.value = "Failed to process token: ${e.message}"
             }
         }
     }

@@ -13,8 +13,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bitchat.android.wallet.viewmodel.WalletViewModel
+
+// Import the SuccessAnimation component (same package, no need for full path)
 
 /**
  * Main wallet screen with bottom navigation
@@ -30,6 +33,8 @@ fun WalletScreen(
     var showSendView by remember { mutableStateOf(false) }
     val showSendDialog by walletViewModel.showSendDialog.observeAsState(false)
     val showReceiveDialog by walletViewModel.showReceiveDialog.observeAsState(false)
+    val showSuccessAnimation by walletViewModel.showSuccessAnimation.observeAsState(false)
+    val successAnimationData by walletViewModel.successAnimationData.observeAsState()
     
     // Back handler for the wallet
     fun handleBackPress(): Boolean {
@@ -64,74 +69,88 @@ fun WalletScreen(
         }
     }
     
-    if (showReceiveView) {
-        // Full-screen ReceiveView
-        ReceiveView(
-            viewModel = walletViewModel,
-            onNavigateBack = { 
-                showReceiveView = false 
-                walletViewModel.hideReceiveDialog()
-            }
-        )
-    } else if (showSendView) {
-        // Full-screen SendView
-        SendView(
-            viewModel = walletViewModel,
-            onNavigateBack = { 
-                showSendView = false 
-                walletViewModel.hideSendDialog()
-            }
-        )
-    } else {
-        Column(modifier = modifier.fillMaxSize()) {
-            // Content
-            when (selectedTab) {
-                0 -> WalletOverview(
-                    viewModel = walletViewModel,
-                    onBackToChat = onBackToChat,
-                    modifier = Modifier.weight(1f)
-                )
-                1 -> TransactionHistory(
-                    transactions = walletViewModel.getAllTransactions().observeAsState(initial = emptyList()).value,
-                    modifier = Modifier.weight(1f),
-                    onTransactionClick = { transaction ->
-                        // For lightning receive transactions, open the receive view with the quote
-                        if (transaction.type == com.bitchat.android.wallet.data.TransactionType.LIGHTNING_RECEIVE && 
-                            transaction.quote != null) {
-                            walletViewModel.setCurrentMintQuote(transaction.quote!!)
-                            showReceiveView = true
+    Box(modifier = modifier.fillMaxSize()) {
+        // Main content
+        if (showReceiveView) {
+            // Full-screen ReceiveView
+            ReceiveView(
+                viewModel = walletViewModel,
+                onNavigateBack = { 
+                    showReceiveView = false 
+                    walletViewModel.hideReceiveDialog()
+                }
+            )
+        } else if (showSendView) {
+            // Full-screen SendView
+            SendView(
+                viewModel = walletViewModel,
+                onNavigateBack = { 
+                    showSendView = false 
+                    walletViewModel.hideSendDialog()
+                }
+            )
+        } else {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Content
+                when (selectedTab) {
+                    0 -> WalletOverview(
+                        viewModel = walletViewModel,
+                        onBackToChat = onBackToChat,
+                        modifier = Modifier.weight(1f)
+                    )
+                    1 -> TransactionHistory(
+                        transactions = walletViewModel.getAllTransactions().observeAsState(initial = emptyList()).value,
+                        modifier = Modifier.weight(1f),
+                        onTransactionClick = { transaction ->
+                            // For lightning receive transactions, open the receive view with the quote
+                            if (transaction.type == com.bitchat.android.wallet.data.TransactionType.LIGHTNING_RECEIVE && 
+                                transaction.quote != null) {
+                                walletViewModel.setCurrentMintQuote(transaction.quote!!)
+                                showReceiveView = true
+                            }
                         }
-                    }
-                )
-                2 -> MintsScreen(viewModel = walletViewModel, modifier = Modifier.weight(1f))
-                3 -> WalletSettings(
-                    viewModel = walletViewModel,
-                    onBackClick = { /* No back action needed in tab navigation */ }
+                    )
+                    2 -> MintsScreen(viewModel = walletViewModel, modifier = Modifier.weight(1f))
+                    3 -> WalletSettings(
+                        viewModel = walletViewModel,
+                        onBackClick = { /* No back action needed in tab navigation */ }
+                    )
+                }
+                
+                // Bottom Navigation
+                WalletBottomNavigation(
+                    selectedTab = selectedTab,
+                    onTabSelected = { selectedTab = it }
                 )
             }
-            
-            // Bottom Navigation
-            WalletBottomNavigation(
-                selectedTab = selectedTab,
-                onTabSelected = { selectedTab = it }
+        }
+        
+        // Success animation overlay
+        if (showSuccessAnimation && successAnimationData != null) {
+            SuccessAnimation(
+                animationData = successAnimationData!!,
+                onAnimationComplete = {
+                    walletViewModel.hideSuccessAnimation()
+                },
+                modifier = Modifier.zIndex(10f)
             )
         }
     }
     
-    // Handle dialog states
-    if (showSendDialog) {
-        LaunchedEffect(showSendDialog) {
-            if (showSendDialog) {
-                showSendView = true
-            }
+    // Handle dialog states - sync local view state with ViewModel dialog state
+    LaunchedEffect(showSendDialog) {
+        if (showSendDialog) {
+            showSendView = true
+        } else {
+            showSendView = false
         }
     }
     
-    if (showReceiveDialog) {
-        LaunchedEffect(showReceiveDialog) {
-            if (showReceiveDialog) {
-                showReceiveView = true
-            }
+    LaunchedEffect(showReceiveDialog) {
+        if (showReceiveDialog) {
+            showReceiveView = true
+        } else {
+            showReceiveView = false
         }
     }
     

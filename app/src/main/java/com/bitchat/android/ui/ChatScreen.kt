@@ -51,7 +51,8 @@ import java.util.*
 @Composable
 fun ChatScreen(
     viewModel: ChatViewModel,
-    onWalletClick: () -> Unit = {}
+    onWalletClick: () -> Unit = {},
+    onWalletClickWithToken: ((String) -> Unit)? = null
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val messages by viewModel.messages.observeAsState(emptyList())
@@ -109,11 +110,9 @@ fun ChatScreen(
                     messages = displayMessages,
                     currentUserNickname = nickname,
                     meshService = viewModel.meshService,
-                    onCashuPaymentClick = { token ->
+                    onCashuPaymentClick = { parsedToken ->
                         // Open wallet with the receive dialog pre-filled with this token
-                        onWalletClick()
-                        // TODO: We need to pass the token to the wallet somehow
-                        // This could be done through a shared state, intent, or callback
+                        onWalletClickWithToken?.invoke(parsedToken.originalString) ?: onWalletClick()
                     },
                     modifier = Modifier.fillMaxSize()
                 )

@@ -54,7 +54,12 @@ fun MainAppScreen(
         when (selectedTab) {
             0 -> ChatScreen(
                 viewModel = chatViewModel,
-                onWalletClick = { selectedTab = 1 } // Switch to wallet tab when header button is clicked
+                onWalletClick = { selectedTab = 1 }, // Switch to wallet tab when header button is clicked
+                onWalletClickWithToken = { token ->
+                    // Switch to wallet and open receive dialog with the token
+                    selectedTab = 1
+                    walletViewModel.openReceiveDialogWithToken(token)
+                }
             ) 
             1 -> WalletScreen(
                 walletViewModel = walletViewModel,
