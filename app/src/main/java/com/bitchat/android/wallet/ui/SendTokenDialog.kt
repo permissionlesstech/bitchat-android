@@ -380,9 +380,9 @@ private fun formatAmount(amount: Long, unit: String): String {
     return when (unit.lowercase()) {
         "sat", "sats" -> {
             when {
-                amount >= 100_000_000 -> String.format("%.2f BTC", amount / 100_000_000.0)
-                amount >= 1000 -> String.format("%,d sats", amount)
-                else -> "$amount sats"
+                amount >= 100_000_000 -> String.format("%.8f BTC", amount / 100_000_000.0)
+                amount >= 1000 -> String.format("%,d ₿", amount)
+                else -> "$amount ₿"
             }
         }
         else -> "$amount $unit"

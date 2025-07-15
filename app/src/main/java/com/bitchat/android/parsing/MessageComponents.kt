@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -106,71 +108,122 @@ fun CashuPaymentChip(
             .clickable { 
                 onPaymentClick?.invoke(token) ?: handleCashuPayment(token)
             },
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF00C851) // bitchat green
+            containerColor = Color(0xFF0E0E0E) // Dark background
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = androidx.compose.foundation.BorderStroke(
+            0.25.dp, 
+            Color(0xFF2EC954) // Green outline
+        )
     ) {
         Row(
             modifier = Modifier
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Payment icon  
-            Text(
-                text = "⚡",
-                fontSize = 16.sp,
-                color = Color.White
-            )
-            
-            // Payment info
-            Column {
-                Text(
-                    text = "Cashu Payment",
-                    fontSize = 12.sp,
-                    color = Color.White.copy(alpha = 0.9f),
-                    fontWeight = FontWeight.Medium,
-                    fontFamily = FontFamily.Monospace
-                )
-                Text(
-                    text = "${token.amount} ${token.unit}",
-                    fontSize = 14.sp,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace
-                )
+            // Left side - Payment info
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // Top row: Bitcoin icon and "bitcoin" text
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    // Orange Bitcoin circle with symbol inside
+                    Box(
+                        modifier = Modifier
+                            .size(16.dp)
+                            .background(
+                                Color(0xFFFF9F0A), 
+                                shape = androidx.compose.foundation.shape.CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "₿",
+                            fontSize = 8.sp,
+                            color = Color(0xFF140C01),
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    
+                    // "bitcoin" text
+                    Text(
+                        text = "bitcoin",
+                        fontSize = 16.sp,
+                        color = Color(0xFF2EC954),
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+                
+                // Middle row: Amount and unit
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "${token.amount}",
+                        fontSize = 24.sp,
+                        color = Color(0xFF2EC954),
+                        fontWeight = FontWeight.Medium,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Text(
+                        text = "₿",
+                        fontSize = 16.sp,
+                        color = Color(0xFF2EC954),
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+                
+                // Bottom row: Memo (if present)
                 if (token.memo?.isNotBlank() == true) {
                     Text(
                         text = "\"${token.memo}\"",
                         fontSize = 10.sp,
-                        color = Color.White.copy(alpha = 0.8f),
+                        color = Color(0xFF26A746),
                         fontFamily = FontFamily.Monospace
                     )
                 }
             }
             
-            Spacer(modifier = Modifier.weight(1f))
-            
-            // Receive button
+            // Right side - Receive button
             Button(
                 onClick = { 
                     onPaymentClick?.invoke(token) ?: handleCashuPayment(token)
                 },
-                modifier = Modifier.height(32.dp),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                modifier = Modifier.height(40.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
-                    contentColor = Color(0xFF00C851)
-                )
+                    containerColor = Color(0xFF2EC954),
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(8.dp)
             ) {
-                Text(
-                    text = "Receive",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Download/Receive icon
+                    Icon(
+                        imageVector = Icons.Filled.Download,
+                        contentDescription = "Receive",
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    
+                    Text(
+                        text = "Receive",
+                        fontSize = 12.sp,
+                        color = Color.White,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
             }
         }
     }

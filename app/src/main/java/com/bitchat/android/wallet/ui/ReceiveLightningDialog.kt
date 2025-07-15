@@ -181,7 +181,7 @@ fun ReceiveLightningDialog(
                 onValueChange = { amount = it },
                 label = {
                     Text(
-                        text = "Amount (sats)",
+                        text = "Amount (₿)",
                         fontFamily = FontFamily.Monospace
                     )
                 },

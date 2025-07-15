@@ -353,7 +353,7 @@ class CommandProcessor(
         if (amount > 1_000_000) {
             val systemMessage = BitchatMessage(
                 sender = "system",
-                content = "amount too large: $amount sats. maximum is 1,000,000 sats.",
+                content = "amount too large: $amount ₿. maximum is 1,000,000 ₿.",
                 timestamp = Date(),
                 isRelay = false
             )

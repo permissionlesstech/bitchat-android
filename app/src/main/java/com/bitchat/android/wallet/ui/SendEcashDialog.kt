@@ -141,7 +141,7 @@ fun SendEcashDialog(
                 enabled = !isLoading,
                 label = {
                     Text(
-                        text = "Amount (sats)",
+                        text = "Amount (₿)",
                         fontFamily = FontFamily.Monospace
                     )
                 },
