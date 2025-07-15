@@ -171,15 +171,15 @@ class BluetoothGattServerManager(
                 }
                 
                 if (characteristic.uuid == CHARACTERISTIC_UUID) {
-                    Log.i(TAG, "Server: Received packet from ${device.address}, size: ${value.size} bytes")
+                    // Log.i(TAG, "Server: Received packet from ${device.address}, size: ${value.size} bytes")
                     val packet = BitchatPacket.fromBinaryData(value)
                     if (packet != null) {
                         val peerID = String(packet.senderID).replace("\u0000", "")
                         Log.d(TAG, "Server: Parsed packet type ${packet.type} from $peerID")
                         delegate?.onPacketReceived(packet, peerID, device)
                     } else {
-                        Log.w(TAG, "Server: Failed to parse packet from ${device.address}, size: ${value.size} bytes")
-                        Log.w(TAG, "Server: Packet data: ${value.joinToString(" ") { "%02x".format(it) }}")
+                        // Log.w(TAG, "Server: Failed to parse packet from ${device.address}, size: ${value.size} bytes")
+                        // Log.w(TAG, "Server: Packet data: ${value.joinToString(" ") { "%02x".format(it) }}")
                     }
                     
                     if (responseNeeded) {
