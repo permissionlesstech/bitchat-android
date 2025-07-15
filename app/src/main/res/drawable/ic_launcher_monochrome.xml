@@ -1,60 +1,16 @@
-<vector
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:name="vector"
+    android:viewportWidth="135.4667"
+    android:viewportHeight="135.4667"
     android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108"
->
-<path
-        android:name="path"
-        android:pathData="M 40 45 L 68 45 C 70.2 45 72 46.8 72 49 L 72 59 C 72 61.2 70.2 63 68 63 L 40 63 C 37.8 63 36 61.2 36 59 L 36 49 C 36 46.8 37.8 45 40 45 Z"
-        android:fillColor="#00000000"
-        android:strokeColor="#000000"
-        android:strokeWidth="2"
-    />
-<path
-        android:name="path_1"
-        android:pathData="M 41 47 L 67 47 C 68.1 47 69 47.9 69 49 L 69 57 C 69 58.1 68.1 59 67 59 L 41 59 C 39.9 59 39 58.1 39 57 L 39 49 C 39 47.9 39.9 47 41 47 Z"
-        android:fillColor="#00000000"
-        android:strokeColor="#000000"
-        android:strokeWidth="2"
-    />
-<path
-        android:name="path_2"
-        android:pathData="M 43 51 L 46 51 L 46 55 L 43 55 Z"
-        android:fillColor="#000000"
-    />
-<path
-        android:name="path_3"
-        android:pathData="M 48 52 L 64 52 L 64 53.5 L 48 53.5 Z"
-        android:fillColor="#000000"
-    />
-<path
-        android:name="path_4"
-        android:pathData="M 48 54.5 L 60 54.5 L 60 56 L 48 56 Z"
-        android:fillColor="#000000"
-    />
-<path
-        android:name="path_5"
-        android:pathData="M 62 38 M 60.5 38 C 60.5 37.602 60.658 37.221 60.939 36.939 C 61.221 36.658 61.602 36.5 62 36.5 C 62.398 36.5 62.779 36.658 63.061 36.939 C 63.342 37.221 63.5 37.602 63.5 38 C 63.5 38.398 63.342 38.779 63.061 39.061 C 62.779 39.342 62.398 39.5 62 39.5 C 61.602 39.5 61.221 39.342 60.939 39.061 C 60.658 38.779 60.5 38.398 60.5 38"
-        android:fillColor="#000000"
-    />
-<path
-        android:name="path_6"
-        android:pathData="M 58.5 35 M 57.5 35 C 57.5 34.735 57.605 34.48 57.793 34.293 C 57.98 34.105 58.235 34 58.5 34 C 58.765 34 59.02 34.105 59.207 34.293 C 59.395 34.48 59.5 34.735 59.5 35 C 59.5 35.265 59.395 35.52 59.207 35.707 C 59.02 35.895 58.765 36 58.5 36 C 58.235 36 57.98 35.895 57.793 35.707 C 57.605 35.52 57.5 35.265 57.5 35"
-        android:fillColor="#000000"
-    />
-<path
-        android:name="path_7"
-        android:pathData="M 65.5 35 M 64.5 35 C 64.5 34.735 64.605 34.48 64.793 34.293 C 64.98 34.105 65.235 34 65.5 34 C 65.765 34 66.02 34.105 66.207 34.293 C 66.395 34.48 66.5 34.735 66.5 35 C 66.5 35.265 66.395 35.52 66.207 35.707 C 66.02 35.895 65.765 36 65.5 36 C 65.235 36 64.98 35.895 64.793 35.707 C 64.605 35.52 64.5 35.265 64.5 35"
-        android:fillColor="#000000"
-    />
-<path
-        android:name="path_8"
-        android:pathData="M 59 35.5 L 62.5 38 L 65 35.5"
-        android:fillColor="#55000000"
-        android:strokeColor="#000000"
-        android:strokeWidth="1"
-    />
+    android:height="108dp">
+    <group
+        android:scaleX="0.2645833"
+        android:scaleY="0.2645833"
+        android:translateX="-1.0877"
+        android:translateY="47.11238">
+        <path
+            android:pathData="M187.45493 73.477844q9.17966 2.148433 14.38798 8.333313 5.20832 6.18488 5.20832 14.713504 0 12.499969 -9.11456 19.921819 -9.04945 7.42186 -21.80984 7.42186h-26.1067V32.006596h25.45566q13.28122 0 20.76818 5.85936 7.48696 5.794256 7.48696 16.406208 0 6.5104 -4.36197 11.588512 -4.29686 5.078112 -11.91403 7.356752zM160.69718 68.52994h12.49997q19.59631 0 19.59631 -13.99736 0 -6.380192 -4.8177 -9.7656 -4.8177 -3.450512 -14.12757 -3.450512h-13.15101zm0 46.02853h12.10935q10.61195 0 16.79683 -4.8177 6.24998 -4.81769 6.24998 -13.216109 0 -8.919248 -6.11977 -13.802048 -6.11978 -4.8828 -17.70829 -4.8828h-11.3281zm116.14554 9.30987h-41.73166v-9.30987h15.82027V41.316468h-15.82027v-9.309872h41.73166v9.309872h-15.23433v73.242002h15.23433zM370.20186 40.665428H341.88162V123.86834H331.26967V40.665428h-28.45045v-8.658832h67.38264z"
+            android:fillColor="#000000" />
+    </group>
 </vector>

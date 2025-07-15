@@ -4,6 +4,7 @@ import android.util.Log
 import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
+import com.bitchat.android.model.RoutedPacket
 import kotlinx.coroutines.*
 import java.util.*
 import kotlin.collections.mutableSetOf
@@ -88,7 +89,10 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
     /**
      * Handle key exchange packet
      */
-    suspend fun handleKeyExchange(packet: BitchatPacket, peerID: String): Boolean {
+    suspend fun handleKeyExchange(routed: RoutedPacket): Boolean {
+        val packet = routed.packet
+        val peerID = routed.peerID ?: "unknown"
+
         if (peerID == myPeerID) return false
         
         if (packet.payload.isEmpty()) {
@@ -113,7 +117,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
             Log.d(TAG, "Successfully processed key exchange from $peerID")
             
             // Notify delegate
-            delegate?.onKeyExchangeCompleted(peerID)
+            delegate?.onKeyExchangeCompleted(peerID, packet.payload, routed.relayAddress)
             
             return true
             
@@ -315,5 +319,5 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
  * Delegate interface for security manager callbacks
  */
 interface SecurityManagerDelegate {
-    fun onKeyExchangeCompleted(peerID: String)
+    fun onKeyExchangeCompleted(peerID: String, peerPublicKeyData: ByteArray, receivedAddress: String?)
 }

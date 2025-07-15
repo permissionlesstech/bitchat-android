@@ -9,11 +9,11 @@ body:
     attributes:
       label: "Checklist"
       options:
-        - label: "I made sure that there are *no existing issues or discussions* - [open](https://github.com/callebtc/bitchat-android/issues) or [closed](https://github.com/callebtc/bitchat-android/issues?q=is%3Aissue+is%3Aclosed) - which I could contribute my information to."
+        - label: "I made sure that there are *no existing issues or discussions* - [open](https://github.com/permissionlesstech/bitchat-android/issues) or [closed](https://github.com/permissionlesstech/bitchat-android/issues?q=is%3Aissue+is%3Aclosed) - which I could contribute my information to."
           required: true
         - label: "I have taken the time to fill in all the required details. I understand that the question will be dismissed otherwise."
           required: true
-        - label: "I have read and understood the [technical architecture](https://github.com/callebtc/bitchat-android/blob/main/README.md#technical-architecture)."
+        - label: "I have read and understood the [technical architecture](https://github.com/permissionlesstech/bitchat-android/blob/main/README.md#technical-architecture)."
           required: true
 
   - type: textarea

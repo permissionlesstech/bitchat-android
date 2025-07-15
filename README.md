@@ -13,7 +13,7 @@ This is the **Android port** of the original [bitchat iOS app](https://github.co
 
 ## Install bitchat
 
-You can download the latest version of bitchat for Android from the [GitHub Releases page](https://github.com/callebtc/bitchat-android/releases).
+You can download the latest version of bitchat for Android from the [GitHub Releases page](https://github.com/permissionlesstech/bitchat-android/releases).
 
 **Instructions:**
 

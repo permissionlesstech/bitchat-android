@@ -60,15 +60,15 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.observeAsState(emptySet())
     val privateChats by viewModel.privateChats.observeAsState(emptyMap())
     val channelMessages by viewModel.channelMessages.observeAsState(emptyMap())
-    var showSidebar by remember { mutableStateOf(false) }
+    val showSidebar by viewModel.showSidebar.observeAsState(false)
     val showCommandSuggestions by viewModel.showCommandSuggestions.observeAsState(false)
     val commandSuggestions by viewModel.commandSuggestions.observeAsState(emptyList())
+    val showAppInfo by viewModel.showAppInfo.observeAsState(false)
     
     var messageText by remember { mutableStateOf("") }
     var showPasswordPrompt by remember { mutableStateOf(false) }
     var showPasswordDialog by remember { mutableStateOf(false) }
     var passwordInput by remember { mutableStateOf("") }
-    var showAppInfo by remember { mutableStateOf(false) }
     
     // Show password dialog when needed
     LaunchedEffect(showPasswordPrompt) {
@@ -142,8 +142,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
             nickname = nickname,
             viewModel = viewModel,
             colorScheme = colorScheme,
-            onSidebarToggle = { showSidebar = true },
-            onShowAppInfo = { showAppInfo = true },
+            onSidebarToggle = { viewModel.showSidebar() },
+            onShowAppInfo = { viewModel.showAppInfo() },
             onPanicClear = { viewModel.panicClearAllData() }
         )
         
@@ -162,7 +162,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
         ) {
             SidebarOverlay(
                 viewModel = viewModel,
-                onDismiss = { showSidebar = false },
+                onDismiss = { viewModel.hideSidebar() },
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -188,7 +188,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             passwordInput = ""
         },
         showAppInfo = showAppInfo,
-        onAppInfoDismiss = { showAppInfo = false }
+        onAppInfoDismiss = { viewModel.hideAppInfo() }
     )
 }
 

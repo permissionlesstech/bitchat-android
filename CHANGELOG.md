@@ -5,10 +5,67 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.7]
+
+### Added
+- Location services check during app startup with educational UI
+- Message text selection functionality in chat interface
+- Enhanced RSSI tracking and unread message indicators
+- Major Bluetooth connection architecture refactoring with dedicated managers
 
 ### Fixed
+- **Critical**: Android-iOS message fragmentation compatibility issues
+  - Fixed fragment size (500→150 bytes) and ID generation for cross-platform messaging
+  - Ensures Android can properly communicate with iOS devices
+- DirectMessage notifications and text copying functionality
+- Smart routing optimizations (no relay loops, targeted delivery)
+- Build system compilation issues and null pointer exceptions
+
+### Changed
+- Comprehensive dependency updates (AGP 8.10.1, Kotlin 2.2.0, Compose 2025.06.01)
+- Optimized BLE scan intervals for better battery performance
+- Reduced excessive logging output
+
+### Improved
+- Cross-platform compatibility with iOS and Rust implementations
+- Connection stability through architectural improvements
+- Battery performance via scan duty cycling
+- User onboarding with location services education
+
+## [0.6]
+
+### Added
+- Channel password management with `/pass` command for channel owners
+- Monochrome/themed launcher icon for Android 12+ dynamic theming support
+- Unit tests package with initial testing infrastructure
+- Production build optimization with code minification and shrinking
+- Native back gesture/button handling for all app views
+
+### Fixed
+- Favorite peer functionality completely restored and improved
+  - Enhanced favorite system with fallback mechanism for peers without key exchange
+  - Fixed UI state updates for favorite stars in both header and sidebar
+  - Improved favorite persistence across app sessions
 - `/w` command now displays user nicknames instead of peer IDs
+- Button styling and layout improvements across the app
+  - Enhanced back button positioning and styling
+  - Improved private chat and channel header button layouts
+  - Fixed button padding and alignment issues
+- Color scheme consistency updates
+  - Updated orange color throughout the app to match iOS version
+  - Consistent color usage for private messages and UI elements
+- App startup reliability improvements
+  - Better initialization sequence handling
+  - Fixed null pointer exceptions during startup
+  - Enhanced error handling and logging
+- Input field styling and behavior improvements
+- Sidebar user interaction enhancements
+- Permission explanation screen layout fixes with proper vertical padding
+
+### Changed
+- Updated GitHub organization references in project files
+- Improved README documentation with updated clone URLs
+- Enhanced logging throughout the application for better debugging
 
 ## [0.5.1] - 2025-07-10
 
