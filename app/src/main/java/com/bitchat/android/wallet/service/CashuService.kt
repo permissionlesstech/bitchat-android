@@ -376,6 +376,10 @@ class CashuService {
                         Log.w(TAG, "Failed to mint for paid quote: ${e.message}")
                         Result.success(false)
                     }
+                } else if (quoteResponse.state == FfiMintQuoteState.ISSUED) {
+                    // Quote is issued
+                    Log.d(TAG, "Quote $quoteId is issued")
+                    Result.success(true)
                 } else {
                     // Quote not paid yet
                     Result.success(false)

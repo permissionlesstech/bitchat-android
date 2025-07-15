@@ -272,29 +272,33 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                     if (success) {
                         // Update quote status and add transaction
                         val updatedQuote = quote.copy(paid = true, state = MintQuoteState.PAID)
-                        repository.saveMintQuote(updatedQuote)
-                        
-                        // Update currentMintQuote if it's the same quote
-                        if (_currentMintQuote.value?.id == quote.id) {
-                            _currentMintQuote.value = updatedQuote
+                        repository.saveMintQuote(updatedQuote).onSuccess {
+                            // Update currentMintQuote if it's the same quote
+                            if (_currentMintQuote.value?.id == quote.id) {
+                                _currentMintQuote.value = updatedQuote
+                            }
+                            
+                            val transaction = WalletTransaction(
+                                id = UUID.randomUUID().toString(),
+                                type = TransactionType.LIGHTNING_RECEIVE,
+                                amount = quote.amount,
+                                unit = quote.unit,
+                                status = TransactionStatus.CONFIRMED,
+                                timestamp = Date(),
+                                description = "Lightning payment received",
+                                quote = quote.id
+                            )
+                            repository.saveTransaction(transaction).onSuccess {
+                                loadTransactions()
+                                refreshBalance()
+                                
+                                Log.d(TAG, "Mint quote ${quote.id} was paid and minted")
+                            }.onFailure { error ->
+                                Log.e(TAG, "Failed to save transaction for mint quote ${quote.id}", error)
+                            }
+                        }.onFailure { error ->
+                            Log.e(TAG, "Failed to save updated mint quote ${quote.id}", error)
                         }
-                        
-                        val transaction = WalletTransaction(
-                            id = UUID.randomUUID().toString(),
-                            type = TransactionType.LIGHTNING_RECEIVE,
-                            amount = quote.amount,
-                            unit = quote.unit,
-                            status = TransactionStatus.CONFIRMED,
-                            timestamp = Date(),
-                            description = "Lightning payment received",
-                            quote = quote.id
-                        )
-                        repository.saveTransaction(transaction)
-                        
-                        loadTransactions()
-                        refreshBalance()
-                        
-                        Log.d(TAG, "Mint quote ${quote.id} was paid and minted")
                     }
                 }
             }
@@ -416,10 +420,13 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                         description = memo ?: "Cashu token sent",
                         token = token
                     )
-                    repository.saveTransaction(transaction)
-                    
-                    loadTransactions()
-                    refreshBalance()
+                    repository.saveTransaction(transaction).onSuccess {
+                        loadTransactions()
+                        refreshBalance()
+                    }.onFailure { error ->
+                        Log.e(TAG, "Failed to save transaction", error)
+                        _errorMessage.value = "Failed to save transaction: ${error.message}"
+                    }
                 }.onFailure { error ->
                     _errorMessage.value = "Failed to create token: ${error.message}"
                 }
@@ -467,11 +474,14 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                         description = "Cashu token received",
                         token = token
                     )
-                    repository.saveTransaction(transaction)
-                    
-                    loadTransactions()
-                    refreshBalance()
-                    hideReceiveDialog()
+                    repository.saveTransaction(transaction).onSuccess {
+                        loadTransactions()
+                        refreshBalance()
+                        hideReceiveDialog()
+                    }.onFailure { error ->
+                        Log.e(TAG, "Failed to save transaction", error)
+                        _errorMessage.value = "Failed to save transaction: ${error.message}"
+                    }
                 }.onFailure { error ->
                     _errorMessage.value = "Failed to receive token: ${error.message}"
                 }
@@ -492,8 +502,12 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                     _currentMintQuote.value = quote
                     
                     // Save quote for tracking
-                    repository.saveMintQuote(quote)
-                    loadPendingQuotes()
+                    repository.saveMintQuote(quote).onSuccess {
+                        loadPendingQuotes()
+                    }.onFailure { error ->
+                        Log.e(TAG, "Failed to save mint quote", error)
+                        _errorMessage.value = "Failed to save invoice: ${error.message}"
+                    }
                 }.onFailure { error ->
                     _errorMessage.value = "Failed to create invoice: ${error.message}"
                 }
@@ -514,11 +528,15 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                     _currentMeltQuote.value = quote
                     
                     // Save quote for tracking
-                    repository.saveMeltQuote(quote)
-                    loadPendingQuotes()
-                    
-                    // kick off the polling
-                    startPolling()
+                    repository.saveMeltQuote(quote).onSuccess {
+                        loadPendingQuotes()
+                        
+                        // kick off the polling
+                        startPolling()
+                    }.onFailure { error ->
+                        Log.e(TAG, "Failed to save melt quote", error)
+                        _errorMessage.value = "Failed to save quote: ${error.message}"
+                    }
                 }.onFailure { error ->
                     _errorMessage.value = "Failed to process invoice: ${error.message}"
                 }
@@ -541,24 +559,30 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                         val quote = _currentMeltQuote.value
                         if (quote != null) {
                             val updatedQuote = quote.copy(paid = true, state = MeltQuoteState.PAID)
-                            repository.saveMeltQuote(updatedQuote)
-                            
-                            val transaction = WalletTransaction(
-                                id = UUID.randomUUID().toString(),
-                                type = TransactionType.LIGHTNING_SEND,
-                                amount = quote.amount,
-                                unit = quote.unit,
-                                status = TransactionStatus.CONFIRMED,
-                                timestamp = Date(),
-                                description = "Lightning payment sent",
-                                quote = quote.id,
-                                fee = quote.feeReserve
-                            )
-                            repository.saveTransaction(transaction)
-                            
-                            loadTransactions()
-                            refreshBalance()
-                            hideSendDialog()
+                            repository.saveMeltQuote(updatedQuote).onSuccess {
+                                val transaction = WalletTransaction(
+                                    id = UUID.randomUUID().toString(),
+                                    type = TransactionType.LIGHTNING_SEND,
+                                    amount = quote.amount,
+                                    unit = quote.unit,
+                                    status = TransactionStatus.CONFIRMED,
+                                    timestamp = Date(),
+                                    description = "Lightning payment sent",
+                                    quote = quote.id,
+                                    fee = quote.feeReserve
+                                )
+                                repository.saveTransaction(transaction).onSuccess {
+                                    loadTransactions()
+                                    refreshBalance()
+                                    hideSendDialog()
+                                }.onFailure { error ->
+                                    Log.e(TAG, "Failed to save transaction", error)
+                                    _errorMessage.value = "Failed to save transaction: ${error.message}"
+                                }
+                            }.onFailure { error ->
+                                Log.e(TAG, "Failed to save melt quote", error)
+                                _errorMessage.value = "Failed to save quote: ${error.message}"
+                            }
                         }
                     } else {
                         _errorMessage.value = "Payment failed"
@@ -671,7 +695,11 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
                                 info = mintInfo,
                                 lastSync = Date()
                             )
-                            repository.saveMint(updatedMint)
+                            repository.saveMint(updatedMint).onSuccess {
+                                // Mint updated successfully
+                            }.onFailure { error ->
+                                Log.e(TAG, "Failed to save updated mint ${mint.url}", error)
+                            }
                         }
                     } catch (e: Exception) {
                         Log.e(TAG, "Error syncing mint ${mint.url}", e)
