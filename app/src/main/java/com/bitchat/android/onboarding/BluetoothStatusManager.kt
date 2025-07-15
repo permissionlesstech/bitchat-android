@@ -91,7 +91,7 @@ class BluetoothStatusManager(
      * This should be called on every app startup
      */
     fun checkBluetoothStatus(): BluetoothStatus {
-        Log.d(TAG, "Checking Bluetooth status")
+        // Log.d(TAG, "Checking Bluetooth status")
         
         return when {
             bluetoothAdapter == null -> {
@@ -103,7 +103,7 @@ class BluetoothStatusManager(
                 BluetoothStatus.DISABLED
             }
             else -> {
-                Log.d(TAG, "Bluetooth is enabled and ready")
+                // Log.d(TAG, "Bluetooth is enabled and ready")
                 BluetoothStatus.ENABLED
             }
         }

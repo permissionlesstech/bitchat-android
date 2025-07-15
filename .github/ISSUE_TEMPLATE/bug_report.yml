@@ -14,15 +14,15 @@ body:
     attributes:
       label: "Checklist"
       options:
-        - label: "I am able to reproduce the bug with the latest version given here: [CLICK THIS LINK](https://github.com/callebtc/bitchat-android/releases/latest)."
+        - label: "I am able to reproduce the bug with the latest version given here: [CLICK THIS LINK](https://github.com/permissionlesstech/bitchat-android/releases/latest)."
           required: true
-        - label: "I made sure that there are *no existing issues* - [open](https://github.com/callebtc/bitchat-android/issues) or [closed](https://github.com/callebtc/bitchat-android/issues?q=is%3Aissue+is%3Aclosed) - which I could contribute my information to."
+        - label: "I made sure that there are *no existing issues* - [open](https://github.com/permissionlesstech/bitchat-android/issues) or [closed](https://github.com/permissionlesstech/bitchat-android/issues?q=is%3Aissue+is%3Aclosed) - which I could contribute my information to."
           required: true
         - label: "I have taken the time to fill in all the required details. I understand that the bug report will be dismissed otherwise."
           required: true
         - label: "This issue contains only one bug."
           required: true
-        - label: "I have read and understood the [contribution guidelines](https://github.com/callebtc/bitchat-android/blob/main/README.md#contributing)."
+        - label: "I have read and understood the [contribution guidelines](https://github.com/permissionlesstech/bitchat-android/blob/main/README.md#contributing)."
           required: true
 
   - type: input

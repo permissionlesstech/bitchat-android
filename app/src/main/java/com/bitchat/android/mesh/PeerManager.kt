@@ -183,7 +183,7 @@ class PeerManager {
     /**
      * Get debug information
      */
-    fun getDebugInfo(): String {
+    fun getDebugInfo(addressPeerMap: Map<String, String>? = null): String {
         return buildString {
             appendLine("=== Peer Manager Debug Info ===")
             appendLine("Active Peers: ${activePeers.size}")
@@ -191,10 +191,36 @@ class PeerManager {
                 val nickname = peerNicknames[peerID] ?: "Unknown"
                 val timeSince = (System.currentTimeMillis() - lastSeen) / 1000
                 val rssi = peerRSSI[peerID]?.let { "${it} dBm" } ?: "No RSSI"
-                appendLine("  - $peerID ($nickname) - last seen ${timeSince}s ago, RSSI: $rssi")
+                
+                // Find device address for this peer ID
+                val deviceAddress = addressPeerMap?.entries?.find { it.value == peerID }?.key
+                val addressInfo = deviceAddress?.let { " [Device: $it]" } ?: " [Device: Unknown]"
+                
+                appendLine("  - $peerID ($nickname)$addressInfo - last seen ${timeSince}s ago, RSSI: $rssi")
             }
             appendLine("Announced Peers: ${announcedPeers.size}")
             appendLine("Announced To Peers: ${announcedToPeers.size}")
+        }
+    }
+    
+    /**
+     * Get debug information with device addresses
+     */
+    fun getDebugInfoWithDeviceAddresses(addressPeerMap: Map<String, String>): String {
+        return buildString {
+            appendLine("=== Device Address to Peer Mapping ===")
+            if (addressPeerMap.isEmpty()) {
+                appendLine("No device address mappings available")
+            } else {
+                addressPeerMap.forEach { (deviceAddress, peerID) ->
+                    val nickname = peerNicknames[peerID] ?: "Unknown"
+                    val isActive = activePeers.containsKey(peerID)
+                    val status = if (isActive) "ACTIVE" else "INACTIVE"
+                    appendLine("  Device: $deviceAddress -> Peer: $peerID ($nickname) [$status]")
+                }
+            }
+            appendLine()
+            appendLine(getDebugInfo(addressPeerMap))
         }
     }
     

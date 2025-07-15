@@ -284,9 +284,21 @@ class ChannelManager(
         state.setShowPasswordPrompt(false)
         state.setPasswordPromptChannel(null)
     }
-    
-    fun setChannelPassword(channel: String, password: String): Boolean {
-        return verifyChannelPassword(channel, password)
+
+    fun setChannelPassword(channel: String, password: String) {
+
+        channelPasswords[channel] = password
+
+        channelKeys[channel] = deriveChannelKey(password, channel)
+
+        state.setPasswordProtectedChannels(
+            state.getPasswordProtectedChannelsValue().toMutableSet().apply { add(channel) }
+        )
+
+        dataManager.saveChannelData(
+            state.getJoinedChannelsValue(),
+            state.getPasswordProtectedChannelsValue()
+        )
     }
     
     // MARK: - Emergency Clear
