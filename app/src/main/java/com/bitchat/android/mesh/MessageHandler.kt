@@ -29,6 +29,30 @@ class MessageHandler(private val myPeerID: String) {
     private val handlerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
     /**
+     * Handle Noise encrypted transport message (temporarily stubbed)
+     */
+    suspend fun handleNoiseEncrypted(routed: RoutedPacket) {
+        val packet = routed.packet
+        val peerID = routed.peerID ?: "unknown"
+        
+        Log.d(TAG, "TODO: Handle Noise encrypted message from $peerID (${packet.payload.size} bytes)")
+        
+        // For now, just log it - this will be implemented with actual Noise protocol handling
+    }
+    
+    /**
+     * Handle Noise identity announcement (temporarily stubbed)
+     */
+    suspend fun handleNoiseIdentityAnnouncement(routed: RoutedPacket) {
+        val packet = routed.packet
+        val peerID = routed.peerID ?: "unknown"
+        
+        Log.d(TAG, "TODO: Handle Noise identity announcement from $peerID (${packet.payload.size} bytes)")
+        
+        // For now, just log it - this will be implemented with peer ID rotation handling
+    }
+    
+    /**
      * Handle announce message
      */
     suspend fun handleAnnounce(routed: RoutedPacket): Boolean {

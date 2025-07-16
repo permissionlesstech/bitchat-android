@@ -87,6 +87,19 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
     }
     
     /**
+     * Handle Noise handshake packet (temporarily stubbed for basic build)
+     */
+    suspend fun handleNoiseHandshake(routed: RoutedPacket, step: Int): Boolean {
+        val packet = routed.packet
+        val peerID = routed.peerID ?: "unknown"
+
+        Log.d(TAG, "TODO: Handle Noise handshake step $step from $peerID (${packet.payload.size} bytes)")
+        
+        // For now, just treat it as a key exchange for compatibility
+        return handleKeyExchange(routed)
+    }
+    
+    /**
      * Handle key exchange packet
      */
     suspend fun handleKeyExchange(routed: RoutedPacket): Boolean {

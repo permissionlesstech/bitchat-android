@@ -226,8 +226,16 @@ class BluetoothMeshService(private val context: Context) {
                 peerManager.updatePeerLastSeen(peerID)
             }
             
-            override fun handleKeyExchange(routed: RoutedPacket): Boolean {
-                return runBlocking { securityManager.handleKeyExchange(routed) }
+            override fun handleNoiseHandshake(routed: RoutedPacket, step: Int): Boolean {
+                return runBlocking { securityManager.handleNoiseHandshake(routed, step) }
+            }
+            
+            override fun handleNoiseEncrypted(routed: RoutedPacket) {
+                serviceScope.launch { messageHandler.handleNoiseEncrypted(routed) }
+            }
+            
+            override fun handleNoiseIdentityAnnouncement(routed: RoutedPacket) {
+                serviceScope.launch { messageHandler.handleNoiseIdentityAnnouncement(routed) }
             }
             
             override fun handleAnnounce(routed: RoutedPacket) {
@@ -493,7 +501,7 @@ class BluetoothMeshService(private val context: Context) {
     private fun sendKeyExchangeToDevice() {
         val publicKeyData = securityManager.getCombinedPublicKeyData()
         val packet = BitchatPacket(
-            type = MessageType.KEY_EXCHANGE.value,
+            type = MessageType.NOISE_HANDSHAKE_INIT.value,
             ttl = 1u,
             senderID = myPeerID,
             payload = publicKeyData

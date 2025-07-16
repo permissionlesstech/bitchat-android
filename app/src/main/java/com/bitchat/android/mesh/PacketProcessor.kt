@@ -51,7 +51,10 @@ class PacketProcessor(private val myPeerID: String) {
         
         // Process based on message type (exact same logic as iOS)
         when (MessageType.fromValue(packet.type)) {
-            MessageType.KEY_EXCHANGE -> handleKeyExchange(routed)
+            MessageType.NOISE_HANDSHAKE_INIT -> handleNoiseHandshake(routed, 1)
+            MessageType.NOISE_HANDSHAKE_RESP -> handleNoiseHandshake(routed, 2)
+            MessageType.NOISE_ENCRYPTED -> handleNoiseEncrypted(routed)
+            MessageType.NOISE_IDENTITY_ANNOUNCE -> handleNoiseIdentityAnnouncement(routed)
             MessageType.ANNOUNCE -> handleAnnounce(routed)
             MessageType.MESSAGE -> handleMessage(routed)
             MessageType.LEAVE -> handleLeave(routed)
@@ -67,22 +70,41 @@ class PacketProcessor(private val myPeerID: String) {
     }
     
     /**
-     * Handle key exchange message
+     * Handle Noise handshake message
      */
-    private suspend fun handleKeyExchange(routed: RoutedPacket) {
+    private suspend fun handleNoiseHandshake(routed: RoutedPacket, step: Int) {
         val peerID = routed.peerID ?: "unknown"
-        Log.d(TAG, "Processing key exchange from $peerID")
+        Log.d(TAG, "Processing Noise handshake step $step from $peerID")
         
-        val success = delegate?.handleKeyExchange(routed) ?: false
+        val success = delegate?.handleNoiseHandshake(routed, step) ?: false
         
         if (success) {
-            // Key exchange successful, send announce and cached messages
+            // Handshake successful, may need to send announce and cached messages
+            // This will be determined by the Noise implementation when session is established
             delay(100)
             delegate?.sendAnnouncementToPeer(peerID)
             
             delay(500)
             delegate?.sendCachedMessages(peerID)
         }
+    }
+    
+    /**
+     * Handle Noise encrypted transport message
+     */
+    private suspend fun handleNoiseEncrypted(routed: RoutedPacket) {
+        val peerID = routed.peerID ?: "unknown"
+        Log.d(TAG, "Processing Noise encrypted message from $peerID")
+        delegate?.handleNoiseEncrypted(routed)
+    }
+    
+    /**
+     * Handle Noise identity announcement (after peer ID rotation)
+     */
+    private suspend fun handleNoiseIdentityAnnouncement(routed: RoutedPacket) {
+        val peerID = routed.peerID ?: "unknown"
+        Log.d(TAG, "Processing Noise identity announcement from $peerID")
+        delegate?.handleNoiseIdentityAnnouncement(routed)
     }
     
     /**
@@ -174,7 +196,9 @@ interface PacketProcessorDelegate {
     fun updatePeerLastSeen(peerID: String)
     
     // Message type handlers
-    fun handleKeyExchange(routed: RoutedPacket): Boolean
+    fun handleNoiseHandshake(routed: RoutedPacket, step: Int): Boolean
+    fun handleNoiseEncrypted(routed: RoutedPacket)
+    fun handleNoiseIdentityAnnouncement(routed: RoutedPacket)
     fun handleAnnounce(routed: RoutedPacket)
     fun handleMessage(routed: RoutedPacket)
     fun handleLeave(routed: RoutedPacket)

@@ -7,21 +7,35 @@ import java.nio.ByteOrder
 import java.util.*
 
 /**
- * Message types - exact same as iOS version
+ * Message types - exact same as iOS version with Noise Protocol support
  */
 enum class MessageType(val value: UByte) {
     ANNOUNCE(0x01u),
-    KEY_EXCHANGE(0x02u),
+    // 0x02 was legacy keyExchange - removed
     LEAVE(0x03u),
-    MESSAGE(0x04u),
+    MESSAGE(0x04u),  // All user messages (private and broadcast)
     FRAGMENT_START(0x05u),
     FRAGMENT_CONTINUE(0x06u),
     FRAGMENT_END(0x07u),
-    CHANNEL_ANNOUNCE(0x08u),
-    CHANNEL_RETENTION(0x09u),
-    DELIVERY_ACK(0x0Au),
-    DELIVERY_STATUS_REQUEST(0x0Bu),
-    READ_RECEIPT(0x0Cu);
+    CHANNEL_ANNOUNCE(0x08u),  // Announce password-protected channel status
+    CHANNEL_RETENTION(0x09u),  // Announce channel retention status
+    DELIVERY_ACK(0x0Au),  // Acknowledge message received
+    DELIVERY_STATUS_REQUEST(0x0Bu),  // Request delivery status update
+    READ_RECEIPT(0x0Cu),  // Message has been read/viewed
+    
+    // Noise Protocol messages - exact same as iOS
+    NOISE_HANDSHAKE_INIT(0x10u),  // Noise handshake initiation
+    NOISE_HANDSHAKE_RESP(0x11u),  // Noise handshake response
+    NOISE_ENCRYPTED(0x12u),       // Noise encrypted transport message
+    NOISE_IDENTITY_ANNOUNCE(0x13u),  // Announce static public key for discovery
+    CHANNEL_KEY_VERIFY_REQUEST(0x14u),  // Request key verification for a channel
+    CHANNEL_KEY_VERIFY_RESPONSE(0x15u), // Response to key verification request
+    CHANNEL_PASSWORD_UPDATE(0x16u),     // Distribute new password to channel members
+    CHANNEL_METADATA(0x17u),            // Announce channel creator and metadata
+    
+    // Protocol version negotiation
+    VERSION_HELLO(0x20u),               // Initial version announcement
+    VERSION_ACK(0x21u);                 // Version acknowledgment
 
     companion object {
         fun fromValue(value: UByte): MessageType? {
