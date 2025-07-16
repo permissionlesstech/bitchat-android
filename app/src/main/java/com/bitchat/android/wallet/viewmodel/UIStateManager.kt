@@ -24,6 +24,12 @@ class UIStateManager {
     private val _showAddMintDialog = MutableLiveData<Boolean>(false)
     val showAddMintDialog: androidx.lifecycle.LiveData<Boolean> = _showAddMintDialog
     
+    private val _showMintDetails = MutableLiveData<Boolean>(false)
+    val showMintDetails: androidx.lifecycle.LiveData<Boolean> = _showMintDetails
+    
+    private val _selectedMintUrl = MutableLiveData<String?>(null)
+    val selectedMintUrl: androidx.lifecycle.LiveData<String?> = _selectedMintUrl
+    
     // Success animation state
     private val _showSuccessAnimation = MutableLiveData<Boolean>(false)
     val showSuccessAnimation: androidx.lifecycle.LiveData<Boolean> = _showSuccessAnimation
@@ -82,6 +88,16 @@ class UIStateManager {
     
     fun hideAddMintDialog() {
         _showAddMintDialog.value = false
+    }
+    
+    fun showMintDetails(mintUrl: String) {
+        _selectedMintUrl.value = mintUrl
+        _showMintDetails.value = true
+    }
+    
+    fun hideMintDetails() {
+        _showMintDetails.value = false
+        _selectedMintUrl.value = null
     }
     
     // Animation Management

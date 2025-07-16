@@ -25,6 +25,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.bitchat.android.wallet.data.Mint
 import com.bitchat.android.wallet.viewmodel.WalletViewModel
+import com.bitchat.android.wallet.ui.mintinfo.MintDetailsScreen
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -41,7 +42,41 @@ fun MintsScreen(
     val showAddMintDialog by viewModel.showAddMintDialog.observeAsState(false)
     val isLoading by viewModel.isLoading.observeAsState(false)
     val errorMessage by viewModel.errorMessage.observeAsState()
+    val showMintDetails by viewModel.showMintDetails.observeAsState(false)
+    val selectedMintUrl by viewModel.selectedMintUrl.observeAsState()
     
+    // Show mint details screen if selected
+    if (showMintDetails && selectedMintUrl != null) {
+        MintDetailsScreen(
+            mintUrl = selectedMintUrl!!,
+            walletViewModel = viewModel,
+            onNavigateBack = { viewModel.hideMintDetails() },
+            modifier = modifier
+        )
+    } else {
+        // Show normal mints list
+        MintsListContent(
+            viewModel = viewModel,
+            mints = mints,
+            activeMint = activeMint,
+            showAddMintDialog = showAddMintDialog,
+            isLoading = isLoading,
+            errorMessage = errorMessage,
+            modifier = modifier
+        )
+    }
+}
+
+@Composable
+private fun MintsListContent(
+    viewModel: WalletViewModel,
+    mints: List<Mint>,
+    activeMint: String?,
+    showAddMintDialog: Boolean,
+    isLoading: Boolean,
+    errorMessage: String?,
+    modifier: Modifier = Modifier
+) {
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -89,14 +124,14 @@ fun MintsScreen(
         if (mints.isEmpty()) {
             EmptyMintsCard(onAddClick = { viewModel.showAddMintDialog() })
         } else {
-            MintsList(
-                mints = mints,
-                activeMint = activeMint,
-                onMintSelect = { viewModel.setActiveMint(it) },
-                onMintEdit = { mint, newNickname ->
-                    viewModel.updateMintNickname(mint, newNickname)
-                }
-            )
+                    MintsList(
+            mints = mints,
+            activeMint = activeMint,
+            onMintSelect = { viewModel.setActiveMint(it) },
+            onMintInfo = { mintUrl -> 
+                viewModel.showMintDetails(mintUrl)
+            }
+        )
         }
         
         // Error message
@@ -123,7 +158,7 @@ private fun MintsList(
     mints: List<Mint>,
     activeMint: String?,
     onMintSelect: (String) -> Unit,
-    onMintEdit: (String, String) -> Unit
+    onMintInfo: (String) -> Unit
 ) {
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -133,7 +168,7 @@ private fun MintsList(
                 mint = mint,
                 isActive = mint.url == activeMint,
                 onSelect = { onMintSelect(mint.url) },
-                onEdit = { newNickname -> onMintEdit(mint.url, newNickname) }
+                onInfo = { onMintInfo(mint.url) }
             )
         }
     }
@@ -144,9 +179,8 @@ private fun MintItem(
     mint: Mint,
     isActive: Boolean,
     onSelect: () -> Unit,
-    onEdit: (String) -> Unit
+    onInfo: () -> Unit
 ) {
-    var showEditDialog by remember { mutableStateOf(false) }
     
     Card(
         modifier = Modifier
@@ -210,11 +244,11 @@ private fun MintItem(
                 )
             }
             
-            // Edit button
-            IconButton(onClick = { showEditDialog = true }) {
+            // Info button
+            IconButton(onClick = onInfo) {
                 Icon(
-                    imageVector = Icons.Filled.Edit,
-                    contentDescription = "Edit",
+                    imageVector = Icons.Filled.Info,
+                    contentDescription = "Mint Details",
                     tint = Color.Gray,
                     modifier = Modifier.size(16.dp)
                 )
@@ -232,17 +266,7 @@ private fun MintItem(
         }
     }
     
-    // Edit dialog
-    if (showEditDialog) {
-        EditMintDialog(
-            currentNickname = mint.nickname,
-            onSave = { 
-                onEdit(it)
-                showEditDialog = false
-            },
-            onDismiss = { showEditDialog = false }
-        )
-    }
+
 }
 
 @Composable
@@ -436,100 +460,7 @@ private fun AddMintDialog(
     }
 }
 
-@Composable
-private fun EditMintDialog(
-    currentNickname: String,
-    onSave: (String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var nickname by remember { mutableStateOf(currentNickname) }
-    
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A))
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp)
-            ) {
-                Text(
-                    text = "Edit Mint Nickname",
-                    color = Color.White,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                OutlinedTextField(
-                    value = nickname,
-                    onValueChange = { nickname = it },
-                    label = {
-                        Text(
-                            text = "Nickname",
-                            fontFamily = FontFamily.Monospace
-                        )
-                    },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF00C851),
-                        focusedLabelColor = Color(0xFF00C851),
-                        unfocusedTextColor = Color.White,
-                        focusedTextColor = Color.White
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Cancel button
-                    Button(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.Transparent
-                        ),
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp, 
-                            Color.Gray
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text(
-                            text = "Cancel",
-                            color = Color.Gray,
-                            fontFamily = FontFamily.Monospace
-                        )
-                    }
-                    
-                    // Save button
-                    Button(
-                        onClick = { onSave(nickname) },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF00C851)
-                        ),
-                        shape = RoundedCornerShape(8.dp),
-                        enabled = nickname.isNotEmpty()
-                    ) {
-                        Text(
-                            text = "Save",
-                            color = Color.Black,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
+
 
 @Composable
 private fun ErrorCard(

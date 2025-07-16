@@ -272,6 +272,43 @@ class MintManager(
     }
     
     /**
+     * Delete a mint from the repository
+     */
+    fun deleteMint(mintUrl: String) {
+        coroutineScope.launch {
+            try {
+                val currentMints = _mints.value ?: emptyList()
+                val updatedMints = currentMints.filter { it.url != mintUrl }
+                
+                // Save updated mints list (remove the mint)
+                repository.clearAllData()
+                updatedMints.forEach { mint ->
+                    repository.saveMint(mint).onFailure { error ->
+                        Log.e(TAG, "Failed to save mint during deletion: ${mint.url}", error)
+                    }
+                }
+                
+                // If the deleted mint was active, clear active mint
+                if (_activeMint.value == mintUrl) {
+                    repository.setActiveMint("")
+                    _activeMint.value = null
+                }
+                
+                // Reload mints
+                repository.getMints().onSuccess { mintList ->
+                    _mints.value = mintList
+                }
+                
+                Log.d(TAG, "Successfully deleted mint: $mintUrl")
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to delete mint: $mintUrl", e)
+                _errorMessage.value = "Failed to delete mint: ${e.message}"
+            }
+        }
+    }
+    
+    /**
      * Clear error message
      */
     fun clearError() {

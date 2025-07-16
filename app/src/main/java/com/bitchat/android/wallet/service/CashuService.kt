@@ -21,7 +21,6 @@ class CashuService {
     private var currentMintUrl: String? = null
     private var currentUnit: String = "sat"
     private var isInitialized = false
-    private var isCdkAvailable = false
     private var repository: WalletRepository? = null
     
     companion object {
@@ -161,49 +160,12 @@ class CashuService {
     }
     
     /**
-     * Check if CDK is available and initialize appropriately
-     */
-    private fun initializeCdkAvailability(): Boolean {
-        if (isCdkAvailable) return true
-        
-        Log.d(TAG, "=== CDK LIBRARY AVAILABILITY CHECK ===")
-        
-        try {
-            // Test CDK availability by calling a simple function
-            val testMnemonic = generateMnemonic()
-            Log.d(TAG, "✅ CDK library is fully available and functional!")
-            Log.d(TAG, "Generated test mnemonic with ${testMnemonic.split(" ").size} words")
-            isCdkAvailable = true
-            return true
-            
-        } catch (e: UnsatisfiedLinkError) {
-            Log.w(TAG, "❌ CDK library not available: ${e.message}")
-        } catch (e: FfiException) {
-            Log.w(TAG, "❌ CDK FFI error: ${e.message}")
-        } catch (e: NoClassDefFoundError) {
-            Log.w(TAG, "❌ CDK classes not found: ${e.message}")
-        } catch (e: Exception) {
-            Log.w(TAG, "❌ Unexpected CDK error: ${e.message}")
-        }
-        
-        isCdkAvailable = false
-        Log.w(TAG, "⚠️ CDK library not available - wallet will not function properly")
-        Log.d(TAG, "=== END CDK LIBRARY CHECK ===")
-        return false
-    }
-    
-    /**
      * Initialize the CDK wallet with a mint URL
      */
     suspend fun initializeWallet(mintUrl: String, unit: String = "sat"): Result<Boolean> {
         return withContext(Dispatchers.IO) {
             try {
                 Log.d(TAG, "Initializing wallet with mint: $mintUrl")
-                
-                // Test CDK availability first
-                if (!initializeCdkAvailability()) {
-                    return@withContext Result.failure(Exception("CDK library not available"))
-                }
                 
                 // Create database path using application context
                 val context = getApplicationContext()
@@ -269,7 +231,7 @@ class CashuService {
                     initializeWallet(mintUrl).getOrThrow()
                 }
                 
-                val mintInfo = if (isCdkAvailable && wallet != null) {
+                val mintInfo = if (wallet != null) {
                     try {
                         // Get real mint info from CDK
                         val mintInfoData = wallet!!.getMintInfo()
@@ -280,7 +242,7 @@ class CashuService {
                             name = extractMintName(mintUrl),
                             description = "Cashu mint via CDK",
                             descriptionLong = "Real Cashu mint connection via CDK-FFI",
-                            contact = "",
+                            contact = emptyList(),
                             version = "1.0.0",
                             nuts = mapOf(
                                 "4" to "true", // NUT-4: Mint quote
@@ -318,7 +280,7 @@ class CashuService {
                     initializeWallet(DEFAULT_MINT_URL).getOrThrow()
                 }
                 
-                if (!isCdkAvailable || wallet == null) {
+                if (wallet == null) {
                     return@withContext Result.failure(Exception("CDK not available"))
                 }
                 
@@ -349,7 +311,7 @@ class CashuService {
                     initializeWallet(DEFAULT_MINT_URL).getOrThrow()
                 }
                 
-                if (!isCdkAvailable || wallet == null) {
+                if (wallet == null) {
                     return@withContext Result.failure(Exception("CDK not available"))
                 }
                 
@@ -446,7 +408,7 @@ class CashuService {
                 )
                 
                 // Now receive the token with the properly initialized wallet
-                if (!isCdkAvailable || wallet == null) {
+                if (wallet == null) {
                     return@withContext Result.failure(Exception("CDK not available"))
                 }
                 
@@ -476,7 +438,7 @@ class CashuService {
                     initializeWallet(DEFAULT_MINT_URL).getOrThrow()
                 }
                 
-                if (!isCdkAvailable || wallet == null) {
+                if (wallet == null) {
                     return@withContext Result.failure(Exception("CDK not available"))
                 }
                 
@@ -527,7 +489,7 @@ class CashuService {
                     initializeWallet(DEFAULT_MINT_URL).getOrThrow()
                 }
                 
-                if (!isCdkAvailable || wallet == null) {
+                if (wallet == null) {
                     return@withContext Result.failure(Exception("CDK not available"))
                 }
                 
@@ -574,7 +536,7 @@ class CashuService {
                     initializeWallet(DEFAULT_MINT_URL).getOrThrow()
                 }
                 
-                if (!isCdkAvailable || wallet == null) {
+                if (wallet == null) {
                     return@withContext Result.failure(Exception("CDK not available"))
                 }
                 
@@ -619,7 +581,7 @@ class CashuService {
                     initializeWallet(DEFAULT_MINT_URL).getOrThrow()
                 }
                 
-                if (!isCdkAvailable || wallet == null) {
+                if (wallet == null) {
                     return@withContext Result.failure(Exception("CDK not available"))
                 }
                 
@@ -691,14 +653,6 @@ class CashuService {
         } catch (e: Exception) {
             Log.e(TAG, "Error during cleanup", e)
         }
-    }
-    
-    /**
-     * Check if real CDK is available
-     */
-    fun isCdkAvailable(): Boolean {
-        initializeCdkAvailability()
-        return isCdkAvailable
     }
     
     // Helper functions

@@ -3,6 +3,14 @@ package com.bitchat.android.wallet.data
 import java.util.Date
 
 /**
+ * Represents contact information for a mint
+ */
+data class ContactInfo(
+    val method: String, // e.g., "email", "twitter", "nostr"
+    val info: String    // e.g., "contact@example.com", "@username", "npub..."
+)
+
+/**
  * Represents a Cashu mint information
  */
 data class MintInfo(
@@ -10,9 +18,9 @@ data class MintInfo(
     val name: String,
     val description: String? = null,
     val descriptionLong: String? = null,
-    val contact: String? = null,
+    val contact: List<ContactInfo>? = null,
     val version: String,
-    val nuts: Map<String, String>, // Simplified - was Map<String, Any>
+    val nuts: Map<String, Any>? = null, // NUT specifications supported by the mint
     val motd: String? = null,
     val icon: String? = null,
     val time: Date? = null

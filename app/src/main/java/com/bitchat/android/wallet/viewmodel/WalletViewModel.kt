@@ -58,6 +58,8 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     val sendType: LiveData<SendType> = uiStateManager.sendType
     val receiveType: LiveData<ReceiveType> = uiStateManager.receiveType
     val showAddMintDialog: LiveData<Boolean> = uiStateManager.showAddMintDialog
+    val showMintDetails: LiveData<Boolean> = uiStateManager.showMintDetails
+    val selectedMintUrl: LiveData<String?> = uiStateManager.selectedMintUrl
     val showSuccessAnimation: LiveData<Boolean> = uiStateManager.showSuccessAnimation
     val successAnimationData: LiveData<SuccessAnimationData?> = uiStateManager.successAnimationData
     val showFailureAnimation: LiveData<Boolean> = uiStateManager.showFailureAnimation
@@ -181,6 +183,20 @@ class WalletViewModel(application: Application) : AndroidViewModel(application) 
     fun hideAddMintDialog() = uiStateManager.hideAddMintDialog()
     
     fun clearError() = uiStateManager.clearError()
+    
+    // Mint details navigation
+    fun showMintDetails(mintUrl: String) = uiStateManager.showMintDetails(mintUrl)
+    
+    fun hideMintDetails() = uiStateManager.hideMintDetails()
+    
+    // Copy to clipboard functionality
+    fun copyToClipboard(text: String) {
+        // This will be handled by the UI components directly using LocalClipboardManager
+        // We can add a success message here if needed
+    }
+    
+    // Delete mint functionality  
+    fun deleteMint(mintUrl: String) = mintManager.deleteMint(mintUrl)
     
     // Token input management - Delegate to TokenManager
     fun setTokenInput(token: String) = tokenManager.setTokenInput(token)
