@@ -54,6 +54,42 @@ class CashuService {
     private fun checkMintExists(mintUrl: String, mints: List<Mint>): Boolean {
         return mints.any { it.url == mintUrl }
     }
+
+    private suspend fun getAndUpdateMintInfo(mintUrl: String): Result<MintInfo> {
+        return withContext(Dispatchers.IO) {
+            try {
+                initializeRepository()
+                val repo = repository ?: return@withContext Result.failure(Exception("Repository not available"))
+                val mintInfoResult = getMintInfo(mintUrl)
+                if (mintInfoResult.isFailure) {
+                    val error = mintInfoResult.exceptionOrNull() ?: Exception("Unknown error")
+                    Log.e(TAG, "Failed to get mint info for: $mintUrl", error)
+                    return@withContext Result.failure(error)
+                }
+
+                val mintInfo = mintInfoResult.getOrThrow()
+                val mint = Mint(
+                    url = mintUrl,
+                    nickname = mintInfo.name.ifEmpty { "Auto-added Mint" },
+                    info = mintInfo,
+                    keysets = emptyList(), // Will be populated by CDK
+                    active = true,
+                    dateAdded = Date()
+                )
+
+                val saveMintResult = repo.saveMint(mint)
+                if (saveMintResult.isFailure) {
+                    val error = saveMintResult.exceptionOrNull() ?: Exception("Unknown error")
+                    Log.e(TAG, "Failed to save mint: $mintUrl", error)
+                    return@withContext Result.failure(error)
+                }
+                return@withContext Result.success(mintInfo)
+            } catch (e: Exception) {
+                Log.e(TAG, "Exception while getting and updating mint info: $mintUrl", e)
+                return@withContext Result.failure(e)
+            }
+        }
+    }
     
     /**
      * Add a mint if authorized (autoAdd = true)
@@ -71,29 +107,13 @@ class CashuService {
                 
                 Log.d(TAG, "Adding mint automatically: $mintUrl")
                 
-                val mintInfoResult = getMintInfo(mintUrl)
+                val mintInfoResult = getAndUpdateMintInfo(mintUrl)
                 if (mintInfoResult.isFailure) {
                     val error = mintInfoResult.exceptionOrNull() ?: Exception("Unknown error")
                     Log.e(TAG, "Failed to get mint info for: $mintUrl", error)
                     return@withContext Result.failure(error)
                 }
-                
                 val mintInfo = mintInfoResult.getOrThrow()
-                val mint = Mint(
-                    url = mintUrl,
-                    nickname = mintInfo.name.ifEmpty { "Auto-added Mint" },
-                    info = mintInfo,
-                    keysets = emptyList(), // Will be populated by CDK
-                    active = true,
-                    dateAdded = Date()
-                )
-                
-                val saveMintResult = repo.saveMint(mint)
-                if (saveMintResult.isFailure) {
-                    val error = saveMintResult.exceptionOrNull() ?: Exception("Unknown error")
-                    Log.e(TAG, "Failed to save mint: $mintUrl", error)
-                    return@withContext Result.failure(error)
-                }
                 
                 Log.d(TAG, "Successfully added mint: $mintUrl")
                 return@withContext Result.success(true)
