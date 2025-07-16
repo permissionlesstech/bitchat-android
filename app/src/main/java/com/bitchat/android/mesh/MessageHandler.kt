@@ -9,6 +9,8 @@ import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import kotlinx.coroutines.*
+import org.json.JSONObject
+import java.security.MessageDigest
 import java.util.*
 import kotlin.random.Random
 
@@ -29,27 +31,136 @@ class MessageHandler(private val myPeerID: String) {
     private val handlerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
     /**
-     * Handle Noise encrypted transport message (temporarily stubbed)
+     * Handle Noise encrypted transport message
      */
     suspend fun handleNoiseEncrypted(routed: RoutedPacket) {
         val packet = routed.packet
         val peerID = routed.peerID ?: "unknown"
         
-        Log.d(TAG, "TODO: Handle Noise encrypted message from $peerID (${packet.payload.size} bytes)")
+        Log.d(TAG, "Processing Noise encrypted message from $peerID (${packet.payload.size} bytes)")
         
-        // For now, just log it - this will be implemented with actual Noise protocol handling
+        // Skip our own messages
+        if (peerID == myPeerID) return
+        
+        try {
+            // Decrypt the message using the Noise service
+            val decryptedData = delegate?.decryptFromPeer(packet.payload, peerID)
+            if (decryptedData == null) {
+                Log.w(TAG, "Failed to decrypt Noise message from $peerID - may need handshake")
+                return
+            }
+            
+            // Check if it's a special format message (type marker + payload)
+            if (decryptedData.size > 1) {
+                val typeMarker = decryptedData[0].toUByte()
+                
+                // Check if this is a delivery ACK with the new format
+                if (typeMarker == MessageType.DELIVERY_ACK.value) {
+                    // Extract the ACK JSON data (skip the type marker)
+                    val ackData = decryptedData.sliceArray(1 until decryptedData.size)
+                    
+                    // Decode the delivery ACK
+                    val ack = DeliveryAck.decode(ackData)
+                    if (ack != null) {
+                        delegate?.onDeliveryAckReceived(ack)
+                        Log.d(TAG, "Processed delivery ACK from $peerID")
+                        return
+                    }
+                }
+                
+                // Check for read receipt with type marker
+                if (typeMarker == MessageType.READ_RECEIPT.value) {
+                    val receiptData = decryptedData.sliceArray(1 until decryptedData.size)
+                    val receipt = ReadReceipt.decode(receiptData)
+                    if (receipt != null) {
+                        delegate?.onReadReceiptReceived(receipt)
+                        Log.d(TAG, "Processed read receipt from $peerID")
+                        return
+                    }
+                }
+            }
+            
+            // Try to parse as a full inner packet (for compatibility with other message types)
+            val innerPacket = BitchatPacket.fromBinaryData(decryptedData)
+            if (innerPacket != null) {
+                Log.d(TAG, "Decrypted inner packet type ${innerPacket.type} from $peerID")
+                
+                // Create a new routed packet with the decrypted inner packet
+                val innerRouted = RoutedPacket(innerPacket, peerID, routed.relayAddress)
+                
+                // Process the decrypted inner packet recursively
+                when (MessageType.fromValue(innerPacket.type)) {
+                    MessageType.MESSAGE -> handleMessage(innerRouted)
+                    MessageType.DELIVERY_ACK -> handleDeliveryAck(innerRouted)
+                    MessageType.READ_RECEIPT -> handleReadReceipt(innerRouted)
+                    else -> {
+                        Log.w(TAG, "Unexpected inner packet type: ${innerPacket.type}")
+                    }
+                }
+            } else {
+                Log.w(TAG, "Failed to parse decrypted data as packet from $peerID")
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error processing Noise encrypted message from $peerID: ${e.message}")
+        }
     }
     
     /**
-     * Handle Noise identity announcement (temporarily stubbed)
+     * Handle Noise identity announcement - supports peer ID rotation
      */
     suspend fun handleNoiseIdentityAnnouncement(routed: RoutedPacket) {
         val packet = routed.packet
         val peerID = routed.peerID ?: "unknown"
         
-        Log.d(TAG, "TODO: Handle Noise identity announcement from $peerID (${packet.payload.size} bytes)")
+        Log.d(TAG, "Processing Noise identity announcement from $peerID (${packet.payload.size} bytes)")
         
-        // For now, just log it - this will be implemented with peer ID rotation handling
+        // Skip our own announcements
+        if (peerID == myPeerID) return
+        
+        try {
+            // Parse the identity announcement
+            val announcement = parseNoiseIdentityAnnouncement(packet.payload)
+            if (announcement == null) {
+                Log.w(TAG, "Failed to parse Noise identity announcement from $peerID")
+                return
+            }
+            
+            Log.d(TAG, "Parsed identity announcement: peerID=${announcement.peerID}, " +
+                    "nickname=${announcement.nickname}, fingerprint=${announcement.fingerprint?.take(16)}...")
+            
+            // Verify the announcement signature (basic validation)
+            // In a full implementation, this would use cryptographic verification
+            if (announcement.signature.isEmpty()) {
+                Log.w(TAG, "Identity announcement from $peerID has no signature")
+                return
+            }
+            
+            // Update peer binding in the delegate (ChatViewModel/BluetoothMeshService)
+            delegate?.updatePeerIDBinding(
+                newPeerID = announcement.peerID,
+                fingerprint = announcement.fingerprint ?: "",
+                nickname = announcement.nickname,
+                publicKey = announcement.publicKey,
+                previousPeerID = announcement.previousPeerID
+            )
+            
+            // Check if we need to initiate a handshake with this peer
+            val hasSession = delegate?.hasNoiseSession(announcement.peerID) ?: false
+            if (!hasSession) {
+                Log.d(TAG, "No session with ${announcement.peerID}, may need handshake")
+                
+                // Use lexicographic comparison to decide who initiates (prevents both sides from initiating)
+                if (myPeerID < announcement.peerID) {
+                    delegate?.initiateNoiseHandshake(announcement.peerID)
+                }
+            }
+            
+            Log.d(TAG, "Successfully processed identity announcement from $peerID")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error processing Noise identity announcement from $peerID: ${e.message}")
+        }
     }
     
     /**
@@ -344,10 +455,90 @@ class MessageHandler(private val myPeerID: String) {
     }
     
     /**
+     * Parse Noise identity announcement from payload
+     */
+    private fun parseNoiseIdentityAnnouncement(payload: ByteArray): NoiseIdentityAnnouncement? {
+        return try {
+            val jsonString = String(payload, Charsets.UTF_8)
+            val json = JSONObject(jsonString)
+            
+            val peerID = json.getString("peerID")
+            val nickname = json.getString("nickname")
+            val publicKeyBase64 = json.getString("publicKey")
+            val timestampMs = json.getLong("timestamp")
+            val signatureBase64 = json.getString("signature")
+            val previousPeerID = if (json.has("previousPeerID")) json.getString("previousPeerID") else null
+            
+            // Decode base64 fields
+            val publicKey = android.util.Base64.decode(publicKeyBase64, android.util.Base64.DEFAULT)
+            val signature = android.util.Base64.decode(signatureBase64, android.util.Base64.DEFAULT)
+            
+            // Calculate fingerprint from public key
+            val digest = MessageDigest.getInstance("SHA-256")
+            val hash = digest.digest(publicKey)
+            val fingerprint = hash.joinToString("") { "%02x".format(it) }
+            
+            NoiseIdentityAnnouncement(
+                peerID = peerID,
+                nickname = nickname,
+                publicKey = publicKey,
+                timestamp = Date(timestampMs),
+                signature = signature,
+                fingerprint = fingerprint,
+                previousPeerID = previousPeerID
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to parse Noise identity announcement: ${e.message}")
+            null
+        }
+    }
+    
+    /**
      * Shutdown the handler
      */
     fun shutdown() {
         handlerScope.cancel()
+    }
+}
+
+/**
+ * Noise Identity Announcement data class (compatible with iOS version)
+ */
+data class NoiseIdentityAnnouncement(
+    val peerID: String,
+    val nickname: String,
+    val publicKey: ByteArray,
+    val timestamp: Date,
+    val signature: ByteArray,
+    val fingerprint: String?,
+    val previousPeerID: String? = null
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as NoiseIdentityAnnouncement
+
+        if (peerID != other.peerID) return false
+        if (nickname != other.nickname) return false
+        if (!publicKey.contentEquals(other.publicKey)) return false
+        if (timestamp != other.timestamp) return false
+        if (!signature.contentEquals(other.signature)) return false
+        if (fingerprint != other.fingerprint) return false
+        if (previousPeerID != other.previousPeerID) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = peerID.hashCode()
+        result = 31 * result + nickname.hashCode()
+        result = 31 * result + publicKey.contentHashCode()
+        result = 31 * result + timestamp.hashCode()
+        result = 31 * result + signature.contentHashCode()
+        result = 31 * result + (fingerprint?.hashCode() ?: 0)
+        result = 31 * result + (previousPeerID?.hashCode() ?: 0)
+        return result
     }
 }
 
@@ -372,6 +563,12 @@ interface MessageHandlerDelegate {
     fun verifySignature(packet: BitchatPacket, peerID: String): Boolean
     fun encryptForPeer(data: ByteArray, recipientPeerID: String): ByteArray?
     fun decryptFromPeer(encryptedData: ByteArray, senderPeerID: String): ByteArray?
+    
+    // Noise protocol operations
+    fun hasNoiseSession(peerID: String): Boolean
+    fun initiateNoiseHandshake(peerID: String)
+    fun updatePeerIDBinding(newPeerID: String, fingerprint: String, nickname: String, 
+                           publicKey: ByteArray, previousPeerID: String?)
     
     // Message operations
     fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String?

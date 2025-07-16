@@ -99,6 +99,20 @@ class BluetoothConnectionManager(
         try {
             isActive = true
             
+
+        // CRITICAL FIX: To be discoverable by iOS, we MUST set the adapter's name
+        // to our 8-character peerID. iOS uses the `localName` field for discovery.
+        try {
+            if (bluetoothAdapter?.name != myPeerID) {
+                bluetoothAdapter?.name = myPeerID
+                Log.d(TAG, "Set Bluetooth adapter name to peerID: $myPeerID for iOS compatibility.")
+            }
+        } catch (se: SecurityException) {
+            Log.e(TAG, "Missing BLUETOOTH_CONNECT permission to set adapter name.", se)
+            // This is not fatal, but will prevent discovery by iOS clients.
+            // We can still be discovered if the iOS client initiates the connection.
+        }
+
             // Start all component managers
             connectionScope.launch {
                 // Start connection tracker first

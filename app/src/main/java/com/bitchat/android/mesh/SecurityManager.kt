@@ -87,16 +87,52 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
     }
     
     /**
-     * Handle Noise handshake packet (temporarily stubbed for basic build)
+     * Handle Noise handshake packet
      */
     suspend fun handleNoiseHandshake(routed: RoutedPacket, step: Int): Boolean {
         val packet = routed.packet
         val peerID = routed.peerID ?: "unknown"
 
-        Log.d(TAG, "TODO: Handle Noise handshake step $step from $peerID (${packet.payload.size} bytes)")
+        Log.d(TAG, "Processing Noise handshake step $step from $peerID (${packet.payload.size} bytes)")
         
-        // For now, just treat it as a key exchange for compatibility
-        return handleKeyExchange(routed)
+        // Skip our own handshake messages
+        if (peerID == myPeerID) return false
+        
+        if (packet.payload.isEmpty()) {
+            Log.w(TAG, "Noise handshake packet has empty payload")
+            return false
+        }
+        
+        // Prevent duplicate handshake processing
+        val exchangeKey = "$peerID-${packet.payload.sliceArray(0 until minOf(16, packet.payload.size)).contentHashCode()}"
+        
+        if (processedKeyExchanges.contains(exchangeKey)) {
+            Log.d(TAG, "Already processed handshake: $exchangeKey")
+            return false
+        }
+        
+        processedKeyExchanges.add(exchangeKey)
+        
+        try {
+            // Process the Noise handshake through the delegate (NoiseEncryptionService)
+            val success = delegate?.processNoiseHandshake(peerID, packet.payload, step == 1) ?: false
+            
+            if (success) {
+                Log.d(TAG, "Successfully processed Noise handshake step $step from $peerID")
+                
+                // Notify delegate
+                delegate?.onKeyExchangeCompleted(peerID, packet.payload, routed.relayAddress)
+                
+                return true
+            } else {
+                Log.w(TAG, "Failed to process Noise handshake from $peerID")
+                return false
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to process Noise handshake from $peerID: ${e.message}")
+            return false
+        }
     }
     
     /**
@@ -333,4 +369,5 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
  */
 interface SecurityManagerDelegate {
     fun onKeyExchangeCompleted(peerID: String, peerPublicKeyData: ByteArray, receivedAddress: String?)
+    fun processNoiseHandshake(peerID: String, payload: ByteArray, isInitiation: Boolean): Boolean
 }

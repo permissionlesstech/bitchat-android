@@ -11,6 +11,7 @@ import com.bitchat.android.model.ReadReceipt
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
+import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.*
 import java.util.*
 import kotlin.random.Random
@@ -36,17 +37,17 @@ class BluetoothMeshService(private val context: Context) {
     }
     
     // My peer identification - same format as iOS
-    val myPeerID: String = generateCompatiblePeerID()
+        val myPeerID: ByteArray = generateCompatiblePeerID()
     
     // Core components - each handling specific responsibilities
     private val encryptionService = EncryptionService(context)
     private val peerManager = PeerManager()
     private val fragmentManager = FragmentManager()
-    private val securityManager = SecurityManager(encryptionService, myPeerID)
+        private val securityManager = SecurityManager(encryptionService, myPeerID.toHexString())
     private val storeForwardManager = StoreForwardManager()
-    private val messageHandler = MessageHandler(myPeerID)
-    internal val connectionManager = BluetoothConnectionManager(context, myPeerID, fragmentManager) // Made internal for access
-    private val packetProcessor = PacketProcessor(myPeerID)
+        private val messageHandler = MessageHandler(myPeerID.toHexString())
+        internal val connectionManager = BluetoothConnectionManager(context, myPeerID.toHexString(), fragmentManager) // Made internal for access
+        private val packetProcessor = PacketProcessor(myPeerID.toHexString())
     
     // Service state management
     private var isActive = false
@@ -119,6 +120,17 @@ class BluetoothMeshService(private val context: Context) {
                     storeForwardManager.sendCachedMessages(peerID)
                 }
             }
+            
+            override fun processNoiseHandshake(peerID: String, payload: ByteArray, isInitiation: Boolean): Boolean {
+                return try {
+                    // For now, treat as legacy key exchange until full Noise implementation
+                    encryptionService.addPeerPublicKey(peerID, payload)
+                    true
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to process Noise handshake: ${e.message}")
+                    false
+                }
+            }
         }
         
         // StoreForwardManager delegates
@@ -187,6 +199,36 @@ class BluetoothMeshService(private val context: Context) {
             
             override fun decryptFromPeer(encryptedData: ByteArray, senderPeerID: String): ByteArray? {
                 return securityManager.decryptFromPeer(encryptedData, senderPeerID)
+            }
+            
+            // Noise protocol operations
+            override fun hasNoiseSession(peerID: String): Boolean {
+                // For now, return false since we don't have full Noise implemented
+                // This will be updated when NoiseEncryptionService is fully integrated
+                return false
+            }
+            
+            override fun initiateNoiseHandshake(peerID: String) {
+                // For now, send a basic key exchange instead of full Noise handshake
+                // This will be updated when NoiseEncryptionService is fully integrated
+                Log.d(TAG, "TODO: Initiate full Noise handshake with $peerID")
+                sendKeyExchangeToDevice()
+            }
+            
+            override fun updatePeerIDBinding(newPeerID: String, fingerprint: String, nickname: String, 
+                                           publicKey: ByteArray, previousPeerID: String?) {
+                // Update peer mapping in the PeerManager for peer ID rotation support
+                peerManager.addOrUpdatePeer(newPeerID, nickname)
+                
+                // If there was a previous peer ID, remove it to avoid duplicates
+                previousPeerID?.let { oldPeerID ->
+                    peerManager.removePeer(oldPeerID)
+                }
+                
+                // Register the public key with the delegate (ChatViewModel)
+                delegate?.registerPeerPublicKey(newPeerID, publicKey)
+                
+                Log.d(TAG, "Updated peer ID binding: $newPeerID (was: $previousPeerID), fingerprint: ${fingerprint.take(16)}...")
             }
             
             // Message operations  
@@ -584,10 +626,10 @@ class BluetoothMeshService(private val context: Context) {
     /**
      * Generate peer ID compatible with iOS
      */
-    private fun generateCompatiblePeerID(): String {
+        private fun generateCompatiblePeerID(): ByteArray {
         val randomBytes = ByteArray(4)
         Random.nextBytes(randomBytes)
-        return randomBytes.joinToString("") { "%02x".format(it) }
+        return randomBytes
     }
 }
 
