@@ -37,17 +37,17 @@ class BluetoothMeshService(private val context: Context) {
     }
     
     // My peer identification - same format as iOS
-        val myPeerID: ByteArray = generateCompatiblePeerID()
+    val myPeerID: String = generateCompatiblePeerID()
     
     // Core components - each handling specific responsibilities
     private val encryptionService = EncryptionService(context)
     private val peerManager = PeerManager()
     private val fragmentManager = FragmentManager()
-        private val securityManager = SecurityManager(encryptionService, myPeerID.toHexString())
+    private val securityManager = SecurityManager(encryptionService, myPeerID)
     private val storeForwardManager = StoreForwardManager()
-        private val messageHandler = MessageHandler(myPeerID.toHexString())
-        internal val connectionManager = BluetoothConnectionManager(context, myPeerID.toHexString(), fragmentManager) // Made internal for access
-        private val packetProcessor = PacketProcessor(myPeerID.toHexString())
+    private val messageHandler = MessageHandler(myPeerID)
+    internal val connectionManager = BluetoothConnectionManager(context, myPeerID, fragmentManager) // Made internal for access
+    private val packetProcessor = PacketProcessor(myPeerID)
     
     // Service state management
     private var isActive = false
@@ -419,6 +419,7 @@ class BluetoothMeshService(private val context: Context) {
                 val signature = securityManager.signPacket(messageData)
                 
                 val packet = BitchatPacket(
+                    version = 1u,
                     type = MessageType.MESSAGE.value,
                     senderID = myPeerID.toByteArray(),
                     recipientID = SpecialRecipients.BROADCAST,
@@ -467,6 +468,7 @@ class BluetoothMeshService(private val context: Context) {
                         val signature = securityManager.signPacket(encryptedPayload)
                         
                         val packet = BitchatPacket(
+                            version = 1u,
                             type = MessageType.MESSAGE.value,
                             senderID = myPeerID.toByteArray(),
                             recipientID = recipientPeerID.toByteArray(),
@@ -626,10 +628,10 @@ class BluetoothMeshService(private val context: Context) {
     /**
      * Generate peer ID compatible with iOS
      */
-        private fun generateCompatiblePeerID(): ByteArray {
+    private fun generateCompatiblePeerID(): String {
         val randomBytes = ByteArray(4)
         Random.nextBytes(randomBytes)
-        return randomBytes
+        return randomBytes.joinToString("") { "%02x".format(it) }
     }
 }
 

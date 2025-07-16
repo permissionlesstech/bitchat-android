@@ -80,8 +80,6 @@ data class BitchatPacket(
     var ttl: UByte
 ) : Parcelable {
 
-    // Secondary constructor removed to enforce ByteArray usage for peerIDs
-    /*
     constructor(
         type: UByte,
         ttl: UByte,
@@ -97,7 +95,6 @@ data class BitchatPacket(
         signature = null,
         ttl = ttl
     )
-    */
 
     fun toBinaryData(): ByteArray? {
         return BinaryProtocol.encode(this)
