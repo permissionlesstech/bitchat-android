@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import androidx.core.content.ContextCompat
+import com.bitchat.android.R
 
 /**
  * Centralized permission management for bitchat app
@@ -115,11 +116,13 @@ class PermissionManager(private val context: Context) {
 
         categories.add(
             PermissionCategory(
+                name = context.getString(R.string.permission_nearby_title),
                 type = PermissionType.NEARBY_DEVICES,
-                description = "Required to discover bitchat users via Bluetooth",
+                description = context.getString(R.string.permission_nearby_description),
                 permissions = bluetoothPermissions,
                 isGranted = bluetoothPermissions.all { isPermissionGranted(it) },
-                systemDescription = "Allow bitchat to connect to nearby devices"
+                systemDescription = context.getString(R.string.permission_nearby_system_description),
+                emoji = context.getString(R.string.emoji_nearby_devices)
             )
         )
 
@@ -131,11 +134,13 @@ class PermissionManager(private val context: Context) {
 
         categories.add(
             PermissionCategory(
+                name = context.getString(R.string.permission_precise_location_title),
                 type = PermissionType.PRECISE_LOCATION,
-                description = "Required by Android to discover nearby bitchat users via Bluetooth",
+                description = context.getString(R.string.permission_precise_location_description),
                 permissions = locationPermissions,
                 isGranted = locationPermissions.all { isPermissionGranted(it) },
-                systemDescription = "bitchat needs this to scan for nearby devices"
+                systemDescription = context.getString(R.string.permission_precise_location_system_description),
+                emoji = context.getString(R.string.emoji_precise_location)
             )
         )
 
@@ -143,11 +148,13 @@ class PermissionManager(private val context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             categories.add(
                 PermissionCategory(
+                    name = context.getString(R.string.permission_notification_title),
                     type = PermissionType.NOTIFICATIONS,
-                    description = "Receive notifications when you receive private messages",
+                    description = context.getString(R.string.permission_notification_description),
                     permissions = listOf(Manifest.permission.POST_NOTIFICATIONS),
                     isGranted = isPermissionGranted(Manifest.permission.POST_NOTIFICATIONS),
-                    systemDescription = "Allow bitchat to send you notifications"
+                    systemDescription = context.getString(R.string.permission_notification_system_description),
+                    emoji = context.getString(R.string.emoji_notifications)
                 )
             )
         }
@@ -197,11 +204,13 @@ class PermissionManager(private val context: Context) {
  * Data class representing a category of related permissions
  */
 data class PermissionCategory(
+    val name: String,
     val type: PermissionType,
     val description: String,
     val permissions: List<String>,
     val isGranted: Boolean,
-    val systemDescription: String
+    val systemDescription: String,
+    val emoji: String
 )
 
 enum class PermissionType(val nameValue: String) {
