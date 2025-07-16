@@ -96,7 +96,7 @@ class BluetoothPacketBroadcaster(
         val subscribedDevices = connectionTracker.getSubscribedDevices()
         val connectedDevices = connectionTracker.getConnectedDevices()
         
-        Log.d(TAG, "Broadcasting packet type ${packet.type} to ${subscribedDevices.size} server + ${connectedDevices.size} client connections")
+        Log.i(TAG, "Broadcasting packet type ${packet.type} to ${subscribedDevices.size} server + ${connectedDevices.size} client connections")
 
         val senderID = String(packet.senderID).replace("\u0000", "")        
         

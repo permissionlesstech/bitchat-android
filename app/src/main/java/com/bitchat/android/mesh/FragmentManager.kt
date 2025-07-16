@@ -14,7 +14,7 @@ class FragmentManager {
     
     companion object {
         private const val TAG = "FragmentManager"
-        private const val MAX_FRAGMENT_SIZE = 150  // Match iOS/Rust for BLE compatibility (185 byte MTU limit)
+        private const val MAX_FRAGMENT_SIZE = 500  // Match iOS/Rust for BLE compatibility (185 byte MTU limit)
         private const val FRAGMENT_TIMEOUT = 30000L // 30 seconds
         private const val CLEANUP_INTERVAL = 10000L // 10 seconds
     }
