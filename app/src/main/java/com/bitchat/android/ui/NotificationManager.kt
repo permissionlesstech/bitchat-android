@@ -96,7 +96,7 @@ class NotificationManager(private val context: Context) {
      */
     fun showPrivateMessageNotification(senderPeerID: String, senderNickname: String, messageContent: String) {
         // Only show notifications if app is in background OR user is not viewing this specific chat
-        val shouldNotify = isAppInBackground || currentPrivateChatPeer != senderPeerID
+        val shouldNotify = isAppInBackground || (!isAppInBackground && currentPrivateChatPeer != senderPeerID)
         
         if (!shouldNotify) {
             Log.d(TAG, "Skipping notification - app in foreground and viewing chat with $senderNickname")

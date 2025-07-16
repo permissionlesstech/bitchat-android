@@ -2,6 +2,7 @@ package com.bitchat.android.ui
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import com.google.gson.Gson
 import kotlin.random.Random
 
@@ -9,6 +10,10 @@ import kotlin.random.Random
  * Handles data persistence operations for the chat system
  */
 class DataManager(private val context: Context) {
+    
+    companion object {
+        private const val TAG = "DataManager"
+    }
     
     private val prefs: SharedPreferences = context.getSharedPreferences("bitchat_prefs", Context.MODE_PRIVATE)
     private val gson = Gson()
@@ -126,24 +131,41 @@ class DataManager(private val context: Context) {
     fun loadFavorites() {
         val savedFavorites = prefs.getStringSet("favorites", emptySet()) ?: emptySet()
         _favoritePeers.addAll(savedFavorites)
+        Log.d(TAG, "Loaded ${savedFavorites.size} favorite users from storage: $savedFavorites")
     }
     
     fun saveFavorites() {
         prefs.edit().putStringSet("favorites", _favoritePeers).apply()
+        Log.d(TAG, "Saved ${_favoritePeers.size} favorite users to storage: $_favoritePeers")
     }
     
     fun addFavorite(fingerprint: String) {
-        _favoritePeers.add(fingerprint)
+        val wasAdded = _favoritePeers.add(fingerprint)
+        Log.d(TAG, "addFavorite: fingerprint=$fingerprint, wasAdded=$wasAdded")
         saveFavorites()
+        logAllFavorites()
     }
     
     fun removeFavorite(fingerprint: String) {
-        _favoritePeers.remove(fingerprint)
+        val wasRemoved = _favoritePeers.remove(fingerprint)
+        Log.d(TAG, "removeFavorite: fingerprint=$fingerprint, wasRemoved=$wasRemoved")
         saveFavorites()
+        logAllFavorites()
     }
     
     fun isFavorite(fingerprint: String): Boolean {
-        return _favoritePeers.contains(fingerprint)
+        val result = _favoritePeers.contains(fingerprint)
+        Log.d(TAG, "isFavorite check: fingerprint=$fingerprint, result=$result")
+        return result
+    }
+    
+    fun logAllFavorites() {
+        Log.i(TAG, "=== ALL FAVORITE USERS ===")
+        Log.i(TAG, "Total favorites: ${_favoritePeers.size}")
+        _favoritePeers.forEach { fingerprint ->
+            Log.i(TAG, "Favorite fingerprint: $fingerprint")
+        }
+        Log.i(TAG, "========================")
     }
     
     // MARK: - Blocked Users Management

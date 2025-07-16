@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicTextField
@@ -151,11 +152,17 @@ fun ChatHeaderContent(
     
     when {
         selectedPrivatePeer != null -> {
-            // Private chat header
+            // Private chat header - ensure state synchronization
+            val favoritePeers by viewModel.favoritePeers.observeAsState(emptySet())
+            val fingerprint = viewModel.privateChatManager.getPeerFingerprint(selectedPrivatePeer)
+            val isFavorite = favoritePeers.contains(fingerprint)
+            
+            Log.d("ChatHeader", "Header recomposing: peer=$selectedPrivatePeer, fingerprint=$fingerprint, isFav=$isFavorite")
+            
             PrivateChatHeader(
                 peerID = selectedPrivatePeer,
                 peerNicknames = viewModel.meshService.getPeerNicknames(),
-                isFavorite = viewModel.isFavorite(selectedPrivatePeer),
+                isFavorite = isFavorite,
                 onBackClick = onBackClick,
                 onToggleFavorite = { viewModel.toggleFavorite(selectedPrivatePeer) }
             )
@@ -253,7 +260,10 @@ private fun PrivateChatHeader(
         
         // Favorite button - positioned on the right
         IconButton(
-            onClick = onToggleFavorite,
+            onClick = {
+                Log.d("ChatHeader", "Header toggle favorite: peerID=$peerID, currentFavorite=$isFavorite")
+                onToggleFavorite()
+            },
             modifier = Modifier.align(Alignment.CenterEnd)
         ) {
             Icon(

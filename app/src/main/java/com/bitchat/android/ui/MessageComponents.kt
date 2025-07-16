@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,17 +42,19 @@ fun MessagesList(
         }
     }
     
-    LazyColumn(
-        state = listState,
-        modifier = modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp)
-    ) {
-        items(messages) { message ->
-            MessageItem(
-                message = message,
-                currentUserNickname = currentUserNickname,
-                meshService = meshService
-            )
+    SelectionContainer {
+        LazyColumn(
+            state = listState,
+            modifier = modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            items(messages) { message ->
+                MessageItem(
+                    message = message,
+                    currentUserNickname = currentUserNickname,
+                    meshService = meshService
+                )
+            }
         }
     }
 }

@@ -3,6 +3,7 @@ package com.bitchat.android.ui
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import java.util.*
+import android.util.Log
 
 /**
  * Handles private chat functionality including peer management and blocking
@@ -12,6 +13,10 @@ class PrivateChatManager(
     private val messageManager: MessageManager,
     private val dataManager: DataManager
 ) {
+    
+    companion object {
+        private const val TAG = "PrivateChatManager"
+    }
     
     // Peer identification mapping
     private val peerIDToPublicKeyFingerprint = mutableMapOf<String, String>()
@@ -99,17 +104,43 @@ class PrivateChatManager(
     fun toggleFavorite(peerID: String) {
         val fingerprint = peerIDToPublicKeyFingerprint[peerID] ?: return
         
-        if (dataManager.isFavorite(fingerprint)) {
+        Log.d(TAG, "toggleFavorite called for peerID: $peerID, fingerprint: $fingerprint")
+        
+        val wasFavorite = dataManager.isFavorite(fingerprint)
+        Log.d(TAG, "Current favorite status: $wasFavorite")
+        
+        val currentFavorites = state.getFavoritePeersValue()
+        Log.d(TAG, "Current UI state favorites: $currentFavorites")
+        
+        if (wasFavorite) {
             dataManager.removeFavorite(fingerprint)
+            Log.d(TAG, "Removed from favorites: $fingerprint")
         } else {
             dataManager.addFavorite(fingerprint)
+            Log.d(TAG, "Added to favorites: $fingerprint")
         }
-        state.setFavoritePeers(dataManager.favoritePeers)
+        
+        // Always update state to trigger UI refresh - create new set to ensure change detection
+        val newFavorites = dataManager.favoritePeers.toSet()
+        state.setFavoritePeers(newFavorites)
+        
+        Log.d(TAG, "Force updated favorite peers state. New favorites: $newFavorites")
+        Log.d(TAG, "All peer fingerprints: $peerIDToPublicKeyFingerprint")
     }
     
     fun isFavorite(peerID: String): Boolean {
         val fingerprint = peerIDToPublicKeyFingerprint[peerID] ?: return false
-        return dataManager.isFavorite(fingerprint)
+        val isFav = dataManager.isFavorite(fingerprint)
+        Log.d(TAG, "isFavorite check: peerID=$peerID, fingerprint=$fingerprint, result=$isFav")
+        return isFav
+    }
+    
+    fun getPeerFingerprint(peerID: String): String? {
+        return peerIDToPublicKeyFingerprint[peerID]
+    }
+    
+    fun getPeerFingerprints(): Map<String, String> {
+        return peerIDToPublicKeyFingerprint.toMap()
     }
     
     // MARK: - Block/Unblock Operations
@@ -261,10 +292,6 @@ class PrivateChatManager(
     }
     
     // MARK: - Public Getters
-    
-    fun getPeerFingerprint(peerID: String): String? {
-        return peerIDToPublicKeyFingerprint[peerID]
-    }
     
     fun getAllPeerFingerprints(): Map<String, String> {
         return peerIDToPublicKeyFingerprint.toMap()

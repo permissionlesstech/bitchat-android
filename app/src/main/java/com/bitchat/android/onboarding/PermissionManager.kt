@@ -116,8 +116,8 @@ class PermissionManager(private val context: Context) {
 
         categories.add(
             PermissionCategory(
-                type = PermissionCategoryType.NEARBY_DEVICES,
                 name = context.getString(R.string.permission_nearby_title),
+                type = PermissionType.NEARBY_DEVICES,
                 description = context.getString(R.string.permission_nearby_description),
                 permissions = bluetoothPermissions,
                 isGranted = bluetoothPermissions.all { isPermissionGranted(it) },
@@ -134,8 +134,8 @@ class PermissionManager(private val context: Context) {
 
         categories.add(
             PermissionCategory(
-                type = PermissionCategoryType.PRECISE_LOCATION,
                 name = context.getString(R.string.permission_precise_location_title),
+                type = PermissionType.PRECISE_LOCATION,
                 description = context.getString(R.string.permission_precise_location_description),
                 permissions = locationPermissions,
                 isGranted = locationPermissions.all { isPermissionGranted(it) },
@@ -148,8 +148,8 @@ class PermissionManager(private val context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             categories.add(
                 PermissionCategory(
-                    type = PermissionCategoryType.NOTIFICATIONS,
                     name = context.getString(R.string.permission_notification_title),
+                    type = PermissionType.NOTIFICATIONS,
                     description = context.getString(R.string.permission_notification_description),
                     permissions = listOf(Manifest.permission.POST_NOTIFICATIONS),
                     isGranted = isPermissionGranted(Manifest.permission.POST_NOTIFICATIONS),
@@ -174,7 +174,7 @@ class PermissionManager(private val context: Context) {
             appendLine()
             
             getCategorizedPermissions().forEach { category ->
-                appendLine("${category.name}: ${if (category.isGranted) "✅ GRANTED" else "❌ MISSING"}")
+                appendLine("${category.type.nameValue}: ${if (category.isGranted) "✅ GRANTED" else "❌ MISSING"}")
                 category.permissions.forEach { permission ->
                     val granted = isPermissionGranted(permission)
                     appendLine("  - ${permission.substringAfterLast(".")}: ${if (granted) "✅" else "❌"}")
@@ -200,21 +200,22 @@ class PermissionManager(private val context: Context) {
     }
 }
 
-enum class PermissionCategoryType {
-    NEARBY_DEVICES,
-    PRECISE_LOCATION,
-    NOTIFICATIONS
-}
-
 /**
  * Data class representing a category of related permissions
  */
 data class PermissionCategory(
-    val type: PermissionCategoryType,
     val name: String,
+    val type: PermissionType,
     val description: String,
     val permissions: List<String>,
     val isGranted: Boolean,
     val systemDescription: String,
     val emoji: String
 )
+
+enum class PermissionType(val nameValue: String) {
+    NEARBY_DEVICES("Nearby Devices"),
+    PRECISE_LOCATION("Precise Location"),
+    NOTIFICATIONS("Notifications"),
+    OTHER("Other")
+}
