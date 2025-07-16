@@ -3,6 +3,7 @@ package com.bitchat.android.noise
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.identity.SecureIdentityStateManager
+import com.southernstorm.noise.protocol.Noise
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
@@ -290,25 +291,27 @@ class NoiseEncryptionService(private val context: Context) {
     // MARK: - Private Helpers
     
     /**
-     * Generate a new Curve25519 key pair
+     * Generate a new Curve25519 key pair using the real Noise library
      * Returns (privateKey, publicKey) as 32-byte arrays
      */
     private fun generateKeyPair(): Pair<ByteArray, ByteArray> {
-        val random = SecureRandom()
-        val privateKey = ByteArray(32)
-        random.nextBytes(privateKey)
-        
-        // Clamp private key for Curve25519
-        privateKey[0] = (privateKey[0].toInt() and 248).toByte()
-        privateKey[31] = (privateKey[31].toInt() and 127).toByte()
-        privateKey[31] = (privateKey[31].toInt() or 64).toByte()
-        
-        // For now, we'll compute public key using the Noise library
-        // This will be properly implemented when we integrate the actual Noise library
-        val publicKey = ByteArray(32)
-        random.nextBytes(publicKey) // Temporary - will be replaced with proper curve25519 scalar multiplication
-        
-        return Pair(privateKey, publicKey)
+        try {
+            val dhState = com.southernstorm.noise.protocol.Noise.createDH("25519")
+            dhState.generateKeyPair()
+            
+            val privateKey = ByteArray(32)
+            val publicKey = ByteArray(32)
+            
+            dhState.getPrivateKey(privateKey, 0)
+            dhState.getPublicKey(publicKey, 0)
+            
+            dhState.destroy()
+            
+            return Pair(privateKey, publicKey)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to generate key pair: ${e.message}")
+            throw e
+        }
     }
     
     /**
