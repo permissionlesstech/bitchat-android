@@ -426,8 +426,8 @@ class MessageHandler(private val myPeerID: String) {
                 if (encryptedPayload != null) {
                     val packet = BitchatPacket(
                         type = MessageType.DELIVERY_ACK.value,
-                        senderID = myPeerID.toByteArray(),
-                        recipientID = senderPeerID.toByteArray(),
+                        senderID = hexStringToByteArray(myPeerID),
+                        recipientID = hexStringToByteArray(senderPeerID),
                         timestamp = System.currentTimeMillis().toULong(),
                         payload = encryptedPayload,
                         signature = null,
@@ -493,6 +493,27 @@ class MessageHandler(private val myPeerID: String) {
         }
     }
     
+    /**
+     * Convert hex string peer ID to binary data (8 bytes) - same as iOS implementation
+     */
+    private fun hexStringToByteArray(hexString: String): ByteArray {
+        val result = ByteArray(8) { 0 } // Initialize with zeros, exactly 8 bytes
+        var tempID = hexString
+        var index = 0
+        
+        while (tempID.length >= 2 && index < 8) {
+            val hexByte = tempID.substring(0, 2)
+            val byte = hexByte.toIntOrNull(16)?.toByte()
+            if (byte != null) {
+                result[index] = byte
+            }
+            tempID = tempID.substring(2)
+            index++
+        }
+        
+        return result
+    }
+
     /**
      * Shutdown the handler
      */

@@ -32,7 +32,7 @@ class BluetoothPacketBroadcaster(
     ) {
         val packet = routed.packet
         val data = packet.toBinaryData() ?: return
-            // Check if we need to fragment
+        // Check if we need to fragment
         if (fragmentManager != null) {
             val fragments = fragmentManager.createFragments(packet)
             if (fragments.size > 1) {

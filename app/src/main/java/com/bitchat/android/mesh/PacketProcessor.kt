@@ -49,7 +49,6 @@ class PacketProcessor(private val myPeerID: String) {
         
         Log.d(TAG, "Processing packet type ${packet.type} from $peerID")
         val DEBUG_MESSAGE_TYPE = MessageType.fromValue(packet.type)
-        // Process based on message type (exact same logic as iOS)
         when (MessageType.fromValue(packet.type)) {
             MessageType.NOISE_HANDSHAKE_INIT -> handleNoiseHandshake(routed, 1)
             MessageType.NOISE_HANDSHAKE_RESP -> handleNoiseHandshake(routed, 2)

@@ -88,7 +88,7 @@ data class BitchatPacket(
     ) : this(
         version = 1u,
         type = type,
-        senderID = senderID.toByteArray(),
+        senderID = hexStringToByteArray(senderID),
         recipientID = null,
         timestamp = (System.currentTimeMillis()).toULong(),
         payload = payload,
@@ -103,6 +103,27 @@ data class BitchatPacket(
     companion object {
         fun fromBinaryData(data: ByteArray): BitchatPacket? {
             return BinaryProtocol.decode(data)
+        }
+        
+        /**
+         * Convert hex string peer ID to binary data (8 bytes) - exactly same as iOS
+         */
+        private fun hexStringToByteArray(hexString: String): ByteArray {
+            val result = ByteArray(8) { 0 } // Initialize with zeros, exactly 8 bytes
+            var tempID = hexString
+            var index = 0
+            
+            while (tempID.length >= 2 && index < 8) {
+                val hexByte = tempID.substring(0, 2)
+                val byte = hexByte.toIntOrNull(16)?.toByte()
+                if (byte != null) {
+                    result[index] = byte
+                }
+                tempID = tempID.substring(2)
+                index++
+            }
+            
+            return result
         }
     }
 
@@ -233,7 +254,12 @@ object BinaryProtocol {
             val result = ByteArray(buffer.position())
             buffer.rewind()
             buffer.get(result)
-            return result
+            
+            // Apply padding to standard block sizes for traffic analysis resistance
+            val optimalSize = MessagePadding.optimalBlockSize(result.size)
+            val paddedData = MessagePadding.pad(result, optimalSize)
+            
+            return paddedData
             
         } catch (e: Exception) {
             return null
@@ -242,9 +268,12 @@ object BinaryProtocol {
     
     fun decode(data: ByteArray): BitchatPacket? {
         try {
-            if (data.size < HEADER_SIZE + SENDER_ID_SIZE) return null
+            // Remove padding first - exactly same as iOS
+            val unpaddedData = MessagePadding.unpad(data)
             
-            val buffer = ByteBuffer.wrap(data).apply { order(ByteOrder.BIG_ENDIAN) }
+            if (unpaddedData.size < HEADER_SIZE + SENDER_ID_SIZE) return null
+            
+            val buffer = ByteBuffer.wrap(unpaddedData).apply { order(ByteOrder.BIG_ENDIAN) }
             
             // Header
             val version = buffer.get().toUByte()
@@ -270,7 +299,7 @@ object BinaryProtocol {
             if (hasRecipient) expectedSize += RECIPIENT_ID_SIZE
             if (hasSignature) expectedSize += SIGNATURE_SIZE
             
-            if (data.size < expectedSize) return null
+            if (unpaddedData.size < expectedSize) return null
             
             // SenderID
             val senderID = ByteArray(SENDER_ID_SIZE)
@@ -322,27 +351,5 @@ object BinaryProtocol {
         } catch (e: Exception) {
             return null
         }
-    }
-}
-
-/**
- * Compression utilities - temporarily disabled for initial build
- */
-object CompressionUtil {
-    private const val COMPRESSION_THRESHOLD = 100  // bytes
-    
-    fun shouldCompress(data: ByteArray): Boolean {
-        // Temporarily disabled compression
-        return false
-    }
-    
-    fun compress(data: ByteArray): ByteArray? {
-        // Temporarily disabled compression
-        return null
-    }
-    
-    fun decompress(compressedData: ByteArray, originalSize: Int): ByteArray? {
-        // Temporarily disabled compression
-        return null
     }
 }

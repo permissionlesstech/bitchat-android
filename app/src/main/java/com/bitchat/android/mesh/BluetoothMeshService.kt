@@ -421,7 +421,7 @@ class BluetoothMeshService(private val context: Context) {
                 val packet = BitchatPacket(
                     version = 1u,
                     type = MessageType.MESSAGE.value,
-                    senderID = myPeerID.toByteArray(),
+                    senderID = hexStringToByteArray(myPeerID),
                     recipientID = SpecialRecipients.BROADCAST,
                     timestamp = System.currentTimeMillis().toULong(),
                     payload = messageData,
@@ -470,8 +470,8 @@ class BluetoothMeshService(private val context: Context) {
                         val packet = BitchatPacket(
                             version = 1u,
                             type = MessageType.MESSAGE.value,
-                            senderID = myPeerID.toByteArray(),
-                            recipientID = recipientPeerID.toByteArray(),
+                            senderID = hexStringToByteArray(myPeerID),
+                            recipientID = hexStringToByteArray(recipientPeerID),
                             timestamp = System.currentTimeMillis().toULong(),
                             payload = encryptedPayload,
                             signature = signature,
@@ -632,6 +632,27 @@ class BluetoothMeshService(private val context: Context) {
         val randomBytes = ByteArray(4)
         Random.nextBytes(randomBytes)
         return randomBytes.joinToString("") { "%02x".format(it) }
+    }
+    
+    /**
+     * Convert hex string peer ID to binary data (8 bytes) - exactly same as iOS
+     */
+    private fun hexStringToByteArray(hexString: String): ByteArray {
+        val result = ByteArray(8) { 0 } // Initialize with zeros, exactly 8 bytes
+        var tempID = hexString
+        var index = 0
+        
+        while (tempID.length >= 2 && index < 8) {
+            val hexByte = tempID.substring(0, 2)
+            val byte = hexByte.toIntOrNull(16)?.toByte()
+            if (byte != null) {
+                result[index] = byte
+            }
+            tempID = tempID.substring(2)
+            index++
+        }
+        
+        return result
     }
 }
 
