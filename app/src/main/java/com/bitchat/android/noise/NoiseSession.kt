@@ -24,6 +24,14 @@ class NoiseSession(
         // Rekey thresholds (same as iOS)
         private const val REKEY_TIME_LIMIT = 3600000L // 1 hour
         private const val REKEY_MESSAGE_LIMIT = 10000L // 10k messages
+        
+        // XX Pattern Message Sizes (exactly matching iOS implementation)
+        private const val XX_MESSAGE_1_SIZE = 32      // -> e (ephemeral key only)
+        private const val XX_MESSAGE_2_SIZE = 80      // <- e, ee, s, es (32 + 48)
+        private const val XX_MESSAGE_3_SIZE = 48      // -> s, se (encrypted static key)
+        
+        // Maximum payload size for safety
+        private const val MAX_PAYLOAD_SIZE = 256
     }
     
     // Real Noise Protocol objects
@@ -38,6 +46,9 @@ class NoiseSession(
     // Session counters
     private var messagesSent = 0L
     private var messagesReceived = 0L
+    
+    // Handshake message counter to track XX pattern steps
+    private var handshakeMessageCount = 0
     
     // Remote peer information  
     private var remoteStaticPublicKey: ByteArray? = null
@@ -79,19 +90,22 @@ class NoiseSession(
     
     /**
      * Initialize the real Noise handshake state using noise-java
+     * Fixed to match iOS static key handling exactly
      */
     private fun initializeNoiseHandshake() {
         val role = if (isInitiator) HandshakeState.INITIATOR else HandshakeState.RESPONDER
         handshakeState = HandshakeState(PROTOCOL_NAME, role)
         
-        // Set up local static key pair properly
-        if (handshakeState?.needsLocalKeyPair() == true) {
-            val localKeyPair = handshakeState?.getLocalKeyPair()
-            if (localKeyPair != null) {
-                // Set the static private key we loaded/generated  
-                localKeyPair.setPrivateKey(localStaticPrivateKey, 0)
-                Log.d(TAG, "Set local static key for handshake state")
-            }
+        // CRITICAL FIX: Proper static key setup to match iOS implementation
+        // The static key needs to be set BEFORE starting the handshake
+        val localKeyPair = handshakeState?.getLocalKeyPair()
+        if (localKeyPair != null) {
+            // Set both private and public keys properly
+            localKeyPair.setPrivateKey(localStaticPrivateKey, 0)
+            localKeyPair.setPublicKey(localStaticPublicKey, 0)
+            Log.d(TAG, "Set local static key pair for handshake state")
+        } else {
+            Log.w(TAG, "Warning: Could not get local key pair from handshake state")
         }
         
         // Start the handshake
@@ -104,7 +118,7 @@ class NoiseSession(
     
     /**
      * Start handshake (initiator only) using real Noise Protocol
-     * Returns the first handshake message for XX pattern
+     * Returns the first handshake message for XX pattern (32 bytes exactly)
      */
     @Synchronized
     fun startHandshake(): ByteArray {
@@ -120,11 +134,18 @@ class NoiseSession(
         
         try {
             state = NoiseSessionState.Handshaking
+            handshakeMessageCount = 1
             
-            val messageBuffer = ByteArray(512) // Increased buffer size for XX pattern
+            // CRITICAL FIX: Use exact buffer size for XX message 1 (32 bytes)
+            val messageBuffer = ByteArray(XX_MESSAGE_1_SIZE + MAX_PAYLOAD_SIZE) // Extra space for safety
             val handshakeStateLocal = handshakeState ?: throw IllegalStateException("Handshake state is null")
             val messageLength = handshakeStateLocal.writeMessage(ByteArray(0), 0, messageBuffer, 0, 0)
             val firstMessage = messageBuffer.copyOf(messageLength)
+            
+            // Validate message size matches XX pattern expectations
+            if (firstMessage.size != XX_MESSAGE_1_SIZE) {
+                Log.w(TAG, "Warning: XX message 1 size ${firstMessage.size} != expected $XX_MESSAGE_1_SIZE")
+            }
             
             Log.d(TAG, "Sent real XX handshake message 1 to $peerID (${firstMessage.size} bytes)")
             return firstMessage
@@ -138,6 +159,7 @@ class NoiseSession(
     /**
      * Process incoming handshake message using real Noise Protocol
      * Returns response message if needed, null if handshake complete
+     * FIXED: Proper message size validation and buffer handling
      */
     @Synchronized
     fun processHandshakeMessage(message: ByteArray): ByteArray? {
@@ -147,6 +169,7 @@ class NoiseSession(
             // Initialize as responder if receiving first message
             if (state == NoiseSessionState.Uninitialized && !isInitiator) {
                 state = NoiseSessionState.Handshaking
+                handshakeMessageCount = 1
                 Log.d(TAG, "Initialized as responder for real XX handshake with $peerID")
             }
             
@@ -154,7 +177,10 @@ class NoiseSession(
                 throw IllegalStateException("Invalid state for handshake: $state")
             }
             
-            val payloadBuffer = ByteArray(256)  // Buffer for any payload data
+            // CRITICAL FIX: Validate message size based on XX pattern step
+            validateHandshakeMessageSize(message, handshakeMessageCount, isInitiator)
+            
+            val payloadBuffer = ByteArray(MAX_PAYLOAD_SIZE)  // Buffer for any payload data
             val handshakeStateLocal = handshakeState ?: throw IllegalStateException("Handshake state is null")
             
             // Read the incoming message
@@ -168,11 +194,19 @@ class NoiseSession(
             return when (action) {
                 HandshakeState.WRITE_MESSAGE -> {
                     // Need to send a response
-                    val responseBuffer = ByteArray(512) // Increased buffer size for XX pattern message 2
+                    handshakeMessageCount++
+                    val expectedSize = getExpectedResponseSize(handshakeMessageCount, isInitiator)
+                    val responseBuffer = ByteArray(expectedSize + MAX_PAYLOAD_SIZE) // Use proper size
                     val responseLength = handshakeStateLocal.writeMessage(ByteArray(0), 0, responseBuffer, 0, 0)
-                    responseBuffer.copyOf(responseLength).also {
-                        Log.d(TAG, "Generated handshake response: ${it.size} bytes")
+                    val response = responseBuffer.copyOf(responseLength)
+                    
+                    // Validate response size
+                    if (response.size != expectedSize) {
+                        Log.w(TAG, "Warning: XX response size ${response.size} != expected $expectedSize")
                     }
+                    
+                    Log.d(TAG, "Generated handshake response: ${response.size} bytes")
+                    response
                 }
                 
                 HandshakeState.SPLIT -> {
@@ -196,6 +230,47 @@ class NoiseSession(
             state = NoiseSessionState.Failed(e)
             Log.e(TAG, "Real handshake failed with $peerID: ${e.message}", e)
             throw e
+        }
+    }
+    
+    /**
+     * Validate handshake message size based on XX pattern and step
+     */
+    private fun validateHandshakeMessageSize(message: ByteArray, step: Int, isInitiator: Boolean) {
+        val expectedSize = when {
+            // Receiving as responder from initiator
+            step == 1 && !isInitiator -> XX_MESSAGE_1_SIZE  // Message 1: -> e
+            // Receiving as initiator from responder  
+            step == 2 && isInitiator -> XX_MESSAGE_2_SIZE   // Message 2: <- e, ee, s, es
+            // Receiving as responder from initiator
+            step == 3 && !isInitiator -> XX_MESSAGE_3_SIZE  // Message 3: -> s, se
+            else -> {
+                Log.w(TAG, "Unknown handshake step $step for ${if (isInitiator) "initiator" else "responder"}")
+                return // Don't validate unknown steps
+            }
+        }
+        
+        if (message.size != expectedSize) {
+            Log.w(TAG, "Handshake message size mismatch: got ${message.size}, expected $expectedSize for step $step")
+            // Don't throw here, let the underlying Noise implementation handle it
+        } else {
+            Log.d(TAG, "Handshake message size validated: ${message.size} bytes for step $step")
+        }
+    }
+    
+    /**
+     * Get expected response size based on XX pattern and step
+     */
+    private fun getExpectedResponseSize(step: Int, isInitiator: Boolean): Int {
+        return when {
+            // Responding as responder to message 1
+            step == 2 && !isInitiator -> XX_MESSAGE_2_SIZE  // Response: <- e, ee, s, es
+            // Responding as initiator to message 2
+            step == 3 && isInitiator -> XX_MESSAGE_3_SIZE   // Response: -> s, se
+            else -> {
+                Log.w(TAG, "Unknown response step $step for ${if (isInitiator) "initiator" else "responder"}")
+                200 // Default fallback
+            }
         }
     }
     
@@ -357,6 +432,7 @@ class NoiseSession(
             state = NoiseSessionState.Uninitialized
             messagesSent = 0
             messagesReceived = 0
+            handshakeMessageCount = 0
             remoteStaticPublicKey = null
             handshakeHash = null
         } catch (e: Exception) {
