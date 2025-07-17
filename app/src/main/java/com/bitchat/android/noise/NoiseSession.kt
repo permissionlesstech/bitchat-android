@@ -4,6 +4,7 @@ import android.util.Log
 import com.southernstorm.noise.protocol.*
 import java.security.SecureRandom
 
+
 /**
  * Individual Noise session for a specific peer - REAL IMPLEMENTATION with noise-java
  * 100% compatible with iOS bitchat Noise Protocol
@@ -80,7 +81,8 @@ class NoiseSession(
     
     init {
         try {
-            initializeNoiseHandshake()
+            // Validate static keys
+            validateStaticKeys()
             Log.d(TAG, "Created ${if (isInitiator) "initiator" else "responder"} session for $peerID")
         } catch (e: Exception) {
             state = NoiseSessionState.Failed(e)
@@ -89,31 +91,66 @@ class NoiseSession(
     }
     
     /**
-     * Initialize the real Noise handshake state using noise-java
-     * Fixed to match iOS static key handling exactly
+     * Validate static keys before using them
      */
-    private fun initializeNoiseHandshake() {
-        val role = if (isInitiator) HandshakeState.INITIATOR else HandshakeState.RESPONDER
-        handshakeState = HandshakeState(PROTOCOL_NAME, role)
-        
-        // CRITICAL FIX: Proper static key setup to match iOS implementation
-        // The static key needs to be set BEFORE starting the handshake
-        val localKeyPair = handshakeState?.getLocalKeyPair()
-        if (localKeyPair != null) {
-            // Set both private and public keys properly
-            localKeyPair.setPrivateKey(localStaticPrivateKey, 0)
-            localKeyPair.setPublicKey(localStaticPublicKey, 0)
-            Log.d(TAG, "Set local static key pair for handshake state")
-        } else {
-            Log.w(TAG, "Warning: Could not get local key pair from handshake state")
+    private fun validateStaticKeys() {
+        if (localStaticPrivateKey.size != 32) {
+            throw IllegalArgumentException("Local static private key must be 32 bytes, got ${localStaticPrivateKey.size}")
+        }
+        if (localStaticPublicKey.size != 32) {
+            throw IllegalArgumentException("Local static public key must be 32 bytes, got ${localStaticPublicKey.size}")
         }
         
-        // Start the handshake
-        handshakeState?.start()
+        // Check for all-zero keys (invalid)
+        if (localStaticPrivateKey.all { it == 0.toByte() }) {
+            throw IllegalArgumentException("Local static private key cannot be all zeros")
+        }
+        if (localStaticPublicKey.all { it == 0.toByte() }) {
+            throw IllegalArgumentException("Local static public key cannot be all zeros")
+        }
         
-        Log.d(TAG, "Initialized real Noise handshake state for $peerID")
+        Log.d(TAG, "Static keys validated successfully - private: ${localStaticPrivateKey.size} bytes, public: ${localStaticPublicKey.size} bytes")
     }
     
+    /**
+     * Initialize the Noise handshake with proper static key injection
+     * FIXED: Uses standard noise-java library that supports manual key setting
+     */
+    private fun initializeNoiseHandshake(role: Int) {
+        try {
+            Log.d(TAG, "Creating HandshakeState with role: ${if (role == HandshakeState.INITIATOR) "INITIATOR" else "RESPONDER"}")
+            
+            handshakeState = HandshakeState(PROTOCOL_NAME, role)
+            Log.d(TAG, "HandshakeState created successfully")
+            
+            if (handshakeState?.needsLocalKeyPair() == true) {
+                Log.d(TAG, "Local key pair is needed")
+                val localKeyPair = handshakeState?.getLocalKeyPair()
+                
+                if (localKeyPair != null) {
+                    // FIXED: Set our persistent static keys directly (standard noise-java supports this)
+                    localKeyPair.setPrivateKey(localStaticPrivateKey, 0)
+                    localKeyPair.setPublicKey(localStaticPublicKey, 0)
+                    Log.d(TAG, "✓ Set persistent static key pair (private: ${localStaticPrivateKey.size} bytes, public: ${localStaticPublicKey.size} bytes)")
+                } else {
+                    Log.e(TAG, "Failed to get local key pair even though it's needed")
+                    throw IllegalStateException("Failed to get local key pair")
+                }
+            } else {
+                Log.d(TAG, "Local key pair not needed for this handshake pattern/role")
+            }
+            
+            handshakeState?.start()
+            Log.d(TAG, "Handshake state started successfully")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception during handshake initialization: ${e.message}", e)
+            throw e
+        }
+    }
+    
+
+
     // MARK: - Real Handshake Implementation
     
     /**
@@ -133,6 +170,8 @@ class NoiseSession(
         Log.d(TAG, "Starting real XX handshake with $peerID as initiator")
         
         try {
+            // Initialize handshake as initiator 
+            initializeNoiseHandshake(HandshakeState.INITIATOR)
             state = NoiseSessionState.Handshaking
             handshakeMessageCount = 1
             
@@ -168,6 +207,7 @@ class NoiseSession(
         try {
             // Initialize as responder if receiving first message
             if (state == NoiseSessionState.Uninitialized && !isInitiator) {
+                initializeNoiseHandshake(HandshakeState.RESPONDER)
                 state = NoiseSessionState.Handshaking
                 handshakeMessageCount = 1
                 Log.d(TAG, "Initialized as responder for real XX handshake with $peerID")
@@ -427,8 +467,7 @@ class NoiseSession(
             // Destroy existing state
             destroy()
             
-            // Reinitialize
-            initializeNoiseHandshake()
+            // Reset to uninitialized state (handshake will be initialized when needed)
             state = NoiseSessionState.Uninitialized
             messagesSent = 0
             messagesReceived = 0
@@ -484,4 +523,5 @@ sealed class SessionError(message: String, cause: Throwable? = null) : Exception
     object HandshakeFailed : SessionError("Handshake failed")
     object EncryptionFailed : SessionError("Encryption failed")
     object DecryptionFailed : SessionError("Decryption failed")
+    class HandshakeInitializationFailed(message: String) : SessionError("Handshake initialization failed: $message")
 }

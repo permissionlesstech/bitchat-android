@@ -76,8 +76,8 @@ dependencies {
     // Cryptography
     implementation(libs.bundles.cryptography)
     
-    // Noise Protocol Framework
-    implementation("org.signal.forks:noise-java:0.1.1")
+    // Noise Protocol Framework - Standard Implementation
+    implementation("com.github.auties00:noise-java:1.2")
     
     // JSON
     implementation(libs.gson)
