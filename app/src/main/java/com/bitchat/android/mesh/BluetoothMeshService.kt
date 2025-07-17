@@ -626,10 +626,10 @@ class BluetoothMeshService(private val context: Context) {
     }
     
     /**
-     * Generate peer ID compatible with iOS
+     * Generate peer ID compatible with iOS - exactly 8 bytes (16 hex characters)
      */
     private fun generateCompatiblePeerID(): String {
-        val randomBytes = ByteArray(4)
+        val randomBytes = ByteArray(8)  // 8 bytes = 16 hex characters (like iOS)
         Random.nextBytes(randomBytes)
         return randomBytes.joinToString("") { "%02x".format(it) }
     }
