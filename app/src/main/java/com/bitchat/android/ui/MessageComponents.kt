@@ -4,6 +4,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,6 +38,10 @@ fun MessagesList(
     messages: List<BitchatMessage>,
     currentUserNickname: String,
     meshService: BluetoothMeshService,
+    onMessageLongClick: (BitchatMessage) -> Unit,
+    onMessageTap: (BitchatMessage) -> Unit,
+    selectedMessages: Set<BitchatMessage>,
+    isSelectionMode: Boolean,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
@@ -41,7 +52,7 @@ fun MessagesList(
             listState.animateScrollToItem(messages.size - 1)
         }
     }
-    
+
     SelectionContainer {
         LazyColumn(
             state = listState,
@@ -52,27 +63,64 @@ fun MessagesList(
                 MessageItem(
                     message = message,
                     currentUserNickname = currentUserNickname,
-                    meshService = meshService
+                    meshService = meshService,
+                    onMessageLongClick = onMessageLongClick,
+                    onMessageTap = onMessageTap,
+                    isSelected = selectedMessages.contains(message),
+                    isSelectionMode = isSelectionMode
                 )
             }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MessageItem(
     message: BitchatMessage,
     currentUserNickname: String,
-    meshService: BluetoothMeshService
+    meshService: BluetoothMeshService,
+    onMessageLongClick: (BitchatMessage) -> Unit,
+    onMessageTap: (BitchatMessage) -> Unit,
+    isSelected: Boolean,
+    isSelectionMode: Boolean
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val timeFormatter = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
-    
+
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(
+                onClick = { onMessageTap(message) },
+                onLongClick = { onMessageLongClick(message) }
+            )
+            .then(
+                if (isSelected) {
+                    Modifier.background(
+                        color = colorScheme.primaryContainer.copy(alpha = 0.3f),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                } else {
+                    Modifier
+                }
+            )
+            .padding(horizontal = 8.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Top
     ) {
+        // Selection indicator
+        if (isSelectionMode) {
+            Icon(
+                imageVector = if (isSelected) Icons.Filled.CheckCircle else Icons.Outlined.Circle,
+                contentDescription = if (isSelected) "Selected" else "Not selected",
+                tint = if (isSelected) colorScheme.primary else colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .size(20.dp)
+                    .padding(end = 8.dp)
+            )
+        }
+
         // Single text view for natural wrapping (like iOS)
         Text(
             text = formatMessageAsAnnotatedString(
