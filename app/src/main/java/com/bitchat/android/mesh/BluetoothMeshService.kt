@@ -41,6 +41,7 @@ class BluetoothMeshService(private val context: Context) {
     
     // Core components - each handling specific responsibilities
     private val encryptionService = EncryptionService(context)
+    private val noiseEncryptionService = com.bitchat.android.noise.NoiseEncryptionService(context)
     private val peerManager = PeerManager()
     private val fragmentManager = FragmentManager()
     private val securityManager = SecurityManager(encryptionService, myPeerID)
@@ -123,11 +124,40 @@ class BluetoothMeshService(private val context: Context) {
             
             override fun processNoiseHandshake(peerID: String, payload: ByteArray, isInitiation: Boolean): Boolean {
                 return try {
-                    // For now, treat as legacy key exchange until full Noise implementation
-                    encryptionService.addPeerPublicKey(peerID, payload)
+                    Log.d(TAG, "Processing Noise handshake from $peerID, payload size: ${payload.size} bytes")
+                    
+                    // Use proper Noise protocol implementation
+                    val response = noiseEncryptionService.processHandshakeMessage(payload, peerID)
+                    
+                    if (response != null) {
+                        // Send response back
+                        val responsePacket = BitchatPacket(
+                            version = 1u,
+                            type = MessageType.NOISE_HANDSHAKE_RESP.value,
+                            senderID = hexStringToByteArray(myPeerID),
+                            recipientID = hexStringToByteArray(peerID),
+                            timestamp = System.currentTimeMillis().toULong(),
+                            payload = response,
+                            ttl = 1u
+                        )
+                        connectionManager.broadcastPacket(RoutedPacket(responsePacket))
+                        Log.d(TAG, "Sent Noise handshake response to $peerID")
+                    }
+                    
+                    // Check if session is now established
+                    if (noiseEncryptionService.hasEstablishedSession(peerID)) {
+                        Log.d(TAG, "Noise session established with $peerID")
+                        // Get the peer's public key for fingerprinting
+                        val peerPublicKey = noiseEncryptionService.getPeerPublicKeyData(peerID)
+                        if (peerPublicKey != null) {
+                            // Notify delegate about successful handshake
+                            delegate?.registerPeerPublicKey(peerID, peerPublicKey)
+                        }
+                    }
+                    
                     true
                 } catch (e: Exception) {
-                    Log.e(TAG, "Failed to process Noise handshake: ${e.message}")
+                    Log.e(TAG, "Failed to process Noise handshake from $peerID: ${e.message}")
                     false
                 }
             }
@@ -203,16 +233,34 @@ class BluetoothMeshService(private val context: Context) {
             
             // Noise protocol operations
             override fun hasNoiseSession(peerID: String): Boolean {
-                // For now, return false since we don't have full Noise implemented
-                // This will be updated when NoiseEncryptionService is fully integrated
-                return false
+                return noiseEncryptionService.hasEstablishedSession(peerID)
             }
             
             override fun initiateNoiseHandshake(peerID: String) {
-                // For now, send a basic key exchange instead of full Noise handshake
-                // This will be updated when NoiseEncryptionService is fully integrated
-                Log.d(TAG, "TODO: Initiate full Noise handshake with $peerID")
-                sendKeyExchangeToDevice()
+                try {
+                    // Initiate proper Noise handshake with specific peer
+                    val handshakeData = noiseEncryptionService.initiateHandshake(peerID)
+                    
+                    if (handshakeData != null) {
+                        val packet = BitchatPacket(
+                            version = 1u,
+                            type = MessageType.NOISE_HANDSHAKE_INIT.value,
+                            senderID = hexStringToByteArray(myPeerID),
+                            recipientID = hexStringToByteArray(peerID),
+                            timestamp = System.currentTimeMillis().toULong(),
+                            payload = handshakeData,
+                            ttl = 1u
+                        )
+                        
+                        connectionManager.broadcastPacket(RoutedPacket(packet))
+                        Log.d(TAG, "Initiated Noise handshake with $peerID (${handshakeData.size} bytes)")
+                    } else {
+                        Log.w(TAG, "Failed to generate Noise handshake data for $peerID")
+                    }
+                    
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to initiate Noise handshake with $peerID: ${e.message}")
+                }
             }
             
             override fun updatePeerIDBinding(newPeerID: String, fingerprint: String, nickname: String, 
@@ -324,6 +372,11 @@ class BluetoothMeshService(private val context: Context) {
             }
             
             override fun onDeviceConnected(device: android.bluetooth.BluetoothDevice) {
+                // Send initial announcements after services are ready
+                serviceScope.launch {
+                    delay(100)
+                    sendBroadcastAnnounce()
+                }
                 // Send key exchange to newly connected device
                 serviceScope.launch {
                     delay(100) // Ensure connection is stable
@@ -354,11 +407,6 @@ class BluetoothMeshService(private val context: Context) {
         
         if (connectionManager.startServices()) {
             isActive = true            
-            // Send initial announcements after services are ready
-            serviceScope.launch {
-                delay(1000)
-                sendBroadcastAnnounce()
-            }
         } else {
             Log.e(TAG, "Failed to start Bluetooth services")
         }
@@ -540,19 +588,25 @@ class BluetoothMeshService(private val context: Context) {
     }
     
     /**
-     * Send key exchange
+     * Send identity announcement (broadcast our static public key)
      */
     private fun sendKeyExchangeToDevice() {
-        val publicKeyData = securityManager.getCombinedPublicKeyData()
+        // For discovery, broadcast our static identity key (32 bytes) so peers can identify us
+        // This is not a handshake initiation, but identity announcement
+        val identityData = noiseEncryptionService.getStaticPublicKeyData()
+        
         val packet = BitchatPacket(
-            type = MessageType.NOISE_HANDSHAKE_INIT.value,
-            ttl = 1u,
-            senderID = myPeerID,
-            payload = publicKeyData
+            version = 1u,
+            type = MessageType.NOISE_IDENTITY_ANNOUNCE.value, // Changed to identity announce
+            senderID = hexStringToByteArray(myPeerID),
+            recipientID = SpecialRecipients.BROADCAST,
+            timestamp = System.currentTimeMillis().toULong(),
+            payload = identityData,
+            ttl = 1u
         )
         
         connectionManager.broadcastPacket(RoutedPacket(packet))
-        Log.d(TAG, "Sent key exchange")
+        Log.d(TAG, "Sent Noise identity announcement (${identityData.size} bytes)")
     }
     
     /**

@@ -84,14 +84,14 @@ class NoiseSession(
         val role = if (isInitiator) HandshakeState.INITIATOR else HandshakeState.RESPONDER
         handshakeState = HandshakeState(PROTOCOL_NAME, role)
         
-        // Check if we need to set a local key pair
+        // Set up local static key pair properly
         if (handshakeState?.needsLocalKeyPair() == true) {
-            val staticKeyPair = Noise.createDH("25519")
-            staticKeyPair.setPrivateKey(localStaticPrivateKey, 0)
-            
-            // Set the local key pair on the handshake state
             val localKeyPair = handshakeState?.getLocalKeyPair()
-            localKeyPair?.setPrivateKey(localStaticPrivateKey, 0)
+            if (localKeyPair != null) {
+                // Set the static private key we loaded/generated  
+                localKeyPair.setPrivateKey(localStaticPrivateKey, 0)
+                Log.d(TAG, "Set local static key for handshake state")
+            }
         }
         
         // Start the handshake
@@ -121,8 +121,9 @@ class NoiseSession(
         try {
             state = NoiseSessionState.Handshaking
             
-            val messageBuffer = ByteArray(256) // Max handshake message size
-            val messageLength = handshakeState?.writeMessage(ByteArray(0), 0, messageBuffer, 0, 0) ?: 0
+            val messageBuffer = ByteArray(512) // Increased buffer size for XX pattern
+            val handshakeStateLocal = handshakeState ?: throw IllegalStateException("Handshake state is null")
+            val messageLength = handshakeStateLocal.writeMessage(ByteArray(0), 0, messageBuffer, 0, 0)
             val firstMessage = messageBuffer.copyOf(messageLength)
             
             Log.d(TAG, "Sent real XX handshake message 1 to $peerID (${firstMessage.size} bytes)")
@@ -154,19 +155,21 @@ class NoiseSession(
             }
             
             val payloadBuffer = ByteArray(256)  // Buffer for any payload data
+            val handshakeStateLocal = handshakeState ?: throw IllegalStateException("Handshake state is null")
             
             // Read the incoming message
-            val payloadLength = handshakeState?.readMessage(message, 0, message.size, payloadBuffer, 0) ?: 0
+            val payloadLength = handshakeStateLocal.readMessage(message, 0, message.size, payloadBuffer, 0)
             Log.d(TAG, "Read handshake message, payload length: $payloadLength")
             
             // Check the handshake action state
-            val action = handshakeState?.getAction() ?: HandshakeState.FAILED
+            val action = handshakeStateLocal.getAction()
+            Log.d(TAG, "Handshake action after read: $action")
             
             return when (action) {
                 HandshakeState.WRITE_MESSAGE -> {
                     // Need to send a response
-                    val responseBuffer = ByteArray(256)
-                    val responseLength = handshakeState?.writeMessage(ByteArray(0), 0, responseBuffer, 0, 0) ?: 0
+                    val responseBuffer = ByteArray(512) // Increased buffer size for XX pattern message 2
+                    val responseLength = handshakeStateLocal.writeMessage(ByteArray(0), 0, responseBuffer, 0, 0)
                     responseBuffer.copyOf(responseLength).also {
                         Log.d(TAG, "Generated handshake response: ${it.size} bytes")
                     }
@@ -180,18 +183,18 @@ class NoiseSession(
                 }
                 
                 HandshakeState.FAILED -> {
-                    throw Exception("Handshake failed")
+                    throw Exception("Handshake failed - action state is FAILED")
                 }
                 
                 else -> {
-                    Log.d(TAG, "Handshake action: $action")
+                    Log.d(TAG, "Handshake action: $action - no response needed")
                     null
                 }
             }
             
         } catch (e: Exception) {
             state = NoiseSessionState.Failed(e)
-            Log.e(TAG, "Real handshake failed with $peerID: ${e.message}")
+            Log.e(TAG, "Real handshake failed with $peerID: ${e.message}", e)
             throw e
         }
     }
