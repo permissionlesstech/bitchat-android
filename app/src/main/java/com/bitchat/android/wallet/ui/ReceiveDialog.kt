@@ -13,6 +13,8 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -33,8 +35,48 @@ fun ReceiveView(
     val currentMintQuote by viewModel.currentMintQuote.observeAsState()
     val isLoading by viewModel.isLoading.observeAsState(false)
     
+    // Focus requesters for each input type
+    val cashuFocusRequester = remember { FocusRequester() }
+    val lightningFocusRequester = remember { FocusRequester() }
+    
     // Determine if we should show type selector
     val showTypeSelector = decodedToken == null && currentMintQuote == null
+    
+    // Focus the appropriate input when switching types
+    LaunchedEffect(receiveType) {
+        if (showTypeSelector) {
+            when (receiveType) {
+                WalletViewModel.ReceiveType.CASHU -> {
+                    if (decodedToken == null) {
+                        cashuFocusRequester.requestFocus()
+                    }
+                }
+                WalletViewModel.ReceiveType.LIGHTNING -> {
+                    if (currentMintQuote == null) {
+                        lightningFocusRequester.requestFocus()
+                    }
+                }
+            }
+        }
+    }
+    
+    // Initial focus when the view is first shown
+    LaunchedEffect(Unit) {
+        if (showTypeSelector) {
+            when (receiveType) {
+                WalletViewModel.ReceiveType.CASHU -> {
+                    if (decodedToken == null) {
+                        cashuFocusRequester.requestFocus()
+                    }
+                }
+                WalletViewModel.ReceiveType.LIGHTNING -> {
+                    if (currentMintQuote == null) {
+                        lightningFocusRequester.requestFocus()
+                    }
+                }
+            }
+        }
+    }
     
     Box(
         modifier = Modifier
@@ -145,14 +187,16 @@ fun ReceiveView(
                     ReceiveEcashDialog(
                         viewModel = viewModel,
                         decodedToken = decodedToken,
-                        isLoading = isLoading
+                        isLoading = isLoading,
+                        focusRequester = cashuFocusRequester
                     )
                 }
                 WalletViewModel.ReceiveType.LIGHTNING -> {
                     ReceiveLightningDialog(
                         viewModel = viewModel,
                         currentMintQuote = currentMintQuote,
-                        isLoading = isLoading
+                        isLoading = isLoading,
+                        focusRequester = lightningFocusRequester
                     )
                 }
             }

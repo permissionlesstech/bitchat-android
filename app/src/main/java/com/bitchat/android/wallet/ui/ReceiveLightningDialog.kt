@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -12,6 +13,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
@@ -30,7 +33,8 @@ import com.bitchat.android.wallet.viewmodel.WalletViewModel
 fun ReceiveLightningDialog(
     viewModel: WalletViewModel,
     currentMintQuote: MintQuote?,
-    isLoading: Boolean
+    isLoading: Boolean,
+    focusRequester: FocusRequester
 ) {
     var amount by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
@@ -196,7 +200,8 @@ fun ReceiveLightningDialog(
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 16.dp),
+                    .padding(bottom = 16.dp)
+                    .focusRequester(focusRequester),
                 shape = RoundedCornerShape(16.dp)
             )
             

@@ -45,12 +45,17 @@ class LightningManager(
         coroutineScope.launch {
             try {
                 uiStateManager.setLoading(true)
-                cashuService.createMintQuote(amount, description).onSuccess { quote ->
+                
+                // Create the mint quote first
+                val mintQuoteResult = cashuService.createMintQuote(amount, description)
+                mintQuoteResult.onSuccess { quote ->
                     _currentMintQuote.value = quote
                     
                     // Save quote for tracking
-                    repository.saveMintQuote(quote).onSuccess {
-                        loadPendingQuotes()
+                    val saveResult = repository.saveMintQuote(quote)
+                    saveResult.onSuccess {
+                        // Now load pending quotes directly in current coroutine
+                        loadPendingQuotesInternal()
                     }.onFailure { error ->
                         Log.e(TAG, "Failed to save mint quote", error)
                         _errorMessage.value = "Failed to save invoice: ${error.message}"
@@ -71,12 +76,17 @@ class LightningManager(
         coroutineScope.launch {
             try {
                 uiStateManager.setLoading(true)
-                cashuService.createMeltQuote(invoice).onSuccess { quote ->
+                
+                // Create the melt quote first
+                val meltQuoteResult = cashuService.createMeltQuote(invoice)
+                meltQuoteResult.onSuccess { quote ->
                     _currentMeltQuote.value = quote
                     
                     // Save quote for tracking
-                    repository.saveMeltQuote(quote).onSuccess {
-                        loadPendingQuotes()
+                    val saveResult = repository.saveMeltQuote(quote)
+                    saveResult.onSuccess {
+                        // Load pending quotes directly in current coroutine
+                        loadPendingQuotesInternal()
                         onQuoteCreated()
                     }.onFailure { error ->
                         Log.e(TAG, "Failed to save melt quote", error)
@@ -201,17 +211,24 @@ class LightningManager(
     }
     
     /**
-     * Load pending quotes from repository
+     * Load pending quotes from repository (internal suspend method)
+     */
+    private suspend fun loadPendingQuotesInternal() {
+        repository.getMintQuotes().onSuccess { quotes ->
+            _pendingMintQuotes.value = quotes.filter { !it.paid }
+        }
+        
+        repository.getMeltQuotes().onSuccess { quotes ->
+            _pendingMeltQuotes.value = quotes.filter { it.state != MeltQuoteState.PAID }
+        }
+    }
+    
+    /**
+     * Load pending quotes from repository (public method for external calls)
      */
     fun loadPendingQuotes() {
         coroutineScope.launch {
-            repository.getMintQuotes().onSuccess { quotes ->
-                _pendingMintQuotes.value = quotes.filter { !it.paid }
-            }
-            
-            repository.getMeltQuotes().onSuccess { quotes ->
-                _pendingMeltQuotes.value = quotes.filter { it.state != MeltQuoteState.PAID }
-            }
+            loadPendingQuotesInternal()
         }
     }
     
