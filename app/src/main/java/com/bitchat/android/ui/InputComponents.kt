@@ -15,13 +15,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bitchat.android.R
 
 /**
  * Input components for ChatScreen
@@ -30,8 +34,8 @@ import androidx.compose.ui.unit.sp
 
 @Composable
 fun MessageInput(
-    value: String,
-    onValueChange: (String) -> Unit,
+    value: TextFieldValue,
+    onValueChange: (TextFieldValue) -> Unit,
     onSend: () -> Unit,
     selectedPrivatePeer: String?,
     currentChannel: String?,
@@ -39,10 +43,11 @@ fun MessageInput(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    
+
     Row(
         modifier = modifier.padding(horizontal = 12.dp, vertical = 8.dp), // Reduced padding
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         // Remove arrow from both private and channel inputs to match DM style
         Text(
@@ -56,9 +61,7 @@ fun MessageInput(
             fontFamily = FontFamily.Monospace,
             fontSize = 14.sp
         )
-        
-        Spacer(modifier = Modifier.width(8.dp))
-        
+
         // Text input
         BasicTextField(
             value = value,
@@ -72,14 +75,28 @@ fun MessageInput(
             keyboardActions = KeyboardActions(onSend = { onSend() }),
             modifier = Modifier.weight(1f)
         )
-        
-        Spacer(modifier = Modifier.width(8.dp)) // Reduced spacing
-        
-        // Update send button to match input field colors
+
+        IconButton(
+            enabled = value.text.startsWith("/") or value.text.isEmpty(),
+            onClick = {
+                when {
+                    value.text.startsWith("/") -> onValueChange(TextFieldValue(text = ""))
+                    else -> onValueChange(TextFieldValue(text = "/", selection = TextRange("/".length)))
+                }
+            },
+            modifier = Modifier.size(32.dp)
+        ) {
+            Text(
+                text = "/",
+                textAlign = TextAlign.Center
+            )
+        }
+
         IconButton(
             onClick = onSend,
             modifier = Modifier.size(32.dp)
         ) {
+            // Update send button to match input field colors
             Box(
                 modifier = Modifier
                     .size(30.dp)
@@ -98,7 +115,7 @@ fun MessageInput(
             ) {
                 Icon(
                     imageVector = Icons.Filled.KeyboardArrowRight,
-                    contentDescription = "Send message",
+                    contentDescription = stringResource(id = R.string.send_message),
                     modifier = Modifier.size(20.dp),
                     tint = if (selectedPrivatePeer != null || currentChannel != null) {
                         // Black arrow on orange for both private and channel modes
@@ -121,9 +138,10 @@ fun CommandSuggestionsBox(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    
+
     Column(
         modifier = modifier
+            .verticalScroll(rememberScrollState())
             .background(colorScheme.surface)
             .border(1.dp, colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
             .padding(vertical = 8.dp)
@@ -143,14 +161,15 @@ fun CommandSuggestionItem(
     onClick: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
             .padding(horizontal = 12.dp, vertical = 3.dp)
             .background(Color.Gray.copy(alpha = 0.1f)),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         // Show all aliases together
         val allCommands = if (suggestion.aliases.isNotEmpty()) {
@@ -158,7 +177,7 @@ fun CommandSuggestionItem(
         } else {
             listOf(suggestion.command)
         }
-        
+
         Text(
             text = allCommands.joinToString(", "),
             style = MaterialTheme.typography.bodySmall.copy(
@@ -168,10 +187,9 @@ fun CommandSuggestionItem(
             color = colorScheme.primary,
             fontSize = 11.sp
         )
-        
+
         // Show syntax if any
         suggestion.syntax?.let { syntax ->
-            Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = syntax,
                 style = MaterialTheme.typography.bodySmall.copy(
@@ -181,9 +199,7 @@ fun CommandSuggestionItem(
                 fontSize = 10.sp
             )
         }
-        
-        Spacer(modifier = Modifier.weight(1f))
-        
+
         // Show description
         Text(
             text = suggestion.description,

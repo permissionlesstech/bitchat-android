@@ -1,40 +1,46 @@
 package com.bitchat.android.ui
 
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.*
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.EaseInCubic
+import androidx.compose.animation.core.EaseOutCubic
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import com.bitchat.android.model.BitchatMessage
-import com.bitchat.android.model.DeliveryStatus
-import com.bitchat.android.mesh.BluetoothMeshService
-import java.text.SimpleDateFormat
-import java.util.*
 
 /**
  * Main ChatScreen - REFACTORED to use component-based architecture
@@ -64,31 +70,31 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val showCommandSuggestions by viewModel.showCommandSuggestions.observeAsState(false)
     val commandSuggestions by viewModel.commandSuggestions.observeAsState(emptyList())
     val showAppInfo by viewModel.showAppInfo.observeAsState(false)
-    
-    var messageText by remember { mutableStateOf("") }
+
+    var messageText by remember { mutableStateOf(TextFieldValue("")) }
     var showPasswordPrompt by remember { mutableStateOf(false) }
     var showPasswordDialog by remember { mutableStateOf(false) }
     var passwordInput by remember { mutableStateOf("") }
-    
+
     // Show password dialog when needed
     LaunchedEffect(showPasswordPrompt) {
         showPasswordDialog = showPasswordPrompt
     }
-    
+
     val isConnected by viewModel.isConnected.observeAsState(false)
     val passwordPromptChannel by viewModel.passwordPromptChannel.observeAsState(null)
-    
+
     // Determine what messages to show
     val displayMessages = when {
         selectedPrivatePeer != null -> privateChats[selectedPrivatePeer] ?: emptyList()
         currentChannel != null -> channelMessages[currentChannel] ?: emptyList()
         else -> messages
     }
-    
+
     // Use WindowInsets to handle keyboard properly
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val headerHeight = 36.dp
-        
+
         // Main content area that responds to keyboard/window insets
         Column(
             modifier = Modifier
@@ -98,7 +104,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
         ) {
             // Header spacer - creates space for the floating header
             Spacer(modifier = Modifier.height(headerHeight))
-            
+
             // Messages area - takes up available space, will compress when keyboard appears
             Box(modifier = Modifier.weight(1f)) {
                 MessagesList(
@@ -108,24 +114,24 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     modifier = Modifier.fillMaxSize()
                 )
             }
-            
+
             // Input area - stays at bottom
             ChatInputSection(
                 messageText = messageText,
-                onMessageTextChange = { newText: String ->
+                onMessageTextChange = { newText ->
                     messageText = newText
-                    viewModel.updateCommandSuggestions(newText)
+                    viewModel.updateCommandSuggestions(newText.text)
                 },
                 onSend = {
-                    if (messageText.trim().isNotEmpty()) {
-                        viewModel.sendMessage(messageText.trim())
-                        messageText = ""
+                    if (messageText.text.trim().isNotEmpty()) {
+                        viewModel.sendMessage(messageText.text.trim())
+                        messageText = TextFieldValue("")
                     }
                 },
                 showCommandSuggestions = showCommandSuggestions,
                 commandSuggestions = commandSuggestions,
                 onSuggestionClick = { suggestion: CommandSuggestion ->
-                    messageText = viewModel.selectCommandSuggestion(suggestion)
+                    messageText = TextFieldValue(viewModel.selectCommandSuggestion(suggestion))
                 },
                 selectedPrivatePeer = selectedPrivatePeer,
                 currentChannel = currentChannel,
@@ -133,7 +139,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 colorScheme = colorScheme
             )
         }
-        
+
         // Floating header - positioned absolutely at top, ignores keyboard
         ChatFloatingHeader(
             headerHeight = headerHeight,
@@ -146,7 +152,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             onShowAppInfo = { viewModel.showAppInfo() },
             onPanicClear = { viewModel.panicClearAllData() }
         )
-        
+
         // Sidebar overlay
         AnimatedVisibility(
             visible = showSidebar,
@@ -158,7 +164,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 targetOffsetX = { it },
                 animationSpec = tween(250, easing = EaseInCubic)
             ) + fadeOut(animationSpec = tween(250)),
-            modifier = Modifier.zIndex(2f) 
+            modifier = Modifier.zIndex(2f)
         ) {
             SidebarOverlay(
                 viewModel = viewModel,
@@ -167,7 +173,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             )
         }
     }
-    
+
     // Dialogs
     ChatDialogs(
         showPasswordDialog = showPasswordDialog,
@@ -195,8 +201,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChatInputSection(
-    messageText: String,
-    onMessageTextChange: (String) -> Unit,
+    messageText: TextFieldValue,
+    onMessageTextChange: (TextFieldValue) -> Unit,
     onSend: () -> Unit,
     showCommandSuggestions: Boolean,
     commandSuggestions: List<CommandSuggestion>,
@@ -213,7 +219,7 @@ private fun ChatInputSection(
     ) {
         Column {
             Divider(color = colorScheme.outline.copy(alpha = 0.3f))
-            
+
             // Command suggestions box
             if (showCommandSuggestions && commandSuggestions.isNotEmpty()) {
                 CommandSuggestionsBox(
@@ -221,10 +227,10 @@ private fun ChatInputSection(
                     onSuggestionClick = onSuggestionClick,
                     modifier = Modifier.fillMaxWidth()
                 )
-                
+
                 Divider(color = colorScheme.outline.copy(alpha = 0.2f))
             }
-            
+
             MessageInput(
                 value = messageText,
                 onValueChange = onMessageTextChange,
@@ -283,7 +289,7 @@ private fun ChatFloatingHeader(
             )
         )
     }
-    
+
     // Divider under header
     Divider(
         color = colorScheme.outline.copy(alpha = 0.3f),
@@ -314,7 +320,7 @@ private fun ChatDialogs(
         onConfirm = onPasswordConfirm,
         onDismiss = onPasswordDismiss
     )
-    
+
     // App info dialog
     AppInfoDialog(
         show = showAppInfo,
