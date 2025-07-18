@@ -16,4 +16,5 @@
     <string name="online_users">Пользователи онлайн</string>
     <string name="no_one_connected">Никто не подключен</string>
     <string name="emergency_clear_hint">Трижды нажмите, чтобы очистить все данные</string>
+    <string name="your_network">Ваша сеть</string>
 </resources>
