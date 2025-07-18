@@ -16,4 +16,5 @@
     <string name="online_users">Utenti online</string>
     <string name="no_one_connected">Nessuno connesso</string>
     <string name="emergency_clear_hint">Tocca tre volte per cancellare tutti i dati</string>
+    <string name="your_network">La tua rete</string>
 </resources>
