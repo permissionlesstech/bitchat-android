@@ -16,4 +16,5 @@
     <string name="online_users">Usuarios en línea</string>
     <string name="no_one_connected">Nadie conectado</string>
     <string name="emergency_clear_hint">Tres toques para borrar todos los datos</string>
+    <string name="your_network">Tu red</string>
 </resources>
