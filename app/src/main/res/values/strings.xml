@@ -16,4 +16,5 @@
     <string name="online_users">Online Users</string>
     <string name="no_one_connected">No one connected</string>
     <string name="emergency_clear_hint">Triple tap to clear all data</string>
+    <string name="your_network">Your Network</string>
 </resources>
