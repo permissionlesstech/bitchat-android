@@ -16,4 +16,5 @@
     <string name="online_users">在线用户</string>
     <string name="no_one_connected">无人连接</string>
     <string name="emergency_clear_hint">连按三次清除所有数据</string>
+    <string name="your_network">您的网络</string>
 </resources>
