@@ -16,4 +16,5 @@
     <string name="online_users">Utilizadores online</string>
     <string name="no_one_connected">Ninguém ligado</string>
     <string name="emergency_clear_hint">Toque três vezes para apagar todos os dados</string>
+    <string name="your_network">A sua rede</string>
 </resources>
