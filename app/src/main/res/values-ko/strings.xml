@@ -16,4 +16,5 @@
     <string name="online_users">온라인 사용자</string>
     <string name="no_one_connected">연결된 사용자 없음</string>
     <string name="emergency_clear_hint">세 번 탭하여 모든 데이터 삭제</string>
+    <string name="your_network">귀하의 네트워크</string>
 </resources>
