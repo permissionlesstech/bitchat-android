@@ -16,4 +16,5 @@
     <string name="online_users">Online-Benutzer</string>
     <string name="no_one_connected">Keine Verbindung</string>
     <string name="emergency_clear_hint">Dreifach tippen, um alle Daten zu löschen</string>
+    <string name="your_network">Ihr Netzwerk</string>
 </resources>
