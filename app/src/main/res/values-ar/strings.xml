@@ -16,4 +16,5 @@
     <string name="online_users">مستخدمون متصلون</string>
     <string name="no_one_connected">لا أحد متصل</string>
     <string name="emergency_clear_hint">انقر ثلاث مرات لمسح جميع البيانات</string>
+    <string name="your_network">شبكتك</string>
 </resources>
