@@ -237,6 +237,7 @@ private fun getPermissionEmoji(permissionType: PermissionType): String {
         PermissionType.NEARBY_DEVICES -> "📱"
         PermissionType.PRECISE_LOCATION -> "📍"
         PermissionType.NOTIFICATIONS -> "🔔"
+        PermissionType.BATTERY_OPTIMIZATION -> "🔋"
         PermissionType.OTHER -> "🔧"
     }
 }
@@ -246,6 +247,7 @@ private fun getPermissionIconColor(permissionType: PermissionType): Color {
         PermissionType.NEARBY_DEVICES -> Color(0xFF2196F3) // Blue
         PermissionType.PRECISE_LOCATION -> Color(0xFFFF9800) // Orange
         PermissionType.NOTIFICATIONS -> Color(0xFF4CAF50) // Green
+        PermissionType.BATTERY_OPTIMIZATION -> Color(0xFFF44336) // Red
         PermissionType.OTHER -> Color(0xFF9C27B0) // Purple
     }
 }

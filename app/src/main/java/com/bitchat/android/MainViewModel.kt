@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import com.bitchat.android.onboarding.BluetoothStatus
 import com.bitchat.android.onboarding.LocationStatus
 import com.bitchat.android.onboarding.OnboardingState
+import com.bitchat.android.onboarding.BatteryOptimizationStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,6 +29,12 @@ class MainViewModel : ViewModel() {
     private val _isLocationLoading = MutableStateFlow(false)
     val isLocationLoading: StateFlow<Boolean> = _isLocationLoading.asStateFlow()
 
+    private val _batteryOptimizationStatus = MutableStateFlow(BatteryOptimizationStatus.ENABLED)
+    val batteryOptimizationStatus: StateFlow<BatteryOptimizationStatus> = _batteryOptimizationStatus.asStateFlow()
+
+    private val _isBatteryOptimizationLoading = MutableStateFlow(false)
+    val isBatteryOptimizationLoading: StateFlow<Boolean> = _isBatteryOptimizationLoading.asStateFlow()
+
     // Public update functions for MainActivity
     fun updateOnboardingState(state: OnboardingState) {
         _onboardingState.value = state
@@ -51,5 +58,13 @@ class MainViewModel : ViewModel() {
 
     fun updateLocationLoading(loading: Boolean) {
         _isLocationLoading.value = loading
+    }
+
+    fun updateBatteryOptimizationStatus(status: BatteryOptimizationStatus) {
+        _batteryOptimizationStatus.value = status
+    }
+
+    fun updateBatteryOptimizationLoading(loading: Boolean) {
+        _isBatteryOptimizationLoading.value = loading
     }
 }

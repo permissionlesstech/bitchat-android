@@ -24,14 +24,12 @@ class ChatViewModel(
     application: Application,
     val meshService: BluetoothMeshService
 ) : AndroidViewModel(application), BluetoothMeshDelegate {
-    
-    private val context: Context = application.applicationContext
-    
+
     // State management
     private val state = ChatState()
     
     // Specialized managers
-    private val dataManager = DataManager(context)
+    private val dataManager = DataManager(application.applicationContext)
     private val messageManager = MessageManager(state)
     private val channelManager = ChannelManager(state, messageManager, dataManager, viewModelScope)
     val privateChatManager = PrivateChatManager(state, messageManager, dataManager)
@@ -46,7 +44,7 @@ class ChatViewModel(
         privateChatManager = privateChatManager,
         notificationManager = notificationManager,
         coroutineScope = viewModelScope,
-        onHapticFeedback = { ChatViewModelUtils.triggerHapticFeedback(context) },
+        onHapticFeedback = { ChatViewModelUtils.triggerHapticFeedback(application.applicationContext) },
         getMyPeerID = { meshService.myPeerID }
     )
     

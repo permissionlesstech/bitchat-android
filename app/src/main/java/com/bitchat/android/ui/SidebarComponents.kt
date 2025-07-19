@@ -73,8 +73,8 @@ fun SidebarOverlay(
                     .windowInsetsPadding(WindowInsets.statusBars) // Add status bar padding
             ) {
                 SidebarHeader()
-                
-                Divider()
+
+                HorizontalDivider()
                 
                 // Scrollable content
                 LazyColumn(
@@ -101,7 +101,7 @@ fun SidebarOverlay(
                         }
                         
                         item {
-                            Divider(modifier = Modifier.padding(vertical = 4.dp))
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                         }
                     }
                     
