@@ -8,6 +8,7 @@ import com.bitchat.android.model.ReadReceipt
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
+import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.*
 import org.json.JSONObject
 import java.security.MessageDigest
@@ -199,12 +200,12 @@ class MessageHandler(private val myPeerID: String) {
         val recipientID = packet.recipientID?.takeIf { !it.contentEquals(delegate?.getBroadcastRecipient()) }
         var recipientIDString = ""
         if (recipientID != null) {
-            recipientIDString = String(recipientID).replace("\u0000", "")
+            recipientIDString = recipientID.toHexString()
         }
         if (recipientID == null) {
             // BROADCAST MESSAGE
             handleBroadcastMessage(routed)
-        } else if (recipientIDString == myPeerID) {
+        } else if (recipientID.toHexString() == myPeerID) {
             // PRIVATE MESSAGE FOR US
             handlePrivateMessage(packet, peerID)
         } else if (packet.ttl > 0u) {
