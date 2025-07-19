@@ -36,6 +36,7 @@ import com.bitchat.android.onboarding.PermissionExplanationScreen
 import com.bitchat.android.onboarding.PermissionManager
 import com.bitchat.android.ui.ChatScreen
 import com.bitchat.android.ui.ChatViewModel
+import com.bitchat.android.ui.SettingsManager
 import com.bitchat.android.ui.theme.BitchatTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -96,7 +97,14 @@ class MainActivity : ComponentActivity() {
         )
         
         setContent {
-            BitchatTheme {
+            val settingsManager = remember { SettingsManager(this@MainActivity) }
+            // Observe theme preference changes in real-time
+            val themePreference by settingsManager::themePreference
+            
+            // Pass the same SettingsManager instance to ChatViewModel
+            chatViewModel.setSettingsManager(settingsManager)
+            
+            BitchatTheme(themePreference = themePreference) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

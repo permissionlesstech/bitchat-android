@@ -6,6 +6,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import com.bitchat.android.ui.SettingsManager
 
 // Colors that match the iOS bitchat theme
 private val DarkColorScheme = darkColorScheme(
@@ -36,9 +37,15 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun BitchatTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    themePreference: SettingsManager.ThemePreference = SettingsManager.ThemePreference.SYSTEM,
     content: @Composable () -> Unit
 ) {
+    val darkTheme = when (themePreference) {
+        SettingsManager.ThemePreference.LIGHT -> false
+        SettingsManager.ThemePreference.DARK -> true
+        SettingsManager.ThemePreference.SYSTEM -> isSystemInDarkTheme()
+    }
+    
     val colorScheme = when {
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
