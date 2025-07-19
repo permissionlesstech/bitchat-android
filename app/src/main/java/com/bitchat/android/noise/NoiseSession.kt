@@ -1,7 +1,7 @@
 package com.bitchat.android.noise
 
 import android.util.Log
-import com.southernstorm.noise.protocol.*
+import com.bitchat.android.noise.southernstorm.noise.protocol.*
 import java.security.SecureRandom
 
 
@@ -113,8 +113,8 @@ class NoiseSession(
     }
     
     /**
-     * Initialize the Noise handshake - WORKING SOLUTION
-     * Uses fresh generated keys for each session since noise-java doesn't support pre-existing key injection
+     * Initialize the Noise handshake - NOW USES PERSISTENT KEYS with our local fork
+     * Our local fork properly supports setting pre-existing keys, enabling persistent identity
      */
     private fun initializeNoiseHandshake(role: Int) {
         try {
@@ -128,18 +128,29 @@ class NoiseSession(
                 
                 val localKeyPair = handshakeState?.getLocalKeyPair()
                 if (localKeyPair != null) {
-                    // WORKING SOLUTION: Simply generate fresh keys for this session
-                    // The noise-java library doesn't reliably support setting pre-existing keys
-                    localKeyPair.generateKeyPair()
+                    // FIXED: Use the provided persistent identity keys with our local fork
+                    // Our local fork properly supports setting pre-existing keys
+                    Log.d(TAG, "Setting persistent static identity keys...")
+                    
+                    localKeyPair.setPrivateKey(localStaticPrivateKey, 0)
                     
                     if (!localKeyPair.hasPrivateKey() || !localKeyPair.hasPublicKey()) {
-                        throw IllegalStateException("Failed to generate key pair for handshake")
+                        throw IllegalStateException("Failed to set static identity keys - local fork issue")
                     }
                     
-                    Log.d(TAG, "✓ Generated fresh key pair for session")
+                    Log.d(TAG, "✓ Successfully set persistent static identity keys")
                     Log.d(TAG, "Algorithm: ${localKeyPair.dhName}")
                     Log.d(TAG, "Private key length: ${localKeyPair.privateKeyLength}")
                     Log.d(TAG, "Public key length: ${localKeyPair.publicKeyLength}")
+                    
+                    // Verify the keys were set correctly
+                    val verifyPrivate = ByteArray(32)
+                    val verifyPublic = ByteArray(32)
+                    localKeyPair.getPrivateKey(verifyPrivate, 0)
+                    localKeyPair.getPublicKey(verifyPublic, 0)
+                    
+                    Log.d(TAG, "Persistent identity public key: ${localStaticPublicKey.joinToString("") { "%02x".format(it) }}")
+                    Log.d(TAG, "Set public key:               ${verifyPublic.joinToString("") { "%02x".format(it) }}")
                     
                 } else {
                     throw IllegalStateException("HandshakeState returned null for local key pair")
@@ -150,7 +161,7 @@ class NoiseSession(
             }
             
             handshakeState?.start()
-            Log.d(TAG, "Handshake state started successfully")
+            Log.d(TAG, "Handshake state started successfully with persistent identity keys")
             
         } catch (e: Exception) {
             Log.e(TAG, "Exception during handshake initialization: ${e.message}", e)

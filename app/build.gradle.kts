@@ -76,8 +76,8 @@ dependencies {
     // Cryptography
     implementation(libs.bundles.cryptography)
     
-    // Noise Protocol Framework - Standard Implementation
-    implementation("com.github.auties00:noise-java:1.2")
+    // Noise Protocol Framework - Local Fork (fixes key setting issues)
+    // implementation("com.github.auties00:noise-java:1.2")  // Disabled - using local fork
     
     // JSON
     implementation(libs.gson)
