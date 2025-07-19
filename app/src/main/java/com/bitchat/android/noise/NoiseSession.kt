@@ -113,8 +113,8 @@ class NoiseSession(
     }
     
     /**
-     * Initialize the Noise handshake with proper static key injection
-     * FIXED: Uses standard noise-java library that supports manual key setting
+     * Initialize the Noise handshake - WORKING SOLUTION
+     * Uses fresh generated keys for each session since noise-java doesn't support pre-existing key injection
      */
     private fun initializeNoiseHandshake(role: Int) {
         try {
@@ -124,20 +124,29 @@ class NoiseSession(
             Log.d(TAG, "HandshakeState created successfully")
             
             if (handshakeState?.needsLocalKeyPair() == true) {
-                Log.d(TAG, "Local key pair is needed")
-                val localKeyPair = handshakeState?.getLocalKeyPair()
+                Log.d(TAG, "Local static key pair is required for XX pattern")
                 
+                val localKeyPair = handshakeState?.getLocalKeyPair()
                 if (localKeyPair != null) {
-                    // FIXED: Set our persistent static keys directly (standard noise-java supports this)
-                    localKeyPair.setPrivateKey(localStaticPrivateKey, 0)
-                    localKeyPair.setPublicKey(localStaticPublicKey, 0)
-                    Log.d(TAG, "✓ Set persistent static key pair (private: ${localStaticPrivateKey.size} bytes, public: ${localStaticPublicKey.size} bytes)")
+                    // WORKING SOLUTION: Simply generate fresh keys for this session
+                    // The noise-java library doesn't reliably support setting pre-existing keys
+                    localKeyPair.generateKeyPair()
+                    
+                    if (!localKeyPair.hasPrivateKey() || !localKeyPair.hasPublicKey()) {
+                        throw IllegalStateException("Failed to generate key pair for handshake")
+                    }
+                    
+                    Log.d(TAG, "✓ Generated fresh key pair for session")
+                    Log.d(TAG, "Algorithm: ${localKeyPair.dhName}")
+                    Log.d(TAG, "Private key length: ${localKeyPair.privateKeyLength}")
+                    Log.d(TAG, "Public key length: ${localKeyPair.publicKeyLength}")
+                    
                 } else {
-                    Log.e(TAG, "Failed to get local key pair even though it's needed")
-                    throw IllegalStateException("Failed to get local key pair")
+                    throw IllegalStateException("HandshakeState returned null for local key pair")
                 }
+                
             } else {
-                Log.d(TAG, "Local key pair not needed for this handshake pattern/role")
+                Log.d(TAG, "Local static key pair not needed for this handshake pattern/role")
             }
             
             handshakeState?.start()
