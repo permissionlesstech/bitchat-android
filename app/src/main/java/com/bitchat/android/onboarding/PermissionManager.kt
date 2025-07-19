@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.PowerManager
 import android.util.Log
 import androidx.core.content.ContextCompat
 
@@ -87,6 +88,31 @@ class PermissionManager(private val context: Context) {
     }
 
     /**
+     * Check if battery optimization is disabled for this app
+     */
+    fun isBatteryOptimizationDisabled(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+                powerManager.isIgnoringBatteryOptimizations(context.packageName)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error checking battery optimization status", e)
+                false
+            }
+        } else {
+            // Battery optimization doesn't exist on Android < 6.0
+            true
+        }
+    }
+
+    /**
+     * Check if battery optimization is supported on this device
+     */
+    fun isBatteryOptimizationSupported(): Boolean {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+    }
+
+    /**
      * Get the list of permissions that are missing
      */
     fun getMissingPermissions(): List<String> {
@@ -152,6 +178,19 @@ class PermissionManager(private val context: Context) {
             )
         }
 
+        // Battery optimization category (if applicable)
+        if (isBatteryOptimizationSupported()) {
+            categories.add(
+                PermissionCategory(
+                    type = PermissionType.BATTERY_OPTIMIZATION,
+                    description = "Disable battery optimization to ensure bitchat runs reliably in the background and maintains mesh network connections",
+                    permissions = listOf("BATTERY_OPTIMIZATION"), // Custom identifier
+                    isGranted = isBatteryOptimizationDisabled(),
+                    systemDescription = "Allow bitchat to run without battery restrictions"
+                )
+            )
+        }
+
         return categories
     }
 
@@ -208,5 +247,6 @@ enum class PermissionType(val nameValue: String) {
     NEARBY_DEVICES("Nearby Devices"),
     PRECISE_LOCATION("Precise Location"),
     NOTIFICATIONS("Notifications"),
+    BATTERY_OPTIMIZATION("Battery Optimization"),
     OTHER("Other")
 }

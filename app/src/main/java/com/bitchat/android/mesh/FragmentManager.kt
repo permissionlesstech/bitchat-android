@@ -14,7 +14,7 @@ class FragmentManager {
     
     companion object {
         private const val TAG = "FragmentManager"
-        private const val MAX_FRAGMENT_SIZE = 500
+        private const val MAX_FRAGMENT_SIZE = 150  // Match iOS/Rust for BLE compatibility (185 byte MTU limit)
         private const val FRAGMENT_TIMEOUT = 30000L // 30 seconds
         private const val CLEANUP_INTERVAL = 10000L // 10 seconds
     }
@@ -46,16 +46,15 @@ class FragmentManager {
         val fragments = mutableListOf<BitchatPacket>()
         val fragmentID = generateFragmentID()
         
-        // Calculate header size (13 bytes for fragment metadata)
-        val headerSize = 13
-        val dataPerFragment = MAX_FRAGMENT_SIZE - headerSize
-        val totalFragments = (data.size + dataPerFragment - 1) / dataPerFragment
+        // Fragment overhead: 13 bytes (fragment metadata) + 21 bytes (packet header) = 34 bytes total
+        // With 150 byte fragments, total packet = ~184 bytes (within iOS 185 byte MTU)
+        val totalFragments = (data.size + MAX_FRAGMENT_SIZE - 1) / MAX_FRAGMENT_SIZE
         
         Log.d(TAG, "Creating ${totalFragments} fragments for ${data.size} byte packet")
         
         for (i in 0 until totalFragments) {
-            val start = i * dataPerFragment
-            val end = minOf(start + dataPerFragment, data.size)
+            val start = i * MAX_FRAGMENT_SIZE
+            val end = minOf(start + MAX_FRAGMENT_SIZE, data.size)
             val fragmentData = data.sliceArray(start until end)
             
             val fragmentPayload = createFragmentPayload(
@@ -158,7 +157,7 @@ class FragmentManager {
      * Create fragment payload with metadata
      */
     private fun createFragmentPayload(
-        fragmentID: String,
+        fragmentID: ByteArray,
         index: Int,
         total: Int,
         originalType: UByte,
@@ -167,8 +166,7 @@ class FragmentManager {
         val payload = ByteArray(13 + data.size)
         
         // Fragment ID (8 bytes)
-        val idBytes = fragmentID.toByteArray()
-        System.arraycopy(idBytes, 0, payload, 0, minOf(8, idBytes.size))
+        System.arraycopy(fragmentID, 0, payload, 0, 8)
         
         // Index (2 bytes, big-endian)
         payload[8] = ((index shr 8) and 0xFF).toByte()
@@ -188,10 +186,12 @@ class FragmentManager {
     }
     
     /**
-     * Generate unique fragment ID
+     * Generate unique fragment ID (8 random bytes to match iOS/Rust)
      */
-    private fun generateFragmentID(): String {
-        return "${System.currentTimeMillis()}-${kotlin.random.Random.nextInt()}"
+    private fun generateFragmentID(): ByteArray {
+        val fragmentID = ByteArray(8)
+        kotlin.random.Random.nextBytes(fragmentID)
+        return fragmentID
     }
     
     /**

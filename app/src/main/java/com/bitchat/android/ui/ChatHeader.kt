@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bitchat.android.core.ui.utils.singleOrTripleClickable
 
 /**
  * Header components for ChatScreen
@@ -148,8 +149,7 @@ fun ChatHeaderContent(
     onShowAppInfo: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    var tripleClickCount by remember { mutableStateOf(0) }
-    
+
     when {
         selectedPrivatePeer != null -> {
             // Private chat header - ensure state synchronization
@@ -181,15 +181,8 @@ fun ChatHeaderContent(
             MainHeader(
                 nickname = nickname,
                 onNicknameChange = viewModel::setNickname,
-                onTitleClick = {
-                    tripleClickCount++
-                    if (tripleClickCount >= 3) {
-                        tripleClickCount = 0
-                        onTripleClick()
-                    } else {
-                        onShowAppInfo()
-                    }
-                },
+                onTitleClick = onShowAppInfo,
+                onTripleTitleClick = onTripleClick,
                 onSidebarClick = onSidebarClick,
                 viewModel = viewModel
             )
@@ -345,6 +338,7 @@ private fun MainHeader(
     nickname: String,
     onNicknameChange: (String) -> Unit,
     onTitleClick: () -> Unit,
+    onTripleTitleClick: () -> Unit,
     onSidebarClick: () -> Unit,
     viewModel: ChatViewModel
 ) {
@@ -360,12 +354,18 @@ private fun MainHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.fillMaxHeight(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(
                 text = "bitchat*",
                 style = MaterialTheme.typography.headlineSmall,
                 color = colorScheme.primary,
-                modifier = Modifier.clickable { onTitleClick() }
+                modifier = Modifier.singleOrTripleClickable(
+                    onSingleClick = onTitleClick,
+                    onTripleClick = onTripleTitleClick
+                )
             )
             
             Spacer(modifier = Modifier.width(8.dp))
