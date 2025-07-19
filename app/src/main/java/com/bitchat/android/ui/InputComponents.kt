@@ -15,23 +15,79 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.text.withStyle
 
 /**
  * Input components for ChatScreen
  * Extracted from ChatScreen.kt for better organization
  */
 
+/**
+ * VisualTransformation that styles slash commands with background and color
+ * while preserving cursor positioning and click handling
+ */
+class SlashCommandVisualTransformation : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val slashCommandRegex = Regex("(/\\w+)(?=\\s|$)")
+        val annotatedString = buildAnnotatedString {
+            var lastIndex = 0
+            
+            slashCommandRegex.findAll(text.text).forEach { match ->
+                // Add text before the match
+                if (match.range.first > lastIndex) {
+                    append(text.text.substring(lastIndex, match.range.first))
+                }
+                
+                // Add the styled slash command
+                withStyle(
+                    style = SpanStyle(
+                        color = Color(0xFF00FF7F), // Bright green
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Medium,
+                        background = Color(0xFF2D2D2D) // Dark gray background
+                    )
+                ) {
+                    append(match.value)
+                }
+                
+                lastIndex = match.range.last + 1
+            }
+            
+            // Add remaining text
+            if (lastIndex < text.text.length) {
+                append(text.text.substring(lastIndex))
+            }
+        }
+        
+        return TransformedText(
+            text = annotatedString,
+            offsetMapping = OffsetMapping.Identity
+        )
+    }
+}
+
+
+
+
+
 @Composable
 fun MessageInput(
-    value: String,
-    onValueChange: (String) -> Unit,
+    value: TextFieldValue,
+    onValueChange: (TextFieldValue) -> Unit,
     onSend: () -> Unit,
     selectedPrivatePeer: String?,
     currentChannel: String?,
@@ -39,6 +95,7 @@ fun MessageInput(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val isFocused = remember { mutableStateOf(false) }
     
     Row(
         modifier = modifier.padding(horizontal = 12.dp, vertical = 8.dp), // Reduced padding
@@ -70,7 +127,12 @@ fun MessageInput(
             cursorBrush = SolidColor(colorScheme.primary),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
             keyboardActions = KeyboardActions(onSend = { onSend() }),
-            modifier = Modifier.weight(1f)
+            visualTransformation = SlashCommandVisualTransformation(),
+            modifier = Modifier
+                .weight(1f)
+                .onFocusChanged { focusState ->
+                    isFocused.value = focusState.isFocused
+                }
         )
         
         Spacer(modifier = Modifier.width(8.dp)) // Reduced spacing

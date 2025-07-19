@@ -3,6 +3,25 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+## [0.7.1] - 2025-07-19
+
+### Added
+-feat(battery): add battery optimization management for background reliability
+
+### Fixed
+- fix: center align toolbar item in ChatHeader - passed modifier.fillmaxHeight so the content inside the row can actually be centered
+- fix: update sidebar text to use string resources
+- fix(chat): cursor location and enhance message input with slash command styling
+
+### Changed
+- refactor: remove context attribute at ChatViewModel.kt
+- Refactor: Migrate MainViewModel to use StateFlow
+
+### Improved
+- Use HorizontalDivider instead of deprecated Divider
+- Use contentPadding instead of padding so items remain fully visible
+
+
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.7]
