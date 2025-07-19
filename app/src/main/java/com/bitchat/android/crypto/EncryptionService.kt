@@ -2,19 +2,18 @@ package com.bitchat.android.crypto
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.security.keystore.KeyGenParameterSpec
-import android.security.keystore.KeyProperties
 import org.bouncycastle.crypto.agreement.X25519Agreement
 import org.bouncycastle.crypto.generators.Ed25519KeyPairGenerator
 import org.bouncycastle.crypto.generators.X25519KeyPairGenerator
-import org.bouncycastle.crypto.params.*
+import org.bouncycastle.crypto.params.Ed25519KeyGenerationParameters
+import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters
+import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters
+import org.bouncycastle.crypto.params.X25519KeyGenerationParameters
+import org.bouncycastle.crypto.params.X25519PrivateKeyParameters
+import org.bouncycastle.crypto.params.X25519PublicKeyParameters
 import org.bouncycastle.crypto.signers.Ed25519Signer
-import org.bouncycastle.crypto.util.PrivateKeyFactory
-import org.bouncycastle.crypto.util.PublicKeyFactory
-import org.bouncycastle.jcajce.provider.digest.SHA256
 import java.security.SecureRandom
 import javax.crypto.Cipher
-import javax.crypto.KeyGenerator
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 import kotlin.experimental.and
@@ -91,7 +90,7 @@ class EncryptionService(private val context: Context) {
      * 96 bytes total: 32 (X25519) + 32 (Ed25519 signing) + 32 (Ed25519 identity)
      */
     fun getCombinedPublicKeyData(): ByteArray {
-        val combined = ByteArray(96)
+        val combined = ByteArray(PUBLIC_KEY_DATA_SIZE)
         System.arraycopy(publicKey.encoded, 0, combined, 0, 32)  // X25519 key
         System.arraycopy(signingPublicKey.encoded, 0, combined, 32, 32)  // Ed25519 signing key
         System.arraycopy(identityPublicKey.encoded, 0, combined, 64, 32)  // Ed25519 identity key
@@ -103,7 +102,7 @@ class EncryptionService(private val context: Context) {
      */
     @Throws(Exception::class)
     fun addPeerPublicKey(peerID: String, publicKeyData: ByteArray) {
-        if (publicKeyData.size != 96) {
+        if (publicKeyData.size != PUBLIC_KEY_DATA_SIZE) {
             throw Exception("Invalid public key data size: ${publicKeyData.size}, expected 96")
         }
         
@@ -254,6 +253,10 @@ class EncryptionService(private val context: Context) {
         }
         
         return result
+    }
+
+    companion object {
+        const val PUBLIC_KEY_DATA_SIZE = 96
     }
 }
 
