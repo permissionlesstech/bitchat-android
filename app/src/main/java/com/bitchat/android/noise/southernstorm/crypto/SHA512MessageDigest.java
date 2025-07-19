@@ -20,13 +20,13 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-package com.bitchat.android.noise.southernstorm.noise.crypto;
+package com.bitchat.android.noise.southernstorm.crypto;
 
 import java.security.DigestException;
 import java.security.MessageDigest;
 import java.util.Arrays;
 
-import com.bitchat.android.noise.southernstorm.noise.protocol.Destroyable;
+import com.bitchat.android.noise.southernstorm.protocol.Destroyable;
 
 /**
  * Fallback implementation of SHA512.

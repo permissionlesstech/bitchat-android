@@ -20,7 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-package com.bitchat.android.noise.southernstorm.noise.protocol;
+package com.bitchat.android.noise.southernstorm.protocol;
 
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
@@ -35,7 +35,7 @@ import javax.crypto.ShortBufferException;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
-import com.bitchat.android.noise.southernstorm.noise.crypto.GHASH;
+import com.bitchat.android.noise.southernstorm.crypto.GHASH;
 
 /**
  * Emulates the "AESGCM" cipher for Noise using the "AES/CTR/NoPadding"

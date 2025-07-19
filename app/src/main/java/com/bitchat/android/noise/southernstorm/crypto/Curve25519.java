@@ -20,7 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-package com.bitchat.android.noise.southernstorm.noise.crypto;
+package com.bitchat.android.noise.southernstorm.crypto;
 
 import java.util.Arrays;
 

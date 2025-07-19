@@ -20,7 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-package com.bitchat.android.noise.southernstorm.noise.protocol;
+package com.bitchat.android.noise.southernstorm.protocol;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -29,10 +29,10 @@ import java.util.Arrays;
 
 import javax.crypto.BadPaddingException;
 
-import com.bitchat.android.noise.southernstorm.noise.crypto.Blake2bMessageDigest;
-import com.bitchat.android.noise.southernstorm.noise.crypto.Blake2sMessageDigest;
-import com.bitchat.android.noise.southernstorm.noise.crypto.SHA256MessageDigest;
-import com.bitchat.android.noise.southernstorm.noise.crypto.SHA512MessageDigest;
+import com.bitchat.android.noise.southernstorm.crypto.Blake2bMessageDigest;
+import com.bitchat.android.noise.southernstorm.crypto.Blake2sMessageDigest;
+import com.bitchat.android.noise.southernstorm.crypto.SHA256MessageDigest;
+import com.bitchat.android.noise.southernstorm.crypto.SHA512MessageDigest;
 
 /**
  * Utility functions for the Noise protocol library.

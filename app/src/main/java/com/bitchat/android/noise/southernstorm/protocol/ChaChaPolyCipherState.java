@@ -20,15 +20,15 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-package com.bitchat.android.noise.southernstorm.noise.protocol;
+package com.bitchat.android.noise.southernstorm.protocol;
 
 import java.util.Arrays;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.ShortBufferException;
 
-import com.bitchat.android.noise.southernstorm.noise.crypto.ChaChaCore;
-import com.bitchat.android.noise.southernstorm.noise.crypto.Poly1305;
+import com.bitchat.android.noise.southernstorm.crypto.ChaChaCore;
+import com.bitchat.android.noise.southernstorm.crypto.Poly1305;
 
 /**
  * Implements the ChaChaPoly cipher for Noise.

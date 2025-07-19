@@ -3,7 +3,7 @@ package com.bitchat.android.noise
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.identity.SecureIdentityStateManager
-import com.bitchat.android.noise.southernstorm.noise.protocol.Noise
+import com.bitchat.android.noise.southernstorm.protocol.Noise
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
@@ -296,7 +296,7 @@ class NoiseEncryptionService(private val context: Context) {
      */
     private fun generateKeyPair(): Pair<ByteArray, ByteArray> {
         try {
-            val dhState = com.bitchat.android.noise.southernstorm.noise.protocol.Noise.createDH("25519")
+            val dhState = com.bitchat.android.noise.southernstorm.protocol.Noise.createDH("25519")
             dhState.generateKeyPair()
             
             val privateKey = ByteArray(32)

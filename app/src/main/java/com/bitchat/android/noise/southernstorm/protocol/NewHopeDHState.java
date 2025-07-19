@@ -20,12 +20,12 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-package com.bitchat.android.noise.southernstorm.noise.protocol;
+package com.bitchat.android.noise.southernstorm.protocol;
 
 import java.util.Arrays;
 
-import com.bitchat.android.noise.southernstorm.noise.crypto.NewHope;
-import com.bitchat.android.noise.southernstorm.noise.crypto.NewHopeTor;
+import com.bitchat.android.noise.southernstorm.crypto.NewHope;
+import com.bitchat.android.noise.southernstorm.crypto.NewHopeTor;
 
 /**
  * Implementation of the New Hope post-quantum algorithm for the Noise protocol.

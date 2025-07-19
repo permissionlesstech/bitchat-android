@@ -1,7 +1,7 @@
 package com.bitchat.android.noise
 
 import android.util.Log
-import com.bitchat.android.noise.southernstorm.noise.protocol.*
+import com.bitchat.android.noise.southernstorm.protocol.*
 import java.security.SecureRandom
 
 
@@ -195,8 +195,7 @@ class NoiseSession(
             state = NoiseSessionState.Handshaking
             handshakeMessageCount = 1
             
-            // CRITICAL FIX: Use exact buffer size for XX message 1 (32 bytes)
-            val messageBuffer = ByteArray(XX_MESSAGE_1_SIZE + MAX_PAYLOAD_SIZE) // Extra space for safety
+            val messageBuffer = ByteArray(XX_MESSAGE_1_SIZE)
             val handshakeStateLocal = handshakeState ?: throw IllegalStateException("Handshake state is null")
             val messageLength = handshakeStateLocal.writeMessage(messageBuffer, 0, ByteArray(0), 0, 0)
             val firstMessage = messageBuffer.copyOf(messageLength)
@@ -206,7 +205,7 @@ class NoiseSession(
                 Log.w(TAG, "Warning: XX message 1 size ${firstMessage.size} != expected $XX_MESSAGE_1_SIZE")
             }
             
-            Log.d(TAG, "Sent real XX handshake message 1 to $peerID (${firstMessage.size} bytes)")
+            Log.d(TAG, "Sending XX handshake message 1 to $peerID (${firstMessage.size} bytes)")
             return firstMessage
         } catch (e: Exception) {
             state = NoiseSessionState.Failed(e)
