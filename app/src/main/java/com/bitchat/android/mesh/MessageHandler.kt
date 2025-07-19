@@ -197,11 +197,14 @@ class MessageHandler(private val myPeerID: String) {
         if (peerID == myPeerID) return
         
         val recipientID = packet.recipientID?.takeIf { !it.contentEquals(delegate?.getBroadcastRecipient()) }
-        
+        var recipientIDString = ""
+        if (recipientID != null) {
+            recipientIDString = String(recipientID).replace("\u0000", "")
+        }
         if (recipientID == null) {
             // BROADCAST MESSAGE
             handleBroadcastMessage(routed)
-        } else if (String(recipientID).replace("\u0000", "") == myPeerID) {
+        } else if (recipientIDString == myPeerID) {
             // PRIVATE MESSAGE FOR US
             handlePrivateMessage(packet, peerID)
         } else if (packet.ttl > 0u) {

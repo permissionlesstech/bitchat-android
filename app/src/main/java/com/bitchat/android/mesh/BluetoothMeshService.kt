@@ -122,44 +122,19 @@ class BluetoothMeshService(private val context: Context) {
                 }
             }
             
-            override fun processNoiseHandshake(peerID: String, payload: ByteArray, isInitiation: Boolean): Boolean {
-                return try {
-                    Log.d(TAG, "Processing Noise handshake from $peerID, payload size: ${payload.size} bytes")
-                    
-                    // Use proper Noise protocol implementation
-                    val response = noiseEncryptionService.processHandshakeMessage(payload, peerID)
-                    
-                    if (response != null) {
-                        // Send response back
-                        val responsePacket = BitchatPacket(
-                            version = 1u,
-                            type = MessageType.NOISE_HANDSHAKE_RESP.value,
-                            senderID = hexStringToByteArray(myPeerID),
-                            recipientID = hexStringToByteArray(peerID),
-                            timestamp = System.currentTimeMillis().toULong(),
-                            payload = response,
-                            ttl = 1u
-                        )
-                        connectionManager.broadcastPacket(RoutedPacket(responsePacket))
-                        Log.d(TAG, "Sent Noise handshake response to $peerID")
-                    }
-                    
-                    // Check if session is now established
-                    if (noiseEncryptionService.hasEstablishedSession(peerID)) {
-                        Log.d(TAG, "Noise session established with $peerID")
-                        // Get the peer's public key for fingerprinting
-                        val peerPublicKey = noiseEncryptionService.getPeerPublicKeyData(peerID)
-                        if (peerPublicKey != null) {
-                            // Notify delegate about successful handshake
-                            delegate?.registerPeerPublicKey(peerID, peerPublicKey)
-                        }
-                    }
-                    
-                    true
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to process Noise handshake from $peerID: ${e.message}")
-                    false
-                }
+            override fun sendHandshakeResponse(peerID: String, response: ByteArray) {
+                // Send Noise handshake response
+                val responsePacket = BitchatPacket(
+                    version = 1u,
+                    type = MessageType.NOISE_HANDSHAKE_RESP.value,
+                    senderID = hexStringToByteArray(myPeerID),
+                    recipientID = hexStringToByteArray(peerID),
+                    timestamp = System.currentTimeMillis().toULong(),
+                    payload = response,
+                    ttl = 1u
+                )
+                connectionManager.broadcastPacket(RoutedPacket(responsePacket))
+                Log.d(TAG, "Sent Noise handshake response to $peerID (${response.size} bytes)")
             }
         }
         
@@ -633,6 +608,41 @@ class BluetoothMeshService(private val context: Context) {
      * Get peer RSSI values  
      */
     fun getPeerRSSI(): Map<String, Int> = peerManager.getAllPeerRSSI()
+    
+    /**
+     * Check if we have an established Noise session with a peer  
+     */
+    fun hasEstablishedSession(peerID: String): Boolean {
+        return encryptionService.hasEstablishedSession(peerID)
+    }
+    
+    /**
+     * Get peer fingerprint for identity management
+     */
+    fun getPeerFingerprint(peerID: String): String? {
+        return encryptionService.getPeerFingerprint(peerID)
+    }
+    
+    /**
+     * Get our identity fingerprint
+     */
+    fun getIdentityFingerprint(): String {
+        return encryptionService.getIdentityFingerprint()
+    }
+    
+    /**
+     * Check if encryption icon should be shown for a peer
+     */
+    fun shouldShowEncryptionIcon(peerID: String): Boolean {
+        return encryptionService.shouldShowEncryptionIcon(peerID)
+    }
+    
+    /**
+     * Get all peers with established encrypted sessions
+     */
+    fun getEncryptedPeers(): List<String> {
+        return encryptionService.getEstablishedPeers()
+    }
     
     /**
      * Get device address for a specific peer ID

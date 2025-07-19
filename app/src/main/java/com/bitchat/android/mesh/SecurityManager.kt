@@ -114,19 +114,29 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         processedKeyExchanges.add(exchangeKey)
         
         try {
-            // Process the Noise handshake through the delegate (NoiseEncryptionService)
-            val success = delegate?.processNoiseHandshake(peerID, packet.payload, step == 1) ?: false
+            // Process the Noise handshake through the updated EncryptionService
+            val response = encryptionService.processHandshakeMessage(packet.payload, peerID)
             
-            if (success) {
-                Log.d(TAG, "Successfully processed Noise handshake step $step from $peerID")
+            if (response != null) {
+                Log.d(TAG, "Successfully processed Noise handshake step $step from $peerID, sending response")
                 
-                // Notify delegate
+                // Send handshake response through delegate
+                delegate?.sendHandshakeResponse(peerID, response)
+                
+                // Notify delegate of handshake completion
                 delegate?.onKeyExchangeCompleted(peerID, packet.payload, routed.relayAddress)
                 
                 return true
             } else {
-                Log.w(TAG, "Failed to process Noise handshake from $peerID")
-                return false
+                // Check if session is now established (handshake complete)
+                if (encryptionService.hasEstablishedSession(peerID)) {
+                    Log.d(TAG, "✅ Noise handshake completed with $peerID")
+                    delegate?.onKeyExchangeCompleted(peerID, packet.payload, routed.relayAddress)
+                    return true
+                } else {
+                    Log.w(TAG, "Failed to process Noise handshake from $peerID")
+                    return false
+                }
             }
             
         } catch (e: Exception) {
@@ -258,9 +268,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
      * Check if we have encryption keys for a peer
      */
     fun hasKeysForPeer(peerID: String): Boolean {
-        // This would need to be implemented in EncryptionService
-        // For now, we'll assume we have keys if we processed a key exchange
-        return processedKeyExchanges.any { it.startsWith("$peerID-") }
+        return encryptionService.hasEstablishedSession(peerID)
     }
     
     /**
@@ -369,5 +377,5 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
  */
 interface SecurityManagerDelegate {
     fun onKeyExchangeCompleted(peerID: String, peerPublicKeyData: ByteArray, receivedAddress: String?)
-    fun processNoiseHandshake(peerID: String, payload: ByteArray, isInitiation: Boolean): Boolean
+    fun sendHandshakeResponse(peerID: String, response: ByteArray)
 }

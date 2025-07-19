@@ -261,34 +261,7 @@ class NoiseSessionManager(
             return false
         }
         
-        // Validate against known XX pattern message sizes
-        when (message.size) {
-            32 -> {
-                // First message: -> e
-                Log.d(TAG, "Received XX pattern message 1 from $peerID (32 bytes)")
-                return true
-            }
-            80 -> {
-                // Second message: <- e, ee, s, es  
-                Log.d(TAG, "Received XX pattern message 2 from $peerID (80 bytes)")
-                return true
-            }
-            48 -> {
-                // Third message: -> s, se
-                Log.d(TAG, "Received XX pattern message 3 from $peerID (48 bytes)")
-                return true
-            }
-            else -> {
-                // Allow some flexibility for payload or different implementations
-                if (message.size >= 32 && message.size <= 100) {
-                    Log.d(TAG, "Received handshake message from $peerID with size ${message.size} (non-standard but acceptable)")
-                    return true
-                } else {
-                    Log.w(TAG, "Invalid handshake message size from $peerID: ${message.size} bytes")
-                    return false
-                }
-            }
-        }
+        return true
     }
     
     // MARK: - Encryption/Decryption

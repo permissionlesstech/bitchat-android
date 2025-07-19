@@ -156,13 +156,15 @@ fun ChatHeaderContent(
             val favoritePeers by viewModel.favoritePeers.observeAsState(emptySet())
             val fingerprint = viewModel.privateChatManager.getPeerFingerprint(selectedPrivatePeer)
             val isFavorite = favoritePeers.contains(fingerprint)
+            val hasEncryption = viewModel.meshService.shouldShowEncryptionIcon(selectedPrivatePeer)
             
-            Log.d("ChatHeader", "Header recomposing: peer=$selectedPrivatePeer, fingerprint=$fingerprint, isFav=$isFavorite")
+            Log.d("ChatHeader", "Header recomposing: peer=$selectedPrivatePeer, fingerprint=$fingerprint, isFav=$isFavorite, encrypted=$hasEncryption")
             
             PrivateChatHeader(
                 peerID = selectedPrivatePeer,
                 peerNicknames = viewModel.meshService.getPeerNicknames(),
                 isFavorite = isFavorite,
+                hasEncryption = hasEncryption,
                 onBackClick = onBackClick,
                 onToggleFavorite = { viewModel.toggleFavorite(selectedPrivatePeer) }
             )
@@ -195,6 +197,7 @@ private fun PrivateChatHeader(
     peerID: String,
     peerNicknames: Map<String, String>,
     isFavorite: Boolean,
+    hasEncryption: Boolean,
     onBackClick: () -> Unit,
     onToggleFavorite: () -> Unit
 ) {
@@ -243,6 +246,18 @@ private fun PrivateChatHeader(
                 modifier = Modifier.size(16.dp),
                 tint = Color(0xFFFF9500) // Orange to match private message theme
             )
+            
+            // Show encryption status icon if session is established
+            if (hasEncryption) {
+                Spacer(modifier = Modifier.width(2.dp))
+                Icon(
+                    imageVector = Icons.Filled.Security,
+                    contentDescription = "End-to-end encrypted",
+                    modifier = Modifier.size(14.dp),
+                    tint = Color(0xFF00C851) // Green to indicate verified encryption
+                )
+            }
+            
             Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = peerNickname,
