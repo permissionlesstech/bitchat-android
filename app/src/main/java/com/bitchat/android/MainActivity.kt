@@ -11,14 +11,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.Lifecycle
 import com.bitchat.android.mesh.BluetoothMeshService
@@ -124,7 +123,15 @@ class MainActivity : ComponentActivity() {
     
     @Composable
     private fun OnboardingFlowScreen() {
-       val context = LocalContext.current
+        val context = LocalContext.current
+        val onboardingState by mainViewModel.onboardingState.collectAsState()
+        val bluetoothStatus by mainViewModel.bluetoothStatus.collectAsState()
+        val locationStatus by mainViewModel.locationStatus.collectAsState()
+        val batteryOptimizationStatus by mainViewModel.batteryOptimizationStatus.collectAsState()
+        val errorMessage by mainViewModel.errorMessage.collectAsState()
+        val isBluetoothLoading by mainViewModel.isBluetoothLoading.collectAsState()
+        val isLocationLoading by mainViewModel.isLocationLoading.collectAsState()
+        val isBatteryOptimizationLoading by mainViewModel.isBatteryOptimizationLoading.collectAsState()
 
         DisposableEffect(context, bluetoothStatusManager) {
 
@@ -147,15 +154,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-        
-        val onboardingState by mainViewModel.onboardingState.collectAsState()
-        val bluetoothStatus by mainViewModel.bluetoothStatus.collectAsState()
-        val locationStatus by mainViewModel.locationStatus.collectAsState()
-        val batteryOptimizationStatus by mainViewModel.batteryOptimizationStatus.collectAsState()
-        val errorMessage by mainViewModel.errorMessage.collectAsState()
-        val isBluetoothLoading by mainViewModel.isBluetoothLoading.collectAsState()
-        val isLocationLoading by mainViewModel.isLocationLoading.collectAsState()
-        val isBatteryOptimizationLoading by mainViewModel.isBatteryOptimizationLoading.collectAsState()
+
         when (onboardingState) {
             OnboardingState.CHECKING -> {
                 InitializingScreen()
