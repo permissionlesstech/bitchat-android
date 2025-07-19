@@ -48,9 +48,6 @@ class NoiseSession(
     private var messagesSent = 0L
     private var messagesReceived = 0L
     
-    // Handshake message counter to track XX pattern steps
-    private var handshakeMessageCount = 0
-    
     // Remote peer information  
     private var remoteStaticPublicKey: ByteArray? = null
     private var handshakeHash: ByteArray? = null
@@ -193,7 +190,6 @@ class NoiseSession(
             // Initialize handshake as initiator 
             initializeNoiseHandshake(HandshakeState.INITIATOR)
             state = NoiseSessionState.Handshaking
-            handshakeMessageCount = 1
             
             val messageBuffer = ByteArray(XX_MESSAGE_1_SIZE)
             val handshakeStateLocal = handshakeState ?: throw IllegalStateException("Handshake state is null")
@@ -216,8 +212,7 @@ class NoiseSession(
     
     /**
      * Process incoming handshake message using real Noise Protocol
-     * Returns response message if needed, null if handshake complete
-     * FIXED: Proper message size validation and buffer handling
+     * FIXED: Eliminates manual step counting - lets the Noise library handle it
      */
     @Synchronized
     fun processHandshakeMessage(message: ByteArray): ByteArray? {
@@ -228,7 +223,6 @@ class NoiseSession(
             if (state == NoiseSessionState.Uninitialized && !isInitiator) {
                 initializeNoiseHandshake(HandshakeState.RESPONDER)
                 state = NoiseSessionState.Handshaking
-                handshakeMessageCount = 1
                 Log.d(TAG, "Initialized as responder for real XX handshake with $peerID")
             }
             
@@ -236,100 +230,57 @@ class NoiseSession(
                 throw IllegalStateException("Invalid state for handshake: $state")
             }
             
-            // CRITICAL FIX: Validate message size based on XX pattern step
-            validateHandshakeMessageSize(message, handshakeMessageCount, isInitiator)
-            
-            val payloadBuffer = ByteArray(MAX_PAYLOAD_SIZE)  // Buffer for any payload data
             val handshakeStateLocal = handshakeState ?: throw IllegalStateException("Handshake state is null")
             
-            // Read the incoming message
+            // Let the Noise library validate message sizes and handle the flow
+            val payloadBuffer = ByteArray(MAX_PAYLOAD_SIZE)  // Buffer for any payload data
+            
+            // Read the incoming message - the Noise library will handle validation
             val payloadLength = handshakeStateLocal.readMessage(message, 0, message.size, payloadBuffer, 0)
             Log.d(TAG, "Read handshake message, payload length: $payloadLength")
             
-            // Check the handshake action state
+            // Check what action the handshake state wants us to take next
             val action = handshakeStateLocal.getAction()
-            Log.d(TAG, "Handshake action after read: $action")
+            Log.d(TAG, "Handshake action after processing message: $action")
             
             return when (action) {
                 HandshakeState.WRITE_MESSAGE -> {
-                    // Need to send a response
-                    handshakeMessageCount++
-                    val expectedSize = getExpectedResponseSize(handshakeMessageCount, isInitiator)
-                    val responseBuffer = ByteArray(expectedSize + MAX_PAYLOAD_SIZE) // Use proper size
+                    // Noise library says we need to send a response
+                    val responseBuffer = ByteArray(MAX_PAYLOAD_SIZE) // Large buffer for any response
                     val responseLength = handshakeStateLocal.writeMessage(responseBuffer, 0, ByteArray(0), 0, 0)
                     val response = responseBuffer.copyOf(responseLength)
                     
-                    // Validate response size
-                    if (response.size != expectedSize) {
-                        Log.w(TAG, "Warning: XX response size ${response.size} != expected $expectedSize")
-                    }
-                    
-                    Log.d(TAG, "Generated handshake response: ${response.size} bytes")
+                    Log.d(TAG, "Generated handshake response: ${response.size} bytes, action still: ${handshakeStateLocal.getAction()}")
                     response
                 }
                 
                 HandshakeState.SPLIT -> {
                     // Handshake complete, split into transport keys
                     completeHandshake()
-                    Log.d(TAG, "Real XX handshake completed with $peerID")
+                    Log.d(TAG, "XX handshake completed with $peerID")
                     null
                 }
                 
                 HandshakeState.FAILED -> {
-                    throw Exception("Handshake failed - action state is FAILED")
+                    throw Exception("Handshake failed - Noise library reported FAILED state")
+                }
+                
+                HandshakeState.READ_MESSAGE -> {
+                    // Noise library expects us to read another message
+                    Log.d(TAG, "Handshake waiting for next message from $peerID")
+                    null
                 }
                 
                 else -> {
-                    Log.d(TAG, "Handshake action: $action - no response needed")
+                    Log.d(TAG, "Handshake action: $action - no immediate action needed")
                     null
                 }
             }
             
         } catch (e: Exception) {
             state = NoiseSessionState.Failed(e)
-            Log.e(TAG, "Real handshake failed with $peerID: ${e.message}", e)
+            Log.e(TAG, "Handshake failed with $peerID: ${e.message}", e)
             throw e
-        }
-    }
-    
-    /**
-     * Validate handshake message size based on XX pattern and step
-     */
-    private fun validateHandshakeMessageSize(message: ByteArray, step: Int, isInitiator: Boolean) {
-        val expectedSize = when {
-            // Receiving as responder from initiator
-            step == 1 && !isInitiator -> XX_MESSAGE_1_SIZE  // Message 1: -> e
-            // Receiving as initiator from responder  
-            step == 2 && isInitiator -> XX_MESSAGE_2_SIZE   // Message 2: <- e, ee, s, es
-            // Receiving as responder from initiator
-            step == 3 && !isInitiator -> XX_MESSAGE_3_SIZE  // Message 3: -> s, se
-            else -> {
-                Log.w(TAG, "Unknown handshake step $step for ${if (isInitiator) "initiator" else "responder"}")
-                return // Don't validate unknown steps
-            }
-        }
-        
-        if (message.size != expectedSize) {
-            Log.w(TAG, "Handshake message size mismatch: got ${message.size}, expected $expectedSize for step $step")
-            // Don't throw here, let the underlying Noise implementation handle it
-        } else {
-            Log.d(TAG, "Handshake message size validated: ${message.size} bytes for step $step")
-        }
-    }
-    
-    /**
-     * Get expected response size based on XX pattern and step
-     */
-    private fun getExpectedResponseSize(step: Int, isInitiator: Boolean): Int {
-        return when {
-            // Responding as responder to message 1
-            step == 2 && !isInitiator -> XX_MESSAGE_2_SIZE  // Response: <- e, ee, s, es
-            // Responding as initiator to message 2
-            step == 3 && isInitiator -> XX_MESSAGE_3_SIZE   // Response: -> s, se
-            else -> {
-                Log.w(TAG, "Unknown response step $step for ${if (isInitiator) "initiator" else "responder"}")
-                200 // Default fallback
-            }
         }
     }
     
@@ -372,7 +323,7 @@ class NoiseSession(
             throw e
         }
     }
-    
+
     // MARK: - Real Transport Encryption
     
     /**
@@ -490,7 +441,6 @@ class NoiseSession(
             state = NoiseSessionState.Uninitialized
             messagesSent = 0
             messagesReceived = 0
-            handshakeMessageCount = 0
             remoteStaticPublicKey = null
             handshakeHash = null
         } catch (e: Exception) {
