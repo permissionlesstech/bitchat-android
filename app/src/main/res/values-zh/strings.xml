@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+    <string name="permission_bluetooth_rationale">无需网络连接即可进行点对点消息传递，需要蓝牙权限。</string>
+    <string name="permission_location_rationale">需要位置权限才能通过蓝牙发现附近的设备。</string>
+    <string name="permission_notification_rationale">需要通知权限才能提醒您有新消息。</string>
+    <string name="nickname_hint">昵称</string>
+    <string name="message_hint">输入消息…</string>
+    <string name="channel_password_hint">密码</string>
+    <string name="join_channel">加入频道</string>
+    <string name="leave_channel">离开</string>
+    <string name="send_message">发送</string>
+    <string name="back">返回</string>
+    <string name="people">人员</string>
+    <string name="channels">频道</string>
+    <string name="online_users">在线用户</string>
+    <string name="no_one_connected">无人连接</string>
+    <string name="emergency_clear_hint">连按三次清除所有数据</string>
+    <string name="your_network">您的网络</string>
+</resources>
