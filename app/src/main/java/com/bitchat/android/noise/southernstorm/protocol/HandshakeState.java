@@ -22,6 +22,8 @@
 
 package com.bitchat.android.noise.southernstorm.protocol;
 
+import android.util.Log;
+
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
@@ -545,7 +547,18 @@ public class HandshakeState implements Destroyable {
 			if ((requirements & LOCAL_PREMSG) != 0)
 				symmetric.mixPublicKey(localKeyPair);
 		}
-		
+		// Log the symmetric.hash in hex:
+			byte[] currentHandshakeHash = symmetric.h;
+			if (currentHandshakeHash != null) {
+				StringBuilder hexString = new StringBuilder(currentHandshakeHash.length * 2);
+				for (byte b : currentHandshakeHash) {
+					hexString.append(String.format("%02X", b));
+				}
+				Log.d("TAG", "Initial Handshake Hash (h): " + hexString.toString());
+			} else {
+				Log.d("TAG", "Initial Handshake Hash (h): null");
+			}
+
 		// The handshake has officially started - set the first action.
 		if (isInitiator)
 			action = WRITE_MESSAGE;

@@ -111,7 +111,7 @@ class NoiseSessionManager(
             val shouldInitiate = resolveTieBreaker(peerID)
             if (!shouldInitiate) {
                 Log.d(TAG, "Tie-breaker: Waiting for $peerID to initiate handshake")
-                throw IllegalStateException("Tie-breaker: Should not initiate with $peerID")
+//                throw IllegalStateException("Tie-breaker: Should not initiate with $peerID")
             }
             
             // Remove any existing non-established session

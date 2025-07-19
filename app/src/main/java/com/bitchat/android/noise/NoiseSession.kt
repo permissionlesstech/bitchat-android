@@ -2,6 +2,7 @@ package com.bitchat.android.noise
 
 import android.util.Log
 import com.bitchat.android.noise.southernstorm.protocol.*
+import com.bitchat.android.util.toHexString
 import java.security.SecureRandom
 
 
@@ -148,7 +149,7 @@ class NoiseSession(
                     
                     Log.d(TAG, "Persistent identity public key: ${localStaticPublicKey.joinToString("") { "%02x".format(it) }}")
                     Log.d(TAG, "Set public key:               ${verifyPublic.joinToString("") { "%02x".format(it) }}")
-                    
+
                 } else {
                     throw IllegalStateException("HandshakeState returned null for local key pair")
                 }
@@ -156,10 +157,10 @@ class NoiseSession(
             } else {
                 Log.d(TAG, "Local static key pair not needed for this handshake pattern/role")
             }
-            
+            handshakeState?.setPrologue(PROTOCOL_NAME.toByteArray(), 0, PROTOCOL_NAME.toByteArray().size)
             handshakeState?.start()
             Log.d(TAG, "Handshake state started successfully with persistent identity keys")
-            
+
         } catch (e: Exception) {
             Log.e(TAG, "Exception during handshake initialization: ${e.message}", e)
             throw e
@@ -193,7 +194,7 @@ class NoiseSession(
             
             val messageBuffer = ByteArray(XX_MESSAGE_1_SIZE)
             val handshakeStateLocal = handshakeState ?: throw IllegalStateException("Handshake state is null")
-            val messageLength = handshakeStateLocal.writeMessage(messageBuffer, 0, ByteArray(0), 0, 0)
+            val messageLength = handshakeStateLocal.writeMessage(messageBuffer, 0, null, 0, 0)
             val firstMessage = messageBuffer.copyOf(messageLength)
             
             // Validate message size matches XX pattern expectations
@@ -223,7 +224,7 @@ class NoiseSession(
             if (state == NoiseSessionState.Uninitialized && !isInitiator) {
                 initializeNoiseHandshake(HandshakeState.RESPONDER)
                 state = NoiseSessionState.Handshaking
-                Log.d(TAG, "Initialized as responder for real XX handshake with $peerID")
+                Log.d(TAG, "Initialized as RESPONDER for XX handshake with $peerID")
             }
             
             if (state != NoiseSessionState.Handshaking) {
@@ -246,8 +247,8 @@ class NoiseSession(
             return when (action) {
                 HandshakeState.WRITE_MESSAGE -> {
                     // Noise library says we need to send a response
-                    val responseBuffer = ByteArray(MAX_PAYLOAD_SIZE) // Large buffer for any response
-                    val responseLength = handshakeStateLocal.writeMessage(responseBuffer, 0, ByteArray(0), 0, 0)
+                    val responseBuffer = ByteArray(XX_MESSAGE_2_SIZE + MAX_PAYLOAD_SIZE) // Large buffer for any response
+                    val responseLength = handshakeStateLocal.writeMessage(responseBuffer, 0, null, 0, 0)
                     val response = responseBuffer.copyOf(responseLength)
                     
                     Log.d(TAG, "Generated handshake response: ${response.size} bytes, action still: ${handshakeStateLocal.getAction()}")
