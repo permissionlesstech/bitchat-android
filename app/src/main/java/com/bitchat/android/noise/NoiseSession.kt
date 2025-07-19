@@ -187,7 +187,7 @@ class NoiseSession(
             // CRITICAL FIX: Use exact buffer size for XX message 1 (32 bytes)
             val messageBuffer = ByteArray(XX_MESSAGE_1_SIZE + MAX_PAYLOAD_SIZE) // Extra space for safety
             val handshakeStateLocal = handshakeState ?: throw IllegalStateException("Handshake state is null")
-            val messageLength = handshakeStateLocal.writeMessage(ByteArray(0), 0, messageBuffer, 0, 0)
+            val messageLength = handshakeStateLocal.writeMessage(messageBuffer, 0, ByteArray(0), 0, 0)
             val firstMessage = messageBuffer.copyOf(messageLength)
             
             // Validate message size matches XX pattern expectations
@@ -211,7 +211,7 @@ class NoiseSession(
      */
     @Synchronized
     fun processHandshakeMessage(message: ByteArray): ByteArray? {
-        Log.d(TAG, "Processing real handshake message from $peerID (${message.size} bytes)")
+        Log.d(TAG, "Processing handshake message from $peerID (${message.size} bytes)")
         
         try {
             // Initialize as responder if receiving first message
@@ -246,7 +246,7 @@ class NoiseSession(
                     handshakeMessageCount++
                     val expectedSize = getExpectedResponseSize(handshakeMessageCount, isInitiator)
                     val responseBuffer = ByteArray(expectedSize + MAX_PAYLOAD_SIZE) // Use proper size
-                    val responseLength = handshakeStateLocal.writeMessage(ByteArray(0), 0, responseBuffer, 0, 0)
+                    val responseLength = handshakeStateLocal.writeMessage(responseBuffer, 0, ByteArray(0), 0, 0)
                     val response = responseBuffer.copyOf(responseLength)
                     
                     // Validate response size
