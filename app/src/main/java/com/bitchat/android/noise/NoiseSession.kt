@@ -157,7 +157,6 @@ class NoiseSession(
             } else {
                 Log.d(TAG, "Local static key pair not needed for this handshake pattern/role")
             }
-            handshakeState?.setPrologue(PROTOCOL_NAME.toByteArray(), 0, PROTOCOL_NAME.toByteArray().size)
             handshakeState?.start()
             Log.d(TAG, "Handshake state started successfully with persistent identity keys")
 
