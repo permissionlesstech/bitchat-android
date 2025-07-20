@@ -376,7 +376,7 @@ private fun PeerItem(
                 imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
                 contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
                 modifier = Modifier.size(16.dp),
-                tint = if (isFavorite) Color(0xFFFFD700) else colorScheme.primary
+                tint = if (isFavorite) colorScheme.tertiary else colorScheme.onSurface.copy(alpha = 0.6f)
             )
         }
     }
@@ -419,7 +419,7 @@ private fun UnreadBadge(
         Box(
             modifier = modifier
                 .background(
-                    color = Color(0xFFFFD700), // Yellow color
+                    color = colorScheme.secondary,
                     shape = RoundedCornerShape(10.dp)
                 )
                 .padding(horizontal = 2.dp, vertical = 0.dp)
@@ -432,7 +432,7 @@ private fun UnreadBadge(
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold
                 ),
-                color = Color.Black // Black text on yellow background
+                color = colorScheme.onSecondary
             )
         }
     }

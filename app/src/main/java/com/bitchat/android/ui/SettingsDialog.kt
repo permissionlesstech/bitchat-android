@@ -118,6 +118,15 @@ private fun SettingsDialogContent(
                     selected = currentTheme == SettingsManager.ThemePreference.DARK,
                     onSelect = { onThemeChange(SettingsManager.ThemePreference.DARK) }
                 )
+                
+                ThemeOption(
+                    theme = SettingsManager.ThemePreference.DYNAMIC,
+                    icon = Icons.Default.Palette,
+                    label = "Dynamic",
+                    description = "Material You colors (Android 12+)",
+                    selected = currentTheme == SettingsManager.ThemePreference.DYNAMIC,
+                    onSelect = { onThemeChange(SettingsManager.ThemePreference.DYNAMIC) }
+                )
             }
             
             Spacer(modifier = Modifier.height(24.dp))
@@ -174,7 +183,7 @@ private fun ThemeOption(
         
         Icon(
             imageVector = icon,
-            contentDescription = null,
+            contentDescription = "$label theme option",
             modifier = Modifier.size(20.dp),
             tint = if (selected) colorScheme.primary else colorScheme.onSurface.copy(alpha = 0.6f)
         )

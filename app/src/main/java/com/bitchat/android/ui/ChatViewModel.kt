@@ -37,7 +37,7 @@ class ChatViewModel(
     private val notificationManager = NotificationManager(application.applicationContext)
     private var _settingsManager: SettingsManager? = null
     val settingsManager: SettingsManager
-        get() = _settingsManager ?: SettingsManager(context).also { _settingsManager = it }
+        get() = _settingsManager ?: SettingsManager(getApplication<Application>().applicationContext).also { _settingsManager = it }
     
     // Delegate handler for mesh callbacks
     private val meshDelegateHandler = MeshDelegateHandler(

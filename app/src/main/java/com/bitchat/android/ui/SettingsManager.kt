@@ -22,7 +22,8 @@ class SettingsManager(private val context: Context) {
     enum class ThemePreference {
         SYSTEM,  // Follow system theme
         LIGHT,   // Always light theme
-        DARK     // Always dark theme
+        DARK,    // Always dark theme
+        DYNAMIC  // Material You dynamic colors (Android 12+)
     }
     
     /**
@@ -53,6 +54,7 @@ class SettingsManager(private val context: Context) {
             ThemePreference.SYSTEM -> "System"
             ThemePreference.LIGHT -> "Light"
             ThemePreference.DARK -> "Dark"
+            ThemePreference.DYNAMIC -> "Dynamic"
         }
     }
 }
