@@ -93,6 +93,10 @@ fun MainAppNavigation(
                                 },
                                 onNavigateToAdd = {
                                     navigationStack = navigationStack + NavigationState.AddPatient
+                                },
+                                onSyncPressed = {
+                                    // Send "synced" to the chat when sync button is pressed
+                                    chatViewModel.sendMessage("synced")
                                 }
                             )
                         }

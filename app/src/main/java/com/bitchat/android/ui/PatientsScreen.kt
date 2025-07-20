@@ -35,6 +35,7 @@ fun PatientsScreen(
     patientViewModel: PatientViewModel,
     onNavigateToDetail: (PatientRecord) -> Unit,
     onNavigateToAdd: () -> Unit,
+    onSyncPressed: () -> Unit = { /* Default empty implementation */ },
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -72,6 +73,7 @@ fun PatientsScreen(
                 selectedStatusFilter = selectedStatusFilter,
                 onStatusFilterChange = { selectedStatusFilter = it },
                 onAddPatient = onNavigateToAdd,
+                onSyncPressed = onSyncPressed,
                 colorScheme = colorScheme
             )
             
@@ -116,6 +118,7 @@ fun PatientsHeader(
     selectedStatusFilter: PatientStatus?,
     onStatusFilterChange: (PatientStatus?) -> Unit,
     onAddPatient: () -> Unit,
+    onSyncPressed: () -> Unit,
     colorScheme: ColorScheme
 ) {
     Card(
@@ -141,7 +144,7 @@ fun PatientsHeader(
                 ) {
                     // Sync button
                     IconButton(
-                        onClick = { /* Sync functionality to be added later */ },
+                        onClick = { onSyncPressed() },
                         modifier = Modifier
                             .size(36.dp)
                             .background(colorScheme.primaryContainer, shape = CircleShape)
