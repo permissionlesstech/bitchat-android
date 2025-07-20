@@ -263,7 +263,6 @@ fun PatientListItem(
                             PatientStatus.STABLE -> Color(0xFF4CAF50)
                             PatientStatus.TREATED -> Color(0xFF2196F3)
                             PatientStatus.TRANSFERRED -> Color(0xFFFF9800)
-                            PatientStatus.DECEASED -> Color(0xFF9E9E9E)
                         },
                         shape = RoundedCornerShape(6.dp)
                     )

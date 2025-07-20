@@ -35,7 +35,6 @@ enum class PatientStatus(val value: String, val displayName: String) {
     CRITICAL("critical", "Critical"),
     TREATED("treated", "Treated"),
     TRANSFERRED("transferred", "Transferred"),
-    DECEASED("deceased", "Deceased")
 }
 
 enum class Priority(val value: String, val displayName: String) {
