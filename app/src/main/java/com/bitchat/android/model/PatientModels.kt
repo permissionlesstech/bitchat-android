@@ -27,7 +27,20 @@ data class PatientRecord(
     val location: String? = null,
     val authorFingerprint: String = "",
     val lastModified: Date = Date(),
-    val version: Int = 1
+    val version: Int = 1,
+    val historyEntries: List<PatientHistoryEntry> = emptyList()  // Added history entries
+) : Parcelable
+
+/**
+ * Represents a history comment entry for patient records
+ * Tracks comments made by healthcare providers about a patient's condition or treatment
+ */
+@Parcelize
+data class PatientHistoryEntry(
+    val id: String = UUID.randomUUID().toString(),
+    val text: String,
+    val authorFingerprint: String = "",
+    val timestamp: Date = Date()
 ) : Parcelable
 
 enum class PatientStatus(val value: String, val displayName: String) {

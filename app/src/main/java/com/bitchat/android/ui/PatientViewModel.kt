@@ -8,6 +8,7 @@ import com.bitchat.android.model.PatientRecord
 import com.bitchat.android.model.MedicalUpdate
 import com.bitchat.android.model.PatientStatus
 import com.bitchat.android.model.Priority
+import com.bitchat.android.model.PatientHistoryEntry
 import java.util.*
 
 /**
@@ -141,6 +142,30 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
             } else {
                 patient
             }
+        }
+    }
+    
+    /**
+     * Adds a history entry (comment) to a patient record
+     */
+    fun addHistoryEntry(patientId: String, text: String, authorFingerprint: String = "") {
+        val currentPatients = _patients.value ?: emptyList()
+        val patient = currentPatients.find { it.patientId == patientId || it.id == patientId }
+        
+        patient?.let {
+            val newEntry = PatientHistoryEntry(
+                text = text,
+                authorFingerprint = authorFingerprint,
+                timestamp = Date()
+            )
+            
+            val updatedPatient = it.copy(
+                historyEntries = it.historyEntries + newEntry,
+                lastModified = Date(),
+                version = it.version + 1
+            )
+            
+            updatePatient(updatedPatient)
         }
     }
     

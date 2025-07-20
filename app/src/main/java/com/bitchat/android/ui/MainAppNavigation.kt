@@ -49,7 +49,7 @@ fun MainAppNavigation(
                     when (val currentState = navigationStack.last()) {
                         is NavigationState.PatientDetail -> {
                             PatientDetailScreen(
-                                patient = currentState.patient,
+                                patientId = currentState.patientId,
                                 patientViewModel = patientViewModel,
                                 onBack = onBack,
                                 onEdit = { patient ->
@@ -87,7 +87,9 @@ fun MainAppNavigation(
                             PatientsScreen(
                                 patientViewModel = patientViewModel,
                                 onNavigateToDetail = { patient ->
-                                    navigationStack = navigationStack + NavigationState.PatientDetail(patient)
+                                    patient?.let { patient ->
+                                    navigationStack = navigationStack + NavigationState.PatientDetail(patient.patientId)
+                                }
                                 },
                                 onNavigateToAdd = {
                                     navigationStack = navigationStack + NavigationState.AddPatient
@@ -152,7 +154,7 @@ fun BottomNavigationBar(
  * Navigation state for handling detailed screens that stack on top of main tabs
  */
 sealed class NavigationState {
-    data class PatientDetail(val patient: com.bitchat.android.model.PatientRecord) : NavigationState()
+    data class PatientDetail(val patientId: String) : NavigationState()
     object AddPatient : NavigationState()
     data class EditPatient(val patient: com.bitchat.android.model.PatientRecord) : NavigationState()
 }

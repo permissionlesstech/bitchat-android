@@ -20,6 +20,7 @@ import com.bitchat.android.model.PatientRecord
 import com.bitchat.android.model.PatientStatus
 import com.bitchat.android.model.Priority
 import com.bitchat.android.model.MedicalUpdate
+import com.bitchat.android.model.PatientHistoryEntry
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -29,13 +30,17 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PatientDetailScreen(
-    patient: PatientRecord,
+    patientId: String,
     patientViewModel: PatientViewModel,
     onBack: () -> Unit,
     onEdit: (PatientRecord) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val patients by patientViewModel.patients.observeAsState(emptyList())
+    val patient = patients.find { it.patientId == patientId || it.id == patientId }
+        ?: return // If patient not found, don't render
+    
     val medicalUpdates by patientViewModel.medicalUpdates.observeAsState(emptyMap())
     val patientUpdates = medicalUpdates[patient.patientId] ?: emptyList()
     
@@ -98,6 +103,17 @@ fun PatientDetailScreen(
                             lastModified = Date()
                         )
                         patientViewModel.updatePatient(updatedPatient)
+                    },
+                    colorScheme = colorScheme
+                )
+            }
+            
+            // Patient History Comments Card
+            item {
+                PatientHistoryCard(
+                    patient = patient,
+                    onAddHistoryEntry = { text ->
+                        patientViewModel.addHistoryEntry(patient.patientId, text)
                     },
                     colorScheme = colorScheme
                 )
@@ -635,6 +651,148 @@ fun InfoItem(
             style = MaterialTheme.typography.bodyMedium,
             color = valueColor,
             fontWeight = FontWeight.Medium
+        )
+    }
+}
+
+/**
+ * Card displaying patient history entries (comments) and allowing users to add new entries
+ */
+@Composable
+fun PatientHistoryCard(
+    patient: PatientRecord,
+    onAddHistoryEntry: (String) -> Unit,
+    colorScheme: ColorScheme
+) {
+    var newEntryText by remember { mutableStateOf("") }
+    val dateFormatter = remember { SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault()) }
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = colorScheme.surfaceVariant.copy(alpha = 0.3f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "Patient History",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = colorScheme.primary
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // New entry input field
+            OutlinedTextField(
+                value = newEntryText,
+                onValueChange = { newEntryText = it },
+                label = { Text("Add a new comment") },
+                modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = colorScheme.primary,
+                    unfocusedBorderColor = colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                ),
+                trailingIcon = {
+                    IconButton(
+                        onClick = {
+                            if (newEntryText.isNotEmpty()) {
+                                onAddHistoryEntry(newEntryText)
+                                newEntryText = ""
+                            }
+                        },
+                        enabled = newEntryText.isNotEmpty()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Send,
+                            contentDescription = "Add comment"
+                        )
+                    }
+                }
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // History entries list
+            if (patient.historyEntries.isEmpty()) {
+                Text(
+                    text = "No history entries yet",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            } else {
+                // Display entries in reverse chronological order (newest first)
+                patient.historyEntries.sortedByDescending { it.timestamp }.forEach { entry ->
+                    HistoryEntryItem(
+                        entry = entry,
+                        dateFormatter = dateFormatter,
+                        colorScheme = colorScheme
+                    )
+                    
+                    Divider(
+                        modifier = Modifier.padding(vertical = 8.dp),
+                        color = colorScheme.onSurfaceVariant.copy(alpha = 0.1f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Displays a single history entry (comment) with timestamp
+ */
+@Composable
+fun HistoryEntryItem(
+    entry: PatientHistoryEntry,
+    dateFormatter: SimpleDateFormat,
+    colorScheme: ColorScheme
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Author/timestamp
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = colorScheme.primary.copy(alpha = 0.7f)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = if (entry.authorFingerprint.isNotEmpty()) entry.authorFingerprint else "Provider",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium,
+                    color = colorScheme.primary
+                )
+            }
+            
+            // Timestamp
+            Text(
+                text = dateFormatter.format(entry.timestamp),
+                style = MaterialTheme.typography.bodySmall,
+                color = colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(4.dp))
+        
+        // Comment text
+        Text(
+            text = entry.text,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(start = 4.dp)
         )
     }
 }

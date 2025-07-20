@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import com.bitchat.android.model.PatientRecord
 import com.bitchat.android.model.PatientStatus
 import com.bitchat.android.model.Priority
+import com.bitchat.android.model.PatientHistoryEntry
 import java.util.*
 
 /**
@@ -43,6 +44,7 @@ fun AddPatientScreen(
     var presentingComplaint by remember { mutableStateOf("") }
     var treatment by remember { mutableStateOf("") }
     var location by remember { mutableStateOf("") }
+    var initialComment by remember { mutableStateOf("") }  // Added for patient history
     var selectedStatus by remember { mutableStateOf(PatientStatus.STABLE) }
     var selectedPriority by remember { mutableStateOf(Priority.LOW) }
     
@@ -81,7 +83,18 @@ fun AddPatientScreen(
                         priority = selectedPriority,
                         location = location.trim().takeIf { it.isNotBlank() },
                         authorFingerprint = "current_user", // In real app, get from auth
-                        lastModified = Date()
+                        lastModified = Date(),
+                        historyEntries = if (initialComment.isNotBlank()) {
+                            listOf(
+                                PatientHistoryEntry(
+                                    text = initialComment.trim(),
+                                    authorFingerprint = "current_user", // In real app, get from auth
+                                    timestamp = Date()
+                                )
+                            )
+                        } else {
+                            emptyList()
+                        }
                     )
                     
                     patientViewModel.addPatient(newPatient)
@@ -166,6 +179,15 @@ fun AddPatientScreen(
                 LocationSection(
                     location = location,
                     onLocationChange = { location = it },
+                    colorScheme = colorScheme
+                )
+            }
+            
+            // Initial Comment/History Entry
+            item {
+                PatientInitialHistorySection(
+                    initialComment = initialComment,
+                    onInitialCommentChange = { initialComment = it },
                     colorScheme = colorScheme
                 )
             }
@@ -606,6 +628,37 @@ fun StatusDropdown(
                     }
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun PatientInitialHistorySection(
+    initialComment: String,
+    onInitialCommentChange: (String) -> Unit,
+    colorScheme: ColorScheme
+) {
+    FormSection(
+        title = "Patient History",
+        icon = Icons.Default.Comment
+    ) {
+        OutlinedTextField(
+            value = initialComment,
+            onValueChange = onInitialCommentChange,
+            label = { Text("Initial Comment") },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("Add initial notes or comments about the patient") },
+            minLines = 2,
+            maxLines = 4
+        )
+        
+        if (initialComment.isBlank()) {
+            Text(
+                text = "This is optional. Any comment added here will be saved in patient history.",
+                style = MaterialTheme.typography.bodySmall,
+                color = colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                modifier = Modifier.padding(top = 4.dp, start = 4.dp)
+            )
         }
     }
 }
