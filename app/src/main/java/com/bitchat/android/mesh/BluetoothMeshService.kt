@@ -41,7 +41,6 @@ class BluetoothMeshService(private val context: Context) {
     
     // Core components - each handling specific responsibilities
     private val encryptionService = EncryptionService(context)
-    private val noiseEncryptionService = com.bitchat.android.noise.NoiseEncryptionService(context)
     private val peerManager = PeerManager()
     private val fragmentManager = FragmentManager()
     private val securityManager = SecurityManager(encryptionService, myPeerID)
@@ -208,13 +207,13 @@ class BluetoothMeshService(private val context: Context) {
             
             // Noise protocol operations
             override fun hasNoiseSession(peerID: String): Boolean {
-                return noiseEncryptionService.hasEstablishedSession(peerID)
+                return encryptionService.hasEstablishedSession(peerID)
             }
             
             override fun initiateNoiseHandshake(peerID: String) {
                 try {
                     // Initiate proper Noise handshake with specific peer
-                    val handshakeData = noiseEncryptionService.initiateHandshake(peerID)
+                    val handshakeData = encryptionService.initiateHandshake(peerID)
                     
                     if (handshakeData != null) {
                         val packet = BitchatPacket(
@@ -568,7 +567,7 @@ class BluetoothMeshService(private val context: Context) {
     private fun sendKeyExchangeToDevice() {
         // For discovery, broadcast our static identity key (32 bytes) so peers can identify us
         // This is not a handshake initiation, but identity announcement
-        val identityData = noiseEncryptionService.getStaticPublicKeyData()
+        val identityData = encryptionService.getCombinedPublicKeyData()
         
         val packet = BitchatPacket(
             version = 1u,
@@ -613,28 +612,28 @@ class BluetoothMeshService(private val context: Context) {
      * Check if we have an established Noise session with a peer  
      */
     fun hasEstablishedSession(peerID: String): Boolean {
-        return noiseEncryptionService.hasEstablishedSession(peerID)  // FIXED: Use same service as delegate
+        return encryptionService.hasEstablishedSession(peerID)
     }
     
     /**
      * Get peer fingerprint for identity management
      */
     fun getPeerFingerprint(peerID: String): String? {
-        return noiseEncryptionService.getPeerFingerprint(peerID)  // FIXED: Use same service as delegate
+        return encryptionService.getPeerFingerprint(peerID)
     }
     
     /**
      * Get our identity fingerprint
      */
     fun getIdentityFingerprint(): String {
-        return noiseEncryptionService.getIdentityFingerprint()  // FIXED: Use same service as delegate
+        return encryptionService.getIdentityFingerprint()
     }
     
     /**
      * Check if encryption icon should be shown for a peer
      */
     fun shouldShowEncryptionIcon(peerID: String): Boolean {
-        return noiseEncryptionService.hasEstablishedSession(peerID)  // FIXED: Use same service as delegate
+        return encryptionService.hasEstablishedSession(peerID)
     }
     
     /**
