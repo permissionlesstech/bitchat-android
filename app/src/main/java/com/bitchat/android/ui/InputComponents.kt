@@ -138,7 +138,7 @@ val isFocused = remember { mutableStateOf(false) }
                 }
         )
 
-        IconButton(
+        FilledTonalIconButton(
             enabled = value.text.startsWith("/") or value.text.isEmpty(),
             onClick = {
                 when {
