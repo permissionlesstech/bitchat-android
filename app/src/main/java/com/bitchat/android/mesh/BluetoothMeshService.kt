@@ -3,7 +3,7 @@ package com.bitchat.android.mesh
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.crypto.EncryptionService
-import com.bitchat.android.crypto.MessagePadding
+import com.bitchat.android.protocol.MessagePadding
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.model.DeliveryAck
@@ -14,6 +14,7 @@ import com.bitchat.android.protocol.SpecialRecipients
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.*
 import java.util.*
+import kotlin.math.sign
 import kotlin.random.Random
 
 /**
@@ -437,8 +438,8 @@ class BluetoothMeshService(private val context: Context) {
             )
             
             message.toBinaryPayload()?.let { messageData ->
-                // Sign the message
-                val signature = securityManager.signPacket(messageData)
+                // Sign the message: TODO: NOT SIGNED
+                // val signature = securityManager.signPacket(messageData)
                 
                 val packet = BitchatPacket(
                     version = 1u,
@@ -447,7 +448,7 @@ class BluetoothMeshService(private val context: Context) {
                     recipientID = SpecialRecipients.BROADCAST,
                     timestamp = System.currentTimeMillis().toULong(),
                     payload = messageData,
-                    signature = signature,
+                    signature = null,
                     ttl = MAX_TTL
                 )
                 

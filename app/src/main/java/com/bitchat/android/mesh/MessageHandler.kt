@@ -1,7 +1,6 @@
 package com.bitchat.android.mesh
 
 import android.util.Log
-import com.bitchat.android.crypto.MessagePadding
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryAck
 import com.bitchat.android.model.ReadReceipt
