@@ -20,7 +20,6 @@ import androidx.compose.ui.text.input.TextFieldValue
 fun TextFieldValue.lineBreak(
     onValueChange: (TextFieldValue) -> Unit
 ) {
-    val selection = this.selection
     val newTextValue = TextFieldValue(
         text = this.text.substring(
             0,
