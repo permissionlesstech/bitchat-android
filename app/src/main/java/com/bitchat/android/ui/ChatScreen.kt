@@ -10,7 +10,6 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -22,8 +21,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.ColorScheme
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TopAppBar
@@ -37,9 +36,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 
 /**
@@ -52,7 +52,6 @@ import androidx.compose.ui.zIndex
  * - DialogComponents: Password prompts and modals
  * - ChatUIUtils: Utility functions for formatting and colors
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(viewModel: ChatViewModel) {
     val colorScheme = MaterialTheme.colorScheme
@@ -92,7 +91,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
     }
 
     // Use WindowInsets to handle keyboard properly
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize()) {
         val headerHeight = 36.dp
 
         // Main content area that responds to keyboard/window insets
@@ -106,19 +105,16 @@ fun ChatScreen(viewModel: ChatViewModel) {
             Spacer(modifier = Modifier.height(headerHeight))
 
             // Messages area - takes up available space, will compress when keyboard appears
-            Box(modifier = Modifier.weight(1f)) {
-                MessagesList(
-                    messages = displayMessages,
-                    currentUserNickname = nickname,
-                    meshService = viewModel.meshService,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-
+            MessagesList(
+                messages = displayMessages,
+                currentUserNickname = nickname,
+                meshService = viewModel.meshService,
+                modifier = Modifier.weight(1f)
+            )
             // Input area - stays at bottom
             ChatInputSection(
                 messageText = messageText,
-                onMessageTextChange = { newText ->
+                onMessageTextChange = { newText: TextFieldValue ->
                     messageText = newText
                     viewModel.updateCommandSuggestions(newText.text)
                 },
@@ -131,7 +127,11 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 showCommandSuggestions = showCommandSuggestions,
                 commandSuggestions = commandSuggestions,
                 onSuggestionClick = { suggestion: CommandSuggestion ->
-                    messageText = TextFieldValue(viewModel.selectCommandSuggestion(suggestion))
+                    val commandText = viewModel.selectCommandSuggestion(suggestion)
+                    messageText = TextFieldValue(
+                        text = commandText,
+                        selection = TextRange(commandText.length)
+                    )
                 },
                 selectedPrivatePeer = selectedPrivatePeer,
                 currentChannel = currentChannel,
@@ -198,7 +198,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChatInputSection(
     messageText: TextFieldValue,
@@ -218,8 +217,7 @@ private fun ChatInputSection(
         shadowElevation = 8.dp
     ) {
         Column {
-            Divider(color = colorScheme.outline.copy(alpha = 0.3f))
-
+            HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
             // Command suggestions box
             if (showCommandSuggestions && commandSuggestions.isNotEmpty()) {
                 CommandSuggestionsBox(
@@ -228,7 +226,7 @@ private fun ChatInputSection(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Divider(color = colorScheme.outline.copy(alpha = 0.2f))
+                HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.2f))
             }
 
             MessageInput(
@@ -291,12 +289,12 @@ private fun ChatFloatingHeader(
     }
 
     // Divider under header
-    Divider(
-        color = colorScheme.outline.copy(alpha = 0.3f),
+    HorizontalDivider(
         modifier = Modifier
             .fillMaxWidth()
             .offset(y = headerHeight)
-            .zIndex(1f)
+            .zIndex(1f),
+        color = colorScheme.outline.copy(alpha = 0.3f)
     )
 }
 
