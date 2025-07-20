@@ -131,7 +131,7 @@ class NoiseEncryptionService(private val context: Context) {
      */
     fun processHandshakeMessage(data: ByteArray, peerID: String): ByteArray? {
         return try {
-            sessionManager.handleIncomingHandshake(peerID, data)
+            sessionManager.processHandshakeMessage(peerID, data)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to process handshake from $peerID: ${e.message}")
             null

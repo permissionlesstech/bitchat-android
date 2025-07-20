@@ -246,7 +246,7 @@ class NoiseSession(
             val handshakeStateLocal = handshakeState ?: throw IllegalStateException("Handshake state is null")
             
             // Let the Noise library validate message sizes and handle the flow
-            val payloadBuffer = ByteArray(MAX_PAYLOAD_SIZE)  // Buffer for any payload data
+            val payloadBuffer = ByteArray(XX_MESSAGE_2_SIZE + MAX_PAYLOAD_SIZE)  // Buffer for any payload data
             
             // Read the incoming message - the Noise library will handle validation
             val payloadLength = handshakeStateLocal.readMessage(message, 0, message.size, payloadBuffer, 0)
@@ -270,7 +270,7 @@ class NoiseSession(
                 HandshakeState.SPLIT -> {
                     // Handshake complete, split into transport keys
                     completeHandshake()
-                    Log.d(TAG, "🔒 XX handshake completed with $peerID")
+                    Log.d(TAG, "✅ XX handshake completed with $peerID")
                     null
                 }
                 
@@ -329,7 +329,7 @@ class NoiseSession(
             messagesReceived = 0
             
             state = NoiseSessionState.Established
-            Log.d(TAG, "Real XX handshake completed with $peerID - transport keys derived")
+            Log.d(TAG, "Handshake completed with $peerID as isInitiator: $isInitiator - transport keys derived")
         } catch (e: Exception) {
             state = NoiseSessionState.Failed(e)
             Log.e(TAG, "Failed to complete handshake: ${e.message}")

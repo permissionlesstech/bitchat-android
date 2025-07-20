@@ -79,10 +79,10 @@ class NoiseSessionManager(
     }
     
     /**
-     * SIMPLIFIED: Handle incoming handshake message
+     * Handle incoming handshake message
      */
-    fun handleIncomingHandshake(peerID: String, message: ByteArray): ByteArray? {
-        Log.d(TAG, "handleIncomingHandshake($peerID, ${message.size} bytes)")
+    fun processHandshakeMessage(peerID: String, message: ByteArray): ByteArray? {
+        Log.d(TAG, "processHandshakeMessage($peerID, ${message.size} bytes)")
         
         try {
             var session = getSession(peerID)

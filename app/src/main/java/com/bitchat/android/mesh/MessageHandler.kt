@@ -259,7 +259,7 @@ class MessageHandler(private val myPeerID: String) {
     }
     
     /**
-     * Handle private message addressed to us
+     * Handle (decrypted) private message addressed to us
      */
     private suspend fun handlePrivateMessage(packet: BitchatPacket, peerID: String) {
         try {
@@ -268,18 +268,9 @@ class MessageHandler(private val myPeerID: String) {
                 Log.w(TAG, "Invalid signature for private message from $peerID")
                 return
             }
-            
-            // Decrypt message
-            val decryptedData = delegate?.decryptFromPeer(packet.payload, peerID)
-            if (decryptedData == null) {
-                Log.e(TAG, "Failed to decrypt private message from $peerID")
-                return
-            }
-            
-            val unpaddedData = MessagePadding.unpad(decryptedData)
-            
+
             // Parse message
-            val message = BitchatMessage.fromBinaryPayload(unpaddedData)
+            val message = BitchatMessage.fromBinaryPayload(packet.payload)
             if (message != null) {
                 // Check for cover traffic (dummy messages)
                 if (message.content.startsWith("☂DUMMY☂")) {
@@ -288,14 +279,7 @@ class MessageHandler(private val myPeerID: String) {
                 }
                 
                 delegate?.updatePeerNickname(peerID, message.sender)
-    
-                // Replace timestamp with current time (same as iOS)
-                val messageWithCurrentTime = message.copy(
-                    senderPeerID = peerID,
-                    timestamp = Date() // Use current time instead of original timestamp
-                )
-                
-                delegate?.onMessageReceived(messageWithCurrentTime)
+                delegate?.onMessageReceived(message)
                 
                 // Send delivery ACK
                 sendDeliveryAck(message, peerID)

@@ -97,6 +97,11 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         
         // Skip our own handshake messages
         if (peerID == myPeerID) return false
+
+        if (encryptionService.hasEstablishedSession(peerID)) {
+            Log.d(TAG, "Handshake already completed with $peerID")
+            return true
+        }
         
         if (packet.payload.isEmpty()) {
             Log.w(TAG, "Noise handshake packet has empty payload")
@@ -124,8 +129,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
                 delegate?.sendHandshakeResponse(peerID, response)
                 
                 // Notify delegate of handshake completion
-                delegate?.onKeyExchangeCompleted(peerID, packet.payload, routed.relayAddress)
-                
+                // delegate?.onKeyExchangeCompleted(peerID, packet.payload, routed.relayAddress)
                 return true
             } else {
                 // Check if session is now established (handshake complete)
