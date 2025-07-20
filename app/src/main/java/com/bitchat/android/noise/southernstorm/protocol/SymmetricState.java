@@ -22,6 +22,8 @@
 
 package com.bitchat.android.noise.southernstorm.protocol;
 
+import android.util.Log;
+
 import java.io.UnsupportedEncodingException;
 import java.security.DigestException;
 import java.security.MessageDigest;
@@ -36,12 +38,25 @@ import javax.crypto.ShortBufferException;
  */
 class SymmetricState implements Destroyable {
 	
+	private static final String TAG = "AndroidSymmetric";
+	
 	private String name;
 	private CipherState cipher;
 	private MessageDigest hash;
 	private byte[] ck;
 	private byte[] h;
 	private byte[] prev_h;
+
+	/**
+	 * Converts a byte array to hex string for logging (matching iOS hex format)
+	 */
+	private static String bytesToHex(byte[] bytes) {
+		StringBuilder sb = new StringBuilder();
+		for (byte b : bytes) {
+			sb.append(String.format("%02x", b));
+		}
+		return sb.toString();
+	}
 
 	/**
 	 * Constructs a new symmetric state object.
@@ -79,6 +94,14 @@ class SymmetricState implements Destroyable {
 		}
 		
 		System.arraycopy(h, 0, ck, 0, hashLength);
+		
+		// LOGGING: Initial symmetric state after protocol name initialization (matching iOS)
+		Log.d(TAG, "=== ANDROID SYMMETRIC STATE INITIALIZED ===");
+		Log.d(TAG, "Protocol: " + protocolName);
+		Log.d(TAG, "Initial hash (h): " + bytesToHex(h));
+		Log.d(TAG, "Initial chaining key (ck): " + bytesToHex(ck));
+		Log.d(TAG, "Hash length: " + h.length);
+		Log.d(TAG, "=========================================");
 	}
 
 	/**
@@ -111,6 +134,14 @@ class SymmetricState implements Destroyable {
 	 */
 	public void mixKey(byte[] data, int offset, int length)
 	{
+		// LOGGING: Before mixKey operation (matching iOS)
+		byte[] inputData = new byte[length];
+		System.arraycopy(data, offset, inputData, 0, length);
+		Log.d(TAG, "*** Android mixKey() BEFORE ***");
+		Log.d(TAG, "Input data (" + length + " bytes): " + bytesToHex(inputData));
+		Log.d(TAG, "Current CK: " + bytesToHex(ck));
+		Log.d(TAG, "Current Hash: " + bytesToHex(h));
+		
 		int keyLength = cipher.getKeyLength();
 		byte[] tempKey = new byte [keyLength];
 		try {
@@ -119,6 +150,12 @@ class SymmetricState implements Destroyable {
 		} finally {
 			Noise.destroy(tempKey);
 		}
+		
+		// LOGGING: After mixKey operation (matching iOS)
+		Log.d(TAG, "*** Android mixKey() AFTER ***");
+		Log.d(TAG, "New CK: " + bytesToHex(ck));
+		Log.d(TAG, "Hash unchanged: " + bytesToHex(h));
+		Log.d(TAG, "Cipher now has key: " + (cipher.getMACLength() > 0));
 	}
 
 	/**
@@ -130,7 +167,18 @@ class SymmetricState implements Destroyable {
 	 */
 	public void mixHash(byte[] data, int offset, int length)
 	{
+		// LOGGING: Before mixHash operation (matching iOS)
+		byte[] inputData = new byte[length];
+		System.arraycopy(data, offset, inputData, 0, length);
+		Log.d(TAG, "*** Android mixHash() BEFORE ***");
+		Log.d(TAG, "Input data (" + length + " bytes): " + bytesToHex(inputData));
+		Log.d(TAG, "Current Hash: " + bytesToHex(h));
+		
 		hashTwo(h, 0, h.length, data, offset, length, h, 0, h.length);
+		
+		// LOGGING: After mixHash operation (matching iOS)
+		Log.d(TAG, "*** Android mixHash() AFTER ***");
+		Log.d(TAG, "New Hash: " + bytesToHex(h));
 	}
 
 	/**

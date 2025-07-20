@@ -35,6 +35,8 @@ import javax.crypto.ShortBufferException;
  */
 public class HandshakeState implements Destroyable {
 
+	private static final String TAG = "AndroidHandshake";
+
 	private SymmetricState symmetric;
 	private boolean isInitiator;
 	private DHState localKeyPair;
@@ -466,6 +468,17 @@ public class HandshakeState implements Destroyable {
 	private static final byte[] emptyPrologue = new byte [0];
 
 	/**
+	 * Converts a byte array to hex string for logging (matching iOS hex format)
+	 */
+	private static String bytesToHex(byte[] bytes) {
+		StringBuilder sb = new StringBuilder();
+		for (byte b : bytes) {
+			sb.append(String.format("%02x", b));
+		}
+		return sb.toString();
+	}
+
+	/**
 	 * Starts the handshake running.
 	 * 
 	 * This function is called after all of the handshake parameters have been
@@ -510,12 +523,20 @@ public class HandshakeState implements Destroyable {
 			if (preSharedKey == null)
 				throw new IllegalStateException("Pre-shared key required");
 		}
+
+		// Log the symmetric state BEFORE any mixing operations (matching iOS)
+		Log.d(TAG, "=== ANDROID HANDSHAKE START - INITIAL STATE ===");
+		Log.d(TAG, "Protocol: " + symmetric.getProtocolName());
+		Log.d(TAG, "Role: " + (isInitiator ? "INITIATOR" : "RESPONDER"));
+		Log.d(TAG, "Initial symmetric hash: " + bytesToHex(symmetric.getHandshakeHash()));
 		
 		// Hash the prologue value.
+		Log.d(TAG, "Mixing empty prologue");
 		if (prologue != null)
 			symmetric.mixHash(prologue, 0, prologue.length);
 		else
 			symmetric.mixHash(emptyPrologue, 0, 0);
+		Log.d(TAG, "Hash after empty prologue: " + bytesToHex(symmetric.getHandshakeHash()));
 		
 		// Hash the pre-shared key into the chaining key and handshake hash.
 		if (preSharedKey != null)
@@ -523,6 +544,7 @@ public class HandshakeState implements Destroyable {
 		
 		// Mix the pre-supplied public keys into the handshake hash.
 		if (isInitiator) {
+			Log.d(TAG, "XX pattern - no pre-message keys to mix");
 			if ((requirements & LOCAL_PREMSG) != 0)
 				symmetric.mixPublicKey(localKeyPair);
 			if ((requirements & FALLBACK_PREMSG) != 0) {
@@ -535,6 +557,7 @@ public class HandshakeState implements Destroyable {
 			if ((requirements & REMOTE_PREMSG) != 0)
 				symmetric.mixPublicKey(remotePublicKey);
 		} else {
+			Log.d(TAG, "XX pattern - no pre-message keys to mix");
 			if ((requirements & REMOTE_PREMSG) != 0)
 				symmetric.mixPublicKey(remotePublicKey);
 			if ((requirements & FALLBACK_PREMSG) != 0) {
@@ -547,7 +570,11 @@ public class HandshakeState implements Destroyable {
 			if ((requirements & LOCAL_PREMSG) != 0)
 				symmetric.mixPublicKey(localKeyPair);
 		}
-		// Log the symmetric.hash in hex:
+
+		// Log final state after all initialization (matching iOS)
+		Log.d(TAG, "=== ANDROID HANDSHAKE START - FINAL STATE ===");
+		Log.d(TAG, "Final symmetric hash after mixPreMessageKeys(): " + bytesToHex(symmetric.getHandshakeHash()));
+		Log.d(TAG, "===========================================");
 
 		// The handshake has officially started - set the first action.
 		if (isInitiator)

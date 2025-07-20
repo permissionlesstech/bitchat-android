@@ -22,7 +22,15 @@ class NoiseSessionManager(
     var onSessionFailed: ((String, Throwable) -> Unit)? = null
     
     // MARK: - Simple Session Management
-    
+
+    /**
+     * Add new session for a peer
+     */
+    fun addSession(peerID: String, session: NoiseSession) {
+        sessions[peerID] = session
+        Log.d(TAG, "Added new session for $peerID")
+    }
+
     /**
      * Get existing session for a peer
      */
@@ -45,6 +53,8 @@ class NoiseSessionManager(
      * SIMPLIFIED: Initiate handshake - no tie breaker, just start
      */
     fun initiateHandshake(peerID: String): ByteArray {
+        Log.d(TAG, "initiateHandshake($peerID)")
+
         // Remove any existing session first
         removeSession(peerID)
         
@@ -55,11 +65,12 @@ class NoiseSessionManager(
             localStaticPrivateKey = localStaticPrivateKey,
             localStaticPublicKey = localStaticPublicKey
         )
-        sessions[peerID] = session
+        Log.d(TAG, "Storing new INITIATOR session for $peerID")
+        addSession(peerID, session)
         
         try {
             val handshakeData = session.startHandshake()
-            Log.d(TAG, "Started handshake with $peerID as initiator")
+            Log.d(TAG, "Started handshake with $peerID as INITIATOR")
             return handshakeData
         } catch (e: Exception) {
             sessions.remove(peerID)
@@ -74,18 +85,18 @@ class NoiseSessionManager(
         Log.d(TAG, "handleIncomingHandshake($peerID, ${message.size} bytes)")
         
         try {
-            var session = sessions[peerID]
+            var session = getSession(peerID)
             
             // If no session exists, create one as responder
             if (session == null) {
-                Log.d(TAG, "Creating new responder session for $peerID")
+                Log.d(TAG, "Creating new RESPONDER session for $peerID")
                 session = NoiseSession(
                     peerID = peerID,
                     isInitiator = false,
                     localStaticPrivateKey = localStaticPrivateKey,
                     localStaticPublicKey = localStaticPublicKey
                 )
-                sessions[peerID] = session
+                addSession(peerID, session)
             }
             
             // Process handshake message
@@ -114,7 +125,7 @@ class NoiseSessionManager(
      * SIMPLIFIED: Encrypt data
      */
     fun encrypt(data: ByteArray, peerID: String): ByteArray {
-        val session = sessions[peerID] ?: throw IllegalStateException("No session found for $peerID")
+        val session = getSession(peerID) ?: throw IllegalStateException("No session found for $peerID")
         if (!session.isEstablished()) {
             throw IllegalStateException("Session not established with $peerID")
         }
@@ -125,7 +136,7 @@ class NoiseSessionManager(
      * SIMPLIFIED: Decrypt data
      */
     fun decrypt(encryptedData: ByteArray, peerID: String): ByteArray {
-        val session = sessions[peerID]
+        val session = getSession(peerID)
         if (session == null) {
             Log.e(TAG, "No session found for $peerID when trying to decrypt")
             throw IllegalStateException("No session found for $peerID")
@@ -141,7 +152,7 @@ class NoiseSessionManager(
      * Check if session is established with peer
      */
     fun hasEstablishedSession(peerID: String): Boolean {
-        val hasSession = sessions[peerID]?.isEstablished() ?: false
+        val hasSession = getSession(peerID)?.isEstablished() ?: false
         Log.d(TAG, "hasEstablishedSession($peerID): $hasSession")
         return hasSession
     }
@@ -150,14 +161,14 @@ class NoiseSessionManager(
      * Get remote static public key for a peer (if session established)
      */
     fun getRemoteStaticKey(peerID: String): ByteArray? {
-        return sessions[peerID]?.getRemoteStaticPublicKey()
+        return getSession(peerID)?.getRemoteStaticPublicKey()
     }
     
     /**
      * Get handshake hash for channel binding (if session established)
      */
     fun getHandshakeHash(peerID: String): ByteArray? {
-        return sessions[peerID]?.getHandshakeHash()
+        return getSession(peerID)?.getHandshakeHash()
     }
     
     /**

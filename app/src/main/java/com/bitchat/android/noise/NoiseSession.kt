@@ -123,8 +123,16 @@ class NoiseSession(
         try {
             Log.d(TAG, "Creating HandshakeState with role: ${if (role == HandshakeState.INITIATOR) "INITIATOR" else "RESPONDER"}")
             
+            // LOGGING: Track Android handshake initialization (matching iOS) 
+            Log.d(TAG, "=== ANDROID NOISE SESSION - BEFORE HANDSHAKE INIT ===")
+            Log.d(TAG, "Creating NoiseHandshakeState for peer: $peerID")
+            Log.d(TAG, "Role: ${if (role == HandshakeState.INITIATOR) "INITIATOR" else "RESPONDER"}")
+            
             handshakeState = HandshakeState(PROTOCOL_NAME, role)
             Log.d(TAG, "HandshakeState created successfully")
+            
+            Log.d(TAG, "=== ANDROID NOISE SESSION - AFTER HANDSHAKE INIT ===")
+            Log.d(TAG, "NoiseHandshakeState created and mixPreMessageKeys() completed")
             
             if (handshakeState?.needsLocalKeyPair() == true) {
                 Log.d(TAG, "Local static key pair is required for XX pattern")
@@ -181,6 +189,8 @@ class NoiseSession(
      */
     @Synchronized
     fun startHandshake(): ByteArray {
+        Log.d(TAG, "Starting noise XX handshake with $peerID as INITIATOR")
+
         if (!isInitiator) {
             throw IllegalStateException("Only initiator can start handshake")
         }
@@ -188,9 +198,7 @@ class NoiseSession(
         if (state != NoiseSessionState.Uninitialized) {
             throw IllegalStateException("Handshake already started")
         }
-        
-        Log.d(TAG, "Starting real XX handshake with $peerID as initiator")
-        
+
         try {
             // Initialize handshake as initiator 
             initializeNoiseHandshake(HandshakeState.INITIATOR)
@@ -262,7 +270,7 @@ class NoiseSession(
                 HandshakeState.SPLIT -> {
                     // Handshake complete, split into transport keys
                     completeHandshake()
-                    Log.d(TAG, "XX handshake completed with $peerID")
+                    Log.d(TAG, "🔒 XX handshake completed with $peerID")
                     null
                 }
                 
