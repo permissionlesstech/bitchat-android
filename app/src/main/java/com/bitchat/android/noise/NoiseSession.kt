@@ -49,6 +49,11 @@ class NoiseSession(
     private var messagesSent = 0L
     private var messagesReceived = 0L
     
+    // CRITICAL FIX: Enhanced thread safety for cipher operations
+    // The noise-java CipherState objects are NOT thread-safe. Multiple concurrent
+    // decrypt/encrypt operations can corrupt the internal nonce state.
+    private val cipherLock = Any() // Dedicated lock for cipher operations
+    
     // Remote peer information  
     private var remoteStaticPublicKey: ByteArray? = null
     private var handshakeHash: ByteArray? = null
@@ -171,8 +176,8 @@ class NoiseSession(
     // MARK: - Real Handshake Implementation
     
     /**
-     * Start handshake (initiator only) using real Noise Protocol
-     * Returns the first handshake message for XX pattern (32 bytes exactly)
+     * Start handshake as INITIATOR
+     * Returns e, the first handshake message for XX pattern (32 bytes)
      */
     @Synchronized
     fun startHandshake(): ByteArray {
@@ -211,8 +216,8 @@ class NoiseSession(
     }
     
     /**
-     * Process incoming handshake message using real Noise Protocol
-     * FIXED: Eliminates manual step counting - lets the Noise library handle it
+     * Process incoming handshake as RESPONDER
+     * Returns e, ee
      */
     @Synchronized
     fun processHandshakeMessage(message: ByteArray): ByteArray? {
@@ -329,58 +334,88 @@ class NoiseSession(
     /**
      * Encrypt data in transport mode using real ChaCha20-Poly1305
      */
-    @Synchronized
     fun encrypt(data: ByteArray): ByteArray {
+        // Pre-check state without holding cipher lock
         if (!isEstablished()) {
             throw IllegalStateException("Session not established")
         }
         
-        if (sendCipher == null) {
-            throw IllegalStateException("Send cipher not available")
-        }
-        
-        try {
-            val ciphertext = ByteArray(data.size + 16) // Add space for MAC tag
-            val ciphertextLength = sendCipher!!.encryptWithAd(null, data, 0, ciphertext, 0, data.size)
+        // Critical section: Use dedicated cipher lock to protect CipherState nonce corruption
+        synchronized(cipherLock) {
+            // Double-check state inside lock
+            if (!isEstablished()) {
+                throw IllegalStateException("Session not established during cipher operation")
+            }
             
-            messagesSent++
+            if (sendCipher == null) {
+                throw IllegalStateException("Send cipher not available")
+            }
             
-            val result = ciphertext.copyOf(ciphertextLength)
-            Log.d(TAG, "Real encrypted ${data.size} bytes to ${result.size} bytes for $peerID")
-            return result
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "Real encryption failed: ${e.message}")
-            throw SessionError.EncryptionFailed
+            try {
+                val ciphertext = ByteArray(data.size + 16) // Add space for MAC tag
+                val ciphertextLength = sendCipher!!.encryptWithAd(null, data, 0, ciphertext, 0, data.size)
+                
+                messagesSent++
+                
+                val result = ciphertext.copyOf(ciphertextLength)
+                Log.d(TAG, "Real encrypted ${data.size} bytes to ${result.size} bytes for $peerID (msg #$messagesSent)")
+                return result
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Real encryption failed - exception: ${e.message}")
+                
+                // ENHANCED: Log cipher state for debugging
+                if (sendCipher != null) {
+                    Log.e(TAG, "Send cipher state: ${sendCipher!!.javaClass.simpleName}")
+                }
+                
+                throw SessionError.EncryptionFailed
+            }
         }
     }
     
     /**
      * Decrypt data in transport mode using real ChaCha20-Poly1305
      */
-    @Synchronized
     fun decrypt(encryptedData: ByteArray): ByteArray {
+        // Pre-check state without holding cipher lock
         if (!isEstablished()) {
             throw IllegalStateException("Session not established")
         }
         
-        if (receiveCipher == null) {
-            throw IllegalStateException("Receive cipher not available")
-        }
-        
-        try {
-            val plaintext = ByteArray(encryptedData.size) // Over-allocate for safety
-            val plaintextLength = receiveCipher!!.decryptWithAd(null, encryptedData, 0, plaintext, 0, encryptedData.size)
+        // Critical section: Use dedicated cipher lock to protect CipherState nonce corruption
+        synchronized(cipherLock) {
+            // Double-check state inside lock
+            if (!isEstablished()) {
+                throw IllegalStateException("Session not established during cipher operation")
+            }
             
-            messagesReceived++
+            if (receiveCipher == null) {
+                throw IllegalStateException("Receive cipher not available")
+            }
             
-            val result = plaintext.copyOf(plaintextLength)
-            Log.d(TAG, "Real decrypted ${encryptedData.size} bytes to ${result.size} bytes from $peerID")
-            return result
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "Real decryption failed: ${e.message}")
-            throw SessionError.DecryptionFailed
+            try {
+                val plaintext = ByteArray(encryptedData.size) // Over-allocate for safety
+                val plaintextLength = receiveCipher!!.decryptWithAd(null, encryptedData, 0, plaintext, 0, encryptedData.size)
+                
+                messagesReceived++
+                
+                val result = plaintext.copyOf(plaintextLength)
+                Log.d(TAG, "Real decrypted ${encryptedData.size} bytes to ${result.size} bytes from $peerID (msg #$messagesReceived)")
+                return result
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Real decryption failed - exception: ${e.message}")
+                
+                // ENHANCED: Log cipher state and session details for debugging
+                if (receiveCipher != null) {
+                    Log.e(TAG, "Receive cipher state: ${receiveCipher!!.javaClass.simpleName}")
+                }
+                Log.e(TAG, "Session state: $state, messages received: $messagesReceived")
+                Log.e(TAG, "Input data size: ${encryptedData.size} bytes")
+                
+                throw SessionError.DecryptionFailed
+            }
         }
     }
     
