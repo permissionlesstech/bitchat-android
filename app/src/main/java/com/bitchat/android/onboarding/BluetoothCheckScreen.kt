@@ -265,7 +265,7 @@ private fun BluetoothLoadingIndicator() {
             modifier = Modifier
                 .fillMaxSize()
                 .rotate(rotationAngle),
-            color = colorScheme.primary,
+            color = MaterialTheme.colorScheme.primary,
             strokeWidth = 3.dp
         )
     }
