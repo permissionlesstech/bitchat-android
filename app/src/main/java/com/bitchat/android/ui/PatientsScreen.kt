@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -127,19 +128,40 @@ fun PatientsHeader(
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            // Title and Add button
+            // Title, Sync button, and Add button
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Patient Records",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = colorScheme.primary
-                )
+                // Left section with sync button and title
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Sync button
+                    IconButton(
+                        onClick = { /* Sync functionality to be added later */ },
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(colorScheme.primaryContainer, shape = CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Sync Records",
+                            tint = colorScheme.onPrimaryContainer
+                        )
+                    }
+                    
+                    Text(
+                        text = "Patient Records",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = colorScheme.primary
+                    )
+                }
                 
+                // Add button (right side)
                 FloatingActionButton(
                     onClick = onAddPatient,
                     containerColor = colorScheme.primary,
