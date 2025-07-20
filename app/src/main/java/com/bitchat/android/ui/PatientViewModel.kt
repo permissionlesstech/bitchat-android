@@ -201,6 +201,29 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
     }
     
     /**
+     * Converts all patient data to JSON format for syncing
+     * @return JSON string representation of all patients
+     */
+    fun getPatientsAsJson(): String {
+        val patientsData = _patients.value ?: emptyList()
+        // Simple JSON conversion - in a real app, you would use a proper JSON library
+        val patientJsonArray = patientsData.joinToString(prefix = "[", postfix = "]") { patient ->
+            """
+            {
+                "id": "${patient.id}",
+                "patientId": "${patient.patientId}",
+                "name": "${patient.name}",
+                "status": "${patient.status}",
+                "priority": "${patient.priority}",
+                "lastModified": "${patient.lastModified}"
+            }
+            """.trimIndent()
+        }
+        
+        return """{"patients": $patientJsonArray}"""
+    }
+    
+    /**
      * Deletes a patient from the database
      * Also removes all associated medical updates
      */

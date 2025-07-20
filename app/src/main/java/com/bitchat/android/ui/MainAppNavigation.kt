@@ -95,8 +95,9 @@ fun MainAppNavigation(
                                     navigationStack = navigationStack + NavigationState.AddPatient
                                 },
                                 onSyncPressed = {
-                                    // Send "synced" to the chat when sync button is pressed
-                                    chatViewModel.sendMessage("synced")
+                                    // Convert patient data to JSON and send to chat
+                                    val patientsJson = patientViewModel.getPatientsAsJson()
+                                    chatViewModel.sendMessage("Patient Records Synced: $patientsJson")
                                 }
                             )
                         }
