@@ -1,6 +1,5 @@
 package com.bitchat.android.ui
 
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -39,7 +38,6 @@ import androidx.compose.ui.input.key.onPreInterceptKeyBeforeSoftKeyboard
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -52,6 +50,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bitchat.android.core.ui.utils.lineBreak
 
 /**
  * Input components for ChatScreen
@@ -154,7 +153,6 @@ fun MessageInput(
                 .weight(1f)
                 .onFocusChanged { focusState -> isFocused.value = focusState.isFocused }
                 .onPreInterceptKeyBeforeSoftKeyboard { keyEvent ->
-                    Log.d("MessageInput", "onKey event: ${keyEvent.key}")
                     if (keyEvent.isShiftPressed) {
                         if (keyEvent.key == Key.Enter && keyEvent.type == KeyEventType.KeyDown) {
                             value.lineBreak(onValueChange)
@@ -293,19 +291,4 @@ fun CommandSuggestionItem(
             overflow = TextOverflow.Ellipsis
         )
     }
-}
-
-
-fun TextFieldValue.lineBreak(
-    onValueChange: (TextFieldValue) -> Unit
-) {
-    val selection = this.selection
-    val newTextValue = TextFieldValue(
-        text = this.text.substring(
-            0,
-            selection.start
-        ) + '\n' + this.text.substring(selection.end),
-        selection = TextRange(selection.start + 1)
-    )
-    onValueChange(newTextValue)
 }
