@@ -36,6 +36,8 @@ import com.bitchat.android.onboarding.PermissionExplanationScreen
 import com.bitchat.android.onboarding.PermissionManager
 import com.bitchat.android.ui.ChatScreen
 import com.bitchat.android.ui.ChatViewModel
+import com.bitchat.android.ui.PatientViewModel
+import com.bitchat.android.ui.MainAppNavigation
 import com.bitchat.android.ui.theme.BitchatTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -56,6 +58,15 @@ class MainActivity : ComponentActivity() {
             override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
                 @Suppress("UNCHECKED_CAST")
                 return ChatViewModel(application, meshService) as T
+            }
+        }
+    }
+    
+    private val patientViewModel: PatientViewModel by viewModels {
+        object : ViewModelProvider.Factory {
+            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                @Suppress("UNCHECKED_CAST")
+                return PatientViewModel(application) as T
             }
         }
     }
@@ -221,7 +232,10 @@ class MainActivity : ComponentActivity() {
                 // Add the callback - this will be automatically removed when the activity is destroyed
                 onBackPressedDispatcher.addCallback(this, backCallback)
                 
-                ChatScreen(viewModel = chatViewModel)
+                MainAppNavigation(
+                    chatViewModel = chatViewModel,
+                    patientViewModel = patientViewModel
+                )
             }
             
             OnboardingState.ERROR -> {
