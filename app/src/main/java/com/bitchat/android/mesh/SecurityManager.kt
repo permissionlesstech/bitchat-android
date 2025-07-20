@@ -124,24 +124,16 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
             
             if (response != null) {
                 Log.d(TAG, "Successfully processed Noise handshake step $step from $peerID, sending response")
-                
                 // Send handshake response through delegate
                 delegate?.sendHandshakeResponse(peerID, response)
-                
-                // Notify delegate of handshake completion
-                // delegate?.onKeyExchangeCompleted(peerID, packet.payload, routed.relayAddress)
-                return true
-            } else {
-                // Check if session is now established (handshake complete)
-                if (encryptionService.hasEstablishedSession(peerID)) {
-                    Log.d(TAG, "✅ Noise handshake completed with $peerID")
-                    delegate?.onKeyExchangeCompleted(peerID, packet.payload, routed.relayAddress)
-                    return true
-                } else {
-                    Log.w(TAG, "Failed to process Noise handshake from $peerID")
-                    return false
-                }
             }
+            // Check if session is now established (handshake complete)
+            if (encryptionService.hasEstablishedSession(peerID)) {
+                Log.d(TAG, "✅ Noise handshake completed with $peerID")
+                delegate?.onKeyExchangeCompleted(peerID, packet.payload, routed.relayAddress)
+            }
+            return true
+
             
         } catch (e: Exception) {
             Log.e(TAG, "Failed to process Noise handshake from $peerID: ${e.message}")

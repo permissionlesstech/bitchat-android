@@ -19,6 +19,7 @@ class NoiseSession(
     
     companion object {
         private const val TAG = "NoiseSession"
+        private const val NOISE_XX_PATTERN_LENGTH = 3
         
         // Noise Protocol Configuration (exactly matching iOS)
         private const val PROTOCOL_NAME = "Noise_XX_25519_ChaChaPoly_SHA256"
@@ -29,14 +30,14 @@ class NoiseSession(
         
         // XX Pattern Message Sizes (exactly matching iOS implementation)
         private const val XX_MESSAGE_1_SIZE = 32      // -> e (ephemeral key only)
-        private const val XX_MESSAGE_2_SIZE = 80      // <- e, ee, s, es (32 + 48)
+        private const val XX_MESSAGE_2_SIZE = 96      // <- e, ee, s, es (32 + 48) + 16 (MAC)
         private const val XX_MESSAGE_3_SIZE = 48      // -> s, se (encrypted static key)
         
         // Maximum payload size for safety
         private const val MAX_PAYLOAD_SIZE = 256
     }
     
-    // Real Noise Protocol objects
+    // Noise Protocol objects
     private var handshakeState: HandshakeState? = null
     private var sendCipher: CipherState? = null
     private var receiveCipher: CipherState? = null
@@ -44,8 +45,9 @@ class NoiseSession(
     // Session state
     private var state: NoiseSessionState = NoiseSessionState.Uninitialized
     private val creationTime = System.currentTimeMillis()
-    
+
     // Session counters
+    private var currentPattern = 0;
     private var messagesSent = 0L
     private var messagesReceived = 0L
     
@@ -207,6 +209,7 @@ class NoiseSession(
             val messageBuffer = ByteArray(XX_MESSAGE_1_SIZE)
             val handshakeStateLocal = handshakeState ?: throw IllegalStateException("Handshake state is null")
             val messageLength = handshakeStateLocal.writeMessage(messageBuffer, 0, null, 0, 0)
+            currentPattern++
             val firstMessage = messageBuffer.copyOf(messageLength)
             
             // Validate message size matches XX pattern expectations
@@ -214,7 +217,7 @@ class NoiseSession(
                 Log.w(TAG, "Warning: XX message 1 size ${firstMessage.size} != expected $XX_MESSAGE_1_SIZE")
             }
             
-            Log.d(TAG, "Sending XX handshake message 1 to $peerID (${firstMessage.size} bytes)")
+            Log.d(TAG, "Sending XX handshake message 1 to $peerID (${firstMessage.size} bytes) currentPattern: $currentPattern")
             return firstMessage
         } catch (e: Exception) {
             state = NoiseSessionState.Failed(e)
@@ -250,7 +253,8 @@ class NoiseSession(
             
             // Read the incoming message - the Noise library will handle validation
             val payloadLength = handshakeStateLocal.readMessage(message, 0, message.size, payloadBuffer, 0)
-            Log.d(TAG, "Read handshake message, payload length: $payloadLength")
+            currentPattern++
+            Log.d(TAG, "Read handshake message, payload length: $payloadLength currentPattern: $currentPattern")
             
             // Check what action the handshake state wants us to take next
             val action = handshakeStateLocal.getAction()
@@ -261,16 +265,18 @@ class NoiseSession(
                     // Noise library says we need to send a response
                     val responseBuffer = ByteArray(XX_MESSAGE_2_SIZE + MAX_PAYLOAD_SIZE) // Large buffer for any response
                     val responseLength = handshakeStateLocal.writeMessage(responseBuffer, 0, null, 0, 0)
+                    currentPattern++
                     val response = responseBuffer.copyOf(responseLength)
                     
-                    Log.d(TAG, "Generated handshake response: ${response.size} bytes, action still: ${handshakeStateLocal.getAction()}")
+                    Log.d(TAG, "Generated handshake response: ${response.size} bytes, action still: ${handshakeStateLocal.getAction()} currentPattern: $currentPattern")
+                    completeHandshake()
                     response
                 }
                 
                 HandshakeState.SPLIT -> {
                     // Handshake complete, split into transport keys
                     completeHandshake()
-                    Log.d(TAG, "✅ XX handshake completed with $peerID")
+                    Log.d(TAG, "SPLIT ✅ XX handshake completed with $peerID")
                     null
                 }
                 
@@ -301,6 +307,10 @@ class NoiseSession(
      * Complete handshake and derive real transport keys
      */
     private fun completeHandshake() {
+        if (currentPattern < NOISE_XX_PATTERN_LENGTH) {
+            return
+        }
+
         Log.d(TAG, "Completing real XX handshake with $peerID")
         
         try {
@@ -327,9 +337,11 @@ class NoiseSession(
             
             messagesSent = 0
             messagesReceived = 0
+            currentPattern = 0
             
             state = NoiseSessionState.Established
             Log.d(TAG, "Handshake completed with $peerID as isInitiator: $isInitiator - transport keys derived")
+            Log.d(TAG, "✅ XX handshake completed with $peerID")
         } catch (e: Exception) {
             state = NoiseSessionState.Failed(e)
             Log.e(TAG, "Failed to complete handshake: ${e.message}")
