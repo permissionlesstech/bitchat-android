@@ -47,6 +47,7 @@ data class GenericRecord(
 
 **Action Items:**
 - [ ] Extend `BitchatMessage` to include `recordType` field
+- [ ] Extend `recordType` to comment style patient history as detained in PatientDetailScreen.kt, AddPatientScreen.kt, and PatientViewModel.kt
 - [ ] Add `RecordStore` service using existing message storage patterns
 - [ ] Integrate with current `store-and-forward` caching system
 - [ ] Use existing `DeliveryTracker` for record delivery confirmation

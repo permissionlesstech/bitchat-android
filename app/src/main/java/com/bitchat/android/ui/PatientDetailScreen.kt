@@ -58,7 +58,8 @@ fun PatientDetailScreen(
             onBack = onBack,
             onEdit = { onEdit(patient) },
             onDelete = { showDeleteConfirmDialog = true },
-            colorScheme = colorScheme
+            colorScheme = colorScheme,
+            dateFormatter = dateFormatter
         )
         
         LazyColumn(
@@ -159,7 +160,8 @@ fun PatientDetailHeader(
     onBack: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    colorScheme: ColorScheme
+    colorScheme: ColorScheme,
+    dateFormatter: SimpleDateFormat
 ) {
     TopAppBar(
         title = {
@@ -169,11 +171,26 @@ fun PatientDetailHeader(
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
-                Text(
-                    text = "ID: ${patient.patientId}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colorScheme.primary
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "ID: ${patient.patientId}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colorScheme.primary
+                    )
+                    Text(
+                        text = "•",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                    Text(
+                        text = "Last modified: ${dateFormatter.format(patient.lastModified)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                }
             }
         },
         navigationIcon = {
