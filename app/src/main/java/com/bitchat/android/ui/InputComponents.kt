@@ -147,7 +147,7 @@ fun MessageInput(
                 fontFamily = FontFamily.Monospace
             ),
             cursorBrush = SolidColor(colorScheme.primary),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
             keyboardActions = KeyboardActions(onSend = { onSend() }),
             visualTransformation = SlashCommandVisualTransformation(),
             modifier = Modifier
