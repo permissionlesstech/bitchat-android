@@ -5,10 +5,15 @@ import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.model.RoutedPacket
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.actor
 
 /**
  * Processes incoming packets and routes them to appropriate handlers
- * Extracted from BluetoothMeshService for better separation of concerns
+ * 
+ * CRITICAL FIX: Per-peer packet serialization using Kotlin coroutine actors
+ * This elegantly solves the race condition where multiple threads process packets
+ * from the same peer simultaneously, causing session management conflicts.
  */
 class PacketProcessor(private val myPeerID: String) {
     
@@ -22,12 +27,49 @@ class PacketProcessor(private val myPeerID: String) {
     // Coroutines
     private val processorScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
+    // CRITICAL FIX: Per-peer actors to serialize packet processing
+    // Each peer gets its own actor that processes packets sequentially
+    // This prevents race conditions in session management
+    private val peerActors = mutableMapOf<String, CompletableDeferred<Unit>>()
+    
+    @OptIn(ObsoleteCoroutinesApi::class)
+    private fun getOrCreateActorForPeer(peerID: String) = processorScope.actor<RoutedPacket>(
+        capacity = Channel.UNLIMITED
+    ) {
+        Log.d(TAG, "🎭 Created packet actor for peer: $peerID")
+        try {
+            for (packet in channel) {
+                Log.d(TAG, "🔒 Processing packet type ${packet.packet.type} from $peerID (serialized)")
+                handleReceivedPacket(packet)
+                Log.d(TAG, "🔓 Completed packet type ${packet.packet.type} from $peerID")
+            }
+        } finally {
+            Log.d(TAG, "🎭 Packet actor for $peerID terminated")
+        }
+    }
+    
+    // Cache actors to reuse them
+    private val actors = mutableMapOf<String, kotlinx.coroutines.channels.SendChannel<RoutedPacket>>()
+    
     /**
      * Process received packet - main entry point for all incoming packets
+     * SURGICAL FIX: Route to per-peer actor for serialized processing
      */
     fun processPacket(routed: RoutedPacket) {
+        val peerID = routed.peerID ?: "unknown"
+        
+        // Get or create actor for this peer
+        val actor = actors.getOrPut(peerID) { getOrCreateActorForPeer(peerID) }
+        
+        // Send packet to peer's dedicated actor for serialized processing
         processorScope.launch {
-            handleReceivedPacket(routed)
+            try {
+                actor.send(routed)
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to send packet to actor for $peerID: ${e.message}")
+                // Fallback to direct processing if actor fails
+                handleReceivedPacket(routed)
+            }
         }
     }
     
@@ -172,15 +214,34 @@ class PacketProcessor(private val myPeerID: String) {
         return buildString {
             appendLine("=== Packet Processor Debug Info ===")
             appendLine("Processor Scope Active: ${processorScope.isActive}")
+            appendLine("Active Peer Actors: ${actors.size}")
             appendLine("My Peer ID: $myPeerID")
+            
+            if (actors.isNotEmpty()) {
+                appendLine("Peer Actors:")
+                actors.keys.forEach { peerID ->
+                    appendLine("  - $peerID")
+                }
+            }
         }
     }
     
     /**
-     * Shutdown the processor
+     * Shutdown the processor and all peer actors
      */
     fun shutdown() {
+        Log.d(TAG, "Shutting down PacketProcessor and ${actors.size} peer actors")
+        
+        // Close all peer actors gracefully
+        actors.values.forEach { actor ->
+            actor.close()
+        }
+        actors.clear()
+        
+        // Cancel the main scope
         processorScope.cancel()
+        
+        Log.d(TAG, "PacketProcessor shutdown complete")
     }
 }
 

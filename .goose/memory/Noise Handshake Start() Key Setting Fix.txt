@@ -1,0 +1,46 @@
+# noise handshake xx static-keys start validation noise-java
+**CRITICAL FIX: "Local static key required" Error Resolved**
+**Problem**: The noise-java library was throwing "Local static key required" during `HandshakeState.start()`, preventing handshake initialization.
+
+**Root Cause**: The noise-java library **validates that required static keys are present before allowing start()** to proceed. This is different from the iOS approach and requires keys to be set **before** calling `start()`, not during handshake progression.
+
+**Stack Trace**: Error occurred in `HandshakeState.start()` at line 501, indicating key validation failure.
+
+**Critical Fix Applied**:
+```kotlin
+// CRITICAL FIX: Set static keys BEFORE calling start()
+// The noise-java library validates key presence during start()
+if (handshakeState?.needsLocalKeyPair() == true) {
+    Log.d(TAG, "Setting static keys before start() - required by noise-java")
+    
+    val localKeyPair = handshakeState?.getLocalKeyPair()
+    if (localKeyPair != null) {
+        localKeyPair.setPrivateKey(localStaticPrivateKey, 0)
+        
+        if (!localKeyPair.hasPrivateKey() || !localKeyPair.hasPublicKey()) {
+            throw IllegalStateException("Failed to set static identity keys")
+        }
+        
+        Log.d(TAG, "✓ Static identity keys set successfully before start()")
+    }
+}
+
+handshakeState?.start() // NOW WORKS: Keys are set before validation
+```
+
+**Key Insight**: The noise-java library architecture requires:
+1. Create HandshakeState
+2. **Set static keys (if needed)**
+3. Call start() (which validates keys)
+4. Proceed with writeMessage/readMessage
+
+This differs from iOS CryptoKit approach where keys can be set dynamically during handshake progression.
+
+**Expected Result**: 
+- Android responder can now initialize XX handshake successfully
+- Should eliminate "Local static key required" error 
+- Handshake should progress to message processing phase
+
+**Files Modified**: `/app/src/main/java/com/bitchat/android/noise/NoiseSession.kt` - `initializeNoiseHandshake()` method
+**Build Status**: ✅ Successful compilation
+

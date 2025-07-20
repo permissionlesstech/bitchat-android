@@ -1,0 +1,44 @@
+# noise handshake xx ios android lazy-keys aead crypto
+**SECOND ATTEMPT: Lazy Static Key Setting Approach**
+After the step counting fix didn't resolve the AEADBadTagException, implemented a new approach based on iOS behavior:
+
+**Problem**: Still getting AEADBadTagException in step 2 even with correct step counting. The issue appears to be with how we initialize static keys upfront.
+
+**New Approach**: Lazy static key setting (matching iOS behavior)
+1. **Don't set static keys immediately** during handshake initialization
+2. **Let the handshake state generate ephemeral keys first**
+3. **Set static keys only when pattern requires them** (when 's' operations occur)
+
+**Key Changes**:
+1. **Simplified initializeNoiseHandshake()**: Removed immediate static key setting
+   ```kotlin
+   // CRITICAL CHANGE: Don't set static keys immediately
+   // Let the noise library handle ephemeral key generation first
+   handshakeState?.start()
+   ```
+
+2. **Added ensureStaticKeysSet()**: Lazy setting when needed
+   ```kotlin
+   private fun ensureStaticKeysSet() {
+       // Only set static keys if handshake needs them and they haven't been set yet
+       if (handshakeStateLocal.needsLocalKeyPair()) {
+           val localKeyPair = handshakeStateLocal.getLocalKeyPair()
+           if (localKeyPair != null && !localKeyPair.hasPrivateKey()) {
+               localKeyPair.setPrivateKey(localStaticPrivateKey, 0)
+           }
+       }
+   }
+   ```
+
+3. **Called ensureStaticKeysSet()** before readMessage() and writeMessage() operations
+
+**Rationale**: 
+- iOS approach: creates fresh ephemeral keys each time, only sets static when pattern requires
+- Android was trying to force static keys immediately, possibly interfering with XX pattern flow
+- XX pattern: -> e, <- e,ee,s,es, -> s,se (static keys not needed until step 2/3)
+
+**Expected Result**: This should eliminate the key material mismatch causing AEADBadTagException by following iOS's lazy key initialization pattern.
+
+**Files Modified**: `/app/src/main/java/com/bitchat/android/noise/NoiseSession.kt`
+**Build Status**: ✅ Successful compilation
+
