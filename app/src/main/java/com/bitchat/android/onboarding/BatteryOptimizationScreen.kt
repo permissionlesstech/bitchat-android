@@ -2,6 +2,8 @@ package com.bitchat.android.onboarding
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -76,117 +78,130 @@ private fun BatteryOptimizationEnabledContent(
     isLoading: Boolean
 ) {
     Column(
-        verticalArrangement = Arrangement.spacedBy(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier = Modifier.fillMaxSize()
     ) {
-        Text(
-            text = "bitchat*",
-            style = MaterialTheme.typography.headlineLarge.copy(
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                color = colorScheme.primary
+        // Scrollable content area
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "bitchat*",
+                style = MaterialTheme.typography.headlineLarge.copy(
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    color = colorScheme.primary
+                )
             )
-        )
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        Icon(
-            imageVector = Icons.Outlined.BatteryAlert,
-            contentDescription = "Battery Optimization",
-            modifier = Modifier.size(64.dp),
-            tint = colorScheme.error
-        )
-        
-        Text(
-            text = stringResource(R.string.battery_optimization_detected),
-            style = MaterialTheme.typography.headlineSmall.copy(
-                fontWeight = FontWeight.SemiBold,
-                color = colorScheme.onSurface
-            ),
-            textAlign = TextAlign.Center
-        )
-        
-        Text(
-            text = stringResource(R.string.battery_optimization_explanation),
-            style = MaterialTheme.typography.bodyLarge.copy(
-                color = colorScheme.onSurfaceVariant
-            ),
-            textAlign = TextAlign.Center
-        )
-        
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Icon(
+                imageVector = Icons.Outlined.BatteryAlert,
+                contentDescription = "Battery Optimization",
+                modifier = Modifier.size(64.dp),
+                tint = colorScheme.error
             )
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+            
+            Text(
+                text = stringResource(R.string.battery_optimization_detected),
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = colorScheme.onSurface
+                ),
+                textAlign = TextAlign.Center
+            )
+            
+            Text(
+                text = stringResource(R.string.battery_optimization_explanation),
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    color = colorScheme.onSurfaceVariant
+                ),
+                textAlign = TextAlign.Center
+            )
+            
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                )
             ) {
-                Text(
-                    text = stringResource(R.string.battery_optimization_why_disable),
-                    style = MaterialTheme.typography.titleSmall.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = colorScheme.onSurface
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.battery_optimization_why_disable),
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = colorScheme.onSurface
+                        )
                     )
-                )
-                
-                Text(
-                    text = stringResource(R.string.battery_optimization_benefits),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = colorScheme.onSurfaceVariant
+                    
+                    Text(
+                        text = stringResource(R.string.battery_optimization_benefits),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = colorScheme.onSurfaceVariant
+                        )
                     )
-                )
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(8.dp))
-        
-        Button(
-            onClick = onDisableBatteryOptimization,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !isLoading
-        ) {
-            if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(16.dp),
-                    strokeWidth = 2.dp,
-                    color = colorScheme.onPrimary
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-            }
-            Text(stringResource(R.string.battery_optimization_disable_button))
-        }
-        
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            OutlinedButton(
-                onClick = onRetry,
-                modifier = Modifier.weight(1f),
-                enabled = !isLoading
-            ) {
-                Text(stringResource(R.string.battery_optimization_check_again))
+                }
             }
             
-            TextButton(
-                onClick = onSkip,
-                modifier = Modifier.weight(1f),
-                enabled = !isLoading
-            ) {
-                Text(stringResource(R.string.battery_optimization_skip))
-            }
+            Text(
+                text = stringResource(R.string.battery_optimization_note),
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = colorScheme.onSurfaceVariant
+                ),
+                textAlign = TextAlign.Center
+            )
         }
         
-        Text(
-            text = stringResource(R.string.battery_optimization_note),
-            style = MaterialTheme.typography.bodySmall.copy(
-                color = colorScheme.onSurfaceVariant
-            ),
-            textAlign = TextAlign.Center
-        )
+        // Fixed buttons at the bottom
+        Column(
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Button(
+                onClick = onDisableBatteryOptimization,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isLoading
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = colorScheme.onPrimary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                Text(stringResource(R.string.battery_optimization_disable_button))
+            }
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onRetry,
+                    modifier = Modifier.weight(1f),
+                    enabled = !isLoading
+                ) {
+                    Text(stringResource(R.string.battery_optimization_check_again))
+                }
+                
+                TextButton(
+                    onClick = onSkip,
+                    modifier = Modifier.weight(1f),
+                    enabled = !isLoading
+                ) {
+                    Text(stringResource(R.string.battery_optimization_skip))
+                }
+            }
+        }
     }
 }
 
