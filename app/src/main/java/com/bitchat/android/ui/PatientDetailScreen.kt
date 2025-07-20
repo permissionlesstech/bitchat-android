@@ -40,14 +40,18 @@ fun PatientDetailScreen(
     
     val dateFormatter = remember { SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault()) }
     
+    // State for delete confirmation dialog
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    
     Column(
         modifier = modifier.fillMaxSize()
     ) {
-        // Header with back button and edit
+        // Header with back button, edit and delete
         PatientDetailHeader(
             patient = patient,
             onBack = onBack,
             onEdit = { onEdit(patient) },
+            onDelete = { showDeleteConfirmDialog = true },
             colorScheme = colorScheme
         )
         
@@ -98,6 +102,36 @@ fun PatientDetailScreen(
                 )
             }
         }
+        
+        // Delete confirmation dialog
+        if (showDeleteConfirmDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteConfirmDialog = false },
+                title = { Text("Delete Patient") },
+                text = { Text("Are you sure you want to delete ${patient.name}'s record? This action cannot be undone.") },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            patientViewModel.deletePatient(patient.patientId)
+                            showDeleteConfirmDialog = false
+                            onBack() // Go back to patient list after deletion
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Red
+                        )
+                    ) {
+                        Text("Delete")
+                    }
+                },
+                dismissButton = {
+                    OutlinedButton(
+                        onClick = { showDeleteConfirmDialog = false }
+                    ) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
     }
 }
 
@@ -107,6 +141,7 @@ fun PatientDetailHeader(
     patient: PatientRecord,
     onBack: () -> Unit,
     onEdit: () -> Unit,
+    onDelete: () -> Unit,
     colorScheme: ColorScheme
 ) {
     TopAppBar(
@@ -137,6 +172,13 @@ fun PatientDetailHeader(
                 Icon(
                     imageVector = Icons.Default.Edit,
                     contentDescription = "Edit Patient"
+                )
+            }
+            IconButton(onClick = onDelete) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete Patient",
+                    tint = Color.Red
                 )
             }
         },

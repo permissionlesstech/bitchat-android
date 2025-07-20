@@ -174,4 +174,25 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
     fun getPatientsByPriority(priority: Priority): List<PatientRecord> {
         return _patients.value?.filter { it.priority == priority } ?: emptyList()
     }
+    
+    /**
+     * Deletes a patient from the database
+     * Also removes all associated medical updates
+     */
+    fun deletePatient(patientId: String) {
+        // Remove patient from patients list
+        val currentPatients = _patients.value ?: emptyList()
+        _patients.value = currentPatients.filter { it.patientId != patientId && it.id != patientId }
+        
+        // Remove all medical updates for this patient
+        val currentUpdates = _medicalUpdates.value ?: emptyMap()
+        val updatedMap = currentUpdates.toMutableMap()
+        updatedMap.remove(patientId)
+        _medicalUpdates.value = updatedMap
+        
+        // Clear selected patient if it's the one being deleted
+        if (_selectedPatient.value?.patientId == patientId || _selectedPatient.value?.id == patientId) {
+            clearSelectedPatient()
+        }
+    }
 }
