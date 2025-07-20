@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.model.PatientRecord
@@ -476,6 +477,14 @@ fun PatientActionsCard(
     onStatusUpdate: (PatientStatus) -> Unit,
     colorScheme: ColorScheme
 ) {
+    // Add local state to track the current selection for immediate UI updates
+    var selectedStatus by remember { mutableStateOf(patient.status) }
+    
+    // Effect to sync local state with the actual patient status when it changes externally
+    LaunchedEffect(patient.status) {
+        selectedStatus = patient.status
+    }
+    
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -493,36 +502,66 @@ fun PatientActionsCard(
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            // Status toggle selector
+            Text(
+                text = "Status",
+                style = MaterialTheme.typography.bodyMedium,
+                color = colorScheme.onSurface.copy(alpha = 0.7f)
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Using SingleChoiceSegmentedButtonRow for toggle effect
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier.fillMaxWidth()
             ) {
-                OutlinedButton(
-                    onClick = { onStatusUpdate(PatientStatus.STABLE) },
-                    enabled = patient.status != PatientStatus.STABLE,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Stable")
-                }
-                
-                OutlinedButton(
-                    onClick = { onStatusUpdate(PatientStatus.TREATED) },
-                    enabled = patient.status != PatientStatus.TREATED,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.MedicalServices,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Treated")
+                PatientStatus.values().forEachIndexed { index, status ->
+                    SegmentedButton(
+                        // Use local state for immediate UI feedback
+                        selected = selectedStatus == status,
+                        onClick = { 
+                            // Update local state immediately for UI
+                            selectedStatus = status
+                            // Also update backend state
+                            onStatusUpdate(status) 
+                        },
+                        shape = when (index) {
+                            0 -> RoundedCornerShape(
+                                topStart = 8.dp,
+                                bottomStart = 8.dp,
+                                topEnd = 0.dp,
+                                bottomEnd = 0.dp
+                            )
+                            PatientStatus.values().size - 1 -> RoundedCornerShape(
+                                topStart = 0.dp,
+                                bottomStart = 0.dp,
+                                topEnd = 8.dp,
+                                bottomEnd = 8.dp
+                            )
+                            else -> RoundedCornerShape(0.dp)
+                        },
+                        colors = SegmentedButtonDefaults.colors(
+                            activeContainerColor = when (status) {
+                                PatientStatus.STABLE -> Color(0xFF4CAF50).copy(alpha = 0.2f)
+                                PatientStatus.CRITICAL -> Color(0xFFFF5722).copy(alpha = 0.2f)
+                                PatientStatus.TREATED -> Color(0xFF2196F3).copy(alpha = 0.2f)
+                                PatientStatus.TRANSFERRED -> Color(0xFFFF9800).copy(alpha = 0.2f)
+                            },
+                            activeContentColor = when (status) {
+                                PatientStatus.STABLE -> Color(0xFF4CAF50)
+                                PatientStatus.CRITICAL -> Color(0xFFFF5722)
+                                PatientStatus.TREATED -> Color(0xFF2196F3)
+                                PatientStatus.TRANSFERRED -> Color(0xFFFF9800)
+                            }
+                        )
+                    ) {
+                        Text(
+                            text = status.displayName,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
         }
