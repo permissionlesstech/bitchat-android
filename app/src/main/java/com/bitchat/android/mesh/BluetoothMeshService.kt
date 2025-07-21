@@ -64,7 +64,7 @@ class BluetoothMeshService(private val context: Context) {
 
         // Wire up PacketProcessor reference for recursive handling in MessageHandler
         messageHandler.packetProcessor = packetProcessor
-//        startPeriodicDebugLogging()
+        startPeriodicDebugLogging()
     }
     
     /**
@@ -491,7 +491,7 @@ class BluetoothMeshService(private val context: Context) {
                     
                     if (encryptedPayload != null) {
                         // Sign
-                        val signature = securityManager.signPacket(encryptedPayload)
+                        // val signature = securityManager.signPacket(encryptedPayload)
                         
                         val packet = BitchatPacket(
                             version = 1u,
@@ -500,7 +500,7 @@ class BluetoothMeshService(private val context: Context) {
                             recipientID = hexStringToByteArray(recipientPeerID),
                             timestamp = System.currentTimeMillis().toULong(),
                             payload = encryptedPayload,
-                            signature = signature,
+                            signature = null,
                             ttl = MAX_TTL
                         )
                         
