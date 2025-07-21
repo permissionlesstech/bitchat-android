@@ -61,6 +61,9 @@ class BluetoothMeshService(private val context: Context) {
     
     init {
         setupDelegates()
+
+        // Wire up PacketProcessor reference for recursive handling in MessageHandler
+        messageHandler.packetProcessor = packetProcessor
 //        startPeriodicDebugLogging()
     }
     

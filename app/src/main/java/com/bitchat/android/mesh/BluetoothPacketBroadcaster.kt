@@ -41,7 +41,7 @@ class BluetoothPacketBroadcaster(
                     fragments.forEach { fragment ->
                         broadcastSinglePacket(RoutedPacket(fragment), gattServer, characteristic)
                         // 20ms delay between fragments (matching iOS/Rust)
-                        delay(20)
+                        delay(200)
                     }
                 }
                 return

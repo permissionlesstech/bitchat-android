@@ -92,7 +92,7 @@ class EncryptionService(private val context: Context) {
     fun encrypt(data: ByteArray, peerID: String): ByteArray {
         val encrypted = noiseService.encrypt(data, peerID)
         if (encrypted == null) {
-            throw Exception("Failed to encrypt for $peerID - no established session")
+            throw Exception("Failed to encrypt for $peerID")
         }
         return encrypted
     }
@@ -104,7 +104,7 @@ class EncryptionService(private val context: Context) {
     fun decrypt(data: ByteArray, peerID: String): ByteArray {
         val decrypted = noiseService.decrypt(data, peerID)
         if (decrypted == null) {
-            throw Exception("Failed to decrypt from $peerID - no established session")
+            throw Exception("Failed to decrypt from $peerID")
         }
         return decrypted
     }

@@ -413,19 +413,17 @@ class NoiseSession(
             if (receiveCipher == null) {
                 throw IllegalStateException("Receive cipher not available")
             }
-            
+
             try {
                 val plaintext = ByteArray(encryptedData.size) // Over-allocate for safety
                 val plaintextLength = receiveCipher!!.decryptWithAd(null, encryptedData, 0, plaintext, 0, encryptedData.size)
-                
                 messagesReceived++
-                
+
                 val result = plaintext.copyOf(plaintextLength)
-                Log.d(TAG, "Real decrypted ${encryptedData.size} bytes to ${result.size} bytes from $peerID (msg #$messagesReceived)")
+                Log.d(TAG, "Decrypted ${encryptedData.size} bytes to ${result.size} bytes from $peerID (msg #$messagesReceived)")
                 return result
-                
             } catch (e: Exception) {
-                Log.e(TAG, "Real decryption failed - exception: ${e.message}")
+                Log.e(TAG, "Decryption failed - exception: ${e.message}")
                 
                 // ENHANCED: Log cipher state and session details for debugging
                 if (receiveCipher != null) {

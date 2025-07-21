@@ -27,6 +27,9 @@ class MessageHandler(private val myPeerID: String) {
     // Delegate for callbacks
     var delegate: MessageHandlerDelegate? = null
     
+    // Reference to PacketProcessor for recursive packet handling
+    var packetProcessor: PacketProcessor? = null
+    
     // Coroutines
     private val handlerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
@@ -88,14 +91,11 @@ class MessageHandler(private val myPeerID: String) {
                 // Create a new routed packet with the decrypted inner packet
                 val innerRouted = RoutedPacket(innerPacket, peerID, routed.relayAddress)
                 
-                // Process the decrypted inner packet recursively
-                when (MessageType.fromValue(innerPacket.type)) {
-                    MessageType.MESSAGE -> handleMessage(innerRouted)
-                    MessageType.DELIVERY_ACK -> handleDeliveryAck(innerRouted)
-                    MessageType.READ_RECEIPT -> handleReadReceipt(innerRouted)
-                    else -> {
-                        Log.w(TAG, "Unexpected inner packet type: ${innerPacket.type}")
-                    }
+                // Use PacketProcessor to handle the inner packet recursively
+                if (packetProcessor != null) {
+                    packetProcessor!!.processPacket(innerRouted)
+                } else {
+                    Log.w(TAG, "PacketProcessor reference is null; cannot recursively process inner packet.")
                 }
             } else {
                 Log.w(TAG, "Failed to parse decrypted data as packet from $peerID")
