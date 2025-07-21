@@ -281,7 +281,7 @@ class MessageHandler(private val myPeerID: String) {
                 delegate?.onMessageReceived(message)
                 
                 // Send delivery ACK
-                sendDeliveryAck(message, peerID)
+                delegate?.sendDeliveryAck(message, peerID)
             }
             
         } catch (e: Exception) {
@@ -391,42 +391,6 @@ class MessageHandler(private val myPeerID: String) {
             val delay = Random.nextLong(50, 500) // Random delay like iOS
             delay(delay)
             delegate?.relayPacket(routed.copy(packet = relayPacket))
-        }
-    }
-    
-    /**
-     * Send delivery acknowledgment for a received private message
-     */
-    private fun sendDeliveryAck(message: BitchatMessage, senderPeerID: String) {
-        handlerScope.launch {
-            val nickname = delegate?.getMyNickname() ?: myPeerID
-            val ack = DeliveryAck(
-                originalMessageID = message.id,
-                recipientID = myPeerID,
-                recipientNickname = nickname,
-                hopCount = 0u // Will be calculated during relay
-            )
-            
-            try {
-                val ackData = ack.encode() ?: return@launch
-                val encryptedPayload = delegate?.encryptForPeer(ackData, senderPeerID)
-                if (encryptedPayload != null) {
-                    val packet = BitchatPacket(
-                        type = MessageType.DELIVERY_ACK.value,
-                        senderID = hexStringToByteArray(myPeerID),
-                        recipientID = hexStringToByteArray(senderPeerID),
-                        timestamp = System.currentTimeMillis().toULong(),
-                        payload = encryptedPayload,
-                        signature = null,
-                        ttl = 3u
-                    )
-                    
-                    delegate?.sendPacket(packet)
-                }
-                
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to send delivery ACK: ${e.message}")
-            }
         }
     }
     
@@ -580,6 +544,7 @@ interface MessageHandlerDelegate {
     
     // Message operations
     fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String?
+    fun sendDeliveryAck(message: BitchatMessage, senderPeerID: String)
     
     // Callbacks
     fun onMessageReceived(message: BitchatMessage)

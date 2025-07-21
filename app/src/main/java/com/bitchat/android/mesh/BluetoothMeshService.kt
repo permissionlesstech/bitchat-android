@@ -262,6 +262,10 @@ class BluetoothMeshService(private val context: Context) {
                 return delegate?.decryptChannelMessage(encryptedContent, channel)
             }
             
+            override fun sendDeliveryAck(message: BitchatMessage, senderPeerID: String) {
+                this@BluetoothMeshService.sendDeliveryAck(message, senderPeerID)
+            }
+            
             // Callbacks
             override fun onMessageReceived(message: BitchatMessage) {
                 delegate?.didReceiveMessage(message)
@@ -516,6 +520,42 @@ class BluetoothMeshService(private val context: Context) {
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to send private message: ${e.message}")
                 }
+            }
+        }
+    }
+    
+    /**
+     * Send delivery acknowledgment for a received private message
+     */
+    fun sendDeliveryAck(message: BitchatMessage, senderPeerID: String) {
+        serviceScope.launch {
+            val nickname = delegate?.getNickname() ?: myPeerID
+            val ack = DeliveryAck(
+                originalMessageID = message.id,
+                recipientID = myPeerID,
+                recipientNickname = nickname,
+                hopCount = 0u // Will be calculated during relay
+            )
+            
+            try {
+                val ackData = ack.encode() ?: return@launch
+                val encryptedPayload = securityManager.encryptForPeer(ackData, senderPeerID)
+                if (encryptedPayload != null) {
+                    val packet = BitchatPacket(
+                        type = MessageType.DELIVERY_ACK.value,
+                        senderID = hexStringToByteArray(myPeerID),
+                        recipientID = hexStringToByteArray(senderPeerID),
+                        timestamp = System.currentTimeMillis().toULong(),
+                        payload = encryptedPayload,
+                        signature = null,
+                        ttl = 3u
+                    )
+                    
+                    connectionManager.broadcastPacket(RoutedPacket(packet))
+                }
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send delivery ACK: ${e.message}")
             }
         }
     }
