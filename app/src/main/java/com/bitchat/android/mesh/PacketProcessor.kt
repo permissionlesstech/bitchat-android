@@ -39,7 +39,7 @@ class PacketProcessor(private val myPeerID: String) {
         Log.d(TAG, "🎭 Created packet actor for peer: $peerID")
         try {
             for (packet in channel) {
-                Log.d(TAG, "Processing packet type ${packet.packet.type} from $peerID (serialized)")
+                Log.d(TAG, "📦 Processing packet type ${packet.packet.type} from $peerID (serialized)")
                 handleReceivedPacket(packet)
                 Log.d(TAG, "Completed packet type ${packet.packet.type} from $peerID")
             }
