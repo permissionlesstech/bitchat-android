@@ -526,21 +526,30 @@ class BluetoothMeshService(private val context: Context) {
         )
         
         try {
+            // TODO: THIS FORMAT FOR DELIVERY ACKS SHOULD BE DEPRECATED
             val ackData = ack.encode() ?: return
+            val typeMarker = MessageType.DELIVERY_ACK.value.toByte()
+            val payloadWithMarker = byteArrayOf(typeMarker) + ackData
+            val encryptedPayload = securityManager.encryptForPeer(payloadWithMarker, senderPeerID)
+
+            if (encryptedPayload == null) {
+                Log.w(TAG, "Failed to encrypt delivery ACK for $senderPeerID")
+                return
+            }
             
             // Create inner packet with the delivery ACK data
-            val innerPacket = BitchatPacket(
-                type = MessageType.DELIVERY_ACK.value,
+            val packet = BitchatPacket(
+                type = MessageType.NOISE_ENCRYPTED.value,
                 senderID = hexStringToByteArray(myPeerID),
                 recipientID = hexStringToByteArray(senderPeerID),
                 timestamp = System.currentTimeMillis().toULong(),
-                payload = ackData,
+                payload = encryptedPayload,
                 signature = null,
                 ttl = 3u
             )
             
             // Use the new encrypt and broadcast function
-            encryptAndBroadcastNoisePacket(innerPacket, senderPeerID)
+            connectionManager.broadcastPacket(RoutedPacket(packet))
             
         } catch (e: Exception) {
             Log.e(TAG, "Failed to send delivery ACK: ${e.message}")
