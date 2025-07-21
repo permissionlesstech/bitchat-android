@@ -487,9 +487,6 @@ class BluetoothMeshService(private val context: Context) {
         
         message.toBinaryPayload()?.let { messageData ->
             try {
-                // Pad the message data
-                val blockSize = MessagePadding.optimalBlockSize(messageData.size)
-                val paddedData = MessagePadding.pad(messageData, blockSize)
                 
                 // Create inner packet with the padded message data
                 val innerPacket = BitchatPacket(
@@ -497,7 +494,7 @@ class BluetoothMeshService(private val context: Context) {
                     senderID = hexStringToByteArray(myPeerID),
                     recipientID = hexStringToByteArray(recipientPeerID),
                     timestamp = System.currentTimeMillis().toULong(),
-                    payload = paddedData,
+                    payload = messageData,
                     signature = null,
                     ttl = MAX_TTL
                 )

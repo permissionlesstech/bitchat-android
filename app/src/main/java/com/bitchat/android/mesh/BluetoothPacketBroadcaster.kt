@@ -67,7 +67,6 @@ class BluetoothPacketBroadcaster(
         characteristic: BluetoothGattCharacteristic?
     ) {
         val packet = routed.packet
-        val data = packet.toBinaryData() ?: return
         // Check if we need to fragment
         if (fragmentManager != null) {
             val fragments = fragmentManager.createFragments(packet)
