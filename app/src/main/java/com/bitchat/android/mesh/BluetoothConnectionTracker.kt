@@ -189,6 +189,9 @@ class BluetoothConnectionTracker(
                 Log.d(TAG, "Tracker: Connection attempt already in progress for $deviceAddress")
                 return false
             }
+            if (currentAttempt != null) {
+                Log.d(TAG, "Tracker: current attempt: $currentAttempt")
+            }
             
             // Update connection attempt atomically
             val attempts = (currentAttempt?.attempts ?: 0) + 1
@@ -241,14 +244,17 @@ class BluetoothConnectionTracker(
     /**
      * Clean up a specific device connection
      */
-    fun cleanupDeviceConnection(deviceAddress: String) {
+    fun cleanupDeviceConnection(deviceAddress: String, cleanupPending: Boolean = true) {
         connectedDevices.remove(deviceAddress)?.let { deviceConn ->
             subscribedDevices.removeAll { it.address == deviceAddress }
             addressPeerMap.remove(deviceAddress)
         }
-        // CRITICAL FIX: Always remove from pending connections when cleaning up
-        // This prevents failed connections from blocking future attempts
-        pendingConnections.remove(deviceAddress)
+        if (!cleanupPending) {
+            Log.d(TAG, "Skipped cleanup of pending connection for $deviceAddress")
+        }
+        if (cleanupPending) {
+            pendingConnections.remove(deviceAddress)
+        }
         Log.d(TAG, "Cleaned up device connection for $deviceAddress")
     }
     

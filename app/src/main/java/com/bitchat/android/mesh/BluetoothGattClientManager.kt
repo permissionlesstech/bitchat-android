@@ -192,7 +192,7 @@ class BluetoothGattClientManager(
         
         scanCallback = object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult) {
-                Log.d(TAG, "Scan result received: ${result.device.address}")
+                // Log.d(TAG, "Scan result received: ${result.device.address}")
                 handleScanResult(result)
             }
             
@@ -278,7 +278,7 @@ class BluetoothGattClientManager(
             return
         }
 
-        Log.d(TAG, "Received scan result from $deviceAddress - already connected: ${connectionTracker.isDeviceConnected(deviceAddress)}")
+        // Log.d(TAG, "Received scan result from $deviceAddress - already connected: ${connectionTracker.isDeviceConnected(deviceAddress)}")
         
         // Store RSSI from scan results for later use (especially for server connections)
         connectionTracker.updateScanRSSI(deviceAddress, rssi)
@@ -338,12 +338,14 @@ class BluetoothGattClientManager(
                         if (status == 147) {
                             Log.e(TAG, "Client: Connection establishment failed (status 147) for $deviceAddress")
                         }
+                        // cleanup without removing the pending connection so we don't reattempt
+                        connectionTracker.cleanupDeviceConnection(deviceAddress, cleanupPending = false)
                     } else {
                         Log.d(TAG, "Client: Cleanly disconnected from $deviceAddress")
+                        // cleanup so we can reattempt connection later
+                        connectionTracker.cleanupDeviceConnection(deviceAddress)
                     }
-                    
-                    connectionTracker.cleanupDeviceConnection(deviceAddress)
-                    
+
                     connectionScope.launch {
                         delay(500) // CLEANUP_DELAY
                         try {
@@ -423,7 +425,7 @@ class BluetoothGattClientManager(
             
             override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
                 val value = characteristic.value
-                Log.d(TAG, "Client: Received packet from ${gatt.device.address}, size: ${value.size} bytes")
+                Log.i(TAG, "Client: Received packet from ${gatt.device.address}, size: ${value.size} bytes")
                 val packet = BitchatPacket.fromBinaryData(value)
                 if (packet != null) {
                     val peerID = packet.senderID.take(8).toByteArray().joinToString("") { "%02x".format(it) }

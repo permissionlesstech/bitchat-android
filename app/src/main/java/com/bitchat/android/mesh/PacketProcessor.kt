@@ -85,10 +85,8 @@ class PacketProcessor(private val myPeerID: String) {
             Log.d(TAG, "Packet failed security validation from $peerID")
             return
         }
-        
-        // Update last seen timestamp
-        delegate?.updatePeerLastSeen(peerID)
-        
+
+        var validPacket = true
         Log.d(TAG, "Processing packet type ${packet.type} from $peerID")
         val DEBUG_MESSAGE_TYPE = MessageType.fromValue(packet.type)
         when (MessageType.fromValue(packet.type)) {
@@ -105,9 +103,13 @@ class PacketProcessor(private val myPeerID: String) {
             MessageType.DELIVERY_ACK -> handleDeliveryAck(routed)
             MessageType.READ_RECEIPT -> handleReadReceipt(routed)
             else -> {
+                validPacket = false
                 Log.w(TAG, "Unknown message type: ${packet.type}")
             }
         }
+        // Update last seen timestamp
+        if (validPacket)
+            delegate?.updatePeerLastSeen(peerID)
     }
     
     /**
