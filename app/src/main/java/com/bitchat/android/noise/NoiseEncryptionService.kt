@@ -152,7 +152,7 @@ class NoiseEncryptionService(private val context: Context) {
      */
     fun encrypt(data: ByteArray, peerID: String): ByteArray? {
         if (!hasEstablishedSession(peerID)) {
-            Log.w(TAG, "No established session with $peerID, handshake required")
+            Log.w(TAG, "No established session with $peerID, handshake required. TODO: IMPLEMENT HANDSHAKE INIT")
             onHandshakeRequired?.invoke(peerID)
             return null
         }

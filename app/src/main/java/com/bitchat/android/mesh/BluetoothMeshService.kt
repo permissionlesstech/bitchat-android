@@ -8,6 +8,7 @@ import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.model.DeliveryAck
 import com.bitchat.android.model.ReadReceipt
+import com.bitchat.android.model.NoiseIdentityAnnouncement
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
@@ -644,25 +645,86 @@ class BluetoothMeshService(private val context: Context) {
     }
     
     /**
-     * Send identity announcement (broadcast our static public key)
+     * Send Noise identity announcement (broadcast our static public key and signing key)
+     * Now properly formatted as NoiseIdentityAnnouncement to match iOS
      */
     private fun sendKeyExchangeToDevice() {
-        // For discovery, broadcast our static identity key (32 bytes) so peers can identify us
-        // This is not a handshake initiation, but identity announcement
-        val identityData = encryptionService.getCombinedPublicKeyData()
-        
-        val packet = BitchatPacket(
-            version = 1u,
-            type = MessageType.NOISE_IDENTITY_ANNOUNCE.value, // Changed to identity announce
-            senderID = hexStringToByteArray(myPeerID),
-            recipientID = SpecialRecipients.BROADCAST,
-            timestamp = System.currentTimeMillis().toULong(),
-            payload = identityData,
-            ttl = 1u
-        )
-        
-        connectionManager.broadcastPacket(RoutedPacket(packet))
-        Log.d(TAG, "Sent Noise identity announcement (${identityData.size} bytes)")
+        serviceScope.launch {
+            try {
+                val nickname = delegate?.getNickname() ?: myPeerID
+                
+                // Create the identity announcement using proper binary format
+                val announcement = createNoiseIdentityAnnouncement(nickname, null)
+                if (announcement != null) {
+                    val announcementData = announcement.toBinaryData()
+                    
+                    val packet = BitchatPacket(
+                        version = 1u,
+                        type = MessageType.NOISE_IDENTITY_ANNOUNCE.value,
+                        senderID = hexStringToByteArray(myPeerID),
+                        recipientID = SpecialRecipients.BROADCAST,
+                        timestamp = System.currentTimeMillis().toULong(),
+                        payload = announcementData,
+                        ttl = 1u
+                    )
+                    
+                    connectionManager.broadcastPacket(RoutedPacket(packet))
+                    Log.d(TAG, "Sent NoiseIdentityAnnouncement (${announcementData.size} bytes)")
+                } else {
+                    Log.e(TAG, "Failed to create NoiseIdentityAnnouncement")
+                }
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send NoiseIdentityAnnouncement: ${e.message}")
+            }
+        }
+    }
+    
+    /**
+     * Create a properly formatted NoiseIdentityAnnouncement exactly like iOS
+     */
+    private fun createNoiseIdentityAnnouncement(nickname: String, previousPeerID: String?): NoiseIdentityAnnouncement? {
+        return try {
+            // Get the static public key for Noise protocol
+            val staticKey = encryptionService.getStaticPublicKey()
+            if (staticKey == null) {
+                Log.e(TAG, "No static public key available for identity announcement")
+                return null
+            }
+            
+            // Get the signing public key for Ed25519 signatures
+            val signingKey = encryptionService.getSigningPublicKey()
+            if (signingKey == null) {
+                Log.e(TAG, "No signing public key available for identity announcement")
+                return null
+            }
+            
+            val now = Date()
+            
+            // Create the binding data to sign (same format as iOS)
+            val timestampMs = now.time
+            val bindingData = myPeerID.toByteArray(Charsets.UTF_8) + 
+                            staticKey + 
+                            timestampMs.toString().toByteArray(Charsets.UTF_8)
+            
+            // Sign the binding with our Ed25519 signing key
+            val signature = encryptionService.signData(bindingData) ?: ByteArray(0)
+            
+            // Create the identity announcement
+            NoiseIdentityAnnouncement(
+                peerID = myPeerID,
+                publicKey = staticKey,
+                signingPublicKey = signingKey,
+                nickname = nickname,
+                timestamp = now,
+                previousPeerID = previousPeerID,
+                signature = signature
+            )
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to create NoiseIdentityAnnouncement: ${e.message}")
+            null
+        }
     }
     
     /**

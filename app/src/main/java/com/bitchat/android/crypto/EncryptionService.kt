@@ -55,6 +55,35 @@ class EncryptionService(private val context: Context) {
     }
     
     /**
+     * Get our static public key for Noise protocol (for identity announcements)
+     */
+    fun getStaticPublicKey(): ByteArray? {
+        return noiseService.getStaticPublicKeyData()
+    }
+    
+    /**
+     * Get our signing public key for Ed25519 signatures (for identity announcements)
+     * Note: In the current implementation, this returns the same as static key
+     * In a full implementation, this would be a separate Ed25519 key
+     */
+    fun getSigningPublicKey(): ByteArray? {
+        // For now, return the static public key as placeholder
+        // In a full implementation, this would be a separate Ed25519 signing key
+        return noiseService.getStaticPublicKeyData()
+    }
+    
+    /**
+     * Sign data using our signing key (for identity announcements)
+     * Note: In the current simplified implementation, this returns empty signature
+     * In a full implementation, this would use Ed25519 signing
+     */
+    fun signData(data: ByteArray): ByteArray? {
+        // For now, return empty signature as placeholder
+        // In a full implementation, this would use Ed25519 to sign the data
+        return ByteArray(64) // Ed25519 signature length placeholder
+    }
+    
+    /**
      * Add peer's public key and start handshake if needed
      * For backward compatibility with old key exchange packets
      */
