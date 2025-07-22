@@ -318,18 +318,8 @@ class NoiseSession(
             // Split handshake state into transport ciphers
             val cipherPair = handshakeState?.split()
             
-            // CRITICAL FIX: Assign ciphers based on role to match iOS implementation
-            // Initiator uses getSender() for sending, getReceiver() for receiving
-            // Responder uses getReceiver() for sending, getSender() for receiving  
-            if (isInitiator) {
-                sendCipher = cipherPair?.getSender()
-                receiveCipher = cipherPair?.getReceiver()
-                Log.d(TAG, "INITIATOR: sendCipher = getSender(), receiveCipher = getReceiver()")
-            } else {
-                sendCipher = cipherPair?.getReceiver()  
-                receiveCipher = cipherPair?.getSender()
-                Log.d(TAG, "RESPONDER: sendCipher = getReceiver(), receiveCipher = getSender()")
-            }
+            sendCipher = cipherPair?.getSender()
+            receiveCipher = cipherPair?.getReceiver()
             
             // Extract remote static key if available
             if (handshakeState?.hasRemotePublicKey() == true) {
