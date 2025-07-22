@@ -64,7 +64,7 @@ class BluetoothMeshService(private val context: Context) {
 
         // Wire up PacketProcessor reference for recursive handling in MessageHandler
         messageHandler.packetProcessor = packetProcessor
-        startPeriodicDebugLogging()
+        // startPeriodicDebugLogging()
     }
     
     /**
@@ -120,7 +120,7 @@ class BluetoothMeshService(private val context: Context) {
                     delay(100)
                     sendAnnouncementToPeer(peerID)
                     
-                    delay(500)
+                    delay(1000)
                     storeForwardManager.sendCachedMessages(peerID)
                 }
             }

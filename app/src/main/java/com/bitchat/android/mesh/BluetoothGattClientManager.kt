@@ -192,6 +192,7 @@ class BluetoothGattClientManager(
         
         scanCallback = object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult) {
+                Log.d(TAG, "Scan result received: ${result.device.address}")
                 handleScanResult(result)
             }
             
@@ -276,6 +277,8 @@ class BluetoothGattClientManager(
         if (!hasOurService) {
             return
         }
+
+        Log.d(TAG, "Received scan result from $deviceAddress - already connected: ${connectionTracker.isDeviceConnected(deviceAddress)}")
         
         // Store RSSI from scan results for later use (especially for server connections)
         connectionTracker.updateScanRSSI(deviceAddress, rssi)
@@ -314,7 +317,7 @@ class BluetoothGattClientManager(
     @Suppress("DEPRECATION")
     private fun connectToDevice(device: BluetoothDevice, rssi: Int) {
         if (!permissionManager.hasBluetoothPermissions()) return
-        
+
         val deviceAddress = device.address
         Log.i(TAG, "Connecting to bitchat device: $deviceAddress")
         
