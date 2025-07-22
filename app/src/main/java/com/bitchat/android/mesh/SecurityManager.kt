@@ -5,6 +5,7 @@ import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.model.RoutedPacket
+import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.*
 import java.util.*
 import kotlin.collections.mutableSetOf
@@ -93,8 +94,12 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         val packet = routed.packet
         val peerID = routed.peerID ?: "unknown"
 
-        Log.d(TAG, "Processing Noise handshake step $step from $peerID (${packet.payload.size} bytes)")
-        
+        // Skip handshakes not addressed to us
+        if (packet.recipientID?.toHexString() != myPeerID) {
+            Log.d(TAG, "Skipping handshake not addressed to us: $peerID")
+            return false
+        }
+            
         // Skip our own handshake messages
         if (peerID == myPeerID) return false
 
@@ -115,7 +120,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
             Log.d(TAG, "Already processed handshake: $exchangeKey")
             return false
         }
-        
+        Log.d(TAG, "Processing Noise handshake step $step from $peerID (${packet.payload.size} bytes)")
         processedKeyExchanges.add(exchangeKey)
         
         try {

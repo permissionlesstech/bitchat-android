@@ -304,20 +304,32 @@ class NoiseSession(
     }
     
     /**
-     * Complete handshake and derive real transport keys
+     * Complete handshake and derive transport keys
      */
+    @Synchronized
     private fun completeHandshake() {
         if (currentPattern < NOISE_XX_PATTERN_LENGTH) {
             return
         }
 
-        Log.d(TAG, "Completing real XX handshake with $peerID")
+        Log.d(TAG, "Completing XX handshake with $peerID")
         
         try {
             // Split handshake state into transport ciphers
             val cipherPair = handshakeState?.split()
-            sendCipher = cipherPair?.getSender()
-            receiveCipher = cipherPair?.getReceiver()
+            
+            // CRITICAL FIX: Assign ciphers based on role to match iOS implementation
+            // Initiator uses getSender() for sending, getReceiver() for receiving
+            // Responder uses getReceiver() for sending, getSender() for receiving  
+            if (isInitiator) {
+                sendCipher = cipherPair?.getSender()
+                receiveCipher = cipherPair?.getReceiver()
+                Log.d(TAG, "INITIATOR: sendCipher = getSender(), receiveCipher = getReceiver()")
+            } else {
+                sendCipher = cipherPair?.getReceiver()  
+                receiveCipher = cipherPair?.getSender()
+                Log.d(TAG, "RESPONDER: sendCipher = getReceiver(), receiveCipher = getSender()")
+            }
             
             // Extract remote static key if available
             if (handshakeState?.hasRemotePublicKey() == true) {
@@ -325,6 +337,7 @@ class NoiseSession(
                 if (remoteDH != null) {
                     remoteStaticPublicKey = ByteArray(32)
                     remoteDH.getPublicKey(remoteStaticPublicKey!!, 0)
+                    Log.d(TAG, "Remote static public key: ${remoteStaticPublicKey!!.joinToString("") { "%02x".format(it) }}")
                 }
             }
             
@@ -349,7 +362,7 @@ class NoiseSession(
         }
     }
 
-    // MARK: - Real Transport Encryption
+    // MARK: - Transport Encryption
     
     /**
      * Encrypt data in transport mode using real ChaCha20-Poly1305
@@ -372,13 +385,17 @@ class NoiseSession(
             }
             
             try {
-                val ciphertext = ByteArray(data.size + 16) // Add space for MAC tag
-                val ciphertextLength = sendCipher!!.encryptWithAd(null, data, 0, ciphertext, 0, data.size)
+                // assert that sendCipher!!.macLengt is 16:
+                if (sendCipher!!.macLength != 16) {
+                    throw IllegalStateException("Send cipher MAC length is not 16")
+                }
                 
+                val ciphertext = ByteArray(data.size + sendCipher!!.macLength) // Add space for MAC tag
+                val ciphertextLength = sendCipher!!.encryptWithAd(null, data, 0, ciphertext, 0, data.size)
                 messagesSent++
                 
                 val result = ciphertext.copyOf(ciphertextLength)
-                Log.d(TAG, "Real encrypted ${data.size} bytes to ${result.size} bytes for $peerID (msg #$messagesSent)")
+                Log.d(TAG, "✅ ANDROID ENCRYPT: ${data.size} → ${result.size} bytes for $peerID (msg #$messagesSent, role: ${if (isInitiator) "INITIATOR" else "RESPONDER"})")
                 return result
                 
             } catch (e: Exception) {
@@ -420,7 +437,7 @@ class NoiseSession(
                 messagesReceived++
 
                 val result = plaintext.copyOf(plaintextLength)
-                Log.d(TAG, "Decrypted ${encryptedData.size} bytes to ${result.size} bytes from $peerID (msg #$messagesReceived)")
+                Log.d(TAG, "✅ ANDROID DECRYPT: ${encryptedData.size} → ${result.size} bytes from $peerID (msg #$messagesReceived, role: ${if (isInitiator) "INITIATOR" else "RESPONDER"})")
                 return result
             } catch (e: Exception) {
                 Log.e(TAG, "Decryption failed - exception: ${e.message}")
