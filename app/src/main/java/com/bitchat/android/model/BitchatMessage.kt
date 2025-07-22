@@ -1,6 +1,7 @@
 package com.bitchat.android.model
 
 import android.os.Parcelable
+import com.google.gson.GsonBuilder
 import kotlinx.parcelize.Parcelize
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -351,12 +352,16 @@ data class DeliveryAck(
     val recipientID: String,
     val recipientNickname: String,
     val timestamp: Date = Date(),
-    val hopCount: UByte
+    val hopCount: UInt
 ) : Parcelable {
+
+    private val gson = GsonBuilder()
+        .setDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'")
+        .create()
     
     fun encode(): ByteArray? {
         return try {
-            com.google.gson.Gson().toJson(this).toByteArray(Charsets.UTF_8)
+            gson.toJson(this).toByteArray(Charsets.UTF_8)
         } catch (e: Exception) {
             null
         }
