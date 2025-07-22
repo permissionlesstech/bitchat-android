@@ -55,18 +55,17 @@ android {
 }
 
 
-private fun getVersionName(): String = app.versions.major.get() +
-    ".${app.versions.minor.get()}" +
-    ".${app.versions.patch.get()}"
+private fun getVersionName(): String = listOf(
+    app.versions.major,
+    app.versions.minor,
+    app.versions.patch
+).joinToString(".") { it.get() }
 
 private fun getVersionCode(): Int = listOf(
-        app.versions.major.get().padStart(3, '0'),
-        app.versions.minor.get().padStart(3, '0'),
-        app.versions.patch.get().padStart(3, '0')
-    )
-    .joinToString("")
-    .toInt()
-
+    app.versions.major,
+    app.versions.minor,
+    app.versions.patch
+).joinToString("") { it.get().padStart(3, '0') }.toInt()
 
 dependencies {
     // Core Android dependencies
