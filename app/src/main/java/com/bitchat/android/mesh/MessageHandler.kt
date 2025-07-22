@@ -10,8 +10,6 @@ import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.*
-import org.json.JSONObject
-import java.security.MessageDigest
 import java.util.*
 import kotlin.random.Random
 
@@ -121,7 +119,7 @@ class MessageHandler(private val myPeerID: String) {
         
         try {
             // Parse the identity announcement
-            val announcement = parseNoiseIdentityAnnouncement(packet.payload)
+            val announcement = NoiseIdentityAnnouncement.fromBinaryData(packet.payload)
             if (announcement == null) {
                 Log.w(TAG, "Failed to parse Noise identity announcement from $peerID")
                 return
@@ -403,45 +401,6 @@ class MessageHandler(private val myPeerID: String) {
             appendLine("=== Message Handler Debug Info ===")
             appendLine("Handler Scope Active: ${handlerScope.isActive}")
             appendLine("My Peer ID: $myPeerID")
-        }
-    }
-    
-    /**
-     * Parse Noise identity announcement from payload
-     */
-    private fun parseNoiseIdentityAnnouncement(payload: ByteArray): NoiseIdentityAnnouncement? {
-        return try {
-            val jsonString = String(payload, Charsets.UTF_8)
-            val json = JSONObject(jsonString)
-            
-            val peerID = json.getString("peerID")
-            val nickname = json.getString("nickname")
-            val publicKeyBase64 = json.getString("publicKey")
-            val timestampMs = json.getLong("timestamp")
-            val signatureBase64 = json.getString("signature")
-            val previousPeerID = if (json.has("previousPeerID")) json.getString("previousPeerID") else null
-            
-            // Decode base64 fields
-            val publicKey = android.util.Base64.decode(publicKeyBase64, android.util.Base64.DEFAULT)
-            val signature = android.util.Base64.decode(signatureBase64, android.util.Base64.DEFAULT)
-            
-            // Calculate fingerprint from public key
-            val digest = MessageDigest.getInstance("SHA-256")
-            val hash = digest.digest(publicKey)
-            val fingerprint = hash.joinToString("") { "%02x".format(it) }
-            
-            NoiseIdentityAnnouncement(
-                peerID = peerID,
-                nickname = nickname,
-                publicKey = publicKey,
-                timestamp = Date(timestampMs),
-                signature = signature,
-                fingerprint = fingerprint,
-                previousPeerID = previousPeerID
-            )
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to parse Noise identity announcement: ${e.message}")
-            null
         }
     }
     

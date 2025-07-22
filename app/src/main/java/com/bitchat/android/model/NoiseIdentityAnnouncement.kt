@@ -1,5 +1,8 @@
 package com.bitchat.android.model
 
+import android.util.Log
+import org.json.JSONObject
+import java.security.MessageDigest
 import java.util.*
 
 /**
@@ -40,5 +43,48 @@ data class NoiseIdentityAnnouncement(
         result = 31 * result + (fingerprint?.hashCode() ?: 0)
         result = 31 * result + (previousPeerID?.hashCode() ?: 0)
         return result
+    }
+    
+    companion object {
+        private const val TAG = "NoiseIdentityAnnouncement"
+        
+        /**
+         * Parse Noise identity announcement from binary payload
+         */
+        fun fromBinaryData(payload: ByteArray): NoiseIdentityAnnouncement? {
+            return try {
+                val jsonString = String(payload, Charsets.UTF_8)
+                val json = JSONObject(jsonString)
+                
+                val peerID = json.getString("peerID")
+                val nickname = json.getString("nickname")
+                val publicKeyBase64 = json.getString("publicKey")
+                val timestampMs = json.getLong("timestamp")
+                val signatureBase64 = json.getString("signature")
+                val previousPeerID = if (json.has("previousPeerID")) json.getString("previousPeerID") else null
+                
+                // Decode base64 fields
+                val publicKey = android.util.Base64.decode(publicKeyBase64, android.util.Base64.DEFAULT)
+                val signature = android.util.Base64.decode(signatureBase64, android.util.Base64.DEFAULT)
+                
+                // Calculate fingerprint from public key
+                val digest = MessageDigest.getInstance("SHA-256")
+                val hash = digest.digest(publicKey)
+                val fingerprint = hash.joinToString("") { "%02x".format(it) }
+                
+                NoiseIdentityAnnouncement(
+                    peerID = peerID,
+                    nickname = nickname,
+                    publicKey = publicKey,
+                    timestamp = Date(timestampMs),
+                    signature = signature,
+                    fingerprint = fingerprint,
+                    previousPeerID = previousPeerID
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to parse Noise identity announcement: ${e.message}")
+                null
+            }
+        }
     }
 }
