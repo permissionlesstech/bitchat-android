@@ -338,11 +338,8 @@ class BluetoothGattClientManager(
                         if (status == 147) {
                             Log.e(TAG, "Client: Connection establishment failed (status 147) for $deviceAddress")
                         }
-                        // cleanup without removing the pending connection so we don't reattempt
-                        connectionTracker.cleanupDeviceConnection(deviceAddress, cleanupPending = false)
                     } else {
                         Log.d(TAG, "Client: Cleanly disconnected from $deviceAddress")
-                        // cleanup so we can reattempt connection later
                         connectionTracker.cleanupDeviceConnection(deviceAddress)
                     }
 
@@ -377,7 +374,7 @@ class BluetoothGattClientManager(
                     gatt.discoverServices()
                 } else {
                     Log.w(TAG, "MTU negotiation failed for $deviceAddress with status: $status. Disconnecting.")
-                    connectionTracker.removePendingConnection(deviceAddress)
+                    //connectionTracker.removePendingConnection(deviceAddress)
                     gatt.disconnect()
                 }
             }
@@ -458,13 +455,13 @@ class BluetoothGattClientManager(
             val gatt = device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
             if (gatt == null) {
                 Log.e(TAG, "connectGatt returned null for $deviceAddress")
-                connectionTracker.removePendingConnection(deviceAddress)
+                // connectionTracker.removePendingConnection(deviceAddress)
             } else {
                 Log.d(TAG, "Client: GATT connection initiated successfully for $deviceAddress")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Client: Exception connecting to $deviceAddress: ${e.message}")
-            connectionTracker.removePendingConnection(deviceAddress)
+            // connectionTracker.removePendingConnection(deviceAddress)
         }
     }
     

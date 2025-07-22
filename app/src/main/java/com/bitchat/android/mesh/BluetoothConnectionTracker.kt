@@ -244,17 +244,12 @@ class BluetoothConnectionTracker(
     /**
      * Clean up a specific device connection
      */
-    fun cleanupDeviceConnection(deviceAddress: String, cleanupPending: Boolean = true) {
+    fun cleanupDeviceConnection(deviceAddress: String) {
         connectedDevices.remove(deviceAddress)?.let { deviceConn ->
             subscribedDevices.removeAll { it.address == deviceAddress }
             addressPeerMap.remove(deviceAddress)
         }
-        if (!cleanupPending) {
-            Log.d(TAG, "Skipped cleanup of pending connection for $deviceAddress")
-        }
-        if (cleanupPending) {
-            pendingConnections.remove(deviceAddress)
-        }
+        pendingConnections.remove(deviceAddress)
         Log.d(TAG, "Cleaned up device connection for $deviceAddress")
     }
     
