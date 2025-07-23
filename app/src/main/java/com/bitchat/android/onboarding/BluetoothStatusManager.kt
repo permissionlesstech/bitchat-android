@@ -4,10 +4,12 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import com.bitchat.android.BluetoothStateReceiver
 
 /**
  * Manages Bluetooth enable/disable state and user prompts
@@ -23,13 +25,14 @@ class BluetoothStatusManager(
     companion object {
         private const val TAG = "BluetoothStatusManager"
     }
-
+    private lateinit var bluetoothStateReceiver: BluetoothStateReceiver
     private var bluetoothEnableLauncher: ActivityResultLauncher<Intent>? = null
     private var bluetoothAdapter: BluetoothAdapter? = null
 
     init {
         setupBluetoothAdapter()
         setupBluetoothEnableLauncher()
+        setupBluetoothStateReceiver()
     }
 
     /**
@@ -202,6 +205,39 @@ class BluetoothStatusManager(
      */
     fun logBluetoothStatus() {
         Log.d(TAG, getDiagnostics())
+    }
+
+    /**
+     * Sets up the BluetoothStateReceiver to listen for Bluetooth state changes (enabled/disabled).
+     * Registers the receiver to monitor Bluetooth state changes.
+     */
+    private fun setupBluetoothStateReceiver() {
+        bluetoothStateReceiver = BluetoothStateReceiver { bluetoothStatus ->
+            bluetoothStatus.let {
+                when (bluetoothStatus) {
+                    BluetoothStatus.ENABLED -> onBluetoothEnabled()
+                    BluetoothStatus.DISABLED -> onBluetoothDisabled("Bluetooth is required for bitchat to discover and connect to nearby users. Please enable Bluetooth to continue.")
+                    BluetoothStatus.NOT_SUPPORTED -> { /* Handle Bluetooth not supported scenario */ }
+                }
+            }
+        }
+        registerBluetoothStateReceiver()
+    }
+
+    /**
+     * Registers the BluetoothStateReceiver to listen for Bluetooth state changes.
+     * This should be called to start receiving Bluetooth state change broadcasts.
+     */
+    fun registerBluetoothStateReceiver(){
+        activity.registerReceiver(bluetoothStateReceiver, IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED))
+    }
+
+    /**
+     * Unregisters the BluetoothStateReceiver to stop receiving Bluetooth state change broadcasts.
+     * This should be called to clean up the receiver when it's no longer needed.
+     */
+    fun  unregisterBluetoothStateReceiver() {
+        activity.unregisterReceiver(bluetoothStateReceiver)
     }
 }
 

@@ -681,5 +681,6 @@ class MainActivity : ComponentActivity() {
                 Log.w("MainActivity", "Error stopping mesh services in onDestroy: ${e.message}")
             }
         }
+        bluetoothStatusManager.unregisterBluetoothStateReceiver()
     }
 }
