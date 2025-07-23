@@ -280,7 +280,7 @@ class MessageHandler(private val myPeerID: String) {
                 delegate?.onMessageReceived(message)
                 
                 // Send delivery ACK
-                delegate?.sendDeliveryAck(message, peerID)
+                // delegate?.sendDeliveryAck(message, peerID)
             }
             
         } catch (e: Exception) {
