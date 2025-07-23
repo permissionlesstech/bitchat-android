@@ -3,9 +3,6 @@ package com.bitchat.android.ui
 import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -15,19 +12,23 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bitchat.android.R
 import com.bitchat.android.core.ui.utils.singleOrTripleClickable
 
 /**
  * Header components for ChatScreen
  * Extracted from ChatScreen.kt for better organization
  */
+
+private fun isNicknameInvalid(nickname: String): Boolean {
+    return nickname.trim().isEmpty()
+}
 
 @Composable
 fun NicknameEditor(
@@ -318,13 +319,13 @@ private fun ChannelHeader(
             ) {
                 Icon(
                     imageVector = Icons.Filled.ArrowBack,
-                    contentDescription = "Back",
+                    contentDescription = stringResource(R.string.back),
                     modifier = Modifier.size(16.dp),
                     tint = colorScheme.primary
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "back",
+                    text = stringResource(R.string.back_label),
                     style = MaterialTheme.typography.bodyMedium,
                     color = colorScheme.primary
                 )
@@ -347,7 +348,7 @@ private fun ChannelHeader(
             modifier = Modifier.align(Alignment.CenterEnd)
         ) {
             Text(
-                text = "leave",
+                text = stringResource(R.string.leave),
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.Red
             )
@@ -381,7 +382,7 @@ private fun MainHeader(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "bitchat*",
+                text = stringResource(R.string.bitchat),
                 style = MaterialTheme.typography.headlineSmall,
                 color = colorScheme.primary,
                 modifier = Modifier.singleOrTripleClickable(
@@ -417,22 +418,23 @@ fun NicknameEditDialog(
     onSave: (String) -> Unit
 ) {
     var nicknameInput by remember { mutableStateOf(currentNickname) }
+    val isInvalid = isNicknameInvalid(nicknameInput)
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit Nickname") },
+        title = { Text(stringResource(R.string.edit_nickname_dialog_title)) },
         text = {
             Column {
                 OutlinedTextField(
                     value = nicknameInput,
                     onValueChange = { nicknameInput = it },
-                    label = { Text("Nickname") },
+                    label = { Text(stringResource(R.string.nickname_label)) },
                     singleLine = true,
-                    isError = nicknameInput.trim().isEmpty()
+                    isError = isInvalid
                 )
-                if (nicknameInput.trim().isEmpty()) {
+                if (isInvalid) {
                     Text(
-                        "Nickname cannot be empty",
+                        stringResource(R.string.nickname_empty_error),
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall
                     )
@@ -442,14 +444,14 @@ fun NicknameEditDialog(
         confirmButton = {
             TextButton(
                 onClick = { onSave(nicknameInput.trim()) },
-                enabled = nicknameInput.trim().isNotEmpty()
+                enabled = !isInvalid
             ) {
-                Text("Save")
+                Text(stringResource(R.string.save_button))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.cancel_button))
             }
         }
     )
