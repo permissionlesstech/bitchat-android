@@ -75,7 +75,7 @@ fun NoiseSessionIcon(
             )
         }
     }
-    
+
     Icon(
         imageVector = icon,
         contentDescription = contentDescription,
@@ -91,36 +91,42 @@ fun NicknameEditor(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val focusManager = LocalFocusManager.current
-    
+    val showDialog = remember { mutableStateOf(false) }
+
+    if (showDialog.value) {
+        NicknameEditDialog(
+            currentNickname = value,
+            onDismiss = { showDialog.value = false },
+            onSave = { newNick ->
+                onValueChange(newNick)
+                showDialog.value = false
+            }
+        )
+    }
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
+        modifier = modifier.clickable { showDialog.value = true }
     ) {
         Text(
             text = "@",
             style = MaterialTheme.typography.bodyMedium,
             color = colorScheme.primary.copy(alpha = 0.8f)
         )
-        
-        BasicTextField(
-            value = value,
-            onValueChange = onValueChange,
-            textStyle = MaterialTheme.typography.bodyMedium.copy(
+
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium.copy(
                 color = colorScheme.primary,
                 fontFamily = FontFamily.Monospace
             ),
-            cursorBrush = SolidColor(colorScheme.primary),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(
-                onDone = { 
-                    focusManager.clearFocus()
-                }
-            ),
-            modifier = Modifier.widthIn(max = 100.dp)
+            modifier = Modifier
+                .widthIn(max = 100.dp)
+                .padding(start = 2.dp)
         )
     }
 }
+
 
 @Composable
 fun PeerCounter(
@@ -133,10 +139,12 @@ fun PeerCounter(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier.clickable { onClick() }.padding(end = 8.dp) // Added right margin to match "bitchat" logo spacing
+        modifier = modifier
+            .clickable { onClick() }
+            .padding(end = 8.dp) // Added right margin to match "bitchat" logo spacing
     ) {
         if (hasUnreadChannels.values.any { it > 0 }) {
             // Channel icon in a Box to ensure consistent size with other icons
@@ -153,7 +161,7 @@ fun PeerCounter(
             }
             Spacer(modifier = Modifier.width(6.dp))
         }
-        
+
         if (hasUnreadPrivateMessages.isNotEmpty()) {
             // Filled mail icon to match sidebar style
             Icon(
@@ -164,7 +172,7 @@ fun PeerCounter(
             )
             Spacer(modifier = Modifier.width(6.dp))
         }
-        
+
         Icon(
             imageVector = Icons.Default.Group,
             contentDescription = "Connected peers",
@@ -179,7 +187,7 @@ fun PeerCounter(
             fontSize = 16.sp,
             fontWeight = FontWeight.Medium
         )
-        
+
         if (joinedChannels.isNotEmpty()) {
             Text(
                 text = " · ⧉ ${joinedChannels.size}",
@@ -211,7 +219,7 @@ fun ChatHeaderContent(
             val favoritePeers by viewModel.favoritePeers.observeAsState(emptySet())
             val peerFingerprints by viewModel.peerFingerprints.observeAsState(emptyMap())
             val peerSessionStates by viewModel.peerSessionStates.observeAsState(emptyMap())
-            
+
             // Reactive favorite computation - no more static lookups!
             val isFavorite = isFavoriteReactive(
                 peerID = selectedPrivatePeer,
@@ -219,7 +227,7 @@ fun ChatHeaderContent(
                 favoritePeers = favoritePeers
             )
             val sessionState = peerSessionStates[selectedPrivatePeer]
-            
+
             Log.d("ChatHeader", "Header recomposing: peer=$selectedPrivatePeer, isFav=$isFavorite, sessionState=$sessionState")
             
             PrivateChatHeader(
@@ -231,6 +239,7 @@ fun ChatHeaderContent(
                 onToggleFavorite = { viewModel.toggleFavorite(selectedPrivatePeer) }
             )
         }
+
         currentChannel != null -> {
             // Channel header
             ChannelHeader(
@@ -240,6 +249,7 @@ fun ChatHeaderContent(
                 onSidebarClick = onSidebarClick
             )
         }
+
         else -> {
             // Main header
             MainHeader(
@@ -265,7 +275,7 @@ private fun PrivateChatHeader(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val peerNickname = peerNicknames[peerID] ?: peerID
-    
+
     Box(modifier = Modifier.fillMaxWidth()) {
         // Back button - positioned all the way to the left with minimal margin
         Button(
@@ -274,7 +284,10 @@ private fun PrivateChatHeader(
                 containerColor = Color.Transparent,
                 contentColor = colorScheme.primary
             ),
-            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp), // Reduced horizontal padding
+            contentPadding = PaddingValues(
+                horizontal = 4.dp,
+                vertical = 4.dp
+            ), // Reduced horizontal padding
             modifier = Modifier
                 .align(Alignment.CenterStart)
                 .offset(x = (-8).dp) // Move even further left to minimize margin
@@ -296,19 +309,19 @@ private fun PrivateChatHeader(
                 )
             }
         }
-        
+
         // Title - perfectly centered regardless of other elements
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.align(Alignment.Center)
         ) {
-            
+
             // Reactive Noise session status icon
             NoiseSessionIcon(
                 sessionState = sessionState,
                 modifier = Modifier.size(14.dp)
             )
-            
+
             Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = peerNickname,
@@ -316,11 +329,14 @@ private fun PrivateChatHeader(
                 color = Color(0xFFFF9500) // Orange
             )
         }
-        
+
         // Favorite button - positioned on the right
         IconButton(
             onClick = {
-                Log.d("ChatHeader", "Header toggle favorite: peerID=$peerID, currentFavorite=$isFavorite")
+                Log.d(
+                    "ChatHeader",
+                    "Header toggle favorite: peerID=$peerID, currentFavorite=$isFavorite"
+                )
                 onToggleFavorite()
             },
             modifier = Modifier.align(Alignment.CenterEnd)
@@ -343,7 +359,7 @@ private fun ChannelHeader(
     onSidebarClick: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    
+
     Box(modifier = Modifier.fillMaxWidth()) {
         // Back button - positioned all the way to the left with minimal margin
         Button(
@@ -352,7 +368,10 @@ private fun ChannelHeader(
                 containerColor = Color.Transparent,
                 contentColor = colorScheme.primary
             ),
-            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp), // Reduced horizontal padding
+            contentPadding = PaddingValues(
+                horizontal = 4.dp,
+                vertical = 4.dp
+            ), // Reduced horizontal padding
             modifier = Modifier
                 .align(Alignment.CenterStart)
                 .offset(x = (-8).dp) // Move even further left to minimize margin
@@ -374,7 +393,7 @@ private fun ChannelHeader(
                 )
             }
         }
-        
+
         // Title - perfectly centered regardless of other elements
         Text(
             text = "channel: $channel",
@@ -384,7 +403,7 @@ private fun ChannelHeader(
                 .align(Alignment.Center)
                 .clickable { onSidebarClick() }
         )
-        
+
         // Leave button - positioned on the right
         TextButton(
             onClick = onLeaveChannel,
@@ -414,7 +433,7 @@ private fun MainHeader(
     val hasUnreadChannels by viewModel.unreadChannelMessages.observeAsState(emptyMap())
     val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.observeAsState(emptySet())
     val isConnected by viewModel.isConnected.observeAsState(false)
-    
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -433,15 +452,18 @@ private fun MainHeader(
                     onTripleClick = onTripleTitleClick
                 )
             )
-            
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+
             Spacer(modifier = Modifier.width(2.dp))
-            
+
             NicknameEditor(
                 value = nickname,
                 onValueChange = onNicknameChange
             )
         }
-        
+
         PeerCounter(
             connectedPeers = connectedPeers.filter { it != viewModel.meshService.myPeerID },
             joinedChannels = joinedChannels,
@@ -451,4 +473,50 @@ private fun MainHeader(
             onClick = onSidebarClick
         )
     }
+}
+
+
+@Composable
+fun NicknameEditDialog(
+    currentNickname: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit
+) {
+    var nicknameInput by remember { mutableStateOf(currentNickname) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Nickname") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = nicknameInput,
+                    onValueChange = { nicknameInput = it },
+                    label = { Text("Nickname") },
+                    singleLine = true,
+                    isError = nicknameInput.trim().isEmpty()
+                )
+                if (nicknameInput.trim().isEmpty()) {
+                    Text(
+                        "Nickname cannot be empty",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(nicknameInput.trim()) },
+                enabled = nicknameInput.trim().isNotEmpty()
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
