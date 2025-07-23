@@ -283,8 +283,10 @@ This Android port enables seamless communication with the original iOS bitchat a
 
 **iOS Version**: For iPhone/iPad users, get the original bitchat at [github.com/jackjackbits/bitchat](https://github.com/jackjackbits/bitchat)
 
-- **Terminal Windows/Linux/MacOS ↔ iOS/Android**: Use bitchat‑tui in your shell with full interopoperability
-- **bitchat‑tui**: Terminal client available at [github.com/vaibhav‑mattoo/bitchat‑tui](https://github.com/vaibhav-mattoo/bitchat-tui)
+Regarding other implementations, there is also **bitchat‑tui** for Windows, Linux, and macOS. It works seamlessly with both bitchat and bitchat‑android:
+
+- **Terminal (Windows/Linux/macOS) ↔ iOS/Android**: Use bitchat‑tui in your shell with full interoperability  
+- **bitchat‑tui**: Terminal client available at [github.com/vaibhav-mattoo/bitchat-tui](https://github.com/vaibhav-mattoo/bitchat-tui)
 
 ## Contributing
 
