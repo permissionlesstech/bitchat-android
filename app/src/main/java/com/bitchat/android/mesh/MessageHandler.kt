@@ -108,6 +108,11 @@ class MessageHandler(private val myPeerID: String) {
                     timestamp = Date() // Use current time instead of original timestamp
                 )
                 
+                // Auto-detect password-protected channels
+                if (message.channel != null && message.isEncrypted && message.encryptedContent != null) {
+                    delegate?.markChannelAsPasswordProtected(message.channel)
+                }
+                
                 delegate?.onMessageReceived(messageWithCurrentTime)
             }
             
@@ -354,6 +359,7 @@ interface MessageHandlerDelegate {
     
     // Callbacks
     fun onMessageReceived(message: BitchatMessage)
+    fun markChannelAsPasswordProtected(channel: String)
     fun onChannelLeave(channel: String, fromPeer: String)
     fun onPeerDisconnected(nickname: String)
     fun onDeliveryAckReceived(ack: DeliveryAck)

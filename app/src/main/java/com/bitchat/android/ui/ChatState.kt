@@ -62,6 +62,9 @@ class ChatState {
     private val _passwordProtectedChannels = MutableLiveData<Set<String>>(emptySet())
     val passwordProtectedChannels: LiveData<Set<String>> = _passwordProtectedChannels
     
+    private val _discoveredChannels = MutableLiveData<Set<String>>(emptySet())
+    val discoveredChannels: LiveData<Set<String>> = _discoveredChannels
+    
     private val _showPasswordPrompt = MutableLiveData<Boolean>(false)
     val showPasswordPrompt: LiveData<Boolean> = _showPasswordPrompt
     
@@ -116,6 +119,7 @@ class ChatState {
     fun getChannelMessagesValue() = _channelMessages.value ?: emptyMap()
     fun getUnreadChannelMessagesValue() = _unreadChannelMessages.value ?: emptyMap()
     fun getPasswordProtectedChannelsValue() = _passwordProtectedChannels.value ?: emptySet()
+    fun getDiscoveredChannelsValue() = _discoveredChannels.value ?: emptySet()
     fun getShowPasswordPromptValue() = _showPasswordPrompt.value ?: false
     fun getPasswordPromptChannelValue() = _passwordPromptChannel.value
     fun getShowSidebarValue() = _showSidebar.value ?: false
@@ -171,6 +175,10 @@ class ChatState {
     
     fun setPasswordProtectedChannels(channels: Set<String>) {
         _passwordProtectedChannels.value = channels
+    }
+    
+    fun setDiscoveredChannels(channels: Set<String>) {
+        _discoveredChannels.value = channels
     }
     
     fun setShowPasswordPrompt(show: Boolean) {

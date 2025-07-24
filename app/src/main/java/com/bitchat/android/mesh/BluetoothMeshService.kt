@@ -214,6 +214,10 @@ class BluetoothMeshService(private val context: Context) {
             override fun onReadReceiptReceived(receipt: ReadReceipt) {
                 delegate?.didReceiveReadReceipt(receipt)
             }
+            
+            override fun markChannelAsPasswordProtected(channel: String) {
+                delegate?.markChannelAsPasswordProtected(channel)
+            }
         }
         
         // PacketProcessor delegates
@@ -597,5 +601,6 @@ interface BluetoothMeshDelegate {
     fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String?
     fun getNickname(): String?
     fun isFavorite(peerID: String): Boolean
+    fun markChannelAsPasswordProtected(channel: String)
     fun registerPeerPublicKey(peerID: String, publicKeyData: ByteArray)
 }

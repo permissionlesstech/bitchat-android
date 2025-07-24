@@ -156,4 +156,10 @@ class MeshDelegateHandler(
     override fun registerPeerPublicKey(peerID: String, publicKeyData: ByteArray) {
         privateChatManager.registerPeerPublicKey(peerID, publicKeyData)
     }
+    
+    override fun markChannelAsPasswordProtected(channel: String) {
+        coroutineScope.launch {
+            channelManager.markChannelAsPasswordProtected(channel)
+        }
+    }
 }
