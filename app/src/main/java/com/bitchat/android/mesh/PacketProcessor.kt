@@ -115,21 +115,10 @@ class PacketProcessor(private val myPeerID: String) {
     /**
      * Handle Noise handshake message
      */
-    private suspend fun handleNoiseHandshake(routed: RoutedPacket, step: Int) {
+    private fun handleNoiseHandshake(routed: RoutedPacket, step: Int) {
         val peerID = routed.peerID ?: "unknown"
         Log.d(TAG, "Processing Noise handshake step $step from $peerID")
-        
-        val success = delegate?.handleNoiseHandshake(routed, step) ?: false
-        
-        if (success) {
-            // Handshake successful, may need to send announce and cached messages
-            // This will be determined by the Noise implementation when session is established
-            delay(100)
-            delegate?.sendAnnouncementToPeer(peerID)
-            
-            delay(500)
-            delegate?.sendCachedMessages(peerID)
-        }
+        delegate?.handleNoiseHandshake(routed, step)
     }
     
     /**

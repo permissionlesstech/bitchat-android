@@ -65,6 +65,7 @@ class BluetoothMeshService(private val context: Context) {
 
         // Wire up PacketProcessor reference for recursive handling in MessageHandler
         messageHandler.packetProcessor = packetProcessor
+        sendPeriodicBroadcastAnnounce()
         //startPeriodicDebugLogging()
     }
     
@@ -82,6 +83,22 @@ class BluetoothMeshService(private val context: Context) {
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Error in periodic debug logging: ${e.message}")
+                }
+            }
+        }
+    }
+
+    /**
+     * Send broadcast announcement every 10 seconds
+     */
+    private fun sendPeriodicBroadcastAnnounce() {
+        serviceScope.launch {
+            while (isActive) {
+                try {
+                    delay(10000) // 10 seconds
+                    sendBroadcastAnnounce()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error in periodic broadcast announce: ${e.message}")
                 }
             }
         }
@@ -604,6 +621,7 @@ class BluetoothMeshService(private val context: Context) {
      * Send broadcast announce
      */
     fun sendBroadcastAnnounce() {
+        Log.d(TAG, "Sending broadcast announce")
         serviceScope.launch {
             val nickname = delegate?.getNickname() ?: myPeerID
             
