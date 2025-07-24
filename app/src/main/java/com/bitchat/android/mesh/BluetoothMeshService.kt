@@ -299,6 +299,15 @@ class BluetoothMeshService(private val context: Context) {
                 peerManager.updatePeerLastSeen(peerID)
             }
             
+            // Network information for relay manager
+            override fun getNetworkSize(): Int {
+                return peerManager.getActivePeerCount()
+            }
+            
+            override fun getBroadcastRecipient(): ByteArray {
+                return SpecialRecipients.BROADCAST
+            }
+            
             override fun handleNoiseHandshake(routed: RoutedPacket, step: Int): Boolean {
                 return runBlocking { securityManager.handleNoiseHandshake(routed, step) }
             }

@@ -177,12 +177,7 @@ class MessageHandler(private val myPeerID: String) {
         // Notify delegate to handle peer management
         val isFirstAnnounce = delegate?.addOrUpdatePeer(peerID, nickname) ?: false
         
-        // Relay announce if TTL > 0
-        if (packet.ttl > 1u) {
-            val relayPacket = packet.copy(ttl = (packet.ttl - 1u).toUByte())
-            delay(Random.nextLong(100, 300))
-            delegate?.relayPacket(RoutedPacket(relayPacket, peerID, routed.relayAddress))
-        }
+        // Announce relay is now handled by centralized PacketRelayManager
         
         return isFirstAnnounce
     }
@@ -196,20 +191,15 @@ class MessageHandler(private val myPeerID: String) {
         if (peerID == myPeerID) return
         
         val recipientID = packet.recipientID?.takeIf { !it.contentEquals(delegate?.getBroadcastRecipient()) }
-        var recipientIDString = ""
-        if (recipientID != null) {
-            recipientIDString = recipientID.toHexString()
-        }
+        
         if (recipientID == null) {
             // BROADCAST MESSAGE
             handleBroadcastMessage(routed)
         } else if (recipientID.toHexString() == myPeerID) {
             // PRIVATE MESSAGE FOR US
             handlePrivateMessage(packet, peerID)
-        } else if (packet.ttl > 0u) {
-            // RELAY MESSAGE
-            relayMessage(routed)
         }
+        // Message relay is now handled by centralized PacketRelayManager
     }
     
     /**
@@ -248,8 +238,7 @@ class MessageHandler(private val myPeerID: String) {
                 delegate?.onMessageReceived(messageWithCurrentTime)
             }
             
-            // Relay broadcast messages
-            relayMessage(routed)
+            // Broadcast message relay is now handled by centralized PacketRelayManager
             
         } catch (e: Exception) {
             Log.e(TAG, "Failed to process broadcast message: ${e.message}")
@@ -308,11 +297,7 @@ class MessageHandler(private val myPeerID: String) {
             }
         }
         
-        // Relay if TTL > 0
-        if (packet.ttl > 1u) {
-            val relayPacket = packet.copy(ttl = (packet.ttl - 1u).toUByte())
-            delegate?.relayPacket(routed.copy(packet = relayPacket))
-        }
+        // Leave message relay is now handled by centralized PacketRelayManager
     }
     
     /**
@@ -333,11 +318,8 @@ class MessageHandler(private val myPeerID: String) {
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to decrypt delivery ACK: ${e.message}")
             }
-        } else if (packet.ttl > 0u && String(packet.senderID).replace("\u0000", "") != myPeerID) {
-            // Relay 
-            val relayPacket = packet.copy(ttl = (packet.ttl - 1u).toUByte())
-            delegate?.relayPacket(routed.copy(packet = relayPacket))
         }
+        // Delivery ACK relay is now handled by centralized PacketRelayManager
     }
     
     /**
@@ -358,39 +340,8 @@ class MessageHandler(private val myPeerID: String) {
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to decrypt read receipt: ${e.message}")
             }
-        } else if (packet.ttl > 0u && String(packet.senderID).replace("\u0000", "") != myPeerID) {
-            // Relay
-            val relayPacket = packet.copy(ttl = (packet.ttl - 1u).toUByte())
-            delegate?.relayPacket(routed.copy(packet = relayPacket))
         }
-    }
-    
-    /**
-     * Relay message with adaptive probability (same as iOS)
-     */
-    private suspend fun relayMessage(routed: RoutedPacket) {
-        val packet = routed.packet
-        if (packet.ttl == 0u.toUByte()) return
-        
-        val relayPacket = packet.copy(ttl = (packet.ttl - 1u).toUByte())
-        
-        // Check network size and apply adaptive relay probability
-        val networkSize = delegate?.getNetworkSize() ?: 1
-        val relayProb = when {
-            networkSize <= 10 -> 1.0
-            networkSize <= 30 -> 0.85
-            networkSize <= 50 -> 0.7
-            networkSize <= 100 -> 0.55
-            else -> 0.4
-        }
-        
-        val shouldRelay = relayPacket.ttl >= 4u || networkSize <= 3 || Random.nextDouble() < relayProb
-        
-        if (shouldRelay) {
-            val delay = Random.nextLong(50, 500) // Random delay like iOS
-            delay(delay)
-            delegate?.relayPacket(routed.copy(packet = relayPacket))
-        }
+        // Read receipt relay is now handled by centralized PacketRelayManager
     }
     
     /**

@@ -24,6 +24,9 @@ class PacketProcessor(private val myPeerID: String) {
     // Delegate for callbacks
     var delegate: PacketProcessorDelegate? = null
     
+    // Packet relay manager for centralized relay decisions
+    private val packetRelayManager = PacketRelayManager(myPeerID)
+    
     // Coroutines
     private val processorScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
@@ -51,6 +54,11 @@ class PacketProcessor(private val myPeerID: String) {
     // Cache actors to reuse them
     private val actors = mutableMapOf<String, kotlinx.coroutines.channels.SendChannel<RoutedPacket>>()
     
+    init {
+        // Set up the packet relay manager delegate immediately
+        setupRelayManager()
+    }
+    
     /**
      * Process received packet - main entry point for all incoming packets
      * SURGICAL FIX: Route to per-peer actor for serialized processing
@@ -69,6 +77,25 @@ class PacketProcessor(private val myPeerID: String) {
                 Log.w(TAG, "Failed to send packet to actor for $peerID: ${e.message}")
                 // Fallback to direct processing if actor fails
                 handleReceivedPacket(routed)
+            }
+        }
+    }
+    
+    /**
+     * Set up the packet relay manager with its delegate
+     */
+    fun setupRelayManager() {
+        packetRelayManager.delegate = object : PacketRelayManagerDelegate {
+            override fun getNetworkSize(): Int {
+                return delegate?.getNetworkSize() ?: 1
+            }
+            
+            override fun getBroadcastRecipient(): ByteArray {
+                return delegate?.getBroadcastRecipient() ?: ByteArray(0)
+            }
+            
+            override fun broadcastPacket(routed: RoutedPacket) {
+                delegate?.relayPacket(routed)
             }
         }
     }
@@ -107,9 +134,14 @@ class PacketProcessor(private val myPeerID: String) {
                 Log.w(TAG, "Unknown message type: ${packet.type}")
             }
         }
+        
         // Update last seen timestamp
-        if (validPacket)
+        if (validPacket) {
             delegate?.updatePeerLastSeen(peerID)
+            
+            // CENTRALIZED RELAY LOGIC: Handle relay decisions for all packets not addressed to us
+            packetRelayManager.handlePacketRelay(routed)
+        }
     }
     
     /**
@@ -186,11 +218,7 @@ class PacketProcessor(private val myPeerID: String) {
             handleReceivedPacket(RoutedPacket(reassembledPacket, routed.peerID, routed.relayAddress))
         }
         
-        // Relay fragment regardless of reassembly
-        if (routed.packet.ttl > 0u) {
-            val relayPacket = routed.packet.copy(ttl = (routed.packet.ttl - 1u).toUByte())
-            delegate?.relayPacket(RoutedPacket(relayPacket, routed.peerID, routed.relayAddress))
-        }
+        // Fragment relay is now handled by centralized PacketRelayManager
     }
     
     /**
@@ -240,6 +268,9 @@ class PacketProcessor(private val myPeerID: String) {
         }
         actors.clear()
         
+        // Shutdown the relay manager
+        packetRelayManager.shutdown()
+        
         // Cancel the main scope
         processorScope.cancel()
         
@@ -256,6 +287,10 @@ interface PacketProcessorDelegate {
     
     // Peer management
     fun updatePeerLastSeen(peerID: String)
+    
+    // Network information
+    fun getNetworkSize(): Int
+    fun getBroadcastRecipient(): ByteArray
     
     // Message type handlers
     fun handleNoiseHandshake(routed: RoutedPacket, step: Int): Boolean
