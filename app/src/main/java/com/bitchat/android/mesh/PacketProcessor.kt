@@ -11,8 +11,8 @@ import kotlinx.coroutines.channels.actor
 /**
  * Processes incoming packets and routes them to appropriate handlers
  * 
- * CRITICAL FIX: Per-peer packet serialization using Kotlin coroutine actors
- * This elegantly solves the race condition where multiple threads process packets
+ * Per-peer packet serialization using Kotlin coroutine actors
+ * Prevents race condition where multiple threads process packets
  * from the same peer simultaneously, causing session management conflicts.
  */
 class PacketProcessor(private val myPeerID: String) {
@@ -27,7 +27,7 @@ class PacketProcessor(private val myPeerID: String) {
     // Coroutines
     private val processorScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
-    // CRITICAL FIX: Per-peer actors to serialize packet processing
+    // Per-peer actors to serialize packet processing
     // Each peer gets its own actor that processes packets sequentially
     // This prevents race conditions in session management
     private val peerActors = mutableMapOf<String, CompletableDeferred<Unit>>()

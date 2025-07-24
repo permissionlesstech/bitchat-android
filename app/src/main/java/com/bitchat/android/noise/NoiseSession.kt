@@ -51,7 +51,7 @@ class NoiseSession(
     private var messagesSent = 0L
     private var messagesReceived = 0L
     
-    // CRITICAL FIX: Enhanced thread safety for cipher operations
+    // Thread safety for cipher operations
     // The noise-java CipherState objects are NOT thread-safe. Multiple concurrent
     // decrypt/encrypt operations can corrupt the internal nonce state.
     private val cipherLock = Any() // Dedicated lock for cipher operations

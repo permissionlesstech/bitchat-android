@@ -47,7 +47,7 @@ class BluetoothGattClientManager(
     // Scan management
     private var scanCallback: ScanCallback? = null
     
-    // CRITICAL FIX: Scan rate limiting to prevent "scanning too frequently" errors
+    // Scan rate limiting to prevent "scanning too frequently" errors
     private var lastScanStartTime = 0L
     private var lastScanStopTime = 0L
     private var isCurrentlyScanning = false
@@ -160,7 +160,7 @@ class BluetoothGattClientManager(
     private fun startScanning() {
         if (!permissionManager.hasBluetoothPermissions() || bleScanner == null || !isActive) return
         
-        // CRITICAL FIX: Rate limit scan starts to prevent "scanning too frequently" errors
+        // Rate limit scan starts to prevent "scanning too frequently" errors
         val currentTime = System.currentTimeMillis()
         if (isCurrentlyScanning) {
             Log.d(TAG, "Scan already in progress, skipping start request")
