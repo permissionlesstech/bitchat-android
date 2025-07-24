@@ -99,6 +99,16 @@ class BluetoothConnectionManager(
         try {
             isActive = true
 
+        // set the adapter's name to our 8-character peerID for iOS privacy, TODO: Make this configurable
+        // try {
+        //     if (bluetoothAdapter?.name != myPeerID) {
+        //         bluetoothAdapter?.name = myPeerID
+        //         Log.d(TAG, "Set Bluetooth adapter name to peerID: $myPeerID for iOS compatibility.")
+        //     }
+        // } catch (se: SecurityException) {
+        //     Log.e(TAG, "Missing BLUETOOTH_CONNECT permission to set adapter name.", se)
+        // }
+
             // Start all component managers
             connectionScope.launch {
                 // Start connection tracker first
