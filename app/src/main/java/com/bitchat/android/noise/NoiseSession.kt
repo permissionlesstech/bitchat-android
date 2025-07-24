@@ -35,6 +35,114 @@ class NoiseSession(
         
         // Maximum payload size for safety
         private const val MAX_PAYLOAD_SIZE = 256
+        
+        // Constants for replay protection (matching iOS implementation)
+        private const val NONCE_SIZE_BYTES = 8
+        private const val REPLAY_WINDOW_SIZE = 1024
+        private const val REPLAY_WINDOW_BYTES = REPLAY_WINDOW_SIZE / 8 // 128 bytes
+        private const val HIGH_NONCE_WARNING_THRESHOLD = 1_000_000_000L
+        
+        // MARK: - Sliding Window Replay Protection
+        
+        /**
+         * Check if nonce is valid for replay protection (matching iOS implementation)
+         */
+        private fun isValidNonce(receivedNonce: Long, highestReceivedNonce: Long, replayWindow: ByteArray): Boolean {
+            if (receivedNonce + REPLAY_WINDOW_SIZE <= highestReceivedNonce) {
+                return false  // Too old, outside window
+            }
+            
+            if (receivedNonce > highestReceivedNonce) {
+                return true  // Always accept newer nonces
+            }
+            
+            val offset = (highestReceivedNonce - receivedNonce).toInt()
+            val byteIndex = offset / 8
+            val bitIndex = offset % 8
+            
+            return (replayWindow[byteIndex].toInt() and (1 shl bitIndex)) == 0  // Not yet seen
+        }
+        
+        /**
+         * Mark nonce as seen in replay window (matching iOS implementation)
+         */
+        private fun markNonceAsSeen(receivedNonce: Long, highestReceivedNonce: Long, replayWindow: ByteArray): Pair<Long, ByteArray> {
+            var newHighestReceivedNonce = highestReceivedNonce
+            val newReplayWindow = replayWindow.copyOf()
+            
+            if (receivedNonce > highestReceivedNonce) {
+                val shift = (receivedNonce - highestReceivedNonce).toInt()
+                
+                if (shift >= REPLAY_WINDOW_SIZE) {
+                    // Clear entire window - shift is too large
+                    newReplayWindow.fill(0)
+                } else {
+                    // Shift window right by `shift` bits
+                    for (i in (REPLAY_WINDOW_BYTES - 1) downTo 0) {
+                        val sourceByteIndex = i - shift / 8
+                        var newByte = 0
+                        
+                        if (sourceByteIndex >= 0) {
+                            newByte = (newReplayWindow[sourceByteIndex].toInt() and 0xFF) ushr (shift % 8)
+                            if (sourceByteIndex > 0 && shift % 8 != 0) {
+                                newByte = newByte or ((newReplayWindow[sourceByteIndex - 1].toInt() and 0xFF) shl (8 - shift % 8))
+                            }
+                        }
+                        
+                        newReplayWindow[i] = (newByte and 0xFF).toByte()
+                    }
+                }
+                
+                newHighestReceivedNonce = receivedNonce
+                newReplayWindow[0] = (newReplayWindow[0].toInt() or 1).toByte()  // Mark most recent bit as seen
+            } else {
+                val offset = (highestReceivedNonce - receivedNonce).toInt()
+                val byteIndex = offset / 8
+                val bitIndex = offset % 8
+                newReplayWindow[byteIndex] = (newReplayWindow[byteIndex].toInt() or (1 shl bitIndex)).toByte()
+            }
+            
+            return Pair(newHighestReceivedNonce, newReplayWindow)
+        }
+        
+        /**
+         * Extract nonce from combined payload <nonce><ciphertext> (matching iOS implementation)
+         * Returns Pair of (nonce, ciphertext) or null if invalid
+         */
+        private fun extractNonceFromCiphertextPayload(combinedPayload: ByteArray): Pair<Long, ByteArray>? {
+            if (combinedPayload.size < NONCE_SIZE_BYTES) {
+                Log.w(TAG, "Combined payload too small: ${combinedPayload.size} < $NONCE_SIZE_BYTES")
+                throw Exception("Combined payload too small: ${combinedPayload.size} < $NONCE_SIZE_BYTES")
+            }
+            
+            try {
+                // Extract 8-byte nonce (big-endian)
+                var extractedNonce = 0L
+                for (i in 0 until NONCE_SIZE_BYTES) {
+                    extractedNonce = (extractedNonce shl 8) or (combinedPayload[i].toLong() and 0xFF)
+                }
+                // Extract ciphertext (remaining bytes)
+                val ciphertext = combinedPayload.copyOfRange(NONCE_SIZE_BYTES, combinedPayload.size)
+                Log.d(TAG, "Extracted nonce: $extractedNonce, ciphertext size: ${ciphertext.size}")
+                return Pair(extractedNonce, ciphertext)
+                
+            } catch (e: Exception) {
+                throw Exception("Failed to extract nonce from payload: ${e.message}")
+            }
+        }
+        
+        /**
+         * Convert nonce to 8-byte array (big-endian) (matching iOS implementation)
+         */
+        private fun nonceToBytes(nonce: Long): ByteArray {
+            val bytes = ByteArray(NONCE_SIZE_BYTES)
+            var value = nonce
+            for (i in (NONCE_SIZE_BYTES - 1) downTo 0) {
+                bytes[i] = (value and 0xFF).toByte()
+                value = value ushr 8
+            }
+            return bytes
+        }
     }
     
     // Noise Protocol objects
@@ -51,7 +159,11 @@ class NoiseSession(
     private var messagesSent = 0L
     private var messagesReceived = 0L
     
-    // Thread safety for cipher operations
+    // Sliding window replay protection (used during transport encryption/decryption)
+    private var highestReceivedNonce = 0L
+    private var replayWindow = ByteArray(REPLAY_WINDOW_BYTES)
+    
+    // CRITICAL FIX: Enhanced thread safety for cipher operations
     // The noise-java CipherState objects are NOT thread-safe. Multiple concurrent
     // decrypt/encrypt operations can corrupt the internal nonce state.
     private val cipherLock = Any() // Dedicated lock for cipher operations
@@ -342,6 +454,10 @@ class NoiseSession(
             messagesReceived = 0
             currentPattern = 0
             
+            // Reset sliding window replay protection for new transport phase
+            highestReceivedNonce = 0L
+            replayWindow = ByteArray(REPLAY_WINDOW_BYTES)
+            
             state = NoiseSessionState.Established
             Log.d(TAG, "Handshake completed with $peerID as isInitiator: $isInitiator - transport keys derived")
             Log.d(TAG, "✅ XX handshake completed with $peerID")
@@ -355,7 +471,8 @@ class NoiseSession(
     // MARK: - Transport Encryption
     
     /**
-     * Encrypt data in transport mode using real ChaCha20-Poly1305
+     * Encrypt data in transport mode using real ChaCha20-Poly1305 with nonce synchronization
+     * Returns: <nonce><ciphertext> where nonce is 8 bytes (matching iOS implementation)
      */
     fun encrypt(data: ByteArray): ByteArray {
         // Pre-check state without holding cipher lock
@@ -375,18 +492,37 @@ class NoiseSession(
             }
             
             try {
-                // assert that sendCipher!!.macLengt is 16:
+                // assert that sendCipher!!.macLength is 16:
                 if (sendCipher!!.macLength != 16) {
                     throw IllegalStateException("Send cipher MAC length is not 16")
                 }
                 
+                // Encrypt the data first
                 val ciphertext = ByteArray(data.size + sendCipher!!.macLength) // Add space for MAC tag
+                sendCipher!!.setNonce(messagesSent)
                 val ciphertextLength = sendCipher!!.encryptWithAd(null, data, 0, ciphertext, 0, data.size)
+                
+                // Get the current nonce before incrementing
+                val currentNonce = messagesSent
                 messagesSent++
                 
-                val result = ciphertext.copyOf(ciphertextLength)
-                Log.d(TAG, "✅ ANDROID ENCRYPT: ${data.size} → ${result.size} bytes for $peerID (msg #$messagesSent, role: ${if (isInitiator) "INITIATOR" else "RESPONDER"})")
-                return result
+                // Create combined payload: <nonce><ciphertext> (8 bytes for nonce)
+                val nonceBytes = nonceToBytes(currentNonce)
+                val combinedPayload = ByteArray(NONCE_SIZE_BYTES + ciphertextLength)
+                
+                // Copy nonce (first 8 bytes)
+                System.arraycopy(nonceBytes, 0, combinedPayload, 0, NONCE_SIZE_BYTES)
+                
+                // Copy ciphertext (remaining bytes)
+                System.arraycopy(ciphertext, 0, combinedPayload, NONCE_SIZE_BYTES, ciphertextLength)
+                
+                // Log high nonce values that might indicate issues
+                if (currentNonce > HIGH_NONCE_WARNING_THRESHOLD) {
+                    Log.w(TAG, "High nonce value detected: $currentNonce - consider rekeying")
+                }
+                
+                Log.d(TAG, "✅ ANDROID ENCRYPT: ${data.size} → ${combinedPayload.size} bytes (nonce: $currentNonce, ciphertextLength+TAG: ${ciphertextLength}) for $peerID (msg #$messagesSent, role: ${if (isInitiator) "INITIATOR" else "RESPONDER"})")
+                return combinedPayload
                 
             } catch (e: Exception) {
                 Log.e(TAG, "Real encryption failed - exception: ${e.message}")
@@ -402,9 +538,10 @@ class NoiseSession(
     }
     
     /**
-     * Decrypt data in transport mode using real ChaCha20-Poly1305
+     * Decrypt data in transport mode using real ChaCha20-Poly1305 with sliding window replay protection
+     * Expects: <nonce><ciphertext> where nonce is 8 bytes (matching iOS implementation)
      */
-    fun decrypt(encryptedData: ByteArray): ByteArray {
+    fun decrypt(combinedPayload: ByteArray): ByteArray {
         // Pre-check state without holding cipher lock
         if (!isEstablished()) {
             throw IllegalStateException("Session not established")
@@ -422,13 +559,41 @@ class NoiseSession(
             }
 
             try {
-                val plaintext = ByteArray(encryptedData.size) // Over-allocate for safety
-                val plaintextLength = receiveCipher!!.decryptWithAd(null, encryptedData, 0, plaintext, 0, encryptedData.size)
-                messagesReceived++
+                // Extract nonce and ciphertext from combined payload
+                val nonceAndCiphertext = extractNonceFromCiphertextPayload(combinedPayload)
+                if (nonceAndCiphertext == null) {
+                    Log.e(TAG, "Failed to extract nonce from payload for $peerID")
+                    throw SessionError.DecryptionFailed
+                }
+                
+                val (extractedNonce, ciphertext) = nonceAndCiphertext
+                
+                // Validate nonce with sliding window replay protection
+                if (!isValidNonce(extractedNonce, highestReceivedNonce, replayWindow)) {
+                    Log.w(TAG, "Replay attack detected: nonce $extractedNonce rejected for $peerID")
+                    throw SessionError.DecryptionFailed
+                }
+                
+                // Use the extracted nonce for decryption
+                val plaintext = ByteArray(ciphertext.size) 
+
+                 receiveCipher!!.setNonce(extractedNonce)
+                val plaintextLength = receiveCipher!!.decryptWithAd(null, ciphertext, 0, plaintext, 0, ciphertext.size)
+                
+                // Mark nonce as seen after successful decryption
+                val (newHighestReceivedNonce, newReplayWindow) = markNonceAsSeen(extractedNonce, highestReceivedNonce, replayWindow)
+                highestReceivedNonce = newHighestReceivedNonce
+                replayWindow = newReplayWindow
+
+                // Log high nonce values that might indicate issues
+                if (extractedNonce > HIGH_NONCE_WARNING_THRESHOLD) {
+                    Log.w(TAG, "High nonce value detected: $extractedNonce - consider rekeying")
+                }
 
                 val result = plaintext.copyOf(plaintextLength)
-                Log.d(TAG, "✅ ANDROID DECRYPT: ${encryptedData.size} → ${result.size} bytes from $peerID (msg #$messagesReceived, role: ${if (isInitiator) "INITIATOR" else "RESPONDER"})")
+                Log.d(TAG, "✅ ANDROID DECRYPT: ${combinedPayload.size} → ${result.size} bytes from $peerID (nonce: $extractedNonce, highest: $highestReceivedNonce, role: ${if (isInitiator) "INITIATOR" else "RESPONDER"})")
                 return result
+                
             } catch (e: Exception) {
                 Log.e(TAG, "Decryption failed - exception: ${e.message}")
                 
@@ -436,8 +601,8 @@ class NoiseSession(
                 if (receiveCipher != null) {
                     Log.e(TAG, "Receive cipher state: ${receiveCipher!!.javaClass.simpleName}")
                 }
-                Log.e(TAG, "Session state: $state, messages received: $messagesReceived")
-                Log.e(TAG, "Input data size: ${encryptedData.size} bytes")
+                Log.e(TAG, "Session state: $state, highest received nonce: $highestReceivedNonce")
+                Log.e(TAG, "Input data size: ${combinedPayload.size} bytes")
                 
                 throw SessionError.DecryptionFailed
             }
@@ -501,6 +666,11 @@ class NoiseSession(
             state = NoiseSessionState.Uninitialized
             messagesSent = 0
             messagesReceived = 0
+            
+            // Reset sliding window replay protection
+            highestReceivedNonce = 0L
+            replayWindow = ByteArray(REPLAY_WINDOW_BYTES)
+            
             remoteStaticPublicKey = null
             handshakeHash = null
         } catch (e: Exception) {
