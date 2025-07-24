@@ -11,6 +11,9 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
     }
+    versionCatalogs {
+        create("app") { from(files("gradle/app.version.toml")) }
+    }
 }
 
 rootProject.name = "bitchat-android"

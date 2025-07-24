@@ -10,11 +10,10 @@ android {
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.bitchat.android"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 5
-        versionName = "0.7.2"
+        versionName = getVersionName()
+        versionCode = getVersionCode()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -40,6 +39,7 @@ android {
         jvmTarget = "1.8"
     }
     buildFeatures {
+        buildConfig = true
         compose = true
     }
     packaging {
@@ -53,6 +53,19 @@ android {
         checkReleaseBuilds = false
     }
 }
+
+
+private fun getVersionName(): String = listOf(
+    app.versions.major,
+    app.versions.minor,
+    app.versions.patch
+).joinToString(".") { it.get() }
+
+private fun getVersionCode(): Int = listOf(
+    app.versions.major,
+    app.versions.minor,
+    app.versions.patch
+).joinToString("") { it.get().padStart(3, '0') }.toInt()
 
 dependencies {
     // Core Android dependencies
