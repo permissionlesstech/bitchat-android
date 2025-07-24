@@ -327,9 +327,9 @@ class CommandProcessor(
     }
     
     // MARK: - Command Autocomplete
-    
+
     fun updateCommandSuggestions(input: String) {
-        if (!input.startsWith("/") || input.length < 1) {
+        if (!input.startsWith("/")) {
             state.setShowCommandSuggestions(false)
             state.setCommandSuggestions(emptyList())
             return

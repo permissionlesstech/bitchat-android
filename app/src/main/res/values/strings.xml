@@ -10,6 +10,7 @@
     <string name="join_channel">Join Channel</string>
     <string name="leave_channel">Leave</string>
     <string name="send_message">Send</string>
+    <string name="show_commands">Show commands</string>
     <string name="back">Back</string>
     <string name="people">People</string>
     <string name="channels">Channels</string>
