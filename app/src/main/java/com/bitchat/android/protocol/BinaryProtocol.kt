@@ -7,21 +7,35 @@ import java.nio.ByteOrder
 import java.util.*
 
 /**
- * Message types - exact same as iOS version
+ * Message types - exact same as iOS version with Noise Protocol support
  */
 enum class MessageType(val value: UByte) {
     ANNOUNCE(0x01u),
-    KEY_EXCHANGE(0x02u),
+    // 0x02 was legacy keyExchange - removed
     LEAVE(0x03u),
-    MESSAGE(0x04u),
+    MESSAGE(0x04u),  // All user messages (private and broadcast)
     FRAGMENT_START(0x05u),
     FRAGMENT_CONTINUE(0x06u),
     FRAGMENT_END(0x07u),
-    CHANNEL_ANNOUNCE(0x08u),
-    CHANNEL_RETENTION(0x09u),
-    DELIVERY_ACK(0x0Au),
-    DELIVERY_STATUS_REQUEST(0x0Bu),
-    READ_RECEIPT(0x0Cu);
+    CHANNEL_ANNOUNCE(0x08u),  // Announce password-protected channel status
+    CHANNEL_RETENTION(0x09u),  // Announce channel retention status
+    DELIVERY_ACK(0x0Au),  // Acknowledge message received
+    DELIVERY_STATUS_REQUEST(0x0Bu),  // Request delivery status update
+    READ_RECEIPT(0x0Cu),  // Message has been read/viewed
+    
+    // Noise Protocol messages - exact same as iOS
+    NOISE_HANDSHAKE_INIT(0x10u),  // Noise handshake initiation
+    NOISE_HANDSHAKE_RESP(0x11u),  // Noise handshake response
+    NOISE_ENCRYPTED(0x12u),       // Noise encrypted transport message
+    NOISE_IDENTITY_ANNOUNCE(0x13u),  // Announce static public key for discovery
+    CHANNEL_KEY_VERIFY_REQUEST(0x14u),  // Request key verification for a channel
+    CHANNEL_KEY_VERIFY_RESPONSE(0x15u), // Response to key verification request
+    CHANNEL_PASSWORD_UPDATE(0x16u),     // Distribute new password to channel members
+    CHANNEL_METADATA(0x17u),            // Announce channel creator and metadata
+    
+    // Protocol version negotiation
+    VERSION_HELLO(0x20u),               // Initial version announcement
+    VERSION_ACK(0x21u);                 // Version acknowledgment
 
     companion object {
         fun fromValue(value: UByte): MessageType? {
@@ -74,7 +88,7 @@ data class BitchatPacket(
     ) : this(
         version = 1u,
         type = type,
-        senderID = senderID.toByteArray(),
+        senderID = hexStringToByteArray(senderID),
         recipientID = null,
         timestamp = (System.currentTimeMillis()).toULong(),
         payload = payload,
@@ -89,6 +103,27 @@ data class BitchatPacket(
     companion object {
         fun fromBinaryData(data: ByteArray): BitchatPacket? {
             return BinaryProtocol.decode(data)
+        }
+        
+        /**
+         * Convert hex string peer ID to binary data (8 bytes) - exactly same as iOS
+         */
+        private fun hexStringToByteArray(hexString: String): ByteArray {
+            val result = ByteArray(8) { 0 } // Initialize with zeros, exactly 8 bytes
+            var tempID = hexString
+            var index = 0
+            
+            while (tempID.length >= 2 && index < 8) {
+                val hexByte = tempID.substring(0, 2)
+                val byte = hexByte.toIntOrNull(16)?.toByte()
+                if (byte != null) {
+                    result[index] = byte
+                }
+                tempID = tempID.substring(2)
+                index++
+            }
+            
+            return result
         }
     }
 
@@ -219,7 +254,12 @@ object BinaryProtocol {
             val result = ByteArray(buffer.position())
             buffer.rewind()
             buffer.get(result)
-            return result
+            
+            // Apply padding to standard block sizes for traffic analysis resistance
+            val optimalSize = MessagePadding.optimalBlockSize(result.size)
+            val paddedData = MessagePadding.pad(result, optimalSize)
+            
+            return paddedData
             
         } catch (e: Exception) {
             return null
@@ -228,9 +268,12 @@ object BinaryProtocol {
     
     fun decode(data: ByteArray): BitchatPacket? {
         try {
-            if (data.size < HEADER_SIZE + SENDER_ID_SIZE) return null
+            // Remove padding first - exactly same as iOS
+            val unpaddedData = MessagePadding.unpad(data)
             
-            val buffer = ByteBuffer.wrap(data).apply { order(ByteOrder.BIG_ENDIAN) }
+            if (unpaddedData.size < HEADER_SIZE + SENDER_ID_SIZE) return null
+            
+            val buffer = ByteBuffer.wrap(unpaddedData).apply { order(ByteOrder.BIG_ENDIAN) }
             
             // Header
             val version = buffer.get().toUByte()
@@ -256,7 +299,7 @@ object BinaryProtocol {
             if (hasRecipient) expectedSize += RECIPIENT_ID_SIZE
             if (hasSignature) expectedSize += SIGNATURE_SIZE
             
-            if (data.size < expectedSize) return null
+            if (unpaddedData.size < expectedSize) return null
             
             // SenderID
             val senderID = ByteArray(SENDER_ID_SIZE)
@@ -308,27 +351,5 @@ object BinaryProtocol {
         } catch (e: Exception) {
             return null
         }
-    }
-}
-
-/**
- * Compression utilities - temporarily disabled for initial build
- */
-object CompressionUtil {
-    private const val COMPRESSION_THRESHOLD = 100  // bytes
-    
-    fun shouldCompress(data: ByteArray): Boolean {
-        // Temporarily disabled compression
-        return false
-    }
-    
-    fun compress(data: ByteArray): ByteArray? {
-        // Temporarily disabled compression
-        return null
-    }
-    
-    fun decompress(compressedData: ByteArray, originalSize: Int): ByteArray? {
-        // Temporarily disabled compression
-        return null
     }
 }

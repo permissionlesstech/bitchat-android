@@ -5,6 +5,7 @@ import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.model.RoutedPacket
+import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.*
 import java.util.*
 import kotlin.collections.mutableSetOf
@@ -84,6 +85,65 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         
         Log.d(TAG, "Packet validation passed for $peerID, messageID: $messageID")
         return true
+    }
+    
+    /**
+     * Handle Noise handshake packet
+     */
+    suspend fun handleNoiseHandshake(routed: RoutedPacket, step: Int): Boolean {
+        val packet = routed.packet
+        val peerID = routed.peerID ?: "unknown"
+
+        // Skip handshakes not addressed to us
+        if (packet.recipientID?.toHexString() != myPeerID) {
+            Log.d(TAG, "Skipping handshake not addressed to us: $peerID")
+            return false
+        }
+            
+        // Skip our own handshake messages
+        if (peerID == myPeerID) return false
+
+        if (encryptionService.hasEstablishedSession(peerID)) {
+            Log.d(TAG, "Handshake already completed with $peerID")
+            return true
+        }
+        
+        if (packet.payload.isEmpty()) {
+            Log.w(TAG, "Noise handshake packet has empty payload")
+            return false
+        }
+        
+        // Prevent duplicate handshake processing
+        val exchangeKey = "$peerID-${packet.payload.sliceArray(0 until minOf(16, packet.payload.size)).contentHashCode()}"
+        
+        if (processedKeyExchanges.contains(exchangeKey)) {
+            Log.d(TAG, "Already processed handshake: $exchangeKey")
+            return false
+        }
+        Log.d(TAG, "Processing Noise handshake step $step from $peerID (${packet.payload.size} bytes)")
+        processedKeyExchanges.add(exchangeKey)
+        
+        try {
+            // Process the Noise handshake through the updated EncryptionService
+            val response = encryptionService.processHandshakeMessage(packet.payload, peerID)
+            
+            if (response != null) {
+                Log.d(TAG, "Successfully processed Noise handshake step $step from $peerID, sending response")
+                // Send handshake response through delegate
+                delegate?.sendHandshakeResponse(peerID, response)
+            }
+            // Check if session is now established (handshake complete)
+            if (encryptionService.hasEstablishedSession(peerID)) {
+                Log.d(TAG, "✅ Noise handshake completed with $peerID")
+                delegate?.onKeyExchangeCompleted(peerID, packet.payload, routed.relayAddress)
+            }
+            return true
+
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to process Noise handshake from $peerID: ${e.message}")
+            return false
+        }
     }
     
     /**
@@ -209,9 +269,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
      * Check if we have encryption keys for a peer
      */
     fun hasKeysForPeer(peerID: String): Boolean {
-        // This would need to be implemented in EncryptionService
-        // For now, we'll assume we have keys if we processed a key exchange
-        return processedKeyExchanges.any { it.startsWith("$peerID-") }
+        return encryptionService.hasEstablishedSession(peerID)
     }
     
     /**
@@ -320,4 +378,5 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
  */
 interface SecurityManagerDelegate {
     fun onKeyExchangeCompleted(peerID: String, peerPublicKeyData: ByteArray, receivedAddress: String?)
+    fun sendHandshakeResponse(peerID: String, response: ByteArray)
 }
