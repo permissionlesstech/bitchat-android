@@ -455,12 +455,14 @@ class BluetoothGattClientManager(
             val gatt = device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
             if (gatt == null) {
                 Log.e(TAG, "connectGatt returned null for $deviceAddress")
+                // keep the pending connection so we can avoid too many reconnections attempts, TODO: needs testing
                 // connectionTracker.removePendingConnection(deviceAddress)
             } else {
                 Log.d(TAG, "Client: GATT connection initiated successfully for $deviceAddress")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Client: Exception connecting to $deviceAddress: ${e.message}")
+            // keep the pending connection so we can avoid too many reconnections attempts, TODO: needs testing
             // connectionTracker.removePendingConnection(deviceAddress)
         }
     }
