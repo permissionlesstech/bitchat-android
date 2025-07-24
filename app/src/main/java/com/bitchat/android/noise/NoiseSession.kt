@@ -37,7 +37,7 @@ class NoiseSession(
         private const val MAX_PAYLOAD_SIZE = 256
         
         // Constants for replay protection (matching iOS implementation)
-        private const val NONCE_SIZE_BYTES = 8
+        private const val NONCE_SIZE_BYTES = 4
         private const val REPLAY_WINDOW_SIZE = 1024
         private const val REPLAY_WINDOW_BYTES = REPLAY_WINDOW_SIZE / 8 // 128 bytes
         private const val HIGH_NONCE_WARNING_THRESHOLD = 1_000_000_000L
@@ -116,7 +116,7 @@ class NoiseSession(
             }
             
             try {
-                // Extract 8-byte nonce (big-endian)
+                // Extract 4-byte nonce (big-endian)
                 var extractedNonce = 0L
                 for (i in 0 until NONCE_SIZE_BYTES) {
                     extractedNonce = (extractedNonce shl 8) or (combinedPayload[i].toLong() and 0xFF)
@@ -132,7 +132,7 @@ class NoiseSession(
         }
         
         /**
-         * Convert nonce to 8-byte array (big-endian) (matching iOS implementation)
+         * Convert nonce to 4-byte array (big-endian) (matching iOS implementation)
          */
         private fun nonceToBytes(nonce: Long): ByteArray {
             val bytes = ByteArray(NONCE_SIZE_BYTES)
@@ -472,7 +472,7 @@ class NoiseSession(
     
     /**
      * Encrypt data in transport mode using real ChaCha20-Poly1305 with nonce synchronization
-     * Returns: <nonce><ciphertext> where nonce is 8 bytes (matching iOS implementation)
+     * Returns: <nonce><ciphertext> where nonce is 4 bytes (matching iOS implementation)
      */
     fun encrypt(data: ByteArray): ByteArray {
         // Pre-check state without holding cipher lock
@@ -491,6 +491,11 @@ class NoiseSession(
                 throw IllegalStateException("Send cipher not available")
             }
             
+            // Check if nonce exceeds 4-byte limit (UInt32 max value)
+            if (messagesSent > UInt.MAX_VALUE.toLong() - 1) {
+                throw SessionError.NonceExceeded("Nonce value $messagesSent exceeds 4-byte limit")
+            }
+            
             try {
                 // assert that sendCipher!!.macLength is 16:
                 if (sendCipher!!.macLength != 16) {
@@ -506,11 +511,11 @@ class NoiseSession(
                 val currentNonce = messagesSent
                 messagesSent++
                 
-                // Create combined payload: <nonce><ciphertext> (8 bytes for nonce)
+                // Create combined payload: <nonce><ciphertext> (4 bytes for nonce)
                 val nonceBytes = nonceToBytes(currentNonce)
                 val combinedPayload = ByteArray(NONCE_SIZE_BYTES + ciphertextLength)
                 
-                // Copy nonce (first 8 bytes)
+                // Copy nonce (first 4 bytes)
                 System.arraycopy(nonceBytes, 0, combinedPayload, 0, NONCE_SIZE_BYTES)
                 
                 // Copy ciphertext (remaining bytes)
@@ -539,7 +544,7 @@ class NoiseSession(
     
     /**
      * Decrypt data in transport mode using real ChaCha20-Poly1305 with sliding window replay protection
-     * Expects: <nonce><ciphertext> where nonce is 8 bytes (matching iOS implementation)
+     * Expects: <nonce><ciphertext> where nonce is 4 bytes (matching iOS implementation)
      */
     fun decrypt(combinedPayload: ByteArray): ByteArray {
         // Pre-check state without holding cipher lock
@@ -723,4 +728,5 @@ sealed class SessionError(message: String, cause: Throwable? = null) : Exception
     object EncryptionFailed : SessionError("Encryption failed")
     object DecryptionFailed : SessionError("Decryption failed")
     class HandshakeInitializationFailed(message: String) : SessionError("Handshake initialization failed: $message")
+    class NonceExceeded(message: String) : SessionError(message)
 }
