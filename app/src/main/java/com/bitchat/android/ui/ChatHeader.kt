@@ -166,7 +166,7 @@ fun PeerCounter(
         }
         
         Icon(
-            imageVector = Icons.Default.Person,
+            imageVector = Icons.Default.Group,
             contentDescription = "Connected peers",
             modifier = Modifier.size(16.dp),
             tint = if (isConnected) Color(0xFF00C851) else Color.Red

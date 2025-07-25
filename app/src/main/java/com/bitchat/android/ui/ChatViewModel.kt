@@ -124,11 +124,11 @@ class ChatViewModel(
         
         // Show welcome message if no peers after delay
         viewModelScope.launch {
-            delay(3000)
+            delay(10000)
             if (state.getConnectedPeersValue().isEmpty() && state.getMessagesValue().isEmpty()) {
                 val welcomeMessage = BitchatMessage(
                     sender = "system",
-                    content = "get people around you to download bitchat…and chat with them here!",
+                    content = "get people around you to download bitchat and chat with them here!",
                     timestamp = Date(),
                     isRelay = false
                 )
