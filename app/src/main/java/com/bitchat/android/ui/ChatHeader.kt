@@ -53,18 +53,18 @@ fun NoiseSessionIcon(
 ) {
     val (icon, color, contentDescription) = when (sessionState) {
         "uninitialized" -> Triple(
-            Icons.Outlined.Lock,
-            Color(0xFFFF9500), // Orange - ready to establish
+            Icons.Outlined.NoEncryption,
+            Color(0x87878700), // Grey - ready to establish
             "Ready for handshake"
         )
         "handshaking" -> Triple(
             Icons.Outlined.Sync,
-            Color(0xFFFFD700), // Yellow - in progress
+            Color(0x87878700), // Grey - in progress
             "Handshake in progress"
         )
         "established" -> Triple(
-            Icons.Filled.Security,
-            Color(0xFF00C851), // Green - secure
+            Icons.Filled.Lock,
+            Color(0xFFFF9500), // Orange - secure
             "End-to-end encrypted"
         )
         else -> { // "failed" or any other state
