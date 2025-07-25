@@ -94,7 +94,7 @@ class PeerManager {
         peerRSSI.remove(peerID)
         announcedPeers.remove(peerID)
         announcedToPeers.remove(peerID)
-        
+
         if (notifyDelegate && nickname != null) {
             delegate?.onPeerDisconnected(nickname)
             notifyPeerListUpdate()
