@@ -864,6 +864,13 @@ class BluetoothMeshService(private val context: Context) {
     }
     
     /**
+     * Get session state for a peer (for UI state display)
+     */
+    fun getSessionState(peerID: String): com.bitchat.android.noise.NoiseSession.NoiseSessionState {
+        return encryptionService.getSessionState(peerID)
+    }
+    
+    /**
      * Initiate Noise handshake with a specific peer (public API)
      */
     fun initiateNoiseHandshake(peerID: String) {

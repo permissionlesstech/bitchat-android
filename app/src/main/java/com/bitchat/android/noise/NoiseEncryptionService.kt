@@ -145,6 +145,13 @@ class NoiseEncryptionService(private val context: Context) {
         return sessionManager.hasEstablishedSession(peerID)
     }
     
+    /**
+     * Get session state for a peer (for UI state display)
+     */
+    fun getSessionState(peerID: String): NoiseSession.NoiseSessionState {
+        return sessionManager.getSessionState(peerID)
+    }
+    
     // MARK: - Encryption/Decryption
     
     /**

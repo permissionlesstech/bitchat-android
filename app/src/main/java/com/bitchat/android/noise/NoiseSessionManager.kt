@@ -158,6 +158,13 @@ class NoiseSessionManager(
     }
     
     /**
+     * Get session state for a peer (for UI state display)
+     */
+    fun getSessionState(peerID: String): NoiseSession.NoiseSessionState {
+        return getSession(peerID)?.getState() ?: NoiseSession.NoiseSessionState.Uninitialized
+    }
+    
+    /**
      * Get remote static public key for a peer (if session established)
      */
     fun getRemoteStaticKey(peerID: String): ByteArray? {

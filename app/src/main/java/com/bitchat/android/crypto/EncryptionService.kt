@@ -170,6 +170,13 @@ class EncryptionService(private val context: Context) {
     }
     
     /**
+     * Get session state for a peer (for UI state display)
+     */
+    fun getSessionState(peerID: String): com.bitchat.android.noise.NoiseSession.NoiseSessionState {
+        return noiseService.getSessionState(peerID)
+    }
+    
+    /**
      * Get encryption icon state for UI
      */
     fun shouldShowEncryptionIcon(peerID: String): Boolean {

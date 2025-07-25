@@ -80,6 +80,7 @@ class ChatViewModel(
     val showCommandSuggestions: LiveData<Boolean> = state.showCommandSuggestions
     val commandSuggestions: LiveData<List<CommandSuggestion>> = state.commandSuggestions
     val favoritePeers: LiveData<Set<String>> = state.favoritePeers
+    val peerSessionStates: LiveData<Map<String, String>> = state.peerSessionStates
     val showAppInfo: LiveData<Boolean> = state.showAppInfo
     
     init {
@@ -114,6 +115,9 @@ class ChatViewModel(
         // Log all favorites at startup
         dataManager.logAllFavorites()
         logCurrentFavoriteState()
+        
+        // Initialize session state monitoring
+        initializeSessionStateMonitoring()
         
         // Note: Mesh service is now started by MainActivity
         
@@ -277,6 +281,29 @@ class ChatViewModel(
         Log.i("ChatViewModel", "DataManager favorite peers: ${dataManager.favoritePeers}")
         Log.i("ChatViewModel", "Peer fingerprints: ${privateChatManager.getAllPeerFingerprints()}")
         Log.i("ChatViewModel", "==============================")
+    }
+    
+    /**
+     * Initialize session state monitoring for reactive UI updates
+     */
+    private fun initializeSessionStateMonitoring() {
+        viewModelScope.launch {
+            while (true) {
+                delay(1000) // Check session states every second
+                updateSessionStates()
+            }
+        }
+    }
+    
+    /**
+     * Update session states for all connected peers
+     */
+    private fun updateSessionStates() {
+        val currentPeers = state.getConnectedPeersValue()
+        val sessionStates = currentPeers.associateWith { peerID ->
+            meshService.getSessionState(peerID).toString()
+        }
+        state.setPeerSessionStates(sessionStates)
     }
     
     // MARK: - Debug and Troubleshooting
