@@ -270,22 +270,24 @@ fun PeopleSection(
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
             )
         } else {
-            // Get unread private messages and private chat history for sorting
+            // Observe reactive state for favorites and fingerprints
             val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.observeAsState(emptySet())
             val privateChats by viewModel.privateChats.observeAsState(emptyMap())
-            val favoritePeers by viewModel.favoritePeers.observeAsState(emptySet()) 
- 
-            // Pre-calculate all favorite states to ensure proper state synchronization
-            val peerFavoriteStates = remember(favoritePeers, connectedPeers) {
+            val favoritePeers by viewModel.favoritePeers.observeAsState(emptySet())
+            val peerFingerprints by viewModel.peerFingerprints.observeAsState(emptyMap())
+            
+            // Reactive favorite computation for all peers
+            val peerFavoriteStates = remember(favoritePeers, peerFingerprints, connectedPeers) {
                 connectedPeers.associateWith { peerID ->
-                    val fingerprint = viewModel.privateChatManager.getPeerFingerprint(peerID)
-                    favoritePeers.contains(fingerprint)
+                    // Reactive favorite computation - same as ChatHeader
+                    val fingerprint = peerFingerprints[peerID]
+                    fingerprint != null && favoritePeers.contains(fingerprint)
                 }
             }
             
             Log.d("SidebarComponents", "Recomposing with ${favoritePeers.size} favorites, peer states: $peerFavoriteStates")
  
-             // Smart sorting: unread DMs first, then by most recent DM, then favorites, then alphabetical
+            // Smart sorting: unread DMs first, then by most recent DM, then favorites, then alphabetical
             val sortedPeers = connectedPeers.sortedWith(
                 compareBy<String> { !hasUnreadPrivateMessages.contains(it) } // Unread DM senders first
                 .thenByDescending { privateChats[it]?.maxByOrNull { msg -> msg.timestamp }?.timestamp?.time ?: 0L } // Most recent DM (convert Date to Long)
@@ -376,7 +378,7 @@ private fun PeerItem(
                 imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
                 contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
                 modifier = Modifier.size(16.dp),
-                tint = if (isFavorite) Color(0xFFFFD700) else colorScheme.primary
+                tint = if (isFavorite) Color(0xFFFFD700) else Color(0x87878700)
             )
         }
     }

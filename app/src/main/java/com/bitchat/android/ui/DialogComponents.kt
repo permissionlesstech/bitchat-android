@@ -93,7 +93,7 @@ fun AppInfoDialog(
             onDismissRequest = onDismiss,
             title = {
                 Text(
-                    text = "About bitchat*",
+                    text = "About bitchat",
                     style = MaterialTheme.typography.titleMedium,
                     color = colorScheme.onSurface
                 )
