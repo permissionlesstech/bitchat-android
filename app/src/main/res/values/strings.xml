@@ -36,4 +36,12 @@
     <string name="battery_optimization_continue">Continue</string>
     <string name="retry">Retry</string>
     <string name="skip">Skip</string>
+    <string name="edit_nickname_dialog_title">Edit Nickname</string>
+    <string name="nickname_label">Nickname</string>
+    <string name="nickname_empty_error">Nickname cannot be empty</string>
+    <string name="save_button">Save</string>
+    <string name="cancel_button">Cancel</string>
+    <string name="bitchat">bitchat*</string>
+    <string name="leave">leave</string>
+    <string name="back_label">back</string>
 </resources>
