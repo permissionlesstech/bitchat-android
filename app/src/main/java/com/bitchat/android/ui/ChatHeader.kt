@@ -425,7 +425,7 @@ private fun MainHeader(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "bitchat*",
+                text = "bitchat/",
                 style = MaterialTheme.typography.headlineSmall,
                 color = colorScheme.primary,
                 modifier = Modifier.singleOrTripleClickable(
@@ -434,7 +434,7 @@ private fun MainHeader(
                 )
             )
             
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(2.dp))
             
             NicknameEditor(
                 value = nickname,

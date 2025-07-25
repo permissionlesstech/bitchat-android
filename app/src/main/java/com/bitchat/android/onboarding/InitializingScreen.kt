@@ -61,7 +61,7 @@ fun InitializingScreen() {
         ) {
             // App title
             Text(
-                text = "bitchat*",
+                text = "bitchat",
                 style = MaterialTheme.typography.headlineLarge.copy(
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
