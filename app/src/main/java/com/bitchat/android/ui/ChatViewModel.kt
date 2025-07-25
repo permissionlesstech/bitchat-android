@@ -344,9 +344,7 @@ class ChatViewModel(
         return meshDelegateHandler.isFavorite(peerID)
     }
     
-    override fun registerPeerPublicKey(peerID: String, publicKeyData: ByteArray) {
-        privateChatManager.registerPeerPublicKey(peerID, publicKeyData)
-    }
+    // registerPeerPublicKey REMOVED - fingerprints now handled centrally in PeerManager
     
     // MARK: - Emergency Clear
     

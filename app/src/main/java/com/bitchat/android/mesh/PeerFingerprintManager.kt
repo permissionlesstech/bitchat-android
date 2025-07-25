@@ -50,17 +50,7 @@ class PeerFingerprintManager private constructor() {
      * @param peerID The peer's current ID
      * @param publicKey The peer's static public key from Noise handshake
      */
-    fun storeFingerprintForPeer(peerID: String, publicKey: ByteArray) {
-        if (peerID.isBlank()) {
-            Log.w(TAG, "Attempted to store fingerprint for blank peerID")
-            return
-        }
-        
-        if (publicKey.isEmpty()) {
-            Log.w(TAG, "Attempted to store fingerprint for empty public key")
-            return
-        }
-        
+    fun storeFingerprintForPeer(peerID: String, publicKey: ByteArray): String {
         val fingerprint = calculateFingerprint(publicKey)
         
         // Store bidirectional mapping
@@ -68,6 +58,7 @@ class PeerFingerprintManager private constructor() {
         fingerprintToPeerID[fingerprint] = peerID
         
         Log.d(TAG, "Stored fingerprint for peer $peerID: ${fingerprint.take(16)}...")
+        return fingerprint
     }
     
     /**

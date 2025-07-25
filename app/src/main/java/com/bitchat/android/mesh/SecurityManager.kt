@@ -146,46 +146,46 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         }
     }
     
-    /**
-     * Handle key exchange packet
-     */
-    suspend fun handleKeyExchange(routed: RoutedPacket): Boolean {
-        val packet = routed.packet
-        val peerID = routed.peerID ?: "unknown"
-
-        if (peerID == myPeerID) return false
-        
-        if (packet.payload.isEmpty()) {
-            Log.w(TAG, "Key exchange packet has empty payload")
-            return false
-        }
-        
-        // Prevent duplicate key exchange processing
-        val exchangeKey = "$peerID-${packet.payload.sliceArray(0 until minOf(16, packet.payload.size)).contentHashCode()}"
-        
-        if (processedKeyExchanges.contains(exchangeKey)) {
-            Log.d(TAG, "Already processed key exchange: $exchangeKey")
-            return false
-        }
-        
-        processedKeyExchanges.add(exchangeKey)
-        
-        try {
-            // Process the key exchange
-            encryptionService.addPeerPublicKey(peerID, packet.payload)
-            
-            Log.d(TAG, "Successfully processed key exchange from $peerID")
-            
-            // Notify delegate
-            delegate?.onKeyExchangeCompleted(peerID, packet.payload, routed.relayAddress)
-            
-            return true
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to process key exchange from $peerID: ${e.message}")
-            return false
-        }
-    }
+//    /**
+//     * Handle key exchange packet
+//     */
+//    suspend fun handleKeyExchange(routed: RoutedPacket): Boolean {
+//        val packet = routed.packet
+//        val peerID = routed.peerID ?: "unknown"
+//
+//        if (peerID == myPeerID) return false
+//
+//        if (packet.payload.isEmpty()) {
+//            Log.w(TAG, "Key exchange packet has empty payload")
+//            return false
+//        }
+//
+//        // Prevent duplicate key exchange processing
+//        val exchangeKey = "$peerID-${packet.payload.sliceArray(0 until minOf(16, packet.payload.size)).contentHashCode()}"
+//
+//        if (processedKeyExchanges.contains(exchangeKey)) {
+//            Log.d(TAG, "Already processed key exchange: $exchangeKey")
+//            return false
+//        }
+//
+//        processedKeyExchanges.add(exchangeKey)
+//
+//        try {
+//            // Process the key exchange
+//            encryptionService.addPeerPublicKey(peerID, packet.payload)
+//
+//            Log.d(TAG, "Successfully processed key exchange from $peerID")
+//
+//            // Notify delegate
+//            delegate?.onKeyExchangeCompleted(peerID, packet.payload, routed.relayAddress)
+//
+//            return true
+//
+//        } catch (e: Exception) {
+//            Log.e(TAG, "Failed to process key exchange from $peerID: ${e.message}")
+//            return false
+//        }
+//    }
     
     /**
      * Verify packet signature

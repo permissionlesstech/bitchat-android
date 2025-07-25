@@ -83,7 +83,7 @@ class ChatState {
     private val _favoritePeers = MutableLiveData<Set<String>>(emptySet())
     val favoritePeers: LiveData<Set<String>> = _favoritePeers
     
-    val peerIDToPublicKeyFingerprint = mutableMapOf<String, String>()
+    // peerIDToPublicKeyFingerprint REMOVED - fingerprints now handled centrally in PeerManager
     
     // Navigation state
     private val _showAppInfo = MutableLiveData<Boolean>(false)

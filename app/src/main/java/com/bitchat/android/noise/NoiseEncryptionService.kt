@@ -3,6 +3,7 @@ package com.bitchat.android.noise
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.identity.SecureIdentityStateManager
+import com.bitchat.android.mesh.PeerFingerprintManager
 import com.bitchat.android.noise.southernstorm.protocol.Noise
 import java.security.MessageDigest
 import java.security.SecureRandom
@@ -40,9 +41,8 @@ class NoiseEncryptionService(private val context: Context) {
     // Identity management for peer ID rotation support
     private val identityStateManager: SecureIdentityStateManager
     
-    // Peer fingerprints mapping (peerID -> fingerprint and fingerprint -> peerID)
-    private val peerFingerprints = ConcurrentHashMap<String, String>() // peerID -> fingerprint
-    private val fingerprintToPeerID = ConcurrentHashMap<String, String>() // fingerprint -> current peerID
+    // Centralized fingerprint management - NO LOCAL STORAGE
+    private val fingerprintManager = PeerFingerprintManager.getInstance()
     
     // Callbacks
     var onPeerAuthenticated: ((String, String) -> Unit)? = null // (peerID, fingerprint)
@@ -188,14 +188,14 @@ class NoiseEncryptionService(private val context: Context) {
      * Get fingerprint for a peer (returns null if peer unknown)
      */
     fun getPeerFingerprint(peerID: String): String? {
-        return peerFingerprints[peerID]
+        return fingerprintManager.getFingerprintForPeer(peerID)
     }
     
     /**
      * Get current peer ID for a fingerprint (returns null if not currently online)
      */
     fun getPeerID(fingerprint: String): String? {
-        return fingerprintToPeerID[fingerprint]
+        return fingerprintManager.getPeerIDForFingerprint(fingerprint)
     }
     
     /**
@@ -204,11 +204,8 @@ class NoiseEncryptionService(private val context: Context) {
     fun removePeer(peerID: String) {
         sessionManager.removeSession(peerID)
         
-        // Clean up fingerprint mappings
-        val fingerprint = peerFingerprints.remove(peerID)
-        if (fingerprint != null) {
-            fingerprintToPeerID.remove(fingerprint)
-        }
+        // Clean up fingerprint mappings via centralized manager
+        fingerprintManager.removePeer(peerID)
     }
     
     /**
@@ -216,14 +213,8 @@ class NoiseEncryptionService(private val context: Context) {
      * This allows favorites/blocking to persist across peer ID changes
      */
     fun updatePeerIDMapping(oldPeerID: String?, newPeerID: String, fingerprint: String) {
-        // Remove old mapping if exists
-        oldPeerID?.let { oldID ->
-            peerFingerprints.remove(oldID)
-        }
-        
-        // Add new mapping
-        peerFingerprints[newPeerID] = fingerprint
-        fingerprintToPeerID[fingerprint] = newPeerID
+        // Use centralized fingerprint manager for peer ID rotation
+        fingerprintManager.updatePeerIDMapping(oldPeerID, newPeerID, fingerprint)
     }
     
     // MARK: - Channel Encryption
@@ -318,12 +309,12 @@ class NoiseEncryptionService(private val context: Context) {
      * Handle session establishment (called when Noise handshake completes)
      */
     private fun handleSessionEstablished(peerID: String, remoteStaticKey: ByteArray) {
-        // Calculate fingerprint from remote static key
-        val fingerprint = calculateFingerprint(remoteStaticKey)
+        // Store fingerprint mapping via centralized manager
+        // This is the ONLY place where fingerprints are stored - after successful Noise handshake
+        fingerprintManager.storeFingerprintForPeer(peerID, remoteStaticKey)
         
-        // Store fingerprint mapping
-        peerFingerprints[peerID] = fingerprint
-        fingerprintToPeerID[fingerprint] = peerID
+        // Calculate fingerprint for logging and callback
+        val fingerprint = calculateFingerprint(remoteStaticKey)
         
         Log.d(TAG, "Session established with $peerID, fingerprint: ${fingerprint.take(16)}...")
         
@@ -346,8 +337,7 @@ class NoiseEncryptionService(private val context: Context) {
     fun shutdown() {
         sessionManager.shutdown()
         channelEncryption.clear()
-        peerFingerprints.clear()
-        fingerprintToPeerID.clear()
+        // No need to clear fingerprints here - they are managed centrally
     }
 }
 

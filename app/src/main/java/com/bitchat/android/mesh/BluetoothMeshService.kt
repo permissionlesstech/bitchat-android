@@ -66,7 +66,7 @@ class BluetoothMeshService(private val context: Context) {
         // Wire up PacketProcessor reference for recursive handling in MessageHandler
         messageHandler.packetProcessor = packetProcessor
         sendPeriodicBroadcastAnnounce()
-        //startPeriodicDebugLogging()
+        startPeriodicDebugLogging()
     }
     
     /**
@@ -126,9 +126,9 @@ class BluetoothMeshService(private val context: Context) {
         // SecurityManager delegate for key exchange notifications
         securityManager.delegate = object : SecurityManagerDelegate {
             override fun onKeyExchangeCompleted(peerID: String, peerPublicKeyData: ByteArray, receivedAddress: String?) {
-                // Notify delegate about key exchange completion so it can register peer fingerprint
-                delegate?.registerPeerPublicKey(peerID, peerPublicKeyData)
-                
+                // Store fingerprint for the peer via centralized fingerprint manager in PeerManager
+                peerManager.storeFingerprintForPeer(peerID, peerPublicKeyData)
+
                 receivedAddress?.let { address ->
                     connectionManager.addressPeerMap[address] = peerID
                 }
@@ -259,18 +259,20 @@ class BluetoothMeshService(private val context: Context) {
                 }
             }
             
-            override fun updatePeerIDBinding(newPeerID: String, fingerprint: String, nickname: String, 
+            override fun updatePeerIDBinding(newPeerID: String, nickname: String,
                                            publicKey: ByteArray, previousPeerID: String?) {
+
+                Log.d(TAG, "Updating peer ID binding: $newPeerID (was: $previousPeerID) with nickname: $nickname and public key: ${publicKey.toHexString().take(16)}...")
                 // Update peer mapping in the PeerManager for peer ID rotation support
                 peerManager.addOrUpdatePeer(newPeerID, nickname)
+                
+                // Store fingerprint for the peer via centralized fingerprint manager
+                val fingerprint = peerManager.storeFingerprintForPeer(newPeerID, publicKey)
                 
                 // If there was a previous peer ID, remove it to avoid duplicates
                 previousPeerID?.let { oldPeerID ->
                     peerManager.removePeer(oldPeerID)
                 }
-                
-                // Register the public key with the delegate (ChatViewModel)
-                delegate?.registerPeerPublicKey(newPeerID, publicKey)
                 
                 Log.d(TAG, "Updated peer ID binding: $newPeerID (was: $previousPeerID), fingerprint: ${fingerprint.take(16)}...")
             }
@@ -794,7 +796,7 @@ class BluetoothMeshService(private val context: Context) {
      * Get peer fingerprint for identity management
      */
     fun getPeerFingerprint(peerID: String): String? {
-        return encryptionService.getPeerFingerprint(peerID)
+        return peerManager.getFingerprintForPeer(peerID)
     }
     
     /**
@@ -853,6 +855,8 @@ class BluetoothMeshService(private val context: Context) {
             appendLine()
             appendLine(peerManager.getDebugInfo(connectionManager.addressPeerMap))
             appendLine()
+            appendLine(peerManager.getFingerprintDebugInfo())
+            appendLine()
             appendLine(fragmentManager.getDebugInfo())
             appendLine()
             appendLine(securityManager.getDebugInfo())
@@ -910,5 +914,5 @@ interface BluetoothMeshDelegate {
     fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String?
     fun getNickname(): String?
     fun isFavorite(peerID: String): Boolean
-    fun registerPeerPublicKey(peerID: String, publicKeyData: ByteArray)
+    // registerPeerPublicKey REMOVED - fingerprints now handled centrally in PeerManager
 }

@@ -2,11 +2,13 @@ package com.bitchat.android.ui
 
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
+import com.bitchat.android.mesh.PeerFingerprintManager
 import java.util.*
 import android.util.Log
 
 /**
  * Handles private chat functionality including peer management and blocking
+ * Now uses centralized PeerFingerprintManager for all fingerprint operations
  */
 class PrivateChatManager(
     private val state: ChatState,
@@ -18,8 +20,8 @@ class PrivateChatManager(
         private const val TAG = "PrivateChatManager"
     }
     
-    // Peer identification mapping
-    private val peerIDToPublicKeyFingerprint = mutableMapOf<String, String>()
+    // Use centralized fingerprint management - NO LOCAL STORAGE
+    private val fingerprintManager = PeerFingerprintManager.getInstance()
     
     // MARK: - Private Chat Lifecycle
     
@@ -89,20 +91,13 @@ class PrivateChatManager(
     
     // MARK: - Peer Management
     
-    fun registerPeerPublicKey(peerID: String, publicKeyData: ByteArray) {
-        val md = java.security.MessageDigest.getInstance("SHA-256")
-        val hash = md.digest(publicKeyData)
-        val fingerprint = hash.take(8).joinToString("") { "%02x".format(it) }
-        peerIDToPublicKeyFingerprint[peerID] = fingerprint
-    }
-    
     fun isPeerBlocked(peerID: String): Boolean {
-        val fingerprint = peerIDToPublicKeyFingerprint[peerID]
+        val fingerprint = fingerprintManager.getFingerprintForPeer(peerID)
         return fingerprint != null && dataManager.isUserBlocked(fingerprint)
     }
     
     fun toggleFavorite(peerID: String) {
-        val fingerprint = peerIDToPublicKeyFingerprint[peerID] ?: return
+        val fingerprint = fingerprintManager.getFingerprintForPeer(peerID) ?: return
         
         Log.d(TAG, "toggleFavorite called for peerID: $peerID, fingerprint: $fingerprint")
         
@@ -125,28 +120,28 @@ class PrivateChatManager(
         state.setFavoritePeers(newFavorites)
         
         Log.d(TAG, "Force updated favorite peers state. New favorites: $newFavorites")
-        Log.d(TAG, "All peer fingerprints: $peerIDToPublicKeyFingerprint")
+        Log.d(TAG, "All peer fingerprints: ${fingerprintManager.getAllPeerFingerprints()}")
     }
     
     fun isFavorite(peerID: String): Boolean {
-        val fingerprint = peerIDToPublicKeyFingerprint[peerID] ?: return false
+        val fingerprint = fingerprintManager.getFingerprintForPeer(peerID) ?: return false
         val isFav = dataManager.isFavorite(fingerprint)
         Log.d(TAG, "isFavorite check: peerID=$peerID, fingerprint=$fingerprint, result=$isFav")
         return isFav
     }
     
     fun getPeerFingerprint(peerID: String): String? {
-        return peerIDToPublicKeyFingerprint[peerID]
+        return fingerprintManager.getFingerprintForPeer(peerID)
     }
     
     fun getPeerFingerprints(): Map<String, String> {
-        return peerIDToPublicKeyFingerprint.toMap()
+        return fingerprintManager.getAllPeerFingerprints()
     }
     
     // MARK: - Block/Unblock Operations
     
     fun blockPeer(peerID: String, meshService: Any): Boolean {
-        val fingerprint = peerIDToPublicKeyFingerprint[peerID]
+        val fingerprint = fingerprintManager.getFingerprintForPeer(peerID)
         if (fingerprint != null) {
             dataManager.addBlockedUser(fingerprint)
             
@@ -170,7 +165,7 @@ class PrivateChatManager(
     }
     
     fun unblockPeer(peerID: String, meshService: Any): Boolean {
-        val fingerprint = peerIDToPublicKeyFingerprint[peerID]
+        val fingerprint = fingerprintManager.getFingerprintForPeer(peerID)
         if (fingerprint != null && dataManager.isUserBlocked(fingerprint)) {
             dataManager.removeBlockedUser(fingerprint)
             
@@ -208,7 +203,7 @@ class PrivateChatManager(
         val peerID = getPeerIDForNickname(targetName, meshService)
         
         if (peerID != null) {
-            val fingerprint = peerIDToPublicKeyFingerprint[peerID]
+            val fingerprint = fingerprintManager.getFingerprintForPeer(peerID)
             if (fingerprint != null && dataManager.isUserBlocked(fingerprint)) {
                 return unblockPeer(peerID, meshService)
             } else {
@@ -288,12 +283,14 @@ class PrivateChatManager(
     fun clearAllPrivateChats() {
         state.setSelectedPrivateChatPeer(null)
         state.setUnreadPrivateMessages(emptySet())
-        peerIDToPublicKeyFingerprint.clear()
+        
+        // Clear fingerprints via centralized manager (only if needed for emergency clear)
+        // Note: This will be handled by the parent PeerManager.clearAllPeers()
     }
     
     // MARK: - Public Getters
     
     fun getAllPeerFingerprints(): Map<String, String> {
-        return peerIDToPublicKeyFingerprint.toMap()
+        return fingerprintManager.getAllPeerFingerprints()
     }
 }

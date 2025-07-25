@@ -138,7 +138,6 @@ class MessageHandler(private val myPeerID: String) {
             // Update peer binding in the delegate (ChatViewModel/BluetoothMeshService)
             delegate?.updatePeerIDBinding(
                 newPeerID = announcement.peerID,
-                fingerprint = announcement.fingerprint ?: "",
                 nickname = announcement.nickname,
                 publicKey = announcement.publicKey,
                 previousPeerID = announcement.previousPeerID
@@ -409,7 +408,7 @@ interface MessageHandlerDelegate {
     // Noise protocol operations
     fun hasNoiseSession(peerID: String): Boolean
     fun initiateNoiseHandshake(peerID: String)
-    fun updatePeerIDBinding(newPeerID: String, fingerprint: String, nickname: String, 
+    fun updatePeerIDBinding(newPeerID: String, nickname: String,
                            publicKey: ByteArray, previousPeerID: String?)
     
     // Message operations
