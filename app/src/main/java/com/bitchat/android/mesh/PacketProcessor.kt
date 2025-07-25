@@ -139,8 +139,8 @@ class PacketProcessor(private val myPeerID: String) {
                         MessageType.NOISE_HANDSHAKE_INIT -> handleNoiseHandshake(routed, 1)
                         MessageType.NOISE_HANDSHAKE_RESP -> handleNoiseHandshake(routed, 2)
                         MessageType.NOISE_ENCRYPTED -> handleNoiseEncrypted(routed)
-                        //MessageType.DELIVERY_ACK -> handleDeliveryAck(routed) // custom packet type...
-                        MessageType.READ_RECEIPT -> handleReadReceipt(routed)
+                        // MessageType.DELIVERY_ACK -> handleDeliveryAck(routed) // custom packet type...
+                        // MessageType.READ_RECEIPT -> handleReadReceipt(routed)
                         else -> {
                             validPacket = false
                             Log.w(TAG, "Unknown message type: ${packet.type}")

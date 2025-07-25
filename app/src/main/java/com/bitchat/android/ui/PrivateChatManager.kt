@@ -14,6 +14,7 @@ interface NoiseSessionDelegate {
     fun hasEstablishedSession(peerID: String): Boolean
     fun initiateHandshake(peerID: String)
     fun sendIdentityAnnouncement()
+    fun sendHandshakeRequest(targetPeerID: String, pendingCount: UByte)
     fun getMyPeerID(): String
 }
 
@@ -342,6 +343,8 @@ class PrivateChatManager(
                 // They should initiate, we send a Noise identity announcement
                 Log.d(TAG, "Our peer ID lexicographically >= target peer ID, sending Noise identity announcement to prompt handshake from $peerID")
                 noiseSessionDelegate.sendIdentityAnnouncement()
+                // Also send handshake request to this peer
+                noiseSessionDelegate.sendHandshakeRequest(peerID, 1u) // 1 pending message (the chat we're trying to start)
             }
         } else {
             // Fallback to reflection-based approach for backward compatibility

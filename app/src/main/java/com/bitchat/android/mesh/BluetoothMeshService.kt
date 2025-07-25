@@ -5,6 +5,7 @@ import android.util.Log
 import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.protocol.MessagePadding
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.model.HandshakeRequest
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.model.DeliveryAck
 import com.bitchat.android.model.ReadReceipt
@@ -556,7 +557,6 @@ class BluetoothMeshService(private val context: Context) {
         )
         
         try {
-            // TODO: THIS FORMAT FOR DELIVERY ACKS SHOULD BE DEPRECATED
             val ackData = ack.encode() ?: return
             val typeMarker = MessageType.DELIVERY_ACK.value.toByte()
             val payloadWithMarker = byteArrayOf(typeMarker) + ackData
@@ -591,36 +591,41 @@ class BluetoothMeshService(private val context: Context) {
      */
     fun sendReadReceipt(messageID: String, recipientPeerID: String, readerNickname: String) {
         serviceScope.launch {
+            // Create the read receipt
+            val receipt = ReadReceipt(
+                originalMessageID = messageID,
+                readerID = myPeerID,
+                readerNickname = readerNickname
+            )
+
             try {
-                Log.d(TAG, "Sending read receipt for message $messageID to $recipientPeerID")
-                
-                // Create the read receipt
-                val receipt = ReadReceipt(
-                    originalMessageID = messageID,
-                    readerID = myPeerID,
-                    readerNickname = readerNickname
-                )
-                
                 // Encode the receipt
                 val receiptData = receipt.encode()
-                
-                // Create inner read receipt packet
-                val innerPacket = BitchatPacket(
-                    version = 1u,
-                    type = MessageType.READ_RECEIPT.value,
+                val typeMarker = MessageType.READ_RECEIPT.value.toByte()
+                val payloadWithMarker = byteArrayOf(typeMarker) + receiptData
+                val encryptedPayload = securityManager.encryptForPeer(payloadWithMarker, recipientPeerID)
+
+                if (encryptedPayload == null) {
+                    Log.w(TAG, "Failed to encrypt delivery ACK for $recipientPeerID")
+                    return@launch
+                }
+
+                // Create inner packet with the delivery ACK data
+                val packet = BitchatPacket(
+                    type = MessageType.NOISE_ENCRYPTED.value,
                     senderID = hexStringToByteArray(myPeerID),
                     recipientID = hexStringToByteArray(recipientPeerID),
                     timestamp = System.currentTimeMillis().toULong(),
-                    payload = receiptData,
+                    payload = encryptedPayload,
                     signature = null,
                     ttl = 3u
                 )
-                
-                // Encrypt the entire inner packet and send as NOISE_ENCRYPTED
-                encryptAndBroadcastNoisePacket(innerPacket, recipientPeerID)
-                
-                Log.d(TAG, "Sent read receipt for message $messageID to $recipientPeerID")
-                
+
+                Log.d(TAG, "Sending read receipt for message $messageID to $recipientPeerID")
+
+                // Use the new encrypt and broadcast function
+                connectionManager.broadcastPacket(RoutedPacket(packet))
+
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send read receipt for message $messageID: ${e.message}")
             }
@@ -708,8 +713,7 @@ class BluetoothMeshService(private val context: Context) {
     }
     
     /**
-     * Send Noise identity announcement (broadcast our static public key and signing key)
-     * Now properly formatted as NoiseIdentityAnnouncement to match iOS
+     * Send key exchange to newly connected device
      */
     fun sendKeyExchangeToDevice() {
         serviceScope.launch {
@@ -739,6 +743,43 @@ class BluetoothMeshService(private val context: Context) {
                 
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send NoiseIdentityAnnouncement: ${e.message}")
+            }
+        }
+    }
+    
+    /**
+     * Send handshake request to target peer for pending messages
+     */
+    fun sendHandshakeRequest(targetPeerID: String, pendingCount: UByte) {
+        serviceScope.launch {
+            try {
+                // Create handshake request
+                val request = HandshakeRequest(
+                    requesterID = myPeerID,
+                    requesterNickname = delegate?.getNickname() ?: myPeerID,
+                    targetID = targetPeerID,
+                    pendingMessageCount = pendingCount
+                )
+                
+                val requestData = request.toBinaryData()
+                
+                // Create packet for handshake request
+                val packet = BitchatPacket(
+                    version = 1u,
+                    type = MessageType.HANDSHAKE_REQUEST.value,
+                    senderID = hexStringToByteArray(myPeerID),
+                    recipientID = hexStringToByteArray(targetPeerID),
+                    timestamp = System.currentTimeMillis().toULong(),
+                    payload = requestData,
+                    ttl = 6u
+                )
+                
+                // Broadcast the packet (Android equivalent of both direct and relay attempts)
+                connectionManager.broadcastPacket(RoutedPacket(packet))
+                Log.d(TAG, "Sent handshake request to $targetPeerID (pending: $pendingCount, ${requestData.size} bytes)")
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send handshake request to $targetPeerID: ${e.message}")
             }
         }
     }

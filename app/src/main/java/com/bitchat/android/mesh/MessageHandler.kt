@@ -63,7 +63,6 @@ class MessageHandler(private val myPeerID: String) {
                 }
                 
                 // Check for read receipt with type marker
-                // NOTE: THIS DOESN'T WORK WITH IOS, IT SENDS AN INNER PACKET INSTEAD
                 if (typeMarker == MessageType.READ_RECEIPT.value) {
                     val receiptData = decryptedData.sliceArray(1 until decryptedData.size)
                     val receipt = ReadReceipt.decode(receiptData)

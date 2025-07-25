@@ -32,6 +32,7 @@ enum class MessageType(val value: UByte) {
     CHANNEL_KEY_VERIFY_RESPONSE(0x15u), // Response to key verification request
     CHANNEL_PASSWORD_UPDATE(0x16u),     // Distribute new password to channel members
     CHANNEL_METADATA(0x17u),            // Announce channel creator and metadata
+    HANDSHAKE_REQUEST(0x25u),            // Request handshake initiation for pending messages
     
     // Protocol version negotiation
     VERSION_HELLO(0x20u),               // Initial version announcement
