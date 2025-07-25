@@ -46,7 +46,7 @@ sealed class DeliveryStatus : Parcelable {
  */
 @Parcelize
 data class BitchatMessage(
-    val id: String = UUID.randomUUID().toString(),
+    val id: String = UUID.randomUUID().toString().uppercase(),
     val sender: String,
     val content: String,
     val timestamp: Date,
