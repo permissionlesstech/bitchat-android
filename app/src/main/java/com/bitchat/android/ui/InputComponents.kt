@@ -40,7 +40,9 @@ import androidx.compose.ui.text.withStyle
  * VisualTransformation that styles slash commands with background and color
  * while preserving cursor positioning and click handling
  */
-class SlashCommandVisualTransformation : VisualTransformation {
+class SlashCommandVisualTransformation(
+    private val colorScheme: ColorScheme
+) : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
         val slashCommandRegex = Regex("(/\\w+)(?=\\s|$)")
         val annotatedString = buildAnnotatedString {
@@ -55,10 +57,10 @@ class SlashCommandVisualTransformation : VisualTransformation {
                 // Add the styled slash command
                 withStyle(
                     style = SpanStyle(
-                        color = Color(0xFF00FF7F), // Bright green
+                        color = colorScheme.primary,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Medium,
-                        background = Color(0xFF2D2D2D) // Dark gray background
+                        background = colorScheme.surface.copy(alpha = 0.8f)
                     )
                 ) {
                     append(match.value)
@@ -106,8 +108,8 @@ fun MessageInput(
             text = "<@$nickname>",  // No arrow for both private and channel
             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
             color = when {
-                selectedPrivatePeer != null -> Color(0xFFFF9500) // Orange for private
-                currentChannel != null -> Color(0xFFFF9500) // Orange for channels too
+                selectedPrivatePeer != null -> colorScheme.secondary // Use theme secondary color
+                currentChannel != null -> colorScheme.secondary // Use theme secondary color
                 else -> colorScheme.primary
             },
             fontFamily = FontFamily.Monospace,
@@ -127,7 +129,7 @@ fun MessageInput(
             cursorBrush = SolidColor(colorScheme.primary),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
             keyboardActions = KeyboardActions(onSend = { onSend() }),
-            visualTransformation = SlashCommandVisualTransformation(),
+            visualTransformation = SlashCommandVisualTransformation(colorScheme),
             modifier = Modifier
                 .weight(1f)
                 .onFocusChanged { focusState ->
@@ -147,12 +149,10 @@ fun MessageInput(
                     .size(30.dp)
                     .background(
                         color = if (selectedPrivatePeer != null || currentChannel != null) {
-                            // Orange for both private messages and channels to match nickname color
-                            Color(0xFFFF9500).copy(alpha = 0.75f)
-                        } else if (colorScheme.background == Color.Black) {
-                            Color(0xFF00FF00).copy(alpha = 0.75f) // Bright green for dark theme
+                            // Use secondary color for both private messages and channels
+                            colorScheme.secondary.copy(alpha = 0.75f)
                         } else {
-                            Color(0xFF008000).copy(alpha = 0.75f) // Dark green for light theme
+                            colorScheme.primary.copy(alpha = 0.75f)
                         },
                         shape = CircleShape
                     ),
@@ -163,12 +163,10 @@ fun MessageInput(
                     contentDescription = "Send message",
                     modifier = Modifier.size(20.dp),
                     tint = if (selectedPrivatePeer != null || currentChannel != null) {
-                        // Black arrow on orange for both private and channel modes
-                        Color.Black
-                    } else if (colorScheme.background == Color.Black) {
-                        Color.Black // Black arrow on bright green in dark theme
+                        // Use onSecondary color for icon on secondary background
+                        colorScheme.onSecondary
                     } else {
-                        Color.White // White arrow on dark green in light theme
+                        colorScheme.onPrimary
                     }
                 )
             }
@@ -211,7 +209,7 @@ fun CommandSuggestionItem(
             .fillMaxWidth()
             .clickable { onClick() }
             .padding(horizontal = 12.dp, vertical = 3.dp)
-            .background(Color.Gray.copy(alpha = 0.1f)),
+            .background(colorScheme.surfaceVariant.copy(alpha = 0.3f)),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Show all aliases together

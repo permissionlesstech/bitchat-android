@@ -20,13 +20,13 @@ import java.util.*
 /**
  * Get RSSI-based color for signal strength visualization
  */
-fun getRSSIColor(rssi: Int): Color {
+fun getRSSIColor(rssi: Int, colorScheme: ColorScheme): Color {
     return when {
-        rssi >= -50 -> Color(0xFF00FF00) // Bright green
-        rssi >= -60 -> Color(0xFF80FF00) // Green-yellow
-        rssi >= -70 -> Color(0xFFFFFF00) // Yellow
-        rssi >= -80 -> Color(0xFFFF8000) // Orange
-        else -> Color(0xFFFF4444) // Red
+        rssi >= -50 -> colorScheme.primary // Strong signal
+        rssi >= -60 -> colorScheme.primary.copy(alpha = 0.8f) // Good signal
+        rssi >= -70 -> colorScheme.secondary // Medium signal
+        rssi >= -80 -> colorScheme.secondary.copy(alpha = 0.7f) // Weak signal
+        else -> colorScheme.error // Very weak signal
     }
 }
 
@@ -58,7 +58,7 @@ fun formatMessageAsAnnotatedString(
             else -> {
                 val peerID = message.senderPeerID
                 val rssi = peerID?.let { meshService.getPeerRSSI()[it] } ?: -60
-                getRSSIColor(rssi)
+                getRSSIColor(rssi, colorScheme)
             }
         }
         
@@ -131,7 +131,7 @@ private fun appendFormattedContent(
         when (type) {
             "hashtag" -> {
                 builder.pushStyle(SpanStyle(
-                    color = Color(0xFF0080FF), // Blue
+                    color = colorScheme.tertiary,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
                     textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
@@ -139,7 +139,7 @@ private fun appendFormattedContent(
             }
             "mention" -> {
                 builder.pushStyle(SpanStyle(
-                    color = Color(0xFFFF9500), // Orange
+                    color = colorScheme.secondary,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold
                 ))

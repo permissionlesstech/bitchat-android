@@ -92,7 +92,7 @@ fun PeerCounter(
                 Text(
                     text = "#",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF0080FF),
+                    color = colorScheme.tertiary,
                     fontSize = 16.sp
                 )
             }
@@ -105,7 +105,7 @@ fun PeerCounter(
                 imageVector = Icons.Filled.Email,
                 contentDescription = "Unread private messages",
                 modifier = Modifier.size(16.dp),
-                tint = Color(0xFFFF9500) // Orange to match private message theme
+                tint = colorScheme.secondary
             )
             Spacer(modifier = Modifier.width(6.dp))
         }
@@ -114,13 +114,13 @@ fun PeerCounter(
             imageVector = Icons.Default.Person,
             contentDescription = "Connected peers",
             modifier = Modifier.size(16.dp),
-            tint = if (isConnected) Color(0xFF00C851) else Color.Red
+            tint = if (isConnected) colorScheme.primary else colorScheme.error
         )
         Spacer(modifier = Modifier.width(4.dp))
         Text(
             text = "${connectedPeers.size}",
             style = MaterialTheme.typography.bodyMedium,
-            color = if (isConnected) Color(0xFF00C851) else Color.Red,
+            color = if (isConnected) colorScheme.primary else colorScheme.error,
             fontSize = 16.sp,
             fontWeight = FontWeight.Medium
         )
@@ -129,7 +129,7 @@ fun PeerCounter(
             Text(
                 text = " · ⧉ ${joinedChannels.size}",
                 style = MaterialTheme.typography.bodyMedium,
-                color = if (isConnected) Color(0xFF00C851) else Color.Red,
+                color = if (isConnected) colorScheme.primary else colorScheme.error,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium
             )
@@ -146,7 +146,8 @@ fun ChatHeaderContent(
     onBackClick: () -> Unit,
     onSidebarClick: () -> Unit,
     onTripleClick: () -> Unit,
-    onShowAppInfo: () -> Unit
+    onShowAppInfo: () -> Unit,
+    onShowSettings: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
@@ -186,7 +187,8 @@ fun ChatHeaderContent(
                 onTitleClick = onShowAppInfo,
                 onTripleTitleClick = onTripleClick,
                 onSidebarClick = onSidebarClick,
-                viewModel = viewModel
+                viewModel = viewModel,
+                onShowSettings = onShowSettings
             )
         }
     }
@@ -244,7 +246,7 @@ private fun PrivateChatHeader(
                 imageVector = Icons.Filled.Lock,
                 contentDescription = "Private chat",
                 modifier = Modifier.size(16.dp),
-                tint = Color(0xFFFF9500) // Orange to match private message theme
+                tint = colorScheme.secondary
             )
             
             // Show encryption status icon if session is established
@@ -262,7 +264,7 @@ private fun PrivateChatHeader(
             Text(
                 text = peerNickname,
                 style = MaterialTheme.typography.titleMedium,
-                color = Color(0xFFFF9500) // Orange
+                color = colorScheme.secondary
             )
         }
         
@@ -275,10 +277,10 @@ private fun PrivateChatHeader(
             modifier = Modifier.align(Alignment.CenterEnd)
         ) {
             Icon(
-                imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
+                imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
                 contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
-                modifier = Modifier.size(18.dp), // Slightly larger than sidebar icon
-                tint = if (isFavorite) Color(0xFFFFD700) else Color(0xFF4CAF50) // Yellow for filled, green for outlined
+                modifier = Modifier.size(20.dp),
+                tint = if (isFavorite) colorScheme.tertiary else colorScheme.onSurface
             )
         }
     }
@@ -328,7 +330,7 @@ private fun ChannelHeader(
         Text(
             text = "channel: $channel",
             style = MaterialTheme.typography.titleMedium,
-            color = Color(0xFFFF9500), // Orange to match input field
+            color = colorScheme.secondary,
             modifier = Modifier
                 .align(Alignment.Center)
                 .clickable { onSidebarClick() }
@@ -355,7 +357,8 @@ private fun MainHeader(
     onTitleClick: () -> Unit,
     onTripleTitleClick: () -> Unit,
     onSidebarClick: () -> Unit,
-    viewModel: ChatViewModel
+    viewModel: ChatViewModel,
+    onShowSettings: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val connectedPeers by viewModel.connectedPeers.observeAsState(emptyList())
@@ -391,13 +394,30 @@ private fun MainHeader(
             )
         }
         
-        PeerCounter(
-            connectedPeers = connectedPeers.filter { it != viewModel.meshService.myPeerID },
-            joinedChannels = joinedChannels,
-            hasUnreadChannels = hasUnreadChannels,
-            hasUnreadPrivateMessages = hasUnreadPrivateMessages,
-            isConnected = isConnected,
-            onClick = onSidebarClick
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            IconButton(
+                onClick = onShowSettings,
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings",
+                    tint = colorScheme.onSurface,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            
+            PeerCounter(
+                connectedPeers = connectedPeers.filter { it != viewModel.meshService.myPeerID },
+                joinedChannels = joinedChannels,
+                hasUnreadChannels = hasUnreadChannels,
+                hasUnreadPrivateMessages = hasUnreadPrivateMessages,
+                isConnected = isConnected,
+                onClick = onSidebarClick
+            )
+        }
     }
 }
