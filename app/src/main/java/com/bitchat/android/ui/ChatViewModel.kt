@@ -32,7 +32,16 @@ class ChatViewModel(
     private val dataManager = DataManager(application.applicationContext)
     private val messageManager = MessageManager(state)
     private val channelManager = ChannelManager(state, messageManager, dataManager, viewModelScope)
-    val privateChatManager = PrivateChatManager(state, messageManager, dataManager)
+    
+    // Create Noise session delegate for clean dependency injection
+    private val noiseSessionDelegate = object : NoiseSessionDelegate {
+        override fun hasEstablishedSession(peerID: String): Boolean = meshService.hasEstablishedSession(peerID)
+        override fun initiateHandshake(peerID: String) = meshService.initiateNoiseHandshake(peerID) 
+        override fun sendIdentityAnnouncement() = meshService.sendKeyExchangeToDevice()
+        override fun getMyPeerID(): String = meshService.myPeerID
+    }
+    
+    val privateChatManager = PrivateChatManager(state, messageManager, dataManager, noiseSessionDelegate)
     private val commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager)
     private val notificationManager = NotificationManager(application.applicationContext)
     

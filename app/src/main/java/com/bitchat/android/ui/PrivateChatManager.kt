@@ -7,13 +7,25 @@ import java.util.*
 import android.util.Log
 
 /**
+ * Interface for Noise session operations needed by PrivateChatManager
+ * This avoids reflection and makes dependencies explicit
+ */
+interface NoiseSessionDelegate {
+    fun hasEstablishedSession(peerID: String): Boolean
+    fun initiateHandshake(peerID: String)
+    fun sendIdentityAnnouncement()
+    fun getMyPeerID(): String
+}
+
+/**
  * Handles private chat functionality including peer management and blocking
  * Now uses centralized PeerFingerprintManager for all fingerprint operations
  */
 class PrivateChatManager(
     private val state: ChatState,
     private val messageManager: MessageManager,
-    private val dataManager: DataManager
+    private val dataManager: DataManager,
+    private val noiseSessionDelegate: NoiseSessionDelegate? = null
 ) {
     
     companion object {
@@ -310,6 +322,37 @@ class PrivateChatManager(
      * Uses same lexicographical logic as MessageHandler.handleNoiseIdentityAnnouncement
      */
     private fun establishNoiseSessionIfNeeded(peerID: String, meshService: Any) {
+        // If we have a clean delegate, use it; otherwise fall back to reflection for backward compatibility
+        if (noiseSessionDelegate != null) {
+            if (noiseSessionDelegate.hasEstablishedSession(peerID)) {
+                Log.d(TAG, "Noise session already established with $peerID")
+                return
+            }
+            
+            Log.d(TAG, "No Noise session with $peerID, determining who should initiate handshake")
+            
+            val myPeerID = noiseSessionDelegate.getMyPeerID()
+            
+            // Use lexicographical comparison to decide who initiates (same logic as MessageHandler)
+            if (myPeerID < peerID) {
+                // We should initiate the handshake
+                Log.d(TAG, "Our peer ID lexicographically < target peer ID, initiating Noise handshake with $peerID")
+                noiseSessionDelegate.initiateHandshake(peerID)
+            } else {
+                // They should initiate, we send a Noise identity announcement
+                Log.d(TAG, "Our peer ID lexicographically >= target peer ID, sending Noise identity announcement to prompt handshake from $peerID")
+                noiseSessionDelegate.sendIdentityAnnouncement()
+            }
+        } else {
+            // Fallback to reflection-based approach for backward compatibility
+            establishNoiseSessionIfNeededLegacy(peerID, meshService)
+        }
+    }
+    
+    /**
+     * Legacy reflection-based implementation for backward compatibility
+     */
+    private fun establishNoiseSessionIfNeededLegacy(peerID: String, meshService: Any) {
         try {
             // Check if we already have an established Noise session with this peer
             val hasSessionMethod = meshService::class.java.getDeclaredMethod("hasEstablishedSession", String::class.java)

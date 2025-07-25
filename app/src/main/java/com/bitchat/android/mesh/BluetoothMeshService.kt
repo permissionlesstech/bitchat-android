@@ -823,6 +823,14 @@ class BluetoothMeshService(private val context: Context) {
     }
     
     /**
+     * Initiate Noise handshake with a specific peer (public API)
+     */
+    fun initiateNoiseHandshake(peerID: String) {
+        // Delegate to the existing implementation in the MessageHandler delegate
+        messageHandler.delegate?.initiateNoiseHandshake(peerID)
+    }
+    
+    /**
      * Get peer fingerprint for identity management
      */
     fun getPeerFingerprint(peerID: String): String? {
