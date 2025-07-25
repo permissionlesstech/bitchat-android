@@ -58,16 +58,8 @@ class MessageHandler(private val myPeerID: String) {
                 
                 // Check if this is a delivery ACK with the new format
                 if (typeMarker == MessageType.DELIVERY_ACK.value) {
-                    // Extract the ACK JSON data (skip the type marker)
-                    val ackData = decryptedData.sliceArray(1 until decryptedData.size)
-                    
-                    // Decode the delivery ACK
-                    val ack = DeliveryAck.decode(ackData)
-                    if (ack != null) {
-                        delegate?.onDeliveryAckReceived(ack)
-                        Log.d(TAG, "Processed delivery ACK from $peerID")
-                        return
-                    }
+                    handleDeliveryAck(decryptedData)
+                    Log.d(TAG, "Processed delivery ACK from $peerID")
                 }
                 
                 // Check for read receipt with type marker
@@ -303,23 +295,13 @@ class MessageHandler(private val myPeerID: String) {
     /**
      * Handle delivery acknowledgment
      */
-    suspend fun handleDeliveryAck(routed: RoutedPacket) {
-        val packet = routed.packet
-        val peerID = routed.peerID ?: "unknown"
-        if (packet.recipientID != null && String(packet.recipientID).replace("\u0000", "") == myPeerID) {
-            try {
-                val decryptedData = delegate?.decryptFromPeer(packet.payload, peerID)
-                if (decryptedData != null) {
-                    val ack = DeliveryAck.decode(decryptedData)
-                    if (ack != null) {
-                        delegate?.onDeliveryAckReceived(ack)
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to decrypt delivery ACK: ${e.message}")
-            }
+    suspend fun handleDeliveryAck(decryptedData: ByteArray) {
+        val ackData = decryptedData.sliceArray(1 until decryptedData.size)
+        val ack = DeliveryAck.decode(ackData)
+        if (ack != null) {
+            delegate?.onDeliveryAckReceived(ack)
         }
-        // Delivery ACK relay is now handled by centralized PacketRelayManager
+        return
     }
     
     /**

@@ -356,9 +356,9 @@ class BluetoothMeshService(private val context: Context) {
                 return fragmentManager.handleFragment(packet)
             }
             
-            override fun handleDeliveryAck(routed: RoutedPacket) {
-                serviceScope.launch { messageHandler.handleDeliveryAck(routed) }
-            }
+//            override fun handleDeliveryAck(routed: RoutedPacket) {
+//                serviceScope.launch { messageHandler.handleDeliveryAck(routed) }
+//            }
             
             override fun handleReadReceipt(routed: RoutedPacket) {
                 serviceScope.launch { messageHandler.handleReadReceipt(routed) }

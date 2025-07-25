@@ -139,7 +139,7 @@ class PacketProcessor(private val myPeerID: String) {
                         MessageType.NOISE_HANDSHAKE_INIT -> handleNoiseHandshake(routed, 1)
                         MessageType.NOISE_HANDSHAKE_RESP -> handleNoiseHandshake(routed, 2)
                         MessageType.NOISE_ENCRYPTED -> handleNoiseEncrypted(routed)
-                        MessageType.DELIVERY_ACK -> handleDeliveryAck(routed)
+                        //MessageType.DELIVERY_ACK -> handleDeliveryAck(routed) // custom packet type...
                         MessageType.READ_RECEIPT -> handleReadReceipt(routed)
                         else -> {
                             validPacket = false
@@ -234,11 +234,11 @@ class PacketProcessor(private val myPeerID: String) {
     /**
      * Handle delivery acknowledgment
      */
-    private suspend fun handleDeliveryAck(routed: RoutedPacket) {
-        val peerID = routed.peerID ?: "unknown"
-        Log.d(TAG, "Processing delivery ACK from ${formatPeerForLog(peerID)}")
-        delegate?.handleDeliveryAck(routed)
-    }
+//    private suspend fun handleDeliveryAck(routed: RoutedPacket) {
+//        val peerID = routed.peerID ?: "unknown"
+//        Log.d(TAG, "Processing delivery ACK from ${formatPeerForLog(peerID)}")
+//        delegate?.handleDeliveryAck(routed)
+//    }
     
     /**
      * Handle read receipt
@@ -313,7 +313,7 @@ interface PacketProcessorDelegate {
     fun handleMessage(routed: RoutedPacket)
     fun handleLeave(routed: RoutedPacket)
     fun handleFragment(packet: BitchatPacket): BitchatPacket?
-    fun handleDeliveryAck(routed: RoutedPacket)
+//    fun handleDeliveryAck(routed: RoutedPacket)
     fun handleReadReceipt(routed: RoutedPacket)
     
     // Communication
