@@ -587,6 +587,47 @@ class BluetoothMeshService(private val context: Context) {
     }
     
     /**
+     * Send read receipt for a received private message
+     */
+    fun sendReadReceipt(messageID: String, recipientPeerID: String, readerNickname: String) {
+        serviceScope.launch {
+            try {
+                Log.d(TAG, "Sending read receipt for message $messageID to $recipientPeerID")
+                
+                // Create the read receipt
+                val receipt = ReadReceipt(
+                    originalMessageID = messageID,
+                    readerID = myPeerID,
+                    readerNickname = readerNickname
+                )
+                
+                // Encode the receipt
+                val receiptData = receipt.encode()
+                
+                // Create inner read receipt packet
+                val innerPacket = BitchatPacket(
+                    version = 1u,
+                    type = MessageType.READ_RECEIPT.value,
+                    senderID = hexStringToByteArray(myPeerID),
+                    recipientID = hexStringToByteArray(recipientPeerID),
+                    timestamp = System.currentTimeMillis().toULong(),
+                    payload = receiptData,
+                    signature = null,
+                    ttl = 3u
+                )
+                
+                // Encrypt the entire inner packet and send as NOISE_ENCRYPTED
+                encryptAndBroadcastNoisePacket(innerPacket, recipientPeerID)
+                
+                Log.d(TAG, "Sent read receipt for message $messageID to $recipientPeerID")
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send read receipt for message $messageID: ${e.message}")
+            }
+        }
+    }
+    
+    /**
      * Encrypt a BitchatPacket and broadcast it as a NOISE_ENCRYPTED message
      * This is the correct protocol implementation - encrypt the entire packet, not just the payload
      */

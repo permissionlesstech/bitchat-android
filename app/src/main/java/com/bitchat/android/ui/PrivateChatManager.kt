@@ -23,6 +23,9 @@ class PrivateChatManager(
     // Use centralized fingerprint management - NO LOCAL STORAGE
     private val fingerprintManager = PeerFingerprintManager.getInstance()
     
+    // Track received private messages that need read receipts
+    private val unreadReceivedMessages = mutableMapOf<String, MutableList<BitchatMessage>>()
+    
     // MARK: - Private Chat Lifecycle
     
     fun startPrivateChat(peerID: String, meshService: Any): Boolean {
@@ -45,6 +48,9 @@ class PrivateChatManager(
         
         // Initialize chat if needed
         messageManager.initializePrivateChat(peerID)
+        
+        // Send read receipts for all unread messages from this peer
+        sendReadReceiptsForPeer(peerID, meshService)
         
         return true
     }
@@ -242,9 +248,45 @@ class PrivateChatManager(
     fun handleIncomingPrivateMessage(message: BitchatMessage) {
         message.senderPeerID?.let { senderPeerID ->
             if (!isPeerBlocked(senderPeerID)) {
+                // Add to private messages
                 messageManager.addPrivateMessage(senderPeerID, message)
+                
+                // Track as unread for read receipt purposes
+                val unreadList = unreadReceivedMessages.getOrPut(senderPeerID) { mutableListOf() }
+                unreadList.add(message)
+                
+                Log.d(TAG, "Added received message ${message.id} from $senderPeerID to unread list (${unreadList.size} unread)")
             }
         }
+    }
+    
+    /**
+     * Send read receipts for all unread messages from a specific peer
+     * Called when the user focuses on a private chat
+     */
+    fun sendReadReceiptsForPeer(peerID: String, meshService: Any) {
+        val unreadList = unreadReceivedMessages[peerID]
+        if (unreadList.isNullOrEmpty()) {
+            Log.d(TAG, "No unread messages to send read receipts for peer $peerID")
+            return
+        }
+        
+        Log.d(TAG, "Sending read receipts for ${unreadList.size} unread messages from $peerID")
+        
+        // Send read receipt for each unread message
+        unreadList.forEach { message ->
+            try {
+                val method = meshService::class.java.getDeclaredMethod("sendReadReceipt", String::class.java, String::class.java, String::class.java)
+                val myNickname = state.getNicknameValue() ?: "unknown"
+                method.invoke(meshService, message.id, peerID, myNickname)
+                Log.d(TAG, "Sent read receipt for message ${message.id} to $peerID")
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to send read receipt for message ${message.id}: ${e.message}")
+            }
+        }
+        
+        // Clear the unread list since we've sent read receipts
+        unreadReceivedMessages.remove(peerID)
     }
     
     fun cleanupDisconnectedPeer(peerID: String) {
@@ -252,6 +294,10 @@ class PrivateChatManager(
         if (state.getSelectedPrivateChatPeerValue() == peerID) {
             endPrivateChat()
         }
+        
+        // Clean up unread messages for disconnected peer
+        unreadReceivedMessages.remove(peerID)
+        Log.d(TAG, "Cleaned up unread messages for disconnected peer $peerID")
     }
     
     // MARK: - Utility Functions
@@ -283,6 +329,9 @@ class PrivateChatManager(
     fun clearAllPrivateChats() {
         state.setSelectedPrivateChatPeer(null)
         state.setUnreadPrivateMessages(emptySet())
+        
+        // Clear unread messages tracking
+        unreadReceivedMessages.clear()
         
         // Clear fingerprints via centralized manager (only if needed for emergency clear)
         // Note: This will be handled by the parent PeerManager.clearAllPeers()
