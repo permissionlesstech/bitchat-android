@@ -81,6 +81,7 @@ class ChatViewModel(
     val commandSuggestions: LiveData<List<CommandSuggestion>> = state.commandSuggestions
     val favoritePeers: LiveData<Set<String>> = state.favoritePeers
     val peerSessionStates: LiveData<Map<String, String>> = state.peerSessionStates
+    val peerFingerprints: LiveData<Map<String, String>> = state.peerFingerprints
     val showAppInfo: LiveData<Boolean> = state.showAppInfo
     
     init {
@@ -290,20 +291,26 @@ class ChatViewModel(
         viewModelScope.launch {
             while (true) {
                 delay(1000) // Check session states every second
-                updateSessionStates()
+                updateReactiveStates()
             }
         }
     }
     
     /**
-     * Update session states for all connected peers
+     * Update reactive states for all connected peers (session states and fingerprints)
      */
-    private fun updateSessionStates() {
+    private fun updateReactiveStates() {
         val currentPeers = state.getConnectedPeersValue()
+        
+        // Update session states
         val sessionStates = currentPeers.associateWith { peerID ->
             meshService.getSessionState(peerID).toString()
         }
         state.setPeerSessionStates(sessionStates)
+        
+        // Update fingerprint mappings from centralized manager
+        val fingerprints = privateChatManager.getAllPeerFingerprints()
+        state.setPeerFingerprints(fingerprints)
     }
     
     // MARK: - Debug and Troubleshooting

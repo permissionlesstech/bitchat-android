@@ -29,6 +29,23 @@ import com.bitchat.android.core.ui.utils.singleOrTripleClickable
  * Extracted from ChatScreen.kt for better organization
  */
 
+/**
+ * Reactive helper to compute favorite state from fingerprint mapping
+ * This eliminates the need for static isFavorite parameters and makes
+ * the UI reactive to fingerprint manager changes
+ */
+@Composable
+fun isFavoriteReactive(
+    peerID: String,
+    peerFingerprints: Map<String, String>,
+    favoritePeers: Set<String>
+): Boolean {
+    return remember(peerID, peerFingerprints, favoritePeers) {
+        val fingerprint = peerFingerprints[peerID]
+        fingerprint != null && favoritePeers.contains(fingerprint)
+    }
+}
+
 @Composable
 fun NoiseSessionIcon(
     sessionState: String?,
@@ -36,18 +53,18 @@ fun NoiseSessionIcon(
 ) {
     val (icon, color, contentDescription) = when (sessionState) {
         "uninitialized" -> Triple(
-            Icons.Outlined.NoEncryption,
-            Color(0xA8A8A800), // Grey - ready to establish
+            Icons.Outlined.Lock,
+            Color(0xFFFF9500), // Orange - ready to establish
             "Ready for handshake"
         )
         "handshaking" -> Triple(
             Icons.Outlined.Sync,
-            Color(0xA8A8A800), // Grey - in progress
+            Color(0xFFFFD700), // Yellow - in progress
             "Handshake in progress"
         )
         "established" -> Triple(
-            Icons.Filled.Lock,
-            Color(0xFFFF9500), // Orange
+            Icons.Filled.Security,
+            Color(0xFF00C851), // Green - secure
             "End-to-end encrypted"
         )
         else -> { // "failed" or any other state
@@ -190,14 +207,20 @@ fun ChatHeaderContent(
 
     when {
         selectedPrivatePeer != null -> {
-            // Private chat header - Reactive session state tracking
+            // Private chat header - Fully reactive state tracking
             val favoritePeers by viewModel.favoritePeers.observeAsState(emptySet())
+            val peerFingerprints by viewModel.peerFingerprints.observeAsState(emptyMap())
             val peerSessionStates by viewModel.peerSessionStates.observeAsState(emptyMap())
-            val fingerprint = viewModel.privateChatManager.getPeerFingerprint(selectedPrivatePeer)
-            val isFavorite = favoritePeers.contains(fingerprint)
+            
+            // Reactive favorite computation - no more static lookups!
+            val isFavorite = isFavoriteReactive(
+                peerID = selectedPrivatePeer,
+                peerFingerprints = peerFingerprints,
+                favoritePeers = favoritePeers
+            )
             val sessionState = peerSessionStates[selectedPrivatePeer]
             
-            Log.d("ChatHeader", "Header recomposing: peer=$selectedPrivatePeer, fingerprint=$fingerprint, isFav=$isFavorite, sessionState=$sessionState")
+            Log.d("ChatHeader", "Header recomposing: peer=$selectedPrivatePeer, isFav=$isFavorite, sessionState=$sessionState")
             
             PrivateChatHeader(
                 peerID = selectedPrivatePeer,
