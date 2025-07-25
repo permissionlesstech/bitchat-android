@@ -711,7 +711,7 @@ class BluetoothMeshService(private val context: Context) {
      * Send Noise identity announcement (broadcast our static public key and signing key)
      * Now properly formatted as NoiseIdentityAnnouncement to match iOS
      */
-    private fun sendKeyExchangeToDevice() {
+    fun sendKeyExchangeToDevice() {
         serviceScope.launch {
             try {
                 val nickname = delegate?.getNickname() ?: myPeerID
