@@ -21,7 +21,8 @@ class MeshDelegateHandler(
     private val notificationManager: NotificationManager,
     private val coroutineScope: CoroutineScope,
     private val onHapticFeedback: () -> Unit,
-    private val getMyPeerID: () -> String
+    private val getMyPeerID: () -> String,
+    private val getMeshService: () -> Any
 ) : BluetoothMeshDelegate {
 
     override fun didReceiveMessage(message: BitchatMessage) {
@@ -46,6 +47,11 @@ class MeshDelegateHandler(
             if (message.isPrivate) {
                 // Private message
                 privateChatManager.handleIncomingPrivateMessage(message)
+                
+                // Reactive read receipts: Send immediately if user is currently viewing this chat
+                message.senderPeerID?.let { senderPeerID ->
+                    sendReadReceiptIfFocused(senderPeerID)
+                }
                 
                 // Show notification with enhanced information - now includes senderPeerID 
                 message.senderPeerID?.let { senderPeerID ->
@@ -151,6 +157,27 @@ class MeshDelegateHandler(
     
     override fun isFavorite(peerID: String): Boolean {
         return privateChatManager.isFavorite(peerID)
+    }
+    
+    /**
+     * Send read receipts reactively based on UI focus state.
+     * Uses same logic as notification system - send read receipt if user is currently
+     * viewing the private chat with this sender AND app is in foreground.
+     */
+    private fun sendReadReceiptIfFocused(senderPeerID: String) {
+        // Get notification manager's focus state (mirror the notification logic)
+        val isAppInBackground = notificationManager.getAppBackgroundState()
+        val currentPrivateChatPeer = notificationManager.getCurrentPrivateChatPeer()
+        
+        // Send read receipt if user is currently focused on this specific chat
+        val shouldSendReadReceipt = !isAppInBackground && currentPrivateChatPeer == senderPeerID
+        
+        if (shouldSendReadReceipt) {
+            android.util.Log.d("MeshDelegateHandler", "Sending reactive read receipt for focused chat with $senderPeerID")
+            privateChatManager.sendReadReceiptsForPeer(senderPeerID, getMeshService())
+        } else {
+            android.util.Log.d("MeshDelegateHandler", "Skipping read receipt - chat not focused (background: $isAppInBackground, current peer: $currentPrivateChatPeer, sender: $senderPeerID)")
+        }
     }
     
     // registerPeerPublicKey REMOVED - fingerprints now handled centrally in PeerManager

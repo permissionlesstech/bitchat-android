@@ -55,7 +55,8 @@ class ChatViewModel(
         notificationManager = notificationManager,
         coroutineScope = viewModelScope,
         onHapticFeedback = { ChatViewModelUtils.triggerHapticFeedback(application.applicationContext) },
-        getMyPeerID = { meshService.myPeerID }
+        getMyPeerID = { meshService.myPeerID },
+        getMeshService = { meshService }
     )
     
     // Expose state through LiveData (maintaining the same interface)

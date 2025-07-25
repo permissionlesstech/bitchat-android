@@ -64,7 +64,7 @@ class PrivateChatManager(
         
         // Initialize chat if needed
         messageManager.initializePrivateChat(peerID)
-        
+
         // Send read receipts for all unread messages from this peer
         sendReadReceiptsForPeer(peerID, meshService)
         
