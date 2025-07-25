@@ -66,7 +66,7 @@ class BluetoothMeshService(private val context: Context) {
         // Wire up PacketProcessor reference for recursive handling in MessageHandler
         messageHandler.packetProcessor = packetProcessor
         sendPeriodicBroadcastAnnounce()
-        startPeriodicDebugLogging()
+        // startPeriodicDebugLogging()
     }
     
     /**
@@ -89,13 +89,13 @@ class BluetoothMeshService(private val context: Context) {
     }
 
     /**
-     * Send broadcast announcement every 10 seconds
+     * Send broadcast announcement every 30 seconds
      */
     private fun sendPeriodicBroadcastAnnounce() {
         serviceScope.launch {
             while (isActive) {
                 try {
-                    delay(10000) // 10 seconds
+                    delay(30000) // 30 seconds
                     sendBroadcastAnnounce()
                 } catch (e: Exception) {
                     Log.e(TAG, "Error in periodic broadcast announce: ${e.message}")
@@ -552,7 +552,7 @@ class BluetoothMeshService(private val context: Context) {
             originalMessageID = message.id,
             recipientID = myPeerID,
             recipientNickname = nickname,
-            hopCount = 0u // Will be calculated during relay
+            hopCount = 0u.toUByte() // Will be calculated during relay
         )
         
         try {
@@ -644,14 +644,6 @@ class BluetoothMeshService(private val context: Context) {
                 payload = nickname.toByteArray()
             )
             
-            // Send multiple times for reliability
-            delay(Random.nextLong(0, 500))
-            connectionManager.broadcastPacket(RoutedPacket(announcePacket))
-            
-            delay(500 + Random.nextLong(0, 500))
-            connectionManager.broadcastPacket(RoutedPacket(announcePacket))
-            
-            delay(1000 + Random.nextLong(0, 500))
             connectionManager.broadcastPacket(RoutedPacket(announcePacket))
         }
     }

@@ -71,6 +71,7 @@ class MessageHandler(private val myPeerID: String) {
                 }
                 
                 // Check for read receipt with type marker
+                // NOTE: THIS DOESN'T WORK WITH IOS, IT SENDS AN INNER PACKET INSTEAD
                 if (typeMarker == MessageType.READ_RECEIPT.value) {
                     val receiptData = decryptedData.sliceArray(1 until decryptedData.size)
                     val receipt = ReadReceipt.decode(receiptData)
@@ -268,7 +269,7 @@ class MessageHandler(private val myPeerID: String) {
                 delegate?.onMessageReceived(message)
                 
                 // Send delivery ACK
-                // delegate?.sendDeliveryAck(message, peerID)
+                delegate?.sendDeliveryAck(message, peerID)
             }
             
         } catch (e: Exception) {
@@ -327,20 +328,11 @@ class MessageHandler(private val myPeerID: String) {
     suspend fun handleReadReceipt(routed: RoutedPacket) {
         val packet = routed.packet
         val peerID = routed.peerID ?: "unknown"
-        if (packet.recipientID != null && String(packet.recipientID).replace("\u0000", "") == myPeerID) {
-            try {
-                val decryptedData = delegate?.decryptFromPeer(packet.payload, peerID)
-                if (decryptedData != null) {
-                    val receipt = ReadReceipt.decode(decryptedData)
-                    if (receipt != null) {
-                        delegate?.onReadReceiptReceived(receipt)
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to decrypt read receipt: ${e.message}")
-            }
+        val receipt = ReadReceipt.decode(routed.packet.payload)
+        if (receipt != null) {
+            delegate?.onReadReceiptReceived(receipt)
         }
-        // Read receipt relay is now handled by centralized PacketRelayManager
+        return
     }
     
     /**

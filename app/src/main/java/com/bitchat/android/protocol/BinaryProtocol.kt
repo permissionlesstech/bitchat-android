@@ -4,7 +4,7 @@ import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.util.*
+import android.util.Log
 
 /**
  * Message types - exact same as iOS version with Noise Protocol support
@@ -262,6 +262,7 @@ object BinaryProtocol {
             return paddedData
             
         } catch (e: Exception) {
+            Log.e("BinaryProtocol", "Error encoding packet type ${packet.type}: ${e.message}")
             return null
         }
     }
