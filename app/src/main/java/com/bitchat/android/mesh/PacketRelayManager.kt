@@ -70,7 +70,7 @@ class PacketRelayManager(private val myPeerID: String) {
     /**
      * Check if a packet is specifically addressed to us
      */
-    private fun isPacketAddressedToMe(packet: BitchatPacket): Boolean {
+    internal fun isPacketAddressedToMe(packet: BitchatPacket): Boolean {
         val recipientID = packet.recipientID
         
         // No recipient means broadcast (not addressed to us specifically)

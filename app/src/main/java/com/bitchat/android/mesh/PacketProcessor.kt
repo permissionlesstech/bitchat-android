@@ -114,12 +114,11 @@ class PacketProcessor(private val myPeerID: String) {
         }
 
         var validPacket = true
-        Log.d(TAG, "Processing packet type ${packet.type} from $peerID")
-        val DEBUG_MESSAGE_TYPE = MessageType.fromValue(packet.type)
-        when (MessageType.fromValue(packet.type)) {
-            MessageType.NOISE_HANDSHAKE_INIT -> handleNoiseHandshake(routed, 1)
-            MessageType.NOISE_HANDSHAKE_RESP -> handleNoiseHandshake(routed, 2)
-            MessageType.NOISE_ENCRYPTED -> handleNoiseEncrypted(routed)
+        Log.d(TAG, "Processing packet type ${MessageType.fromValue(packet.type)} from $peerID")
+        val messageType = MessageType.fromValue(packet.type)
+        
+        // Handle public packet types (no address check needed)
+        when (messageType) {
             MessageType.NOISE_IDENTITY_ANNOUNCE -> handleNoiseIdentityAnnouncement(routed)
             MessageType.ANNOUNCE -> handleAnnounce(routed)
             MessageType.MESSAGE -> handleMessage(routed)
@@ -127,11 +126,23 @@ class PacketProcessor(private val myPeerID: String) {
             MessageType.FRAGMENT_START,
             MessageType.FRAGMENT_CONTINUE,
             MessageType.FRAGMENT_END -> handleFragment(routed)
-            MessageType.DELIVERY_ACK -> handleDeliveryAck(routed)
-            MessageType.READ_RECEIPT -> handleReadReceipt(routed)
             else -> {
-                validPacket = false
-                Log.w(TAG, "Unknown message type: ${packet.type}")
+                // Handle private packet types (address check required)
+                if (packetRelayManager.isPacketAddressedToMe(packet)) {
+                    when (messageType) {
+                        MessageType.NOISE_HANDSHAKE_INIT -> handleNoiseHandshake(routed, 1)
+                        MessageType.NOISE_HANDSHAKE_RESP -> handleNoiseHandshake(routed, 2)
+                        MessageType.NOISE_ENCRYPTED -> handleNoiseEncrypted(routed)
+                        MessageType.DELIVERY_ACK -> handleDeliveryAck(routed)
+                        MessageType.READ_RECEIPT -> handleReadReceipt(routed)
+                        else -> {
+                            validPacket = false
+                            Log.w(TAG, "Unknown message type: ${packet.type}")
+                        }
+                    }
+                } else {
+                    Log.d(TAG, "Private packet type ${messageType} not addressed to us (from: ${peerID} to ${packet.recipientID?.toHexString()}), skipping")
+                }
             }
         }
         
