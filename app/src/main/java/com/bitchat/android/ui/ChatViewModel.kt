@@ -61,6 +61,7 @@ class ChatViewModel(
     val channelMessages: LiveData<Map<String, List<BitchatMessage>>> = state.channelMessages
     val unreadChannelMessages: LiveData<Map<String, Int>> = state.unreadChannelMessages
     val passwordProtectedChannels: LiveData<Set<String>> = state.passwordProtectedChannels
+    val discoveredChannels: LiveData<Set<String>> = state.discoveredChannels
     val showPasswordPrompt: LiveData<Boolean> = state.showPasswordPrompt
     val passwordPromptChannel: LiveData<String?> = state.passwordPromptChannel
     val showSidebar: LiveData<Boolean> = state.showSidebar
@@ -147,6 +148,24 @@ class ChatViewModel(
     fun leaveChannel(channel: String) {
         channelManager.leaveChannel(channel)
         meshService.sendMessage("left $channel")
+    }
+    
+    fun onChannelClick(channel: String) {
+        if (state.getJoinedChannelsValue().contains(channel)) {
+            // Already joined, just switch
+            switchToChannel(channel)
+        } else if (state.getPasswordProtectedChannelsValue().contains(channel)) {
+            // Need password
+            state.setPasswordPromptChannel(channel)
+            state.setShowPasswordPrompt(true)
+        } else {
+            // Regular join
+            joinChannel(channel, null)
+        }
+    }
+    
+    fun hidePasswordPrompt() {
+        channelManager.hidePasswordPrompt()
     }
     
     // MARK: - Private Chat Management (delegated)
@@ -346,6 +365,10 @@ class ChatViewModel(
     
     override fun registerPeerPublicKey(peerID: String, publicKeyData: ByteArray) {
         privateChatManager.registerPeerPublicKey(peerID, publicKeyData)
+    }
+    
+    override fun markChannelAsPasswordProtected(channel: String) {
+        meshDelegateHandler.markChannelAsPasswordProtected(channel)
     }
     
     // MARK: - Emergency Clear

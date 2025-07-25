@@ -67,17 +67,11 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val showAppInfo by viewModel.showAppInfo.observeAsState(false)
     
     var messageText by remember { mutableStateOf(TextFieldValue("")) }
-    var showPasswordPrompt by remember { mutableStateOf(false) }
-    var showPasswordDialog by remember { mutableStateOf(false) }
+    val showPasswordPrompt by viewModel.showPasswordPrompt.observeAsState(false)
+    val passwordPromptChannel by viewModel.passwordPromptChannel.observeAsState(null)
     var passwordInput by remember { mutableStateOf("") }
     
-    // Show password dialog when needed
-    LaunchedEffect(showPasswordPrompt) {
-        showPasswordDialog = showPasswordPrompt
-    }
-    
     val isConnected by viewModel.isConnected.observeAsState(false)
-    val passwordPromptChannel by viewModel.passwordPromptChannel.observeAsState(null)
     
     // Determine what messages to show
     val displayMessages = when {
@@ -173,21 +167,22 @@ fun ChatScreen(viewModel: ChatViewModel) {
     
     // Dialogs
     ChatDialogs(
-        showPasswordDialog = showPasswordDialog,
+        showPasswordPrompt = showPasswordPrompt,
         passwordPromptChannel = passwordPromptChannel,
         passwordInput = passwordInput,
         onPasswordChange = { passwordInput = it },
         onPasswordConfirm = {
-            if (passwordInput.isNotEmpty()) {
-                val success = viewModel.joinChannel(passwordPromptChannel!!, passwordInput)
+            val channel = passwordPromptChannel
+            if (passwordInput.isNotEmpty() && channel != null) {
+                val success = viewModel.joinChannel(channel, passwordInput)
                 if (success) {
-                    showPasswordDialog = false
+                    viewModel.hidePasswordPrompt()
                     passwordInput = ""
                 }
             }
         },
         onPasswordDismiss = {
-            showPasswordDialog = false
+            viewModel.hidePasswordPrompt()
             passwordInput = ""
         },
         showAppInfo = showAppInfo,
@@ -298,7 +293,7 @@ private fun ChatFloatingHeader(
 
 @Composable
 private fun ChatDialogs(
-    showPasswordDialog: Boolean,
+    showPasswordPrompt: Boolean,
     passwordPromptChannel: String?,
     passwordInput: String,
     onPasswordChange: (String) -> Unit,
@@ -309,7 +304,7 @@ private fun ChatDialogs(
 ) {
     // Password dialog
     PasswordPromptDialog(
-        show = showPasswordDialog,
+        show = showPasswordPrompt,
         channelName = passwordPromptChannel,
         passwordInput = passwordInput,
         onPasswordChange = onPasswordChange,

@@ -36,6 +36,8 @@ fun SidebarOverlay(
     val colorScheme = MaterialTheme.colorScheme
     val connectedPeers by viewModel.connectedPeers.observeAsState(emptyList())
     val joinedChannels by viewModel.joinedChannels.observeAsState(emptyList())
+    val discoveredChannels by viewModel.discoveredChannels.observeAsState(emptySet())
+    val passwordProtectedChannels by viewModel.passwordProtectedChannels.observeAsState(emptySet())
     val currentChannel by viewModel.currentChannel.observeAsState()
     val selectedPrivatePeer by viewModel.selectedPrivateChatPeer.observeAsState()
     val nickname by viewModel.nickname.observeAsState("")
@@ -96,10 +98,30 @@ fun SidebarOverlay(
                                 onLeaveChannel = { channel ->
                                     viewModel.leaveChannel(channel)
                                 },
-                                unreadChannelMessages = unreadChannelMessages
+                                unreadChannelMessages = unreadChannelMessages,
+                                passwordProtectedChannels = passwordProtectedChannels
                             )
                         }
-                        
+                    }
+                    
+                    // Discovered channels section
+                    val notJoinedDiscoveredChannels = discoveredChannels.filter { !joinedChannels.contains(it) }
+                    if (notJoinedDiscoveredChannels.isNotEmpty()) {
+                        item {
+                            DiscoveredChannelsSection(
+                                channels = notJoinedDiscoveredChannels.toList(),
+                                passwordProtectedChannels = passwordProtectedChannels,
+                                colorScheme = colorScheme,
+                                onChannelClick = { channel ->
+                                    viewModel.onChannelClick(channel)
+                                    onDismiss()
+                                }
+                            )
+                        }
+                    }
+                    
+                    // Divider between channels and people
+                    if (joinedChannels.isNotEmpty() || notJoinedDiscoveredChannels.isNotEmpty()) {
                         item {
                             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                         }
@@ -158,7 +180,8 @@ fun ChannelsSection(
     colorScheme: ColorScheme,
     onChannelClick: (String) -> Unit,
     onLeaveChannel: (String) -> Unit,
-    unreadChannelMessages: Map<String, Int> = emptyMap()
+    unreadChannelMessages: Map<String, Int> = emptyMap(),
+    passwordProtectedChannels: Set<String> = emptySet()
 ) {
     Column {
         Row(
@@ -212,6 +235,15 @@ fun ChannelsSection(
                     modifier = Modifier.weight(1f)
                 )
                 
+                // Lock icon for password-protected channels
+                if (passwordProtectedChannels.contains(channel)) {
+                    Text(
+                        text = "🔒",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(horizontal = 4.dp)
+                    )
+                }
+                
                 // Leave channel button
                 IconButton(
                     onClick = { onLeaveChannel(channel) },
@@ -222,6 +254,63 @@ fun ChannelsSection(
                         contentDescription = "Leave channel",
                         modifier = Modifier.size(14.dp),
                         tint = colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DiscoveredChannelsSection(
+    channels: List<String>,
+    passwordProtectedChannels: Set<String>,
+    colorScheme: ColorScheme,
+    onChannelClick: (String) -> Unit
+) {
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Person, // Using Person icon as placeholder
+                contentDescription = null,
+                modifier = Modifier.size(10.dp),
+                tint = colorScheme.onSurface.copy(alpha = 0.6f)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = stringResource(id = R.string.discovered_channels).uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = colorScheme.onSurface.copy(alpha = 0.6f),
+                fontWeight = FontWeight.Bold
+            )
+        }
+        
+        channels.forEach { channel ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onChannelClick(channel) }
+                    .padding(horizontal = 24.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = channel, // Channel already contains the # prefix
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier.weight(1f)
+                )
+                
+                // Lock icon for password-protected channels
+                if (passwordProtectedChannels.contains(channel)) {
+                    Text(
+                        text = "🔒",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(horizontal = 4.dp)
                     )
                 }
             }

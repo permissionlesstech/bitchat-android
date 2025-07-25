@@ -13,6 +13,7 @@
     <string name="back">Back</string>
     <string name="people">People</string>
     <string name="channels">Channels</string>
+    <string name="discovered_channels">Discovered Channels</string>
     <string name="online_users">Online Users</string>
     <string name="no_one_connected">No one connected</string>
     <string name="emergency_clear_hint">Triple tap to clear all data</string>

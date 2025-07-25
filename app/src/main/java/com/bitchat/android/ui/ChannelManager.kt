@@ -301,6 +301,27 @@ class ChannelManager(
         )
     }
     
+    fun markChannelAsPasswordProtected(channel: String) {
+        // Mark as password protected if not already
+        if (!state.getPasswordProtectedChannelsValue().contains(channel)) {
+            state.setPasswordProtectedChannels(
+                state.getPasswordProtectedChannelsValue().plus(channel)
+            )
+        }
+        
+        // Track as discovered if not joined
+        if (!state.getJoinedChannelsValue().contains(channel)) {
+            state.setDiscoveredChannels(
+                state.getDiscoveredChannelsValue().plus(channel)
+            )
+        }
+        
+        // Save state
+        saveChannelData()
+    }
+    
+    fun getDiscoveredChannels(): Set<String> = state.getDiscoveredChannelsValue()
+    
     // MARK: - Emergency Clear
     
     fun clearAllChannels() {
