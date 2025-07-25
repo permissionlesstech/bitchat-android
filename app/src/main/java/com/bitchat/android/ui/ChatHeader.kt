@@ -329,7 +329,7 @@ private fun PrivateChatHeader(
                 imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
                 contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
                 modifier = Modifier.size(18.dp), // Slightly larger than sidebar icon
-                tint = if (isFavorite) Color(0xFFFFD700) else Color(0xFF4CAF50) // Yellow for filled, green for outlined
+                tint = if (isFavorite) Color(0xFFFFD700) else Color(0x87878700) // Yellow or grey
             )
         }
     }
