@@ -126,9 +126,6 @@ class BluetoothMeshService(private val context: Context) {
         // SecurityManager delegate for key exchange notifications
         securityManager.delegate = object : SecurityManagerDelegate {
             override fun onKeyExchangeCompleted(peerID: String, peerPublicKeyData: ByteArray, receivedAddress: String?) {
-                // Store fingerprint for the peer via centralized fingerprint manager in PeerManager
-                peerManager.storeFingerprintForPeer(peerID, peerPublicKeyData)
-
                 receivedAddress?.let { address ->
                     connectionManager.addressPeerMap[address] = peerID
                 }

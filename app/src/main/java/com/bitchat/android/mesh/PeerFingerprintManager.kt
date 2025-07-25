@@ -51,7 +51,14 @@ class PeerFingerprintManager private constructor() {
      * @param publicKey The peer's static public key from Noise handshake
      */
     fun storeFingerprintForPeer(peerID: String, publicKey: ByteArray): String {
+        // get existing fingerprint for this peer and compare
+        val existingFingerprint = getFingerprintForPeer(peerID)
         val fingerprint = calculateFingerprint(publicKey)
+
+        if (existingFingerprint != null && existingFingerprint != fingerprint) {
+            Log.w(TAG, "Fingerprint mismatch for peer $peerID: $existingFingerprint != $fingerprint")
+            throw IllegalStateException("Fingerprint mismatch for peer $peerID: $existingFingerprint != $fingerprint")
+        }
         
         // Store bidirectional mapping
         peerIDToFingerprint[peerID] = fingerprint

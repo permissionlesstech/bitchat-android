@@ -86,7 +86,7 @@ class PeerManager {
             notifyPeerListUpdate()
             return true
         }
-        
+        Log.d(TAG, "Updated peer: $peerID ($nickname)")
         return false
     }
     
