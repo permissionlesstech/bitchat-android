@@ -316,6 +316,10 @@ class BluetoothMeshService(private val context: Context) {
                 peerManager.updatePeerLastSeen(peerID)
             }
             
+            override fun getPeerNickname(peerID: String): String? {
+                return peerManager.getPeerNickname(peerID)
+            }
+            
             // Network information for relay manager
             override fun getNetworkSize(): Int {
                 return peerManager.getActivePeerCount()
