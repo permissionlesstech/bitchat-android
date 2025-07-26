@@ -685,7 +685,7 @@ class BluetoothMeshService(private val context: Context) {
             
             val announcePacket = BitchatPacket(
                 type = MessageType.ANNOUNCE.value,
-                ttl = 3u,
+                ttl = 6u,
                 senderID = myPeerID,
                 payload = nickname.toByteArray()
             )
@@ -732,7 +732,7 @@ class BluetoothMeshService(private val context: Context) {
                         recipientID = SpecialRecipients.BROADCAST,
                         timestamp = System.currentTimeMillis().toULong(),
                         payload = announcementData,
-                        ttl = 1u
+                        ttl = 6u
                     )
                     
                     connectionManager.broadcastPacket(RoutedPacket(packet))
