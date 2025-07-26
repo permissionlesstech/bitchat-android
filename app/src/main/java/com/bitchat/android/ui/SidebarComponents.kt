@@ -45,11 +45,7 @@ fun SidebarOverlay(
     val peerNicknames = viewModel.meshService.getPeerNicknames()
     val peerRSSI = viewModel.meshService.getPeerRSSI()
     
-    Box(
-        modifier = modifier
-            .background(Color.Black.copy(alpha = 0.5f))
-            .clickable { onDismiss() }
-    ) {
+    Box(modifier = modifier) {
         Row(
             modifier = Modifier
                 .fillMaxHeight()
