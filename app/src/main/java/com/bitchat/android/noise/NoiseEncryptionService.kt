@@ -57,7 +57,7 @@ class NoiseEncryptionService(private val context: Context) {
         if (loadedKeyPair != null) {
             staticIdentityPrivateKey = loadedKeyPair.first
             staticIdentityPublicKey = loadedKeyPair.second
-            Log.d(TAG, "Loaded existing static identity key")
+            Log.d(TAG, "Loaded existing static identity key: ${calculateFingerprint(staticIdentityPublicKey)}")
         } else {
             // Generate new identity key pair
             val keyPair = generateKeyPair()
