@@ -13,7 +13,7 @@ import android.util.Log
 interface NoiseSessionDelegate {
     fun hasEstablishedSession(peerID: String): Boolean
     fun initiateHandshake(peerID: String)
-    fun sendIdentityAnnouncement()
+    fun broadcastNoiseIdentityAnnouncement()
     fun sendHandshakeRequest(targetPeerID: String, pendingCount: UByte)
     fun getMyPeerID(): String
 }
@@ -342,7 +342,7 @@ class PrivateChatManager(
             } else {
                 // They should initiate, we send a Noise identity announcement
                 Log.d(TAG, "Our peer ID lexicographically >= target peer ID, sending Noise identity announcement to prompt handshake from $peerID")
-                noiseSessionDelegate.sendIdentityAnnouncement()
+                noiseSessionDelegate.broadcastNoiseIdentityAnnouncement()
                 // Also send handshake request to this peer
                 noiseSessionDelegate.sendHandshakeRequest(peerID, 1u) // 1 pending message (the chat we're trying to start)
             }
@@ -414,12 +414,12 @@ class PrivateChatManager(
     
     /**
      * Send Noise identity announcement to prompt other peer to initiate handshake
-     * This follows the same pattern as sendKeyExchangeToDevice() in BluetoothMeshService
+     * This follows the same pattern as broadcastNoiseIdentityAnnouncement() in BluetoothMeshService
      */
     private fun sendNoiseIdentityAnnouncement(meshService: Any) {
         try {
-            // Call sendKeyExchangeToDevice which sends a NoiseIdentityAnnouncement
-            val method = meshService::class.java.getDeclaredMethod("sendKeyExchangeToDevice")
+            // Call broadcastNoiseIdentityAnnouncement which sends a NoiseIdentityAnnouncement
+            val method = meshService::class.java.getDeclaredMethod("broadcastNoiseIdentityAnnouncement")
             method.invoke(meshService)
             Log.d(TAG, "Successfully sent Noise identity announcement")
         } catch (e: Exception) {

@@ -63,11 +63,8 @@ class BluetoothMeshService(private val context: Context) {
     
     init {
         setupDelegates()
-
-        // Wire up PacketProcessor reference for recursive handling in MessageHandler
         messageHandler.packetProcessor = packetProcessor
-        sendPeriodicBroadcastAnnounce()
-        // startPeriodicDebugLogging()
+        startPeriodicDebugLogging()
     }
     
     /**
@@ -98,6 +95,7 @@ class BluetoothMeshService(private val context: Context) {
                 try {
                     delay(30000) // 30 seconds
                     sendBroadcastAnnounce()
+                    broadcastNoiseIdentityAnnouncement()
                 } catch (e: Exception) {
                     Log.e(TAG, "Error in periodic broadcast announce: ${e.message}")
                 }
@@ -126,11 +124,7 @@ class BluetoothMeshService(private val context: Context) {
         
         // SecurityManager delegate for key exchange notifications
         securityManager.delegate = object : SecurityManagerDelegate {
-            override fun onKeyExchangeCompleted(peerID: String, peerPublicKeyData: ByteArray, receivedAddress: String?) {
-                receivedAddress?.let { address ->
-                    connectionManager.addressPeerMap[address] = peerID
-                }
-
+            override fun onKeyExchangeCompleted(peerID: String, peerPublicKeyData: ByteArray) {
                 // Send announcement and cached messages after key exchange
                 serviceScope.launch {
                     delay(100)
@@ -150,7 +144,7 @@ class BluetoothMeshService(private val context: Context) {
                     recipientID = hexStringToByteArray(peerID),
                     timestamp = System.currentTimeMillis().toULong(),
                     payload = response,
-                    ttl = 1u
+                    ttl = MAX_TTL
                 )
                 connectionManager.broadcastPacket(RoutedPacket(responsePacket))
                 Log.d(TAG, "Sent Noise handshake response to $peerID (${response.size} bytes)")
@@ -243,7 +237,7 @@ class BluetoothMeshService(private val context: Context) {
                             recipientID = hexStringToByteArray(peerID),
                             timestamp = System.currentTimeMillis().toULong(),
                             payload = handshakeData,
-                            ttl = 1u
+                            ttl = MAX_TTL
                         )
                         
                         connectionManager.broadcastPacket(RoutedPacket(packet))
@@ -387,13 +381,13 @@ class BluetoothMeshService(private val context: Context) {
             override fun onDeviceConnected(device: android.bluetooth.BluetoothDevice) {
                 // Send initial announcements after services are ready
                 serviceScope.launch {
-                    delay(100)
+                    delay(200)
                     sendBroadcastAnnounce()
                 }
                 // Send key exchange to newly connected device
                 serviceScope.launch {
-                    delay(100) // Ensure connection is stable
-                    sendKeyExchangeToDevice()
+                    delay(400) // Ensure connection is stable
+                    broadcastNoiseIdentityAnnouncement()
                 }
             }
             
@@ -685,7 +679,7 @@ class BluetoothMeshService(private val context: Context) {
             
             val announcePacket = BitchatPacket(
                 type = MessageType.ANNOUNCE.value,
-                ttl = 3u,
+                ttl = MAX_TTL,
                 senderID = myPeerID,
                 payload = nickname.toByteArray()
             )
@@ -703,7 +697,7 @@ class BluetoothMeshService(private val context: Context) {
         val nickname = delegate?.getNickname() ?: myPeerID
         val packet = BitchatPacket(
             type = MessageType.ANNOUNCE.value,
-            ttl = 3u,
+            ttl = MAX_TTL,
             senderID = myPeerID,
             payload = nickname.toByteArray()
         )
@@ -715,7 +709,7 @@ class BluetoothMeshService(private val context: Context) {
     /**
      * Send key exchange to newly connected device
      */
-    fun sendKeyExchangeToDevice() {
+    fun broadcastNoiseIdentityAnnouncement() {
         serviceScope.launch {
             try {
                 val nickname = delegate?.getNickname() ?: myPeerID
@@ -726,13 +720,11 @@ class BluetoothMeshService(private val context: Context) {
                     val announcementData = announcement.toBinaryData()
                     
                     val packet = BitchatPacket(
-                        version = 1u,
                         type = MessageType.NOISE_IDENTITY_ANNOUNCE.value,
-                        senderID = hexStringToByteArray(myPeerID),
-                        recipientID = SpecialRecipients.BROADCAST,
-                        timestamp = System.currentTimeMillis().toULong(),
+                        ttl = MAX_TTL,
+                        senderID = myPeerID,
                         payload = announcementData,
-                        ttl = 1u
+
                     )
                     
                     connectionManager.broadcastPacket(RoutedPacket(packet))
@@ -838,7 +830,7 @@ class BluetoothMeshService(private val context: Context) {
         val nickname = delegate?.getNickname() ?: myPeerID
         val packet = BitchatPacket(
             type = MessageType.LEAVE.value,
-            ttl = 1u,
+            ttl = MAX_TTL,
             senderID = myPeerID,
             payload = nickname.toByteArray()
         )
@@ -940,6 +932,8 @@ class BluetoothMeshService(private val context: Context) {
             appendLine(connectionManager.getDebugInfo())
             appendLine()
             appendLine(peerManager.getDebugInfo(connectionManager.addressPeerMap))
+            appendLine()
+            appendLine(printDeviceAddressesForPeers())
             appendLine()
             appendLine(peerManager.getFingerprintDebugInfo())
             appendLine()

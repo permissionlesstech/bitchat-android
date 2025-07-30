@@ -37,7 +37,7 @@ class ChatViewModel(
     private val noiseSessionDelegate = object : NoiseSessionDelegate {
         override fun hasEstablishedSession(peerID: String): Boolean = meshService.hasEstablishedSession(peerID)
         override fun initiateHandshake(peerID: String) = meshService.initiateNoiseHandshake(peerID) 
-        override fun sendIdentityAnnouncement() = meshService.sendKeyExchangeToDevice()
+        override fun broadcastNoiseIdentityAnnouncement() = meshService.broadcastNoiseIdentityAnnouncement()
         override fun sendHandshakeRequest(targetPeerID: String, pendingCount: UByte) = meshService.sendHandshakeRequest(targetPeerID, pendingCount)
         override fun getMyPeerID(): String = meshService.myPeerID
     }
