@@ -206,7 +206,7 @@ bitchat uses an efficient binary protocol optimized for Bluetooth LE:
 - **Lifecycle-Aware**: Proper handling of Android app lifecycle
 - **Battery Optimization**: Foreground service and adaptive scanning
 
-## Android Technical Architecture
+## [Android Technical Architecture](https://deepwiki.com/permissionlesstech/bitchat-android)
 
 ### Core Components
 
