@@ -933,8 +933,6 @@ class BluetoothMeshService(private val context: Context) {
             appendLine()
             appendLine(peerManager.getDebugInfo(connectionManager.addressPeerMap))
             appendLine()
-            appendLine(printDeviceAddressesForPeers())
-            appendLine()
             appendLine(peerManager.getFingerprintDebugInfo())
             appendLine()
             appendLine(fragmentManager.getDebugInfo())
