@@ -424,10 +424,19 @@ class CommandProcessor(
         }
     }
     
-    fun selectMentionSuggestion(nickname: String): String {
+    fun selectMentionSuggestion(nickname: String, currentText: String): String {
         state.setShowMentionSuggestions(false)
         state.setMentionSuggestions(emptyList())
-        return "@$nickname "
+        
+        // Find the last @ symbol position
+        val atIndex = currentText.lastIndexOf('@')
+        if (atIndex == -1) {
+            return "$currentText@$nickname "
+        }
+        
+        // Replace the text from the @ symbol to the end with the mention
+        val textBeforeAt = currentText.substring(0, atIndex)
+        return "$textBeforeAt@$nickname "
     }
     
     // MARK: - Utility Functions (would access mesh service)

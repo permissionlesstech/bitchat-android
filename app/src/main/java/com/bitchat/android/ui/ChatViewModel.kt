@@ -355,8 +355,8 @@ class ChatViewModel(
         commandProcessor.updateMentionSuggestions(input, meshService)
     }
     
-    fun selectMentionSuggestion(nickname: String): String {
-        return commandProcessor.selectMentionSuggestion(nickname)
+    fun selectMentionSuggestion(nickname: String, currentText: String): String {
+        return commandProcessor.selectMentionSuggestion(nickname, currentText)
     }
     
     // MARK: - BluetoothMeshDelegate Implementation (delegated)

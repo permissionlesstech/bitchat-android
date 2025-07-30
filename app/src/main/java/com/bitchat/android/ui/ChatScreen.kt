@@ -136,7 +136,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     )
                 },
                 onMentionSuggestionClick = { mention: String ->
-                    val mentionText = viewModel.selectMentionSuggestion(mention)
+                    val mentionText = viewModel.selectMentionSuggestion(mention, messageText.text)
                     messageText = TextFieldValue(
                         text = mentionText,
                         selection = TextRange(mentionText.length)
