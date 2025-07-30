@@ -80,6 +80,68 @@ class SlashCommandVisualTransformation : VisualTransformation {
     }
 }
 
+/**
+ * VisualTransformation that styles mentions with background and color
+ * while preserving cursor positioning and click handling
+ */
+class MentionVisualTransformation : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val mentionRegex = Regex("@([a-zA-Z0-9_]+)")
+        val annotatedString = buildAnnotatedString {
+            var lastIndex = 0
+            
+            mentionRegex.findAll(text.text).forEach { match ->
+                // Add text before the match
+                if (match.range.first > lastIndex) {
+                    append(text.text.substring(lastIndex, match.range.first))
+                }
+                
+                // Add the styled mention
+                withStyle(
+                    style = SpanStyle(
+                        color = Color(0xFFFF9500), // Orange
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                ) {
+                    append(match.value)
+                }
+                
+                lastIndex = match.range.last + 1
+            }
+            
+            // Add remaining text
+            if (lastIndex < text.text.length) {
+                append(text.text.substring(lastIndex))
+            }
+        }
+        
+        return TransformedText(
+            text = annotatedString,
+            offsetMapping = OffsetMapping.Identity
+        )
+    }
+}
+
+/**
+ * VisualTransformation that combines multiple visual transformations
+ */
+class CombinedVisualTransformation(private val transformations: List<VisualTransformation>) : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        var resultText = text
+        
+        // Apply each transformation in order
+        transformations.forEach { transformation ->
+            resultText = transformation.filter(resultText).text
+        }
+        
+        return TransformedText(
+            text = resultText,
+            offsetMapping = OffsetMapping.Identity
+        )
+    }
+}
+
 
 
 
@@ -118,7 +180,9 @@ fun MessageInput(
                 keyboardActions = KeyboardActions(onSend = { 
                     if (hasText) onSend() // Only send if there's text
                 }),
-                visualTransformation = SlashCommandVisualTransformation(),
+                visualTransformation = CombinedVisualTransformation(
+                    listOf(SlashCommandVisualTransformation(), MentionVisualTransformation())
+                ),
                 modifier = Modifier
                     .fillMaxWidth()
                     .onFocusChanged { focusState ->
@@ -267,6 +331,67 @@ fun CommandSuggestionItem(
             fontSize = 10.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+fun MentionSuggestionsBox(
+    suggestions: List<String>,
+    onSuggestionClick: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    
+    Column(
+        modifier = modifier
+            .background(colorScheme.surface)
+            .border(1.dp, colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+            .padding(vertical = 8.dp)
+    ) {
+        suggestions.forEach { suggestion: String ->
+            MentionSuggestionItem(
+                suggestion = suggestion,
+                onClick = { onSuggestionClick(suggestion) }
+            )
+        }
+    }
+}
+
+@Composable
+fun MentionSuggestionItem(
+    suggestion: String,
+    onClick: () -> Unit
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(horizontal = 12.dp, vertical = 3.dp)
+            .background(Color.Gray.copy(alpha = 0.1f)),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "@$suggestion",
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.SemiBold
+            ),
+            color = Color(0xFFFF9500), // Orange like mentions
+            fontSize = 11.sp
+        )
+        
+        Spacer(modifier = Modifier.weight(1f))
+        
+        Text(
+            text = "mention",
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontFamily = FontFamily.Monospace
+            ),
+            color = colorScheme.onSurface.copy(alpha = 0.7f),
+            fontSize = 10.sp
         )
     }
 }
