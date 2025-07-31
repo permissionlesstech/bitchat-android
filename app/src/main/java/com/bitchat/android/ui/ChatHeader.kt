@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
@@ -23,6 +24,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.core.ui.utils.singleOrTripleClickable
+import kotlin.random.Random
 
 /**
  * Header components for ChatScreen
@@ -92,7 +94,8 @@ fun NicknameEditor(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val focusManager = LocalFocusManager.current
-    
+    val isFocused = remember { mutableStateOf(false) }
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
@@ -117,7 +120,14 @@ fun NicknameEditor(
                     focusManager.clearFocus()
                 }
             ),
-            modifier = Modifier.widthIn(max = 100.dp)
+            modifier = Modifier
+                .widthIn(max = 100.dp)
+                .onFocusChanged { focusState ->
+                    isFocused.value = focusState.isFocused
+                    if (!focusState.isFocused && value.isBlank()) {
+                        onValueChange("anon${Random.nextInt(1000, 9999)}")
+                    }
+                }
         )
     }
 }
