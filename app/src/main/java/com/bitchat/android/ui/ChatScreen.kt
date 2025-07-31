@@ -105,6 +105,20 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 messages = displayMessages,
                 currentUserNickname = nickname,
                 meshService = viewModel.meshService,
+                onPrivateMessage = { username ->
+                    // Get peer ID for the username and start private chat
+                    viewModel.getPeerIDForNickname(username)?.let { peerID ->
+                        viewModel.startPrivateChat(peerID)
+                    }
+                },
+                onSlap = { username ->
+                    // Send slap command
+                    viewModel.sendMessage("/slap $username")
+                },
+                onHug = { username ->
+                    // Send hug command  
+                    viewModel.sendMessage("/hug $username")
+                },
                 modifier = Modifier.weight(1f)
             )
             
