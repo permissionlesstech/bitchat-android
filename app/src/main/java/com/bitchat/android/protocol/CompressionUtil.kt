@@ -15,6 +15,8 @@ object CompressionUtil {
      * Helper to check if compression is worth it - exact same logic as iOS
      */
     fun shouldCompress(data: ByteArray): Boolean {
+        // TODO: COMPRESSION DOESN'T WORK WITH IOS YET
+        return false
         // Don't compress if:
         // 1. Data is too small
         // 2. Data appears to be already compressed (high entropy)

@@ -3,6 +3,12 @@ package com.bitchat.android.crypto
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.noise.NoiseEncryptionService
+import org.bouncycastle.crypto.AsymmetricCipherKeyPair
+import org.bouncycastle.crypto.generators.Ed25519KeyPairGenerator
+import org.bouncycastle.crypto.params.Ed25519KeyGenerationParameters
+import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters
+import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters
+import org.bouncycastle.crypto.signers.Ed25519Signer
 import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
 
@@ -17,6 +23,7 @@ class EncryptionService(private val context: Context) {
     
     companion object {
         private const val TAG = "EncryptionService"
+        private const val ED25519_PRIVATE_KEY_PREF = "ed25519_signing_private_key"
     }
     
     // Core Noise encryption service
@@ -25,12 +32,23 @@ class EncryptionService(private val context: Context) {
     // Session tracking for established connections
     private val establishedSessions = ConcurrentHashMap<String, String>() // peerID -> fingerprint
     
+    // Ed25519 signing keys (separate from Noise static keys)
+    private val ed25519PrivateKey: Ed25519PrivateKeyParameters
+    private val ed25519PublicKey: Ed25519PublicKeyParameters
+    
     // Callbacks for UI state updates
     var onSessionEstablished: ((String) -> Unit)? = null // peerID
     var onSessionLost: ((String) -> Unit)? = null // peerID
     var onHandshakeRequired: ((String) -> Unit)? = null // peerID
     
     init {
+        // Initialize or load Ed25519 signing keys
+        val keyPair = loadOrCreateEd25519KeyPair()
+        ed25519PrivateKey = keyPair.private as Ed25519PrivateKeyParameters
+        ed25519PublicKey = keyPair.public as Ed25519PublicKeyParameters
+        
+        Log.d(TAG, "✅ Ed25519 signing keys initialized")
+        
         // Set up NoiseEncryptionService callbacks
         noiseService.onPeerAuthenticated = { peerID, fingerprint ->
             Log.d(TAG, "✅ Noise session established with $peerID, fingerprint: ${fingerprint.take(16)}...")
@@ -63,24 +81,26 @@ class EncryptionService(private val context: Context) {
     
     /**
      * Get our signing public key for Ed25519 signatures (for identity announcements)
-     * Note: In the current implementation, this returns the same as static key
-     * In a full implementation, this would be a separate Ed25519 key
      */
     fun getSigningPublicKey(): ByteArray? {
-        // For now, return the static public key as placeholder
-        // In a full implementation, this would be a separate Ed25519 signing key
-        return noiseService.getStaticPublicKeyData()
+        return ed25519PublicKey.encoded
     }
     
     /**
-     * Sign data using our signing key (for identity announcements)
-     * Note: In the current simplified implementation, this returns empty signature
-     * In a full implementation, this would use Ed25519 signing
+     * Sign data using our Ed25519 signing key (for identity announcements)
      */
     fun signData(data: ByteArray): ByteArray? {
-        // For now, return empty signature as placeholder
-        // In a full implementation, this would use Ed25519 to sign the data
-        return ByteArray(64) // Ed25519 signature length placeholder
+        return try {
+            val signer = Ed25519Signer()
+            signer.init(true, ed25519PrivateKey)
+            signer.update(data, 0, data.size)
+            val signature = signer.generateSignature()
+            Log.d(TAG, "✅ Generated Ed25519 signature (${signature.size} bytes)")
+            signature
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to sign data with Ed25519: ${e.message}")
+            null
+        }
     }
     
     /**
@@ -112,6 +132,15 @@ class EncryptionService(private val context: Context) {
     fun clearPersistentIdentity() {
         noiseService.clearPersistentIdentity()
         establishedSessions.clear()
+        
+        // Clear Ed25519 signing key from preferences
+        try {
+            val prefs = context.getSharedPreferences("bitchat_crypto", Context.MODE_PRIVATE)
+            prefs.edit().remove(ED25519_PRIVATE_KEY_PREF).apply()
+            Log.d(TAG, "🗑️ Cleared Ed25519 signing keys from preferences")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to clear Ed25519 keys: ${e.message}")
+        }
     }
     
     /**
@@ -320,5 +349,68 @@ class EncryptionService(private val context: Context) {
         establishedSessions.clear()
         noiseService.shutdown()
         Log.d(TAG, "🔌 EncryptionService shut down")
+    }
+    
+    // MARK: - Ed25519 Signature Verification
+    
+    /**
+     * Verify Ed25519 signature against data using a public key
+     */
+    fun verifyEd25519Signature(signature: ByteArray, data: ByteArray, publicKeyBytes: ByteArray): Boolean {
+        return try {
+            val publicKey = Ed25519PublicKeyParameters(publicKeyBytes, 0)
+            val verifier = Ed25519Signer()
+            verifier.init(false, publicKey)
+            verifier.update(data, 0, data.size)
+            val isValid = verifier.verifySignature(signature)
+            Log.d(TAG, "✅ Ed25519 signature verification: $isValid")
+            isValid
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to verify Ed25519 signature: ${e.message}")
+            false
+        }
+    }
+    
+    // MARK: - Private Key Management
+    
+    /**
+     * Load existing Ed25519 key pair from preferences or create a new one
+     */
+    private fun loadOrCreateEd25519KeyPair(): AsymmetricCipherKeyPair {
+        try {
+            val prefs = context.getSharedPreferences("bitchat_crypto", Context.MODE_PRIVATE)
+            val storedKey = prefs.getString(ED25519_PRIVATE_KEY_PREF, null)
+            
+            if (storedKey != null) {
+                // Load existing key
+                val privateKeyBytes = android.util.Base64.decode(storedKey, android.util.Base64.DEFAULT)
+                val privateKey = Ed25519PrivateKeyParameters(privateKeyBytes, 0)
+                val publicKey = privateKey.generatePublicKey()
+                Log.d(TAG, "✅ Loaded existing Ed25519 signing key pair")
+                return AsymmetricCipherKeyPair(publicKey, privateKey)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "⚠️ Failed to load existing Ed25519 key, creating new one: ${e.message}")
+        }
+        
+        // Create new key pair
+        val keyGen = Ed25519KeyPairGenerator()
+        keyGen.init(Ed25519KeyGenerationParameters(SecureRandom()))
+        val keyPair = keyGen.generateKeyPair()
+        
+        // Store private key in preferences
+        try {
+            val privateKey = keyPair.private as Ed25519PrivateKeyParameters
+            val privateKeyBytes = privateKey.encoded
+            val encodedKey = android.util.Base64.encodeToString(privateKeyBytes, android.util.Base64.DEFAULT)
+            
+            val prefs = context.getSharedPreferences("bitchat_crypto", Context.MODE_PRIVATE)
+            prefs.edit().putString(ED25519_PRIVATE_KEY_PREF, encodedKey).apply()
+            Log.d(TAG, "✅ Created and stored new Ed25519 signing key pair")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to store Ed25519 private key: ${e.message}")
+        }
+        
+        return keyPair
     }
 }

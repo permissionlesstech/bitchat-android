@@ -135,7 +135,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
             // Check if session is now established (handshake complete)
             if (encryptionService.hasEstablishedSession(peerID)) {
                 Log.d(TAG, "✅ Noise handshake completed with $peerID")
-                delegate?.onKeyExchangeCompleted(peerID, packet.payload, routed.relayAddress)
+                delegate?.onKeyExchangeCompleted(peerID, packet.payload)
             }
             return true
 
@@ -145,48 +145,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
             return false
         }
     }
-    
-//    /**
-//     * Handle key exchange packet
-//     */
-//    suspend fun handleKeyExchange(routed: RoutedPacket): Boolean {
-//        val packet = routed.packet
-//        val peerID = routed.peerID ?: "unknown"
-//
-//        if (peerID == myPeerID) return false
-//
-//        if (packet.payload.isEmpty()) {
-//            Log.w(TAG, "Key exchange packet has empty payload")
-//            return false
-//        }
-//
-//        // Prevent duplicate key exchange processing
-//        val exchangeKey = "$peerID-${packet.payload.sliceArray(0 until minOf(16, packet.payload.size)).contentHashCode()}"
-//
-//        if (processedKeyExchanges.contains(exchangeKey)) {
-//            Log.d(TAG, "Already processed key exchange: $exchangeKey")
-//            return false
-//        }
-//
-//        processedKeyExchanges.add(exchangeKey)
-//
-//        try {
-//            // Process the key exchange
-//            encryptionService.addPeerPublicKey(peerID, packet.payload)
-//
-//            Log.d(TAG, "Successfully processed key exchange from $peerID")
-//
-//            // Notify delegate
-//            delegate?.onKeyExchangeCompleted(peerID, packet.payload, routed.relayAddress)
-//
-//            return true
-//
-//        } catch (e: Exception) {
-//            Log.e(TAG, "Failed to process key exchange from $peerID: ${e.message}")
-//            return false
-//        }
-//    }
-    
+
     /**
      * Verify packet signature
      */
@@ -377,6 +336,6 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
  * Delegate interface for security manager callbacks
  */
 interface SecurityManagerDelegate {
-    fun onKeyExchangeCompleted(peerID: String, peerPublicKeyData: ByteArray, receivedAddress: String?)
+    fun onKeyExchangeCompleted(peerID: String, peerPublicKeyData: ByteArray)
     fun sendHandshakeResponse(peerID: String, response: ByteArray)
 }
