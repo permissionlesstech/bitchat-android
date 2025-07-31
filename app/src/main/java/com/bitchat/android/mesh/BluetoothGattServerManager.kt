@@ -133,6 +133,13 @@ class BluetoothGattServerManager(
                             isClient = false
                         )
                         connectionTracker.addDeviceConnection(device.address, deviceConn)
+
+                        connectionScope.launch {
+                            delay(1000)
+                            if (isActive) { // Check if still active
+                                delegate?.onDeviceConnected(device)
+                            }
+                        }
                     }
                     BluetoothProfile.STATE_DISCONNECTED -> {
                         Log.i(TAG, "Server: Device disconnected ${device.address}")
@@ -174,7 +181,7 @@ class BluetoothGattServerManager(
                     Log.i(TAG, "Server: Received packet from ${device.address}, size: ${value.size} bytes")
                     val packet = BitchatPacket.fromBinaryData(value)
                     if (packet != null) {
-                        val peerID = String(packet.senderID).replace("\u0000", "")
+                        val peerID = packet.senderID.take(8).toByteArray().joinToString("") { "%02x".format(it) }
                         Log.d(TAG, "Server: Parsed packet type ${packet.type} from $peerID")
                         delegate?.onPacketReceived(packet, peerID, device)
                     } else {
@@ -204,9 +211,9 @@ class BluetoothGattServerManager(
                 }
                 
                 if (BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE.contentEquals(value)) {
-                    Log.d(TAG, "Device ${device.address} subscribed to notifications")
                     connectionTracker.addSubscribedDevice(device)
-                    
+
+                    Log.d(TAG, "Server: Connection setup complete for ${device.address}")
                     connectionScope.launch {
                         delay(100)
                         if (isActive) { // Check if still active
@@ -272,7 +279,9 @@ class BluetoothGattServerManager(
      */
     @Suppress("DEPRECATION")
     private fun startAdvertising() {
-        if (!permissionManager.hasBluetoothPermissions() || bleAdvertiser == null || !isActive) return
+        if (!permissionManager.hasBluetoothPermissions() || bleAdvertiser == null || !isActive || bluetoothAdapter == null || !bluetoothAdapter.isMultipleAdvertisementSupported()) {
+            throw Exception("Missing Bluetooth permissions or BLE advertiser not available")
+        }
 
         val settings = powerManager.getAdvertiseSettings()
         

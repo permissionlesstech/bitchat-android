@@ -90,6 +90,7 @@ open class BluetoothConnectionTracker(
      * Add a device connection
      */
     fun addDeviceConnection(deviceAddress: String, deviceConn: DeviceConnection) {
+        Log.d(TAG, "Tracker: Adding device connection for $deviceAddress (isClient: ${deviceConn.isClient}")
         connectedDevices[deviceAddress] = deviceConn
         pendingConnections.remove(deviceAddress)
     }
@@ -182,16 +183,22 @@ open class BluetoothConnectionTracker(
      * Add a pending connection attempt
      */
     fun addPendingConnection(deviceAddress: String): Boolean {
+        Log.d(TAG, "Tracker: Adding pending connection for $deviceAddress")
         synchronized(pendingConnections) {
             // Double-check inside synchronized block
             val currentAttempt = pendingConnections[deviceAddress]
             if (currentAttempt != null && !currentAttempt.isExpired() && !currentAttempt.shouldRetry()) {
+                Log.d(TAG, "Tracker: Connection attempt already in progress for $deviceAddress")
                 return false
+            }
+            if (currentAttempt != null) {
+                Log.d(TAG, "Tracker: current attempt: $currentAttempt")
             }
             
             // Update connection attempt atomically
             val attempts = (currentAttempt?.attempts ?: 0) + 1
             pendingConnections[deviceAddress] = ConnectionAttempt(attempts)
+            Log.d(TAG, "Tracker: Added pending connection for $deviceAddress (attempts: $attempts)")
             return true
         }
     }
@@ -245,8 +252,6 @@ open class BluetoothConnectionTracker(
             addressPeerMap.remove(deviceAddress)
             delegate?.onDeviceDisconnected(deviceConn.device) // we need to notify delegate
         }
-        // CRITICAL FIX: Always remove from pending connections when cleaning up
-        // This prevents failed connections from blocking future attempts
         pendingConnections.remove(deviceAddress)
         Log.d(TAG, "Cleaned up device connection for $deviceAddress")
     }
@@ -337,7 +342,7 @@ open class BluetoothConnectionTracker(
             appendLine("Connected Devices: ${connectedDevices.size} / ${powerManager.getMaxConnections()}")
             connectedDevices.forEach { (address, deviceConn) ->
                 val age = (System.currentTimeMillis() - deviceConn.connectedAt) / 1000
-                appendLine("  - $address (${if (deviceConn.isClient) "client" else "server"}, ${age}s, RSSI: ${deviceConn.rssi})")
+                appendLine("  - $address (we're ${if (deviceConn.isClient) "client" else "server"}, ${age}s, RSSI: ${deviceConn.rssi})")
             }
             appendLine()
             appendLine("Subscribed Devices (server mode): ${subscribedDevices.size}")

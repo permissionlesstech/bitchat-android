@@ -83,7 +83,15 @@ class ChatState {
     private val _favoritePeers = MutableLiveData<Set<String>>(emptySet())
     val favoritePeers: LiveData<Set<String>> = _favoritePeers
     
-    val peerIDToPublicKeyFingerprint = mutableMapOf<String, String>()
+    // Noise session states for peers (for reactive UI updates)
+    private val _peerSessionStates = MutableLiveData<Map<String, String>>(emptyMap())
+    val peerSessionStates: LiveData<Map<String, String>> = _peerSessionStates
+    
+    // Peer fingerprint state for reactive favorites (for reactive UI updates)
+    private val _peerFingerprints = MutableLiveData<Map<String, String>>(emptyMap())
+    val peerFingerprints: LiveData<Map<String, String>> = _peerFingerprints
+    
+    // peerIDToPublicKeyFingerprint REMOVED - fingerprints now handled centrally in PeerManager
     
     // Navigation state
     private val _showAppInfo = MutableLiveData<Boolean>(false)
@@ -122,6 +130,8 @@ class ChatState {
     fun getShowCommandSuggestionsValue() = _showCommandSuggestions.value ?: false
     fun getCommandSuggestionsValue() = _commandSuggestions.value ?: emptyList()
     fun getFavoritePeersValue() = _favoritePeers.value ?: emptySet()
+    fun getPeerSessionStatesValue() = _peerSessionStates.value ?: emptyMap()
+    fun getPeerFingerprintsValue() = _peerFingerprints.value ?: emptyMap()
     fun getShowAppInfoValue() = _showAppInfo.value ?: false
     
     // Setters for state updates
@@ -205,6 +215,14 @@ class ChatState {
         
         Log.d("ChatState", "LiveData value after set: ${_favoritePeers.value}")
         Log.d("ChatState", "LiveData has active observers: ${_favoritePeers.hasActiveObservers()}")
+    }
+    
+    fun setPeerSessionStates(states: Map<String, String>) {
+        _peerSessionStates.value = states
+    }
+    
+    fun setPeerFingerprints(fingerprints: Map<String, String>) {
+        _peerFingerprints.value = fingerprints
     }
     
     fun setShowAppInfo(show: Boolean) {
