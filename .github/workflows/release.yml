@@ -75,11 +75,11 @@ jobs:
       - name: Upload APK as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: bitchat-release-apk-${{ github.ref_name }}
-          path: app/build/outputs/apk/release/*.apk
-          retention-days: 30
-          if-no-files-found: error
-
+         name: bitchat-release-apk-${{ github.ref_name || 'unknown' }} # fallback
+         path: app/build/outputs/apk/release/*.apk
+         retention-days: 30
+         if-no-files-found: error
+         
   release:
     needs: build
     runs-on: ubuntu-latest
