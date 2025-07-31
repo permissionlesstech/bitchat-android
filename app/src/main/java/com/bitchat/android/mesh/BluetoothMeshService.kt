@@ -219,6 +219,10 @@ class BluetoothMeshService(private val context: Context) {
                 return securityManager.decryptFromPeer(encryptedData, senderPeerID)
             }
             
+            override fun verifyEd25519Signature(signature: ByteArray, data: ByteArray, publicKey: ByteArray): Boolean {
+                return encryptionService.verifyEd25519Signature(signature, data, publicKey)
+            }
+            
             // Noise protocol operations
             override fun hasNoiseSession(peerID: String): Boolean {
                 return encryptionService.hasEstablishedSession(peerID)
@@ -975,6 +979,40 @@ class BluetoothMeshService(private val context: Context) {
         }
         
         return result
+    }
+    
+    // MARK: - Panic Mode Support
+    
+    /**
+     * Clear all internal mesh service data (for panic mode)
+     */
+    fun clearAllInternalData() {
+        Log.w(TAG, "🚨 Clearing all mesh service internal data")
+        try {
+            // Clear all managers
+            fragmentManager.clearAllFragments()
+            storeForwardManager.clearAllCache()
+            securityManager.clearAllData()
+            peerManager.clearAllPeers()
+            peerManager.clearAllFingerprints()
+            Log.d(TAG, "✅ Cleared all mesh service internal data")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error clearing mesh service internal data: ${e.message}")
+        }
+    }
+    
+    /**
+     * Clear all encryption and cryptographic data (for panic mode)
+     */
+    fun clearAllEncryptionData() {
+        Log.w(TAG, "🚨 Clearing all encryption data")
+        try {
+            // Clear encryption service persistent identity (includes Ed25519 signing keys)
+            encryptionService.clearPersistentIdentity()
+            Log.d(TAG, "✅ Cleared all encryption data")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error clearing encryption data: ${e.message}")
+        }
     }
 }
 
