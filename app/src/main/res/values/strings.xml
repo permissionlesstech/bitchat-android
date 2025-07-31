@@ -36,4 +36,9 @@
     <string name="battery_optimization_continue">Continue</string>
     <string name="retry">Retry</string>
     <string name="skip">Skip</string>
+    
+    <!-- User Interaction Menu -->
+    <string name="user_menu_private_message">Private Message</string>
+    <string name="user_menu_slap">Slap</string>
+    <string name="user_menu_hug">Hug</string>
 </resources>

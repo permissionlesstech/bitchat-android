@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.ClickableText
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,6 +33,9 @@ fun MessagesList(
     messages: List<BitchatMessage>,
     currentUserNickname: String,
     meshService: BluetoothMeshService,
+    onPrivateMessage: (String) -> Unit = {},
+    onSlap: (String) -> Unit = {},
+    onHug: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
@@ -52,7 +57,10 @@ fun MessagesList(
                 MessageItem(
                     message = message,
                     currentUserNickname = currentUserNickname,
-                    meshService = meshService
+                    meshService = meshService,
+                    onPrivateMessage = onPrivateMessage,
+                    onSlap = onSlap,
+                    onHug = onHug
                 )
             }
         }
@@ -63,30 +71,66 @@ fun MessagesList(
 fun MessageItem(
     message: BitchatMessage,
     currentUserNickname: String,
-    meshService: BluetoothMeshService
+    meshService: BluetoothMeshService,
+    onPrivateMessage: (String) -> Unit = {},
+    onSlap: (String) -> Unit = {},
+    onHug: (String) -> Unit = {}
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val timeFormatter = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
+    var showUserMenu by remember { mutableStateOf(false) }
+    var selectedUsername by remember { mutableStateOf("") }
     
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Top
     ) {
-        // Single text view for natural wrapping (like iOS)
-        Text(
-            text = formatMessageAsAnnotatedString(
+        // Clickable text for username interactions
+        Box(modifier = Modifier.weight(1f)) {
+            val annotatedString = formatMessageAsAnnotatedString(
                 message = message,
                 currentUserNickname = currentUserNickname,
                 meshService = meshService,
                 colorScheme = colorScheme,
-                timeFormatter = timeFormatter
-            ),
-            modifier = Modifier.weight(1f),
-            fontFamily = FontFamily.Monospace,
-            softWrap = true,
-            overflow = TextOverflow.Visible
-        )
+                timeFormatter = timeFormatter,
+                onUsernameClick = { username ->
+                    selectedUsername = username
+                    showUserMenu = true
+                }
+            )
+            
+            ClickableText(
+                text = annotatedString,
+                style = androidx.compose.ui.text.TextStyle(
+                    fontFamily = FontFamily.Monospace
+                ),
+                softWrap = true,
+                overflow = TextOverflow.Visible,
+                onClick = { offset ->
+                    annotatedString.getStringAnnotations(
+                        tag = "username_click",
+                        start = offset,
+                        end = offset
+                    ).firstOrNull()?.let { annotation ->
+                        if (annotation.item != currentUserNickname) { // Don't show menu for own username
+                            selectedUsername = annotation.item
+                            showUserMenu = true
+                        }
+                    }
+                }
+            )
+            
+            // User interaction menu
+            UserInteractionMenu(
+                username = selectedUsername,
+                isVisible = showUserMenu,
+                onDismiss = { showUserMenu = false },
+                onPrivateMessage = onPrivateMessage,
+                onSlap = onSlap,
+                onHug = onHug
+            )
+        }
         
         // Delivery status for private messages
         if (message.isPrivate && message.sender == currentUserNickname) {
