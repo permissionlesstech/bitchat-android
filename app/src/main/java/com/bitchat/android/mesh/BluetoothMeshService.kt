@@ -480,16 +480,7 @@ class BluetoothMeshService(private val context: Context) {
                 senderID = myPeerID,
                 payload = nickname.toByteArray()
             )
-            
-//            // Send multiple times for reliability
-//            delay(Random.nextLong(0, 500))
-//            connectionManager.broadcastPacket(RoutedPacket(announcePacket))
-//
-//            delay(500 + Random.nextLong(0, 500))
-//            connectionManager.broadcastPacket(RoutedPacket(announcePacket))
-//
-//            delay(1000 + Random.nextLong(0, 500))
-//            connectionManager.broadcastPacket(RoutedPacket(announcePacket))
+
 
             // send 5 times with 1 second between announcements instead of randomly
             repeat(5) {
