@@ -83,6 +83,8 @@ class ChatViewModel(
     val hasUnreadPrivateMessages = state.hasUnreadPrivateMessages
     val showCommandSuggestions: LiveData<Boolean> = state.showCommandSuggestions
     val commandSuggestions: LiveData<List<CommandSuggestion>> = state.commandSuggestions
+    val showMentionSuggestions: LiveData<Boolean> = state.showMentionSuggestions
+    val mentionSuggestions: LiveData<List<String>> = state.mentionSuggestions
     val favoritePeers: LiveData<Set<String>> = state.favoritePeers
     val peerSessionStates: LiveData<Map<String, String>> = state.peerSessionStates
     val peerFingerprints: LiveData<Map<String, String>> = state.peerFingerprints
@@ -349,6 +351,16 @@ class ChatViewModel(
     
     fun selectCommandSuggestion(suggestion: CommandSuggestion): String {
         return commandProcessor.selectCommandSuggestion(suggestion)
+    }
+    
+    // MARK: - Mention Autocomplete
+    
+    fun updateMentionSuggestions(input: String) {
+        commandProcessor.updateMentionSuggestions(input, meshService)
+    }
+    
+    fun selectMentionSuggestion(nickname: String, currentText: String): String {
+        return commandProcessor.selectMentionSuggestion(nickname, currentText)
     }
     
     // MARK: - BluetoothMeshDelegate Implementation (delegated)
