@@ -37,6 +37,8 @@ class BluetoothConnectionManager(
     private val permissionManager = BluetoothPermissionManager(context)
     private val connectionTracker = BluetoothConnectionTracker(connectionScope, powerManager)
     private val packetBroadcaster = BluetoothPacketBroadcaster(connectionScope, connectionTracker, fragmentManager)
+
+//    private val connectionTrackerDelegate = object : BluetoothConnectionTracker(connectionScope, powerManager, delegate)
     
     // Delegate for component managers to call back to main manager
     private val componentDelegate = object : BluetoothConnectionManagerDelegate {
@@ -54,7 +56,11 @@ class BluetoothConnectionManager(
         override fun onDeviceConnected(device: BluetoothDevice) {
             delegate?.onDeviceConnected(device)
         }
-        
+
+        override fun onDeviceDisconnected(device: BluetoothDevice) {
+            delegate?.onDeviceDisconnected(device)
+        }
+
         override fun onRSSIUpdated(deviceAddress: String, rssi: Int) {
             delegate?.onRSSIUpdated(deviceAddress, rssi)
         }
@@ -242,5 +248,6 @@ class BluetoothConnectionManager(
 interface BluetoothConnectionManagerDelegate {
     fun onPacketReceived(packet: BitchatPacket, peerID: String, device: BluetoothDevice?)
     fun onDeviceConnected(device: BluetoothDevice)
+    fun onDeviceDisconnected(device: BluetoothDevice)
     fun onRSSIUpdated(deviceAddress: String, rssi: Int)
 }
