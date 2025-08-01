@@ -11,7 +11,7 @@ import androidx.compose.ui.graphics.Color
 private val DarkColorScheme = darkColorScheme(
     primary = Color(0xFF39FF14),        // Bright green (terminal-like)
     onPrimary = Color.Black,
-    secondary = Color(0xFF2ECB10),      // Darker green
+    secondary = Color(0xFF24A20D),      // Darker green
     onSecondary = Color.Black,
     background = Color.Black,
     onBackground = Color(0xFF39FF14),   // Green on black

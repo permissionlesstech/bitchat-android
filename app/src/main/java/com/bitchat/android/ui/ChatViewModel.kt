@@ -1,7 +1,6 @@
 package com.bitchat.android.ui
 
 import android.app.Application
-import android.content.Context
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
@@ -87,6 +86,7 @@ class ChatViewModel(
     val peerSessionStates: LiveData<Map<String, String>> = state.peerSessionStates
     val peerFingerprints: LiveData<Map<String, String>> = state.peerFingerprints
     val showAppInfo: LiveData<Boolean> = state.showAppInfo
+    val peerRSSI: LiveData<Map<String, Int>> = state.peerRSSI
     
     init {
         // Note: Mesh service delegate is now set by MainActivity
@@ -315,6 +315,11 @@ class ChatViewModel(
         // Update fingerprint mappings from centralized manager
         val fingerprints = privateChatManager.getAllPeerFingerprints()
         state.setPeerFingerprints(fingerprints)
+
+        // Update peer RSSIs
+        val rssi = meshService.getPeerRSSI()
+        Log.d(TAG, "Peer RSSI: $rssi")
+        state.setPeerRSSIs(rssi)
     }
     
     // MARK: - Debug and Troubleshooting

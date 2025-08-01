@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+import android.R
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -11,6 +12,7 @@ import com.bitchat.android.mesh.BluetoothMeshService
 import androidx.compose.material3.ColorScheme
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.math.sign
 
 /**
  * Utility functions for ChatScreen UI components
@@ -20,13 +22,14 @@ import java.util.*
 /**
  * Get RSSI-based color for signal strength visualization
  */
-fun getRSSIColor(rssi: Int): Color {
+fun getRSSIColor(rssi: Int?): Color {
     return when {
+        rssi == null -> Color(0xFF808080) // Gray
         rssi >= -50 -> Color(0xFF00FF00) // Bright green
         rssi >= -60 -> Color(0xFF80FF00) // Green-yellow
         rssi >= -70 -> Color(0xFFFFFF00) // Yellow
         rssi >= -80 -> Color(0xFFFF8000) // Orange
-        else -> Color(0xFFFF4444) // Red
+        else  -> Color(0xFFFF4444) // Red
     }
 }
 
@@ -36,12 +39,12 @@ fun getRSSIColor(rssi: Int): Color {
 fun formatMessageAsAnnotatedString(
     message: BitchatMessage,
     currentUserNickname: String,
-    meshService: BluetoothMeshService,
+    signalColor: Color,
     colorScheme: ColorScheme,
     timeFormatter: SimpleDateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 ): AnnotatedString {
     val builder = AnnotatedString.Builder()
-    
+
     // Timestamp
     val timestampColor = if (message.sender == "system") Color.Gray else colorScheme.primary.copy(alpha = 0.7f)
     builder.pushStyle(SpanStyle(
@@ -50,24 +53,22 @@ fun formatMessageAsAnnotatedString(
     ))
     builder.append("[${timeFormatter.format(message.timestamp)}] ")
     builder.pop()
-    
+
     if (message.sender != "system") {
-        // Sender
-        val senderColor = when {
-            message.senderPeerID == meshService.myPeerID -> colorScheme.primary
-            else -> {
-                val peerID = message.senderPeerID
-                val rssi = peerID?.let { meshService.getPeerRSSI()[it] } ?: -60
-                getRSSIColor(rssi)
-            }
-        }
-        
         builder.pushStyle(SpanStyle(
-            color = senderColor,
+            color = colorScheme.primary,
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium
         ))
-        builder.append("<@${message.sender}> ")
+        builder.append("<")
+        builder.pushStyle(SpanStyle(
+            color = signalColor,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium
+        ))
+        builder.append("@${message.sender}")
+        builder.pop()
+        builder.append("> ")
         builder.pop()
         
         // Message content with mentions and hashtags highlighted
@@ -98,21 +99,21 @@ private fun appendFormattedContent(
     colorScheme: ColorScheme
 ) {
     val isMentioned = mentions?.contains(currentUserNickname) == true
-    
+
     // Parse hashtags and mentions
     val hashtagPattern = "#([a-zA-Z0-9_]+)".toRegex()
     val mentionPattern = "@([a-zA-Z0-9_]+)".toRegex()
-    
+
     val hashtagMatches = hashtagPattern.findAll(content).toList()
     val mentionMatches = mentionPattern.findAll(content).toList()
-    
+
     // Combine and sort all matches
-    val allMatches = (hashtagMatches.map { it.range to "hashtag" } + 
+    val allMatches = (hashtagMatches.map { it.range to "hashtag" } +
                      mentionMatches.map { it.range to "mention" })
         .sortedBy { it.first.first }
-    
+
     var lastEnd = 0
-    
+
     for ((range, type) in allMatches) {
         // Add text before the match
         if (lastEnd < range.first) {
@@ -125,7 +126,7 @@ private fun appendFormattedContent(
             builder.append(beforeText)
             builder.pop()
         }
-        
+
         // Add the styled match
         val matchText = content.substring(range.first, range.last + 1)
         when (type) {
@@ -147,10 +148,10 @@ private fun appendFormattedContent(
         }
         builder.append(matchText)
         builder.pop()
-        
+
         lastEnd = range.last + 1
     }
-    
+
     // Add remaining text
     if (lastEnd < content.length) {
         val remainingText = content.substring(lastEnd)

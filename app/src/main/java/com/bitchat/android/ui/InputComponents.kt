@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.tooling.preview.Preview
 
 /**
  * Input components for ChatScreen
@@ -79,10 +80,6 @@ class SlashCommandVisualTransformation : VisualTransformation {
         )
     }
 }
-
-
-
-
 
 @Composable
 fun MessageInput(
@@ -270,3 +267,102 @@ fun CommandSuggestionItem(
         )
     }
 }
+
+
+@Preview(showBackground = true)
+@Composable
+fun MessageInputPreview() {
+    MaterialTheme {
+        MessageInput(
+            value = TextFieldValue("Hello /world command"),
+            onValueChange = {},
+            onSend = {},
+            selectedPrivatePeer = null,
+            currentChannel = null,
+            nickname = "User1"
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun MessageInputPrivatePreview() {
+    MaterialTheme {
+        MessageInput(
+            value = TextFieldValue("Private message"),
+            onValueChange = {},
+            onSend = {},
+            selectedPrivatePeer = "User2",
+            currentChannel = null,
+            nickname = "User1"
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun MessageInputChannelPreview() {
+    MaterialTheme {
+        MessageInput(
+            value = TextFieldValue("Channel message"),
+            onValueChange = {},
+            onSend = {},
+            selectedPrivatePeer = null,
+            currentChannel = "#general",
+            nickname = "User1"
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun MessageInputEmptyPreview() {
+    MaterialTheme {
+        MessageInput(
+            value = TextFieldValue(""),
+            onValueChange = {},
+            onSend = {},
+            selectedPrivatePeer = null,
+            currentChannel = null,
+            nickname = "User1"
+        )
+    }
+}
+
+@Preview(showBackground = true, widthDp = 300)
+@Composable
+fun CommandSuggestionsBoxPreview() {
+    MaterialTheme {
+        CommandSuggestionsBox(
+            suggestions = listOf(
+                CommandSuggestion("/join", listOf("/j"), "<#channel>", "Join a channel"),
+                CommandSuggestion("/nick", listOf(), "<new_nickname>", "Change your nickname"),
+                CommandSuggestion("/msg", listOf("/m", "/query"), "<nickname> <message>", "Send a private message")
+            ),
+            onSuggestionClick = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun CommandSuggestionItemPreview() {
+    MaterialTheme {
+        CommandSuggestionItem(
+            suggestion = CommandSuggestion("/help", listOf("/h"), null, "Show help information for commands"),
+            onClick = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun CommandSuggestionItemWithSyntaxPreview() {
+    MaterialTheme {
+        CommandSuggestionItem(
+            suggestion = CommandSuggestion("/kick", listOf(), "<nickname> [reason]", "Kick a user from the channel"),
+            onClick = {}
+        )
+    }
+}
+

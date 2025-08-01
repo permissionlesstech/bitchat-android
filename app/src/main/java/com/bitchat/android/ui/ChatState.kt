@@ -29,6 +29,9 @@ class ChatState {
     
     private val _connectedPeers = MutableLiveData<List<String>>(emptyList())
     val connectedPeers: LiveData<List<String>> = _connectedPeers
+
+    private val _peerRSSI = MutableLiveData<Map<String, Int>>(emptyMap())
+    val peerRSSI: LiveData<Map<String, Int>> = _peerRSSI
     
     private val _nickname = MutableLiveData<String>()
     val nickname: LiveData<String> = _nickname
@@ -229,4 +232,7 @@ class ChatState {
         _showAppInfo.value = show
     }
 
+    fun setPeerRSSIs(peerRSSIs: Map<String, Int>) {
+        _peerRSSI.value = peerRSSIs
+    }
 }

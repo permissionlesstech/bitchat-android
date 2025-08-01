@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.core.ui.utils.singleOrTripleClickable
 
@@ -450,6 +451,120 @@ private fun MainHeader(
             hasUnreadPrivateMessages = hasUnreadPrivateMessages,
             isConnected = isConnected,
             onClick = onSidebarClick
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun NoiseSessionIconPreviewUninitialized() {
+    MaterialTheme {
+        NoiseSessionIcon(sessionState = "uninitialized")
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun NoiseSessionIconPreviewHandshaking() {
+    MaterialTheme {
+        NoiseSessionIcon(sessionState = "handshaking")
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun NoiseSessionIconPreviewEstablished() {
+    MaterialTheme {
+        NoiseSessionIcon(sessionState = "established")
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun NoiseSessionIconPreviewFailed() {
+    MaterialTheme {
+        NoiseSessionIcon(sessionState = "failed")
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun NicknameEditorPreview() {
+    MaterialTheme {
+        var nickname by remember { mutableStateOf("TestUser") }
+        NicknameEditor(value = nickname, onValueChange = { nickname = it })
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun PeerCounterPreviewConnected() {
+    MaterialTheme {
+        PeerCounter(
+            connectedPeers = listOf("peer1", "peer2"),
+            joinedChannels = setOf("general", "random"),
+            hasUnreadChannels = mapOf("general" to 1),
+            hasUnreadPrivateMessages = setOf("peer1"),
+            isConnected = true,
+            onClick = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun PeerCounterPreviewDisconnected() {
+    MaterialTheme {
+        PeerCounter(
+            connectedPeers = emptyList(),
+            joinedChannels = emptySet(),
+            hasUnreadChannels = emptyMap(),
+            hasUnreadPrivateMessages = emptySet(),
+            isConnected = false,
+            onClick = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun PrivateChatHeaderPreviewFavorite() {
+    MaterialTheme {
+        PrivateChatHeader(
+            peerID = "peer123",
+            peerNicknames = mapOf("peer123" to "FriendlyUser"),
+            isFavorite = true,
+            sessionState = "established",
+            onBackClick = {},
+            onToggleFavorite = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun PrivateChatHeaderPreviewNotFavorite() {
+    MaterialTheme {
+        PrivateChatHeader(
+            peerID = "peer456",
+            peerNicknames = mapOf("peer456" to "AnotherUser"),
+            isFavorite = false,
+            sessionState = "handshaking",
+            onBackClick = {},
+            onToggleFavorite = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ChannelHeaderPreview() {
+    MaterialTheme {
+        ChannelHeader(
+            channel = "bitchat-dev",
+            onBackClick = {},
+            onLeaveChannel = {},
+            onSidebarClick = {}
         )
     }
 }

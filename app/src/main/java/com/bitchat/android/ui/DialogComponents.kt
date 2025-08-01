@@ -6,6 +6,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
 /**
@@ -81,6 +82,21 @@ fun PasswordPromptDialog(
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+fun PasswordPromptDialogPreview() {
+    MaterialTheme {
+        PasswordPromptDialog(
+            show = true,
+            channelName = "TestChannel",
+            passwordInput = "password",
+            onPasswordChange = {},
+            onConfirm = {},
+            onDismiss = {}
+        )
+    }
+}
+
 @Composable
 fun AppInfoDialog(
     show: Boolean,
@@ -124,3 +140,15 @@ fun AppInfoDialog(
         )
     }
 }
+
+@Preview(showBackground = true)
+@Composable
+fun AppInfoDialogPreview() {
+    MaterialTheme {
+        AppInfoDialog(
+            show = true,
+            onDismiss = {}
+        )
+    }
+}
+
