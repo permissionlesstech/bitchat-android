@@ -36,7 +36,7 @@ class TcpMeshService : Service() {
     
     // Настройки
     private var localPort: Int = DEFAULT_PORT
-    private var serverHost: String? = null
+    private var serverHost: String? = DEFAULT_SERVER_HOST
     private var serverPort: Int = DEFAULT_SERVER_PORT
     private var enableDiscovery = true
     private var connectionMode = ConnectionMode.P2P
@@ -50,6 +50,7 @@ class TcpMeshService : Service() {
     companion object {
         private const val TAG = "TcpMeshService"
         private const val DEFAULT_PORT = 8080
+        private const val DEFAULT_SERVER_HOST = "31.207.75.164"
         private const val DEFAULT_SERVER_PORT = 9090
         private const val DISCOVERY_PORT = 8081
         private const val DISCOVERY_INTERVAL_MS = 5000L
