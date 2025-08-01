@@ -1,14 +1,17 @@
+
 name: Release
 
 on:
   workflow_dispatch:
   push:
     tags:
-      - 'v*.*.*' # Triggers for tags like v1.0.0
+      - 'v*.*.*'
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      safe_name: ${{ steps.artifact.outputs.safe_name }}
 
     steps:
       - name: Checkout code
@@ -19,7 +22,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-    
+
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
         with:
@@ -40,7 +43,7 @@ jobs:
 
       - name: Build APK
         run: ./gradlew assembleRelease --no-daemon --stacktrace
-      
+
       - name: List APK files
         run: |
           echo "APK files built:"
@@ -49,33 +52,17 @@ jobs:
       - name: Rename APK
         run: |
           mv app/build/outputs/apk/release/app-release-unsigned.apk app/build/outputs/apk/release/bitchat.apk
-      
-      - name: DEBUG
+
+      - name: Sanitize artifact name
+        id: artifact
         run: |
-          set -x
-
-          pwd
-
-          ls -all
-
-          cd app/build/outputs/
-          ls -all
-          tree
-      
-      # Optional: Sign APK (requires secrets)
-      # - name: Sign APK
-      #   uses: r0adkll/sign-android-release@v1
-      #   with:
-      #     releaseDirectory: app/build/outputs/apk/release
-      #     signingKeyBase64: ${{ secrets.SIGNING_KEY }}
-      #     alias: ${{ secrets.ALIAS }}
-      #     keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
-      #     keyPassword: ${{ secrets.KEY_PASSWORD }}
+          SAFE_NAME="bitchat-release-apk-${GITHUB_REF_NAME//\//_}"
+          echo "safe_name=$SAFE_NAME" >> $GITHUB_OUTPUT
 
       - name: Upload APK as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: bitchat-release-apk-${{ github.ref_name }}
+          name: ${{ steps.artifact.outputs.safe_name }}
           path: app/build/outputs/apk/release/*.apk
           retention-days: 30
           if-no-files-found: error
@@ -88,7 +75,7 @@ jobs:
       - name: Download APK artifact
         uses: actions/download-artifact@v4
         with:
-          name: bitchat-release-apk-${{ github.ref_name }}
+          name: ${{ needs.build.outputs.safe_name }}
           path: .
 
       - name: Create GitHub Release
