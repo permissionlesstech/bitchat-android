@@ -25,6 +25,10 @@ class ChatViewModel(
     val meshService: BluetoothMeshService
 ) : AndroidViewModel(application), BluetoothMeshDelegate {
 
+    companion object {
+        private const val TAG = "ChatViewModel"
+    }
+
     // State management
     private val state = ChatState()
     
@@ -37,7 +41,7 @@ class ChatViewModel(
     private val noiseSessionDelegate = object : NoiseSessionDelegate {
         override fun hasEstablishedSession(peerID: String): Boolean = meshService.hasEstablishedSession(peerID)
         override fun initiateHandshake(peerID: String) = meshService.initiateNoiseHandshake(peerID) 
-        override fun sendIdentityAnnouncement() = meshService.sendKeyExchangeToDevice()
+        override fun broadcastNoiseIdentityAnnouncement() = meshService.broadcastNoiseIdentityAnnouncement()
         override fun sendHandshakeRequest(targetPeerID: String, pendingCount: UByte) = meshService.sendHandshakeRequest(targetPeerID, pendingCount)
         override fun getMyPeerID(): String = meshService.myPeerID
     }
@@ -394,19 +398,69 @@ class ChatViewModel(
     // MARK: - Emergency Clear
     
     fun panicClearAllData() {
-        // Clear all managers
+        Log.w(TAG, "🚨 PANIC MODE ACTIVATED - Clearing all sensitive data")
+        
+        // Clear all UI managers
         messageManager.clearAllMessages()
         channelManager.clearAllChannels()
         privateChatManager.clearAllPrivateChats()
         dataManager.clearAllData()
+        
+        // Clear all mesh service data
+        clearAllMeshServiceData()
+        
+        // Clear all cryptographic data
+        clearAllCryptographicData()
+        
+        // Clear all notifications
+        notificationManager.clearAllNotifications()
         
         // Reset nickname
         val newNickname = "anon${Random.nextInt(1000, 9999)}"
         state.setNickname(newNickname)
         dataManager.saveNickname(newNickname)
         
+        Log.w(TAG, "🚨 PANIC MODE COMPLETED - All sensitive data cleared")
+        
         // Note: Mesh service restart is now handled by MainActivity
         // This method now only clears data, not mesh service lifecycle
+    }
+    
+    /**
+     * Clear all mesh service related data
+     */
+    private fun clearAllMeshServiceData() {
+        try {
+            // Request mesh service to clear all its internal data
+            meshService.clearAllInternalData()
+            
+            Log.d(TAG, "✅ Cleared all mesh service data")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error clearing mesh service data: ${e.message}")
+        }
+    }
+    
+    /**
+     * Clear all cryptographic data including persistent identity
+     */
+    private fun clearAllCryptographicData() {
+        try {
+            // Clear encryption service persistent identity (Ed25519 signing keys)
+            meshService.clearAllEncryptionData()
+            
+            // Clear secure identity state (if used)
+            try {
+                val identityManager = com.bitchat.android.identity.SecureIdentityStateManager(getApplication())
+                identityManager.clearIdentityData()
+                Log.d(TAG, "✅ Cleared secure identity state")
+            } catch (e: Exception) {
+                Log.d(TAG, "SecureIdentityStateManager not available or already cleared: ${e.message}")
+            }
+            
+            Log.d(TAG, "✅ Cleared all cryptographic data")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error clearing cryptographic data: ${e.message}")
+        }
     }
     
     // MARK: - Navigation Management

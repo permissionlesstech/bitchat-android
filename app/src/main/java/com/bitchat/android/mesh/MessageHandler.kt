@@ -120,12 +120,26 @@ class MessageHandler(private val myPeerID: String) {
             Log.d(TAG, "Parsed identity announcement: peerID=${announcement.peerID}, " +
                     "nickname=${announcement.nickname}, fingerprint=${announcement.fingerprint?.take(16)}...")
             
-            // Verify the announcement signature (basic validation)
-            // In a full implementation, this would use cryptographic verification
+            // Verify the announcement signature using Ed25519 (iOS compatibility)
             if (announcement.signature.isEmpty()) {
-                Log.w(TAG, "Identity announcement from $peerID has no signature")
+                Log.w(TAG, "❌ Identity announcement from $peerID has no signature - rejecting")
                 return
             }
+            
+            // Verify signature using the same format as iOS
+            val timestampMs = announcement.timestamp.time
+            val bindingData = announcement.peerID.toByteArray(Charsets.UTF_8) + 
+                            announcement.publicKey + 
+                            timestampMs.toString().toByteArray(Charsets.UTF_8)
+            
+            val isSignatureValid = delegate?.verifyEd25519Signature(announcement.signature, bindingData, announcement.signingPublicKey) ?: false
+            
+            if (!isSignatureValid) {
+                Log.w(TAG, "❌ Signature verification failed for identity announcement from $peerID - rejecting")
+                return
+            }
+            
+            Log.d(TAG, "✅ Signature verification successful for identity announcement from $peerID")
             
             // Update peer binding in the delegate (ChatViewModel/BluetoothMeshService)
             delegate?.updatePeerIDBinding(
@@ -377,6 +391,7 @@ interface MessageHandlerDelegate {
     fun verifySignature(packet: BitchatPacket, peerID: String): Boolean
     fun encryptForPeer(data: ByteArray, recipientPeerID: String): ByteArray?
     fun decryptFromPeer(encryptedData: ByteArray, senderPeerID: String): ByteArray?
+    fun verifyEd25519Signature(signature: ByteArray, data: ByteArray, publicKey: ByteArray): Boolean
     
     // Noise protocol operations
     fun hasNoiseSession(peerID: String): Boolean

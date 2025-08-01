@@ -88,7 +88,7 @@ class BluetoothConnectionTracker(
      * Add a device connection
      */
     fun addDeviceConnection(deviceAddress: String, deviceConn: DeviceConnection) {
-        Log.d(TAG, "Tracker: Adding device connection for $deviceAddress")
+        Log.d(TAG, "Tracker: Adding device connection for $deviceAddress (isClient: ${deviceConn.isClient}")
         connectedDevices[deviceAddress] = deviceConn
         pendingConnections.remove(deviceAddress)
     }

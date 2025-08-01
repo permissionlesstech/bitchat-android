@@ -70,7 +70,15 @@ class PacketProcessor(private val myPeerID: String) {
      * SURGICAL FIX: Route to per-peer actor for serialized processing
      */
     fun processPacket(routed: RoutedPacket) {
-        val peerID = routed.peerID ?: "unknown"
+        Log.d(TAG, "processPacket ${routed.packet.type}")
+        val peerID = routed.peerID
+
+        if (peerID == null) {
+            Log.w(TAG, "Received packet with no peer ID, skipping")
+            return
+        }
+
+
         
         // Get or create actor for this peer
         val actor = actors.getOrPut(peerID) { getOrCreateActorForPeer(peerID) }

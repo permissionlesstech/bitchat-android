@@ -303,18 +303,19 @@ private fun PrivateChatHeader(
             modifier = Modifier.align(Alignment.Center)
         ) {
             
-            // Reactive Noise session status icon
-            NoiseSessionIcon(
-                sessionState = sessionState,
-                modifier = Modifier.size(14.dp)
-            )
-            
-            Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = peerNickname,
                 style = MaterialTheme.typography.titleMedium,
                 color = Color(0xFFFF9500) // Orange
             )
+
+            Spacer(modifier = Modifier.width(4.dp))
+
+            NoiseSessionIcon(
+                sessionState = sessionState,
+                modifier = Modifier.size(14.dp)
+            )
+
         }
         
         // Favorite button - positioned on the right

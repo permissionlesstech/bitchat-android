@@ -20,8 +20,19 @@ import kotlinx.coroutines.channels.actor
 /**
  * Handles packet broadcasting to connected devices using actor pattern for serialization
  * 
- * SERIALIZATION FIX: Uses Kotlin coroutine actor to serialize all packet broadcasting
- * This prevents race conditions when multiple threads try to broadcast simultaneously
+ * In Bluetooth Low Energy (BLE):
+ *
+ * Peripheral (server):
+ * Advertises.
+ * Accepts connections.
+ * Hosts a GATT server.
+ * Remote devices read/write/subscribe to characteristics.
+ *
+ *  Central (client):
+ * Scans.
+ * Initiates connections.
+ * Hosts a GATT client.
+ * Reads/writes to the peripheral’s characteristics.
  */
 class BluetoothPacketBroadcaster(
     private val connectionScope: CoroutineScope,
@@ -52,9 +63,7 @@ class BluetoothPacketBroadcaster(
         Log.d(TAG, "🎭 Created packet broadcaster actor")
         try {
             for (request in channel) {
-                Log.d(TAG, "Processing broadcast for packet type ${request.routed.packet.type} (serialized)")
                 broadcastSinglePacketInternal(request.routed, request.gattServer, request.characteristic)
-                Log.d(TAG, "Completed broadcast for packet type ${request.routed.packet.type}")
             }
         } finally {
             Log.d(TAG, "🎭 Packet broadcaster actor terminated")
@@ -158,25 +167,25 @@ class BluetoothPacketBroadcaster(
         // Send to server connections (devices connected to our GATT server)
         subscribedDevices.forEach { device ->
             if (device.address == routed.relayAddress) {
-                Log.d(TAG, "Skipping broadcast back to relayer: ${device.address}")
+                Log.d(TAG, "Skipping broadcast to client back to relayer: ${device.address}")
                 return@forEach
             }
             if (connectionTracker.addressPeerMap[device.address] == senderID) {
-                Log.d(TAG, "Skipping broadcast back to sender: ${device.address}")
+                Log.d(TAG, "Skipping broadcast to client back to sender: ${device.address}")
                 return@forEach
             }
             notifyDevice(device, data, gattServer, characteristic)
         }
         
-        // Send to client connections
+        // Send to client connections (GATT servers we are connected to)
         connectedDevices.values.forEach { deviceConn ->
             if (deviceConn.isClient && deviceConn.gatt != null && deviceConn.characteristic != null) {
                 if (deviceConn.device.address == routed.relayAddress) {
-                    Log.d(TAG, "Skipping broadcast back to relayer: ${deviceConn.device.address}")
+                    Log.d(TAG, "Skipping broadcast to server back to relayer: ${deviceConn.device.address}")
                     return@forEach
                 }
                 if (connectionTracker.addressPeerMap[deviceConn.device.address] == senderID) {
-                    Log.d(TAG, "Skipping broadcast back to sender: ${deviceConn.device.address}")
+                    Log.d(TAG, "Skipping roadcast to server back to sender: ${deviceConn.device.address}")
                     return@forEach
                 }
                 writeToDeviceConn(deviceConn, data)
@@ -185,7 +194,7 @@ class BluetoothPacketBroadcaster(
     }
     
     /**
-     * Send data to a single device (server side)
+     * Send data to a single device (server->client)
      */
     private fun notifyDevice(
         device: BluetoothDevice, 
@@ -211,7 +220,7 @@ class BluetoothPacketBroadcaster(
     }
 
     /**
-     * Send data to a single device (client side)
+     * Send data to a single device (client->server)
      */
     private fun writeToDeviceConn(
         deviceConn: BluetoothConnectionTracker.DeviceConnection, 

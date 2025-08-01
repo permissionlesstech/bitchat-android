@@ -36,7 +36,6 @@ class NoiseSessionManager(
      */
     fun getSession(peerID: String): NoiseSession? {
         val session = sessions[peerID]
-        Log.d(TAG, "getSession($peerID): ${if (session?.isEstablished() == true) "ESTABLISHED" else "NOT_FOUND"}")
         return session
     }
     

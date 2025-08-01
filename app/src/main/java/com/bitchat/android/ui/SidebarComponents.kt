@@ -69,7 +69,7 @@ fun SidebarOverlay(
                 modifier = Modifier
                     .fillMaxHeight()
                     .weight(1f)
-                    .background(colorScheme.surface)
+                    .background(colorScheme.background.copy(alpha = 0.95f))
                     .windowInsetsPadding(WindowInsets.statusBars) // Add status bar padding
             ) {
                 SidebarHeader()
@@ -133,9 +133,9 @@ private fun SidebarHeader() {
     
     Row(
         modifier = Modifier
-            .height(36.dp) // Match reduced main header height
+            .height(42.dp) // Match reduced main header height
             .fillMaxWidth()
-            .background(colorScheme.surface.copy(alpha = 0.95f))
+            .background(colorScheme.background.copy(alpha = 0.95f))
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -248,9 +248,9 @@ fun PeopleSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = Icons.Default.Person, // Using Person icon for people
+                imageVector = Icons.Default.Group, // Using Person icon for people
                 contentDescription = null,
-                modifier = Modifier.size(10.dp),
+                modifier = Modifier.size(12.dp),
                 tint = colorScheme.onSurface.copy(alpha = 0.6f)
             )
             Spacer(modifier = Modifier.width(6.dp))
