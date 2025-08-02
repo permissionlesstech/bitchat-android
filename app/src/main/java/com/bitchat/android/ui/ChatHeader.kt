@@ -201,7 +201,9 @@ fun ChatHeaderContent(
     onBackClick: () -> Unit,
     onSidebarClick: () -> Unit,
     onTripleClick: () -> Unit,
-    onShowAppInfo: () -> Unit
+    onShowAppInfo: () -> Unit,
+    showSecurityVerification: Boolean,
+    onSecurityVerificationChange: (Boolean) -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
@@ -228,7 +230,8 @@ fun ChatHeaderContent(
                 isFavorite = isFavorite,
                 sessionState = sessionState,
                 onBackClick = onBackClick,
-                onToggleFavorite = { viewModel.toggleFavorite(selectedPrivatePeer) }
+                onToggleFavorite = { viewModel.toggleFavorite(selectedPrivatePeer) },
+                onShowSecurityVerification = { onSecurityVerificationChange(true) }
             )
         }
         currentChannel != null -> {
@@ -261,7 +264,8 @@ private fun PrivateChatHeader(
     isFavorite: Boolean,
     sessionState: String?,
     onBackClick: () -> Unit,
-    onToggleFavorite: () -> Unit
+    onToggleFavorite: () -> Unit,
+    onShowSecurityVerification: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val peerNickname = peerNicknames[peerID] ?: peerID
@@ -300,7 +304,9 @@ private fun PrivateChatHeader(
         // Title - perfectly centered regardless of other elements
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.align(Alignment.Center)
+            modifier = Modifier
+                .align(Alignment.Center)
+                .clickable { onShowSecurityVerification() }
         ) {
             
             Text(
