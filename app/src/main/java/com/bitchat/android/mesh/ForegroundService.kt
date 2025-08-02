@@ -10,6 +10,12 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.res.Configuration
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color as AndroidColor
+import android.graphics.Paint
+import android.graphics.Typeface
+import android.graphics.RectF
 import android.os.Binder
 import android.os.IBinder
 import android.os.Vibrator
@@ -28,9 +34,76 @@ import com.bitchat.android.ui.theme.LightColorScheme
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
+import androidx.core.graphics.createBitmap
+import java.util.Random
 
 // Data class to hold combined peer information for the UI
 data class PeerInfo(val id: String, val nickname: String, val proximity: Int)
+
+/**
+ * A helper class to manage a grid of characters and colors for ANSI-style art.
+ * This makes it easier to "draw" text, shapes, and other elements onto a character-based canvas.
+ */
+class AnsiGrid(
+    val width: Int,
+    val height: Int,
+    private val defaultColor: Int
+) {
+    // A grid of pairs, where each pair holds a character and its integer color.
+    private val grid: Array<Array<Pair<Char, Int>>> = Array(height) {
+        Array(width) { Pair(AnsiChars.EMPTY_CHAR, defaultColor) }
+    }
+    private val textPaint = Paint().apply {
+        isAntiAlias = true
+        typeface = Typeface.MONOSPACE
+    }
+
+    fun setChar(x: Int, y: Int, char: Char, color: Int) {
+        if (x in 0 until width && y in 0 until height) {
+            grid[y][x] = Pair(char, color)
+        }
+    }
+
+    fun drawText(x: Int, y: Int, text: String, color: Int) {
+        text.forEachIndexed { index, char ->
+            setChar(x + index, y, char, color)
+        }
+    }
+
+    fun clear() {
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                grid[y][x] = Pair(AnsiChars.EMPTY_CHAR, defaultColor)
+            }
+        }
+    }
+
+    /**
+     * Renders the entire grid onto a Canvas.
+     * @param canvas The Android Canvas to draw on.
+     * @param charWidth The calculated width of a single character in pixels.
+     * @param charHeight The calculated height of a single character in pixels.
+     */
+    fun render(canvas: Canvas, charWidth: Float, charHeight: Float) {
+        // Fine-tune the text size for your font. 1.1f is a good starting point.
+        textPaint.textSize = charHeight * 1.1f
+        val baselineOffset = textPaint.fontMetrics.descent
+
+        for (row in 0 until height) {
+            for (col in 0 until width) {
+                val (char, color) = grid[row][col]
+                if (char != AnsiChars.EMPTY_CHAR) {
+                    textPaint.color = color
+                    val xPos = col * charWidth
+                    // Adjust y to be the baseline for the text
+                    val yPos = (row + 1) * charHeight - baselineOffset
+                    canvas.drawText(char.toString(), xPos, yPos, textPaint)
+                }
+            }
+        }
+    }
+}
+
 
 /**
  * A foreground service that provides a rich, interactive, and theme-consistent notification
@@ -49,6 +122,11 @@ class ForegroundService : Service(), BluetoothMeshDelegate {
     private var unreadMessagesCount = 0
     private var recentMessages = mutableListOf<BitchatMessage>()
     private val knownPeerIds = HashSet<String>() // Used to detect new peers
+
+    // --- State for ANSI Grid Visualization ---
+    private val peerSparks = mutableMapOf<String, Pair<Int, Int>>() // PeerID -> (x, y)
+    private val random = Random()
+
 
     // Scheduler for periodic UI refreshes (e.g., timestamps)
     private lateinit var uiUpdateScheduler: ScheduledExecutorService
@@ -199,19 +277,103 @@ class ForegroundService : Service(), BluetoothMeshDelegate {
         return builder.build()
     }
 
+    /**
+     * This is the core function for rendering the ANSI art status grid.
+     * It creates a bitmap, calculates the grid dimensions, draws dynamic
+     * content onto an AnsiGrid, and then renders the grid to the bitmap.
+     */
+    private fun getCollapsedRenderBitmap(bitmapWidth: Int, bitmapHeight: Int): Bitmap {
+        val density = resources.displayMetrics.density
+        val bitmap = createBitmap(bitmapWidth, bitmapHeight)
+        val canvas = Canvas(bitmap)
+
+        val isDarkTheme = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        AnsiChars.Palette.initialize(isDarkTheme)
+
+        canvas.drawColor(AnsiChars.Palette.background)
+
+        // Use a small, monospace font to determine the grid size
+        val textPaint = Paint().apply {
+            typeface = Typeface.MONOSPACE
+            textSize = 6 * density
+        }
+        val charWidth = textPaint.measureText(AnsiChars.BLOCK_FULL.toString())
+        val charHeight = textPaint.fontMetrics.descent - textPaint.fontMetrics.ascent
+
+        if (charWidth <= 0 || charHeight <= 0) return bitmap
+
+        val numCols = (bitmapWidth / charWidth).toInt()
+        val numRows = (bitmapHeight / charHeight).toInt()
+
+        if (numCols <= 0 || numRows <= 0) return bitmap
+
+        // Create the grid and draw our visualizations
+        val grid = AnsiGrid(numCols, numRows, AnsiChars.Palette.background)
+        drawPeerSparks(grid, activePeers)
+        drawStatusText(grid, "peers: ${activePeers.size}")
+
+        // Render the final grid to the canvas
+        grid.render(canvas, charWidth, charHeight)
+
+        return bitmap
+    }
+
+    /**
+     * Draws a "spark" for each peer that moves around randomly.
+     * The color is based on the peer's proximity.
+     */
+    private fun drawPeerSparks(grid: AnsiGrid, peers: List<PeerInfo>) {
+        // Remove sparks for peers that have disconnected
+        peerSparks.keys.retainAll(peers.map { it.id }.toSet())
+
+        peers.forEach { peer ->
+            // If the peer is new, assign it a random starting position
+            if (!peerSparks.containsKey(peer.id)) {
+                peerSparks[peer.id] = Pair(random.nextInt(grid.width), random.nextInt(grid.height))
+            }
+
+            // Jiggle the spark's position randomly
+            var (x, y) = peerSparks[peer.id]!!
+            x += random.nextInt(3) - 1 // Move by -1, 0, or 1
+            y += random.nextInt(3) - 1
+            x = x.coerceIn(0, grid.width - 1)
+            y = y.coerceIn(0, grid.height - 1)
+            peerSparks[peer.id] = Pair(x, y)
+
+            // Draw the spark using a Braille character that looks like a person
+            val char = AnsiChars.BRAILLE_DOTS_245
+            val color = AnsiChars.Palette.getProximityColor(peer.proximity)
+            grid.setChar(x, y, char, color)
+        }
+    }
+
+    /**
+     * Draws a simple text string onto the grid, typically in a corner.
+     */
+    private fun drawStatusText(grid: AnsiGrid, text: String) {
+        val yPos = grid.height - 1 // Bottom row
+        val xPos = grid.width - text.length - 1 // Right-aligned
+        if (xPos < 0) return // Don't draw if it doesn't fit
+
+        grid.drawText(xPos, yPos, text, AnsiChars.Palette.primary)
+    }
+
+
     private fun createCollapsedRemoteViews(): RemoteViews {
-        val stopPendingIntent = createActionPendingIntent(ACTION_STOP_SERVICE)
         val isDarkTheme = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         val colors = if (isDarkTheme) DarkColorScheme else LightColorScheme
-        val dimColor = if (isDarkTheme) Color(0xB3FFFFFF).toArgb() else colors.onSurface.toArgb()
+
+        // We must estimate the width for the initial bitmap render.
+        // The notification layout will stretch the ImageView, and our bitmap will scale.
+        // 200dp is a reasonable estimate for the available space.
+        val density = resources.displayMetrics.density
+        val estimatedBitmapWidthPx = (200 * density).toInt()
+        val bitmapHeightPx = (48 * density).toInt()
 
         return RemoteViews(packageName, R.layout.notification_terminal_collapsed).apply {
-            setTextViewText(R.id.notification_info, "peers: ${activePeers.size} | unread: $unreadMessagesCount")
             setTextColor(R.id.notification_cursor, colors.primary.toArgb())
             setTextColor(R.id.notification_title, colors.primary.toArgb())
-            setTextColor(R.id.notification_info, dimColor)
-            setTextColor(R.id.notification_action_stop, dimColor)
-            setOnClickPendingIntent(R.id.notification_action_stop, stopPendingIntent)
+            setImageViewBitmap(R.id.notification_render, getCollapsedRenderBitmap(estimatedBitmapWidthPx, bitmapHeightPx))
         }
     }
 
@@ -293,9 +455,11 @@ class ForegroundService : Service(), BluetoothMeshDelegate {
     private fun startUiUpdater() {
         if (::uiUpdateScheduler.isInitialized && !uiUpdateScheduler.isShutdown) return
         uiUpdateScheduler = Executors.newSingleThreadScheduledExecutor()
+        // Update the UI every 250ms for smoother animation
         uiUpdateScheduler.scheduleWithFixedDelay({
+            // Post the update to the main thread if you encounter issues
             updateNotification(false)
-        }, 5, 5, TimeUnit.SECONDS)
+        }, 0, 250, TimeUnit.MILLISECONDS)
     }
 
     // --- Boilerplate (Intents, Binder, etc.) ---
@@ -348,7 +512,11 @@ class ForegroundService : Service(), BluetoothMeshDelegate {
     }
 
     private fun createActionPendingIntent(action: String): PendingIntent {
-        val intent = Intent(this, notificationActionReceiver::class.java).also { it.action = action }
+        // Create an implicit intent that will be caught by the dynamically registered receiver.
+        val intent = Intent(action).apply {
+            // Explicitly set the package to ensure the broadcast is only handled within this app.
+            `package` = packageName
+        }
         return PendingIntent.getBroadcast(this, action.hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     }
 }

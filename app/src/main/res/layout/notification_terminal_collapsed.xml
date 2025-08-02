@@ -10,61 +10,56 @@
     android:background="@drawable/notification_bg_terminal"
     android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:paddingStart="12dp"
-    android:paddingEnd="8dp">
+    android:padding="2dp">
 
     <!-- Blinking Cursor Effect -->
     <TextView
         android:id="@+id/notification_cursor"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="8dp"
+        android:layout_marginStart="4dp"
         android:fontFamily="monospace"
         android:text=">"
         android:textSize="16sp"
         android:textStyle="bold"
         tools:textColor="#FF39FF14" />
 
-    <!-- Main Content: Title and Info -->
-    <LinearLayout
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:orientation="vertical">
-
-        <TextView
-            android:id="@+id/notification_title"
-            style="@style/TextAppearance.Compat.Notification.Title"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:fontFamily="monospace"
-            android:text="bitchat::active"
-            android:textSize="14sp"
-            android:textStyle="bold"
-            tools:textColor="#FF39FF14" />
-
-        <TextView
-            android:id="@+id/notification_info"
-            style="@style/TextAppearance.Compat.Notification.Line2"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:fontFamily="monospace"
-            android:textSize="12sp"
-            tools:text="peers: 3 | unread: 5"
-            tools:textColor="#B3FFFFFF" />
-    </LinearLayout>
-
-    <!-- Stop Action -->
     <TextView
-        android:id="@+id/notification_action_stop"
+        android:id="@+id/notification_title"
+        style="@style/TextAppearance.Compat.Notification.Title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
-        android:background="?android:attr/selectableItemBackgroundBorderless"
-        android:contentDescription="Stop Service"
+        android:layout_marginHorizontal="4dp"
         android:fontFamily="monospace"
-        android:padding="8dp"
-        android:text="[stop]"
-        android:textSize="12sp"
-        tools:textColor="#B3FFFFFF" />
+        android:text="bitchat\n::active"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        tools:textColor="#FF39FF14" />
+
+    <ImageView
+        android:id="@+id/notification_render"
+        android:layout_width="0dp"
+        android:layout_height="48dp"
+        android:layout_weight="1"
+        android:scaleType="fitXY"
+        />
+<!--    &lt;!&ndash; Main Content: Title and Info &ndash;&gt;-->
+<!--    <LinearLayout-->
+<!--        android:layout_width="0dp"-->
+<!--        android:layout_height="wrap_content"-->
+<!--        android:layout_weight="1"-->
+<!--        android:orientation="vertical">-->
+
+
+<!--        <TextView-->
+<!--            android:id="@+id/notification_info"-->
+<!--            style="@style/TextAppearance.Compat.Notification.Line2"-->
+<!--            android:layout_width="wrap_content"-->
+<!--            android:layout_height="wrap_content"-->
+<!--            android:fontFamily="monospace"-->
+<!--            android:textSize="12sp"-->
+<!--            tools:text="peers: 3 | unread: 5"-->
+<!--            tools:textColor="#B3FFFFFF" />-->
+<!--    </LinearLayout>-->
+
 </LinearLayout>
