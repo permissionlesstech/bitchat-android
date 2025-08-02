@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/notification_bg_terminal"
+    android:orientation="vertical"
+    android:padding="8dp">
+
+    <TextView
+        android:id="@+id/notification_title_expanded"
+        style="@style/TextAppearance.Compat.Notification.Title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="monospace"
+        android:text="bitchat::live"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        tools:textColor="#FF39FF14" />
+
+    <TextView
+        android:id="@+id/peer_list_header"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:fontFamily="monospace"
+        android:text="// PEERS NEARBY"
+        android:textSize="10sp"
+        tools:textColor="#80FFFFFF" />
+
+    <LinearLayout
+        android:id="@+id/notification_peer_list"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="4dp" />
+
+    <TextView
+        android:id="@+id/notification_divider"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:layout_marginBottom="6dp"
+        android:fontFamily="monospace"
+        android:maxLines="1"
+        android:text="----------------------------------------"
+        android:textSize="10sp"
+        tools:textColor="#4039FF14" />
+
+    <TextView
+        android:id="@+id/log_header"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="monospace"
+        android:text="// LIVE LOG"
+        android:textSize="10sp"
+        tools:textColor="#80FFFFFF" />
+
+    <LinearLayout
+        android:id="@+id/notification_message_log"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="end"
+        android:orientation="horizontal"
+        android:paddingTop="4dp">
+        <TextView
+            android:id="@+id/notification_action_mute"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="?android:attr/selectableItemBackground"
+            android:fontFamily="monospace"
+            android:padding="8dp"
+            android:text="[mute]"
+            android:textSize="12sp"
+            tools:textColor="#B3FFFFFF" />
+        <TextView
+            android:id="@+id/notification_action_stop_expanded"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:background="?android:attr/selectableItemBackground"
+            android:fontFamily="monospace"
+            android:padding="8dp"
+            android:text="[stop]"
+            android:textSize="12sp"
+            tools:textColor="#B3FFFFFF" />
+    </LinearLayout>
+</LinearLayout>

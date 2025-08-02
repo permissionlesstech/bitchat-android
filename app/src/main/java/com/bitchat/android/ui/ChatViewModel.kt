@@ -5,7 +5,9 @@ import android.content.Context
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
+import androidx.lifecycle.application
 import androidx.lifecycle.viewModelScope
+import com.bitchat.android.BitchatApplication
 import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
@@ -21,13 +23,15 @@ import kotlin.random.Random
  * Delegates specific responsibilities to specialized managers while maintaining 100% iOS compatibility
  */
 class ChatViewModel(
-    application: Application,
-    val meshService: BluetoothMeshService
+    application: Application
 ) : AndroidViewModel(application), BluetoothMeshDelegate {
 
     companion object {
         private const val TAG = "ChatViewModel"
     }
+
+    lateinit var meshService: BluetoothMeshService
+        private set
 
     // State management
     private val state = ChatState()
@@ -87,12 +91,14 @@ class ChatViewModel(
     val peerSessionStates: LiveData<Map<String, String>> = state.peerSessionStates
     val peerFingerprints: LiveData<Map<String, String>> = state.peerFingerprints
     val showAppInfo: LiveData<Boolean> = state.showAppInfo
-    
-    init {
-        // Note: Mesh service delegate is now set by MainActivity
+
+    fun initialize(meshService: BluetoothMeshService) {
+        Log.d(TAG, "Initializing ChatViewModel")
+        this.meshService = meshService
+        this.meshService.delegate = this
         loadAndInitialize()
     }
-    
+
     private fun loadAndInitialize() {
         // Load nickname
         val nickname = dataManager.loadNickname()
@@ -123,9 +129,7 @@ class ChatViewModel(
         
         // Initialize session state monitoring
         initializeSessionStateMonitoring()
-        
-        // Note: Mesh service is now started by MainActivity
-        
+
         // Show welcome message if no peers after delay
         viewModelScope.launch {
             delay(10000)
