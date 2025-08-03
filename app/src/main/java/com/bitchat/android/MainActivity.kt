@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.os.IBinder
 import android.util.Log
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,6 +16,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -39,8 +42,10 @@ import com.bitchat.android.onboarding.PermissionExplanationScreen
 import com.bitchat.android.onboarding.PermissionManager
 import com.bitchat.android.ui.ChatScreen
 import com.bitchat.android.ui.ChatViewModel
+import com.bitchat.android.ui.ExitConfirmationDialog
 import com.bitchat.android.ui.theme.BitchatTheme
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -59,10 +64,22 @@ class MainActivity : ComponentActivity() {
     @Volatile private var foregroundService: ForegroundService? = null
     @Volatile private var isServiceBound = false
 
+    // State for the exit confirmation dialog
+    private var showExitDialog by mutableStateOf(false)
+
     private val mainViewModel: MainViewModel by viewModels()
     private val chatViewModel: ChatViewModel by viewModels {
         viewModelFactory {
             initializer {
+                // IMPORTANT: You must add the shutdown request flow to your ChatViewModel
+                //
+                // In ChatViewModel.kt:
+                // private val _shutdownRequest = MutableSharedFlow<Unit>()
+                // val shutdownRequest = _shutdownRequest.asSharedFlow()
+                //
+                // fun requestShutdown() {
+                //     viewModelScope.launch { _shutdownRequest.emit(Unit) }
+                // }
                 ChatViewModel(application)
             }
         }
@@ -92,8 +109,8 @@ class MainActivity : ComponentActivity() {
         }
 
         override fun onServiceStopping() {
-            Log.w(TAG, "ForegroundService stopping")
-            finish()
+            Log.w(TAG, "ForegroundService is stopping, closing the app.")
+            finishAndRemoveTask()
         }
     }
 
@@ -127,6 +144,17 @@ class MainActivity : ComponentActivity() {
             onOnboardingFailed = ::handleOnboardingFailed
         )
 
+        // Handle back press
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                // If the chat view model handles the back press (e.g., closing a sidebar),
+                // do nothing. Otherwise, show our exit confirmation dialog.
+                if (!chatViewModel.handleBackPressed()) {
+                    showExitDialog = true
+                }
+            }
+        })
+
         setContent {
             BitchatTheme {
                 Surface(
@@ -134,6 +162,20 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     OnboardingFlowScreen()
+
+                    // Display the exit dialog when its state is true
+                    ExitConfirmationDialog(
+                        show = showExitDialog,
+                        onDismiss = { showExitDialog = false },
+                        onConfirmBackground = {
+                            showExitDialog = false
+                            moveTaskToBack(true)
+                        },
+                        onConfirmExit = {
+                            showExitDialog = false
+                            stopServiceAndExit()
+                        }
+                    )
                 }
             }
         }
@@ -141,11 +183,21 @@ class MainActivity : ComponentActivity() {
         // Collect state changes in a lifecycle-aware manner
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                mainViewModel.onboardingState.collect { state ->
-                    handleOnboardingStateChange(state)
+                // Listen for onboarding state changes
+                launch {
+                    mainViewModel.onboardingState.collect { state ->
+                        handleOnboardingStateChange(state)
+                    }
+                }
+                // Listen for shutdown requests from the ViewModel
+                launch {
+                    chatViewModel.shutdownRequest.collect {
+                        stopServiceAndExit()
+                    }
                 }
             }
         }
+
 
         // Only start onboarding process if we're in the initial CHECKING state
         // This prevents restarting onboarding on configuration changes
@@ -676,6 +728,20 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Triggers the foreground service to stop itself. The service will then
+     * call onServiceStopping(), which will finish the activity.
+     */
+    private fun stopServiceAndExit() {
+        Log.d(TAG, "User requested shutdown. Stopping service and exiting.")
+        val intent = Intent(ForegroundService.ACTION_STOP_SERVICE).apply {
+            // Ensure the broadcast is delivered only to our app's receiver
+            `package` = packageName
+        }
+        sendBroadcast(intent)
+    }
+
+
     override fun onDestroy() {
         super.onDestroy()
 
@@ -685,14 +751,6 @@ class MainActivity : ComponentActivity() {
             Log.d(TAG, "Location status manager cleaned up successfully")
         } catch (e: Exception) {
             Log.w(TAG, "Error cleaning up location status manager: ${e.message}")
-        }
-    }
-
-    @Deprecated("Deprecated")
-    override fun onBackPressed() {
-        val handled = chatViewModel.handleBackPressed()
-        if (!handled) {
-            super.onBackPressed()
         }
     }
 }
