@@ -1,269 +1,191 @@
+package com.bitchat.android.util
+
 import android.graphics.Bitmap
 import android.graphics.Color
-import kotlin.math.abs
-import kotlin.math.roundToInt
 import androidx.core.graphics.get
 import androidx.core.graphics.scale
+import kotlin.math.abs
+import kotlin.random.Random
 
 /**
  * A helper object providing compile-time constants and utility functions
  * for creating terminal-based art and user interfaces (TUI).
  *
- * This object includes constants for box-drawing, shades, and symbols,
- * as well as helper functions for drawing shapes, gradients, and converting
- * Android Bitmaps to ANSI/ASCII art in both grayscale and 256-color.
+ * This object includes a comprehensive set of constants for Code Page 437
+ * (the original IBM PC character set), including box-drawing, shades, and symbols.
+ * It also contains helper functions for converting Android Bitmaps to ANSI/ASCII art,
+ * including advanced techniques like Braille art.
  */
 object AnsiChars {
 
-    // --- General Characters ---
-    const val EMPTY_CHAR = ' ' // Standard space
-    const val BRAILLE_BLANK = '⠀' // Braille Pattern Blank (U+2800), an invisible space.
-    const val ESC = '\u001B' // ANSI Escape character
-
-    // --- Single-Line Box Drawing ---
-    const val BOX_HORIZONTAL = '─'
-    const val BOX_VERTICAL = '│'
-    const val BOX_DOWN_AND_RIGHT = '┌'
-    const val BOX_DOWN_AND_LEFT = '┐'
-    const val BOX_UP_AND_RIGHT = '└'
-    const val BOX_UP_AND_LEFT = '┘'
-    const val BOX_VERTICAL_AND_RIGHT = '├'
-    const val BOX_VERTICAL_AND_LEFT = '┤'
-    const val BOX_DOWN_AND_HORIZONTAL = '┬'
-    const val BOX_UP_AND_HORIZONTAL = '┴'
-    const val BOX_VERTICAL_AND_HORIZONTAL = '┼'
-
-    // --- Rounded-Corner Box Drawing ---
-    const val BOX_ROUNDED_DOWN_AND_RIGHT = '╭'
-    const val BOX_ROUNDED_DOWN_AND_LEFT = '╮'
-    const val BOX_ROUNDED_UP_AND_RIGHT = '╰'
-    const val BOX_ROUNDED_UP_AND_LEFT = '╯'
-
-    // --- Double-Line Box Drawing ---
-    const val BOX_DOUBLE_HORIZONTAL = '═'
-    const val BOX_DOUBLE_VERTICAL = '║'
-    const val BOX_DOUBLE_DOWN_AND_RIGHT = '╔'
-    const val BOX_DOUBLE_DOWN_AND_LEFT = '╗'
-    const val BOX_DOUBLE_UP_AND_RIGHT = '╚'
-    const val BOX_DOUBLE_UP_AND_LEFT = '╝'
-    const val BOX_DOUBLE_VERTICAL_AND_RIGHT = '╠'
-    const val BOX_DOUBLE_VERTICAL_AND_LEFT = '╣'
-    const val BOX_DOUBLE_DOWN_AND_HORIZONTAL = '╦'
-    const val BOX_DOUBLE_UP_AND_HORIZONTAL = '╩'
-    const val BOX_DOUBLE_VERTICAL_AND_HORIZONTAL = '╬'
-
-    // --- Block Elements ---
-    const val BLOCK_FULL = '█'
-    const val BLOCK_UPPER_HALF = '▀'
-    const val BLOCK_LOWER_HALF = '▄'
-    const val BLOCK_LEFT_HALF = '▌'
-    const val BLOCK_RIGHT_HALF = '▐'
-    const val BLOCK_UPPER_LEFT_QUADRANT = '▘'
-    const val BLOCK_UPPER_RIGHT_QUADRANT = '▝'
-    const val BLOCK_LOWER_LEFT_QUADRANT = '▖'
-    const val BLOCK_LOWER_RIGHT_QUADRANT = '▗'
-    const val BLOCK_QUADRANT_UPPER_LEFT_AND_LOWER_RIGHT = '▚'
-    const val BLOCK_QUADRANT_UPPER_RIGHT_AND_LOWER_LEFT = '▞'
-
-
-    // --- Shades ---
-    const val SHADE_LIGHT = '░'
-    const val SHADE_MEDIUM = '▒'
-    const val SHADE_DARK = '▓'
-
-    // --- Braille Patterns (useful for small icons) ---
-    const val BRAILLE_DOTS_1 = '⠁'
-    const val BRAILLE_DOTS_12 = '⠃'
-    const val BRAILLE_DOTS_123 = '⠇'
-    const val BRAILLE_DOTS_245 = '⠚' // Looks like a person/peer icon
-
-    // --- ASCII Character Ramps for Image Conversion ---
-    const val ASCII_RAMP_SIMPLE = "@%#*+=-:. " // Darkest to lightest
-    const val ASCII_RAMP_DETAILED = "\$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'. "
-
-    // --- Other Symbols ---
-    const val CHECKMARK = '✓'
-    const val CROSS = '✗'
-    const val TRIANGLE_UP = '▲'
-    const val TRIANGLE_DOWN = '▼'
-    const val TRIANGLE_LEFT = '◀'
-    const val TRIANGLE_RIGHT = '▶'
-
-    // --- IRC Control Codes ---
-    const val IRC_BOLD = '\u0002'
-    const val IRC_COLOR = '\u0003'
-    const val IRC_REVERSE = '\u0016'
-    const val IRC_UNDERLINE = '\u001F'
-    const val IRC_RESET = '\u000F'
-
+    // --- General & Control Characters ---
+    const val EMPTY_CHAR = ' '
+    const val BRAILLE_BLANK = '⠀' // An invisible character that still takes up space
+    const val ESC = '\u001B'
 
     /**
-     * A simple, theme-aware color palette for the terminal UI.
-     * These should be initialized with colors from the app's theme.
+     * Characters for drawing boxes and lines.
+     * Based on the classic Code Page 437.
      */
-    object Palette {
-        var primary: Int = android.graphics.Color.GREEN
-        var secondary: Int = android.graphics.Color.WHITE
-        var background: Int = android.graphics.Color.BLACK
-        var accent: Int = android.graphics.Color.CYAN
-
-        fun initialize(isDarkTheme: Boolean) {
-            if (isDarkTheme) {
-                primary = android.graphics.Color.rgb(0x39, 0xFF, 0x14) // Bright Green
-                secondary = android.graphics.Color.LTGRAY
-                background = android.graphics.Color.BLACK
-                accent = android.graphics.Color.rgb(0x00, 0xFF, 0xFF) // Cyan
-            } else {
-                primary = android.graphics.Color.DKGRAY
-                secondary = android.graphics.Color.GRAY
-                background = android.graphics.Color.WHITE
-                accent = android.graphics.Color.BLUE
-            }
+    object Box {
+        object Single {
+            const val H = '─'; const val V = '│'
+            const val DR = '┌'; const val DL = '┐'
+            const val UR = '└'; const val UL = '┘'
+            const val VR = '├'; const val VL = '┤'
+            const val DH = '┬'; const val UH = '┴'; const val VH = '┼'
         }
 
-        fun getProximityColor(proximity: Int, maxProximity: Int = 4): Int {
-            // Simple gradient from dim to bright based on proximity (0-4)
-            val alpha = (60 + (proximity.toFloat() / maxProximity) * 195).toInt().coerceIn(0, 255)
-            return android.graphics.Color.argb(alpha,
-                android.graphics.Color.red(primary),
-                android.graphics.Color.green(primary),
-                android.graphics.Color.blue(primary)
-            )
+        object Double {
+            const val H = '═'; const val V = '║'
+            const val DR = '╔'; const val DL = '╗'
+            const val UR = '╚'; const val UL = '╝'
+            const val VR = '╠'; const val VL = '╣'
+            const val DH = '╦'; const val UH = '╩'; const val VH = '╬'
+        }
+
+        object Rounded {
+            const val DR = '╭'; const val DL = '╮'
+            const val UR = '╰'; const val UL = '╯'
+        }
+
+        object Mixed {
+            const val V_S_H_D = '╪'; const val V_D_H_S = '╫'
+            const val DR_S_V_D_H = '╒'; const val DR_D_V_S_H = '╓'
+            const val DL_S_V_D_H = '╕'; const val DL_D_V_S_H = '╖'
+            const val UR_S_V_D_H = '╘'; const val UR_D_V_S_H = '╙'
+            const val UL_S_V_D_H = '╛'; const val UL_D_V_S_H = '╜'
+            const val VR_S_V_D_H = '╞'; const val VR_D_V_S_H = '╟'
+            const val VL_S_V_D_H = '╡'; const val VL_D_V_S_H = '╢'
+            const val DH_S_V_D_H = '╤'; const val DH_D_V_S_H = '╥'
+            const val UH_S_V_D_H = '╧'; const val UH_D_V_S_H = '╨'
         }
     }
 
+    /**
+     * Block elements for filling areas, creating gradients, or pixel-like effects.
+     */
+    object Block {
+        const val FULL = '█'; const val UPPER_H = '▀'; const val LOWER_H = '▄'
+        const val LEFT_H = '▌'; const val RIGHT_H = '▐'
+        const val LOWER_1_8 = ' '; const val LOWER_1_4 = '▂'; const val LOWER_3_8 = '▃'
+        const val LOWER_5_8 = '▅'; const val LOWER_3_4 = '▆'; const val LOWER_7_8 = '▇'
+        const val UPPER_1_8 = '▔'
 
-    // --- Helper Functions for Drawing ---
+        object Quadrant {
+            const val UL = '▘'; const val UR = '▝'; const val LL = '▖'; const val LR = '▗'
+            const val UL_LR = '▚'; const val UR_LL = '▞'
+            const val UL_UR_LL = '▛'; const val UL_UR_LR = '▜'
+            const val UL_LL_LR = '▙'; const val UR_LL_LR = '▟'
+        }
+    }
+
+    object Shade {
+        const val LIGHT = '░'; const val MEDIUM = '▒'; const val DARK = '▓'
+        val GRADIENT = listOf(LIGHT, MEDIUM, DARK, Block.FULL)
+    }
+
+    object Irc {
+        const val BOLD = '\u0002'; const val COLOR = '\u0003'; const val REVERSE = '\u0016'
+        const val UNDERLINE = '\u001F'; const val RESET = '\u000F'
+    }
+
+    object Shapes {
+        const val CHECK = '✓'; const val CROSS = '✗'
+        const val TRI_U = '▲'; const val TRI_D = '▼'; const val TRI_L = '◀'; const val TRI_R = '▶'
+        const val SQ_S_F = '▪'; const val SQ_F = '■'; const val SQ_S = '▫'; const val SQ = '□'
+        const val CIRC_F = '●'; const val CIRC = '○'
+        const val DOT = '⋅'; const val BULLET = '•'
+        const val DIAM_F = '◆'; const val DIAM = '◇'
+    }
 
     /**
-     * Creates a string by repeating a character a specified number of times.
+     * The complete set of iconic, mathematical, and international symbols from Code Page 437.
      */
+    object Cp437Symbols {
+        const val SMILEY_W = '☺'; const val SMILEY_B = '☻'; const val HEART = '♥'
+        const val DIAMOND = '♦'; const val CLUB = '♣'; const val SPADE = '♠'
+        const val BULLET_H = '○'; const val BULLET_F = '●'; const val MALE = '♂'; const val FEMALE = '♀'
+        const val NOTE_1 = '♪'; const val NOTE_2 = '♫'; const val SUN = '☼'
+        const val ARROW_R_F = '►'; const val ARROW_L_F = '◄'; const val ARROW_UD = '↕'
+        const val EXCLAM_D = '‼'; const val PILCROW = '¶'; const val SECTION = '§'
+        const val CURSOR_R = '▬'; const val ARROW_UD_B = '↨'; const val ARROW_U = '↑'
+        const val ARROW_D = '↓'; const val ARROW_R = '→'; const val ARROW_L = '←'
+        const val ANGLE_R = '∟'; const val ARROW_LR = '↔'; const val HOUSE = '⌂'
+        const val C_CEDILLA_U = 'Ç'; const val U_DIAERESIS_L = 'ü'; const val E_ACUTE_L = 'é'
+        const val A_CIRCUMFLEX_L = 'â'; const val A_DIAERESIS_L = 'ä'; const val A_GRAVE_L = 'à'
+        const val A_RING_L = 'å'; const val C_CEDILLA_L = 'ç'; const val E_CIRCUMFLEX_L = 'ê'
+        const val E_DIAERESIS_L = 'ë'; const val E_GRAVE_L = 'è'; const val I_DIAERESIS_L = 'ï'
+        const val I_CIRCUMFLEX_L = 'î'; const val I_GRAVE_L = 'ì'; const val A_DIAERESIS_U = 'Ä'
+        const val A_RING_U = 'Å'; const val E_ACUTE_U = 'É'; const val AE_L = 'æ'; const val AE_U = 'Æ'
+        const val O_CIRCUMFLEX_L = 'ô'; const val O_DIAERESIS_L = 'ö'; const val O_GRAVE_L = 'ò'
+        const val U_CIRCUMFLEX_L = 'û'; const val U_GRAVE_L = 'ù'; const val Y_DIAERESIS_L = 'ÿ'
+        const val O_DIAERESIS_U = 'Ö'; const val U_DIAERESIS_U = 'Ü'; const val CENT = '¢'
+        const val POUND = '£'; const val YEN = '¥'; const val PESETA = '₧'; const val F_HOOK = 'ƒ'
+        const val A_ACUTE_L = 'á'; const val I_ACUTE_L = 'í'; const val O_ACUTE_L = 'ó'
+        const val U_ACUTE_L = 'ú'; const val N_TILDE_L = 'ñ'; const val N_TILDE_U = 'Ñ'
+        const val ORDINAL_F = 'ª'; const val ORDINAL_M = 'º'; const val Q_MARK_INV = '¿'
+        const val NOT_REV = '⌐'; const val NOT = '¬'; const val HALF = '½'; const val QUARTER = '¼'
+        const val EXCLAM_INV = '¡'; const val CHEVRON_L = '«'; const val CHEVRON_R = '»'
+        const val ALPHA = 'α'; const val BETA_SHARP_S = 'ß'; const val GAMMA_U = 'Γ'; const val PI = 'π'
+        const val SIGMA_U = 'Σ'; const val SIGMA_L = 'σ'; const val MU = 'µ'; const val TAU = 'τ'
+        const val PHI_U = 'Φ'; const val THETA_U = 'Θ'; const val OMEGA_U = 'Ω'; const val DELTA_L = 'δ'
+        const val INFINITY = '∞'; const val PHI_L = 'φ'; const val EPSILON = 'ε'
+        const val INTERSECTION = '∩'; const val TRIPLE_BAR = '≡'; const val PLUS_MINUS = '±'
+        const val GTE = '≥'; const val LTE = '≤'; const val INTEGRAL_T = '⌠'; const val INTEGRAL_B = '⌡'
+        const val DIV = '÷'; const val ALMOST_EQ = '≈'; const val DEGREE = '°'
+        const val BULLET_OP = '∙'; const val INTERPUNCT = '·'; const val SQRT = '√'
+        const val POWER_N = 'ⁿ'; const val SQUARE = '²'; const val CURSOR_B = '■'
+    }
+
+    object AsciiRamp {
+        const val SIMPLE = "@%#*+=-:. " // Darkest to lightest
+        const val DETAILED = "\$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'. "
+    }
+
+    /**
+     * Interesting Unicode characters and sequences for special effects.
+     */
+    object Tricks {
+        // For creating "corrupted" or "glitch" text (Zalgo)
+        val ZALGO_UP = charArrayOf('\u030d', '\u030e', '\u0304', '\u0305', '\u033f', '\u0311', '\u0306', '\u0310', '\u0352', '\u0357', '\u0351', '\u0307', '\u0308', '\u030a', '\u0342', '\u0343', '\u0344', '\u034a', '\u034b', '\u034c', '\u0350', '\u0358', '\u035b', '\u035d', '\u035e', '\u035f', '\u0360', '\u0361', '\u0362')
+        val ZALGO_DOWN = charArrayOf('\u0316', '\u0317', '\u0318', '\u0319', '\u031c', '\u031d', '\u031e', '\u031f', '\u0320', '\u0324', '\u0325', '\u0326', '\u0329', '\u032a', '\u032b', '\u032c', '\u032d', '\u032e', '\u032f', '\u0330', '\u0331', '\u0332', '\u0333', '\u0339', '\u033a', '\u033b', '\u033c')
+        val ZALGO_MID = charArrayOf('\u0334', '\u0335', '\u0336', '\u0337', '\u0338', '\u033d', '\u033e', '\u0345', '\u0346', '\u0347', '\u0348', '\u0349', '\u034d', '\u034e', '\u0353', '\u0354', '\u0355', '\u0356', '\u0359', '\u035a', '\u035c')
+    }
+
+    // --- Helper Functions and Tricks ---
+
     fun line(char: Char, length: Int): String {
         if (length <= 0) return ""
         return char.toString().repeat(length)
     }
 
-    /**
-     * Draws a simple box using single-line characters.
-     */
-    fun simpleBox(width: Int, height: Int, rounded: Boolean = false): String {
-        if (width < 2 || height < 2) return ""
-
-        val tl = if(rounded) BOX_ROUNDED_DOWN_AND_RIGHT else BOX_DOWN_AND_RIGHT
-        val tr = if(rounded) BOX_ROUNDED_DOWN_AND_LEFT else BOX_DOWN_AND_LEFT
-        val bl = if(rounded) BOX_ROUNDED_UP_AND_RIGHT else BOX_UP_AND_RIGHT
-        val br = if(rounded) BOX_ROUNDED_UP_AND_LEFT else BOX_UP_AND_LEFT
-
-        val top = "$tl${line(BOX_HORIZONTAL, width - 2)}$tr"
-        val bottom = "$bl${line(BOX_HORIZONTAL, width - 2)}$br"
-
-        if (height == 2) return "$top\n$bottom"
-
-        val middleContent = " ".repeat(width - 2)
-        val middle = "$BOX_VERTICAL$middleContent$BOX_VERTICAL"
-        val middleRows = List(height - 2) { middle }.joinToString("\n")
-
-        return "$top\n$middleRows\n$bottom"
-    }
-
-    /**
-     * Draws a box with a title embedded in the top border.
-     */
-    fun titledBox(title: String, width: Int, useDoubleLine: Boolean = false): String {
-        val cleanTitle = " $title "
-        if (width < cleanTitle.length + 2) return ""
-
-        val hChar = if (useDoubleLine) BOX_DOUBLE_HORIZONTAL else BOX_HORIZONTAL
-        val tlChar = if (useDoubleLine) BOX_DOUBLE_DOWN_AND_RIGHT else BOX_DOWN_AND_RIGHT
-        val trChar = if (useDoubleLine) BOX_DOUBLE_DOWN_AND_LEFT else BOX_DOWN_AND_LEFT
-        val blChar = if (useDoubleLine) BOX_DOUBLE_UP_AND_RIGHT else BOX_UP_AND_RIGHT
-        val brChar = if (useDoubleLine) BOX_DOUBLE_UP_AND_LEFT else BOX_UP_AND_LEFT
-
-        val remainingWidth = width - cleanTitle.length - 2
-        val leftPad = remainingWidth / 2
-        val rightPad = remainingWidth - leftPad
-
-        val top = "$tlChar${line(hChar, leftPad)}$cleanTitle${line(hChar, rightPad)}$trChar"
-        val bottom = "$blChar${line(hChar, width - 2)}$brChar"
-
-        return "$top\n$bottom"
-    }
-
-    // --- Color & Gradient Helpers ---
-
-    /**
-     * Wraps a string with ANSI 256-color escape codes.
-     * @param text The string to colorize.
-     * @param colorCode A color code between 0 and 255.
-     * @return The colorized string.
-     */
     fun colorize(text: String, colorCode: Int): String {
         val code = colorCode.coerceIn(0, 255)
         return "$ESC[38;5;${code}m$text$ESC[0m"
     }
 
-    /**
-     * Creates a horizontal gradient using shade characters.
-     */
-    fun gradient(width: Int, reversed: Boolean = false): String {
-        if (width <= 0) return ""
-        val gradientChars = listOf(SHADE_LIGHT, SHADE_MEDIUM, SHADE_DARK, BLOCK_FULL)
-        val finalChars = if (reversed) gradientChars.reversed() else gradientChars
-
-        val segmentWidth = width / finalChars.size
-        val remainder = width % finalChars.size
-
-        val sb = StringBuilder(width)
-        finalChars.forEachIndexed { index, char ->
-            val len = segmentWidth + if (index < remainder) 1 else 0
-            sb.append(char.toString().repeat(len))
+    private fun rgbToAnsi256(r: Int, g: Int, b: Int): Int {
+        if (abs(r - g) < 8 && abs(g - b) < 8) {
+            val gray = (r + g + b) / 3
+            if (gray > 238) return 231; if (gray < 18) return 16
+            return 232 + ((gray - 8) / 10)
         }
-        return sb.toString()
+        val rAnsi = (r * 5 / 255); val gAnsi = (g * 5 / 255); val bAnsi = (b * 5 / 255)
+        return 16 + (36 * rAnsi) + (6 * gAnsi) + bAnsi
     }
 
-    // --- Image Conversion Helpers ---
-
-    /**
-     * Converts an Android Bitmap into a grayscale ANSI/ASCII art string.
-     */
-    fun imageToAnsi(bitmap: Bitmap, targetWidth: Int, detailed: Boolean = false): String {
-        if (targetWidth <= 0) return ""
-
-        val ramp = if (detailed) ASCII_RAMP_DETAILED else ASCII_RAMP_SIMPLE
-        val aspectRatio = bitmap.height.toDouble() / bitmap.width.toDouble()
-        val targetHeight = (targetWidth * aspectRatio * 0.5).toInt().coerceAtLeast(1)
-        val scaledBitmap = bitmap.scale(targetWidth, targetHeight)
-        val sb = StringBuilder(targetWidth * targetHeight)
-
-        for (y in 0 until scaledBitmap.height) {
-            for (x in 0 until scaledBitmap.width) {
-                val pixel = scaledBitmap[x, y]
-                val brightness = (0.299 * Color.red(pixel) + 0.587 * Color.green(pixel) + 0.114 * Color.blue(pixel)).toInt()
-                val rampIndex = (brightness / 255.0 * (ramp.length - 1)).roundToInt()
-                sb.append(ramp.reversed()[rampIndex])
-            }
-            sb.append('\n')
-        }
-        return sb.toString()
-    }
-
-    /**
-     * Converts an Android Bitmap into a 256-color ANSI art string.
-     * Uses the full block character for each "pixel" and colorizes it.
-     */
     fun imageToAnsiColor(bitmap: Bitmap, targetWidth: Int): String {
         if (targetWidth <= 0) return ""
-
         val aspectRatio = bitmap.height.toDouble() / bitmap.width.toDouble()
         val targetHeight = (targetWidth * aspectRatio * 0.5).toInt().coerceAtLeast(1)
         val scaledBitmap = bitmap.scale(targetWidth, targetHeight)
         val sb = StringBuilder()
-
         for (y in 0 until scaledBitmap.height) {
             for (x in 0 until scaledBitmap.width) {
                 val pixel = scaledBitmap[x, y]
                 val colorCode = rgbToAnsi256(Color.red(pixel), Color.green(pixel), Color.blue(pixel))
-                sb.append(colorize(BLOCK_FULL.toString(), colorCode))
+                sb.append(colorize(Block.FULL.toString(), colorCode))
             }
             sb.append('\n')
         }
@@ -271,20 +193,72 @@ object AnsiChars {
     }
 
     /**
-     * Maps an RGB color to the nearest color in the xterm 256-color palette.
+     * Converts an image to grayscale ASCII art.
+     * @param ramp The string of characters to use for shading, from darkest to lightest.
      */
-    private fun rgbToAnsi256(r: Int, g: Int, b: Int): Int {
-        // Grayscale colors
-        if (abs(r - g) < 8 && abs(g - b) < 8) {
-            val gray = (r + g + b) / 3
-            if (gray > 238) return 231 // White
-            if (gray < 18) return 16   // Black
-            return 232 + ((gray - 8) / 10)
+    fun imageToGrayscale(bitmap: Bitmap, targetWidth: Int, ramp: String = AsciiRamp.SIMPLE): String {
+        if (targetWidth <= 0) return ""
+        val aspectRatio = bitmap.height.toDouble() / bitmap.width.toDouble()
+        val targetHeight = (targetWidth * aspectRatio * 0.5).toInt().coerceAtLeast(1)
+        val scaledBitmap = bitmap.scale(targetWidth, targetHeight)
+        val sb = StringBuilder()
+        for (y in 0 until scaledBitmap.height) {
+            for (x in 0 until scaledBitmap.width) {
+                val pixel = scaledBitmap[x, y]
+                val gray = (Color.red(pixel) * 0.299 + Color.green(pixel) * 0.587 + Color.blue(pixel) * 0.114).toInt()
+                val rampIndex = (gray * (ramp.length - 1)) / 255
+                sb.append(ramp[rampIndex])
+            }
+            sb.append('\n')
         }
-        // 6x6x6 color cube
-        val rAnsi = (r * 5 / 255)
-        val gAnsi = (g * 5 / 255)
-        val bAnsi = (b * 5 / 255)
-        return 16 + (36 * rAnsi) + (6 * gAnsi) + bAnsi
+        return sb.toString()
+    }
+
+    /**
+     * Converts an image to high-resolution text art using Braille characters.
+     * Each Braille char is a 2x4 matrix of dots.
+     */
+    fun imageToBraille(bitmap: Bitmap, targetWidth: Int, invert: Boolean = false): String {
+        if (targetWidth <= 0) return ""
+        val charWidth = targetWidth * 2
+        val aspectRatio = bitmap.height.toDouble() / bitmap.width.toDouble()
+        val charHeight = (charWidth * aspectRatio * 0.5).toInt().coerceAtLeast(1)
+        val scaledBitmap = bitmap.scale(charWidth, charHeight)
+        val sb = StringBuilder()
+
+        for (y in 0 until charHeight step 4) {
+            for (x in 0 until charWidth step 2) {
+                var brailleCode = 0x2800
+                var dotValue = 0
+                // Braille dots are numbered 1-8, column by column
+                if (y + 0 < charHeight && x + 0 < charWidth) dotValue = if (Color.alpha(scaledBitmap[x, y]) > 128) 1 else 0; brailleCode += dotValue * 1
+                if (y + 1 < charHeight && x + 0 < charWidth) dotValue = if (Color.alpha(scaledBitmap[x, y + 1]) > 128) 1 else 0; brailleCode += dotValue * 2
+                if (y + 2 < charHeight && x + 0 < charWidth) dotValue = if (Color.alpha(scaledBitmap[x, y + 2]) > 128) 1 else 0; brailleCode += dotValue * 4
+                if (y + 0 < charHeight && x + 1 < charWidth) dotValue = if (Color.alpha(scaledBitmap[x + 1, y]) > 128) 1 else 0; brailleCode += dotValue * 8
+                if (y + 1 < charHeight && x + 1 < charWidth) dotValue = if (Color.alpha(scaledBitmap[x + 1, y + 1]) > 128) 1 else 0; brailleCode += dotValue * 16
+                if (y + 2 < charHeight && x + 1 < charWidth) dotValue = if (Color.alpha(scaledBitmap[x + 1, y + 2]) > 128) 1 else 0; brailleCode += dotValue * 32
+                if (y + 3 < charHeight && x + 0 < charWidth) dotValue = if (Color.alpha(scaledBitmap[x, y + 3]) > 128) 1 else 0; brailleCode += dotValue * 64
+                if (y + 3 < charHeight && x + 1 < charWidth) dotValue = if (Color.alpha(scaledBitmap[x + 1, y + 3]) > 128) 1 else 0; brailleCode += dotValue * 128
+
+                if (invert) brailleCode = 0x28FF - (brailleCode - 0x2800)
+                if (brailleCode == 0x2800) sb.append(EMPTY_CHAR) else sb.append(brailleCode.toChar())
+            }
+            sb.append('\n')
+        }
+        return sb.toString()
+    }
+
+    /**
+     * Applies "Zalgo" effect to text, making it look corrupted or demonic.
+     */
+    fun zalgo(text: String, up: Int = 3, mid: Int = 2, down: Int = 3): String {
+        val sb = StringBuilder()
+        text.forEach { char ->
+            sb.append(char)
+            repeat(Random.nextInt(up)) { sb.append(Tricks.ZALGO_UP.random()) }
+            repeat(Random.nextInt(mid)) { sb.append(Tricks.ZALGO_MID.random()) }
+            repeat(Random.nextInt(down)) { sb.append(Tricks.ZALGO_DOWN.random()) }
+        }
+        return sb.toString()
     }
 }

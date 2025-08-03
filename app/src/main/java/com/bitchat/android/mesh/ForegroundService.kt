@@ -1,5 +1,6 @@
 package com.bitchat.android.mesh
 
+import android.R.style.Theme
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -12,103 +13,46 @@ import android.content.IntentFilter
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Color as AndroidColor
 import android.graphics.Paint
 import android.graphics.Typeface
-import android.graphics.RectF
 import android.os.Binder
 import android.os.IBinder
-import android.os.Vibrator
 import android.util.Log
 import android.widget.RemoteViews
+import androidx.annotation.LayoutRes
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.createBitmap
 import com.bitchat.android.R
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryAck
 import com.bitchat.android.model.ReadReceipt
 import com.bitchat.android.ui.theme.DarkColorScheme
 import com.bitchat.android.ui.theme.LightColorScheme
+import com.bitchat.android.util.AnsiChars
+import com.bitchat.android.util.AnsiGrid
+import java.util.Random
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
-import androidx.core.graphics.createBitmap
-import java.util.Random
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 // Data class to hold combined peer information for the UI
 data class PeerInfo(val id: String, val nickname: String, val proximity: Int)
 
-/**
- * A helper class to manage a grid of characters and colors for ANSI-style art.
- * This makes it easier to "draw" text, shapes, and other elements onto a character-based canvas.
- */
-class AnsiGrid(
-    val width: Int,
-    val height: Int,
-    private val defaultColor: Int
-) {
-    // A grid of pairs, where each pair holds a character and its integer color.
-    private val grid: Array<Array<Pair<Char, Int>>> = Array(height) {
-        Array(width) { Pair(AnsiChars.EMPTY_CHAR, defaultColor) }
-    }
-    private val textPaint = Paint().apply {
-        isAntiAlias = true
-        typeface = Typeface.MONOSPACE
-    }
 
-    fun setChar(x: Int, y: Int, char: Char, color: Int) {
-        if (x in 0 until width && y in 0 until height) {
-            grid[y][x] = Pair(char, color)
-        }
-    }
-
-    fun drawText(x: Int, y: Int, text: String, color: Int) {
-        text.forEachIndexed { index, char ->
-            setChar(x + index, y, char, color)
-        }
-    }
-
-    fun clear() {
-        for (y in 0 until height) {
-            for (x in 0 until width) {
-                grid[y][x] = Pair(AnsiChars.EMPTY_CHAR, defaultColor)
-            }
-        }
-    }
-
-    /**
-     * Renders the entire grid onto a Canvas.
-     * @param canvas The Android Canvas to draw on.
-     * @param charWidth The calculated width of a single character in pixels.
-     * @param charHeight The calculated height of a single character in pixels.
-     */
-    fun render(canvas: Canvas, charWidth: Float, charHeight: Float) {
-        // Fine-tune the text size for your font. 1.1f is a good starting point.
-        textPaint.textSize = charHeight * 1.1f
-        val baselineOffset = textPaint.fontMetrics.descent
-
-        for (row in 0 until height) {
-            for (col in 0 until width) {
-                val (char, color) = grid[row][col]
-                if (char != AnsiChars.EMPTY_CHAR) {
-                    textPaint.color = color
-                    val xPos = col * charWidth
-                    // Adjust y to be the baseline for the text
-                    val yPos = (row + 1) * charHeight - baselineOffset
-                    canvas.drawText(char.toString(), xPos, yPos, textPaint)
-                }
-            }
-        }
-    }
-}
-
+private const val FONT_SIZE = 10
 
 /**
  * A foreground service that provides a rich, interactive, and theme-consistent notification
  * in the style of a monochrome IRC/terminal client. It displays nearby peers with proximity
  * and a live log of recent messages by acting as a delegate for BluetoothMeshService.
+ *
+ * The notification features a generative ANSI art landscape where peers are represented as stars.
  */
 class ForegroundService : Service(), BluetoothMeshDelegate {
 
@@ -119,16 +63,16 @@ class ForegroundService : Service(), BluetoothMeshDelegate {
 
     // --- Live State for Notification UI ---
     private var activePeers = listOf<PeerInfo>()
-    private var unreadMessagesCount = 0
     private var recentMessages = mutableListOf<BitchatMessage>()
     private val knownPeerIds = HashSet<String>() // Used to detect new peers
 
     // --- State for ANSI Grid Visualization ---
-    private val peerSparks = mutableMapOf<String, Pair<Int, Int>>() // PeerID -> (x, y)
+    private var frame: Long = 0 // Animation frame counter
+    private val peerStarData = mutableMapOf<String, Pair<Int, Float>>() // PeerID -> (x, random phase offset)
     private val random = Random()
 
 
-    // Scheduler for periodic UI refreshes (e.g., timestamps)
+    // Scheduler for periodic UI refreshes
     private lateinit var uiUpdateScheduler: ScheduledExecutorService
 
     companion object {
@@ -137,11 +81,21 @@ class ForegroundService : Service(), BluetoothMeshDelegate {
         private const val FOREGROUND_CHANNEL_ID = "bitchat_foreground_service"
         const val ACTION_STOP_SERVICE = "com.bitchat.android.ACTION_STOP_SERVICE"
         const val ACTION_MUTE = "com.bitchat.android.ACTION_MUTE"
+        private const val DEBUG_MODE = true // Enable to use mock peers
 
         @Volatile
         var isServiceRunning = false
             private set
     }
+
+    // --- Mock Data for Debugging ---
+    private val mockPeers = listOf(
+        PeerInfo("id_1", "zerocool", 4),
+        PeerInfo("id_2", "acidburn", 3),
+        PeerInfo("id_3", "phantomphreak", 2),
+        PeerInfo("id_4", "lordnikon", 1),
+        PeerInfo("id_5", "cerealkiller", 0)
+    )
 
     // --- Service Lifecycle & Setup ---
 
@@ -150,7 +104,6 @@ class ForegroundService : Service(), BluetoothMeshDelegate {
         isServiceRunning = true
         notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
 
-        // Initialize the mesh service and set this class as its delegate
         if (meshService == null) {
             meshService = BluetoothMeshService(this).apply {
                 delegate = this@ForegroundService
@@ -161,13 +114,12 @@ class ForegroundService : Service(), BluetoothMeshDelegate {
             addAction(ACTION_STOP_SERVICE)
             addAction(ACTION_MUTE)
         }
-        // For Android 14+, must specify receiver exportability
         ContextCompat.registerReceiver(this, notificationActionReceiver, intentFilter, ContextCompat.RECEIVER_NOT_EXPORTED)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         createNotificationChannel()
-        startForeground(NOTIFICATION_ID, buildNotification(false)) // Initial notification is silent
+        startForeground(NOTIFICATION_ID, buildNotification(false))
         startUiUpdater()
         meshService?.startServices()
         return START_STICKY
@@ -182,24 +134,19 @@ class ForegroundService : Service(), BluetoothMeshDelegate {
         meshService = null
     }
 
-    override fun onBind(intent: Intent): IBinder {
-        return binder
-    }
+    override fun onBind(intent: Intent): IBinder = binder
 
-    fun getMeshService(): BluetoothMeshService? {
-        return meshService
-    }
+    fun getMeshService(): BluetoothMeshService? = meshService
 
     // --- BluetoothMeshDelegate Implementation ---
 
     override fun didReceiveMessage(message: BitchatMessage) {
         Log.d(TAG, "didReceiveMessage: '${message.content}' from ${message.sender}")
-        // Add message to the log and trim if it gets too long
         recentMessages.add(0, message)
         if (recentMessages.size > 10) {
             recentMessages = recentMessages.take(10).toMutableList()
         }
-        updateNotification(false) // New messages don't need to alert
+        updateNotification(false)
     }
 
     override fun didUpdatePeerList(peers: List<String>) {
@@ -207,13 +154,10 @@ class ForegroundService : Service(), BluetoothMeshDelegate {
     }
 
     override fun didConnectToPeer(peerID: String) {
-        // Check if this is a genuinely new peer
         if (knownPeerIds.add(peerID)) {
             Log.i(TAG, "New peer connected: $peerID. Triggering alert.")
-            // Trigger an alerting notification for the new peer
             updateNotification(true)
         } else {
-            // Peer reconnected, just do a silent update
             updateNotification(false)
         }
     }
@@ -223,34 +167,31 @@ class ForegroundService : Service(), BluetoothMeshDelegate {
         updateNotification(false)
     }
 
-    // Other delegate methods can trigger a UI update if needed
-    override fun didReceiveDeliveryAck(ack: DeliveryAck) { /* Can update UI later */ }
-    override fun didReceiveReadReceipt(receipt: ReadReceipt) { /* Can update UI later */ }
-    override fun didReceiveChannelLeave(channel: String, fromPeer: String) { /* Can update UI later */ }
+    override fun didReceiveDeliveryAck(ack: DeliveryAck) {}
+    override fun didReceiveReadReceipt(receipt: ReadReceipt) {}
+    override fun didReceiveChannelLeave(channel: String, fromPeer: String) {}
     override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? = null
-    override fun getNickname(): String? = "bitchat_user" // Provide a default or fetch from settings
+    override fun getNickname(): String? = "bitchat_user"
     override fun isFavorite(peerID: String): Boolean = false
 
     // --- Notification Building & Logic ---
 
     private fun updateNotification(alert: Boolean) {
-        // Fetch real-time data from the mesh service
-        val nicknames = meshService?.getPeerNicknames() ?: emptyMap()
-        val rssiValues = meshService?.getPeerRSSI() ?: emptyMap()
+        if (DEBUG_MODE) {
+            activePeers = mockPeers
+        } else {
+            val nicknames = meshService?.getPeerNicknames() ?: emptyMap()
+            val rssiValues = meshService?.getPeerRSSI() ?: emptyMap()
 
-        // Combine the data into a list of PeerInfo objects for the UI
-        activePeers = nicknames.map { (peerId, nickname) ->
-            val rssi = rssiValues[peerId] ?: -100 // Default to a weak signal
-            PeerInfo(
-                id = peerId,
-                nickname = nickname,
-                proximity = getProximityFromRssi(rssi)
-            )
-        }.sortedByDescending { it.proximity } // Sort by strongest signal first
+            activePeers = nicknames.map { (peerId, nickname) ->
+                val rssi = rssiValues[peerId] ?: -100
+                PeerInfo(id = peerId, nickname = nickname, proximity = getProximityFromRssi(rssi))
+            }.sortedByDescending { it.proximity }
+        }
 
-        // Update the notification with the new data
         notificationManager.notify(NOTIFICATION_ID, buildNotification(alert))
     }
+
 
     private fun buildNotification(alert: Boolean): Notification {
         val isDarkTheme = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
@@ -266,171 +207,218 @@ class ForegroundService : Service(), BluetoothMeshDelegate {
             .setOngoing(true)
 
         if (alert) {
-            // Make this specific update alert the user
             builder.setOnlyAlertOnce(false)
             builder.setDefaults(Notification.DEFAULT_ALL)
         } else {
-            // Subsequent updates should be silent
             builder.setOnlyAlertOnce(true)
         }
 
         return builder.build()
     }
 
-    /**
-     * This is the core function for rendering the ANSI art status grid.
-     * It creates a bitmap, calculates the grid dimensions, draws dynamic
-     * content onto an AnsiGrid, and then renders the grid to the bitmap.
-     */
-    private fun getCollapsedRenderBitmap(bitmapWidth: Int, bitmapHeight: Int): Bitmap {
+    private fun getAnsiGrid(bitmapWidth: Int, bitmapHeight: Int, fgColor: Int): Triple<AnsiGrid, Float, Float>? {
         val density = resources.displayMetrics.density
-        val bitmap = createBitmap(bitmapWidth, bitmapHeight)
-        val canvas = Canvas(bitmap)
-
-        val isDarkTheme = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        AnsiChars.Palette.initialize(isDarkTheme)
-
-        canvas.drawColor(AnsiChars.Palette.background)
-
-        // Use a small, monospace font to determine the grid size
         val textPaint = Paint().apply {
+            color = fgColor
+            isAntiAlias = true
             typeface = Typeface.MONOSPACE
-            textSize = 6 * density
+            textSize = FONT_SIZE * density
         }
-        val charWidth = textPaint.measureText(AnsiChars.BLOCK_FULL.toString())
+        // Use a standard, reliable character for measuring width. 'W' is a good choice.
+        val charWidth = textPaint.measureText("W")
         val charHeight = textPaint.fontMetrics.descent - textPaint.fontMetrics.ascent
 
-        if (charWidth <= 0 || charHeight <= 0) return bitmap
+        if (charWidth <= 0 || charHeight <= 0) return null
 
         val numCols = (bitmapWidth / charWidth).toInt()
         val numRows = (bitmapHeight / charHeight).toInt()
 
-        if (numCols <= 0 || numRows <= 0) return bitmap
+        if (numCols <= 0 || numRows <= 0) return null
 
-        // Create the grid and draw our visualizations
-        val grid = AnsiGrid(numCols, numRows, AnsiChars.Palette.background)
-        drawPeerSparks(grid, activePeers)
-        drawStatusText(grid, "peers: ${activePeers.size}")
+        val grid = AnsiGrid(numCols, numRows, textPaint)
+        return Triple(grid, charWidth, charHeight)
+    }
 
-        // Render the final grid to the canvas
-        grid.render(canvas, charWidth, charHeight)
+    private fun getCollapsedRenderBitmap(bitmapWidth: Int, bitmapHeight: Int): Bitmap {
+        val bitmap = createBitmap(bitmapWidth, bitmapHeight)
+        val canvas = Canvas(bitmap)
+        val isDarkTheme = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
 
+        val bgColor = if (isDarkTheme) DarkColorScheme.background.toArgb() else LightColorScheme.background.toArgb()
+        val fgColor = if (isDarkTheme) DarkColorScheme.primary.toArgb() else LightColorScheme.primary.toArgb()
+        canvas.drawColor(bgColor)
+
+        val gridData = getAnsiGrid(bitmapWidth, bitmapHeight, fgColor)
+        if (gridData != null) {
+            val (grid, charWidth, charHeight) = gridData
+            drawTerminalContent(grid, activePeers, isForCollapsedView = true)
+            // Pass charWidth and charHeight to the updated render function
+            grid.render(canvas, charWidth, charHeight)
+        }
         return bitmap
     }
 
     /**
-     * Draws a "spark" for each peer that moves around randomly.
-     * The color is based on the peer's proximity.
+     * Renders the entire expanded notification content into a single bitmap.
      */
-    private fun drawPeerSparks(grid: AnsiGrid, peers: List<PeerInfo>) {
-        // Remove sparks for peers that have disconnected
-        peerSparks.keys.retainAll(peers.map { it.id }.toSet())
+    private fun getExpandedRenderBitmap(bitmapWidth: Int, bitmapHeight: Int): Bitmap {
+        val bitmap = createBitmap(bitmapWidth, bitmapHeight)
+        val canvas = Canvas(bitmap)
+        val isDarkTheme = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
 
-        peers.forEach { peer ->
-            // If the peer is new, assign it a random starting position
-            if (!peerSparks.containsKey(peer.id)) {
-                peerSparks[peer.id] = Pair(random.nextInt(grid.width), random.nextInt(grid.height))
-            }
+        val bgColor = if (isDarkTheme) DarkColorScheme.background.toArgb() else LightColorScheme.background.toArgb()
+        val fgColor = if (isDarkTheme) DarkColorScheme.primary.toArgb() else LightColorScheme.primary.toArgb()
+        canvas.drawColor(bgColor)
 
-            // Jiggle the spark's position randomly
-            var (x, y) = peerSparks[peer.id]!!
-            x += random.nextInt(3) - 1 // Move by -1, 0, or 1
-            y += random.nextInt(3) - 1
-            x = x.coerceIn(0, grid.width - 1)
-            y = y.coerceIn(0, grid.height - 1)
-            peerSparks[peer.id] = Pair(x, y)
+        val gridData = getAnsiGrid(bitmapWidth, bitmapHeight, fgColor)
+        if (gridData != null) {
+            val (grid, charWidth, charHeight) = gridData
+            drawTerminalContent(grid, activePeers, isForCollapsedView = false)
+            // Pass charWidth and charHeight to the updated render function
+            grid.render(canvas, charWidth, charHeight)
+        }
+        return bitmap
+    }
 
-            // Draw the spark using a Braille character that looks like a person
-            val char = AnsiChars.BRAILLE_DOTS_245
-            val color = AnsiChars.Palette.getProximityColor(peer.proximity)
-            grid.setChar(x, y, char, color)
+    // --- Generative ANSI Art Functions ---
+
+    /**
+     * Main drawing function to orchestrate the creation of the terminal UI.
+     * Switches between collapsed and expanded layouts.
+     */
+    private fun drawTerminalContent(grid: AnsiGrid, peers: List<PeerInfo>, isForCollapsedView: Boolean) {
+        grid.clear()
+        if (isForCollapsedView) {
+            drawCollapsedContent(grid, peers)
+        } else {
+            drawExpandedContent(grid, peers)
         }
     }
 
     /**
-     * Draws a simple text string onto the grid, typically in a corner.
+     * Draws the content for the expanded notification view.
      */
-    private fun drawStatusText(grid: AnsiGrid, text: String) {
-        val yPos = grid.height - 1 // Bottom row
-        val xPos = grid.width - text.length - 1 // Right-aligned
-        if (xPos < 0) return // Don't draw if it doesn't fit
+    private fun drawExpandedContent(grid: AnsiGrid, peers: List<PeerInfo>) {
+        drawBitchatLogo(grid)
 
-        grid.drawText(xPos, yPos, text, AnsiChars.Palette.primary)
+        val peerCountText = "peers: ${peers.size}"
+        val xPos = grid.width - peerCountText.length - 1
+        if (xPos >= 0) {
+            grid.drawText(xPos, 0, peerCountText)
+        }
+
+        val startX = 15
+        val startY = 1
+        val maxPeers = (grid.height - startY)
+        val availableWidth = grid.width - startX
+        drawPeerList(grid, peers, startX, startY, maxPeers, availableWidth)
+    }
+
+    /**
+     * Draws a compact, info-rich layout for the collapsed notification view.
+     */
+    private fun drawCollapsedContent(grid: AnsiGrid, peers: List<PeerInfo>) {
+        drawBitchatLogo(grid)
+
+        val peerCountText = "peers: ${peers.size}"
+        val xPos = grid.width - peerCountText.length - 1
+        if (xPos >= 0) {
+            grid.drawText(xPos, 0, peerCountText)
+        }
+
+        val startX = 15
+        val startY = 1
+        val maxPeers = (grid.height - startY).coerceAtMost(3)
+        val availableWidth = grid.width - startX
+        drawPeerList(grid, peers, startX, startY, maxPeers, availableWidth)
+    }
+
+    /**
+     * Draws the "bitchat" logo and name side-by-side for the expanded view.
+     */
+    private fun drawBitchatLogo(grid: AnsiGrid) {
+        val logoOutline = listOf(
+            " ╓─╮ ─╥─ ─╥─",
+            " ╟─┤  ║   ║ ",
+            " ╙─╯ ─╨─  ╜ ",
+            "   bitchat  "
+        )
+
+        logoOutline.forEachIndexed { index, line ->
+            grid.drawText(0, index, line)
+        }
     }
 
 
+    /**
+     * Draws a list of peers at a specified location with gradient proximity bars.
+     */
+    private fun drawPeerList(grid: AnsiGrid, peers: List<PeerInfo>, startX: Int, startY: Int, maxPeers: Int, availableWidth: Int) {
+        val proximityGradient = listOf(AnsiChars.Shade.LIGHT, AnsiChars.Shade.MEDIUM, AnsiChars.Shade.DARK, AnsiChars.Block.FULL)
+
+        peers.take(maxPeers).forEachIndexed { index, peer ->
+            val yPos = startY + index
+            if (yPos >= grid.height) return@forEachIndexed // Stop if we run out of space
+
+            val bars = proximityGradient.take(peer.proximity).joinToString("")
+            val padding = AnsiChars.line(' ', 4 - peer.proximity)
+            val proximityString = "[$bars$padding]"
+
+            // Ensure the nickname doesn't overflow the available space.
+            val maxNicknameLength = (availableWidth - proximityString.length - 1).coerceAtLeast(1)
+            val nickname = if (peer.nickname.length > maxNicknameLength) {
+                peer.nickname.take(maxNicknameLength)
+            } else {
+                peer.nickname
+            }
+            val text = String.format("%-${maxNicknameLength}s %s", nickname, proximityString)
+            grid.drawText(startX, yPos, text)
+        }
+    }
+
+    private fun getRemoteViewDimensions(@LayoutRes layoutId: Int, viewId: Int): Pair<Int, Int>? {
+        val remoteViews = RemoteViews(packageName, layoutId)
+        val layout = remoteViews.apply(applicationContext, null) ?: return null
+        val targetView = layout.findViewById<android.view.View>(viewId) ?: return null
+        if (targetView.width == 0 || targetView.height == 0) {
+            // If the view hasn't been measured yet, try to force a measure pass
+            targetView.measure(
+                android.view.View.MeasureSpec.makeMeasureSpec(resources.displayMetrics.widthPixels, android.view.View.MeasureSpec.AT_MOST),
+                android.view.View.MeasureSpec.makeMeasureSpec(resources.displayMetrics.heightPixels, android.view.View.MeasureSpec.AT_MOST)
+            )
+        }
+        return if (targetView.measuredWidth > 0 && targetView.measuredHeight > 0) {
+            Pair(targetView.measuredWidth, targetView.measuredHeight)
+        } else null
+    }
+
     private fun createCollapsedRemoteViews(): RemoteViews {
-        val isDarkTheme = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        val colors = if (isDarkTheme) DarkColorScheme else LightColorScheme
-
-        // We must estimate the width for the initial bitmap render.
-        // The notification layout will stretch the ImageView, and our bitmap will scale.
-        // 200dp is a reasonable estimate for the available space.
-        val density = resources.displayMetrics.density
-        val estimatedBitmapWidthPx = (200 * density).toInt()
-        val bitmapHeightPx = (48 * density).toInt()
-
+        val dimensions = getRemoteViewDimensions(R.layout.notification_terminal_collapsed, R.id.notification_render)
+        val bitmapWidthPx = dimensions?.first ?: (resources.displayMetrics.widthPixels).toInt()
+        val bitmapHeightPx = dimensions?.second ?: (48 * resources.displayMetrics.density).toInt()
         return RemoteViews(packageName, R.layout.notification_terminal_collapsed).apply {
-            setTextColor(R.id.notification_cursor, colors.primary.toArgb())
-            setTextColor(R.id.notification_title, colors.primary.toArgb())
-            setImageViewBitmap(R.id.notification_render, getCollapsedRenderBitmap(estimatedBitmapWidthPx, bitmapHeightPx))
+            setImageViewBitmap(R.id.notification_render, getCollapsedRenderBitmap(bitmapWidthPx, bitmapHeightPx))
         }
     }
 
     private fun createExpandedRemoteViews(): RemoteViews {
-        val stopPendingIntent = createActionPendingIntent(ACTION_STOP_SERVICE)
-        val mutePendingIntent = createActionPendingIntent(ACTION_MUTE)
         val isDarkTheme = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         val colors = if (isDarkTheme) DarkColorScheme else LightColorScheme
-
-        val primaryColor = colors.primary.toArgb()
         val dimColor = if (isDarkTheme) Color(0xB3FFFFFF).toArgb() else colors.onSurface.toArgb()
-        val veryDimColor = if (isDarkTheme) Color(0x80FFFFFF).toArgb() else Color(0x99000000).toArgb()
-        val dividerColor = if (isDarkTheme) Color(0x4039FF14).toArgb() else Color(0x40000000).toArgb()
-        val peerProximityColor = if (isDarkTheme) Color(0xFF8AFF8A).toArgb() else Color(0xFF006600).toArgb()
+        val dimensions = getRemoteViewDimensions(R.layout.notification_terminal_expanded, R.id.notification_render)
+        val bitmapWidthPx = dimensions?.first ?: resources.displayMetrics.widthPixels
+        val bitmapHeightPx = dimensions?.second ?: (208 * resources.displayMetrics.density).toInt()
 
         return RemoteViews(packageName, R.layout.notification_terminal_expanded).apply {
-            // --- Set Themed Colors for static elements ---
-            setTextColor(R.id.notification_title_expanded, primaryColor)
-            setTextColor(R.id.peer_list_header, veryDimColor)
-            setTextColor(R.id.log_header, veryDimColor)
-            setTextColor(R.id.notification_divider, dividerColor)
+            setImageViewBitmap(R.id.notification_render, getExpandedRenderBitmap(bitmapWidthPx, bitmapHeightPx))
+
+            // Set colors for the action buttons
             setTextColor(R.id.notification_action_mute, dimColor)
             setTextColor(R.id.notification_action_stop_expanded, dimColor)
 
-            // --- Populate Peer List from live data ---
-            removeAllViews(R.id.notification_peer_list)
-            activePeers.take(5).forEach { peer -> // Show top 5 peers
-                val peerView = RemoteViews(packageName, R.layout.notification_peer_item_terminal).apply {
-                    setTextViewText(R.id.peer_proximity_bar, getProximityBar(peer.proximity))
-                    setTextColor(R.id.peer_proximity_bar, peerProximityColor)
-                    setTextViewText(R.id.peer_name, peer.nickname)
-                    setTextColor(R.id.peer_name, dimColor)
-                }
-                addView(R.id.notification_peer_list, peerView)
-            }
-
-            // --- Populate Message Log from live data ---
-            removeAllViews(R.id.notification_message_log)
-            recentMessages.take(4).forEach { message ->
-                try {
-                    val lineView = RemoteViews(packageName, R.layout.notification_line_item).apply {
-                        // Defensive coding: handle potential nulls to prevent crashes
-                        val sender = message.sender?.take(8) ?: "unknown"
-                        val content = message.content ?: "[empty message]"
-                        val formattedMessage = "<$sender> $content"
-                        setTextViewText(R.id.line_item_text, formattedMessage)
-                        setTextColor(R.id.line_item_text, dimColor)
-                    }
-                    addView(R.id.notification_message_log, lineView)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to create message view for log", e)
-                }
-            }
-
-            // --- Set Actions ---
-            setOnClickPendingIntent(R.id.notification_action_mute, mutePendingIntent)
-            setOnClickPendingIntent(R.id.notification_action_stop_expanded, stopPendingIntent)
+            // Set Actions
+            setOnClickPendingIntent(R.id.notification_action_mute, createActionPendingIntent(ACTION_MUTE))
+            setOnClickPendingIntent(R.id.notification_action_stop_expanded, createActionPendingIntent(ACTION_STOP_SERVICE))
         }
     }
 
@@ -442,27 +430,20 @@ class ForegroundService : Service(), BluetoothMeshDelegate {
             rssi > -70 -> 3 // Good
             rssi > -80 -> 2 // Fair
             rssi > -95 -> 1 // Weak
-            else -> 0       // Very weak / No signal
+            else -> 0       // Very weak
         }
-    }
-
-    private fun getProximityBar(proximity: Int): String {
-        val filledChar = "▆"
-        val emptyChar = " "
-        return "[${filledChar.repeat(proximity)}${emptyChar.repeat(4 - proximity)}]"
     }
 
     private fun startUiUpdater() {
         if (::uiUpdateScheduler.isInitialized && !uiUpdateScheduler.isShutdown) return
         uiUpdateScheduler = Executors.newSingleThreadScheduledExecutor()
-        // Update the UI every 250ms for smoother animation
         uiUpdateScheduler.scheduleWithFixedDelay({
-            // Post the update to the main thread if you encounter issues
+            frame++ // Increment animation frame
             updateNotification(false)
-        }, 0, 250, TimeUnit.MILLISECONDS)
+        }, 0, 2000, TimeUnit.MILLISECONDS) // Update every 2 seconds
     }
 
-    // --- Boilerplate (Intents, Binder, etc.) ---
+    // --- Boilerplate ---
 
     inner class LocalBinder : Binder() {
         fun getService(): ForegroundService = this@ForegroundService
@@ -477,7 +458,6 @@ class ForegroundService : Service(), BluetoothMeshDelegate {
 
     private val notificationActionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            Log.d(TAG, "Notification action received: ${intent?.action}")
             when (intent?.action) {
                 ACTION_STOP_SERVICE -> stopForegroundServiceAndApp()
                 ACTION_MUTE -> Log.d(TAG, "Mute action tapped")
@@ -493,13 +473,11 @@ class ForegroundService : Service(), BluetoothMeshDelegate {
     }
 
     private fun createNotificationChannel() {
-        // Use IMPORTANCE_DEFAULT to allow sound/vibration for new peer alerts
         val serviceChannel = NotificationChannel(
             FOREGROUND_CHANNEL_ID, "Bitchat Active Service", NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
             description = "Keeps Bitchat connected and shows live status"
             setShowBadge(false)
-            // Disable vibration/sound by default; we will trigger it manually
             enableVibration(false)
             setSound(null, null)
         }
@@ -512,11 +490,7 @@ class ForegroundService : Service(), BluetoothMeshDelegate {
     }
 
     private fun createActionPendingIntent(action: String): PendingIntent {
-        // Create an implicit intent that will be caught by the dynamically registered receiver.
-        val intent = Intent(action).apply {
-            // Explicitly set the package to ensure the broadcast is only handled within this app.
-            `package` = packageName
-        }
+        val intent = Intent(action).apply { `package` = packageName }
         return PendingIntent.getBroadcast(this, action.hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     }
 }
