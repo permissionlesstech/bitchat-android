@@ -81,21 +81,11 @@ class ForegroundService : Service(), BluetoothMeshDelegate {
         private const val FOREGROUND_CHANNEL_ID = "bitchat_foreground_service"
         const val ACTION_STOP_SERVICE = "com.bitchat.android.ACTION_STOP_SERVICE"
         const val ACTION_MUTE = "com.bitchat.android.ACTION_MUTE"
-        private const val DEBUG_MODE = true // Enable to use mock peers
 
         @Volatile
         var isServiceRunning = false
             private set
     }
-
-    // --- Mock Data for Debugging ---
-    private val mockPeers = listOf(
-        PeerInfo("id_1", "zerocool", 4),
-        PeerInfo("id_2", "acidburn", 3),
-        PeerInfo("id_3", "phantomphreak", 2),
-        PeerInfo("id_4", "lordnikon", 1),
-        PeerInfo("id_5", "cerealkiller", 0)
-    )
 
     // --- Service Lifecycle & Setup ---
 
@@ -177,17 +167,13 @@ class ForegroundService : Service(), BluetoothMeshDelegate {
     // --- Notification Building & Logic ---
 
     private fun updateNotification(alert: Boolean) {
-        if (DEBUG_MODE) {
-            activePeers = mockPeers
-        } else {
-            val nicknames = meshService?.getPeerNicknames() ?: emptyMap()
-            val rssiValues = meshService?.getPeerRSSI() ?: emptyMap()
+        val nicknames = meshService?.getPeerNicknames() ?: emptyMap()
+        val rssiValues = meshService?.getPeerRSSI() ?: emptyMap()
 
-            activePeers = nicknames.map { (peerId, nickname) ->
-                val rssi = rssiValues[peerId] ?: -100
-                PeerInfo(id = peerId, nickname = nickname, proximity = getProximityFromRssi(rssi))
-            }.sortedByDescending { it.proximity }
-        }
+        activePeers = nicknames.map { (peerId, nickname) ->
+            val rssi = rssiValues[peerId] ?: -100
+            PeerInfo(id = peerId, nickname = nickname, proximity = getProximityFromRssi(rssi))
+        }.sortedByDescending { it.proximity }
 
         notificationManager.notify(NOTIFICATION_ID, buildNotification(alert))
     }
