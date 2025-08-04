@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+    <string name="permission_bluetooth_rationale">İnternetsiz eşler arası mesajlaşma için Bluetooth izni gereklidir.</string>
+    <string name="permission_location_rationale">Bluetooth üzerinden yakındaki cihazları keşfetmek için konum izni gereklidir.</string>
+    <string name="permission_notification_rationale">Yeni mesajlar hakkında sizi uyarmak için bildirim izni gereklidir.</string>
+    <string name="nickname_hint">takma ad</string>
+    <string name="message_hint">bir mesaj yazın…</string>
+    <string name="channel_password_hint">Şifre</string>
+    <string name="join_channel">Kanala Katıl</string>
+    <string name="leave_channel">Ayrıl</string>
+    <string name="send_message">Gönder</string>
+    <string name="back">Geri</string>
+    <string name="people">Kişiler</string>
+    <string name="channels">Kanallar</string>
+    <string name="online_users">Çevrimiçi Kullanıcılar</string>
+    <string name="no_one_connected">Kimse bağlı değil</string>
+    <string name="emergency_clear_hint">Tüm verileri silmek için üç kez dokunun</string>
+    <string name="your_network">Ağ</string>
+
+    <!-- Pil Optimizasyonu Dizeleri -->
+    <string name="battery_optimization_detected">Pil Optimizasyonu Algılandı</string>
+    <string name="battery_optimization_disabled">Pil Optimizasyonu Devre Dışı</string>
+    <string name="battery_optimization_not_required">Pil Optimizasyonu Gerekli Değil</string>
+    <string name="battery_optimization_checking">Pil Optimizasyonu Kontrol Ediliyor</string>
+    <string name="battery_optimization_why_disable">Pil optimizasyonu neden devre dışı bırakılmalı?</string>
+    <string name="battery_optimization_explanation">bitchat, yakındaki cihazlarla ağ bağlantılarını sürdürmek için arka planda çalışır. Pil optimizasyonu bu bağlantıları kesebilir, bu da mesajların gecikmesine veya kaybolmasına neden olabilir.\n\nPil optimizasyonunu devre dışı bırakmak, güvenilir eşler arası mesajlaşmayı sağlar.</string>
+    <string name="battery_optimization_disable_button">Pil Optimizasyonunu Devre Dışı Bırak</string>
+    <string name="battery_optimization_note">Not: Bu ayarı daha sonra Android Ayarlar > Uygulamalar > bitchat > Pil bölümünden değiştirebilirsiniz</string>
+    <string name="battery_optimization_not_supported_explanation">Cihazınız pil optimizasyonu ayarlarını gerektirmez. bitchat normal şekilde çalışacaktır.</string>
+    <string name="battery_optimization_not_supported_message">Cihazınız pil optimizasyonu ayarlarını gerektirmez. bitchat normal şekilde çalışacaktır.</string>
+    <string name="battery_optimization_success_message">bitchat arka planda güvenilir şekilde çalışabilir</string>
+    <string name="battery_optimization_benefits">• Güvenilir mesaj teslimini sağlar\n• Ağ bağlantısını sürdürür\n• Arka planda mesaj iletimine olanak tanır\n• Bağlantı kesintilerini önler</string>
+    <string name="battery_optimization_check_again">Tekrar Kontrol Et</string>
+    <string name="battery_optimization_skip">Şimdilik Atla</string>
+    <string name="battery_optimization_continue">Devam Et</string>
+    <string name="retry">Tekrar Dene</string>
+    <string name="skip">Atla</string>
+
+    <string name="channel_label">kanal: %s</string>
+
+    <string name="bluetooth_icon_description">Bluetooth</string>
+    <string name="bluetooth_required_title">Bluetooth Gereklidir</string>
+    <string name="bluetooth_required_message">bitchat için Bluetooth gereklidir:</string>
+    <string name="bluetooth_required_details">• Yakındaki kullanıcıları keşfetmek için\n• Ağ bağlantıları oluşturmak için\n• Mesaj göndermek ve almak için\n• İnternet veya sunucu olmadan çalışmak için</string>
+    <string name="enable_bluetooth">Bluetooth\'u Etkinleştir</string>
+    <string name="check_again">Tekrar Kontrol Et</string>
+    <string name="bluetooth_not_supported_title">Bluetooth Desteklenmiyor</string>
+    <string name="bluetooth_not_supported_message">Bu cihaz, bitchat\'in çalışması için gerekli olan Bluetooth Low Energy (BLE) teknolojisini desteklemiyor.\n\nbitchat, ağ oluşturmak ve internetsiz yakındaki cihazlarla iletişim kurmak için BLE\'ye ihtiyaç duyar.</string>
+    <string name="checking_bluetooth_status">Bluetooth durumu kontrol ediliyor…</string>
+
+    <string name="channel_password">Kanal Şifresini Girin</string>
+    <string name="channel_password_prompt">Kanal %1$s şifre korumalıdır. Katılmak için şifreyi girin.</string>
+    <string name="cancel">İptal</string>
+    <string name="app_info_title">bitchat Hakkında</string>
+    <string name="app_info_description">Bluetooth LE üzerinden merkezi olmayan ağ mesajlaşması\n\n• Sunucu veya internet gerekmez\n• Uçtan uca şifrelenmiş özel mesajlar\n• Şifre korumalı kanallar\n• Çevrimdışı düğümler için depolama ve yönlendirme\n\nTüm verileri acil olarak silmek için başlığa üç kez tıklayın</string>
+    <string name="ok">Tamam</string>
+
+    <string name="error_description">Hata</string>
+    <string name="initializing_mesh_network">Ağ başlatılıyor</string>
+    <string name="setting_up_bluetooth_mesh">Bluetooth ağ bağlantısı kuruluyor…</string>
+    <string name="setup_duration">Bu sadece birkaç saniye sürecek</string>
+    <string name="setup_not_complete">Kurulum Tamamlanmadı</string>
+    <string name="try_again">Tekrar Dene</string>
+    <string name="open_settings">Ayarları Aç</string>
+    <string name="location_services_description">Konum Servisleri</string>
+    <string name="location_services_required">Konum Servisleri Gereklidir</string>
+    <string name="privacy_description">Gizlilik</string>
+    <string name="privacy_first">Önce Gizlilik</string>
+    <string name="location_privacy_assurance">bitchat konumunuzu takip etmez veya GPS kullanmaz.\n\nKonum servisleri, Bluetooth taramasının düzgün çalışması için Android tarafından gereklidir. Bu, Android sistem gereksinimidir.</string>
+    <string name="location_services_needed_for">bitchat için konum servisleri gereklidir:</string>
+    <string name="location_services_features">• Bluetooth cihaz taraması (Android gereksinimi)\n• Ağda yakındaki kullanıcıları keşfetme\n• İnternetsiz bağlantı oluşturma\n• GPS takibi veya konum verisi toplama olmadan</string>
+    <string name="open_location_settings">Konum Ayarlarını Aç</string>
+    <string name="location_services_unavailable">Konum Servisleri Kullanılamıyor</string>
+    <string name="location_services_unavailable_message">Bu cihazda konum servisleri kullanılamıyor. Bu, Android cihazlarda konum servislerinin standart olduğu için olağandışıdır.\n\nbitchat, Bluetooth taramasının düzgün çalışması için konum servislerine ihtiyaç duyar (Android gereksinimi). Bu olmadan, uygulama yakındaki kullanıcıları keşfedemez.</string>
+    <string name="checking_location_services">Konum servisleri kontrol ediliyor…</string>
+
+    <string name="welcome_to_app">bitchat\'e Hoş Geldiniz</string>
+    <string name="app_description">Bluetooth üzerinden merkezi olmayan ağ mesajlaşması</string>
+    <string name="privacy_protected">Gizliliğiniz Korumalı</string>
+    <string name="privacy_details">• bitchat sizi takip etmez veya kişisel veri toplamaz\n• Sunucu veya internet gerekmez, veri kaydı yapılmaz\n• Konum izni yalnızca Android tarafından Bluetooth taraması için kullanılır\n• Mesajlarınız yalnızca sizin cihazınızda ve karşı tarafın cihazlarında kalır</string>
+    <string name="permissions_needed">bitchat\'in düzgün çalışması için şu izinler gereklidir:</string>
+    <string name="grant_permissions">İzinleri Ver</string>
+    <string name="location_no_gps">bitchat GPS kullanmaz veya konumu takip etmez</string>
+</resources>

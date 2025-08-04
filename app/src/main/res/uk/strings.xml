@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<resources>
+    <string name="app_name">bitchat</string>
+    <string name="permission_bluetooth_rationale">Для обміну повідомленнями без інтернету потрібен дозвіл на використання Bluetooth.</string>
+    <string name="permission_location_rationale">Для виявлення пристроїв поблизу через Bluetooth потрібен дозвіл на доступ до місцезнаходження.</string>
+    <string name="permission_notification_rationale">Для сповіщення про нові повідомлення потрібен дозвіл на надсилання сповіщень.</string>
+    <string name="nickname_hint">нік</string>
+    <string name="message_hint">введіть повідомлення…</string>
+    <string name="channel_password_hint">Пароль</string>
+    <string name="join_channel">Приєднатися до каналу</string>
+    <string name="leave_channel">Покинути</string>
+    <string name="send_message">Надіслати</string>
+    <string name="back">Назад</string>
+    <string name="people">Люди</string>
+    <string name="channels">Канали</string>
+    <string name="online_users">Користувачі онлайн</string>
+    <string name="no_one_connected">Ніхто не підключений</string>
+    <string name="emergency_clear_hint">Потрійне натискання для видалення всіх даних</string>
+    <string name="your_network">Мережа</string>
+
+    <!-- Строки оптимізації батареї -->
+    <string name="battery_optimization_detected">Виявлено оптимізацію батареї</string>
+    <string name="battery_optimization_disabled">Оптимізацію батареї відключено</string>
+    <string name="battery_optimization_not_required">Оптимізація батареї не потрібна</string>
+    <string name="battery_optimization_checking">Перевірка оптимізації батареї</string>
+    <string name="battery_optimization_why_disable">Чому варто відключити оптимізацію батареї?</string>
+    <string name="battery_optimization_explanation">bitchat працює у фоновому режимі для підтримки з’єднань у сітчастій мережі з пристроями поблизу. Оптимізація батареї може переривати ці з’єднання, через що повідомлення можуть затримуватися або не доставлятися.\n\nВідключення оптимізації батареї забезпечує надійний обмін повідомленнями в режимі peer-to-peer.</string>
+    <string name="battery_optimization_disable_button">Відключити оптимізацію батареї</string>
+    <string name="battery_optimization_note">Примітка: Ви можете змінити цю настройку пізніше в Налаштуваннях Android > Програми > bitchat > Батарея</string>
+    <string name="battery_optimization_not_supported_explanation">Ваш пристрій не потребує налаштувань оптимізації батареї. bitchat працюватиме в звичайному режимі.</string>
+    <string name="battery_optimization_not_supported_message">Ваш пристрій не потребує налаштувань оптимізації батареї. bitchat працюватиме в звичайному режимі.</string>
+    <string name="battery_optimization_success_message">bitchat може надійно працювати у фоновому режимі</string>
+    <string name="battery_optimization_benefits">• Забезпечує надійну доставку повідомлень\n• Підтримує з’єднання в сітчастій мережі\n• Дозволяє ретрансляцію повідомлень у фоновому режимі\n• Запобігає розривам з’єднання</string>
+    <string name="battery_optimization_check_again">Перевірити ще раз</string>
+    <string name="battery_optimization_skip">Пропустити поки що</string>
+    <string name="battery_optimization_continue">Продовжити</string>
+    <string name="retry">Повторити</string>
+    <string name="skip">Пропустити</string>
+
+    <string name="channel_label">канал: %s</string>
+
+    <string name="bluetooth_icon_description">Bluetooth</string>
+    <string name="bluetooth_required_title">Потрібен Bluetooth</string>
+    <string name="bluetooth_required_message">bitchat потрібен Bluetooth для:</string>
+    <string name="bluetooth_required_details">• Виявлення користувачів поблизу\n• Створення з’єднань у сітчастій мережі\n• Надсилання та отримання повідомлень\n• Роботи без інтернету та серверів</string>
+    <string name="enable_bluetooth">Увімкнути Bluetooth</string>
+    <string name="check_again">Перевірити ще раз</string>
+    <string name="bluetooth_not_supported_title">Bluetooth не підтримується</string>
+    <string name="bluetooth_not_supported_message">Цей пристрій не підтримує Bluetooth Low Energy (BLE), який необхідний для роботи bitchat.\n\nbitchat потрібен BLE для створення сітчастих мереж та спілкування з пристроями поблизу без інтернету.</string>
+    <string name="checking_bluetooth_status">Перевірка статусу Bluetooth…</string>
+
+    <string name="channel_password">Введіть пароль каналу</string>
+    <string name="channel_password_prompt">Канал %1$s захищений паролем. Введіть пароль для приєднання.</string>
+    <string name="cancel">Скасувати</string>
+    <string name="app_info_title">Про додаток bitchat</string>
+    <string name="app_info_description">Децентралізований обмін повідомленнями через Bluetooth LE\n\n• Не потрібні сервери чи інтернет\n• Наскрізне шифрування особистих повідомлень\n• Канали, захищені паролем\n• Зберігання та пересилання для офлайн-вузлів\n\nПотрійне натискання на заголовок для екстреного видалення всіх даних</string>
+    <string name="ok">ОК</string>
+
+    <string name="error_description">Помилка</string>
+    <string name="initializing_mesh_network">Ініціалізація сітчастої мережі</string>
+    <string name="setting_up_bluetooth_mesh">Налаштування сітчастої мережі Bluetooth…</string>
+    <string name="setup_duration">Це займе лише кілька секунд</string>
+    <string name="setup_not_complete">Налаштування не завершено</string>
+    <string name="try_again">Спробувати ще раз</string>
+    <string name="open_settings">Відкрити налаштування</string>
+    <string name="location_services_description">Служби геолокації</string>
+    <string name="location_services_required">Потрібні служби геолокації</string>
+    <string name="privacy_description">Конфіденційність</string>
+    <string name="privacy_first">Конфіденційність насамперед</string>
+    <string name="location_privacy_assurance">bitchat НЕ відстежує ваше місцезнаходження і НЕ використовує GPS.\n\nСлужби геолокації потрібні Android для належної роботи сканування Bluetooth. Це системна вимога Android.</string>
+    <string name="location_services_needed_for">bitchat потребує служби геолокації для:</string>
+    <string name="location_services_features">• Сканування пристроїв Bluetooth (вимога Android)\n• Виявлення користувачів поблизу в сітчастій мережі\n• Створення з’єднань без інтернету\n• Без відстеження GPS або збору даних про місцезнаходження</string>
+    <string name="open_location_settings">Відкрити налаштування геолокації</string>
+    <string name="location_services_unavailable">Служби геолокації недоступні</string>
+    <string name="location_services_unavailable_message">Служби геолокації недоступні на цьому пристрої. Це незвично, оскільки служби геолокації є стандартними для пристроїв Android.\n\nbitchat потрібні служби геолокації для належної роботи сканування Bluetooth (вимога Android). Без цього додаток не може виявляти користувачів поблизу.</string>
+    <string name="checking_location_services">Перевірка служб геолокації…</string>
+
+    <string name="welcome_to_app">Ласкаво просимо до bitchat</string>
+    <string name="app_description">Децентралізований обмін повідомленнями через Bluetooth</string>
+    <string name="privacy_protected">Ваша конфіденційність захищена</string>
+    <string name="privacy_details">• bitchat не відстежує вас і не збирає особисті дані\n• Не потрібні сервери чи інтернет, немає логування даних\n• Дозвіл на доступ до місцезнаходження використовується Android лише для сканування Bluetooth\n• Ваші повідомлення залишаються лише на вашому пристрої та пристроях співрозмовників</string>
+    <string name="permissions_needed">Для належної роботи bitchat потрібні такі дозволи:</string>
+    <string name="grant_permissions">Надати дозволи</string>
+    <string name="location_no_gps">bitchat НЕ використовує GPS і не відстежує місцезнаходження</string>
+</resources>

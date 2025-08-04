@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+    <string name="permission_bluetooth_rationale">ინტერნეტის გარეშე შეტყობინებების გაცვლისთვის საჭიროა Bluetooth-ის გამოყენების ნებართვა.</string>
+    <string name="permission_location_rationale">Bluetooth-ის მეშვეობით ახლომდებარე მოწყობილობების აღმოსაჩენად საჭიროა მდებარეობაზე წვდომის ნებართვა.</string>
+    <string name="permission_notification_rationale">ახალი შეტყობინებების შესახებ გაფრთხილებისთვის საჭიროა შეტყობინებების გაგზავნის ნებართვა.</string>
+    <string name="nickname_hint">მეტსახელი</string>
+    <string name="message_hint">შეიყვანეთ შეტყობინება…</string>
+    <string name="channel_password_hint">პაროლი</string>
+    <string name="join_channel">არხში გაწევრიანება</string>
+    <string name="leave_channel">დატოვება</string>
+    <string name="send_message">გაგზავნა</string>
+    <string name="back">უკან</string>
+    <string name="people">ხალხი</string>
+    <string name="channels">არხები</string>
+    <string name="online_users">ონლაინ მომხმარებლები</string>
+    <string name="no_one_connected">არავინ არის დაკავშირებული</string>
+    <string name="emergency_clear_hint">სამჯერ დაჭერა ყველა მონაცემის წასაშლელად</string>
+    <string name="your_network">ქსელი</string>
+
+    <!-- ბატარეის ოპტიმიზაციის სტრიქონები -->
+    <string name="battery_optimization_detected">აღმოჩენილია ბატარეის ოპტიმიზაცია</string>
+    <string name="battery_optimization_disabled">ბატარეის ოპტიმიზაცია გამორთულია</string>
+    <string name="battery_optimization_not_required">ბატარეის ოპტიმიზაცია არ არის საჭირო</string>
+    <string name="battery_optimization_checking">ბატარეის ოპტიმიზაციის შემოწმება</string>
+    <string name="battery_optimization_why_disable">რატომ უნდა გამორთოთ ბატარეის ოპტიმიზაცია?</string>
+    <string name="battery_optimization_explanation">bitchat მუშაობს ფონურ რეჟიმში, რათა შეინარჩუნოს ქსელური კავშირები ახლომდებარე მოწყობილობებთან. ბატარეის ოპტიმიზაციამ შეიძლება შეაჩეროს ეს კავშირები, რაც გამოიწვევს შეტყობინებების დაგვიანებას ან გაქრობას.\n\nბატარეის ოპტიმიზაციის გამორთვა უზრუნველყოფს საიმედო peer-to-peer შეტყობინებების გაცვლას.</string>
+    <string name="battery_optimization_disable_button">ბატარეის ოპტიმიზაციის გამორთვა</string>
+    <string name="battery_optimization_note">შენიშვნა: ამ პარამეტრის შეცვლა შეგიძლიათ მოგვიანებით Android-ის პარამეტრებში > აპლიკაციები > bitchat > ბატარეა</string>
+    <string name="battery_optimization_not_supported_explanation">თქვენს მოწყობილობას არ სჭირდება ბატარეის ოპტიმიზაციის პარამეტრები. bitchat ნორმალურად იმუშავებს.</string>
+    <string name="battery_optimization_not_supported_message">თქვენს მოწყობილობას არ სჭირდება ბატარეის ოპტიმიზაციის პარამეტრები. bitchat ნორმალურად იმუშავებს.</string>
+    <string name="battery_optimization_success_message">bitchat-ს შეუძლია საიმედოდ იმუშაოს ფონურ რეჟიმში</string>
+    <string name="battery_optimization_benefits">• უზრუნველყოფს შეტყობინებების საიმედო მიწოდებას\n• ინარჩუნებს ქსელური ქსელის კავშირს\n• საშუალებას აძლევს ფონურ რეჟიმში შეტყობინებების გადაცემას\n• ხელს უშლის კავშირის გაწყვეტას</string>
+    <string name="battery_optimization_check_again">ხელახლა შემოწმება</string>
+    <string name="battery_optimization_skip">ჯერჯერობით გამოტოვება</string>
+    <string name="battery_optimization_continue">გაგრძელება</string>
+    <string name="retry">ხელახლა ცდა</string>
+    <string name="skip">გამოტოვება</string>
+
+    <string name="channel_label">არხი: %s</string>
+
+    <string name="bluetooth_icon_description">Bluetooth</string>
+    <string name="bluetooth_required_title">Bluetooth საჭიროა</string>
+    <string name="bluetooth_required_message">bitchat-ს სჭირდება Bluetooth:</string>
+    <string name="bluetooth_required_details">• ახლომდებარე მომხმარებლების აღმოჩენა\n• ქსელური ქსელის კავშირების შექმნა\n• შეტყობინებების გაგზავნა და მიღება\n• ინტერნეტისა და სერვერების გარეშე მუშაობა</string>
+    <string name="enable_bluetooth">Bluetooth-ის ჩართვა</string>
+    <string name="check_again">ხელახლა შემოწმება</string>
+    <string name="bluetooth_not_supported_title">Bluetooth არ არის მხარდაჭერილი</string>
+    <string name="bluetooth_not_supported_message">ეს მოწყობილობა არ უჭერს მხარს Bluetooth Low Energy (BLE), რომელიც საჭიროა bitchat-ის ფუნქციონირებისთვის.\n\nbitchat-ს სჭირდება BLE ქსელური ქსელების შესაქმნელად და ინტერნეტის გარეშე ახლომდებარე მოწყობილობებთან კომუნიკაციისთვის.</string>
+    <string name="checking_bluetooth_status">Bluetooth-ის სტატუსის შემოწმება…</string>
+
+    <string name="channel_password">შეიყვანეთ არხის პაროლი</string>
+    <string name="channel_password_prompt">არხი %1$s პაროლით არის დაცული. შეიყვანეთ პაროლი გაწევრიანებისთვის.</string>
+    <string name="cancel">გაუქმება</string>
+    <string name="app_info_title">bitchat-ის შესახებ</string>
+    <string name="app_info_description">დეცენტრალიზებული შეტყობინებების გაცვლა Bluetooth LE-ის მეშვეობით\n\n• სერვერები ან ინტერნეტი არ არის საჭირო\n• პირადი შეტყობინებების სრული დაშიფვრა\n• პაროლით დაცული არხები\n• ოფლაინ კვანძებისთვის შენახვა და გადაგზავნა\n\nსამჯერ დაჭერა სათაურზე ყველა მონაცემის გადაუდებელი წაშლისთვის</string>
+    <string name="ok">კარგი</string>
+
+    <string name="error_description">შეცდომა</string>
+    <string name="initializing_mesh_network">ქსელური ქსელის ინიციალიზაცია</string>
+    <string name="setting_up_bluetooth_mesh">Bluetooth ქსელური ქსელის დაყენება…</string>
+    <string name="setup_duration">ეს მხოლოდ რამდენიმე წამს გაგრძელდება</string>
+    <string name="setup_not_complete">დაყენება არ დასრულებულა</string>
+    <string name="try_again">ხელახლა ცდა</string>
+    <string name="open_settings">პარამეტრების გახსნა</string>
+    <string name="location_services_description">მდებარეობის სერვისები</string>
+    <string name="location_services_required">საჭიროა მდებარეობის სერვისები</string>
+    <string name="privacy_description">კონფიდენციალურობა</string>
+    <string name="privacy_first">კონფიდენციალურობა უპირველეს ყოვლისა</string>
+    <string name="location_privacy_assurance">bitchat არ თვალყურს ადევნებს თქვენს მდებარეობას და არ იყენებს GPS-ს.\n\nმდებარეობის სერვისები საჭიროა Android-ის მიერ Bluetooth-ის სკანირების სწორად მუშაობისთვის. ეს არის Android-ის სისტემური მოთხოვნა.</string>
+    <string name="location_services_needed_for">bitchat-ს სჭირდება მდებარეობის სერვისები:</string>
+    <string name="location_services_features">• Bluetooth მოწყობილობების სკანირება (Android-ის მოთხოვნა)\n• ახლომდებარე მომხმარებლების აღმოჩენა ქსელურ ქსელში\n• ინტერნეტის გარეშე კავშირების შექმნა\n• GPS თვალთვალი ან მდებარეობის მონაცემების შეგროვების გარეშე</string>
+    <string name="open_location_settings">მდებარეობის პარამეტრების გახსნა</string>
+    <string name="location_services_unavailable">მდებარეობის სერვისები მიუწვდომელია</string>
+    <string name="location_services_unavailable_message">მდებარეობის სერვისები მიუწვდომელია ამ მოწყობილობაზე. ეს უჩვეულოა, რადგან მდებარეობის სერვისები Android მოწყობილობებზე სტანდარტულია.\n\nbitchat-ს სჭირდება მდებარეობის სერვისები Bluetooth-ის სკანირების სწორად მუშაობისთვის (Android-ის მოთხოვნა). ამის გარეშე აპლიკაცია ვერ აღმოაჩენს ახლომდებარე მომხმარებლებს.</string>
+    <string name="checking_location_services">მდებარეობის სერვისების შემოწმება…</string>
+
+    <string name="welcome_to_app">მოგესალმებით bitchat-ში</string>
+    <string name="app_description">დეცენტრალიზებული შეტყობინებების გაცვლა Bluetooth-ის მეშვეობით</string>
+    <string name="privacy_protected">თქვენი კონფიდენციალურობა დაცულია</string>
+    <string name="privacy_details">• bitchat არ გაკონტროლებთ და არ აგროვებს პერსონალურ მონაცემებს\n• სერვერები ან ინტერნეტი არ არის საჭირო, მონაცემთა ჩაწერა არ ხდება\n• მდებარეობის ნებართვა Android-ის მიერ გამოიყენება მხოლოდ Bluetooth-ის სკანირებისთვის\n• თქვენი შეტყობინებები რჩება მხოლოდ თქვენს მოწყობილობასა და თანამოსაუბრეების მოწყობილობებზე</string>
+    <string name="permissions_needed">bitchat-ის სწორად მუშაობისთვის საჭიროა შემდეგი ნებართვები:</string>
+    <string name="grant_permissions">ნებართვების მინიჭება</string>
+    <string name="location_no_gps">bitchat არ იყენებს GPS-ს და არ თვალყურს ადევნებს მდებარეობას</string>
+</resources>
