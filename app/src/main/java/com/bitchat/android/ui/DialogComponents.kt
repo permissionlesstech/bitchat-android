@@ -1,12 +1,20 @@
 package com.bitchat.android.ui
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import com.bitchat.android.R
 
 /**
  * Dialog components for ChatScreen
@@ -24,12 +32,12 @@ fun PasswordPromptDialog(
 ) {
     if (show && channelName != null) {
         val colorScheme = MaterialTheme.colorScheme
-        
+
         AlertDialog(
             onDismissRequest = onDismiss,
             title = {
                 Text(
-                    text = "Enter Channel Password",
+                    text = stringResource(R.string.channel_password),
                     style = MaterialTheme.typography.titleMedium,
                     color = colorScheme.onSurface
                 )
@@ -37,16 +45,16 @@ fun PasswordPromptDialog(
             text = {
                 Column {
                     Text(
-                        text = "Channel $channelName is password protected. Enter the password to join.",
+                        text = stringResource(R.string.channel_password_prompt, channelName),
                         style = MaterialTheme.typography.bodyMedium,
                         color = colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    
+
                     OutlinedTextField(
                         value = passwordInput,
                         onValueChange = onPasswordChange,
-                        label = { Text("Password", style = MaterialTheme.typography.bodyMedium) },
+                        label = { Text(stringResource(R.string.channel_password_hint), style = MaterialTheme.typography.bodyMedium) },
                         textStyle = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = FontFamily.Monospace
                         ),
@@ -60,7 +68,7 @@ fun PasswordPromptDialog(
             confirmButton = {
                 TextButton(onClick = onConfirm) {
                     Text(
-                        text = "Join",
+                        text = stringResource(R.string.join_channel),
                         style = MaterialTheme.typography.bodyMedium,
                         color = colorScheme.primary
                     )
@@ -69,7 +77,7 @@ fun PasswordPromptDialog(
             dismissButton = {
                 TextButton(onClick = onDismiss) {
                     Text(
-                        text = "Cancel",
+                        text = stringResource(R.string.cancel),
                         style = MaterialTheme.typography.bodyMedium,
                         color = colorScheme.onSurface
                     )
@@ -88,24 +96,19 @@ fun AppInfoDialog(
 ) {
     if (show) {
         val colorScheme = MaterialTheme.colorScheme
-        
+
         AlertDialog(
             onDismissRequest = onDismiss,
             title = {
                 Text(
-                    text = "About bitchat",
+                    text = stringResource(R.string.app_info_title),
                     style = MaterialTheme.typography.titleMedium,
                     color = colorScheme.onSurface
                 )
             },
             text = {
                 Text(
-                    text = "Decentralized mesh messaging over Bluetooth LE\n\n" +
-                            "• No servers or internet required\n" +
-                            "• End-to-end encrypted private messages\n" +
-                            "• Password-protected channels\n" +
-                            "• Store-and-forward for offline peers\n\n" +
-                            "Triple-click title to emergency clear all data",
+                    text = stringResource(R.string.app_info_description),
                     style = MaterialTheme.typography.bodyMedium,
                     color = colorScheme.onSurface
                 )
@@ -113,7 +116,7 @@ fun AppInfoDialog(
             confirmButton = {
                 TextButton(onClick = onDismiss) {
                     Text(
-                        text = "OK",
+                        text = stringResource(R.string.ok),
                         style = MaterialTheme.typography.bodyMedium,
                         color = colorScheme.primary
                     )

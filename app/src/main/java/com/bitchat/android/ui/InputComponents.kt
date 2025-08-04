@@ -29,7 +29,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.withStyle
+import com.bitchat.android.R
 
 /**
  * Input components for ChatScreen
@@ -129,7 +131,7 @@ fun MessageInput(
             // Show placeholder when there's no text
             if (value.text.isEmpty()) {
                 Text(
-                    text = "type a message...",
+                    text = stringResource(R.string.message_hint),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontFamily = FontFamily.Monospace
                     ),
@@ -168,7 +170,7 @@ fun MessageInput(
             ) {
                 Icon(
                     imageVector = Icons.Filled.ArrowUpward,
-                    contentDescription = "Send message",
+                    contentDescription = stringResource(R.string.send_message),
                     modifier = Modifier.size(20.dp),
                     tint = if (!hasText) {
                         // Disabled state - muted grey icon
