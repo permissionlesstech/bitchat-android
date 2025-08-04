@@ -37,4 +37,51 @@
     <string name="battery_optimization_continue">Continue</string>
     <string name="retry">Retry</string>
     <string name="skip">Skip</string>
+
+    <string name="channel_label">channel: %s</string>
+
+    <string name="bluetooth_icon_description">Bluetooth</string>
+    <string name="bluetooth_required_title">Bluetooth Required</string>
+    <string name="bluetooth_required_message">bitchat needs Bluetooth to:</string>
+    <string name="bluetooth_required_details">• Discover nearby users\n• Create mesh network connections\n• Send and receive messages\n• Work without internet or servers</string>
+    <string name="enable_bluetooth">Enable Bluetooth</string>
+    <string name="check_again">Check Again</string>
+    <string name="bluetooth_not_supported_title">Bluetooth Not Supported</string>
+    <string name="bluetooth_not_supported_message">This device doesn\'t support Bluetooth Low Energy (BLE), which is required for bitchat to function.\n\nbitchat needs BLE to create mesh networks and communicate with nearby devices without internet.</string>
+    <string name="checking_bluetooth_status">Checking Bluetooth status…</string>
+
+    <string name="channel_password">Enter Channel Password</string>
+    <string name="channel_password_prompt">Channel %1$s is password protected. Enter the password to join.</string>
+    <string name="cancel">Cancel</string>
+    <string name="app_info_title">About bitchat</string>
+    <string name="app_info_description">Decentralized mesh messaging over Bluetooth LE\n\n• No servers or internet required\n• End-to-end encrypted private messages\n• Password-protected channels\n• Store-and-forward for offline peers\n\nTriple-click title to emergency clear all data</string>
+    <string name="ok">OK</string>
+
+    <string name="error_description">Error</string>
+    <string name="initializing_mesh_network">Initializing mesh network</string>
+    <string name="setting_up_bluetooth_mesh">Setting up Bluetooth mesh networking…</string>
+    <string name="setup_duration">This should only take a few seconds</string>
+    <string name="setup_not_complete">Setup Not Complete</string>
+    <string name="try_again">Try Again</string>
+    <string name="open_settings">Open Settings</string>
+    <string name="location_services_description">Location Services</string>
+    <string name="location_services_required">Location Services Required</string>
+    <string name="privacy_description">Privacy</string>
+    <string name="privacy_first">Privacy First</string>
+    <string name="location_privacy_assurance">bitchat does NOT track your location or use GPS.\n\nLocation services are required by Android for Bluetooth scanning to work properly. This is an Android system requirement.</string>
+    <string name="location_services_needed_for">bitchat needs location services for:</string>
+    <string name="location_services_features">• Bluetooth device scanning (Android requirement)\n• Discovering nearby users on mesh network\n• Creating connections without internet\n• No GPS tracking or location collection</string>
+    <string name="open_location_settings">Open Location Settings</string>
+    <string name="location_services_unavailable">Location Services Unavailable</string>
+    <string name="location_services_unavailable_message">Location services are not available on this device. This is unusual as location services are standard on Android devices.\n\nbitchat needs location services for Bluetooth scanning to work properly (Android requirement). Without this, the app cannot discover nearby users.</string>
+    <string name="checking_location_services">Checking location services…</string>
+
+    <string name="welcome_to_app">Welcome to bitchat</string>
+    <string name="app_description">Decentralized mesh messaging over Bluetooth</string>
+    <string name="privacy_protected">Your Privacy is Protected</string>
+    <string name="privacy_details">• bitchat doesn\'t track you or collect personal data\n• No servers, no internet required, no data logging\n• Location permission is only used by Android for Bluetooth scanning\n• Your messages stay on your device and peer devices only</string>
+    <string name="permissions_needed">To work properly, bitchat needs these permissions:</string>
+    <string name="grant_permissions">Grant Permissions</string>
+    <string name="location_no_gps">bitchat does NOT use GPS or track location</string>
+
 </resources>

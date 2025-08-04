@@ -8,10 +8,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.bitchat.android.R
 
 /**
  * Loading screen shown during app initialization after permissions are granted
@@ -61,7 +63,7 @@ fun InitializingScreen() {
         ) {
             // App title
             Text(
-                text = "bitchat",
+                text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.headlineLarge.copy(
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
@@ -90,7 +92,7 @@ fun InitializingScreen() {
                 horizontalArrangement = Arrangement.Center
             ) {
                 Text(
-                    text = "Initializing mesh network",
+                    text = stringResource(R.string.initializing_mesh_network),
                     style = MaterialTheme.typography.bodyLarge.copy(
                         fontFamily = FontFamily.Monospace,
                         color = colorScheme.onSurface.copy(alpha = 0.7f)
@@ -125,7 +127,7 @@ fun InitializingScreen() {
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "Setting up Bluetooth mesh networking...",
+                        text = stringResource(R.string.setting_up_bluetooth_mesh),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = FontFamily.Monospace,
                             color = colorScheme.onSurface.copy(alpha = 0.8f)
@@ -134,7 +136,7 @@ fun InitializingScreen() {
                     )
                     
                     Text(
-                        text = "This should only take a few seconds",
+                        text = stringResource(R.string.setup_duration),
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontFamily = FontFamily.Monospace,
                             color = colorScheme.onSurface.copy(alpha = 0.6f)
@@ -183,7 +185,7 @@ fun InitializationErrorScreen(
             }
 
             Text(
-                text = "Setup Not Complete",
+                text = stringResource(R.string.setup_not_complete),
                 style = MaterialTheme.typography.headlineSmall.copy(
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
@@ -219,7 +221,7 @@ fun InitializationErrorScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "Try Again",
+                        text = stringResource(R.string.try_again),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold
@@ -233,7 +235,7 @@ fun InitializationErrorScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "Open Settings",
+                        text = stringResource(R.string.open_settings),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = FontFamily.Monospace
                         ),

@@ -11,10 +11,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.bitchat.android.R
 
 /**
  * Screen shown when checking Bluetooth status or requesting Bluetooth enable
@@ -71,13 +73,13 @@ private fun BluetoothDisabledContent(
         // Bluetooth icon - using Bluetooth outlined icon in app's green color
         Icon(
             imageVector = Icons.Outlined.Bluetooth,
-            contentDescription = "Bluetooth",
+            contentDescription = stringResource(R.string.bluetooth_icon_description),
             modifier = Modifier.size(64.dp),
             tint = Color(0xFF00C851) // App's main green color
         )
 
         Text(
-            text = "Bluetooth Required",
+            text = stringResource(R.string.bluetooth_required_title),
             style = MaterialTheme.typography.headlineSmall.copy(
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
@@ -98,7 +100,7 @@ private fun BluetoothDisabledContent(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "bitchat needs Bluetooth to:",
+                    text = stringResource(R.string.bluetooth_required_message),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.Medium,
                         color = colorScheme.onSurface
@@ -108,10 +110,7 @@ private fun BluetoothDisabledContent(
                 )
                 
                 Text(
-                    text = "• Discover nearby users\n" +
-                            "• Create mesh network connections\n" +
-                            "• Send and receive messages\n" +
-                            "• Work without internet or servers",
+                    text = stringResource(R.string.bluetooth_required_details),
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontFamily = FontFamily.Monospace,
                         color = colorScheme.onSurface.copy(alpha = 0.8f)
@@ -186,7 +185,7 @@ private fun BluetoothNotSupportedContent(
         }
 
         Text(
-            text = "Bluetooth Not Supported",
+            text = stringResource(R.string.bluetooth_not_supported_title),
             style = MaterialTheme.typography.headlineSmall.copy(
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
@@ -203,7 +202,7 @@ private fun BluetoothNotSupportedContent(
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Text(
-                text = "This device doesn't support Bluetooth Low Energy (BLE), which is required for bitchat to function.\n\nbitchat needs BLE to create mesh networks and communicate with nearby devices without internet.",
+                text = stringResource(R.string.bluetooth_not_supported_message),
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontFamily = FontFamily.Monospace,
                     color = colorScheme.onSurface
@@ -224,7 +223,7 @@ private fun BluetoothCheckingContent(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "bitchat",
+            text = stringResource(R.string.app_name),
             style = MaterialTheme.typography.headlineLarge.copy(
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
@@ -236,7 +235,7 @@ private fun BluetoothCheckingContent(
         BluetoothLoadingIndicator()
 
         Text(
-            text = "Checking Bluetooth status...",
+            text = stringResource(R.string.checking_bluetooth_status),
             style = MaterialTheme.typography.bodyLarge.copy(
                 fontFamily = FontFamily.Monospace,
                 color = colorScheme.onSurface.copy(alpha = 0.7f)
