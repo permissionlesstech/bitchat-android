@@ -40,11 +40,9 @@ fun SidebarOverlay(
     val selectedPrivatePeer by viewModel.selectedPrivateChatPeer.observeAsState()
     val nickname by viewModel.nickname.observeAsState("")
     val unreadChannelMessages by viewModel.unreadChannelMessages.observeAsState(emptyMap())
-    
-    // Get peer data from mesh service
-    val peerNicknames = viewModel.meshService.getPeerNicknames()
-    val peerRSSI = viewModel.meshService.getPeerRSSI()
-    
+    val peerNicknames by viewModel.peerNicknames.observeAsState(emptyMap())
+    val peerRSSI by viewModel.peerRSSI.observeAsState(emptyMap())
+
     Box(
         modifier = modifier
             .background(Color.Black.copy(alpha = 0.5f))
