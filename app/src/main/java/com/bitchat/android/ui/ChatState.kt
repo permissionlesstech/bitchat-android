@@ -98,6 +98,10 @@ class ChatState {
     private val _peerFingerprints = MutableLiveData<Map<String, String>>(emptyMap())
     val peerFingerprints: LiveData<Map<String, String>> = _peerFingerprints
     
+    // Verified fingerprints - tracks which peer fingerprints have been verified by the user
+    private val _verifiedFingerprints = MutableLiveData<Set<String>>(emptySet())
+    val verifiedFingerprints: LiveData<Set<String>> = _verifiedFingerprints
+    
     // peerIDToPublicKeyFingerprint REMOVED - fingerprints now handled centrally in PeerManager
     
     // Navigation state
@@ -141,6 +145,7 @@ class ChatState {
     fun getFavoritePeersValue() = _favoritePeers.value ?: emptySet()
     fun getPeerSessionStatesValue() = _peerSessionStates.value ?: emptyMap()
     fun getPeerFingerprintsValue() = _peerFingerprints.value ?: emptyMap()
+    fun getVerifiedFingerprintsValue() = _verifiedFingerprints.value ?: emptySet()
     fun getShowAppInfoValue() = _showAppInfo.value ?: false
     
     // Setters for state updates
@@ -240,6 +245,10 @@ class ChatState {
     
     fun setPeerFingerprints(fingerprints: Map<String, String>) {
         _peerFingerprints.value = fingerprints
+    }
+    
+    fun setVerifiedFingerprints(fingerprints: Set<String>) {
+        _verifiedFingerprints.value = fingerprints
     }
     
     fun setShowAppInfo(show: Boolean) {

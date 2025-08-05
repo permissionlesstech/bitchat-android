@@ -49,6 +49,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
     var showPasswordPrompt by remember { mutableStateOf(false) }
     var showPasswordDialog by remember { mutableStateOf(false) }
     var passwordInput by remember { mutableStateOf("") }
+    var showSecurityVerification by remember { mutableStateOf(false) }
     
     // Show password dialog when needed
     LaunchedEffect(showPasswordPrompt) {
@@ -136,7 +137,9 @@ fun ChatScreen(viewModel: ChatViewModel) {
             colorScheme = colorScheme,
             onSidebarToggle = { viewModel.showSidebar() },
             onShowAppInfo = { viewModel.showAppInfo() },
-            onPanicClear = { viewModel.panicClearAllData() }
+            onPanicClear = { viewModel.panicClearAllData() },
+            showSecurityVerification = showSecurityVerification,
+            onSecurityVerificationChange = { showSecurityVerification = it }
         )
 
         val alpha by animateFloatAsState(
@@ -198,7 +201,12 @@ fun ChatScreen(viewModel: ChatViewModel) {
             passwordInput = ""
         },
         showAppInfo = showAppInfo,
-        onAppInfoDismiss = { viewModel.hideAppInfo() }
+        onAppInfoDismiss = { viewModel.hideAppInfo() },
+        showSecurityVerification = showSecurityVerification,
+        selectedPrivatePeer = selectedPrivatePeer,
+        viewModel = viewModel,
+        onSecurityVerificationDismiss = { showSecurityVerification = false },
+        onSecurityVerificationVerify = { showSecurityVerification = false }
     )
 }
 
@@ -272,7 +280,9 @@ private fun ChatFloatingHeader(
     colorScheme: ColorScheme,
     onSidebarToggle: () -> Unit,
     onShowAppInfo: () -> Unit,
-    onPanicClear: () -> Unit
+    onPanicClear: () -> Unit,
+    showSecurityVerification: Boolean,
+    onSecurityVerificationChange: (Boolean) -> Unit
 ) {
     Surface(
         modifier = Modifier
@@ -298,7 +308,9 @@ private fun ChatFloatingHeader(
                     },
                     onSidebarClick = onSidebarToggle,
                     onTripleClick = onPanicClear,
-                    onShowAppInfo = onShowAppInfo
+                    onShowAppInfo = onShowAppInfo,
+                    showSecurityVerification = showSecurityVerification,
+                    onSecurityVerificationChange = onSecurityVerificationChange
                 )
             },
             colors = TopAppBarDefaults.topAppBarColors(
@@ -326,8 +338,16 @@ private fun ChatDialogs(
     onPasswordConfirm: () -> Unit,
     onPasswordDismiss: () -> Unit,
     showAppInfo: Boolean,
-    onAppInfoDismiss: () -> Unit
+    onAppInfoDismiss: () -> Unit,
+    showSecurityVerification: Boolean,
+    selectedPrivatePeer: String?,
+    viewModel: ChatViewModel,
+    onSecurityVerificationDismiss: () -> Unit,
+    onSecurityVerificationVerify: () -> Unit
 ) {
+    // Observe verified fingerprints to ensure dialog updates when verification state changes
+    val verifiedFingerprints by viewModel.verifiedFingerprints.observeAsState()
+    
     // Password dialog
     PasswordPromptDialog(
         show = showPasswordDialog,
@@ -343,4 +363,17 @@ private fun ChatDialogs(
         show = showAppInfo,
         onDismiss = onAppInfoDismiss
     )
+    
+    // Security verification dialog
+    if (showSecurityVerification && selectedPrivatePeer != null) {
+        SecurityVerificationDialog(
+            peerID = selectedPrivatePeer,
+            peerNicknames = viewModel.meshService.getPeerNicknames(),
+            peerFingerprints = viewModel.peerFingerprints.value ?: emptyMap(),
+            verifiedFingerprints = verifiedFingerprints ?: emptySet(),
+            viewModel = viewModel,
+            onDismiss = onSecurityVerificationDismiss,
+            onVerify = onSecurityVerificationVerify
+        )
+    }
 }

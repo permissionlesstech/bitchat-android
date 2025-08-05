@@ -11,6 +11,8 @@ import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryAck
 import com.bitchat.android.model.ReadReceipt
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import java.util.*
@@ -88,6 +90,7 @@ class ChatViewModel(
     val favoritePeers: LiveData<Set<String>> = state.favoritePeers
     val peerSessionStates: LiveData<Map<String, String>> = state.peerSessionStates
     val peerFingerprints: LiveData<Map<String, String>> = state.peerFingerprints
+    val verifiedFingerprints: LiveData<Set<String>> = state.verifiedFingerprints
     val showAppInfo: LiveData<Boolean> = state.showAppInfo
     
     init {
@@ -99,6 +102,10 @@ class ChatViewModel(
         // Load nickname
         val nickname = dataManager.loadNickname()
         state.setNickname(nickname)
+        
+        // Load verified fingerprints from persistent storage
+        val verifiedFingerprints = loadVerifiedFingerprintsFromStorage()
+        state.setVerifiedFingerprints(verifiedFingerprints)
         
         // Load data
         val (joinedChannels, protectedChannels) = channelManager.loadChannelData()
@@ -424,6 +431,9 @@ class ChatViewModel(
         // Clear all cryptographic data
         clearAllCryptographicData()
         
+        // Clear verified fingerprints
+        clearVerifiedFingerprints()
+        
         // Clear all notifications
         notificationManager.clearAllNotifications()
         
@@ -436,6 +446,20 @@ class ChatViewModel(
         
         // Note: Mesh service restart is now handled by MainActivity
         // This method now only clears data, not mesh service lifecycle
+    }
+    
+    /**
+     * Clear verified fingerprints (used for panic clear)
+     */
+    private fun clearVerifiedFingerprints() {
+        try {
+            val prefs = getApplication<Application>().getSharedPreferences("bitchat_security", Context.MODE_PRIVATE)
+            prefs.edit().remove("verified_fingerprints").apply()
+            state.setVerifiedFingerprints(emptySet())
+            Log.d(TAG, "✅ Cleared verified fingerprints")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error clearing verified fingerprints: ${e.message}")
+        }
     }
     
     /**
@@ -491,6 +515,67 @@ class ChatViewModel(
     
     fun hideSidebar() {
         state.setShowSidebar(false)
+    }
+    
+    // MARK: - Security Verification
+    
+    fun getMyFingerprint(): String {
+        return meshService.getIdentityFingerprint()
+    }
+    
+    fun verifyFingerprint(peerID: String) {
+        // Get the peer's fingerprint from PrivateChatManager
+        val fingerprint = privateChatManager.getPeerFingerprint(peerID)
+        if (fingerprint != null) {
+            // Get current verified fingerprints
+            val currentVerified = state.getVerifiedFingerprintsValue().toMutableSet()
+            // Add this fingerprint to verified set
+            currentVerified.add(fingerprint)
+            // Update the state
+            state.setVerifiedFingerprints(currentVerified)
+            // Save to persistent storage
+            saveVerifiedFingerprintsToStorage(currentVerified)
+            Log.d("ChatViewModel", "User verified fingerprint for peer: $peerID, fingerprint: $fingerprint")
+        } else {
+            Log.w("ChatViewModel", "Could not verify fingerprint for peer: $peerID - no fingerprint found")
+        }
+    }
+    
+    fun isFingerprintVerified(peerID: String): Boolean {
+        val fingerprint = privateChatManager.getPeerFingerprint(peerID)
+        return fingerprint?.let { state.getVerifiedFingerprintsValue().contains(it) } ?: false
+    }
+    
+    private fun saveVerifiedFingerprintsToStorage(verifiedFingerprints: Set<String>) {
+        try {
+            val prefs = getApplication<Application>().getSharedPreferences("bitchat_security", Context.MODE_PRIVATE)
+            val editor = prefs.edit()
+            // Convert set to JSON string
+            val json = Gson().toJson(verifiedFingerprints)
+            editor.putString("verified_fingerprints", json)
+            editor.apply()
+            Log.d("ChatViewModel", "Saved ${verifiedFingerprints.size} verified fingerprints to storage")
+        } catch (e: Exception) {
+            Log.e("ChatViewModel", "Failed to save verified fingerprints: ${e.message}")
+        }
+    }
+    
+    private fun loadVerifiedFingerprintsFromStorage(): Set<String> {
+        return try {
+            val prefs = getApplication<Application>().getSharedPreferences("bitchat_security", Context.MODE_PRIVATE)
+            val json = prefs.getString("verified_fingerprints", null)
+            if (json != null) {
+                val type = object : TypeToken<Set<String>>() {}.type
+                val fingerprints = Gson().fromJson<Set<String>>(json, type)
+                Log.d("ChatViewModel", "Loaded ${fingerprints?.size ?: 0} verified fingerprints from storage")
+                fingerprints ?: emptySet()
+            } else {
+                emptySet()
+            }
+        } catch (e: Exception) {
+            Log.e("ChatViewModel", "Failed to load verified fingerprints: ${e.message}")
+            emptySet()
+        }
     }
     
     /**
