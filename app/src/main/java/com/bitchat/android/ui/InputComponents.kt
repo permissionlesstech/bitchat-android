@@ -214,10 +214,7 @@ fun MessageInput(
         if (value.text.isEmpty()) {
             FilledTonalIconButton(
                 onClick = {
-                    when {
-                        value.text.startsWith("/") -> onValueChange(TextFieldValue(text = ""))
-                        else -> onValueChange(TextFieldValue(text = "/", selection = TextRange("/".length)))
-                    }
+                    onValueChange(TextFieldValue(text = "/", selection = TextRange("/".length)))
                 },
                 modifier = Modifier.size(32.dp)
             ) {
