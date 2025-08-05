@@ -9,14 +9,14 @@ import androidx.compose.ui.graphics.Color
 
 // Colors that match the iOS bitchat theme
 private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFF00FF00),        // Bright green (terminal-like)
+    primary = Color(0xFF39FF14),        // Bright green (terminal-like)
     onPrimary = Color.Black,
-    secondary = Color(0xFF00CC00),      // Darker green
+    secondary = Color(0xFF2ECB10),      // Darker green
     onSecondary = Color.Black,
     background = Color.Black,
-    onBackground = Color(0xFF00FF00),   // Green on black
+    onBackground = Color(0xFF39FF14),   // Green on black
     surface = Color(0xFF111111),        // Very dark gray
-    onSurface = Color(0xFF00FF00),      // Green text
+    onSurface = Color(0xFF39FF14),      // Green text
     error = Color(0xFFFF5555),          // Red for errors
     onError = Color.Black
 )

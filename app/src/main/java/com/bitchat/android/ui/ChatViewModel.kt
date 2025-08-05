@@ -25,6 +25,10 @@ class ChatViewModel(
     val meshService: BluetoothMeshService
 ) : AndroidViewModel(application), BluetoothMeshDelegate {
 
+    companion object {
+        private const val TAG = "ChatViewModel"
+    }
+
     // State management
     private val state = ChatState()
     
@@ -32,7 +36,17 @@ class ChatViewModel(
     private val dataManager = DataManager(application.applicationContext)
     private val messageManager = MessageManager(state)
     private val channelManager = ChannelManager(state, messageManager, dataManager, viewModelScope)
-    val privateChatManager = PrivateChatManager(state, messageManager, dataManager)
+    
+    // Create Noise session delegate for clean dependency injection
+    private val noiseSessionDelegate = object : NoiseSessionDelegate {
+        override fun hasEstablishedSession(peerID: String): Boolean = meshService.hasEstablishedSession(peerID)
+        override fun initiateHandshake(peerID: String) = meshService.initiateNoiseHandshake(peerID) 
+        override fun broadcastNoiseIdentityAnnouncement() = meshService.broadcastNoiseIdentityAnnouncement()
+        override fun sendHandshakeRequest(targetPeerID: String, pendingCount: UByte) = meshService.sendHandshakeRequest(targetPeerID, pendingCount)
+        override fun getMyPeerID(): String = meshService.myPeerID
+    }
+    
+    val privateChatManager = PrivateChatManager(state, messageManager, dataManager, noiseSessionDelegate)
     private val commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager)
     private val notificationManager = NotificationManager(application.applicationContext)
     
@@ -45,7 +59,8 @@ class ChatViewModel(
         notificationManager = notificationManager,
         coroutineScope = viewModelScope,
         onHapticFeedback = { ChatViewModelUtils.triggerHapticFeedback(application.applicationContext) },
-        getMyPeerID = { meshService.myPeerID }
+        getMyPeerID = { meshService.myPeerID },
+        getMeshService = { meshService }
     )
     
     // Expose state through LiveData (maintaining the same interface)
@@ -68,7 +83,11 @@ class ChatViewModel(
     val hasUnreadPrivateMessages = state.hasUnreadPrivateMessages
     val showCommandSuggestions: LiveData<Boolean> = state.showCommandSuggestions
     val commandSuggestions: LiveData<List<CommandSuggestion>> = state.commandSuggestions
+    val showMentionSuggestions: LiveData<Boolean> = state.showMentionSuggestions
+    val mentionSuggestions: LiveData<List<String>> = state.mentionSuggestions
     val favoritePeers: LiveData<Set<String>> = state.favoritePeers
+    val peerSessionStates: LiveData<Map<String, String>> = state.peerSessionStates
+    val peerFingerprints: LiveData<Map<String, String>> = state.peerFingerprints
     val showAppInfo: LiveData<Boolean> = state.showAppInfo
     
     init {
@@ -104,15 +123,18 @@ class ChatViewModel(
         dataManager.logAllFavorites()
         logCurrentFavoriteState()
         
+        // Initialize session state monitoring
+        initializeSessionStateMonitoring()
+        
         // Note: Mesh service is now started by MainActivity
         
         // Show welcome message if no peers after delay
         viewModelScope.launch {
-            delay(3000)
+            delay(10000)
             if (state.getConnectedPeersValue().isEmpty() && state.getMessagesValue().isEmpty()) {
                 val welcomeMessage = BitchatMessage(
                     sender = "system",
-                    content = "get people around you to download bitchat…and chat with them here!",
+                    content = "get people around you to download bitchat and chat with them here!",
                     timestamp = Date(),
                     isRelay = false
                 )
@@ -268,6 +290,35 @@ class ChatViewModel(
         Log.i("ChatViewModel", "==============================")
     }
     
+    /**
+     * Initialize session state monitoring for reactive UI updates
+     */
+    private fun initializeSessionStateMonitoring() {
+        viewModelScope.launch {
+            while (true) {
+                delay(1000) // Check session states every second
+                updateReactiveStates()
+            }
+        }
+    }
+    
+    /**
+     * Update reactive states for all connected peers (session states and fingerprints)
+     */
+    private fun updateReactiveStates() {
+        val currentPeers = state.getConnectedPeersValue()
+        
+        // Update session states
+        val sessionStates = currentPeers.associateWith { peerID ->
+            meshService.getSessionState(peerID).toString()
+        }
+        state.setPeerSessionStates(sessionStates)
+        
+        // Update fingerprint mappings from centralized manager
+        val fingerprints = privateChatManager.getAllPeerFingerprints()
+        state.setPeerFingerprints(fingerprints)
+    }
+    
     // MARK: - Debug and Troubleshooting
     
     fun getDebugStatus(): String {
@@ -300,6 +351,16 @@ class ChatViewModel(
     
     fun selectCommandSuggestion(suggestion: CommandSuggestion): String {
         return commandProcessor.selectCommandSuggestion(suggestion)
+    }
+    
+    // MARK: - Mention Autocomplete
+    
+    fun updateMentionSuggestions(input: String) {
+        commandProcessor.updateMentionSuggestions(input, meshService)
+    }
+    
+    fun selectMentionSuggestion(nickname: String, currentText: String): String {
+        return commandProcessor.selectMentionSuggestion(nickname, currentText)
     }
     
     // MARK: - BluetoothMeshDelegate Implementation (delegated)
@@ -344,26 +405,74 @@ class ChatViewModel(
         return meshDelegateHandler.isFavorite(peerID)
     }
     
-    override fun registerPeerPublicKey(peerID: String, publicKeyData: ByteArray) {
-        privateChatManager.registerPeerPublicKey(peerID, publicKeyData)
-    }
+    // registerPeerPublicKey REMOVED - fingerprints now handled centrally in PeerManager
     
     // MARK: - Emergency Clear
     
     fun panicClearAllData() {
-        // Clear all managers
+        Log.w(TAG, "🚨 PANIC MODE ACTIVATED - Clearing all sensitive data")
+        
+        // Clear all UI managers
         messageManager.clearAllMessages()
         channelManager.clearAllChannels()
         privateChatManager.clearAllPrivateChats()
         dataManager.clearAllData()
+        
+        // Clear all mesh service data
+        clearAllMeshServiceData()
+        
+        // Clear all cryptographic data
+        clearAllCryptographicData()
+        
+        // Clear all notifications
+        notificationManager.clearAllNotifications()
         
         // Reset nickname
         val newNickname = "anon${Random.nextInt(1000, 9999)}"
         state.setNickname(newNickname)
         dataManager.saveNickname(newNickname)
         
+        Log.w(TAG, "🚨 PANIC MODE COMPLETED - All sensitive data cleared")
+        
         // Note: Mesh service restart is now handled by MainActivity
         // This method now only clears data, not mesh service lifecycle
+    }
+    
+    /**
+     * Clear all mesh service related data
+     */
+    private fun clearAllMeshServiceData() {
+        try {
+            // Request mesh service to clear all its internal data
+            meshService.clearAllInternalData()
+            
+            Log.d(TAG, "✅ Cleared all mesh service data")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error clearing mesh service data: ${e.message}")
+        }
+    }
+    
+    /**
+     * Clear all cryptographic data including persistent identity
+     */
+    private fun clearAllCryptographicData() {
+        try {
+            // Clear encryption service persistent identity (Ed25519 signing keys)
+            meshService.clearAllEncryptionData()
+            
+            // Clear secure identity state (if used)
+            try {
+                val identityManager = com.bitchat.android.identity.SecureIdentityStateManager(getApplication())
+                identityManager.clearIdentityData()
+                Log.d(TAG, "✅ Cleared secure identity state")
+            } catch (e: Exception) {
+                Log.d(TAG, "SecureIdentityStateManager not available or already cleared: ${e.message}")
+            }
+            
+            Log.d(TAG, "✅ Cleared all cryptographic data")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error clearing cryptographic data: ${e.message}")
+        }
     }
     
     // MARK: - Navigation Management

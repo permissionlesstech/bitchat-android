@@ -7,8 +7,10 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
- * Manages active peers, nicknames, and RSSI tracking
+ * Manages active peers, nicknames, RSSI tracking, and peer fingerprints
  * Extracted from BluetoothMeshService for better separation of concerns
+ * 
+ * Now includes centralized peer fingerprint management via PeerFingerprintManager singleton
  */
 class PeerManager {
     
@@ -24,6 +26,9 @@ class PeerManager {
     private val peerRSSI = ConcurrentHashMap<String, Int>()
     private val announcedPeers = CopyOnWriteArrayList<String>()
     private val announcedToPeers = CopyOnWriteArrayList<String>()
+    
+    // Centralized fingerprint management
+    private val fingerprintManager = PeerFingerprintManager.getInstance()
     
     // Delegate for callbacks
     var delegate: PeerManagerDelegate? = null
@@ -81,7 +86,7 @@ class PeerManager {
             notifyPeerListUpdate()
             return true
         }
-        
+        Log.d(TAG, "Updated peer: $peerID ($nickname)")
         return false
     }
     
@@ -94,6 +99,9 @@ class PeerManager {
         peerRSSI.remove(peerID)
         announcedPeers.remove(peerID)
         announcedToPeers.remove(peerID)
+        
+        // Also remove fingerprint mappings
+        fingerprintManager.removePeer(peerID)
         
         if (notifyDelegate && nickname != null) {
             delegate?.onPeerDisconnected(nickname)
@@ -177,6 +185,10 @@ class PeerManager {
         peerRSSI.clear()
         announcedPeers.clear()
         announcedToPeers.clear()
+        
+        // Also clear fingerprint mappings
+        fingerprintManager.clearAllFingerprints()
+        
         notifyPeerListUpdate()
     }
     
@@ -262,6 +274,83 @@ class PeerManager {
         if (peersToRemove.isNotEmpty()) {
             Log.d(TAG, "Cleaned up ${peersToRemove.size} stale peers")
         }
+    }
+    
+    // MARK: - Fingerprint Management (Centralized)
+    
+    /**
+     * Store fingerprint for a peer after successful Noise handshake
+     * This should only be called when a Noise session is established
+     * 
+     * @param peerID The peer's ID
+     * @param publicKey The peer's static public key from Noise handshake
+     */
+    fun storeFingerprintForPeer(peerID: String, publicKey: ByteArray): String {
+        return fingerprintManager.storeFingerprintForPeer(peerID, publicKey)
+    }
+    
+    /**
+     * Update peer ID mapping for peer ID rotation
+     * 
+     * @param oldPeerID The previous peer ID (nullable)
+     * @param newPeerID The new peer ID
+     * @param fingerprint The persistent fingerprint
+     */
+    fun updatePeerIDMapping(oldPeerID: String?, newPeerID: String, fingerprint: String) {
+        fingerprintManager.updatePeerIDMapping(oldPeerID, newPeerID, fingerprint)
+    }
+    
+    /**
+     * Get fingerprint for a specific peer
+     * 
+     * @param peerID The peer ID to look up
+     * @return The fingerprint if found, null otherwise
+     */
+    fun getFingerprintForPeer(peerID: String): String? {
+        return fingerprintManager.getFingerprintForPeer(peerID)
+    }
+    
+    /**
+     * Get current peer ID for a specific fingerprint
+     * 
+     * @param fingerprint The fingerprint to look up
+     * @return The current peer ID if found, null otherwise
+     */
+    fun getPeerIDForFingerprint(fingerprint: String): String? {
+        return fingerprintManager.getPeerIDForFingerprint(fingerprint)
+    }
+    
+    /**
+     * Check if we have a fingerprint for a specific peer
+     * 
+     * @param peerID The peer ID to check
+     * @return True if we have a fingerprint for this peer, false otherwise
+     */
+    fun hasFingerprintForPeer(peerID: String): Boolean {
+        return fingerprintManager.hasFingerprintForPeer(peerID)
+    }
+    
+    /**
+     * Get all current peer ID to fingerprint mappings
+     * 
+     * @return Immutable copy of all mappings
+     */
+    fun getAllPeerFingerprints(): Map<String, String> {
+        return fingerprintManager.getAllPeerFingerprints()
+    }
+    
+    /**
+     * Clear all fingerprint mappings (used for emergency clear)
+     */
+    fun clearAllFingerprints() {
+        fingerprintManager.clearAllFingerprints()
+    }
+    
+    /**
+     * Get fingerprint manager debug info
+     */
+    fun getFingerprintDebugInfo(): String {
+        return fingerprintManager.getDebugInfo()
     }
     
     /**

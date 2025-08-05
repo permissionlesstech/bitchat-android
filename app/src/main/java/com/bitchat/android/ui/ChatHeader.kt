@@ -29,6 +29,61 @@ import com.bitchat.android.core.ui.utils.singleOrTripleClickable
  * Extracted from ChatScreen.kt for better organization
  */
 
+/**
+ * Reactive helper to compute favorite state from fingerprint mapping
+ * This eliminates the need for static isFavorite parameters and makes
+ * the UI reactive to fingerprint manager changes
+ */
+@Composable
+fun isFavoriteReactive(
+    peerID: String,
+    peerFingerprints: Map<String, String>,
+    favoritePeers: Set<String>
+): Boolean {
+    return remember(peerID, peerFingerprints, favoritePeers) {
+        val fingerprint = peerFingerprints[peerID]
+        fingerprint != null && favoritePeers.contains(fingerprint)
+    }
+}
+
+@Composable
+fun NoiseSessionIcon(
+    sessionState: String?,
+    modifier: Modifier = Modifier
+) {
+    val (icon, color, contentDescription) = when (sessionState) {
+        "uninitialized" -> Triple(
+            Icons.Outlined.NoEncryption,
+            Color(0x87878700), // Grey - ready to establish
+            "Ready for handshake"
+        )
+        "handshaking" -> Triple(
+            Icons.Outlined.Sync,
+            Color(0x87878700), // Grey - in progress
+            "Handshake in progress"
+        )
+        "established" -> Triple(
+            Icons.Filled.Lock,
+            Color(0xFFFF9500), // Orange - secure
+            "End-to-end encrypted"
+        )
+        else -> { // "failed" or any other state
+            Triple(
+                Icons.Outlined.Warning,
+                Color(0xFFFF4444), // Red - error
+                "Handshake failed"
+            )
+        }
+    }
+    
+    Icon(
+        imageVector = icon,
+        contentDescription = contentDescription,
+        modifier = modifier,
+        tint = color
+    )
+}
+
 @Composable
 fun NicknameEditor(
     value: String,
@@ -111,7 +166,7 @@ fun PeerCounter(
         }
         
         Icon(
-            imageVector = Icons.Default.Person,
+            imageVector = Icons.Default.Group,
             contentDescription = "Connected peers",
             modifier = Modifier.size(16.dp),
             tint = if (isConnected) Color(0xFF00C851) else Color.Red
@@ -152,17 +207,26 @@ fun ChatHeaderContent(
 
     when {
         selectedPrivatePeer != null -> {
-            // Private chat header - ensure state synchronization
+            // Private chat header - Fully reactive state tracking
             val favoritePeers by viewModel.favoritePeers.observeAsState(emptySet())
-            val fingerprint = viewModel.privateChatManager.getPeerFingerprint(selectedPrivatePeer)
-            val isFavorite = favoritePeers.contains(fingerprint)
+            val peerFingerprints by viewModel.peerFingerprints.observeAsState(emptyMap())
+            val peerSessionStates by viewModel.peerSessionStates.observeAsState(emptyMap())
             
-            Log.d("ChatHeader", "Header recomposing: peer=$selectedPrivatePeer, fingerprint=$fingerprint, isFav=$isFavorite")
+            // Reactive favorite computation - no more static lookups!
+            val isFavorite = isFavoriteReactive(
+                peerID = selectedPrivatePeer,
+                peerFingerprints = peerFingerprints,
+                favoritePeers = favoritePeers
+            )
+            val sessionState = peerSessionStates[selectedPrivatePeer]
+            
+            Log.d("ChatHeader", "Header recomposing: peer=$selectedPrivatePeer, isFav=$isFavorite, sessionState=$sessionState")
             
             PrivateChatHeader(
                 peerID = selectedPrivatePeer,
                 peerNicknames = viewModel.meshService.getPeerNicknames(),
                 isFavorite = isFavorite,
+                sessionState = sessionState,
                 onBackClick = onBackClick,
                 onToggleFavorite = { viewModel.toggleFavorite(selectedPrivatePeer) }
             )
@@ -195,6 +259,7 @@ private fun PrivateChatHeader(
     peerID: String,
     peerNicknames: Map<String, String>,
     isFavorite: Boolean,
+    sessionState: String?,
     onBackClick: () -> Unit,
     onToggleFavorite: () -> Unit
 ) {
@@ -237,18 +302,20 @@ private fun PrivateChatHeader(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.align(Alignment.Center)
         ) {
-            Icon(
-                imageVector = Icons.Filled.Lock,
-                contentDescription = "Private chat",
-                modifier = Modifier.size(16.dp),
-                tint = Color(0xFFFF9500) // Orange to match private message theme
-            )
-            Spacer(modifier = Modifier.width(4.dp))
+            
             Text(
                 text = peerNickname,
                 style = MaterialTheme.typography.titleMedium,
                 color = Color(0xFFFF9500) // Orange
             )
+
+            Spacer(modifier = Modifier.width(4.dp))
+
+            NoiseSessionIcon(
+                sessionState = sessionState,
+                modifier = Modifier.size(14.dp)
+            )
+
         }
         
         // Favorite button - positioned on the right
@@ -263,7 +330,7 @@ private fun PrivateChatHeader(
                 imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
                 contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
                 modifier = Modifier.size(18.dp), // Slightly larger than sidebar icon
-                tint = if (isFavorite) Color(0xFFFFD700) else Color(0xFF4CAF50) // Yellow for filled, green for outlined
+                tint = if (isFavorite) Color(0xFFFFD700) else Color(0x87878700) // Yellow or grey
             )
         }
     }
@@ -359,7 +426,7 @@ private fun MainHeader(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "bitchat*",
+                text = "bitchat/",
                 style = MaterialTheme.typography.headlineSmall,
                 color = colorScheme.primary,
                 modifier = Modifier.singleOrTripleClickable(
@@ -368,7 +435,7 @@ private fun MainHeader(
                 )
             )
             
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(2.dp))
             
             NicknameEditor(
                 value = nickname,

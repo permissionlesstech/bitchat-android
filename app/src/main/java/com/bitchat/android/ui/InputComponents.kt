@@ -80,6 +80,68 @@ class SlashCommandVisualTransformation : VisualTransformation {
     }
 }
 
+/**
+ * VisualTransformation that styles mentions with background and color
+ * while preserving cursor positioning and click handling
+ */
+class MentionVisualTransformation : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val mentionRegex = Regex("@([a-zA-Z0-9_]+)")
+        val annotatedString = buildAnnotatedString {
+            var lastIndex = 0
+            
+            mentionRegex.findAll(text.text).forEach { match ->
+                // Add text before the match
+                if (match.range.first > lastIndex) {
+                    append(text.text.substring(lastIndex, match.range.first))
+                }
+                
+                // Add the styled mention
+                withStyle(
+                    style = SpanStyle(
+                        color = Color(0xFFFF9500), // Orange
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                ) {
+                    append(match.value)
+                }
+                
+                lastIndex = match.range.last + 1
+            }
+            
+            // Add remaining text
+            if (lastIndex < text.text.length) {
+                append(text.text.substring(lastIndex))
+            }
+        }
+        
+        return TransformedText(
+            text = annotatedString,
+            offsetMapping = OffsetMapping.Identity
+        )
+    }
+}
+
+/**
+ * VisualTransformation that combines multiple visual transformations
+ */
+class CombinedVisualTransformation(private val transformations: List<VisualTransformation>) : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        var resultText = text
+        
+        // Apply each transformation in order
+        transformations.forEach { transformation ->
+            resultText = transformation.filter(resultText).text
+        }
+        
+        return TransformedText(
+            text = resultText,
+            offsetMapping = OffsetMapping.Identity
+        )
+    }
+}
+
 
 
 
@@ -96,58 +158,68 @@ fun MessageInput(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val isFocused = remember { mutableStateOf(false) }
+    val hasText = value.text.isNotBlank() // Check if there's text for send button state
     
     Row(
         modifier = modifier.padding(horizontal = 12.dp, vertical = 8.dp), // Reduced padding
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Remove arrow from both private and channel inputs to match DM style
-        Text(
-            text = "<@$nickname>",  // No arrow for both private and channel
-            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-            color = when {
-                selectedPrivatePeer != null -> Color(0xFFFF9500) // Orange for private
-                currentChannel != null -> Color(0xFFFF9500) // Orange for channels too
-                else -> colorScheme.primary
-            },
-            fontFamily = FontFamily.Monospace,
-            fontSize = 14.sp
-        )
-        
-        Spacer(modifier = Modifier.width(8.dp))
-        
-        // Text input
-        BasicTextField(
-            value = value,
-            onValueChange = onValueChange,
-            textStyle = MaterialTheme.typography.bodyMedium.copy(
-                color = colorScheme.primary,
-                fontFamily = FontFamily.Monospace
-            ),
-            cursorBrush = SolidColor(colorScheme.primary),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-            keyboardActions = KeyboardActions(onSend = { onSend() }),
-            visualTransformation = SlashCommandVisualTransformation(),
-            modifier = Modifier
-                .weight(1f)
-                .onFocusChanged { focusState ->
-                    isFocused.value = focusState.isFocused
-                }
-        )
+        // Text input with placeholder
+        Box(
+            modifier = Modifier.weight(1f)
+        ) {
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                    color = colorScheme.primary,
+                    fontFamily = FontFamily.Monospace
+                ),
+                cursorBrush = SolidColor(colorScheme.primary),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                keyboardActions = KeyboardActions(onSend = { 
+                    if (hasText) onSend() // Only send if there's text
+                }),
+                visualTransformation = CombinedVisualTransformation(
+                    listOf(SlashCommandVisualTransformation(), MentionVisualTransformation())
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onFocusChanged { focusState ->
+                        isFocused.value = focusState.isFocused
+                    }
+            )
+            
+            // Show placeholder when there's no text
+            if (value.text.isEmpty()) {
+                Text(
+                    text = "type a message...",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = FontFamily.Monospace
+                    ),
+                    color = colorScheme.onSurface.copy(alpha = 0.5f), // Muted grey
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
         
         Spacer(modifier = Modifier.width(8.dp)) // Reduced spacing
         
-        // Update send button to match input field colors
+        // Send button with enabled/disabled state
         IconButton(
-            onClick = onSend,
+            onClick = { if (hasText) onSend() }, // Only execute if there's text
+            enabled = hasText, // Enable only when there's text
             modifier = Modifier.size(32.dp)
         ) {
             Box(
                 modifier = Modifier
                     .size(30.dp)
                     .background(
-                        color = if (selectedPrivatePeer != null || currentChannel != null) {
-                            // Orange for both private messages and channels to match nickname color
+                        color = if (!hasText) {
+                            // Disabled state - muted grey
+                            colorScheme.onSurface.copy(alpha = 0.3f)
+                        } else if (selectedPrivatePeer != null || currentChannel != null) {
+                            // Orange for both private messages and channels when enabled
                             Color(0xFFFF9500).copy(alpha = 0.75f)
                         } else if (colorScheme.background == Color.Black) {
                             Color(0xFF00FF00).copy(alpha = 0.75f) // Bright green for dark theme
@@ -159,10 +231,13 @@ fun MessageInput(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Filled.KeyboardArrowRight,
+                    imageVector = Icons.Filled.ArrowUpward,
                     contentDescription = "Send message",
                     modifier = Modifier.size(20.dp),
-                    tint = if (selectedPrivatePeer != null || currentChannel != null) {
+                    tint = if (!hasText) {
+                        // Disabled state - muted grey icon
+                        colorScheme.onSurface.copy(alpha = 0.5f)
+                    } else if (selectedPrivatePeer != null || currentChannel != null) {
                         // Black arrow on orange for both private and channel modes
                         Color.Black
                     } else if (colorScheme.background == Color.Black) {
@@ -256,6 +331,67 @@ fun CommandSuggestionItem(
             fontSize = 10.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+fun MentionSuggestionsBox(
+    suggestions: List<String>,
+    onSuggestionClick: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    
+    Column(
+        modifier = modifier
+            .background(colorScheme.surface)
+            .border(1.dp, colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+            .padding(vertical = 8.dp)
+    ) {
+        suggestions.forEach { suggestion: String ->
+            MentionSuggestionItem(
+                suggestion = suggestion,
+                onClick = { onSuggestionClick(suggestion) }
+            )
+        }
+    }
+}
+
+@Composable
+fun MentionSuggestionItem(
+    suggestion: String,
+    onClick: () -> Unit
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(horizontal = 12.dp, vertical = 3.dp)
+            .background(Color.Gray.copy(alpha = 0.1f)),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "@$suggestion",
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.SemiBold
+            ),
+            color = Color(0xFFFF9500), // Orange like mentions
+            fontSize = 11.sp
+        )
+        
+        Spacer(modifier = Modifier.weight(1f))
+        
+        Text(
+            text = "mention",
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontFamily = FontFamily.Monospace
+            ),
+            color = colorScheme.onSurface.copy(alpha = 0.7f),
+            fontSize = 10.sp
         )
     }
 }
