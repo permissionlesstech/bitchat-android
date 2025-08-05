@@ -211,64 +211,65 @@ fun MessageInput(
         Spacer(modifier = Modifier.width(8.dp)) // Reduced spacing
         
         // Command quick access button
-        FilledTonalIconButton(
-            enabled = value.text.startsWith("/") or value.text.isEmpty(),
-            onClick = {
-                when {
-                    value.text.startsWith("/") -> onValueChange(TextFieldValue(text = ""))
-                    else -> onValueChange(TextFieldValue(text = "/", selection = TextRange("/".length)))
-                }
-            },
-            modifier = Modifier.size(32.dp)
-        ) {
-            Text(
-                text = "/",
-                textAlign = TextAlign.Center
-            )
-        }        
-        
-        // Send button with enabled/disabled state
-        IconButton(
-            onClick = { if (hasText) onSend() }, // Only execute if there's text
-            enabled = hasText, // Enable only when there's text
-            modifier = Modifier.size(32.dp)
-        ) {
-            // Update send button to match input field colors
-            Box(
-                modifier = Modifier
-                    .size(30.dp)
-                    .background(
-                        color = if (!hasText) {
-                            // Disabled state - muted grey
-                            colorScheme.onSurface.copy(alpha = 0.3f)
-                        } else if (selectedPrivatePeer != null || currentChannel != null) {
-                            // Orange for both private messages and channels when enabled
-                            Color(0xFFFF9500).copy(alpha = 0.75f)
-                        } else if (colorScheme.background == Color.Black) {
-                            Color(0xFF00FF00).copy(alpha = 0.75f) // Bright green for dark theme
-                        } else {
-                            Color(0xFF008000).copy(alpha = 0.75f) // Dark green for light theme
-                        },
-                        shape = CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.ArrowUpward,
-                    contentDescription = stringResource(id = R.string.send_message),
-                    modifier = Modifier.size(20.dp),
-                    tint = if (!hasText) {
-                        // Disabled state - muted grey icon
-                        colorScheme.onSurface.copy(alpha = 0.5f)
-                    } else if (selectedPrivatePeer != null || currentChannel != null) {
-                        // Black arrow on orange for both private and channel modes
-                        Color.Black
-                    } else if (colorScheme.background == Color.Black) {
-                        Color.Black // Black arrow on bright green in dark theme
-                    } else {
-                        Color.White // White arrow on dark green in light theme
+        if (value.text.isEmpty()) {
+            FilledTonalIconButton(
+                onClick = {
+                    when {
+                        value.text.startsWith("/") -> onValueChange(TextFieldValue(text = ""))
+                        else -> onValueChange(TextFieldValue(text = "/", selection = TextRange("/".length)))
                     }
+                },
+                modifier = Modifier.size(32.dp)
+            ) {
+                Text(
+                    text = "/",
+                    textAlign = TextAlign.Center
                 )
+            }
+        } else {
+            // Send button with enabled/disabled state
+            IconButton(
+                onClick = { if (hasText) onSend() }, // Only execute if there's text
+                enabled = hasText, // Enable only when there's text
+                modifier = Modifier.size(32.dp)
+            ) {
+                // Update send button to match input field colors
+                Box(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .background(
+                            color = if (!hasText) {
+                                // Disabled state - muted grey
+                                colorScheme.onSurface.copy(alpha = 0.3f)
+                            } else if (selectedPrivatePeer != null || currentChannel != null) {
+                                // Orange for both private messages and channels when enabled
+                                Color(0xFFFF9500).copy(alpha = 0.75f)
+                            } else if (colorScheme.background == Color.Black) {
+                                Color(0xFF00FF00).copy(alpha = 0.75f) // Bright green for dark theme
+                            } else {
+                                Color(0xFF008000).copy(alpha = 0.75f) // Dark green for light theme
+                            },
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.ArrowUpward,
+                        contentDescription = stringResource(id = R.string.send_message),
+                        modifier = Modifier.size(20.dp),
+                        tint = if (!hasText) {
+                            // Disabled state - muted grey icon
+                            colorScheme.onSurface.copy(alpha = 0.5f)
+                        } else if (selectedPrivatePeer != null || currentChannel != null) {
+                            // Black arrow on orange for both private and channel modes
+                            Color.Black
+                        } else if (colorScheme.background == Color.Black) {
+                            Color.Black // Black arrow on bright green in dark theme
+                        } else {
+                            Color.White // White arrow on dark green in light theme
+                        }
+                    )
+                }
             }
         }
     }
