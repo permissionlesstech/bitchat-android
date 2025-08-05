@@ -1,42 +1,16 @@
 package com.bitchat.android.ui
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.EaseInCubic
-import androidx.compose.animation.core.EaseOutCubic
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material3.ColorScheme
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.Dp
@@ -68,6 +42,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val showSidebar by viewModel.showSidebar.observeAsState(false)
     val showCommandSuggestions by viewModel.showCommandSuggestions.observeAsState(false)
     val commandSuggestions by viewModel.commandSuggestions.observeAsState(emptyList())
+    val showMentionSuggestions by viewModel.showMentionSuggestions.observeAsState(false)
+    val mentionSuggestions by viewModel.mentionSuggestions.observeAsState(emptyList())
     val showAppInfo by viewModel.showAppInfo.observeAsState(false)
 
     var messageText by remember { mutableStateOf(TextFieldValue("")) }
@@ -92,8 +68,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
 
     // Use WindowInsets to handle keyboard properly
     Box(modifier = Modifier.fillMaxSize()) {
-        val headerHeight = 36.dp
-
+        val headerHeight = 42.dp
+        
         // Main content area that responds to keyboard/window insets
         Column(
             modifier = Modifier
@@ -117,6 +93,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 onMessageTextChange = { newText: TextFieldValue ->
                     messageText = newText
                     viewModel.updateCommandSuggestions(newText.text)
+                    viewModel.updateMentionSuggestions(newText.text)
                 },
                 onSend = {
                     if (messageText.text.trim().isNotEmpty()) {
@@ -126,11 +103,20 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 },
                 showCommandSuggestions = showCommandSuggestions,
                 commandSuggestions = commandSuggestions,
-                onSuggestionClick = { suggestion: CommandSuggestion ->
+                showMentionSuggestions = showMentionSuggestions,
+                mentionSuggestions = mentionSuggestions,
+                onCommandSuggestionClick = { suggestion: CommandSuggestion ->
                     val commandText = viewModel.selectCommandSuggestion(suggestion)
                     messageText = TextFieldValue(
                         text = commandText,
                         selection = TextRange(commandText.length)
+                    )
+                },
+                onMentionSuggestionClick = { mention: String ->
+                    val mentionText = viewModel.selectMentionSuggestion(mention, messageText.text)
+                    messageText = TextFieldValue(
+                        text = mentionText,
+                        selection = TextRange(mentionText.length)
                     )
                 },
                 selectedPrivatePeer = selectedPrivatePeer,
@@ -153,7 +139,25 @@ fun ChatScreen(viewModel: ChatViewModel) {
             onPanicClear = { viewModel.panicClearAllData() }
         )
 
-        // Sidebar overlay
+        val alpha by animateFloatAsState(
+            targetValue = if (showSidebar) 0.5f else 0f,
+            animationSpec = tween(
+                durationMillis = 300,
+                easing = EaseOutCubic
+            ), label = "overlayAlpha"
+        )
+
+        // Only render the background if it's visible
+        if (alpha > 0f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = alpha))
+                    .clickable { viewModel.hideSidebar() }
+                    .zIndex(1f)
+            )
+        }
+
         AnimatedVisibility(
             visible = showSidebar,
             enter = slideInHorizontally(
@@ -205,7 +209,10 @@ private fun ChatInputSection(
     onSend: () -> Unit,
     showCommandSuggestions: Boolean,
     commandSuggestions: List<CommandSuggestion>,
-    onSuggestionClick: (CommandSuggestion) -> Unit,
+    showMentionSuggestions: Boolean,
+    mentionSuggestions: List<String>,
+    onCommandSuggestionClick: (CommandSuggestion) -> Unit,
+    onMentionSuggestionClick: (String) -> Unit,
     selectedPrivatePeer: String?,
     currentChannel: String?,
     nickname: String,
@@ -222,7 +229,18 @@ private fun ChatInputSection(
             if (showCommandSuggestions && commandSuggestions.isNotEmpty()) {
                 CommandSuggestionsBox(
                     suggestions = commandSuggestions,
-                    onSuggestionClick = onSuggestionClick,
+                    onSuggestionClick = onCommandSuggestionClick,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.2f))
+            }
+            
+            // Mention suggestions box
+            if (showMentionSuggestions && mentionSuggestions.isNotEmpty()) {
+                MentionSuggestionsBox(
+                    suggestions = mentionSuggestions,
+                    onSuggestionClick = onMentionSuggestionClick,
                     modifier = Modifier.fillMaxWidth()
                 )
 

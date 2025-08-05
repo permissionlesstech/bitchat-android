@@ -53,7 +53,10 @@ class StoreForwardManager {
      */
     fun cacheMessage(packet: BitchatPacket, messageID: String) {
         // Skip certain message types (same as iOS)
-        if (packet.type == MessageType.KEY_EXCHANGE.value ||
+        if (packet.type == MessageType.NOISE_HANDSHAKE_INIT.value ||
+            packet.type == MessageType.NOISE_HANDSHAKE_RESP.value ||
+            packet.type == MessageType.NOISE_ENCRYPTED.value ||
+            packet.type == MessageType.NOISE_IDENTITY_ANNOUNCE.value ||
             packet.type == MessageType.ANNOUNCE.value ||
             packet.type == MessageType.LEAVE.value) {
             Log.d(TAG, "Skipping cache for message type: ${packet.type}")

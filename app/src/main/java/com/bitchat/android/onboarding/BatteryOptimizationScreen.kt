@@ -90,7 +90,7 @@ private fun BatteryOptimizationEnabledContent(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "bitchat*",
+                text = "bitchat",
                 style = MaterialTheme.typography.headlineLarge.copy(
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
@@ -214,7 +214,7 @@ private fun BatteryOptimizationCheckingContent(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "bitchat*",
+            text = "bitchat",
             style = MaterialTheme.typography.headlineLarge.copy(
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
@@ -271,7 +271,7 @@ private fun BatteryOptimizationNotSupportedContent(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "bitchat*",
+            text = "bitchat",
             style = MaterialTheme.typography.headlineLarge.copy(
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,

@@ -113,10 +113,6 @@ class PowerManager(private val context: Context) {
      * Get scan settings optimized for current power mode
      */
     fun getScanSettings(): ScanSettings {
-        // CRITICAL FIX: Set reportDelay to 0 for all modes.
-        // When using a custom duty cycle, we want scan results delivered immediately,
-        // not batched. A non-zero report delay can conflict with the scan window,
-        // causing missed results if the scan stops before the delay is met.
         val builder = ScanSettings.Builder()
             .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
 

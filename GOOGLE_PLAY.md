@@ -1,0 +1,1 @@
+I, callebtc, creator of bitchat for android, owner of the copyright claims, and owner of the official bitchat android repository (https://github.com/permissionlesstech/bitchat-android), hereby authorize Verse Communication PBC to publish bitchat (com.bitchat.doid) on the Google Play Store.

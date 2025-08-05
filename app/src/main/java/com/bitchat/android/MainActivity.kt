@@ -11,11 +11,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.ViewModelProvider
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.Lifecycle
 import com.bitchat.android.mesh.BluetoothMeshService
@@ -60,16 +62,13 @@ class MainActivity : ComponentActivity() {
         }
     }
     
-
-    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Initialize core mesh service first
-        meshService = BluetoothMeshService(this)
-        
         // Initialize permission management
         permissionManager = PermissionManager(this)
+        // Initialize core mesh service first
+        meshService = BluetoothMeshService(this)
         bluetoothStatusManager = BluetoothStatusManager(
             activity = this,
             context = this,
@@ -124,6 +123,7 @@ class MainActivity : ComponentActivity() {
     
     @Composable
     private fun OnboardingFlowScreen() {
+        val context = LocalContext.current
         val onboardingState by mainViewModel.onboardingState.collectAsState()
         val bluetoothStatus by mainViewModel.bluetoothStatus.collectAsState()
         val locationStatus by mainViewModel.locationStatus.collectAsState()
@@ -132,7 +132,29 @@ class MainActivity : ComponentActivity() {
         val isBluetoothLoading by mainViewModel.isBluetoothLoading.collectAsState()
         val isLocationLoading by mainViewModel.isLocationLoading.collectAsState()
         val isBatteryOptimizationLoading by mainViewModel.isBatteryOptimizationLoading.collectAsState()
-        
+
+        DisposableEffect(context, bluetoothStatusManager) {
+
+            val receiver = bluetoothStatusManager.monitorBluetoothState(
+                context = context,
+                bluetoothStatusManager = bluetoothStatusManager,
+                onBluetoothStateChanged = { status ->
+                    if (status == BluetoothStatus.ENABLED && onboardingState == OnboardingState.BLUETOOTH_CHECK) {
+                        checkBluetoothAndProceed()
+                    }
+                }
+            )
+
+            onDispose {
+                try {
+                    context.unregisterReceiver(receiver)
+                    Log.d("BluetoothStatusUI", "BroadcastReceiver unregistered")
+                } catch (e: IllegalStateException) {
+                    Log.w("BluetoothStatusUI", "Receiver was not registered")
+                }
+            }
+        }
+
         when (onboardingState) {
             OnboardingState.CHECKING -> {
                 InitializingScreen()
@@ -209,7 +231,7 @@ class MainActivity : ComponentActivity() {
                         // Let ChatViewModel handle navigation state
                         val handled = chatViewModel.handleBackPressed()
                         if (!handled) {
-                            // If ChatViewModel doesn't handle it, disable this callback 
+                            // If ChatViewModel doesn't handle it, disable this callback
                             // and let the system handle it (which will exit the app)
                             this.isEnabled = false
                             onBackPressedDispatcher.onBackPressed()
@@ -217,10 +239,9 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-                
+
                 // Add the callback - this will be automatically removed when the activity is destroyed
                 onBackPressedDispatcher.addCallback(this, backCallback)
-                
                 ChatScreen(viewModel = chatViewModel)
             }
             
@@ -568,7 +589,7 @@ class MainActivity : ComponentActivity() {
                     handleOnboardingFailed("Some permissions were revoked. Please grant all permissions to continue.")
                     return@launch
                 }
-                
+
                 // Set up mesh service delegate and start services
                 meshService.delegate = chatViewModel
                 meshService.startServices()
@@ -626,7 +647,7 @@ class MainActivity : ComponentActivity() {
         }
     }
     
-    override fun onPause() {
+     override fun onPause() {
         super.onPause()
         // Only set background state if app is fully initialized
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
@@ -661,6 +682,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    
     override fun onDestroy() {
         super.onDestroy()
         
