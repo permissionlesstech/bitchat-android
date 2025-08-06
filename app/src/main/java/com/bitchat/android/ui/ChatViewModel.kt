@@ -84,9 +84,13 @@ class ChatViewModel(
     val hasUnreadPrivateMessages = state.hasUnreadPrivateMessages
     val showCommandSuggestions: LiveData<Boolean> = state.showCommandSuggestions
     val commandSuggestions: LiveData<List<CommandSuggestion>> = state.commandSuggestions
+    val showMentionSuggestions: LiveData<Boolean> = state.showMentionSuggestions
+    val mentionSuggestions: LiveData<List<String>> = state.mentionSuggestions
     val favoritePeers: LiveData<Set<String>> = state.favoritePeers
     val peerSessionStates: LiveData<Map<String, String>> = state.peerSessionStates
     val peerFingerprints: LiveData<Map<String, String>> = state.peerFingerprints
+    val peerNicknames: LiveData<Map<String, String>> = state.peerNicknames
+    val peerRSSI: LiveData<Map<String, Int>> = state.peerRSSI
     val showAppInfo: LiveData<Boolean> = state.showAppInfo
     val showExitDialog: LiveData<Boolean> = state.showExitDialog
     val shutdownRequest: LiveData<Boolean> = state.shutdownRequest
@@ -324,7 +328,7 @@ class ChatViewModel(
     }
     
     /**
-     * Update reactive states for all connected peers (session states and fingerprints)
+     * Update reactive states for all connected peers (session states, fingerprints, nicknames, RSSI)
      */
     private fun updateReactiveStates() {
         val currentPeers = state.getConnectedPeersValue()
@@ -334,10 +338,15 @@ class ChatViewModel(
             meshService.getSessionState(peerID).toString()
         }
         state.setPeerSessionStates(sessionStates)
-        
         // Update fingerprint mappings from centralized manager
         val fingerprints = privateChatManager.getAllPeerFingerprints()
         state.setPeerFingerprints(fingerprints)
+
+        val nicknames = meshService.getPeerNicknames()
+        state.setPeerNicknames(nicknames)
+
+        val rssiValues = meshService.getPeerRSSI()
+        state.setPeerRSSI(rssiValues)
     }
     
     // MARK: - Debug and Troubleshooting
@@ -372,6 +381,16 @@ class ChatViewModel(
     
     fun selectCommandSuggestion(suggestion: CommandSuggestion): String {
         return commandProcessor.selectCommandSuggestion(suggestion)
+    }
+    
+    // MARK: - Mention Autocomplete
+    
+    fun updateMentionSuggestions(input: String) {
+        commandProcessor.updateMentionSuggestions(input, meshService)
+    }
+    
+    fun selectMentionSuggestion(nickname: String, currentText: String): String {
+        return commandProcessor.selectMentionSuggestion(nickname, currentText)
     }
     
     // MARK: - BluetoothMeshDelegate Implementation (delegated)
