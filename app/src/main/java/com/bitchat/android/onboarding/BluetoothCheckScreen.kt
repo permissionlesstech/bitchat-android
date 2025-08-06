@@ -134,7 +134,7 @@ private fun BluetoothDisabledContent(
                     )
                 ) {
                     Text(
-                        text = "Enable Bluetooth",
+                        text = stringResource(R.string.enable_bluetooth),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold
@@ -143,6 +143,18 @@ private fun BluetoothDisabledContent(
                     )
                 }
 
+                OutlinedButton(
+                    onClick = onRetry,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = stringResource(R.string.check_again),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = FontFamily.Monospace
+                        ),
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                }
                 //Since we are automatically checking bluetooth state -- commented
 
 //                OutlinedButton(
