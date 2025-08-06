@@ -82,4 +82,39 @@
     <string name="permissions_needed">Для правільнай працы bitchat патрабуюцца наступныя дазволы:</string>
     <string name="grant_permissions">Даць дазволы</string>
     <string name="location_no_gps">bitchat НЕ выкарыстоўвае GPS і не адсочвае месцазнаходжанне</string>
+
+    <string name="app_info_tagline">mesh-чат для групнога абмену паведамленнямі</string>
+    <string name="features_title">Магчымасці</string>
+    <string name="feature_offline_title">аўтаномная сувязь</string>
+    <string name="feature_offline_desc">працуе без інтэрнэту з дапамогай Bluetooth Low Energy</string>
+    <string name="feature_encryption_title">скразное шыфраванне</string>
+    <string name="feature_encryption_desc">прыватныя паведамленні шыфруюцца з дапамогай пратаколу Noise</string>
+    <string name="feature_range_title">пашыраны радыус дзеяння</string>
+    <string name="feature_range_desc">паведамленні рэтранслююцца праз іншых удзельнікаў, павялічваючы адлегласць</string>
+    <string name="feature_favorites_title">абранае</string>
+    <string name="feature_favorites_desc">атрымлівайце апавяшчэнні, калі вашы абраныя кантакты далучаюцца</string>
+    <string name="feature_mutual_favorites_title">узаемна абраныя</string>
+    <string name="feature_mutual_favorites_desc">пішыце адзін аднаму праз nostr, калі вы па-за зонай дзеяння mesh-сеткі</string>
+    <string name="feature_mentions_title">згадкі</string>
+    <string name="feature_mentions_desc">выкарыстоўвайце @nickname для апавяшчэння канкрэтных людзей</string>
+
+    <string name="privacy_title">Прыватнасць</string>
+    <string name="privacy_no_tracking_title">без адсочвання</string>
+    <string name="privacy_no_tracking_desc">без сервераў, уліковых запісаў і збору даных</string>
+    <string name="privacy_ephemeral_title">эфемерная ідэнтычнасць</string>
+    <string name="privacy_ephemeral_desc">новы ID генеруецца рэгулярна</string>
+    <string name="privacy_panic_title">рэжым панікі</string>
+    <string name="privacy_panic_desc">тройчы націсніце на лагатып, каб імгненна выдаліць усе даныя</string>
+
+    <string name="how_to_use_title">Як карыстацца</string>
+    <string name="how_to_use_1">• усталюйце свой нікнэйм, націснуўшы на яго</string>
+    <string name="how_to_use_2">• правядзіце пальцам улева для бакавой панэлі</string>
+    <string name="how_to_use_3">• націсніце на карыстальніка, каб пачаць прыватны чат</string>
+    <string name="how_to_use_4">• выкарыстоўвайце @nickname, каб згадаць каго-небудзь</string>
+    <string name="how_to_use_5">• тройчы націсніце на чат, каб ачысціць яго</string>
+
+    <string name="warning_title">Папярэджанне</string>
+    <string name="warning_message">Бяспека прыватных паведамленняў яшчэ не прайшла поўны аўдыт. Не выкарыстоўвайце для крытычна важных сітуацый, пакуль гэтае папярэджанне не знікне.</string>
+
+    <string name="done">Гатова</string>
 </resources>

@@ -82,4 +82,39 @@
     <string name="permissions_needed">Для правильной работы bitchat требуются следующие разрешения:</string>
     <string name="grant_permissions">Предоставить разрешения</string>
     <string name="location_no_gps">bitchat НЕ использует GPS и не отслеживает местоположение</string>
+
+    <string name="app_info_tagline">mesh-чат для групповых бесед</string>
+    <string name="features_title">Возможности</string>
+    <string name="feature_offline_title">офлайн-общение</string>
+    <string name="feature_offline_desc">работает без интернета с помощью Bluetooth Low Energy</string>
+    <string name="feature_encryption_title">сквозное шифрование</string>
+    <string name="feature_encryption_desc">личные сообщения шифруются по протоколу Noise</string>
+    <string name="feature_range_title">расширенный радиус действия</string>
+    <string name="feature_range_desc">сообщения ретранслируются через других участников, увеличивая расстояние</string>
+    <string name="feature_favorites_title">избранное</string>
+    <string name="feature_favorites_desc">получайте уведомления, когда избранные контакты присоединяются</string>
+    <string name="feature_mutual_favorites_title">взаимно в избранном</string>
+    <string name="feature_mutual_favorites_desc">пишите друг другу через nostr, когда вы вне зоны действия mesh-сети</string>
+    <string name="feature_mentions_title">упоминания</string>
+    <string name="feature_mentions_desc">используйте @nickname для уведомления конкретных людей</string>
+
+    <string name="privacy_title">Приватность</string>
+    <string name="privacy_no_tracking_title">без отслеживания</string>
+    <string name="privacy_no_tracking_desc">без серверов, учётных записей и сбора данных</string>
+    <string name="privacy_ephemeral_title">эфемерная личность</string>
+    <string name="privacy_ephemeral_desc">новый ID генерируется регулярно</string>
+    <string name="privacy_panic_title">режим паники</string>
+    <string name="privacy_panic_desc">нажмите на логотип трижды, чтобы мгновенно удалить все данные</string>
+
+    <string name="how_to_use_title">Как пользоваться</string>
+    <string name="how_to_use_1">• установите свой никнейм, нажав на него</string>
+    <string name="how_to_use_2">• смахните влево для боковой панели</string>
+    <string name="how_to_use_3">• нажмите на пользователя, чтобы начать личный чат</string>
+    <string name="how_to_use_4">• используйте @nickname, чтобы упомянуть кого-либо</string>
+    <string name="how_to_use_5">• нажмите на чат трижды, чтобы очистить его</string>
+
+    <string name="warning_title">Предупреждение</string>
+    <string name="warning_message">Безопасность личных сообщений ещё не прошла полный аудит. Не используйте для критически важных ситуаций, пока это предупреждение не исчезнет.</string>
+
+    <string name="done">Готово</string>
 </resources>
