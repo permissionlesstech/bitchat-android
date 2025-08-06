@@ -97,14 +97,31 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+
+    /**
+     * Starts the [ForegroundService] if it's not already running and then binds to it.
+     * This ensures that the service is running as a foreground service, which is crucial
+     * for its continuous operation, especially for tasks like Bluetooth mesh networking.
+     * Binding to the service allows the Activity to interact with it, for example,
+     * to get a reference to the MeshService instance or to listen for service events.
+     *
+     * The service is started first using `startForegroundService` to guarantee it transitions
+     * to a foreground state. Then, `bindService` is called to establish a connection.
+     * The `BIND_AUTO_CREATE` flag ensures that the service is created if it's not already running,
+     * though in this flow, `startForegroundService` typically handles the creation.
+     */
     private fun startAndBindService() {
         // Always start the service first to ensure it's running as a foreground service.
         val serviceIntent = Intent(this, ForegroundService::class.java)
         if (!ForegroundService.isServiceRunning) {
+            Log.d(TAG, "Starting foreground service")
             startForegroundService(serviceIntent)
+        } else {
+            Log.d(TAG, "Foreground service already running!")
         }
         // Bind to the service to get a reference to it.
         if (!isServiceBound) {
+            Log.d(TAG, "Binding to foreground service")
             bindService(serviceIntent, serviceConnection, BIND_AUTO_CREATE)
         }
     }
@@ -261,7 +278,7 @@ class MainActivity : ComponentActivity() {
                 InitializingScreen()
                 startAndBindService()
             }
-            
+
             OnboardingState.COMPLETE -> {
                 ChatScreen(viewModel = chatViewModel)
             }
@@ -640,6 +657,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        chatViewModel.setAppBackgroundState(inBackground = false)
         // Check Bluetooth and Location status on resume and handle accordingly
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
             // Check if Bluetooth was disabled while app was backgrounded
@@ -667,6 +685,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onPause() {
         super.onPause()
+        chatViewModel.setAppBackgroundState(inBackground = true)
         // Only unbind if the service is actually bound
         if (isServiceBound) {
             unbindService(serviceConnection)

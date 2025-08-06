@@ -16,7 +16,6 @@ import android.util.Log
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
-import com.bitchat.android.BuildConfig
 import com.bitchat.android.R
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryAck
@@ -27,7 +26,6 @@ import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 import kotlin.random.Random
-
 
 /**
  * A foreground service that provides a standard, live-updating Android notification
@@ -52,11 +50,10 @@ class ForegroundService : Service(), BluetoothMeshDelegate {
         private const val TAG = "MeshForegroundService"
         private const val NOTIFICATION_ID = 1
         private const val FOREGROUND_CHANNEL_ID = "com.bitchat.android.FOREGROUND_SERVICE"
-        private const val MOCK_PEERS_ENABLED = false
+        private const val MOCK_PEERS_ENABLED = true
 
         const val ACTION_RESET_UNREAD_COUNT = "com.bitchat.android.ACTION_RESET_UNREAD_COUNT"
         const val ACTION_SHUTDOWN = "com.bitchat.android.ACTION_SHUTDOWN"
-
 
         @Volatile
         var isServiceRunning = false
@@ -67,6 +64,7 @@ class ForegroundService : Service(), BluetoothMeshDelegate {
 
     override fun onCreate() {
         super.onCreate()
+        Log.d(TAG, "Foreground Service onCreate")
         isServiceRunning = true
         notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
 
@@ -193,13 +191,14 @@ class ForegroundService : Service(), BluetoothMeshDelegate {
         val colors = if (isDarkTheme) DarkColorScheme else LightColorScheme
 
         val peerCount = activePeers.size
+        val contentText = getString(R.string.notification_scanning)
         val contentTitle = resources.getQuantityString(R.plurals.peers_nearby, peerCount, peerCount)
-        val contentText = resources.getQuantityString(R.plurals.unread_messages, unreadMessageCount, unreadMessageCount)
+        val summaryText = resources.getQuantityString(R.plurals.unread_messages, unreadMessageCount, unreadMessageCount)
 
         // Expanded view style using InboxStyle
         val inboxStyle = NotificationCompat.InboxStyle()
             .setBigContentTitle(contentTitle)
-            .setSummaryText(getString(R.string.notification_summary))
+            .setSummaryText(summaryText)
 
         // Add each peer to the expanded view
         if (activePeers.isNotEmpty()) {
@@ -208,7 +207,7 @@ class ForegroundService : Service(), BluetoothMeshDelegate {
                 inboxStyle.addLine("${peer.nickname}  $proximityBars")
             }
         } else {
-            inboxStyle.addLine(getString(R.string.notification_scanning))
+            inboxStyle.addLine(contentText)
         }
 
         val builder = NotificationCompat.Builder(this, FOREGROUND_CHANNEL_ID)
@@ -216,6 +215,7 @@ class ForegroundService : Service(), BluetoothMeshDelegate {
             .setColor(colors.primary.toArgb())
             .setContentTitle(contentTitle)
             .setContentText(contentText)
+            .setNumber(unreadMessageCount)
             .setStyle(inboxStyle)
             .setContentIntent(createMainPendingIntent())
             .setOngoing(true)
