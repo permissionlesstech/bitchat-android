@@ -79,6 +79,13 @@ class ChatState {
     private val _commandSuggestions = MutableLiveData<List<CommandSuggestion>>(emptyList())
     val commandSuggestions: LiveData<List<CommandSuggestion>> = _commandSuggestions
     
+    // Mention autocomplete
+    private val _showMentionSuggestions = MutableLiveData(false)
+    val showMentionSuggestions: LiveData<Boolean> = _showMentionSuggestions
+    
+    private val _mentionSuggestions = MutableLiveData<List<String>>(emptyList())
+    val mentionSuggestions: LiveData<List<String>> = _mentionSuggestions
+    
     // Favorites
     private val _favoritePeers = MutableLiveData<Set<String>>(emptySet())
     val favoritePeers: LiveData<Set<String>> = _favoritePeers
@@ -90,6 +97,12 @@ class ChatState {
     // Peer fingerprint state for reactive favorites (for reactive UI updates)
     private val _peerFingerprints = MutableLiveData<Map<String, String>>(emptyMap())
     val peerFingerprints: LiveData<Map<String, String>> = _peerFingerprints
+
+    private val _peerNicknames = MutableLiveData<Map<String, String>>(emptyMap())
+    val peerNicknames: LiveData<Map<String, String>> = _peerNicknames
+
+    private val _peerRSSI = MutableLiveData<Map<String, Int>>(emptyMap())
+    val peerRSSI: LiveData<Map<String, Int>> = _peerRSSI
     
     // peerIDToPublicKeyFingerprint REMOVED - fingerprints now handled centrally in PeerManager
     
@@ -129,6 +142,8 @@ class ChatState {
     fun getShowSidebarValue() = _showSidebar.value ?: false
     fun getShowCommandSuggestionsValue() = _showCommandSuggestions.value ?: false
     fun getCommandSuggestionsValue() = _commandSuggestions.value ?: emptyList()
+    fun getShowMentionSuggestionsValue() = _showMentionSuggestions.value ?: false
+    fun getMentionSuggestionsValue() = _mentionSuggestions.value ?: emptyList()
     fun getFavoritePeersValue() = _favoritePeers.value ?: emptySet()
     fun getPeerSessionStatesValue() = _peerSessionStates.value ?: emptyMap()
     fun getPeerFingerprintsValue() = _peerFingerprints.value ?: emptyMap()
@@ -202,6 +217,14 @@ class ChatState {
     fun setCommandSuggestions(suggestions: List<CommandSuggestion>) {
         _commandSuggestions.value = suggestions
     }
+    
+    fun setShowMentionSuggestions(show: Boolean) {
+        _showMentionSuggestions.value = show
+    }
+    
+    fun setMentionSuggestions(suggestions: List<String>) {
+        _mentionSuggestions.value = suggestions
+    }
 
     fun setFavoritePeers(favorites: Set<String>) {
         val currentValue = _favoritePeers.value ?: emptySet()
@@ -223,6 +246,14 @@ class ChatState {
     
     fun setPeerFingerprints(fingerprints: Map<String, String>) {
         _peerFingerprints.value = fingerprints
+    }
+
+    fun setPeerNicknames(nicknames: Map<String, String>) {
+        _peerNicknames.value = nicknames
+    }
+
+    fun setPeerRSSI(rssi: Map<String, Int>) {
+        _peerRSSI.value = rssi
     }
     
     fun setShowAppInfo(show: Boolean) {
