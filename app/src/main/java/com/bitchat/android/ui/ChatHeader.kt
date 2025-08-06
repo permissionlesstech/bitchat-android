@@ -193,6 +193,68 @@ fun PeerCounter(
 }
 
 @Composable
+fun ChatHeaderContent(
+    selectedPrivatePeer: String?,
+    currentChannel: String?,
+    nickname: String,
+    viewModel: ChatViewModel,
+    onBackClick: () -> Unit,
+    onSidebarClick: () -> Unit,
+    onTripleClick: () -> Unit,
+    onShowAppInfo: () -> Unit
+) {
+    val colorScheme = MaterialTheme.colorScheme
+
+    when {
+        selectedPrivatePeer != null -> {
+            // Private chat header - Fully reactive state tracking
+            val favoritePeers by viewModel.favoritePeers.observeAsState(emptySet())
+            val peerFingerprints by viewModel.peerFingerprints.observeAsState(emptyMap())
+            val peerSessionStates by viewModel.peerSessionStates.observeAsState(emptyMap())
+            
+            // Reactive favorite computation - no more static lookups!
+            val isFavorite = isFavoriteReactive(
+                peerID = selectedPrivatePeer,
+                peerFingerprints = peerFingerprints,
+                favoritePeers = favoritePeers
+            )
+            val sessionState = peerSessionStates[selectedPrivatePeer]
+            
+            Log.d("ChatHeader", "Header recomposing: peer=$selectedPrivatePeer, isFav=$isFavorite, sessionState=$sessionState")
+            
+            PrivateChatHeader(
+                peerID = selectedPrivatePeer,
+                peerNicknames = viewModel.meshService.getPeerNicknames(),
+                isFavorite = isFavorite,
+                sessionState = sessionState,
+                onBackClick = onBackClick,
+                onToggleFavorite = { viewModel.toggleFavorite(selectedPrivatePeer) }
+            )
+        }
+        currentChannel != null -> {
+            // Channel header
+            ChannelHeader(
+                channel = currentChannel,
+                onBackClick = onBackClick,
+                onLeaveChannel = { viewModel.leaveChannel(currentChannel) },
+                onSidebarClick = onSidebarClick
+            )
+        }
+        else -> {
+            // Main header
+            MainHeader(
+                nickname = nickname,
+                onNicknameChange = viewModel::setNickname,
+                onTitleClick = onShowAppInfo,
+                onTripleTitleClick = onTripleClick,
+                onSidebarClick = onSidebarClick,
+                viewModel = viewModel
+            )
+        }
+    }
+}
+
+@Composable
 private fun PrivateChatHeader(
     peerID: String,
     peerNicknames: Map<String, String>,
@@ -282,7 +344,7 @@ private fun ChannelHeader(
     onSidebarClick: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
-
+    
     Box(modifier = Modifier.fillMaxWidth()) {
         // Back button - positioned all the way to the left with minimal margin
         Button(
@@ -313,7 +375,7 @@ private fun ChannelHeader(
                 )
             }
         }
-
+        
         // Title - perfectly centered regardless of other elements
         Text(
             text = "channel: $channel",
@@ -323,7 +385,7 @@ private fun ChannelHeader(
                 .align(Alignment.Center)
                 .clickable { onSidebarClick() }
         )
-
+        
         // Leave button - positioned on the right
         TextButton(
             onClick = onLeaveChannel,
@@ -339,77 +401,13 @@ private fun ChannelHeader(
 }
 
 @Composable
-fun ChatHeaderContent(
-    selectedPrivatePeer: String?,
-    currentChannel: String?,
-    nickname: String,
-    viewModel: ChatViewModel,
-    onBackClick: () -> Unit,
-    onSidebarClick: () -> Unit,
-    onTripleClick: () -> Unit,
-    onShowAppInfo: () -> Unit,
-    onShutdownClick: () -> Unit // New callback for shutdown
-) {
-    val colorScheme = MaterialTheme.colorScheme
-
-    when {
-        selectedPrivatePeer != null -> {
-            // Private chat header - Fully reactive state tracking
-            val favoritePeers by viewModel.favoritePeers.observeAsState(emptySet())
-            val peerFingerprints by viewModel.peerFingerprints.observeAsState(emptyMap())
-            val peerSessionStates by viewModel.peerSessionStates.observeAsState(emptyMap())
-
-            val isFavorite = isFavoriteReactive(
-                peerID = selectedPrivatePeer,
-                peerFingerprints = peerFingerprints,
-                favoritePeers = favoritePeers
-            )
-            val sessionState = peerSessionStates[selectedPrivatePeer]
-
-            PrivateChatHeader(
-                peerID = selectedPrivatePeer,
-                peerNicknames = viewModel.meshService.getPeerNicknames(),
-                isFavorite = isFavorite,
-                sessionState = sessionState,
-                onBackClick = onBackClick,
-                onToggleFavorite = { viewModel.toggleFavorite(selectedPrivatePeer) }
-            )
-        }
-        currentChannel != null -> {
-            // Channel header
-            ChannelHeader(
-                channel = currentChannel,
-                onBackClick = onBackClick,
-                onLeaveChannel = { viewModel.leaveChannel(currentChannel) },
-                onSidebarClick = onSidebarClick
-            )
-        }
-        else -> {
-            // Main header
-            MainHeader(
-                nickname = nickname,
-                onNicknameChange = viewModel::setNickname,
-                onTitleClick = onShowAppInfo,
-                onTripleTitleClick = onTripleClick,
-                onSidebarClick = onSidebarClick,
-                viewModel = viewModel,
-                onShutdownClick = onShutdownClick, // Pass down the shutdown callback
-                onPanicClear = onTripleClick
-            )
-        }
-    }
-}
-
-@Composable
 private fun MainHeader(
     nickname: String,
     onNicknameChange: (String) -> Unit,
     onTitleClick: () -> Unit,
     onTripleTitleClick: () -> Unit,
     onSidebarClick: () -> Unit,
-    viewModel: ChatViewModel,
-    onShutdownClick: () -> Unit,
-    onPanicClear: () -> Unit
+    viewModel: ChatViewModel
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val connectedPeers by viewModel.connectedPeers.observeAsState(emptyList())
@@ -417,15 +415,14 @@ private fun MainHeader(
     val hasUnreadChannels by viewModel.unreadChannelMessages.observeAsState(emptyMap())
     val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.observeAsState(emptySet())
     val isConnected by viewModel.isConnected.observeAsState(false)
-
+    
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Left side: Logo and Nickname
         Row(
-            modifier = Modifier.weight(1f).fillMaxHeight(),
+            modifier = Modifier.fillMaxHeight(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -437,64 +434,22 @@ private fun MainHeader(
                     onTripleClick = onTripleTitleClick
                 )
             )
-
+            
             Spacer(modifier = Modifier.width(2.dp))
-
+            
             NicknameEditor(
                 value = nickname,
                 onValueChange = onNicknameChange
             )
         }
-
-        // Right side: Peer Counter and Menu
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.End
-        ) {
-            PeerCounter(
-                connectedPeers = connectedPeers.filter { it != viewModel.meshService.myPeerID },
-                joinedChannels = joinedChannels,
-                hasUnreadChannels = hasUnreadChannels,
-                hasUnreadPrivateMessages = hasUnreadPrivateMessages,
-                isConnected = isConnected,
-                onClick = onSidebarClick
-            )
-
-            var showMenu by remember { mutableStateOf(false) }
-            IconButton(onClick = { showMenu = true }) {
-                Icon(
-                    imageVector = Icons.Default.MoreVert,
-                    contentDescription = "More options",
-                    tint = colorScheme.onSurface
-                )
-            }
-            DropdownMenu(
-                expanded = showMenu,
-                onDismissRequest = { showMenu = false }
-            ) {
-                DropdownMenuItem(
-                    text = { Text("App Info") },
-                    onClick = {
-                        onTitleClick()
-                        showMenu = false
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text("Panic Clear Data") },
-                    onClick = {
-                        onPanicClear()
-                        showMenu = false
-                    }
-                )
-                HorizontalDivider()
-                DropdownMenuItem(
-                    text = { Text("Shut Down Service", color = colorScheme.error) },
-                    onClick = {
-                        onShutdownClick()
-                        showMenu = false
-                    }
-                )
-            }
-        }
+        
+        PeerCounter(
+            connectedPeers = connectedPeers.filter { it != viewModel.meshService.myPeerID },
+            joinedChannels = joinedChannels,
+            hasUnreadChannels = hasUnreadChannels,
+            hasUnreadPrivateMessages = hasUnreadPrivateMessages,
+            isConnected = isConnected,
+            onClick = onSidebarClick
+        )
     }
 }
