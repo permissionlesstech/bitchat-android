@@ -21,7 +21,7 @@ import kotlin.random.Random
  */
 class ChatViewModel(
     application: Application
-) : AndroidViewModel(application), BluetoothMeshDelegate {
+) : AndroidViewModel(application) {
 
     companion object {
         private const val TAG = "ChatViewModel"
@@ -50,20 +50,7 @@ class ChatViewModel(
     val privateChatManager = PrivateChatManager(state, messageManager, dataManager, noiseSessionDelegate)
     private val commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager)
     private val notificationManager = NotificationManager(application.applicationContext)
-    
-    // Delegate handler for mesh callbacks
-    private val meshDelegateHandler = MeshDelegateHandler(
-        state = state,
-        messageManager = messageManager,
-        channelManager = channelManager,
-        privateChatManager = privateChatManager,
-        notificationManager = notificationManager,
-        coroutineScope = viewModelScope,
-        onHapticFeedback = { ChatViewModelUtils.triggerHapticFeedback(application.applicationContext) },
-        getMyPeerID = { meshService.myPeerID },
-        getMeshService = { meshService }
-    )
-    
+
     // Expose state through LiveData (maintaining the same interface)
     val messages: LiveData<List<BitchatMessage>> = state.messages
     val connectedPeers: LiveData<List<String>> = state.connectedPeers
@@ -118,7 +105,6 @@ class ChatViewModel(
     fun initialize(meshService: BluetoothMeshService) {
         Log.d(TAG, "Initializing ChatViewModel")
         this.meshService = meshService
-        this.meshService.delegate = this
         loadAndInitialize()
     }
 
@@ -391,51 +377,7 @@ class ChatViewModel(
     fun selectMentionSuggestion(nickname: String, currentText: String): String {
         return commandProcessor.selectMentionSuggestion(nickname, currentText)
     }
-    
-    // MARK: - BluetoothMeshDelegate Implementation (delegated)
-    
-    override fun didReceiveMessage(message: BitchatMessage) {
-        meshDelegateHandler.didReceiveMessage(message)
-    }
-    
-    override fun didConnectToPeer(peerID: String) {
-        meshDelegateHandler.didConnectToPeer(peerID)
-    }
-    
-    override fun didDisconnectFromPeer(peerID: String) {
-        meshDelegateHandler.didDisconnectFromPeer(peerID)
-    }
-    
-    override fun didUpdatePeerList(peers: List<String>) {
-        meshDelegateHandler.didUpdatePeerList(peers)
-    }
-    
-    override fun didReceiveChannelLeave(channel: String, fromPeer: String) {
-        meshDelegateHandler.didReceiveChannelLeave(channel, fromPeer)
-    }
-    
-    override fun didReceiveDeliveryAck(ack: DeliveryAck) {
-        meshDelegateHandler.didReceiveDeliveryAck(ack)
-    }
-    
-    override fun didReceiveReadReceipt(receipt: ReadReceipt) {
-        meshDelegateHandler.didReceiveReadReceipt(receipt)
-    }
-    
-    override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {
-        return meshDelegateHandler.decryptChannelMessage(encryptedContent, channel)
-    }
-    
-    override fun getNickname(): String? {
-        return meshDelegateHandler.getNickname()
-    }
-    
-    override fun isFavorite(peerID: String): Boolean {
-        return meshDelegateHandler.isFavorite(peerID)
-    }
-    
-    // registerPeerPublicKey REMOVED - fingerprints now handled centrally in PeerManager
-    
+
     // MARK: - Emergency Clear
     
     fun panicClearAllData() {
