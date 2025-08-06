@@ -65,31 +65,31 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val showCommandSuggestions by viewModel.showCommandSuggestions.observeAsState(false)
     val commandSuggestions by viewModel.commandSuggestions.observeAsState(emptyList())
     val showAppInfo by viewModel.showAppInfo.observeAsState(false)
-
+    
     var messageText by remember { mutableStateOf(TextFieldValue("")) }
     var showPasswordPrompt by remember { mutableStateOf(false) }
     var showPasswordDialog by remember { mutableStateOf(false) }
     var passwordInput by remember { mutableStateOf("") }
-
+    
     // Show password dialog when needed
     LaunchedEffect(showPasswordPrompt) {
         showPasswordDialog = showPasswordPrompt
     }
-
+    
     val isConnected by viewModel.isConnected.observeAsState(false)
     val passwordPromptChannel by viewModel.passwordPromptChannel.observeAsState(null)
-
+    
     // Determine what messages to show
     val displayMessages = when {
         selectedPrivatePeer != null -> privateChats[selectedPrivatePeer] ?: emptyList()
         currentChannel != null -> channelMessages[currentChannel] ?: emptyList()
         else -> messages
     }
-
+    
     // Use WindowInsets to handle keyboard properly
     Box(modifier = Modifier.fillMaxSize()) {
         val headerHeight = 42.dp
-
+        
         // Main content area that responds to keyboard/window insets
         Column(
             modifier = Modifier
@@ -99,7 +99,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
         ) {
             // Header spacer - creates space for the floating header
             Spacer(modifier = Modifier.height(headerHeight))
-
+            
             // Messages area - takes up available space, will compress when keyboard appears
             MessagesList(
                 messages = displayMessages,
@@ -107,7 +107,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 meshService = viewModel.meshService,
                 modifier = Modifier.weight(1f)
             )
-
+            
             // Input area - stays at bottom
             ChatInputSection(
                 messageText = messageText,
@@ -136,7 +136,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 colorScheme = colorScheme
             )
         }
-
+        
         // Floating header - positioned absolutely at top, ignores keyboard
         ChatFloatingHeader(
             headerHeight = headerHeight,
@@ -149,7 +149,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             onShowAppInfo = { viewModel.showAppInfo() },
             onPanicClear = { viewModel.panicClearAllData() }
         )
-
+        
         // Sidebar overlay
         AnimatedVisibility(
             visible = showSidebar,
@@ -161,7 +161,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 targetOffsetX = { it },
                 animationSpec = tween(250, easing = EaseInCubic)
             ) + fadeOut(animationSpec = tween(250)),
-            modifier = Modifier.zIndex(2f)
+            modifier = Modifier.zIndex(2f) 
         ) {
             SidebarOverlay(
                 viewModel = viewModel,
@@ -170,7 +170,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             )
         }
     }
-
+    
     // Dialogs
     ChatDialogs(
         showPasswordDialog = showPasswordDialog,
@@ -215,7 +215,7 @@ private fun ChatInputSection(
     ) {
         Column {
             HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
-
+            
             // Command suggestions box
             if (showCommandSuggestions && commandSuggestions.isNotEmpty()) {
                 CommandSuggestionsBox(
@@ -226,7 +226,7 @@ private fun ChatInputSection(
 
                 HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.2f))
             }
-
+            
             MessageInput(
                 value = messageText,
                 onValueChange = onMessageTextChange,
@@ -285,7 +285,7 @@ private fun ChatFloatingHeader(
             )
         )
     }
-
+    
     // Divider under header
     HorizontalDivider(
         modifier = Modifier
@@ -316,7 +316,7 @@ private fun ChatDialogs(
         onConfirm = onPasswordConfirm,
         onDismiss = onPasswordDismiss
     )
-
+    
     // App info dialog
     AppInfoDialog(
         show = showAppInfo,
