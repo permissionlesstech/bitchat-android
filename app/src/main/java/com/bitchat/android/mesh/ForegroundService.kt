@@ -219,7 +219,11 @@ class ForegroundService : Service(), BluetoothMeshDelegate {
             .setStyle(inboxStyle)
             .setContentIntent(createMainPendingIntent())
             .setOngoing(true)
-            .addAction(0, getString(R.string.notification_action_shutdown), createActionPendingIntent(ACTION_SHUTDOWN))
+            .addAction(
+                0,
+                getString(
+                R.string.notification_action_shutdown),
+                createActionPendingIntent(ACTION_SHUTDOWN))
 
         if (alert) {
             builder.setOnlyAlertOnce(false)
@@ -272,7 +276,7 @@ class ForegroundService : Service(), BluetoothMeshDelegate {
         }
     }
 
-    private fun shutdownService() {
+    internal fun shutdownService() {
         Log.i(TAG, "Shutdown action triggered. Stopping service.")
         serviceListener?.onServiceStopping()
         stopForeground(STOP_FOREGROUND_REMOVE)

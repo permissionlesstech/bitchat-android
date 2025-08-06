@@ -5,6 +5,8 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MediatorLiveData
 import androidx.lifecycle.MutableLiveData
 import com.bitchat.android.model.BitchatMessage
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 
 /**
  * Centralized state definitions and data classes for the chat system
@@ -96,7 +98,19 @@ class ChatState {
     // Navigation state
     private val _showAppInfo = MutableLiveData<Boolean>(false)
     val showAppInfo: LiveData<Boolean> = _showAppInfo
-    
+
+    // New LiveData to control the exit confirmation dialog
+    private val _showExitDialog = MutableLiveData(false)
+    val showExitDialog: LiveData<Boolean> = _showExitDialog
+
+    // New LiveData for a shutdown request to the Activity
+    private val _shutdownRequest =  MutableLiveData(false)
+    val shutdownRequest = _shutdownRequest
+
+    // New LiveData for a background request to the Activity
+    private val _backgroundRequest =  MutableLiveData(false)
+    val backgroundRequest = _backgroundRequest
+
     // Unread state computed properties
     val hasUnreadChannels: MediatorLiveData<Boolean> = MediatorLiveData<Boolean>()
     val hasUnreadPrivateMessages: MediatorLiveData<Boolean> = MediatorLiveData<Boolean>()
@@ -133,7 +147,9 @@ class ChatState {
     fun getPeerSessionStatesValue() = _peerSessionStates.value ?: emptyMap()
     fun getPeerFingerprintsValue() = _peerFingerprints.value ?: emptyMap()
     fun getShowAppInfoValue() = _showAppInfo.value ?: false
-    
+    fun getShowExitDialogValue() = _showExitDialog.value ?: false
+    fun getShutdownRequestValue() = _shutdownRequest.value ?: false
+
     // Setters for state updates
     fun setMessages(messages: List<BitchatMessage>) {
         _messages.value = messages
@@ -227,6 +243,18 @@ class ChatState {
     
     fun setShowAppInfo(show: Boolean) {
         _showAppInfo.value = show
+    }
+
+    fun setShowExitDialog(show: Boolean) {
+        _showExitDialog.value = show
+    }
+
+    fun setShutdownRequest() {
+        _shutdownRequest.value = true
+    }
+
+    fun setBackgroundRequest() {
+        _backgroundRequest.value = true
     }
 
 }

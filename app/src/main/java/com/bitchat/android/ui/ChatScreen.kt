@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.mesh.BluetoothMeshService
@@ -65,6 +66,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val showCommandSuggestions by viewModel.showCommandSuggestions.observeAsState(false)
     val commandSuggestions by viewModel.commandSuggestions.observeAsState(emptyList())
     val showAppInfo by viewModel.showAppInfo.observeAsState(false)
+    val showExitDialog by viewModel.showExitDialog.observeAsState(false)
     
     var messageText by remember { mutableStateOf(TextFieldValue("")) }
     var showPasswordPrompt by remember { mutableStateOf(false) }
@@ -192,6 +194,14 @@ fun ChatScreen(viewModel: ChatViewModel) {
         },
         showAppInfo = showAppInfo,
         onAppInfoDismiss = { viewModel.hideAppInfo() }
+    )
+
+    // Exit confirmation dialog
+    ExitConfirmationDialog(
+        show = showExitDialog,
+        onDismiss = { viewModel.dismissExitConfirmation() },
+        onConfirmExit = { viewModel.requestShutdown() },
+        onConfirmBackground = { viewModel.requestBackground() }
     )
 }
 
