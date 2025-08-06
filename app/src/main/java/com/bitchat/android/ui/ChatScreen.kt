@@ -277,8 +277,7 @@ private fun ChatFloatingHeader(
                     },
                     onSidebarClick = onSidebarToggle,
                     onTripleClick = onPanicClear,
-                    onShowAppInfo = onShowAppInfo,
-                    onShutdownClick = { viewModel.requestShutdown() }
+                    onShowAppInfo = onShowAppInfo
                 )
             },
             colors = TopAppBarDefaults.topAppBarColors(

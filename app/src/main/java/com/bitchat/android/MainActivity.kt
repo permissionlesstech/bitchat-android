@@ -46,7 +46,6 @@ import com.bitchat.android.ui.ExitConfirmationDialog
 import com.bitchat.android.ui.NotificationManager
 import com.bitchat.android.ui.theme.BitchatTheme
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -72,15 +71,6 @@ class MainActivity : ComponentActivity() {
     private val chatViewModel: ChatViewModel by viewModels {
         viewModelFactory {
             initializer {
-                // IMPORTANT: You must add the shutdown request flow to your ChatViewModel
-                //
-                // In ChatViewModel.kt:
-                // private val _shutdownRequest = MutableSharedFlow<Unit>()
-                // val shutdownRequest = _shutdownRequest.asSharedFlow()
-                //
-                // fun requestShutdown() {
-                //     viewModelScope.launch { _shutdownRequest.emit(Unit) }
-                // }
                 ChatViewModel(application)
             }
         }
@@ -198,7 +188,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-
 
         // Only start onboarding process if we're in the initial CHECKING state
         // This prevents restarting onboarding on configuration changes
