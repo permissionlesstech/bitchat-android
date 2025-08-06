@@ -196,8 +196,11 @@ fun ChatScreen(viewModel: ChatViewModel) {
             showPasswordDialog = false
             passwordInput = ""
         },
+    )
+
+    ChatSheets(
         showAppInfo = showAppInfo,
-        onAppInfoDismiss = { viewModel.hideAppInfo() }
+        onAppInfoDismiss = { viewModel.hideAppInfo() },
     )
 }
 
@@ -323,8 +326,6 @@ private fun ChatDialogs(
     onPasswordChange: (String) -> Unit,
     onPasswordConfirm: () -> Unit,
     onPasswordDismiss: () -> Unit,
-    showAppInfo: Boolean,
-    onAppInfoDismiss: () -> Unit
 ) {
     // Password dialog
     PasswordPromptDialog(
@@ -336,8 +337,16 @@ private fun ChatDialogs(
         onDismiss = onPasswordDismiss
     )
 
-    // App info dialog
-    AppInfoDialog(
+}
+
+@Composable
+private fun ChatSheets(
+    showAppInfo: Boolean,
+    onAppInfoDismiss: () -> Unit
+) {
+
+    // App info sheet
+    AppInfoBottomSheet(
         show = showAppInfo,
         onDismiss = onAppInfoDismiss
     )
