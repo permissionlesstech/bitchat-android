@@ -118,7 +118,7 @@ class ChatViewModel(
         
         // Load other data
         dataManager.loadFavorites()
-        state.setFavoritePeers(dataManager.favoritePeers)
+        state.setFavoritePeers(dataManager.favoritePeers.toSet())
         dataManager.loadBlockedUsers()
         
         // Log all favorites at startup
