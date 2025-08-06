@@ -43,6 +43,7 @@ import com.bitchat.android.onboarding.PermissionManager
 import com.bitchat.android.ui.ChatScreen
 import com.bitchat.android.ui.ChatViewModel
 import com.bitchat.android.ui.ExitConfirmationDialog
+import com.bitchat.android.ui.NotificationManager
 import com.bitchat.android.ui.theme.BitchatTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
@@ -708,13 +709,13 @@ class MainActivity : ComponentActivity() {
      */
     private fun handleNotificationIntent(intent: Intent) {
         val shouldOpenPrivateChat = intent.getBooleanExtra(
-            com.bitchat.android.ui.NotificationManager.EXTRA_OPEN_PRIVATE_CHAT,
+            NotificationManager.EXTRA_OPEN_PRIVATE_CHAT,
             false
         )
 
         if (shouldOpenPrivateChat) {
-            val peerID = intent.getStringExtra(com.bitchat.android.ui.NotificationManager.EXTRA_PEER_ID)
-            val senderNickname = intent.getStringExtra(com.bitchat.android.ui.NotificationManager.EXTRA_SENDER_NICKNAME)
+            val peerID = intent.getStringExtra(NotificationManager.EXTRA_PEER_ID)
+            val senderNickname = intent.getStringExtra(NotificationManager.EXTRA_SENDER_NICKNAME)
 
             if (peerID != null) {
                 Log.d(TAG, "Opening private chat with $senderNickname (peerID: $peerID) from notification")
@@ -734,7 +735,7 @@ class MainActivity : ComponentActivity() {
      */
     private fun stopServiceAndExit() {
         Log.d(TAG, "User requested shutdown. Stopping service and exiting.")
-        val intent = Intent(ForegroundService.ACTION_STOP_SERVICE).apply {
+        val intent = Intent(ForegroundService.ACTION_SHUTDOWN).apply {
             // Ensure the broadcast is delivered only to our app's receiver
             `package` = packageName
         }

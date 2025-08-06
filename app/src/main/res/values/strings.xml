@@ -36,4 +36,24 @@
     <string name="battery_optimization_continue">Continue</string>
     <string name="retry">Retry</string>
     <string name="skip">Skip</string>
+
+    <!-- Foreground Service Strings  -->
+    <!-- Foreground Service Strings  -->
+    <plurals name="peers_nearby">
+        <item quantity="one">%d peer nearby</item>
+        <item quantity="other">%d peers nearby</item>
+    </plurals>
+
+    <plurals name="unread_messages">
+        <item quantity="one">%d unread message</item>
+        <item quantity="other">%d unread messages</item>
+    </plurals>
+
+    <string name="notification_summary">Bitchat is active</string>
+    <string name="notification_scanning">Scanning for nearby peers…</string>
+    <string name="notification_action_shutdown">Shutdown</string>
+
+    <string name="notification_channel_name">Bitchat Active Service</string>
+    <string name="notification_channel_description">Keeps Bitchat connected and shows live status</string>
+
 </resources>
