@@ -50,7 +50,7 @@ class ForegroundService : Service(), BluetoothMeshDelegate {
         private const val TAG = "MeshForegroundService"
         private const val NOTIFICATION_ID = 1
         private const val FOREGROUND_CHANNEL_ID = "com.bitchat.android.FOREGROUND_SERVICE"
-        private const val MOCK_PEERS_ENABLED = true
+        private const val MOCK_PEERS_ENABLED = false
 
         const val ACTION_RESET_UNREAD_COUNT = "com.bitchat.android.ACTION_RESET_UNREAD_COUNT"
         const val ACTION_SHUTDOWN = "com.bitchat.android.ACTION_SHUTDOWN"

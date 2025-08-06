@@ -357,7 +357,6 @@ class ChatViewModel(
     
     // Note: Mesh service restart is now handled by MainActivity
     // This function is no longer needed
-    // FIXME: Move DM notifications to foreground service
     fun setAppBackgroundState(inBackground: Boolean) {
         // Forward to notification manager for notification logic
         notificationManager.setAppBackgroundState(inBackground)
