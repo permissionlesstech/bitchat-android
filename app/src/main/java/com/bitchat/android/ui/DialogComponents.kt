@@ -6,6 +6,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
 /**
@@ -24,7 +25,7 @@ fun PasswordPromptDialog(
 ) {
     if (show && channelName != null) {
         val colorScheme = MaterialTheme.colorScheme
-        
+
         AlertDialog(
             onDismissRequest = onDismiss,
             title = {
@@ -37,12 +38,12 @@ fun PasswordPromptDialog(
             text = {
                 Column {
                     Text(
-                        text = "Channel $channelName is password protected. Enter the password to join.",
+                        text = "Channel #$channelName is password protected. Enter the password to join.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    
+
                     OutlinedTextField(
                         value = passwordInput,
                         onValueChange = onPasswordChange,
@@ -61,7 +62,7 @@ fun PasswordPromptDialog(
                 TextButton(onClick = onConfirm) {
                     Text(
                         text = "Join",
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.labelMedium,
                         color = colorScheme.primary
                     )
                 }
@@ -70,7 +71,7 @@ fun PasswordPromptDialog(
                 TextButton(onClick = onDismiss) {
                     Text(
                         text = "Cancel",
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.labelMedium,
                         color = colorScheme.onSurface
                     )
                 }
@@ -88,7 +89,7 @@ fun AppInfoDialog(
 ) {
     if (show) {
         val colorScheme = MaterialTheme.colorScheme
-        
+
         AlertDialog(
             onDismissRequest = onDismiss,
             title = {
@@ -114,7 +115,65 @@ fun AppInfoDialog(
                 TextButton(onClick = onDismiss) {
                     Text(
                         text = "OK",
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colorScheme.primary
+                    )
+                }
+            },
+            containerColor = colorScheme.surface,
+            tonalElevation = 8.dp
+        )
+    }
+}
+
+
+/**
+ * A themed dialog to confirm if the user wants to shut down the service or background the app.
+ * @param show Controls the visibility of the dialog.
+ * @param onDismiss Called when the user taps outside the dialog.
+ * @param onConfirmExit Called when the user confirms they want to shut down the service.
+ * @param onConfirmBackground Called when the user chooses to background the app.
+ */
+@Composable
+fun ExitConfirmationDialog(
+    show: Boolean,
+    onDismiss: () -> Unit,
+    onConfirmExit: () -> Unit,
+    onConfirmBackground: () -> Unit
+) {
+    if (show) {
+        val colorScheme = MaterialTheme.colorScheme
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = {
+                Text(
+                    text = "Shut down Bitchat?",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = colorScheme.onSurface
+                )
+            },
+            text = {
+                Text(
+                    text = "Do you want to shut down Bitchat or keep scanning in the background?",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colorScheme.onSurface,
+                    textAlign = TextAlign.Start
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = onConfirmExit) {
+                    Text(
+                        "Shut Down",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colorScheme.error
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onConfirmBackground) {
+                    Text(
+                        "Background",
+                        style = MaterialTheme.typography.labelMedium,
                         color = colorScheme.primary
                     )
                 }
