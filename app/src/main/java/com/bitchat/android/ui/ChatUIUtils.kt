@@ -31,14 +31,15 @@ fun getRSSIColor(rssi: Int): Color {
 }
 
 /**
- * Format message as annotated string with proper styling
+ * Format message as annotated string with proper styling and clickable usernames
  */
 fun formatMessageAsAnnotatedString(
     message: BitchatMessage,
     currentUserNickname: String,
     meshService: BluetoothMeshService,
     colorScheme: ColorScheme,
-    timeFormatter: SimpleDateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+    timeFormatter: SimpleDateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault()),
+    onUsernameClick: ((String) -> Unit)? = null
 ): AnnotatedString {
     val builder = AnnotatedString.Builder()
     
@@ -67,7 +68,21 @@ fun formatMessageAsAnnotatedString(
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium
         ))
+        
+        // Add clickable annotation for username if callback provided
+        val usernameStart = builder.length
         builder.append("<@${message.sender}> ")
+        val usernameEnd = builder.length
+        
+        onUsernameClick?.let { clickHandler ->
+            builder.addStringAnnotation(
+                tag = "username_click",
+                annotation = message.sender,
+                start = usernameStart,
+                end = usernameEnd
+            )
+        }
+        
         builder.pop()
         
         // Message content with mentions and hashtags highlighted
