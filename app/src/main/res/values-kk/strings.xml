@@ -83,6 +83,8 @@
     <string name="grant_permissions">Рұқсаттар беру</string>
     <string name="location_no_gps">bitchat GPS пайдаланбайды және орналасу орнын бақыламайды</string>
 
+    <string name="mention">ескерту</string>
+
     <string name="app_info_tagline">mesh топтық чаты</string>
     <string name="features_title">Мүмкіндіктер</string>
     <string name="feature_offline_title">офлайн байланыс</string>

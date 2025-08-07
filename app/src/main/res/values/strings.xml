@@ -83,6 +83,8 @@
     <string name="grant_permissions">Grant Permissions</string>
     <string name="location_no_gps">bitchat does NOT use GPS or track location</string>
 
+    <string name="mention">mention</string>
+
     <string name="app_info_tagline">mesh sidegroupchat</string>
     <string name="features_title">Features</string>
     <string name="feature_offline_title">offline communication</string>

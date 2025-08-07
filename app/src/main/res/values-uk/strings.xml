@@ -56,6 +56,8 @@
     <string name="app_info_description">Децентралізований обмін повідомленнями через Bluetooth LE\n\n• Не потрібні сервери чи інтернет\n• Наскрізне шифрування особистих повідомлень\n• Канали, захищені паролем\n• Зберігання та пересилання для офлайн-вузлів\n\nПотрійне натискання на заголовок для екстреного видалення всіх даних</string>
     <string name="ok">ОК</string>
 
+    <string name="mention">згадка</string>
+
     <string name="error_description">Помилка</string>
     <string name="initializing_mesh_network">Ініціалізація сітчастої мережі</string>
     <string name="setting_up_bluetooth_mesh">Налаштування сітчастої мережі Bluetooth…</string>

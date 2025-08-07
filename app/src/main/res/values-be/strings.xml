@@ -83,6 +83,8 @@
     <string name="grant_permissions">Даць дазволы</string>
     <string name="location_no_gps">bitchat НЕ выкарыстоўвае GPS і не адсочвае месцазнаходжанне</string>
 
+    <string name="mention">згадка</string>
+
     <string name="app_info_tagline">mesh-чат для групнога абмену паведамленнямі</string>
     <string name="features_title">Магчымасці</string>
     <string name="feature_offline_title">аўтаномная сувязь</string>

@@ -83,6 +83,8 @@
     <string name="grant_permissions">İzinleri Ver</string>
     <string name="location_no_gps">bitchat GPS kullanmaz veya konumu takip etmez</string>
 
+    <string name="mention">bahsetmek</string>
+
     <string name="app_info_tagline">mesh grup sohbeti</string>
     <string name="features_title">Özellikler</string>
     <string name="feature_offline_title">çevrimdışı iletişim</string>
