@@ -376,14 +376,6 @@ class ChatViewModel(
         meshDelegateHandler.didReceiveMessage(message)
     }
     
-    override fun didConnectToPeer(peerID: String) {
-        meshDelegateHandler.didConnectToPeer(peerID)
-    }
-    
-    override fun didDisconnectFromPeer(peerID: String) {
-        meshDelegateHandler.didDisconnectFromPeer(peerID)
-    }
-    
     override fun didUpdatePeerList(peers: List<String>) {
         meshDelegateHandler.didUpdatePeerList(peers)
     }

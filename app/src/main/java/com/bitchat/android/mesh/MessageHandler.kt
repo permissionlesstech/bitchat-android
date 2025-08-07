@@ -295,11 +295,7 @@ class MessageHandler(private val myPeerID: String) {
             delegate?.onChannelLeave(content, peerID)
         } else {
             // Peer disconnect
-            val nickname = delegate?.getPeerNickname(peerID)
             delegate?.removePeer(peerID)
-            if (nickname != null) {
-                delegate?.onPeerDisconnected(nickname)
-            }
         }
         
         // Leave message relay is now handled by centralized PacketRelayManager
@@ -406,7 +402,6 @@ interface MessageHandlerDelegate {
     // Callbacks
     fun onMessageReceived(message: BitchatMessage)
     fun onChannelLeave(channel: String, fromPeer: String)
-    fun onPeerDisconnected(nickname: String)
     fun onDeliveryAckReceived(ack: DeliveryAck)
     fun onReadReceiptReceived(receipt: ReadReceipt)
 }

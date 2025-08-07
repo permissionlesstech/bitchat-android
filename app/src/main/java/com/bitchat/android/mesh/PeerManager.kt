@@ -82,7 +82,6 @@ class PeerManager {
         // Handle first announcement
         if (isFirstAnnounce) {
             announcedPeers.add(peerID)
-            delegate?.onPeerConnected(nickname)
             notifyPeerListUpdate()
             return true
         }
@@ -104,7 +103,6 @@ class PeerManager {
         fingerprintManager.removePeer(peerID)
         
         if (notifyDelegate && nickname != null) {
-            delegate?.onPeerDisconnected(nickname)
             notifyPeerListUpdate()
         }
     }
@@ -366,7 +364,5 @@ class PeerManager {
  * Delegate interface for peer manager callbacks
  */
 interface PeerManagerDelegate {
-    fun onPeerConnected(nickname: String)
-    fun onPeerDisconnected(nickname: String)
     fun onPeerListUpdated(peerIDs: List<String>)
 }
