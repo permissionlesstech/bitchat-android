@@ -193,7 +193,6 @@ class PeerFingerprintManager private constructor() {
         val count = peerIDToFingerprint.size
         peerIDToFingerprint.clear()
         fingerprintToPeerID.clear()
-        Log.d(TAG, "Cleared all fingerprint mappings ($count entries)")
     }
     
     // MARK: - Utility Functions
