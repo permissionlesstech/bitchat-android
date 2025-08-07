@@ -405,7 +405,11 @@ class BluetoothMeshService(private val context: Context) {
         Log.i(TAG, "Starting Bluetooth mesh service with peer ID: $myPeerID")
         
         if (connectionManager.startServices()) {
-            isActive = true            
+            isActive = true
+            
+            // Start periodic announcements for peer discovery and connectivity
+            sendPeriodicBroadcastAnnounce()
+            Log.d(TAG, "Started periodic broadcast announcements (every 30 seconds)")
         } else {
             Log.e(TAG, "Failed to start Bluetooth services")
         }
