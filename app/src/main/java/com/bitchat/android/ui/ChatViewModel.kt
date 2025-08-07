@@ -118,7 +118,7 @@ class ChatViewModel(
         
         // Load other data
         dataManager.loadFavorites()
-        state.setFavoritePeers(dataManager.favoritePeers)
+        state.setFavoritePeers(dataManager.favoritePeers.toSet())
         dataManager.loadBlockedUsers()
         
         // Log all favorites at startup
@@ -374,14 +374,6 @@ class ChatViewModel(
     
     override fun didReceiveMessage(message: BitchatMessage) {
         meshDelegateHandler.didReceiveMessage(message)
-    }
-    
-    override fun didConnectToPeer(peerID: String) {
-        meshDelegateHandler.didConnectToPeer(peerID)
-    }
-    
-    override fun didDisconnectFromPeer(peerID: String) {
-        meshDelegateHandler.didDisconnectFromPeer(peerID)
     }
     
     override fun didUpdatePeerList(peers: List<String>) {

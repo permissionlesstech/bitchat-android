@@ -109,14 +109,6 @@ class BluetoothMeshService(private val context: Context) {
     private fun setupDelegates() {
         // PeerManager delegates to main mesh service delegate
         peerManager.delegate = object : PeerManagerDelegate {
-            override fun onPeerConnected(nickname: String) {
-                delegate?.didConnectToPeer(nickname)
-            }
-            
-            override fun onPeerDisconnected(nickname: String) {
-                delegate?.didDisconnectFromPeer(nickname)
-            }
-            
             override fun onPeerListUpdated(peerIDs: List<String>) {
                 delegate?.didUpdatePeerList(peerIDs)
             }
@@ -289,10 +281,6 @@ class BluetoothMeshService(private val context: Context) {
             
             override fun onChannelLeave(channel: String, fromPeer: String) {
                 delegate?.didReceiveChannelLeave(channel, fromPeer)
-            }
-            
-            override fun onPeerDisconnected(nickname: String) {
-                delegate?.didDisconnectFromPeer(nickname)
             }
             
             override fun onDeliveryAckReceived(ack: DeliveryAck) {
@@ -1020,8 +1008,6 @@ class BluetoothMeshService(private val context: Context) {
  */
 interface BluetoothMeshDelegate {
     fun didReceiveMessage(message: BitchatMessage)
-    fun didConnectToPeer(peerID: String)
-    fun didDisconnectFromPeer(peerID: String)
     fun didUpdatePeerList(peers: List<String>)
     fun didReceiveChannelLeave(channel: String, fromPeer: String)
     fun didReceiveDeliveryAck(ack: DeliveryAck)

@@ -3,7 +3,6 @@ package com.bitchat
 import com.bitchat.android.mesh.PeerManager
 import junit.framework.TestCase.assertEquals
 import org.junit.Test
-import kotlin.text.appendLine
 
 
 class PeerManagerTest {
