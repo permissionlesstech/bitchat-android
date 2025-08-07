@@ -82,4 +82,41 @@
     <string name="permissions_needed">bitchat-ის სწორად მუშაობისთვის საჭიროა შემდეგი ნებართვები:</string>
     <string name="grant_permissions">ნებართვების მინიჭება</string>
     <string name="location_no_gps">bitchat არ იყენებს GPS-ს და არ თვალყურს ადევნებს მდებარეობას</string>
+
+    <string name="mention">ხსენება</string>
+
+    <string name="app_info_tagline">mesh ჯგუფური ჩათი</string>
+    <string name="features_title">ფუნქციები</string>
+    <string name="feature_offline_title">ოფლაინ კომუნიკაცია</string>
+    <string name="feature_offline_desc">მუშაობს ინტერნეტის გარეშე Bluetooth Low Energy-ის გამოყენებით</string>
+    <string name="feature_encryption_title">ბოლომდე დაშიფვრა</string>
+    <string name="feature_encryption_desc">პირადი შეტყობინებები დაშიფრულია Noise პროტოკოლით</string>
+    <string name="feature_range_title">გაფართოებული დიაპაზონი</string>
+    <string name="feature_range_desc">შეტყობინებები გადის სხვა მომხმარებლების გავლით, რაც ზრდის მანძილს</string>
+    <string name="feature_favorites_title">რჩეულები</string>
+    <string name="feature_favorites_desc">მიიღეთ შეტყობინება, როცა თქვენი რჩეული კონტაქტები შემოგიერთდებიან</string>
+    <string name="feature_mutual_favorites_title">ორმხრივი რჩეულები</string>
+    <string name="feature_mutual_favorites_desc">მიწერეთ ერთმანეთს nostr-ის საშუალებით, როცა mesh ქსელის მიღმა ხართ</string>
+    <string name="feature_mentions_title">მოხსენიებები</string>
+    <string name="feature_mentions_desc">გამოიყენეთ @nickname კონკრეტული ადამიანების შესატყობინებლად</string>
+
+    <string name="privacy_title">კონფიდენციალურობა</string>
+    <string name="privacy_no_tracking_title">თვალთვალის გარეშე</string>
+    <string name="privacy_no_tracking_desc">სერვერების, ანგარიშების ან მონაცემთა შეგროვების გარეშე</string>
+    <string name="privacy_ephemeral_title">ეფემერული იდენტობა</string>
+    <string name="privacy_ephemeral_desc">ახალი ID რეგულარულად გენერირდება</string>
+    <string name="privacy_panic_title">პანიკის რეჟიმი</string>
+    <string name="privacy_panic_desc">სამჯერ შეეხეთ ლოგოს ყველა მონაცემის მყისიერად წასაშლელად</string>
+
+    <string name="how_to_use_title">როგორ გამოვიყენოთ</string>
+    <string name="how_to_use_1">• დააყენეთ თქვენი მეტსახელი მასზე დაჭერით</string>
+    <string name="how_to_use_2">• გვერდითი პანელისთვის გაასრიალეთ მარცხნივ</string>
+    <string name="how_to_use_3">• შეეხეთ მომხმარებელს პირადი ჩათის დასაწყებად</string>
+    <string name="how_to_use_4">• გამოიყენეთ @nickname ვინმეს მოსახსენიებლად</string>
+    <string name="how_to_use_5">• სამჯერ შეეხეთ ჩათს მის გასასუფთავებლად</string>
+
+    <string name="warning_title">გაფრთხილება</string>
+    <string name="warning_message">პირადი შეტყობინებების უსაფრთხოებას ჯერ არ გაუვლია სრული აუდიტი. არ გამოიყენოთ კრიტიკულად მნიშვნელოვანი სიტუაციებისთვის, სანამ ეს გაფრთხილება არ გაქრება.</string>
+
+    <string name="done">მზადაა</string>
 </resources>

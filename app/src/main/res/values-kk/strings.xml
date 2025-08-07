@@ -82,4 +82,41 @@
     <string name="permissions_needed">bitchat-тың дұрыс жұмыс істеуі үшін келесі рұқсаттар қажет:</string>
     <string name="grant_permissions">Рұқсаттар беру</string>
     <string name="location_no_gps">bitchat GPS пайдаланбайды және орналасу орнын бақыламайды</string>
+
+    <string name="mention">ескерту</string>
+
+    <string name="app_info_tagline">mesh топтық чаты</string>
+    <string name="features_title">Мүмкіндіктер</string>
+    <string name="feature_offline_title">офлайн байланыс</string>
+    <string name="feature_offline_desc">Bluetooth Low Energy арқылы интернетсіз жұмыс істейді</string>
+    <string name="feature_encryption_title">толық шифрлау</string>
+    <string name="feature_encryption_desc">жеке хабарламалар Noise протоколымен шифрланады</string>
+    <string name="feature_range_title">кеңейтілген ауқым</string>
+    <string name="feature_range_desc">хабарламалар басқа қатысушылар арқылы ретрансляцияланады, қашықтықты арттырады</string>
+    <string name="feature_favorites_title">таңдаулылар</string>
+    <string name="feature_favorites_desc">таңдаулы адамдарыңыз қосылғанда хабарландыру алыңыз</string>
+    <string name="feature_mutual_favorites_title">өзара таңдаулылар</string>
+    <string name="feature_mutual_favorites_desc">mesh ауқымынан тыс болғанда, nostr арқылы бір-біріңізге жазыңыз</string>
+    <string name="feature_mentions_title">еске салулар</string>
+    <string name="feature_mentions_desc">белгілі бір адамдарды хабардар ету үшін @nickname қолданыңыз</string>
+
+    <string name="privacy_title">Құпиялылық</string>
+    <string name="privacy_no_tracking_title">қадағалау жоқ</string>
+    <string name="privacy_no_tracking_desc">серверлер, аккаунттар немесе деректер жинау жоқ</string>
+    <string name="privacy_ephemeral_title">эфемерлік тұлға</string>
+    <string name="privacy_ephemeral_desc">жаңа қатысушы ID тұрақты түрде жасалады</string>
+    <string name="privacy_panic_title">дүрбелең режимі</string>
+    <string name="privacy_panic_desc">барлық деректерді лезде жою үшін логотипті үш рет түртіңіз</string>
+
+    <string name="how_to_use_title">Қалай пайдалану керек</string>
+    <string name="how_to_use_1">• лақап атыңызды басу арқылы орнатыңыз</string>
+    <string name="how_to_use_2">• бүйірлік панель үшін солға сырғытыңыз</string>
+    <string name="how_to_use_3">• жеке чатты бастау үшін қатысушыны түртіңіз</string>
+    <string name="how_to_use_4">• біреуді атап өту үшін @nickname қолданыңыз</string>
+    <string name="how_to_use_5">• чатты тазалау үшін үш рет түртіңіз</string>
+
+    <string name="warning_title">Ескерту</string>
+    <string name="warning_message">Жеке хабарламалардың қауіпсіздігі әлі толық тексерілген жоқ. Бұл ескерту жойылмайынша, маңызды жағдайларда қолданбаңыз.</string>
+
+    <string name="done">Дайын</string>
 </resources>

@@ -1,16 +1,10 @@
 package com.bitchat.android.ui
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -80,45 +74,6 @@ fun PasswordPromptDialog(
                         text = stringResource(R.string.cancel),
                         style = MaterialTheme.typography.bodyMedium,
                         color = colorScheme.onSurface
-                    )
-                }
-            },
-            containerColor = colorScheme.surface,
-            tonalElevation = 8.dp
-        )
-    }
-}
-
-@Composable
-fun AppInfoDialog(
-    show: Boolean,
-    onDismiss: () -> Unit
-) {
-    if (show) {
-        val colorScheme = MaterialTheme.colorScheme
-
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = {
-                Text(
-                    text = stringResource(R.string.app_info_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = colorScheme.onSurface
-                )
-            },
-            text = {
-                Text(
-                    text = stringResource(R.string.app_info_description),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colorScheme.onSurface
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = onDismiss) {
-                    Text(
-                        text = stringResource(R.string.ok),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = colorScheme.primary
                     )
                 }
             },

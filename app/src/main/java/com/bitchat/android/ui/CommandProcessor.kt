@@ -327,9 +327,9 @@ class CommandProcessor(
     }
     
     // MARK: - Command Autocomplete
-    
+
     fun updateCommandSuggestions(input: String) {
-        if (!input.startsWith("/") || input.length < 1) {
+        if (!input.startsWith("/")) {
             state.setShowCommandSuggestions(false)
             state.setCommandSuggestions(emptyList())
             return
@@ -378,6 +378,65 @@ class CommandProcessor(
         state.setShowCommandSuggestions(false)
         state.setCommandSuggestions(emptyList())
         return "${suggestion.command} "
+    }
+    
+    // MARK: - Mention Autocomplete
+    
+    fun updateMentionSuggestions(input: String, meshService: Any) {
+        // Check if input contains @ and we're at the end of a word or at the end of input
+        val atIndex = input.lastIndexOf('@')
+        if (atIndex == -1) {
+            state.setShowMentionSuggestions(false)
+            state.setMentionSuggestions(emptyList())
+            return
+        }
+        
+        // Get the text after the @ symbol
+        val textAfterAt = input.substring(atIndex + 1)
+        
+        // If there's a space after @, don't show suggestions
+        if (textAfterAt.contains(' ')) {
+            state.setShowMentionSuggestions(false)
+            state.setMentionSuggestions(emptyList())
+            return
+        }
+        
+        // Get all connected peer nicknames
+        val peerNicknames = try {
+            val method = meshService::class.java.getDeclaredMethod("getPeerNicknames")
+            val peerNicknamesMap = method.invoke(meshService) as? Map<String, String>
+            peerNicknamesMap?.values?.toList() ?: emptyList()
+        } catch (e: Exception) {
+            emptyList()
+        }
+        
+        // Filter nicknames based on the text after @
+        val filteredNicknames = peerNicknames.filter { nickname ->
+            nickname.startsWith(textAfterAt, ignoreCase = true)
+        }.sorted()
+        
+        if (filteredNicknames.isNotEmpty()) {
+            state.setMentionSuggestions(filteredNicknames)
+            state.setShowMentionSuggestions(true)
+        } else {
+            state.setShowMentionSuggestions(false)
+            state.setMentionSuggestions(emptyList())
+        }
+    }
+    
+    fun selectMentionSuggestion(nickname: String, currentText: String): String {
+        state.setShowMentionSuggestions(false)
+        state.setMentionSuggestions(emptyList())
+        
+        // Find the last @ symbol position
+        val atIndex = currentText.lastIndexOf('@')
+        if (atIndex == -1) {
+            return "$currentText@$nickname "
+        }
+        
+        // Replace the text from the @ symbol to the end with the mention
+        val textBeforeAt = currentText.substring(0, atIndex)
+        return "$textBeforeAt@$nickname "
     }
     
     // MARK: - Utility Functions (would access mesh service)

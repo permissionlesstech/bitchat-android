@@ -83,4 +83,40 @@
     <string name="grant_permissions">Grant Permissions</string>
     <string name="location_no_gps">bitchat does NOT use GPS or track location</string>
 
+    <string name="mention">mention</string>
+
+    <string name="app_info_tagline">mesh sidegroupchat</string>
+    <string name="features_title">Features</string>
+    <string name="feature_offline_title">offline communication</string>
+    <string name="feature_offline_desc">works without internet using Bluetooth low energy</string>
+    <string name="feature_encryption_title">end-to-end encryption</string>
+    <string name="feature_encryption_desc">private messages encrypted with noise protocol</string>
+    <string name="feature_range_title">extended range</string>
+    <string name="feature_range_desc">messages relay through peers, going the distance</string>
+    <string name="feature_favorites_title">favorites</string>
+    <string name="feature_favorites_desc">get notified when your favorite people join</string>
+    <string name="feature_mutual_favorites_title">mutual favorites</string>
+    <string name="feature_mutual_favorites_desc">private message each other via nostr when out of mesh range</string>
+    <string name="feature_mentions_title">mentions</string>
+    <string name="feature_mentions_desc">use @nickname to notify specific people</string>
+
+    <string name="privacy_title">Privacy</string>
+    <string name="privacy_no_tracking_title">no tracking</string>
+    <string name="privacy_no_tracking_desc">no servers, accounts, or data collection</string>
+    <string name="privacy_ephemeral_title">ephemeral identity</string>
+    <string name="privacy_ephemeral_desc">new peer ID generated regularly</string>
+    <string name="privacy_panic_title">panic mode</string>
+    <string name="privacy_panic_desc">triple-tap logo to instantly clear all data</string>
+
+    <string name="how_to_use_title">How to use</string>
+    <string name="how_to_use_1">• set your nickname by tapping it</string>
+    <string name="how_to_use_2">• swipe left for sidebar</string>
+    <string name="how_to_use_3">• tap a peer to start a private chat</string>
+    <string name="how_to_use_4">• use @nickname to mention someone</string>
+    <string name="how_to_use_5">• triple-tap chat to clear</string>
+
+    <string name="warning_title">Warning</string>
+    <string name="warning_message">private message security has not yet been fully audited. do not use for critical situations until this warning disappears.</string>
+
+    <string name="done">Done</string>
 </resources>

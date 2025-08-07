@@ -56,6 +56,8 @@
     <string name="app_info_description">Децентралізований обмін повідомленнями через Bluetooth LE\n\n• Не потрібні сервери чи інтернет\n• Наскрізне шифрування особистих повідомлень\n• Канали, захищені паролем\n• Зберігання та пересилання для офлайн-вузлів\n\nПотрійне натискання на заголовок для екстреного видалення всіх даних</string>
     <string name="ok">ОК</string>
 
+    <string name="mention">згадка</string>
+
     <string name="error_description">Помилка</string>
     <string name="initializing_mesh_network">Ініціалізація сітчастої мережі</string>
     <string name="setting_up_bluetooth_mesh">Налаштування сітчастої мережі Bluetooth…</string>
@@ -82,4 +84,39 @@
     <string name="permissions_needed">Для належної роботи bitchat потрібні такі дозволи:</string>
     <string name="grant_permissions">Надати дозволи</string>
     <string name="location_no_gps">bitchat НЕ використовує GPS і не відстежує місцезнаходження</string>
+
+    <string name="app_info_tagline">mesh-чат для групових бесід</string>
+    <string name="features_title">Можливості</string>
+    <string name="feature_offline_title">офлайн-спілкування</string>
+    <string name="feature_offline_desc">працює без інтернету за допомогою Bluetooth Low Energy</string>
+    <string name="feature_encryption_title">наскрізне шифрування</string>
+    <string name="feature_encryption_desc">приватні повідомлення шифруються за протоколом Noise</string>
+    <string name="feature_range_title">розширений радіус дії</string>
+    <string name="feature_range_desc">повідомлення ретранслюються через інших учасників, збільшуючи відстань</string>
+    <string name="feature_favorites_title">обране</string>
+    <string name="feature_favorites_desc">отримуйте сповіщення, коли ваші обрані контакти приєднуються</string>
+    <string name="feature_mutual_favorites_title">взаємно в обраному</string>
+    <string name="feature_mutual_favorites_desc">пишіть один одному через nostr, коли ви поза зоною дії mesh-мережі</string>
+    <string name="feature_mentions_title">згадки</string>
+    <string name="feature_mentions_desc">використовуйте @nickname для сповіщення конкретних людей</string>
+
+    <string name="privacy_title">Приватність</string>
+    <string name="privacy_no_tracking_title">без відстеження</string>
+    <string name="privacy_no_tracking_desc">без серверів, облікових записів та збору даних</string>
+    <string name="privacy_ephemeral_title">ефемерна ідентичність</string>
+    <string name="privacy_ephemeral_desc">новий ID генерується регулярно</string>
+    <string name="privacy_panic_title">режим паніки</string>
+    <string name="privacy_panic_desc">тричі торкніться логотипа, щоб миттєво видалити всі дані</string>
+
+    <string name="how_to_use_title">Як користуватися</string>
+    <string name="how_to_use_1">• встановіть свій нікнейм, натиснувши на нього</string>
+    <string name="how_to_use_2">• проведіть ліворуч для бічної панелі</string>
+    <string name="how_to_use_3">• торкніться користувача, щоб почати приватний чат</string>
+    <string name="how_to_use_4">• використовуйте @nickname, щоб згадати когось</string>
+    <string name="how_to_use_5">• тричі торкніться чату, щоб очистити його</string>
+
+    <string name="warning_title">Попередження</string>
+    <string name="warning_message">Безпека приватних повідомлень ще не пройшла повний аудит. Не використовуйте для критично важливих ситуацій, доки це попередження не зникне.</string>
+
+    <string name="done">Готово</string>
 </resources>

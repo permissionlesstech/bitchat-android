@@ -82,4 +82,41 @@
     <string name="permissions_needed">bitchat\'in düzgün çalışması için şu izinler gereklidir:</string>
     <string name="grant_permissions">İzinleri Ver</string>
     <string name="location_no_gps">bitchat GPS kullanmaz veya konumu takip etmez</string>
+
+    <string name="mention">bahsetmek</string>
+
+    <string name="app_info_tagline">mesh grup sohbeti</string>
+    <string name="features_title">Özellikler</string>
+    <string name="feature_offline_title">çevrimdışı iletişim</string>
+    <string name="feature_offline_desc">Bluetooth düşük enerji kullanarak internetsiz çalışır</string>
+    <string name="feature_encryption_title">uçtan uca şifreleme</string>
+    <string name="feature_encryption_desc">özel mesajlar Noise protokolü ile şifrelenir</string>
+    <string name="feature_range_title">genişletilmiş menzil</string>
+    <string name="feature_range_desc">mesajlar diğer kullanıcılar aracılığıyla iletilerek mesafeyi artırır</string>
+    <string name="feature_favorites_title">favoriler</string>
+    <string name="feature_favorites_desc">favori kişileriniz katıldığında bildirim alın</string>
+    <string name="feature_mutual_favorites_title">karşılıklı favoriler</string>
+    <string name="feature_mutual_favorites_desc">mesh menzili dışındayken nostr üzerinden birbirinize özel mesaj gönderin</string>
+    <string name="feature_mentions_title">bahsetmeler</string>
+    <string name="feature_mentions_desc">belirli kişileri bilgilendirmek için @kullanıcıadı kullanın</string>
+
+    <string name="privacy_title">Gizlilik</string>
+    <string name="privacy_no_tracking_title">takip yok</string>
+    <string name="privacy_no_tracking_desc">sunucu, hesap veya veri toplama yok</string>
+    <string name="privacy_ephemeral_title">geçici kimlik</string>
+    <string name="privacy_ephemeral_desc">yeni kullanıcı ID düzenli olarak oluşturulur</string>
+    <string name="privacy_panic_title">panik modu</string>
+    <string name="privacy_panic_desc">tüm verileri anında silmek için logoya üç kez dokunun</string>
+
+    <string name="how_to_use_title">Nasıl kullanılır</string>
+    <string name="how_to_use_1">• üzerine dokunarak takma adınızı ayarlayın</string>
+    <string name="how_to_use_2">• kenar çubuğu için sola kaydırın</string>
+    <string name="how_to_use_3">• özel sohbet başlatmak için bir kullanıcıya dokunun</string>
+    <string name="how_to_use_4">• birinden bahsetmek için @kullanıcıadı kullanın</string>
+    <string name="how_to_use_5">• sohbeti temizlemek için üç kez dokunun</string>
+
+    <string name="warning_title">Uyarı</string>
+    <string name="warning_message">Özel mesaj güvenliği henüz tam olarak denetlenmemiştir. Bu uyarı kaybolana kadar kritik durumlar için kullanmayın.</string>
+
+    <string name="done">Bitti</string>
 </resources>

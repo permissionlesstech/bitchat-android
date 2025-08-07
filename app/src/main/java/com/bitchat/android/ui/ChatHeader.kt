@@ -213,6 +213,7 @@ fun ChatHeaderContent(
             val favoritePeers by viewModel.favoritePeers.observeAsState(emptySet())
             val peerFingerprints by viewModel.peerFingerprints.observeAsState(emptyMap())
             val peerSessionStates by viewModel.peerSessionStates.observeAsState(emptyMap())
+            val peerNicknames by viewModel.peerNicknames.observeAsState(emptyMap())
             
             // Reactive favorite computation - no more static lookups!
             val isFavorite = isFavoriteReactive(
@@ -226,7 +227,7 @@ fun ChatHeaderContent(
             
             PrivateChatHeader(
                 peerID = selectedPrivatePeer,
-                peerNicknames = viewModel.meshService.getPeerNicknames(),
+                peerNicknames = peerNicknames,
                 isFavorite = isFavorite,
                 sessionState = sessionState,
                 onBackClick = onBackClick,
