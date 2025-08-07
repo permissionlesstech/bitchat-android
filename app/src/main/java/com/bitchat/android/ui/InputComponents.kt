@@ -48,7 +48,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.bitchat.android.R
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.withStyle
@@ -149,7 +148,8 @@ class MentionVisualTransformation : VisualTransformation {
 /**
  * VisualTransformation that combines multiple visual transformations
  */
-class CombinedVisualTransformation(private val transformations: List<VisualTransformation>) : VisualTransformation {
+class CombinedVisualTransformation(private val transformations: List<VisualTransformation>) :
+    VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
         var resultText = text
 
@@ -166,9 +166,6 @@ class CombinedVisualTransformation(private val transformations: List<VisualTrans
 }
 
 
-
-
-
 @Composable
 fun MessageInput(
     value: TextFieldValue,
@@ -182,7 +179,7 @@ fun MessageInput(
     val colorScheme = MaterialTheme.colorScheme
     val isFocused = remember { mutableStateOf(false) }
     val hasText = value.text.isNotBlank() // Check if there's text for send button state
-    
+
     Row(
         modifier = modifier.padding(horizontal = 12.dp, vertical = 8.dp), // Reduced padding
         verticalAlignment = Alignment.CenterVertically
@@ -214,7 +211,7 @@ fun MessageInput(
             // Show placeholder when there's no text
             if (value.text.isEmpty()) {
                 Text(
-                    text = "type a message...",
+                    text = stringResource(id = R.string.message_hint),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontFamily = FontFamily.Monospace
                     ),
@@ -223,9 +220,9 @@ fun MessageInput(
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.width(8.dp)) // Reduced spacing
-        
+
         // Command quick access button
         if (value.text.isEmpty()) {
             FilledTonalIconButton(
@@ -283,47 +280,49 @@ fun MessageInput(
                         }
                     )
                 }
-        // Send button with enabled/disabled state
-        IconButton(
-            onClick = { if (hasText) onSend() }, // Only execute if there's text
-            enabled = hasText, // Enable only when there's text
-            modifier = Modifier.size(32.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(30.dp)
-                    .background(
-                        color = if (!hasText) {
-                            // Disabled state - muted grey
-                            colorScheme.onSurface.copy(alpha = 0.3f)
-                        } else if (selectedPrivatePeer != null || currentChannel != null) {
-                            // Orange for both private messages and channels when enabled
-                            Color(0xFFFF9500).copy(alpha = 0.75f)
-                        } else if (colorScheme.background == Color.Black) {
-                            Color(0xFF00FF00).copy(alpha = 0.75f) // Bright green for dark theme
-                        } else {
-                            Color(0xFF008000).copy(alpha = 0.75f) // Dark green for light theme
-                        },
-                        shape = CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.ArrowUpward,
-                    contentDescription = stringResource(R.string.send_message),
-                    modifier = Modifier.size(20.dp),
-                    tint = if (!hasText) {
-                        // Disabled state - muted grey icon
-                        colorScheme.onSurface.copy(alpha = 0.5f)
-                    } else if (selectedPrivatePeer != null || currentChannel != null) {
-                        // Black arrow on orange for both private and channel modes
-                        Color.Black
-                    } else if (colorScheme.background == Color.Black) {
-                        Color.Black // Black arrow on bright green in dark theme
-                    } else {
-                        Color.White // White arrow on dark green in light theme
+                // Send button with enabled/disabled state
+                IconButton(
+                    onClick = { if (hasText) onSend() }, // Only execute if there's text
+                    enabled = hasText, // Enable only when there's text
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .background(
+                                color = if (!hasText) {
+                                    // Disabled state - muted grey
+                                    colorScheme.onSurface.copy(alpha = 0.3f)
+                                } else if (selectedPrivatePeer != null || currentChannel != null) {
+                                    // Orange for both private messages and channels when enabled
+                                    Color(0xFFFF9500).copy(alpha = 0.75f)
+                                } else if (colorScheme.background == Color.Black) {
+                                    Color(0xFF00FF00).copy(alpha = 0.75f) // Bright green for dark theme
+                                } else {
+                                    Color(0xFF008000).copy(alpha = 0.75f) // Dark green for light theme
+                                },
+                                shape = CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.ArrowUpward,
+                            contentDescription = stringResource(R.string.send_message),
+                            modifier = Modifier.size(20.dp),
+                            tint = if (!hasText) {
+                                // Disabled state - muted grey icon
+                                colorScheme.onSurface.copy(alpha = 0.5f)
+                            } else if (selectedPrivatePeer != null || currentChannel != null) {
+                                // Black arrow on orange for both private and channel modes
+                                Color.Black
+                            } else if (colorScheme.background == Color.Black) {
+                                Color.Black // Black arrow on bright green in dark theme
+                            } else {
+                                Color.White // White arrow on dark green in light theme
+                            }
+                        )
                     }
-                )
+                }
             }
         }
     }
