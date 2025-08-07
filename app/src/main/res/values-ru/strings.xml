@@ -32,7 +32,7 @@
     <string name="battery_optimization_success_message">bitchat может надежно работать в фоновом режиме</string>
     <string name="battery_optimization_benefits">• Обеспечивает надежную доставку сообщений\n• Поддерживает соединение в ячеистой сети\n• Позволяет ретрансляцию сообщений в фоновом режиме\n• Предотвращает разрывы соединения</string>
     <string name="battery_optimization_check_again">Проверить снова</string>
-    <string name="battery_optimization_skip">Пропустить пока</string>
+    <string name="battery_optimization_skip">Пропустить сейчас</string>
     <string name="battery_optimization_continue">Продолжить</string>
     <string name="retry">Повторить</string>
     <string name="skip">Пропустить</string>
@@ -98,7 +98,7 @@
     <string name="feature_mutual_favorites_title">взаимно в избранном</string>
     <string name="feature_mutual_favorites_desc">пишите друг другу через nostr, когда вы вне зоны действия mesh-сети</string>
     <string name="feature_mentions_title">упоминания</string>
-    <string name="feature_mentions_desc">используйте @nickname для уведомления конкретных людей</string>
+    <string name="feature_mentions_desc">используйте @nickname для упоминания конкретных людей</string>
 
     <string name="privacy_title">Приватность</string>
     <string name="privacy_no_tracking_title">без отслеживания</string>

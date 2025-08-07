@@ -32,7 +32,7 @@
     <string name="battery_optimization_success_message">bitchat можа надзейна працаваць у фонавым рэжыме</string>
     <string name="battery_optimization_benefits">• Забяспечвае надзейную дастаўку паведамленняў\n• Падтрымлівае злучэнне ў сеткавай сетцы\n• Дазваляе рэтрансляцыю паведамленняў у фонавым рэжыме\n• Прадухіляе разрывы злучэння</string>
     <string name="battery_optimization_check_again">Праверыць яшчэ раз</string>
-    <string name="battery_optimization_skip">Прапусціць пакуль</string>
+    <string name="battery_optimization_skip">Прапусціць зараз</string>
     <string name="battery_optimization_continue">Працягнуць</string>
     <string name="retry">Паўтарыць</string>
     <string name="skip">Прапусціць</string>
@@ -60,7 +60,7 @@
     <string name="initializing_mesh_network">Ініцыялізацыя сеткавай сеткі</string>
     <string name="setting_up_bluetooth_mesh">Наладка сеткавай сеткі Bluetooth…</string>
     <string name="setup_duration">Гэта зойме толькі некалькі секунд</string>
-    <string name="setup_not_complete">Наладка не завершана</string>
+    <string name="setup_not_complete">Налада не завершана</string>
     <string name="try_again">Паспрабаваць яшчэ раз</string>
     <string name="open_settings">Адкрыць налады</string>
     <string name="location_services_description">Службы геалакацыі</string>
@@ -85,7 +85,7 @@
 
     <string name="mention">згадка</string>
 
-    <string name="app_info_tagline">mesh-чат для групнога абмену паведамленнямі</string>
+    <string name="app_info_tagline">mesh-чат для групавога абмену паведамленнямі</string>
     <string name="features_title">Магчымасці</string>
     <string name="feature_offline_title">аўтаномная сувязь</string>
     <string name="feature_offline_desc">працуе без інтэрнэту з дапамогай Bluetooth Low Energy</string>
@@ -96,9 +96,9 @@
     <string name="feature_favorites_title">абранае</string>
     <string name="feature_favorites_desc">атрымлівайце апавяшчэнні, калі вашы абраныя кантакты далучаюцца</string>
     <string name="feature_mutual_favorites_title">узаемна абраныя</string>
-    <string name="feature_mutual_favorites_desc">пішыце адзін аднаму праз nostr, калі вы па-за зонай дзеяння mesh-сеткі</string>
+    <string name="feature_mutual_favorites_desc">пішыце адзін аднаму праз nostr, калі вы за зонай дзеяння mesh-сеткі</string>
     <string name="feature_mentions_title">згадкі</string>
-    <string name="feature_mentions_desc">выкарыстоўвайце @nickname для апавяшчэння канкрэтных людзей</string>
+    <string name="feature_mentions_desc">выкарыстоўвайце @nickname для згадвання канкрэтных людзей</string>
 
     <string name="privacy_title">Прыватнасць</string>
     <string name="privacy_no_tracking_title">без адсочвання</string>
