@@ -14,14 +14,16 @@ import com.bitchat.android.ui.SettingsManager
 
 // Colors that match the iOS bitchat theme
 private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFF00FF00),        // Bright green (terminal-like)
+    primary = Color(0xFF39FF14),        // Bright green (terminal-like)
     onPrimary = Color.Black,
-    secondary = Color(0xFF00CC00),      // Darker green
+    secondary = Color(0xFF2ECB10),      // Darker green
     onSecondary = Color.Black,
+    tertiary = Color(0xFFFFD700),       // Gold for favorites/stars
+    onTertiary = Color.Black,
     background = Color.Black,
-    onBackground = Color(0xFF00FF00),   // Green on black
+    onBackground = Color(0xFF39FF14),   // Green on black
     surface = Color(0xFF111111),        // Very dark gray
-    onSurface = Color(0xFF00FF00),      // Green text
+    onSurface = Color(0xFF39FF14),      // Green text
     error = Color(0xFFFF5555),          // Red for errors
     onError = Color.Black
 )
@@ -31,6 +33,8 @@ private val LightColorScheme = lightColorScheme(
     onPrimary = Color.White,
     secondary = Color(0xFF006600),      // Even darker green
     onSecondary = Color.White,
+    tertiary = Color(0xFFB8860B),       // Dark goldenrod for favorites/stars
+    onTertiary = Color.White,
     background = Color.White,
     onBackground = Color(0xFF008000),   // Dark green on white
     surface = Color(0xFFF8F8F8),        // Very light gray

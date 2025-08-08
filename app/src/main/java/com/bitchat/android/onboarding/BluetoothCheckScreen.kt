@@ -144,18 +144,20 @@ private fun BluetoothDisabledContent(
                     )
                 }
 
-                OutlinedButton(
-                    onClick = onRetry,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = "Check Again",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontFamily = FontFamily.Monospace
-                        ),
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    )
-                }
+                //Since we are automatically checking bluetooth state -- commented
+
+//                OutlinedButton(
+//                    onClick = onRetry,
+//                    modifier = Modifier.fillMaxWidth()
+//                ) {
+//                    Text(
+//                        text = "Check Again",
+//                        style = MaterialTheme.typography.bodyMedium.copy(
+//                            fontFamily = FontFamily.Monospace
+//                        ),
+//                        modifier = Modifier.padding(vertical = 4.dp)
+//                    )
+//                }
             }
         }
     }
@@ -222,7 +224,7 @@ private fun BluetoothCheckingContent(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "bitchat*",
+            text = "bitchat",
             style = MaterialTheme.typography.headlineLarge.copy(
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,

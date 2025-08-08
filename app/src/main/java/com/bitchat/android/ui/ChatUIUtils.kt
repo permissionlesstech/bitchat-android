@@ -54,7 +54,7 @@ fun formatMessageAsAnnotatedString(
     if (message.sender != "system") {
         // Sender
         val senderColor = when {
-            message.sender == currentUserNickname -> colorScheme.primary
+            message.senderPeerID == meshService.myPeerID -> colorScheme.primary
             else -> {
                 val peerID = message.senderPeerID
                 val rssi = peerID?.let { meshService.getPeerRSSI()[it] } ?: -60

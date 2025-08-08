@@ -307,6 +307,20 @@ class NotificationManager(private val context: Context) {
     }
 
     /**
+     * Get app background state for reactive read receipts
+     */
+    fun getAppBackgroundState(): Boolean {
+        return isAppInBackground
+    }
+
+    /**
+     * Get current private chat peer for reactive read receipts
+     */
+    fun getCurrentPrivateChatPeer(): String? {
+        return currentPrivateChatPeer
+    }
+
+    /**
      * Get pending notifications for debugging
      */
     fun getDebugInfo(): String {

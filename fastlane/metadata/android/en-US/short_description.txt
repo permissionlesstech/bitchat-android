@@ -1,0 +1,1 @@
+IRC style chat over Bluetooth mesh

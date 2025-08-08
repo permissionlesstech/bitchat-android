@@ -3,6 +3,7 @@ package com.bitchat.android.ui
 import com.bitchat.android.R
 import android.util.Log
 import androidx.compose.foundation.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,21 +35,21 @@ fun SidebarOverlay(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val interactionSource = remember { MutableInteractionSource() }
+
     val connectedPeers by viewModel.connectedPeers.observeAsState(emptyList())
     val joinedChannels by viewModel.joinedChannels.observeAsState(emptyList())
     val currentChannel by viewModel.currentChannel.observeAsState()
     val selectedPrivatePeer by viewModel.selectedPrivateChatPeer.observeAsState()
     val nickname by viewModel.nickname.observeAsState("")
     val unreadChannelMessages by viewModel.unreadChannelMessages.observeAsState(emptyMap())
-    
-    // Get peer data from mesh service
-    val peerNicknames = viewModel.meshService.getPeerNicknames()
-    val peerRSSI = viewModel.meshService.getPeerRSSI()
-    
+    val peerNicknames by viewModel.peerNicknames.observeAsState(emptyMap())
+    val peerRSSI by viewModel.peerRSSI.observeAsState(emptyMap())
+
     Box(
         modifier = modifier
             .background(Color.Black.copy(alpha = 0.5f))
-            .clickable { onDismiss() }
+            .clickable(indication = null, interactionSource = interactionSource) { onDismiss() }
     ) {
         Row(
             modifier = Modifier
@@ -69,7 +70,7 @@ fun SidebarOverlay(
                 modifier = Modifier
                     .fillMaxHeight()
                     .weight(1f)
-                    .background(colorScheme.surface)
+                    .background(colorScheme.background.copy(alpha = 0.95f))
                     .windowInsetsPadding(WindowInsets.statusBars) // Add status bar padding
             ) {
                 SidebarHeader()
@@ -133,9 +134,9 @@ private fun SidebarHeader() {
     
     Row(
         modifier = Modifier
-            .height(36.dp) // Match reduced main header height
+            .height(42.dp) // Match reduced main header height
             .fillMaxWidth()
-            .background(colorScheme.surface.copy(alpha = 0.95f))
+            .background(colorScheme.background.copy(alpha = 0.95f))
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -248,9 +249,9 @@ fun PeopleSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = Icons.Default.Person, // Using Person icon for people
+                imageVector = Icons.Default.Group, // Using Person icon for people
                 contentDescription = null,
-                modifier = Modifier.size(10.dp),
+                modifier = Modifier.size(12.dp),
                 tint = colorScheme.onSurface.copy(alpha = 0.6f)
             )
             Spacer(modifier = Modifier.width(6.dp))
@@ -270,22 +271,24 @@ fun PeopleSection(
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
             )
         } else {
-            // Get unread private messages and private chat history for sorting
+            // Observe reactive state for favorites and fingerprints
             val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.observeAsState(emptySet())
             val privateChats by viewModel.privateChats.observeAsState(emptyMap())
-            val favoritePeers by viewModel.favoritePeers.observeAsState(emptySet()) 
- 
-            // Pre-calculate all favorite states to ensure proper state synchronization
-            val peerFavoriteStates = remember(favoritePeers, connectedPeers) {
+            val favoritePeers by viewModel.favoritePeers.observeAsState(emptySet())
+            val peerFingerprints by viewModel.peerFingerprints.observeAsState(emptyMap())
+            
+            // Reactive favorite computation for all peers
+            val peerFavoriteStates = remember(favoritePeers, peerFingerprints, connectedPeers) {
                 connectedPeers.associateWith { peerID ->
-                    val fingerprint = viewModel.privateChatManager.getPeerFingerprint(peerID)
-                    favoritePeers.contains(fingerprint)
+                    // Reactive favorite computation - same as ChatHeader
+                    val fingerprint = peerFingerprints[peerID]
+                    fingerprint != null && favoritePeers.contains(fingerprint)
                 }
             }
             
             Log.d("SidebarComponents", "Recomposing with ${favoritePeers.size} favorites, peer states: $peerFavoriteStates")
  
-             // Smart sorting: unread DMs first, then by most recent DM, then favorites, then alphabetical
+            // Smart sorting: unread DMs first, then by most recent DM, then favorites, then alphabetical
             val sortedPeers = connectedPeers.sortedWith(
                 compareBy<String> { !hasUnreadPrivateMessages.contains(it) } // Unread DM senders first
                 .thenByDescending { privateChats[it]?.maxByOrNull { msg -> msg.timestamp }?.timestamp?.time ?: 0L } // Most recent DM (convert Date to Long)

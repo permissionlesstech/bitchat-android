@@ -47,7 +47,7 @@ class BluetoothGattClientManager(
     // Scan management
     private var scanCallback: ScanCallback? = null
     
-    // CRITICAL FIX: Scan rate limiting to prevent "scanning too frequently" errors
+    // Scan rate limiting to prevent "scanning too frequently" errors
     private var lastScanStartTime = 0L
     private var lastScanStopTime = 0L
     private var isCurrentlyScanning = false
@@ -160,7 +160,7 @@ class BluetoothGattClientManager(
     private fun startScanning() {
         if (!permissionManager.hasBluetoothPermissions() || bleScanner == null || !isActive) return
         
-        // CRITICAL FIX: Rate limit scan starts to prevent "scanning too frequently" errors
+        // Rate limit scan starts to prevent "scanning too frequently" errors
         val currentTime = System.currentTimeMillis()
         if (isCurrentlyScanning) {
             Log.d(TAG, "Scan already in progress, skipping start request")
@@ -192,6 +192,7 @@ class BluetoothGattClientManager(
         
         scanCallback = object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult) {
+                // Log.d(TAG, "Scan result received: ${result.device.address}")
                 handleScanResult(result)
             }
             
@@ -276,6 +277,8 @@ class BluetoothGattClientManager(
         if (!hasOurService) {
             return
         }
+
+        // Log.d(TAG, "Received scan result from $deviceAddress - already connected: ${connectionTracker.isDeviceConnected(deviceAddress)}")
         
         // Store RSSI from scan results for later use (especially for server connections)
         connectionTracker.updateScanRSSI(deviceAddress, rssi)
@@ -314,7 +317,7 @@ class BluetoothGattClientManager(
     @Suppress("DEPRECATION")
     private fun connectToDevice(device: BluetoothDevice, rssi: Int) {
         if (!permissionManager.hasBluetoothPermissions()) return
-        
+
         val deviceAddress = device.address
         Log.i(TAG, "Connecting to bitchat device: $deviceAddress")
         
@@ -337,10 +340,9 @@ class BluetoothGattClientManager(
                         }
                     } else {
                         Log.d(TAG, "Client: Cleanly disconnected from $deviceAddress")
+                        connectionTracker.cleanupDeviceConnection(deviceAddress)
                     }
-                    
-                    connectionTracker.cleanupDeviceConnection(deviceAddress)
-                    
+
                     connectionScope.launch {
                         delay(500) // CLEANUP_DELAY
                         try {
@@ -372,7 +374,7 @@ class BluetoothGattClientManager(
                     gatt.discoverServices()
                 } else {
                     Log.w(TAG, "MTU negotiation failed for $deviceAddress with status: $status. Disconnecting.")
-                    connectionTracker.removePendingConnection(deviceAddress)
+                    //connectionTracker.removePendingConnection(deviceAddress)
                     gatt.disconnect()
                 }
             }
@@ -420,10 +422,10 @@ class BluetoothGattClientManager(
             
             override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
                 val value = characteristic.value
-                Log.d(TAG, "Client: Received packet from ${gatt.device.address}, size: ${value.size} bytes")
+                Log.i(TAG, "Client: Received packet from ${gatt.device.address}, size: ${value.size} bytes")
                 val packet = BitchatPacket.fromBinaryData(value)
                 if (packet != null) {
-                    val peerID = String(packet.senderID).replace("\u0000", "")
+                    val peerID = packet.senderID.take(8).toByteArray().joinToString("") { "%02x".format(it) }
                     Log.d(TAG, "Client: Parsed packet type ${packet.type} from $peerID")
                     delegate?.onPacketReceived(packet, peerID, gatt.device)
                 } else {
@@ -453,13 +455,15 @@ class BluetoothGattClientManager(
             val gatt = device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
             if (gatt == null) {
                 Log.e(TAG, "connectGatt returned null for $deviceAddress")
-                connectionTracker.removePendingConnection(deviceAddress)
+                // keep the pending connection so we can avoid too many reconnections attempts, TODO: needs testing
+                // connectionTracker.removePendingConnection(deviceAddress)
             } else {
                 Log.d(TAG, "Client: GATT connection initiated successfully for $deviceAddress")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Client: Exception connecting to $deviceAddress: ${e.message}")
-            connectionTracker.removePendingConnection(deviceAddress)
+            // keep the pending connection so we can avoid too many reconnections attempts, TODO: needs testing
+            // connectionTracker.removePendingConnection(deviceAddress)
         }
     }
     
