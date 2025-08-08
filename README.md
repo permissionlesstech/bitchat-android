@@ -1,19 +1,19 @@
 <p align="center">
-    <img src="https://github.com/user-attachments/assets/188c42f8-d249-4a72-b27a-e2b4f10a00a8" alt="Bitchat Android Logo" width="480">
+    <img src="https://private-user-images.githubusercontent.com/153969184/464446519-7abc4ece-f2e5-424f-b54d-6547c58df11e.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NTQ2MzkxODQsIm5iZiI6MTc1NDYzODg4NCwicGF0aCI6Ii8xNTM5NjkxODQvNDY0NDQ2NTE5LTdhYmM0ZWNlLWYyZTUtNDI0Zi1iNTRkLTY1NDdjNThkZjExZS5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjUwODA4JTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI1MDgwOFQwNzQxMjRaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT1hNTczNzM1ODc4YTk3NDk3Nzc4NzBlNzQwM2JlYTY3OGIxZGRiMDI3ZWYyZWRjYWU4NTdmODE4ZGE1MDBhNTEzJlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCJ9.FqUx0Md1V3geq8NPEmLlAYQYgT_IpWtN81h2Kjvh2rc" alt="Bitchat Android Logo" width="480">
 </p>
 
 > [!WARNING]
 > This software has not received external security review and may contain vulnerabilities and may not necessarily meet its stated security goals. Do not use it for sensitive use cases, and do not rely on its security until it has been reviewed. Work in progress.
 
-# bitchat for Android
+# Đogechat for Android
 
-A secure, decentralized, peer-to-peer messaging app that works over Bluetooth mesh networks. No internet required, no servers, no phone numbers - just pure encrypted communication.
+A secure, Đecentralized, peer-to-peer messaging app that works over Bluetooth mesh networks. No internet required, no servers, no phone numbers - just pure encrypted communication.
 
 This is the **Android port** of the original [bitchat iOS app](https://github.com/jackjackbits/bitchat), maintaining 100% protocol compatibility for cross-platform communication.
 
-## Install bitchat
+## Install Đogechat
 
-You can download the latest version of bitchat for Android from the [GitHub Releases page](https://github.com/permissionlesstech/bitchat-android/releases).
+You can download the latest version of Đogechat for Android from the [GitHub Releases page](https://github.com/greatape42069/dogechat-android/releases).
 
 **Instructions:**
 
@@ -28,7 +28,7 @@ This project is released into the public domain. See the [LICENSE](LICENSE.md) f
 ## Features
 
 - **✅ Cross-Platform Compatible**: Full protocol compatibility with iOS bitchat
-- **✅ Decentralized Mesh Network**: Automatic peer discovery and multi-hop message relay over Bluetooth LE
+- **✅ Đecentralized Mesh Network**: Automatic peer discovery and multi-hop message relay over Bluetooth LE
 - **✅ End-to-End Encryption**: X25519 key exchange + AES-256-GCM for private messages
 - **✅ Channel-Based Chats**: Topic-based group messaging with optional password protection
 - **✅ Store & Forward**: Messages cached for offline peers and delivered when they reconnect
@@ -53,7 +53,7 @@ This project is released into the public domain. See the [LICENSE](LICENSE.md) f
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/permissionlesstech/bitchat-android.git
+   git clone https://github.com/greatape42069/dogechat-android.git
    cd bitchat-android
    ```
 
@@ -63,7 +63,7 @@ This project is released into the public domain. See the [LICENSE](LICENSE.md) f
    # Navigate to the bitchat-android directory
    ```
 
-3. **Build the project:**
+3. **BUIĐL the project:**
    ```bash
    ./gradlew build
    ```
@@ -73,7 +73,7 @@ This project is released into the public domain. See the [LICENSE](LICENSE.md) f
    ./gradlew installDebug
    ```
 
-### Development Build
+### Development BUIĐL
 
 For development builds with debugging enabled:
 
@@ -82,7 +82,7 @@ For development builds with debugging enabled:
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-### Release Build
+### Release BUIĐL
 
 For production releases:
 
@@ -210,7 +210,7 @@ bitchat uses an efficient binary protocol optimized for Bluetooth LE:
 
 ### Core Components
 
-1. **BitchatApplication.kt**: Application-level initialization and dependency injection
+1. **ĐogechatApplication.kt**: Application-level initialization and dependency injection
 2. **MainActivity.kt**: Main activity handling permissions and UI hosting
 3. **ChatViewModel.kt**: MVVM pattern managing app state and business logic
 4. **BluetoothMeshService.kt**: Core BLE mesh networking (central + peripheral roles)
@@ -281,7 +281,7 @@ This Android port enables seamless communication with the original iOS bitchat a
 - **Feature Parity**: All commands and encryption work across platforms
 - **Protocol Sync**: Identical message format and routing behavior
 
-**iOS Version**: For iPhone/iPad users, get the original bitchat at [github.com/jackjackbits/bitchat](https://github.com/jackjackbits/bitchat)
+**iOS Version**: For iPhone/iPad users, get the original bitchat at [github.com/jackjackbits/bitchat](https://github.com/greatape42069/dogechat)
 
 ## Contributing
 
@@ -296,7 +296,7 @@ Contributions are welcome! Key areas for enhancement:
 ## Support & Issues
 
 - **Bug Reports**: [Create an issue](../../issues) with device info and logs
-- **Feature Requests**: [Start a discussion](https://github.com/orgs/permissionlesstech/discussions)
+- **Feature Requests**: [Start a discussion](https://github.com/orgs/greatape42069/discussions)
 - **Security Issues**: Email security concerns privately
 - **iOS Compatibility**: Cross-reference with [original iOS repo](https://github.com/jackjackbits/bitchat)
 
