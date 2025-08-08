@@ -223,7 +223,7 @@ private fun PermissionCategoryCard(
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Medium,
-                            color = Color(0xFFFF9800)
+                            color = colorScheme.secondary
                         )
                     )
                 }
@@ -242,12 +242,14 @@ private fun getPermissionEmoji(permissionType: PermissionType): String {
     }
 }
 
+@Composable
 private fun getPermissionIconColor(permissionType: PermissionType): Color {
+    val colorScheme = MaterialTheme.colorScheme
     return when (permissionType) {
-        PermissionType.NEARBY_DEVICES -> Color(0xFF2196F3) // Blue
-        PermissionType.PRECISE_LOCATION -> Color(0xFFFF9800) // Orange
-        PermissionType.NOTIFICATIONS -> Color(0xFF4CAF50) // Green
-        PermissionType.BATTERY_OPTIMIZATION -> Color(0xFFF44336) // Red
-        PermissionType.OTHER -> Color(0xFF9C27B0) // Purple
+        PermissionType.NEARBY_DEVICES -> colorScheme.primary
+        PermissionType.PRECISE_LOCATION -> colorScheme.secondary
+        PermissionType.NOTIFICATIONS -> colorScheme.tertiary
+        PermissionType.BATTERY_OPTIMIZATION -> colorScheme.error
+        PermissionType.OTHER -> colorScheme.outline
     }
 }

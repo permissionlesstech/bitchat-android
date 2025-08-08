@@ -1,11 +1,16 @@
 package com.bitchat.android.ui.theme
 
+import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import com.bitchat.android.ui.SettingsManager
 
 // Colors that match the iOS bitchat theme
 private val DarkColorScheme = darkColorScheme(
@@ -13,6 +18,8 @@ private val DarkColorScheme = darkColorScheme(
     onPrimary = Color.Black,
     secondary = Color(0xFF2ECB10),      // Darker green
     onSecondary = Color.Black,
+    tertiary = Color(0xFFFFD700),       // Gold for favorites/stars
+    onTertiary = Color.Black,
     background = Color.Black,
     onBackground = Color(0xFF39FF14),   // Green on black
     surface = Color(0xFF111111),        // Very dark gray
@@ -26,6 +33,8 @@ private val LightColorScheme = lightColorScheme(
     onPrimary = Color.White,
     secondary = Color(0xFF006600),      // Even darker green
     onSecondary = Color.White,
+    tertiary = Color(0xFFB8860B),       // Dark goldenrod for favorites/stars
+    onTertiary = Color.White,
     background = Color.White,
     onBackground = Color(0xFF008000),   // Dark green on white
     surface = Color(0xFFF8F8F8),        // Very light gray
@@ -36,10 +45,27 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun BitchatTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    themePreference: SettingsManager.ThemePreference = SettingsManager.ThemePreference.SYSTEM,
     content: @Composable () -> Unit
 ) {
+    val context = LocalContext.current
+    val supportsDynamicColor = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    
+    val darkTheme = when (themePreference) {
+        SettingsManager.ThemePreference.LIGHT -> false
+        SettingsManager.ThemePreference.DARK -> true
+        SettingsManager.ThemePreference.SYSTEM -> isSystemInDarkTheme()
+        SettingsManager.ThemePreference.DYNAMIC -> isSystemInDarkTheme()
+    }
+    
     val colorScheme = when {
+        themePreference == SettingsManager.ThemePreference.DYNAMIC && supportsDynamicColor -> {
+            if (darkTheme) {
+                dynamicDarkColorScheme(context)
+            } else {
+                dynamicLightColorScheme(context)
+            }
+        }
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
