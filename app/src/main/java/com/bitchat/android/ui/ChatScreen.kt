@@ -27,6 +27,75 @@ import androidx.compose.ui.zIndex
  */
 @Composable
 fun ChatScreen(viewModel: ChatViewModel) {
+    val showSettingsScreen by viewModel.showSettingsScreen.observeAsState(false)
+    val currentTheme by viewModel.settingsManager::themePreference
+    
+    // Animated transition between chat screen and settings screen
+    AnimatedContent(
+        targetState = showSettingsScreen,
+        transitionSpec = {
+            if (targetState) {
+                // Entering settings screen - slide in from right
+                slideInHorizontally(
+                    initialOffsetX = { it },
+                    animationSpec = tween(
+                        durationMillis = 300,
+                        easing = EaseOutCubic
+                    )
+                ) + fadeIn(
+                    animationSpec = tween(
+                        durationMillis = 200,
+                        delayMillis = 50
+                    )
+                ) togetherWith slideOutHorizontally(
+                    targetOffsetX = { -it / 3 },
+                    animationSpec = tween(
+                        durationMillis = 300,
+                        easing = EaseInCubic
+                    )
+                ) + fadeOut(
+                    animationSpec = tween(durationMillis = 150)
+                )
+            } else {
+                // Exiting settings screen - slide out to right
+                slideInHorizontally(
+                    initialOffsetX = { -it / 3 },
+                    animationSpec = tween(
+                        durationMillis = 300,
+                        easing = EaseOutCubic
+                    )
+                ) + fadeIn(
+                    animationSpec = tween(
+                        durationMillis = 200,
+                        delayMillis = 50
+                    )
+                ) togetherWith slideOutHorizontally(
+                    targetOffsetX = { it },
+                    animationSpec = tween(
+                        durationMillis = 300,
+                        easing = EaseInCubic
+                    )
+                ) + fadeOut(
+                    animationSpec = tween(durationMillis = 150)
+                )
+            }
+        },
+        label = "settingsScreenTransition"
+    ) { isShowingSettings ->
+        if (isShowingSettings) {
+            SettingsScreen(
+                currentTheme = currentTheme,
+                onThemeChange = { preference -> viewModel.updateThemePreference(preference) },
+                onBackClick = { viewModel.hideSettingsScreen() }
+            )
+        } else {
+            ChatScreenContent(viewModel = viewModel)
+        }
+    }
+}
+
+@Composable
+private fun ChatScreenContent(viewModel: ChatViewModel) {
     val colorScheme = MaterialTheme.colorScheme
     val messages by viewModel.messages.observeAsState(emptyList())
     val connectedPeers by viewModel.connectedPeers.observeAsState(emptyList())
@@ -44,8 +113,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val showMentionSuggestions by viewModel.showMentionSuggestions.observeAsState(false)
     val mentionSuggestions by viewModel.mentionSuggestions.observeAsState(emptyList())
     val showAppInfo by viewModel.showAppInfo.observeAsState(false)
-    val showSettings by viewModel.showSettings.observeAsState(false)
-    val currentTheme by viewModel.settingsManager::themePreference
     var messageText by remember { mutableStateOf(TextFieldValue("")) }
     var showPasswordPrompt by remember { mutableStateOf(false) }
     var showPasswordDialog by remember { mutableStateOf(false) }
@@ -198,11 +265,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             passwordInput = ""
         },
         showAppInfo = showAppInfo,
-        onAppInfoDismiss = { viewModel.hideAppInfo() },
-        showSettings = showSettings,
-        onSettingsDismiss = { viewModel.hideSettings() },
-        currentTheme = currentTheme,
-        onThemeChange = { preference -> viewModel.updateThemePreference(preference) }
+        onAppInfoDismiss = { viewModel.hideAppInfo() }
     )
 }
 
@@ -302,7 +365,7 @@ private fun ChatFloatingHeader(
                     onSidebarClick = onSidebarToggle,
                     onTripleClick = onPanicClear,
                     onShowAppInfo = onShowAppInfo,
-                    onShowSettings = { viewModel.showSettings() }
+                    onShowSettings = { viewModel.showSettingsScreen() }
                 )
             },
             colors = TopAppBarDefaults.topAppBarColors(
@@ -330,11 +393,7 @@ private fun ChatDialogs(
     onPasswordConfirm: () -> Unit,
     onPasswordDismiss: () -> Unit,
     showAppInfo: Boolean,
-    onAppInfoDismiss: () -> Unit,
-    showSettings: Boolean,
-    onSettingsDismiss: () -> Unit,
-    currentTheme: SettingsManager.ThemePreference,
-    onThemeChange: (SettingsManager.ThemePreference) -> Unit
+    onAppInfoDismiss: () -> Unit
 ) {
     // Password dialog
     PasswordPromptDialog(
@@ -350,13 +409,5 @@ private fun ChatDialogs(
     AppInfoDialog(
         show = showAppInfo,
         onDismiss = onAppInfoDismiss
-    )
-    
-    // Settings dialog
-    SettingsDialog(
-        show = showSettings,
-        currentTheme = currentTheme,
-        onThemeChange = onThemeChange,
-        onDismiss = onSettingsDismiss
     )
 }

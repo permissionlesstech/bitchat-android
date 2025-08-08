@@ -428,6 +428,21 @@ private fun MainHeader(
             modifier = Modifier.fillMaxHeight(),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Settings icon moved to the left
+            IconButton(
+                onClick = onShowSettings,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Tune, // Better icon for settings
+                    contentDescription = "Settings",
+                    tint = colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(4.dp))
+            
             Text(
                 text = "bitchat/",
                 style = MaterialTheme.typography.headlineSmall,
@@ -446,30 +461,13 @@ private fun MainHeader(
             )
         }
         
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            IconButton(
-                onClick = onShowSettings,
-                modifier = Modifier.size(40.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = "Settings",
-                    tint = colorScheme.onSurface,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-            
-            PeerCounter(
-                connectedPeers = connectedPeers.filter { it != viewModel.meshService.myPeerID },
-                joinedChannels = joinedChannels,
-                hasUnreadChannels = hasUnreadChannels,
-                hasUnreadPrivateMessages = hasUnreadPrivateMessages,
-                isConnected = isConnected,
-                onClick = onSidebarClick
-            )
-        }
+        PeerCounter(
+            connectedPeers = connectedPeers.filter { it != viewModel.meshService.myPeerID },
+            joinedChannels = joinedChannels,
+            hasUnreadChannels = hasUnreadChannels,
+            hasUnreadPrivateMessages = hasUnreadPrivateMessages,
+            isConnected = isConnected,
+            onClick = onSidebarClick
+        )
     }
 }

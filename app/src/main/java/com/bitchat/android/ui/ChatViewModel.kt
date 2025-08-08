@@ -47,7 +47,7 @@ class ChatViewModel(
     }
     
     val privateChatManager = PrivateChatManager(state, messageManager, dataManager, noiseSessionDelegate)
-    private val commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager)
+    private val commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager, onOpenSettings = { showSettingsScreen() })
     private val notificationManager = NotificationManager(application.applicationContext)
     private var _settingsManager: SettingsManager? = null
     val settingsManager: SettingsManager
@@ -95,9 +95,9 @@ class ChatViewModel(
     val peerRSSI: LiveData<Map<String, Int>> = state.peerRSSI
     val showAppInfo: LiveData<Boolean> = state.showAppInfo
     
-    // Settings state
-    private val _showSettings = androidx.lifecycle.MutableLiveData(false)
-    val showSettings: LiveData<Boolean> = _showSettings
+    // Settings state - now for full screen navigation
+    private val _showSettingsScreen = androidx.lifecycle.MutableLiveData(false)
+    val showSettingsScreen: LiveData<Boolean> = _showSettingsScreen
     
     init {
         // Note: Mesh service delegate is now set by MainActivity
@@ -501,12 +501,12 @@ class ChatViewModel(
     
     // MARK: - Settings Management
     
-    fun showSettings() {
-        _showSettings.value = true
+    fun showSettingsScreen() {
+        _showSettingsScreen.value = true
     }
     
-    fun hideSettings() {
-        _showSettings.value = false
+    fun hideSettingsScreen() {
+        _showSettingsScreen.value = false
     }
     
     fun updateThemePreference(preference: SettingsManager.ThemePreference) {
@@ -526,9 +526,9 @@ class ChatViewModel(
      */
     fun handleBackPressed(): Boolean {
         return when {
-            // Close settings dialog
-            _showSettings.value == true -> {
-                hideSettings()
+            // Close settings screen
+            _showSettingsScreen.value == true -> {
+                hideSettingsScreen()
                 true
             }
             // Close app info dialog
