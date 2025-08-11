@@ -64,6 +64,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val showSidebar by viewModel.showSidebar.observeAsState(false)
     val showCommandSuggestions by viewModel.showCommandSuggestions.observeAsState(false)
     val commandSuggestions by viewModel.commandSuggestions.observeAsState(emptyList())
+    val showMentionSuggestions by viewModel.showMentionSuggestions.observeAsState(false)
+    val mentionSuggestions by viewModel.mentionSuggestions.observeAsState(emptyList())
     val showAppInfo by viewModel.showAppInfo.observeAsState(false)
     
     var messageText by remember { mutableStateOf(TextFieldValue("")) }
@@ -114,6 +116,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 onMessageTextChange = { newText: TextFieldValue ->
                     messageText = newText
                     viewModel.updateCommandSuggestions(newText.text)
+                    viewModel.updateMentionSuggestions(newText.text)
                 },
                 onSend = {
                     if (messageText.text.trim().isNotEmpty()) {
@@ -123,11 +126,20 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 },
                 showCommandSuggestions = showCommandSuggestions,
                 commandSuggestions = commandSuggestions,
-                onSuggestionClick = { suggestion: CommandSuggestion ->
+                showMentionSuggestions = showMentionSuggestions,
+                mentionSuggestions = mentionSuggestions,
+                onCommandSuggestionClick = { suggestion: CommandSuggestion ->
                     val commandText = viewModel.selectCommandSuggestion(suggestion)
                     messageText = TextFieldValue(
                         text = commandText,
                         selection = TextRange(commandText.length)
+                    )
+                },
+                onMentionSuggestionClick = { mention: String ->
+                    val mentionText = viewModel.selectMentionSuggestion(mention, messageText.text)
+                    messageText = TextFieldValue(
+                        text = mentionText,
+                        selection = TextRange(mentionText.length)
                     )
                 },
                 selectedPrivatePeer = selectedPrivatePeer,
@@ -202,7 +214,10 @@ private fun ChatInputSection(
     onSend: () -> Unit,
     showCommandSuggestions: Boolean,
     commandSuggestions: List<CommandSuggestion>,
-    onSuggestionClick: (CommandSuggestion) -> Unit,
+    showMentionSuggestions: Boolean,
+    mentionSuggestions: List<String>,
+    onCommandSuggestionClick: (CommandSuggestion) -> Unit,
+    onMentionSuggestionClick: (String) -> Unit,
     selectedPrivatePeer: String?,
     currentChannel: String?,
     nickname: String,
@@ -220,7 +235,18 @@ private fun ChatInputSection(
             if (showCommandSuggestions && commandSuggestions.isNotEmpty()) {
                 CommandSuggestionsBox(
                     suggestions = commandSuggestions,
-                    onSuggestionClick = onSuggestionClick,
+                    onSuggestionClick = onCommandSuggestionClick,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.2f))
+            }
+            
+            // Mention suggestions box
+            if (showMentionSuggestions && mentionSuggestions.isNotEmpty()) {
+                MentionSuggestionsBox(
+                    suggestions = mentionSuggestions,
+                    onSuggestionClick = onMentionSuggestionClick,
                     modifier = Modifier.fillMaxWidth()
                 )
 
