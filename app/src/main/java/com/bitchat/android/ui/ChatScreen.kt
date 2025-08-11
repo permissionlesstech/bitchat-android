@@ -98,6 +98,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     if (messageText.text.trim().isNotEmpty()) {
                         viewModel.sendMessage(messageText.text.trim())
                         messageText = TextFieldValue("")
+                        viewModel.updateCommandSuggestions("")
+                        viewModel.updateMentionSuggestions("")
                     }
                 },
                 showCommandSuggestions = showCommandSuggestions,
