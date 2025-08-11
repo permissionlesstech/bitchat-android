@@ -4,39 +4,16 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import com.bitchat.android.model.BitchatMessage
-import com.bitchat.android.model.DeliveryStatus
-import com.bitchat.android.mesh.BluetoothMeshService
-import java.text.SimpleDateFormat
-import java.util.*
 
 /**
  * Main ChatScreen - REFACTORED to use component-based architecture
@@ -67,27 +44,27 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val showMentionSuggestions by viewModel.showMentionSuggestions.observeAsState(false)
     val mentionSuggestions by viewModel.mentionSuggestions.observeAsState(emptyList())
     val showAppInfo by viewModel.showAppInfo.observeAsState(false)
-    
+
     var messageText by remember { mutableStateOf(TextFieldValue("")) }
     var showPasswordPrompt by remember { mutableStateOf(false) }
     var showPasswordDialog by remember { mutableStateOf(false) }
     var passwordInput by remember { mutableStateOf("") }
-    
+
     // Show password dialog when needed
     LaunchedEffect(showPasswordPrompt) {
         showPasswordDialog = showPasswordPrompt
     }
-    
+
     val isConnected by viewModel.isConnected.observeAsState(false)
     val passwordPromptChannel by viewModel.passwordPromptChannel.observeAsState(null)
-    
+
     // Determine what messages to show
     val displayMessages = when {
         selectedPrivatePeer != null -> privateChats[selectedPrivatePeer] ?: emptyList()
         currentChannel != null -> channelMessages[currentChannel] ?: emptyList()
         else -> messages
     }
-    
+
     // Use WindowInsets to handle keyboard properly
     Box(modifier = Modifier.fillMaxSize()) {
         val headerHeight = 42.dp
@@ -101,7 +78,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
         ) {
             // Header spacer - creates space for the floating header
             Spacer(modifier = Modifier.height(headerHeight))
-            
+
             // Messages area - takes up available space, will compress when keyboard appears
             MessagesList(
                 messages = displayMessages,
@@ -109,7 +86,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 meshService = viewModel.meshService,
                 modifier = Modifier.weight(1f)
             )
-            
             // Input area - stays at bottom
             ChatInputSection(
                 messageText = messageText,
@@ -148,7 +124,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 colorScheme = colorScheme
             )
         }
-        
+
         // Floating header - positioned absolutely at top, ignores keyboard
         ChatFloatingHeader(
             headerHeight = headerHeight,
@@ -161,8 +137,26 @@ fun ChatScreen(viewModel: ChatViewModel) {
             onShowAppInfo = { viewModel.showAppInfo() },
             onPanicClear = { viewModel.panicClearAllData() }
         )
-        
-        // Sidebar overlay
+
+        val alpha by animateFloatAsState(
+            targetValue = if (showSidebar) 0.5f else 0f,
+            animationSpec = tween(
+                durationMillis = 300,
+                easing = EaseOutCubic
+            ), label = "overlayAlpha"
+        )
+
+        // Only render the background if it's visible
+        if (alpha > 0f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = alpha))
+                    .clickable { viewModel.hideSidebar() }
+                    .zIndex(1f)
+            )
+        }
+
         AnimatedVisibility(
             visible = showSidebar,
             enter = slideInHorizontally(
@@ -173,7 +167,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 targetOffsetX = { it },
                 animationSpec = tween(250, easing = EaseInCubic)
             ) + fadeOut(animationSpec = tween(250)),
-            modifier = Modifier.zIndex(2f) 
+            modifier = Modifier.zIndex(2f)
         ) {
             SidebarOverlay(
                 viewModel = viewModel,
@@ -182,7 +176,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             )
         }
     }
-    
+
     // Dialogs
     ChatDialogs(
         showPasswordDialog = showPasswordDialog,
@@ -230,7 +224,6 @@ private fun ChatInputSection(
     ) {
         Column {
             HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
-            
             // Command suggestions box
             if (showCommandSuggestions && commandSuggestions.isNotEmpty()) {
                 CommandSuggestionsBox(
@@ -238,10 +231,9 @@ private fun ChatInputSection(
                     onSuggestionClick = onCommandSuggestionClick,
                     modifier = Modifier.fillMaxWidth()
                 )
-
                 HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.2f))
             }
-            
+
             // Mention suggestions box
             if (showMentionSuggestions && mentionSuggestions.isNotEmpty()) {
                 MentionSuggestionsBox(
@@ -249,22 +241,21 @@ private fun ChatInputSection(
                     onSuggestionClick = onMentionSuggestionClick,
                     modifier = Modifier.fillMaxWidth()
                 )
-
                 HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.2f))
             }
-            
-            MessageInput(
-                value = messageText,
-                onValueChange = onMessageTextChange,
-                onSend = onSend,
-                selectedPrivatePeer = selectedPrivatePeer,
-                currentChannel = currentChannel,
-                nickname = nickname,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-    }
-}
+
+                        MessageInput(
+                            value = messageText,
+                            onValueChange = onMessageTextChange,
+                            onSend = onSend,
+                            selectedPrivatePeer = selectedPrivatePeer,
+                            currentChannel = currentChannel,
+                            nickname = nickname,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -311,7 +302,7 @@ private fun ChatFloatingHeader(
             )
         )
     }
-    
+
     // Divider under header
     HorizontalDivider(
         modifier = Modifier
@@ -342,7 +333,7 @@ private fun ChatDialogs(
         onConfirm = onPasswordConfirm,
         onDismiss = onPasswordDismiss
     )
-    
+
     // App info dialog
     AppInfoDialog(
         show = showAppInfo,

@@ -109,14 +109,6 @@ class BluetoothMeshService(private val context: Context) {
     private fun setupDelegates() {
         // PeerManager delegates to main mesh service delegate
         peerManager.delegate = object : PeerManagerDelegate {
-            override fun onPeerConnected(nickname: String) {
-                delegate?.didConnectToPeer(nickname)
-            }
-            
-            override fun onPeerDisconnected(nickname: String) {
-                delegate?.didDisconnectFromPeer(nickname)
-            }
-            
             override fun onPeerListUpdated(peerIDs: List<String>) {
                 delegate?.didUpdatePeerList(peerIDs)
             }
@@ -291,10 +283,6 @@ class BluetoothMeshService(private val context: Context) {
                 delegate?.didReceiveChannelLeave(channel, fromPeer)
             }
             
-            override fun onPeerDisconnected(nickname: String) {
-                delegate?.didDisconnectFromPeer(nickname)
-            }
-            
             override fun onDeliveryAckReceived(ack: DeliveryAck) {
                 delegate?.didReceiveDeliveryAck(ack)
             }
@@ -417,7 +405,11 @@ class BluetoothMeshService(private val context: Context) {
         Log.i(TAG, "Starting Bluetooth mesh service with peer ID: $myPeerID")
         
         if (connectionManager.startServices()) {
-            isActive = true            
+            isActive = true
+            
+            // Start periodic announcements for peer discovery and connectivity
+            sendPeriodicBroadcastAnnounce()
+            Log.d(TAG, "Started periodic broadcast announcements (every 30 seconds)")
         } else {
             Log.e(TAG, "Failed to start Bluetooth services")
         }
@@ -1020,8 +1012,6 @@ class BluetoothMeshService(private val context: Context) {
  */
 interface BluetoothMeshDelegate {
     fun didReceiveMessage(message: BitchatMessage)
-    fun didConnectToPeer(peerID: String)
-    fun didDisconnectFromPeer(peerID: String)
     fun didUpdatePeerList(peers: List<String>)
     fun didReceiveChannelLeave(channel: String, fromPeer: String)
     fun didReceiveDeliveryAck(ack: DeliveryAck)

@@ -97,6 +97,12 @@ class ChatState {
     // Peer fingerprint state for reactive favorites (for reactive UI updates)
     private val _peerFingerprints = MutableLiveData<Map<String, String>>(emptyMap())
     val peerFingerprints: LiveData<Map<String, String>> = _peerFingerprints
+
+    private val _peerNicknames = MutableLiveData<Map<String, String>>(emptyMap())
+    val peerNicknames: LiveData<Map<String, String>> = _peerNicknames
+
+    private val _peerRSSI = MutableLiveData<Map<String, Int>>(emptyMap())
+    val peerRSSI: LiveData<Map<String, Int>> = _peerRSSI
     
     // peerIDToPublicKeyFingerprint REMOVED - fingerprints now handled centrally in PeerManager
     
@@ -240,6 +246,14 @@ class ChatState {
     
     fun setPeerFingerprints(fingerprints: Map<String, String>) {
         _peerFingerprints.value = fingerprints
+    }
+
+    fun setPeerNicknames(nicknames: Map<String, String>) {
+        _peerNicknames.value = nicknames
+    }
+
+    fun setPeerRSSI(rssi: Map<String, Int>) {
+        _peerRSSI.value = rssi
     }
     
     fun setShowAppInfo(show: Boolean) {

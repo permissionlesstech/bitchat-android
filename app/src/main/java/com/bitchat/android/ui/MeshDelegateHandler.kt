@@ -80,40 +80,6 @@ class MeshDelegateHandler(
         }
     }
     
-    override fun didConnectToPeer(peerID: String) {
-        coroutineScope.launch {
-            // FIXED: Deduplicate connection events from dual connection paths
-            if (messageManager.isDuplicateSystemEvent("connect", peerID)) {
-                return@launch
-            }
-            
-            val systemMessage = BitchatMessage(
-                sender = "system",
-                content = "$peerID connected",
-                timestamp = Date(),
-                isRelay = false
-            )
-            messageManager.addMessage(systemMessage)
-        }
-    }
-    
-    override fun didDisconnectFromPeer(peerID: String) {
-        coroutineScope.launch {
-            // FIXED: Deduplicate disconnection events from dual connection paths
-            if (messageManager.isDuplicateSystemEvent("disconnect", peerID)) {
-                return@launch
-            }
-            
-            val systemMessage = BitchatMessage(
-                sender = "system",
-                content = "$peerID disconnected",
-                timestamp = Date(),
-                isRelay = false
-            )
-            messageManager.addMessage(systemMessage)
-        }
-    }
-    
     override fun didUpdatePeerList(peers: List<String>) {
         coroutineScope.launch {
             state.setConnectedPeers(peers)
