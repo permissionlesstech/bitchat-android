@@ -211,7 +211,9 @@ class ChatViewModel(
         channels.forEach { channel ->
             if (!state.getJoinedChannelsValue().contains(channel)) {
                 joinChannel(channel)
+                return@forEach
             }
+            switchToChannel(channel)
         }
         
         val selectedPeer = state.getSelectedPrivateChatPeerValue()
