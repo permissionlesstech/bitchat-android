@@ -129,7 +129,7 @@ class ChatViewModel(
         
         // Load other data
         dataManager.loadFavorites()
-        state.setFavoritePeers(dataManager.favoritePeers)
+        state.setFavoritePeers(dataManager.favoritePeers.toSet())
         dataManager.loadBlockedUsers()
         
         // Log all favorites at startup
@@ -377,7 +377,43 @@ class ChatViewModel(
     fun selectMentionSuggestion(nickname: String, currentText: String): String {
         return commandProcessor.selectMentionSuggestion(nickname, currentText)
     }
-
+    
+    // MARK: - BluetoothMeshDelegate Implementation (delegated)
+    
+    override fun didReceiveMessage(message: BitchatMessage) {
+        meshDelegateHandler.didReceiveMessage(message)
+    }
+    
+    override fun didUpdatePeerList(peers: List<String>) {
+        meshDelegateHandler.didUpdatePeerList(peers)
+    }
+    
+    override fun didReceiveChannelLeave(channel: String, fromPeer: String) {
+        meshDelegateHandler.didReceiveChannelLeave(channel, fromPeer)
+    }
+    
+    override fun didReceiveDeliveryAck(ack: DeliveryAck) {
+        meshDelegateHandler.didReceiveDeliveryAck(ack)
+    }
+    
+    override fun didReceiveReadReceipt(receipt: ReadReceipt) {
+        meshDelegateHandler.didReceiveReadReceipt(receipt)
+    }
+    
+    override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {
+        return meshDelegateHandler.decryptChannelMessage(encryptedContent, channel)
+    }
+    
+    override fun getNickname(): String? {
+        return meshDelegateHandler.getNickname()
+    }
+    
+    override fun isFavorite(peerID: String): Boolean {
+        return meshDelegateHandler.isFavorite(peerID)
+    }
+    
+    // registerPeerPublicKey REMOVED - fingerprints now handled centrally in PeerManager
+    
     // MARK: - Emergency Clear
     
     fun panicClearAllData() {
