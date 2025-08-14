@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+    <string name="permission_bluetooth_rationale">A permissão Bluetooth é necessária para mensagens ponto a ponto sem internet.</string>
+    <string name="permission_location_rationale">É necessária permissão de localização para descobrir dispositivos próximos via Bluetooth.</string>
+    <string name="permission_notification_rationale">A permissão de notificação é necessária para alertá-lo sobre novas mensagens.</string>
+    <string name="nickname_hint">apelido</string>
+    <string name="message_hint">digite uma mensagem…</string>
+    <string name="channel_password_hint">Senha</string>
+    <string name="join_channel">Entrar no canal</string>
+    <string name="leave_channel">Sair</string>
+    <string name="send_message">Enviar</string>
+    <string name="back">Voltar</string>
+    <string name="people">Pessoas</string>
+    <string name="channels">Canais</string>
+    <string name="online_users">Usuários Online</string>
+    <string name="no_one_connected">Ninguém conectado</string>
+    <string name="emergency_clear_hint">Toque três vezes para limpar todos os dados</string>
+    <string name="your_network">Sua rede</string>
+
+    <!-- Strings de Otimização de Bateria -->
+    <string name="battery_optimization_detected">Otimização de Bateria Detectada</string>
+    <string name="battery_optimization_disabled">Otimização de Bateria Desativada</string>
+    <string name="battery_optimization_not_required">Otimização de Bateria Não Requerida</string>
+    <string name="battery_optimization_checking">Verificando a Otimização de Bateria</string>
+    <string name="battery_optimization_why_disable">Por que desativar a otimização de bateria?</string>
+    <string name="battery_optimization_explanation">O bitchat é executado em segundo plano para manter conexões de rede mesh com dispositivos próximos. A otimização da bateria pode interromper essas conexões e atrasar ou impedir a entrega de mensagens.</string>
+    <string name="battery_optimization_disable_button">Desativar a otimização da bateria</string>
+    <string name="battery_optimization_note">Observação: você pode alterar essa configuração posteriormente em Configurações do Android &gt; Aplicativos &gt; bitchat &gt; Bateria</string>
+    <string name="battery_optimization_not_supported_explanation">Seu dispositivo não requer configurações de otimização da bateria. O bitchat funcionará normalmente.</string>
+    <string name="battery_optimization_not_supported_message">Seu dispositivo não requer configurações de otimização da bateria. O bitchat funcionará normalmente.</string>
+    <string name="battery_optimization_success_message">O bitchat pode ser executado de forma confiável em segundo plano</string>
+    <string name="battery_optimization_benefits">&#8226; Garante a entrega confiável de mensagens&#10;&#8226; Mantém a conectividade da rede mesh&#10;&#8226; Permite o retransmissão de mensagens em segundo plano&#10;&#8226; Evita desconexões inesperadas</string>
+    <string name="battery_optimization_check_again">Verificar novamente</string>
+    <string name="battery_optimization_skip">Ignorar por enquanto</string>
+    <string name="battery_optimization_continue">Continuar</string>
+    <string name="retry">Tentar novamente</string>
+    <string name="skip">Ignorar</string>
+</resources>
