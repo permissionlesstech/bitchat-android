@@ -67,9 +67,9 @@ class FragmentManager {
             )
             
             val fragmentType = when (i) {
-                0 -> MessageType.FRAGMENT_START
-                totalFragments - 1 -> MessageType.FRAGMENT_END
-                else -> MessageType.FRAGMENT_CONTINUE
+                0 -> MessageType.FRAGMENT
+                totalFragments - 1 -> MessageType.FRAGMENT
+                else -> MessageType.FRAGMENT
             }
             
             val fragmentPacket = BitchatPacket(

@@ -4,6 +4,7 @@ import android.util.Log
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryAck
 import com.bitchat.android.model.NoiseIdentityAnnouncement
+import com.bitchat.android.model.IdentityAnnouncement
 import com.bitchat.android.model.ReadReceipt
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
@@ -53,26 +54,26 @@ class MessageHandler(private val myPeerID: String) {
             }
             
             // Check if it's a special format message (type marker + payload)
-            if (decryptedData.size > 1) {
-                val typeMarker = decryptedData[0].toUByte()
-                
-                // Check if this is a delivery ACK with the new format
-                if (typeMarker == MessageType.DELIVERY_ACK.value) {
-                    handleDeliveryAck(decryptedData)
-                    Log.d(TAG, "Processed delivery ACK from $peerID")
-                }
-                
-                // Check for read receipt with type marker
-                if (typeMarker == MessageType.READ_RECEIPT.value) {
-                    val receiptData = decryptedData.sliceArray(1 until decryptedData.size)
-                    val receipt = ReadReceipt.decode(receiptData)
-                    if (receipt != null) {
-                        delegate?.onReadReceiptReceived(receipt)
-                        Log.d(TAG, "Processed read receipt from $peerID")
-                        return
-                    }
-                }
-            }
+//            if (decryptedData.size > 1) {
+//                val typeMarker = decryptedData[0].toUByte()
+//
+//                // Check if this is a delivery ACK with the new format
+//                if (typeMarker == MessageType.DELIVERY_ACK.value) {
+//                    handleDeliveryAck(decryptedData)
+//                    Log.d(TAG, "Processed delivery ACK from $peerID")
+//                }
+//
+//                // Check for read receipt with type marker
+//                if (typeMarker == MessageType.READ_RECEIPT.value) {
+//                    val receiptData = decryptedData.sliceArray(1 until decryptedData.size)
+//                    val receipt = ReadReceipt.decode(receiptData)
+//                    if (receipt != null) {
+//                        delegate?.onReadReceiptReceived(receipt)
+//                        Log.d(TAG, "Processed read receipt from $peerID")
+//                        return
+//                    }
+//                }
+//            }
             
             // Try to parse as a full inner packet (for compatibility with other message types)
             val innerPacket = BitchatPacket.fromBinaryData(decryptedData)
@@ -168,7 +169,7 @@ class MessageHandler(private val myPeerID: String) {
     }
     
     /**
-     * Handle announce message
+     * Handle announce message with TLV decoding support
      */
     suspend fun handleAnnounce(routed: RoutedPacket): Boolean {
         val packet = routed.packet
@@ -176,15 +177,35 @@ class MessageHandler(private val myPeerID: String) {
 
         if (peerID == myPeerID) return false
         
-        val nickname = String(packet.payload, Charsets.UTF_8)
-        Log.d(TAG, "Received announce from $peerID: $nickname")
-        
-        // Notify delegate to handle peer management
-        val isFirstAnnounce = delegate?.addOrUpdatePeer(peerID, nickname) ?: false
-        
-        // Announce relay is now handled by centralized PacketRelayManager
-        
-        return isFirstAnnounce
+        // Try to decode as TLV-encoded IdentityAnnouncement first
+        val identityAnnouncement = IdentityAnnouncement.decode(packet.payload)
+        if (identityAnnouncement == null) {
+            Log.w(TAG, "Failed to decode announce from $peerID as TLV format")
+            return false
+        }
+            // Successfully decoded TLV format
+            Log.d(TAG, "Received TLV announce from $peerID: nickname=${identityAnnouncement.nickname}, " +
+                    "publicKey=${identityAnnouncement.publicKey?.toHexString()?.take(16)}...")
+            
+            // Extract nickname and public key from TLV data
+            val nickname = identityAnnouncement.nickname
+            val publicKey = identityAnnouncement.publicKey
+            
+            // Notify delegate to handle peer management with nickname
+            val isFirstAnnounce = delegate?.addOrUpdatePeer(peerID, nickname) ?: false
+
+            if (publicKey != null) {
+                // Update peer ID binding with public key for identity management
+                delegate?.updatePeerIDBinding(
+                    newPeerID = peerID,
+                    nickname = nickname,
+                    publicKey = publicKey,
+                    previousPeerID = null
+                )
+            }
+            
+            Log.d(TAG, "Processed TLV announce: stored public key for $peerID")
+            return isFirstAnnounce
     }
     
     /**
@@ -215,33 +236,40 @@ class MessageHandler(private val myPeerID: String) {
         val peerID = routed.peerID ?: "unknown"
         try {
             // Parse message
-            val message = BitchatMessage.fromBinaryPayload(packet.payload)
-            if (message != null) {
-                // Check for cover traffic (dummy messages)
-                if (message.content.startsWith("☂DUMMY☂")) {
-                    Log.d(TAG, "Discarding cover traffic from $peerID")
-                    return // Silently discard
-                }
-                
-                delegate?.updatePeerNickname(peerID, message.sender)
-                
-                // Handle encrypted channel messages
-                val finalContent = if (message.channel != null && message.isEncrypted && message.encryptedContent != null) {
-                    delegate?.decryptChannelMessage(message.encryptedContent, message.channel)
-                    ?: "[Encrypted message - password required]"
-                } else {
-                    message.content
-                }
-                
-                // Replace timestamp with current time (same as iOS)
-                val messageWithCurrentTime = message.copy(
-                    content = finalContent,
-                    senderPeerID = peerID,
-                    timestamp = Date() // Use current time instead of original timestamp
-                )
-                
-                delegate?.onMessageReceived(messageWithCurrentTime)
-            }
+            val message = BitchatMessage(
+                sender = delegate?.getPeerNickname(peerID) ?: "unknown",
+                content = String(packet.payload, Charsets.UTF_8),
+                senderPeerID = peerID,
+                timestamp = Date()
+            )
+
+            delegate?.onMessageReceived(message)
+//            if (message != null) {
+//                // Check for cover traffic (dummy messages)
+//                if (message.content.startsWith("☂DUMMY☂")) {
+//                    Log.d(TAG, "Discarding cover traffic from $peerID")
+//                    return // Silently discard
+//                }
+//
+//                delegate?.updatePeerNickname(peerID, message.sender)
+//
+//                // Handle encrypted channel messages
+//                val finalContent = if (message.channel != null && message.isEncrypted && message.encryptedContent != null) {
+//                    delegate?.decryptChannelMessage(message.encryptedContent, message.channel)
+//                    ?: "[Encrypted message - password required]"
+//                } else {
+//                    message.content
+//                }
+//
+//                // Replace timestamp with current time (same as iOS)
+//                val messageWithCurrentTime = message.copy(
+//                    content = finalContent,
+//                    senderPeerID = peerID,
+//                    timestamp = Date() // Use current time instead of original timestamp
+//                )
+//
+//                delegate?.onMessageReceived(messageWithCurrentTime)
+//            }
             
             // Broadcast message relay is now handled by centralized PacketRelayManager
             
@@ -262,20 +290,31 @@ class MessageHandler(private val myPeerID: String) {
             }
 
             // Parse message
-            val message = BitchatMessage.fromBinaryPayload(packet.payload)
-            if (message != null) {
-                // Check for cover traffic (dummy messages)
-                if (message.content.startsWith("☂DUMMY☂")) {
-                    Log.d(TAG, "Discarding private cover traffic from $peerID")
-                    return // Silently discard
-                }
-                
-                delegate?.updatePeerNickname(peerID, message.sender)
-                delegate?.onMessageReceived(message)
-                
-                // Send delivery ACK
-                delegate?.sendDeliveryAck(message, peerID)
-            }
+            val message = BitchatMessage(
+                sender = delegate?.getPeerNickname(peerID) ?: "unknown",
+                content = String(packet.payload, Charsets.UTF_8),
+                senderPeerID = peerID,
+                timestamp = Date()
+            )
+            delegate?.onMessageReceived(message)
+
+            // Send delivery ACK
+            delegate?.sendDeliveryAck(message, peerID)
+
+//            val message = BitchatMessage.fromBinaryPayload(packet.payload)
+//            if (message != null) {
+//                // Check for cover traffic (dummy messages)
+//                if (message.content.startsWith("☂DUMMY☂")) {
+//                    Log.d(TAG, "Discarding private cover traffic from $peerID")
+//                    return // Silently discard
+//                }
+//
+//                delegate?.updatePeerNickname(peerID, message.sender)
+//                delegate?.onMessageReceived(message)
+//
+//                // Send delivery ACK
+//                delegate?.sendDeliveryAck(message, peerID)
+//            }
             
         } catch (e: Exception) {
             Log.e(TAG, "Failed to process private message from $peerID: ${e.message}")

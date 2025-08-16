@@ -1,7 +1,6 @@
 package com.bitchat.android.mesh
 
 import android.util.Log
-import com.bitchat.android.model.BitchatMessage
 import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList

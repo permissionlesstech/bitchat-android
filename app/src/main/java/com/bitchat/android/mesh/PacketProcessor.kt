@@ -133,19 +133,17 @@ class PacketProcessor(private val myPeerID: String) {
         
         // Handle public packet types (no address check needed)
         when (messageType) {
-            MessageType.NOISE_IDENTITY_ANNOUNCE -> handleNoiseIdentityAnnouncement(routed)
+            // MessageType.NOISE_IDENTITY_ANNOUNCE -> handleNoiseIdentityAnnouncement(routed)
             MessageType.ANNOUNCE -> handleAnnounce(routed)
             MessageType.MESSAGE -> handleMessage(routed)
             MessageType.LEAVE -> handleLeave(routed)
-            MessageType.FRAGMENT_START,
-            MessageType.FRAGMENT_CONTINUE,
-            MessageType.FRAGMENT_END -> handleFragment(routed)
+            MessageType.FRAGMENT -> handleFragment(routed)
             else -> {
                 // Handle private packet types (address check required)
                 if (packetRelayManager.isPacketAddressedToMe(packet)) {
                     when (messageType) {
-                        MessageType.NOISE_HANDSHAKE_INIT -> handleNoiseHandshake(routed, 1)
-                        MessageType.NOISE_HANDSHAKE_RESP -> handleNoiseHandshake(routed, 2)
+                        MessageType.NOISE_HANDSHAKE -> handleNoiseHandshake(routed, 1)
+                        //MessageType.NOISE_HANDSHAKE_RESP -> handleNoiseHandshake(routed, 2)
                         MessageType.NOISE_ENCRYPTED -> handleNoiseEncrypted(routed)
                         // MessageType.DELIVERY_ACK -> handleDeliveryAck(routed) // custom packet type...
                         // MessageType.READ_RECEIPT -> handleReadReceipt(routed)

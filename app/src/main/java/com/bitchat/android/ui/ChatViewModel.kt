@@ -11,6 +11,7 @@ import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryAck
 import com.bitchat.android.model.ReadReceipt
+import com.bitchat.android.protocol.BitchatPacket
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import java.util.*

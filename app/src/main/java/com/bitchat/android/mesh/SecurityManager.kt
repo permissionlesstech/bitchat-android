@@ -212,7 +212,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
      */
     private fun generateMessageID(packet: BitchatPacket, peerID: String): String {
         return when (MessageType.fromValue(packet.type)) {
-            MessageType.FRAGMENT_START, MessageType.FRAGMENT_CONTINUE, MessageType.FRAGMENT_END -> {
+            MessageType.FRAGMENT -> {
                 // For fragments, include the payload hash to distinguish different fragments
                 "${packet.timestamp}-$peerID-${packet.type}-${packet.payload.contentHashCode()}"
             }
