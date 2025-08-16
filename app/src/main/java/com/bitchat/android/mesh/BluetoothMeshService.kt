@@ -1,5 +1,6 @@
 package com.bitchat.android.mesh
 
+import android.bluetooth.BluetoothDevice
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.crypto.EncryptionService
@@ -328,7 +329,17 @@ class BluetoothMeshService(private val context: Context) {
             }
             
             override fun handleAnnounce(routed: RoutedPacket) {
-                serviceScope.launch { messageHandler.handleAnnounce(routed) }
+                serviceScope.launch {
+                    messageHandler.handleAnnounce(routed)
+                    // Fallback: Update addressPeerMap (peer nickname) if not already set
+                    val deviceAddress = routed.deviceAddress
+                    val peerID = routed.packet.senderID.decodeToString()
+                    if (deviceAddress != null && !connectionManager.addressPeerMap.containsKey(deviceAddress)) {
+                        connectionManager.addressPeerMap[deviceAddress] = peerID
+//                        peerManager.addOrUpdatePeer(peerID, routed.packet.payload.decodeToString())
+                        Log.d(TAG, "Updated addressPeerMap with announcement: $deviceAddress -> $peerID")
+                    }
+                }
             }
             
             override fun handleMessage(routed: RoutedPacket) {
@@ -378,15 +389,28 @@ class BluetoothMeshService(private val context: Context) {
                 }
                 // Send key exchange to newly connected device
                 serviceScope.launch {
-                    delay(400) // Ensure connection is stable
+                  delay(400) // Ensure connection is stable
                     broadcastNoiseIdentityAnnouncement()
+
+                    val peerID = connectionManager.addressPeerMap[device.address]
+                    peerID?.let { sendAnnouncementToPeer(it) }
                 }
             }
-            
+
+            override fun onDeviceDisconnected(device: BluetoothDevice) {
+                val peerID = connectionManager.addressPeerMap[device.address]
+                peerID?.let {
+                    peerManager.removePeer(it)
+                    Log.d(TAG, "Removed peer $it due to device disconnection: ${device.address}")
+                    connectionManager.addressPeerMap.remove(device.address)
+                }
+            }
+
             override fun onRSSIUpdated(deviceAddress: String, rssi: Int) {
                 // Find the peer ID for this device address and update RSSI in PeerManager
                 connectionManager.addressPeerMap[deviceAddress]?.let { peerID ->
                     peerManager.updatePeerRSSI(peerID, rssi)
+
                 }
             }
         }
@@ -679,8 +703,10 @@ class BluetoothMeshService(private val context: Context) {
                 senderID = myPeerID,
                 payload = nickname.toByteArray()
             )
-            
-            connectionManager.broadcastPacket(RoutedPacket(announcePacket))
+            repeat(5) {
+                connectionManager.broadcastPacket(RoutedPacket(announcePacket))
+                delay(1000)
+            }
         }
     }
     
@@ -689,17 +715,24 @@ class BluetoothMeshService(private val context: Context) {
      */
     private fun sendAnnouncementToPeer(peerID: String) {
         if (peerManager.hasAnnouncedToPeer(peerID)) return
-        
-        val nickname = delegate?.getNickname() ?: myPeerID
-        val packet = BitchatPacket(
-            type = MessageType.ANNOUNCE.value,
-            ttl = MAX_TTL,
-            senderID = myPeerID,
-            payload = nickname.toByteArray()
-        )
-        
-        connectionManager.broadcastPacket(RoutedPacket(packet))
-        peerManager.markPeerAsAnnouncedTo(peerID)
+      
+      serviceScope.launch {
+            val nickname = delegate?.getNickname() ?: myPeerID
+            val packet = BitchatPacket(
+                type = MessageType.ANNOUNCE.value,
+                ttl = 3u,
+                senderID = myPeerID,
+                payload = nickname.toByteArray()
+            )
+
+            // send 3 times for reliability with a second delay between them
+            repeat(3) {
+                connectionManager.broadcastPacket(RoutedPacket(packet))
+                delay(1000)
+            }
+
+            peerManager.markPeerAsAnnouncedTo(peerID)
+        }
     }
     
     /**
