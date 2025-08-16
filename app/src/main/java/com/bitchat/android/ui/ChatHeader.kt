@@ -147,7 +147,7 @@ fun PeerCounter(
                 Text(
                     text = "#",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF0080FF),
+                    color = colorScheme.tertiary,
                     fontSize = 16.sp
                 )
             }
@@ -160,7 +160,7 @@ fun PeerCounter(
                 imageVector = Icons.Filled.Email,
                 contentDescription = "Unread private messages",
                 modifier = Modifier.size(16.dp),
-                tint = Color(0xFFFF9500) // Orange to match private message theme
+                tint = colorScheme.secondary
             )
             Spacer(modifier = Modifier.width(6.dp))
         }
@@ -169,13 +169,13 @@ fun PeerCounter(
             imageVector = Icons.Default.Group,
             contentDescription = "Connected peers",
             modifier = Modifier.size(16.dp),
-            tint = if (isConnected) Color(0xFF00C851) else Color.Red
+            tint = if (isConnected) colorScheme.primary else colorScheme.error
         )
         Spacer(modifier = Modifier.width(4.dp))
         Text(
             text = "${connectedPeers.size}",
             style = MaterialTheme.typography.bodyMedium,
-            color = if (isConnected) Color(0xFF00C851) else Color.Red,
+            color = if (isConnected) colorScheme.primary else colorScheme.error,
             fontSize = 16.sp,
             fontWeight = FontWeight.Medium
         )
@@ -184,7 +184,7 @@ fun PeerCounter(
             Text(
                 text = " · ⧉ ${joinedChannels.size}",
                 style = MaterialTheme.typography.bodyMedium,
-                color = if (isConnected) Color(0xFF00C851) else Color.Red,
+                color = if (isConnected) colorScheme.primary else colorScheme.error,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium
             )
@@ -201,7 +201,8 @@ fun ChatHeaderContent(
     onBackClick: () -> Unit,
     onSidebarClick: () -> Unit,
     onTripleClick: () -> Unit,
-    onShowAppInfo: () -> Unit
+    onShowAppInfo: () -> Unit,
+    onShowSettings: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
@@ -249,7 +250,8 @@ fun ChatHeaderContent(
                 onTitleClick = onShowAppInfo,
                 onTripleTitleClick = onTripleClick,
                 onSidebarClick = onSidebarClick,
-                viewModel = viewModel
+                viewModel = viewModel,
+                onShowSettings = onShowSettings
             )
         }
     }
@@ -303,11 +305,10 @@ private fun PrivateChatHeader(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.align(Alignment.Center)
         ) {
-            
             Text(
                 text = peerNickname,
                 style = MaterialTheme.typography.titleMedium,
-                color = Color(0xFFFF9500) // Orange
+                color = colorScheme.secondary
             )
 
             Spacer(modifier = Modifier.width(4.dp))
@@ -328,10 +329,10 @@ private fun PrivateChatHeader(
             modifier = Modifier.align(Alignment.CenterEnd)
         ) {
             Icon(
-                imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
+                imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
                 contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
                 modifier = Modifier.size(18.dp), // Slightly larger than sidebar icon
-                tint = if (isFavorite) Color(0xFFFFD700) else Color(0x87878700) // Yellow or grey
+                tint = if (isFavorite) colorScheme.tertiary else colorScheme.onSurface.copy(alpha = 0.6f)
             )
         }
     }
@@ -381,7 +382,7 @@ private fun ChannelHeader(
         Text(
             text = "channel: $channel",
             style = MaterialTheme.typography.titleMedium,
-            color = Color(0xFFFF9500), // Orange to match input field
+            color = colorScheme.secondary,
             modifier = Modifier
                 .align(Alignment.Center)
                 .clickable { onSidebarClick() }
@@ -408,7 +409,8 @@ private fun MainHeader(
     onTitleClick: () -> Unit,
     onTripleTitleClick: () -> Unit,
     onSidebarClick: () -> Unit,
-    viewModel: ChatViewModel
+    viewModel: ChatViewModel,
+    onShowSettings: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val connectedPeers by viewModel.connectedPeers.observeAsState(emptyList())
@@ -426,6 +428,21 @@ private fun MainHeader(
             modifier = Modifier.fillMaxHeight(),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Settings icon moved to the left
+            IconButton(
+                onClick = onShowSettings,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Tune, // Better icon for settings
+                    contentDescription = "Settings",
+                    tint = colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(4.dp))
+            
             Text(
                 text = "bitchat/",
                 style = MaterialTheme.typography.headlineSmall,

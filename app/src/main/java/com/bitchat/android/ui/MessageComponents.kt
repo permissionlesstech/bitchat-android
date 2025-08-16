@@ -127,7 +127,7 @@ fun DeliveryStatusIcon(status: DeliveryStatus) {
             Text(
                 text = "✓✓",
                 fontSize = 10.sp,
-                color = Color(0xFF007AFF), // Blue
+                color = colorScheme.primary,
                 fontWeight = FontWeight.Bold
             )
         }

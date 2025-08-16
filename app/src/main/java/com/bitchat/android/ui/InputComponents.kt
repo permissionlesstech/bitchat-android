@@ -44,7 +44,10 @@ import androidx.compose.ui.text.withStyle
  * VisualTransformation that styles slash commands with background and color
  * while preserving cursor positioning and click handling
  */
-class SlashCommandVisualTransformation : VisualTransformation {
+class SlashCommandVisualTransformation(
+    private val commandColor: Color,
+    private val backgroundColor: Color
+) : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
         val slashCommandRegex = Regex("(/\\w+)(?=\\s|$)")
         val annotatedString = buildAnnotatedString {
@@ -59,10 +62,10 @@ class SlashCommandVisualTransformation : VisualTransformation {
                 // Add the styled slash command
                 withStyle(
                     style = SpanStyle(
-                        color = Color(0xFF00FF7F), // Bright green
+                        color = commandColor, // Use theme color
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Medium,
-                        background = Color(0xFF2D2D2D) // Dark gray background
+                        background = backgroundColor
                     )
                 ) {
                     append(match.value)
@@ -88,7 +91,9 @@ class SlashCommandVisualTransformation : VisualTransformation {
  * VisualTransformation that styles mentions with background and color
  * while preserving cursor positioning and click handling
  */
-class MentionVisualTransformation : VisualTransformation {
+class MentionVisualTransformation(
+    private val mentionColor: Color
+) : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
         val mentionRegex = Regex("@([a-zA-Z0-9_]+)")
         val annotatedString = buildAnnotatedString {
@@ -103,7 +108,7 @@ class MentionVisualTransformation : VisualTransformation {
                 // Add the styled mention
                 withStyle(
                     style = SpanStyle(
-                        color = Color(0xFFFF9500), // Orange
+                        color = mentionColor, // Use theme color
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -146,6 +151,24 @@ class CombinedVisualTransformation(private val transformations: List<VisualTrans
     }
 }
 
+/**
+ * Create themed visual transformations for commands and mentions
+ */
+@Composable
+fun createThemedVisualTransformations(colorScheme: ColorScheme): VisualTransformation {
+    return CombinedVisualTransformation(
+        listOf(
+            SlashCommandVisualTransformation(
+                commandColor = colorScheme.primary,
+                backgroundColor = colorScheme.primary.copy(alpha = 0.1f)
+            ),
+            MentionVisualTransformation(
+                mentionColor = Color(0xFFFF9500) // Keep orange for mentions as it's part of the design
+            )
+        )
+    )
+}
+
 
 
 
@@ -185,9 +208,7 @@ fun MessageInput(
                 keyboardActions = KeyboardActions(onSend = { 
                     if (hasText) onSend() // Only send if there's text
                 }),
-                visualTransformation = CombinedVisualTransformation(
-                    listOf(SlashCommandVisualTransformation(), MentionVisualTransformation())
-                ),
+                visualTransformation = createThemedVisualTransformations(colorScheme),
                 modifier = Modifier
                     .fillMaxWidth()
                     .onFocusChanged { focusState ->
@@ -212,16 +233,29 @@ fun MessageInput(
         
         // Command quick access button
         if (value.text.isEmpty()) {
-            FilledTonalIconButton(
+            IconButton(
                 onClick = {
                     onValueChange(TextFieldValue(text = "/", selection = TextRange("/".length)))
                 },
                 modifier = Modifier.size(32.dp)
             ) {
-                Text(
-                    text = "/",
-                    textAlign = TextAlign.Center
-                )
+                Box(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .background(
+                            color = colorScheme.primary.copy(alpha = 0.15f), // Subtle green background
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "/",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = colorScheme.primary, // Green text to match theme
+                        fontFamily = FontFamily.Monospace,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         } else {
             // Send button with enabled/disabled state

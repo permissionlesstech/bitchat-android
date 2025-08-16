@@ -73,7 +73,7 @@ private fun BluetoothDisabledContent(
             imageVector = Icons.Outlined.Bluetooth,
             contentDescription = "Bluetooth",
             modifier = Modifier.size(64.dp),
-            tint = Color(0xFF00C851) // App's main green color
+            tint = colorScheme.primary
         )
 
         Text(
@@ -131,7 +131,7 @@ private fun BluetoothDisabledContent(
                     onClick = onEnableBluetooth,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF00C851) // App's main green color
+                        containerColor = colorScheme.primary
                     )
                 ) {
                     Text(
@@ -174,7 +174,7 @@ private fun BluetoothNotSupportedContent(
         // Error icon
         Card(
             colors = CardDefaults.cardColors(
-                containerColor = Color(0xFFFFEBEE)
+                containerColor = colorScheme.errorContainer.copy(alpha = 0.3f)
             ),
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
         ) {
@@ -267,7 +267,7 @@ private fun BluetoothLoadingIndicator() {
             modifier = Modifier
                 .fillMaxSize()
                 .rotate(rotationAngle),
-            color = Color(0xFF2196F3), // Bluetooth blue
+            color = MaterialTheme.colorScheme.primary,
             strokeWidth = 3.dp
         )
     }
