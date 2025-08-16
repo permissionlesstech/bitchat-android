@@ -10,6 +10,7 @@ import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.model.DeliveryAck
 import com.bitchat.android.model.ReadReceipt
 import com.bitchat.android.model.NoiseIdentityAnnouncement
+import com.bitchat.android.model.IdentityAnnouncement
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
@@ -666,40 +667,55 @@ class BluetoothMeshService(private val context: Context) {
     }
     
     /**
-     * Send broadcast announce
+     * Send broadcast announce with TLV-encoded identity announcement
      */
     fun sendBroadcastAnnounce() {
         Log.d(TAG, "Sending broadcast announce")
         serviceScope.launch {
             val nickname = delegate?.getNickname() ?: myPeerID
             
+            // Get the static public key for the announcement
+            val staticKey = encryptionService.getStaticPublicKey()
+            // Create TLV-encoded identity announcement
+            val identityAnnouncement = IdentityAnnouncement(nickname, staticKey)
+            val tlvPayload = identityAnnouncement.encode()
+            
             val announcePacket = BitchatPacket(
                 type = MessageType.ANNOUNCE.value,
                 ttl = MAX_TTL,
                 senderID = myPeerID,
-                payload = nickname.toByteArray()
+                payload = tlvPayload
             )
             
             connectionManager.broadcastPacket(RoutedPacket(announcePacket))
+            Log.d(TAG, "Sent TLV-encoded broadcast announce (${tlvPayload.size} bytes)")
         }
     }
     
     /**
-     * Send announcement to specific peer
+     * Send announcement to specific peer with TLV-encoded identity announcement
      */
     private fun sendAnnouncementToPeer(peerID: String) {
         if (peerManager.hasAnnouncedToPeer(peerID)) return
         
         val nickname = delegate?.getNickname() ?: myPeerID
+        
+        // Get the static public key for the announcement
+        val staticKey = encryptionService.getStaticPublicKey()
+        // Create TLV-encoded identity announcement
+        val identityAnnouncement = IdentityAnnouncement(nickname, staticKey)
+        val tlvPayload = identityAnnouncement.encode()
+        
         val packet = BitchatPacket(
             type = MessageType.ANNOUNCE.value,
             ttl = MAX_TTL,
             senderID = myPeerID,
-            payload = nickname.toByteArray()
+            payload = tlvPayload
         )
         
         connectionManager.broadcastPacket(RoutedPacket(packet))
         peerManager.markPeerAsAnnouncedTo(peerID)
+        Log.d(TAG, "Sent TLV-encoded peer announce to $peerID (${tlvPayload.size} bytes)")
     }
     
     /**
