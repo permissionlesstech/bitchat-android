@@ -1,7 +1,6 @@
 package com.bitchat.android.ui
 
 import android.app.Application
-import android.content.Context
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
@@ -11,9 +10,9 @@ import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryAck
 import com.bitchat.android.model.ReadReceipt
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
-import java.util.*
+import kotlinx.coroutines.launch
+import java.util.Date
 import kotlin.random.Random
 
 /**
@@ -21,13 +20,15 @@ import kotlin.random.Random
  * Delegates specific responsibilities to specialized managers while maintaining 100% iOS compatibility
  */
 class ChatViewModel(
-    application: Application,
-    val meshService: BluetoothMeshService
-) : AndroidViewModel(application), BluetoothMeshDelegate {
+    application: Application
+) : AndroidViewModel(application) {
 
     companion object {
         private const val TAG = "ChatViewModel"
     }
+
+    lateinit var meshService: BluetoothMeshService
+        private set
 
     // State management
     private val state = ChatState()
@@ -49,20 +50,7 @@ class ChatViewModel(
     val privateChatManager = PrivateChatManager(state, messageManager, dataManager, noiseSessionDelegate)
     private val commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager)
     private val notificationManager = NotificationManager(application.applicationContext)
-    
-    // Delegate handler for mesh callbacks
-    private val meshDelegateHandler = MeshDelegateHandler(
-        state = state,
-        messageManager = messageManager,
-        channelManager = channelManager,
-        privateChatManager = privateChatManager,
-        notificationManager = notificationManager,
-        coroutineScope = viewModelScope,
-        onHapticFeedback = { ChatViewModelUtils.triggerHapticFeedback(application.applicationContext) },
-        getMyPeerID = { meshService.myPeerID },
-        getMeshService = { meshService }
-    )
-    
+
     // Expose state through LiveData (maintaining the same interface)
     val messages: LiveData<List<BitchatMessage>> = state.messages
     val connectedPeers: LiveData<List<String>> = state.connectedPeers
@@ -91,12 +79,35 @@ class ChatViewModel(
     val peerNicknames: LiveData<Map<String, String>> = state.peerNicknames
     val peerRSSI: LiveData<Map<String, Int>> = state.peerRSSI
     val showAppInfo: LiveData<Boolean> = state.showAppInfo
-    
-    init {
-        // Note: Mesh service delegate is now set by MainActivity
+    val showExitDialog: LiveData<Boolean> = state.showExitDialog
+    val shutdownRequest: LiveData<Boolean> = state.shutdownRequest
+    val backgroundRequest: LiveData<Boolean> = state.backgroundRequest
+
+    /**
+     * Requests a full shutdown of the service and app.
+     * Called from the header menu or the exit confirmation dialog.
+     */
+    fun requestShutdown() {
+        state.setShutdownRequest()
+    }
+
+    fun requestBackground() {
+        state.setBackgroundRequest()
+    }
+
+    /**
+     * Dismisses the exit confirmation dialog.
+     */
+    fun dismissExitConfirmation() {
+        state.setShowExitDialog(false)
+    }
+
+    fun initialize(meshService: BluetoothMeshService) {
+        Log.d(TAG, "Initializing ChatViewModel")
+        this.meshService = meshService
         loadAndInitialize()
     }
-    
+
     private fun loadAndInitialize() {
         // Load nickname
         val nickname = dataManager.loadNickname()
@@ -127,9 +138,7 @@ class ChatViewModel(
         
         // Initialize session state monitoring
         initializeSessionStateMonitoring()
-        
-        // Note: Mesh service is now started by MainActivity
-        
+
         // Show welcome message if no peers after delay
         viewModelScope.launch {
             delay(10000)
@@ -334,7 +343,6 @@ class ChatViewModel(
     
     // Note: Mesh service restart is now handled by MainActivity
     // This function is no longer needed
-    
     fun setAppBackgroundState(inBackground: Boolean) {
         // Forward to notification manager for notification logic
         notificationManager.setAppBackgroundState(inBackground)
@@ -491,6 +499,14 @@ class ChatViewModel(
     fun hideSidebar() {
         state.setShowSidebar(false)
     }
+
+    fun showExitDialog() {
+        state.setShowExitDialog(true)
+    }
+
+    fun shutdown() {
+        state.setShutdownRequest()
+    }
     
     /**
      * Handle Android back navigation
@@ -525,7 +541,10 @@ class ChatViewModel(
                 true
             }
             // No special navigation state - let system handle (usually exits app)
-            else -> false
+            else -> {
+                showExitDialog()
+                true
+            }
         }
     }
 }
