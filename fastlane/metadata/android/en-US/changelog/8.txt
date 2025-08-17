@@ -1,0 +1,6 @@
+A lot of housekeeping
+
+- UI fixes
+- Mention users by typing "@"
+- "/" button for quick access to system commands
+- Remove system messages for connecting and disconnecting users

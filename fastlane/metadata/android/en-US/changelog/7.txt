@@ -1,0 +1,2 @@
+- improve identity announcements and add ED25519 signing
+- ui touches
