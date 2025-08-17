@@ -256,8 +256,8 @@ class MessageHandler(private val myPeerID: String) {
 
         if (peerID == myPeerID) return false
         
-        // Try to decode as iOS-compatible AnnouncementPacket with TLV format
-        val announcement = com.bitchat.android.model.AnnouncementPacket.decode(packet.payload)
+        // Try to decode as iOS-compatible IdentityAnnouncement with TLV format
+        val announcement = IdentityAnnouncement.decode(packet.payload)
         if (announcement == null) {
             Log.w(TAG, "Failed to decode announce from $peerID as iOS-compatible TLV format")
             return false

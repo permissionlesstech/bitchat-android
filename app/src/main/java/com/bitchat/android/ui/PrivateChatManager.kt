@@ -13,7 +13,6 @@ import android.util.Log
 interface NoiseSessionDelegate {
     fun hasEstablishedSession(peerID: String): Boolean
     fun initiateHandshake(peerID: String)
-    fun broadcastNoiseIdentityAnnouncement()
     fun sendHandshakeRequest(targetPeerID: String, pendingCount: UByte)
     fun getMyPeerID(): String
 }
@@ -340,10 +339,9 @@ class PrivateChatManager(
                 Log.d(TAG, "Our peer ID lexicographically < target peer ID, initiating Noise handshake with $peerID")
                 noiseSessionDelegate.initiateHandshake(peerID)
             } else {
-                // They should initiate, we send a Noise identity announcement
-                Log.d(TAG, "Our peer ID lexicographically >= target peer ID, sending Noise identity announcement to prompt handshake from $peerID")
-                noiseSessionDelegate.broadcastNoiseIdentityAnnouncement()
-                // Also send handshake request to this peer
+                // They should initiate, we send identity announcement through standard announce
+                Log.d(TAG, "Our peer ID lexicographically >= target peer ID, sending identity announcement to prompt handshake from $peerID")
+                // Send handshake request to this peer to prompt them to initiate
                 noiseSessionDelegate.sendHandshakeRequest(peerID, 1u) // 1 pending message (the chat we're trying to start)
             }
         } else {

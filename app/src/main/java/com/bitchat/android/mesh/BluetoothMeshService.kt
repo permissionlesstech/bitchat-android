@@ -724,8 +724,8 @@ class BluetoothMeshService(private val context: Context) {
                 return@launch
             }
             
-            // Create iOS-compatible AnnouncementPacket with TLV encoding
-            val announcement = com.bitchat.android.model.AnnouncementPacket(nickname, staticKey)
+            // Create iOS-compatible IdentityAnnouncement with TLV encoding
+            val announcement = IdentityAnnouncement(nickname, staticKey)
             val tlvPayload = announcement.encode()
             if (tlvPayload == null) {
                 Log.e(TAG, "Failed to encode announcement as TLV")
@@ -759,8 +759,8 @@ class BluetoothMeshService(private val context: Context) {
             return
         }
         
-        // Create iOS-compatible AnnouncementPacket with TLV encoding
-        val announcement = com.bitchat.android.model.AnnouncementPacket(nickname, staticKey)
+        // Create iOS-compatible IdentityAnnouncement with TLV encoding
+        val announcement = IdentityAnnouncement(nickname, staticKey)
         val tlvPayload = announcement.encode()
         if (tlvPayload == null) {
             Log.e(TAG, "Failed to encode peer announcement as TLV")

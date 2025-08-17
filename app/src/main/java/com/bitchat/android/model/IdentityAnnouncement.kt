@@ -11,7 +11,7 @@ import com.bitchat.android.util.*
 @Parcelize
 data class IdentityAnnouncement(
     val nickname: String,
-    val publicKey: ByteArray?
+    val publicKey: ByteArray  // FIXED: Made non-nullable to match iOS and AnnouncementPacket
 ) : Parcelable {
 
     /**
@@ -31,30 +31,27 @@ data class IdentityAnnouncement(
     /**
      * Encode to TLV binary data matching iOS implementation
      */
-    fun encode(): ByteArray {
-        val builder = BinaryDataBuilder()
+    fun encode(): ByteArray? {
+        val nicknameData = nickname.toByteArray(Charsets.UTF_8)
+        
+        // Check size limits
+        if (nicknameData.size > 255 || publicKey.size > 255) {
+            return null
+        }
+        
+        val result = mutableListOf<Byte>()
         
         // TLV for nickname
-        val nicknameData = nickname.toByteArray(Charsets.UTF_8)
-        if (nicknameData.size > 255) {
-            throw IllegalArgumentException("Nickname too long: ${nicknameData.size} bytes")
-        }
+        result.add(TLVType.NICKNAME.value.toByte())
+        result.add(nicknameData.size.toByte())
+        result.addAll(nicknameData.toList())
         
-        builder.appendUInt8(TLVType.NICKNAME.value)
-        builder.appendUInt8(nicknameData.size.toUByte())
-        builder.buffer.addAll(nicknameData.toList())
-
-        if (publicKey != null) {
-            // TLV for public key
-            if (publicKey.size > 255) {
-                throw IllegalArgumentException("Public key too long: ${publicKey.size} bytes")
-            }
-
-            builder.appendUInt8(TLVType.NOISE_PUBLIC_KEY.value)
-            builder.appendUInt8(publicKey.size.toUByte())
-            builder.buffer.addAll(publicKey.toList())
-        }
-        return builder.toByteArray()
+        // TLV for public key
+        result.add(TLVType.NOISE_PUBLIC_KEY.value.toByte())
+        result.add(publicKey.size.toByte())
+        result.addAll(publicKey.toList())
+        
+        return result.toByteArray()
     }
     
     companion object {
@@ -125,6 +122,6 @@ data class IdentityAnnouncement(
     }
     
     override fun toString(): String {
-        return "IdentityAnnouncement(nickname='$nickname', publicKey=${publicKey?.hexEncodedString()})"
+        return "IdentityAnnouncement(nickname='$nickname', publicKey=${publicKey.joinToString("") { "%02x".format(it) }.take(16)}...)"
     }
 }
