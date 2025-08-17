@@ -96,7 +96,6 @@ class BluetoothMeshService(private val context: Context) {
                 try {
                     delay(30000) // 30 seconds
                     sendBroadcastAnnounce()
-                    broadcastNoiseIdentityAnnouncement()
                 } catch (e: Exception) {
                     Log.e(TAG, "Error in periodic broadcast announce: ${e.message}")
                 }
@@ -381,11 +380,6 @@ class BluetoothMeshService(private val context: Context) {
                 serviceScope.launch {
                     delay(200)
                     sendBroadcastAnnounce()
-                }
-                // Send key exchange to newly connected device
-                serviceScope.launch {
-                    delay(400) // Ensure connection is stable
-                    broadcastNoiseIdentityAnnouncement()
                 }
             }
             
@@ -788,34 +782,34 @@ class BluetoothMeshService(private val context: Context) {
     /**
      * Send key exchange to newly connected device
      */
-    fun broadcastNoiseIdentityAnnouncement() {
-        serviceScope.launch {
-            try {
-                val nickname = delegate?.getNickname() ?: myPeerID
-
-                // Create the identity announcement using proper binary format
-                val announcement = createNoiseIdentityAnnouncement(nickname, null)
-                if (announcement != null) {
-                    val announcementData = announcement.toBinaryData()
-
-//                    val packet = BitchatPacket(
-//                        type = MessageType.NOISE_IDENTITY_ANNOUNCE.value,
-//                        ttl = MAX_TTL,
-//                        senderID = myPeerID,
-//                        payload = announcementData,
-//                    )
+//    fun broadcastNoiseIdentityAnnouncement() {
+//        serviceScope.launch {
+//            try {
+//                val nickname = delegate?.getNickname() ?: myPeerID
 //
-//                    connectionManager.broadcastPacket(RoutedPacket(packet))
-                    Log.d(TAG, "Sent NoiseIdentityAnnouncement (${announcementData.size} bytes)")
-                } else {
-                    Log.e(TAG, "Failed to create NoiseIdentityAnnouncement")
-                }
-                
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to send NoiseIdentityAnnouncement: ${e.message}")
-            }
-        }
-    }
+//                // Create the identity announcement using proper binary format
+//                val announcement = createNoiseIdentityAnnouncement(nickname, null)
+//                if (announcement != null) {
+//                    val announcementData = announcement.toBinaryData()
+//
+////                    val packet = BitchatPacket(
+////                        type = MessageType.NOISE_IDENTITY_ANNOUNCE.value,
+////                        ttl = MAX_TTL,
+////                        senderID = myPeerID,
+////                        payload = announcementData,
+////                    )
+////
+////                    connectionManager.broadcastPacket(RoutedPacket(packet))
+//                    Log.d(TAG, "Sent NoiseIdentityAnnouncement (${announcementData.size} bytes)")
+//                } else {
+//                    Log.e(TAG, "Failed to create NoiseIdentityAnnouncement")
+//                }
+//
+//            } catch (e: Exception) {
+//                Log.e(TAG, "Failed to send NoiseIdentityAnnouncement: ${e.message}")
+//            }
+//        }
+//    }
     
     /**
      * Send handshake request to target peer for pending messages
