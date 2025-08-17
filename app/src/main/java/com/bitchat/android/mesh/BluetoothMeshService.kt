@@ -5,11 +5,7 @@ import android.util.Log
 import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.protocol.MessagePadding
-import com.bitchat.android.model.HandshakeRequest
 import com.bitchat.android.model.RoutedPacket
-import com.bitchat.android.model.DeliveryAck
-import com.bitchat.android.model.ReadReceipt
-import com.bitchat.android.model.NoiseIdentityAnnouncement
 import com.bitchat.android.model.IdentityAnnouncement
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
@@ -288,12 +284,12 @@ class BluetoothMeshService(private val context: Context) {
                 delegate?.didReceiveChannelLeave(channel, fromPeer)
             }
             
-            override fun onDeliveryAckReceived(ack: DeliveryAck) {
-                delegate?.didReceiveDeliveryAck(ack)
+            override fun onDeliveryAckReceived(messageID: String, peerID: String) {
+                delegate?.didReceiveDeliveryAck(messageID, peerID)
             }
             
-            override fun onReadReceiptReceived(receipt: ReadReceipt) {
-                delegate?.didReceiveReadReceipt(receipt)
+            override fun onReadReceiptReceived(messageID: String, peerID: String) {
+                delegate?.didReceiveReadReceipt(messageID, peerID)
             }
         }
         
@@ -328,10 +324,6 @@ class BluetoothMeshService(private val context: Context) {
                 serviceScope.launch { messageHandler.handleNoiseEncrypted(routed) }
             }
             
-            override fun handleNoiseIdentityAnnouncement(routed: RoutedPacket) {
-                serviceScope.launch { messageHandler.handleNoiseIdentityAnnouncement(routed) }
-            }
-            
             override fun handleAnnounce(routed: RoutedPacket) {
                 serviceScope.launch { messageHandler.handleAnnounce(routed) }
             }
@@ -346,14 +338,6 @@ class BluetoothMeshService(private val context: Context) {
             
             override fun handleFragment(packet: BitchatPacket): BitchatPacket? {
                 return fragmentManager.handleFragment(packet)
-            }
-            
-//            override fun handleDeliveryAck(routed: RoutedPacket) {
-//                serviceScope.launch { messageHandler.handleDeliveryAck(routed) }
-//            }
-            
-            override fun handleReadReceipt(routed: RoutedPacket) {
-                serviceScope.launch { messageHandler.handleReadReceipt(routed) }
             }
             
             override fun sendAnnouncementToPeer(peerID: String) {
@@ -747,7 +731,7 @@ class BluetoothMeshService(private val context: Context) {
     /**
      * Send announcement to specific peer with TLV-encoded identity announcement - exactly like iOS
      */
-    private fun sendAnnouncementToPeer(peerID: String) {
+    fun sendAnnouncementToPeer(peerID: String) {
         if (peerManager.hasAnnouncedToPeer(peerID)) return
         
         val nickname = delegate?.getNickname() ?: myPeerID
@@ -778,123 +762,7 @@ class BluetoothMeshService(private val context: Context) {
         peerManager.markPeerAsAnnouncedTo(peerID)
         Log.d(TAG, "Sent iOS-compatible TLV peer announce to $peerID (${tlvPayload.size} bytes)")
     }
-    
-    /**
-     * Send key exchange to newly connected device
-     */
-//    fun broadcastNoiseIdentityAnnouncement() {
-//        serviceScope.launch {
-//            try {
-//                val nickname = delegate?.getNickname() ?: myPeerID
-//
-//                // Create the identity announcement using proper binary format
-//                val announcement = createNoiseIdentityAnnouncement(nickname, null)
-//                if (announcement != null) {
-//                    val announcementData = announcement.toBinaryData()
-//
-////                    val packet = BitchatPacket(
-////                        type = MessageType.NOISE_IDENTITY_ANNOUNCE.value,
-////                        ttl = MAX_TTL,
-////                        senderID = myPeerID,
-////                        payload = announcementData,
-////                    )
-////
-////                    connectionManager.broadcastPacket(RoutedPacket(packet))
-//                    Log.d(TAG, "Sent NoiseIdentityAnnouncement (${announcementData.size} bytes)")
-//                } else {
-//                    Log.e(TAG, "Failed to create NoiseIdentityAnnouncement")
-//                }
-//
-//            } catch (e: Exception) {
-//                Log.e(TAG, "Failed to send NoiseIdentityAnnouncement: ${e.message}")
-//            }
-//        }
-//    }
-    
-    /**
-     * Send handshake request to target peer for pending messages
-     */
-    fun sendHandshakeRequest(targetPeerID: String, pendingCount: UByte) {
-        serviceScope.launch {
-            try {
-                // Create handshake request
-                val request = HandshakeRequest(
-                    requesterID = myPeerID,
-                    requesterNickname = delegate?.getNickname() ?: myPeerID,
-                    targetID = targetPeerID,
-                    pendingMessageCount = pendingCount
-                )
-                
-                val requestData = request.toBinaryData()
-                
-//                // Create packet for handshake request
-//                val packet = BitchatPacket(
-//                    version = 1u,
-//                    type = MessageType.HANDSHAKE_REQUEST.value,
-//                    senderID = hexStringToByteArray(myPeerID),
-//                    recipientID = hexStringToByteArray(targetPeerID),
-//                    timestamp = System.currentTimeMillis().toULong(),
-//                    payload = requestData,
-//                    ttl = 6u
-//                )
-//
-//                // Broadcast the packet (Android equivalent of both direct and relay attempts)
-//                connectionManager.broadcastPacket(RoutedPacket(packet))
-                Log.d(TAG, "Sent handshake request to $targetPeerID (pending: $pendingCount, ${requestData.size} bytes)")
-                
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to send handshake request to $targetPeerID: ${e.message}")
-            }
-        }
-    }
-    
-    /**
-     * Create a properly formatted NoiseIdentityAnnouncement exactly like iOS
-     */
-    private fun createNoiseIdentityAnnouncement(nickname: String, previousPeerID: String?): NoiseIdentityAnnouncement? {
-        return try {
-            // Get the static public key for Noise protocol
-            val staticKey = encryptionService.getStaticPublicKey()
-            if (staticKey == null) {
-                Log.e(TAG, "No static public key available for identity announcement")
-                return null
-            }
-            
-            // Get the signing public key for Ed25519 signatures
-            val signingKey = encryptionService.getSigningPublicKey()
-            if (signingKey == null) {
-                Log.e(TAG, "No signing public key available for identity announcement")
-                return null
-            }
-            
-            val now = Date()
-            
-            // Create the binding data to sign (same format as iOS)
-            val timestampMs = now.time
-            val bindingData = myPeerID.toByteArray(Charsets.UTF_8) + 
-                            staticKey + 
-                            timestampMs.toString().toByteArray(Charsets.UTF_8)
-            
-            // Sign the binding with our Ed25519 signing key
-            val signature = encryptionService.signData(bindingData) ?: ByteArray(0)
-            
-            // Create the identity announcement
-            NoiseIdentityAnnouncement(
-                peerID = myPeerID,
-                publicKey = staticKey,
-                signingPublicKey = signingKey,
-                nickname = nickname,
-                timestamp = now,
-                previousPeerID = previousPeerID,
-                signature = signature
-            )
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to create NoiseIdentityAnnouncement: ${e.message}")
-            null
-        }
-    }
-    
+
     /**
      * Send leave announcement
      */
@@ -1091,8 +959,8 @@ interface BluetoothMeshDelegate {
     fun didReceiveMessage(message: BitchatMessage)
     fun didUpdatePeerList(peers: List<String>)
     fun didReceiveChannelLeave(channel: String, fromPeer: String)
-    fun didReceiveDeliveryAck(ack: DeliveryAck)
-    fun didReceiveReadReceipt(receipt: ReadReceipt)
+    fun didReceiveDeliveryAck(messageID: String, recipientPeerID: String)
+    fun didReceiveReadReceipt(messageID: String, recipientPeerID: String)
     fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String?
     fun getNickname(): String?
     fun isFavorite(peerID: String): Boolean
