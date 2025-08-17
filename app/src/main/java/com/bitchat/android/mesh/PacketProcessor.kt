@@ -142,8 +142,7 @@ class PacketProcessor(private val myPeerID: String) {
                 // Handle private packet types (address check required)
                 if (packetRelayManager.isPacketAddressedToMe(packet)) {
                     when (messageType) {
-                        MessageType.NOISE_HANDSHAKE -> handleNoiseHandshake(routed, 1)
-                        //MessageType.NOISE_HANDSHAKE_RESP -> handleNoiseHandshake(routed, 2)
+                        MessageType.NOISE_HANDSHAKE -> handleNoiseHandshake(routed)
                         MessageType.NOISE_ENCRYPTED -> handleNoiseEncrypted(routed)
                         // MessageType.DELIVERY_ACK -> handleDeliveryAck(routed) // custom packet type...
                         // MessageType.READ_RECEIPT -> handleReadReceipt(routed)
@@ -168,12 +167,12 @@ class PacketProcessor(private val myPeerID: String) {
     }
     
     /**
-     * Handle Noise handshake message
+     * Handle Noise handshake message - SIMPLIFIED iOS-compatible version
      */
-    private fun handleNoiseHandshake(routed: RoutedPacket, step: Int) {
+    private suspend fun handleNoiseHandshake(routed: RoutedPacket) {
         val peerID = routed.peerID ?: "unknown"
-        Log.d(TAG, "Processing Noise handshake step $step from ${formatPeerForLog(peerID)}")
-        delegate?.handleNoiseHandshake(routed, step)
+        Log.d(TAG, "Processing Noise handshake from ${formatPeerForLog(peerID)}")
+        delegate?.handleNoiseHandshake(routed)
     }
     
     /**
@@ -312,7 +311,7 @@ interface PacketProcessorDelegate {
     fun getBroadcastRecipient(): ByteArray
     
     // Message type handlers
-    fun handleNoiseHandshake(routed: RoutedPacket, step: Int): Boolean
+    fun handleNoiseHandshake(routed: RoutedPacket): Boolean
     fun handleNoiseEncrypted(routed: RoutedPacket)
     fun handleNoiseIdentityAnnouncement(routed: RoutedPacket)
     fun handleAnnounce(routed: RoutedPacket)

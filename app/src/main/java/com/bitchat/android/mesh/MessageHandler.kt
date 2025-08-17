@@ -34,7 +34,8 @@ class MessageHandler(private val myPeerID: String) {
     private val handlerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
     /**
-     * Handle Noise encrypted transport message
+     * Handle Noise encrypted transport message - SIMPLIFIED iOS-compatible version
+     * Uses NoisePayloadType system exactly like iOS SimplifiedBluetoothService
      */
     suspend fun handleNoiseEncrypted(routed: RoutedPacket) {
         val packet = routed.packet
@@ -45,6 +46,13 @@ class MessageHandler(private val myPeerID: String) {
         // Skip our own messages
         if (peerID == myPeerID) return
         
+        // Check if this message is for us
+        val recipientID = packet.recipientID?.toHexString()
+        if (recipientID != myPeerID) {
+            Log.d(TAG, "🔐 Encrypted message not for me (for $recipientID, I am $myPeerID)")
+            return
+        }
+        
         try {
             // Decrypt the message using the Noise service
             val decryptedData = delegate?.decryptFromPeer(packet.payload, peerID)
@@ -53,48 +61,119 @@ class MessageHandler(private val myPeerID: String) {
                 return
             }
             
-            // Check if it's a special format message (type marker + payload)
-//            if (decryptedData.size > 1) {
-//                val typeMarker = decryptedData[0].toUByte()
-//
-//                // Check if this is a delivery ACK with the new format
-//                if (typeMarker == MessageType.DELIVERY_ACK.value) {
-//                    handleDeliveryAck(decryptedData)
-//                    Log.d(TAG, "Processed delivery ACK from $peerID")
-//                }
-//
-//                // Check for read receipt with type marker
-//                if (typeMarker == MessageType.READ_RECEIPT.value) {
-//                    val receiptData = decryptedData.sliceArray(1 until decryptedData.size)
-//                    val receipt = ReadReceipt.decode(receiptData)
-//                    if (receipt != null) {
-//                        delegate?.onReadReceiptReceived(receipt)
-//                        Log.d(TAG, "Processed read receipt from $peerID")
-//                        return
-//                    }
-//                }
-//            }
+            if (decryptedData.isEmpty()) {
+                Log.w(TAG, "Decrypted data is empty from $peerID")
+                return
+            }
             
-            // Try to parse as a full inner packet (for compatibility with other message types)
-            val innerPacket = BitchatPacket.fromBinaryData(decryptedData)
-            if (innerPacket != null) {
-                Log.d(TAG, "Decrypted inner packet type ${innerPacket.type} from $peerID")
-                
-                // Create a new routed packet with the decrypted inner packet
-                val innerRouted = RoutedPacket(innerPacket, peerID, routed.relayAddress)
-                
-                // Use PacketProcessor to handle the inner packet recursively
-                if (packetProcessor != null) {
-                    packetProcessor!!.processPacket(innerRouted)
-                } else {
-                    Log.w(TAG, "PacketProcessor reference is null; cannot recursively process inner packet.")
+            // NEW: Use NoisePayload system exactly like iOS
+            val noisePayload = com.bitchat.android.model.NoisePayload.decode(decryptedData)
+            if (noisePayload == null) {
+                Log.w(TAG, "Failed to parse NoisePayload from $peerID")
+                return
+            }
+            
+            Log.d(TAG, "🔓 Decrypted NoisePayload type ${noisePayload.type} from $peerID")
+            
+            when (noisePayload.type) {
+                com.bitchat.android.model.NoisePayloadType.PRIVATE_MESSAGE -> {
+                    // Decode TLV private message exactly like iOS
+                    val privateMessage = com.bitchat.android.model.PrivateMessagePacket.decode(noisePayload.data)
+                    if (privateMessage != null) {
+                        Log.d(TAG, "🔓 Decrypted TLV PM from $peerID: ${privateMessage.content.take(30)}...")
+                        
+                        // Create BitchatMessage exactly like iOS
+                        val message = BitchatMessage(
+                            id = privateMessage.messageID,
+                            sender = delegate?.getPeerNickname(peerID) ?: "Unknown",
+                            content = privateMessage.content,
+                            timestamp = java.util.Date(packet.timestamp.toLong()),
+                            isRelay = false,
+                            originalSender = null,
+                            isPrivate = true,
+                            recipientNickname = delegate?.getMyNickname(),
+                            senderPeerID = peerID,
+                            mentions = null // TODO: Parse mentions if needed
+                        )
+                        
+                        // Notify delegate
+                        delegate?.onMessageReceived(message)
+                        
+                        // Send delivery ACK exactly like iOS
+                        sendDeliveryAck(privateMessage.messageID, peerID)
+                    }
                 }
-            } else {
-                Log.w(TAG, "Failed to parse decrypted data as packet from $peerID")
+                
+                com.bitchat.android.model.NoisePayloadType.DELIVERED -> {
+                    // Handle delivery ACK exactly like iOS
+                    val messageID = String(noisePayload.data, Charsets.UTF_8)
+                    Log.d(TAG, "📬 Delivery ACK received from $peerID for message $messageID")
+                    
+                    // Create delivery ack
+                    val ack = DeliveryAck(
+                        originalMessageID = messageID,
+                        recipientID = peerID,
+                        recipientNickname = delegate?.getPeerNickname(peerID) ?: "Unknown",
+                        hopCount = 0u.toUByte()
+                    )
+                    delegate?.onDeliveryAckReceived(ack)
+                }
+                
+                com.bitchat.android.model.NoisePayloadType.READ_RECEIPT -> {
+                    // Handle read receipt exactly like iOS
+                    val messageID = String(noisePayload.data, Charsets.UTF_8)
+                    Log.d(TAG, "👁️ Read receipt received from $peerID for message $messageID")
+                    
+                    // Create read receipt
+                    val receipt = ReadReceipt(
+                        originalMessageID = messageID,
+                        readerID = peerID,
+                        readerNickname = delegate?.getPeerNickname(peerID) ?: "Unknown"
+                    )
+                    delegate?.onReadReceiptReceived(receipt)
+                }
             }
             
         } catch (e: Exception) {
             Log.e(TAG, "Error processing Noise encrypted message from $peerID: ${e.message}")
+        }
+    }
+    
+    /**
+     * Send delivery ACK for a received private message - exactly like iOS
+     */
+    private suspend fun sendDeliveryAck(messageID: String, senderPeerID: String) {
+        try {
+            // Create ACK payload: [type byte] + [message ID] - exactly like iOS
+            val ackPayload = com.bitchat.android.model.NoisePayload(
+                type = com.bitchat.android.model.NoisePayloadType.DELIVERED,
+                data = messageID.toByteArray(Charsets.UTF_8)
+            )
+            
+            // Encrypt the payload
+            val encryptedPayload = delegate?.encryptForPeer(ackPayload.encode(), senderPeerID)
+            if (encryptedPayload == null) {
+                Log.w(TAG, "Failed to encrypt delivery ACK for $senderPeerID")
+                return
+            }
+            
+            // Create NOISE_ENCRYPTED packet exactly like iOS
+            val packet = BitchatPacket(
+                version = 1u,
+                type = MessageType.NOISE_ENCRYPTED.value,
+                senderID = hexStringToByteArray(myPeerID),
+                recipientID = hexStringToByteArray(senderPeerID),
+                timestamp = System.currentTimeMillis().toULong(),
+                payload = encryptedPayload,
+                signature = null,
+                ttl = 7u // Same TTL as iOS messageTTL
+            )
+            
+            delegate?.sendPacket(packet)
+            Log.d(TAG, "📤 Sent delivery ACK to $senderPeerID for message $messageID")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to send delivery ACK to $senderPeerID: ${e.message}")
         }
     }
     
@@ -169,7 +248,7 @@ class MessageHandler(private val myPeerID: String) {
     }
     
     /**
-     * Handle announce message with TLV decoding support
+     * Handle announce message with TLV decoding support - exactly like iOS
      */
     suspend fun handleAnnounce(routed: RoutedPacket): Boolean {
         val packet = routed.packet
@@ -177,35 +256,88 @@ class MessageHandler(private val myPeerID: String) {
 
         if (peerID == myPeerID) return false
         
-        // Try to decode as TLV-encoded IdentityAnnouncement first
-        val identityAnnouncement = IdentityAnnouncement.decode(packet.payload)
-        if (identityAnnouncement == null) {
-            Log.w(TAG, "Failed to decode announce from $peerID as TLV format")
+        // Try to decode as iOS-compatible AnnouncementPacket with TLV format
+        val announcement = com.bitchat.android.model.AnnouncementPacket.decode(packet.payload)
+        if (announcement == null) {
+            Log.w(TAG, "Failed to decode announce from $peerID as iOS-compatible TLV format")
             return false
         }
-            // Successfully decoded TLV format
-            Log.d(TAG, "Received TLV announce from $peerID: nickname=${identityAnnouncement.nickname}, " +
-                    "publicKey=${identityAnnouncement.publicKey?.toHexString()?.take(16)}...")
-            
-            // Extract nickname and public key from TLV data
-            val nickname = identityAnnouncement.nickname
-            val publicKey = identityAnnouncement.publicKey
-            
-            // Notify delegate to handle peer management with nickname
-            val isFirstAnnounce = delegate?.addOrUpdatePeer(peerID, nickname) ?: false
+        
+        // Successfully decoded TLV format exactly like iOS
+        Log.d(TAG, "Received iOS-compatible announce from $peerID: nickname=${announcement.nickname}, " +
+                "publicKey=${announcement.publicKey.joinToString("") { "%02x".format(it) }.take(16)}...")
+        
+        // Extract nickname and public key from TLV data
+        val nickname = announcement.nickname
+        val publicKey = announcement.publicKey
+        
+        // Notify delegate to handle peer management with nickname
+        val isFirstAnnounce = delegate?.addOrUpdatePeer(peerID, nickname) ?: false
 
-            if (publicKey != null) {
-                // Update peer ID binding with public key for identity management
-                delegate?.updatePeerIDBinding(
-                    newPeerID = peerID,
-                    nickname = nickname,
-                    publicKey = publicKey,
-                    previousPeerID = null
+        // Update peer ID binding with public key for identity management
+        delegate?.updatePeerIDBinding(
+            newPeerID = peerID,
+            nickname = nickname,
+            publicKey = publicKey,
+            previousPeerID = null
+        )
+        
+        Log.d(TAG, "Processed iOS-compatible TLV announce: stored public key for $peerID")
+        return isFirstAnnounce
+    }
+    
+    /**
+     * Handle Noise handshake - SIMPLIFIED iOS-compatible version
+     * Single handshake type (0x10) with response determined by payload analysis
+     */
+    suspend fun handleNoiseHandshake(routed: RoutedPacket) {
+        val packet = routed.packet
+        val peerID = routed.peerID ?: "unknown"
+        
+        Log.d(TAG, "Processing Noise handshake from $peerID (${packet.payload.size} bytes)")
+        
+        // Skip our own handshake messages
+        if (peerID == myPeerID) return
+        
+        // Check if handshake is addressed to us
+        val recipientID = packet.recipientID?.toHexString()
+        if (recipientID != myPeerID) {
+            Log.d(TAG, "Handshake not for me (for $recipientID, I am $myPeerID)")
+            return
+        }
+        
+        try {
+            // Process handshake message through delegate (simplified approach)
+            val response = delegate?.processNoiseHandshakeMessage(packet.payload, peerID)
+            
+            if (response != null) {
+                Log.d(TAG, "Generated handshake response for $peerID (${response.size} bytes)")
+                
+                // Send response using same packet type (simplified iOS approach)
+                val responsePacket = BitchatPacket(
+                    version = 1u,
+                    type = MessageType.NOISE_HANDSHAKE.value,
+                    senderID = hexStringToByteArray(myPeerID),
+                    recipientID = hexStringToByteArray(peerID),
+                    timestamp = System.currentTimeMillis().toULong(),
+                    payload = response,
+                    signature = null,
+                    ttl = 7u // Same TTL as iOS
                 )
+                
+                delegate?.sendPacket(responsePacket)
+                Log.d(TAG, "📤 Sent handshake response to $peerID")
             }
             
-            Log.d(TAG, "Processed TLV announce: stored public key for $peerID")
-            return isFirstAnnounce
+            // Check if session is now established
+            val hasSession = delegate?.hasNoiseSession(peerID) ?: false
+            if (hasSession) {
+                Log.d(TAG, "✅ Noise session established with $peerID")
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to process Noise handshake from $peerID: ${e.message}")
+        }
     }
     
     /**
@@ -215,6 +347,11 @@ class MessageHandler(private val myPeerID: String) {
         val packet = routed.packet
         val peerID = routed.peerID ?: "unknown"
         if (peerID == myPeerID) return
+        val senderNickname = delegate?.getPeerNickname(peerID)
+        if (senderNickname != null) {
+            Log.d(TAG, "Received message from $senderNickname")
+            delegate?.updatePeerNickname(peerID, senderNickname)
+        }
         
         val recipientID = packet.recipientID?.takeIf { !it.contentEquals(delegate?.getBroadcastRecipient()) }
         
@@ -244,34 +381,6 @@ class MessageHandler(private val myPeerID: String) {
             )
 
             delegate?.onMessageReceived(message)
-//            if (message != null) {
-//                // Check for cover traffic (dummy messages)
-//                if (message.content.startsWith("☂DUMMY☂")) {
-//                    Log.d(TAG, "Discarding cover traffic from $peerID")
-//                    return // Silently discard
-//                }
-//
-//                delegate?.updatePeerNickname(peerID, message.sender)
-//
-//                // Handle encrypted channel messages
-//                val finalContent = if (message.channel != null && message.isEncrypted && message.encryptedContent != null) {
-//                    delegate?.decryptChannelMessage(message.encryptedContent, message.channel)
-//                    ?: "[Encrypted message - password required]"
-//                } else {
-//                    message.content
-//                }
-//
-//                // Replace timestamp with current time (same as iOS)
-//                val messageWithCurrentTime = message.copy(
-//                    content = finalContent,
-//                    senderPeerID = peerID,
-//                    timestamp = Date() // Use current time instead of original timestamp
-//                )
-//
-//                delegate?.onMessageReceived(messageWithCurrentTime)
-//            }
-            
-            // Broadcast message relay is now handled by centralized PacketRelayManager
             
         } catch (e: Exception) {
             Log.e(TAG, "Failed to process broadcast message: ${e.message}")
@@ -298,24 +407,6 @@ class MessageHandler(private val myPeerID: String) {
             )
             delegate?.onMessageReceived(message)
 
-            // Send delivery ACK
-            delegate?.sendDeliveryAck(message, peerID)
-
-//            val message = BitchatMessage.fromBinaryPayload(packet.payload)
-//            if (message != null) {
-//                // Check for cover traffic (dummy messages)
-//                if (message.content.startsWith("☂DUMMY☂")) {
-//                    Log.d(TAG, "Discarding private cover traffic from $peerID")
-//                    return // Silently discard
-//                }
-//
-//                delegate?.updatePeerNickname(peerID, message.sender)
-//                delegate?.onMessageReceived(message)
-//
-//                // Send delivery ACK
-//                delegate?.sendDeliveryAck(message, peerID)
-//            }
-            
         } catch (e: Exception) {
             Log.e(TAG, "Failed to process private message from $peerID: ${e.message}")
         }
@@ -431,13 +522,13 @@ interface MessageHandlerDelegate {
     // Noise protocol operations
     fun hasNoiseSession(peerID: String): Boolean
     fun initiateNoiseHandshake(peerID: String)
+    fun processNoiseHandshakeMessage(payload: ByteArray, peerID: String): ByteArray?
     fun updatePeerIDBinding(newPeerID: String, nickname: String,
                            publicKey: ByteArray, previousPeerID: String?)
     
     // Message operations
     fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String?
-    fun sendDeliveryAck(message: BitchatMessage, senderPeerID: String)
-    
+
     // Callbacks
     fun onMessageReceived(message: BitchatMessage)
     fun onChannelLeave(channel: String, fromPeer: String)

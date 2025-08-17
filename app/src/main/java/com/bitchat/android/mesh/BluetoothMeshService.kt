@@ -248,6 +248,15 @@ class BluetoothMeshService(private val context: Context) {
                 }
             }
             
+            override fun processNoiseHandshakeMessage(payload: ByteArray, peerID: String): ByteArray? {
+                return try {
+                    encryptionService.processHandshakeMessage(payload, peerID)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to process handshake message from $peerID: ${e.message}")
+                    null
+                }
+            }
+            
             override fun updatePeerIDBinding(newPeerID: String, nickname: String,
                                            publicKey: ByteArray, previousPeerID: String?) {
 
@@ -269,10 +278,6 @@ class BluetoothMeshService(private val context: Context) {
             // Message operations  
             override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {
                 return delegate?.decryptChannelMessage(encryptedContent, channel)
-            }
-            
-            override fun sendDeliveryAck(message: BitchatMessage, senderPeerID: String) {
-                this@BluetoothMeshService.sendDeliveryAck(message, senderPeerID)
             }
             
             // Callbacks
@@ -316,8 +321,8 @@ class BluetoothMeshService(private val context: Context) {
                 return SpecialRecipients.BROADCAST
             }
             
-            override fun handleNoiseHandshake(routed: RoutedPacket, step: Int): Boolean {
-                return runBlocking { securityManager.handleNoiseHandshake(routed, step) }
+            override fun handleNoiseHandshake(routed: RoutedPacket): Boolean {
+                return runBlocking { securityManager.handleNoiseHandshake(routed) }
             }
             
             override fun handleNoiseEncrypted(routed: RoutedPacket) {
@@ -472,185 +477,228 @@ class BluetoothMeshService(private val context: Context) {
     }
     
     /**
-     * Send private message
+     * Send private message - SIMPLIFIED iOS-compatible version 
+     * Uses NoisePayloadType system exactly like iOS SimplifiedBluetoothService
      */
     fun sendPrivateMessage(content: String, recipientPeerID: String, recipientNickname: String, messageID: String? = null) {
         if (content.isEmpty() || recipientPeerID.isEmpty() || recipientNickname.isEmpty()) return
         
-        val nickname = delegate?.getNickname() ?: myPeerID
-        
-//        val message = BitchatMessage(
-//            id = messageID ?: UUID.randomUUID().toString(),
-//            sender = nickname,
-//            content = content,
-//            timestamp = Date(),
-//            isRelay = false,
-//            isPrivate = true,
-//            recipientNickname = recipientNickname,
-//            senderPeerID = myPeerID
-//        )
-//
-//        message.toBinaryPayload()?.let { messageData ->
-//            try {
-//
-//                // Create inner packet with the padded message data
-//                val innerPacket = BitchatPacket(
-//                    type = MessageType.MESSAGE.value,
-//                    senderID = hexStringToByteArray(myPeerID),
-//                    recipientID = hexStringToByteArray(recipientPeerID),
-//                    timestamp = System.currentTimeMillis().toULong(),
-//                    payload = messageData,
-//                    signature = null,
-//                    ttl = MAX_TTL
-//                )
-//
-//                // Cache for offline favorites
-//                if (storeForwardManager.shouldCacheForPeer(recipientPeerID)) {
-//                    storeForwardManager.cacheMessage(innerPacket, messageID ?: message.id)
-//                }
-//
-//                // Use the new encrypt and broadcast function
-//                encryptAndBroadcastNoisePacket(innerPacket, recipientPeerID)
-//
-//            } catch (e: Exception) {
-//                Log.e(TAG, "Failed to send private message: ${e.message}")
-//            }
-//        }
-    }
-    
-    /**
-     * Send delivery acknowledgment for a received private message
-     */
-    fun sendDeliveryAck(message: BitchatMessage, senderPeerID: String) {
-        val nickname = delegate?.getNickname() ?: myPeerID
-//        val ack = DeliveryAck(
-//            originalMessageID = message.id,
-//            recipientID = myPeerID,
-//            recipientNickname = nickname,
-//            hopCount = 0u.toUByte() // Will be calculated during relay
-//        )
-        
-        try {
-//            val ackData = ack.encode() ?: return
-//            val typeMarker = MessageType.DELIVERY_ACK.value.toByte()
-//            val payloadWithMarker = byteArrayOf(typeMarker) + ackData
-//            val encryptedPayload = securityManager.encryptForPeer(payloadWithMarker, senderPeerID)
-//
-//            if (encryptedPayload == null) {
-//                Log.w(TAG, "Failed to encrypt delivery ACK for $senderPeerID")
-//                return
-//            }
-//
-//            // Create inner packet with the delivery ACK data
-//            val packet = BitchatPacket(
-//                type = MessageType.NOISE_ENCRYPTED.value,
-//                senderID = hexStringToByteArray(myPeerID),
-//                recipientID = hexStringToByteArray(senderPeerID),
-//                timestamp = System.currentTimeMillis().toULong(),
-//                payload = encryptedPayload,
-//                signature = null,
-//                ttl = 3u
-//            )
-//
-//            // Use the new encrypt and broadcast function
-//            connectionManager.broadcastPacket(RoutedPacket(packet))
+        serviceScope.launch {
+            val finalMessageID = messageID ?: java.util.UUID.randomUUID().toString()
             
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to send delivery ACK: ${e.message}")
-        }
-    }
-    
-    /**
-     * Send read receipt for a received private message
-     */
-    fun sendReadReceipt(messageID: String, recipientPeerID: String, readerNickname: String) {
-        serviceScope.launch {
-            // Create the read receipt
-            val receipt = ReadReceipt(
-                originalMessageID = messageID,
-                readerID = myPeerID,
-                readerNickname = readerNickname
-            )
-
-            try {
-                // Encode the receipt
-//                val receiptData = receipt.encode()
-//                val typeMarker = MessageType.READ_RECEIPT.value.toByte()
-//                val payloadWithMarker = byteArrayOf(typeMarker) + receiptData
-//                val encryptedPayload = securityManager.encryptForPeer(payloadWithMarker, recipientPeerID)
-//
-//                if (encryptedPayload == null) {
-//                    Log.w(TAG, "Failed to encrypt delivery ACK for $recipientPeerID")
-//                    return@launch
-//                }
-//
-//                // Create inner packet with the delivery ACK data
-//                val packet = BitchatPacket(
-//                    type = MessageType.NOISE_ENCRYPTED.value,
-//                    senderID = hexStringToByteArray(myPeerID),
-//                    recipientID = hexStringToByteArray(recipientPeerID),
-//                    timestamp = System.currentTimeMillis().toULong(),
-//                    payload = encryptedPayload,
-//                    signature = null,
-//                    ttl = 3u
-//                )
-//
-//                Log.d(TAG, "Sending read receipt for message $messageID to $recipientPeerID")
-//
-//                // Use the new encrypt and broadcast function
-//                connectionManager.broadcastPacket(RoutedPacket(packet))
-
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to send read receipt for message $messageID: ${e.message}")
-            }
-        }
-    }
-    
-    /**
-     * Encrypt a BitchatPacket and broadcast it as a NOISE_ENCRYPTED message
-     * This is the correct protocol implementation - encrypt the entire packet, not just the payload
-     */
-    private fun encryptAndBroadcastNoisePacket(innerPacket: BitchatPacket, recipientPeerID: String) {
-        serviceScope.launch {
-            try {
-                // Serialize the inner packet to binary data
-                val innerPacketData = innerPacket.toBinaryData()
-                if (innerPacketData == null) {
-                    Log.e(TAG, "Failed to serialize inner packet for encryption")
-                    return@launch
-                }
-                
-                // Encrypt the serialized packet using Noise encryption
-                val encryptedPayload = securityManager.encryptForPeer(innerPacketData, recipientPeerID)
-                
-                if (encryptedPayload != null) {
-                    // Create the outer NOISE_ENCRYPTED packet
-                    val outerPacket = BitchatPacket(
+            Log.d(TAG, "📨 Sending PM to $recipientPeerID: ${content.take(30)}...")
+            
+            // Check if we have an established Noise session
+            if (encryptionService.hasEstablishedSession(recipientPeerID)) {
+                try {
+                    // Create TLV-encoded private message exactly like iOS
+                    val privateMessage = com.bitchat.android.model.PrivateMessagePacket(
+                        messageID = finalMessageID,
+                        content = content
+                    )
+                    
+                    val tlvData = privateMessage.encode()
+                    if (tlvData == null) {
+                        Log.e(TAG, "Failed to encode private message with TLV")
+                        return@launch
+                    }
+                    
+                    // Create message payload with NoisePayloadType prefix: [type byte] + [TLV data]
+                    val messagePayload = com.bitchat.android.model.NoisePayload(
+                        type = com.bitchat.android.model.NoisePayloadType.PRIVATE_MESSAGE,
+                        data = tlvData
+                    )
+                    
+                    // Encrypt the payload
+                    val encrypted = encryptionService.encrypt(messagePayload.encode(), recipientPeerID)
+                    
+                    // Create NOISE_ENCRYPTED packet exactly like iOS
+                    val packet = BitchatPacket(
+                        version = 1u,
                         type = MessageType.NOISE_ENCRYPTED.value,
                         senderID = hexStringToByteArray(myPeerID),
                         recipientID = hexStringToByteArray(recipientPeerID),
                         timestamp = System.currentTimeMillis().toULong(),
-                        payload = encryptedPayload,
+                        payload = encrypted,
                         signature = null,
                         ttl = MAX_TTL
                     )
                     
-                    // Broadcast the encrypted packet
-                    connectionManager.broadcastPacket(RoutedPacket(outerPacket))
+                    connectionManager.broadcastPacket(RoutedPacket(packet))
+                    Log.d(TAG, "📤 Sent encrypted private message to $recipientPeerID (${encrypted.size} bytes)")
                     
-                    Log.d(TAG, "Encrypted and sent packet type ${innerPacket.type} to $recipientPeerID (${encryptedPayload.size} bytes encrypted)")
-                } else {
-                    Log.w(TAG, "Failed to encrypt packet for $recipientPeerID - no session available")
+                    // Notify delegate that message was sent
+                    delegate?.didReceiveMessage(BitchatMessage(
+                        id = finalMessageID,
+                        sender = delegate?.getNickname() ?: myPeerID,
+                        content = content,
+                        timestamp = Date(),
+                        isRelay = false,
+                        originalSender = null,
+                        isPrivate = true,
+                        recipientNickname = recipientNickname,
+                        senderPeerID = myPeerID,
+                        mentions = null
+                    ))
+                    
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to encrypt private message for $recipientPeerID: ${e.message}")
                 }
+            } else {
+                // Fire and forget - initiate handshake but don't queue exactly like iOS
+                Log.d(TAG, "🤝 No session with $recipientPeerID, initiating handshake")
+                messageHandler.delegate?.initiateNoiseHandshake(recipientPeerID)
                 
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to encrypt and broadcast Noise packet to $recipientPeerID: ${e.message}")
+                // Notify delegate immediately - accept occasional loss (iOS behavior)
+                delegate?.didReceiveMessage(BitchatMessage(
+                    id = finalMessageID,
+                    sender = delegate?.getNickname() ?: myPeerID,
+                    content = content,
+                    timestamp = Date(),
+                    isRelay = false,
+                    originalSender = null,
+                    isPrivate = true,
+                    recipientNickname = recipientNickname,
+                    senderPeerID = myPeerID,
+                    mentions = null
+                ))
             }
         }
     }
     
+//    /**
+//     * Send delivery acknowledgment for a received private message
+//     */
+//    fun sendDeliveryAck(message: BitchatMessage, senderPeerID: String) {
+//        val nickname = delegate?.getNickname() ?: myPeerID
+////        val ack = DeliveryAck(
+////            originalMessageID = message.id,
+////            recipientID = myPeerID,
+////            recipientNickname = nickname,
+////            hopCount = 0u.toUByte() // Will be calculated during relay
+////        )
+//
+//        try {
+////            val ackData = ack.encode() ?: return
+////            val typeMarker = MessageType.DELIVERY_ACK.value.toByte()
+////            val payloadWithMarker = byteArrayOf(typeMarker) + ackData
+////            val encryptedPayload = securityManager.encryptForPeer(payloadWithMarker, senderPeerID)
+////
+////            if (encryptedPayload == null) {
+////                Log.w(TAG, "Failed to encrypt delivery ACK for $senderPeerID")
+////                return
+////            }
+////
+////            // Create inner packet with the delivery ACK data
+////            val packet = BitchatPacket(
+////                type = MessageType.NOISE_ENCRYPTED.value,
+////                senderID = hexStringToByteArray(myPeerID),
+////                recipientID = hexStringToByteArray(senderPeerID),
+////                timestamp = System.currentTimeMillis().toULong(),
+////                payload = encryptedPayload,
+////                signature = null,
+////                ttl = 3u
+////            )
+////
+////            // Use the new encrypt and broadcast function
+////            connectionManager.broadcastPacket(RoutedPacket(packet))
+//
+//        } catch (e: Exception) {
+//            Log.e(TAG, "Failed to send delivery ACK: ${e.message}")
+//        }
+//    }
+//
+//    /**
+//     * Send read receipt for a received private message
+//     */
+//    fun sendReadReceipt(messageID: String, recipientPeerID: String, readerNickname: String) {
+//        serviceScope.launch {
+//            // Create the read receipt
+//            val receipt = ReadReceipt(
+//                originalMessageID = messageID,
+//                readerID = myPeerID,
+//                readerNickname = readerNickname
+//            )
+//
+//            try {
+//                // Encode the receipt
+////                val receiptData = receipt.encode()
+////                val typeMarker = MessageType.READ_RECEIPT.value.toByte()
+////                val payloadWithMarker = byteArrayOf(typeMarker) + receiptData
+////                val encryptedPayload = securityManager.encryptForPeer(payloadWithMarker, recipientPeerID)
+////
+////                if (encryptedPayload == null) {
+////                    Log.w(TAG, "Failed to encrypt delivery ACK for $recipientPeerID")
+////                    return@launch
+////                }
+////
+////                // Create inner packet with the delivery ACK data
+////                val packet = BitchatPacket(
+////                    type = MessageType.NOISE_ENCRYPTED.value,
+////                    senderID = hexStringToByteArray(myPeerID),
+////                    recipientID = hexStringToByteArray(recipientPeerID),
+////                    timestamp = System.currentTimeMillis().toULong(),
+////                    payload = encryptedPayload,
+////                    signature = null,
+////                    ttl = 3u
+////                )
+////
+////                Log.d(TAG, "Sending read receipt for message $messageID to $recipientPeerID")
+////
+////                // Use the new encrypt and broadcast function
+////                connectionManager.broadcastPacket(RoutedPacket(packet))
+//
+//            } catch (e: Exception) {
+//                Log.e(TAG, "Failed to send read receipt for message $messageID: ${e.message}")
+//            }
+//        }
+//    }
+    
+//    /**
+//     * Encrypt a BitchatPacket and broadcast it as a NOISE_ENCRYPTED message
+//     * This is the correct protocol implementation - encrypt the entire packet, not just the payload
+//     */
+//    private fun encryptAndBroadcastNoisePacket(innerPacket: BitchatPacket, recipientPeerID: String) {
+//        serviceScope.launch {
+//            try {
+//                // Serialize the inner packet to binary data
+//                val innerPacketData = innerPacket.toBinaryData()
+//                if (innerPacketData == null) {
+//                    Log.e(TAG, "Failed to serialize inner packet for encryption")
+//                    return@launch
+//                }
+//
+//                // Encrypt the serialized packet using Noise encryption
+//                val encryptedPayload = securityManager.encryptForPeer(innerPacketData, recipientPeerID)
+//
+//                if (encryptedPayload != null) {
+//                    // Create the outer NOISE_ENCRYPTED packet
+//                    val outerPacket = BitchatPacket(
+//                        type = MessageType.NOISE_ENCRYPTED.value,
+//                        senderID = hexStringToByteArray(myPeerID),
+//                        recipientID = hexStringToByteArray(recipientPeerID),
+//                        timestamp = System.currentTimeMillis().toULong(),
+//                        payload = encryptedPayload,
+//                        signature = null,
+//                        ttl = MAX_TTL
+//                    )
+//
+//                    // Broadcast the encrypted packet
+//                    connectionManager.broadcastPacket(RoutedPacket(outerPacket))
+//
+//                    Log.d(TAG, "Encrypted and sent packet type ${innerPacket.type} to $recipientPeerID (${encryptedPayload.size} bytes encrypted)")
+//                } else {
+//                    Log.w(TAG, "Failed to encrypt packet for $recipientPeerID - no session available")
+//                }
+//
+//            } catch (e: Exception) {
+//                Log.e(TAG, "Failed to encrypt and broadcast Noise packet to $recipientPeerID: ${e.message}")
+//            }
+//        }
+//    }
+    
     /**
-     * Send broadcast announce with TLV-encoded identity announcement
+     * Send broadcast announce with TLV-encoded identity announcement - exactly like iOS
      */
     fun sendBroadcastAnnounce() {
         Log.d(TAG, "Sending broadcast announce")
@@ -659,9 +707,18 @@ class BluetoothMeshService(private val context: Context) {
             
             // Get the static public key for the announcement
             val staticKey = encryptionService.getStaticPublicKey()
-            // Create TLV-encoded identity announcement
-            val identityAnnouncement = IdentityAnnouncement(nickname, staticKey)
-            val tlvPayload = identityAnnouncement.encode()
+            if (staticKey == null) {
+                Log.e(TAG, "No static public key available for announcement")
+                return@launch
+            }
+            
+            // Create iOS-compatible AnnouncementPacket with TLV encoding
+            val announcement = com.bitchat.android.model.AnnouncementPacket(nickname, staticKey)
+            val tlvPayload = announcement.encode()
+            if (tlvPayload == null) {
+                Log.e(TAG, "Failed to encode announcement as TLV")
+                return@launch
+            }
             
             val announcePacket = BitchatPacket(
                 type = MessageType.ANNOUNCE.value,
@@ -671,12 +728,12 @@ class BluetoothMeshService(private val context: Context) {
             )
             
             connectionManager.broadcastPacket(RoutedPacket(announcePacket))
-            Log.d(TAG, "Sent TLV-encoded broadcast announce (${tlvPayload.size} bytes)")
+            Log.d(TAG, "Sent iOS-compatible TLV announce (${tlvPayload.size} bytes)")
         }
     }
     
     /**
-     * Send announcement to specific peer with TLV-encoded identity announcement
+     * Send announcement to specific peer with TLV-encoded identity announcement - exactly like iOS
      */
     private fun sendAnnouncementToPeer(peerID: String) {
         if (peerManager.hasAnnouncedToPeer(peerID)) return
@@ -685,9 +742,18 @@ class BluetoothMeshService(private val context: Context) {
         
         // Get the static public key for the announcement
         val staticKey = encryptionService.getStaticPublicKey()
-        // Create TLV-encoded identity announcement
-        val identityAnnouncement = IdentityAnnouncement(nickname, staticKey)
-        val tlvPayload = identityAnnouncement.encode()
+        if (staticKey == null) {
+            Log.e(TAG, "No static public key available for peer announcement")
+            return
+        }
+        
+        // Create iOS-compatible AnnouncementPacket with TLV encoding
+        val announcement = com.bitchat.android.model.AnnouncementPacket(nickname, staticKey)
+        val tlvPayload = announcement.encode()
+        if (tlvPayload == null) {
+            Log.e(TAG, "Failed to encode peer announcement as TLV")
+            return
+        }
         
         val packet = BitchatPacket(
             type = MessageType.ANNOUNCE.value,
@@ -698,7 +764,7 @@ class BluetoothMeshService(private val context: Context) {
         
         connectionManager.broadcastPacket(RoutedPacket(packet))
         peerManager.markPeerAsAnnouncedTo(peerID)
-        Log.d(TAG, "Sent TLV-encoded peer announce to $peerID (${tlvPayload.size} bytes)")
+        Log.d(TAG, "Sent iOS-compatible TLV peer announce to $peerID (${tlvPayload.size} bytes)")
     }
     
     /**
