@@ -527,19 +527,9 @@ class BluetoothMeshService(private val context: Context) {
                     connectionManager.broadcastPacket(RoutedPacket(packet))
                     Log.d(TAG, "📤 Sent encrypted private message to $recipientPeerID (${encrypted.size} bytes)")
                     
-                    // Notify delegate that message was sent
-                    delegate?.didReceiveMessage(BitchatMessage(
-                        id = finalMessageID,
-                        sender = delegate?.getNickname() ?: myPeerID,
-                        content = content,
-                        timestamp = Date(),
-                        isRelay = false,
-                        originalSender = null,
-                        isPrivate = true,
-                        recipientNickname = recipientNickname,
-                        senderPeerID = myPeerID,
-                        mentions = null
-                    ))
+                    // FIXED: Don't send didReceiveMessage for our own sent messages
+                    // This was causing self-notifications - iOS doesn't do this
+                    // The UI handles showing sent messages through its own message sending logic
                     
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to encrypt private message for $recipientPeerID: ${e.message}")
@@ -549,19 +539,47 @@ class BluetoothMeshService(private val context: Context) {
                 Log.d(TAG, "🤝 No session with $recipientPeerID, initiating handshake")
                 messageHandler.delegate?.initiateNoiseHandshake(recipientPeerID)
                 
-                // Notify delegate immediately - accept occasional loss (iOS behavior)
-                delegate?.didReceiveMessage(BitchatMessage(
-                    id = finalMessageID,
-                    sender = delegate?.getNickname() ?: myPeerID,
-                    content = content,
-                    timestamp = Date(),
-                    isRelay = false,
-                    originalSender = null,
-                    isPrivate = true,
-                    recipientNickname = recipientNickname,
-                    senderPeerID = myPeerID,
-                    mentions = null
-                ))
+                // FIXED: Don't send didReceiveMessage for our own sent messages
+                // The UI will handle showing the message in the chat interface
+            }
+        }
+    }
+    
+    /**
+     * Send read receipt for a received private message - NEW NoisePayloadType implementation
+     * Uses same encryption approach as iOS SimplifiedBluetoothService
+     */
+    fun sendReadReceipt(messageID: String, recipientPeerID: String, readerNickname: String) {
+        serviceScope.launch {
+            Log.d(TAG, "📖 Sending read receipt for message $messageID to $recipientPeerID")
+            
+            try {
+                // Create read receipt payload using NoisePayloadType exactly like iOS
+                val readReceiptPayload = com.bitchat.android.model.NoisePayload(
+                    type = com.bitchat.android.model.NoisePayloadType.READ_RECEIPT,
+                    data = messageID.toByteArray(Charsets.UTF_8)
+                )
+                
+                // Encrypt the payload
+                val encrypted = encryptionService.encrypt(readReceiptPayload.encode(), recipientPeerID)
+                
+                // Create NOISE_ENCRYPTED packet exactly like iOS
+                val packet = BitchatPacket(
+                    version = 1u,
+                    type = MessageType.NOISE_ENCRYPTED.value,
+                    senderID = hexStringToByteArray(myPeerID),
+                    recipientID = hexStringToByteArray(recipientPeerID),
+                    timestamp = System.currentTimeMillis().toULong(),
+                    payload = encrypted,
+                    signature = null,
+                    ttl = 7u // Same TTL as iOS messageTTL
+                )
+                
+                connectionManager.broadcastPacket(RoutedPacket(packet))
+                Log.d(TAG, "📤 Sent read receipt to $recipientPeerID for message $messageID")
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send read receipt to $recipientPeerID: ${e.message}")
             }
         }
     }
