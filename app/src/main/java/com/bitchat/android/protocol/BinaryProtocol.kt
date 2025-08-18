@@ -330,6 +330,7 @@ object BinaryProtocol {
             )
             
         } catch (e: Exception) {
+            Log.e("BinaryProtocol", "Error decoding packet: ${e.message}")
             return null
         }
     }

@@ -61,7 +61,7 @@ class BluetoothMeshService(private val context: Context) {
     init {
         setupDelegates()
         messageHandler.packetProcessor = packetProcessor
-        startPeriodicDebugLogging()
+        //startPeriodicDebugLogging()
     }
     
     /**
@@ -448,8 +448,6 @@ class BluetoothMeshService(private val context: Context) {
                 ttl = MAX_TTL
             )
 
-            // Send with random delay and retry for reliability
-            // delay(Random.nextLong(50, 500))
             connectionManager.broadcastPacket(RoutedPacket(packet))
         }
     }
