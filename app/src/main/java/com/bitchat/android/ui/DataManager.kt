@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
 import com.google.gson.Gson
-import kotlin.random.Random
+import com.bitchat.android.util.NicknameUtils
 
 /**
  * Handles data persistence operations for the chat system
@@ -36,7 +36,7 @@ class DataManager(private val context: Context) {
         return if (savedNickname != null) {
             savedNickname
         } else {
-            val randomNickname = "anon${Random.nextInt(1000, 9999)}"
+            val randomNickname = NicknameUtils.generateRandomNickname()
             saveNickname(randomNickname)
             randomNickname
         }

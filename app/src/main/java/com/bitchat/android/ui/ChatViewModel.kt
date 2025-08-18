@@ -1,7 +1,6 @@
 package com.bitchat.android.ui
 
 import android.app.Application
-import android.content.Context
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
@@ -11,10 +10,10 @@ import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryAck
 import com.bitchat.android.model.ReadReceipt
-import kotlinx.coroutines.launch
+import com.bitchat.android.util.NicknameUtils
 import kotlinx.coroutines.delay
-import java.util.*
-import kotlin.random.Random
+import kotlinx.coroutines.launch
+import java.util.Date
 
 /**
  * Refactored ChatViewModel - Main coordinator for bitchat functionality
@@ -427,7 +426,7 @@ class ChatViewModel(
         notificationManager.clearAllNotifications()
         
         // Reset nickname
-        val newNickname = "anon${Random.nextInt(1000, 9999)}"
+        val newNickname = NicknameUtils.generateRandomNickname()
         state.setNickname(newNickname)
         dataManager.saveNickname(newNickname)
         
