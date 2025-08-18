@@ -91,9 +91,7 @@ dependencies {
     
     // Bluetooth
     implementation(libs.nordic.ble)
-    
-    // Compression (using built-in zlib)
-    
+
     // Security preferences
     implementation(libs.androidx.security.crypto)
     
