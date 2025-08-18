@@ -34,8 +34,7 @@ kotlinx-coroutines = "1.10.2"
 # Bluetooth
 nordic-ble = "2.6.1"
 
-# Compression
-lz4-java = "1.8.0"
+
 
 # Security
 security-crypto = "1.1.0-beta01"
@@ -85,8 +84,7 @@ kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutine
 # Bluetooth
 nordic-ble = { module = "no.nordicsemi.android:ble", version.ref = "nordic-ble" }
 
-# Compression
-lz4-java = { module = "org.lz4:lz4-java", version.ref = "lz4-java" }
+
 
 # Security
 androidx-security-crypto = { module = "androidx.security:security-crypto", version.ref = "security-crypto" }
