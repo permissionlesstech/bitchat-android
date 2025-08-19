@@ -191,10 +191,7 @@ class MessageHandler(private val myPeerID: String) {
 
         // Check for existing peer with different noise public key
         // If existing peer has a different noise public key, do not consider this verified
-        val existingPeer = (delegate as? BluetoothMeshService)?.let { service ->
-            // Access PeerManager through service
-            service.getPeerInfo(peerID)
-        }
+        val existingPeer = delegate?.getPeerInfo(peerID)
         
         if (existingPeer != null && existingPeer.noisePublicKey != null && !existingPeer.noisePublicKey!!.contentEquals(announcement.noisePublicKey)) {
             Log.w(TAG, "⚠️ Announce key mismatch for ${peerID.take(8)}... — keeping unverified")
@@ -218,15 +215,13 @@ class MessageHandler(private val myPeerID: String) {
         val signingPublicKey = announcement.signingPublicKey
         
         // Update peer info with verification status through new method
-        val isFirstAnnounce = (delegate as? BluetoothMeshService)?.let { service ->
-            service.updatePeerInfo(
-                peerID = peerID,
-                nickname = nickname,
-                noisePublicKey = noisePublicKey,
-                signingPublicKey = signingPublicKey,
-                isVerified = true
-            )
-        } ?: false
+        val isFirstAnnounce = delegate?.updatePeerInfo(
+            peerID = peerID,
+            nickname = nickname,
+            noisePublicKey = noisePublicKey,
+            signingPublicKey = signingPublicKey,
+            isVerified = true
+        ) ?: false
 
         // Update peer ID binding with noise public key for identity management
         delegate?.updatePeerIDBinding(
@@ -327,7 +322,7 @@ class MessageHandler(private val myPeerID: String) {
         val peerID = routed.peerID ?: "unknown"
         
         // Enforce: only accept public messages from verified peers we know
-        val peerInfo = (delegate as? BluetoothMeshService)?.getPeerInfo(peerID)
+        val peerInfo = delegate?.getPeerInfo(peerID)
         if (peerInfo == null || !peerInfo.isVerifiedNickname) {
             Log.w(TAG, "🚫 Dropping public message from unverified or unknown peer ${peerID.take(8)}...")
             return
@@ -444,6 +439,8 @@ interface MessageHandlerDelegate {
     fun getPeerNickname(peerID: String): String?
     fun getNetworkSize(): Int
     fun getMyNickname(): String?
+    fun getPeerInfo(peerID: String): PeerInfo?
+    fun updatePeerInfo(peerID: String, nickname: String, noisePublicKey: ByteArray, signingPublicKey: ByteArray, isVerified: Boolean): Boolean
     
     // Packet operations
     fun sendPacket(packet: BitchatPacket)

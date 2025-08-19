@@ -181,6 +181,14 @@ class BluetoothMeshService(private val context: Context) {
                 return delegate?.getNickname()
             }
             
+            override fun getPeerInfo(peerID: String): PeerInfo? {
+                return peerManager.getPeerInfo(peerID)
+            }
+            
+            override fun updatePeerInfo(peerID: String, nickname: String, noisePublicKey: ByteArray, signingPublicKey: ByteArray, isVerified: Boolean): Boolean {
+                return peerManager.updatePeerInfo(peerID, nickname, noisePublicKey, signingPublicKey, isVerified)
+            }
+            
             // Packet operations
             override fun sendPacket(packet: BitchatPacket) {
                 connectionManager.broadcastPacket(RoutedPacket(packet))
