@@ -6,10 +6,59 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
+ * Peer information structure with verification status
+ * Compatible with iOS PeerInfo structure
+ */
+data class PeerInfo(
+    val id: String,
+    var nickname: String,
+    var isConnected: Boolean,
+    var noisePublicKey: ByteArray?,
+    var signingPublicKey: ByteArray?,      // NEW: Ed25519 public key for verification
+    var isVerifiedNickname: Boolean,       // NEW: Verification status flag
+    var lastSeen: Long  // Using Long instead of Date for simplicity
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+        
+        other as PeerInfo
+        
+        if (id != other.id) return false
+        if (nickname != other.nickname) return false
+        if (isConnected != other.isConnected) return false
+        if (noisePublicKey != null) {
+            if (other.noisePublicKey == null) return false
+            if (!noisePublicKey.contentEquals(other.noisePublicKey)) return false
+        } else if (other.noisePublicKey != null) return false
+        if (signingPublicKey != null) {
+            if (other.signingPublicKey == null) return false
+            if (!signingPublicKey.contentEquals(other.signingPublicKey)) return false
+        } else if (other.signingPublicKey != null) return false
+        if (isVerifiedNickname != other.isVerifiedNickname) return false
+        if (lastSeen != other.lastSeen) return false
+        
+        return true
+    }
+    
+    override fun hashCode(): Int {
+        var result = id.hashCode()
+        result = 31 * result + nickname.hashCode()
+        result = 31 * result + isConnected.hashCode()
+        result = 31 * result + (noisePublicKey?.contentHashCode() ?: 0)
+        result = 31 * result + (signingPublicKey?.contentHashCode() ?: 0)
+        result = 31 * result + isVerifiedNickname.hashCode()
+        result = 31 * result + lastSeen.hashCode()
+        return result
+    }
+}
+
+/**
  * Manages active peers, nicknames, RSSI tracking, and peer fingerprints
  * Extracted from BluetoothMeshService for better separation of concerns
  * 
  * Now includes centralized peer fingerprint management via PeerFingerprintManager singleton
+ * and support for signed announcement verification
  */
 class PeerManager {
     
@@ -19,12 +68,17 @@ class PeerManager {
         private const val CLEANUP_INTERVAL = 60000L // 1 minute
     }
     
-    // Peer tracking data
-    private val peerNicknames = ConcurrentHashMap<String, String>()
-    private val activePeers = ConcurrentHashMap<String, Long>() // peerID -> lastSeen timestamp
+    // Peer tracking data - enhanced with verification status
+    private val peers = ConcurrentHashMap<String, PeerInfo>() // peerID -> PeerInfo
     private val peerRSSI = ConcurrentHashMap<String, Int>()
     private val announcedPeers = CopyOnWriteArrayList<String>()
     private val announcedToPeers = CopyOnWriteArrayList<String>()
+    
+    // Legacy support for existing code
+    @Deprecated("Use PeerInfo structure instead")
+    private val peerNicknames = ConcurrentHashMap<String, String>()
+    @Deprecated("Use PeerInfo structure instead")
+    private val activePeers = ConcurrentHashMap<String, Long>() // peerID -> lastSeen timestamp
     
     // Centralized fingerprint management
     private val fingerprintManager = PeerFingerprintManager.getInstance()
@@ -38,13 +92,90 @@ class PeerManager {
     init {
         startPeriodicCleanup()
     }
-    
+
+    // MARK: - New PeerInfo-based methods
+
+    /**
+     * Update peer information with verification data
+     * Similar to iOS updatePeer method
+     */
+    fun updatePeerInfo(
+        peerID: String,
+        nickname: String,
+        noisePublicKey: ByteArray,
+        signingPublicKey: ByteArray,
+        isVerified: Boolean
+    ): Boolean {
+        if (peerID == "unknown") return false
+        
+        val now = System.currentTimeMillis()
+        val existingPeer = peers[peerID]
+        val isNewPeer = existingPeer == null
+        
+        // Update or create peer info
+        val peerInfo = PeerInfo(
+            id = peerID,
+            nickname = nickname,
+            isConnected = true,
+            noisePublicKey = noisePublicKey,
+            signingPublicKey = signingPublicKey,
+            isVerifiedNickname = isVerified,
+            lastSeen = now
+        )
+        
+        peers[peerID] = peerInfo
+        
+        // Update legacy structures for compatibility
+        peerNicknames[peerID] = nickname
+        activePeers[peerID] = now
+        
+        if (isNewPeer && isVerified) {
+            announcedPeers.add(peerID)
+            notifyPeerListUpdate()
+            Log.d(TAG, "🆕 New verified peer: $nickname ($peerID)")
+            return true
+        } else if (isVerified) {
+            Log.d(TAG, "🔄 Updated verified peer: $nickname ($peerID)")
+        } else {
+            Log.d(TAG, "⚠️ Unverified peer announcement from: $nickname ($peerID)")
+        }
+        
+        return false
+    }
+
+    /**
+     * Get peer info
+     */
+    fun getPeerInfo(peerID: String): PeerInfo? {
+        return peers[peerID]
+    }
+
+    /**
+     * Check if peer is verified
+     */
+    fun isPeerVerified(peerID: String): Boolean {
+        return peers[peerID]?.isVerifiedNickname == true
+    }
+
+    /**
+     * Get all verified peers
+     */
+    fun getVerifiedPeers(): Map<String, PeerInfo> {
+        return peers.filterValues { it.isVerifiedNickname }
+    }
+
+    // MARK: - Legacy Methods (maintained for compatibility)
+
     /**
      * Update peer last seen timestamp
      */
     fun updatePeerLastSeen(peerID: String) {
         if (peerID != "unknown") {
             activePeers[peerID] = System.currentTimeMillis()
+            // Also update PeerInfo if it exists
+            peers[peerID]?.let { info ->
+                peers[peerID] = info.copy(lastSeen = System.currentTimeMillis())
+            }
         }
     }
     

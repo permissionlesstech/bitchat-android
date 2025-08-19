@@ -422,19 +422,18 @@ class NoiseEncryptionService(private val context: Context) {
     }
 
     /**
-     * Generate a new Ed25519 key pair for signing
+     * Generate a new Ed25519 key pair for signing using BouncyCastle
      * Returns (privateKey, publicKey) as 32-byte arrays
      */
     private fun generateEd25519KeyPair(): Pair<ByteArray, ByteArray> {
         try {
-            // Generate a simple Ed25519 key pair using secure random
-            // This is a simplified implementation - in production you'd use proper Ed25519 library
-            val secureRandom = SecureRandom()
-            val privateKey = ByteArray(32)
-            secureRandom.nextBytes(privateKey)
+            // Use BouncyCastle for proper Ed25519 key generation
+            val keyGen = org.bouncycastle.crypto.generators.Ed25519KeyPairGenerator()
+            keyGen.init(org.bouncycastle.crypto.params.Ed25519KeyGenerationParameters(SecureRandom()))
+            val keyPair = keyGen.generateKeyPair()
             
-            // Generate public key from private key (simplified)
-            val publicKey = deriveEd25519PublicKey(privateKey)
+            val privateKey = (keyPair.private as org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters).encoded
+            val publicKey = (keyPair.public as org.bouncycastle.crypto.params.Ed25519PublicKeyParameters).encoded
             
             return Pair(privateKey, publicKey)
         } catch (e: Exception) {
@@ -444,38 +443,35 @@ class NoiseEncryptionService(private val context: Context) {
     }
 
     /**
-     * Derive Ed25519 public key from private key (simplified implementation)
-     */
-    private fun deriveEd25519PublicKey(privateKey: ByteArray): ByteArray {
-        // This is a placeholder - in a real implementation you'd use proper Ed25519 math
-        // For now, we'll use a hash-based derivation which is not cryptographically correct
-        // but will work for the protocol demonstration
-        val digest = MessageDigest.getInstance("SHA-256")
-        return digest.digest(privateKey)
-    }
-
-    /**
-     * Sign data with Ed25519 private key (simplified implementation)
+     * Sign data with Ed25519 private key using BouncyCastle
      */
     private fun signWithEd25519(data: ByteArray, privateKey: ByteArray): ByteArray {
-        // This is a placeholder implementation
-        // In production, you'd use a proper Ed25519 library like BouncyCastle
-        val digest = MessageDigest.getInstance("SHA-256")
-        val combined = ByteArray(privateKey.size + data.size)
-        System.arraycopy(privateKey, 0, combined, 0, privateKey.size)
-        System.arraycopy(data, 0, combined, privateKey.size, data.size)
-        return digest.digest(combined)
+        try {
+            val privateKeyParams = org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters(privateKey, 0)
+            val signer = org.bouncycastle.crypto.signers.Ed25519Signer()
+            signer.init(true, privateKeyParams)
+            signer.update(data, 0, data.size)
+            return signer.generateSignature()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to sign data with Ed25519: ${e.message}")
+            throw e
+        }
     }
 
     /**
-     * Verify Ed25519 signature (simplified implementation)
+     * Verify Ed25519 signature using BouncyCastle
      */
     private fun verifyWithEd25519(signature: ByteArray, data: ByteArray, publicKey: ByteArray): Boolean {
-        // This is a placeholder implementation
-        // In production, you'd use a proper Ed25519 library like BouncyCastle
-        val privateKeyFromPublic = publicKey // This is obviously not correct, but for demo
-        val expectedSignature = signWithEd25519(data, privateKeyFromPublic)
-        return signature.contentEquals(expectedSignature)
+        try {
+            val publicKeyParams = org.bouncycastle.crypto.params.Ed25519PublicKeyParameters(publicKey, 0)
+            val verifier = org.bouncycastle.crypto.signers.Ed25519Signer()
+            verifier.init(false, publicKeyParams)
+            verifier.update(data, 0, data.size)
+            return verifier.verifySignature(signature)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to verify Ed25519 signature: ${e.message}")
+            return false
+        }
     }
 
     /**

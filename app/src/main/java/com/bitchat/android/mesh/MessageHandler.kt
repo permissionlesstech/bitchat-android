@@ -164,7 +164,7 @@ class MessageHandler(private val myPeerID: String) {
     }
     
     /**
-     * Handle announce message with TLV decoding support - exactly like iOS
+     * Handle announce message with TLV decoding and signature verification - exactly like iOS
      */
     suspend fun handleAnnounce(routed: RoutedPacket): Boolean {
         val packet = routed.packet
@@ -179,8 +179,36 @@ class MessageHandler(private val myPeerID: String) {
             return false
         }
         
+        // Verify packet signature using the announced signing public key
+        var verified = false
+        if (packet.signature != null) {
+            // Verify that the packet was signed by the signing private key corresponding to the announced signing public key
+            verified = delegate?.verifyEd25519Signature(packet.signature!!, packet.toBinaryDataForSigning()!!, announcement.signingPublicKey) ?: false
+            if (!verified) {
+                Log.w(TAG, "⚠️ Signature verification for announce failed ${peerID.take(8)}")
+            }
+        }
+
+        // Check for existing peer with different noise public key
+        // If existing peer has a different noise public key, do not consider this verified
+        val existingPeer = (delegate as? BluetoothMeshService)?.let { service ->
+            // Access PeerManager through service
+            service.getPeerInfo(peerID)
+        }
+        
+        if (existingPeer != null && existingPeer.noisePublicKey != null && !existingPeer.noisePublicKey!!.contentEquals(announcement.noisePublicKey)) {
+            Log.w(TAG, "⚠️ Announce key mismatch for ${peerID.take(8)}... — keeping unverified")
+            verified = false
+        }
+
+        // Require verified announce; ignore otherwise (no backward compatibility)
+        if (!verified) {
+            Log.w(TAG, "❌ Ignoring unverified announce from ${peerID.take(8)}...")
+            return false
+        }
+        
         // Successfully decoded TLV format exactly like iOS
-        Log.d(TAG, "Received iOS-compatible announce from $peerID: nickname=${announcement.nickname}, " +
+        Log.d(TAG, "✅ Verified announce from $peerID: nickname=${announcement.nickname}, " +
                 "noisePublicKey=${announcement.noisePublicKey.joinToString("") { "%02x".format(it) }.take(16)}..., " +
                 "signingPublicKey=${announcement.signingPublicKey.joinToString("") { "%02x".format(it) }.take(16)}...")
         
@@ -189,8 +217,16 @@ class MessageHandler(private val myPeerID: String) {
         val noisePublicKey = announcement.noisePublicKey
         val signingPublicKey = announcement.signingPublicKey
         
-        // Notify delegate to handle peer management with nickname
-        val isFirstAnnounce = delegate?.addOrUpdatePeer(peerID, nickname) ?: false
+        // Update peer info with verification status through new method
+        val isFirstAnnounce = (delegate as? BluetoothMeshService)?.let { service ->
+            service.updatePeerInfo(
+                peerID = peerID,
+                nickname = nickname,
+                noisePublicKey = noisePublicKey,
+                signingPublicKey = signingPublicKey,
+                isVerified = true
+            )
+        } ?: false
 
         // Update peer ID binding with noise public key for identity management
         delegate?.updatePeerIDBinding(
@@ -200,7 +236,7 @@ class MessageHandler(private val myPeerID: String) {
             previousPeerID = null
         )
         
-        Log.d(TAG, "Processed iOS-compatible TLV announce: stored public key for $peerID")
+        Log.d(TAG, "✅ Processed verified TLV announce: stored identity for $peerID")
         return isFirstAnnounce
     }
     
@@ -284,11 +320,19 @@ class MessageHandler(private val myPeerID: String) {
     }
     
     /**
-     * Handle broadcast message
+     * Handle broadcast message with verification enforcement
      */
     private suspend fun handleBroadcastMessage(routed: RoutedPacket) {
         val packet = routed.packet
         val peerID = routed.peerID ?: "unknown"
+        
+        // Enforce: only accept public messages from verified peers we know
+        val peerInfo = (delegate as? BluetoothMeshService)?.getPeerInfo(peerID)
+        if (peerInfo == null || !peerInfo.isVerifiedNickname) {
+            Log.w(TAG, "🚫 Dropping public message from unverified or unknown peer ${peerID.take(8)}...")
+            return
+        }
+        
         try {
             // Parse message
             val message = BitchatMessage(

@@ -597,8 +597,13 @@ class BluetoothMeshService(private val context: Context) {
                 payload = tlvPayload
             )
             
-            connectionManager.broadcastPacket(RoutedPacket(announcePacket))
-            Log.d(TAG, "Sent iOS-compatible TLV announce (${tlvPayload.size} bytes)")
+            // Sign the packet using our signing key (exactly like iOS)
+            val signedPacket = encryptionService.signData(announcePacket.toBinaryDataForSigning()!!)?.let { signature ->
+                announcePacket.copy(signature = signature)
+            } ?: announcePacket
+            
+            connectionManager.broadcastPacket(RoutedPacket(signedPacket))
+            Log.d(TAG, "Sent iOS-compatible signed TLV announce (${tlvPayload.size} bytes)")
         }
     }
     
@@ -639,9 +644,14 @@ class BluetoothMeshService(private val context: Context) {
             payload = tlvPayload
         )
         
-        connectionManager.broadcastPacket(RoutedPacket(packet))
+        // Sign the packet using our signing key (exactly like iOS)
+        val signedPacket = encryptionService.signData(packet.toBinaryDataForSigning()!!)?.let { signature ->
+            packet.copy(signature = signature)
+        } ?: packet
+        
+        connectionManager.broadcastPacket(RoutedPacket(signedPacket))
         peerManager.markPeerAsAnnouncedTo(peerID)
-        Log.d(TAG, "Sent iOS-compatible TLV peer announce to $peerID (${tlvPayload.size} bytes)")
+        Log.d(TAG, "Sent iOS-compatible signed TLV peer announce to $peerID (${tlvPayload.size} bytes)")
     }
 
     /**
@@ -696,6 +706,26 @@ class BluetoothMeshService(private val context: Context) {
      */
     fun getPeerFingerprint(peerID: String): String? {
         return peerManager.getFingerprintForPeer(peerID)
+    }
+
+    /**
+     * Get peer info for verification purposes
+     */
+    fun getPeerInfo(peerID: String): PeerInfo? {
+        return peerManager.getPeerInfo(peerID)
+    }
+
+    /**
+     * Update peer information with verification data
+     */
+    fun updatePeerInfo(
+        peerID: String,
+        nickname: String,
+        noisePublicKey: ByteArray,
+        signingPublicKey: ByteArray,
+        isVerified: Boolean
+    ): Boolean {
+        return peerManager.updatePeerInfo(peerID, nickname, noisePublicKey, signingPublicKey, isVerified)
     }
     
     /**
