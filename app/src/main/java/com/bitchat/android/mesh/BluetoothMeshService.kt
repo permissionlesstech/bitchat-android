@@ -575,8 +575,15 @@ class BluetoothMeshService(private val context: Context) {
                 return@launch
             }
             
+            // Get the signing public key for the announcement
+            val signingKey = encryptionService.getSigningPublicKey()
+            if (signingKey == null) {
+                Log.e(TAG, "No signing public key available for announcement")
+                return@launch
+            }
+            
             // Create iOS-compatible IdentityAnnouncement with TLV encoding
-            val announcement = IdentityAnnouncement(nickname, staticKey)
+            val announcement = IdentityAnnouncement(nickname, staticKey, signingKey)
             val tlvPayload = announcement.encode()
             if (tlvPayload == null) {
                 Log.e(TAG, "Failed to encode announcement as TLV")
@@ -610,8 +617,15 @@ class BluetoothMeshService(private val context: Context) {
             return
         }
         
+        // Get the signing public key for the announcement
+        val signingKey = encryptionService.getSigningPublicKey()
+        if (signingKey == null) {
+            Log.e(TAG, "No signing public key available for peer announcement")
+            return
+        }
+        
         // Create iOS-compatible IdentityAnnouncement with TLV encoding
-        val announcement = IdentityAnnouncement(nickname, staticKey)
+        val announcement = IdentityAnnouncement(nickname, staticKey, signingKey)
         val tlvPayload = announcement.encode()
         if (tlvPayload == null) {
             Log.e(TAG, "Failed to encode peer announcement as TLV")

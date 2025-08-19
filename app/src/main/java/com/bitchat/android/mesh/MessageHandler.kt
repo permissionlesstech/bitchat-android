@@ -181,20 +181,22 @@ class MessageHandler(private val myPeerID: String) {
         
         // Successfully decoded TLV format exactly like iOS
         Log.d(TAG, "Received iOS-compatible announce from $peerID: nickname=${announcement.nickname}, " +
-                "publicKey=${announcement.publicKey.joinToString("") { "%02x".format(it) }.take(16)}...")
+                "noisePublicKey=${announcement.noisePublicKey.joinToString("") { "%02x".format(it) }.take(16)}..., " +
+                "signingPublicKey=${announcement.signingPublicKey.joinToString("") { "%02x".format(it) }.take(16)}...")
         
-        // Extract nickname and public key from TLV data
+        // Extract nickname and public keys from TLV data
         val nickname = announcement.nickname
-        val publicKey = announcement.publicKey
+        val noisePublicKey = announcement.noisePublicKey
+        val signingPublicKey = announcement.signingPublicKey
         
         // Notify delegate to handle peer management with nickname
         val isFirstAnnounce = delegate?.addOrUpdatePeer(peerID, nickname) ?: false
 
-        // Update peer ID binding with public key for identity management
+        // Update peer ID binding with noise public key for identity management
         delegate?.updatePeerIDBinding(
             newPeerID = peerID,
             nickname = nickname,
-            publicKey = publicKey,
+            publicKey = noisePublicKey,
             previousPeerID = null
         )
         

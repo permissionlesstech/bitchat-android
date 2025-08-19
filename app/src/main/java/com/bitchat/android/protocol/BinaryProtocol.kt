@@ -56,7 +56,7 @@ data class BitchatPacket(
     val recipientID: ByteArray? = null,
     val timestamp: ULong,
     val payload: ByteArray,
-    val signature: ByteArray? = null,
+    var signature: ByteArray? = null,  // Changed from val to var for packet signing
     var ttl: UByte
 ) : Parcelable {
 
@@ -78,6 +78,26 @@ data class BitchatPacket(
 
     fun toBinaryData(): ByteArray? {
         return BinaryProtocol.encode(this)
+    }
+
+    /**
+     * Create binary representation for signing (without signature and TTL fields)
+     * TTL is excluded because it changes during packet relay operations
+     */
+    fun toBinaryDataForSigning(): ByteArray? {
+        // Create a copy without signature and with fixed TTL for signing
+        // TTL must be excluded because it changes during relay
+        val unsignedPacket = BitchatPacket(
+            version = version,
+            type = type,
+            senderID = senderID,
+            recipientID = recipientID,
+            timestamp = timestamp,
+            payload = payload,
+            signature = null, // Remove signature for signing
+            ttl = 0u // Use fixed TTL=0 for signing to ensure relay compatibility
+        )
+        return BinaryProtocol.encode(unsignedPacket)
     }
 
     companion object {
