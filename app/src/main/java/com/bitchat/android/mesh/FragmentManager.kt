@@ -3,6 +3,7 @@ package com.bitchat.android.mesh
 import android.util.Log
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
+import com.bitchat.android.protocol.MessagePadding
 import com.bitchat.android.model.FragmentPayload
 import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentHashMap
@@ -47,7 +48,10 @@ class FragmentManager {
      * Matches iOS sendFragmentedPacket() implementation exactly
      */
     fun createFragments(packet: BitchatPacket): List<BitchatPacket> {
-        val fullData = packet.toBinaryData() ?: return emptyList()
+        val encoded = packet.toBinaryData() ?: return emptyList()
+        
+        // Fragment the unpadded frame; each fragment will be encoded (and padded) independently - iOS fix
+        val fullData = MessagePadding.unpad(encoded)
         
         // iOS logic: if data.count > 512 && packet.type != MessageType.fragment.rawValue
         if (fullData.size <= FRAGMENT_SIZE_THRESHOLD) {
@@ -150,26 +154,18 @@ class FragmentManager {
                     }
                 }
                 
-                // iOS: if let metadata = fragmentMetadata[fragmentID] 
-                val metadata = fragmentMetadata[fragmentIDString]
-                if (metadata != null) {
-                    // iOS: let reassembledPacket = BitchatPacket(type: metadata.type, ...)
-                    val reassembledPacket = BitchatPacket(
-                        type = metadata.first,
-                        senderID = packet.senderID,
-                        recipientID = packet.recipientID,
-                        timestamp = packet.timestamp,
-                        payload = reassembledData.toByteArray(),
-                        signature = packet.signature,
-                        ttl = if (packet.ttl > 0u) (packet.ttl - 1u).toUByte() else 0u
-                    )
-                    
+                // Decode the original packet bytes we reassembled, so flags/compression are preserved - iOS fix
+                val originalPacket = BitchatPacket.fromBinaryData(reassembledData.toByteArray())
+                if (originalPacket != null) {
                     // iOS cleanup: incomingFragments.removeValue(forKey: fragmentID)
                     incomingFragments.remove(fragmentIDString)
                     fragmentMetadata.remove(fragmentIDString)
                     
-                    Log.d(TAG, "Successfully reassembled packet of ${reassembledData.size} bytes")
-                    return reassembledPacket
+                    Log.d(TAG, "Successfully reassembled and decoded original packet of ${reassembledData.size} bytes")
+                    return originalPacket
+                } else {
+                    val metadata = fragmentMetadata[fragmentIDString]
+                    Log.e(TAG, "Failed to decode reassembled packet (type=${metadata?.first}, total=${metadata?.second})")
                 }
             } else {
                 val received = fragmentMap?.size ?: 0

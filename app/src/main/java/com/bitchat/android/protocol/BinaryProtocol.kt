@@ -248,13 +248,24 @@ object BinaryProtocol {
     }
     
     fun decode(data: ByteArray): BitchatPacket? {
+        // Try decode as-is first (robust when padding wasn't applied) - iOS fix
+        decodeCore(data)?.let { return it }
+        
+        // If that fails, try after removing padding
+        val unpadded = MessagePadding.unpad(data)
+        if (unpadded.contentEquals(data)) return null // No padding was removed, already failed
+        
+        return decodeCore(unpadded)
+    }
+    
+    /**
+     * Core decoding implementation used by decode() with and without padding removal - iOS fix
+     */
+    private fun decodeCore(raw: ByteArray): BitchatPacket? {
         try {
-            // Remove padding first - exactly same as iOS
-            val unpaddedData = MessagePadding.unpad(data)
+            if (raw.size < HEADER_SIZE + SENDER_ID_SIZE) return null
             
-            if (unpaddedData.size < HEADER_SIZE + SENDER_ID_SIZE) return null
-            
-            val buffer = ByteBuffer.wrap(unpaddedData).apply { order(ByteOrder.BIG_ENDIAN) }
+            val buffer = ByteBuffer.wrap(raw).apply { order(ByteOrder.BIG_ENDIAN) }
             
             // Header
             val version = buffer.get().toUByte()
@@ -280,7 +291,7 @@ object BinaryProtocol {
             if (hasRecipient) expectedSize += RECIPIENT_ID_SIZE
             if (hasSignature) expectedSize += SIGNATURE_SIZE
             
-            if (unpaddedData.size < expectedSize) return null
+            if (raw.size < expectedSize) return null
             
             // SenderID
             val senderID = ByteArray(SENDER_ID_SIZE)
