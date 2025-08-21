@@ -76,54 +76,118 @@ fun SidebarOverlay(
                 SidebarHeader()
 
                 HorizontalDivider()
-                
-                // Scrollable content
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Channels section
-                    if (joinedChannels.isNotEmpty()) {
+                // Content + bottom toggles
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // Scroll area fills remaining space above toggles
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Channels section
+                        if (joinedChannels.isNotEmpty()) {
+                            item {
+                                ChannelsSection(
+                                    channels = joinedChannels.toList(), // Convert Set to List
+                                    currentChannel = currentChannel,
+                                    colorScheme = colorScheme,
+                                    onChannelClick = { channel ->
+                                        viewModel.switchToChannel(channel)
+                                        onDismiss()
+                                    },
+                                    onLeaveChannel = { channel ->
+                                        viewModel.leaveChannel(channel)
+                                    },
+                                    unreadChannelMessages = unreadChannelMessages
+                                )
+                            }
+
+                            item { HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp)) }
+                        }
+
+                        // People section
                         item {
-                            ChannelsSection(
-                                channels = joinedChannels.toList(), // Convert Set to List
-                                currentChannel = currentChannel,
+                            PeopleSection(
+                                connectedPeers = connectedPeers,
+                                peerNicknames = peerNicknames,
+                                peerRSSI = peerRSSI,
+                                nickname = nickname,
                                 colorScheme = colorScheme,
-                                onChannelClick = { channel ->
-                                    viewModel.switchToChannel(channel)
+                                selectedPrivatePeer = selectedPrivatePeer,
+                                viewModel = viewModel,
+                                onPrivateChatStart = { peerID ->
+                                    viewModel.startPrivateChat(peerID)
                                     onDismiss()
-                                },
-                                onLeaveChannel = { channel ->
-                                    viewModel.leaveChannel(channel)
-                                },
-                                unreadChannelMessages = unreadChannelMessages
+                                }
                             )
                         }
-                        
-                        item {
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                        }
                     }
-                    
-                    // People section
-                    item {
-                        PeopleSection(
-                            connectedPeers = connectedPeers,
-                            peerNicknames = peerNicknames,
-                            peerRSSI = peerRSSI,
-                            nickname = nickname,
-                            colorScheme = colorScheme,
-                            selectedPrivatePeer = selectedPrivatePeer,
-                            viewModel = viewModel,
-                            onPrivateChatStart = { peerID ->
-                                viewModel.startPrivateChat(peerID)
-                                onDismiss()
-                            }
-                        )
-                    }
+
+                    // Bottom persistent options
+                    PersistentOptionsSection(viewModel = viewModel)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun PersistentOptionsSection(viewModel: ChatViewModel) {
+    val colorScheme = MaterialTheme.colorScheme
+    val persistentEnabled by viewModel.persistentMeshEnabled.observeAsState(false)
+    val startOnBootEnabled by viewModel.startOnBootEnabled.observeAsState(false)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        Divider(color = colorScheme.outline.copy(alpha = 0.2f))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Persistent mesh",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colorScheme.onSurface
+                )
+                Text(
+                    text = "Run network in background",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+            }
+            Switch(checked = persistentEnabled, onCheckedChange = { viewModel.setPersistentMeshEnabled(it) })
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Start on boot",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (persistentEnabled) colorScheme.onSurface else colorScheme.onSurface.copy(alpha = 0.5f)
+                )
+                Text(
+                    text = "Launch mesh after device restarts",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+            }
+            Switch(
+                checked = startOnBootEnabled && persistentEnabled,
+                onCheckedChange = { viewModel.setStartOnBootEnabled(it) },
+                enabled = persistentEnabled
+            )
         }
     }
 }

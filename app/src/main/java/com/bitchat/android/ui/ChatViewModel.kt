@@ -88,6 +88,12 @@ class ChatViewModel(
     val peerNicknames: LiveData<Map<String, String>> = state.peerNicknames
     val peerRSSI: LiveData<Map<String, Int>> = state.peerRSSI
     val showAppInfo: LiveData<Boolean> = state.showAppInfo
+
+    // Persistent mesh settings
+    private val _persistentMeshEnabled = androidx.lifecycle.MutableLiveData<Boolean>()
+    val persistentMeshEnabled: LiveData<Boolean> = _persistentMeshEnabled
+    private val _startOnBootEnabled = androidx.lifecycle.MutableLiveData<Boolean>()
+    val startOnBootEnabled: LiveData<Boolean> = _startOnBootEnabled
     
     init {
         // Note: Mesh service delegate is now set by MainActivity
@@ -124,6 +130,10 @@ class ChatViewModel(
         
         // Initialize session state monitoring
         initializeSessionStateMonitoring()
+
+        // Load persistent mesh settings
+        _persistentMeshEnabled.value = dataManager.isPersistentMeshEnabled()
+        _startOnBootEnabled.value = dataManager.isStartOnBootEnabled()
         
         // Note: Mesh service is now started by MainActivity
         
@@ -335,11 +345,15 @@ class ChatViewModel(
     fun setAppBackgroundState(inBackground: Boolean) {
         // Forward to notification manager for notification logic
         notificationManager.setAppBackgroundState(inBackground)
+        // Update process-wide visibility state for background service
+        try { com.bitchat.android.services.AppVisibilityState.isAppInBackground = inBackground } catch (_: Exception) {}
     }
     
     fun setCurrentPrivateChatPeer(peerID: String?) {
         // Update notification manager with current private chat peer
         notificationManager.setCurrentPrivateChatPeer(peerID)
+        // Update process-wide visibility state for background service
+        try { com.bitchat.android.services.AppVisibilityState.currentPrivateChatPeer = peerID } catch (_: Exception) {}
     }
     
     fun clearNotificationsForSender(peerID: String) {
@@ -422,11 +436,21 @@ class ChatViewModel(
         
         // Clear all notifications
         notificationManager.clearAllNotifications()
+
+        // Clear any buffered background messages (memory only)
+        try { com.bitchat.android.services.InMemoryMessageBuffer.clear() } catch (_: Exception) {}
         
         // Reset nickname
         val newNickname = "anon${Random.nextInt(1000, 9999)}"
         state.setNickname(newNickname)
         dataManager.saveNickname(newNickname)
+
+        // Immediately re-announce identity so others see the new nickname
+        try {
+            meshService.sendBroadcastAnnounce()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to broadcast announce after panic: ${e.message}")
+        }
         
         Log.w(TAG, "🚨 PANIC MODE COMPLETED - All sensitive data cleared")
         
@@ -479,6 +503,26 @@ class ChatViewModel(
     
     fun hideAppInfo() {
         state.setShowAppInfo(false)
+    }
+
+    // MARK: - Persistent mesh controls
+
+    fun setPersistentMeshEnabled(enabled: Boolean) {
+        _persistentMeshEnabled.value = enabled
+        dataManager.setPersistentMeshEnabled(enabled)
+        val ctx = getApplication<Application>().applicationContext
+        if (enabled) {
+            // Start foreground service to keep mesh alive
+            com.bitchat.android.services.PersistentMeshService.start(ctx)
+        } else {
+            // Stop foreground service
+            com.bitchat.android.services.PersistentMeshService.stop(ctx)
+        }
+    }
+
+    fun setStartOnBootEnabled(enabled: Boolean) {
+        _startOnBootEnabled.value = enabled
+        dataManager.setStartOnBootEnabled(enabled)
     }
     
     fun showSidebar() {
