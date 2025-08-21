@@ -10,11 +10,11 @@ android {
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.bitchat.android"
+        applicationId = "com.bitchat.droid"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 8
-        versionName = "0.8.2"
+        versionCode = 11
+        versionName = "0.9.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -91,10 +91,7 @@ dependencies {
     
     // Bluetooth
     implementation(libs.nordic.ble)
-    
-    // Compression
-    implementation(libs.lz4.java)
-    
+
     // Security preferences
     implementation(libs.androidx.security.crypto)
     

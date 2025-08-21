@@ -30,48 +30,49 @@ object MessagePadding {
     }
     
     /**
-     * Add PKCS#7-style padding to reach target size - exact same as iOS
+     * Add PKCS#7-style padding to reach target size - FIXED: proper PKCS#7 (iOS compatible)
      */
     fun pad(data: ByteArray, targetSize: Int): ByteArray {
         if (data.size >= targetSize) return data
         
         val paddingNeeded = targetSize - data.size
         
-        // PKCS#7 only supports padding up to 255 bytes
-        // If we need more padding than that, don't pad - return original data
-        if (paddingNeeded > 255) return data
+        // Constrain to 255 to fit a single-byte pad length marker
+        if (paddingNeeded <= 0 || paddingNeeded > 255) return data
         
         val result = ByteArray(targetSize)
         
         // Copy original data
         System.arraycopy(data, 0, result, 0, data.size)
         
-        // Standard PKCS#7 padding - fill with random bytes then add padding length
-        val randomBytes = ByteArray(paddingNeeded - 1)
-        SecureRandom().nextBytes(randomBytes)
-        
-        // Copy random bytes
-        System.arraycopy(randomBytes, 0, result, data.size, paddingNeeded - 1)
-        
-        // Last byte tells how much padding was added
-        result[result.size - 1] = paddingNeeded.toByte()
+        // PKCS#7: All pad bytes are equal to the pad length (iOS fix)
+        for (i in data.size until targetSize) {
+            result[i] = paddingNeeded.toByte()
+        }
         
         return result
     }
     
     /**
-     * Remove padding from data - exact same as iOS
+     * Remove padding from data - FIXED: strict PKCS#7 validation (iOS compatible)
      */
     fun unpad(data: ByteArray): ByteArray {
         if (data.isEmpty()) return data
         
-        // Last byte tells us how much padding to remove
-        val paddingLength = data[data.size - 1].toInt() and 0xFF
-        if (paddingLength <= 0 || paddingLength > data.size) {
-            // Invalid padding, return original data
-            return data
+        val last = data[data.size - 1]
+        val paddingLength = last.toInt() and 0xFF
+        
+        // Must have at least 1 pad byte and not exceed data length
+        if (paddingLength <= 0 || paddingLength > data.size) return data
+        
+        // Verify PKCS#7: all last N bytes equal to pad length (iOS fix)
+        val start = data.size - paddingLength
+        for (i in start until data.size) {
+            if (data[i] != last) {
+                return data // Invalid padding, return original
+            }
         }
         
-        return data.copyOfRange(0, data.size - paddingLength)
+        return data.copyOfRange(0, start)
     }
 }

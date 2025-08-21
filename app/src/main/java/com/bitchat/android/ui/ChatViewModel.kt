@@ -9,8 +9,8 @@ import androidx.lifecycle.viewModelScope
 import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
-import com.bitchat.android.model.DeliveryAck
-import com.bitchat.android.model.ReadReceipt
+import com.bitchat.android.protocol.BitchatPacket
+import kotlinx.coroutines.launch
 import com.bitchat.android.util.NotificationIntervalManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -41,9 +41,7 @@ class ChatViewModel(
     // Create Noise session delegate for clean dependency injection
     private val noiseSessionDelegate = object : NoiseSessionDelegate {
         override fun hasEstablishedSession(peerID: String): Boolean = meshService.hasEstablishedSession(peerID)
-        override fun initiateHandshake(peerID: String) = meshService.initiateNoiseHandshake(peerID) 
-        override fun broadcastNoiseIdentityAnnouncement() = meshService.broadcastNoiseIdentityAnnouncement()
-        override fun sendHandshakeRequest(targetPeerID: String, pendingCount: UByte) = meshService.sendHandshakeRequest(targetPeerID, pendingCount)
+        override fun initiateHandshake(peerID: String) = meshService.initiateNoiseHandshake(peerID)
         override fun getMyPeerID(): String = meshService.myPeerID
     }
     
@@ -389,12 +387,12 @@ class ChatViewModel(
         meshDelegateHandler.didReceiveChannelLeave(channel, fromPeer)
     }
     
-    override fun didReceiveDeliveryAck(ack: DeliveryAck) {
-        meshDelegateHandler.didReceiveDeliveryAck(ack)
+    override fun didReceiveDeliveryAck(messageID: String, recipientPeerID: String) {
+        meshDelegateHandler.didReceiveDeliveryAck(messageID, recipientPeerID)
     }
     
-    override fun didReceiveReadReceipt(receipt: ReadReceipt) {
-        meshDelegateHandler.didReceiveReadReceipt(receipt)
+    override fun didReceiveReadReceipt(messageID: String, recipientPeerID: String) {
+        meshDelegateHandler.didReceiveReadReceipt(messageID, recipientPeerID)
     }
     
     override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {

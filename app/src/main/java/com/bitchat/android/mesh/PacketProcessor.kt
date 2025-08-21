@@ -133,22 +133,16 @@ class PacketProcessor(private val myPeerID: String) {
         
         // Handle public packet types (no address check needed)
         when (messageType) {
-            MessageType.NOISE_IDENTITY_ANNOUNCE -> handleNoiseIdentityAnnouncement(routed)
             MessageType.ANNOUNCE -> handleAnnounce(routed)
             MessageType.MESSAGE -> handleMessage(routed)
             MessageType.LEAVE -> handleLeave(routed)
-            MessageType.FRAGMENT_START,
-            MessageType.FRAGMENT_CONTINUE,
-            MessageType.FRAGMENT_END -> handleFragment(routed)
+            MessageType.FRAGMENT -> handleFragment(routed)
             else -> {
                 // Handle private packet types (address check required)
                 if (packetRelayManager.isPacketAddressedToMe(packet)) {
                     when (messageType) {
-                        MessageType.NOISE_HANDSHAKE_INIT -> handleNoiseHandshake(routed, 1)
-                        MessageType.NOISE_HANDSHAKE_RESP -> handleNoiseHandshake(routed, 2)
+                        MessageType.NOISE_HANDSHAKE -> handleNoiseHandshake(routed)
                         MessageType.NOISE_ENCRYPTED -> handleNoiseEncrypted(routed)
-                        // MessageType.DELIVERY_ACK -> handleDeliveryAck(routed) // custom packet type...
-                        // MessageType.READ_RECEIPT -> handleReadReceipt(routed)
                         else -> {
                             validPacket = false
                             Log.w(TAG, "Unknown message type: ${packet.type}")
@@ -170,12 +164,12 @@ class PacketProcessor(private val myPeerID: String) {
     }
     
     /**
-     * Handle Noise handshake message
+     * Handle Noise handshake message - SIMPLIFIED iOS-compatible version
      */
-    private fun handleNoiseHandshake(routed: RoutedPacket, step: Int) {
+    private suspend fun handleNoiseHandshake(routed: RoutedPacket) {
         val peerID = routed.peerID ?: "unknown"
-        Log.d(TAG, "Processing Noise handshake step $step from ${formatPeerForLog(peerID)}")
-        delegate?.handleNoiseHandshake(routed, step)
+        Log.d(TAG, "Processing Noise handshake from ${formatPeerForLog(peerID)}")
+        delegate?.handleNoiseHandshake(routed)
     }
     
     /**
@@ -185,15 +179,6 @@ class PacketProcessor(private val myPeerID: String) {
         val peerID = routed.peerID ?: "unknown"
         Log.d(TAG, "Processing Noise encrypted message from ${formatPeerForLog(peerID)}")
         delegate?.handleNoiseEncrypted(routed)
-    }
-    
-    /**
-     * Handle Noise identity announcement (after peer ID rotation)
-     */
-    private suspend fun handleNoiseIdentityAnnouncement(routed: RoutedPacket) {
-        val peerID = routed.peerID ?: "unknown"
-        Log.d(TAG, "Processing Noise identity announcement from ${formatPeerForLog(peerID)}")
-        delegate?.handleNoiseIdentityAnnouncement(routed)
     }
     
     /**
@@ -247,15 +232,6 @@ class PacketProcessor(private val myPeerID: String) {
 //        Log.d(TAG, "Processing delivery ACK from ${formatPeerForLog(peerID)}")
 //        delegate?.handleDeliveryAck(routed)
 //    }
-    
-    /**
-     * Handle read receipt
-     */
-    private suspend fun handleReadReceipt(routed: RoutedPacket) {
-        val peerID = routed.peerID ?: "unknown"
-        Log.d(TAG, "Processing read receipt from ${formatPeerForLog(peerID)}")
-        delegate?.handleReadReceipt(routed)
-    }
     
     /**
      * Get debug information
@@ -314,15 +290,12 @@ interface PacketProcessorDelegate {
     fun getBroadcastRecipient(): ByteArray
     
     // Message type handlers
-    fun handleNoiseHandshake(routed: RoutedPacket, step: Int): Boolean
+    fun handleNoiseHandshake(routed: RoutedPacket): Boolean
     fun handleNoiseEncrypted(routed: RoutedPacket)
-    fun handleNoiseIdentityAnnouncement(routed: RoutedPacket)
     fun handleAnnounce(routed: RoutedPacket)
     fun handleMessage(routed: RoutedPacket)
     fun handleLeave(routed: RoutedPacket)
     fun handleFragment(packet: BitchatPacket): BitchatPacket?
-//    fun handleDeliveryAck(routed: RoutedPacket)
-    fun handleReadReceipt(routed: RoutedPacket)
     
     // Communication
     fun sendAnnouncementToPeer(peerID: String)
