@@ -179,7 +179,10 @@ class NostrRelayManager private constructor() {
         Log.d(TAG, "📡 Subscribing to Nostr filter id=$id ${filter.getDebugDescription()}")
         
         val request = NostrRequest.Subscribe(id, listOf(filter))
-        val message = gson.toJson(request)
+        val message = gson.toJson(request, NostrRequest::class.java)
+        
+        // DEBUG: Log the actual serialized message format
+        Log.d(TAG, "🔍 DEBUG: Serialized subscription message: $message")
         
         scope.launch {
             connections.forEach { (relayUrl, webSocket) ->
@@ -212,7 +215,7 @@ class NostrRelayManager private constructor() {
         messageHandlers.remove(id)
         
         val request = NostrRequest.Close(id)
-        val message = gson.toJson(request)
+        val message = gson.toJson(request, NostrRequest::class.java)
         
         scope.launch {
             connections.forEach { (relayUrl, webSocket) ->
@@ -301,7 +304,7 @@ class NostrRelayManager private constructor() {
     private fun sendToRelay(event: NostrEvent, webSocket: WebSocket, relayUrl: String) {
         try {
             val request = NostrRequest.Event(event)
-            val message = gson.toJson(request)
+            val message = gson.toJson(request, NostrRequest::class.java)
             
             Log.v(TAG, "📤 Sending Nostr event (kind: ${event.kind}) to relay: $relayUrl")
             

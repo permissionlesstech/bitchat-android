@@ -10,6 +10,7 @@ import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.protocol.BitchatPacket
+import com.bitchat.android.nostr.NostrDemoService
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import java.util.*
@@ -46,6 +47,9 @@ class ChatViewModel(
     val privateChatManager = PrivateChatManager(state, messageManager, dataManager, noiseSessionDelegate)
     private val commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager)
     private val notificationManager = NotificationManager(application.applicationContext)
+    
+    // MARK: - Nostr Demo Service (for testing kind 10066 events)
+    private val nostrDemoService = NostrDemoService.getInstance(application.applicationContext)
     
     // Delegate handler for mesh callbacks
     private val meshDelegateHandler = MeshDelegateHandler(
@@ -124,6 +128,9 @@ class ChatViewModel(
         
         // Initialize session state monitoring
         initializeSessionStateMonitoring()
+        
+        // Initialize Nostr demo service for testing
+        initializeNostrDemo()
         
         // Note: Mesh service is now started by MainActivity
         
@@ -263,6 +270,9 @@ class ChatViewModel(
             } else {
                 messageManager.addMessage(message)
                 meshService.sendMessage(content, mentions, null)
+                
+                // DEMO: Also publish via Nostr for testing (kind 10066)
+                publishToNostrDemo(content)
             }
         }
     }
@@ -321,6 +331,42 @@ class ChatViewModel(
 
         val rssiValues = meshService.getPeerRSSI()
         state.setPeerRSSI(rssiValues)
+    }
+    
+    // MARK: - Nostr Demo Integration
+    
+    /**
+     * Initialize Nostr demo service for testing event kind 10066
+     */
+    private fun initializeNostrDemo() {
+        Log.d(TAG, "🔄 Initializing Nostr demo service...")
+        
+        // Initialize the demo service with a callback to handle received events
+        nostrDemoService.initialize { content, senderNpub, timestamp ->
+            // Create a BitchatMessage from the received Nostr event
+            val nostrMessage = BitchatMessage(
+                sender = "nostr:${senderNpub.take(16)}...", // Abbreviated npub
+                content = "📡 NOSTR ECHO: $content", // Mark as echo
+                timestamp = Date(timestamp * 1000L), // Convert Unix timestamp to Date
+                isRelay = false,
+                senderPeerID = "nostr-demo"
+            )
+            
+            // Add to main chat view
+            messageManager.addMessage(nostrMessage)
+            
+            Log.i(TAG, "📥 Received Nostr demo event and displayed in chat")
+        }
+        
+        Log.i(TAG, "✅ Nostr demo service initialized")
+    }
+    
+    /**
+     * Publish a message to Nostr demo service (kind 10066) for testing
+     */
+    private fun publishToNostrDemo(content: String) {
+        Log.d(TAG, "📤 Publishing to Nostr demo: ${content.take(50)}...")
+        nostrDemoService.publishDemoMessage(content)
     }
     
     // MARK: - Debug and Troubleshooting

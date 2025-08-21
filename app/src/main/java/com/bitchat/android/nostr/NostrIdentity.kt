@@ -55,6 +55,19 @@ data class NostrIdentity(
                 createdAt = System.currentTimeMillis()
             )
         }
+        
+        /**
+         * Create from a deterministic seed (for demo purposes)
+         */
+        fun fromSeed(seed: String): NostrIdentity {
+            // Hash the seed to create a private key
+            val digest = MessageDigest.getInstance("SHA-256")
+            val seedBytes = seed.toByteArray(Charsets.UTF_8)
+            val privateKeyBytes = digest.digest(seedBytes)
+            val privateKeyHex = privateKeyBytes.joinToString("") { "%02x".format(it) }
+            
+            return fromPrivateKey(privateKeyHex)
+        }
     }
     
     /**
