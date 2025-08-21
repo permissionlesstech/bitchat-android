@@ -1,6 +1,5 @@
 package com.bitchat.android.ui
 
-import androidx.lifecycle.LifecycleCoroutineScope
 import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryAck
@@ -8,7 +7,6 @@ import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.model.ReadReceipt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import java.util.*
 
 /**
  * Handles all BluetoothMeshDelegate callbacks and routes them to appropriate managers
@@ -84,7 +82,7 @@ class MeshDelegateHandler(
         coroutineScope.launch {
             state.setConnectedPeers(peers)
             state.setIsConnected(peers.isNotEmpty())
-            
+            notificationManager.showActiveUserNotification(peers)
             // Clean up channel members who disconnected
             channelManager.cleanupDisconnectedMembers(peers, getMyPeerID())
             

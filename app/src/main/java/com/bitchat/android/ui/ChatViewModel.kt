@@ -1,8 +1,8 @@
 package com.bitchat.android.ui
 
 import android.app.Application
-import android.content.Context
 import android.util.Log
+import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.viewModelScope
@@ -11,9 +11,10 @@ import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryAck
 import com.bitchat.android.model.ReadReceipt
-import kotlinx.coroutines.launch
+import com.bitchat.android.util.NotificationIntervalManager
 import kotlinx.coroutines.delay
-import java.util.*
+import kotlinx.coroutines.launch
+import java.util.Date
 import kotlin.random.Random
 
 /**
@@ -48,7 +49,11 @@ class ChatViewModel(
     
     val privateChatManager = PrivateChatManager(state, messageManager, dataManager, noiseSessionDelegate)
     private val commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager)
-    private val notificationManager = NotificationManager(application.applicationContext)
+    private val notificationManager = NotificationManager(
+      application.applicationContext,
+      NotificationManagerCompat.from(application.applicationContext),
+      NotificationIntervalManager()
+    )
     
     // Delegate handler for mesh callbacks
     private val meshDelegateHandler = MeshDelegateHandler(

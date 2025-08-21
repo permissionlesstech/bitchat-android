@@ -12,6 +12,7 @@ import androidx.core.app.Person
 import androidx.core.app.NotificationManagerCompat
 import com.bitchat.android.MainActivity
 import com.bitchat.android.R
+import com.bitchat.android.util.NotificationIntervalManager
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -21,7 +22,11 @@ import java.util.concurrent.ConcurrentHashMap
  * - App background state awareness
  * - Proper notification management and cleanup
  */
-class NotificationManager(private val context: Context) {
+class NotificationManager(
+  private val context: Context,
+  private val notificationManagerCompat: NotificationManagerCompat,
+  private val notificationIntervalManager: NotificationIntervalManager
+) {
 
     companion object {
         private const val TAG = "NotificationManager"
@@ -29,14 +34,15 @@ class NotificationManager(private val context: Context) {
         private const val GROUP_KEY_DM = "bitchat_dm_group"
         private const val NOTIFICATION_REQUEST_CODE = 1000
         private const val SUMMARY_NOTIFICATION_ID = 999
-        
+        private const val ACTIVE_PEERS_NOTIFICATION_ID = 998
+        private const val ACTIVE_PEERS_NOTIFICATION_TIME_INTERVAL = 300_000L
+
         // Intent extras for notification handling
         const val EXTRA_OPEN_PRIVATE_CHAT = "open_private_chat"
         const val EXTRA_PEER_ID = "peer_id"
         const val EXTRA_SENDER_NICKNAME = "sender_nickname"
     }
 
-    private val notificationManager = NotificationManagerCompat.from(context)
     private val systemNotificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     
     // Track pending notifications per sender to enable grouping
@@ -124,6 +130,20 @@ class NotificationManager(private val context: Context) {
         }
     }
 
+    fun showActiveUserNotification(peers: List<String>) {
+        val currentTime = System.currentTimeMillis()
+        val activePeerNotificationIntervalExceeded =
+          (currentTime - notificationIntervalManager.lastNetworkNotificationTime) > ACTIVE_PEERS_NOTIFICATION_TIME_INTERVAL
+        if (isAppInBackground && activePeerNotificationIntervalExceeded && peers.isNotEmpty()) {
+            Log.d(TAG, "Showing notification for active peers")
+            showNotificationForActivePeers(peers.size)
+            notificationIntervalManager.setLastNetworkNotificationTime(currentTime)
+        } else {
+            Log.d(TAG, "Skipping notification - app in foreground or it has been less than 5 minutes since last active peer notification")
+            return
+        }
+    }
+
     private fun showNotificationForSender(senderPeerID: String) {
         val notifications = pendingNotifications[senderPeerID] ?: return
         if (notifications.isEmpty()) return
@@ -207,11 +227,46 @@ class NotificationManager(private val context: Context) {
 
         // Use sender peer ID hash as notification ID to group messages from same sender
         val notificationId = senderPeerID.hashCode()
-        notificationManager.notify(notificationId, builder.build())
-        
+        notificationManagerCompat.notify(notificationId, builder.build())
+
         Log.d(TAG, "Displayed notification for $contentTitle with ID $notificationId")
     }
 
+    private fun showNotificationForActivePeers(peersSize: Int) {
+        // Create intent to open the app
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+
+        val pendingIntent = PendingIntent.getActivity(
+          context,
+          NOTIFICATION_REQUEST_CODE,
+          intent,
+          PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        // Build notification content
+        val contentTitle = "👥 bitchatters nearby!"
+        val contentText = if (peersSize == 1) {
+            "1 person around"
+        } else {
+            "$peersSize people around"
+        }
+
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+          .setSmallIcon(R.drawable.ic_notification)
+          .setContentTitle(contentTitle)
+          .setContentText(contentText)
+          .setContentIntent(pendingIntent)
+          .setAutoCancel(true)
+          .setPriority(NotificationCompat.PRIORITY_MIN)
+          .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+          .setShowWhen(true)
+          .setWhen(System.currentTimeMillis())
+
+        notificationManagerCompat.notify(ACTIVE_PEERS_NOTIFICATION_ID, builder.build())
+        Log.d(TAG, "Displayed notification for $contentTitle with ID $ACTIVE_PEERS_NOTIFICATION_ID")
+    }
     private fun showSummaryNotification() {
         if (pendingNotifications.isEmpty()) return
 
@@ -261,8 +316,8 @@ class NotificationManager(private val context: Context) {
         
         builder.setStyle(style)
 
-        notificationManager.notify(SUMMARY_NOTIFICATION_ID, builder.build())
-        
+        notificationManagerCompat.notify(SUMMARY_NOTIFICATION_ID, builder.build())
+
         Log.d(TAG, "Displayed summary notification for $senderCount senders")
     }
 
@@ -274,14 +329,14 @@ class NotificationManager(private val context: Context) {
         
         // Cancel the individual notification
         val notificationId = senderPeerID.hashCode()
-        notificationManager.cancel(notificationId)
-        
+        notificationManagerCompat.cancel(notificationId)
+
         // Update or remove summary notification
         if (pendingNotifications.isEmpty()) {
-            notificationManager.cancel(SUMMARY_NOTIFICATION_ID)
+            notificationManagerCompat.cancel(SUMMARY_NOTIFICATION_ID)
         } else if (pendingNotifications.size == 1) {
             // Only one sender left, remove group summary
-            notificationManager.cancel(SUMMARY_NOTIFICATION_ID)
+            notificationManagerCompat.cancel(SUMMARY_NOTIFICATION_ID)
         } else {
             // Update summary notification
             showSummaryNotification()
@@ -295,7 +350,7 @@ class NotificationManager(private val context: Context) {
      */
     fun clearAllNotifications() {
         pendingNotifications.clear()
-        notificationManager.cancelAll()
+        notificationManagerCompat.cancelAll()
         Log.d(TAG, "Cleared all notifications")
     }
 
