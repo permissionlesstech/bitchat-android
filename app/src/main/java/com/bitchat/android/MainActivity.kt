@@ -50,7 +50,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var locationStatusManager: LocationStatusManager
     private lateinit var batteryOptimizationManager: BatteryOptimizationManager
     
-    // Core mesh service - managed at app level
+    // Core mesh service - managed via shared holder for persistence
     private lateinit var meshService: BluetoothMeshService
     private val mainViewModel: MainViewModel by viewModels()
     private val chatViewModel: ChatViewModel by viewModels { 
@@ -67,8 +67,8 @@ class MainActivity : ComponentActivity() {
         
         // Initialize permission management
         permissionManager = PermissionManager(this)
-        // Initialize core mesh service first
-        meshService = BluetoothMeshService(this)
+        // Initialize core mesh service from shared holder
+        meshService = com.bitchat.android.mesh.MeshServiceHolder.get(this)
         bluetoothStatusManager = BluetoothStatusManager(
             activity = this,
             context = this,
@@ -102,6 +102,32 @@ class MainActivity : ComponentActivity() {
                 ) {
                     OnboardingFlowScreen()
                 }
+            }
+        }
+
+        // If persistent mesh is enabled and permissions are in place, skip onboarding
+        val persistentEnabled = getSharedPreferences("bitchat_prefs", MODE_PRIVATE)
+            .getBoolean("persistent_mesh_enabled", false)
+        if (persistentEnabled && permissionManager.areAllPermissionsGranted()) {
+            try {
+                meshService.delegate = chatViewModel
+                // Ensure background service is running (idempotent)
+                com.bitchat.android.services.PersistentMeshService.start(applicationContext)
+                // Go straight to chat
+                mainViewModel.updateOnboardingState(OnboardingState.COMPLETE)
+                // Push current peers to UI immediately for continuity
+                try { meshService.delegate?.didUpdatePeerList(meshService.getActivePeers()) } catch (_: Exception) {}
+                // Optionally refresh presence
+                meshService.sendBroadcastAnnounce()
+                // Drain any buffered background messages into UI (memory only)
+                try {
+                    val buffered = com.bitchat.android.services.InMemoryMessageBuffer.drain()
+                    buffered.forEach { msg -> chatViewModel.didReceiveMessage(msg) }
+                } catch (_: Exception) {}
+                // Handle any notification intent immediately
+                handleNotificationIntent(intent)
+            } catch (e: Exception) {
+                android.util.Log.w("MainActivity", "Failed fast-path attach to persistent mesh: ${e.message}")
             }
         }
         
@@ -603,6 +629,12 @@ class MainActivity : ComponentActivity() {
                 delay(500)
                 Log.d("MainActivity", "App initialization complete")
                 mainViewModel.updateOnboardingState(OnboardingState.COMPLETE)
+
+                // Honor persistent mesh setting: ensure foreground service is running if enabled
+                val prefs = getSharedPreferences("bitchat_prefs", MODE_PRIVATE)
+                if (prefs.getBoolean("persistent_mesh_enabled", false)) {
+                    com.bitchat.android.services.PersistentMeshService.start(applicationContext)
+                }
             } catch (e: Exception) {
                 Log.e("MainActivity", "Failed to initialize app", e)
                 handleOnboardingFailed("Failed to initialize the app: ${e.message}")
@@ -622,28 +654,45 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         // Check Bluetooth and Location status on resume and handle accordingly
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
+            // Ensure UI delegate is attached (reclaim from background if needed)
+            try { meshService.delegate = chatViewModel } catch (_: Exception) {}
             // Set app foreground state
             meshService.connectionManager.setAppBackgroundState(false)
             chatViewModel.setAppBackgroundState(false)
 
+            val persistentEnabled = getSharedPreferences("bitchat_prefs", MODE_PRIVATE)
+                .getBoolean("persistent_mesh_enabled", false)
+
             // Check if Bluetooth was disabled while app was backgrounded
-            val currentBluetoothStatus = bluetoothStatusManager.checkBluetoothStatus()
-            if (currentBluetoothStatus != BluetoothStatus.ENABLED) {
-                Log.w("MainActivity", "Bluetooth disabled while app was backgrounded")
-                mainViewModel.updateBluetoothStatus(currentBluetoothStatus)
-                mainViewModel.updateOnboardingState(OnboardingState.BLUETOOTH_CHECK)
-                mainViewModel.updateBluetoothLoading(false)
-                return
+            if (!persistentEnabled) {
+                val currentBluetoothStatus = bluetoothStatusManager.checkBluetoothStatus()
+                if (currentBluetoothStatus != BluetoothStatus.ENABLED) {
+                    Log.w("MainActivity", "Bluetooth disabled while app was backgrounded")
+                    mainViewModel.updateBluetoothStatus(currentBluetoothStatus)
+                    mainViewModel.updateOnboardingState(OnboardingState.BLUETOOTH_CHECK)
+                    mainViewModel.updateBluetoothLoading(false)
+                    return
+                }
             }
             
             // Check if location services were disabled while app was backgrounded
-            val currentLocationStatus = locationStatusManager.checkLocationStatus()
-            if (currentLocationStatus != LocationStatus.ENABLED) {
-                Log.w("MainActivity", "Location services disabled while app was backgrounded")
-                mainViewModel.updateLocationStatus(currentLocationStatus)
-                mainViewModel.updateOnboardingState(OnboardingState.LOCATION_CHECK)
-                mainViewModel.updateLocationLoading(false)
+            if (!persistentEnabled) {
+                val currentLocationStatus = locationStatusManager.checkLocationStatus()
+                if (currentLocationStatus != LocationStatus.ENABLED) {
+                    Log.w("MainActivity", "Location services disabled while app was backgrounded")
+                    mainViewModel.updateLocationStatus(currentLocationStatus)
+                    mainViewModel.updateOnboardingState(OnboardingState.LOCATION_CHECK)
+                    mainViewModel.updateLocationLoading(false)
+                }
             }
+
+            // Sync current peers with UI after resume
+            try { meshService.delegate?.didUpdatePeerList(meshService.getActivePeers()) } catch (_: Exception) {}
+            // Drain any buffered background messages into UI (memory only)
+            try {
+                val buffered = com.bitchat.android.services.InMemoryMessageBuffer.drain()
+                buffered.forEach { msg -> chatViewModel.didReceiveMessage(msg) }
+            } catch (_: Exception) {}
         }
     }
     
@@ -694,11 +743,13 @@ class MainActivity : ComponentActivity() {
             Log.w("MainActivity", "Error cleaning up location status manager: ${e.message}")
         }
         
-        // Stop mesh services if app was fully initialized
-        if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
+        // Stop mesh services if not in persistent mode
+        val prefs = getSharedPreferences("bitchat_prefs", MODE_PRIVATE)
+        val persistentEnabled = prefs.getBoolean("persistent_mesh_enabled", false)
+        if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE && !persistentEnabled) {
             try {
                 meshService.stopServices()
-                Log.d("MainActivity", "Mesh services stopped successfully")
+                Log.d("MainActivity", "Mesh services stopped (not persistent)")
             } catch (e: Exception) {
                 Log.w("MainActivity", "Error stopping mesh services in onDestroy: ${e.message}")
             }

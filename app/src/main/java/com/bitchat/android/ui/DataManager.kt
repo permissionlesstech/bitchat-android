@@ -202,4 +202,22 @@ class DataManager(private val context: Context) {
         _channelMembers.clear()
         prefs.edit().clear().apply()
     }
+
+    // MARK: - Persistent Mesh Settings
+
+    fun isPersistentMeshEnabled(): Boolean {
+        return prefs.getBoolean("persistent_mesh_enabled", false)
+    }
+
+    fun setPersistentMeshEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("persistent_mesh_enabled", enabled).apply()
+    }
+
+    fun isStartOnBootEnabled(): Boolean {
+        return prefs.getBoolean("start_on_boot_enabled", false)
+    }
+
+    fun setStartOnBootEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("start_on_boot_enabled", enabled).apply()
+    }
 }
