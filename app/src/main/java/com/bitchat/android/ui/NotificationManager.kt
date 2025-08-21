@@ -21,6 +21,7 @@ import java.util.concurrent.ConcurrentHashMap
  * - Click handling to open specific DM
  * - App background state awareness
  * - Proper notification management and cleanup
+ * - Active peers notification
  */
 class NotificationManager(
   private val context: Context,
@@ -134,10 +135,12 @@ class NotificationManager(
         val currentTime = System.currentTimeMillis()
         val activePeerNotificationIntervalExceeded =
           (currentTime - notificationIntervalManager.lastNetworkNotificationTime) > ACTIVE_PEERS_NOTIFICATION_TIME_INTERVAL
-        if (isAppInBackground && activePeerNotificationIntervalExceeded && peers.isNotEmpty()) {
+        val newPeers = peers - notificationIntervalManager.recentlySeenPeers
+        if (isAppInBackground && activePeerNotificationIntervalExceeded && newPeers.isNotEmpty()) {
             Log.d(TAG, "Showing notification for active peers")
             showNotificationForActivePeers(peers.size)
             notificationIntervalManager.setLastNetworkNotificationTime(currentTime)
+            notificationIntervalManager.recentlySeenPeers.addAll(newPeers)
         } else {
             Log.d(TAG, "Skipping notification - app in foreground or it has been less than 5 minutes since last active peer notification")
             return
@@ -240,7 +243,7 @@ class NotificationManager(
 
         val pendingIntent = PendingIntent.getActivity(
           context,
-          NOTIFICATION_REQUEST_CODE,
+          ACTIVE_PEERS_NOTIFICATION_ID,
           intent,
           PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )

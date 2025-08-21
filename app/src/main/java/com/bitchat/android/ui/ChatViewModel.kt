@@ -9,8 +9,6 @@ import androidx.lifecycle.viewModelScope
 import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
-import com.bitchat.android.protocol.BitchatPacket
-import kotlinx.coroutines.launch
 import com.bitchat.android.util.NotificationIntervalManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch

@@ -75,4 +75,36 @@ class NotificationManagerTest {
     notificationManager.showActiveUserNotification(listOf("peer-2"))
     verify(notificationManagerCompat, times(2)).notify(any(), any())
   }
+
+  @Test
+  fun `when there is a recently seen peer but no new active peers, no notification is sent`() {
+    notificationManager.setAppBackgroundState(true)
+    notificationIntervalManager.recentlySeenPeers.add("peer-1")
+    notificationManager.showActiveUserNotification(emptyList())
+    verify(notificationManagerCompat, times(0)).notify(any(), any())
+  }
+
+  @Test
+  fun `when an active peer is a recently seen peer, do not send notification`() {
+    notificationManager.setAppBackgroundState(true)
+    notificationIntervalManager.recentlySeenPeers.add("peer-1")
+    notificationManager.showActiveUserNotification(listOf("peer-1"))
+    verify(notificationManagerCompat, times(0)).notify(any(), any())
+  }
+
+  @Test
+  fun `when an active peer is a new peer, send notification`() {
+    notificationManager.setAppBackgroundState(true)
+    notificationIntervalManager.recentlySeenPeers.addAll(emptyList())
+    notificationManager.showActiveUserNotification(listOf("peer-1"))
+    verify(notificationManagerCompat, times(1)).notify(any(), any())
+  }
+
+  @Test
+  fun `when an active peer is a new peer and there are already multiple recently seen peers, send notification`() {
+    notificationManager.setAppBackgroundState(true)
+    notificationIntervalManager.recentlySeenPeers.addAll(listOf("peer-1", "peer-2"))
+    notificationManager.showActiveUserNotification(listOf("peer-3"))
+    verify(notificationManagerCompat, times(1)).notify(any(), any())
+  }
 }

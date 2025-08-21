@@ -5,6 +5,8 @@ class NotificationIntervalManager {
   val lastNetworkNotificationTime: Long
     get() = _lastNetworkNotificationTime
 
+  val recentlySeenPeers: MutableSet<String> = mutableSetOf()
+
   fun setLastNetworkNotificationTime(notificationTime: Long) {
     _lastNetworkNotificationTime = notificationTime
   }
