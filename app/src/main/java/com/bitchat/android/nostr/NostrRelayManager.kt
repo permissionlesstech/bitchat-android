@@ -89,13 +89,27 @@ class NostrRelayManager private constructor() {
         .writeTimeout(10, TimeUnit.SECONDS)
         .build()
     
-    private val gson = NostrRequest.createGson()
+    private val gson by lazy { NostrRequest.createGson() }
     
     init {
-        // Initialize with default relays
-        relaysList.addAll(DEFAULT_RELAYS.map { Relay(it) })
-        _relays.postValue(relaysList.toList())
-        updateConnectionStatus()
+        // Initialize with default relays - avoid static initialization order issues
+        try {
+            val defaultRelayUrls = listOf(
+                "wss://relay.damus.io",
+                "wss://relay.primal.net",
+                "wss://offchain.pub",
+                "wss://nostr21.com"
+            )
+            relaysList.addAll(defaultRelayUrls.map { Relay(it) })
+            _relays.postValue(relaysList.toList())
+            updateConnectionStatus()
+            Log.d(TAG, "✅ NostrRelayManager initialized with ${relaysList.size} default relays")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize NostrRelayManager: ${e.message}", e)
+            // Initialize with empty list as fallback
+            _relays.postValue(emptyList())
+            _isConnected.postValue(false)
+        }
     }
     
     /**
