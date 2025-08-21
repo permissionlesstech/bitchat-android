@@ -2,12 +2,7 @@ package com.bitchat.android.nostr
 
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
-import org.bouncycastle.crypto.digests.SHA256Digest
-import org.bouncycastle.crypto.params.ECPrivateKeyParameters
-import org.bouncycastle.crypto.signers.ECDSASigner
-import org.bouncycastle.math.ec.ECPoint
-import java.math.BigInteger
-import java.util.*
+import java.security.MessageDigest
 
 /**
  * Nostr Event structure following NIP-01
@@ -42,6 +37,57 @@ data class NostrEvent(
                 null
             }
         }
+        
+        /**
+         * Create from JSON string
+         */
+        fun fromJsonString(jsonString: String): NostrEvent? {
+            return try {
+                val gson = Gson()
+                gson.fromJson(jsonString, NostrEvent::class.java)
+            } catch (e: Exception) {
+                null
+            }
+        }
+        
+        /**
+         * Create a new text note event
+         */
+        fun createTextNote(
+            content: String,
+            publicKeyHex: String,
+            privateKeyHex: String,
+            tags: List<List<String>> = emptyList(),
+            createdAt: Int = (System.currentTimeMillis() / 1000).toInt()
+        ): NostrEvent {
+            val event = NostrEvent(
+                pubkey = publicKeyHex,
+                createdAt = createdAt,
+                kind = NostrKind.TEXT_NOTE,
+                tags = tags,
+                content = content
+            )
+            return event.sign(privateKeyHex)
+        }
+        
+        /**
+         * Create a new metadata event (kind 0)
+         */
+        fun createMetadata(
+            metadata: String,
+            publicKeyHex: String,
+            privateKeyHex: String,
+            createdAt: Int = (System.currentTimeMillis() / 1000).toInt()
+        ): NostrEvent {
+            val event = NostrEvent(
+                pubkey = publicKeyHex,
+                createdAt = createdAt,
+                kind = NostrKind.METADATA,
+                tags = emptyList(),
+                content = metadata
+            )
+            return event.sign(privateKeyHex)
+        }
     }
     
     /**
@@ -65,7 +111,7 @@ data class NostrEvent(
      * Returns (hex_id, hash_bytes)
      */
     private fun calculateEventId(): Pair<String, ByteArray> {
-        // Create serialized array for hashing
+        // Create serialized array for hashing according to NIP-01
         val serialized = listOf(
             0,
             pubkey,
@@ -75,16 +121,14 @@ data class NostrEvent(
             content
         )
         
-        // Convert to JSON without escaping slashes
+        // Convert to JSON without escaping slashes (compact format)
         val gson = Gson()
         val jsonString = gson.toJson(serialized)
         
-        // SHA256 hash
-        val digest = SHA256Digest()
+        // SHA256 hash of the JSON string
+        val digest = MessageDigest.getInstance("SHA-256")
         val jsonBytes = jsonString.toByteArray(Charsets.UTF_8)
-        digest.update(jsonBytes, 0, jsonBytes.size)
-        val hash = ByteArray(digest.digestSize)
-        digest.doFinal(hash, 0)
+        val hash = digest.digest(jsonBytes)
         
         // Convert to hex
         val hexId = hash.joinToString("") { "%02x".format(it) }
@@ -93,38 +137,12 @@ data class NostrEvent(
     }
     
     /**
-     * Sign hash using secp256k1 Schnorr signatures (BIP 340)
-     * This is a simplified implementation - in production you'd use a proper Schnorr library
+     * Sign hash using BIP-340 Schnorr signatures
      */
     private fun signHash(hash: ByteArray, privateKeyHex: String): String {
-        try {
-            // For now, use ECDSA as a placeholder until we implement proper Schnorr
-            // TODO: Replace with proper BIP-340 Schnorr signatures
-            
-            val privateKeyBytes = privateKeyHex.hexToByteArray()
-            val privateKeyBigInt = BigInteger(1, privateKeyBytes)
-            
-            // Create ECDSA signer (this is temporary)
-            val signer = ECDSASigner()
-            val privateKeyParams = ECPrivateKeyParameters(privateKeyBigInt, NostrCrypto.secp256k1Params)
-            signer.init(true, privateKeyParams)
-            
-            // Sign the hash
-            val signature = signer.generateSignature(hash)
-            val r = signature[0]
-            val s = signature[1]
-            
-            // Encode as hex (this is not correct Schnorr format, just for initial testing)
-            val rBytes = r.toByteArray().takeLast(32).toByteArray()
-            val sBytes = s.toByteArray().takeLast(32).toByteArray()
-            
-            // Pad to 32 bytes if needed
-            val rPadded = ByteArray(32)
-            val sPadded = ByteArray(32)
-            System.arraycopy(rBytes, 0, rPadded, 32 - rBytes.size, rBytes.size)
-            System.arraycopy(sBytes, 0, sPadded, 32 - sBytes.size, sBytes.size)
-            
-            return (rPadded + sPadded).toHexString()
+        return try {
+            // Use the real BIP-340 Schnorr signature from NostrCrypto
+            NostrCrypto.schnorrSign(hash, privateKeyHex)
         } catch (e: Exception) {
             throw RuntimeException("Failed to sign event: ${e.message}", e)
         }
@@ -139,11 +157,41 @@ data class NostrEvent(
     }
     
     /**
-     * Validate event signature
+     * Validate event signature using BIP-340 Schnorr verification
      */
     fun isValidSignature(): Boolean {
-        // TODO: Implement signature verification
-        return sig != null && id.isNotEmpty()
+        return try {
+            val signatureHex = sig ?: return false
+            if (id.isEmpty() || pubkey.isEmpty()) return false
+            
+            // Recalculate the event ID hash for verification
+            val (calculatedId, messageHash) = calculateEventId()
+            
+            // Check if the calculated ID matches the stored ID
+            if (calculatedId != id) return false
+            
+            // Verify the Schnorr signature
+            NostrCrypto.schnorrVerify(messageHash, signatureHex, pubkey)
+        } catch (e: Exception) {
+            false
+        }
+    }
+    
+    /**
+     * Validate event structure and signature
+     */
+    fun isValid(): Boolean {
+        return try {
+            // Basic field validation
+            if (pubkey.isEmpty() || content.isEmpty()) return false
+            if (createdAt <= 0 || kind < 0) return false
+            if (!NostrCrypto.isValidPublicKey(pubkey)) return false
+            
+            // Signature validation
+            isValidSignature()
+        } catch (e: Exception) {
+            false
+        }
     }
 }
 

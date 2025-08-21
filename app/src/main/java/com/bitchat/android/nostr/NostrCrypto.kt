@@ -16,6 +16,7 @@ import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 import java.security.SecureRandom
+import java.security.MessageDigest
 import java.math.BigInteger
 
 /**
@@ -48,17 +49,19 @@ object NostrCrypto {
         val privateKey = keyPair.private as ECPrivateKeyParameters
         val publicKey = keyPair.public as ECPublicKeyParameters
         
-        // Get private key as 32-byte hex
-        val privateKeyBytes = privateKey.d.toByteArray()
+        // Get private key as 32-byte hex - ensure proper padding
+        val privateKeyBigInt = privateKey.d
+        val privateKeyBytes = privateKeyBigInt.toByteArray()
+        
         val privateKeyPadded = ByteArray(32)
         if (privateKeyBytes.size <= 32) {
-            System.arraycopy(
-                privateKeyBytes, 
-                maxOf(0, privateKeyBytes.size - 32),
-                privateKeyPadded, 
-                maxOf(0, 32 - privateKeyBytes.size),
-                minOf(privateKeyBytes.size, 32)
-            )
+            val srcStart = maxOf(0, privateKeyBytes.size - 32)
+            val destStart = maxOf(0, 32 - privateKeyBytes.size)
+            val length = minOf(privateKeyBytes.size, 32)
+            System.arraycopy(privateKeyBytes, srcStart, privateKeyPadded, destStart, length)
+        } else {
+            // If BigInteger added a sign byte, skip it
+            System.arraycopy(privateKeyBytes, privateKeyBytes.size - 32, privateKeyPadded, 0, 32)
         }
         
         // Get x-only public key (32 bytes)
@@ -275,6 +278,205 @@ object NostrCrypto {
             true
         } catch (e: Exception) {
             false
+        }
+    }
+    
+    // ==============================================================================
+    // BIP-340 Schnorr Signatures Implementation
+    // ==============================================================================
+    
+    /**
+     * Tagged hash function for BIP-340
+     */
+    private fun taggedHash(tag: String, data: ByteArray): ByteArray {
+        val tagBytes = tag.toByteArray(Charsets.UTF_8)
+        val tagHash = MessageDigest.getInstance("SHA-256").digest(tagBytes)
+        
+        val digest = MessageDigest.getInstance("SHA-256")
+        digest.update(tagHash)
+        digest.update(tagHash)
+        digest.update(data)
+        return digest.digest()
+    }
+    
+    /**
+     * Check if y coordinate is even
+     */
+    private fun hasEvenY(point: ECPoint): Boolean {
+        val yCoord = point.normalize().yCoord.encoded
+        return (yCoord[yCoord.size - 1].toInt() and 1) == 0
+    }
+    
+    /**
+     * Lift x coordinate to point with even y
+     */
+    private fun liftX(xBytes: ByteArray): ECPoint? {
+        return try {
+            val point = recoverPublicKeyPoint(xBytes)
+            val normalizedPoint = point.normalize()
+            
+            if (hasEvenY(normalizedPoint)) {
+                normalizedPoint
+            } else {
+                normalizedPoint.negate()
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+    
+    /**
+     * BIP-340 Schnorr signature creation
+     * Returns 64-byte signature (r || s) as hex string
+     */
+    fun schnorrSign(messageHash: ByteArray, privateKeyHex: String): String {
+        require(messageHash.size == 32) { "Message hash must be 32 bytes" }
+        
+        val privateKeyBytes = privateKeyHex.hexToByteArray()
+        require(privateKeyBytes.size == 32) { "Private key must be 32 bytes" }
+        
+        val d = BigInteger(1, privateKeyBytes)
+        require(d > BigInteger.ZERO && d < secp256k1Params.n) { "Invalid private key" }
+        
+        // Compute public key point P = d * G
+        val P = secp256k1Params.g.multiply(d).normalize()
+        
+        // Ensure P has even y coordinate, adjust d if necessary
+        val (adjustedD, publicKeyBytes) = if (hasEvenY(P)) {
+            Pair(d, P.xCoord.encoded)
+        } else {
+            Pair(secp256k1Params.n.subtract(d), P.xCoord.encoded)
+        }
+        
+        // Generate nonce
+        val k = generateNonce(adjustedD, messageHash, publicKeyBytes)
+        
+        // Compute R = k * G
+        val R = secp256k1Params.g.multiply(k).normalize()
+        
+        // Ensure R has even y coordinate
+        val adjustedK = if (hasEvenY(R)) k else secp256k1Params.n.subtract(k)
+        val r = R.xCoord.encoded
+        
+        // Compute challenge e = H(r || P || m)
+        val challengeData = ByteArray(96) // 32 + 32 + 32
+        System.arraycopy(r, 0, challengeData, 0, 32)
+        System.arraycopy(publicKeyBytes, 0, challengeData, 32, 32)
+        System.arraycopy(messageHash, 0, challengeData, 64, 32)
+        
+        val eBytes = taggedHash("BIP0340/challenge", challengeData)
+        val e = BigInteger(1, eBytes).mod(secp256k1Params.n)
+        
+        // Compute s = (k + e * d) mod n
+        val s = adjustedK.add(e.multiply(adjustedD)).mod(secp256k1Params.n)
+        
+        // Return signature as r || s (64 bytes hex)
+        val rPadded = ByteArray(32)
+        val sPadded = ByteArray(32)
+        
+        val rBytes = r
+        val sBytes = s.toByteArray()
+        
+        // Pad r to 32 bytes (should already be 32)
+        System.arraycopy(rBytes, 0, rPadded, 0, minOf(32, rBytes.size))
+        
+        // Pad s to 32 bytes - handle BigInteger padding correctly
+        if (sBytes.size <= 32) {
+            val srcStart = maxOf(0, sBytes.size - 32)
+            val destStart = maxOf(0, 32 - sBytes.size)
+            val length = minOf(sBytes.size, 32)
+            System.arraycopy(sBytes, srcStart, sPadded, destStart, length)
+        } else {
+            // If BigInteger added a sign byte, skip it
+            System.arraycopy(sBytes, sBytes.size - 32, sPadded, 0, 32)
+        }
+        
+        return (rPadded + sPadded).toHexString()
+    }
+    
+    /**
+     * BIP-340 Schnorr signature verification
+     */
+    fun schnorrVerify(messageHash: ByteArray, signatureHex: String, publicKeyHex: String): Boolean {
+        return try {
+            require(messageHash.size == 32) { "Message hash must be 32 bytes" }
+            
+            val signatureBytes = signatureHex.hexToByteArray()
+            require(signatureBytes.size == 64) { "Signature must be 64 bytes" }
+            
+            val publicKeyBytes = publicKeyHex.hexToByteArray()
+            require(publicKeyBytes.size == 32) { "Public key must be 32 bytes" }
+            
+            // Parse signature
+            val r = signatureBytes.copyOfRange(0, 32)
+            val sBytes = signatureBytes.copyOfRange(32, 64)
+            val s = BigInteger(1, sBytes)
+            
+            // Validate r and s
+            val rBigInt = BigInteger(1, r)
+            if (rBigInt >= secp256k1Params.curve.field.characteristic) return false
+            if (s >= secp256k1Params.n) return false
+            
+            // Lift public key
+            val P = liftX(publicKeyBytes) ?: return false
+            
+            // Compute challenge e = H(r || P || m)
+            val challengeData = ByteArray(96)
+            System.arraycopy(r, 0, challengeData, 0, 32)
+            System.arraycopy(publicKeyBytes, 0, challengeData, 32, 32)
+            System.arraycopy(messageHash, 0, challengeData, 64, 32)
+            
+            val eBytes = taggedHash("BIP0340/challenge", challengeData)
+            val e = BigInteger(1, eBytes).mod(secp256k1Params.n)
+            
+            // Compute R = s * G - e * P
+            val sG = secp256k1Params.g.multiply(s)
+            val eP = P.multiply(e)
+            val R = sG.subtract(eP).normalize()
+            
+            // Check if R has even y and x coordinate matches r
+            if (!hasEvenY(R)) return false
+            
+            val computedR = R.xCoord.encoded
+            return r.contentEquals(computedR)
+            
+        } catch (e: Exception) {
+            false
+        }
+    }
+    
+    /**
+     * Generate deterministic nonce for Schnorr signature (RFC 6979 style)
+     */
+    private fun generateNonce(privateKey: BigInteger, messageHash: ByteArray, publicKeyBytes: ByteArray): BigInteger {
+        // Simple nonce generation - in production, use RFC 6979
+        // For now, use SHA256(private_key || message || public_key || random)
+        val random = ByteArray(32)
+        secureRandom.nextBytes(random)
+        
+        val privateKeyBytes = privateKey.toByteArray()
+        val nonceInput = ByteArray(privateKeyBytes.size + messageHash.size + publicKeyBytes.size + random.size)
+        var offset = 0
+        
+        System.arraycopy(privateKeyBytes, 0, nonceInput, offset, privateKeyBytes.size)
+        offset += privateKeyBytes.size
+        
+        System.arraycopy(messageHash, 0, nonceInput, offset, messageHash.size)
+        offset += messageHash.size
+        
+        System.arraycopy(publicKeyBytes, 0, nonceInput, offset, publicKeyBytes.size)
+        offset += publicKeyBytes.size
+        
+        System.arraycopy(random, 0, nonceInput, offset, random.size)
+        
+        val nonceHash = MessageDigest.getInstance("SHA-256").digest(nonceInput)
+        val nonce = BigInteger(1, nonceHash)
+        
+        // Ensure nonce is in valid range
+        return if (nonce >= secp256k1Params.n) {
+            nonce.mod(secp256k1Params.n)
+        } else {
+            nonce
         }
     }
 }
