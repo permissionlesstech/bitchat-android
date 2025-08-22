@@ -106,21 +106,35 @@ fun SidebarOverlay(
                         }
                     }
                     
-                    // People section
+                    // People section - switch between mesh and geohash lists (iOS-compatible)
                     item {
-                        PeopleSection(
-                            connectedPeers = connectedPeers,
-                            peerNicknames = peerNicknames,
-                            peerRSSI = peerRSSI,
-                            nickname = nickname,
-                            colorScheme = colorScheme,
-                            selectedPrivatePeer = selectedPrivatePeer,
-                            viewModel = viewModel,
-                            onPrivateChatStart = { peerID ->
-                                viewModel.startPrivateChat(peerID)
-                                onDismiss()
+                        val selectedLocationChannel by viewModel.selectedLocationChannel.observeAsState()
+                        
+                        when (selectedLocationChannel) {
+                            is com.bitchat.android.geohash.ChannelID.Location -> {
+                                // Show geohash people list when in location channel
+                                GeohashPeopleList(
+                                    viewModel = viewModel,
+                                    onTapPerson = onDismiss
+                                )
                             }
-                        )
+                            else -> {
+                                // Show mesh peer list when in mesh channel (default)
+                                PeopleSection(
+                                    connectedPeers = connectedPeers,
+                                    peerNicknames = peerNicknames,
+                                    peerRSSI = peerRSSI,
+                                    nickname = nickname,
+                                    colorScheme = colorScheme,
+                                    selectedPrivatePeer = selectedPrivatePeer,
+                                    viewModel = viewModel,
+                                    onPrivateChatStart = { peerID ->
+                                        viewModel.startPrivateChat(peerID)
+                                        onDismiss()
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             }

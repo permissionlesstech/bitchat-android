@@ -117,6 +117,13 @@ class ChatState {
     private val _isTeleported = MutableLiveData<Boolean>(false)
     val isTeleported: LiveData<Boolean> = _isTeleported
     
+    // Geohash people state (iOS-compatible)
+    private val _geohashPeople = MutableLiveData<List<GeoPerson>>(emptyList())
+    val geohashPeople: LiveData<List<GeoPerson>> = _geohashPeople
+    
+    private val _teleportedGeo = MutableLiveData<Set<String>>(emptySet())
+    val teleportedGeo: LiveData<Set<String>> = _teleportedGeo
+    
     // Unread state computed properties
     val hasUnreadChannels: MediatorLiveData<Boolean> = MediatorLiveData<Boolean>()
     val hasUnreadPrivateMessages: MediatorLiveData<Boolean> = MediatorLiveData<Boolean>()
@@ -155,6 +162,8 @@ class ChatState {
     fun getPeerSessionStatesValue() = _peerSessionStates.value ?: emptyMap()
     fun getPeerFingerprintsValue() = _peerFingerprints.value ?: emptyMap()
     fun getShowAppInfoValue() = _showAppInfo.value ?: false
+    fun getGeohashPeopleValue() = _geohashPeople.value ?: emptyList()
+    fun getTeleportedGeoValue() = _teleportedGeo.value ?: emptySet()
     
     // Setters for state updates
     fun setMessages(messages: List<BitchatMessage>) {
@@ -273,6 +282,14 @@ class ChatState {
     
     fun setIsTeleported(teleported: Boolean) {
         _isTeleported.value = teleported
+    }
+    
+    fun setGeohashPeople(people: List<GeoPerson>) {
+        _geohashPeople.value = people
+    }
+    
+    fun setTeleportedGeo(teleported: Set<String>) {
+        _teleportedGeo.value = teleported
     }
 
 }

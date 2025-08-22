@@ -93,6 +93,8 @@ class ChatViewModel(
     val showAppInfo: LiveData<Boolean> = state.showAppInfo
     val selectedLocationChannel: LiveData<com.bitchat.android.geohash.ChannelID?> = state.selectedLocationChannel
     val isTeleported: LiveData<Boolean> = state.isTeleported
+    val geohashPeople: LiveData<List<GeoPerson>> = state.geohashPeople
+    val teleportedGeo: LiveData<Set<String>> = state.teleportedGeo
     
     init {
         // Note: Mesh service delegate is now set by MainActivity
@@ -821,6 +823,7 @@ class ChatViewModel(
     
     private val geohashParticipants = mutableMapOf<String, MutableMap<String, Date>>() // geohash -> participantId -> lastSeen
     private var geohashSamplingJob: kotlinx.coroutines.Job? = null
+    private var geoParticipantsTimer: kotlinx.coroutines.Job? = null
     
     /**
      * Get participant count for a specific geohash (5-minute activity window)
@@ -904,6 +907,98 @@ class ChatViewModel(
     private fun updateGeohashParticipant(geohash: String, participantId: String, lastSeen: Date) {
         val participants = geohashParticipants.getOrPut(geohash) { mutableMapOf() }
         participants[participantId] = lastSeen
+        
+        // Update geohash people list if this is the current geohash
+        if (currentGeohash == geohash) {
+            refreshGeohashPeople()
+        }
+    }
+    
+    /**
+     * Record geohash participant by pubkey hex (iOS-compatible)
+     */
+    private fun recordGeoParticipant(pubkeyHex: String) {
+        currentGeohash?.let { geohash ->
+            updateGeohashParticipant(geohash, pubkeyHex, Date())
+        }
+    }
+    
+    /**
+     * Refresh geohash people list from current participants (iOS-compatible)
+     */
+    private fun refreshGeohashPeople() {
+        val geohash = currentGeohash
+        if (geohash == null) {
+            state.setGeohashPeople(emptyList())
+            return
+        }
+        
+        // Use 5-minute activity window (matches iOS exactly)
+        val cutoff = Date(System.currentTimeMillis() - 5 * 60 * 1000)
+        val participants = geohashParticipants[geohash] ?: mutableMapOf()
+        
+        // Remove expired participants
+        val iterator = participants.iterator()
+        while (iterator.hasNext()) {
+            val entry = iterator.next()
+            if (entry.value.before(cutoff)) {
+                iterator.remove()
+            }
+        }
+        geohashParticipants[geohash] = participants
+        
+        // Build GeoPerson list
+        val people = participants.map { (pubkeyHex, lastSeen) ->
+            GeoPerson(
+                id = pubkeyHex.lowercase(),
+                displayName = displayNameForNostrPubkey(pubkeyHex),
+                lastSeen = lastSeen
+            )
+        }.sortedByDescending { it.lastSeen } // Most recent first
+        
+        state.setGeohashPeople(people)
+        Log.d(TAG, "🌍 Refreshed geohash people: ${people.size} participants in $geohash")
+    }
+    
+    /**
+     * Start participant refresh timer for geohash channels (iOS-compatible)
+     */
+    private fun startGeoParticipantsTimer() {
+        // Cancel existing timer
+        geoParticipantsTimer?.cancel()
+        
+        // Start 30-second refresh timer (matches iOS)
+        geoParticipantsTimer = viewModelScope.launch {
+            while (currentGeohash != null) {
+                delay(30000) // 30 seconds
+                refreshGeohashPeople()
+            }
+        }
+    }
+    
+    /**
+     * Stop participant refresh timer
+     */
+    private fun stopGeoParticipantsTimer() {
+        geoParticipantsTimer?.cancel()
+        geoParticipantsTimer = null
+    }
+    
+    /**
+     * Check if a geohash person is teleported (iOS-compatible)
+     */
+    fun isPersonTeleported(pubkeyHex: String): Boolean {
+        return state.getTeleportedGeoValue().contains(pubkeyHex.lowercase())
+    }
+    
+    /**
+     * Start geohash DM with pubkey hex (iOS-compatible)
+     */
+    fun startGeohashDM(pubkeyHex: String) {
+        val convKey = "nostr_${pubkeyHex.take(16)}"
+        nostrKeyMapping[convKey] = pubkeyHex
+        startPrivateChat(convKey)
+        Log.d(TAG, "🗨️ Started geohash DM with $pubkeyHex -> $convKey")
     }
     
     // MARK: - Location Channel Management
@@ -979,12 +1074,33 @@ class ChatViewModel(
                 when (channel) {
                     is com.bitchat.android.geohash.ChannelID.Mesh -> {
                         Log.d(TAG, "📡 Switched to mesh channel")
-                        // No subscriptions needed for mesh - uses Bluetooth
+                        // Clear geohash state
+                        stopGeoParticipantsTimer()
+                        state.setGeohashPeople(emptyList())
+                        state.setTeleportedGeo(emptySet())
                     }
                     
                     is com.bitchat.android.geohash.ChannelID.Location -> {
                         Log.d(TAG, "📍 Switching to geohash channel: ${channel.channel.geohash}")
                         currentGeohash = channel.channel.geohash
+                        
+                        // Ensure self appears immediately in the people list (iOS-compatible)
+                        val identity = com.bitchat.android.nostr.NostrIdentityBridge.deriveIdentity(
+                            forGeohash = channel.channel.geohash,
+                            context = getApplication()
+                        )
+                        recordGeoParticipant(identity.publicKeyHex)
+                        
+                        // Mark teleported state if applicable  
+                        val teleported = state.isTeleported.value ?: false
+                        if (teleported) {
+                            val currentTeleported = state.getTeleportedGeoValue().toMutableSet()
+                            currentTeleported.add(identity.publicKeyHex.lowercase())
+                            state.setTeleportedGeo(currentTeleported)
+                        }
+                        
+                        // Start participant refresh timer
+                        startGeoParticipantsTimer()
                         
                         val nostrRelayManager = com.bitchat.android.nostr.NostrRelayManager.getInstance(getApplication())
                         
@@ -1008,7 +1124,7 @@ class ChatViewModel(
                         Log.i(TAG, "✅ Subscribed to geohash channel events: ${channel.channel.geohash}")
                         
                         // Subscribe to geohash DMs for this channel's identity
-                        val identity = com.bitchat.android.nostr.NostrIdentityBridge.deriveIdentity(
+                        val dmIdentity = com.bitchat.android.nostr.NostrIdentityBridge.deriveIdentity(
                             forGeohash = channel.channel.geohash,
                             context = getApplication()
                         )
@@ -1017,7 +1133,7 @@ class ChatViewModel(
                         currentGeohashDmSubscriptionId = dmSubId
                         
                         val dmFilter = com.bitchat.android.nostr.NostrFilter.giftWrapsFor(
-                            pubkey = identity.publicKeyHex,
+                            pubkey = dmIdentity.publicKeyHex,
                             since = System.currentTimeMillis() - 86400000L // Last 24 hours
                         )
                         
@@ -1025,10 +1141,10 @@ class ChatViewModel(
                             filter = dmFilter,
                             id = dmSubId
                         ) { giftWrap ->
-                            handleGeohashDmEvent(giftWrap, channel.channel.geohash, identity)
+                            handleGeohashDmEvent(giftWrap, channel.channel.geohash, dmIdentity)
                         }
                         
-                        Log.i(TAG, "✅ Subscribed to geohash DMs for identity: ${identity.publicKeyHex.take(16)}...")
+                        Log.i(TAG, "✅ Subscribed to geohash DMs for identity: ${dmIdentity.publicKeyHex.take(16)}...")
                     }
                     
                     null -> {
@@ -1070,6 +1186,17 @@ class ChatViewModel(
                 return
             }
             
+            // Track teleport tag for participants (iOS-compatible)
+            event.tags.find { it.size >= 2 && it[0] == "t" && it[1] == "teleport" }?.let {
+                val key = event.pubkey.lowercase()
+                val currentTeleported = state.getTeleportedGeoValue().toMutableSet()
+                if (!currentTeleported.contains(key)) {
+                    currentTeleported.add(key)
+                    state.setTeleportedGeo(currentTeleported)
+                    Log.d(TAG, "📍 Marked geohash participant as teleported: ${event.pubkey.take(8)}...")
+                }
+            }
+            
             // Cache nickname from tag if present
             event.tags.find { it.size >= 2 && it[0] == "n" }?.let { nickTag ->
                 val nick = nickTag[1]
@@ -1082,8 +1209,8 @@ class ChatViewModel(
             nostrKeyMapping[key16] = event.pubkey
             nostrKeyMapping[key8] = event.pubkey
             
-            // Update participant activity
-            updateGeohashParticipant(geohash, event.pubkey.take(16), Date(event.createdAt * 1000L))
+            // Update participant activity (use full pubkey for proper tracking)
+            recordGeoParticipant(event.pubkey)
             
             val senderName = displayNameForNostrPubkey(event.pubkey)
             val content = event.content
