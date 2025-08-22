@@ -69,7 +69,8 @@ class ChatViewModel(
         privateChatManager = privateChatManager,
         meshDelegateHandler = meshDelegateHandler,
         coroutineScope = viewModelScope,
-        dataManager = dataManager
+        dataManager = dataManager,
+        notificationManager = notificationManager
     )
     
     // Expose state through LiveData (maintaining the same interface)
@@ -388,9 +389,19 @@ class ChatViewModel(
         notificationManager.setCurrentPrivateChatPeer(peerID)
     }
     
+    fun setCurrentGeohash(geohash: String?) {
+        // Update notification manager with current geohash for notification logic
+        notificationManager.setCurrentGeohash(geohash)
+    }
+    
     fun clearNotificationsForSender(peerID: String) {
         // Clear notifications when user opens a chat
         notificationManager.clearNotificationsForSender(peerID)
+    }
+    
+    fun clearNotificationsForGeohash(geohash: String) {
+        // Clear notifications when user opens a geohash chat
+        notificationManager.clearNotificationsForGeohash(geohash)
     }
     
     // MARK: - Command Autocomplete (delegated)
