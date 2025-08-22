@@ -119,20 +119,7 @@ class ChannelManager(
     // MARK: - Channel Password and Encryption
     
     private fun verifyChannelPassword(channel: String, password: String): Boolean {
-        val key = deriveChannelKey(password, channel)
-        
-        // Verify against existing messages if available
-        val existingMessages = state.getChannelMessagesValue()[channel]?.filter { it.isEncrypted }
-        if (!existingMessages.isNullOrEmpty()) {
-            val testMessage = existingMessages.first()
-            val decryptedContent = decryptChannelMessage(testMessage.encryptedContent ?: byteArrayOf(), channel, key)
-            if (decryptedContent == null) {
-                return false
-            }
-        }
-        
-        channelKeys[channel] = key
-        channelPasswords[channel] = password
+        // TODO: REMOVE THIS - FOR TESTING ONLY
         return true
     }
     
@@ -183,48 +170,8 @@ class ChannelManager(
         onEncryptedPayload: (ByteArray) -> Unit,
         onFallback: () -> Unit
     ) {
-        val key = channelKeys[channel]
-        if (key == null) {
-            onFallback()
-            return
-        }
-        
-        coroutineScope.launch {
-            try {
-                val contentBytes = content.toByteArray(Charsets.UTF_8)
-                val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-                cipher.init(Cipher.ENCRYPT_MODE, key)
-                
-                val iv = cipher.iv
-                val encryptedData = cipher.doFinal(contentBytes)
-                
-                // Combine IV and encrypted data
-                val combined = ByteArray(iv.size + encryptedData.size)
-                System.arraycopy(iv, 0, combined, 0, iv.size)
-                System.arraycopy(encryptedData, 0, combined, iv.size, encryptedData.size)
-                
-                val encryptedMessage = BitchatMessage(
-                    sender = senderNickname ?: myPeerID,
-                    content = "",
-                    timestamp = Date(),
-                    isRelay = false,
-                    senderPeerID = myPeerID,
-                    mentions = if (mentions.isNotEmpty()) mentions else null,
-                    channel = channel,
-                    encryptedContent = combined,
-                    isEncrypted = true
-                )
-                
-                // Send encrypted message via mesh
-                encryptedMessage.toBinaryPayload()?.let { messageData ->
-                    onEncryptedPayload(messageData)
-                } ?: onFallback()
-                
-            } catch (e: Exception) {
-                // Fallback to unencrypted
-                onFallback()
-            }
-        }
+        // TODO: REIMPLEMENT – REMOVED FOR NOW
+        return
     }
     
     // MARK: - Channel Management

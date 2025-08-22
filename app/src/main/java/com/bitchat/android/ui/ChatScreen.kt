@@ -49,6 +49,10 @@ fun ChatScreen(viewModel: ChatViewModel) {
     var showPasswordPrompt by remember { mutableStateOf(false) }
     var showPasswordDialog by remember { mutableStateOf(false) }
     var passwordInput by remember { mutableStateOf("") }
+    var showLocationChannelsSheet by remember { mutableStateOf(false) }
+    var showUserSheet by remember { mutableStateOf(false) }
+    var selectedUserForSheet by remember { mutableStateOf("") }
+    var forceScrollToBottom by remember { mutableStateOf(false) }
 
     // Show password dialog when needed
     LaunchedEffect(showPasswordPrompt) {
@@ -84,7 +88,43 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 messages = displayMessages,
                 currentUserNickname = nickname,
                 meshService = viewModel.meshService,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                forceScrollToBottom = forceScrollToBottom,
+                onNicknameClick = { fullSenderName ->
+                    // Single click - mention user in text input
+                    val currentText = messageText.text
+                    
+                    // Extract base nickname and hash suffix from full sender name
+                    val (baseName, hashSuffix) = splitSuffix(fullSenderName)
+                    
+                    // Check if we're in a geohash channel to include hash suffix
+                    val selectedLocationChannel = viewModel.selectedLocationChannel.value
+                    val mentionText = if (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location && hashSuffix.isNotEmpty()) {
+                        // In geohash chat - include the hash suffix from the full display name
+                        "@$baseName$hashSuffix"
+                    } else {
+                        // Regular chat - just the base nickname
+                        "@$baseName"
+                    }
+                    
+                    val newText = when {
+                        currentText.isEmpty() -> "$mentionText "
+                        currentText.endsWith(" ") -> "$currentText$mentionText "
+                        else -> "$currentText $mentionText "
+                    }
+                    
+                    messageText = TextFieldValue(
+                        text = newText,
+                        selection = TextRange(newText.length)
+                    )
+                },
+                onNicknameLongPress = { fullSenderName ->
+                    // Long press - open user action sheet
+                    // Extract base nickname from full sender name
+                    val (baseName, _) = splitSuffix(fullSenderName)
+                    selectedUserForSheet = baseName
+                    showUserSheet = true
+                }
             )
             // Input area - stays at bottom
             ChatInputSection(
@@ -98,6 +138,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     if (messageText.text.trim().isNotEmpty()) {
                         viewModel.sendMessage(messageText.text.trim())
                         messageText = TextFieldValue("")
+                        forceScrollToBottom = !forceScrollToBottom // Toggle to trigger scroll
                     }
                 },
                 showCommandSuggestions = showCommandSuggestions,
@@ -135,7 +176,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
             colorScheme = colorScheme,
             onSidebarToggle = { viewModel.showSidebar() },
             onShowAppInfo = { viewModel.showAppInfo() },
-            onPanicClear = { viewModel.panicClearAllData() }
+            onPanicClear = { viewModel.panicClearAllData() },
+            onLocationChannelsClick = { showLocationChannelsSheet = true }
         )
 
         val alpha by animateFloatAsState(
@@ -177,7 +219,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
         }
     }
 
-    // Dialogs
+    // Dialogs and Sheets
     ChatDialogs(
         showPasswordDialog = showPasswordDialog,
         passwordPromptChannel = passwordPromptChannel,
@@ -197,7 +239,13 @@ fun ChatScreen(viewModel: ChatViewModel) {
             passwordInput = ""
         },
         showAppInfo = showAppInfo,
-        onAppInfoDismiss = { viewModel.hideAppInfo() }
+        onAppInfoDismiss = { viewModel.hideAppInfo() },
+        showLocationChannelsSheet = showLocationChannelsSheet,
+        onLocationChannelsSheetDismiss = { showLocationChannelsSheet = false },
+        showUserSheet = showUserSheet,
+        onUserSheetDismiss = { showUserSheet = false },
+        selectedUserForSheet = selectedUserForSheet,
+        viewModel = viewModel
     )
 }
 
@@ -270,7 +318,8 @@ private fun ChatFloatingHeader(
     colorScheme: ColorScheme,
     onSidebarToggle: () -> Unit,
     onShowAppInfo: () -> Unit,
-    onPanicClear: () -> Unit
+    onPanicClear: () -> Unit,
+    onLocationChannelsClick: () -> Unit
 ) {
     Surface(
         modifier = Modifier
@@ -296,7 +345,8 @@ private fun ChatFloatingHeader(
                     },
                     onSidebarClick = onSidebarToggle,
                     onTripleClick = onPanicClear,
-                    onShowAppInfo = onShowAppInfo
+                    onShowAppInfo = onShowAppInfo,
+                    onLocationChannelsClick = onLocationChannelsClick
                 )
             },
             colors = TopAppBarDefaults.topAppBarColors(
@@ -324,7 +374,13 @@ private fun ChatDialogs(
     onPasswordConfirm: () -> Unit,
     onPasswordDismiss: () -> Unit,
     showAppInfo: Boolean,
-    onAppInfoDismiss: () -> Unit
+    onAppInfoDismiss: () -> Unit,
+    showLocationChannelsSheet: Boolean,
+    onLocationChannelsSheetDismiss: () -> Unit,
+    showUserSheet: Boolean,
+    onUserSheetDismiss: () -> Unit,
+    selectedUserForSheet: String,
+    viewModel: ChatViewModel
 ) {
     // Password dialog
     PasswordPromptDialog(
@@ -341,4 +397,23 @@ private fun ChatDialogs(
         show = showAppInfo,
         onDismiss = onAppInfoDismiss
     )
+    
+    // Location channels sheet
+    if (showLocationChannelsSheet) {
+        LocationChannelsSheet(
+            isPresented = showLocationChannelsSheet,
+            onDismiss = onLocationChannelsSheetDismiss,
+            viewModel = viewModel
+        )
+    }
+    
+    // User action sheet
+    if (showUserSheet) {
+        ChatUserSheet(
+            isPresented = showUserSheet,
+            onDismiss = onUserSheetDismiss,
+            targetNickname = selectedUserForSheet,
+            viewModel = viewModel
+        )
+    }
 }
