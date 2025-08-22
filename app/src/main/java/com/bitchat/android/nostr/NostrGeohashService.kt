@@ -11,6 +11,7 @@ import com.bitchat.android.ui.MessageManager
 import com.bitchat.android.ui.MeshDelegateHandler
 import com.bitchat.android.ui.PrivateChatManager
 import com.bitchat.android.ui.GeoPerson
+import com.bitchat.android.ui.colorForPeerSeed
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -1097,34 +1098,8 @@ class NostrGeohashService(
      */
     fun colorForNostrPubkey(pubkeyHex: String, isDark: Boolean): androidx.compose.ui.graphics.Color {
         val seed = "nostr:${pubkeyHex.lowercase()}"
-        return colorForPeerSeed(seed, isDark)
+        return colorForPeerSeed(seed, isDark).copy()
     }
     
-    /**
-     * Generate consistent peer color using djb2 hash (matches iOS exactly)
-     */
-    private fun colorForPeerSeed(seed: String, isDark: Boolean): androidx.compose.ui.graphics.Color {
-        // djb2 hash algorithm (matches iOS implementation)
-        var hash = 5381UL
-        for (byte in seed.toByteArray()) {
-            hash = ((hash shl 5) + hash) + byte.toUByte().toULong()
-        }
-        
-        var hue = (hash % 360UL).toDouble() / 360.0
-        
-        // Avoid orange (~30°) reserved for self (matches iOS logic)
-        val orange = 30.0 / 360.0
-        if (kotlin.math.abs(hue - orange) < 0.05) {
-            hue = (hue + 0.12) % 1.0
-        }
-        
-        val saturation = if (isDark) 0.70 else 0.70
-        val brightness = if (isDark) 0.90 else 0.45
-        
-        return androidx.compose.ui.graphics.Color.hsv(
-            hue = (hue * 360).toFloat(),
-            saturation = saturation.toFloat(),
-            value = brightness.toFloat()
-        )
-    }
+
 }
