@@ -102,7 +102,7 @@ fun LocationChannelsSheet(
                 )
                 
                 Text(
-                    text = "chat with people near you using geohash channels. only a coarse geohash is shared, never exact gps.",
+                    text = "chat with people near you using geohash channels. only a coarse geohash is shared, never exact gps. do not screenshot or share this screen to protect your privacy.",
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
