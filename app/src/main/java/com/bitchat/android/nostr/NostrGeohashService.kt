@@ -914,6 +914,12 @@ class NostrGeohashService(
                 return
             }
             
+            // Check if this user is blocked in geohash channels BEFORE any processing
+            if (isGeohashUserBlocked(event.pubkey)) {
+                Log.v(TAG, "🚫 Skipping event from blocked geohash user: ${event.pubkey.take(8)}...")
+                return
+            }
+            
             // Deduplicate events
             if (processedNostrEvents.contains(event.id)) {
                 Log.v(TAG, "❌ Skipping duplicate event ${event.id.take(8)}...")
@@ -978,12 +984,6 @@ class NostrGeohashService(
                                      event.content.trim().isEmpty()
             if (isTeleportPresence) {
                 Log.v(TAG, "Skipping empty teleport presence event")
-                return
-            }
-            
-            // STEP 6.5: Check if this user is blocked in geohash channels
-            if (isGeohashUserBlocked(event.pubkey)) {
-                Log.v(TAG, "Skipping message from blocked geohash user: ${event.pubkey.take(8)}...")
                 return
             }
             
