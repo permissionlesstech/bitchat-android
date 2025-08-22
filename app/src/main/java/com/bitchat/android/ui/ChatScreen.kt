@@ -50,6 +50,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
     var showPasswordDialog by remember { mutableStateOf(false) }
     var passwordInput by remember { mutableStateOf("") }
     var showLocationChannelsSheet by remember { mutableStateOf(false) }
+    var showUserSheet by remember { mutableStateOf(false) }
+    var selectedUserForSheet by remember { mutableStateOf("") }
     var forceScrollToBottom by remember { mutableStateOf(false) }
 
     // Show password dialog when needed
@@ -87,7 +89,25 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 currentUserNickname = nickname,
                 meshService = viewModel.meshService,
                 modifier = Modifier.weight(1f),
-                forceScrollToBottom = forceScrollToBottom
+                forceScrollToBottom = forceScrollToBottom,
+                onNicknameClick = { targetNickname ->
+                    // Single click - mention user in text input
+                    val currentText = messageText.text
+                    val newText = if (currentText.isEmpty()) {
+                        "@$targetNickname "
+                    } else {
+                        "$currentText @$targetNickname "
+                    }
+                    messageText = TextFieldValue(
+                        text = newText,
+                        selection = TextRange(newText.length)
+                    )
+                },
+                onNicknameDoubleClick = { targetNickname ->
+                    // Double click - open user action sheet
+                    selectedUserForSheet = targetNickname
+                    showUserSheet = true
+                }
             )
             // Input area - stays at bottom
             ChatInputSection(
@@ -205,6 +225,9 @@ fun ChatScreen(viewModel: ChatViewModel) {
         onAppInfoDismiss = { viewModel.hideAppInfo() },
         showLocationChannelsSheet = showLocationChannelsSheet,
         onLocationChannelsSheetDismiss = { showLocationChannelsSheet = false },
+        showUserSheet = showUserSheet,
+        onUserSheetDismiss = { showUserSheet = false },
+        selectedUserForSheet = selectedUserForSheet,
         viewModel = viewModel
     )
 }
@@ -337,6 +360,9 @@ private fun ChatDialogs(
     onAppInfoDismiss: () -> Unit,
     showLocationChannelsSheet: Boolean,
     onLocationChannelsSheetDismiss: () -> Unit,
+    showUserSheet: Boolean,
+    onUserSheetDismiss: () -> Unit,
+    selectedUserForSheet: String,
     viewModel: ChatViewModel
 ) {
     // Password dialog
@@ -360,6 +386,16 @@ private fun ChatDialogs(
         LocationChannelsSheet(
             isPresented = showLocationChannelsSheet,
             onDismiss = onLocationChannelsSheetDismiss,
+            viewModel = viewModel
+        )
+    }
+    
+    // User action sheet
+    if (showUserSheet) {
+        ChatUserSheet(
+            isPresented = showUserSheet,
+            onDismiss = onUserSheetDismiss,
+            targetNickname = selectedUserForSheet,
             viewModel = viewModel
         )
     }

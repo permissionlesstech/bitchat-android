@@ -39,7 +39,9 @@ fun formatMessageAsAnnotatedString(
     currentUserNickname: String,
     meshService: BluetoothMeshService,
     colorScheme: ColorScheme,
-    timeFormatter: SimpleDateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+    timeFormatter: SimpleDateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault()),
+    onNicknameClick: ((String) -> Unit)? = null,
+    onNicknameDoubleClick: ((String) -> Unit)? = null
 ): AnnotatedString {
     val builder = AnnotatedString.Builder()
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
@@ -69,13 +71,33 @@ fun formatMessageAsAnnotatedString(
         builder.append("<@")
         builder.pop()
         
-        // Base name
+        // Base name (clickable)
         builder.pushStyle(SpanStyle(
             color = baseColor,
             fontSize = 14.sp,
             fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
         ))
+        val nicknameStart = builder.length
         builder.append(baseName)
+        val nicknameEnd = builder.length
+        
+        // Add click annotation for nickname
+        if (!isSelf && onNicknameClick != null) {
+            builder.addStringAnnotation(
+                tag = "nickname_click",
+                annotation = baseName,
+                start = nicknameStart,
+                end = nicknameEnd
+            )
+        }
+        if (!isSelf && onNicknameDoubleClick != null) {
+            builder.addStringAnnotation(
+                tag = "nickname_double_click", 
+                annotation = baseName,
+                start = nicknameStart,
+                end = nicknameEnd
+            )
+        }
         builder.pop()
         
         // Hashtag suffix in lighter color (iOS style)

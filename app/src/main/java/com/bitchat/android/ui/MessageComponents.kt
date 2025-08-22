@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -32,7 +33,9 @@ fun MessagesList(
     currentUserNickname: String,
     meshService: BluetoothMeshService,
     modifier: Modifier = Modifier,
-    forceScrollToBottom: Boolean = false
+    forceScrollToBottom: Boolean = false,
+    onNicknameClick: ((String) -> Unit)? = null,
+    onNicknameDoubleClick: ((String) -> Unit)? = null
 ) {
     val listState = rememberLazyListState()
     
@@ -76,7 +79,9 @@ fun MessagesList(
                 MessageItem(
                     message = message,
                     currentUserNickname = currentUserNickname,
-                    meshService = meshService
+                    meshService = meshService,
+                    onNicknameClick = onNicknameClick,
+                    onNicknameDoubleClick = onNicknameDoubleClick
                 )
             }
         }
@@ -87,7 +92,9 @@ fun MessagesList(
 fun MessageItem(
     message: BitchatMessage,
     currentUserNickname: String,
-    meshService: BluetoothMeshService
+    meshService: BluetoothMeshService,
+    onNicknameClick: ((String) -> Unit)? = null,
+    onNicknameDoubleClick: ((String) -> Unit)? = null
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val timeFormatter = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
@@ -97,19 +104,57 @@ fun MessageItem(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Top
     ) {
-        // Single text view for natural wrapping (like iOS)
-        Text(
-            text = formatMessageAsAnnotatedString(
-                message = message,
-                currentUserNickname = currentUserNickname,
-                meshService = meshService,
-                colorScheme = colorScheme,
-                timeFormatter = timeFormatter
-            ),
+        // Single text view for natural wrapping (like iOS) with clickable nicknames
+        val annotatedText = formatMessageAsAnnotatedString(
+            message = message,
+            currentUserNickname = currentUserNickname,
+            meshService = meshService,
+            colorScheme = colorScheme,
+            timeFormatter = timeFormatter,
+            onNicknameClick = onNicknameClick,
+            onNicknameDoubleClick = onNicknameDoubleClick
+        )
+        
+        var lastClickTime by remember { mutableStateOf(0L) }
+        
+        ClickableText(
+            text = annotatedText,
             modifier = Modifier.weight(1f),
-            fontFamily = FontFamily.Monospace,
+            style = androidx.compose.ui.text.TextStyle(
+                fontFamily = FontFamily.Monospace,
+                color = colorScheme.onSurface
+            ),
             softWrap = true,
-            overflow = TextOverflow.Visible
+            overflow = TextOverflow.Visible,
+            onClick = { offset ->
+                val nicknameAnnotations = annotatedText.getStringAnnotations(
+                    tag = "nickname_click",
+                    start = offset,
+                    end = offset
+                )
+                val doubleClickAnnotations = annotatedText.getStringAnnotations(
+                    tag = "nickname_double_click", 
+                    start = offset,
+                    end = offset
+                )
+                
+                if (nicknameAnnotations.isNotEmpty() || doubleClickAnnotations.isNotEmpty()) {
+                    val currentTime = System.currentTimeMillis()
+                    val nickname = nicknameAnnotations.firstOrNull()?.item 
+                        ?: doubleClickAnnotations.firstOrNull()?.item
+                    
+                    if (nickname != null) {
+                        if (currentTime - lastClickTime < 500) {
+                            // Double click
+                            onNicknameDoubleClick?.invoke(nickname)
+                        } else {
+                            // Single click
+                            onNicknameClick?.invoke(nickname)
+                        }
+                        lastClickTime = currentTime
+                    }
+                }
+            }
         )
         
         // Delivery status for private messages

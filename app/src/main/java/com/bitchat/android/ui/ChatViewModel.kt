@@ -133,6 +133,7 @@ class ChatViewModel(
         dataManager.loadFavorites()
         state.setFavoritePeers(dataManager.favoritePeers.toSet())
         dataManager.loadBlockedUsers()
+        dataManager.loadGeohashBlockedUsers()
         
         // Log all favorites at startup
         dataManager.logAllFavorites()
@@ -581,6 +582,13 @@ class ChatViewModel(
     
     fun selectLocationChannel(channel: com.bitchat.android.geohash.ChannelID) {
         nostrGeohashService.selectLocationChannel(channel)
+    }
+    
+    /**
+     * Block a user in geohash channels by their nickname
+     */
+    fun blockUserInGeohash(targetNickname: String) {
+        nostrGeohashService.blockUserInGeohash(targetNickname)
     }
     
 

@@ -981,6 +981,12 @@ class NostrGeohashService(
                 return
             }
             
+            // STEP 6.5: Check if this user is blocked in geohash channels
+            if (isGeohashUserBlocked(event.pubkey)) {
+                Log.v(TAG, "Skipping message from blocked geohash user: ${event.pubkey.take(8)}...")
+                return
+            }
+            
             val senderName = displayNameForNostrPubkey(event.pubkey)
             val content = event.content
             
@@ -1262,6 +1268,53 @@ class NostrGeohashService(
                 Log.e(TAG, "Failed to send Nostr geohash read receipt: ${e.message}")
             }
         }
+    }
+    
+    // MARK: - Geohash Blocking
+    
+    /**
+     * Block a user in geohash channels by their nickname
+     */
+    fun blockUserInGeohash(targetNickname: String) {
+        // Find the pubkey for this nickname
+        val pubkeyHex = geoNicknames.entries.firstOrNull { (_, nickname) ->
+            val baseName = nickname.split("#").firstOrNull() ?: nickname
+            baseName == targetNickname
+        }?.key
+        
+        if (pubkeyHex != null) {
+            // Add to geohash block list
+            val dataManager = com.bitchat.android.ui.DataManager(application)
+            dataManager.addGeohashBlockedUser(pubkeyHex)
+            
+            // Add system message
+            val systemMessage = com.bitchat.android.model.BitchatMessage(
+                sender = "system",
+                content = "blocked $targetNickname in geohash channels",
+                timestamp = java.util.Date(),
+                isRelay = false
+            )
+            messageManager.addMessage(systemMessage)
+            
+            Log.i(TAG, "🚫 Blocked geohash user: $targetNickname (pubkey: ${pubkeyHex.take(8)}...)")
+        } else {
+            // User not found
+            val systemMessage = com.bitchat.android.model.BitchatMessage(
+                sender = "system",
+                content = "user '$targetNickname' not found in current geohash",
+                timestamp = java.util.Date(),
+                isRelay = false
+            )
+            messageManager.addMessage(systemMessage)
+        }
+    }
+    
+    /**
+     * Check if a user is blocked in geohash channels
+     */
+    private fun isGeohashUserBlocked(pubkeyHex: String): Boolean {
+        val dataManager = com.bitchat.android.ui.DataManager(application)
+        return dataManager.isGeohashUserBlocked(pubkeyHex)
     }
 
 }
