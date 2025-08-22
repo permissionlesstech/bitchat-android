@@ -144,11 +144,11 @@ class NostrClient private constructor(private val context: Context) {
             since = System.currentTimeMillis() - 86400000L // Last 24 hours
         )
         
-        relayManager.subscribe(filter, "private-messages") { giftWrap ->
+        relayManager.subscribe(filter, "private-messages", { giftWrap ->
             scope.launch {
                 handlePrivateMessage(giftWrap, handler)
             }
-        }
+        })
         
         Log.i(TAG, "🔑 Subscribed to private messages for: ${identity.getShortNpub()}")
     }
@@ -201,11 +201,11 @@ class NostrClient private constructor(private val context: Context) {
             limit = 200
         )
         
-        relayManager.subscribe(filter, "geohash-$geohash") { event ->
+        relayManager.subscribe(filter, "geohash-$geohash", { event ->
             scope.launch {
                 handleGeohashMessage(event, handler)
             }
-        }
+        })
         
         Log.i(TAG, "🌍 Subscribed to geohash channel: #$geohash")
     }

@@ -118,10 +118,11 @@ class NostrGeohashService(
             
             nostrRelayManager.subscribe(
                 filter = dmFilter,
-                id = "chat-messages"
-            ) { event ->
-                handleNostrMessage(event)
-            }
+                id = "chat-messages",
+                handler = { event ->
+                    handleNostrMessage(event)
+                }
+            )
             
             Log.i(TAG, "✅ Nostr integration initialized with gift wrap subscription")
         }
@@ -534,10 +535,11 @@ class NostrGeohashService(
                 
                 nostrRelayManager.subscribe(
                     filter = filter,
-                    id = "geohash-$geohash"
-                ) { event ->
-                    handleUnifiedGeohashEvent(event, geohash)
-                }
+                    id = "geohash-$geohash",
+                    handler = { event ->
+                        handleUnifiedGeohashEvent(event, geohash)
+                    }
+                )
                 
                 Log.d(TAG, "Subscribed to geohash events for: $geohash")
             }
@@ -853,10 +855,11 @@ class NostrGeohashService(
                         
                         nostrRelayManager.subscribe(
                             filter = geohashFilter,
-                            id = geohashSubId
-                        ) { event ->
-                            handleUnifiedGeohashEvent(event, channel.channel.geohash)
-                        }
+                            id = geohashSubId,
+                            handler = { event ->
+                                handleUnifiedGeohashEvent(event, channel.channel.geohash)
+                            }
+                        )
                         
                         Log.i(TAG, "✅ Subscribed to geohash ephemeral events: #${channel.channel.geohash}")
                         
@@ -876,10 +879,11 @@ class NostrGeohashService(
                         
                         nostrRelayManager.subscribe(
                             filter = dmFilter,
-                            id = dmSubId
-                        ) { giftWrap ->
-                            handleGeohashDmEvent(giftWrap, channel.channel.geohash, dmIdentity)
-                        }
+                            id = dmSubId,
+                            handler = { giftWrap ->
+                                handleGeohashDmEvent(giftWrap, channel.channel.geohash, dmIdentity)
+                            }
+                        )
                         
                         Log.i(TAG, "✅ Subscribed to geohash DMs for identity: ${dmIdentity.publicKeyHex.take(16)}...")
                         
