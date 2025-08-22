@@ -14,12 +14,14 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.GeohashChannel
 import com.bitchat.android.geohash.GeohashChannelLevel
@@ -54,6 +56,13 @@ fun LocationChannelsSheet(
     // UI state
     var customGeohash by remember { mutableStateOf("") }
     var customError by remember { mutableStateOf<String?>(null) }
+    var isInputFocused by remember { mutableStateOf(false) }
+    
+    // Bottom sheet state
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = isInputFocused
+    )
+    val coroutineScope = rememberCoroutineScope()
     
     // iOS system colors (matches iOS exactly)
     val colorScheme = MaterialTheme.colorScheme
@@ -64,12 +73,19 @@ fun LocationChannelsSheet(
     if (isPresented) {
         ModalBottomSheet(
             onDismissRequest = onDismiss,
+            sheetState = sheetState,
             modifier = modifier
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .then(
+                        if (isInputFocused) {
+                            Modifier.fillMaxHeight().padding(horizontal = 16.dp, vertical = 24.dp)
+                        } else {
+                            Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                        }
+                    ),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // Header
@@ -242,7 +258,16 @@ fun LocationChannelsSheet(
                                             fontFamily = FontFamily.Monospace,
                                             color = MaterialTheme.colorScheme.onSurface
                                         ),
-                                        modifier = Modifier.weight(1f),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .onFocusChanged { focusState ->
+                                                isInputFocused = focusState.isFocused
+                                                if (focusState.isFocused) {
+                                                    coroutineScope.launch {
+                                                        sheetState.expand()
+                                                    }
+                                                }
+                                            },
                                         singleLine = true,
                                         decorationBox = { innerTextField ->
                                             if (customGeohash.isEmpty()) {
