@@ -229,13 +229,8 @@ class FavoritesPersistenceService private constructor(private val context: Conte
     
     private fun loadFavorites() {
         try {
-            // Use reflection to access encrypted preferences
-            val clazz = stateManager.javaClass
-            val prefsField = clazz.getDeclaredField("prefs")
-            prefsField.isAccessible = true
-            val prefs = prefsField.get(stateManager) as android.content.SharedPreferences
-            
-            val favoritesJson = prefs.getString(FAVORITES_KEY, null)
+            // Use public methods instead of reflection to access encrypted preferences
+            val favoritesJson = stateManager.getSecureValue(FAVORITES_KEY)
             if (favoritesJson != null) {
                 val type = object : TypeToken<Map<String, FavoriteRelationshipData>>() {}.type
                 val data: Map<String, FavoriteRelationshipData> = gson.fromJson(favoritesJson, type)
@@ -262,15 +257,8 @@ class FavoritesPersistenceService private constructor(private val context: Conte
             
             val favoritesJson = gson.toJson(data)
             
-            // Use reflection to access encrypted preferences
-            val clazz = stateManager.javaClass
-            val prefsField = clazz.getDeclaredField("prefs")
-            prefsField.isAccessible = true
-            val prefs = prefsField.get(stateManager) as android.content.SharedPreferences
-            
-            prefs.edit()
-                .putString(FAVORITES_KEY, favoritesJson)
-                .apply()
+            // Use public methods instead of reflection to access encrypted preferences
+            stateManager.storeSecureValue(FAVORITES_KEY, favoritesJson)
                 
             Log.d(TAG, "Saved ${favorites.size} favorite relationships")
         } catch (e: Exception) {

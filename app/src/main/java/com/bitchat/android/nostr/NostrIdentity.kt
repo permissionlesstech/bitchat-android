@@ -215,17 +215,9 @@ object NostrIdentityBridge {
         // Clear cache first
         geohashIdentityCache.clear()
         
-        // Clear Nostr private key
+        // Clear Nostr private key using public methods instead of reflection
         try {
-            val clazz = stateManager.javaClass
-            val prefsField = clazz.getDeclaredField("prefs")
-            prefsField.isAccessible = true
-            val prefs = prefsField.get(stateManager) as android.content.SharedPreferences
-            
-            prefs.edit()
-                .remove(NOSTR_PRIVATE_KEY)
-                .remove(DEVICE_SEED_KEY)
-                .apply()
+            stateManager.clearSecureValues(NOSTR_PRIVATE_KEY, DEVICE_SEED_KEY)
                 
             Log.i(TAG, "Cleared all Nostr identity data and cache")
         } catch (e: Exception) {
@@ -237,13 +229,8 @@ object NostrIdentityBridge {
     
     private fun loadNostrPrivateKey(stateManager: SecureIdentityStateManager): String? {
         return try {
-            // Use reflection to access the encrypted preferences
-            val clazz = stateManager.javaClass
-            val prefsField = clazz.getDeclaredField("prefs")
-            prefsField.isAccessible = true
-            val prefs = prefsField.get(stateManager) as android.content.SharedPreferences
-            
-            prefs.getString(NOSTR_PRIVATE_KEY, null)
+            // Use public methods instead of reflection to access the encrypted preferences
+            stateManager.getSecureValue(NOSTR_PRIVATE_KEY)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load Nostr private key: ${e.message}")
             null
@@ -252,15 +239,8 @@ object NostrIdentityBridge {
     
     private fun saveNostrPrivateKey(stateManager: SecureIdentityStateManager, privateKeyHex: String) {
         try {
-            // Use reflection to access the encrypted preferences
-            val clazz = stateManager.javaClass
-            val prefsField = clazz.getDeclaredField("prefs")
-            prefsField.isAccessible = true
-            val prefs = prefsField.get(stateManager) as android.content.SharedPreferences
-            
-            prefs.edit()
-                .putString(NOSTR_PRIVATE_KEY, privateKeyHex)
-                .apply()
+            // Use public methods instead of reflection to access the encrypted preferences
+            stateManager.storeSecureValue(NOSTR_PRIVATE_KEY, privateKeyHex)
                 
             Log.d(TAG, "Saved Nostr private key to secure storage")
         } catch (e: Exception) {
@@ -271,13 +251,8 @@ object NostrIdentityBridge {
     
     private fun getOrCreateDeviceSeed(stateManager: SecureIdentityStateManager): ByteArray {
         try {
-            // Use reflection to access the encrypted preferences
-            val clazz = stateManager.javaClass
-            val prefsField = clazz.getDeclaredField("prefs")
-            prefsField.isAccessible = true
-            val prefs = prefsField.get(stateManager) as android.content.SharedPreferences
-            
-            val existingSeed = prefs.getString(DEVICE_SEED_KEY, null)
+            // Use public methods instead of reflection to access the encrypted preferences
+            val existingSeed = stateManager.getSecureValue(DEVICE_SEED_KEY)
             if (existingSeed != null) {
                 return android.util.Base64.decode(existingSeed, android.util.Base64.DEFAULT)
             }
@@ -287,9 +262,7 @@ object NostrIdentityBridge {
             SecureRandom().nextBytes(seed)
             
             val seedBase64 = android.util.Base64.encodeToString(seed, android.util.Base64.DEFAULT)
-            prefs.edit()
-                .putString(DEVICE_SEED_KEY, seedBase64)
-                .apply()
+            stateManager.storeSecureValue(DEVICE_SEED_KEY, seedBase64)
                 
             Log.d(TAG, "Generated new device seed for geohash identity derivation")
             return seed
