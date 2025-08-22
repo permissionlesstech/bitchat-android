@@ -319,6 +319,9 @@ class ChatViewModel(
                     senderPeerID = "geohash:${channel.geohash}",
                     channel = "#${channel.geohash}"
                 )
+                
+                // Store our own message in geohash history 
+                storeGeohashMessage(channel.geohash, localMessage)
                 messageManager.addMessage(localMessage)
                 
             } catch (e: Exception) {
@@ -766,6 +769,9 @@ class ChatViewModel(
         // Clear all notifications
         notificationManager.clearAllNotifications()
         
+        // Clear geohash message history
+        geohashMessageHistory.clear()
+        
         // Reset nickname
         val newNickname = "anon${Random.nextInt(1000, 9999)}"
         state.setNickname(newNickname)
@@ -819,6 +825,46 @@ class ChatViewModel(
     private val geohashParticipants = mutableMapOf<String, MutableMap<String, Date>>() // geohash -> participantId -> lastSeen
     private var geohashSamplingJob: kotlinx.coroutines.Job? = null
     private var geoParticipantsTimer: kotlinx.coroutines.Job? = null
+    
+    // MARK: - Geohash Message History Storage
+    
+    private val geohashMessageHistory = mutableMapOf<String, MutableList<BitchatMessage>>() // geohash -> messages
+    private val maxGeohashMessages = 1000 // Maximum messages per geohash
+    
+    /**
+     * Store a message in geohash history
+     */
+    private fun storeGeohashMessage(geohash: String, message: BitchatMessage) {
+        val messages = geohashMessageHistory.getOrPut(geohash) { mutableListOf() }
+        messages.add(message)
+        messages.sortBy { it.timestamp }
+        
+        // Limit message history to prevent memory issues
+        if (messages.size > maxGeohashMessages) {
+            messages.removeAt(0) // Remove oldest message
+        }
+        
+        Log.v(TAG, "📦 Stored message in geohash $geohash history (${messages.size} total) - sender: ${message.sender}, content: '${message.content.take(30)}...'")
+    }
+    
+    /**
+     * Load stored messages for a geohash channel
+     */
+    private fun loadGeohashMessages(geohash: String) {
+        val storedMessages = geohashMessageHistory[geohash]
+        if (storedMessages == null) {
+            Log.d(TAG, "📥 No stored messages found for geohash $geohash")
+            return
+        }
+        
+        Log.d(TAG, "📥 Loading ${storedMessages.size} stored messages for geohash $geohash")
+        
+        // Add all stored messages to the current message timeline
+        storedMessages.forEach { message ->
+            Log.v(TAG, "📥 Loading stored message: ${message.sender} - '${message.content.take(30)}...'")
+            messageManager.addMessage(message)
+        }
+    }
     
     /**
      * Get participant count for a specific geohash (5-minute activity window)
@@ -1073,10 +1119,9 @@ class ChatViewModel(
     private fun switchLocationChannel(channel: com.bitchat.android.geohash.ChannelID?) {
         // STEP 1: Immediate UI updates (synchronous, no blocking)
         try {
-            // CRITICAL FIX: Clear all displayed messages when switching geohash channels
-            // This makes each geohash channel feel like a fresh, independent chat room
+            // Clear all displayed messages and load stored messages for the new channel
             messageManager.clearMessages()
-            Log.d(TAG, "🗑️ Cleared all messages for fresh channel experience")
+            Log.d(TAG, "🗑️ Cleared all messages for channel switch")
             
             when (channel) {
                 is com.bitchat.android.geohash.ChannelID.Mesh -> {
@@ -1093,6 +1138,9 @@ class ChatViewModel(
                     Log.d(TAG, "📍 Switching to geohash channel: ${channel.channel.geohash}")
                     currentGeohash = channel.channel.geohash
                     geoNicknames.clear()
+                    
+                    // Load stored messages for this geohash immediately
+                    loadGeohashMessages(channel.channel.geohash)
                     
                     // Immediate self-registration for instant UI feedback
                     try {
@@ -1232,11 +1280,19 @@ class ChatViewModel(
      */
     private fun handleGeohashChannelEvent(event: com.bitchat.android.nostr.NostrEvent, geohash: String) {
         try {
+            Log.v(TAG, "🔍 handleGeohashChannelEvent called - eventGeohash: $geohash, currentGeohash: $currentGeohash, eventKind: ${event.kind}, eventId: ${event.id.take(8)}...")
+            
             // Only handle ephemeral kind 20000 events
-            if (event.kind != 20000) return
+            if (event.kind != 20000) {
+                Log.v(TAG, "❌ Skipping non-ephemeral event (kind ${event.kind})")
+                return
+            }
             
             // Deduplicate events
-            if (processedNostrEvents.contains(event.id)) return
+            if (processedNostrEvents.contains(event.id)) {
+                Log.v(TAG, "❌ Skipping duplicate event ${event.id.take(8)}...")
+                return
+            }
             processedNostrEvents.add(event.id)
             
             // Manage deduplication cache size
@@ -1304,10 +1360,16 @@ class ChatViewModel(
                 channel = "#$geohash"
             )
             
-            // Add to message timeline
-            messageManager.addMessage(message)
+            // Store in geohash history for persistence across channel switches
+            storeGeohashMessage(geohash, message)
+            
+            // Add to message timeline only if we're currently viewing this geohash
+            if (currentGeohash == geohash) {
+                messageManager.addMessage(message)
+            }
             
             Log.d(TAG, "📥 Received geohash message from $senderName: ${content.take(50)}")
+        
             
         } catch (e: Exception) {
             Log.e(TAG, "Error handling geohash channel event: ${e.message}")
