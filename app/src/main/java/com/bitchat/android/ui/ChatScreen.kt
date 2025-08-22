@@ -49,6 +49,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
     var showPasswordPrompt by remember { mutableStateOf(false) }
     var showPasswordDialog by remember { mutableStateOf(false) }
     var passwordInput by remember { mutableStateOf("") }
+    var showLocationChannelsSheet by remember { mutableStateOf(false) }
 
     // Show password dialog when needed
     LaunchedEffect(showPasswordPrompt) {
@@ -135,7 +136,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
             colorScheme = colorScheme,
             onSidebarToggle = { viewModel.showSidebar() },
             onShowAppInfo = { viewModel.showAppInfo() },
-            onPanicClear = { viewModel.panicClearAllData() }
+            onPanicClear = { viewModel.panicClearAllData() },
+            onLocationChannelsClick = { showLocationChannelsSheet = true }
         )
 
         val alpha by animateFloatAsState(
@@ -177,7 +179,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
         }
     }
 
-    // Dialogs
+    // Dialogs and Sheets
     ChatDialogs(
         showPasswordDialog = showPasswordDialog,
         passwordPromptChannel = passwordPromptChannel,
@@ -197,7 +199,10 @@ fun ChatScreen(viewModel: ChatViewModel) {
             passwordInput = ""
         },
         showAppInfo = showAppInfo,
-        onAppInfoDismiss = { viewModel.hideAppInfo() }
+        onAppInfoDismiss = { viewModel.hideAppInfo() },
+        showLocationChannelsSheet = showLocationChannelsSheet,
+        onLocationChannelsSheetDismiss = { showLocationChannelsSheet = false },
+        viewModel = viewModel
     )
 }
 
@@ -270,7 +275,8 @@ private fun ChatFloatingHeader(
     colorScheme: ColorScheme,
     onSidebarToggle: () -> Unit,
     onShowAppInfo: () -> Unit,
-    onPanicClear: () -> Unit
+    onPanicClear: () -> Unit,
+    onLocationChannelsClick: () -> Unit
 ) {
     Surface(
         modifier = Modifier
@@ -296,7 +302,8 @@ private fun ChatFloatingHeader(
                     },
                     onSidebarClick = onSidebarToggle,
                     onTripleClick = onPanicClear,
-                    onShowAppInfo = onShowAppInfo
+                    onShowAppInfo = onShowAppInfo,
+                    onLocationChannelsClick = onLocationChannelsClick
                 )
             },
             colors = TopAppBarDefaults.topAppBarColors(
@@ -324,7 +331,10 @@ private fun ChatDialogs(
     onPasswordConfirm: () -> Unit,
     onPasswordDismiss: () -> Unit,
     showAppInfo: Boolean,
-    onAppInfoDismiss: () -> Unit
+    onAppInfoDismiss: () -> Unit,
+    showLocationChannelsSheet: Boolean,
+    onLocationChannelsSheetDismiss: () -> Unit,
+    viewModel: ChatViewModel
 ) {
     // Password dialog
     PasswordPromptDialog(
@@ -341,4 +351,13 @@ private fun ChatDialogs(
         show = showAppInfo,
         onDismiss = onAppInfoDismiss
     )
+    
+    // Location channels sheet
+    if (showLocationChannelsSheet) {
+        LocationChannelsSheet(
+            isPresented = showLocationChannelsSheet,
+            onDismiss = onLocationChannelsSheetDismiss,
+            viewModel = viewModel
+        )
+    }
 }

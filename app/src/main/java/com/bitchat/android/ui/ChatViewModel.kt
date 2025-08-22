@@ -10,7 +10,7 @@ import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.protocol.BitchatPacket
-import com.bitchat.android.nostr.NostrDemoService
+
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import java.util.*
@@ -48,8 +48,7 @@ class ChatViewModel(
     private val commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager)
     private val notificationManager = NotificationManager(application.applicationContext)
     
-    // MARK: - Nostr Demo Service (for testing kind 10066 events)
-    private val nostrDemoService = NostrDemoService.getInstance(application.applicationContext)
+
     
     // Delegate handler for mesh callbacks
     private val meshDelegateHandler = MeshDelegateHandler(
@@ -92,6 +91,8 @@ class ChatViewModel(
     val peerNicknames: LiveData<Map<String, String>> = state.peerNicknames
     val peerRSSI: LiveData<Map<String, Int>> = state.peerRSSI
     val showAppInfo: LiveData<Boolean> = state.showAppInfo
+    val selectedLocationChannel: LiveData<com.bitchat.android.geohash.ChannelID?> = state.selectedLocationChannel
+    val isTeleported: LiveData<Boolean> = state.isTeleported
     
     init {
         // Note: Mesh service delegate is now set by MainActivity
@@ -129,8 +130,14 @@ class ChatViewModel(
         // Initialize session state monitoring
         initializeSessionStateMonitoring()
         
-        // Initialize Nostr demo service for testing
-        initializeNostrDemo()
+        // Initialize location channel state
+        initializeLocationChannelState()
+        
+        // Initialize favorites persistence service
+        com.bitchat.android.favorites.FavoritesPersistenceService.initialize(getApplication())
+        
+        // Initialize Nostr integration
+        initializeNostrIntegration()
         
         // Note: Mesh service is now started by MainActivity
         
@@ -234,45 +241,91 @@ class ChatViewModel(
                 meshService.sendPrivateMessage(messageContent, peerID, recipientNicknameParam, messageId)
             }
         } else {
-            // Send public/channel message
-            val message = BitchatMessage(
-                sender = state.getNicknameValue() ?: meshService.myPeerID,
-                content = content,
-                timestamp = Date(),
-                isRelay = false,
-                senderPeerID = meshService.myPeerID,
-                mentions = if (mentions.isNotEmpty()) mentions else null,
-                channel = currentChannelValue
-            )
-            
-            if (currentChannelValue != null) {
-                channelManager.addChannelMessage(currentChannelValue, message, meshService.myPeerID)
-                
-                // Check if encrypted channel
-                if (channelManager.hasChannelKey(currentChannelValue)) {
-                    channelManager.sendEncryptedChannelMessage(
-                        content, 
-                        mentions, 
-                        currentChannelValue, 
-                        state.getNicknameValue(),
-                        meshService.myPeerID,
-                        onEncryptedPayload = { encryptedData ->
-                            // This would need proper mesh service integration
-                            meshService.sendMessage(content, mentions, currentChannelValue)
-                        },
-                        onFallback = {
-                            meshService.sendMessage(content, mentions, currentChannelValue)
-                        }
-                    )
-                } else {
-                    meshService.sendMessage(content, mentions, currentChannelValue)
-                }
+            // Check if we're in a location channel
+            val selectedLocationChannel = state.selectedLocationChannel.value
+            if (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location) {
+                // Send to geohash channel via Nostr ephemeral event
+                sendGeohashMessage(content, selectedLocationChannel.channel)
             } else {
-                messageManager.addMessage(message)
-                meshService.sendMessage(content, mentions, null)
+                // Send public/channel message via mesh
+                val message = BitchatMessage(
+                    sender = state.getNicknameValue() ?: meshService.myPeerID,
+                    content = content,
+                    timestamp = Date(),
+                    isRelay = false,
+                    senderPeerID = meshService.myPeerID,
+                    mentions = if (mentions.isNotEmpty()) mentions else null,
+                    channel = currentChannelValue
+                )
                 
-                // DEMO: Also publish via Nostr for testing (kind 10066)
-                publishToNostrDemo(content)
+                if (currentChannelValue != null) {
+                    channelManager.addChannelMessage(currentChannelValue, message, meshService.myPeerID)
+                    
+                    // Check if encrypted channel
+                    if (channelManager.hasChannelKey(currentChannelValue)) {
+                        channelManager.sendEncryptedChannelMessage(
+                            content, 
+                            mentions, 
+                            currentChannelValue, 
+                            state.getNicknameValue(),
+                            meshService.myPeerID,
+                            onEncryptedPayload = { encryptedData ->
+                                // This would need proper mesh service integration
+                                meshService.sendMessage(content, mentions, currentChannelValue)
+                            },
+                            onFallback = {
+                                meshService.sendMessage(content, mentions, currentChannelValue)
+                            }
+                        )
+                    } else {
+                        meshService.sendMessage(content, mentions, currentChannelValue)
+                    }
+                } else {
+                    messageManager.addMessage(message)
+                    meshService.sendMessage(content, mentions, null)
+                }
+            }
+        }
+    }
+    
+    /**
+     * Send message to geohash channel via Nostr ephemeral event
+     */
+    private fun sendGeohashMessage(content: String, channel: com.bitchat.android.geohash.GeohashChannel) {
+        viewModelScope.launch {
+            try {
+                val identity = com.bitchat.android.nostr.NostrIdentityBridge.deriveIdentity(
+                    forGeohash = channel.geohash,
+                    context = getApplication()
+                )
+                
+                val teleported = state.isTeleported.value ?: false
+                
+                val event = com.bitchat.android.nostr.NostrProtocol.createEphemeralGeohashEvent(
+                    content = content,
+                    geohash = channel.geohash,
+                    senderIdentity = identity,
+                    nickname = state.getNicknameValue()
+                )
+                
+                val nostrRelayManager = com.bitchat.android.nostr.NostrRelayManager.getInstance(getApplication())
+                nostrRelayManager.sendEvent(event)
+                
+                Log.i(TAG, "📤 Sent geohash message to ${channel.geohash}: ${content.take(50)}")
+                
+                // Add local echo message
+                val localMessage = BitchatMessage(
+                    sender = state.getNicknameValue() ?: meshService.myPeerID,
+                    content = content,
+                    timestamp = Date(),
+                    isRelay = false,
+                    senderPeerID = "geohash:${channel.geohash}",
+                    channel = "#${channel.geohash}"
+                )
+                messageManager.addMessage(localMessage)
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send geohash message: ${e.message}")
             }
         }
     }
@@ -333,40 +386,287 @@ class ChatViewModel(
         state.setPeerRSSI(rssiValues)
     }
     
-    // MARK: - Nostr Demo Integration
+    // MARK: - Nostr Message Integration
+    
+    private val processedNostrEvents = mutableSetOf<String>()
+    private val processedNostrEventOrder = mutableListOf<String>()
+    private val maxProcessedNostrEvents = 2000
+    private val processedNostrAcks = mutableSetOf<String>()
+    private val nostrKeyMapping = mutableMapOf<String, String>() // senderPeerID -> nostrPubkey
     
     /**
-     * Initialize Nostr demo service for testing event kind 10066
+     * Initialize Nostr relay subscriptions for gift wraps and geohash events
      */
-    private fun initializeNostrDemo() {
-        Log.d(TAG, "🔄 Initializing Nostr demo service...")
-        
-        // Initialize the demo service with a callback to handle received events
-        nostrDemoService.initialize { content, senderNpub, timestamp ->
-            // Create a BitchatMessage from the received Nostr event
-            val nostrMessage = BitchatMessage(
-                sender = "nostr:${senderNpub.take(16)}...", // Abbreviated npub
-                content = "📡 NOSTR ECHO: $content", // Mark as echo
-                timestamp = Date(timestamp * 1000L), // Convert Unix timestamp to Date
-                isRelay = false,
-                senderPeerID = "nostr-demo"
+    private fun initializeNostrIntegration() {
+        viewModelScope.launch {
+            val nostrRelayManager = com.bitchat.android.nostr.NostrRelayManager.getInstance(getApplication())
+            
+            // Connect to relays
+            nostrRelayManager.connect()
+            
+            // Get current Nostr identity
+            val currentIdentity = com.bitchat.android.nostr.NostrIdentityBridge.getCurrentNostrIdentity(getApplication())
+            if (currentIdentity == null) {
+                Log.w(TAG, "No Nostr identity available for subscriptions")
+                return@launch
+            }
+            
+            // Subscribe to gift wraps (NIP-17 private messages)
+            val dmFilter = com.bitchat.android.nostr.NostrFilter.giftWrapsFor(
+                pubkey = currentIdentity.publicKeyHex,
+                since = System.currentTimeMillis() - 86400000L // Last 24 hours
             )
             
-            // Add to main chat view
-            messageManager.addMessage(nostrMessage)
+            nostrRelayManager.subscribe(
+                filter = dmFilter,
+                id = "chat-messages"
+            ) { event ->
+                handleNostrMessage(event)
+            }
             
-            Log.i(TAG, "📥 Received Nostr demo event and displayed in chat")
+            Log.i(TAG, "✅ Nostr integration initialized with gift wrap subscription")
         }
-        
-        Log.i(TAG, "✅ Nostr demo service initialized")
     }
     
     /**
-     * Publish a message to Nostr demo service (kind 10066) for testing
+     * Handle incoming Nostr message (gift wrap)
      */
-    private fun publishToNostrDemo(content: String) {
-        Log.d(TAG, "📤 Publishing to Nostr demo: ${content.take(50)}...")
-        nostrDemoService.publishDemoMessage(content)
+    private fun handleNostrMessage(giftWrap: com.bitchat.android.nostr.NostrEvent) {
+        // Simple deduplication
+        if (processedNostrEvents.contains(giftWrap.id)) return
+        processedNostrEvents.add(giftWrap.id)
+        
+        // Manage deduplication cache size
+        processedNostrEventOrder.add(giftWrap.id)
+        if (processedNostrEventOrder.size > maxProcessedNostrEvents) {
+            val oldestId = processedNostrEventOrder.removeAt(0)
+            processedNostrEvents.remove(oldestId)
+        }
+        
+        // Client-side filtering: ignore messages older than 24 hours + 15 minutes buffer
+        val messageAge = System.currentTimeMillis() / 1000 - giftWrap.createdAt
+        if (messageAge > 87300) { // 24 hours + 15 minutes
+            return
+        }
+        
+        Log.d(TAG, "Processing Nostr message: ${giftWrap.id.take(16)}...")
+        
+        val currentIdentity = com.bitchat.android.nostr.NostrIdentityBridge.getCurrentNostrIdentity(getApplication())
+        if (currentIdentity == null) {
+            Log.w(TAG, "No Nostr identity available for decryption")
+            return
+        }
+        
+        try {
+            val decryptResult = com.bitchat.android.nostr.NostrProtocol.decryptPrivateMessage(
+                giftWrap = giftWrap,
+                recipientIdentity = currentIdentity
+            )
+            
+            if (decryptResult == null) {
+                Log.w(TAG, "Failed to decrypt Nostr message")
+                return
+            }
+            
+            val (content, senderPubkey, rumorTimestamp) = decryptResult
+            
+            // Expect embedded BitChat packet content
+            if (!content.startsWith("bitchat1:")) {
+                Log.d(TAG, "Ignoring non-embedded Nostr DM content")
+                return
+            }
+            
+            val base64Content = content.removePrefix("bitchat1:")
+            val packetData = base64URLDecode(base64Content)
+            if (packetData == null) {
+                Log.e(TAG, "Failed to decode base64url BitChat packet")
+                return
+            }
+            
+            val packet = com.bitchat.android.protocol.BitchatPacket.fromBinaryData(packetData)
+            if (packet == null) {
+                Log.e(TAG, "Failed to parse embedded BitChat packet from Nostr DM")
+                return
+            }
+            
+            // Only process noiseEncrypted envelope for private messages/receipts
+            if (packet.type != com.bitchat.android.protocol.MessageType.NOISE_ENCRYPTED.value) {
+                Log.w(TAG, "Unsupported embedded packet type: ${packet.type}")
+                return
+            }
+            
+            // Validate recipient if present
+            packet.recipientID?.let { rid ->
+                val ridHex = rid.joinToString("") { "%02x".format(it) }
+                if (ridHex != meshService.myPeerID) {
+                    return
+                }
+            }
+            
+            // Parse plaintext typed payload (NoisePayload)
+            val noisePayload = com.bitchat.android.model.NoisePayload.decode(packet.payload)
+            if (noisePayload == null) {
+                Log.e(TAG, "Failed to parse embedded NoisePayload")
+                return
+            }
+            
+            // Map sender by Nostr pubkey to Noise key when possible
+            val senderNoiseKey = findNoiseKeyForNostrPubkey(senderPubkey)
+            val messageTimestamp = Date(rumorTimestamp * 1000L)
+            val senderNickname = if (senderNoiseKey != null) {
+                // Get nickname from favorites
+                getFavoriteNickname(senderNoiseKey) ?: "Unknown"
+            } else {
+                "Unknown"
+            }
+            
+            // Stable target ID if we know Noise key; otherwise temporary Nostr-based peer
+            val targetPeerID = senderNoiseKey?.let { 
+                it.joinToString("") { byte -> "%02x".format(byte) }
+            } ?: "nostr_${senderPubkey.take(16)}"
+            
+            // Store Nostr key mapping
+            nostrKeyMapping[targetPeerID] = senderPubkey
+            
+            processNoisePayload(noisePayload, targetPeerID, senderNickname, messageTimestamp)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error processing Nostr message: ${e.message}")
+        }
+    }
+    
+    /**
+     * Process NoisePayload from Nostr message
+     */
+    private fun processNoisePayload(
+        noisePayload: com.bitchat.android.model.NoisePayload,
+        targetPeerID: String,
+        senderNickname: String,
+        messageTimestamp: Date
+    ) {
+        when (noisePayload.type) {
+            com.bitchat.android.model.NoisePayloadType.PRIVATE_MESSAGE -> {
+                val pm = com.bitchat.android.model.PrivateMessagePacket.decode(noisePayload.data)
+                if (pm == null) {
+                    Log.e(TAG, "Failed to decode PrivateMessagePacket")
+                    return
+                }
+                
+                val messageId = pm.messageID
+                val messageContent = pm.content
+                
+                // Handle favorite/unfavorite notifications
+                if (messageContent.startsWith("[FAVORITED]") || messageContent.startsWith("[UNFAVORITED]")) {
+                    handleFavoriteNotification(messageContent, targetPeerID, senderNickname)
+                    return
+                }
+                
+                // Check for duplicate message
+                val existingChats = state.getPrivateChatsValue()
+                var messageExists = false
+                for ((_, messages) in existingChats) {
+                    if (messages.any { it.id == messageId }) {
+                        messageExists = true
+                        break
+                    }
+                }
+                if (messageExists) return
+                
+                // Check if viewing this chat
+                val isViewingThisChat = state.getSelectedPrivateChatPeerValue() == targetPeerID
+                
+                // Create BitchatMessage
+                val message = BitchatMessage(
+                    id = messageId,
+                    sender = senderNickname,
+                    content = messageContent,
+                    timestamp = messageTimestamp,
+                    isRelay = false,
+                    isPrivate = true,
+                    recipientNickname = state.getNicknameValue(),
+                    senderPeerID = targetPeerID,
+                    deliveryStatus = com.bitchat.android.model.DeliveryStatus.Delivered(
+                        to = state.getNicknameValue() ?: "Unknown",
+                        at = Date()
+                    )
+                )
+                
+                // Add to private chats
+                privateChatManager.handleIncomingPrivateMessage(message)
+                
+                // Send read receipt if viewing
+                if (isViewingThisChat) {
+                    privateChatManager.sendReadReceiptsForPeer(targetPeerID, meshService)
+                }
+                
+                Log.i(TAG, "📥 Processed Nostr private message from $senderNickname")
+            }
+            
+            com.bitchat.android.model.NoisePayloadType.DELIVERED -> {
+                val messageId = String(noisePayload.data, Charsets.UTF_8)
+                // Use the existing delegate to handle delivery acknowledgment
+                meshDelegateHandler.didReceiveDeliveryAck(messageId, targetPeerID)
+                Log.d(TAG, "📥 Processed Nostr delivery ACK for message $messageId")
+            }
+            
+            com.bitchat.android.model.NoisePayloadType.READ_RECEIPT -> {
+                val messageId = String(noisePayload.data, Charsets.UTF_8)
+                // Use the existing delegate to handle read receipt
+                meshDelegateHandler.didReceiveReadReceipt(messageId, targetPeerID)
+                Log.d(TAG, "📥 Processed Nostr read receipt for message $messageId")
+            }
+        }
+    }
+    
+    /**
+     * Find Noise key for Nostr pubkey from favorites
+     */
+    private fun findNoiseKeyForNostrPubkey(nostrPubkey: String): ByteArray? {
+        return com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNoiseKey(nostrPubkey)
+    }
+    
+    /**
+     * Get favorite nickname for Noise key
+     */
+    private fun getFavoriteNickname(noiseKey: ByteArray): String? {
+        return com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)?.peerNickname
+    }
+    
+    /**
+     * Handle favorite/unfavorite notification
+     */
+    private fun handleFavoriteNotification(content: String, fromPeerID: String, senderNickname: String) {
+        val isFavorite = content.startsWith("[FAVORITED]")
+        val action = if (isFavorite) "favorited" else "unfavorited"
+        
+        // Show system message
+        val systemMessage = BitchatMessage(
+            sender = "system",
+            content = "$senderNickname $action you",
+            timestamp = Date(),
+            isRelay = false
+        )
+        messageManager.addMessage(systemMessage)
+        
+        Log.i(TAG, "📥 Processed favorite notification: $senderNickname $action you")
+    }
+    
+    /**
+     * Base64URL decode (without padding)
+     */
+    private fun base64URLDecode(input: String): ByteArray? {
+        return try {
+            val padded = input.replace("-", "+")
+                .replace("_", "/")
+                .let { str ->
+                    val padding = (4 - str.length % 4) % 4
+                    str + "=".repeat(padding)
+                }
+            android.util.Base64.decode(padded, android.util.Base64.DEFAULT)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to decode base64url: ${e.message}")
+            null
+        }
     }
     
     // MARK: - Debug and Troubleshooting
@@ -553,21 +853,40 @@ class ChatViewModel(
         Log.d(TAG, "🌍 Beginning geohash sampling for ${geohashes.size} geohashes")
         
         geohashSamplingJob = viewModelScope.launch {
-            // TODO: Integrate with NostrRelayManager to subscribe to geohash ephemeral events
-            // For now, simulate some activity for demonstration
+            val nostrRelayManager = com.bitchat.android.nostr.NostrRelayManager.getInstance(getApplication())
             
-            while (true) {
-                delay(10000) // Check every 10 seconds
+            // Subscribe to each geohash for ephemeral events (kind 20000)
+            geohashes.forEach { geohash ->
+                val filter = com.bitchat.android.nostr.NostrFilter.geohashEphemeral(
+                    geohash = geohash,
+                    since = System.currentTimeMillis() - 86400000L, // Last 24 hours
+                    limit = 200
+                )
                 
-                // Simulate some activity for testing
-                geohashes.forEach { geohash ->
-                    if (Random.nextFloat() < 0.1f) { // 10% chance of activity
-                        val participantId = "demo_${Random.nextInt(1000)}"
-                        updateGeohashParticipant(geohash, participantId, Date())
-                    }
+                nostrRelayManager.subscribe(
+                    filter = filter,
+                    id = "geohash-$geohash"
+                ) { event ->
+                    handleGeohashEvent(event, geohash)
                 }
+                
+                Log.d(TAG, "Subscribed to geohash events for: $geohash")
             }
         }
+    }
+    
+    /**
+     * Handle geohash ephemeral event (kind 20000)
+     */
+    private fun handleGeohashEvent(event: com.bitchat.android.nostr.NostrEvent, geohash: String) {
+        // Extract participant ID from event (sender pubkey)
+        val participantId = event.pubkey.take(16) // Use first 16 chars as participant ID
+        val timestamp = Date(event.createdAt * 1000L)
+        
+        // Update participant activity
+        updateGeohashParticipant(geohash, participantId, timestamp)
+        
+        Log.v(TAG, "Updated geohash $geohash participant activity: $participantId")
     }
     
     /**
@@ -585,6 +904,39 @@ class ChatViewModel(
     private fun updateGeohashParticipant(geohash: String, participantId: String, lastSeen: Date) {
         val participants = geohashParticipants.getOrPut(geohash) { mutableMapOf() }
         participants[participantId] = lastSeen
+    }
+    
+    // MARK: - Location Channel Management
+    
+    private var locationChannelManager: com.bitchat.android.geohash.LocationChannelManager? = null
+    
+    private fun initializeLocationChannelState() {
+        try {
+            // Initialize location channel manager safely
+            locationChannelManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(getApplication())
+            
+            // Observe location channel manager state
+            locationChannelManager?.selectedChannel?.observeForever { channel ->
+                state.setSelectedLocationChannel(channel)
+            }
+            
+            locationChannelManager?.teleported?.observeForever { teleported ->
+                state.setIsTeleported(teleported)
+            }
+            
+            Log.d(TAG, "✅ Location channel state initialized successfully")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to initialize location channel state: ${e.message}")
+            // Set default values in case of failure
+            state.setSelectedLocationChannel(com.bitchat.android.geohash.ChannelID.Mesh)
+            state.setIsTeleported(false)
+        }
+    }
+    
+    fun selectLocationChannel(channel: com.bitchat.android.geohash.ChannelID) {
+        locationChannelManager?.select(channel) ?: run {
+            Log.w(TAG, "Cannot select location channel - LocationChannelManager not initialized")
+        }
     }
     
     // MARK: - Navigation Management

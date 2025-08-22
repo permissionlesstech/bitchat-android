@@ -434,12 +434,27 @@ class NostrTransport(
     
     /**
      * Resolve Nostr public key for a peer ID
-     * This would integrate with the existing favorites system
      */
     private fun resolveNostrPublicKey(peerID: String): String? {
-        // TODO: Integrate with Android's FavoritesPersistenceService equivalent
-        // For now, return null since we need to implement the favorites-nostr bridge
-        return NostrIdentityBridge.getNostrPublicKey(hexStringToByteArray(peerID), context)
+        try {
+            // Try to resolve from favorites persistence service
+            val noiseKey = hexStringToByteArray(peerID)
+            val favoriteStatus = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)
+            if (favoriteStatus?.peerNostrPublicKey != null) {
+                return favoriteStatus.peerNostrPublicKey
+            }
+            
+            // Fallback: try with 16-hex peerID lookup
+            if (peerID.length == 16) {
+                val fallbackStatus = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(peerID)
+                return fallbackStatus?.peerNostrPublicKey
+            }
+            
+            return null
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to resolve Nostr public key for $peerID: ${e.message}")
+            return null
+        }
     }
     
     /**
