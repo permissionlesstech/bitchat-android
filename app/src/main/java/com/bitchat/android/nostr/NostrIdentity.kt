@@ -137,7 +137,7 @@ object NostrIdentityBridge {
     fun deriveIdentity(forGeohash: String, context: Context): NostrIdentity {
         // Check cache first for immediate response
         geohashIdentityCache[forGeohash]?.let { cachedIdentity ->
-            Log.v(TAG, "Using cached geohash identity for $forGeohash")
+            //Log.v(TAG, "Using cached geohash identity for $forGeohash")
             return cachedIdentity
         }
         

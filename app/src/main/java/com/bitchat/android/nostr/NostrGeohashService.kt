@@ -631,7 +631,7 @@ class NostrGeohashService(
         // Build GeoPerson list
         val people = participants.map { (pubkeyHex, lastSeen) ->
             val displayName = displayNameForNostrPubkey(pubkeyHex)
-            Log.v(TAG, "🏷️ Participant ${pubkeyHex.take(8)} -> displayName: $displayName")
+            //Log.v(TAG, "🏷️ Participant ${pubkeyHex.take(8)} -> displayName: $displayName")
             GeoPerson(
                 id = pubkeyHex.lowercase(),
                 displayName = displayName,
@@ -640,12 +640,8 @@ class NostrGeohashService(
         }.sortedByDescending { it.lastSeen } // Most recent first
         
         state.setGeohashPeople(people)
-        Log.d(TAG, "🌍 Refreshed geohash people: ${people.size} participants in $geohash")
-        
-        // Debug: Log cached nicknames for troubleshooting
-        if (geoNicknames.isNotEmpty()) {
-            Log.v(TAG, "📋 Current cached nicknames: ${geoNicknames.entries.take(5).map { "${it.key.take(8)} -> ${it.value}" }}")
-        }
+        //Log.d(TAG, "🌍 Refreshed geohash people: ${people.size} participants in $geohash")
+
     }
     
     /**
@@ -1148,12 +1144,12 @@ class NostrGeohashService(
         
         // If we have a cached nickname for this pubkey, use it
         geoNicknames[pubkeyLower]?.let { nick ->
-            Log.v(TAG, "✅ Found cached nickname for ${pubkeyHex.take(8)}: $nick")
+            //Log.v(TAG, "✅ Found cached nickname for ${pubkeyHex.take(8)}: $nick")
             return "$nick#$suffix"
         }
         
         // Otherwise, anonymous with collision-resistant suffix
-        Log.v(TAG, "❌ No cached nickname for ${pubkeyHex.take(8)}, using anon")
+        //Log.v(TAG, "❌ No cached nickname for ${pubkeyHex.take(8)}, using anon")
         return "anon#$suffix"
     }
     

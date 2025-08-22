@@ -383,7 +383,7 @@ class NostrRelayManager private constructor() {
                     }
                     
                     if (!wasProcessed) {
-                        Log.v(TAG, "🔄 Duplicate event ${response.event.id.take(16)}... from relay: $relayUrl")
+                        //Log.v(TAG, "🔄 Duplicate event ${response.event.id.take(16)}... from relay: $relayUrl")
                     }
                 }
                 
