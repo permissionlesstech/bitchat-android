@@ -218,14 +218,8 @@ class ChatViewModel(
         }
         
         val mentions = messageManager.parseMentions(content, meshService.getPeerNicknames().values.toSet(), state.getNicknameValue())
-        val channels = messageManager.parseChannels(content)
-        
-        // Auto-join mentioned channels
-        channels.forEach { channel ->
-            if (!state.getJoinedChannelsValue().contains(channel)) {
-                joinChannel(channel)
-            }
-        }
+        // REMOVED: Auto-join mentioned channels feature that was incorrectly parsing hashtags from @mentions
+        // This was causing messages like "test @jack#1234 test" to auto-join channel "#1234"
         
         val selectedPeer = state.getSelectedPrivateChatPeerValue()
         val currentChannelValue = state.getCurrentChannelValue()
