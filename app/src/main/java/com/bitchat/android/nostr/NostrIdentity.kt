@@ -98,6 +98,9 @@ object NostrIdentityBridge {
     private const val NOSTR_PRIVATE_KEY = "nostr_private_key"
     private const val DEVICE_SEED_KEY = "nostr_device_seed"
     
+    // Cache for derived geohash identities to avoid repeated crypto operations
+    private val geohashIdentityCache = mutableMapOf<String, NostrIdentity>()
+    
     /**
      * Get or create the current Nostr identity
      */
@@ -129,8 +132,15 @@ object NostrIdentityBridge {
      * if the candidate is not a valid secp256k1 private key.
      * 
      * Direct port from iOS implementation for 100% compatibility
+     * OPTIMIZED: Cached for UI responsiveness
      */
     fun deriveIdentity(forGeohash: String, context: Context): NostrIdentity {
+        // Check cache first for immediate response
+        geohashIdentityCache[forGeohash]?.let { cachedIdentity ->
+            Log.v(TAG, "Using cached geohash identity for $forGeohash")
+            return cachedIdentity
+        }
+        
         val stateManager = SecureIdentityStateManager(context)
         val seed = getOrCreateDeviceSeed(stateManager)
         
@@ -142,8 +152,13 @@ object NostrIdentityBridge {
             val candidateKeyHex = candidateKey.toHexStringLocal()
             
             if (NostrCrypto.isValidPrivateKey(candidateKeyHex)) {
+                val identity = NostrIdentity.fromPrivateKey(candidateKeyHex)
+                
+                // Cache the result for future UI responsiveness
+                geohashIdentityCache[forGeohash] = identity
+                
                 Log.d(TAG, "Derived geohash identity for $forGeohash (iteration $i)")
-                return NostrIdentity.fromPrivateKey(candidateKeyHex)
+                return identity
             }
         }
         
@@ -152,8 +167,13 @@ object NostrIdentityBridge {
         val digest = MessageDigest.getInstance("SHA-256")
         val fallbackKey = digest.digest(combined)
         
+        val fallbackIdentity = NostrIdentity.fromPrivateKey(fallbackKey.toHexStringLocal())
+        
+        // Cache the fallback result too
+        geohashIdentityCache[forGeohash] = fallbackIdentity
+        
         Log.d(TAG, "Used fallback identity derivation for $forGeohash")
-        return NostrIdentity.fromPrivateKey(fallbackKey.toHexStringLocal())
+        return fallbackIdentity
     }
     
     /**
@@ -192,6 +212,9 @@ object NostrIdentityBridge {
     fun clearAllAssociations(context: Context) {
         val stateManager = SecureIdentityStateManager(context)
         
+        // Clear cache first
+        geohashIdentityCache.clear()
+        
         // Clear Nostr private key
         try {
             val clazz = stateManager.javaClass
@@ -204,7 +227,7 @@ object NostrIdentityBridge {
                 .remove(DEVICE_SEED_KEY)
                 .apply()
                 
-            Log.i(TAG, "Cleared all Nostr identity data")
+            Log.i(TAG, "Cleared all Nostr identity data and cache")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to clear Nostr data: ${e.message}")
         }

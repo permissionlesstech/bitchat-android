@@ -129,10 +129,29 @@ fun PeerCounter(
     hasUnreadChannels: Map<String, Int>,
     hasUnreadPrivateMessages: Set<String>,
     isConnected: Boolean,
+    selectedLocationChannel: com.bitchat.android.geohash.ChannelID?,
+    geohashPeople: List<GeoPerson>,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    
+    // Compute channel-aware people count and color (matches iOS logic exactly)
+    val (peopleCount, countColor) = when (selectedLocationChannel) {
+        is com.bitchat.android.geohash.ChannelID.Location -> {
+            // Geohash channel: show geohash participants
+            val count = geohashPeople.size
+            val green = Color(0xFF00C851) // Standard green
+            Pair(count, if (count > 0) green else Color.Gray)
+        }
+        is com.bitchat.android.geohash.ChannelID.Mesh,
+        null -> {
+            // Mesh channel: show Bluetooth-connected peers (excluding self)
+            val count = connectedPeers.size
+            val meshBlue = Color(0xFF007AFF) // iOS-style blue for mesh
+            Pair(count, if (isConnected && count > 0) meshBlue else Color.Gray)
+        }
+    }
     
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -167,15 +186,18 @@ fun PeerCounter(
         
         Icon(
             imageVector = Icons.Default.Group,
-            contentDescription = "Connected peers",
+            contentDescription = when (selectedLocationChannel) {
+                is com.bitchat.android.geohash.ChannelID.Location -> "Geohash participants"
+                else -> "Connected peers"
+            },
             modifier = Modifier.size(16.dp),
-            tint = if (isConnected) Color(0xFF00C851) else Color.Red
+            tint = countColor
         )
         Spacer(modifier = Modifier.width(4.dp))
         Text(
-            text = "${connectedPeers.size}",
+            text = "$peopleCount",
             style = MaterialTheme.typography.bodyMedium,
-            color = if (isConnected) Color(0xFF00C851) else Color.Red,
+            color = countColor,
             fontSize = 16.sp,
             fontWeight = FontWeight.Medium
         )
@@ -419,6 +441,8 @@ private fun MainHeader(
     val hasUnreadChannels by viewModel.unreadChannelMessages.observeAsState(emptyMap())
     val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.observeAsState(emptySet())
     val isConnected by viewModel.isConnected.observeAsState(false)
+    val selectedLocationChannel by viewModel.selectedLocationChannel.observeAsState()
+    val geohashPeople by viewModel.geohashPeople.observeAsState(emptyList())
     
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -489,6 +513,8 @@ private fun MainHeader(
                 hasUnreadChannels = hasUnreadChannels,
                 hasUnreadPrivateMessages = hasUnreadPrivateMessages,
                 isConnected = isConnected,
+                selectedLocationChannel = selectedLocationChannel,
+                geohashPeople = geohashPeople,
                 onClick = onSidebarClick
             )
         }

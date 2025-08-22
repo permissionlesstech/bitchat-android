@@ -1044,54 +1044,36 @@ class ChatViewModel(
     
     /**
      * Switch to location channel and set up proper Nostr subscriptions (iOS-compatible)
+     * Optimized for non-blocking UI with immediate feedback
      */
     private fun switchLocationChannel(channel: com.bitchat.android.geohash.ChannelID?) {
-        viewModelScope.launch {
-            try {
-                // Clear processed events when switching channels to get fresh timeline
-                processedNostrEvents.clear()
-                processedNostrEventOrder.clear()
-                
-                // Unsubscribe from previous geohash channel
-                currentGeohashSubscriptionId?.let { subId ->
-                    val nostrRelayManager = com.bitchat.android.nostr.NostrRelayManager.getInstance(getApplication())
-                    nostrRelayManager.unsubscribe(subId)
-                    currentGeohashSubscriptionId = null
-                    Log.d(TAG, "🔄 Unsubscribed from previous geohash channel: $subId")
+        // STEP 1: Immediate UI updates (synchronous, no blocking)
+        try {
+            when (channel) {
+                is com.bitchat.android.geohash.ChannelID.Mesh -> {
+                    Log.d(TAG, "📡 Switched to mesh channel")
+                    // Immediate UI state updates
+                    currentGeohash = null
+                    geoNicknames.clear()
+                    stopGeoParticipantsTimer()
+                    state.setGeohashPeople(emptyList())
+                    state.setTeleportedGeo(emptySet())
                 }
                 
-                // Unsubscribe from previous geohash DMs
-                currentGeohashDmSubscriptionId?.let { dmSubId ->
-                    val nostrRelayManager = com.bitchat.android.nostr.NostrRelayManager.getInstance(getApplication())
-                    nostrRelayManager.unsubscribe(dmSubId)
-                    currentGeohashDmSubscriptionId = null
-                    Log.d(TAG, "🔄 Unsubscribed from previous geohash DMs: $dmSubId")
-                }
-                
-                currentGeohash = null
-                geoNicknames.clear()
-                
-                when (channel) {
-                    is com.bitchat.android.geohash.ChannelID.Mesh -> {
-                        Log.d(TAG, "📡 Switched to mesh channel")
-                        // Clear geohash state
-                        stopGeoParticipantsTimer()
-                        state.setGeohashPeople(emptyList())
-                        state.setTeleportedGeo(emptySet())
-                    }
+                is com.bitchat.android.geohash.ChannelID.Location -> {
+                    Log.d(TAG, "📍 Switching to geohash channel: ${channel.channel.geohash}")
+                    currentGeohash = channel.channel.geohash
+                    geoNicknames.clear()
                     
-                    is com.bitchat.android.geohash.ChannelID.Location -> {
-                        Log.d(TAG, "📍 Switching to geohash channel: ${channel.channel.geohash}")
-                        currentGeohash = channel.channel.geohash
-                        
-                        // Ensure self appears immediately in the people list (iOS-compatible)
+                    // Immediate self-registration for instant UI feedback
+                    try {
                         val identity = com.bitchat.android.nostr.NostrIdentityBridge.deriveIdentity(
                             forGeohash = channel.channel.geohash,
                             context = getApplication()
                         )
                         recordGeoParticipant(identity.publicKeyHex)
                         
-                        // Mark teleported state if applicable  
+                        // Mark teleported state immediately
                         val teleported = state.isTeleported.value ?: false
                         if (teleported) {
                             val currentTeleported = state.getTeleportedGeoValue().toMutableSet()
@@ -1099,12 +1081,69 @@ class ChatViewModel(
                             state.setTeleportedGeo(currentTeleported)
                         }
                         
-                        // Start participant refresh timer
-                        startGeoParticipantsTimer()
-                        
+                        Log.d(TAG, "📍 Immediate self-registration completed for geohash UI")
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed immediate identity setup: ${e.message}")
+                    }
+                    
+                    // Start participant refresh timer immediately
+                    startGeoParticipantsTimer()
+                }
+                
+                null -> {
+                    Log.d(TAG, "📡 No channel selected")
+                    currentGeohash = null
+                    geoNicknames.clear()
+                    stopGeoParticipantsTimer()
+                    state.setGeohashPeople(emptyList())
+                    state.setTeleportedGeo(emptySet())
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error in immediate channel switch: ${e.message}")
+        }
+        
+        // STEP 2: Async subscription setup (non-blocking background)
+        viewModelScope.launch {
+            try {
+                Log.d(TAG, "🔄 Starting async subscription setup...")
+                
+                // Clear processed events when switching channels to get fresh timeline
+                processedNostrEvents.clear()
+                processedNostrEventOrder.clear()
+                
+                // Unsubscribe from previous geohash channel (async)
+                currentGeohashSubscriptionId?.let { subId ->
+                    try {
+                        val nostrRelayManager = com.bitchat.android.nostr.NostrRelayManager.getInstance(getApplication())
+                        nostrRelayManager.unsubscribe(subId)
+                        currentGeohashSubscriptionId = null
+                        Log.d(TAG, "🔄 Unsubscribed from previous geohash channel: $subId")
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to unsubscribe from channel: ${e.message}")
+                    }
+                }
+                
+                // Unsubscribe from previous geohash DMs (async)
+                currentGeohashDmSubscriptionId?.let { dmSubId ->
+                    try {
+                        val nostrRelayManager = com.bitchat.android.nostr.NostrRelayManager.getInstance(getApplication())
+                        nostrRelayManager.unsubscribe(dmSubId)
+                        currentGeohashDmSubscriptionId = null
+                        Log.d(TAG, "🔄 Unsubscribed from previous geohash DMs: $dmSubId")
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to unsubscribe from DMs: ${e.message}")
+                    }
+                }
+                
+                // Setup new subscriptions for location channels
+                if (channel is com.bitchat.android.geohash.ChannelID.Location) {
+                    Log.d(TAG, "🌐 Setting up Nostr subscriptions for geohash: ${channel.channel.geohash}")
+                    
+                    try {
                         val nostrRelayManager = com.bitchat.android.nostr.NostrRelayManager.getInstance(getApplication())
                         
-                        // Subscribe to geohash ephemeral events (public messages)
+                        // Subscribe to geohash ephemeral events (public messages) - async
                         val subId = "geo-${channel.channel.geohash}"
                         currentGeohashSubscriptionId = subId
                         
@@ -1123,7 +1162,7 @@ class ChatViewModel(
                         
                         Log.i(TAG, "✅ Subscribed to geohash channel events: ${channel.channel.geohash}")
                         
-                        // Subscribe to geohash DMs for this channel's identity
+                        // Subscribe to geohash DMs for this channel's identity - async
                         val dmIdentity = com.bitchat.android.nostr.NostrIdentityBridge.deriveIdentity(
                             forGeohash = channel.channel.geohash,
                             context = getApplication()
@@ -1145,15 +1184,16 @@ class ChatViewModel(
                         }
                         
                         Log.i(TAG, "✅ Subscribed to geohash DMs for identity: ${dmIdentity.publicKeyHex.take(16)}...")
-                    }
-                    
-                    null -> {
-                        Log.d(TAG, "📡 No channel selected")
+                        
+                    } catch (e: Exception) {
+                        Log.e(TAG, "❌ Failed to setup geohash subscriptions: ${e.message}")
                     }
                 }
                 
+                Log.d(TAG, "✅ Async subscription setup completed")
+                
             } catch (e: Exception) {
-                Log.e(TAG, "❌ Failed to switch location channel: ${e.message}")
+                Log.e(TAG, "❌ Failed in async channel switching: ${e.message}")
             }
         }
     }
