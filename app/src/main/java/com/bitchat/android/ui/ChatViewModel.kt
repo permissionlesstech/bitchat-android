@@ -211,9 +211,9 @@ class ChatViewModel(
         
         // Check for commands
         if (content.startsWith("/")) {
-            commandProcessor.processCommand(content, meshService, meshService.myPeerID) { messageContent, mentions, channel ->
+            commandProcessor.processCommand(content, meshService, meshService.myPeerID, { messageContent, mentions, channel ->
                 meshService.sendMessage(messageContent, mentions, channel)
-            }
+            }, this)
             return
         }
         
@@ -708,7 +708,7 @@ class ChatViewModel(
     // MARK: - Mention Autocomplete
     
     fun updateMentionSuggestions(input: String) {
-        commandProcessor.updateMentionSuggestions(input, meshService)
+        commandProcessor.updateMentionSuggestions(input, meshService, this)
     }
     
     fun selectMentionSuggestion(nickname: String, currentText: String): String {

@@ -29,7 +29,7 @@ class CommandProcessor(
     
     // MARK: - Command Processing
     
-    fun processCommand(command: String, meshService: BluetoothMeshService, myPeerID: String, onSendMessage: (String, List<String>, String?) -> Unit): Boolean {
+    fun processCommand(command: String, meshService: BluetoothMeshService, myPeerID: String, onSendMessage: (String, List<String>, String?) -> Unit, viewModel: ChatViewModel? = null): Boolean {
         if (!command.startsWith("/")) return false
         
         val parts = command.split(" ")
@@ -38,7 +38,7 @@ class CommandProcessor(
         when (cmd) {
             "/j", "/join" -> handleJoinCommand(parts, myPeerID)
             "/m", "/msg" -> handleMessageCommand(parts, meshService)
-            "/w" -> handleWhoCommand(meshService)
+            "/w" -> handleWhoCommand(meshService, viewModel)
             "/clear" -> handleClearCommand()
             "/pass" -> handlePassCommand(parts, myPeerID)
             "/block" -> handleBlockCommand(parts, meshService)
@@ -130,19 +130,53 @@ class CommandProcessor(
         }
     }
     
-    private fun handleWhoCommand(meshService: BluetoothMeshService) {
-        val connectedPeers = state.getConnectedPeersValue()
-        val peerList = connectedPeers.joinToString(", ") { peerID ->
-            // Convert peerID to nickname using the mesh service
-            getPeerNickname(peerID, meshService)
+    private fun handleWhoCommand(meshService: BluetoothMeshService, viewModel: ChatViewModel? = null) {
+        // Channel-aware who command (matches iOS behavior)
+        val (peerList, contextDescription) = if (viewModel != null) {
+            when (val selectedChannel = viewModel.selectedLocationChannel.value) {
+                is com.bitchat.android.geohash.ChannelID.Mesh,
+                null -> {
+                    // Mesh channel: show Bluetooth-connected peers
+                    val connectedPeers = state.getConnectedPeersValue()
+                    val peerList = connectedPeers.joinToString(", ") { peerID ->
+                        getPeerNickname(peerID, meshService)
+                    }
+                    Pair(peerList, "online users")
+                }
+                
+                is com.bitchat.android.geohash.ChannelID.Location -> {
+                    // Location channel: show geohash participants
+                    val geohashPeople = viewModel.geohashPeople.value ?: emptyList()
+                    val currentNickname = state.getNicknameValue()
+                    
+                    val participantList = geohashPeople.mapNotNull { person ->
+                        val displayName = person.displayName
+                        // Exclude self from list
+                        if (displayName.startsWith("${currentNickname}#")) {
+                            null
+                        } else {
+                            displayName
+                        }
+                    }.joinToString(", ")
+                    
+                    Pair(participantList, "participants in ${selectedChannel.channel.geohash}")
+                }
+            }
+        } else {
+            // Fallback to mesh behavior
+            val connectedPeers = state.getConnectedPeersValue()
+            val peerList = connectedPeers.joinToString(", ") { peerID ->
+                getPeerNickname(peerID, meshService)
+            }
+            Pair(peerList, "online users")
         }
         
         val systemMessage = BitchatMessage(
             sender = "system",
-            content = if (connectedPeers.isEmpty()) {
-                "no one else is online right now."
+            content = if (peerList.isEmpty()) {
+                "no one else is around right now."
             } else {
-                "online users: $peerList"
+                "$contextDescription: $peerList"
             },
             timestamp = Date(),
             isRelay = false
@@ -383,7 +417,7 @@ class CommandProcessor(
     
     // MARK: - Mention Autocomplete
     
-    fun updateMentionSuggestions(input: String, meshService: BluetoothMeshService) {
+    fun updateMentionSuggestions(input: String, meshService: BluetoothMeshService, viewModel: ChatViewModel? = null) {
         // Check if input contains @ and we're at the end of a word or at the end of input
         val atIndex = input.lastIndexOf('@')
         if (atIndex == -1) {
@@ -402,11 +436,38 @@ class CommandProcessor(
             return
         }
         
-        // Get all connected peer nicknames - now using direct access instead of reflection
-        val peerNicknames = meshService.getPeerNicknames().values.toList()
+        // Get peer candidates based on active channel (matches iOS logic exactly)
+        val peerCandidates: List<String> = if (viewModel != null) {
+            when (val selectedChannel = viewModel.selectedLocationChannel.value) {
+                is com.bitchat.android.geohash.ChannelID.Mesh,
+                null -> {
+                    // Mesh channel: use Bluetooth mesh peer nicknames
+                    meshService.getPeerNicknames().values.filter { it != meshService.getPeerNicknames()[meshService.myPeerID] }
+                }
+                
+                is com.bitchat.android.geohash.ChannelID.Location -> {
+                    // Location channel: use geohash participants with collision-resistant suffixes
+                    val geohashPeople = viewModel.geohashPeople.value ?: emptyList()
+                    val currentNickname = state.getNicknameValue()
+                    
+                    geohashPeople.mapNotNull { person ->
+                        val displayName = person.displayName
+                        // Exclude self from suggestions
+                        if (displayName.startsWith("${currentNickname}#")) {
+                            null
+                        } else {
+                            displayName
+                        }
+                    }
+                }
+            }
+        } else {
+            // Fallback to mesh peers if no viewModel available
+            meshService.getPeerNicknames().values.filter { it != meshService.getPeerNicknames()[meshService.myPeerID] }
+        }
         
         // Filter nicknames based on the text after @
-        val filteredNicknames = peerNicknames.filter { nickname ->
+        val filteredNicknames = peerCandidates.filter { nickname ->
             nickname.startsWith(textAfterAt, ignoreCase = true)
         }.sorted()
         
