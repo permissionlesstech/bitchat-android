@@ -75,6 +75,9 @@ class NostrRelayManager private constructor() {
     private val subscriptions = ConcurrentHashMap<String, Set<String>>() // relay URL -> subscription IDs
     private val messageHandlers = ConcurrentHashMap<String, (NostrEvent) -> Unit>()
     
+    // Event deduplication system
+    private val eventDeduplicator = NostrEventDeduplicator.getInstance()
+    
     // Message queue for reliability
     private val messageQueue = mutableListOf<Pair<NostrEvent, List<String>>>()
     private val messageQueueLock = Any()
@@ -277,6 +280,21 @@ class NostrRelayManager private constructor() {
         return relaysList.toList()
     }
     
+    /**
+     * Get event deduplication statistics
+     */
+    fun getDeduplicationStats(): DeduplicationStats {
+        return eventDeduplicator.getStats()
+    }
+    
+    /**
+     * Clear the event deduplication cache (useful for testing or debugging)
+     */
+    fun clearDeduplicationCache() {
+        eventDeduplicator.clear()
+        Log.i(TAG, "🧹 Cleared event deduplication cache")
+    }
+    
     // MARK: - Private Methods
     
     private suspend fun connectToRelay(urlString: String) {
@@ -339,19 +357,26 @@ class NostrRelayManager private constructor() {
                     relay?.messagesReceived = (relay?.messagesReceived ?: 0) + 1
                     updateRelaysList()
                     
-                    // Only log non-gift-wrap events to reduce noise
-                    if (response.event.kind != NostrKind.GIFT_WRAP) {
-                        Log.v(TAG, "📥 Received Nostr event (kind: ${response.event.kind}) from relay: $relayUrl")
+                    // DEDUPLICATION: Check if we've already processed this event
+                    val wasProcessed = eventDeduplicator.processEvent(response.event) { event ->
+                        // Only log non-gift-wrap events to reduce noise
+                        if (event.kind != NostrKind.GIFT_WRAP) {
+                            Log.v(TAG, "📥 Processing new Nostr event (kind: ${event.kind}) from relay: $relayUrl")
+                        }
+                        
+                        // Call handler for new events only
+                        val handler = messageHandlers[response.subscriptionId]
+                        if (handler != null) {
+                            scope.launch(Dispatchers.Main) {
+                                handler(event)
+                            }
+                        } else {
+                            Log.w(TAG, "⚠️ No handler for subscription ${response.subscriptionId}")
+                        }
                     }
                     
-                    // Call handler
-                    val handler = messageHandlers[response.subscriptionId]
-                    if (handler != null) {
-                        scope.launch(Dispatchers.Main) {
-                            handler(response.event)
-                        }
-                    } else {
-                        Log.w(TAG, "⚠️ No handler for subscription ${response.subscriptionId}")
+                    if (!wasProcessed) {
+                        Log.v(TAG, "🔄 Duplicate event ${response.event.id.take(16)}... from relay: $relayUrl")
                     }
                 }
                 

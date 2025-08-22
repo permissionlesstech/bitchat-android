@@ -37,7 +37,6 @@ class NostrClient private constructor(private val context: Context) {
     val currentNpub: LiveData<String> = _currentNpub
     
     // Message processing
-    private val processedEventIds = mutableSetOf<String>()
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     
     init {
@@ -240,12 +239,6 @@ class NostrClient private constructor(private val context: Context) {
         giftWrap: NostrEvent,
         handler: (content: String, senderNpub: String, timestamp: Int) -> Unit
     ) {
-        // Deduplication
-        if (processedEventIds.contains(giftWrap.id)) {
-            return
-        }
-        processedEventIds.add(giftWrap.id)
-        
         // Age filtering (24h + 15min buffer for randomized timestamps)
         val messageAge = System.currentTimeMillis() / 1000 - giftWrap.createdAt
         if (messageAge > 87300) { // 24 hours + 15 minutes
@@ -286,12 +279,6 @@ class NostrClient private constructor(private val context: Context) {
         event: NostrEvent,
         handler: (content: String, senderPubkey: String, nickname: String?, timestamp: Int) -> Unit
     ) {
-        // Deduplication
-        if (processedEventIds.contains(event.id)) {
-            return
-        }
-        processedEventIds.add(event.id)
-        
         try {
             // Extract nickname from tags
             val nickname = event.tags.find { it.size >= 2 && it[0] == "n" }?.get(1)
