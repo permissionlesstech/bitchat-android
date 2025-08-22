@@ -124,6 +124,10 @@ class ChatState {
     private val _teleportedGeo = MutableLiveData<Set<String>>(emptySet())
     val teleportedGeo: LiveData<Set<String>> = _teleportedGeo
     
+    // Geohash participant counts reactive state (for real-time location channel counts)
+    private val _geohashParticipantCounts = MutableLiveData<Map<String, Int>>(emptyMap())
+    val geohashParticipantCounts: LiveData<Map<String, Int>> = _geohashParticipantCounts
+    
     // Unread state computed properties
     val hasUnreadChannels: MediatorLiveData<Boolean> = MediatorLiveData<Boolean>()
     val hasUnreadPrivateMessages: MediatorLiveData<Boolean> = MediatorLiveData<Boolean>()
@@ -164,6 +168,7 @@ class ChatState {
     fun getShowAppInfoValue() = _showAppInfo.value ?: false
     fun getGeohashPeopleValue() = _geohashPeople.value ?: emptyList()
     fun getTeleportedGeoValue() = _teleportedGeo.value ?: emptySet()
+    fun getGeohashParticipantCountsValue() = _geohashParticipantCounts.value ?: emptyMap()
     
     // Setters for state updates
     fun setMessages(messages: List<BitchatMessage>) {
@@ -290,6 +295,10 @@ class ChatState {
     
     fun setTeleportedGeo(teleported: Set<String>) {
         _teleportedGeo.value = teleported
+    }
+    
+    fun setGeohashParticipantCounts(counts: Map<String, Int>) {
+        _geohashParticipantCounts.value = counts
     }
 
 }

@@ -95,6 +95,7 @@ class ChatViewModel(
     val isTeleported: LiveData<Boolean> = state.isTeleported
     val geohashPeople: LiveData<List<GeoPerson>> = state.geohashPeople
     val teleportedGeo: LiveData<Set<String>> = state.teleportedGeo
+    val geohashParticipantCounts: LiveData<Map<String, Int>> = state.geohashParticipantCounts
     
     init {
         // Note: Mesh service delegate is now set by MainActivity
@@ -906,6 +907,35 @@ class ChatViewModel(
         if (currentGeohash == geohash) {
             refreshGeohashPeople()
         }
+        
+        // CRITICAL FIX: Force UI recomposition by updating reactive participant counts for location channel selector
+        // This ensures that the location channels sheet shows live participant counts for ALL geohashes
+        updateReactiveParticipantCounts()
+    }
+    
+    /**
+     * Update reactive participant counts for real-time location channel selector (CRITICAL FIX)
+     */
+    private fun updateReactiveParticipantCounts() {
+        val cutoff = Date(System.currentTimeMillis() - 5 * 60 * 1000) // 5 minutes ago
+        val counts = mutableMapOf<String, Int>()
+        
+        // Calculate current participant counts for all geohashes with recent activity
+        for ((geohash, participants) in geohashParticipants) {
+            // CRITICAL BUG FIX: Count active participants WITHOUT mutating original data
+            // Don't remove from original structure - just count active ones
+            val activeCount = participants.values.count { lastSeen ->
+                !lastSeen.before(cutoff)
+            }
+            
+            // Store the current count
+            counts[geohash] = activeCount
+        }
+        
+        // CRITICAL: Update reactive state to trigger UI recomposition
+        state.setGeohashParticipantCounts(counts)
+        
+        Log.v(TAG, "🔄 Updated reactive participant counts: ${counts.size} geohashes with activity")
     }
     
     /**

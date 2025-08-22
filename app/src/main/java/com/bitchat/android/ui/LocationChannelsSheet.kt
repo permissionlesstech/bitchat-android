@@ -45,6 +45,9 @@ fun LocationChannelsSheet(
     val teleported by locationManager.teleported.observeAsState(false)
     val locationNames by locationManager.locationNames.observeAsState(emptyMap())
     
+    // CRITICAL FIX: Observe reactive participant counts for real-time updates
+    val geohashParticipantCounts by viewModel.geohashParticipantCounts.observeAsState(emptyMap())
+    
     // UI state
     var customGeohash by remember { mutableStateOf("") }
     var customError by remember { mutableStateOf<String?>(null) }
@@ -163,10 +166,12 @@ fun LocationChannelsSheet(
                             val nameBase = locationNames[channel.level]
                             val namePart = nameBase?.let { formattedNamePrefix(channel.level) + it }
                             val subtitlePrefix = "#${channel.geohash} • $coverage"
-                            val highlight = viewModel.geohashParticipantCount(channel.geohash) > 0
+                            // CRITICAL FIX: Use reactive participant count from LiveData
+                            val participantCount = geohashParticipantCounts[channel.geohash] ?: 0
+                            val highlight = participantCount > 0
                             
                             ChannelRow(
-                                title = geohashTitleWithCount(channel, viewModel),
+                                title = geohashTitleWithCount(channel, participantCount),
                                 subtitle = subtitlePrefix + (namePart?.let { " • $it" } ?: ""),
                                 isSelected = isChannelSelected(channel, selectedChannel),
                                 titleColor = standardGreen,
@@ -455,10 +460,9 @@ private fun meshCount(viewModel: ChatViewModel): Int {
     } ?: 0
 }
 
-private fun geohashTitleWithCount(channel: GeohashChannel, viewModel: ChatViewModel): String {
-    val count = viewModel.geohashParticipantCount(channel.geohash)
-    val noun = if (count == 1) "person" else "people"
-    return "${channel.level.displayName.lowercase()} [$count $noun]"
+private fun geohashTitleWithCount(channel: GeohashChannel, participantCount: Int): String {
+    val noun = if (participantCount == 1) "person" else "people"
+    return "${channel.level.displayName.lowercase()} [$participantCount $noun]"
 }
 
 private fun isChannelSelected(channel: GeohashChannel, selectedChannel: ChannelID?): Boolean {
