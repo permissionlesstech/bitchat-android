@@ -24,6 +24,8 @@ class SecureIdentityStateManager(private val context: Context) {
         private const val PREFS_NAME = "bitchat_identity"
         private const val KEY_STATIC_PRIVATE_KEY = "static_private_key"
         private const val KEY_STATIC_PUBLIC_KEY = "static_public_key"
+        private const val KEY_SIGNING_PRIVATE_KEY = "signing_private_key"
+        private const val KEY_SIGNING_PUBLIC_KEY = "signing_public_key"
         private const val KEY_LAST_ROTATION = "last_rotation"
         private const val KEY_NEXT_ROTATION_INTERVAL = "next_rotation_interval"
         
@@ -105,6 +107,64 @@ class SecureIdentityStateManager(private val context: Context) {
             Log.d(TAG, "Saved static identity key to secure storage")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save static key: ${e.message}")
+            throw e
+        }
+    }
+
+    // MARK: - Signing Key Management
+
+    /**
+     * Load saved signing key pair
+     * Returns (privateKey, publicKey) or null if none exists
+     */
+    fun loadSigningKey(): Pair<ByteArray, ByteArray>? {
+        return try {
+            val privateKeyString = prefs.getString(KEY_SIGNING_PRIVATE_KEY, null)
+            val publicKeyString = prefs.getString(KEY_SIGNING_PUBLIC_KEY, null)
+            
+            if (privateKeyString != null && publicKeyString != null) {
+                val privateKey = android.util.Base64.decode(privateKeyString, android.util.Base64.DEFAULT)
+                val publicKey = android.util.Base64.decode(publicKeyString, android.util.Base64.DEFAULT)
+                
+                // Validate key sizes
+                if (privateKey.size == 32 && publicKey.size == 32) {
+                    Log.d(TAG, "Loaded Ed25519 signing key from secure storage")
+                    Pair(privateKey, publicKey)
+                } else {
+                    Log.w(TAG, "Invalid signing key sizes in storage, returning null")
+                    null
+                }
+            } else {
+                Log.d(TAG, "No Ed25519 signing key found in storage")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load signing key: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Save signing key pair to secure storage
+     */
+    fun saveSigningKey(privateKey: ByteArray, publicKey: ByteArray) {
+        try {
+            // Validate key sizes
+            if (privateKey.size != 32 || publicKey.size != 32) {
+                throw IllegalArgumentException("Invalid signing key sizes: private=${privateKey.size}, public=${publicKey.size}")
+            }
+            
+            val privateKeyString = android.util.Base64.encodeToString(privateKey, android.util.Base64.DEFAULT)
+            val publicKeyString = android.util.Base64.encodeToString(publicKey, android.util.Base64.DEFAULT)
+            
+            prefs.edit()
+                .putString(KEY_SIGNING_PRIVATE_KEY, privateKeyString)
+                .putString(KEY_SIGNING_PUBLIC_KEY, publicKeyString)
+                .apply()
+            
+            Log.d(TAG, "Saved Ed25519 signing key to secure storage")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save signing key: ${e.message}")
             throw e
         }
     }

@@ -86,13 +86,13 @@ private fun LocationDisabledContent(
         // Location icon - using LocationOn outlined icon in app's green color
         Icon(
             imageVector = Icons.Outlined.LocationOn,
-            contentDescription = stringResource(R.string.location_services_description),
+            contentDescription = "Location Services",
             modifier = Modifier.size(64.dp),
             tint = Color(0xFF00C851) // App's main green color
         )
 
         Text(
-            text = stringResource(R.string.location_services_required),
+            text = "Location Services Required",
             style = MaterialTheme.typography.headlineSmall.copy(
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
@@ -132,7 +132,7 @@ private fun LocationDisabledContent(
                         )
                     )
                 }
-
+                
                 Text(
                     text = stringResource(R.string.location_privacy_assurance),
                     style = MaterialTheme.typography.bodySmall.copy(

@@ -47,7 +47,7 @@ fun PermissionExplanationScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = stringResource(R.string.welcome_to_app),
+                    text = "Welcome to bitchat",
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
@@ -113,7 +113,7 @@ fun PermissionExplanationScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = stringResource(R.string.permissions_needed),
+                text = "To work properly, bitchat needs these permissions:",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.Medium,
                     color = colorScheme.onSurface

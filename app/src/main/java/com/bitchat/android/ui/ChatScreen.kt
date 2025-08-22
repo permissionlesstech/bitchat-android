@@ -1,13 +1,7 @@
 package com.bitchat.android.ui
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.EaseInCubic
-import androidx.compose.animation.core.EaseOutCubic
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*

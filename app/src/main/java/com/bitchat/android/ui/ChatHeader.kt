@@ -2,7 +2,9 @@ package com.bitchat.android.ui
 
 import android.util.Log
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -94,6 +96,12 @@ fun NicknameEditor(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val focusManager = LocalFocusManager.current
+    val scrollState = rememberScrollState()
+    
+    // Auto-scroll to end when text changes (simulates cursor following)
+    LaunchedEffect(value) {
+        scrollState.animateScrollTo(scrollState.maxValue)
+    }
     
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -113,13 +121,16 @@ fun NicknameEditor(
                 fontFamily = FontFamily.Monospace
             ),
             cursorBrush = SolidColor(colorScheme.primary),
+            singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(
                 onDone = { 
                     focusManager.clearFocus()
                 }
             ),
-            modifier = Modifier.widthIn(max = 100.dp)
+            modifier = Modifier
+                .widthIn(max = 120.dp)
+                .horizontalScroll(scrollState)
         )
     }
 }
@@ -131,10 +142,29 @@ fun PeerCounter(
     hasUnreadChannels: Map<String, Int>,
     hasUnreadPrivateMessages: Set<String>,
     isConnected: Boolean,
+    selectedLocationChannel: com.bitchat.android.geohash.ChannelID?,
+    geohashPeople: List<GeoPerson>,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    
+    // Compute channel-aware people count and color (matches iOS logic exactly)
+    val (peopleCount, countColor) = when (selectedLocationChannel) {
+        is com.bitchat.android.geohash.ChannelID.Location -> {
+            // Geohash channel: show geohash participants
+            val count = geohashPeople.size
+            val green = Color(0xFF00C851) // Standard green
+            Pair(count, if (count > 0) green else Color.Gray)
+        }
+        is com.bitchat.android.geohash.ChannelID.Mesh,
+        null -> {
+            // Mesh channel: show Bluetooth-connected peers (excluding self)
+            val count = connectedPeers.size
+            val meshBlue = Color(0xFF007AFF) // iOS-style blue for mesh
+            Pair(count, if (isConnected && count > 0) meshBlue else Color.Gray)
+        }
+    }
     
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -169,15 +199,18 @@ fun PeerCounter(
         
         Icon(
             imageVector = Icons.Default.Group,
-            contentDescription = "Connected peers",
+            contentDescription = when (selectedLocationChannel) {
+                is com.bitchat.android.geohash.ChannelID.Location -> "Geohash participants"
+                else -> "Connected peers"
+            },
             modifier = Modifier.size(16.dp),
-            tint = if (isConnected) Color(0xFF00C851) else Color.Red
+            tint = countColor
         )
         Spacer(modifier = Modifier.width(4.dp))
         Text(
-            text = "${connectedPeers.size}",
+            text = "$peopleCount",
             style = MaterialTheme.typography.bodyMedium,
-            color = if (isConnected) Color(0xFF00C851) else Color.Red,
+            color = countColor,
             fontSize = 16.sp,
             fontWeight = FontWeight.Medium
         )
@@ -203,7 +236,8 @@ fun ChatHeaderContent(
     onBackClick: () -> Unit,
     onSidebarClick: () -> Unit,
     onTripleClick: () -> Unit,
-    onShowAppInfo: () -> Unit
+    onShowAppInfo: () -> Unit,
+    onLocationChannelsClick: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
@@ -251,6 +285,7 @@ fun ChatHeaderContent(
                 onTitleClick = onShowAppInfo,
                 onTripleTitleClick = onTripleClick,
                 onSidebarClick = onSidebarClick,
+                onLocationChannelsClick = onLocationChannelsClick,
                 viewModel = viewModel
             )
         }
@@ -410,6 +445,7 @@ private fun MainHeader(
     onTitleClick: () -> Unit,
     onTripleTitleClick: () -> Unit,
     onSidebarClick: () -> Unit,
+    onLocationChannelsClick: () -> Unit,
     viewModel: ChatViewModel
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -418,6 +454,8 @@ private fun MainHeader(
     val hasUnreadChannels by viewModel.unreadChannelMessages.observeAsState(emptyMap())
     val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.observeAsState(emptySet())
     val isConnected by viewModel.isConnected.observeAsState(false)
+    val selectedLocationChannel by viewModel.selectedLocationChannel.observeAsState()
+    val geohashPeople by viewModel.geohashPeople.observeAsState(emptyList())
     
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -446,13 +484,104 @@ private fun MainHeader(
             )
         }
         
-        PeerCounter(
-            connectedPeers = connectedPeers.filter { it != viewModel.meshService.myPeerID },
-            joinedChannels = joinedChannels,
-            hasUnreadChannels = hasUnreadChannels,
-            hasUnreadPrivateMessages = hasUnreadPrivateMessages,
-            isConnected = isConnected,
-            onClick = onSidebarClick
-        )
+        // Right section with location channels button and peer counter
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Unread indicator (like iOS)
+            if (hasUnreadPrivateMessages.isNotEmpty()) {
+                Button(
+                    onClick = { 
+                        // Open most relevant private chat (first unread)
+                        val firstUnread = hasUnreadPrivateMessages.firstOrNull()
+                        if (firstUnread != null) {
+                            viewModel.startPrivateChat(firstUnread)
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.Transparent,
+                        contentColor = Color(0xFFFF9500)
+                    ),
+                    contentPadding = PaddingValues(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Email,
+                        contentDescription = "Open unread private chat",
+                        modifier = Modifier.size(12.dp),
+                        tint = Color(0xFFFF9500)
+                    )
+                }
+            }
+            
+            // Location channels button (matching iOS implementation)
+            LocationChannelsButton(
+                viewModel = viewModel,
+                onClick = onLocationChannelsClick
+            )
+            
+            PeerCounter(
+                connectedPeers = connectedPeers.filter { it != viewModel.meshService.myPeerID },
+                joinedChannels = joinedChannels,
+                hasUnreadChannels = hasUnreadChannels,
+                hasUnreadPrivateMessages = hasUnreadPrivateMessages,
+                isConnected = isConnected,
+                selectedLocationChannel = selectedLocationChannel,
+                geohashPeople = geohashPeople,
+                onClick = onSidebarClick
+            )
+        }
+    }
+}
+
+@Composable
+private fun LocationChannelsButton(
+    viewModel: ChatViewModel,
+    onClick: () -> Unit
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    
+    // Get current channel selection from location manager
+    val selectedChannel by viewModel.selectedLocationChannel.observeAsState()
+    val teleported by viewModel.isTeleported.observeAsState(false)
+    
+    val (badgeText, badgeColor) = when (selectedChannel) {
+        is com.bitchat.android.geohash.ChannelID.Mesh -> {
+            "#mesh" to Color(0xFF007AFF) // iOS blue for mesh
+        }
+        is com.bitchat.android.geohash.ChannelID.Location -> {
+            val geohash = (selectedChannel as com.bitchat.android.geohash.ChannelID.Location).channel.geohash
+            "#$geohash" to Color(0xFF00C851) // Green for location
+        }
+        null -> "#mesh" to Color(0xFF007AFF) // Default to mesh
+    }
+    
+    Button(
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color.Transparent,
+            contentColor = badgeColor
+        ),
+        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = badgeText,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontFamily = FontFamily.Monospace
+                ),
+                color = badgeColor,
+                maxLines = 1
+            )
+            
+            // Teleportation indicator (like iOS)
+            if (teleported) {
+                Spacer(modifier = Modifier.width(2.dp))
+                Text(
+                    text = "📍",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
     }
 }

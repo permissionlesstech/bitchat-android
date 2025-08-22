@@ -31,7 +31,8 @@ fun getRSSIColor(rssi: Int): Color {
 }
 
 /**
- * Format message as annotated string with proper styling
+ * Format message as annotated string with iOS-style formatting
+ * Timestamp at END, peer colors, hashtag suffix handling
  */
 fun formatMessageAsAnnotatedString(
     message: BitchatMessage,
@@ -41,46 +42,89 @@ fun formatMessageAsAnnotatedString(
     timeFormatter: SimpleDateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 ): AnnotatedString {
     val builder = AnnotatedString.Builder()
+    val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
     
-    // Timestamp
-    val timestampColor = if (message.sender == "system") Color.Gray else colorScheme.primary.copy(alpha = 0.7f)
-    builder.pushStyle(SpanStyle(
-        color = timestampColor,
-        fontSize = 12.sp
-    ))
-    builder.append("[${timeFormatter.format(message.timestamp)}] ")
-    builder.pop()
+    // Determine if this message was sent by self
+    val isSelf = message.senderPeerID == meshService.myPeerID || 
+                 message.sender == currentUserNickname ||
+                 message.sender.startsWith("$currentUserNickname#")
     
     if (message.sender != "system") {
-        // Sender
-        val senderColor = when {
-            message.senderPeerID == meshService.myPeerID -> colorScheme.primary
-            else -> {
-                val peerID = message.senderPeerID
-                val rssi = peerID?.let { meshService.getPeerRSSI()[it] } ?: -60
-                getRSSIColor(rssi)
-            }
+        // Get base color for this peer (iOS-style color assignment)
+        val baseColor = if (isSelf) {
+            Color(0xFFFF9500) // Orange for self (iOS orange)
+        } else {
+            getPeerColor(message, isDark)
         }
         
+        // Split sender into base name and hashtag suffix
+        val (baseName, suffix) = splitSuffix(message.sender)
+        
+        // Sender prefix "<@"
         builder.pushStyle(SpanStyle(
-            color = senderColor,
+            color = baseColor,
             fontSize = 14.sp,
-            fontWeight = FontWeight.Medium
+            fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
         ))
-        builder.append("<@${message.sender}> ")
+        builder.append("<@")
         builder.pop()
         
-        // Message content with mentions and hashtags highlighted
-        appendFormattedContent(builder, message.content, message.mentions, currentUserNickname, colorScheme)
+        // Base name
+        builder.pushStyle(SpanStyle(
+            color = baseColor,
+            fontSize = 14.sp,
+            fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
+        ))
+        builder.append(baseName)
+        builder.pop()
+        
+        // Hashtag suffix in lighter color (iOS style)
+        if (suffix.isNotEmpty()) {
+            builder.pushStyle(SpanStyle(
+                color = baseColor.copy(alpha = 0.6f),
+                fontSize = 14.sp,
+                fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
+            ))
+            builder.append(suffix)
+            builder.pop()
+        }
+        
+        // Sender suffix "> "
+        builder.pushStyle(SpanStyle(
+            color = baseColor,
+            fontSize = 14.sp,
+            fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
+        ))
+        builder.append("> ")
+        builder.pop()
+        
+        // Message content with iOS-style hashtag and mention highlighting
+        appendIOSFormattedContent(builder, message.content, message.mentions, currentUserNickname, baseColor, isSelf, isDark)
+        
+        // iOS-style timestamp at the END (smaller, grey)
+        builder.pushStyle(SpanStyle(
+            color = Color.Gray.copy(alpha = 0.7f),
+            fontSize = 10.sp
+        ))
+        builder.append(" [${timeFormatter.format(message.timestamp)}]")
+        builder.pop()
         
     } else {
-        // System message
+        // System message - iOS style
         builder.pushStyle(SpanStyle(
             color = Color.Gray,
             fontSize = 12.sp,
-            fontStyle = FontStyle.Italic
+            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
         ))
         builder.append("* ${message.content} *")
+        builder.pop()
+        
+        // Timestamp for system messages too
+        builder.pushStyle(SpanStyle(
+            color = Color.Gray.copy(alpha = 0.5f),
+            fontSize = 10.sp
+        ))
+        builder.append(" [${timeFormatter.format(message.timestamp)}]")
         builder.pop()
     }
     
@@ -88,65 +132,204 @@ fun formatMessageAsAnnotatedString(
 }
 
 /**
- * Append formatted content with hashtag and mention highlighting
+ * iOS-style peer color assignment using djb2 hash algorithm
+ * Avoids orange (~30°) reserved for self messages
  */
-private fun appendFormattedContent(
+fun getPeerColor(message: BitchatMessage, isDark: Boolean): Color {
+    // Create seed from peer identifier (prioritizing stable keys)
+    val seed = when {
+        message.senderPeerID?.startsWith("nostr:") == true || message.senderPeerID?.startsWith("nostr_") == true -> {
+            // For Nostr peers, use the full key if available, otherwise the peer ID
+            "nostr:${message.senderPeerID.lowercase()}"
+        }
+        message.senderPeerID?.length == 16 -> {
+            // For ephemeral peer IDs, try to get stable Noise key, fallback to peer ID  
+            "noise:${message.senderPeerID.lowercase()}"
+        }
+        message.senderPeerID?.length == 64 -> {
+            // This is already a stable Noise key
+            "noise:${message.senderPeerID.lowercase()}"
+        }
+        else -> {
+            // Fallback to sender name
+            message.sender.lowercase()
+        }
+    }
+    
+    return colorForPeerSeed(seed, isDark)
+}
+
+/**
+ * Generate consistent peer color using djb2 hash (matches iOS algorithm exactly)
+ */
+fun colorForPeerSeed(seed: String, isDark: Boolean): Color {
+    // djb2 hash algorithm (matches iOS implementation)
+    var hash = 5381UL
+    for (byte in seed.toByteArray()) {
+        hash = ((hash shl 5) + hash) + byte.toUByte().toULong()
+    }
+    
+    var hue = (hash % 360UL).toDouble() / 360.0
+    
+    // Avoid orange (~30°) reserved for self (matches iOS logic)
+    val orange = 30.0 / 360.0
+    if (kotlin.math.abs(hue - orange) < 0.05) {
+        hue = (hue + 0.12) % 1.0
+    }
+    
+    val saturation = if (isDark) 0.50 else 0.70
+    val brightness = if (isDark) 0.95 else 0.45
+    
+    return Color.hsv(
+        hue = (hue * 360).toFloat(),
+        saturation = saturation.toFloat(),
+        value = brightness.toFloat()
+    )
+}
+
+/**
+ * Split a name into base and a '#abcd' suffix if present (matches iOS splitSuffix exactly)
+ */
+fun splitSuffix(name: String): Pair<String, String> {
+    if (name.length < 5) return Pair(name, "")
+    
+    val suffix = name.takeLast(5)
+    if (suffix.startsWith("#") && suffix.drop(1).all { 
+        it.isDigit() || it.lowercaseChar() in 'a'..'f' 
+    }) {
+        val base = name.dropLast(5)
+        return Pair(base, suffix)
+    }
+    
+    return Pair(name, "")
+}
+
+/**
+ * iOS-style content formatting with proper hashtag and mention handling
+ */
+private fun appendIOSFormattedContent(
     builder: AnnotatedString.Builder,
     content: String,
     mentions: List<String>?,
     currentUserNickname: String,
-    colorScheme: ColorScheme
+    baseColor: Color,
+    isSelf: Boolean,
+    isDark: Boolean
 ) {
-    val isMentioned = mentions?.contains(currentUserNickname) == true
-    
-    // Parse hashtags and mentions
+    // iOS-style patterns: allow optional '#abcd' suffix in mentions
     val hashtagPattern = "#([a-zA-Z0-9_]+)".toRegex()
-    val mentionPattern = "@([a-zA-Z0-9_]+)".toRegex()
+    val mentionPattern = "@([\\p{L}0-9_]+(?:#[a-fA-F0-9]{4})?)".toRegex()
     
     val hashtagMatches = hashtagPattern.findAll(content).toList()
     val mentionMatches = mentionPattern.findAll(content).toList()
     
-    // Combine and sort all matches
-    val allMatches = (hashtagMatches.map { it.range to "hashtag" } + 
-                     mentionMatches.map { it.range to "mention" })
-        .sortedBy { it.first.first }
+    // Combine and sort matches, but exclude hashtags that overlap with mentions
+    val mentionRanges = mentionMatches.map { it.range }
+    fun overlapsMention(range: IntRange): Boolean {
+        return mentionRanges.any { mentionRange ->
+            range.first < mentionRange.last && range.last > mentionRange.first
+        }
+    }
+    
+    val allMatches = mutableListOf<Pair<IntRange, String>>()
+    
+    // Add hashtag matches that don't overlap with mentions
+    for (match in hashtagMatches) {
+        if (!overlapsMention(match.range)) {
+            allMatches.add(match.range to "hashtag")
+        }
+    }
+    
+    // Add all mention matches
+    for (match in mentionMatches) {
+        allMatches.add(match.range to "mention") 
+    }
+    
+    allMatches.sortBy { it.first.first }
     
     var lastEnd = 0
+    val isMentioned = mentions?.contains(currentUserNickname) == true
     
     for ((range, type) in allMatches) {
-        // Add text before the match
+        // Add text before match
         if (lastEnd < range.first) {
             val beforeText = content.substring(lastEnd, range.first)
-            builder.pushStyle(SpanStyle(
-                color = colorScheme.primary,
-                fontSize = 14.sp,
-                fontWeight = if (isMentioned) FontWeight.Bold else FontWeight.Normal
-            ))
-            builder.append(beforeText)
-            builder.pop()
+            if (beforeText.isNotEmpty()) {
+                builder.pushStyle(SpanStyle(
+                    color = baseColor,
+                    fontSize = 14.sp,
+                    fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Normal
+                ))
+                if (isMentioned) {
+                    // Make entire message bold if user is mentioned
+                    builder.pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
+                    builder.append(beforeText)
+                    builder.pop()
+                } else {
+                    builder.append(beforeText)
+                }
+                builder.pop()
+            }
         }
         
-        // Add the styled match
+        // Add styled match
         val matchText = content.substring(range.first, range.last + 1)
         when (type) {
-            "hashtag" -> {
-                builder.pushStyle(SpanStyle(
-                    color = Color(0xFF0080FF), // Blue
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
-                ))
-            }
             "mention" -> {
+                // iOS-style mention with hashtag suffix support
+                val mentionWithoutAt = matchText.removePrefix("@")
+                val (mBase, mSuffix) = splitSuffix(mentionWithoutAt)
+                
+                // Check if this mention targets current user
+                val isMentionToMe = mBase == currentUserNickname
+                val mentionColor = if (isMentionToMe) Color(0xFFFF9500) else baseColor
+                
+                // "@" symbol
                 builder.pushStyle(SpanStyle(
-                    color = Color(0xFFFF9500), // Orange
+                    color = mentionColor,
                     fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = if (isSelf) FontWeight.Bold else FontWeight.SemiBold
                 ))
+                builder.append("@")
+                builder.pop()
+                
+                // Base name
+                builder.pushStyle(SpanStyle(
+                    color = mentionColor,
+                    fontSize = 14.sp,
+                    fontWeight = if (isSelf) FontWeight.Bold else FontWeight.SemiBold
+                ))
+                builder.append(mBase)
+                builder.pop()
+                
+                // Hashtag suffix in lighter color
+                if (mSuffix.isNotEmpty()) {
+                    builder.pushStyle(SpanStyle(
+                        color = mentionColor.copy(alpha = 0.6f),
+                        fontSize = 14.sp,
+                        fontWeight = if (isSelf) FontWeight.Bold else FontWeight.SemiBold
+                    ))
+                    builder.append(mSuffix)
+                    builder.pop()
+                }
+            }
+            "hashtag" -> {
+                // iOS-style: render hashtags like normal content (no special styling)
+                builder.pushStyle(SpanStyle(
+                    color = baseColor,
+                    fontSize = 14.sp,
+                    fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Normal
+                ))
+                if (isMentioned) {
+                    builder.pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
+                    builder.append(matchText)
+                    builder.pop()
+                } else {
+                    builder.append(matchText)
+                }
+                builder.pop()
             }
         }
-        builder.append(matchText)
-        builder.pop()
         
         lastEnd = range.last + 1
     }
@@ -155,11 +338,17 @@ private fun appendFormattedContent(
     if (lastEnd < content.length) {
         val remainingText = content.substring(lastEnd)
         builder.pushStyle(SpanStyle(
-            color = colorScheme.primary,
+            color = baseColor,
             fontSize = 14.sp,
-            fontWeight = if (isMentioned) FontWeight.Bold else FontWeight.Normal
+            fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Normal
         ))
-        builder.append(remainingText)
+        if (isMentioned) {
+            builder.pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
+            builder.append(remainingText)
+            builder.pop()
+        } else {
+            builder.append(remainingText)
+        }
         builder.pop()
     }
 }
