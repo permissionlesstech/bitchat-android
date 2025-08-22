@@ -1289,7 +1289,8 @@ class ChatViewModel(
                                      content.trim().isEmpty()
             if (isTeleportPresence) return
             
-            val timestamp = Date(event.createdAt * 1000L)
+            // Use local time instead of Nostr event time for consistent message ordering
+            val timestamp = Date()
             val mentions = messageManager.parseMentions(content, meshService.getPeerNicknames().values.toSet(), state.getNicknameValue())
             
             val message = BitchatMessage(
