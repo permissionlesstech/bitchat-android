@@ -1469,6 +1469,7 @@ class ChatViewModel(
      */
     private fun displayNameForNostrPubkey(pubkeyHex: String): String {
         val suffix = pubkeyHex.takeLast(4)
+        val pubkeyLower = pubkeyHex.lowercase()
         
         // If this is our per-geohash identity, use our nickname
         val currentGeohash = this.currentGeohash
@@ -1478,7 +1479,7 @@ class ChatViewModel(
                     forGeohash = currentGeohash,
                     context = getApplication()
                 )
-                if (myGeoIdentity.publicKeyHex.lowercase() == pubkeyHex.lowercase()) {
+                if (myGeoIdentity.publicKeyHex.lowercase() == pubkeyLower) {
                     return "${state.getNicknameValue()}#$suffix"
                 }
             } catch (e: Exception) {
@@ -1487,11 +1488,13 @@ class ChatViewModel(
         }
         
         // If we have a cached nickname for this pubkey, use it
-        geoNicknames[pubkeyHex.lowercase()]?.let { nick ->
+        geoNicknames[pubkeyLower]?.let { nick ->
+            Log.v(TAG, "✅ Found cached nickname for ${pubkeyHex.take(8)}: $nick")
             return "$nick#$suffix"
         }
         
         // Otherwise, anonymous with collision-resistant suffix
+        Log.v(TAG, "❌ No cached nickname for ${pubkeyHex.take(8)}, using anon")
         return "anon#$suffix"
     }
     
