@@ -15,8 +15,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.bitchat.android.R
+import com.bitchat.android.ui.theme.BitchatTheme
 
 /**
  * Screen shown when checking location services status or requesting location services enable
@@ -30,33 +32,44 @@ fun LocationCheckScreen(
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        when (status) {
-            LocationStatus.DISABLED -> {
-                LocationDisabledContent(
-                    onEnableLocation = onEnableLocation,
-                    onRetry = onRetry,
-                    colorScheme = colorScheme,
-                    isLoading = isLoading
-                )
-            }
-            LocationStatus.NOT_AVAILABLE -> {
-                LocationNotAvailableContent(
-                    colorScheme = colorScheme
-                )
-            }
-            LocationStatus.ENABLED -> {
-                LocationCheckingContent(
-                    colorScheme = colorScheme
-                )
+    Scaffold(
+        content = { paddingValues ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(32.dp),
+                verticalArrangement = Arrangement.spacedBy(
+                    32.dp,
+                    alignment = Alignment.CenterVertically
+                ),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                when (status) {
+                    LocationStatus.DISABLED -> {
+                        LocationDisabledContent(
+                            onEnableLocation = onEnableLocation,
+                            onRetry = onRetry,
+                            colorScheme = colorScheme,
+                            isLoading = isLoading
+                        )
+                    }
+
+                    LocationStatus.NOT_AVAILABLE -> {
+                        LocationNotAvailableContent(
+                            colorScheme = colorScheme
+                        )
+                    }
+
+                    LocationStatus.ENABLED -> {
+                        LocationCheckingContent(
+                            colorScheme = colorScheme
+                        )
+                    }
+                }
             }
         }
-    }
+    )
 }
 
 @Composable
@@ -119,7 +132,7 @@ private fun LocationDisabledContent(
                         )
                     )
                 }
-                
+
                 Text(
                     text = stringResource(R.string.location_privacy_assurance),
                     style = MaterialTheme.typography.bodySmall.copy(
@@ -139,7 +152,7 @@ private fun LocationDisabledContent(
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
-                
+
                 Text(
                     text = stringResource(R.string.location_services_features),
                     style = MaterialTheme.typography.bodySmall.copy(
@@ -291,6 +304,18 @@ private fun LocationLoadingIndicator() {
                 .rotate(rotationAngle),
             color = Color(0xFF4CAF50), // Location green
             strokeWidth = 3.dp
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun PreviewLocationCheckScreen() {
+    BitchatTheme{
+        LocationCheckScreen(
+            status = LocationStatus.ENABLED,
+            onEnableLocation = {},
+            onRetry = {}
         )
     }
 }

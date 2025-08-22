@@ -15,8 +15,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.bitchat.android.R
+import com.bitchat.android.ui.theme.BitchatTheme
 
 /**
  * Screen shown when checking Bluetooth status or requesting Bluetooth enable
@@ -30,33 +32,42 @@ fun BluetoothCheckScreen(
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        when (status) {
-            BluetoothStatus.DISABLED -> {
-                BluetoothDisabledContent(
-                    onEnableBluetooth = onEnableBluetooth,
-                    onRetry = onRetry,
-                    colorScheme = colorScheme,
-                    isLoading = isLoading
-                )
-            }
-            BluetoothStatus.NOT_SUPPORTED -> {
-                BluetoothNotSupportedContent(
-                    colorScheme = colorScheme
-                )
-            }
-            BluetoothStatus.ENABLED -> {
-                BluetoothCheckingContent(
-                    colorScheme = colorScheme
-                )
+    Scaffold(
+        content = { paddingValues ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(32.dp),
+                verticalArrangement = Arrangement.spacedBy(
+                    32.dp,
+                    alignment = Alignment.CenterVertically
+                ),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                when (status) {
+                    BluetoothStatus.DISABLED -> {
+                        BluetoothDisabledContent(
+                            onEnableBluetooth = onEnableBluetooth,
+                            onRetry = onRetry,
+                            colorScheme = colorScheme,
+                            isLoading = isLoading
+                        )
+                    }
+                    BluetoothStatus.NOT_SUPPORTED -> {
+                        BluetoothNotSupportedContent(
+                            colorScheme = colorScheme
+                        )
+                    }
+                    BluetoothStatus.ENABLED -> {
+                        BluetoothCheckingContent(
+                            colorScheme = colorScheme
+                        )
+                    }
+                }
             }
         }
-    }
+    )
 }
 
 @Composable
@@ -280,6 +291,42 @@ private fun BluetoothLoadingIndicator() {
                 .rotate(rotationAngle),
             color = Color(0xFF2196F3), // Bluetooth blue
             strokeWidth = 3.dp
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun ENABLEDPBluetoothCheckScreenrew() {
+    BitchatTheme{
+        BluetoothCheckScreen(
+            status = BluetoothStatus.ENABLED,
+            onEnableBluetooth = {},
+            onRetry = {}
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun DISABLEDBluetoothCheckScreenPrew() {
+    BitchatTheme{
+        BluetoothCheckScreen(
+            status = BluetoothStatus.DISABLED,
+            onEnableBluetooth = {},
+            onRetry = {}
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun NOT_SUPPORTEDBluetoothCheckScreenPrew() {
+    BitchatTheme{
+        BluetoothCheckScreen(
+            status = BluetoothStatus.NOT_SUPPORTED,
+            onEnableBluetooth = {},
+            onRetry = {}
         )
     }
 }
