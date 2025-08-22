@@ -46,6 +46,22 @@ class DataManager(private val context: Context) {
         prefs.edit().putString("nickname", nickname).apply()
     }
     
+    // MARK: - Geohash Channel Persistence
+    
+    fun loadLastGeohashChannel(): String? {
+        return prefs.getString("last_geohash_channel", null)
+    }
+    
+    fun saveLastGeohashChannel(channelData: String) {
+        prefs.edit().putString("last_geohash_channel", channelData).apply()
+        Log.d(TAG, "Saved last geohash channel: $channelData")
+    }
+    
+    fun clearLastGeohashChannel() {
+        prefs.edit().remove("last_geohash_channel").apply()
+        Log.d(TAG, "Cleared last geohash channel")
+    }
+    
     // MARK: - Channel Data Management
     
     fun loadChannelData(): Pair<Set<String>, Set<String>> {

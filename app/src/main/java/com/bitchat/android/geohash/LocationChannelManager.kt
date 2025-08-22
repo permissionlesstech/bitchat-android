@@ -14,6 +14,8 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import kotlinx.coroutines.*
 import java.util.*
+import com.google.gson.Gson
+import com.google.gson.JsonSyntaxException
 
 /**
  * Manages location permissions, one-shot location retrieval, and computing geohash channels.
@@ -47,6 +49,8 @@ class LocationChannelManager private constructor(private val context: Context) {
     private var lastLocation: Location? = null
     private var refreshTimer: Job? = null
     private var isGeocoding: Boolean = false
+    private val gson = Gson()
+    private var dataManager: com.bitchat.android.ui.DataManager? = null
 
     // Published state for UI bindings (matching iOS @Published properties)
     private val _permissionState = MutableLiveData(PermissionState.NOT_DETERMINED)
@@ -66,8 +70,9 @@ class LocationChannelManager private constructor(private val context: Context) {
 
     init {
         updatePermissionState()
-        // Load selection from preferences if needed
-        // For now, default to mesh
+        // Initialize DataManager and load persisted channel selection
+        dataManager = com.bitchat.android.ui.DataManager(context)
+        loadPersistedChannelSelection()
     }
 
     // MARK: - Public API (matching iOS interface)
@@ -145,7 +150,7 @@ class LocationChannelManager private constructor(private val context: Context) {
     fun select(channel: ChannelID) {
         Log.d(TAG, "Selected channel: ${channel.displayName}")
         _selectedChannel.postValue(channel)
-        // TODO: Save to preferences
+        saveChannelSelection(channel)
     }
     
     /**
@@ -338,6 +343,104 @@ class LocationChannelManager private constructor(private val context: Context) {
         }
         
         return dict
+    }
+
+    // MARK: - Channel Persistence
+    
+    /**
+     * Save current channel selection to persistent storage
+     */
+    private fun saveChannelSelection(channel: ChannelID) {
+        try {
+            val channelData = when (channel) {
+                is ChannelID.Mesh -> {
+                    gson.toJson(mapOf("type" to "mesh"))
+                }
+                is ChannelID.Location -> {
+                    gson.toJson(mapOf(
+                        "type" to "location",
+                        "level" to channel.channel.level.name,
+                        "precision" to channel.channel.level.precision,
+                        "geohash" to channel.channel.geohash,
+                        "displayName" to channel.channel.level.displayName
+                    ))
+                }
+            }
+            dataManager?.saveLastGeohashChannel(channelData)
+            Log.d(TAG, "Saved channel selection: ${channel.displayName}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save channel selection: ${e.message}")
+        }
+    }
+    
+    /**
+     * Load persisted channel selection from storage
+     */
+    private fun loadPersistedChannelSelection() {
+        try {
+            val channelData = dataManager?.loadLastGeohashChannel()
+            if (channelData != null) {
+                val channelMap = gson.fromJson(channelData, Map::class.java) as? Map<String, Any>
+                if (channelMap != null) {
+                    val channel = when (channelMap["type"] as? String) {
+                        "mesh" -> ChannelID.Mesh
+                        "location" -> {
+                            val levelName = channelMap["level"] as? String
+                            val precision = (channelMap["precision"] as? Double)?.toInt()
+                            val geohash = channelMap["geohash"] as? String
+                            val displayName = channelMap["displayName"] as? String
+                            
+                            if (levelName != null && precision != null && geohash != null && displayName != null) {
+                                try {
+                                    val level = GeohashChannelLevel.valueOf(levelName)
+                                    val geohashChannel = GeohashChannel(level, geohash)
+                                    ChannelID.Location(geohashChannel)
+                                } catch (e: IllegalArgumentException) {
+                                    Log.w(TAG, "Invalid geohash level in persisted data: $levelName")
+                                    null
+                                }
+                            } else {
+                                Log.w(TAG, "Incomplete location channel data in persistence")
+                                null
+                            }
+                        }
+                        else -> {
+                            Log.w(TAG, "Unknown channel type in persisted data: ${channelMap["type"]}")
+                            null
+                        }
+                    }
+                    
+                    if (channel != null) {
+                        _selectedChannel.postValue(channel)
+                        Log.d(TAG, "Restored persisted channel: ${channel.displayName}")
+                    } else {
+                        Log.d(TAG, "Could not restore persisted channel, defaulting to Mesh")
+                        _selectedChannel.postValue(ChannelID.Mesh)
+                    }
+                } else {
+                    Log.w(TAG, "Invalid channel data format in persistence")
+                    _selectedChannel.postValue(ChannelID.Mesh)
+                }
+            } else {
+                Log.d(TAG, "No persisted channel found, defaulting to Mesh")
+                _selectedChannel.postValue(ChannelID.Mesh)
+            }
+        } catch (e: JsonSyntaxException) {
+            Log.e(TAG, "Failed to parse persisted channel data: ${e.message}")
+            _selectedChannel.postValue(ChannelID.Mesh)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load persisted channel: ${e.message}")
+            _selectedChannel.postValue(ChannelID.Mesh)
+        }
+    }
+    
+    /**
+     * Clear persisted channel selection (useful for testing or reset)
+     */
+    fun clearPersistedChannel() {
+        dataManager?.clearLastGeohashChannel()
+        _selectedChannel.postValue(ChannelID.Mesh)
+        Log.d(TAG, "Cleared persisted channel selection")
     }
 
     /**
