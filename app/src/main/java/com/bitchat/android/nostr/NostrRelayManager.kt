@@ -31,7 +31,7 @@ class NostrRelayManager private constructor() {
         fun getInstance(context: android.content.Context): NostrRelayManager {
             return shared
         }
-        
+
         // Default relay list (same as iOS)
         private val DEFAULT_RELAYS = listOf(
             "wss://relay.damus.io",

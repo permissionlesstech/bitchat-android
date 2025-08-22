@@ -1507,8 +1507,8 @@ class ChatViewModel(
             hue = (hue + 0.12) % 1.0
         }
         
-        val saturation = if (isDark) 0.80 else 0.70
-        val brightness = if (isDark) 0.75 else 0.45
+        val saturation = if (isDark) 0.70 else 0.70
+        val brightness = if (isDark) 0.90 else 0.45
         
         return androidx.compose.ui.graphics.Color.hsv(
             hue = (hue * 360).toFloat(),
