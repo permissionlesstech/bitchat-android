@@ -128,8 +128,9 @@ fun GeohashPeopleList(
                     viewModel = viewModel,
                     onTap = {
                         if (person.id != myHex) {
+                            // TODO: Re-enable when NIP-17 geohash DM issues are fixed
                             // Start geohash DM (iOS-compatible)
-                            viewModel.startGeohashDM(person.id)
+                            // viewModel.startGeohashDM(person.id)
                             onTapPerson()
                         }
                     }
