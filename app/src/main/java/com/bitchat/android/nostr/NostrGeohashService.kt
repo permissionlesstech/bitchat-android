@@ -28,7 +28,8 @@ class NostrGeohashService(
     private val messageManager: MessageManager,
     private val privateChatManager: PrivateChatManager,
     private val meshDelegateHandler: MeshDelegateHandler,
-    private val coroutineScope: CoroutineScope
+    private val coroutineScope: CoroutineScope,
+    private val dataManager: com.bitchat.android.ui.DataManager
 ) {
     
     companion object {
@@ -49,7 +50,8 @@ class NostrGeohashService(
             messageManager: MessageManager,
             privateChatManager: PrivateChatManager,
             meshDelegateHandler: MeshDelegateHandler,
-            coroutineScope: CoroutineScope
+            coroutineScope: CoroutineScope,
+            dataManager: com.bitchat.android.ui.DataManager
         ): NostrGeohashService {
             return synchronized(this) {
                 INSTANCE ?: NostrGeohashService(
@@ -58,7 +60,8 @@ class NostrGeohashService(
                     messageManager,
                     privateChatManager,
                     meshDelegateHandler,
-                    coroutineScope
+                    coroutineScope,
+                    dataManager
                 ).also { INSTANCE = it }
             }
         }
@@ -1284,7 +1287,6 @@ class NostrGeohashService(
         
         if (pubkeyHex != null) {
             // Add to geohash block list
-            val dataManager = com.bitchat.android.ui.DataManager(application)
             dataManager.addGeohashBlockedUser(pubkeyHex)
             
             // Add system message
@@ -1313,7 +1315,6 @@ class NostrGeohashService(
      * Check if a user is blocked in geohash channels
      */
     private fun isGeohashUserBlocked(pubkeyHex: String): Boolean {
-        val dataManager = com.bitchat.android.ui.DataManager(application)
         return dataManager.isGeohashUserBlocked(pubkeyHex)
     }
 

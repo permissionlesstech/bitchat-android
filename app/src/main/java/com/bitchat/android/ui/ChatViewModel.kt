@@ -68,7 +68,8 @@ class ChatViewModel(
         messageManager = messageManager,
         privateChatManager = privateChatManager,
         meshDelegateHandler = meshDelegateHandler,
-        coroutineScope = viewModelScope
+        coroutineScope = viewModelScope,
+        dataManager = dataManager
     )
     
     // Expose state through LiveData (maintaining the same interface)
