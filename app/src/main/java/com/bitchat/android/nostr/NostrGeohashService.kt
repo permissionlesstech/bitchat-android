@@ -56,6 +56,7 @@ class NostrGeohashService(
     // MARK: - Location Channel Management Properties
     
     private var locationChannelManager: com.bitchat.android.geohash.LocationChannelManager? = null
+    private var currentGeohashSubscriptionId: String? = null
     private var currentGeohashDmSubscriptionId: String? = null
     private var currentGeohash: String? = null
     private var geoNicknames: MutableMap<String, String> = mutableMapOf() // pubkeyHex(lowercased) -> nickname
@@ -746,8 +747,17 @@ class NostrGeohashService(
                 processedNostrEvents.clear()
                 processedNostrEventOrder.clear()
                 
-                // Note: Geohash ephemeral event subscriptions are now managed by the unified
-                // geohash sampling system, so no need to unsubscribe here
+                // Unsubscribe from previous geohash ephemeral events (async)
+                currentGeohashSubscriptionId?.let { subId ->
+                    try {
+                        val nostrRelayManager = NostrRelayManager.getInstance(application)
+                        nostrRelayManager.unsubscribe(subId)
+                        currentGeohashSubscriptionId = null
+                        Log.d(TAG, "🔄 Unsubscribed from previous geohash ephemeral events: $subId")
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to unsubscribe from geohash events: ${e.message}")
+                    }
+                }
                 
                 // Unsubscribe from previous geohash DMs (async)
                 currentGeohashDmSubscriptionId?.let { dmSubId ->
@@ -768,8 +778,26 @@ class NostrGeohashService(
                     try {
                         val nostrRelayManager = NostrRelayManager.getInstance(application)
                         
-                        // Only subscribe to DMs for this channel's identity - ephemeral messages 
-                        // are already handled by the unified geohash subscription system
+                        // Subscribe to geohash ephemeral events for this specific channel
+                        val geohashSubId = "geohash-${channel.channel.geohash}"
+                        currentGeohashSubscriptionId = geohashSubId
+                        
+                        val geohashFilter = NostrFilter.geohashEphemeral(
+                            geohash = channel.channel.geohash,
+                            since = System.currentTimeMillis() - 3600000L, // Last hour for channel messages
+                            limit = 200
+                        )
+                        
+                        nostrRelayManager.subscribe(
+                            filter = geohashFilter,
+                            id = geohashSubId
+                        ) { event ->
+                            handleUnifiedGeohashEvent(event, channel.channel.geohash)
+                        }
+                        
+                        Log.i(TAG, "✅ Subscribed to geohash ephemeral events: #${channel.channel.geohash}")
+                        
+                        // Subscribe to DMs for this channel's identity
                         val dmIdentity = NostrIdentityBridge.deriveIdentity(
                             forGeohash = channel.channel.geohash,
                             context = application
