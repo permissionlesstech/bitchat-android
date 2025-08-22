@@ -90,22 +90,39 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 meshService = viewModel.meshService,
                 modifier = Modifier.weight(1f),
                 forceScrollToBottom = forceScrollToBottom,
-                onNicknameClick = { targetNickname ->
+                onNicknameClick = { fullSenderName ->
                     // Single click - mention user in text input
                     val currentText = messageText.text
-                    val newText = if (currentText.isEmpty()) {
-                        "@$targetNickname "
+                    
+                    // Extract base nickname and hash suffix from full sender name
+                    val (baseName, hashSuffix) = splitSuffix(fullSenderName)
+                    
+                    // Check if we're in a geohash channel to include hash suffix
+                    val selectedLocationChannel = viewModel.selectedLocationChannel.value
+                    val mentionText = if (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location && hashSuffix.isNotEmpty()) {
+                        // In geohash chat - include the hash suffix from the full display name
+                        "@$baseName$hashSuffix"
                     } else {
-                        "$currentText @$targetNickname "
+                        // Regular chat - just the base nickname
+                        "@$baseName"
                     }
+                    
+                    val newText = when {
+                        currentText.isEmpty() -> "$mentionText "
+                        currentText.endsWith(" ") -> "$currentText$mentionText "
+                        else -> "$currentText $mentionText "
+                    }
+                    
                     messageText = TextFieldValue(
                         text = newText,
                         selection = TextRange(newText.length)
                     )
                 },
-                onNicknameDoubleClick = { targetNickname ->
-                    // Double click - open user action sheet
-                    selectedUserForSheet = targetNickname
+                onNicknameLongPress = { fullSenderName ->
+                    // Long press - open user action sheet
+                    // Extract base nickname from full sender name
+                    val (baseName, _) = splitSuffix(fullSenderName)
+                    selectedUserForSheet = baseName
                     showUserSheet = true
                 }
             )

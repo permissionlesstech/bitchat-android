@@ -1,5 +1,7 @@
 package com.bitchat.android.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -35,7 +37,7 @@ fun MessagesList(
     modifier: Modifier = Modifier,
     forceScrollToBottom: Boolean = false,
     onNicknameClick: ((String) -> Unit)? = null,
-    onNicknameDoubleClick: ((String) -> Unit)? = null
+    onNicknameLongPress: ((String) -> Unit)? = null
 ) {
     val listState = rememberLazyListState()
     
@@ -81,20 +83,21 @@ fun MessagesList(
                     currentUserNickname = currentUserNickname,
                     meshService = meshService,
                     onNicknameClick = onNicknameClick,
-                    onNicknameDoubleClick = onNicknameDoubleClick
+                    onNicknameLongPress = onNicknameLongPress
                 )
             }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MessageItem(
     message: BitchatMessage,
     currentUserNickname: String,
     meshService: BluetoothMeshService,
     onNicknameClick: ((String) -> Unit)? = null,
-    onNicknameDoubleClick: ((String) -> Unit)? = null
+    onNicknameLongPress: ((String) -> Unit)? = null
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val timeFormatter = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
@@ -104,57 +107,16 @@ fun MessageItem(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Top
     ) {
-        // Single text view for natural wrapping (like iOS) with clickable nicknames
-        val annotatedText = formatMessageAsAnnotatedString(
+        // Create a custom layout that combines selectable text with clickable nickname areas
+        MessageTextWithClickableNicknames(
             message = message,
             currentUserNickname = currentUserNickname,
             meshService = meshService,
             colorScheme = colorScheme,
             timeFormatter = timeFormatter,
             onNicknameClick = onNicknameClick,
-            onNicknameDoubleClick = onNicknameDoubleClick
-        )
-        
-        var lastClickTime by remember { mutableStateOf(0L) }
-        
-        ClickableText(
-            text = annotatedText,
-            modifier = Modifier.weight(1f),
-            style = androidx.compose.ui.text.TextStyle(
-                fontFamily = FontFamily.Monospace,
-                color = colorScheme.onSurface
-            ),
-            softWrap = true,
-            overflow = TextOverflow.Visible,
-            onClick = { offset ->
-                val nicknameAnnotations = annotatedText.getStringAnnotations(
-                    tag = "nickname_click",
-                    start = offset,
-                    end = offset
-                )
-                val doubleClickAnnotations = annotatedText.getStringAnnotations(
-                    tag = "nickname_double_click", 
-                    start = offset,
-                    end = offset
-                )
-                
-                if (nicknameAnnotations.isNotEmpty() || doubleClickAnnotations.isNotEmpty()) {
-                    val currentTime = System.currentTimeMillis()
-                    val nickname = nicknameAnnotations.firstOrNull()?.item 
-                        ?: doubleClickAnnotations.firstOrNull()?.item
-                    
-                    if (nickname != null) {
-                        if (currentTime - lastClickTime < 500) {
-                            // Double click
-                            onNicknameDoubleClick?.invoke(nickname)
-                        } else {
-                            // Single click
-                            onNicknameClick?.invoke(nickname)
-                        }
-                        lastClickTime = currentTime
-                    }
-                }
-            }
+            onNicknameLongPress = onNicknameLongPress,
+            modifier = Modifier.weight(1f)
         )
         
         // Delivery status for private messages
@@ -162,6 +124,85 @@ fun MessageItem(
             message.deliveryStatus?.let { status ->
                 DeliveryStatusIcon(status = status)
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun MessageTextWithClickableNicknames(
+    message: BitchatMessage,
+    currentUserNickname: String,
+    meshService: BluetoothMeshService,
+    colorScheme: ColorScheme,
+    timeFormatter: SimpleDateFormat,
+    onNicknameClick: ((String) -> Unit)?,
+    onNicknameLongPress: ((String) -> Unit)?,
+    modifier: Modifier = Modifier
+) {
+    val annotatedText = formatMessageAsAnnotatedString(
+        message = message,
+        currentUserNickname = currentUserNickname,
+        meshService = meshService,
+        colorScheme = colorScheme,
+        timeFormatter = timeFormatter
+    )
+    
+    // Check if this message was sent by self to avoid click interactions on own nickname
+    val isSelf = message.senderPeerID == meshService.myPeerID || 
+                 message.sender == currentUserNickname ||
+                 message.sender.startsWith("$currentUserNickname#")
+    
+    if (!isSelf && (onNicknameClick != null || onNicknameLongPress != null)) {
+        // Use Text with combinedClickable for nickname interactions
+        Text(
+            text = annotatedText,
+            modifier = modifier.combinedClickable(
+                onClick = {
+                    // We can't get the click offset here, so we'll handle the first nickname
+                    val nicknameAnnotations = annotatedText.getStringAnnotations(
+                        tag = "nickname_click",
+                        start = 0,
+                        end = annotatedText.length
+                    )
+                    if (nicknameAnnotations.isNotEmpty()) {
+                        val nickname = nicknameAnnotations.first().item
+                        onNicknameClick?.invoke(nickname)
+                    }
+                },
+                onLongClick = {
+                    // Handle long press for the first nickname
+                    val nicknameAnnotations = annotatedText.getStringAnnotations(
+                        tag = "nickname_click",
+                        start = 0,
+                        end = annotatedText.length
+                    )
+                    if (nicknameAnnotations.isNotEmpty()) {
+                        val nickname = nicknameAnnotations.first().item
+                        onNicknameLongPress?.invoke(nickname)
+                    }
+                }
+            ),
+            fontFamily = FontFamily.Monospace,
+            softWrap = true,
+            overflow = TextOverflow.Visible,
+            style = androidx.compose.ui.text.TextStyle(
+                color = colorScheme.onSurface
+            )
+        )
+    } else {
+        // Use selectable text when no interactions needed
+        SelectionContainer {
+            Text(
+                text = annotatedText,
+                modifier = modifier,
+                fontFamily = FontFamily.Monospace,
+                softWrap = true,
+                overflow = TextOverflow.Visible,
+                style = androidx.compose.ui.text.TextStyle(
+                    color = colorScheme.onSurface
+                )
+            )
         }
     }
 }

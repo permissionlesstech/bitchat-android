@@ -39,9 +39,7 @@ fun formatMessageAsAnnotatedString(
     currentUserNickname: String,
     meshService: BluetoothMeshService,
     colorScheme: ColorScheme,
-    timeFormatter: SimpleDateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault()),
-    onNicknameClick: ((String) -> Unit)? = null,
-    onNicknameDoubleClick: ((String) -> Unit)? = null
+    timeFormatter: SimpleDateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 ): AnnotatedString {
     val builder = AnnotatedString.Builder()
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
@@ -81,19 +79,11 @@ fun formatMessageAsAnnotatedString(
         builder.append(baseName)
         val nicknameEnd = builder.length
         
-        // Add click annotation for nickname
-        if (!isSelf && onNicknameClick != null) {
+        // Add click annotation for nickname (store full sender name with hash)
+        if (!isSelf) {
             builder.addStringAnnotation(
                 tag = "nickname_click",
-                annotation = baseName,
-                start = nicknameStart,
-                end = nicknameEnd
-            )
-        }
-        if (!isSelf && onNicknameDoubleClick != null) {
-            builder.addStringAnnotation(
-                tag = "nickname_double_click", 
-                annotation = baseName,
+                annotation = message.sender, // Store full sender name with hash
                 start = nicknameStart,
                 end = nicknameEnd
             )
