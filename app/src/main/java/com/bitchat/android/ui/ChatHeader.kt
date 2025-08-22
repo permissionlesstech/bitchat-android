@@ -575,9 +575,11 @@ private fun LocationChannelsButton(
             // Teleportation indicator (like iOS)
             if (teleported) {
                 Spacer(modifier = Modifier.width(2.dp))
-                Text(
-                    text = "📍",
-                    style = MaterialTheme.typography.bodySmall
+                Icon(
+                    imageVector = Icons.Default.PinDrop,
+                    contentDescription = "Teleported",
+                    modifier = Modifier.size(12.dp),
+                    tint = badgeColor
                 )
             }
         }

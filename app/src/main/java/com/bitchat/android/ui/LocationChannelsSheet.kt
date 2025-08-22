@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PinDrop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
@@ -278,16 +280,21 @@ fun LocationChannelsSheet(
                                             contentColor = MaterialTheme.colorScheme.onSurface
                                         )
                                     ) {
-                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
                                             Text(
                                                 text = "teleport",
                                                 fontSize = 14.sp,
                                                 fontFamily = FontFamily.Monospace
                                             )
                                             // iOS has a face.dashed icon, use closest Material equivalent
-                                            Text(
-                                                text = "📍",
-                                                fontSize = 14.sp
+                                            Icon(
+                                                imageVector = Icons.Filled.PinDrop,
+                                                contentDescription = "Teleport",
+                                                modifier = Modifier.size(14.dp),
+                                                tint = MaterialTheme.colorScheme.onSurface
                                             )
                                         }
                                     }
