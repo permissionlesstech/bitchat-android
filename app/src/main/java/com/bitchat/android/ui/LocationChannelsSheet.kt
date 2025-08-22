@@ -5,7 +5,9 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PinDrop
@@ -63,6 +65,9 @@ fun LocationChannelsSheet(
         skipPartiallyExpanded = isInputFocused
     )
     val coroutineScope = rememberCoroutineScope()
+    
+    // Scroll state for LazyColumn
+    val listState = rememberLazyListState()
     
     // iOS system colors (matches iOS exactly)
     val colorScheme = MaterialTheme.colorScheme
@@ -161,6 +166,7 @@ fun LocationChannelsSheet(
                 
                 // Channel list (iOS-style plain list)
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.weight(1f)
                 ) {
                     // Mesh option first
@@ -265,6 +271,10 @@ fun LocationChannelsSheet(
                                                 if (focusState.isFocused) {
                                                     coroutineScope.launch {
                                                         sheetState.expand()
+                                                        // Scroll to bottom to show input and remove button
+                                                        listState.animateScrollToItem(
+                                                            index = listState.layoutInfo.totalItemsCount - 1
+                                                        )
                                                     }
                                                 }
                                             },
