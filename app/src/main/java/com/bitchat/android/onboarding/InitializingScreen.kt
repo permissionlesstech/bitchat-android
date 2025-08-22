@@ -171,7 +171,7 @@ fun InitializationErrorScreen(
             // Error indicator
             Card(
                 colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFFFEBEE)
+                    containerColor = colorScheme.errorContainer.copy(alpha = 0.3f)
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {

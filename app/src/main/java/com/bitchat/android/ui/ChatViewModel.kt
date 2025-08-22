@@ -44,8 +44,11 @@ class ChatViewModel(
     }
     
     val privateChatManager = PrivateChatManager(state, messageManager, dataManager, noiseSessionDelegate)
-    private val commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager)
+    private val commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager, onOpenSettings = { showSettingsScreen() })
     private val notificationManager = NotificationManager(application.applicationContext)
+    private var _settingsManager: SettingsManager? = null
+    val settingsManager: SettingsManager
+        get() = _settingsManager ?: SettingsManager(getApplication<Application>().applicationContext).also { _settingsManager = it }
     
     // Delegate handler for mesh callbacks
     private val meshDelegateHandler = MeshDelegateHandler(
@@ -88,6 +91,10 @@ class ChatViewModel(
     val peerNicknames: LiveData<Map<String, String>> = state.peerNicknames
     val peerRSSI: LiveData<Map<String, Int>> = state.peerRSSI
     val showAppInfo: LiveData<Boolean> = state.showAppInfo
+    
+    // Settings state - now for full screen navigation
+    private val _showSettingsScreen = androidx.lifecycle.MutableLiveData(false)
+    val showSettingsScreen: LiveData<Boolean> = _showSettingsScreen
     
     init {
         // Note: Mesh service delegate is now set by MainActivity
@@ -489,12 +496,38 @@ class ChatViewModel(
         state.setShowSidebar(false)
     }
     
+    // MARK: - Settings Management
+    
+    fun showSettingsScreen() {
+        _showSettingsScreen.value = true
+    }
+    
+    fun hideSettingsScreen() {
+        _showSettingsScreen.value = false
+    }
+    
+    fun updateThemePreference(preference: SettingsManager.ThemePreference) {
+        settingsManager.updateThemePreference(preference)
+    }
+    
+    /**
+     * Set the shared SettingsManager instance from MainActivity
+     */
+    fun setSettingsManager(manager: SettingsManager) {
+        _settingsManager = manager
+    }
+    
     /**
      * Handle Android back navigation
      * Returns true if the back press was handled, false if it should be passed to the system
      */
     fun handleBackPressed(): Boolean {
         return when {
+            // Close settings screen
+            _showSettingsScreen.value == true -> {
+                hideSettingsScreen()
+                true
+            }
             // Close app info dialog
             state.getShowAppInfoValue() -> {
                 hideAppInfo()

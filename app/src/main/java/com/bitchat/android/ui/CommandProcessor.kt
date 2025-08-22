@@ -11,7 +11,8 @@ class CommandProcessor(
     private val state: ChatState,
     private val messageManager: MessageManager,
     private val channelManager: ChannelManager,
-    private val privateChatManager: PrivateChatManager
+    private val privateChatManager: PrivateChatManager,
+    private val onOpenSettings: () -> Unit = {}
 ) {
     
     // Available commands list
@@ -22,6 +23,7 @@ class CommandProcessor(
         CommandSuggestion("/hug", emptyList(), "<nickname>", "send someone a warm hug"),
         CommandSuggestion("/j", listOf("/join"), "<channel>", "join or create a channel"),
         CommandSuggestion("/m", listOf("/msg"), "<nickname> [message]", "send private message"),
+        CommandSuggestion("/settings", emptyList(), null, "open app settings"),
         CommandSuggestion("/slap", emptyList(), "<nickname>", "slap someone with a trout"),
         CommandSuggestion("/unblock", emptyList(), "<nickname>", "unblock a peer"),
         CommandSuggestion("/w", emptyList(), null, "see who's online")
@@ -46,6 +48,7 @@ class CommandProcessor(
             "/hug" -> handleActionCommand(parts, "gives", "a warm hug 🫂", meshService, myPeerID, onSendMessage)
             "/slap" -> handleActionCommand(parts, "slaps", "around a bit with a large trout 🐟", meshService, myPeerID, onSendMessage)
             "/channels" -> handleChannelsCommand()
+            "/settings" -> handleSettingsCommand()
             else -> handleUnknownCommand(cmd)
         }
         
@@ -315,6 +318,20 @@ class CommandProcessor(
             isRelay = false
         )
         messageManager.addMessage(systemMessage)
+    }
+    
+    private fun handleSettingsCommand() {
+        // Show confirmation message
+        val systemMessage = BitchatMessage(
+            sender = "system",
+            content = "opening settings...",
+            timestamp = Date(),
+            isRelay = false
+        )
+        messageManager.addMessage(systemMessage)
+        
+        // Open settings screen
+        onOpenSettings()
     }
     
     private fun handleUnknownCommand(cmd: String) {
