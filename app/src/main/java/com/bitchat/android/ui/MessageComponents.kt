@@ -31,7 +31,8 @@ fun MessagesList(
     messages: List<BitchatMessage>,
     currentUserNickname: String,
     meshService: BluetoothMeshService,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    forceScrollToBottom: Boolean = false
 ) {
     val listState = rememberLazyListState()
     
@@ -55,6 +56,13 @@ fun MessagesList(
                     hasScrolledToInitialPosition = true
                 }
             }
+        }
+    }
+    
+    // Force scroll to bottom when requested (e.g., when user sends a message)
+    LaunchedEffect(forceScrollToBottom) {
+        if (forceScrollToBottom && messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.size - 1)
         }
     }
     

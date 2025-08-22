@@ -50,6 +50,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
     var showPasswordDialog by remember { mutableStateOf(false) }
     var passwordInput by remember { mutableStateOf("") }
     var showLocationChannelsSheet by remember { mutableStateOf(false) }
+    var forceScrollToBottom by remember { mutableStateOf(false) }
 
     // Show password dialog when needed
     LaunchedEffect(showPasswordPrompt) {
@@ -85,7 +86,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 messages = displayMessages,
                 currentUserNickname = nickname,
                 meshService = viewModel.meshService,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                forceScrollToBottom = forceScrollToBottom
             )
             // Input area - stays at bottom
             ChatInputSection(
@@ -99,6 +101,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     if (messageText.text.trim().isNotEmpty()) {
                         viewModel.sendMessage(messageText.text.trim())
                         messageText = TextFieldValue("")
+                        forceScrollToBottom = !forceScrollToBottom // Toggle to trigger scroll
                     }
                 },
                 showCommandSuggestions = showCommandSuggestions,
