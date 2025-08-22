@@ -517,6 +517,76 @@ class ChatViewModel(
         }
     }
     
+    // MARK: - Geohash Participant Tracking (for location channels)
+    
+    private val geohashParticipants = mutableMapOf<String, MutableMap<String, Date>>() // geohash -> participantId -> lastSeen
+    private var geohashSamplingJob: kotlinx.coroutines.Job? = null
+    
+    /**
+     * Get participant count for a specific geohash (5-minute activity window)
+     */
+    fun geohashParticipantCount(geohash: String): Int {
+        val cutoff = Date(System.currentTimeMillis() - 5 * 60 * 1000) // 5 minutes ago
+        val participants = geohashParticipants[geohash] ?: return 0
+        
+        // Remove expired participants
+        val iterator = participants.iterator()
+        while (iterator.hasNext()) {
+            val entry = iterator.next()
+            if (entry.value.before(cutoff)) {
+                iterator.remove()
+            }
+        }
+        
+        return participants.size
+    }
+    
+    /**
+     * Begin sampling multiple geohashes for participant activity
+     */
+    fun beginGeohashSampling(geohashes: List<String>) {
+        // Cancel existing sampling
+        geohashSamplingJob?.cancel()
+        
+        if (geohashes.isEmpty()) return
+        
+        Log.d(TAG, "🌍 Beginning geohash sampling for ${geohashes.size} geohashes")
+        
+        geohashSamplingJob = viewModelScope.launch {
+            // TODO: Integrate with NostrRelayManager to subscribe to geohash ephemeral events
+            // For now, simulate some activity for demonstration
+            
+            while (true) {
+                delay(10000) // Check every 10 seconds
+                
+                // Simulate some activity for testing
+                geohashes.forEach { geohash ->
+                    if (Random.nextFloat() < 0.1f) { // 10% chance of activity
+                        val participantId = "demo_${Random.nextInt(1000)}"
+                        updateGeohashParticipant(geohash, participantId, Date())
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     * End geohash sampling
+     */
+    fun endGeohashSampling() {
+        Log.d(TAG, "🌍 Ending geohash sampling")
+        geohashSamplingJob?.cancel()
+        geohashSamplingJob = null
+    }
+    
+    /**
+     * Update participant activity for a geohash
+     */
+    private fun updateGeohashParticipant(geohash: String, participantId: String, lastSeen: Date) {
+        val participants = geohashParticipants.getOrPut(geohash) { mutableMapOf() }
+        participants[participantId] = lastSeen
+    }
+    
     // MARK: - Navigation Management
     
     fun showAppInfo() {

@@ -25,6 +25,13 @@ class NostrRelayManager private constructor() {
         
         private const val TAG = "NostrRelayManager"
         
+        /**
+         * Get instance for Android compatibility (context-aware calls)
+         */
+        fun getInstance(context: android.content.Context): NostrRelayManager {
+            return shared
+        }
+        
         // Default relay list (same as iOS)
         private val DEFAULT_RELAYS = listOf(
             "wss://relay.damus.io",

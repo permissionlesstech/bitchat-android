@@ -25,7 +25,7 @@ data class NostrIdentity(
          */
         fun generate(): NostrIdentity {
             val (privateKeyHex, publicKeyHex) = NostrCrypto.generateKeyPair()
-            val npub = Bech32.encode("npub", publicKeyHex.hexToByteArray())
+            val npub = Bech32.encode("npub", publicKeyHex.hexToByteArrayLocal())
             
             Log.d(TAG, "Generated new Nostr identity: npub=$npub")
             
@@ -46,7 +46,7 @@ data class NostrIdentity(
             }
             
             val publicKeyHex = NostrCrypto.derivePublicKey(privateKeyHex)
-            val npub = Bech32.encode("npub", publicKeyHex.hexToByteArray())
+            val npub = Bech32.encode("npub", publicKeyHex.hexToByteArrayLocal())
             
             return NostrIdentity(
                 privateKeyHex = privateKeyHex,
@@ -125,7 +125,10 @@ object NostrIdentityBridge {
     
     /**
      * Derive a deterministic, unlinkable Nostr identity for a given geohash
-     * Uses HMAC-SHA256(deviceSeed, geohash) as private key material
+     * Uses HMAC-SHA256(deviceSeed, geohash) as private key material with fallback rehashing
+     * if the candidate is not a valid secp256k1 private key.
+     * 
+     * Direct port from iOS implementation for 100% compatibility
      */
     fun deriveIdentity(forGeohash: String, context: Context): NostrIdentity {
         val stateManager = SecureIdentityStateManager(context)
@@ -133,23 +136,32 @@ object NostrIdentityBridge {
         
         val geohashBytes = forGeohash.toByteArray(Charsets.UTF_8)
         
-        // Try different iterations to ensure valid secp256k1 private key
-        for (iteration in 0 until 10) {
-            val input = geohashBytes + iteration.toString().toByteArray()
-            val candidateKey = hmacSha256(seed, input)
+        // Try a few iterations to ensure a valid key can be formed (exactly like iOS)
+        for (i in 0 until 10) {
+            val candidateKey = candidateKey(seed, geohashBytes, i.toUInt())
+            val candidateKeyHex = candidateKey.toHexStringLocal()
             
-            val candidateKeyHex = candidateKey.toHexString()
             if (NostrCrypto.isValidPrivateKey(candidateKeyHex)) {
+                Log.d(TAG, "Derived geohash identity for $forGeohash (iteration $i)")
                 return NostrIdentity.fromPrivateKey(candidateKeyHex)
             }
         }
         
-        // Fallback: hash seed + geohash
+        // As a final fallback, hash the seed+msg and try again (exactly like iOS)
         val combined = seed + geohashBytes
         val digest = MessageDigest.getInstance("SHA-256")
         val fallbackKey = digest.digest(combined)
         
-        return NostrIdentity.fromPrivateKey(fallbackKey.toHexString())
+        Log.d(TAG, "Used fallback identity derivation for $forGeohash")
+        return NostrIdentity.fromPrivateKey(fallbackKey.toHexStringLocal())
+    }
+    
+    /**
+     * Generate candidate key for a specific iteration (matches iOS implementation)
+     */
+    private fun candidateKey(seed: ByteArray, message: ByteArray, iteration: UInt): ByteArray {
+        val input = message + iteration.toLittleEndianBytes()
+        return hmacSha256(seed, input)
     }
     
     /**
@@ -270,4 +282,22 @@ object NostrIdentityBridge {
         mac.init(secretKeySpec)
         return mac.doFinal(message)
     }
+}
+
+// Extension functions for data conversion
+private fun String.hexToByteArrayLocal(): ByteArray {
+    return chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+}
+
+private fun ByteArray.toHexStringLocal(): String {
+    return joinToString("") { "%02x".format(it) }
+}
+
+private fun UInt.toLittleEndianBytes(): ByteArray {
+    val bytes = ByteArray(4)
+    bytes[0] = (this and 0xFFu).toByte()
+    bytes[1] = ((this shr 8) and 0xFFu).toByte()
+    bytes[2] = ((this shr 16) and 0xFFu).toByte()
+    bytes[3] = ((this shr 24) and 0xFFu).toByte()
+    return bytes
 }
