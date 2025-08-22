@@ -61,8 +61,8 @@ class ChatViewModel(
         getMeshService = { meshService }
     )
     
-    // Nostr and Geohash service
-    private val nostrGeohashService = NostrGeohashService(
+    // Nostr and Geohash service - initialize singleton
+    private val nostrGeohashService = NostrGeohashService.initialize(
         application = application,
         state = state,
         messageManager = messageManager,

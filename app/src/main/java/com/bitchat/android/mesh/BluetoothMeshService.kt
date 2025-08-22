@@ -472,6 +472,18 @@ class BluetoothMeshService(private val context: Context) {
             
             Log.d(TAG, "📨 Sending PM to $recipientPeerID: ${content.take(30)}...")
             
+            // Check if this is a Nostr contact (geohash DM)
+            if (recipientPeerID.startsWith("nostr_")) {
+                // Get NostrGeohashService instance and send via Nostr
+                try {
+                    val nostrGeohashService = com.bitchat.android.nostr.NostrGeohashService.getInstance(context.applicationContext as android.app.Application)
+                    nostrGeohashService.sendNostrGeohashDM(content, recipientPeerID, finalMessageID, myPeerID)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to send Nostr geohash DM: ${e.message}")
+                }
+                return@launch
+            }
+            
             // Check if we have an established Noise session
             if (encryptionService.hasEstablishedSession(recipientPeerID)) {
                 try {
@@ -536,6 +548,18 @@ class BluetoothMeshService(private val context: Context) {
     fun sendReadReceipt(messageID: String, recipientPeerID: String, readerNickname: String) {
         serviceScope.launch {
             Log.d(TAG, "📖 Sending read receipt for message $messageID to $recipientPeerID")
+            
+            // Check if this is a Nostr contact (geohash DM)
+            if (recipientPeerID.startsWith("nostr_")) {
+                // Get NostrGeohashService instance and send read receipt via Nostr
+                try {
+                    val nostrGeohashService = com.bitchat.android.nostr.NostrGeohashService.getInstance(context.applicationContext as android.app.Application)
+                    nostrGeohashService.sendNostrGeohashReadReceipt(messageID, recipientPeerID, myPeerID)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to send Nostr geohash read receipt: ${e.message}")
+                }
+                return@launch
+            }
             
             try {
                 // Create read receipt payload using NoisePayloadType exactly like iOS

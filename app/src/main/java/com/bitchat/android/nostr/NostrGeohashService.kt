@@ -33,6 +33,35 @@ class NostrGeohashService(
     
     companion object {
         private const val TAG = "NostrGeohashService"
+        
+        @Volatile
+        private var INSTANCE: NostrGeohashService? = null
+        
+        fun getInstance(application: Application): NostrGeohashService {
+            return INSTANCE ?: synchronized(this) {
+                INSTANCE ?: throw IllegalStateException("NostrGeohashService not initialized. Call initialize() first.")
+            }
+        }
+        
+        fun initialize(
+            application: Application,
+            state: ChatState,
+            messageManager: MessageManager,
+            privateChatManager: PrivateChatManager,
+            meshDelegateHandler: MeshDelegateHandler,
+            coroutineScope: CoroutineScope
+        ): NostrGeohashService {
+            return synchronized(this) {
+                INSTANCE ?: NostrGeohashService(
+                    application,
+                    state,
+                    messageManager,
+                    privateChatManager,
+                    meshDelegateHandler,
+                    coroutineScope
+                ).also { INSTANCE = it }
+            }
+        }
     }
     
     // MARK: - Nostr Message Integration Properties
@@ -660,6 +689,43 @@ class NostrGeohashService(
         Log.d(TAG, "🗨️ Started geohash DM with $pubkeyHex -> $convKey")
     }
     
+    /**
+     * Get the Nostr key mapping for geohash DMs
+     */
+    fun getNostrKeyMapping(): Map<String, String> {
+        return nostrKeyMapping.toMap()
+    }
+    
+    /**
+     * Send read receipt for geohash DM
+     */
+    private fun sendGeohashReadReceipt(messageID: String, recipientPubkey: String, geohash: String) {
+        coroutineScope.launch {
+            try {
+                // Derive geohash-specific identity for sending
+                val senderIdentity = NostrIdentityBridge.deriveIdentity(
+                    forGeohash = geohash,
+                    context = application
+                )
+                
+                // Send via Nostr transport
+                val nostrTransport = NostrTransport.getInstance(application)
+                // Set sender peer ID (get from mesh service or use a placeholder)
+                nostrTransport.senderPeerID = "geohash:$geohash"
+                nostrTransport.sendReadReceiptGeohash(
+                    messageID = messageID,
+                    toRecipientHex = recipientPubkey,
+                    fromIdentity = senderIdentity
+                )
+                
+                Log.d(TAG, "📤 Sent geohash read receipt for $messageID to ${recipientPubkey.take(8)}...")
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send geohash read receipt: ${e.message}")
+            }
+        }
+    }
+    
     // MARK: - Location Channel Management
     
     fun selectLocationChannel(channel: com.bitchat.android.geohash.ChannelID) {
@@ -1034,10 +1100,10 @@ class NostrGeohashService(
                     // Add to private chats
                     privateChatManager.handleIncomingPrivateMessage(message)
                     
-                    // Send read receipt if viewing
+                    // Send read receipt if viewing this chat
                     if (isViewingThisChat) {
-                        // Note: meshService needs to be passed as parameter
-                        // privateChatManager.sendReadReceiptsForPeer(convKey, meshService)
+                        // Send read receipt via Nostr for geohash DM
+                        sendGeohashReadReceipt(messageId, senderPubkey, geohash)
                     }
                 }
                 
@@ -1101,5 +1167,101 @@ class NostrGeohashService(
         return colorForPeerSeed(seed, isDark).copy()
     }
     
+    // MARK: - Nostr Direct Message Sending
+    
+    /**
+     * Send private message via Nostr for geohash contacts
+     */
+    fun sendNostrGeohashDM(content: String, recipientPeerID: String, messageID: String, myPeerID: String) {
+        coroutineScope.launch {
+            try {
+                // Get the current geohash from location channel manager
+                val locationChannelManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(application)
+                val selectedChannel = locationChannelManager.selectedChannel.value
+                
+                if (selectedChannel !is com.bitchat.android.geohash.ChannelID.Location) {
+                    Log.w(TAG, "Cannot send geohash DM: not in a location channel")
+                    return@launch
+                }
+                
+                // Get the recipient's Nostr public key from the mapping
+                val recipientHex = nostrKeyMapping[recipientPeerID]
+                
+                if (recipientHex == null) {
+                    Log.w(TAG, "Cannot send geohash DM: no public key mapping for $recipientPeerID")
+                    return@launch
+                }
+                
+                // Derive geohash-specific identity for sending
+                val senderIdentity = NostrIdentityBridge.deriveIdentity(
+                    forGeohash = selectedChannel.channel.geohash,
+                    context = application
+                )
+                
+                // Send via Nostr transport
+                val nostrTransport = NostrTransport.getInstance(application)
+                // Ensure the senderPeerID is set properly
+                nostrTransport.senderPeerID = myPeerID
+                nostrTransport.sendPrivateMessageGeohash(
+                    content = content,
+                    toRecipientHex = recipientHex,
+                    fromIdentity = senderIdentity,
+                    messageID = messageID
+                )
+                
+                Log.d(TAG, "📤 Sent geohash DM to $recipientPeerID via Nostr")
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send Nostr geohash DM: ${e.message}")
+            }
+        }
+    }
+    
+    /**
+     * Send read receipt via Nostr for geohash contacts
+     */
+    fun sendNostrGeohashReadReceipt(messageID: String, recipientPeerID: String, myPeerID: String) {
+        coroutineScope.launch {
+            try {
+                // Get the current geohash from location channel manager
+                val locationChannelManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(application)
+                val selectedChannel = locationChannelManager.selectedChannel.value
+                
+                if (selectedChannel !is com.bitchat.android.geohash.ChannelID.Location) {
+                    Log.w(TAG, "Cannot send geohash read receipt: not in a location channel")
+                    return@launch
+                }
+                
+                // Get the recipient's Nostr public key from the mapping
+                val recipientHex = nostrKeyMapping[recipientPeerID]
+                
+                if (recipientHex == null) {
+                    Log.w(TAG, "Cannot send geohash read receipt: no public key mapping for $recipientPeerID")
+                    return@launch
+                }
+                
+                // Derive geohash-specific identity for sending
+                val senderIdentity = NostrIdentityBridge.deriveIdentity(
+                    forGeohash = selectedChannel.channel.geohash,
+                    context = application
+                )
+                
+                // Send via Nostr transport
+                val nostrTransport = NostrTransport.getInstance(application)
+                // Ensure the senderPeerID is set properly
+                nostrTransport.senderPeerID = myPeerID
+                nostrTransport.sendReadReceiptGeohash(
+                    messageID = messageID,
+                    toRecipientHex = recipientHex,
+                    fromIdentity = senderIdentity
+                )
+                
+                Log.d(TAG, "📤 Sent geohash read receipt for $messageID to $recipientPeerID via Nostr")
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send Nostr geohash read receipt: ${e.message}")
+            }
+        }
+    }
 
 }

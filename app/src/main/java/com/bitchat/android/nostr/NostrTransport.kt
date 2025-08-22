@@ -20,6 +20,15 @@ class NostrTransport(
     companion object {
         private const val TAG = "NostrTransport"
         private const val READ_ACK_INTERVAL = 350L // ~3 per second (0.35s interval like iOS)
+        
+        @Volatile
+        private var INSTANCE: NostrTransport? = null
+        
+        fun getInstance(context: Context): NostrTransport {
+            return INSTANCE ?: synchronized(this) {
+                INSTANCE ?: NostrTransport(context.applicationContext).also { INSTANCE = it }
+            }
+        }
     }
     
     // Throttle READ receipts to avoid relay rate limits (like iOS)
