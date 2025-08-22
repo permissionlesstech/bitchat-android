@@ -147,6 +147,14 @@ class LocationChannelManager private constructor(private val context: Context) {
         _selectedChannel.postValue(channel)
         // TODO: Save to preferences
     }
+    
+    /**
+     * Set teleported status (for manual geohash teleportation)
+     */
+    fun setTeleported(teleported: Boolean) {
+        Log.d(TAG, "Setting teleported status: $teleported")
+        _teleported.postValue(teleported)
+    }
 
     // MARK: - Location Operations
 

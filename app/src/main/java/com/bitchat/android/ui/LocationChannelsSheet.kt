@@ -49,9 +49,11 @@ fun LocationChannelsSheet(
     var customGeohash by remember { mutableStateOf("") }
     var customError by remember { mutableStateOf<String?>(null) }
     
-    // Dark theme colors matching iOS
-    val standardGreen = Color(0xFF00C851)
-    val standardBlue = Color(0xFF007AFF)
+    // iOS system colors (matches iOS exactly)
+    val colorScheme = MaterialTheme.colorScheme
+    val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
+    val standardGreen = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D) // iOS green
+    val standardBlue = Color(0xFF007AFF) // iOS blue
     
     if (isPresented) {
         ModalBottomSheet(
@@ -135,9 +137,8 @@ fun LocationChannelsSheet(
                     }
                 }
                 
-                // Channel list
+                // Channel list (iOS-style plain list)
                 LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.weight(1f)
                 ) {
                     // Mesh option first
@@ -168,9 +169,11 @@ fun LocationChannelsSheet(
                                 title = geohashTitleWithCount(channel, viewModel),
                                 subtitle = subtitlePrefix + (namePart?.let { " • $it" } ?: ""),
                                 isSelected = isChannelSelected(channel, selectedChannel),
+                                titleColor = standardGreen,
                                 titleBold = highlight,
                                 onClick = {
                                     // Selecting a suggested nearby channel is not a teleport
+                                    locationManager.setTeleported(false)
                                     locationManager.select(ChannelID.Location(channel))
                                     onDismiss()
                                 }
@@ -192,84 +195,101 @@ fun LocationChannelsSheet(
                         }
                     }
                     
-                    // Custom geohash teleport
+                    // Custom geohash teleport (iOS-style inline form)
                     item {
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "#",
-                                    fontSize = 14.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                                )
-                                
-                                OutlinedTextField(
-                                    value = customGeohash,
-                                    onValueChange = { newValue ->
-                                        // Allow only geohash base32 characters, strip '#', limit length
-                                        val allowed = "0123456789bcdefghjkmnpqrstuvwxyz".toSet()
-                                        val filtered = newValue
-                                            .lowercase()
-                                            .replace("#", "")
-                                            .filter { it in allowed }
-                                            .take(12)
-                                        
-                                        customGeohash = filtered
-                                        customError = null
-                                    },
-                                    placeholder = {
-                                        Text(
-                                            text = "geohash",
-                                            fontSize = 14.sp,
-                                            fontFamily = FontFamily.Monospace
-                                        )
-                                    },
-                                    textStyle = androidx.compose.ui.text.TextStyle(
-                                        fontSize = 14.sp,
-                                        fontFamily = FontFamily.Monospace
-                                    ),
-                                    modifier = Modifier.weight(1f),
-                                    singleLine = true
-                                )
-                                
-                                val normalized = customGeohash.trim().lowercase().replace("#", "")
-                                val isValid = validateGeohash(normalized)
-                                
-                                Button(
-                                    onClick = {
-                                        if (isValid) {
-                                            val level = levelForLength(normalized.length)
-                                            val channel = GeohashChannel(level = level, geohash = normalized)
-                                            locationManager.select(ChannelID.Location(channel))
-                                            onDismiss()
-                                        } else {
-                                            customError = "invalid geohash"
-                                        }
-                                    },
-                                    enabled = isValid,
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
-                                        contentColor = MaterialTheme.colorScheme.onSurface
-                                    )
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 6.dp),
+                            color = Color.Transparent
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = "teleport",
+                                        text = "#",
                                         fontSize = 14.sp,
-                                        fontFamily = FontFamily.Monospace
+                                        fontFamily = FontFamily.Monospace,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                    )
+                                    
+                                    OutlinedTextField(
+                                        value = customGeohash,
+                                        onValueChange = { newValue ->
+                                            // iOS-style geohash validation (base32 characters only)
+                                            val allowed = "0123456789bcdefghjkmnpqrstuvwxyz".toSet()
+                                            val filtered = newValue
+                                                .lowercase()
+                                                .replace("#", "")
+                                                .filter { it in allowed }
+                                                .take(12)
+                                            
+                                            customGeohash = filtered
+                                            customError = null
+                                        },
+                                        placeholder = {
+                                            Text(
+                                                text = "geohash",
+                                                fontSize = 14.sp,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                        },
+                                        textStyle = androidx.compose.ui.text.TextStyle(
+                                            fontSize = 14.sp,
+                                            fontFamily = FontFamily.Monospace
+                                        ),
+                                        modifier = Modifier.weight(1f),
+                                        singleLine = true
+                                    )
+                                    
+                                    val normalized = customGeohash.trim().lowercase().replace("#", "")
+                                    val isValid = validateGeohash(normalized)
+                                    
+                                    // iOS-style teleport button
+                                    Button(
+                                        onClick = {
+                                            if (isValid) {
+                                                val level = levelForLength(normalized.length)
+                                                val channel = GeohashChannel(level = level, geohash = normalized)
+                                                // Mark this selection as a manual teleport
+                                                locationManager.setTeleported(true)
+                                                locationManager.select(ChannelID.Location(channel))
+                                                onDismiss()
+                                            } else {
+                                                customError = "invalid geohash"
+                                            }
+                                        },
+                                        enabled = isValid,
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
+                                            contentColor = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    ) {
+                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Text(
+                                                text = "teleport",
+                                                fontSize = 14.sp,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                            // iOS has a face.dashed icon, use closest Material equivalent
+                                            Text(
+                                                text = "📍",
+                                                fontSize = 14.sp
+                                            )
+                                        }
+                                    }
+                                }
+                                
+                                customError?.let { error ->
+                                    Text(
+                                        text = error,
+                                        fontSize = 12.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        color = Color.Red
                                     )
                                 }
-                            }
-                            
-                            customError?.let { error ->
-                                Text(
-                                    text = error,
-                                    fontSize = 12.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    color = Color.Red
-                                )
                             }
                         }
                     }
@@ -345,20 +365,21 @@ private fun ChannelRow(
     titleBold: Boolean = false,
     onClick: () -> Unit
 ) {
-    Card(
+    // iOS-style list row (plain button, no card background)
+    Surface(
         onClick = onClick,
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-            } else {
-                Color.Transparent
-            }
-        )
+        color = if (isSelected) {
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
+        } else {
+            Color.Transparent
+        },
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -366,7 +387,7 @@ private fun ChannelRow(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                // Split title to handle count part with smaller font
+                // Split title to handle count part with smaller font (iOS style)
                 val (baseTitle, countSuffix) = splitTitleAndCount(title)
                 
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -383,7 +404,7 @@ private fun ChannelRow(
                             text = count,
                             fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
                     }
                 }
@@ -392,7 +413,7 @@ private fun ChannelRow(
                     text = subtitle,
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
             }
             
@@ -401,7 +422,7 @@ private fun ChannelRow(
                     text = "✔︎",
                     fontSize = 16.sp,
                     fontFamily = FontFamily.Monospace,
-                    color = Color(0xFF00C851)
+                    color = Color(0xFF32D74B) // iOS green for checkmark
                 )
             }
         }
