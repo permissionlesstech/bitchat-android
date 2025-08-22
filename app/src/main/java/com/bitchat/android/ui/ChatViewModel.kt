@@ -1049,6 +1049,11 @@ class ChatViewModel(
     private fun switchLocationChannel(channel: com.bitchat.android.geohash.ChannelID?) {
         // STEP 1: Immediate UI updates (synchronous, no blocking)
         try {
+            // CRITICAL FIX: Clear all displayed messages when switching geohash channels
+            // This makes each geohash channel feel like a fresh, independent chat room
+            messageManager.clearMessages()
+            Log.d(TAG, "🗑️ Cleared all messages for fresh channel experience")
+            
             when (channel) {
                 is com.bitchat.android.geohash.ChannelID.Mesh -> {
                     Log.d(TAG, "📡 Switched to mesh channel")
