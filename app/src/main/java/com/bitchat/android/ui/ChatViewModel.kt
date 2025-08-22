@@ -912,6 +912,7 @@ class ChatViewModel(
                     id = "geohash-$geohash"
                 ) { event ->
                     handleGeohashEvent(event, geohash)
+                    handleGeohashChannelEvent(event, geohash)
                 }
                 
                 Log.d(TAG, "Subscribed to geohash events for: $geohash")
@@ -1363,8 +1364,14 @@ class ChatViewModel(
             // Store in geohash history for persistence across channel switches
             storeGeohashMessage(geohash, message)
             
-            // Add to message timeline only if we're currently viewing this geohash
-            if (currentGeohash == geohash) {
+            // CRITICAL BUG FIX: Add to message timeline if we're viewing this geohash OR if it matches our selected location channel
+            // This prevents messages from being lost during channel switching race conditions
+            val selectedLocationChannel = state.selectedLocationChannel.value
+            val shouldShowMessage = currentGeohash == geohash || 
+                (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location && 
+                 selectedLocationChannel.channel.geohash == geohash)
+            
+            if (shouldShowMessage) {
                 messageManager.addMessage(message)
             }
             
