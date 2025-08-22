@@ -214,6 +214,8 @@ class ChatViewModel(
         privateChatManager.endPrivateChat()
         // Notify notification manager that no private chat is active
         setCurrentPrivateChatPeer(null)
+        // Clear mesh mention notifications since user is now back in mesh chat
+        clearMeshMentionNotifications()
     }
     
     // MARK: - Message Sending
@@ -402,6 +404,13 @@ class ChatViewModel(
     fun clearNotificationsForGeohash(geohash: String) {
         // Clear notifications when user opens a geohash chat
         notificationManager.clearNotificationsForGeohash(geohash)
+    }
+    
+    /**
+     * Clear mesh mention notifications when user opens mesh chat
+     */
+    fun clearMeshMentionNotifications() {
+        notificationManager.clearMeshMentionNotifications()
     }
     
     // MARK: - Command Autocomplete (delegated)

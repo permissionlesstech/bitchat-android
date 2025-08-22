@@ -756,6 +756,8 @@ class NostrGeohashService(
                     currentGeohash = null
                     // Update notification manager with current geohash
                     notificationManager.setCurrentGeohash(null)
+                    // Clear mesh mention notifications since user is now viewing mesh chat
+                    notificationManager.clearMeshMentionNotifications()
                     // Note: Don't clear geoNicknames - keep cached for when we return to location channels
                     stopGeoParticipantsTimer()
                     state.setGeohashPeople(emptyList())

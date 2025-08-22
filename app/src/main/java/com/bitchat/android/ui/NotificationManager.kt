@@ -550,6 +550,146 @@ class NotificationManager(private val context: Context) {
     }
     
     /**
+     * Show a notification for a mesh mention (@username format)
+     */
+    fun showMeshMentionNotification(
+        senderNickname: String,
+        messageContent: String,
+        senderPeerID: String? = null
+    ) {
+        // Only show notifications if app is in background OR user is not viewing mesh chat
+        // User is viewing mesh chat when: not in private chat AND not in geohash chat
+        val isViewingMeshChat = currentPrivateChatPeer == null && currentGeohash == null
+        val shouldNotify = isAppInBackground || (!isAppInBackground && !isViewingMeshChat)
+        
+        if (!shouldNotify) {
+            Log.d(TAG, "Skipping mesh mention notification - app in foreground and viewing mesh chat")
+            return
+        }
+
+        Log.d(TAG, "Showing mesh mention notification from $senderNickname")
+
+        // Use a special key for mesh mentions to group them together
+        val meshMentionKey = "mesh_mentions"
+        val notification = PendingNotification(
+            senderPeerID = senderPeerID ?: meshMentionKey,
+            senderNickname = senderNickname,
+            messageContent = messageContent,
+            timestamp = System.currentTimeMillis()
+        )
+
+        // Add to pending notifications for mesh mentions
+        pendingNotifications.computeIfAbsent(meshMentionKey) { mutableListOf() }.add(notification)
+
+        // Create or update notification for mesh mentions
+        showNotificationForMeshMentions()
+        
+        // Update summary notification if we have multiple senders
+        if (pendingNotifications.size > 1) {
+            showSummaryNotification()
+        }
+    }
+    
+    private fun showNotificationForMeshMentions() {
+        val notifications = pendingNotifications["mesh_mentions"] ?: return
+        if (notifications.isEmpty()) return
+
+        val latestNotification = notifications.last()
+        val messageCount = notifications.size
+
+        // Create intent to open the mesh chat (no specific peer, just main chat)
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            // No specific chat to open, just bring the app to foreground
+        }
+
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            NOTIFICATION_REQUEST_CODE + "mesh_mentions".hashCode(),
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        // Build notification content
+        val contentTitle = if (messageCount == 1) {
+            "Mentioned in Mesh Chat"
+        } else {
+            "$messageCount mentions in Mesh Chat"
+        }
+        
+        val contentText = "${latestNotification.senderNickname}: ${latestNotification.messageContent}"
+
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(contentTitle)
+            .setContentText(contentText)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setShowWhen(true)
+            .setWhen(latestNotification.timestamp)
+
+        // Add to notification group if we have multiple senders
+        if (pendingNotifications.size > 1) {
+            builder.setGroup(GROUP_KEY_DM)
+        }
+
+        // Add style for multiple messages
+        if (messageCount > 1) {
+            val style = NotificationCompat.InboxStyle()
+                .setBigContentTitle(contentTitle)
+            
+            // Show last few messages in expanded view
+            notifications.takeLast(5).forEach { notif ->
+                style.addLine("${notif.senderNickname}: ${notif.messageContent}")
+            }
+            
+            if (messageCount > 5) {
+                style.setSummaryText("and ${messageCount - 5} more")
+            }
+            
+            builder.setStyle(style)
+        } else {
+            // Single message - use BigTextStyle for long messages
+            builder.setStyle(
+                NotificationCompat.BigTextStyle()
+                    .bigText(contentText)
+            )
+        }
+
+        // Use a special notification ID for mesh mentions
+        val notificationId = 4000 // Different from DM and geohash IDs
+        notificationManager.notify(notificationId, builder.build())
+        
+        Log.d(TAG, "Displayed mesh mention notification: $contentTitle")
+    }
+    
+    /**
+     * Clear mesh mention notifications (when user opens mesh chat)
+     */
+    fun clearMeshMentionNotifications() {
+        pendingNotifications.remove("mesh_mentions")
+        
+        // Cancel the mesh mention notification
+        val notificationId = 4000
+        notificationManager.cancel(notificationId)
+        
+        // Update or remove summary notification
+        if (pendingNotifications.isEmpty()) {
+            notificationManager.cancel(SUMMARY_NOTIFICATION_ID)
+        } else if (pendingNotifications.size == 1) {
+            // Only one sender left, remove group summary
+            notificationManager.cancel(SUMMARY_NOTIFICATION_ID)
+        } else {
+            // Update summary notification
+            showSummaryNotification()
+        }
+        
+        Log.d(TAG, "Cleared mesh mention notifications")
+    }
+
+    /**
      * Clear all pending notifications
      */
     fun clearAllNotifications() {
