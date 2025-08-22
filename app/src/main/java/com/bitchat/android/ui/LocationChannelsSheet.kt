@@ -6,6 +6,7 @@ import android.provider.Settings
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
@@ -210,7 +211,7 @@ fun LocationChannelsSheet(
                         ) {
                             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Row(
-                                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(1.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
@@ -220,7 +221,7 @@ fun LocationChannelsSheet(
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                                     )
                                     
-                                    OutlinedTextField(
+                                    BasicTextField(
                                         value = customGeohash,
                                         onValueChange = { newValue ->
                                             // iOS-style geohash validation (base32 characters only)
@@ -234,19 +235,24 @@ fun LocationChannelsSheet(
                                             customGeohash = filtered
                                             customError = null
                                         },
-                                        placeholder = {
-                                            Text(
-                                                text = "geohash",
-                                                fontSize = 14.sp,
-                                                fontFamily = FontFamily.Monospace
-                                            )
-                                        },
                                         textStyle = androidx.compose.ui.text.TextStyle(
                                             fontSize = 14.sp,
-                                            fontFamily = FontFamily.Monospace
+                                            fontFamily = FontFamily.Monospace,
+                                            color = MaterialTheme.colorScheme.onSurface
                                         ),
                                         modifier = Modifier.weight(1f),
-                                        singleLine = true
+                                        singleLine = true,
+                                        decorationBox = { innerTextField ->
+                                            if (customGeohash.isEmpty()) {
+                                                Text(
+                                                    text = "geohash",
+                                                    fontSize = 14.sp,
+                                                    fontFamily = FontFamily.Monospace,
+                                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                                                )
+                                            }
+                                            innerTextField()
+                                        }
                                     )
                                     
                                     val normalized = customGeohash.trim().lowercase().replace("#", "")
