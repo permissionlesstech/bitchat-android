@@ -125,6 +125,7 @@ fun GeohashPeopleList(
                     isMyTeleported = person.id == myHex && isTeleported,
                     nickname = nickname,
                     colorScheme = colorScheme,
+                    viewModel = viewModel,
                     onTap = {
                         if (person.id != myHex) {
                             // Start geohash DM (iOS-compatible)
@@ -148,6 +149,7 @@ private fun GeohashPersonItem(
     isMyTeleported: Boolean,
     nickname: String,
     colorScheme: ColorScheme,
+    viewModel: ChatViewModel,
     onTap: () -> Unit
 ) {
     Row(
@@ -193,13 +195,18 @@ private fun GeohashPersonItem(
         Spacer(modifier = Modifier.width(8.dp))
         
         // Display name with suffix handling (matches iOS splitSuffix logic)
-        val (baseName, suffix) = splitSuffix(person.displayName)
+        val (baseName, suffix) = com.bitchat.android.ui.splitSuffix(person.displayName)
+        
+        // Get consistent peer color (matches iOS color assignment exactly)
+        val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
+        val assignedColor = viewModel.colorForNostrPubkey(person.id, isDark)
+        val baseColor = if (isMe) Color(0xFFFF9500) else assignedColor
         
         Row(
             modifier = Modifier.weight(1f),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Base name 
+            // Base name with peer-specific color
             Text(
                 text = baseName,
                 style = MaterialTheme.typography.bodyMedium.copy(
@@ -207,10 +214,10 @@ private fun GeohashPersonItem(
                     fontSize = 14.sp,
                     fontWeight = if (isMe) FontWeight.Bold else FontWeight.Normal
                 ),
-                color = if (isMe) Color(0xFFFF9500) else colorScheme.onSurface
+                color = baseColor
             )
             
-            // Suffix (collision-resistant #abcd)
+            // Suffix (collision-resistant #abcd) in lighter shade
             if (suffix.isNotEmpty()) {
                 Text(
                     text = suffix,
@@ -218,10 +225,7 @@ private fun GeohashPersonItem(
                         fontFamily = FontFamily.Monospace,
                         fontSize = 14.sp
                     ),
-                    color = if (isMe) 
-                        Color(0xFFFF9500).copy(alpha = 0.6f) 
-                    else 
-                        colorScheme.onSurface.copy(alpha = 0.6f)
+                    color = baseColor.copy(alpha = 0.6f)
                 )
             }
             
@@ -233,7 +237,7 @@ private fun GeohashPersonItem(
                         fontFamily = FontFamily.Monospace,
                         fontSize = 14.sp
                     ),
-                    color = Color(0xFFFF9500)
+                    color = baseColor
                 )
             }
         }
@@ -242,18 +246,4 @@ private fun GeohashPersonItem(
     }
 }
 
-/**
- * Split a name into base and a '#abcd' suffix if present
- * Matches iOS splitSuffix function exactly
- */
-private fun splitSuffix(name: String): Pair<String, String> {
-    if (name.length < 5) return Pair(name, "")
-    
-    val suffix = name.takeLast(5)
-    if (suffix.startsWith("#") && suffix.drop(1).all { it.isDigit() || it.lowercaseChar() in 'a'..'f' }) {
-        val base = name.dropLast(5)
-        return Pair(base, suffix)
-    }
-    
-    return Pair(name, "")
-}
+

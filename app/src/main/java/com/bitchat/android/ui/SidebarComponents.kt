@@ -321,6 +321,7 @@ fun PeopleSection(
                     isFavorite = isFavorite,
                     hasUnreadDM = hasUnreadPrivateMessages.contains(peerID),
                     colorScheme = colorScheme,
+                    viewModel = viewModel,
                     onItemClick = { onPrivateChatStart(peerID) },
                     onToggleFavorite = { 
                         Log.d("SidebarComponents", "Sidebar toggle favorite: peerID=$peerID, currentFavorite=$isFavorite")
@@ -345,10 +346,20 @@ private fun PeerItem(
     isFavorite: Boolean,
     hasUnreadDM: Boolean,
     colorScheme: ColorScheme,
+    viewModel: ChatViewModel,
     onItemClick: () -> Unit,
     onToggleFavorite: () -> Unit,
     unreadCount: Int = 0
 ) {
+    // Split display name for hashtag suffix support (iOS-compatible)
+    val (baseName, suffix) = com.bitchat.android.ui.splitSuffix(displayName)
+    val isMe = displayName == "You" || peerID == viewModel.nickname.value
+    
+    // Get consistent peer color (iOS-compatible)
+    val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
+    val assignedColor = viewModel.colorForMeshPeer(peerID, isDark)
+    val baseColor = if (isMe) Color(0xFFFF9500) else assignedColor
+    
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -360,11 +371,14 @@ private fun PeerItem(
             .padding(horizontal = 24.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Show unread badge or signal strength
+        // Show unread badge or signal strength  
         if (hasUnreadDM) {
-            UnreadBadge(
-                count = unreadCount,
-                colorScheme = colorScheme
+            // Show mail icon for unread DMs (iOS orange)
+            Icon(
+                imageVector = Icons.Filled.Email,
+                contentDescription = "Unread message",
+                modifier = Modifier.size(16.dp),
+                tint = Color(0xFFFF9500) // iOS orange
             )
         } else {
             // Signal strength indicators
@@ -376,13 +390,34 @@ private fun PeerItem(
         
         Spacer(modifier = Modifier.width(8.dp))
         
-        Text(
-            text = displayName,
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (isSelected) colorScheme.primary else colorScheme.onSurface,
-            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
-            modifier = Modifier.weight(1f)
-        )
+        // Display name with iOS-style color and hashtag suffix support
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Base name with peer-specific color
+            Text(
+                text = baseName,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 14.sp,
+                    fontWeight = if (isMe) FontWeight.Bold else FontWeight.Normal
+                ),
+                color = baseColor
+            )
+            
+            // Hashtag suffix in lighter shade (iOS-style)
+            if (suffix.isNotEmpty()) {
+                Text(
+                    text = suffix,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 14.sp
+                    ),
+                    color = baseColor.copy(alpha = 0.6f)
+                )
+            }
+        }
         
         // Favorite star with proper filled/outlined states
         IconButton(
@@ -393,11 +428,13 @@ private fun PeerItem(
                 imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
                 contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
                 modifier = Modifier.size(16.dp),
-                tint = if (isFavorite) Color(0xFFFFD700) else Color(0x87878700)
+                tint = if (isFavorite) Color(0xFFFFD700) else Color(0xFF4CAF50)
             )
         }
     }
 }
+
+
 
 @Composable
 private fun SignalStrengthIndicator(
