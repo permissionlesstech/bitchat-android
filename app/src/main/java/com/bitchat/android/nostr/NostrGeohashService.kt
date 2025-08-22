@@ -1,3 +1,4 @@
+
 package com.bitchat.android.nostr
 
 import android.app.Application
