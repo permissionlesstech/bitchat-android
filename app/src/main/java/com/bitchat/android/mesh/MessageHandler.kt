@@ -79,12 +79,12 @@ class MessageHandler(private val myPeerID: String) {
                     if (privateMessage != null) {
                         Log.d(TAG, "🔓 Decrypted TLV PM from $peerID: ${privateMessage.content.take(30)}...")
                         
-                        // Create BitchatMessage exactly like iOS
+                        // Create BitchatMessage - use local system time for incoming messages
                         val message = BitchatMessage(
                             id = privateMessage.messageID,
                             sender = delegate?.getPeerNickname(peerID) ?: "Unknown",
                             content = privateMessage.content,
-                            timestamp = java.util.Date(packet.timestamp.toLong()),
+                            timestamp = java.util.Date(), // Use local system time instead of packet timestamp
                             isRelay = false,
                             originalSender = null,
                             isPrivate = true,
