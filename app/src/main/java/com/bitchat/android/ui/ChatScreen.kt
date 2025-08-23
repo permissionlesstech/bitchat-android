@@ -75,7 +75,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             .fillMaxSize()
             .background(colorScheme.background) // Extend background to fill entire screen including status bar
     ) {
-        val headerHeight = 32.dp
+        val headerHeight = 42.dp
         
         // Main content area that responds to keyboard/window insets
         Column(
@@ -186,6 +186,16 @@ fun ChatScreen(viewModel: ChatViewModel) {
             onShowAppInfo = { viewModel.showAppInfo() },
             onPanicClear = { viewModel.panicClearAllData() },
             onLocationChannelsClick = { showLocationChannelsSheet = true }
+        )
+
+        // Divider under header - positioned after status bar + header height
+        HorizontalDivider(
+            modifier = Modifier
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .offset(y = headerHeight)
+                .zIndex(1f),
+            color = colorScheme.outline.copy(alpha = 0.3f)
         )
 
         val alpha by animateFloatAsState(
