@@ -9,6 +9,7 @@ package com.bitchat.android.geohash
 object Geohash {
     
     private val base32Chars = "0123456789bcdefghjkmnpqrstuvwxyz".toCharArray()
+    private val charToValue: Map<Char, Int> = base32Chars.withIndex().associate { it.value to it.index }
 
     /**
      * Encodes the provided coordinates into a geohash string.
@@ -61,5 +62,43 @@ object Geohash {
         }
 
         return geohash.toString()
+    }
+
+    /**
+     * Decodes a geohash string to the center latitude/longitude of its cell.
+     * @return Pair(latitude, longitude)
+     */
+    fun decodeToCenter(geohash: String): Pair<Double, Double> {
+        if (geohash.isEmpty()) return 0.0 to 0.0
+
+        var latInterval = -90.0 to 90.0
+        var lonInterval = -180.0 to 180.0
+        var isEven = true
+
+        geohash.lowercase().forEach { ch ->
+            val cd = charToValue[ch] ?: return 0.0 to 0.0
+            for (mask in intArrayOf(16, 8, 4, 2, 1)) {
+                if (isEven) {
+                    val mid = (lonInterval.first + lonInterval.second) / 2
+                    if ((cd and mask) != 0) {
+                        lonInterval = mid to lonInterval.second
+                    } else {
+                        lonInterval = lonInterval.first to mid
+                    }
+                } else {
+                    val mid = (latInterval.first + latInterval.second) / 2
+                    if ((cd and mask) != 0) {
+                        latInterval = mid to latInterval.second
+                    } else {
+                        latInterval = latInterval.first to mid
+                    }
+                }
+                isEven = !isEven
+            }
+        }
+
+        val latCenter = (latInterval.first + latInterval.second) / 2
+        val lonCenter = (lonInterval.first + lonInterval.second) / 2
+        return latCenter to lonCenter
     }
 }
