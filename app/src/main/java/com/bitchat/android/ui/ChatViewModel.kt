@@ -68,7 +68,9 @@ class ChatViewModel(
         messageManager = messageManager,
         privateChatManager = privateChatManager,
         meshDelegateHandler = meshDelegateHandler,
-        coroutineScope = viewModelScope
+        coroutineScope = viewModelScope,
+        dataManager = dataManager,
+        notificationManager = notificationManager
     )
     
     // Expose state through LiveData (maintaining the same interface)
@@ -133,6 +135,7 @@ class ChatViewModel(
         dataManager.loadFavorites()
         state.setFavoritePeers(dataManager.favoritePeers.toSet())
         dataManager.loadBlockedUsers()
+        dataManager.loadGeohashBlockedUsers()
         
         // Log all favorites at startup
         dataManager.logAllFavorites()
@@ -211,6 +214,8 @@ class ChatViewModel(
         privateChatManager.endPrivateChat()
         // Notify notification manager that no private chat is active
         setCurrentPrivateChatPeer(null)
+        // Clear mesh mention notifications since user is now back in mesh chat
+        clearMeshMentionNotifications()
     }
     
     // MARK: - Message Sending
@@ -386,9 +391,26 @@ class ChatViewModel(
         notificationManager.setCurrentPrivateChatPeer(peerID)
     }
     
+    fun setCurrentGeohash(geohash: String?) {
+        // Update notification manager with current geohash for notification logic
+        notificationManager.setCurrentGeohash(geohash)
+    }
+    
     fun clearNotificationsForSender(peerID: String) {
         // Clear notifications when user opens a chat
         notificationManager.clearNotificationsForSender(peerID)
+    }
+    
+    fun clearNotificationsForGeohash(geohash: String) {
+        // Clear notifications when user opens a geohash chat
+        notificationManager.clearNotificationsForGeohash(geohash)
+    }
+    
+    /**
+     * Clear mesh mention notifications when user opens mesh chat
+     */
+    fun clearMeshMentionNotifications() {
+        notificationManager.clearMeshMentionNotifications()
     }
     
     // MARK: - Command Autocomplete (delegated)
@@ -581,6 +603,13 @@ class ChatViewModel(
     
     fun selectLocationChannel(channel: com.bitchat.android.geohash.ChannelID) {
         nostrGeohashService.selectLocationChannel(channel)
+    }
+    
+    /**
+     * Block a user in geohash channels by their nickname
+     */
+    fun blockUserInGeohash(targetNickname: String) {
+        nostrGeohashService.blockUserInGeohash(targetNickname)
     }
     
 

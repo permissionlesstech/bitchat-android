@@ -28,7 +28,9 @@ class NostrGeohashService(
     private val messageManager: MessageManager,
     private val privateChatManager: PrivateChatManager,
     private val meshDelegateHandler: MeshDelegateHandler,
-    private val coroutineScope: CoroutineScope
+    private val coroutineScope: CoroutineScope,
+    private val dataManager: com.bitchat.android.ui.DataManager,
+    private val notificationManager: com.bitchat.android.ui.NotificationManager
 ) {
     
     companion object {
@@ -49,7 +51,9 @@ class NostrGeohashService(
             messageManager: MessageManager,
             privateChatManager: PrivateChatManager,
             meshDelegateHandler: MeshDelegateHandler,
-            coroutineScope: CoroutineScope
+            coroutineScope: CoroutineScope,
+            dataManager: com.bitchat.android.ui.DataManager,
+            notificationManager: com.bitchat.android.ui.NotificationManager
         ): NostrGeohashService {
             return synchronized(this) {
                 INSTANCE ?: NostrGeohashService(
@@ -58,7 +62,9 @@ class NostrGeohashService(
                     messageManager,
                     privateChatManager,
                     meshDelegateHandler,
-                    coroutineScope
+                    coroutineScope,
+                    dataManager,
+                    notificationManager
                 ).also { INSTANCE = it }
             }
         }
@@ -748,6 +754,10 @@ class NostrGeohashService(
                     Log.d(TAG, "📡 Switched to mesh channel")
                     // Immediate UI state updates
                     currentGeohash = null
+                    // Update notification manager with current geohash
+                    notificationManager.setCurrentGeohash(null)
+                    // Clear mesh mention notifications since user is now viewing mesh chat
+                    notificationManager.clearMeshMentionNotifications()
                     // Note: Don't clear geoNicknames - keep cached for when we return to location channels
                     stopGeoParticipantsTimer()
                     state.setGeohashPeople(emptyList())
@@ -757,6 +767,10 @@ class NostrGeohashService(
                 is com.bitchat.android.geohash.ChannelID.Location -> {
                     Log.d(TAG, "📍 Switching to geohash channel: ${channel.channel.geohash}")
                     currentGeohash = channel.channel.geohash
+                    // Update notification manager with current geohash
+                    notificationManager.setCurrentGeohash(channel.channel.geohash)
+                    // Clear notifications for this geohash since user is now viewing it
+                    notificationManager.clearNotificationsForGeohash(channel.channel.geohash)
                     // Note: Don't clear geoNicknames - they contain cached nicknames for all geohashes
                     
                     // Load stored messages for this geohash immediately
@@ -914,6 +928,12 @@ class NostrGeohashService(
                 return
             }
             
+            // Check if this user is blocked in geohash channels BEFORE any processing
+            if (isGeohashUserBlocked(event.pubkey)) {
+                Log.v(TAG, "🚫 Skipping event from blocked geohash user: ${event.pubkey.take(8)}...")
+                return
+            }
+            
             // Deduplicate events
             if (processedNostrEvents.contains(event.id)) {
                 Log.v(TAG, "❌ Skipping duplicate event ${event.id.take(8)}...")
@@ -1014,11 +1034,112 @@ class NostrGeohashService(
                 messageManager.addMessage(message)
             }
             
+            // NOTIFICATION LOGIC: Check for mentions and first messages
+            checkAndTriggerGeohashNotifications(geohash, senderName, content, message)
+            
             Log.d(TAG, "📥 Unified geohash event processed - geohash: $geohash, sender: $senderName, content: ${content.take(50)}")
             
         } catch (e: Exception) {
             Log.e(TAG, "Error handling unified geohash event: ${e.message}")
         }
+    }
+    
+    /**
+     * Check and trigger geohash notifications for mentions and first messages
+     */
+    private fun checkAndTriggerGeohashNotifications(
+        geohash: String,
+        senderName: String,
+        content: String,
+        message: BitchatMessage
+    ) {
+        try {
+            // Get user's current nickname
+            val currentNickname = state.getNicknameValue()
+            if (currentNickname.isNullOrEmpty()) {
+                return
+            }
+            
+            // Check if this message mentions the current user
+            val isMention = checkForMention(content, currentNickname)
+            
+            // Check if this is the first message in a subscribed geohash chat
+            val isFirstMessage = checkIfFirstMessage(geohash, message)
+            
+            // Only trigger notifications if we have a mention or first message
+            if (isMention || isFirstMessage) {
+                Log.d(TAG, "🔔 Triggering geohash notification - geohash: $geohash, mention: $isMention, first: $isFirstMessage")
+                
+                notificationManager.showGeohashNotification(
+                    geohash = geohash,
+                    senderNickname = senderName,
+                    messageContent = content,
+                    isMention = isMention,
+                    isFirstMessage = isFirstMessage
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error checking geohash notifications: ${e.message}")
+        }
+    }
+    
+    /**
+     * Check if the content mentions the current user with @nickname#hash format
+     */
+    private fun checkForMention(content: String, currentNickname: String): Boolean {
+        // iOS-style mention pattern: @nickname#1234 or @nickname
+        val mentionPattern = "@([\\p{L}0-9_]+(?:#[a-fA-F0-9]{4})?)".toRegex()
+        
+        return mentionPattern.findAll(content).any { match ->
+            val mentionWithoutAt = match.groupValues[1]
+            // Split the mention to get base nickname (without #hash suffix)
+            val baseName = if (mentionWithoutAt.contains("#")) {
+                mentionWithoutAt.substringBeforeLast("#")
+            } else {
+                mentionWithoutAt
+            }
+            
+            // Check if the base name matches current user's nickname
+            baseName.equals(currentNickname, ignoreCase = true)
+        }
+    }
+    
+    /**
+     * Check if this is the first message in a subscribed geohash chat
+     */
+    private fun checkIfFirstMessage(geohash: String, message: BitchatMessage): Boolean {
+        // Get the message history for this geohash
+        val messageHistory = geohashMessageHistory[geohash] ?: return true
+        
+        // Filter out our own messages (local echoes and messages from our identity)
+        val otherUserMessages = messageHistory.filter { msg ->
+            // Check if this is our own message by comparing sender ID with our geohash identity
+            try {
+                val myGeoIdentity = NostrIdentityBridge.deriveIdentity(
+                    forGeohash = geohash,
+                    context = application
+                )
+                val myIdentityId = "nostr:${myGeoIdentity.publicKeyHex.take(8)}"
+                msg.senderPeerID != myIdentityId && msg.senderPeerID != message.senderPeerID
+            } catch (e: Exception) {
+                // If we can't determine identity, assume it's not our message
+                msg.senderPeerID != message.senderPeerID
+            }
+        }
+        
+        // This is a first message if there are no other user messages and this isn't from us
+        val isFromUs = try {
+            val myGeoIdentity = NostrIdentityBridge.deriveIdentity(
+                forGeohash = geohash,
+                context = application
+            )
+            val myIdentityId = "nostr:${myGeoIdentity.publicKeyHex.take(8)}"
+            message.senderPeerID == myIdentityId
+        } catch (e: Exception) {
+            false
+        }
+        
+        return otherUserMessages.isEmpty() && !isFromUs
     }
     
     /**
@@ -1262,6 +1383,51 @@ class NostrGeohashService(
                 Log.e(TAG, "Failed to send Nostr geohash read receipt: ${e.message}")
             }
         }
+    }
+    
+    // MARK: - Geohash Blocking
+    
+    /**
+     * Block a user in geohash channels by their nickname
+     */
+    fun blockUserInGeohash(targetNickname: String) {
+        // Find the pubkey for this nickname
+        val pubkeyHex = geoNicknames.entries.firstOrNull { (_, nickname) ->
+            val baseName = nickname.split("#").firstOrNull() ?: nickname
+            baseName == targetNickname
+        }?.key
+        
+        if (pubkeyHex != null) {
+            // Add to geohash block list
+            dataManager.addGeohashBlockedUser(pubkeyHex)
+            
+            // Add system message
+            val systemMessage = com.bitchat.android.model.BitchatMessage(
+                sender = "system",
+                content = "blocked $targetNickname in geohash channels",
+                timestamp = java.util.Date(),
+                isRelay = false
+            )
+            messageManager.addMessage(systemMessage)
+            
+            Log.i(TAG, "🚫 Blocked geohash user: $targetNickname (pubkey: ${pubkeyHex.take(8)}...)")
+        } else {
+            // User not found
+            val systemMessage = com.bitchat.android.model.BitchatMessage(
+                sender = "system",
+                content = "user '$targetNickname' not found in current geohash",
+                timestamp = java.util.Date(),
+                isRelay = false
+            )
+            messageManager.addMessage(systemMessage)
+        }
+    }
+    
+    /**
+     * Check if a user is blocked in geohash channels
+     */
+    private fun isGeohashUserBlocked(pubkeyHex: String): Boolean {
+        return dataManager.isGeohashUserBlocked(pubkeyHex)
     }
 
 }

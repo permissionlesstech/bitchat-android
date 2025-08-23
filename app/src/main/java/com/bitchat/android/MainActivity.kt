@@ -1,6 +1,7 @@
 package com.bitchat.android
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -8,6 +9,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.core.view.WindowCompat
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -65,6 +67,12 @@ class MainActivity : ComponentActivity() {
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Enable edge-to-edge display for modern Android look
+        enableEdgeToEdge()
+        
+        // Make status bar transparent and content can extend behind it
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         
         // Initialize permission management
         permissionManager = PermissionManager(this)
@@ -660,7 +668,7 @@ class MainActivity : ComponentActivity() {
     }
     
     /**
-     * Handle intents from notification clicks - open specific private chat
+     * Handle intents from notification clicks - open specific private chat or geohash chat
      */
     private fun handleNotificationIntent(intent: Intent) {
         val shouldOpenPrivateChat = intent.getBooleanExtra(
@@ -668,18 +676,52 @@ class MainActivity : ComponentActivity() {
             false
         )
         
-        if (shouldOpenPrivateChat) {
-            val peerID = intent.getStringExtra(com.bitchat.android.ui.NotificationManager.EXTRA_PEER_ID)
-            val senderNickname = intent.getStringExtra(com.bitchat.android.ui.NotificationManager.EXTRA_SENDER_NICKNAME)
+        val shouldOpenGeohashChat = intent.getBooleanExtra(
+            com.bitchat.android.ui.NotificationManager.EXTRA_OPEN_GEOHASH_CHAT,
+            false
+        )
+        
+        when {
+            shouldOpenPrivateChat -> {
+                val peerID = intent.getStringExtra(com.bitchat.android.ui.NotificationManager.EXTRA_PEER_ID)
+                val senderNickname = intent.getStringExtra(com.bitchat.android.ui.NotificationManager.EXTRA_SENDER_NICKNAME)
+                
+                if (peerID != null) {
+                    Log.d("MainActivity", "Opening private chat with $senderNickname (peerID: $peerID) from notification")
+                    
+                    // Open the private chat with this peer
+                    chatViewModel.startPrivateChat(peerID)
+                    
+                    // Clear notifications for this sender since user is now viewing the chat
+                    chatViewModel.clearNotificationsForSender(peerID)
+                }
+            }
             
-            if (peerID != null) {
-                Log.d("MainActivity", "Opening private chat with $senderNickname (peerID: $peerID) from notification")
+            shouldOpenGeohashChat -> {
+                val geohash = intent.getStringExtra(com.bitchat.android.ui.NotificationManager.EXTRA_GEOHASH)
                 
-                // Open the private chat with this peer
-                chatViewModel.startPrivateChat(peerID)
-                
-                // Clear notifications for this sender since user is now viewing the chat
-                chatViewModel.clearNotificationsForSender(peerID)
+                if (geohash != null) {
+                    Log.d("MainActivity", "Opening geohash chat #$geohash from notification")
+                    
+                    // Switch to the geohash channel - create appropriate geohash channel level
+                    val level = when (geohash.length) {
+                        7 -> com.bitchat.android.geohash.GeohashChannelLevel.BLOCK
+                        6 -> com.bitchat.android.geohash.GeohashChannelLevel.NEIGHBORHOOD
+                        5 -> com.bitchat.android.geohash.GeohashChannelLevel.CITY
+                        4 -> com.bitchat.android.geohash.GeohashChannelLevel.REGION
+                        2 -> com.bitchat.android.geohash.GeohashChannelLevel.COUNTRY
+                        else -> com.bitchat.android.geohash.GeohashChannelLevel.CITY // Default fallback
+                    }
+                    val geohashChannel = com.bitchat.android.geohash.GeohashChannel(level, geohash)
+                    val channelId = com.bitchat.android.geohash.ChannelID.Location(geohashChannel)
+                    chatViewModel.selectLocationChannel(channelId)
+                    
+                    // Update current geohash state for notifications
+                    chatViewModel.setCurrentGeohash(geohash)
+                    
+                    // Clear notifications for this geohash since user is now viewing it
+                    chatViewModel.clearNotificationsForGeohash(geohash)
+                }
             }
         }
     }

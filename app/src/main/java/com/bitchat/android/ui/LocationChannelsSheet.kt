@@ -5,19 +5,25 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PinDrop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.GeohashChannel
 import com.bitchat.android.geohash.GeohashChannelLevel
@@ -52,6 +58,16 @@ fun LocationChannelsSheet(
     // UI state
     var customGeohash by remember { mutableStateOf("") }
     var customError by remember { mutableStateOf<String?>(null) }
+    var isInputFocused by remember { mutableStateOf(false) }
+    
+    // Bottom sheet state
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = isInputFocused
+    )
+    val coroutineScope = rememberCoroutineScope()
+    
+    // Scroll state for LazyColumn
+    val listState = rememberLazyListState()
     
     // iOS system colors (matches iOS exactly)
     val colorScheme = MaterialTheme.colorScheme
@@ -62,12 +78,19 @@ fun LocationChannelsSheet(
     if (isPresented) {
         ModalBottomSheet(
             onDismissRequest = onDismiss,
+            sheetState = sheetState,
             modifier = modifier
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .then(
+                        if (isInputFocused) {
+                            Modifier.fillMaxHeight().padding(horizontal = 16.dp, vertical = 24.dp)
+                        } else {
+                            Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                        }
+                    ),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // Header
@@ -79,7 +102,7 @@ fun LocationChannelsSheet(
                 )
                 
                 Text(
-                    text = "chat with people near you using geohash channels. only a coarse geohash is shared, never exact gps.",
+                    text = "chat with people near you using geohash channels. only a coarse geohash is shared, never exact gps. do not screenshot or share this screen to protect your privacy.",
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
@@ -143,6 +166,7 @@ fun LocationChannelsSheet(
                 
                 // Channel list (iOS-style plain list)
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.weight(1f)
                 ) {
                     // Mesh option first
@@ -240,7 +264,20 @@ fun LocationChannelsSheet(
                                             fontFamily = FontFamily.Monospace,
                                             color = MaterialTheme.colorScheme.onSurface
                                         ),
-                                        modifier = Modifier.weight(1f),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .onFocusChanged { focusState ->
+                                                isInputFocused = focusState.isFocused
+                                                if (focusState.isFocused) {
+                                                    coroutineScope.launch {
+                                                        sheetState.expand()
+                                                        // Scroll to bottom to show input and remove button
+                                                        listState.animateScrollToItem(
+                                                            index = listState.layoutInfo.totalItemsCount - 1
+                                                        )
+                                                    }
+                                                }
+                                            },
                                         singleLine = true,
                                         decorationBox = { innerTextField ->
                                             if (customGeohash.isEmpty()) {
@@ -278,16 +315,21 @@ fun LocationChannelsSheet(
                                             contentColor = MaterialTheme.colorScheme.onSurface
                                         )
                                     ) {
-                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
                                             Text(
                                                 text = "teleport",
                                                 fontSize = 14.sp,
                                                 fontFamily = FontFamily.Monospace
                                             )
                                             // iOS has a face.dashed icon, use closest Material equivalent
-                                            Text(
-                                                text = "📍",
-                                                fontSize = 14.sp
+                                            Icon(
+                                                imageVector = Icons.Filled.PinDrop,
+                                                contentDescription = "Teleport",
+                                                modifier = Modifier.size(14.dp),
+                                                tint = MaterialTheme.colorScheme.onSurface
                                             )
                                         }
                                     }

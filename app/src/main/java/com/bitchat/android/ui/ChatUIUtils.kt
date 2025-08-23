@@ -69,13 +69,25 @@ fun formatMessageAsAnnotatedString(
         builder.append("<@")
         builder.pop()
         
-        // Base name
+        // Base name (clickable)
         builder.pushStyle(SpanStyle(
             color = baseColor,
             fontSize = 14.sp,
             fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
         ))
+        val nicknameStart = builder.length
         builder.append(baseName)
+        val nicknameEnd = builder.length
+        
+        // Add click annotation for nickname (store full sender name with hash)
+        if (!isSelf) {
+            builder.addStringAnnotation(
+                tag = "nickname_click",
+                annotation = message.sender, // Store full sender name with hash
+                start = nicknameStart,
+                end = nicknameEnd
+            )
+        }
         builder.pop()
         
         // Hashtag suffix in lighter color (iOS style)
