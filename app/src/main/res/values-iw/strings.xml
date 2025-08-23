@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+    <string name="permission_bluetooth_rationale">נדרשת הרשאת Bluetooth להעברת הודעות בין עמיתים ללא אינטרנט.</string>
+    <string name="permission_location_rationale">נדרשת הרשאת מיקום כדי לגלות מכשירים קרובים באמצעות Bluetooth.</string>
+    <string name="permission_notification_rationale">נדרשת הרשאת התראות כדי להודיע לך על הודעות חדשות.</string>
+    <string name="nickname_hint">כינוי</string>
+    <string name="message_hint">הקלד/י הודעה…</string>
+    <string name="channel_password_hint">סיסמה</string>
+    <string name="join_channel">הצטרף לערוץ</string>
+    <string name="leave_channel">עזוב</string>
+    <string name="send_message">שלח</string>
+    <string name="back">חזור</string>
+    <string name="people">אנשים</string>
+    <string name="channels">ערוצים</string>
+    <string name="online_users">משתמשים מחוברים</string>
+    <string name="no_one_connected">אף אחד לא מחובר</string>
+    <string name="emergency_clear_hint">הקש שלוש פעמים כדי למחוק את כל הנתונים</string>
+    <string name="your_network">רשת</string>
+
+    <!-- Battery Optimization Strings -->
+    <string name="battery_optimization_detected">זוהתה אופטימיזציה של הסוללה</string>
+    <string name="battery_optimization_disabled">אופטימיזציית הסוללה מושבתת</string>
+    <string name="battery_optimization_not_required">אופטימיזציית הסוללה אינה נדרשת</string>
+    <string name="battery_optimization_checking">בודק אופטימיזציה של הסוללה</string>
+    <string name="battery_optimization_why_disable">למה להשבית את אופטימיזציית הסוללה?</string>
+    <string name="battery_optimization_explanation">bitchat פועל ברקע כדי לשמור על חיבורי רשת עם מכשירים קרובים. אופטימיזציית סוללה יכולה להפריע לחיבורים אלה, ולגרום להודעות להתעכב או לא להגיע.\n\nהשבתת אופטימיזציית הסוללה מבטיחה העברת הודעות אמינה בין עמיתים.</string>
+    <string name="battery_optimization_disable_button">השבת את אופטימיזציית הסוללה</string>
+    <string name="battery_optimization_note">הערה: ניתן לשנות הגדרה זו מאוחר יותר בהגדרות אנדרואיד > אפליקציות > bitchat > סוללה</string>
+    <string name="battery_optimization_not_supported_explanation">המכשיר שלך אינו דורש הגדרות אופטימיזציה של הסוללה. bitchat יפעל כרגיל.</string>
+    <string name="battery_optimization_not_supported_message">המכשיר שלך אינו דורש הגדרות אופטימיזציה של הסוללה. bitchat יפעל כרגיל.</string>
+    <string name="battery_optimization_success_message">bitchat יכול לרוץ באופן אמין ברקע</string>
+    <string name="battery_optimization_benefits">• מבטיח מסירת הודעות אמינה\n• שומר על קישוריות רשת\n• מאפשר העברת הודעות ברקע\n• מונע ניתוקים</string>
+    <string name="battery_optimization_check_again">בדוק שוב</string>
+    <string name="battery_optimization_skip">דלג בינתיים</string>
+    <string name="battery_optimization_continue">המשך</string>
+    <string name="retry">נסה שוב</string>
+    <string name="skip">דלג</string>
+
+    <string name="channel_label">ערוץ: %s</string>
+
+    <string name="bluetooth_icon_description">בלוטות\'</string>
+    <string name="bluetooth_required_title">נדרש בלוטות\'</string>
+    <string name="bluetooth_required_message">bitchat זקוק לבלוטות\' כדי:</string>
+    <string name="bluetooth_required_details">• לגלות משתמשים קרובים\n• ליצור חיבורי רשת\n• לשלוח ולקבל הודעות\n• לעבוד ללא אינטרנט או שרתים</string>
+    <string name="enable_bluetooth">הפעל בלוטות\'</string>
+    <string name="check_again">בדוק שוב</string>
+    <string name="bluetooth_not_supported_title">בלוטות\' אינו נתמך</string>
+    <string name="bluetooth_not_supported_message">מכשיר זה אינו תומך ב-Bluetooth Low Energy (BLE), הנדרש לתפקוד bitchat.\n\nbitchat זקוק ל-BLE כדי ליצור רשתות ולתקשר עם מכשירים קרובים ללא אינטרנט.</string>
+    <string name="checking_bluetooth_status">בודק את מצב הבלוטות\'…</string>
+
+    <string name="channel_password">הזן סיסמת ערוץ</string>
+    <string name="channel_password_prompt">ערוץ %1$s מוגן בסיסמה. הזן את הסיסמה כדי להצטרף.</string>
+    <string name="cancel">ביטול</string>
+    <string name="app_info_title">אודות bitchat</string>
+    <string name="app_info_description">העברת הודעות רשת מבוזרת באמצעות Bluetooth LE\n\n• אין צורך בשרתים או באינטרנט\n• הודעות פרטיות מוצפנות מקצה לקצה\n• ערוצים מוגני סיסמה\n• אחסן והעבר לעמיתים לא מקוונים\n\nלחץ שלוש פעמים על הכותרת כדי למחוק את כל הנתונים במקרה חירום</string>
+    <string name="ok">אישור</string>
+
+    <string name="error_description">שגיאה</string>
+    <string name="initializing_mesh_network">מאתחל רשת</string>
+    <string name="setting_up_bluetooth_mesh">מגדיר רשת בלוטות\'…</string>
+    <string name="setup_duration">זה אמור לקחת רק כמה שניות</string>
+    <string name="setup_not_complete">ההתקנה לא הושלמה</string>
+    <string name="try_again">נסה שוב</string>
+    <string name="open_settings">פתח הגדרות</string>
+    <string name="location_services_description">שירותי מיקום</string>
+    <string name="location_services_required">נדרשים שירותי מיקום</string>
+    <string name="privacy_description">פרטיות</string>
+    <string name="privacy_first">פרטיות תחילה</string>
+    <string name="location_privacy_assurance">bitchat אינו עוקב אחר מיקומך ואינו משתמש ב-GPS.\n\nשירותי מיקום נדרשים על ידי אנדרואיד כדי שסריקת בלוטות\' תפעל כראוי. זוהי דרישת מערכת של אנדרואיד.</string>
+    <string name="location_services_needed_for">bitchat זקוק לשירותי מיקום עבור:</string>
+    <string name="location_services_features">• סריקת מכשירי בלוטות\' (דרישת אנדרואיד)\n• גילוי משתמשים קרובים ברשת\n• יצירת חיבורים ללא אינטרנט\n• אין מעקב GPS או איסוף מיקום</string>
+    <string name="open_location_settings">פתח הגדרות מיקום</string>
+    <string name="location_services_unavailable">שירותי מיקום אינם זמינים</string>
+    <string name="location_services_unavailable_message">שירותי מיקום אינם זמינים במכשיר זה. זה לא רגיל מכיוון ששירותי מיקום הם סטנדרטיים במכשירי אנדרואיד.\n\nbitchat זקוק לשירותי מיקום כדי שסריקת בלוטות\' תפעל כראוי (דרישת אנדרואיד). ללא זה, האפליקציה לא יכולה לגלות משתמשים קרובים.</string>
+    <string name="checking_location_services">בודק שירותי מיקום…</string>
+
+    <string name="welcome_to_app">ברוכים הבאים ל-bitchat</string>
+    <string name="app_description">העברת הודעות רשת מבוזרת באמצעות בלוטות\'</string>
+    <string name="privacy_protected">הפרטיות שלך מוגנת</string>
+    <string name="privacy_details">• bitchat אינו עוקב אחריך או אוסף נתונים אישיים\n• אין שרתים, אין צורך באינטרנט, אין רישום נתונים\n• הרשאת מיקום משמשת רק את אנדרואיד לסריקת בלוטות\'\n• ההודעות שלך נשארות רק במכשיר שלך ובמכשירי עמיתים</string>
+    <string name="permissions_needed">כדי לעבוד כראוי, bitchat זקוק להרשאות אלה:</string>
+    <string name="grant_permissions">הענק הרשאות</string>
+    <string name="location_no_gps">bitchat אינו משתמש ב-GPS או עוקב אחר מיקום</string>
+
+    <string name="mention">אזכור</string>
+
+    <string name="app_info_tagline">צ\'אט קבוצתי ברשת</string>
+    <string name="features_title">תכונות</string>
+    <string name="feature_offline_title">תקשורת לא מקוונת</string>
+    <string name="feature_offline_desc">עובד ללא אינטרנט באמצעות בלוטות\' באנרגיה נמוכה</string>
+    <string name="feature_encryption_title">הצפנה מקצה לקצה</string>
+    <string name="feature_encryption_desc">הודעות פרטיות מוצפנות בפרוטוקול noise</string>
+    <string name="feature_range_title">טווח מורחב</string>
+    <string name="feature_range_desc">הודעות מועברות דרך עמיתים, ומגיעות למרחק</string>
+    <string name="feature_favorites_title">מועדפים</string>
+    <string name="feature_favorites_desc">קבל הודעה כאשר האנשים המועדפים עליך מצטרפים</string>
+    <string name="feature_mutual_favorites_title">מועדפים הדדיים</string>
+    <string name="feature_mutual_favorites_desc">שלחו הודעות פרטיות זה לזה באמצעות nostr כאשר אתם מחוץ לטווח הרשת</string>
+    <string name="feature_mentions_title">אזכורים</string>
+    <string name="feature_mentions_desc">השתמש ב-@כינוי כדי להודיע לאנשים ספציפיים</string>
+
+    <string name="privacy_title">פרטיות</string>
+    <string name="privacy_no_tracking_title">אין מעקב</string>
+    <string name="privacy_no_tracking_desc">אין שרתים, חשבונות או איסוף נתונים</string>
+    <string name="privacy_ephemeral_title">זהות ארעית</string>
+    <string name="privacy_ephemeral_desc">מזהה עמית חדש נוצר באופן קבוע</string>
+    <string name="privacy_panic_title">מצב פאניקה</string>
+    <string name="privacy_panic_desc">הקש שלוש פעמים על הלוגו כדי למחוק את כל הנתונים באופן מיידי</string>
+
+    <string name="how_to_use_title">איך להשתמש</string>
+    <string name="how_to_use_1">• הגדר את הכינוי שלך על ידי הקשה עליו</string>
+    <string name="how_to_use_2">• החלק שמאלה לסרגל הצד</string>
+    <string name="how_to_use_3">• הקש על עמית כדי להתחיל צ\'אט פרטי</string>
+    <string name="how_to_use_4">• השתמש ב-@כינוי כדי לאזכר מישהו</string>
+    <string name="how_to_use_5">• הקש שלוש פעמים על הצ\'אט כדי לנקות</string>
+
+    <string name="warning_title">אזהרה</string>
+    <string name="warning_message">אבטחת ההודעות הפרטיות טרם נבדקה במלואה. אין להשתמש במצבים קריטיים עד שהאזהרה הזו תיעלם.</string>
+
+    <string name="done">סיום</string>
+</resources>

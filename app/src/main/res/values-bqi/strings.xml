@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+    <string name="permission_bluetooth_rationale">سی یک رسۊوی پیوم هومکار و هومکار بؽ اینترنت، موجوز بۊلۊتۊس لازوم هڌ.</string>
+    <string name="permission_location_rationale">موجوز جاگه، سی جوستن دسگا یل نهنگ و ایسا وو منپیز وا بۊلۊتۊس لازوم هڌ.</string>
+    <string name="permission_notification_rationale">سی گرؽڌن وارسۊوی مجال ٱووڌن پیوم نۊ، موجوز وارسۊوی لازوم هڌ.</string>
+    <string name="nickname_hint">نوم موستعار</string>
+    <string name="message_hint">ی پیوم هؽل کۊنین…</string>
+    <string name="channel_password_hint">رزم</string>
+    <string name="join_channel">ٱووڌن و تورگه</string>
+    <string name="leave_channel">رئڌن</string>
+    <string name="send_message">فشناڌن</string>
+    <string name="back">وورگشتن</string>
+    <string name="people">مردوم</string>
+    <string name="channels">تورگه یل</string>
+    <string name="online_users">منتورا ریتور</string>
+    <string name="no_one_connected">هیشکؽ منپیز نؽڌ</string>
+    <string name="emergency_clear_hint">سی روفتن پوی داده یل، 3 کرت ریس بزݩ</string>
+    <string name="your_network">تور شما</string>
+
+    <!-- Battery Optimization Strings -->
+    <string name="battery_optimization_detected">بهینه سازی باتری پیدا وابی</string>
+    <string name="battery_optimization_disabled">بهینه سازی باتری غیرفعال وابی</string>
+    <string name="battery_optimization_not_required">بهینه سازی باتری لازوم نی</string>
+    <string name="battery_optimization_checking">در حال چک کردن بهینه سازی باتری</string>
+    <string name="battery_optimization_why_disable">سیچه بهینه سازی باتری نه غیرفعال کنیم؟</string>
+    <string name="battery_optimization_explanation">بیچت پشت صحنه کار ایکنه تا اتصالات شبکه مشی نه وا دستگاه های نزدیک حفظ کنه. بهینه سازی باتری تونه یو اتصالاته قطع کنه و باعث تاخیر یا گم وابیدن پیام ها وابو.\n\nغیرفعال کردن بهینه سازی باتری، پیام رسونی مطمئن همتا به همتا نه تضمین ایکنه.</string>
+    <string name="battery_optimization_disable_button">غیرفعال کردن بهینه سازی باتری</string>
+    <string name="battery_optimization_note">توجه: تونین یو تنظیمه بعداً مِن تنظیمات اندروید > برنامه ها > بیچت > باتری تغییر بدین</string>
+    <string name="battery_optimization_not_supported_explanation">دستگاه شما به تنظیمات بهینه سازی باتری نیاز نداره. بیچت عادی کار ایکنه.</string>
+    <string name="battery_optimization_not_supported_message">دستگاه شما به تنظیمات بهینه سازی باتری نیاز نداره. بیچت عادی کار ایکنه.</string>
+    <string name="battery_optimization_success_message">بیچت تونه به طور مطمئن پشت صحنه کار کنه</string>
+    <string name="battery_optimization_benefits">• تحویل مطمئن پیام\n• حفظ اتصال شبکه مش\n• امکان رله پیام در پس زمینه\n• جلوگیری از قطع اتصال</string>
+    <string name="battery_optimization_check_again">دوباره چک کن</string>
+    <string name="battery_optimization_skip">فعلا رد وابو</string>
+    <string name="battery_optimization_continue">ادامه</string>
+    <string name="retry">دوباره</string>
+    <string name="skip">رد وابیدن</string>
+
+    <string name="channel_label">تورگه: %s</string>
+
+    <string name="bluetooth_icon_description">بۊلۊتۊس</string>
+    <string name="bluetooth_required_title">بۊلۊتۊس لازمه</string>
+    <string name="bluetooth_required_message">بیچت سی یو کارا به بۊلۊتۊس نیاز داره:</string>
+    <string name="bluetooth_required_details">• پیدا کردن کاربرای نزدیک\n• ایجاد اتصالات شبکه مش\n• فرستادن و گریدن پیام ها\n• کار کردن بی اینترنت یا سرور</string>
+    <string name="enable_bluetooth">فعال کردن بۊلۊتۊس</string>
+    <string name="check_again">دوباره چک کن</string>
+    <string name="bluetooth_not_supported_title">بۊلۊتۊس پشتیبانی نیبو</string>
+    <string name="bluetooth_not_supported_message">یو دستگاه بلوتوث کم مصرف (BLE) نداره، که سی کار کردن بیچت لازمه.\n\nبیچت سی ایجاد شبکه های مش و ارتباط وا دستگاه های نزدیک بی اینترنت به BLE نیاز داره.</string>
+    <string name="checking_bluetooth_status">در حال چک کردن وضعیت بۊلۊتۊس…</string>
+
+    <string name="channel_password">رمز تورگه نه وارد کن</string>
+    <string name="channel_password_prompt">تورگه %1$s رمز داره. سی وارد وابیدن رمز نه بزن.</string>
+    <string name="cancel">لغو</string>
+    <string name="app_info_title">درباره بیچت</string>
+    <string name="app_info_description">پیام رسونی مش غیرمتمرکز وا بلوتوث LE\n\n• بی نیاز به سرور یا اینترنت\n• پیام های خصوصی رمزگذاری شده سرتاسری\n• تورگه های رمزدار\n• ذخیره و ارسال سی کاربرای آفلاین\n\nسی پاک کردن فوری همه داده ها، سه بار رو عنوان بزن</string>
+    <string name="ok">خو</string>
+
+    <string name="error_description">خطا</string>
+    <string name="initializing_mesh_network">در حال راه اندازی شبکه مش</string>
+    <string name="setting_up_bluetooth_mesh">در حال راه اندازی شبکه مش بۊلۊتۊس…</string>
+    <string name="setup_duration">یو فقط چند ثانیه طول ایکشه</string>
+    <string name="setup_not_complete">راه اندازی کامل نواوی</string>
+    <string name="try_again">دوباره سعی کن</string>
+    <string name="open_settings">باز کردن تنظیمات</string>
+    <string name="location_services_description">خدمات جاگه</string>
+    <string name="location_services_required">خدمات جاگه لازمه</string>
+    <string name="privacy_description">حریم خصوصی</string>
+    <string name="privacy_first">اول حریم خصوصی</string>
+    <string name="location_privacy_assurance">بیچت جاگه شمانه ردیابی نیکنه یا از GPS استفاده نیکنه.\n\nخدمات جاگه توسط اندروید سی اسکن درست بۊلۊتۊس لازمه. یو یه نیاز سیستم اندرویده.</string>
+    <string name="location_services_needed_for">بیچت سی یو کارا به خدمات جاگه نیاز داره:</string>
+    <string name="location_services_features">• اسکن دستگاه بۊلۊتۊس (نیاز اندروید)\n• پیدا کردن کاربرای نزدیک در شبکه مش\n• ایجاد اتصالات بی اینترنت\n• بی ردیابی GPS یا جمع آوری جاگه</string>
+    <string name="open_location_settings">باز کردن تنظیمات جاگه</string>
+    <string name="location_services_unavailable">خدمات جاگه موجود نی</string>
+    <string name="location_services_unavailable_message">خدمات جاگه رو یو دستگاه موجود نی. یو غیرعادیه چون خدمات جاگه رو دستگاه های اندروید استاندارده.\n\nبیچت سی اسکن درست بۊلۊتۊس به خدمات جاگه نیاز داره (نیاز اندروید). بی یو، برنامه نتونه کاربرای نزدیکه پیدا کنه.</string>
+    <string name="checking_location_services">در حال چک کردن خدمات جاگه…</string>
+
+    <string name="welcome_to_app">خوش اومدین به بیچت</string>
+    <string name="app_description">پیام رسونی مش غیرمتمرکز وا بۊلۊتۊس</string>
+    <string name="privacy_protected">حریم خصوصی شما حفظ ایبو</string>
+    <string name="privacy_details">• بیچت شمانه ردیابی نیکنه یا اطلاعات شخصی جمع نیکنه\n• بی سرور، بی نیاز به اینترنت، بی ثبت داده ها\n• مجوز جاگه فقط توسط اندروید سی اسکن بۊلۊتۊس استفاده ایبو\n• پیام های شما فقط رو دستگاه خوتون و دستگاه های بقیه ایمونن</string>
+    <string name="permissions_needed">سی کار کردن درست، بیچت به یو مجوزا نیاز داره:</string>
+    <string name="grant_permissions">دادن مجوزا</string>
+    <string name="location_no_gps">بیچت از GPS استفاده نیکنه یا جاگه نه ردیابی نیکنه</string>
+
+    <string name="mention">اشاره</string>
+
+    <string name="app_info_tagline">گپ گروهی مش</string>
+    <string name="features_title">ویژگی ها</string>
+    <string name="feature_offline_title">ارتباط آفلاین</string>
+    <string name="feature_offline_desc">بی اینترنت وا بۊلۊتۊس کم مصرف کار ایکنه</string>
+    <string name="feature_encryption_title">رمزگذاری سرتاسری</string>
+    <string name="feature_encryption_desc">پیام های خصوصی وا پروتکل نویز رمزگذاری وابینه</string>
+    <string name="feature_range_title">برد بیشتر</string>
+    <string name="feature_range_desc">پیام ها از طریق بقیه رد ایبون و به جاهای دورتر ایرسن</string>
+    <string name="feature_favorites_title">دلخواه ها</string>
+    <string name="feature_favorites_desc">وقتی آدمای دلخواهت وارد وابین، خبردار وابو</string>
+    <string name="feature_mutual_favorites_title">دلخواه های دوطرفه</string>
+    <string name="feature_mutual_favorites_desc">وقتی خارج از محدوده مش هید، از طریق nostr به یکدیگر پیام خصوصی بدین</string>
+    <string name="feature_mentions_title">اشاره ها</string>
+    <string name="feature_mentions_desc">از @نوم_موستعار سی خبردار کردن آدمای خاص استفاده کن</string>
+
+    <string name="privacy_title">حریم خصوصی</string>
+    <string name="privacy_no_tracking_title">بی ردیابی</string>
+    <string name="privacy_no_tracking_desc">بی سرور، حساب یا جمع آوری داده</string>
+    <string name="privacy_ephemeral_title">هویت موقت</string>
+    <string name="privacy_ephemeral_desc">شناسه کاربری جدید مرتب ساخته ایبو</string>
+    <string name="privacy_panic_title">حالت اضطراری</string>
+    <string name="privacy_panic_desc">سی پاک کردن فوری همه داده ها، سه بار رو لوگو بزن</string>
+
+    <string name="how_to_use_title">چطور استفاده کنیم</string>
+    <string name="how_to_use_1">• وا زدن رو نوم موستعارت، تنظیمش کن</string>
+    <string name="how_to_use_2">• سی نوار کناری، به چپ بکش</string>
+    <string name="how_to_use_3">• سی شروع گپ خصوصی، رو یه نفر بزن</string>
+    <string name="how_to_use_4">• از @نوم_موستعار سی اشاره به کسی استفاده کن</string>
+    <string name="how_to_use_5">• سی پاک کردن گپ، سه بار روش بزن</string>
+
+    <string name="warning_title">هشدار</string>
+    <string name="warning_message">امنیت پیام خصوصی هنوز کامل چک نواویده. تا وقتی یو هشدار حذف نواویده، سی موقعیت های حساس استفاده نکنین.</string>
+
+    <string name="done">تموم</string>
+</resources>
