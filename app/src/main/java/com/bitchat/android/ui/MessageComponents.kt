@@ -48,15 +48,14 @@ fun MessagesList(
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
             val layoutInfo = listState.layoutInfo
-            val lastVisibleIndex = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
-            val totalItems = layoutInfo.totalItemsCount
+            val firstVisibleIndex = layoutInfo.visibleItemsInfo.firstOrNull()?.index ?: -1
             
-            // Always scroll to bottom on first load, or when user is near the bottom
+            // With reverseLayout=true and reversed data, index 0 is the latest message at the bottom
             val isFirstLoad = !hasScrolledToInitialPosition
-            val isNearBottom = lastVisibleIndex >= totalItems - 3
+            val isNearLatest = firstVisibleIndex <= 2
             
-            if (isFirstLoad || isNearBottom) {
-                listState.animateScrollToItem(messages.size - 1)
+            if (isFirstLoad || isNearLatest) {
+                listState.animateScrollToItem(0)
                 if (isFirstLoad) {
                     hasScrolledToInitialPosition = true
                 }
@@ -67,7 +66,8 @@ fun MessagesList(
     // Force scroll to bottom when requested (e.g., when user sends a message)
     LaunchedEffect(forceScrollToBottom) {
         if (forceScrollToBottom && messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.size - 1)
+            // With reverseLayout=true and reversed data, latest is at index 0
+            listState.animateScrollToItem(0)
         }
     }
     
@@ -75,9 +75,10 @@ fun MessagesList(
         state = listState,
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
-        modifier = modifier
+        modifier = modifier,
+        reverseLayout = true
     ) {
-                    items(messages) { message ->
+                    items(messages.asReversed()) { message ->
                 MessageItem(
                     message = message,
                     currentUserNickname = currentUserNickname,
