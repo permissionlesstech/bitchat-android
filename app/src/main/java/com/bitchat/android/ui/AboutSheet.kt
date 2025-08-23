@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -77,7 +78,7 @@ fun AboutSheet(
                             verticalAlignment = Alignment.Bottom
                         ) {
                             Text(
-                                text = "about bitchat",
+                                text = "bitchat",
                                 fontSize = 18.sp,
                                 fontFamily = FontFamily.Monospace,
                                 fontWeight = FontWeight.Medium,
@@ -88,7 +89,10 @@ fun AboutSheet(
                                 text = "v$versionName",
                                 fontSize = 11.sp,
                                 fontFamily = FontFamily.Monospace,
-                                color = colorScheme.onSurface.copy(alpha = 0.5f)
+                                color = colorScheme.onSurface.copy(alpha = 0.5f),
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    baselineShift = BaselineShift(0.1f)
+                                )
                             )
                         }
                         
