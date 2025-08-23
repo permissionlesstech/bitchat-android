@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import java.util.*
 
 /**
@@ -77,7 +78,7 @@ fun GeohashPeopleList(
                 text = "nobody around...",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 14.sp
+                    fontSize = BASE_FONT_SIZE.sp
                 ),
                 color = colorScheme.onSurface.copy(alpha = 0.5f),
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
@@ -212,7 +213,7 @@ private fun GeohashPersonItem(
                 text = baseName,
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 14.sp,
+                    fontSize = BASE_FONT_SIZE.sp,
                     fontWeight = if (isMe) FontWeight.Bold else FontWeight.Normal
                 ),
                 color = baseColor
@@ -224,7 +225,7 @@ private fun GeohashPersonItem(
                     text = suffix,
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontFamily = FontFamily.Monospace,
-                        fontSize = 14.sp
+                        fontSize = BASE_FONT_SIZE.sp
                     ),
                     color = baseColor.copy(alpha = 0.6f)
                 )
@@ -236,7 +237,7 @@ private fun GeohashPersonItem(
                     text = " (you)",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontFamily = FontFamily.Monospace,
-                        fontSize = 14.sp
+                        fontSize = BASE_FONT_SIZE.sp
                     ),
                     color = baseColor
                 )

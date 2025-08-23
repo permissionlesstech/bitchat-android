@@ -10,6 +10,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PinDrop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
@@ -26,6 +28,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import kotlinx.coroutines.launch
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.GeohashChannel
@@ -82,14 +85,15 @@ private fun LocationChannelsContent(
     
     // CRITICAL FIX: Observe reactive participant counts for real-time updates
     val geohashParticipantCounts by viewModel.geohashParticipantCounts.observeAsState(emptyMap())
-
+    
     // UI state
     var customGeohash by remember { mutableStateOf("") }
     var customError by remember { mutableStateOf<String?>(null) }
     var isInputFocused by remember { mutableStateOf(false) }
 
     val coroutineScope = rememberCoroutineScope()
-    // Scroll state & TopBar animation
+
+    // Scroll state for LazyColumn
     val listState = rememberLazyListState()
     val isScrolled by remember {
         derivedStateOf {
@@ -102,8 +106,7 @@ private fun LocationChannelsContent(
     )
     // iOS system colors (matches iOS exactly)
     val colorScheme = MaterialTheme.colorScheme
-    val isDark =
-        colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
+    val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
     val standardGreen = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D) // iOS green
     val standardBlue = Color(0xFF007AFF) // iOS blue
     val invalidGeohashErrorText = stringResource(R.string.invalid_geohash_error)
@@ -289,7 +292,7 @@ private fun LocationChannelsContent(
                         ) {
                             Text(
                                 text = "#",
-                                fontSize = 14.sp,
+                                fontSize = BASE_FONT_SIZE.sp,
                                 fontFamily = FontFamily.Monospace,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                             )
@@ -347,14 +350,13 @@ private fun LocationChannelsContent(
                                 onClick = {
                                     if (isValid) {
                                         val level = levelForLength(normalized.length)
-                                        val channel =
-                                            GeohashChannel(level = level, geohash = normalized)
+                                        val channel = GeohashChannel(level = level, geohash = normalized)
                                         // Mark this selection as a manual teleport
                                         locationManager.setTeleported(true)
                                         locationManager.select(ChannelID.Location(channel))
                                         onDismiss()
                                     } else {
-                                        customError = invalidGeohashErrorText
+                                        customError = "invalid geohash"
                                     }
                                 },
                                 enabled = isValid,
@@ -366,7 +368,7 @@ private fun LocationChannelsContent(
                             ) {
                                 Text(
                                     text = stringResource(R.string.teleport_button).lowercase(),
-                                    fontSize = 14.sp,
+                                    fontSize = BASE_FONT_SIZE.sp,
                                     fontFamily = FontFamily.Monospace
                                 )
                             }
@@ -403,7 +405,11 @@ private fun LocationChannelsContent(
                             .fillMaxWidth()
                             .padding(horizontal = 24.dp, vertical = 16.dp)
                     ) {
-                        Text(text = stringResource(R.string.location_channels_sheet_remove_access_button))
+                        Text(
+                            text = stringResource(R.string.location_channels_sheet_remove_access_button),
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
                     }
                 }
             }
@@ -415,7 +421,7 @@ private fun LocationChannelsContent(
             modifier = Modifier.align(Alignment.TopCenter)
         )
     }
-
+    
     // Lifecycle management
     LaunchedEffect(isPresented) {
         if (isPresented) {
@@ -527,7 +533,7 @@ private fun ChannelRow(
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
                         text = baseTitle,
-                        fontSize = 14.sp,
+                        fontSize = BASE_FONT_SIZE.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = if (titleBold) FontWeight.Bold else FontWeight.Normal,
                         color = titleColor ?: MaterialTheme.colorScheme.onSurface
@@ -642,7 +648,7 @@ private fun coverageString(precision: Int): String {
         10 -> 1.19
         else -> if (precision <= 1) 5_000_000.0 else 1.19 * Math.pow(0.25, (precision - 10).toDouble())
     }
-
+    
     // Use metric system for simplicity (could be made locale-aware)
     val km = maxMeters / 1000.0
     return "~${formatDistance(km)} km"

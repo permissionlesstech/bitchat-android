@@ -12,7 +12,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bitchat.android.ui.theme.BASE_FONT_SIZE
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import kotlinx.coroutines.launch
+import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.R
 
 /**
@@ -25,11 +29,13 @@ fun ChatUserSheet(
     isPresented: Boolean,
     onDismiss: () -> Unit,
     targetNickname: String,
+    selectedMessage: BitchatMessage? = null,
     viewModel: ChatViewModel,
     modifier: Modifier = Modifier
 ) {
     val coroutineScope = rememberCoroutineScope()
-    
+    val clipboardManager = LocalClipboardManager.current
+
     // Bottom sheet state
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
@@ -41,7 +47,8 @@ fun ChatUserSheet(
     val standardGreen = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D) // iOS green
     val standardBlue = Color(0xFF007AFF) // iOS blue
     val standardRed = Color(0xFFFF3B30) // iOS red
-    
+    val standardGrey = if (isDark) Color(0xFF8E8E93) else Color(0xFF6D6D70) // iOS grey
+
     if (isPresented) {
         ModalBottomSheet(
             onDismissRequest = onDismiss,
@@ -65,6 +72,7 @@ fun ChatUserSheet(
                 
                 Text(
                     text = stringResource(R.string.user_sheet_subtitle),
+                    text = if (selectedMessage != null) "choose an action for this message or user" else "choose an action for this user",
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
@@ -74,53 +82,72 @@ fun ChatUserSheet(
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // Slap action
-                    item {
-                        UserActionRow(
-                            title = stringResource(R.string.user_sheet_action_slap, targetNickname),
-                            subtitle = stringResource(R.string.user_sheet_action_slap_subtitle),
-                            titleColor = standardBlue,
-                            onClick = {
-                                // Send slap command
-                                viewModel.sendMessage("/slap $targetNickname")
-                                onDismiss()
-                            }
-                        )
-                    }
-                    
-                    // Hug action  
-                    item {
-                        UserActionRow(
-                            title = stringResource(R.string.user_sheet_action_hug, targetNickname),
-                            subtitle = stringResource(R.string.user_sheet_action_hug_subtitle),
-                            titleColor = standardGreen,
-                            onClick = {
-                                // Send hug command
-                                viewModel.sendMessage("/hug $targetNickname")
-                                onDismiss()
-                            }
-                        )
-                    }
-                    
-                    // Block action
-                    item {
-                        UserActionRow(
-                            title = stringResource(R.string.user_sheet_action_block, targetNickname),
-                            subtitle = stringResource(R.string.user_sheet_action_block_subtitle),
-                            titleColor = standardRed,
-                            onClick = {
-                                // Check if we're in a geohash channel
-                                val selectedLocationChannel = viewModel.selectedLocationChannel.value
-                                if (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location) {
-                                    // Get user's nostr public key and add to geohash block list
-                                    viewModel.blockUserInGeohash(targetNickname)
-                                } else {
-                                    // Regular mesh blocking
-                                    viewModel.sendMessage("/block $targetNickname")
+                    // Copy message action (only show if we have a message)
+                    selectedMessage?.let { message ->
+                        item {
+                            UserActionRow(
+                                title = "copy message",
+                                subtitle = "copy this message to clipboard",
+                                titleColor = standardGrey,
+                                onClick = {
+                                    // Copy the message content to clipboard
+                                    clipboardManager.setText(AnnotatedString(message.content))
+                                    onDismiss()
                                 }
-                                onDismiss()
-                            }
-                        )
+                            )
+                        }
+                    }
+
+                    // Only show user actions for other users' messages or when no message is selected
+                    if (selectedMessage?.sender != viewModel.nickname.value) {
+                        // Slap action
+                        item {
+                            UserActionRow(
+                                title = "slap $targetNickname",
+                                subtitle = "send a playful slap message",
+                                titleColor = standardBlue,
+                                onClick = {
+                                    // Send slap command
+                                    viewModel.sendMessage("/slap $targetNickname")
+                                    onDismiss()
+                                }
+                            )
+                        }
+
+                        // Hug action
+                        item {
+                            UserActionRow(
+                                title = "hug $targetNickname",
+                                subtitle = "send a friendly hug message",
+                                titleColor = standardGreen,
+                                onClick = {
+                                    // Send hug command
+                                    viewModel.sendMessage("/hug $targetNickname")
+                                    onDismiss()
+                                }
+                            )
+                        }
+
+                        // Block action
+                        item {
+                            UserActionRow(
+                                title = "block $targetNickname",
+                                subtitle = "block all messages from this user",
+                                titleColor = standardRed,
+                                onClick = {
+                                    // Check if we're in a geohash channel
+                                    val selectedLocationChannel = viewModel.selectedLocationChannel.value
+                                    if (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location) {
+                                        // Get user's nostr public key and add to geohash block list
+                                        viewModel.blockUserInGeohash(targetNickname)
+                                    } else {
+                                        // Regular mesh blocking
+                                        viewModel.sendMessage("/block $targetNickname")
+                                    }
+                                    onDismiss()
+                                }
+                            )
+                        }
                     }
                 }
                 
@@ -135,7 +162,7 @@ fun ChatUserSheet(
                 ) {
                     Text(
                         text = stringResource(id = R.string.cancel),
-                        fontSize = 14.sp,
+                        fontSize = BASE_FONT_SIZE.sp,
                         fontFamily = FontFamily.Monospace
                     )
                 }
@@ -166,7 +193,7 @@ private fun UserActionRow(
         ) {
             Text(
                 text = title,
-                fontSize = 14.sp,
+                fontSize = BASE_FONT_SIZE.sp,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Medium,
                 color = titleColor

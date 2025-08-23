@@ -9,6 +9,7 @@ import androidx.compose.ui.unit.sp
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.mesh.BluetoothMeshService
 import androidx.compose.material3.ColorScheme
+import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -63,7 +64,7 @@ fun formatMessageAsAnnotatedString(
         // Sender prefix "<@"
         builder.pushStyle(SpanStyle(
             color = baseColor,
-            fontSize = 14.sp,
+            fontSize = BASE_FONT_SIZE.sp,
             fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
         ))
         builder.append("<@")
@@ -72,7 +73,7 @@ fun formatMessageAsAnnotatedString(
         // Base name (clickable)
         builder.pushStyle(SpanStyle(
             color = baseColor,
-            fontSize = 14.sp,
+            fontSize = BASE_FONT_SIZE.sp,
             fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
         ))
         val nicknameStart = builder.length
@@ -94,7 +95,7 @@ fun formatMessageAsAnnotatedString(
         if (suffix.isNotEmpty()) {
             builder.pushStyle(SpanStyle(
                 color = baseColor.copy(alpha = 0.6f),
-                fontSize = 14.sp,
+                fontSize = BASE_FONT_SIZE.sp,
                 fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
             ))
             builder.append(suffix)
@@ -104,7 +105,7 @@ fun formatMessageAsAnnotatedString(
         // Sender suffix "> "
         builder.pushStyle(SpanStyle(
             color = baseColor,
-            fontSize = 14.sp,
+            fontSize = BASE_FONT_SIZE.sp,
             fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
         ))
         builder.append("> ")
@@ -116,7 +117,7 @@ fun formatMessageAsAnnotatedString(
         // iOS-style timestamp at the END (smaller, grey)
         builder.pushStyle(SpanStyle(
             color = Color.Gray.copy(alpha = 0.7f),
-            fontSize = 10.sp
+            fontSize = (BASE_FONT_SIZE - 4).sp
         ))
         builder.append(" [${timeFormatter.format(message.timestamp)}]")
         builder.pop()
@@ -125,7 +126,7 @@ fun formatMessageAsAnnotatedString(
         // System message - iOS style
         builder.pushStyle(SpanStyle(
             color = Color.Gray,
-            fontSize = 12.sp,
+            fontSize = (BASE_FONT_SIZE - 2).sp,
             fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
         ))
         builder.append("* ${message.content} *")
@@ -134,7 +135,7 @@ fun formatMessageAsAnnotatedString(
         // Timestamp for system messages too
         builder.pushStyle(SpanStyle(
             color = Color.Gray.copy(alpha = 0.5f),
-            fontSize = 10.sp
+            fontSize = (BASE_FONT_SIZE - 4).sp
         ))
         builder.append(" [${timeFormatter.format(message.timestamp)}]")
         builder.pop()
@@ -190,7 +191,7 @@ fun colorForPeerSeed(seed: String, isDark: Boolean): Color {
     }
     
     val saturation = if (isDark) 0.50 else 0.70
-    val brightness = if (isDark) 0.95 else 0.45
+    val brightness = if (isDark) 0.85 else 0.35
     
     return Color.hsv(
         hue = (hue * 360).toFloat(),
@@ -269,7 +270,7 @@ private fun appendIOSFormattedContent(
             if (beforeText.isNotEmpty()) {
                 builder.pushStyle(SpanStyle(
                     color = baseColor,
-                    fontSize = 14.sp,
+                    fontSize = BASE_FONT_SIZE.sp,
                     fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Normal
                 ))
                 if (isMentioned) {
@@ -299,7 +300,7 @@ private fun appendIOSFormattedContent(
                 // "@" symbol
                 builder.pushStyle(SpanStyle(
                     color = mentionColor,
-                    fontSize = 14.sp,
+                    fontSize = BASE_FONT_SIZE.sp,
                     fontWeight = if (isSelf) FontWeight.Bold else FontWeight.SemiBold
                 ))
                 builder.append("@")
@@ -308,7 +309,7 @@ private fun appendIOSFormattedContent(
                 // Base name
                 builder.pushStyle(SpanStyle(
                     color = mentionColor,
-                    fontSize = 14.sp,
+                    fontSize = BASE_FONT_SIZE.sp,
                     fontWeight = if (isSelf) FontWeight.Bold else FontWeight.SemiBold
                 ))
                 builder.append(mBase)
@@ -318,7 +319,7 @@ private fun appendIOSFormattedContent(
                 if (mSuffix.isNotEmpty()) {
                     builder.pushStyle(SpanStyle(
                         color = mentionColor.copy(alpha = 0.6f),
-                        fontSize = 14.sp,
+                        fontSize = BASE_FONT_SIZE.sp,
                         fontWeight = if (isSelf) FontWeight.Bold else FontWeight.SemiBold
                     ))
                     builder.append(mSuffix)
@@ -329,7 +330,7 @@ private fun appendIOSFormattedContent(
                 // iOS-style: render hashtags like normal content (no special styling)
                 builder.pushStyle(SpanStyle(
                     color = baseColor,
-                    fontSize = 14.sp,
+                    fontSize = BASE_FONT_SIZE.sp,
                     fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Normal
                 ))
                 if (isMentioned) {
@@ -351,7 +352,7 @@ private fun appendIOSFormattedContent(
         val remainingText = content.substring(lastEnd)
         builder.pushStyle(SpanStyle(
             color = baseColor,
-            fontSize = 14.sp,
+            fontSize = BASE_FONT_SIZE.sp,
             fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Normal
         ))
         if (isMentioned) {

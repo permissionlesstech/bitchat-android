@@ -1,40 +1,25 @@
 package com.bitchat.android.ui
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -52,6 +37,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.withStyle
 import com.bitchat.android.R
+import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 
 /**
  * Input components for ChatScreen
@@ -67,13 +53,13 @@ class SlashCommandVisualTransformation : VisualTransformation {
         val slashCommandRegex = Regex("(/\\w+)(?=\\s|$)")
         val annotatedString = buildAnnotatedString {
             var lastIndex = 0
-            
+
             slashCommandRegex.findAll(text.text).forEach { match ->
                 // Add text before the match
                 if (match.range.first > lastIndex) {
                     append(text.text.substring(lastIndex, match.range.first))
                 }
-                
+
                 // Add the styled slash command
                 withStyle(
                     style = SpanStyle(
@@ -111,13 +97,13 @@ class MentionVisualTransformation : VisualTransformation {
         val mentionRegex = Regex("@([a-zA-Z0-9_]+)")
         val annotatedString = buildAnnotatedString {
             var lastIndex = 0
-
+            
             mentionRegex.findAll(text.text).forEach { match ->
                 // Add text before the match
                 if (match.range.first > lastIndex) {
                     append(text.text.substring(lastIndex, match.range.first))
                 }
-
+                
                 // Add the styled mention
                 withStyle(
                     style = SpanStyle(
@@ -128,7 +114,7 @@ class MentionVisualTransformation : VisualTransformation {
                 ) {
                     append(match.value)
                 }
-
+                
                 lastIndex = match.range.last + 1
             }
             
@@ -148,22 +134,24 @@ class MentionVisualTransformation : VisualTransformation {
 /**
  * VisualTransformation that combines multiple visual transformations
  */
-class CombinedVisualTransformation(private val transformations: List<VisualTransformation>) :
-    VisualTransformation {
+class CombinedVisualTransformation(private val transformations: List<VisualTransformation>) : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
         var resultText = text
-
+        
         // Apply each transformation in order
         transformations.forEach { transformation ->
             resultText = transformation.filter(resultText).text
         }
-
+        
         return TransformedText(
             text = resultText,
             offsetMapping = OffsetMapping.Identity
         )
     }
 }
+
+
+
 
 
 @Composable
@@ -200,7 +188,9 @@ fun MessageInput(
                 keyboardActions = KeyboardActions(onSend = { 
                     if (hasText) onSend() // Only send if there's text
                 }),
-                visualTransformation = SlashCommandVisualTransformation(),
+                visualTransformation = CombinedVisualTransformation(
+                    listOf(SlashCommandVisualTransformation(), MentionVisualTransformation())
+                ),
                 modifier = Modifier
                     .fillMaxWidth()
                     .onFocusChanged { focusState ->
@@ -220,9 +210,9 @@ fun MessageInput(
                 )
             }
         }
-
+        
         Spacer(modifier = Modifier.width(8.dp)) // Reduced spacing
-
+        
         // Command quick access button
         if (value.text.isEmpty()) {
             FilledTonalIconButton(
@@ -335,9 +325,10 @@ fun CommandSuggestionsBox(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    
+
     Column(
         modifier = modifier
+            .verticalScroll(rememberScrollState())
             .background(colorScheme.surface)
             .border(1.dp, colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
             .padding(vertical = 8.dp)
@@ -357,7 +348,7 @@ fun CommandSuggestionItem(
     onClick: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -372,7 +363,7 @@ fun CommandSuggestionItem(
         } else {
             listOf(suggestion.command)
         }
-        
+
         Text(
             text = allCommands.joinToString(", "),
             style = MaterialTheme.typography.bodySmall.copy(
@@ -380,24 +371,21 @@ fun CommandSuggestionItem(
                 fontWeight = FontWeight.Medium
             ),
             color = colorScheme.primary,
-            fontSize = 11.sp
+            fontSize = (BASE_FONT_SIZE - 4).sp
         )
-        
+
         // Show syntax if any
         suggestion.syntax?.let { syntax ->
-            Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = syntax,
                 style = MaterialTheme.typography.bodySmall.copy(
                     fontFamily = FontFamily.Monospace
                 ),
                 color = colorScheme.onSurface.copy(alpha = 0.8f),
-                fontSize = 10.sp
+                fontSize = (BASE_FONT_SIZE - 5).sp
             )
         }
-        
-        Spacer(modifier = Modifier.weight(1f))
-        
+
         // Show description
         Text(
             text = suggestion.description,
@@ -405,7 +393,7 @@ fun CommandSuggestionItem(
                 fontFamily = FontFamily.Monospace
             ),
             color = colorScheme.onSurface.copy(alpha = 0.7f),
-            fontSize = 10.sp,
+            fontSize = (BASE_FONT_SIZE - 5).sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -419,7 +407,7 @@ fun MentionSuggestionsBox(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
-
+    
     Column(
         modifier = modifier
             .background(colorScheme.surface)
@@ -441,7 +429,7 @@ fun MentionSuggestionItem(
     onClick: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
-
+    
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -457,18 +445,18 @@ fun MentionSuggestionItem(
                 fontWeight = FontWeight.SemiBold
             ),
             color = Color(0xFFFF9500), // Orange like mentions
-            fontSize = 11.sp
+            fontSize = (BASE_FONT_SIZE - 4).sp
         )
-
+        
         Spacer(modifier = Modifier.weight(1f))
-
+        
         Text(
             text = "mention",
             style = MaterialTheme.typography.bodySmall.copy(
                 fontFamily = FontFamily.Monospace
             ),
             color = colorScheme.onSurface.copy(alpha = 0.7f),
-            fontSize = 10.sp
+            fontSize = (BASE_FONT_SIZE - 5).sp
         )
     }
 }

@@ -8,9 +8,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.zIndex
+import com.bitchat.android.model.BitchatMessage
 
 /**
  * Main ChatScreen - REFACTORED to use component-based architecture
@@ -19,7 +23,7 @@ import androidx.compose.ui.zIndex
  * - MessageComponents: Message display and formatting
  * - InputComponents: Message input and command suggestions
  * - SidebarComponents: Navigation drawer with channels and people
- * - DialogComponents: Password prompts and modals
+ * - AboutSheet: App info and password prompts
  * - ChatUIUtils: Utility functions for formatting and colors
  */
 @Composable
@@ -49,6 +53,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
     var showLocationChannelsSheet by remember { mutableStateOf(false) }
     var showUserSheet by remember { mutableStateOf(false) }
     var selectedUserForSheet by remember { mutableStateOf("") }
+    var selectedMessageForSheet by remember { mutableStateOf<BitchatMessage?>(null) }
     var forceScrollToBottom by remember { mutableStateOf(false) }
 
     // Show password dialog when needed
@@ -111,10 +116,10 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 onNicknameClick = { fullSenderName ->
                     // Single click - mention user in text input
                     val currentText = messageText.text
-
+                    
                     // Extract base nickname and hash suffix from full sender name
                     val (baseName, hashSuffix) = splitSuffix(fullSenderName)
-
+                    
                     // Check if we're in a geohash channel to include hash suffix
                     val selectedLocationChannel = viewModel.selectedLocationChannel.value
                     val mentionText = if (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location && hashSuffix.isNotEmpty()) {
@@ -136,11 +141,12 @@ fun ChatScreen(viewModel: ChatViewModel) {
                         selection = TextRange(newText.length)
                     )
                 },
-                onNicknameLongPress = { fullSenderName ->
-                    // Long press - open user action sheet
-                    // Extract base nickname from full sender name
-                    val (baseName, _) = splitSuffix(fullSenderName)
+                onMessageLongPress = { message ->
+                    // Message long press - open user action sheet with message context
+                    // Extract base nickname from message sender (contains all necessary info)
+                    val (baseName, _) = splitSuffix(message.sender)
                     selectedUserForSheet = baseName
+                    selectedMessageForSheet = message
                     showUserSheet = true
                 },
                 modifier = Modifier
@@ -177,6 +183,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 showUserSheet = showUserSheet,
                 onUserSheetDismiss = { showUserSheet = false },
                 selectedUserForSheet = selectedUserForSheet,
+                selectedMessageForSheet = selectedMessageForSheet,
                 viewModel = viewModel
             )
         },
@@ -193,6 +200,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     if (messageText.text.trim().isNotEmpty()) {
                         viewModel.sendMessage(messageText.text.trim())
                         messageText = TextFieldValue("")
+                        forceScrollToBottom = !forceScrollToBottom // Toggle to trigger scroll
                     }
                 },
                 showCommandSuggestions = showCommandSuggestions,
@@ -347,6 +355,7 @@ private fun ChatSheets(
     showUserSheet: Boolean,
     onUserSheetDismiss: () -> Unit,
     selectedUserForSheet: String,
+    selectedMessageForSheet: BitchatMessage?,
     viewModel: ChatViewModel
 ) {
 
@@ -371,6 +380,7 @@ private fun ChatSheets(
             isPresented = showUserSheet,
             onDismiss = onUserSheetDismiss,
             targetNickname = selectedUserForSheet,
+            selectedMessage = selectedMessageForSheet,
             viewModel = viewModel
         )
     }
