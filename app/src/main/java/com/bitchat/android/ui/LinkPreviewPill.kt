@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import java.net.URL
 
 /**
@@ -109,7 +110,7 @@ fun LinkPreviewPill(
                 Text(
                     text = displayTitle,
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 14.sp,
+                    fontSize = BASE_FONT_SIZE.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = textColor,
                     maxLines = 2,

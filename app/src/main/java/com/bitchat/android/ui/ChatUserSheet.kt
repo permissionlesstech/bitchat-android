@@ -11,6 +11,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import kotlinx.coroutines.launch
@@ -158,7 +159,7 @@ fun ChatUserSheet(
                 ) {
                     Text(
                         text = "cancel",
-                        fontSize = 14.sp,
+                        fontSize = BASE_FONT_SIZE.sp,
                         fontFamily = FontFamily.Monospace
                     )
                 }
@@ -189,7 +190,7 @@ private fun UserActionRow(
         ) {
             Text(
                 text = title,
-                fontSize = 14.sp,
+                fontSize = BASE_FONT_SIZE.sp,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Medium,
                 color = titleColor

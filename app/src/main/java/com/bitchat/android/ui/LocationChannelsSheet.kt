@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import kotlinx.coroutines.launch
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.GeohashChannel
@@ -240,7 +241,7 @@ fun LocationChannelsSheet(
                                 ) {
                                     Text(
                                         text = "#",
-                                        fontSize = 14.sp,
+                                        fontSize = BASE_FONT_SIZE.sp,
                                         fontFamily = FontFamily.Monospace,
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                                     )
@@ -260,7 +261,7 @@ fun LocationChannelsSheet(
                                             customError = null
                                         },
                                         textStyle = androidx.compose.ui.text.TextStyle(
-                                            fontSize = 14.sp,
+                                            fontSize = BASE_FONT_SIZE.sp,
                                             fontFamily = FontFamily.Monospace,
                                             color = MaterialTheme.colorScheme.onSurface
                                         ),
@@ -283,7 +284,7 @@ fun LocationChannelsSheet(
                                             if (customGeohash.isEmpty()) {
                                                 Text(
                                                     text = "geohash",
-                                                    fontSize = 14.sp,
+                                                    fontSize = BASE_FONT_SIZE.sp,
                                                     fontFamily = FontFamily.Monospace,
                                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                                                 )
@@ -321,7 +322,7 @@ fun LocationChannelsSheet(
                                         ) {
                                             Text(
                                                 text = "teleport",
-                                                fontSize = 14.sp,
+                                                fontSize = BASE_FONT_SIZE.sp,
                                                 fontFamily = FontFamily.Monospace
                                             )
                                             // iOS has a face.dashed icon, use closest Material equivalent
@@ -446,7 +447,7 @@ private fun ChannelRow(
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
                         text = baseTitle,
-                        fontSize = 14.sp,
+                        fontSize = BASE_FONT_SIZE.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = if (titleBold) FontWeight.Bold else FontWeight.Normal,
                         color = titleColor ?: MaterialTheme.colorScheme.onSurface

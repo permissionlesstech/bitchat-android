@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 
 
 /**
@@ -400,7 +401,7 @@ private fun PeerItem(
                 text = baseName,
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 14.sp,
+                    fontSize = BASE_FONT_SIZE.sp,
                     fontWeight = if (isMe) FontWeight.Bold else FontWeight.Normal
                 ),
                 color = baseColor
@@ -412,7 +413,7 @@ private fun PeerItem(
                     text = suffix,
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontFamily = FontFamily.Monospace,
-                        fontSize = 14.sp
+                        fontSize = BASE_FONT_SIZE.sp
                     ),
                     color = baseColor.copy(alpha = 0.6f)
                 )
