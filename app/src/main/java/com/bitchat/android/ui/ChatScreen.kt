@@ -22,7 +22,7 @@ import androidx.compose.ui.zIndex
  * - MessageComponents: Message display and formatting
  * - InputComponents: Message input and command suggestions
  * - SidebarComponents: Navigation drawer with channels and people
- * - DialogComponents: Password prompts and modals
+ * - AboutSheet: App info and password prompts
  * - ChatUIUtils: Utility functions for formatting and colors
  */
 @Composable
@@ -399,9 +399,9 @@ private fun ChatDialogs(
         onDismiss = onPasswordDismiss
     )
 
-    // App info dialog
-    AppInfoDialog(
-        show = showAppInfo,
+    // About sheet
+    AboutSheet(
+        isPresented = showAppInfo,
         onDismiss = onAppInfoDismiss
     )
     
