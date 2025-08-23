@@ -9,6 +9,12 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Alignment
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.IconButton
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
@@ -55,6 +61,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
     var selectedUserForSheet by remember { mutableStateOf("") }
     var selectedMessageForSheet by remember { mutableStateOf<BitchatMessage?>(null) }
     var forceScrollToBottom by remember { mutableStateOf(false) }
+    var isScrolledUp by remember { mutableStateOf(false) }
 
     // Show password dialog when needed
     LaunchedEffect(showPasswordPrompt) {
@@ -100,6 +107,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 meshService = viewModel.meshService,
                 modifier = Modifier.weight(1f),
                 forceScrollToBottom = forceScrollToBottom,
+                onScrolledUpChanged = { isUp -> isScrolledUp = isUp },
                 onNicknameClick = { fullSenderName ->
                     // Single click - mention user in text input
                     val currentText = messageText.text
@@ -218,6 +226,35 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     .clickable { viewModel.hideSidebar() }
                     .zIndex(1f)
             )
+        }
+
+        // Scroll-to-bottom floating button
+        AnimatedVisibility(
+            visible = isScrolledUp && !showSidebar,
+            enter = slideInVertically(initialOffsetY = { it / 2 }) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { it / 2 }) + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = 16.dp)
+                .zIndex(1.5f)
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .windowInsetsPadding(WindowInsets.ime)
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = colorScheme.background,
+                tonalElevation = 3.dp,
+                shadowElevation = 6.dp,
+                border = BorderStroke(2.dp, Color(0xFF00C851))
+            ) {
+                IconButton(onClick = { forceScrollToBottom = !forceScrollToBottom }) {
+                    Icon(
+                        imageVector = Icons.Filled.ArrowDownward,
+                        contentDescription = "Scroll to bottom",
+                        tint = Color(0xFF00C851)
+                    )
+                }
+            }
         }
 
         AnimatedVisibility(

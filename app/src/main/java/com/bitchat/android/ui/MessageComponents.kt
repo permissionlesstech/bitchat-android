@@ -41,6 +41,7 @@ fun MessagesList(
     meshService: BluetoothMeshService,
     modifier: Modifier = Modifier,
     forceScrollToBottom: Boolean = false,
+    onScrolledUpChanged: ((Boolean) -> Unit)? = null,
     onNicknameClick: ((String) -> Unit)? = null,
     onMessageLongPress: ((BitchatMessage) -> Unit)? = null
 ) {
@@ -66,6 +67,17 @@ fun MessagesList(
                 }
             }
         }
+    }
+    
+    // Track whether user has scrolled away from the latest messages
+    val isAtLatest by remember {
+        derivedStateOf {
+            val firstVisibleIndex = listState.layoutInfo.visibleItemsInfo.firstOrNull()?.index ?: -1
+            firstVisibleIndex <= 2
+        }
+    }
+    LaunchedEffect(isAtLatest) {
+        onScrolledUpChanged?.invoke(!isAtLatest)
     }
     
     // Force scroll to bottom when requested (e.g., when user sends a message)
