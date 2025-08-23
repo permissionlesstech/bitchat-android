@@ -21,6 +21,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.mesh.BluetoothMeshService
@@ -184,6 +186,7 @@ private fun MessageTextWithClickableNicknames(
                  message.sender.startsWith("$currentUserNickname#")
     
     if (!isSelf && (onNicknameClick != null || onMessageLongPress != null)) {
+        val haptic = LocalHapticFeedback.current
         var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
         Text(
             text = annotatedText,
@@ -199,10 +202,14 @@ private fun MessageTextWithClickableNicknames(
                         )
                         if (nicknameAnnotations.isNotEmpty()) {
                             val nickname = nicknameAnnotations.first().item
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onNicknameClick?.invoke(nickname)
                         }
                     },
-                    onLongPress = { onMessageLongPress?.invoke(message) }
+                    onLongPress = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onMessageLongPress?.invoke(message)
+                    }
                 )
             },
             fontFamily = FontFamily.Monospace,
@@ -215,12 +222,16 @@ private fun MessageTextWithClickableNicknames(
         )
     } else {
         // Use regular text with message long press support for own messages
+        val haptic = LocalHapticFeedback.current
         Text(
             text = annotatedText,
             modifier = if (onMessageLongPress != null) {
                 modifier.combinedClickable(
                     onClick = { /* No action for own messages */ },
-                    onLongClick = { onMessageLongPress.invoke(message) }
+                    onLongClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onMessageLongPress.invoke(message)
+                    }
                 )
             } else {
                 modifier
