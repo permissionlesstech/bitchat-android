@@ -62,7 +62,7 @@ fun LocationChannelsSheet(
     
     // Bottom sheet state
     val sheetState = rememberModalBottomSheetState(
-        skipPartiallyExpanded = isInputFocused
+        skipPartiallyExpanded = true
     )
     val coroutineScope = rememberCoroutineScope()
     
@@ -79,8 +79,8 @@ fun LocationChannelsSheet(
         ModalBottomSheet(
             onDismissRequest = onDismiss,
             sheetState = sheetState,
-            modifier = modifier
-        ) {
+            modifier = modifier.statusBarsPadding(),
+            ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -551,7 +551,7 @@ private fun coverageString(precision: Int): String {
         10 -> 1.19
         else -> if (precision <= 1) 5_000_000.0 else 1.19 * Math.pow(0.25, (precision - 10).toDouble())
     }
-    
+
     // Use metric system for simplicity (could be made locale-aware)
     val km = maxMeters / 1000.0
     return "~${formatDistance(km)} km"

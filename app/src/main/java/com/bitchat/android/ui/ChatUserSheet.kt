@@ -44,8 +44,8 @@ fun ChatUserSheet(
         ModalBottomSheet(
             onDismissRequest = onDismiss,
             sheetState = sheetState,
-            modifier = modifier
-        ) {
+            modifier = modifier.statusBarsPadding(),
+            ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
