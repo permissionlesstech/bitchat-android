@@ -190,7 +190,7 @@ fun colorForPeerSeed(seed: String, isDark: Boolean): Color {
     }
     
     val saturation = if (isDark) 0.50 else 0.70
-    val brightness = if (isDark) 0.95 else 0.45
+    val brightness = if (isDark) 0.85 else 0.35
     
     return Color.hsv(
         hue = (hue * 360).toFloat(),
