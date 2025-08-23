@@ -75,7 +75,7 @@ fun MessagesList(
         LazyColumn(
             state = listState,
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             items(messages) { message ->
                 MessageItem(
