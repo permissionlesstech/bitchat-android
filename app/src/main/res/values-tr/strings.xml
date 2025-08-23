@@ -123,6 +123,9 @@
     <!-- Chat User Action Sheet -->
     <string name="user_sheet_header">\@%1$s</string>
     <string name="user_sheet_subtitle">Bu kullanıcı için bir eylem seçin</string>
+    <string name="user_sheet_subtitle_message_or_user">Bu mesaj veya kullanıcı için bir eylem seçin</string>
+    <string name="user_sheet_action_copy_message">Mesajı kopyala</string>
+    <string name="user_sheet_action_copy_message_subtitle">Bu mesajı panoya kopyala</string>
     <string name="user_sheet_action_slap">%1$s adlı kişiyi tokatla</string>
     <string name="user_sheet_action_slap_subtitle">Şakacı bir tokat mesajı gönder</string>
     <string name="user_sheet_action_hug">%1$s adlı kişiye sarıl</string>

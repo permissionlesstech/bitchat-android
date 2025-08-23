@@ -123,6 +123,9 @@
     <!-- Chat User Action Sheet -->
     <string name="user_sheet_header">\@%1$s</string>
     <string name="user_sheet_subtitle">בחר פעולה עבור משתמש זה</string>
+    <string name="user_sheet_subtitle_message_or_user">בחר פעולה עבור הודעה זו או משתמש זה</string>
+    <string name="user_sheet_action_copy_message">העתק הודעה</string>
+    <string name="user_sheet_action_copy_message_subtitle">העתק הודעה זו ללוח</string>
     <string name="user_sheet_action_slap">סטירה ל%1$s</string>
     <string name="user_sheet_action_slap_subtitle">שלח הודעת סטירה משעשעת</string>
     <string name="user_sheet_action_hug">חבק את %1$s</string>

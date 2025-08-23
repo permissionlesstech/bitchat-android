@@ -123,6 +123,9 @@
     <!-- Chat User Action Sheet -->
     <string name="user_sheet_header">\@%1$s</string>
     <string name="user_sheet_subtitle">Выберыце дзеянне для гэтага карыстальніка</string>
+    <string name="user_sheet_subtitle_message_or_user">Выберыце дзеянне для гэтага паведамлення або карыстальніка</string>
+    <string name="user_sheet_action_copy_message">Капіяваць паведамленне</string>
+    <string name="user_sheet_action_copy_message_subtitle">Капіяваць гэтае паведамленне ў буфер абмену</string>
     <string name="user_sheet_action_slap">Ляпнуць %1$s</string>
     <string name="user_sheet_action_slap_subtitle">Адправіць жартаўлівае паведамленне</string>
     <string name="user_sheet_action_hug">Абняць %1$s</string>

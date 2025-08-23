@@ -350,7 +350,8 @@ private fun LocationChannelsContent(
                                 onClick = {
                                     if (isValid) {
                                         val level = levelForLength(normalized.length)
-                                        val channel = GeohashChannel(level = level, geohash = normalized)
+                                        val channel =
+                                            GeohashChannel(level = level, geohash = normalized)
                                         // Mark this selection as a manual teleport
                                         locationManager.setTeleported(true)
                                         locationManager.select(ChannelID.Location(channel))
@@ -421,7 +422,7 @@ private fun LocationChannelsContent(
             modifier = Modifier.align(Alignment.TopCenter)
         )
     }
-    
+
     // Lifecycle management
     LaunchedEffect(isPresented) {
         if (isPresented) {
@@ -431,7 +432,7 @@ private fun LocationChannelsContent(
             }
             // Begin periodic refresh while sheet is open
             locationManager.beginLiveRefresh()
-            
+
             // Begin multi-channel sampling for counts
             val geohashes = availableChannels.map { it.geohash }
             viewModel.beginGeohashSampling(geohashes)
@@ -440,14 +441,14 @@ private fun LocationChannelsContent(
             viewModel.endGeohashSampling()
         }
     }
-    
+
     // React to permission changes
     LaunchedEffect(permissionState) {
         if (permissionState == LocationChannelManager.PermissionState.AUTHORIZED) {
             locationManager.refreshChannels()
         }
     }
-    
+
     // React to available channels changes
     LaunchedEffect(availableChannels) {
         val geohashes = availableChannels.map { it.geohash }
@@ -529,7 +530,7 @@ private fun ChannelRow(
             ) {
                 // Split title to handle count part with smaller font (iOS style)
                 val (baseTitle, countSuffix) = splitTitleAndCount(title)
-                
+
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
                         text = baseTitle,
@@ -538,7 +539,7 @@ private fun ChannelRow(
                         fontWeight = if (titleBold) FontWeight.Bold else FontWeight.Normal,
                         color = titleColor ?: MaterialTheme.colorScheme.onSurface
                     )
-                    
+
                     countSuffix?.let { count ->
                         Text(
                             text = count,
@@ -548,7 +549,7 @@ private fun ChannelRow(
                         )
                     }
                 }
-                
+
                 Text(
                     text = subtitle,
                     fontSize = 12.sp,
@@ -556,7 +557,7 @@ private fun ChannelRow(
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
             }
-            
+
             if (isSelected) {
                 Text(
                     text = stringResource(R.string.checkmark_symbol),
@@ -646,9 +647,12 @@ private fun coverageString(precision: Int): String {
         8 -> 38.2
         9 -> 4.77
         10 -> 1.19
-        else -> if (precision <= 1) 5_000_000.0 else 1.19 * Math.pow(0.25, (precision - 10).toDouble())
+        else -> if (precision <= 1) 5_000_000.0 else 1.19 * Math.pow(
+            0.25,
+            (precision - 10).toDouble()
+        )
     }
-    
+
     // Use metric system for simplicity (could be made locale-aware)
     val km = maxMeters / 1000.0
     return "~${formatDistance(km)} km"

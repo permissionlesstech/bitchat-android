@@ -123,6 +123,9 @@
     <!-- Chat User Action Sheet -->
     <string name="user_sheet_header">\@%1$s</string>
     <string name="user_sheet_subtitle">აირჩიეთ მოქმედება ამ მომხმარებლისთვის</string>
+    <string name="user_sheet_subtitle_message_or_user">აირჩიეთ მოქმედება ამ შეტყობინებისთვის ან მომხმარებლისთვის</string>
+    <string name="user_sheet_action_copy_message">შეტყობინების კოპირება</string>
+    <string name="user_sheet_action_copy_message_subtitle">ამ შეტყობინების კოპირება ბუფერში</string>
     <string name="user_sheet_action_slap">გაწნა %1$s</string>
     <string name="user_sheet_action_slap_subtitle">გაუგზავნეთ სათამაშო წამორტყმის შეტყობინება</string>
     <string name="user_sheet_action_hug">ჩახუტება %1$s</string>

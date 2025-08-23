@@ -123,6 +123,9 @@
     <!-- Chat User Action Sheet -->
     <string name="user_sheet_header">\@%1$s</string>
     <string name="user_sheet_subtitle">Осы пайдаланушы үшін әрекетті таңдаңыз</string>
+    <string name="user_sheet_subtitle_message_or_user">Осы хабарлама немесе пайдаланушы үшін әрекетті таңдаңыз</string>
+    <string name="user_sheet_action_copy_message">Хабарламаны көшіру</string>
+    <string name="user_sheet_action_copy_message_subtitle">Бұл хабарламаны алмасу буферіне көшіру</string>
     <string name="user_sheet_action_slap">%1$s пайдаланушысын шапалақтау</string>
     <string name="user_sheet_action_slap_subtitle">Ойын түрінде шапалақ хабарламасын жіберу</string>
     <string name="user_sheet_action_hug">%1$s пайдаланушысын құшақтау</string>

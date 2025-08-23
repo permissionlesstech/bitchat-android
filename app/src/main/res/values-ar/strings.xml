@@ -126,6 +126,9 @@
     <!-- Chat User Action Sheet -->
     <string name="user_sheet_header">\@%1$s</string>
     <string name="user_sheet_subtitle">اختر إجراءً لهذا المستخدم</string>
+    <string name="user_sheet_subtitle_message_or_user">اختر إجراءً لهذه الرسالة أو المستخدم</string>
+    <string name="user_sheet_action_copy_message">نسخ الرسالة</string>
+    <string name="user_sheet_action_copy_message_subtitle">نسخ هذه الرسالة إلى الحافظة</string>
     <string name="user_sheet_action_slap">صفع %1$s</string>
     <string name="user_sheet_action_slap_subtitle">إرسال رسالة صفع مرحة</string>
     <string name="user_sheet_action_hug">معانقة %1$s</string>

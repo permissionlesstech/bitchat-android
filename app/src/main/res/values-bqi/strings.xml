@@ -123,6 +123,9 @@
     <!-- Chat User Action Sheet -->
     <string name="user_sheet_header">\@%1$s</string>
     <string name="user_sheet_subtitle">اے کارمرزوک ءِ ھاتر ءَ یک عملے گچین بکن</string>
+    <string name="user_sheet_subtitle_message_or_user">اے پئیگام یا کارمرزوک ءِ ھاتر ءَ یک عملے گچین بکن</string>
+    <string name="user_sheet_action_copy_message">پئیگام ءَ کاپی بکن</string>
+    <string name="user_sheet_action_copy_message_subtitle">اے پئیگام ءَ کلیپ بورڈ ءَ کاپی بکن</string>
     <string name="user_sheet_action_slap">%1$s ءَ ٹاپُک بجن</string>
     <string name="user_sheet_action_slap_subtitle">یک لیبی ٹاپُکے پئیگامے دیم بدے</string>
     <string name="user_sheet_action_hug">%1$s ءَ بغلگیر بکن</string>
