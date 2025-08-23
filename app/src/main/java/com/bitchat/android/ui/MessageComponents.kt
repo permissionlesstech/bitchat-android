@@ -82,7 +82,7 @@ fun MessagesList(
     
     // Force scroll to bottom when requested (e.g., when user sends a message)
     LaunchedEffect(forceScrollToBottom) {
-        if (forceScrollToBottom && messages.isNotEmpty()) {
+        if (messages.isNotEmpty()) {
             // With reverseLayout=true and reversed data, latest is at index 0
             listState.animateScrollToItem(0)
         }
