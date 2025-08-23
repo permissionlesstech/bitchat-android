@@ -309,14 +309,14 @@ class LocationChannelManager private constructor(private val context: Context) {
         
         // Country
         address.countryName?.takeIf { it.isNotEmpty() }?.let {
-            dict[GeohashChannelLevel.COUNTRY] = it
+            dict[GeohashChannelLevel.REGION] = it
         }
         
-        // Region (state/province or county)
+        // Province (state/province or county)
         address.adminArea?.takeIf { it.isNotEmpty() }?.let {
-            dict[GeohashChannelLevel.REGION] = it
+            dict[GeohashChannelLevel.PROVINCE] = it
         } ?: address.subAdminArea?.takeIf { it.isNotEmpty() }?.let {
-            dict[GeohashChannelLevel.REGION] = it
+            dict[GeohashChannelLevel.PROVINCE] = it
         }
         
         // City (locality)

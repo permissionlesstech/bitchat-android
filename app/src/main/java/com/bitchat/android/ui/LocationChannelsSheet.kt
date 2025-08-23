@@ -529,8 +529,8 @@ private fun validateGeohash(geohash: String): Boolean {
 
 private fun levelForLength(length: Int): GeohashChannelLevel {
     return when (length) {
-        in 0..2 -> GeohashChannelLevel.COUNTRY
-        in 3..4 -> GeohashChannelLevel.REGION
+        in 0..2 -> GeohashChannelLevel.REGION
+        in 3..4 -> GeohashChannelLevel.PROVINCE
         5 -> GeohashChannelLevel.CITY
         6 -> GeohashChannelLevel.NEIGHBORHOOD
         7 -> GeohashChannelLevel.BLOCK
@@ -572,8 +572,9 @@ private fun bluetoothRangeString(): String {
 }
 
 private fun formattedNamePrefix(level: GeohashChannelLevel): String {
-    return when (level) {
-        GeohashChannelLevel.COUNTRY -> ""
-        else -> "~"
-    }
+//    return when (level) {
+//        GeohashChannelLevel.REGION -> ""
+//        else -> "~"
+//    }
+    return "~"
 }

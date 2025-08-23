@@ -707,8 +707,8 @@ class MainActivity : ComponentActivity() {
                         7 -> com.bitchat.android.geohash.GeohashChannelLevel.BLOCK
                         6 -> com.bitchat.android.geohash.GeohashChannelLevel.NEIGHBORHOOD
                         5 -> com.bitchat.android.geohash.GeohashChannelLevel.CITY
-                        4 -> com.bitchat.android.geohash.GeohashChannelLevel.REGION
-                        2 -> com.bitchat.android.geohash.GeohashChannelLevel.COUNTRY
+                        4 -> com.bitchat.android.geohash.GeohashChannelLevel.PROVINCE
+                        2 -> com.bitchat.android.geohash.GeohashChannelLevel.REGION
                         else -> com.bitchat.android.geohash.GeohashChannelLevel.CITY // Default fallback
                     }
                     val geohashChannel = com.bitchat.android.geohash.GeohashChannel(level, geohash)
