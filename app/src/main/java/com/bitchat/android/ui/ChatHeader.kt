@@ -487,30 +487,6 @@ private fun MainHeader(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Unread indicator (like iOS)
-            if (hasUnreadPrivateMessages.isNotEmpty()) {
-                Button(
-                    onClick = { 
-                        // Open most relevant private chat (first unread)
-                        val firstUnread = hasUnreadPrivateMessages.firstOrNull()
-                        if (firstUnread != null) {
-                            viewModel.startPrivateChat(firstUnread)
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Transparent,
-                        contentColor = Color(0xFFFF9500)
-                    ),
-                    contentPadding = PaddingValues(4.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Email,
-                        contentDescription = "Open unread private chat",
-                        modifier = Modifier.size(12.dp),
-                        tint = Color(0xFFFF9500)
-                    )
-                }
-            }
             
             // Location channels button (matching iOS implementation)
             LocationChannelsButton(
