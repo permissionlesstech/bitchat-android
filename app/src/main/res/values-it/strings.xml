@@ -119,4 +119,37 @@
     <string name="warning_message">la sicurezza dei messaggi privati non è ancora stata completamente verificata. non utilizzare per situazioni critiche finché questo avviso non scompare.</string>
 
     <string name="done">Fatto</string>
+
+    <!-- Chat User Action Sheet -->
+    <string name="user_sheet_header">\@%1$s</string>
+    <string name="user_sheet_subtitle">Scegli un\'azione per questo utente</string>
+    <string name="user_sheet_action_slap">Dai uno schiaffo a %1$s</string>
+    <string name="user_sheet_action_slap_subtitle">Invia un messaggio scherzoso</string>
+    <string name="user_sheet_action_hug">Abbraccia %1$s</string>
+    <string name="user_sheet_action_hug_subtitle">Invia un messaggio di abbraccio amichevole</string>
+    <string name="user_sheet_action_block">Blocca %1$s</string>
+    <string name="user_sheet_action_block_subtitle">Blocca tutti i messaggi di questo utente</string>
+
+    <!-- Location Channels Sheet -->
+    <string name="location_channels_sheet_title">#canali di posizione</string>
+    <string name="location_channels_sheet_description">Chatta con le persone vicine a te usando i canali geohash. Viene condiviso solo un geohash approssimativo, mai il GPS esatto. Non fare screenshot o condividere questa schermata per proteggere la tua privacy.</string>
+    <string name="location_channels_sheet_get_location_button">Ottieni posizione e i miei geohash</string>
+    <string name="location_channels_sheet_permission_denied">Permesso di localizzazione negato. Abilitalo nelle impostazioni per usare i canali di posizione.</string>
+    <string name="location_channels_sheet_finding_channels">Ricerca di canali nelle vicinanze…</string>
+    <string name="location_channels_sheet_bluetooth_subtitle">#bluetooth • %1$s</string>
+    <string name="bluetooth_range_approximate">~10–50 m</string>
+    <string name="geohash_placeholder">geohash</string>
+    <string name="teleport_button">Teletrasporto</string>
+    <string name="teleport_button_description">Teletrasporto</string>
+    <string name="invalid_geohash_error">Geohash non valido</string>
+    <string name="location_channels_sheet_remove_access_button">Rimuovi accesso alla posizione</string>
+    <string name="checkmark_symbol">✔︎</string>
+    <string name="location_channels_sheet_mesh_title">mesh [%1$d %2$s]</string>
+    <string name="location_channels_sheet_geohash_title">%1$s [%2$d %3$s]</string>
+
+    <!-- Plurals for person/people count -->
+    <plurals name="person_count">
+        <item quantity="one">persona</item>
+        <item quantity="other">persone</item>
+    </plurals>
 </resources>

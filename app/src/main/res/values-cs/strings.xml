@@ -118,4 +118,38 @@
     <string name="warning_message">zabezpečení soukromých zpráv ještě nebylo plně prověřeno. nepoužívejte pro kritické situace, dokud toto varování nezmizí.</string>
 
     <string name="done">Hotovo</string>
+
+    <!-- Chat User Action Sheet -->
+    <string name="user_sheet_header">\@%1$s</string>
+    <string name="user_sheet_subtitle">Zvolte akci pro tohoto uživatele</string>
+    <string name="user_sheet_action_slap">Dát facku %1$s</string>
+    <string name="user_sheet_action_slap_subtitle">Poslat hravou zprávu s fackou</string>
+    <string name="user_sheet_action_hug">Obejmout %1$s</string>
+    <string name="user_sheet_action_hug_subtitle">Poslat přátelskou zprávu s objetím</string>
+    <string name="user_sheet_action_block">Zablokovat %1$s</string>
+    <string name="user_sheet_action_block_subtitle">Zablokovat všechny zprávy od tohoto uživatele</string>
+
+    <!-- Location Channels Sheet -->
+    <string name="location_channels_sheet_title">#kanály polohy</string>
+    <string name="location_channels_sheet_description">Chatujte s lidmi ve svém okolí pomocí geohash kanálů. Sdílí se pouze hrubý geohash, nikdy přesná GPS. Pro ochranu svého soukromí nepořizujte snímky obrazovky ani tuto obrazovku nesdílejte.</string>
+    <string name="location_channels_sheet_get_location_button">Získat polohu a mé geohashe</string>
+    <string name="location_channels_sheet_permission_denied">Oprávnění k poloze zamítnuto. Povolte jej v nastavení, abyste mohli používat kanály polohy.</string>
+    <string name="location_channels_sheet_finding_channels">Hledání kanálů v okolí…</string>
+    <string name="location_channels_sheet_bluetooth_subtitle">#bluetooth • %1$s</string>
+    <string name="bluetooth_range_approximate">~10–50 m</string>
+    <string name="geohash_placeholder">geohash</string>
+    <string name="teleport_button">Teleportovat</string>
+    <string name="teleport_button_description">Teleportovat</string>
+    <string name="invalid_geohash_error">Neplatný geohash</string>
+    <string name="location_channels_sheet_remove_access_button">Odebrat přístup k poloze</string>
+    <string name="checkmark_symbol">✔︎</string>
+    <string name="location_channels_sheet_mesh_title">síť [%1$d %2$s]</string>
+    <string name="location_channels_sheet_geohash_title">%1$s [%2$d %3$s]</string>
+
+    <!-- Plurals for person/people count -->
+    <plurals name="person_count">
+        <item quantity="one">osoba</item>
+        <item quantity="other">osob</item>
+    </plurals>
+
 </resources>

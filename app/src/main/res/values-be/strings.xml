@@ -119,4 +119,38 @@
     <string name="warning_message">Бяспека прыватных паведамленняў яшчэ не прайшла поўны аўдыт. Не выкарыстоўвайце для крытычна важных сітуацый, пакуль гэтае папярэджанне не знікне.</string>
 
     <string name="done">Гатова</string>
+
+    <!-- Chat User Action Sheet -->
+    <string name="user_sheet_header">\@%1$s</string>
+    <string name="user_sheet_subtitle">Выберыце дзеянне для гэтага карыстальніка</string>
+    <string name="user_sheet_action_slap">Ляпнуць %1$s</string>
+    <string name="user_sheet_action_slap_subtitle">Адправіць жартаўлівае паведамленне</string>
+    <string name="user_sheet_action_hug">Абняць %1$s</string>
+    <string name="user_sheet_action_hug_subtitle">Адправіць сяброўскае паведамленне з абдымкамі</string>
+    <string name="user_sheet_action_block">Заблакіраваць %1$s</string>
+    <string name="user_sheet_action_block_subtitle">Заблакіраваць усе паведамленні ад гэтага карыстальніка</string>
+
+    <!-- Location Channels Sheet -->
+    <string name="location_channels_sheet_title">#лакальныя каналы</string>
+    <string name="location_channels_sheet_description">Размаўляйце з людзьмі побач, выкарыстоўваючы геахэш-каналы. Абагульваецца толькі прыблізны геахэш, а не дакладны GPS. Не рабіце скрыншоты і не дзяліцеся гэтым экранам, каб абараніць вашу прыватнасць.</string>
+    <string name="location_channels_sheet_get_location_button">Атрымаць месцазнаходжанне і мае геахэшы</string>
+    <string name="location_channels_sheet_permission_denied">У доступе да месцазнаходжання адмоўлена. Уключыце ў наладах, каб выкарыстоўваць лакальныя каналы.</string>
+    <string name="location_channels_sheet_finding_channels">Пошук каналаў паблізу…</string>
+    <string name="location_channels_sheet_bluetooth_subtitle">#bluetooth • %1$s</string>
+    <string name="bluetooth_range_approximate">~10–50 м</string>
+    <string name="geohash_placeholder">геахэш</string>
+    <string name="teleport_button">Тэлепорт</string>
+    <string name="teleport_button_description">Тэлепорт</string>
+    <string name="invalid_geohash_error">Няправільны геахэш</string>
+    <string name="location_channels_sheet_remove_access_button">Выдаліць доступ да месцазнаходжання</string>
+    <string name="checkmark_symbol">✔︎</string>
+    <string name="location_channels_sheet_mesh_title">сетка [%1$d %2$s]</string>
+    <string name="location_channels_sheet_geohash_title">%1$s [%2$d %3$s]</string>
+
+    <!-- Plurals for person/people count -->
+    <plurals name="person_count">
+        <item quantity="one">чалавек</item>
+        <item quantity="other">чалавека</item>
+    </plurals>
+
 </resources>

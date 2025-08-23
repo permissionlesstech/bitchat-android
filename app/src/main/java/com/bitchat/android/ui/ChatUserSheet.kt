@@ -7,11 +7,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import com.bitchat.android.R
 
 /**
  * User Action Sheet for selecting actions on a specific user (slap, hug, block)
@@ -54,7 +56,7 @@ fun ChatUserSheet(
             ) {
                 // Header
                 Text(
-                    text = "@$targetNickname",
+                    text = stringResource(R.string.user_sheet_header, targetNickname),
                     fontSize = 18.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
@@ -62,7 +64,7 @@ fun ChatUserSheet(
                 )
                 
                 Text(
-                    text = "choose an action for this user",
+                    text = stringResource(R.string.user_sheet_subtitle),
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
@@ -75,8 +77,8 @@ fun ChatUserSheet(
                     // Slap action
                     item {
                         UserActionRow(
-                            title = "slap $targetNickname",
-                            subtitle = "send a playful slap message",
+                            title = stringResource(R.string.user_sheet_action_slap, targetNickname),
+                            subtitle = stringResource(R.string.user_sheet_action_slap_subtitle),
                             titleColor = standardBlue,
                             onClick = {
                                 // Send slap command
@@ -89,8 +91,8 @@ fun ChatUserSheet(
                     // Hug action  
                     item {
                         UserActionRow(
-                            title = "hug $targetNickname",
-                            subtitle = "send a friendly hug message",
+                            title = stringResource(R.string.user_sheet_action_hug, targetNickname),
+                            subtitle = stringResource(R.string.user_sheet_action_hug_subtitle),
                             titleColor = standardGreen,
                             onClick = {
                                 // Send hug command
@@ -103,8 +105,8 @@ fun ChatUserSheet(
                     // Block action
                     item {
                         UserActionRow(
-                            title = "block $targetNickname",
-                            subtitle = "block all messages from this user",
+                            title = stringResource(R.string.user_sheet_action_block, targetNickname),
+                            subtitle = stringResource(R.string.user_sheet_action_block_subtitle),
                             titleColor = standardRed,
                             onClick = {
                                 // Check if we're in a geohash channel
@@ -132,7 +134,7 @@ fun ChatUserSheet(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "cancel",
+                        text = stringResource(id = R.string.cancel),
                         fontSize = 14.sp,
                         fontFamily = FontFamily.Monospace
                     )

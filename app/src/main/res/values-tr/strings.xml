@@ -119,4 +119,38 @@
     <string name="warning_message">Özel mesaj güvenliği henüz tam olarak denetlenmemiştir. Bu uyarı kaybolana kadar kritik durumlar için kullanmayın.</string>
 
     <string name="done">Bitti</string>
+
+    <!-- Chat User Action Sheet -->
+    <string name="user_sheet_header">\@%1$s</string>
+    <string name="user_sheet_subtitle">Bu kullanıcı için bir eylem seçin</string>
+    <string name="user_sheet_action_slap">%1$s adlı kişiyi tokatla</string>
+    <string name="user_sheet_action_slap_subtitle">Şakacı bir tokat mesajı gönder</string>
+    <string name="user_sheet_action_hug">%1$s adlı kişiye sarıl</string>
+    <string name="user_sheet_action_hug_subtitle">Dostça bir sarılma mesajı gönder</string>
+    <string name="user_sheet_action_block">%1$s adlı kişiyi engelle</string>
+    <string name="user_sheet_action_block_subtitle">Bu kullanıcıdan gelen tüm mesajları engelle</string>
+
+    <!-- Location Channels Sheet -->
+    <string name="location_channels_sheet_title">#konum kanalları</string>
+    <string name="location_channels_sheet_description">Geohash kanallarını kullanarak yakınınızdaki kişilerle sohbet edin. Yalnızca kaba bir geohash paylaşılır, asla tam GPS değil. Gizliliğinizi korumak için bu ekranın görüntüsünü almayın veya paylaşmayın.</string>
+    <string name="location_channels_sheet_get_location_button">Konumu ve geohashlerimi al</string>
+    <string name="location_channels_sheet_permission_denied">Konum izni reddedildi. Konum kanallarını kullanmak için ayarlardan etkinleştirin.</string>
+    <string name="location_channels_sheet_finding_channels">Yakındaki kanallar bulunuyor…</string>
+    <string name="location_channels_sheet_bluetooth_subtitle">#bluetooth • %1$s</string>
+    <string name="bluetooth_range_approximate">~10–50 m</string>
+    <string name="geohash_placeholder">geohash</string>
+    <string name="teleport_button">Işınlan</string>
+    <string name="teleport_button_description">Işınlan</string>
+    <string name="invalid_geohash_error">Geçersiz geohash</string>
+    <string name="location_channels_sheet_remove_access_button">Konum erişimini kaldır</string>
+    <string name="checkmark_symbol">✔︎</string>
+    <string name="location_channels_sheet_mesh_title">ağ [%1$d %2$s]</string>
+    <string name="location_channels_sheet_geohash_title">%1$s [%2$d %3$s]</string>
+
+    <!-- Plurals for person/people count -->
+    <plurals name="person_count">
+        <item quantity="one">kişi</item>
+        <item quantity="other">kişi</item>
+    </plurals>
+
 </resources>

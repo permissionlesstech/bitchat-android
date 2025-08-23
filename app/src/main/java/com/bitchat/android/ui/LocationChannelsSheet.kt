@@ -19,6 +19,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -28,7 +30,7 @@ import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.GeohashChannel
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
-import java.util.*
+import com.bitchat.android.R
 
 /**
  * Location Channels Sheet for selecting geohash-based location channels
@@ -74,7 +76,8 @@ fun LocationChannelsSheet(
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
     val standardGreen = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D) // iOS green
     val standardBlue = Color(0xFF007AFF) // iOS blue
-    
+    val invalidGeohashErrorText = stringResource(R.string.invalid_geohash_error)
+
     if (isPresented) {
         ModalBottomSheet(
             onDismissRequest = onDismiss,
@@ -95,14 +98,14 @@ fun LocationChannelsSheet(
             ) {
                 // Header
                 Text(
-                    text = "#location channels",
+                    text = stringResource(R.string.location_channels_sheet_title),
                     fontSize = 18.sp,
                     fontFamily = FontFamily.Monospace,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 
                 Text(
-                    text = "chat with people near you using geohash channels. only a coarse geohash is shared, never exact gps. do not screenshot or share this screen to protect your privacy.",
+                    text = stringResource(R.string.location_channels_sheet_description),
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
@@ -120,7 +123,7 @@ fun LocationChannelsSheet(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = "get location and my geohashes",
+                                text = stringResource(R.string.location_channels_sheet_get_location_button),
                                 fontSize = 12.sp,
                                 fontFamily = FontFamily.Monospace
                             )
@@ -131,7 +134,7 @@ fun LocationChannelsSheet(
                     LocationChannelManager.PermissionState.RESTRICTED -> {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(
-                                text = "location permission denied. enable in settings to use location channels.",
+                                text = stringResource(R.string.location_channels_sheet_permission_denied),
                                 fontSize = 12.sp,
                                 fontFamily = FontFamily.Monospace,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
@@ -146,7 +149,7 @@ fun LocationChannelsSheet(
                                 }
                             ) {
                                 Text(
-                                    text = "open settings",
+                                    text = stringResource(R.string.open_settings),
                                     fontSize = 12.sp,
                                     fontFamily = FontFamily.Monospace
                                 )
@@ -173,7 +176,10 @@ fun LocationChannelsSheet(
                     item {
                         ChannelRow(
                             title = meshTitleWithCount(viewModel),
-                            subtitle = "#bluetooth • ${bluetoothRangeString()}",
+                            subtitle = stringResource(
+                                R.string.location_channels_sheet_bluetooth_subtitle,
+                                bluetoothRangeString()
+                            ),
                             isSelected = selectedChannel is ChannelID.Mesh,
                             titleColor = standardBlue,
                             titleBold = meshCount(viewModel) > 0,
@@ -217,7 +223,7 @@ fun LocationChannelsSheet(
                             ) {
                                 CircularProgressIndicator(modifier = Modifier.size(16.dp))
                                 Text(
-                                    text = "finding nearby channels…",
+                                    text = stringResource(R.string.location_channels_sheet_finding_channels),
                                     fontSize = 12.sp,
                                     fontFamily = FontFamily.Monospace
                                 )
@@ -259,7 +265,7 @@ fun LocationChannelsSheet(
                                             customGeohash = filtered
                                             customError = null
                                         },
-                                        textStyle = androidx.compose.ui.text.TextStyle(
+                                        textStyle = TextStyle(
                                             fontSize = 14.sp,
                                             fontFamily = FontFamily.Monospace,
                                             color = MaterialTheme.colorScheme.onSurface
@@ -282,7 +288,7 @@ fun LocationChannelsSheet(
                                         decorationBox = { innerTextField ->
                                             if (customGeohash.isEmpty()) {
                                                 Text(
-                                                    text = "geohash",
+                                                    text = stringResource(R.string.geohash_placeholder),
                                                     fontSize = 14.sp,
                                                     fontFamily = FontFamily.Monospace,
                                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
@@ -306,7 +312,7 @@ fun LocationChannelsSheet(
                                                 locationManager.select(ChannelID.Location(channel))
                                                 onDismiss()
                                             } else {
-                                                customError = "invalid geohash"
+                                                customError = invalidGeohashErrorText
                                             }
                                         },
                                         enabled = isValid,
@@ -320,14 +326,14 @@ fun LocationChannelsSheet(
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Text(
-                                                text = "teleport",
+                                                text = stringResource(R.string.teleport_button),
                                                 fontSize = 14.sp,
                                                 fontFamily = FontFamily.Monospace
                                             )
                                             // iOS has a face.dashed icon, use closest Material equivalent
                                             Icon(
                                                 imageVector = Icons.Filled.PinDrop,
-                                                contentDescription = "Teleport",
+                                                contentDescription = stringResource(R.string.teleport_button),
                                                 modifier = Modifier.size(14.dp),
                                                 tint = MaterialTheme.colorScheme.onSurface
                                             )
@@ -364,7 +370,7 @@ fun LocationChannelsSheet(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
-                                    text = "remove location access",
+                                    text = stringResource(R.string.location_channels_sheet_remove_access_button),
                                     fontSize = 12.sp,
                                     fontFamily = FontFamily.Monospace
                                 )
@@ -472,7 +478,7 @@ private fun ChannelRow(
             
             if (isSelected) {
                 Text(
-                    text = "✔︎",
+                    text = stringResource(R.string.checkmark_symbol),
                     fontSize = 16.sp,
                     fontFamily = FontFamily.Monospace,
                     color = Color(0xFF32D74B) // iOS green for checkmark
@@ -495,10 +501,12 @@ private fun splitTitleAndCount(title: String): Pair<String, String?> {
     }
 }
 
+@Composable
 private fun meshTitleWithCount(viewModel: ChatViewModel): String {
+    val context = LocalContext.current
     val meshCount = meshCount(viewModel)
-    val noun = if (meshCount == 1) "person" else "people"
-    return "mesh [$meshCount $noun]"
+    val noun = context.resources.getQuantityString(R.plurals.person_count, meshCount)
+    return stringResource(R.string.location_channels_sheet_mesh_title, meshCount, noun)
 }
 
 private fun meshCount(viewModel: ChatViewModel): Int {
@@ -508,9 +516,12 @@ private fun meshCount(viewModel: ChatViewModel): Int {
     } ?: 0
 }
 
+@Composable
 private fun geohashTitleWithCount(channel: GeohashChannel, participantCount: Int): String {
-    val noun = if (participantCount == 1) "person" else "people"
-    return "${channel.level.displayName.lowercase()} [$participantCount $noun]"
+    val context = LocalContext.current
+    val noun = context.resources.getQuantityString(R.plurals.person_count, participantCount)
+    val levelName = channel.level.displayName.lowercase()
+    return stringResource(R.string.location_channels_sheet_geohash_title, levelName, participantCount, noun)
 }
 
 private fun isChannelSelected(channel: GeohashChannel, selectedChannel: ChannelID?): Boolean {
@@ -565,9 +576,10 @@ private fun formatDistance(value: Double): String {
     }
 }
 
+@Composable
 private fun bluetoothRangeString(): String {
     // Approximate Bluetooth LE range for typical mobile devices
-    return "~10–50 m"
+    return stringResource(R.string.bluetooth_range_approximate)
 }
 
 private fun formattedNamePrefix(level: GeohashChannelLevel): String {

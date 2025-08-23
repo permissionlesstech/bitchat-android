@@ -119,4 +119,38 @@
     <string name="warning_message">امنیت پیام خصوصی هنوز کامل چک نواویده. تا وقتی یو هشدار حذف نواویده، سی موقعیت های حساس استفاده نکنین.</string>
 
     <string name="done">تموم</string>
+
+    <!-- Chat User Action Sheet -->
+    <string name="user_sheet_header">\@%1$s</string>
+    <string name="user_sheet_subtitle">اے کارمرزوک ءِ ھاتر ءَ یک عملے گچین بکن</string>
+    <string name="user_sheet_action_slap">%1$s ءَ ٹاپُک بجن</string>
+    <string name="user_sheet_action_slap_subtitle">یک لیبی ٹاپُکے پئیگامے دیم بدے</string>
+    <string name="user_sheet_action_hug">%1$s ءَ بغلگیر بکن</string>
+    <string name="user_sheet_action_hug_subtitle">یک دوستی بغلگیری پئیگامے دیم بدے</string>
+    <string name="user_sheet_action_block">%1$s ءَ بند بکن</string>
+    <string name="user_sheet_action_block_subtitle">اے کارمرزوک ءِ کل پئیگاماں بند بکن</string>
+
+    <!-- Location Channels Sheet -->
+    <string name="location_channels_sheet_title">#مکان ءِ چینل</string>
+    <string name="location_channels_sheet_description">وتی نزیک ءِ مردمانی گوما جیوہیش چینلانی وسیلہ ءَ گپ بجن. صرف یک کُٹّیں جیوہیشے شینگ بیت، ھچبر راستیں جی پی ایس نہ. وتی پرائیوسی ءِ رکّینگ ءِ ھاتر ءَ اے اسکرین ءِ عکس مہ کشّ یا شینگ مہ کن.</string>
+    <string name="location_channels_sheet_get_location_button">منی مکان ءُ جیوہیشاں بہ گِر</string>
+    <string name="location_channels_sheet_permission_denied">مکان ءِ اجازت رد کنگ بوت. مکان ءِ چینلانی کارمرزنگ ءِ ھاتر ءَ سیٹنگاں فعال بکن.</string>
+    <string name="location_channels_sheet_finding_channels">نزیک ءِ چینلانی شوھاز کنگ ءَ…</string>
+    <string name="location_channels_sheet_bluetooth_subtitle">#بلوٹوتھ • %1$s</string>
+    <string name="bluetooth_range_approximate">~10–50 م</string>
+    <string name="geohash_placeholder">جیوہیش</string>
+    <string name="teleport_button">ٹیلیپورٹ</string>
+    <string name="teleport_button_description">ٹیلیپورٹ</string>
+    <string name="invalid_geohash_error">ناشریں جیوہیش</string>
+    <string name="location_channels_sheet_remove_access_button">مکان ءِ رسائی ءَ چِست بکن</string>
+    <string name="checkmark_symbol">✔︎</string>
+    <string name="location_channels_sheet_mesh_title">میش [%1$d %2$s]</string>
+    <string name="location_channels_sheet_geohash_title">%1$s [%2$d %3$s]</string>
+
+    <!-- Plurals for person/people count -->
+    <plurals name="person_count">
+        <item quantity="one">نفر</item>
+        <item quantity="other">نفر</item>
+    </plurals>
+
 </resources>

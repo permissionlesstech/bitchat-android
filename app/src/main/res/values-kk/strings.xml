@@ -119,4 +119,38 @@
     <string name="warning_message">Жеке хабарламалардың қауіпсіздігі әлі толық тексерілген жоқ. Бұл ескерту жойылмайынша, маңызды жағдайларда қолданбаңыз.</string>
 
     <string name="done">Дайын</string>
+
+    <!-- Chat User Action Sheet -->
+    <string name="user_sheet_header">\@%1$s</string>
+    <string name="user_sheet_subtitle">Осы пайдаланушы үшін әрекетті таңдаңыз</string>
+    <string name="user_sheet_action_slap">%1$s пайдаланушысын шапалақтау</string>
+    <string name="user_sheet_action_slap_subtitle">Ойын түрінде шапалақ хабарламасын жіберу</string>
+    <string name="user_sheet_action_hug">%1$s пайдаланушысын құшақтау</string>
+    <string name="user_sheet_action_hug_subtitle">Достық құшақтау хабарламасын жіберу</string>
+    <string name="user_sheet_action_block">%1$s пайдаланушысын бұғаттау</string>
+    <string name="user_sheet_action_block_subtitle">Осы пайдаланушыдан келетін барлық хабарламаларды бұғаттау</string>
+
+    <!-- Location Channels Sheet -->
+    <string name="location_channels_sheet_title">#орналасу арналары</string>
+    <string name="location_channels_sheet_description">Геохеш арналары арқылы жаныңыздағы адамдармен сөйлесіңіз. Тек шамамен геохеш бөлісіледі, ешқашан нақты GPS емес. Құпиялылығыңызды қорғау үшін осы экранның суретін түсірмеңіз немесе бөліспеңіз.</string>
+    <string name="location_channels_sheet_get_location_button">Орналасқан жерді және менің геохештерімді алу</string>
+    <string name="location_channels_sheet_permission_denied">Орналасқан жерге рұқсат берілмеді. Орналасу арналарын пайдалану үшін баптауларда қосыңыз.</string>
+    <string name="location_channels_sheet_finding_channels">Жақын маңдағы арналарды іздеу…</string>
+    <string name="location_channels_sheet_bluetooth_subtitle">#bluetooth • %1$s</string>
+    <string name="bluetooth_range_approximate">~10–50 м</string>
+    <string name="geohash_placeholder">геохеш</string>
+    <string name="teleport_button">Телепорт</string>
+    <string name="teleport_button_description">Телепорт</string>
+    <string name="invalid_geohash_error">Жарамсыз геохеш</string>
+    <string name="location_channels_sheet_remove_access_button">Орналасқан жерге кіруді жою</string>
+    <string name="checkmark_symbol">✔︎</string>
+    <string name="location_channels_sheet_mesh_title">желі [%1$d %2$s]</string>
+    <string name="location_channels_sheet_geohash_title">%1$s [%2$d %3$s]</string>
+
+    <!-- Plurals for person/people count -->
+    <plurals name="person_count">
+        <item quantity="one">адам</item>
+        <item quantity="other">адам</item>
+    </plurals>
+
 </resources>

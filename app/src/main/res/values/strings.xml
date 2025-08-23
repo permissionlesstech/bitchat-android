@@ -119,4 +119,38 @@
     <string name="warning_message">private message security has not yet been fully audited. do not use for critical situations until this warning disappears.</string>
 
     <string name="done">Done</string>
+
+    <!-- Chat User Action Sheet -->
+    <string name="user_sheet_header">\@%1$s</string>
+    <string name="user_sheet_subtitle">Choose an action for this user</string>
+    <string name="user_sheet_action_slap">Slap %1$s</string>
+    <string name="user_sheet_action_slap_subtitle">Send a playful slap message</string>
+    <string name="user_sheet_action_hug">Hug %1$s</string>
+    <string name="user_sheet_action_hug_subtitle">Send a friendly hug message</string>
+    <string name="user_sheet_action_block">Block %1$s</string>
+    <string name="user_sheet_action_block_subtitle">Block all messages from this user</string>
+
+    <!-- Location Channels Sheet -->
+    <string name="location_channels_sheet_title">#location channels</string>
+    <string name="location_channels_sheet_description">Chat with people near you using geohash channels. Only a coarse geohash is shared, never exact GPS. Do not screenshot or share this screen to protect your privacy.</string>
+    <string name="location_channels_sheet_get_location_button">Get location and my geohashes</string>
+    <string name="location_channels_sheet_permission_denied">Location permission denied. Enable in settings to use location channels.</string>
+    <string name="location_channels_sheet_finding_channels">Finding nearby channels…</string>
+    <string name="location_channels_sheet_bluetooth_subtitle">#bluetooth • %1$s</string>
+    <string name="bluetooth_range_approximate">~10–50 m</string>
+    <string name="geohash_placeholder">geohash</string>
+    <string name="teleport_button">Teleport</string>
+    <string name="teleport_button_description">Teleport</string>
+    <string name="invalid_geohash_error">Invalid geohash</string>
+    <string name="location_channels_sheet_remove_access_button">Remove location access</string>
+    <string name="checkmark_symbol">✔︎</string>
+    <string name="location_channels_sheet_mesh_title">mesh [%1$d %2$s]</string>
+    <string name="location_channels_sheet_geohash_title">%1$s [%2$d %3$s]</string>
+
+    <!-- Plurals for person/people count -->
+    <plurals name="person_count">
+        <item quantity="one">person</item>
+        <item quantity="other">people</item>
+    </plurals>
+
 </resources>

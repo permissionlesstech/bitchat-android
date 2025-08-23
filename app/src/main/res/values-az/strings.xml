@@ -119,4 +119,38 @@
     <string name="warning_message">şəxsi mesaj təhlükəsizliyi hələ tam yoxlanılmayıb. bu xəbərdarlıq yox olana qədər kritik vəziyyətlər üçün istifadə etməyin.</string>
 
     <string name="done">Hazırdır</string>
+
+    <!-- Chat User Action Sheet -->
+    <string name="user_sheet_header">\@%1$s</string>
+    <string name="user_sheet_subtitle">Bu istifadəçi üçün bir hərəkət seçin</string>
+    <string name="user_sheet_action_slap">%1$s adlı istifadəçiyə şillə vur</string>
+    <string name="user_sheet_action_slap_subtitle">Zarafatyana bir şillə mesajı göndərin</string>
+    <string name="user_sheet_action_hug">%1$s adlı istifadəçini qucaqla</string>
+    <string name="user_sheet_action_hug_subtitle">Dostyana bir qucaqlama mesajı göndərin</string>
+    <string name="user_sheet_action_block">%1$s adlı istifadəçini blokla</string>
+    <string name="user_sheet_action_block_subtitle">Bu istifadəçidən gələn bütün mesajları bloklayın</string>
+
+    <!-- Location Channels Sheet -->
+    <string name="location_channels_sheet_title">#məkan kanalları</string>
+    <string name="location_channels_sheet_description">Geohash kanallarından istifadə edərək yaxınlığınızdakı insanlarla söhbət edin. Yalnız təxmini bir geohash paylaşılır, heç vaxt dəqiq GPS deyil. Məxfiliyinizi qorumaq üçün bu ekranın şəklini çəkməyin və ya paylaşmayın.</string>
+    <string name="location_channels_sheet_get_location_button">Məkanı və geohashlarımı əldə et</string>
+    <string name="location_channels_sheet_permission_denied">Məkana giriş icazəsi rədd edildi. Məkan kanallarından istifadə etmək üçün parametrlərdə aktivləşdirin.</string>
+    <string name="location_channels_sheet_finding_channels">Yaxınlıqdakı kanallar axtarılır…</string>
+    <string name="location_channels_sheet_bluetooth_subtitle">#bluetooth • %1$s</string>
+    <string name="bluetooth_range_approximate">~10–50 m</string>
+    <string name="geohash_placeholder">geohash</string>
+    <string name="teleport_button">Teleport</string>
+    <string name="teleport_button_description">Teleport</string>
+    <string name="invalid_geohash_error">Yanlış geohash</string>
+    <string name="location_channels_sheet_remove_access_button">Məkana girişi ləğv et</string>
+    <string name="checkmark_symbol">✔︎</string>
+    <string name="location_channels_sheet_mesh_title">şəbəkə [%1$d %2$s]</string>
+    <string name="location_channels_sheet_geohash_title">%1$s [%2$d %3$s]</string>
+
+    <!-- Plurals for person/people count -->
+    <plurals name="person_count">
+        <item quantity="one">nəfər</item>
+        <item quantity="other">nəfər</item>
+    </plurals>
+
 </resources>

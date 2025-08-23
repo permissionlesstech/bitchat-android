@@ -119,4 +119,37 @@
     <string name="warning_message">אבטחת ההודעות הפרטיות טרם נבדקה במלואה. אין להשתמש במצבים קריטיים עד שהאזהרה הזו תיעלם.</string>
 
     <string name="done">סיום</string>
+
+    <!-- Chat User Action Sheet -->
+    <string name="user_sheet_header">\@%1$s</string>
+    <string name="user_sheet_subtitle">בחר פעולה עבור משתמש זה</string>
+    <string name="user_sheet_action_slap">סטירה ל%1$s</string>
+    <string name="user_sheet_action_slap_subtitle">שלח הודעת סטירה משעשעת</string>
+    <string name="user_sheet_action_hug">חבק את %1$s</string>
+    <string name="user_sheet_action_hug_subtitle">שלח הודעת חיבוק ידידותית</string>
+    <string name="user_sheet_action_block">חסום את %1$s</string>
+    <string name="user_sheet_action_block_subtitle">חסום את כל ההודעות ממשתמש זה</string>
+
+    <!-- Location Channels Sheet -->
+    <string name="location_channels_sheet_title">#ערוצי מיקום</string>
+    <string name="location_channels_sheet_description">שוחח עם אנשים בקרבתך באמצעות ערוצי geohash. משותף רק geohash כללי, לעולם לא GPS מדויק. אל תצלם מסך או תשתף מסך זה כדי להגן על פרטיותך.</string>
+    <string name="location_channels_sheet_get_location_button">קבל מיקום ואת ה-geohash שלי</string>
+    <string name="location_channels_sheet_permission_denied">הרשאת המיקום נדחתה. אפשר אותה בהגדרות כדי להשתמש בערוצי מיקום.</string>
+    <string name="location_channels_sheet_finding_channels">מאתר ערוצים קרובים…</string>
+    <string name="location_channels_sheet_bluetooth_subtitle">#בלוטות\' • %1$s</string>
+    <string name="bluetooth_range_approximate">~10–50 מ\'</string>
+    <string name="geohash_placeholder">geohash</string>
+    <string name="teleport_button">טלפורטציה</string>
+    <string name="teleport_button_description">טלפורטציה</string>
+    <string name="invalid_geohash_error">Geohash לא תקין</string>
+    <string name="location_channels_sheet_remove_access_button">הסר גישה למיקום</string>
+    <string name="checkmark_symbol">✔︎</string>
+    <string name="location_channels_sheet_mesh_title">רשת [%1$d %2$s]</string>
+    <string name="location_channels_sheet_geohash_title">%1$s [%2$d %3$s]</string>
+
+    <!-- Plurals for person/people count -->
+    <plurals name="person_count">
+        <item quantity="one">אדם</item>
+        <item quantity="other">אנשים</item>
+    </plurals>
 </resources>

@@ -119,4 +119,38 @@
     <string name="warning_message">პირადი შეტყობინებების უსაფრთხოებას ჯერ არ გაუვლია სრული აუდიტი. არ გამოიყენოთ კრიტიკულად მნიშვნელოვანი სიტუაციებისთვის, სანამ ეს გაფრთხილება არ გაქრება.</string>
 
     <string name="done">მზადაა</string>
+
+    <!-- Chat User Action Sheet -->
+    <string name="user_sheet_header">\@%1$s</string>
+    <string name="user_sheet_subtitle">აირჩიეთ მოქმედება ამ მომხმარებლისთვის</string>
+    <string name="user_sheet_action_slap">გაწნა %1$s</string>
+    <string name="user_sheet_action_slap_subtitle">გაუგზავნეთ სათამაშო წამორტყმის შეტყობინება</string>
+    <string name="user_sheet_action_hug">ჩახუტება %1$s</string>
+    <string name="user_sheet_action_hug_subtitle">გაუგზავნეთ მეგობრული ჩახუტების შეტყობინება</string>
+    <string name="user_sheet_action_block">დაბლოკვა %1$s</string>
+    <string name="user_sheet_action_block_subtitle">ამ მომხმარებლისგან ყველა შეტყობინების დაბლოკვა</string>
+
+    <!-- Location Channels Sheet -->
+    <string name="location_channels_sheet_title">#მდებარეობის არხები</string>
+    <string name="location_channels_sheet_description">ისაუბრეთ ახლომყოფ ადამიანებთან გეოჰეშის არხების გამოყენებით. ზიარდება მხოლოდ უხეში გეოჰეში და არა ზუსტი GPS. არ გადაიღოთ სკრინშოტი და არ გააზიაროთ ეს ეკრანი თქვენი კონფიდენციალურობის დასაცავად.</string>
+    <string name="location_channels_sheet_get_location_button">მდებარეობის და ჩემი გეოჰეშების მიღება</string>
+    <string name="location_channels_sheet_permission_denied">მდებარეობაზე წვდომა აკრძალულია. ჩართეთ პარამეტრებში, რომ გამოიყენოთ მდებარეობის არხები.</string>
+    <string name="location_channels_sheet_finding_channels">ახლომდებარე არხების ძიება…</string>
+    <string name="location_channels_sheet_bluetooth_subtitle">#bluetooth • %1$s</string>
+    <string name="bluetooth_range_approximate">~10–50 მ</string>
+    <string name="geohash_placeholder">გეოჰეში</string>
+    <string name="teleport_button">ტელეპორტი</string>
+    <string name="teleport_button_description">ტელეპორტი</string>
+    <string name="invalid_geohash_error">არასწორი გეოჰეში</string>
+    <string name="location_channels_sheet_remove_access_button">მდებარეობაზე წვდომის წაშლა</string>
+    <string name="checkmark_symbol">✔︎</string>
+    <string name="location_channels_sheet_mesh_title">ქსელი [%1$d %2$s]</string>
+    <string name="location_channels_sheet_geohash_title">%1$s [%2$d %3$s]</string>
+
+    <!-- Plurals for person/people count -->
+    <plurals name="person_count">
+        <item quantity="one">ადამიანი</item>
+        <item quantity="other">ადამიანი</item>
+    </plurals>
+
 </resources>
