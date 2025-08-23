@@ -7,7 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.ClickableText
-import androidx.compose.foundation.text.selection.SelectionContainer
+
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -37,7 +37,7 @@ fun MessagesList(
     modifier: Modifier = Modifier,
     forceScrollToBottom: Boolean = false,
     onNicknameClick: ((String) -> Unit)? = null,
-    onNicknameLongPress: ((String) -> Unit)? = null
+    onMessageLongPress: ((BitchatMessage) -> Unit)? = null
 ) {
     val listState = rememberLazyListState()
     
@@ -71,21 +71,20 @@ fun MessagesList(
         }
     }
     
-    SelectionContainer(modifier = modifier) {
-        LazyColumn(
-            state = listState,
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            items(messages) { message ->
+    LazyColumn(
+        state = listState,
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = modifier
+    ) {
+                    items(messages) { message ->
                 MessageItem(
                     message = message,
                     currentUserNickname = currentUserNickname,
                     meshService = meshService,
                     onNicknameClick = onNicknameClick,
-                    onNicknameLongPress = onNicknameLongPress
+                    onMessageLongPress = onMessageLongPress
                 )
-            }
         }
     }
 }
@@ -97,7 +96,7 @@ fun MessageItem(
     currentUserNickname: String,
     meshService: BluetoothMeshService,
     onNicknameClick: ((String) -> Unit)? = null,
-    onNicknameLongPress: ((String) -> Unit)? = null
+    onMessageLongPress: ((BitchatMessage) -> Unit)? = null
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val timeFormatter = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
@@ -119,7 +118,7 @@ fun MessageItem(
                 colorScheme = colorScheme,
                 timeFormatter = timeFormatter,
                 onNicknameClick = onNicknameClick,
-                onNicknameLongPress = onNicknameLongPress,
+                onMessageLongPress = onMessageLongPress,
                 modifier = Modifier.weight(1f)
             )
             
@@ -164,7 +163,7 @@ private fun MessageTextWithClickableNicknames(
     colorScheme: ColorScheme,
     timeFormatter: SimpleDateFormat,
     onNicknameClick: ((String) -> Unit)?,
-    onNicknameLongPress: ((String) -> Unit)?,
+    onMessageLongPress: ((BitchatMessage) -> Unit)?,
     modifier: Modifier = Modifier
 ) {
     val annotatedText = formatMessageAsAnnotatedString(
@@ -180,8 +179,8 @@ private fun MessageTextWithClickableNicknames(
                  message.sender == currentUserNickname ||
                  message.sender.startsWith("$currentUserNickname#")
     
-    if (!isSelf && (onNicknameClick != null || onNicknameLongPress != null)) {
-        // Use Text with combinedClickable for nickname interactions
+    if (!isSelf && (onNicknameClick != null || onMessageLongPress != null)) {
+        // Use Text with combinedClickable for nickname interactions and message long press
         Text(
             text = annotatedText,
             modifier = modifier.combinedClickable(
@@ -198,16 +197,8 @@ private fun MessageTextWithClickableNicknames(
                     }
                 },
                 onLongClick = {
-                    // Handle long press for the first nickname
-                    val nicknameAnnotations = annotatedText.getStringAnnotations(
-                        tag = "nickname_click",
-                        start = 0,
-                        end = annotatedText.length
-                    )
-                    if (nicknameAnnotations.isNotEmpty()) {
-                        val nickname = nicknameAnnotations.first().item
-                        onNicknameLongPress?.invoke(nickname)
-                    }
+                    // Always use message long press - contains all necessary information
+                    onMessageLongPress?.invoke(message)
                 }
             ),
             fontFamily = FontFamily.Monospace,
@@ -218,19 +209,24 @@ private fun MessageTextWithClickableNicknames(
             )
         )
     } else {
-        // Use selectable text when no interactions needed
-        SelectionContainer {
-            Text(
-                text = annotatedText,
-                modifier = modifier,
-                fontFamily = FontFamily.Monospace,
-                softWrap = true,
-                overflow = TextOverflow.Visible,
-                style = androidx.compose.ui.text.TextStyle(
-                    color = colorScheme.onSurface
+        // Use regular text with message long press support for own messages
+        Text(
+            text = annotatedText,
+            modifier = if (onMessageLongPress != null) {
+                modifier.combinedClickable(
+                    onClick = { /* No action for own messages */ },
+                    onLongClick = { onMessageLongPress.invoke(message) }
                 )
+            } else {
+                modifier
+            },
+            fontFamily = FontFamily.Monospace,
+            softWrap = true,
+            overflow = TextOverflow.Visible,
+            style = androidx.compose.ui.text.TextStyle(
+                color = colorScheme.onSurface
             )
-        }
+        )
     }
 }
 

@@ -14,6 +14,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.zIndex
+import com.bitchat.android.model.BitchatMessage
 
 /**
  * Main ChatScreen - REFACTORED to use component-based architecture
@@ -52,6 +53,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
     var showLocationChannelsSheet by remember { mutableStateOf(false) }
     var showUserSheet by remember { mutableStateOf(false) }
     var selectedUserForSheet by remember { mutableStateOf("") }
+    var selectedMessageForSheet by remember { mutableStateOf<BitchatMessage?>(null) }
     var forceScrollToBottom by remember { mutableStateOf(false) }
 
     // Show password dialog when needed
@@ -126,11 +128,12 @@ fun ChatScreen(viewModel: ChatViewModel) {
                         selection = TextRange(newText.length)
                     )
                 },
-                onNicknameLongPress = { fullSenderName ->
-                    // Long press - open user action sheet
-                    // Extract base nickname from full sender name
-                    val (baseName, _) = splitSuffix(fullSenderName)
+                onMessageLongPress = { message ->
+                    // Message long press - open user action sheet with message context
+                    // Extract base nickname from message sender (contains all necessary info)
+                    val (baseName, _) = splitSuffix(message.sender)
                     selectedUserForSheet = baseName
+                    selectedMessageForSheet = message
                     showUserSheet = true
                 }
             )
@@ -261,8 +264,12 @@ fun ChatScreen(viewModel: ChatViewModel) {
         showLocationChannelsSheet = showLocationChannelsSheet,
         onLocationChannelsSheetDismiss = { showLocationChannelsSheet = false },
         showUserSheet = showUserSheet,
-        onUserSheetDismiss = { showUserSheet = false },
+        onUserSheetDismiss = { 
+            showUserSheet = false
+            selectedMessageForSheet = null // Reset message when dismissing
+        },
         selectedUserForSheet = selectedUserForSheet,
+        selectedMessageForSheet = selectedMessageForSheet,
         viewModel = viewModel
     )
 }
@@ -387,6 +394,7 @@ private fun ChatDialogs(
     showUserSheet: Boolean,
     onUserSheetDismiss: () -> Unit,
     selectedUserForSheet: String,
+    selectedMessageForSheet: BitchatMessage?,
     viewModel: ChatViewModel
 ) {
     // Password dialog
@@ -420,6 +428,7 @@ private fun ChatDialogs(
             isPresented = showUserSheet,
             onDismiss = onUserSheetDismiss,
             targetNickname = selectedUserForSheet,
+            selectedMessage = selectedMessageForSheet,
             viewModel = viewModel
         )
     }
