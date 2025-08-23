@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+    <string name="permission_bluetooth_rationale">مطلوب إذن البلوتوث للمراسلة من نظير إلى نظير بدون
+        اتصال بالإنترنت.</string>
+    <string name="permission_location_rationale">مطلوب إذن الموقع لاكتشاف الأجهزة القريبة عبر
+        البلوتوث.</string>
+    <string name="permission_notification_rationale">مطلوب إذن الإشعارات لتنبيهك بالرسائل الجديدة.</string>
+    <string name="nickname_hint">اسم مستعار</string>
+    <string name="message_hint">اكتب رسالة…</string>
+    <string name="channel_password_hint">كلمة المرور</string>
+    <string name="join_channel">الانضمام إلى القناة</string>
+    <string name="leave_channel">مغادرة</string>
+    <string name="send_message">إرسال</string>
+    <string name="back">رجوع</string>
+    <string name="people">الأشخاص</string>
+    <string name="channels">القنوات</string>
+    <string name="online_users">المستخدمون المتصلون</string>
+    <string name="no_one_connected">لا أحد متصل</string>
+    <string name="emergency_clear_hint">انقر ثلاث مرات لمسح جميع البيانات</string>
+
+    <string name="your_network">شبكتك</string>
+
+    <!-- Battery Optimization Strings -->
+    <string name="battery_optimization_detected">تم اكتشاف تحسين البطارية</string>
+    <string name="battery_optimization_disabled">تم تعطيل تحسين البطارية</string>
+    <string name="battery_optimization_not_required">تحسين البطارية غير مطلوب</string>
+    <string name="battery_optimization_checking">جارٍ التحقق من تحسين البطارية</string>
+    <string name="battery_optimization_why_disable">لماذا يتم تعطيل تحسين البطارية؟</string>
+    <string name="battery_optimization_explanation">يعمل bitchat في الخلفية للحفاظ على اتصالات الشبكة المتداخلة مع الأجهزة القريبة. يمكن أن يؤدي تحسين البطارية إلى مقاطعة هذه الاتصالات، مما يتسبب في تأخير الرسائل أو فقدانها.\n\nيضمن تعطيل تحسين البطارية مراسلة موثوقة من نظير إلى نظير.</string>
+    <string name="battery_optimization_disable_button">تعطيل تحسين البطارية</string>
+    <string name="battery_optimization_note">ملاحظة: يمكنك تغيير هذا الإعداد لاحقًا في إعدادات Android > التطبيقات > bitchat > البطارية</string>
+    <string name="battery_optimization_not_supported_explanation">لا يتطلب جهازك إعدادات تحسين البطارية. سيعمل bitchat بشكل طبيعي.</string>
+    <string name="battery_optimization_not_supported_message">لا يتطلب جهازك إعدادات تحسين البطارية. سيعمل bitchat بشكل طبيعي.</string>
+    <string name="battery_optimization_success_message">يمكن لـ bitchat العمل بشكل موثوق في الخلفية</string>
+    <string name="battery_optimization_benefits">• يضمن تسليم الرسائل بشكل موثوق\n• يحافظ على اتصال الشبكة المتداخلة\n• يسمح بترحيل الرسائل في الخلفية\n• يمنع انقطاع الاتصال</string>
+    <string name="battery_optimization_check_again">تحقق مرة أخرى</string>
+    <string name="battery_optimization_skip">تخطي في الوقت الحالي</string>
+    <string name="battery_optimization_continue">متابعة</string>
+    <string name="retry">إعادة المحاولة</string>
+    <string name="skip">تخطي</string>
+
+    <string name="channel_label">قناة: %s</string>
+
+    <string name="bluetooth_icon_description">بلوتوث</string>
+    <string name="bluetooth_required_title">البلوتوث مطلوب</string>
+    <string name="bluetooth_required_message">يحتاج bitchat إلى البلوتوث من أجل:</string>
+    <string name="bluetooth_required_details">• اكتشاف المستخدمين القريبين\n• إنشاء اتصالات شبكة متداخلة\n• إرسال واستقبال الرسائل\n• العمل بدون إنترنت أو خوادم</string>
+    <string name="enable_bluetooth">تفعيل البلوتوث</string>
+    <string name="check_again">تحقق مرة أخرى</string>
+    <string name="bluetooth_not_supported_title">البلوتوث غير مدعوم</string>
+    <string name="bluetooth_not_supported_message">هذا الجهاز لا يدعم تقنية Bluetooth Low Energy (BLE)، وهي مطلوبة لكي يعمل bitchat.\n\nيحتاج bitchat إلى BLE لإنشاء شبكات متداخلة والتواصل مع الأجهزة القريبة بدون إنترنت.</string>
+    <string name="checking_bluetooth_status">جارٍ التحقق من حالة البلوتوث…</string>
+
+    <string name="channel_password">أدخل كلمة مرور القناة</string>
+    <string name="channel_password_prompt">القناة %1$s محمية بكلمة مرور. أدخل كلمة المرور للانضمام.</string>
+    <string name="cancel">إلغاء</string>
+    <string name="app_info_title">حول bitchat</string>
+    <string name="app_info_description">مراسلة شبكية لامركزية عبر Bluetooth LE\n\n• لا حاجة لخوادم أو إنترنت\n• رسائل خاصة مشفرة من طرف إلى طرف\n• قنوات محمية بكلمة مرور\n• تخزين وإعادة توجيه للأقران غير المتصلين\n\nانقر ثلاث مرات على العنوان لمسح جميع البيانات في حالات الطوارئ</string>
+    <string name="ok">موافق</string>
+
+    <string name="error_description">خطأ</string>
+    <string name="initializing_mesh_network">جارٍ تهيئة الشبكة المتداخلة</string>
+    <string name="setting_up_bluetooth_mesh">جارٍ إعداد شبكة البلوتوث المتداخلة…</string>
+    <string name="setup_duration">يجب أن يستغرق هذا بضع ثوانٍ فقط</string>
+    <string name="setup_not_complete">الإعداد لم يكتمل</string>
+    <string name="try_again">حاول مرة أخرى</string>
+    <string name="open_settings">فتح الإعدادات</string>
+    <string name="location_services_description">خدمات الموقع</string>
+    <string name="location_services_required">خدمات الموقع مطلوبة</string>
+    <string name="privacy_description">الخصوصية</string>
+    <string name="privacy_first">الخصوصية أولاً</string>
+    <string name="location_privacy_assurance">لا يقوم bitchat بتتبع موقعك أو استخدام نظام تحديد المواقع العالمي (GPS).\n\nخدمات الموقع مطلوبة من قبل Android حتى يعمل مسح البلوتوث بشكل صحيح. هذا هو متطلب نظام Android.</string>
+    <string name="location_services_needed_for">يحتاج bitchat إلى خدمات الموقع من أجل:</string>
+    <string name="location_services_features">• مسح أجهزة البلوتوث (متطلب Android)\n• اكتشاف المستخدمين القريبين على الشبكة المتداخلة\n• إنشاء اتصالات بدون إنترنت\n• لا يوجد تتبع GPS أو جمع بيانات الموقع</string>
+    <string name="open_location_settings">فتح إعدادات الموقع</string>
+    <string name="location_services_unavailable">خدمات الموقع غير متوفرة</string>
+    <string name="location_services_unavailable_message">خدمات الموقع غير متوفرة على هذا الجهاز. هذا غير معتاد لأن خدمات الموقع قياسية على أجهزة Android.\n\nيحتاج bitchat إلى خدمات الموقع لكي يعمل مسح البلوتوث بشكل صحيح (متطلب Android). بدون هذا، لا يمكن للتطبيق اكتشاف المستخدمين القريبين.</string>
+    <string name="checking_location_services">جارٍ التحقق من خدمات الموقع…</string>
+
+    <string name="welcome_to_app">مرحبًا بك في bitchat</string>
+    <string name="app_description">مراسلة شبكية لامركزية عبر البلوتوث</string>
+    <string name="privacy_protected">خصوصيتك محمية</string>
+    <string name="privacy_details">• لا يقوم bitchat بتتبعك أو جمع بياناتك الشخصية\n• لا خوادم، لا حاجة للإنترنت، لا تسجيل للبيانات\n• يتم استخدام إذن الموقع فقط بواسطة Android لمسح البلوتوث\n• تبقى رسائلك على جهازك وأجهزة الأقران فقط</string>
+    <string name="permissions_needed">لكي يعمل بشكل صحيح، يحتاج bitchat إلى هذه الأذونات:</string>
+    <string name="grant_permissions">منح الأذونات</string>
+    <string name="location_no_gps">لا يستخدم bitchat نظام تحديد المواقع العالمي (GPS) أو يتتبع الموقع</string>
+
+    <string name="mention">إشارة</string>
+
+    <string name="app_info_tagline">دردشة جماعية جانبية متداخلة</string>
+    <string name="features_title">الميزات</string>
+    <string name="feature_offline_title">اتصال دون اتصال بالإنترنت</string>
+    <string name="feature_offline_desc">يعمل بدون إنترنت باستخدام تقنية Bluetooth منخفضة الطاقة</string>
+    <string name="feature_encryption_title">تشفير من طرف إلى طرف</string>
+    <string name="feature_encryption_desc">يتم تشفير الرسائل الخاصة باستخدام بروتوكول noise</string>
+    <string name="feature_range_title">نطاق ممتد</string>
+    <string name="feature_range_desc">يتم ترحيل الرسائل عبر الأقران، لتصل إلى مسافات أبعد</string>
+    <string name="feature_favorites_title">المفضلات</string>
+    <string name="feature_favorites_desc">احصل على إشعار عند انضمام الأشخاص المفضلين لديك</string>
+    <string name="feature_mutual_favorites_title">المفضلات المتبادلة</string>
+    <string name="feature_mutual_favorites_desc">راسلوا بعضكم البعض بشكل خاص عبر nostr عندما تكونون خارج نطاق الشبكة المتداخلة</string>
+    <string name="feature_mentions_title">الإشارات</string>
+    <string name="feature_mentions_desc">استخدم @اسم_المستخدم لإعلام أشخاص محددين</string>
+
+    <string name="privacy_title">الخصوصية</string>
+    <string name="privacy_no_tracking_title">لا يوجد تتبع</string>
+    <string name="privacy_no_tracking_desc">لا توجد خوادم أو حسابات أو جمع بيانات</string>
+    <string name="privacy_ephemeral_title">هوية مؤقتة</string>
+    <string name="privacy_ephemeral_desc">يتم إنشاء معرّف نظير جديد بانتظام</string>
+    <string name="privacy_panic_title">وضع الذعر</string>
+    <string name="privacy_panic_desc">انقر ثلاث مرات على الشعار لمسح جميع البيانات على الفور</string>
+
+    <string name="how_to_use_title">كيفية الاستخدام</string>
+    <string name="how_to_use_1">• قم بتعيين اسمك المستعار من خلال النقر عليه</string>
+    <string name="how_to_use_2">• اسحب لليسار للشريط الجانبي</string>
+    <string name="how_to_use_3">• انقر على نظير لبدء محادثة خاصة</string>
+    <string name="how_to_use_4">• استخدم @اسم_المستخدم للإشارة إلى شخص ما</string>
+    <string name="how_to_use_5">• انقر ثلاث مرات على الدردشة لمسحها</string>
+
+    <string name="warning_title">تحذير</string>
+    <string name="warning_message">لم يتم تدقيق أمان الرسائل الخاصة بالكامل بعد. لا تستخدمه في المواقف الحرجة حتى يختفي هذا التحذير.</string>
+
+    <string name="done">تم</string>
+</resources>

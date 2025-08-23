@@ -1,0 +1,121 @@
+<resources>
+    <string name="app_name">BitChat</string>
+    <string name="permission_bluetooth_rationale">Oprávnění Bluetooth je nezbytné pro funkci odesílání zpráv skrze BitChat.</string>
+    <string name="permission_location_rationale">Je třeba povolit polohu, aby bylo možné vyhledávat okolní zařízení přes Bluetooth.</string>
+    <string name="permission_notification_rationale">Oprávnění pro zasílání oznámení je nutné pro upozornění na nové zprávy.</string>
+    <string name="nickname_hint">Přezdívka</string>
+    <string name="message_hint">Napište zprávu…</string>
+    <string name="channel_password_hint">Heslo</string>
+    <string name="join_channel">Připojit se ke kanálu</string>
+    <string name="leave_channel">Odejít</string>
+    <string name="send_message">Odeslat</string>
+    <string name="back">Zpět</string>
+    <string name="people">Lidé</string>
+    <string name="channels">Kanály</string>
+    <string name="online_users">Online uživatelé</string>
+    <string name="no_one_connected">Nikdo není připojen</string>
+    <string name="emergency_clear_hint">Klepněte třikrát pro smazání všech dat</string>
+    <string name="your_network">Síť</string>
+
+    <!-- Battery Optimization Strings -->
+    <string name="battery_optimization_detected">Byla zjištěna optimalizace baterie</string>
+    <string name="battery_optimization_disabled">Optimalizace baterie je vypnuta</string>
+    <string name="battery_optimization_not_required">Optimalizace baterie není nutná</string>
+    <string name="battery_optimization_checking">Kontrola optimalizace baterie</string>
+    <string name="battery_optimization_why_disable">Proč vypnout optimalizaci baterie?</string>
+    <string name="battery_optimization_explanation">bitchat běží na pozadí, aby udržoval spojení v síti s okolními zařízeními. Optimalizace baterie může tato spojení přerušit, což může způsobit zpoždění nebo ztrátu zpráv.\n\nVypnutí optimalizace baterie zajistí spolehlivé zasílání zpráv mezi uživateli.</string>
+    <string name="battery_optimization_disable_button">Vypnout optimalizaci baterie</string>
+    <string name="battery_optimization_note">Poznámka: Toto nastavení můžete později změnit v Nastavení Androidu > Aplikace > bitchat > Baterie</string>
+    <string name="battery_optimization_not_supported_explanation">Vaše zařízení nevyžaduje nastavení optimalizace baterie. bitchat bude fungovat normálně.</string>
+    <string name="battery_optimization_not_supported_message">Vaše zařízení nevyžaduje nastavení optimalizace baterie. bitchat bude fungovat normálně.</string>
+    <string name="battery_optimization_success_message">bitchat může spolehlivě běžet na pozadí</string>
+    <string name="battery_optimization_benefits">• Zajišťuje spolehlivé doručování zpráv\n• Udržuje konektivitu sítě\n• Umožňuje přenos zpráv na pozadí\n• Zabraňuje výpadkům spojení</string>
+    <string name="battery_optimization_check_again">Zkontrolovat znovu</string>
+    <string name="battery_optimization_skip">Přeskočit prozatím</string>
+    <string name="battery_optimization_continue">Pokračovat</string>
+    <string name="retry">Zkusit znovu</string>
+    <string name="skip">Přeskočit</string>
+
+    <string name="channel_label">kanál: %s</string>
+
+    <string name="bluetooth_icon_description">Bluetooth</string>
+    <string name="bluetooth_required_title">Je vyžadován Bluetooth</string>
+    <string name="bluetooth_required_message">bitchat potřebuje Bluetooth k:</string>
+    <string name="bluetooth_required_details">• Vyhledávání okolních uživatelů\n• Vytváření síťových spojení\n• Odesílání a přijímání zpráv\n• Fungování bez internetu nebo serverů</string>
+    <string name="enable_bluetooth">Zapnout Bluetooth</string>
+    <string name="check_again">Zkontrolovat znovu</string>
+    <string name="bluetooth_not_supported_title">Bluetooth není podporován</string>
+    <string name="bluetooth_not_supported_message">Toto zařízení nepodporuje Bluetooth Low Energy (BLE), který je nutný pro fungování aplikace bitchat.\n\nbitchat potřebuje BLE k vytváření sítí a komunikaci s okolními zařízeními bez internetu.</string>
+    <string name="checking_bluetooth_status">Kontrola stavu Bluetooth…</string>
+
+    <string name="channel_password">Zadejte heslo kanálu</string>
+    <string name="channel_password_prompt">Kanál %1$s je chráněn heslem. Pro připojení zadejte heslo.</string>
+    <string name="cancel">Zrušit</string>
+    <string name="app_info_title">O aplikaci bitchat</string>
+    <string name="app_info_description">Decentralizované zasílání zpráv přes Bluetooth LE\n\n• Nejsou potřeba žádné servery ani internet\n• Soukromé zprávy s koncovým šifrováním\n• Kanály chráněné heslem\n• Ukládání a přeposílání pro offline uživatele\n\nTrojitým klepnutím na název nouzově vymažete všechna data</string>
+    <string name="ok">OK</string>
+
+    <string name="error_description">Chyba</string>
+    <string name="initializing_mesh_network">Inicializace sítě</string>
+    <string name="setting_up_bluetooth_mesh">Nastavování Bluetooth sítě…</string>
+    <string name="setup_duration">Mělo by to trvat jen pár sekund</string>
+    <string name="setup_not_complete">Nastavení nebylo dokončeno</string>
+    <string name="try_again">Zkusit znovu</string>
+    <string name="open_settings">Otevřít nastavení</string>
+    <string name="location_services_description">Služby určování polohy</string>
+    <string name="location_services_required">Jsou vyžadovány služby určování polohy</string>
+    <string name="privacy_description">Soukromí</string>
+    <string name="privacy_first">Soukromí na prvním místě</string>
+    <string name="location_privacy_assurance">bitchat NESLEDUJE vaši polohu ani nepoužívá GPS.\n\nSlužby určování polohy jsou vyžadovány systémem Android pro správné fungování vyhledávání Bluetooth. Jedná se o systémový požadavek Androidu.</string>
+    <string name="location_services_needed_for">bitchat potřebuje služby určování polohy k:</string>
+    <string name="location_services_features">• Vyhledávání zařízení Bluetooth (požadavek Androidu)\n• Objevování okolních uživatelů v síti\n• Vytváření spojení bez internetu\n• Žádné sledování GPS ani sběr údajů o poloze</string>
+    <string name="open_location_settings">Otevřít nastavení polohy</string>
+    <string name="location_services_unavailable">Služby určování polohy nejsou k dispozici</string>
+    <string name="location_services_unavailable_message">Služby určování polohy nejsou na tomto zařízení k dispozici. To je neobvyklé, protože služby určování polohy jsou na zařízeních s Androidem standardem.\n\nbitchat potřebuje služby určování polohy pro správné fungování vyhledávání Bluetooth (požadavek Androidu). Bez toho aplikace nemůže objevovat okolní uživatele.</string>
+    <string name="checking_location_services">Kontrola služeb určování polohy…</string>
+
+    <string name="welcome_to_app">Vítejte v aplikaci bitchat</string>
+    <string name="app_description">Decentralizované zasílání zpráv přes Bluetooth</string>
+    <string name="privacy_protected">Vaše soukromí je chráněno</string>
+    <string name="privacy_details">• bitchat vás nesleduje ani neshromažďuje osobní údaje\n• Žádné servery, není nutný internet, žádné protokolování dat\n• Oprávnění k poloze používá Android pouze pro vyhledávání Bluetooth\n• Vaše zprávy zůstávají pouze na vašem zařízení a zařízeních ostatních uživatelů</string>
+    <string name="permissions_needed">Pro správné fungování potřebuje bitchat tato oprávnění:</string>
+    <string name="grant_permissions">Udělit oprávnění</string>
+    <string name="location_no_gps">bitchat NEPOUŽÍVÁ GPS ani nesleduje polohu</string>
+
+    <string name="mention">zmínka</string>
+
+    <string name="app_info_tagline">skupinový chat v síti</string>
+    <string name="features_title">Funkce</string>
+    <string name="feature_offline_title">offline komunikace</string>
+    <string name="feature_offline_desc">funguje bez internetu pomocí Bluetooth low energy</string>
+    <string name="feature_encryption_title">koncové šifrování</string>
+    <string name="feature_encryption_desc">soukromé zprávy šifrované protokolem noise</string>
+    <string name="feature_range_title">rozšířený dosah</string>
+    <string name="feature_range_desc">zprávy se přenášejí přes ostatní uživatele, čímž se zvyšuje dosah</string>
+    <string name="feature_favorites_title">oblíbené</string>
+    <string name="feature_favorites_desc">dostanete oznámení, když se připojí vaši oblíbení lidé</string>
+    <string name="feature_mutual_favorites_title">vzájemně oblíbené</string>
+    <string name="feature_mutual_favorites_desc">posílejte si soukromé zprávy přes nostr, když jste mimo dosah sítě</string>
+    <string name="feature_mentions_title">zmínky</string>
+    <string name="feature_mentions_desc">použijte @přezdívka k upozornění konkrétních lidí</string>
+
+    <string name="privacy_title">Soukromí</string>
+    <string name="privacy_no_tracking_title">žádné sledování</string>
+    <string name="privacy_no_tracking_desc">žádné servery, účty ani sběr dat</string>
+    <string name="privacy_ephemeral_title">dočasná identita</string>
+    <string name="privacy_ephemeral_desc">nové ID uživatele se pravidelně generuje</string>
+    <string name="privacy_panic_title">panický režim</string>
+    <string name="privacy_panic_desc">trojitým klepnutím na logo okamžitě vymažete všechna data</string>
+
+    <string name="how_to_use_title">Jak používat</string>
+    <string name="how_to_use_1">• nastavte si přezdívku klepnutím na ni</string>
+    <string name="how_to_use_2">• přejeďte doleva pro postranní panel</string>
+    <string name="how_to_use_3">• klepnutím na uživatele zahájíte soukromý chat</string>
+    <string name="how_to_use_4">• použijte @přezdívka pro zmínku někoho</string>
+    <string name="how_to_use_5">• trojitým klepnutím na chat vymažete</string>
+
+    <string name="warning_title">Varování</string>
+    <string name="warning_message">zabezpečení soukromých zpráv ještě nebylo plně prověřeno. nepoužívejte pro kritické situace, dokud toto varování nezmizí.</string>
+
+    <string name="done">Hotovo</string>
+</resources>
