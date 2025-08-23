@@ -71,7 +71,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
         containerColor = colorScheme.background,
         topBar = {
             ChatFloatingHeader(
-                headerHeight = headerHeight,
                 selectedPrivatePeer = selectedPrivatePeer,
                 currentChannel = currentChannel,
                 nickname = nickname,
@@ -326,7 +325,6 @@ private fun ChatDialogs(
     onPasswordChange: (String) -> Unit,
     onPasswordConfirm: () -> Unit,
     onPasswordDismiss: () -> Unit,
-    viewModel: ChatViewModel
 ) {
     // Password dialog
     PasswordPromptDialog(
