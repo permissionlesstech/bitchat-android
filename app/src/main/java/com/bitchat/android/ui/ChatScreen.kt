@@ -146,8 +146,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 modifier = Modifier
                     .fillMaxSize()
                     .background(colorScheme.background)
-                    .padding(innerPadding)
-                    .windowInsetsPadding(WindowInsets.ime),
+                    .padding(innerPadding),
             )
             // Dialogs
             ChatDialogs(
@@ -242,7 +241,8 @@ private fun ChatInputSection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .navigationBarsPadding(),
+            .navigationBarsPadding()
+            .imePadding(),
     ) {
         HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
         // Command suggestions box
