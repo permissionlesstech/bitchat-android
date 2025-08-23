@@ -1,12 +1,15 @@
 package com.bitchat.android
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.core.view.WindowCompat
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -64,6 +67,12 @@ class MainActivity : ComponentActivity() {
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Enable edge-to-edge display for modern Android look
+        enableEdgeToEdge()
+        
+        // Make status bar transparent and content can extend behind it
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         
         // Initialize permission management
         permissionManager = PermissionManager(this)

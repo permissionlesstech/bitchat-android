@@ -70,18 +70,26 @@ fun ChatScreen(viewModel: ChatViewModel) {
     }
 
     // Use WindowInsets to handle keyboard properly
-    Box(modifier = Modifier.fillMaxSize()) {
-        val headerHeight = 42.dp
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(colorScheme.background) // Extend background to fill entire screen including status bar
+    ) {
+        val headerHeight = 32.dp
         
         // Main content area that responds to keyboard/window insets
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(colorScheme.background)
                 .windowInsetsPadding(WindowInsets.ime) // This handles keyboard insets
+                .windowInsetsPadding(WindowInsets.navigationBars) // Add bottom padding when keyboard is not expanded
         ) {
-            // Header spacer - creates space for the floating header
-            Spacer(modifier = Modifier.height(headerHeight))
+            // Header spacer - creates exact space for the floating header (status bar + compact header)
+            Spacer(
+                modifier = Modifier
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .height(headerHeight)
+            )
 
             // Messages area - takes up available space, will compress when keyboard appears
             MessagesList(
@@ -267,8 +275,7 @@ private fun ChatInputSection(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = colorScheme.background,
-        shadowElevation = 8.dp
+        color = colorScheme.background
     ) {
         Column {
             HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
@@ -324,11 +331,9 @@ private fun ChatFloatingHeader(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .height(headerHeight)
             .zIndex(1f)
-            .windowInsetsPadding(WindowInsets.statusBars), // Only respond to status bar
-        color = colorScheme.background.copy(alpha = 0.95f),
-        shadowElevation = 8.dp
+            .windowInsetsPadding(WindowInsets.statusBars), // Extend into status bar area
+        color = colorScheme.background // Solid background color extending into status bar
     ) {
         TopAppBar(
             title = {
@@ -351,18 +356,10 @@ private fun ChatFloatingHeader(
             },
             colors = TopAppBarDefaults.topAppBarColors(
                 containerColor = Color.Transparent
-            )
+            ),
+            modifier = Modifier.height(headerHeight) // Ensure compact header height
         )
     }
-
-    // Divider under header
-    HorizontalDivider(
-        modifier = Modifier
-            .fillMaxWidth()
-            .offset(y = headerHeight)
-            .zIndex(1f),
-        color = colorScheme.outline.copy(alpha = 0.3f)
-    )
 }
 
 @Composable
