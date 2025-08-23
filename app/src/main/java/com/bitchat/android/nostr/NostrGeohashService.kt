@@ -902,12 +902,15 @@ class NostrGeohashService(
                             since = System.currentTimeMillis() - 86400000L // Last 24 hours
                         )
                         
-                        nostrRelayManager.subscribe(
+                        nostrRelayManager.subscribeForGeohash(
+                            geohash = channel.channel.geohash,
                             filter = dmFilter,
                             id = dmSubId,
                             handler = { giftWrap ->
                                 handleGeohashDmEvent(giftWrap, channel.channel.geohash, dmIdentity)
-                            }
+                            },
+                            includeDefaults = true,
+                            nRelays = 5
                         )
                         
                         Log.i(TAG, "✅ Subscribed to geohash DMs for identity: ${dmIdentity.publicKeyHex.take(16)}...")

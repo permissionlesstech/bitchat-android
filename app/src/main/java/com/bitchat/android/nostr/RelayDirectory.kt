@@ -43,7 +43,7 @@ object RelayDirectory {
                         if (trimmed.lowercase().startsWith("relay url")) continue
                         val parts = trimmed.split(",")
                         if (parts.size < 3) continue
-                        val url = parts[0].trim()
+                        val url = normalizeRelayUrl(parts[0].trim())
                         val lat = parts[1].trim().toDoubleOrNull()
                         val lon = parts[2].trim().toDoubleOrNull()
                         if (url.isEmpty() || lat == null || lon == null) continue
@@ -88,6 +88,12 @@ object RelayDirectory {
         val a = sin(dLat / 2).pow(2.0) + cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) * sin(dLon / 2).pow(2.0)
         val c = 2 * atan2(sqrt(a), sqrt(1 - a))
         return R * c
+    }
+
+    private fun normalizeRelayUrl(raw: String): String {
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty()) return trimmed
+        return if ("://" in trimmed) trimmed else "wss://$trimmed"
     }
 }
 

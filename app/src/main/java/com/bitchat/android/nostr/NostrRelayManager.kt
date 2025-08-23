@@ -648,7 +648,12 @@ class NostrRelayManager private constructor() {
                     val wasProcessed = eventDeduplicator.processEvent(response.event) { event ->
                         // Only log non-gift-wrap events to reduce noise
                         if (event.kind != NostrKind.GIFT_WRAP) {
-                            Log.v(TAG, "📥 Processing new Nostr event (kind: ${event.kind}) from relay: $relayUrl")
+                            val originGeo = activeSubscriptions[response.subscriptionId]?.originGeohash
+                            if (originGeo != null) {
+                                Log.v(TAG, "📥 Processing event (kind=${event.kind}) from relay=$relayUrl geo=$originGeo sub=${response.subscriptionId}")
+                            } else {
+                                Log.v(TAG, "📥 Processing event (kind=${event.kind}) from relay=$relayUrl sub=${response.subscriptionId}")
+                            }
                         }
                         
                         // Call handler for new events only
