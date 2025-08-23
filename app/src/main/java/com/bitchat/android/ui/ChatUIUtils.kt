@@ -63,7 +63,7 @@ fun formatMessageAsAnnotatedString(
         // Sender prefix "<@"
         builder.pushStyle(SpanStyle(
             color = baseColor,
-            fontSize = 14.sp,
+            fontSize = 15.sp,
             fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
         ))
         builder.append("<@")
@@ -72,7 +72,7 @@ fun formatMessageAsAnnotatedString(
         // Base name (clickable)
         builder.pushStyle(SpanStyle(
             color = baseColor,
-            fontSize = 14.sp,
+            fontSize = 15.sp,
             fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
         ))
         val nicknameStart = builder.length
@@ -94,7 +94,7 @@ fun formatMessageAsAnnotatedString(
         if (suffix.isNotEmpty()) {
             builder.pushStyle(SpanStyle(
                 color = baseColor.copy(alpha = 0.6f),
-                fontSize = 14.sp,
+                fontSize = 15.sp,
                 fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
             ))
             builder.append(suffix)
@@ -104,7 +104,7 @@ fun formatMessageAsAnnotatedString(
         // Sender suffix "> "
         builder.pushStyle(SpanStyle(
             color = baseColor,
-            fontSize = 14.sp,
+            fontSize = 15.sp,
             fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
         ))
         builder.append("> ")
@@ -116,7 +116,7 @@ fun formatMessageAsAnnotatedString(
         // iOS-style timestamp at the END (smaller, grey)
         builder.pushStyle(SpanStyle(
             color = Color.Gray.copy(alpha = 0.7f),
-            fontSize = 10.sp
+            fontSize = 11.sp
         ))
         builder.append(" [${timeFormatter.format(message.timestamp)}]")
         builder.pop()
@@ -125,7 +125,7 @@ fun formatMessageAsAnnotatedString(
         // System message - iOS style
         builder.pushStyle(SpanStyle(
             color = Color.Gray,
-            fontSize = 12.sp,
+            fontSize = 13.sp,
             fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
         ))
         builder.append("* ${message.content} *")
@@ -134,7 +134,7 @@ fun formatMessageAsAnnotatedString(
         // Timestamp for system messages too
         builder.pushStyle(SpanStyle(
             color = Color.Gray.copy(alpha = 0.5f),
-            fontSize = 10.sp
+            fontSize = 11.sp
         ))
         builder.append(" [${timeFormatter.format(message.timestamp)}]")
         builder.pop()
