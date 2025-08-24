@@ -104,7 +104,6 @@ class MainActivity : ComponentActivity() {
         )
         
         setContent {
-            enableEdgeToEdge()
             BitchatTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
