@@ -188,7 +188,7 @@ class NostrGeohashService(
                 nostrRelayManager.sendEventToGeohash(
                     event = event,
                     geohash = channel.geohash,
-                    includeDefaults = true,
+                    includeDefaults = false,
                     nRelays = 5
                 )
                 
@@ -551,7 +551,7 @@ class NostrGeohashService(
                     handler = { event ->
                         handleUnifiedGeohashEvent(event, geohash)
                     },
-                    includeDefaults = true,
+                    includeDefaults = false,
                     nRelays = 5
                 )
                 
@@ -882,7 +882,7 @@ class NostrGeohashService(
                             handler = { event ->
                                 handleUnifiedGeohashEvent(event, channel.channel.geohash)
                             },
-                            includeDefaults = true,
+                            includeDefaults = false,
                             nRelays = 5
                         )
                         
@@ -909,7 +909,7 @@ class NostrGeohashService(
                             handler = { giftWrap ->
                                 handleGeohashDmEvent(giftWrap, channel.channel.geohash, dmIdentity)
                             },
-                            includeDefaults = true,
+                            includeDefaults = false,
                             nRelays = 5
                         )
                         

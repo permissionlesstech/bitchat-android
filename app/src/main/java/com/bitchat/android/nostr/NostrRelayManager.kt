@@ -130,7 +130,7 @@ class NostrRelayManager private constructor() {
     /**
      * Compute and connect to relays for a given geohash (nearest + optional defaults), cache the mapping.
      */
-    fun ensureGeohashRelaysConnected(geohash: String, nRelays: Int = 5, includeDefaults: Boolean = true) {
+    fun ensureGeohashRelaysConnected(geohash: String, nRelays: Int = 5, includeDefaults: Boolean = false) {
         try {
             val nearest = RelayDirectory.closestRelaysForGeohash(geohash, nRelays)
             val selected = if (includeDefaults) {
@@ -163,7 +163,7 @@ class NostrRelayManager private constructor() {
         filter: NostrFilter,
         id: String = generateSubscriptionId(),
         handler: (NostrEvent) -> Unit,
-        includeDefaults: Boolean = true,
+        includeDefaults: Boolean = false,
         nRelays: Int = 5
     ): String {
         ensureGeohashRelaysConnected(geohash, nRelays, includeDefaults)
@@ -185,7 +185,7 @@ class NostrRelayManager private constructor() {
     /**
      * Send an event specifically to a geohash's relays (+ optional defaults).
      */
-    fun sendEventToGeohash(event: NostrEvent, geohash: String, includeDefaults: Boolean = true, nRelays: Int = 5) {
+    fun sendEventToGeohash(event: NostrEvent, geohash: String, includeDefaults: Boolean = false, nRelays: Int = 5) {
         ensureGeohashRelaysConnected(geohash, nRelays, includeDefaults)
         val relayUrls = getRelaysForGeohash(geohash)
         if (relayUrls.isEmpty()) {
