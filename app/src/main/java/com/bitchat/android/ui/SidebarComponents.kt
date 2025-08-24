@@ -354,6 +354,7 @@ fun PeopleSection(
 
         // Append offline favorites we actively favorite (and not currently connected)
         val offlineFavorites = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getOurFavorites()
+        val appendedOfflineIds = mutableSetOf<String>()
         offlineFavorites.forEach { fav ->
             val favPeerID = fav.peerNoisePublicKey.joinToString("") { b -> "%02x".format(b) }
             // If any connected peer maps to this noise key, skip showing the offline entry
@@ -382,7 +383,41 @@ fun PeopleSection(
                 } ?: if (hasUnreadPrivateMessages.contains(favPeerID)) 1 else 0,
                 showNostrGlobe = (fav.isMutual && fav.peerNostrPublicKey != null)
             )
+            appendedOfflineIds.add(favPeerID)
         }
+
+        // Also show any incoming Nostr chats that exist locally but are not in connected peers or favorites yet
+        // This ensures a user can open and read Nostr messages while the sender remains offline
+        val connectedIds = sortedPeers.toSet()
+        val alreadyShownIds = connectedIds + appendedOfflineIds
+        val hex64Regex = Regex("^[0-9a-fA-F]{64}$")
+        privateChats.keys
+            .filter { key ->
+                (key.startsWith("nostr_") || hex64Regex.matches(key)) &&
+                !alreadyShownIds.contains(key) &&
+                // Skip if this key maps to a connected peer via noiseHex mapping
+                !noiseHexByPeerID.values.any { it.equals(key, ignoreCase = true) }
+            }
+            .sortedBy { key -> privateChats[key]?.lastOrNull()?.timestamp }
+            .forEach { convKey ->
+                val lastSender = privateChats[convKey]?.lastOrNull()?.sender
+                PeerItem(
+                    peerID = convKey,
+                    displayName = peerNicknames[convKey] ?: (lastSender ?: convKey.take(12)),
+                    signalStrength = 0,
+                    isSelected = convKey == selectedPrivatePeer,
+                    isFavorite = false,
+                    hasUnreadDM = hasUnreadPrivateMessages.contains(convKey),
+                    colorScheme = colorScheme,
+                    viewModel = viewModel,
+                    onItemClick = { onPrivateChatStart(convKey) },
+                    onToggleFavorite = { viewModel.toggleFavorite(convKey) },
+                    unreadCount = privateChats[convKey]?.count { msg ->
+                        msg.sender != nickname && hasUnreadPrivateMessages.contains(convKey)
+                    } ?: if (hasUnreadPrivateMessages.contains(convKey)) 1 else 0,
+                    showNostrGlobe = true
+                )
+            }
     }
 }
 
