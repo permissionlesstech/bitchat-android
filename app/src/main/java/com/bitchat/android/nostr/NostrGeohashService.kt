@@ -186,7 +186,12 @@ class NostrGeohashService(
                 )
                 
                 val nostrRelayManager = NostrRelayManager.getInstance(application)
-                nostrRelayManager.sendEvent(event)
+                nostrRelayManager.sendEventToGeohash(
+                    event = event,
+                    geohash = channel.geohash,
+                    includeDefaults = false,
+                    nRelays = 5
+                )
                 
                 Log.i(TAG, "📤 Sent geohash message to ${channel.geohash}: ${content.take(50)}")
                 
@@ -532,7 +537,7 @@ class NostrGeohashService(
         geohashSamplingJob = coroutineScope.launch {
             val nostrRelayManager = NostrRelayManager.getInstance(application)
             
-            // Subscribe to each geohash for ephemeral events (kind 20000)
+            // Subscribe to each geohash for ephemeral events (kind 20000) using geohash-specific relays
             geohashes.forEach { geohash ->
                 val filter = NostrFilter.geohashEphemeral(
                     geohash = geohash,
@@ -540,12 +545,15 @@ class NostrGeohashService(
                     limit = 200
                 )
                 
-                nostrRelayManager.subscribe(
+                nostrRelayManager.subscribeForGeohash(
+                    geohash = geohash,
                     filter = filter,
                     id = "geohash-$geohash",
                     handler = { event ->
                         handleUnifiedGeohashEvent(event, geohash)
-                    }
+                    },
+                    includeDefaults = false,
+                    nRelays = 5
                 )
                 
                 Log.d(TAG, "Subscribed to geohash events for: $geohash")
@@ -858,7 +866,7 @@ class NostrGeohashService(
                     try {
                         val nostrRelayManager = NostrRelayManager.getInstance(application)
                         
-                        // Subscribe to geohash ephemeral events for this specific channel
+                        // Subscribe to geohash ephemeral events for this specific channel using geohash-specific relays
                         val geohashSubId = "geohash-${channel.channel.geohash}"
                         currentGeohashSubscriptionId = geohashSubId
                         
@@ -868,12 +876,15 @@ class NostrGeohashService(
                             limit = 200
                         )
                         
-                        nostrRelayManager.subscribe(
+                        nostrRelayManager.subscribeForGeohash(
+                            geohash = channel.channel.geohash,
                             filter = geohashFilter,
                             id = geohashSubId,
                             handler = { event ->
                                 handleUnifiedGeohashEvent(event, channel.channel.geohash)
-                            }
+                            },
+                            includeDefaults = false,
+                            nRelays = 5
                         )
                         
                         Log.i(TAG, "✅ Subscribed to geohash ephemeral events: #${channel.channel.geohash}")
@@ -892,12 +903,15 @@ class NostrGeohashService(
                             since = System.currentTimeMillis() - 172800000L // Last 48 hours (align with NIP-17 randomization)
                         )
                         
-                        nostrRelayManager.subscribe(
+                        nostrRelayManager.subscribeForGeohash(
+                            geohash = channel.channel.geohash,
                             filter = dmFilter,
                             id = dmSubId,
                             handler = { giftWrap ->
                                 handleGeohashDmEvent(giftWrap, channel.channel.geohash, dmIdentity)
-                            }
+                            },
+                            includeDefaults = false,
+                            nRelays = 5
                         )
                         
                         Log.i(TAG, "✅ Subscribed to geohash DMs for identity: ${dmIdentity.publicKeyHex.take(16)}...")
