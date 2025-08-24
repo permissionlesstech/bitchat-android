@@ -5,6 +5,8 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
@@ -182,8 +184,8 @@ private fun GeohashPersonItem(
             
             // Use appropriate Material icon (closest match to iOS SF Symbols)
             val icon = when (iconName) {
-                "face.dashed" -> Icons.Default.Face // Use regular face icon (no dashed variant in Material)
-                else -> Icons.Default.Face
+                "face.dashed" -> Icons.Outlined.Explore
+                else -> Icons.Outlined.LocationOn
             }
             
             Icon(

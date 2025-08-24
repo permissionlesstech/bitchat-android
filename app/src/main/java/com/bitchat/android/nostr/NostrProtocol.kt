@@ -99,13 +99,19 @@ object NostrProtocol {
         content: String,
         geohash: String,
         senderIdentity: NostrIdentity,
-        nickname: String? = null
+        nickname: String? = null,
+        teleported: Boolean = false
     ): NostrEvent {
         val tags = mutableListOf<List<String>>()
         tags.add(listOf("g", geohash))
         
         if (!nickname.isNullOrEmpty()) {
             tags.add(listOf("n", nickname))
+        }
+        
+        if (teleported) {
+            // Use tag consistent with event handlers ("t","teleport")
+            tags.add(listOf("t", "teleport"))
         }
         
         val event = NostrEvent(

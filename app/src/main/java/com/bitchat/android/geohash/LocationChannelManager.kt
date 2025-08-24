@@ -149,8 +149,28 @@ class LocationChannelManager private constructor(private val context: Context) {
      */
     fun select(channel: ChannelID) {
         Log.d(TAG, "Selected channel: ${channel.displayName}")
-        _selectedChannel.postValue(channel)
+        // Use synchronous set to avoid race with background recomputation
+        _selectedChannel.value = channel
         saveChannelSelection(channel)
+
+        // Immediately recompute teleported status against the latest known location
+        lastLocation?.let { location ->
+            when (channel) {
+                is ChannelID.Mesh -> {
+                    _teleported.postValue(false)
+                }
+                is ChannelID.Location -> {
+                    val currentGeohash = Geohash.encode(
+                        latitude = location.latitude,
+                        longitude = location.longitude,
+                        precision = channel.channel.level.precision
+                    )
+                    val isTeleportedNow = currentGeohash != channel.channel.geohash
+                    _teleported.postValue(isTeleportedNow)
+                    Log.d(TAG, "Teleported (immediate recompute): $isTeleportedNow (current: $currentGeohash, selected: ${channel.channel.geohash})")
+                }
+            }
+        }
     }
     
     /**
