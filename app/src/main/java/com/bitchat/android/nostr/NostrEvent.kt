@@ -1,6 +1,7 @@
 package com.bitchat.android.nostr
 
 import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import com.google.gson.annotations.SerializedName
 import java.security.MessageDigest
 
@@ -130,7 +131,7 @@ data class NostrEvent(
         )
         
         // Convert to JSON without escaping slashes (compact format)
-        val gson = Gson()
+        val gson = GsonBuilder().disableHtmlEscaping().create()
         val jsonString = gson.toJson(serialized)
         
         // SHA256 hash of the JSON string

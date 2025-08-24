@@ -91,7 +91,7 @@ object NostrProtocol {
             
             Triple(rumor.content, rumor.pubkey, rumor.createdAt)
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Failed to decrypt private message: ${e.message}")
+            Log.w(TAG, "Failed to decrypt private message: ${e.message}")
             null
         }
     }
@@ -136,7 +136,8 @@ object NostrProtocol {
         val encrypted = NostrCrypto.encryptNIP44(
             plaintext = rumorJSON,
             recipientPublicKeyHex = recipientPubkey,
-            senderPrivateKeyHex = senderPrivateKey
+            senderPrivateKeyHex = senderPrivateKey,
+            mode = NostrCrypto.NIP44AeadMode.CHACHA12
         )
         
         val seal = NostrEvent(
@@ -165,7 +166,8 @@ object NostrProtocol {
         val encrypted = NostrCrypto.encryptNIP44(
             plaintext = sealJSON,
             recipientPublicKeyHex = recipientPubkey,
-            senderPrivateKeyHex = wrapPrivateKey
+            senderPrivateKeyHex = wrapPrivateKey,
+            mode = NostrCrypto.NIP44AeadMode.CHACHA12
         )
         
         val giftWrap = NostrEvent(
@@ -213,7 +215,7 @@ object NostrProtocol {
             Log.v(TAG, "Unwrapped seal with kind: ${seal.kind}")
             seal
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to unwrap gift wrap: ${e.message}")
+            Log.w(TAG, "Failed to unwrap gift wrap: ${e.message}")
             null
         }
     }
@@ -246,7 +248,7 @@ object NostrProtocol {
                 sig = jsonObject.get("sig")?.asString
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to open seal: ${e.message}")
+            Log.w(TAG, "Failed to open seal: ${e.message}")
             null
         }
     }

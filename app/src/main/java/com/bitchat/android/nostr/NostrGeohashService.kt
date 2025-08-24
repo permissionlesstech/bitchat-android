@@ -1162,7 +1162,7 @@ class NostrGeohashService(
             )
             
             if (decryptResult == null) {
-                Log.w(TAG, "Failed to decrypt geohash DM")
+                Log.d(TAG, "Skipping geohash DM: unwrap/open failed (non-fatal)")
                 return
             }
             
