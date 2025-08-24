@@ -285,85 +285,103 @@ fun PeopleSection(
                 color = colorScheme.onSurface.copy(alpha = 0.5f),
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
             )
-        } else {
-            // Observe reactive state for favorites and fingerprints
-            val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.observeAsState(emptySet())
-            val privateChats by viewModel.privateChats.observeAsState(emptyMap())
-            val favoritePeers by viewModel.favoritePeers.observeAsState(emptySet())
-            val peerFingerprints by viewModel.peerFingerprints.observeAsState(emptyMap())
-            
-            // Reactive favorite computation for all peers
-            val peerFavoriteStates = remember(favoritePeers, peerFingerprints, connectedPeers) {
-                connectedPeers.associateWith { peerID ->
-                    // Reactive favorite computation - same as ChatHeader
-                    val fingerprint = peerFingerprints[peerID]
-                    fingerprint != null && favoritePeers.contains(fingerprint)
-                }
-            }
-            
-            Log.d("SidebarComponents", "Recomposing with ${favoritePeers.size} favorites, peer states: $peerFavoriteStates")
- 
-            // Smart sorting: unread DMs first, then by most recent DM, then favorites, then alphabetical
-            val sortedPeers = connectedPeers.sortedWith(
-                compareBy<String> { !hasUnreadPrivateMessages.contains(it) } // Unread DM senders first
-                .thenByDescending { privateChats[it]?.maxByOrNull { msg -> msg.timestamp }?.timestamp?.time ?: 0L } // Most recent DM (convert Date to Long)
-                .thenBy { !(peerFavoriteStates[it] ?: false) } // Favorites first
-                .thenBy { (if (it == nickname) "You" else (peerNicknames[it] ?: it)).lowercase() } // Alphabetical
-            )
-            
-            sortedPeers.forEach { peerID ->
-                val isFavorite = peerFavoriteStates[peerID] ?: false
-                // fingerprint and favorite relationship resolution not needed here; UI will show Nostr globe for appended offline favorites below
-                
-                PeerItem(
-                    peerID = peerID,
-                    displayName = if (peerID == nickname) "You" else (peerNicknames[peerID] ?: (privateChats[peerID]?.lastOrNull()?.sender ?: peerID.take(12))),
-                    signalStrength = convertRSSIToSignalStrength(peerRSSI[peerID]),
-                    isSelected = peerID == selectedPrivatePeer,
-                    isFavorite = isFavorite,
-                    hasUnreadDM = hasUnreadPrivateMessages.contains(peerID),
-                    colorScheme = colorScheme,
-                    viewModel = viewModel,
-                    onItemClick = { onPrivateChatStart(peerID) },
-                    onToggleFavorite = { 
-                        Log.d("SidebarComponents", "Sidebar toggle favorite: peerID=$peerID, currentFavorite=$isFavorite")
-                        viewModel.toggleFavorite(peerID) 
-                    },
-                    unreadCount = privateChats[peerID]?.count { msg -> 
-                        // Count unread messages from this peer (messages not from the current user)
-                        msg.sender != nickname && hasUnreadPrivateMessages.contains(peerID)
-                    } ?: if (hasUnreadPrivateMessages.contains(peerID)) 1 else 0,
-                    showNostrGlobe = false
-                )
-            }
+        }
 
-            // Append offline favorites we actively favorite (and not currently connected)
-            val connectedNicknameSet = sortedPeers.mapNotNull { peerNicknames[it] }.toSet()
-            val offlineFavorites = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getOurFavorites()
-            offlineFavorites.forEach { fav ->
-                // Always show offline favorites; if connected list already has this peer by ID, skip
-                val favPeerID = fav.peerNoisePublicKey.joinToString("") { b -> "%02x".format(b) }
-                if (sortedPeers.contains(favPeerID)) return@forEach
-                PeerItem(
-                    peerID = favPeerID,
-                    displayName = peerNicknames[favPeerID] ?: fav.peerNickname,
-                    signalStrength = 0,
-                    isSelected = favPeerID == selectedPrivatePeer,
-                    isFavorite = true,
-                    hasUnreadDM = hasUnreadPrivateMessages.contains(favPeerID),
-                    colorScheme = colorScheme,
-                    viewModel = viewModel,
-                    onItemClick = { onPrivateChatStart(favPeerID) },
-                    onToggleFavorite = { 
-                        Log.d("SidebarComponents", "Sidebar toggle favorite (offline): peerID=$favPeerID")
-                        viewModel.toggleFavorite(favPeerID)
-                    },
-                    unreadCount = privateChats[favPeerID]?.count { msg ->
-                        msg.sender != nickname && hasUnreadPrivateMessages.contains(favPeerID)
-                    } ?: if (hasUnreadPrivateMessages.contains(favPeerID)) 1 else 0,
-                    showNostrGlobe = (fav.isMutual && fav.peerNostrPublicKey != null)
-                )
+        // Observe reactive state for favorites and fingerprints
+        val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.observeAsState(emptySet())
+        val privateChats by viewModel.privateChats.observeAsState(emptyMap())
+        val favoritePeers by viewModel.favoritePeers.observeAsState(emptySet())
+        val peerFingerprints by viewModel.peerFingerprints.observeAsState(emptyMap())
+        
+        // Reactive favorite computation for all peers
+        val peerFavoriteStates = remember(favoritePeers, peerFingerprints, connectedPeers) {
+            connectedPeers.associateWith { peerID ->
+                // Reactive favorite computation - same as ChatHeader
+                val fingerprint = peerFingerprints[peerID]
+                fingerprint != null && favoritePeers.contains(fingerprint)
             }
+        }
+        
+        // Build mapping of connected peerID -> noise key hex to unify with offline favorites
+        val noiseHexByPeerID: Map<String, String> = connectedPeers.associateWith { pid ->
+            try {
+                viewModel.meshService.getPeerInfo(pid)?.noisePublicKey?.joinToString("") { b -> "%02x".format(b) }
+            } catch (_: Exception) { null }
+        }.filterValues { it != null }.mapValues { it.value!! }
+
+        Log.d("SidebarComponents", "Recomposing with ${favoritePeers.size} favorites, peer states: $peerFavoriteStates")
+
+        // Smart sorting: unread DMs first, then by most recent DM, then favorites, then alphabetical
+        val sortedPeers = connectedPeers.sortedWith(
+            compareBy<String> { !hasUnreadPrivateMessages.contains(it) } // Unread DM senders first
+            .thenByDescending { privateChats[it]?.maxByOrNull { msg -> msg.timestamp }?.timestamp?.time ?: 0L } // Most recent DM (convert Date to Long)
+            .thenBy { !(peerFavoriteStates[it] ?: false) } // Favorites first
+            .thenBy { (if (it == nickname) "You" else (peerNicknames[it] ?: it)).lowercase() } // Alphabetical
+        )
+        
+        sortedPeers.forEach { peerID ->
+            val isFavorite = peerFavoriteStates[peerID] ?: false
+            // fingerprint and favorite relationship resolution not needed here; UI will show Nostr globe for appended offline favorites below
+            
+            val noiseHex = noiseHexByPeerID[peerID]
+            val meshUnread = hasUnreadPrivateMessages.contains(peerID)
+            val nostrUnread = if (noiseHex != null) hasUnreadPrivateMessages.contains(noiseHex) else false
+            val combinedHasUnread = meshUnread || nostrUnread
+            val combinedUnreadCount = (
+                privateChats[peerID]?.count { msg -> msg.sender != nickname && meshUnread } ?: 0
+            ) + (
+                if (noiseHex != null) privateChats[noiseHex]?.count { msg -> msg.sender != nickname && nostrUnread } ?: 0 else 0
+            )
+
+            PeerItem(
+                peerID = peerID,
+                displayName = if (peerID == nickname) "You" else (peerNicknames[peerID] ?: (privateChats[peerID]?.lastOrNull()?.sender ?: peerID.take(12))),
+                signalStrength = convertRSSIToSignalStrength(peerRSSI[peerID]),
+                isSelected = peerID == selectedPrivatePeer,
+                isFavorite = isFavorite,
+                hasUnreadDM = combinedHasUnread,
+                colorScheme = colorScheme,
+                viewModel = viewModel,
+                onItemClick = { onPrivateChatStart(peerID) },
+                onToggleFavorite = { 
+                    Log.d("SidebarComponents", "Sidebar toggle favorite: peerID=$peerID, currentFavorite=$isFavorite")
+                    viewModel.toggleFavorite(peerID) 
+                },
+                unreadCount = if (combinedUnreadCount > 0) combinedUnreadCount else if (combinedHasUnread) 1 else 0,
+                showNostrGlobe = false
+            )
+        }
+
+        // Append offline favorites we actively favorite (and not currently connected)
+        val offlineFavorites = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getOurFavorites()
+        offlineFavorites.forEach { fav ->
+            val favPeerID = fav.peerNoisePublicKey.joinToString("") { b -> "%02x".format(b) }
+            // If any connected peer maps to this noise key, skip showing the offline entry
+            val isMappedToConnected = noiseHexByPeerID.values.any { it.equals(favPeerID, ignoreCase = true) }
+            if (isMappedToConnected) return@forEach
+
+            // If user clicks an offline favorite and the mapped peer is currently connected under a different ID,
+            // open chat with the connected peerID instead of the noise hex for a seamless window
+            val mappedConnectedPeerID = noiseHexByPeerID.entries.firstOrNull { it.value.equals(favPeerID, ignoreCase = true) }?.key
+            PeerItem(
+                peerID = favPeerID,
+                displayName = peerNicknames[favPeerID] ?: fav.peerNickname,
+                signalStrength = 0,
+                isSelected = (mappedConnectedPeerID ?: favPeerID) == selectedPrivatePeer,
+                isFavorite = true,
+                hasUnreadDM = hasUnreadPrivateMessages.contains(favPeerID),
+                colorScheme = colorScheme,
+                viewModel = viewModel,
+                onItemClick = { onPrivateChatStart(mappedConnectedPeerID ?: favPeerID) },
+                onToggleFavorite = { 
+                    Log.d("SidebarComponents", "Sidebar toggle favorite (offline): peerID=$favPeerID")
+                    viewModel.toggleFavorite(favPeerID)
+                },
+                unreadCount = privateChats[favPeerID]?.count { msg ->
+                    msg.sender != nickname && hasUnreadPrivateMessages.contains(favPeerID)
+                } ?: if (hasUnreadPrivateMessages.contains(favPeerID)) 1 else 0,
+                showNostrGlobe = (fav.isMutual && fav.peerNostrPublicKey != null)
+            )
         }
     }
 }

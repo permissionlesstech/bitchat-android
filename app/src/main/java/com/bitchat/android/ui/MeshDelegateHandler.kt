@@ -131,6 +131,63 @@ class MeshDelegateHandler(
                     }
                 }
             }
+
+            // Global unification: for each connected peer, merge any offline/stable conversations
+            // (noiseHex or nostr_<pub16>) into the connected peer's chat so there is only one chat per identity.
+            peers.forEach { pid ->
+                try {
+                    val info = getPeerInfo(pid)
+                    val noiseKey = info?.noisePublicKey ?: return@forEach
+                    val noiseHex = noiseKey.joinToString("") { b -> "%02x".format(b) }
+
+                    // Derive temp nostr key from favorites npub
+                    val npub = com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNostrPubkey(noiseKey)
+                    val tempNostrKey: String? = try {
+                        if (npub != null) {
+                            val (hrp, data) = com.bitchat.android.nostr.Bech32.decode(npub)
+                            if (hrp == "npub") "nostr_${data.joinToString("") { b -> "%02x".format(b) }.take(16)}" else null
+                        } else null
+                    } catch (_: Exception) { null }
+
+                    unifyChatsIntoPeer(pid, listOfNotNull(noiseHex, tempNostrKey))
+                } catch (_: Exception) { }
+            }
+        }
+    }
+
+    /**
+     * Merge any chats stored under the given keys into the connected peer's chat entry.
+     */
+    private fun unifyChatsIntoPeer(targetPeerID: String, keysToMerge: List<String>) {
+        if (keysToMerge.isEmpty()) return
+
+        val currentChats = state.getPrivateChatsValue().toMutableMap()
+        val targetList = currentChats[targetPeerID]?.toMutableList() ?: mutableListOf()
+
+        var didMerge = false
+        keysToMerge.distinct().forEach { key ->
+            if (key == targetPeerID) return@forEach
+            val list = currentChats[key]
+            if (!list.isNullOrEmpty()) {
+                targetList.addAll(list)
+                currentChats.remove(key)
+                didMerge = true
+            }
+        }
+
+        if (didMerge) {
+            targetList.sortBy { it.timestamp }
+            currentChats[targetPeerID] = targetList
+            state.setPrivateChats(currentChats)
+
+            // Move unread flags
+            val unread = state.getUnreadPrivateMessagesValue().toMutableSet()
+            var hadUnread = false
+            keysToMerge.forEach { key -> if (unread.remove(key)) hadUnread = true }
+            if (hadUnread) {
+                unread.add(targetPeerID)
+            }
+            state.setUnreadPrivateMessages(unread)
         }
     }
     
