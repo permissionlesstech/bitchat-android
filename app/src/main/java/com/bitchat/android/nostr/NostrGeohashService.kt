@@ -301,17 +301,33 @@ class NostrGeohashService(
             // Map sender by Nostr pubkey to Noise key when possible
             val senderNoiseKey = findNoiseKeyForNostrPubkey(senderPubkey)
             val messageTimestamp = Date(rumorTimestamp * 1000L)
-            val senderNickname = if (senderNoiseKey != null) {
-                // Get nickname from favorites
-                getFavoriteNickname(senderNoiseKey) ?: "Unknown"
+
+            // If we know the Noise key, try to resolve a currently connected mesh peer ID for it
+            val targetPeerID: String = if (senderNoiseKey != null) {
+                val meshPeerId = resolveMeshPeerIdForNoiseKey(senderNoiseKey)
+                if (meshPeerId != null) {
+                    meshPeerId
+                } else {
+                    senderNoiseKey.joinToString("") { b -> "%02x".format(b) }
+                }
+            } else {
+                "nostr_${senderPubkey.take(16)}"
+            }
+
+            // Prefer nickname from mesh when connected; else fallback to favorites
+            val senderNickname: String = if (senderNoiseKey != null) {
+                val meshPeerId = resolveMeshPeerIdForNoiseKey(senderNoiseKey)
+                if (meshPeerId != null) {
+                    // Use live mesh nickname if available
+                    meshDelegateHandler.getPeerInfo(meshPeerId)?.nickname
+                        ?: getFavoriteNickname(senderNoiseKey)
+                        ?: "Unknown"
+                } else {
+                    getFavoriteNickname(senderNoiseKey) ?: "Unknown"
+                }
             } else {
                 "Unknown"
             }
-            
-            // Stable target ID if we know Noise key; otherwise temporary Nostr-based peer
-            val targetPeerID = senderNoiseKey?.let { 
-                it.joinToString("") { byte -> "%02x".format(byte) }
-            } ?: "nostr_${senderPubkey.take(16)}"
             
             // Store Nostr key mapping
             nostrKeyMapping[targetPeerID] = senderPubkey
@@ -439,6 +455,20 @@ class NostrGeohashService(
      */
     private fun getFavoriteNickname(noiseKey: ByteArray): String? {
         return com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)?.peerNickname
+    }
+
+    /**
+     * Resolve a currently-connected mesh peer ID for a given Noise public key
+     * by matching against the mesh service's peer info noisePublicKey values.
+     */
+    private fun resolveMeshPeerIdForNoiseKey(noiseKey: ByteArray): String? {
+        return try {
+            val peers: List<String> = state.getConnectedPeersValue()
+            peers.firstOrNull { peerId: String ->
+                val info = meshDelegateHandler.getPeerInfo(peerId)
+                info?.noisePublicKey?.contentEquals(noiseKey) == true
+            }
+        } catch (_: Exception) { null }
     }
     
     /**

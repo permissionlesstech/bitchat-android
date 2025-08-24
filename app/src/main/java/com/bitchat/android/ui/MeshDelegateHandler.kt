@@ -191,4 +191,11 @@ class MeshDelegateHandler(
     }
     
     // registerPeerPublicKey REMOVED - fingerprints now handled centrally in PeerManager
+
+    /**
+     * Expose mesh peer info for components that need to resolve identities (e.g., Nostr mapping)
+     */
+    fun getPeerInfo(peerID: String): com.bitchat.android.mesh.PeerInfo? {
+        return getMeshService().getPeerInfo(peerID)
+    }
 }

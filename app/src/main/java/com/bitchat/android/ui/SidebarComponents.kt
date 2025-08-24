@@ -317,7 +317,7 @@ fun PeopleSection(
                 
                 PeerItem(
                     peerID = peerID,
-                    displayName = if (peerID == nickname) "You" else (peerNicknames[peerID] ?: peerID),
+                    displayName = if (peerID == nickname) "You" else (peerNicknames[peerID] ?: (privateChats[peerID]?.lastOrNull()?.sender ?: peerID.take(12))),
                     signalStrength = convertRSSIToSignalStrength(peerRSSI[peerID]),
                     isSelected = peerID == selectedPrivatePeer,
                     isFavorite = isFavorite,
@@ -345,7 +345,7 @@ fun PeopleSection(
                 val favPeerID = fav.peerNoisePublicKey.joinToString("") { b -> "%02x".format(b) }
                 PeerItem(
                     peerID = favPeerID,
-                    displayName = fav.peerNickname,
+                    displayName = peerNicknames[favPeerID] ?: fav.peerNickname,
                     signalStrength = 0,
                     isSelected = favPeerID == selectedPrivatePeer,
                     isFavorite = true,
