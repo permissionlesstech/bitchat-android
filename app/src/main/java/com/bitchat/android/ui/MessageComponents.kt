@@ -271,15 +271,17 @@ fun DeliveryStatusIcon(status: DeliveryStatus) {
             )
         }
         is DeliveryStatus.Sent -> {
+            // Use a subtle hollow marker for Sent; single check is reserved for Delivered (iOS parity)
             Text(
-                text = "✓",
+                text = "○",
                 fontSize = 10.sp,
                 color = colorScheme.primary.copy(alpha = 0.6f)
             )
         }
         is DeliveryStatus.Delivered -> {
+            // Single check for Delivered (matches iOS expectations)
             Text(
-                text = "✓✓",
+                text = "✓",
                 fontSize = 10.sp,
                 color = colorScheme.primary.copy(alpha = 0.8f)
             )

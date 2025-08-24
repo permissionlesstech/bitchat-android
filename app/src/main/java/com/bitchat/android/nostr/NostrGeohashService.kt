@@ -316,7 +316,27 @@ class NostrGeohashService(
             // Store Nostr key mapping
             nostrKeyMapping[targetPeerID] = senderPubkey
             
+            // Process payload and update UI/state
             processNoisePayload(noisePayload, targetPeerID, senderNickname, messageTimestamp)
+
+            // If this was a private message, send a delivery ACK back over Nostr
+            if (noisePayload.type == com.bitchat.android.model.NoisePayloadType.PRIVATE_MESSAGE) {
+                val pm = com.bitchat.android.model.PrivateMessagePacket.decode(noisePayload.data)
+                pm?.let { pmsg ->
+                    val nostrTransport = NostrTransport.getInstance(application)
+                    // Prefer mapped peer route; fallback to direct Nostr using sender pubkey
+                    if (senderNoiseKey != null) {
+                        val peerIdHex = senderNoiseKey.joinToString("") { b -> "%02x".format(b) }
+                        nostrTransport.sendDeliveryAck(pmsg.messageID, peerIdHex)
+                    } else {
+                        // Fallback: direct to sender’s Nostr pubkey (geohash-style)
+                        val identity = NostrIdentityBridge.getCurrentNostrIdentity(application)
+                        if (identity != null) {
+                            nostrTransport.sendDeliveryAckGeohash(pmsg.messageID, senderPubkey, identity)
+                        }
+                    }
+                }
+            }
             
         } catch (e: Exception) {
             Log.e(TAG, "Error processing Nostr message: ${e.message}")
@@ -1234,7 +1254,11 @@ class NostrGeohashService(
                     
                     // Add to private chats
                     privateChatManager.handleIncomingPrivateMessage(message)
-                    
+
+                    // Always send delivery ACK for geohash DMs
+                    val nostrTransport = NostrTransport.getInstance(application)
+                    nostrTransport.sendDeliveryAckGeohash(messageId, senderPubkey, identity)
+
                     // Send read receipt if viewing this chat
                     if (isViewingThisChat) {
                         // Send read receipt via Nostr for geohash DM
