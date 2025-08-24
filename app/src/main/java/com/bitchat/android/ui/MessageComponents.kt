@@ -2,22 +2,27 @@ package com.bitchat.android.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.text.ClickableText
+ 
 
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.mesh.BluetoothMeshService
@@ -36,6 +41,7 @@ fun MessagesList(
     meshService: BluetoothMeshService,
     modifier: Modifier = Modifier,
     forceScrollToBottom: Boolean = false,
+    onScrolledUpChanged: ((Boolean) -> Unit)? = null,
     onNicknameClick: ((String) -> Unit)? = null,
     onMessageLongPress: ((BitchatMessage) -> Unit)? = null
 ) {
@@ -63,9 +69,20 @@ fun MessagesList(
         }
     }
     
+    // Track whether user has scrolled away from the latest messages
+    val isAtLatest by remember {
+        derivedStateOf {
+            val firstVisibleIndex = listState.layoutInfo.visibleItemsInfo.firstOrNull()?.index ?: -1
+            firstVisibleIndex <= 2
+        }
+    }
+    LaunchedEffect(isAtLatest) {
+        onScrolledUpChanged?.invoke(!isAtLatest)
+    }
+    
     // Force scroll to bottom when requested (e.g., when user sends a message)
     LaunchedEffect(forceScrollToBottom) {
-        if (forceScrollToBottom && messages.isNotEmpty()) {
+        if (messages.isNotEmpty()) {
             // With reverseLayout=true and reversed data, latest is at index 0
             listState.animateScrollToItem(0)
         }
@@ -181,42 +198,52 @@ private fun MessageTextWithClickableNicknames(
                  message.sender.startsWith("$currentUserNickname#")
     
     if (!isSelf && (onNicknameClick != null || onMessageLongPress != null)) {
-        // Use Text with combinedClickable for nickname interactions and message long press
+        val haptic = LocalHapticFeedback.current
+        var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
         Text(
             text = annotatedText,
-            modifier = modifier.combinedClickable(
-                onClick = {
-                    // We can't get the click offset here, so we'll handle the first nickname
-                    val nicknameAnnotations = annotatedText.getStringAnnotations(
-                        tag = "nickname_click",
-                        start = 0,
-                        end = annotatedText.length
-                    )
-                    if (nicknameAnnotations.isNotEmpty()) {
-                        val nickname = nicknameAnnotations.first().item
-                        onNicknameClick?.invoke(nickname)
+            modifier = modifier.pointerInput(message) {
+                detectTapGestures(
+                    onTap = { position ->
+                        val layout = textLayoutResult ?: return@detectTapGestures
+                        val offset = layout.getOffsetForPosition(position)
+                        val nicknameAnnotations = annotatedText.getStringAnnotations(
+                            tag = "nickname_click",
+                            start = offset,
+                            end = offset
+                        )
+                        if (nicknameAnnotations.isNotEmpty()) {
+                            val nickname = nicknameAnnotations.first().item
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onNicknameClick?.invoke(nickname)
+                        }
+                    },
+                    onLongPress = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onMessageLongPress?.invoke(message)
                     }
-                },
-                onLongClick = {
-                    // Always use message long press - contains all necessary information
-                    onMessageLongPress?.invoke(message)
-                }
-            ),
+                )
+            },
             fontFamily = FontFamily.Monospace,
             softWrap = true,
             overflow = TextOverflow.Visible,
             style = androidx.compose.ui.text.TextStyle(
                 color = colorScheme.onSurface
-            )
+            ),
+            onTextLayout = { result -> textLayoutResult = result }
         )
     } else {
         // Use regular text with message long press support for own messages
+        val haptic = LocalHapticFeedback.current
         Text(
             text = annotatedText,
             modifier = if (onMessageLongPress != null) {
                 modifier.combinedClickable(
                     onClick = { /* No action for own messages */ },
-                    onLongClick = { onMessageLongPress.invoke(message) }
+                    onLongClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onMessageLongPress.invoke(message)
+                    }
                 )
             } else {
                 modifier
@@ -244,15 +271,17 @@ fun DeliveryStatusIcon(status: DeliveryStatus) {
             )
         }
         is DeliveryStatus.Sent -> {
+            // Use a subtle hollow marker for Sent; single check is reserved for Delivered (iOS parity)
             Text(
-                text = "✓",
+                text = "○",
                 fontSize = 10.sp,
                 color = colorScheme.primary.copy(alpha = 0.6f)
             )
         }
         is DeliveryStatus.Delivered -> {
+            // Single check for Delivered (matches iOS expectations)
             Text(
-                text = "✓✓",
+                text = "✓",
                 fontSize = 10.sp,
                 color = colorScheme.primary.copy(alpha = 0.8f)
             )

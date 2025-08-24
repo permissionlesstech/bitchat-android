@@ -119,7 +119,7 @@ class NostrGeohashService(
             // Subscribe to gift wraps (NIP-17 private messages)
             val dmFilter = NostrFilter.giftWrapsFor(
                 pubkey = currentIdentity.publicKeyHex,
-                since = System.currentTimeMillis() - 86400000L // Last 24 hours
+                since = System.currentTimeMillis() - 172800000L // Last 48 hours (align with NIP-17 randomization)
             )
             
             nostrRelayManager.subscribe(
@@ -181,11 +181,17 @@ class NostrGeohashService(
                     content = content,
                     geohash = channel.geohash,
                     senderIdentity = identity,
-                    nickname = nickname
+                    nickname = nickname,
+                    teleported = teleported
                 )
                 
                 val nostrRelayManager = NostrRelayManager.getInstance(application)
-                nostrRelayManager.sendEvent(event)
+                nostrRelayManager.sendEventToGeohash(
+                    event = event,
+                    geohash = channel.geohash,
+                    includeDefaults = false,
+                    nRelays = 5
+                )
                 
                 Log.i(TAG, "📤 Sent geohash message to ${channel.geohash}: ${content.take(50)}")
                 
@@ -228,7 +234,7 @@ class NostrGeohashService(
         
         // Client-side filtering: ignore messages older than 24 hours + 15 minutes buffer
         val messageAge = System.currentTimeMillis() / 1000 - giftWrap.createdAt
-        if (messageAge > 87300) { // 24 hours + 15 minutes
+        if (messageAge > 173700) { // 48 hours + 15 minutes
             return
         }
         
@@ -310,7 +316,27 @@ class NostrGeohashService(
             // Store Nostr key mapping
             nostrKeyMapping[targetPeerID] = senderPubkey
             
+            // Process payload and update UI/state
             processNoisePayload(noisePayload, targetPeerID, senderNickname, messageTimestamp)
+
+            // If this was a private message, send a delivery ACK back over Nostr
+            if (noisePayload.type == com.bitchat.android.model.NoisePayloadType.PRIVATE_MESSAGE) {
+                val pm = com.bitchat.android.model.PrivateMessagePacket.decode(noisePayload.data)
+                pm?.let { pmsg ->
+                    val nostrTransport = NostrTransport.getInstance(application)
+                    // Prefer mapped peer route; fallback to direct Nostr using sender pubkey
+                    if (senderNoiseKey != null) {
+                        val peerIdHex = senderNoiseKey.joinToString("") { b -> "%02x".format(b) }
+                        nostrTransport.sendDeliveryAck(pmsg.messageID, peerIdHex)
+                    } else {
+                        // Fallback: direct to sender’s Nostr pubkey (geohash-style)
+                        val identity = NostrIdentityBridge.getCurrentNostrIdentity(application)
+                        if (identity != null) {
+                            nostrTransport.sendDeliveryAckGeohash(pmsg.messageID, senderPubkey, identity)
+                        }
+                    }
+                }
+            }
             
         } catch (e: Exception) {
             Log.e(TAG, "Error processing Nostr message: ${e.message}")
@@ -531,7 +557,7 @@ class NostrGeohashService(
         geohashSamplingJob = coroutineScope.launch {
             val nostrRelayManager = NostrRelayManager.getInstance(application)
             
-            // Subscribe to each geohash for ephemeral events (kind 20000)
+            // Subscribe to each geohash for ephemeral events (kind 20000) using geohash-specific relays
             geohashes.forEach { geohash ->
                 val filter = NostrFilter.geohashEphemeral(
                     geohash = geohash,
@@ -539,12 +565,15 @@ class NostrGeohashService(
                     limit = 200
                 )
                 
-                nostrRelayManager.subscribe(
+                nostrRelayManager.subscribeForGeohash(
+                    geohash = geohash,
                     filter = filter,
                     id = "geohash-$geohash",
                     handler = { event ->
                         handleUnifiedGeohashEvent(event, geohash)
-                    }
+                    },
+                    includeDefaults = false,
+                    nRelays = 5
                 )
                 
                 Log.d(TAG, "Subscribed to geohash events for: $geohash")
@@ -857,7 +886,7 @@ class NostrGeohashService(
                     try {
                         val nostrRelayManager = NostrRelayManager.getInstance(application)
                         
-                        // Subscribe to geohash ephemeral events for this specific channel
+                        // Subscribe to geohash ephemeral events for this specific channel using geohash-specific relays
                         val geohashSubId = "geohash-${channel.channel.geohash}"
                         currentGeohashSubscriptionId = geohashSubId
                         
@@ -867,12 +896,15 @@ class NostrGeohashService(
                             limit = 200
                         )
                         
-                        nostrRelayManager.subscribe(
+                        nostrRelayManager.subscribeForGeohash(
+                            geohash = channel.channel.geohash,
                             filter = geohashFilter,
                             id = geohashSubId,
                             handler = { event ->
                                 handleUnifiedGeohashEvent(event, channel.channel.geohash)
-                            }
+                            },
+                            includeDefaults = false,
+                            nRelays = 5
                         )
                         
                         Log.i(TAG, "✅ Subscribed to geohash ephemeral events: #${channel.channel.geohash}")
@@ -888,15 +920,17 @@ class NostrGeohashService(
                         
                         val dmFilter = NostrFilter.giftWrapsFor(
                             pubkey = dmIdentity.publicKeyHex,
-                            since = System.currentTimeMillis() - 86400000L // Last 24 hours
+                            since = System.currentTimeMillis() - 172800000L // Last 48 hours (align with NIP-17 randomization)
                         )
                         
+                        // IMPORTANT: For geohash DMs, use default relays (iOS behavior)
                         nostrRelayManager.subscribe(
                             filter = dmFilter,
                             id = dmSubId,
                             handler = { giftWrap ->
                                 handleGeohashDmEvent(giftWrap, channel.channel.geohash, dmIdentity)
-                            }
+                            },
+                            targetRelayUrls = null
                         )
                         
                         Log.i(TAG, "✅ Subscribed to geohash DMs for identity: ${dmIdentity.publicKeyHex.take(16)}...")
@@ -1162,7 +1196,7 @@ class NostrGeohashService(
             )
             
             if (decryptResult == null) {
-                Log.w(TAG, "Failed to decrypt geohash DM")
+                Log.d(TAG, "Skipping geohash DM: unwrap/open failed (non-fatal)")
                 return
             }
             
@@ -1220,7 +1254,11 @@ class NostrGeohashService(
                     
                     // Add to private chats
                     privateChatManager.handleIncomingPrivateMessage(message)
-                    
+
+                    // Always send delivery ACK for geohash DMs
+                    val nostrTransport = NostrTransport.getInstance(application)
+                    nostrTransport.sendDeliveryAckGeohash(messageId, senderPubkey, identity)
+
                     // Send read receipt if viewing this chat
                     if (isViewingThisChat) {
                         // Send read receipt via Nostr for geohash DM

@@ -8,8 +8,8 @@ enum class GeohashChannelLevel(val precision: Int, val displayName: String) {
     BLOCK(7, "Block"),
     NEIGHBORHOOD(6, "Neighborhood"),
     CITY(5, "City"),
-    REGION(4, "Region"),
-    COUNTRY(2, "Country");
+    PROVINCE(4, "Province"),
+    REGION(2, "REGION");
     
     companion object {
         fun allCases(): List<GeohashChannelLevel> = values().toList()

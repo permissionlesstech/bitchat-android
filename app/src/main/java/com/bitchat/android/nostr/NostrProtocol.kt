@@ -14,46 +14,42 @@ object NostrProtocol {
     private val gson = Gson()
     
     /**
-     * Create a NIP-17 private message
-     * Returns gift-wrapped event ready for relay broadcast
+     * Create NIP-17 private message gift-wrap (receiver copy only per iOS)
+     * Returns a single gift-wrapped event ready for relay broadcast
      */
     fun createPrivateMessage(
         content: String,
         recipientPubkey: String,
         senderIdentity: NostrIdentity
-    ): NostrEvent {
-        Log.v(TAG, "Creating private message for recipient: ${recipientPubkey.take(16)}...")
+    ): List<NostrEvent> {
+        Log.d(TAG, "Creating private message for recipient: ${recipientPubkey.take(16)}...")
         
-        // 1. Create the rumor (unsigned event)
-        val rumor = NostrEvent(
+        // 1. Create the rumor (unsigned kind 14) with p-tag
+        val rumorBase = NostrEvent(
             pubkey = senderIdentity.publicKeyHex,
             createdAt = (System.currentTimeMillis() / 1000).toInt(),
-            kind = NostrKind.TEXT_NOTE,
-            tags = emptyList(),
+            kind = NostrKind.DIRECT_MESSAGE,
+            tags = listOf(listOf("p", recipientPubkey)),
             content = content
         )
+        val rumorId = rumorBase.computeEventIdHex()
+        val rumor = rumorBase.copy(id = rumorId)
         
-        // 2. Create ephemeral key for this message
-        val (ephemeralPrivateKey, ephemeralPublicKey) = NostrCrypto.generateKeyPair()
-        Log.v(TAG, "Created ephemeral key for seal")
-        
-        // 3. Seal the rumor (encrypt to recipient)
+        // 2. Seal the rumor (kind 13) signed by sender, timestamp randomized up to 2 days
         val sealedEvent = createSeal(
             rumor = rumor,
             recipientPubkey = recipientPubkey,
-            senderPrivateKey = ephemeralPrivateKey,
-            senderPublicKey = ephemeralPublicKey
+            senderPrivateKey = senderIdentity.privateKeyHex,
+            senderPublicKey = senderIdentity.publicKeyHex
         )
         
-        // 4. Gift wrap the sealed event (encrypt to recipient again)
-        val giftWrap = createGiftWrap(
+        // 3. Gift wrap to recipient (kind 1059)
+        val giftWrapToRecipient = createGiftWrap(
             seal = sealedEvent,
             recipientPubkey = recipientPubkey
         )
-        
-        Log.v(TAG, "Created gift wrap with id: ${giftWrap.id.take(16)}...")
-        
-        return giftWrap
+        Log.d(TAG, "Created gift wrap: toRecipient=${giftWrapToRecipient.id.take(16)}...")
+        return listOf(giftWrapToRecipient)
     }
     
     /**
@@ -87,7 +83,7 @@ object NostrProtocol {
             
             Triple(rumor.content, rumor.pubkey, rumor.createdAt)
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Failed to decrypt private message: ${e.message}")
+            Log.w(TAG, "Failed to decrypt private message: ${e.message}")
             null
         }
     }
@@ -99,13 +95,19 @@ object NostrProtocol {
         content: String,
         geohash: String,
         senderIdentity: NostrIdentity,
-        nickname: String? = null
+        nickname: String? = null,
+        teleported: Boolean = false
     ): NostrEvent {
         val tags = mutableListOf<List<String>>()
         tags.add(listOf("g", geohash))
         
         if (!nickname.isNullOrEmpty()) {
             tags.add(listOf("n", nickname))
+        }
+        
+        if (teleported) {
+            // Use tag consistent with event handlers ("t","teleport")
+            tags.add(listOf("t", "teleport"))
         }
         
         val event = NostrEvent(
@@ -137,7 +139,7 @@ object NostrProtocol {
         
         val seal = NostrEvent(
             pubkey = senderPublicKey,
-            createdAt = NostrCrypto.randomizeTimestamp(),
+            createdAt = NostrCrypto.randomizeTimestampUpToPast(),
             kind = NostrKind.SEAL,
             tags = emptyList(),
             content = encrypted
@@ -166,7 +168,7 @@ object NostrProtocol {
         
         val giftWrap = NostrEvent(
             pubkey = wrapPublicKey,
-            createdAt = NostrCrypto.randomizeTimestamp(),
+            createdAt = NostrCrypto.randomizeTimestampUpToPast(),
             kind = NostrKind.GIFT_WRAP,
             tags = listOf(listOf("p", recipientPubkey)), // Tag recipient
             content = encrypted
@@ -180,7 +182,7 @@ object NostrProtocol {
         giftWrap: NostrEvent,
         recipientPrivateKey: String
     ): NostrEvent? {
-        Log.v(TAG, "Unwrapping gift wrap")
+        Log.d(TAG, "Unwrapping gift wrap; content prefix='${giftWrap.content.take(3)}' length=${giftWrap.content.length}")
         
         return try {
             val decrypted = NostrCrypto.decryptNIP44(
@@ -209,7 +211,7 @@ object NostrProtocol {
             Log.v(TAG, "Unwrapped seal with kind: ${seal.kind}")
             seal
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to unwrap gift wrap: ${e.message}")
+            Log.w(TAG, "Failed to unwrap gift wrap: ${e.message}")
             null
         }
     }
@@ -242,7 +244,7 @@ object NostrProtocol {
                 sig = jsonObject.get("sig")?.asString
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to open seal: ${e.message}")
+            Log.w(TAG, "Failed to open seal: ${e.message}")
             null
         }
     }

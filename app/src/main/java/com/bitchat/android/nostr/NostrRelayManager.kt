@@ -52,6 +52,8 @@ class NostrRelayManager private constructor() {
         fun registerPendingGiftWrap(id: String) {
             pendingGiftWrapIDs.add(id)
         }
+
+        fun defaultRelays(): List<String> = DEFAULT_RELAYS
     }
     
     /**
@@ -93,7 +95,8 @@ class NostrRelayManager private constructor() {
         val filter: NostrFilter,
         val handler: (NostrEvent) -> Unit,
         val targetRelayUrls: Set<String>? = null, // null means all relays
-        val createdAt: Long = System.currentTimeMillis()
+        val createdAt: Long = System.currentTimeMillis(),
+        val originGeohash: String? = null // used for logging and grouping
     )
     
     // Event deduplication system
@@ -119,6 +122,103 @@ class NostrRelayManager private constructor() {
     
     private val gson by lazy { NostrRequest.createGson() }
     
+    // Per-geohash relay selection
+    private val geohashToRelays = ConcurrentHashMap<String, Set<String>>() // geohash -> relay URLs
+
+    // --- Public API for geohash-specific operation ---
+
+    /**
+     * Compute and connect to relays for a given geohash (nearest + optional defaults), cache the mapping.
+     */
+    fun ensureGeohashRelaysConnected(geohash: String, nRelays: Int = 5, includeDefaults: Boolean = false) {
+        try {
+            val nearest = RelayDirectory.closestRelaysForGeohash(geohash, nRelays)
+            val selected = if (includeDefaults) {
+                (nearest + Companion.defaultRelays()).toSet()
+            } else nearest.toSet()
+            if (selected.isEmpty()) {
+                Log.w(TAG, "No relays selected for geohash=$geohash")
+                return
+            }
+            geohashToRelays[geohash] = selected
+            Log.i(TAG, "🌐 Geohash $geohash using ${selected.size} relays: ${selected.joinToString()}")
+            ensureConnectionsFor(selected)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to ensure relays for $geohash: ${e.message}")
+        }
+    }
+
+    /**
+     * Get relays mapped to a geohash (empty list if none configured).
+     */
+    fun getRelaysForGeohash(geohash: String): List<String> {
+        return geohashToRelays[geohash]?.toList() ?: emptyList()
+    }
+
+    /**
+     * Subscribe with explicit geohash routing; ensures connections exist, then targets only those relays.
+     */
+    fun subscribeForGeohash(
+        geohash: String,
+        filter: NostrFilter,
+        id: String = generateSubscriptionId(),
+        handler: (NostrEvent) -> Unit,
+        includeDefaults: Boolean = false,
+        nRelays: Int = 5
+    ): String {
+        ensureGeohashRelaysConnected(geohash, nRelays, includeDefaults)
+        val relayUrls = getRelaysForGeohash(geohash)
+        Log.d(TAG, "📡 Subscribing id=$id for geohash=$geohash on ${relayUrls.size} relays")
+        return subscribe(
+            filter = filter,
+            id = id,
+            handler = handler,
+            targetRelayUrls = relayUrls
+        ).also {
+            // update origin geohash for this subscription
+            activeSubscriptions[it]?.let { sub ->
+                activeSubscriptions[it] = sub.copy(originGeohash = geohash)
+            }
+        }
+    }
+
+    /**
+     * Send an event specifically to a geohash's relays (+ optional defaults).
+     */
+    fun sendEventToGeohash(event: NostrEvent, geohash: String, includeDefaults: Boolean = false, nRelays: Int = 5) {
+        ensureGeohashRelaysConnected(geohash, nRelays, includeDefaults)
+        val relayUrls = getRelaysForGeohash(geohash)
+        if (relayUrls.isEmpty()) {
+            Log.w(TAG, "No target relays to send event for geohash=$geohash; falling back to defaults")
+            sendEvent(event, Companion.defaultRelays())
+            return
+        }
+        Log.v(TAG, "📤 Sending event kind=${event.kind} to ${relayUrls.size} relays for geohash=$geohash")
+        sendEvent(event, relayUrls)
+    }
+
+    // --- Internal helpers ---
+
+    private fun ensureConnectionsFor(relayUrls: Set<String>) {
+        // Ensure relays are tracked for UI/status
+        relayUrls.forEach { url ->
+            if (relaysList.none { it.url == url }) {
+                relaysList.add(Relay(url))
+            }
+        }
+        updateRelaysList()
+
+        scope.launch {
+            relayUrls.forEach { relayUrl ->
+                launch {
+                    if (!connections.containsKey(relayUrl)) {
+                        connectToRelay(relayUrl)
+                    }
+                }
+            }
+        }
+    }
+
     init {
         // Initialize with default relays - avoid static initialization order issues
         try {
@@ -548,7 +648,12 @@ class NostrRelayManager private constructor() {
                     val wasProcessed = eventDeduplicator.processEvent(response.event) { event ->
                         // Only log non-gift-wrap events to reduce noise
                         if (event.kind != NostrKind.GIFT_WRAP) {
-                            Log.v(TAG, "📥 Processing new Nostr event (kind: ${event.kind}) from relay: $relayUrl")
+                            val originGeo = activeSubscriptions[response.subscriptionId]?.originGeohash
+                            if (originGeo != null) {
+                                Log.v(TAG, "📥 Processing event (kind=${event.kind}) from relay=$relayUrl geo=$originGeo sub=${response.subscriptionId}")
+                            } else {
+                                Log.v(TAG, "📥 Processing event (kind=${event.kind}) from relay=$relayUrl sub=${response.subscriptionId}")
+                            }
                         }
                         
                         // Call handler for new events only

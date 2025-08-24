@@ -107,17 +107,18 @@ class NostrClient private constructor(private val context: Context) {
                 
                 val recipientPubkeyHex = pubkeyBytes.toHexString()
                 
-                // Create and send gift wrap
-                val giftWrap = NostrProtocol.createPrivateMessage(
+                // Create and send gift wraps (receiver and sender copies)
+                val giftWraps = NostrProtocol.createPrivateMessage(
                     content = content,
                     recipientPubkey = recipientPubkeyHex,
                     senderIdentity = identity
                 )
                 
-                // Track this as a pending gift wrap for logging
-                NostrRelayManager.registerPendingGiftWrap(giftWrap.id)
-                
-                relayManager.sendEvent(giftWrap)
+                // Track and send all gift wraps
+                giftWraps.forEach { wrap ->
+                    NostrRelayManager.registerPendingGiftWrap(wrap.id)
+                    relayManager.sendEvent(wrap)
+                }
                 
                 Log.i(TAG, "📤 Sent private message to ${recipientNpub.take(16)}...")
                 onSuccess?.invoke()
@@ -141,7 +142,7 @@ class NostrClient private constructor(private val context: Context) {
         
         val filter = NostrFilter.giftWrapsFor(
             pubkey = identity.publicKeyHex,
-            since = System.currentTimeMillis() - 86400000L // Last 24 hours
+            since = System.currentTimeMillis() - 172800000L // Last 48 hours (align with NIP-17 randomization)
         )
         
         relayManager.subscribe(filter, "private-messages", { giftWrap ->
@@ -241,7 +242,7 @@ class NostrClient private constructor(private val context: Context) {
     ) {
         // Age filtering (24h + 15min buffer for randomized timestamps)
         val messageAge = System.currentTimeMillis() / 1000 - giftWrap.createdAt
-        if (messageAge > 87300) { // 24 hours + 15 minutes
+        if (messageAge > 173700) { // 48 hours + 15 minutes
             Log.v(TAG, "Ignoring old private message")
             return
         }

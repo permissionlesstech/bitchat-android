@@ -1,6 +1,7 @@
 package com.bitchat.android.nostr
 
 import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import com.google.gson.annotations.SerializedName
 import java.security.MessageDigest
 
@@ -107,6 +108,14 @@ data class NostrEvent(
     }
     
     /**
+     * Compute event ID (NIP-01) without signing
+     */
+    fun computeEventIdHex(): String {
+        val (eventId, _) = calculateEventId()
+        return eventId
+    }
+    
+    /**
      * Calculate event ID according to NIP-01
      * Returns (hex_id, hash_bytes)
      */
@@ -122,7 +131,7 @@ data class NostrEvent(
         )
         
         // Convert to JSON without escaping slashes (compact format)
-        val gson = Gson()
+        val gson = GsonBuilder().disableHtmlEscaping().create()
         val jsonString = gson.toJson(serialized)
         
         // SHA256 hash of the JSON string
@@ -201,6 +210,8 @@ data class NostrEvent(
 object NostrKind {
     const val METADATA = 0
     const val TEXT_NOTE = 1
+    const val DIRECT_MESSAGE = 14     // NIP-17 direct message (unsigned)
+    const val FILE_MESSAGE = 15       // NIP-17 file message (unsigned)
     const val SEAL = 13              // NIP-17 sealed event
     const val GIFT_WRAP = 1059       // NIP-17 gift wrap
     const val EPHEMERAL_EVENT = 20000 // For geohash channels
