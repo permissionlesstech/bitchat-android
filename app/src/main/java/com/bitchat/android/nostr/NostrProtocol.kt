@@ -70,7 +70,7 @@ object NostrProtocol {
                     return null
                 }
             
-            Log.v(TAG, "Successfully unwrapped gift wrap")
+            Log.v(TAG, "Successfully unwrapped gift wrap from: ${seal.pubkey.take(16)}...")
             
             // 2. Open the seal
             val rumor = openSeal(seal, recipientIdentity.privateKeyHex)

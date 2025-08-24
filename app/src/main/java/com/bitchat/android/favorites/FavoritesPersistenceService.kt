@@ -214,7 +214,12 @@ class FavoritesPersistenceService private constructor(private val context: Conte
      * Find Noise key by Nostr pubkey
      */
     fun findNoiseKey(forNostrPubkey: String): ByteArray? {
-        return favorites.values.firstOrNull { it.peerNostrPublicKey == forNostrPubkey }?.peerNoisePublicKey
+        val targetHex = normalizeNostrKeyToHex(forNostrPubkey) ?: return null
+        return favorites.values.firstOrNull { rel ->
+            rel.peerNostrPublicKey?.let { stored ->
+                normalizeNostrKeyToHex(stored)
+            } == targetHex
+        }?.peerNoisePublicKey
     }
     
     /**
@@ -264,6 +269,22 @@ class FavoritesPersistenceService private constructor(private val context: Conte
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save favorites: ${e.message}")
         }
+    }
+
+    /**
+     * Normalize a Nostr public key string (npub bech32 or hex) to lowercase hex for comparison
+     */
+    private fun normalizeNostrKeyToHex(value: String): String? {
+        return try {
+            if (value.startsWith("npub1")) {
+                val (hrp, data) = com.bitchat.android.nostr.Bech32.decode(value)
+                if (hrp != "npub") return null
+                data.joinToString("") { "%02x".format(it) }
+            } else {
+                // Assume hex
+                value.lowercase()
+            }
+        } catch (_: Exception) { null }
     }
 }
 

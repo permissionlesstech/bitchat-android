@@ -319,7 +319,8 @@ private fun PrivateChatHeader(
         val geoPart = geohash?.let { "#$it" } ?: "#geohash"
         "$geoPart/@$baseName"
     } else {
-        peerNicknames[peerID] ?: peerID
+        // Prefer nickname from mapping; fallback to fingerprint-derived name, never show raw long key
+        peerNicknames[peerID] ?: peerID.take(12)
     }
     
     Box(modifier = Modifier.fillMaxWidth()) {
@@ -367,8 +368,15 @@ private fun PrivateChatHeader(
 
             Spacer(modifier = Modifier.width(4.dp))
 
-            // For NIP-17 chats, do not show Noise session state icon (remove warning icon)
-            if (!isNostrDM) {
+            // For NIP-17 chats (no mesh), show a globe to indicate Nostr routing; else show session icon
+            if (isNostrDM) {
+                Icon(
+                    imageVector = Icons.Outlined.Public,
+                    contentDescription = "Nostr reachable",
+                    modifier = Modifier.size(14.dp),
+                    tint = Color(0xFF9B59B6) // Purple like iOS
+                )
+            } else {
                 NoiseSessionIcon(
                     sessionState = sessionState,
                     modifier = Modifier.size(14.dp)

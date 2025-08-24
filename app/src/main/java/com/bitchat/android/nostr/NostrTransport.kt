@@ -479,28 +479,11 @@ class NostrTransport(
     }
     
     /**
-     * Convert hex string to byte array (8 bytes)
+     * Convert full hex string to byte array
      */
     private fun hexStringToByteArray(hexString: String): ByteArray {
-        if (hexString.length % 2 != 0) {
-            return ByteArray(8) // Return 8-byte array filled with zeros
-        }
-        
-        val result = ByteArray(8) { 0 }
-        var tempID = hexString
-        var index = 0
-        
-        while (tempID.length >= 2 && index < 8) {
-            val hexByte = tempID.substring(0, 2)
-            val byte = hexByte.toIntOrNull(16)?.toByte()
-            if (byte != null) {
-                result[index] = byte
-            }
-            tempID = tempID.substring(2)
-            index++
-        }
-        
-        return result
+        val clean = if (hexString.length % 2 == 0) hexString else "0$hexString"
+        return clean.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
     }
     
     fun cleanup() {
