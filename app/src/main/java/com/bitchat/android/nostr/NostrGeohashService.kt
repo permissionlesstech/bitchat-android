@@ -479,10 +479,35 @@ class NostrGeohashService(
             // Best-effort
         }
 
+        // Determine guidance text based on mutual status (iOS-style)
+        val guidance = try {
+            val rel = run {
+                // Try to resolve via noise key directly or mapping
+                var key: ByteArray? = null
+                val hexRegex = Regex("^[0-9a-fA-F]+$")
+                if (fromPeerID.matches(hexRegex) && (fromPeerID.length % 2 == 0)) {
+                    key = fromPeerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+                } else {
+                    val mappedNostr = nostrKeyMapping[fromPeerID]
+                    key = mappedNostr?.let { findNoiseKeyForNostrPubkey(it) }
+                }
+                key?.let { com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(it) }
+            }
+            if (isFavorite) {
+                if (rel?.isFavorite == true) {
+                    " — mutual! You can continue DMs via Nostr when out of mesh."
+                } else {
+                    " — favorite back to continue DMs later."
+                }
+            } else {
+                ". DMs over Nostr will pause unless you both favorite again."
+            }
+        } catch (_: Exception) { "" }
+
         // Show system message
         val systemMessage = BitchatMessage(
             sender = "system",
-            content = "$senderNickname $action you",
+            content = "$senderNickname $action you$guidance",
             timestamp = Date(),
             isRelay = false
         )

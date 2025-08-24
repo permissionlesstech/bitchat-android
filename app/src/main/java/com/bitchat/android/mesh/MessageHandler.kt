@@ -454,6 +454,28 @@ class MessageHandler(private val myPeerID: String) {
                 if (npub != null) {
                     com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateNostrPublicKey(noiseKey, npub)
                 }
+
+                // Determine iOS-style guidance text
+                val rel = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)
+                val guidance = if (isFavorite) {
+                    if (rel?.isFavorite == true) {
+                        " — mutual! You can continue DMs via Nostr when out of mesh."
+                    } else {
+                        " — favorite back to continue DMs later."
+                    }
+                } else {
+                    ". DMs over Nostr will pause unless you both favorite again."
+                }
+
+                // Emit system message via delegate callback
+                val action = if (isFavorite) "favorited" else "unfavorited"
+                val sys = com.bitchat.android.model.BitchatMessage(
+                    sender = "system",
+                    content = "${peerInfo.nickname} $action you$guidance",
+                    timestamp = java.util.Date(),
+                    isRelay = false
+                )
+                delegate?.onMessageReceived(sys)
             }
         } catch (_: Exception) {
             // Best-effort; ignore errors
