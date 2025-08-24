@@ -341,8 +341,9 @@ fun PeopleSection(
             val connectedNicknameSet = sortedPeers.mapNotNull { peerNicknames[it] }.toSet()
             val offlineFavorites = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getOurFavorites()
             offlineFavorites.forEach { fav ->
-                if (connectedNicknameSet.contains(fav.peerNickname)) return@forEach
+                // Always show offline favorites; if connected list already has this peer by ID, skip
                 val favPeerID = fav.peerNoisePublicKey.joinToString("") { b -> "%02x".format(b) }
+                if (sortedPeers.contains(favPeerID)) return@forEach
                 PeerItem(
                     peerID = favPeerID,
                     displayName = peerNicknames[favPeerID] ?: fav.peerNickname,

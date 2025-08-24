@@ -467,6 +467,12 @@ class PrivateChatManager(
             }
         } catch (_: Exception) { }
 
+        // Also merge any directly-addressed temp key used by incoming messages (without mapping yet)
+        // Search existing chats for keys that begin with "nostr_" and have messages from the same nickname
+        state.getPrivateChatsValue().keys.filter { it.startsWith("nostr_") }.forEach { tempKey ->
+            if (!tryMergeKeys.contains(tempKey)) tryMergeKeys.add(tempKey)
+        }
+
         if (tryMergeKeys.isEmpty()) return
 
         val currentChats = state.getPrivateChatsValue().toMutableMap()

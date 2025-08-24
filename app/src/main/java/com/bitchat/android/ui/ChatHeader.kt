@@ -319,8 +319,15 @@ private fun PrivateChatHeader(
         val geoPart = geohash?.let { "#$it" } ?: "#geohash"
         "$geoPart/@$baseName"
     } else {
-        // Prefer nickname from mapping; fallback to fingerprint-derived name, never show raw long key
-        peerNicknames[peerID] ?: peerID.take(12)
+        // Prefer live mesh nickname; fallback to favorites nickname; finally short key
+        peerNicknames[peerID] ?: run {
+            val titleFromFavorites = try {
+                // Attempt to resolve favorites nickname by Noise key
+                val noiseKeyBytes = peerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+                com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKeyBytes)?.peerNickname
+            } catch (_: Exception) { null }
+            titleFromFavorites ?: peerID.take(12)
+        }
     }
     
     Box(modifier = Modifier.fillMaxWidth()) {
