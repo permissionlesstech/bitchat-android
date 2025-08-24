@@ -903,15 +903,14 @@ class NostrGeohashService(
                             since = System.currentTimeMillis() - 172800000L // Last 48 hours (align with NIP-17 randomization)
                         )
                         
-                        nostrRelayManager.subscribeForGeohash(
-                            geohash = channel.channel.geohash,
+                        // IMPORTANT: For geohash DMs, use default relays (iOS behavior)
+                        nostrRelayManager.subscribe(
                             filter = dmFilter,
                             id = dmSubId,
                             handler = { giftWrap ->
                                 handleGeohashDmEvent(giftWrap, channel.channel.geohash, dmIdentity)
                             },
-                            includeDefaults = false,
-                            nRelays = 5
+                            targetRelayUrls = null
                         )
                         
                         Log.i(TAG, "✅ Subscribed to geohash DMs for identity: ${dmIdentity.publicKeyHex.take(16)}...")
