@@ -181,7 +181,8 @@ class NostrGeohashService(
                     content = content,
                     geohash = channel.geohash,
                     senderIdentity = identity,
-                    nickname = nickname
+                    nickname = nickname,
+                    teleported = teleported
                 )
                 
                 val nostrRelayManager = NostrRelayManager.getInstance(application)
