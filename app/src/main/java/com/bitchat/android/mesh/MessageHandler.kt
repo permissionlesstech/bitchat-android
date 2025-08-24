@@ -78,6 +78,15 @@ class MessageHandler(private val myPeerID: String) {
                     val privateMessage = com.bitchat.android.model.PrivateMessagePacket.decode(noisePayload.data)
                     if (privateMessage != null) {
                         Log.d(TAG, "🔓 Decrypted TLV PM from $peerID: ${privateMessage.content.take(30)}...")
+
+                        // Handle favorite/unfavorite notifications embedded as PMs
+                        val pmContent = privateMessage.content
+                        if (pmContent.startsWith("[FAVORITED]") || pmContent.startsWith("[UNFAVORITED]")) {
+                            handleFavoriteNotificationFromMesh(pmContent, peerID)
+                            // Acknowledge delivery for UX parity
+                            sendDeliveryAck(privateMessage.messageID, peerID)
+                            return
+                        }
                         
                         // Create BitchatMessage - use local system time for incoming messages
                         val message = BitchatMessage(
@@ -425,6 +434,30 @@ class MessageHandler(private val myPeerID: String) {
      */
     fun shutdown() {
         handlerScope.cancel()
+    }
+
+    /**
+     * Handle favorite/unfavorite notification received over mesh as a private message.
+     * Content format: "[FAVORITED]:npub..." or "[UNFAVORITED]:npub..."
+     */
+    private fun handleFavoriteNotificationFromMesh(content: String, fromPeerID: String) {
+        try {
+            val isFavorite = content.startsWith("[FAVORITED]")
+            val npub = content.substringAfter(":", "").trim().takeIf { it.startsWith("npub1") }
+
+            // Update mutual favorite status in persistence
+            // Resolve full Noise key if available via delegate peer info
+            val peerInfo = delegate?.getPeerInfo(fromPeerID)
+            val noiseKey = peerInfo?.noisePublicKey
+            if (noiseKey != null) {
+                com.bitchat.android.favorites.FavoritesPersistenceService.shared.updatePeerFavoritedUs(noiseKey, isFavorite)
+                if (npub != null) {
+                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateNostrPublicKey(noiseKey, npub)
+                }
+            }
+        } catch (_: Exception) {
+            // Best-effort; ignore errors
+        }
     }
 }
 

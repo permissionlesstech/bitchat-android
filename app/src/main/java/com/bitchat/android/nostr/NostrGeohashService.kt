@@ -447,7 +447,38 @@ class NostrGeohashService(
     private fun handleFavoriteNotification(content: String, fromPeerID: String, senderNickname: String) {
         val isFavorite = content.startsWith("[FAVORITED]")
         val action = if (isFavorite) "favorited" else "unfavorited"
-        
+
+        // Try to extract npub after colon, if present
+        val npub = content.substringAfter(":", "").trim().takeIf { it.startsWith("npub1") }
+
+        // Resolve noise key if possible and persist relationship + npub mapping
+        try {
+            var noiseKey: ByteArray? = null
+            // If fromPeerID looks like hex (noise key), decode
+            val hexRegex = Regex("^[0-9a-fA-F]+$")
+            if (fromPeerID.matches(hexRegex) && (fromPeerID.length % 2 == 0)) {
+                // Expect 64 hex chars for full Curve25519 key; accept others best-effort
+                val bytes = fromPeerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+                // Use only if length is plausible
+                if (bytes.isNotEmpty()) noiseKey = bytes
+            } else {
+                // fromPeerID likely a temporary key like "nostr_..."; map to Nostr pubkey
+                val senderPubkey = nostrKeyMapping[fromPeerID]
+                if (senderPubkey != null) {
+                    noiseKey = findNoiseKeyForNostrPubkey(senderPubkey)
+                }
+            }
+
+            if (noiseKey != null) {
+                com.bitchat.android.favorites.FavoritesPersistenceService.shared.updatePeerFavoritedUs(noiseKey, isFavorite)
+                if (npub != null) {
+                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateNostrPublicKey(noiseKey, npub)
+                }
+            }
+        } catch (_: Exception) {
+            // Best-effort
+        }
+
         // Show system message
         val systemMessage = BitchatMessage(
             sender = "system",
@@ -456,7 +487,7 @@ class NostrGeohashService(
             isRelay = false
         )
         messageManager.addMessage(systemMessage)
-        
+
         Log.i(TAG, "📥 Processed favorite notification: $senderNickname $action you")
     }
     

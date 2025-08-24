@@ -152,6 +152,12 @@ class ChatViewModel(
         
         // Initialize Nostr integration
         nostrGeohashService.initializeNostrIntegration()
+
+        // Ensure NostrTransport knows our mesh peer ID for embedded packets
+        try {
+            val nostrTransport = com.bitchat.android.nostr.NostrTransport.getInstance(getApplication())
+            nostrTransport.senderPeerID = meshService.myPeerID
+        } catch (_: Exception) { }
         
         // Note: Mesh service is now started by MainActivity
         
@@ -309,7 +315,44 @@ class ChatViewModel(
     fun toggleFavorite(peerID: String) {
         Log.d("ChatViewModel", "toggleFavorite called for peerID: $peerID")
         privateChatManager.toggleFavorite(peerID)
-        
+
+        // Persist relationship in FavoritesPersistenceService when we have Noise key
+        try {
+            val peerInfo = meshService.getPeerInfo(peerID)
+            val noiseKey = peerInfo?.noisePublicKey
+            val nickname = peerInfo?.nickname ?: (meshService.getPeerNicknames()[peerID] ?: peerID)
+            if (noiseKey != null) {
+                val isNowFavorite = dataManager.favoritePeers.contains(
+                    com.bitchat.android.mesh.PeerFingerprintManager.getInstance().getFingerprintForPeer(peerID) ?: ""
+                )
+                com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateFavoriteStatus(
+                    noisePublicKey = noiseKey,
+                    nickname = nickname,
+                    isFavorite = isNowFavorite
+                )
+
+                // Send favorite notification via mesh or Nostr with our npub if available
+                try {
+                    val myNostr = com.bitchat.android.nostr.NostrIdentityBridge.getCurrentNostrIdentity(getApplication())
+                    val announcementContent = if (isNowFavorite) "[FAVORITED]:${myNostr?.npub ?: ""}" else "[UNFAVORITED]:${myNostr?.npub ?: ""}"
+                    // Prefer mesh if session established, else try Nostr
+                    if (meshService.hasEstablishedSession(peerID)) {
+                        // Reuse existing private message path for notifications
+                        meshService.sendPrivateMessage(
+                            announcementContent,
+                            peerID,
+                            nickname,
+                            java.util.UUID.randomUUID().toString()
+                        )
+                    } else {
+                        val nostrTransport = com.bitchat.android.nostr.NostrTransport.getInstance(getApplication())
+                        nostrTransport.senderPeerID = meshService.myPeerID
+                        nostrTransport.sendFavoriteNotification(peerID, isNowFavorite)
+                    }
+                } catch (_: Exception) { }
+            }
+        } catch (_: Exception) { }
+
         // Log current state after toggle
         logCurrentFavoriteState()
     }
