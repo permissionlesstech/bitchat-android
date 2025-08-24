@@ -313,6 +313,7 @@ fun PeopleSection(
             
             sortedPeers.forEach { peerID ->
                 val isFavorite = peerFavoriteStates[peerID] ?: false
+                // fingerprint and favorite relationship resolution not needed here; UI will show Nostr globe for appended offline favorites below
                 
                 PeerItem(
                     peerID = peerID,
@@ -331,7 +332,35 @@ fun PeopleSection(
                     unreadCount = privateChats[peerID]?.count { msg -> 
                         // Count unread messages from this peer (messages not from the current user)
                         msg.sender != nickname && hasUnreadPrivateMessages.contains(peerID)
-                    } ?: if (hasUnreadPrivateMessages.contains(peerID)) 1 else 0
+                    } ?: if (hasUnreadPrivateMessages.contains(peerID)) 1 else 0,
+                    showNostrGlobe = false
+                )
+            }
+
+            // Append offline favorites we actively favorite (and not currently connected)
+            val connectedNicknameSet = sortedPeers.mapNotNull { peerNicknames[it] }.toSet()
+            val offlineFavorites = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getOurFavorites()
+            offlineFavorites.forEach { fav ->
+                if (connectedNicknameSet.contains(fav.peerNickname)) return@forEach
+                val favPeerID = fav.peerNoisePublicKey.joinToString("") { b -> "%02x".format(b) }
+                PeerItem(
+                    peerID = favPeerID,
+                    displayName = fav.peerNickname,
+                    signalStrength = 0,
+                    isSelected = favPeerID == selectedPrivatePeer,
+                    isFavorite = true,
+                    hasUnreadDM = hasUnreadPrivateMessages.contains(favPeerID),
+                    colorScheme = colorScheme,
+                    viewModel = viewModel,
+                    onItemClick = { onPrivateChatStart(favPeerID) },
+                    onToggleFavorite = { 
+                        Log.d("SidebarComponents", "Sidebar toggle favorite (offline): peerID=$favPeerID")
+                        viewModel.toggleFavorite(favPeerID)
+                    },
+                    unreadCount = privateChats[favPeerID]?.count { msg ->
+                        msg.sender != nickname && hasUnreadPrivateMessages.contains(favPeerID)
+                    } ?: if (hasUnreadPrivateMessages.contains(favPeerID)) 1 else 0,
+                    showNostrGlobe = (fav.isMutual && fav.peerNostrPublicKey != null)
                 )
             }
         }
@@ -350,7 +379,8 @@ private fun PeerItem(
     viewModel: ChatViewModel,
     onItemClick: () -> Unit,
     onToggleFavorite: () -> Unit,
-    unreadCount: Int = 0
+    unreadCount: Int = 0,
+    showNostrGlobe: Boolean = false
 ) {
     // Split display name for hashtag suffix support (iOS-compatible)
     val (baseName, suffix) = com.bitchat.android.ui.splitSuffix(displayName)
@@ -383,10 +413,20 @@ private fun PeerItem(
             )
         } else {
             // Signal strength indicators
-            SignalStrengthIndicator(
-                signalStrength = signalStrength,
-                colorScheme = colorScheme
-            )
+            if (showNostrGlobe) {
+                // Purple globe to indicate Nostr availability
+                Icon(
+                    imageVector = Icons.Filled.Public,
+                    contentDescription = "Reachable via Nostr",
+                    modifier = Modifier.size(16.dp),
+                    tint = Color(0xFF9C27B0) // Purple
+                )
+            } else {
+                SignalStrengthIndicator(
+                    signalStrength = signalStrength,
+                    colorScheme = colorScheme
+                )
+            }
         }
         
         Spacer(modifier = Modifier.width(8.dp))

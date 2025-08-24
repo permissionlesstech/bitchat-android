@@ -254,7 +254,13 @@ class ChatViewModel(
                 state.getNicknameValue(),
                 meshService.myPeerID
             ) { messageContent, peerID, recipientNicknameParam, messageId ->
-                meshService.sendPrivateMessage(messageContent, peerID, recipientNicknameParam, messageId)
+                // Route via MessageRouter (mesh when connected+established, else Nostr)
+                val router = com.bitchat.android.services.MessageRouter(
+                    getApplication(),
+                    meshService,
+                    com.bitchat.android.nostr.NostrTransport.getInstance(getApplication())
+                )
+                router.sendPrivate(messageContent, peerID, recipientNicknameParam, messageId)
             }
         } else {
             // Check if we're in a location channel
