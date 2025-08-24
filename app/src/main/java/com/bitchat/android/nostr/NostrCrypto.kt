@@ -245,8 +245,10 @@ object NostrCrypto {
         senderPrivateKeyHex: String
     ): String {
         try {
-            val sharedSecret = performECDH(senderPrivateKeyHex, recipientPublicKeyHex)
-            val encryptionKey = deriveNIP44Key(sharedSecret)
+            // Match iOS: derive HKDF input from the compressed shared point (33 bytes)
+            val sharedPoint = computeSharedPointWithParity(senderPrivateKeyHex, recipientPublicKeyHex, preferOddY = false)
+            val secretMaterial = compressedPoint(sharedPoint)
+            val encryptionKey = deriveNIP44Key(secretMaterial)
             val aead = XChaCha20Poly1305(encryptionKey)
             val combined = aead.encrypt(plaintext.toByteArray(Charsets.UTF_8), null) // nonce||ct||tag
             val b64 = base64UrlNoPad(combined)
@@ -273,8 +275,10 @@ object NostrCrypto {
             // Try even-Y first, then odd-Y
             for (preferOdd in listOf(false, true)) {
                 try {
-                    val shared = performECDHWithParity(recipientPrivateKeyHex, senderPublicKeyHex, preferOddY = preferOdd)
-                    val key = deriveNIP44Key(shared)
+                    // Match iOS: derive HKDF input from the compressed shared point (33 bytes)
+                    val point = computeSharedPointWithParity(recipientPrivateKeyHex, senderPublicKeyHex, preferOddY = preferOdd)
+                    val secretMaterial = compressedPoint(point)
+                    val key = deriveNIP44Key(secretMaterial)
                     val aead = XChaCha20Poly1305(key)
                     val pt = aead.decrypt(encryptedData, null) // expects nonce||ct||tag
                     return String(pt, Charsets.UTF_8)
