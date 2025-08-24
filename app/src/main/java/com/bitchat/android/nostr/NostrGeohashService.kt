@@ -119,7 +119,7 @@ class NostrGeohashService(
             // Subscribe to gift wraps (NIP-17 private messages)
             val dmFilter = NostrFilter.giftWrapsFor(
                 pubkey = currentIdentity.publicKeyHex,
-                since = System.currentTimeMillis() - 86400000L // Last 24 hours
+                since = System.currentTimeMillis() - 172800000L // Last 48 hours (align with NIP-17 randomization)
             )
             
             nostrRelayManager.subscribe(
@@ -228,7 +228,7 @@ class NostrGeohashService(
         
         // Client-side filtering: ignore messages older than 24 hours + 15 minutes buffer
         val messageAge = System.currentTimeMillis() / 1000 - giftWrap.createdAt
-        if (messageAge > 87300) { // 24 hours + 15 minutes
+        if (messageAge > 173700) { // 48 hours + 15 minutes
             return
         }
         
@@ -888,7 +888,7 @@ class NostrGeohashService(
                         
                         val dmFilter = NostrFilter.giftWrapsFor(
                             pubkey = dmIdentity.publicKeyHex,
-                            since = System.currentTimeMillis() - 86400000L // Last 24 hours
+                            since = System.currentTimeMillis() - 172800000L // Last 48 hours (align with NIP-17 randomization)
                         )
                         
                         nostrRelayManager.subscribe(

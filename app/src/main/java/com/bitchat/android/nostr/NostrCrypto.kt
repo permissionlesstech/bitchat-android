@@ -12,6 +12,7 @@ import org.bouncycastle.crypto.agreement.ECDHBasicAgreement
 import org.bouncycastle.crypto.digests.SHA256Digest
 import org.bouncycastle.crypto.macs.HMac
 import org.bouncycastle.crypto.params.KeyParameter
+import com.google.crypto.tink.subtle.XChaCha20Poly1305
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
@@ -99,7 +100,7 @@ object NostrCrypto {
         val privateKeyBigInt = BigInteger(1, privateKeyBytes)
         val privateKeyParams = ECPrivateKeyParameters(privateKeyBigInt, secp256k1Params)
         
-        // Try to recover full public key point from x-only coordinate
+        // Recover full public key point from x-only coordinate (prefer even y per BIP-340)
         val publicKeyPoint = recoverPublicKeyPoint(publicKeyBytes)
         val publicKeyParams = ECPublicKeyParameters(publicKeyPoint, secp256k1Params)
         
@@ -121,6 +122,28 @@ object NostrCrypto {
             )
         }
         
+        return result
+    }
+
+    /**
+     * Perform ECDH with explicit parity choice for the x-only public key
+     * If preferOddY is true, use the odd-y lift; otherwise even-y lift.
+     */
+    private fun performECDHWithParity(privateKeyHex: String, publicKeyHex: String, preferOddY: Boolean): ByteArray {
+        val privateKeyBytes = privateKeyHex.hexToByteArray()
+        val publicKeyBytes = publicKeyHex.hexToByteArray()
+        val privateKeyBigInt = BigInteger(1, privateKeyBytes)
+        val privateKeyParams = ECPrivateKeyParameters(privateKeyBigInt, secp256k1Params)
+        val point = recoverPublicKeyPointWithParity(publicKeyBytes, preferOddY)
+        val publicKeyParams = ECPublicKeyParameters(point, secp256k1Params)
+        val agreement = ECDHBasicAgreement()
+        agreement.init(privateKeyParams)
+        val sharedSecret = agreement.calculateAgreement(publicKeyParams)
+        val sharedSecretBytes = sharedSecret.toByteArray()
+        val result = ByteArray(32)
+        if (sharedSecretBytes.size <= 32) {
+            System.arraycopy(sharedSecretBytes, maxOf(0, sharedSecretBytes.size - 32), result, maxOf(0, 32 - sharedSecretBytes.size), minOf(sharedSecretBytes.size, 32))
+        }
         return result
     }
     
@@ -147,28 +170,59 @@ object NostrCrypto {
             return secp256k1Curve.curve.decodePoint(compressedBytes)
         }
     }
+
+    private fun recoverPublicKeyPointWithParity(xOnlyBytes: ByteArray, preferOddY: Boolean): ECPoint {
+        require(xOnlyBytes.size == 32) { "X-only public key must be 32 bytes" }
+        val prefix: Byte = if (preferOddY) 0x03 else 0x02
+        val compressedBytes = ByteArray(33)
+        compressedBytes[0] = prefix
+        System.arraycopy(xOnlyBytes, 0, compressedBytes, 1, 32)
+        return secp256k1Curve.curve.decodePoint(compressedBytes)
+    }
     
     /**
-     * NIP-44 key derivation using HKDF
+     * NIP-44 key derivation using HKDF (salt = "nip44-v2", info = empty)
      */
     fun deriveNIP44Key(sharedSecret: ByteArray): ByteArray {
         val salt = "nip44-v2".toByteArray(Charsets.UTF_8)
-        
-        // HKDF-Extract
+        val prk = hkdfExtract(salt, sharedSecret)
+        val okm = hkdfExpand(prk, info = null, length = 32)
+        return okm
+    }
+
+    /**
+     * Alternate derivation: HKDF with empty/zero salt and info = "nip44-v2"
+     */
+    private fun deriveNIP44KeyAlt(sharedSecret: ByteArray): ByteArray {
+        val zeroSalt = ByteArray(0)
+        val prk = hkdfExtract(zeroSalt, sharedSecret)
+        val okm = hkdfExpand(prk, info = "nip44-v2".toByteArray(Charsets.UTF_8), length = 32)
+        return okm
+    }
+
+    private fun hkdfExtract(salt: ByteArray, ikm: ByteArray): ByteArray {
         val hmac = HMac(SHA256Digest())
         hmac.init(KeyParameter(salt))
-        hmac.update(sharedSecret, 0, sharedSecret.size)
+        hmac.update(ikm, 0, ikm.size)
         val prk = ByteArray(hmac.macSize)
         hmac.doFinal(prk, 0)
-        
-        // HKDF-Expand (we need 32 bytes for AES-256)
+        return prk
+    }
+
+    private fun hkdfExpand(prk: ByteArray, info: ByteArray?, length: Int): ByteArray {
+        val hmac = HMac(SHA256Digest())
         hmac.init(KeyParameter(prk))
-        hmac.update(byteArrayOf(0x01), 0, 1) // info = empty, N = 1
-        val okm = ByteArray(hmac.macSize)
-        hmac.doFinal(okm, 0)
-        
-        // Return first 32 bytes
-        return okm.copyOf(32)
+        if (info != null && info.isNotEmpty()) {
+            hmac.update(info, 0, info.size)
+        }
+        hmac.update(byteArrayOf(0x01), 0, 1)
+        val t = ByteArray(hmac.macSize)
+        hmac.doFinal(t, 0)
+        return t.copyOf(length)
+    }
+
+    private fun deriveNIP44KeySha(sharedSecret: ByteArray): ByteArray {
+        return MessageDigest.getInstance("SHA-256").digest(sharedSecret)
     }
     
     /**
@@ -178,30 +232,14 @@ object NostrCrypto {
         try {
             // Perform ECDH
             val sharedSecret = performECDH(senderPrivateKeyHex, recipientPublicKeyHex)
-            
-            // Derive encryption key
+            // Derive encryption key (32 bytes)
             val encryptionKey = deriveNIP44Key(sharedSecret)
-            
-            // Generate random nonce (12 bytes for GCM)
-            val nonce = ByteArray(12)
-            secureRandom.nextBytes(nonce)
-            
-            // Encrypt using AES-256-GCM
-            val plaintextBytes = plaintext.toByteArray(Charsets.UTF_8)
-            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            val secretKey = SecretKeySpec(encryptionKey, "AES")
-            val gcmSpec = GCMParameterSpec(128, nonce) // 128-bit auth tag
-            
-            cipher.init(Cipher.ENCRYPT_MODE, secretKey, gcmSpec)
-            val ciphertext = cipher.doFinal(plaintextBytes)
-            
-            // Combine nonce + ciphertext (includes auth tag)
-            val result = ByteArray(nonce.size + ciphertext.size)
-            System.arraycopy(nonce, 0, result, 0, nonce.size)
-            System.arraycopy(ciphertext, 0, result, nonce.size, ciphertext.size)
-            
-            // Base64 encode
-            return android.util.Base64.encodeToString(result, android.util.Base64.NO_WRAP)
+            // Encrypt using XChaCha20-Poly1305: ciphertext format = 24-byte nonce || ciphertext || 16-byte tag
+            val aead = XChaCha20Poly1305(encryptionKey)
+            val ciphertextWithNonce = aead.encrypt(plaintext.toByteArray(Charsets.UTF_8), null)
+            // Encode with v2 prefix for interoperability
+            val b64 = android.util.Base64.encodeToString(ciphertextWithNonce, android.util.Base64.NO_WRAP)
+            return "v2:$b64"
         } catch (e: Exception) {
             throw RuntimeException("NIP-44 encryption failed: ${e.message}", e)
         }
@@ -212,29 +250,81 @@ object NostrCrypto {
      */
     fun decryptNIP44(ciphertext: String, senderPublicKeyHex: String, recipientPrivateKeyHex: String): String {
         try {
-            // Decode base64
-            val encryptedData = android.util.Base64.decode(ciphertext, android.util.Base64.NO_WRAP)
+            // Normalize possible NIP-44 v2 prefix and URL-safe base64
+            var payload = ciphertext.trim()
+            val hasV2Prefix = payload.startsWith("v2")
+            if (hasV2Prefix) {
+                payload = payload.removePrefix("v2")
+                if (payload.startsWith(":")) payload = payload.substring(1)
+                if (payload.startsWith(".")) payload = payload.substring(1)
+                payload = payload.trim()
+            }
             
-            // Extract nonce and ciphertext
-            require(encryptedData.size >= 12 + 16) { "Ciphertext too short" }
-            val nonce = encryptedData.copyOfRange(0, 12)
-            val ciphertextBytes = encryptedData.copyOfRange(12, encryptedData.size)
+            // Decode base64 (try standard first, then URL-safe)
+            val encryptedData = try {
+                android.util.Base64.decode(payload, android.util.Base64.NO_WRAP)
+            } catch (e: IllegalArgumentException) {
+                android.util.Base64.decode(payload, android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP)
+            }
+            android.util.Log.d("NostrCrypto", "NIP44 decrypt: v2Prefix=$hasV2Prefix, dataLen=${encryptedData.size}, senderPubkey=${senderPublicKeyHex.take(8)}...")
             
-            // Perform ECDH
-            val sharedSecret = performECDH(recipientPrivateKeyHex, senderPublicKeyHex)
-            
-            // Derive decryption key
-            val decryptionKey = deriveNIP44Key(sharedSecret)
-            
-            // Decrypt using AES-256-GCM
-            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            val secretKey = SecretKeySpec(decryptionKey, "AES")
-            val gcmSpec = GCMParameterSpec(128, nonce)
-            
-            cipher.init(Cipher.DECRYPT_MODE, secretKey, gcmSpec)
-            val plaintextBytes = cipher.doFinal(ciphertextBytes)
-            
-            return String(plaintextBytes, Charsets.UTF_8)
+            // Try combinations: (AEAD mode order determined by presence of v2 prefix) x (parity) x (KDF variant)
+            val parityAttempts = listOf(false, true)
+            val keyDerivers: List<(ByteArray) -> ByteArray> = listOf(::deriveNIP44Key, ::deriveNIP44KeyAlt, ::deriveNIP44KeySha)
+            val tryXChaChaFirst = hasV2Prefix
+            var lastError: Exception? = null
+            for (preferOdd in parityAttempts) {
+                val sharedSecret = try {
+                    if (!preferOdd) performECDH(recipientPrivateKeyHex, senderPublicKeyHex)
+                    else performECDHWithParity(recipientPrivateKeyHex, senderPublicKeyHex, preferOddY = true)
+                } catch (e: Exception) {
+                    lastError = e
+                    null
+                }
+                if (sharedSecret == null) continue
+                for (derive in keyDerivers) {
+                    val decryptionKey = derive(sharedSecret)
+                    // AEAD attempt order
+                    val aeadModes = if (tryXChaChaFirst) listOf("xchacha", "aesgcm") else listOf("aesgcm", "xchacha")
+                    for (mode in aeadModes) {
+                        try {
+                            android.util.Log.d("NostrCrypto", "NIP44 attempt: mode=$mode, parity=${if (preferOdd) "odd" else "even"}, kdf=${derive.javaClass.name}")
+                            val plaintextBytes = when (mode) {
+                                "xchacha" -> {
+                                    // XChaCha20-Poly1305 expects 24-byte nonce || ciphertext || 16-byte tag
+                                    val aead = XChaCha20Poly1305(decryptionKey)
+                                    aead.decrypt(encryptedData, null)
+                                }
+                                else -> {
+                                    // AES-GCM usually uses 12-byte nonce; try 12 then 16 as fallback
+                                    var result: ByteArray? = null
+                                    val nonceLengths = intArrayOf(12, 16)
+                                    for (nl in nonceLengths) {
+                                        if (encryptedData.size < nl + 16) continue
+                                        try {
+                                            val nonce = encryptedData.copyOfRange(0, nl)
+                                            val ct = encryptedData.copyOfRange(nl, encryptedData.size)
+                                            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+                                            val secretKey = SecretKeySpec(decryptionKey, "AES")
+                                            val gcmSpec = GCMParameterSpec(128, nonce)
+                                            cipher.init(Cipher.DECRYPT_MODE, secretKey, gcmSpec)
+                                            result = cipher.doFinal(ct)
+                                            break
+                                        } catch (_: Exception) {
+                                            // try next nonce length
+                                        }
+                                    }
+                                    result ?: throw RuntimeException("AES-GCM decryption failed for tested nonce lengths")
+                                }
+                            }
+                            return String(plaintextBytes, Charsets.UTF_8)
+                        } catch (e: Exception) {
+                            lastError = e
+                        }
+                    }
+                }
+            }
+            throw lastError ?: RuntimeException("NIP-44 decryption failed: unknown error")
         } catch (e: Exception) {
             throw RuntimeException("NIP-44 decryption failed: ${e.message}", e)
         }
@@ -246,6 +336,15 @@ object NostrCrypto {
     fun randomizeTimestamp(baseTimestamp: Long = System.currentTimeMillis() / 1000): Int {
         val offset = secureRandom.nextInt(1800) - 900 // ±15 minutes in seconds
         return (baseTimestamp + offset).toInt()
+    }
+    
+    /**
+     * Random timestamp up to maxPastSeconds in the past (default 2 days)
+     */
+    fun randomizeTimestampUpToPast(maxPastSeconds: Int = 172800): Int {
+        val now = (System.currentTimeMillis() / 1000).toInt()
+        val offset = if (maxPastSeconds > 0) secureRandom.nextInt(maxPastSeconds + 1) else 0
+        return now - offset
     }
     
     /**

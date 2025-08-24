@@ -98,14 +98,16 @@ class NostrTransport(
                     return@launch
                 }
                 
-                val event = NostrProtocol.createPrivateMessage(
+                val giftWraps = NostrProtocol.createPrivateMessage(
                     content = embedded,
                     recipientPubkey = recipientHex,
                     senderIdentity = senderIdentity
                 )
                 
-                Log.d(TAG, "NostrTransport: sending PM giftWrap id=${event.id.take(16)}...")
-                NostrRelayManager.getInstance(context).sendEvent(event)
+                giftWraps.forEach { event ->
+                    Log.d(TAG, "NostrTransport: sending PM giftWrap id=${event.id.take(16)}...")
+                    NostrRelayManager.getInstance(context).sendEvent(event)
+                }
                 
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send private message via Nostr: ${e.message}")
@@ -182,14 +184,16 @@ class NostrTransport(
                     return@launch
                 }
                 
-                val event = NostrProtocol.createPrivateMessage(
+                val giftWraps = NostrProtocol.createPrivateMessage(
                     content = ack,
                     recipientPubkey = recipientHex,
                     senderIdentity = senderIdentity
                 )
                 
-                Log.d(TAG, "NostrTransport: sending READ ack giftWrap id=${event.id.take(16)}...")
-                NostrRelayManager.getInstance(context).sendEvent(event)
+                giftWraps.forEach { event ->
+                    Log.d(TAG, "NostrTransport: sending READ ack giftWrap id=${event.id.take(16)}...")
+                    NostrRelayManager.getInstance(context).sendEvent(event)
+                }
                 
                 scheduleNextReadAck()
                 
@@ -256,14 +260,16 @@ class NostrTransport(
                     return@launch
                 }
                 
-                val event = NostrProtocol.createPrivateMessage(
+                val giftWraps = NostrProtocol.createPrivateMessage(
                     content = embedded,
                     recipientPubkey = recipientHex,
                     senderIdentity = senderIdentity
                 )
                 
-                Log.d(TAG, "NostrTransport: sending favorite giftWrap id=${event.id.take(16)}...")
-                NostrRelayManager.getInstance(context).sendEvent(event)
+                giftWraps.forEach { event ->
+                    Log.d(TAG, "NostrTransport: sending favorite giftWrap id=${event.id.take(16)}...")
+                    NostrRelayManager.getInstance(context).sendEvent(event)
+                }
                 
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send favorite notification via Nostr: ${e.message}")
@@ -312,14 +318,16 @@ class NostrTransport(
                     return@launch
                 }
                 
-                val event = NostrProtocol.createPrivateMessage(
+                val giftWraps = NostrProtocol.createPrivateMessage(
                     content = ack,
                     recipientPubkey = recipientHex,
                     senderIdentity = senderIdentity
                 )
                 
-                Log.d(TAG, "NostrTransport: sending DELIVERED ack giftWrap id=${event.id.take(16)}...")
-                NostrRelayManager.getInstance(context).sendEvent(event)
+                giftWraps.forEach { event ->
+                    Log.d(TAG, "NostrTransport: sending DELIVERED ack giftWrap id=${event.id.take(16)}...")
+                    NostrRelayManager.getInstance(context).sendEvent(event)
+                }
                 
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send delivery ack via Nostr: ${e.message}")
@@ -346,15 +354,17 @@ class NostrTransport(
                 
                 if (embedded == null) return@launch
                 
-                val event = NostrProtocol.createPrivateMessage(
+                val giftWraps = NostrProtocol.createPrivateMessage(
                     content = embedded,
                     recipientPubkey = toRecipientHex,
                     senderIdentity = fromIdentity
                 )
                 
-                // Register pending gift wrap for deduplication (like iOS)
-                NostrRelayManager.registerPendingGiftWrap(event.id)
-                NostrRelayManager.getInstance(context).sendEvent(event)
+                // Register pending gift wrap for deduplication and send all
+                giftWraps.forEach { event ->
+                    NostrRelayManager.registerPendingGiftWrap(event.id)
+                    NostrRelayManager.getInstance(context).sendEvent(event)
+                }
                 
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send geohash delivery ack: ${e.message}")
@@ -379,15 +389,17 @@ class NostrTransport(
                 
                 if (embedded == null) return@launch
                 
-                val event = NostrProtocol.createPrivateMessage(
+                val giftWraps = NostrProtocol.createPrivateMessage(
                     content = embedded,
                     recipientPubkey = toRecipientHex,
                     senderIdentity = fromIdentity
                 )
                 
-                // Register pending gift wrap for deduplication (like iOS)
-                NostrRelayManager.registerPendingGiftWrap(event.id)
-                NostrRelayManager.getInstance(context).sendEvent(event)
+                // Register pending gift wrap for deduplication and send all
+                giftWraps.forEach { event ->
+                    NostrRelayManager.registerPendingGiftWrap(event.id)
+                    NostrRelayManager.getInstance(context).sendEvent(event)
+                }
                 
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send geohash read receipt: ${e.message}")
@@ -421,17 +433,17 @@ class NostrTransport(
                     return@launch
                 }
                 
-                val event = NostrProtocol.createPrivateMessage(
+                val giftWraps = NostrProtocol.createPrivateMessage(
                     content = embedded,
                     recipientPubkey = toRecipientHex,
                     senderIdentity = fromIdentity
                 )
                 
-                Log.d(TAG, "NostrTransport: sending geohash PM giftWrap id=${event.id.take(16)}...")
-                
-                // Register pending gift wrap for deduplication (like iOS)
-                NostrRelayManager.registerPendingGiftWrap(event.id)
-                NostrRelayManager.getInstance(context).sendEvent(event)
+                giftWraps.forEach { event ->
+                    Log.d(TAG, "NostrTransport: sending geohash PM giftWrap id=${event.id.take(16)}...")
+                    NostrRelayManager.registerPendingGiftWrap(event.id)
+                    NostrRelayManager.getInstance(context).sendEvent(event)
+                }
                 
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send geohash private message: ${e.message}")
