@@ -14,8 +14,8 @@ object NostrProtocol {
     private val gson = Gson()
     
     /**
-     * Create NIP-17 private message gift-wraps (receiver and sender copies)
-     * Returns two gift-wrapped events ready for relay broadcast
+     * Create NIP-17 private message gift-wrap (receiver copy only per iOS)
+     * Returns a single gift-wrapped event ready for relay broadcast
      */
     fun createPrivateMessage(
         content: String,
@@ -48,16 +48,8 @@ object NostrProtocol {
             seal = sealedEvent,
             recipientPubkey = recipientPubkey
         )
-        
-        // 4. Gift wrap to sender (copy to self per NIP-17)
-        val giftWrapToSender = createGiftWrap(
-            seal = sealedEvent,
-            recipientPubkey = senderIdentity.publicKeyHex
-        )
-        
-        Log.d(TAG, "Created gift wraps: toRecipient=${giftWrapToRecipient.id.take(16)}..., toSender=${giftWrapToSender.id.take(16)}...")
-        
-        return listOf(giftWrapToRecipient, giftWrapToSender)
+        Log.d(TAG, "Created gift wrap: toRecipient=${giftWrapToRecipient.id.take(16)}...")
+        return listOf(giftWrapToRecipient)
     }
     
     /**
@@ -142,8 +134,7 @@ object NostrProtocol {
         val encrypted = NostrCrypto.encryptNIP44(
             plaintext = rumorJSON,
             recipientPublicKeyHex = recipientPubkey,
-            senderPrivateKeyHex = senderPrivateKey,
-            mode = NostrCrypto.NIP44AeadMode.CHACHA12
+            senderPrivateKeyHex = senderPrivateKey
         )
         
         val seal = NostrEvent(
@@ -172,8 +163,7 @@ object NostrProtocol {
         val encrypted = NostrCrypto.encryptNIP44(
             plaintext = sealJSON,
             recipientPublicKeyHex = recipientPubkey,
-            senderPrivateKeyHex = wrapPrivateKey,
-            mode = NostrCrypto.NIP44AeadMode.CHACHA12
+            senderPrivateKeyHex = wrapPrivateKey
         )
         
         val giftWrap = NostrEvent(
