@@ -90,10 +90,23 @@ class MeshDelegateHandler(
             // Clean up channel members who disconnected
             channelManager.cleanupDisconnectedMembers(peers, getMyPeerID())
             
-            // Exit private chat if peer disconnected
+            // Exit private chat if peer disconnected (but keep open if mutual favorites for seamless Nostr fallback)
             state.getSelectedPrivateChatPeerValue()?.let { currentPeer ->
                 if (!peers.contains(currentPeer)) {
-                    privateChatManager.cleanupDisconnectedPeer(currentPeer)
+                    // Determine if mutual favorite for this identity
+                    val isMutualFavorite = try {
+                        val info = getPeerInfo(currentPeer)
+                        val noiseKey = info?.noisePublicKey
+                        if (noiseKey != null) {
+                            com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)?.isMutual == true
+                        } else false
+                    } catch (_: Exception) { false }
+
+                    if (!isMutualFavorite) {
+                        privateChatManager.cleanupDisconnectedPeer(currentPeer)
+                    } else {
+                        // Keep the chat open; UI will show globe via header when not connected
+                    }
                 }
             }
 

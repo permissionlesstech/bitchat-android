@@ -309,6 +309,15 @@ private fun PrivateChatHeader(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val isNostrDM = peerID.startsWith("nostr_") || peerID.startsWith("nostr:")
+    // Determine mutual favorite state for this peer (by Noise key when possible)
+    val isMutualFavorite = remember(peerID, peerNicknames) {
+        try {
+            if (!isNostrDM) {
+                val noiseKeyBytes = peerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+                com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKeyBytes)?.isMutual == true
+            } else false
+        } catch (_: Exception) { false }
+    }
 
     // Compute title text: for NIP-17 chats show "#geohash/@username" (iOS parity)
     val titleText: String = if (isNostrDM) {
@@ -375,8 +384,9 @@ private fun PrivateChatHeader(
 
             Spacer(modifier = Modifier.width(4.dp))
 
-            // For NIP-17 chats (no mesh), show a globe to indicate Nostr routing; else show session icon
-            if (isNostrDM) {
+            // Show a globe when not connected OR when mutual favorite fallback is active; otherwise show session icon
+            val showGlobe = isNostrDM || (sessionState != "established" && isMutualFavorite)
+            if (showGlobe) {
                 Icon(
                     imageVector = Icons.Outlined.Public,
                     contentDescription = "Nostr reachable",
