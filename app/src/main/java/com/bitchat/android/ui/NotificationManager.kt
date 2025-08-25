@@ -44,7 +44,6 @@ class NotificationManager(
         private const val ACTIVE_PEERS_NOTIFICATION_ID = 997
         private const val ACTIVE_PEERS_NOTIFICATION_TIME_INTERVAL = 300_000L
 
-
         // Intent extras for notification handling
         const val EXTRA_OPEN_PRIVATE_CHAT = "open_private_chat"
         const val EXTRA_OPEN_GEOHASH_CHAT = "open_geohash_chat"

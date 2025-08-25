@@ -336,8 +336,6 @@ class ChatViewModel(
         }
     }
 
-
-
     // MARK: - Utility Functions
     
     fun getPeerIDForNickname(nickname: String): String? {
@@ -440,22 +438,6 @@ class ChatViewModel(
         val rssiValues = meshService.getPeerRSSI()
         state.setPeerRSSI(rssiValues)
     }
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     // MARK: - Debug and Troubleshooting
     
@@ -624,14 +606,6 @@ class ChatViewModel(
             Log.e(TAG, "❌ Error clearing cryptographic data: ${e.message}")
         }
     }
-    
-
-
-
-
-
-
-
 
     /**
      * Get participant count for a specific geohash (5-minute activity window)
@@ -654,18 +628,6 @@ class ChatViewModel(
         nostrGeohashService.endGeohashSampling()
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
     /**
      * Check if a geohash person is teleported (iOS-compatible)
      */
@@ -682,10 +644,6 @@ class ChatViewModel(
         }
     }
 
-
-
-
-
     fun selectLocationChannel(channel: com.bitchat.android.geohash.ChannelID) {
         nostrGeohashService.selectLocationChannel(channel)
     }
@@ -696,14 +654,6 @@ class ChatViewModel(
     fun blockUserInGeohash(targetNickname: String) {
         nostrGeohashService.blockUserInGeohash(targetNickname)
     }
-
-
-
-
-
-
-
-
 
     // MARK: - Navigation Management
     
@@ -777,6 +727,4 @@ class ChatViewModel(
     fun colorForNostrPubkey(pubkeyHex: String, isDark: Boolean): androidx.compose.ui.graphics.Color {
         return nostrGeohashService.colorForNostrPubkey(pubkeyHex, isDark)
     }
-
-
 }
