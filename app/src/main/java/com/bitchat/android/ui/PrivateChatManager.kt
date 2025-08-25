@@ -266,18 +266,30 @@ class PrivateChatManager(
     // MARK: - Message Handling
 
     fun handleIncomingPrivateMessage(message: BitchatMessage) {
+        handleIncomingPrivateMessage(message, suppressUnread = false)
+    }
+
+    fun handleIncomingPrivateMessage(message: BitchatMessage, suppressUnread: Boolean) {
         message.senderPeerID?.let { senderPeerID ->
             if (!isPeerBlocked(senderPeerID)) {
                 // Add to private messages
-                messageManager.addPrivateMessage(senderPeerID, message)
+                if (suppressUnread) {
+                    messageManager.addPrivateMessageNoUnread(senderPeerID, message)
+                } else {
+                    messageManager.addPrivateMessage(senderPeerID, message)
+                }
 
                 // Track as unread for read receipt purposes
-                val unreadList = unreadReceivedMessages.getOrPut(senderPeerID) { mutableListOf() }
-                unreadList.add(message)
+                var unreadCount = 0
+                if (!suppressUnread) {
+                    val unreadList = unreadReceivedMessages.getOrPut(senderPeerID) { mutableListOf() }
+                    unreadList.add(message)
+                    unreadCount = unreadList.size
+                }
 
                 Log.d(
                     TAG,
-                    "Added received message ${message.id} from $senderPeerID to unread list (${unreadList.size} unread)"
+                    "Added received message ${message.id} from $senderPeerID to unread list (${unreadCount} unread)"
                 )
             }
         }
