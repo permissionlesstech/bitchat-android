@@ -15,3 +15,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "bitchat-android"
 include(":app")
+include(":domain")
