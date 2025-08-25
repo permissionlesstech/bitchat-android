@@ -13,8 +13,8 @@ android {
         applicationId = "com.bitchat.droid"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 11
-        versionName = "0.9.0"
+        versionCode = 16
+        versionName = "1.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -91,6 +91,12 @@ dependencies {
     
     // Bluetooth
     implementation(libs.nordic.ble)
+
+    // WebSocket
+    implementation(libs.okhttp)
+
+    // Google Play Services Location
+    implementation(libs.gms.location)
 
     // Security preferences
     implementation(libs.androidx.security.crypto)

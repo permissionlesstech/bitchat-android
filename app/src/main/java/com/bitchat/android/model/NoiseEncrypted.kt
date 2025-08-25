@@ -191,3 +191,12 @@ data class PrivateMessagePacket(
         return "PrivateMessagePacket(messageID='$messageID', content='${content.take(50)}${if (content.length > 50) "..." else ""}')"
     }
 }
+
+/**
+ * Read receipt data class for transport compatibility
+ */
+@Parcelize
+data class ReadReceipt(
+    val originalMessageID: String,
+    val readerPeerID: String? = null
+) : Parcelable

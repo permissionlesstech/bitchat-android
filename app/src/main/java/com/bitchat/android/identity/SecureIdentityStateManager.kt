@@ -346,4 +346,45 @@ class SecureIdentityStateManager(private val context: Context) {
     fun hasIdentityData(): Boolean {
         return prefs.contains(KEY_STATIC_PRIVATE_KEY) && prefs.contains(KEY_STATIC_PUBLIC_KEY)
     }
+    
+    // MARK: - Public SharedPreferences Access (for favorites and Nostr data)
+    
+    /**
+     * Store a string value in secure preferences
+     */
+    fun storeSecureValue(key: String, value: String) {
+        prefs.edit().putString(key, value).apply()
+    }
+    
+    /**
+     * Retrieve a string value from secure preferences
+     */
+    fun getSecureValue(key: String): String? {
+        return prefs.getString(key, null)
+    }
+    
+    /**
+     * Remove a value from secure preferences
+     */
+    fun removeSecureValue(key: String) {
+        prefs.edit().remove(key).apply()
+    }
+    
+    /**
+     * Check if a key exists in secure preferences
+     */
+    fun hasSecureValue(key: String): Boolean {
+        return prefs.contains(key)
+    }
+    
+    /**
+     * Clear specific keys from secure preferences
+     */
+    fun clearSecureValues(vararg keys: String) {
+        val editor = prefs.edit()
+        keys.forEach { key ->
+            editor.remove(key)
+        }
+        editor.apply()
+    }
 }
