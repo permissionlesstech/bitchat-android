@@ -94,18 +94,28 @@ class MeshDelegateHandler(
             state.getSelectedPrivateChatPeerValue()?.let { currentPeer ->
                 if (!peers.contains(currentPeer)) {
                     // Determine if mutual favorite for this identity
-                    val isMutualFavorite = try {
+                    val favoriteRel = try {
                         val info = getPeerInfo(currentPeer)
                         val noiseKey = info?.noisePublicKey
                         if (noiseKey != null) {
-                            com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)?.isMutual == true
-                        } else false
-                    } catch (_: Exception) { false }
+                            com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)
+                        } else null
+                    } catch (_: Exception) { null }
 
-                    if (!isMutualFavorite) {
-                        privateChatManager.cleanupDisconnectedPeer(currentPeer)
+                    if (favoriteRel?.isMutual == true) {
+                        // Seamless transition to Nostr: switch the selected chat to stable Noise hex
+                        val noiseHex = favoriteRel.peerNoisePublicKey.joinToString("") { b -> "%02x".format(b) }
+                        if (noiseHex != currentPeer) {
+                            // Merge messages and switch selection
+                            com.bitchat.android.services.ConversationAliasResolver.unifyChatsIntoPeer(
+                                state = state,
+                                targetPeerID = noiseHex,
+                                keysToMerge = listOf(currentPeer)
+                            )
+                            state.setSelectedPrivateChatPeer(noiseHex)
+                        }
                     } else {
-                        // Keep the chat open; UI will show globe via header when not connected
+                        privateChatManager.cleanupDisconnectedPeer(currentPeer)
                     }
                 }
             }

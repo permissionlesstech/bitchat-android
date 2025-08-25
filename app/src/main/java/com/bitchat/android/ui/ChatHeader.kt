@@ -309,12 +309,15 @@ private fun PrivateChatHeader(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val isNostrDM = peerID.startsWith("nostr_") || peerID.startsWith("nostr:")
-    // Determine mutual favorite state for this peer (by Noise key when possible)
+    // Determine mutual favorite state for this peer (supports mesh ephemeral 16-hex via favorites lookup)
     val isMutualFavorite = remember(peerID, peerNicknames) {
         try {
-            if (!isNostrDM) {
+            if (isNostrDM) return@remember false
+            if (peerID.length == 64 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
                 val noiseKeyBytes = peerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
                 com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKeyBytes)?.isMutual == true
+            } else if (peerID.length == 16 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
+                com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(peerID)?.isMutual == true
             } else false
         } catch (_: Exception) { false }
     }
@@ -328,12 +331,15 @@ private fun PrivateChatHeader(
         val geoPart = geohash?.let { "#$it" } ?: "#geohash"
         "$geoPart/@$baseName"
     } else {
-        // Prefer live mesh nickname; fallback to favorites nickname; finally short key
+        // Prefer live mesh nickname; fallback to favorites nickname (supports 16-hex), finally short key
         peerNicknames[peerID] ?: run {
             val titleFromFavorites = try {
-                // Attempt to resolve favorites nickname by Noise key
-                val noiseKeyBytes = peerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
-                com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKeyBytes)?.peerNickname
+                if (peerID.length == 64 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
+                    val noiseKeyBytes = peerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKeyBytes)?.peerNickname
+                } else if (peerID.length == 16 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
+                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(peerID)?.peerNickname
+                } else null
             } catch (_: Exception) { null }
             titleFromFavorites ?: peerID.take(12)
         }
@@ -384,7 +390,7 @@ private fun PrivateChatHeader(
 
             Spacer(modifier = Modifier.width(4.dp))
 
-            // Show a globe when not connected OR when mutual favorite fallback is active; otherwise show session icon
+            // Show a globe when chatting via Nostr alias, or when mesh session not established but mutual favorite exists
             val showGlobe = isNostrDM || (sessionState != "established" && isMutualFavorite)
             if (showGlobe) {
                 Icon(
