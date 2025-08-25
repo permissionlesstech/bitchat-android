@@ -310,6 +310,12 @@ class NostrGeohashService(
                     val noiseHex = senderNoiseKey.joinToString("") { b -> "%02x".format(b) }
                     val tempKey = "nostr_${senderPubkey.take(16)}"
                     unifyChatsIntoPeer(meshPeerId, listOf(noiseHex, tempKey))
+
+                    // If currently viewing the temporary or noise-hex chat, auto-switch to mesh peer
+                    val selected = state.getSelectedPrivateChatPeerValue()
+                    if (selected == noiseHex || selected == tempKey) {
+                        state.setSelectedPrivateChatPeer(meshPeerId)
+                    }
                     meshPeerId
                 } else {
                     senderNoiseKey.joinToString("") { b -> "%02x".format(b) }
@@ -509,6 +515,12 @@ class NostrGeohashService(
                 unread.add(targetPeerID)
             }
             state.setUnreadPrivateMessages(unread)
+
+            // If the user is currently viewing one of the merged aliases, switch selection to the canonical peer
+            val selected = state.getSelectedPrivateChatPeerValue()
+            if (selected != null && keysToMerge.contains(selected)) {
+                state.setSelectedPrivateChatPeer(targetPeerID)
+            }
         }
     }
     

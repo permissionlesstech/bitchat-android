@@ -241,10 +241,23 @@ class ChatViewModel(
         // REMOVED: Auto-join mentioned channels feature that was incorrectly parsing hashtags from @mentions
         // This was causing messages like "test @jack#1234 test" to auto-join channel "#1234"
         
-        val selectedPeer = state.getSelectedPrivateChatPeerValue()
+        var selectedPeer = state.getSelectedPrivateChatPeerValue()
         val currentChannelValue = state.getCurrentChannelValue()
         
         if (selectedPeer != null) {
+            // If the selected peer is a temporary Nostr alias or a noise-hex identity, resolve to a canonical target
+            selectedPeer = com.bitchat.android.services.ConversationAliasResolver.resolveCanonicalPeerID(
+                selectedPeerID = selectedPeer,
+                connectedPeers = state.getConnectedPeersValue(),
+                meshNoiseKeyForPeer = { pid -> meshService.getPeerInfo(pid)?.noisePublicKey },
+                meshHasPeer = { pid -> meshService.getPeerInfo(pid)?.isConnected == true },
+                nostrPubHexForAlias = { alias -> nostrGeohashService.getNostrKeyMapping()[alias] },
+                findNoiseKeyForNostr = { key -> com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNoiseKey(key) }
+            ).also { canonical ->
+                if (canonical != state.getSelectedPrivateChatPeerValue()) {
+                    privateChatManager.startPrivateChat(canonical, meshService)
+                }
+            }
             // Send private message
             val recipientNickname = meshService.getPeerNicknames()[selectedPeer]
             privateChatManager.sendPrivateMessage(
@@ -255,11 +268,7 @@ class ChatViewModel(
                 meshService.myPeerID
             ) { messageContent, peerID, recipientNicknameParam, messageId ->
                 // Route via MessageRouter (mesh when connected+established, else Nostr)
-                val router = com.bitchat.android.services.MessageRouter(
-                    getApplication(),
-                    meshService,
-                    com.bitchat.android.nostr.NostrTransport.getInstance(getApplication())
-                )
+                val router = com.bitchat.android.services.MessageRouter.getInstance(getApplication(), meshService)
                 router.sendPrivate(messageContent, peerID, recipientNicknameParam, messageId)
             }
         } else {

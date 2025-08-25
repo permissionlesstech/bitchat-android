@@ -201,6 +201,12 @@ class MeshDelegateHandler(
                 unread.add(targetPeerID)
             }
             state.setUnreadPrivateMessages(unread)
+
+            // Seamless transition: if user is viewing one of the merged aliases, switch to the connected peer
+            val selected = state.getSelectedPrivateChatPeerValue()
+            if (selected != null && keysToMerge.contains(selected)) {
+                state.setSelectedPrivateChatPeer(targetPeerID)
+            }
         }
     }
     
