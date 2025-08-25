@@ -27,7 +27,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class NotificationManager(
   private val context: Context,
-  private val notificationManagerCompat: NotificationManagerCompat,
+  private val notificationManager: NotificationManagerCompat,
   private val notificationIntervalManager: NotificationIntervalManager
 ) {
 
@@ -272,7 +272,7 @@ class NotificationManager(
 
         // Use sender peer ID hash as notification ID to group messages from same sender
         val notificationId = senderPeerID.hashCode()
-        notificationManagerCompat.notify(notificationId, builder.build())
+        notificationManager.notify(notificationId, builder.build())
 
         Log.d(TAG, "Displayed notification for $contentTitle with ID $notificationId")
     }
@@ -309,7 +309,7 @@ class NotificationManager(
           .setShowWhen(true)
           .setWhen(System.currentTimeMillis())
 
-        notificationManagerCompat.notify(ACTIVE_PEERS_NOTIFICATION_ID, builder.build())
+        notificationManager.notify(ACTIVE_PEERS_NOTIFICATION_ID, builder.build())
         Log.d(TAG, "Displayed notification for $contentTitle with ID $ACTIVE_PEERS_NOTIFICATION_ID")
     }
     private fun showSummaryNotification() {
@@ -361,7 +361,7 @@ class NotificationManager(
         
         builder.setStyle(style)
 
-        notificationManagerCompat.notify(SUMMARY_NOTIFICATION_ID, builder.build())
+        notificationManager.notify(SUMMARY_NOTIFICATION_ID, builder.build())
 
         Log.d(TAG, "Displayed summary notification for $senderCount senders")
     }
@@ -374,14 +374,14 @@ class NotificationManager(
         
         // Cancel the individual notification
         val notificationId = senderPeerID.hashCode()
-        notificationManagerCompat.cancel(notificationId)
+        notificationManager.cancel(notificationId)
 
         // Update or remove summary notification
         if (pendingNotifications.isEmpty()) {
-            notificationManagerCompat.cancel(SUMMARY_NOTIFICATION_ID)
+            notificationManager.cancel(SUMMARY_NOTIFICATION_ID)
         } else if (pendingNotifications.size == 1) {
             // Only one sender left, remove group summary
-            notificationManagerCompat.cancel(SUMMARY_NOTIFICATION_ID)
+            notificationManager.cancel(SUMMARY_NOTIFICATION_ID)
         } else {
             // Update summary notification
             showSummaryNotification()
@@ -753,7 +753,7 @@ class NotificationManager(
      */
     fun clearAllNotifications() {
         pendingNotifications.clear()
-        notificationManagerCompat.cancelAll()
+        notificationManager.cancelAll()
         pendingGeohashNotifications.clear()
         Log.d(TAG, "Cleared all notifications")
     }
