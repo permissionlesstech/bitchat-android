@@ -486,42 +486,7 @@ class NostrGeohashService(
      * so messages received while offline appear in the same chat when the peer connects.
      */
     private fun unifyChatsIntoPeer(targetPeerID: String, keysToMerge: List<String>) {
-        if (keysToMerge.isEmpty()) return
-
-        val currentChats = state.getPrivateChatsValue().toMutableMap()
-        val targetList = currentChats[targetPeerID]?.toMutableList() ?: mutableListOf()
-
-        var didMerge = false
-        keysToMerge.distinct().forEach { key ->
-            if (key == targetPeerID) return@forEach
-            val list = currentChats[key]
-            if (!list.isNullOrEmpty()) {
-                targetList.addAll(list)
-                currentChats.remove(key)
-                didMerge = true
-            }
-        }
-
-        if (didMerge) {
-            targetList.sortBy { it.timestamp }
-            currentChats[targetPeerID] = targetList
-            state.setPrivateChats(currentChats)
-
-            // Move unread flags
-            val unread = state.getUnreadPrivateMessagesValue().toMutableSet()
-            var hadUnread = false
-            keysToMerge.forEach { key -> if (unread.remove(key)) hadUnread = true }
-            if (hadUnread) {
-                unread.add(targetPeerID)
-            }
-            state.setUnreadPrivateMessages(unread)
-
-            // If the user is currently viewing one of the merged aliases, switch selection to the canonical peer
-            val selected = state.getSelectedPrivateChatPeerValue()
-            if (selected != null && keysToMerge.contains(selected)) {
-                state.setSelectedPrivateChatPeer(targetPeerID)
-            }
-        }
+        com.bitchat.android.services.ConversationAliasResolver.unifyChatsIntoPeer(state, targetPeerID, keysToMerge)
     }
     
     /**

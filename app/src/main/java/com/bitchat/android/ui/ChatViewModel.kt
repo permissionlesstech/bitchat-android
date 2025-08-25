@@ -399,10 +399,20 @@ class ChatViewModel(
         val currentPeers = state.getConnectedPeersValue()
         
         // Update session states
+        val prevStates = state.getPeerSessionStatesValue()
         val sessionStates = currentPeers.associateWith { peerID ->
             meshService.getSessionState(peerID).toString()
         }
         state.setPeerSessionStates(sessionStates)
+        // Detect new established sessions and flush router outbox for them and their noiseHex aliases
+        sessionStates.forEach { (peerID, newState) ->
+            val old = prevStates[peerID]
+            if (old != "established" && newState == "established") {
+                com.bitchat.android.services.MessageRouter
+                    .getInstance(getApplication(), meshService)
+                    .onSessionEstablished(peerID)
+            }
+        }
         // Update fingerprint mappings from centralized manager
         val fingerprints = privateChatManager.getAllPeerFingerprints()
         state.setPeerFingerprints(fingerprints)
