@@ -74,7 +74,7 @@ class CommandProcessor(
                 timestamp = Date(),
                 isRelay = false
             )
-            messageManager.addMessage(systemMessage)
+            messageManager.addMessage(systemMessage, state.currentChannel.value, state.selectedPrivateChatPeer.value)
         }
     }
     
@@ -126,7 +126,7 @@ class CommandProcessor(
                 timestamp = Date(),
                 isRelay = false
             )
-            messageManager.addMessage(systemMessage)
+            messageManager.addMessage(systemMessage, state.currentChannel.value, state.selectedPrivateChatPeer.value)
         }
     }
     
@@ -181,7 +181,7 @@ class CommandProcessor(
             timestamp = Date(),
             isRelay = false
         )
-        messageManager.addMessage(systemMessage)
+        messageManager.addMessage(systemMessage, state.currentChannel.value, state.selectedPrivateChatPeer.value)
     }
     
     private fun handleClearCommand() {
@@ -262,7 +262,7 @@ class CommandProcessor(
                 timestamp = Date(),
                 isRelay = false
             )
-            messageManager.addMessage(systemMessage)
+            messageManager.addMessage(systemMessage, state.currentChannel.value, state.selectedPrivateChatPeer.value)
         }
     }
     
@@ -277,7 +277,7 @@ class CommandProcessor(
                 timestamp = Date(),
                 isRelay = false
             )
-            messageManager.addMessage(systemMessage)
+            messageManager.addMessage(systemMessage, state.currentChannel.value, state.selectedPrivateChatPeer.value)
         }
     }
     
@@ -330,7 +330,7 @@ class CommandProcessor(
                 timestamp = Date(),
                 isRelay = false
             )
-            messageManager.addMessage(systemMessage)
+            messageManager.addMessage(systemMessage, state.currentChannel.value, state.selectedPrivateChatPeer.value)
         }
     }
     
@@ -348,7 +348,7 @@ class CommandProcessor(
             timestamp = Date(),
             isRelay = false
         )
-        messageManager.addMessage(systemMessage)
+        messageManager.addMessage(systemMessage, state.currentChannel.value, state.selectedPrivateChatPeer.value)
     }
     
     private fun handleUnknownCommand(cmd: String) {
@@ -358,7 +358,7 @@ class CommandProcessor(
             timestamp = Date(),
             isRelay = false
         )
-        messageManager.addMessage(systemMessage)
+        messageManager.addMessage(systemMessage, state.currentChannel.value, state.selectedPrivateChatPeer.value)
     }
     
     // MARK: - Command Autocomplete
