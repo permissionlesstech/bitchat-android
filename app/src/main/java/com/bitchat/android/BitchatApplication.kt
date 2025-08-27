@@ -2,6 +2,7 @@ package com.bitchat.android
 
 import android.app.Application
 import com.bitchat.android.nostr.RelayDirectory
+import com.bitchat.android.ui.theme.ThemePreferenceManager
 
 /**
  * Main application class for bitchat Android
@@ -23,5 +24,8 @@ class BitchatApplication : Application() {
         try {
             com.bitchat.android.nostr.NostrIdentityBridge.getCurrentNostrIdentity(this)
         } catch (_: Exception) { }
+
+        // Initialize theme preference
+        ThemePreferenceManager.init(this)
     }
 }

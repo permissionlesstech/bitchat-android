@@ -160,6 +160,40 @@ fun AboutSheet(
                         }
                     }
                 }
+
+                // Appearance section (theme toggle)
+                item {
+                    val themePref by com.bitchat.android.ui.theme.ThemePreferenceManager.themeFlow.collectAsState()
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "appearance",
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Medium,
+                            color = colorScheme.onSurface.copy(alpha = 0.8f)
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = themePref == com.bitchat.android.ui.theme.ThemePreference.System,
+                                onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.System) },
+                                label = { Text("system", fontFamily = FontFamily.Monospace) }
+                            )
+                            FilterChip(
+                                selected = themePref == com.bitchat.android.ui.theme.ThemePreference.Light,
+                                onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Light) },
+                                label = { Text("light", fontFamily = FontFamily.Monospace) }
+                            )
+                            FilterChip(
+                                selected = themePref == com.bitchat.android.ui.theme.ThemePreference.Dark,
+                                onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Dark) },
+                                label = { Text("dark", fontFamily = FontFamily.Monospace) }
+                            )
+                        }
+                    }
+                }
                 
                 // Emergency warning
                 item {
