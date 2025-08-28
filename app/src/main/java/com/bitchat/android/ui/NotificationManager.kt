@@ -459,7 +459,7 @@ class NotificationManager(
         // Build notification content with location name if available
         val geohashDisplay = latestNotification.locationName?.let { "$it (#$geohash)" } ?: "#$geohash"
         val contentTitle = when {
-            mentionCount > 0 && firstMessageCount > 0 -> "Mentioned in $geohashDisplay (+${messageCount - 1} more)"
+            mentionCount > 0 && firstMessageCount > 0 && messageCount > 1 -> "Mentioned in $geohashDisplay (+${messageCount - 1} more)"
             mentionCount > 0 -> if (mentionCount == 1) "Mentioned in $geohashDisplay" else "$mentionCount mentions in $geohashDisplay"
             firstMessageCount > 0 -> "New activity in $geohashDisplay"
             else -> "Messages in $geohashDisplay"
