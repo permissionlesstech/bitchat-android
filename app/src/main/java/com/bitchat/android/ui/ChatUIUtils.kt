@@ -80,11 +80,11 @@ fun formatMessageAsAnnotatedString(
         builder.append(baseName)
         val nicknameEnd = builder.length
         
-        // Add click annotation for nickname (store full sender name with hash)
+        // Add click annotation for nickname (store canonical sender name with hash if available)
         if (!isSelf) {
             builder.addStringAnnotation(
                 tag = "nickname_click",
-                annotation = message.sender, // Store full sender name with hash
+                annotation = (message.originalSender ?: message.sender),
                 start = nicknameStart,
                 end = nicknameEnd
             )

@@ -1230,7 +1230,8 @@ class NostrGeohashService(
                 return@launch
             }
             
-            val senderName = displayNameForNostrPubkey(event.pubkey)
+            val senderHandle = displayNameForNostrPubkey(event.pubkey)
+            val senderName = displayNameForNostrPubkeyUI(event.pubkey)
             val content = event.content
             
             // Use local time instead of Nostr event time for consistent message ordering
@@ -1244,6 +1245,7 @@ class NostrGeohashService(
                 content = content,
                 timestamp = messageTimestamp,
                 isRelay = false,
+                originalSender = senderHandle,
                 senderPeerID = "nostr:${event.pubkey.take(8)}",
                 mentions = null, // mentions need to be passed from outside
                 channel = "#$geohash"
@@ -1437,7 +1439,8 @@ class NostrGeohashService(
                     }
                     if (messageExists) return@launch
                     
-                    val senderName = displayNameForNostrPubkey(senderPubkey)
+                    val senderHandle = displayNameForNostrPubkey(senderPubkey)
+                    val senderName = displayNameForNostrPubkeyUI(senderPubkey)
                     val isViewingThisChat = state.getSelectedPrivateChatPeerValue() == convKey
                     
                     val message = BitchatMessage(
@@ -1449,6 +1452,7 @@ class NostrGeohashService(
                         isPrivate = true,
                         recipientNickname = state.getNicknameValue(),
                         senderPeerID = convKey,
+                        originalSender = senderHandle,
                         deliveryStatus = com.bitchat.android.model.DeliveryStatus.Delivered(
                             to = state.getNicknameValue() ?: "Unknown",
                             at = Date()
@@ -1524,6 +1528,71 @@ class NostrGeohashService(
         // Otherwise, anonymous with collision-resistant suffix
         //Log.v(TAG, "❌ No cached nickname for ${pubkeyHex.take(8)}, using anon")
         return "anon#$suffix"
+    }
+
+    /**
+     * UI display name for Nostr pubkey (conditionally hides #hash when not needed)
+     * Used in chat window sender labels, geohash people list, and notifications.
+     */
+    fun displayNameForNostrPubkeyUI(pubkeyHex: String): String {
+        val pubkeyLower = pubkeyHex.lowercase()
+        val suffix = pubkeyHex.takeLast(4)
+        val currentGeohash = this.currentGeohash
+
+        // Determine base name (self nickname, cached nickname, or anon)
+        val baseName: String = try {
+            if (currentGeohash != null) {
+                val myGeoIdentity = NostrIdentityBridge.deriveIdentity(
+                    forGeohash = currentGeohash,
+                    context = application
+                )
+                if (myGeoIdentity.publicKeyHex.lowercase() == pubkeyLower) {
+                    state.getNicknameValue() ?: "anon"
+                } else {
+                    geoNicknames[pubkeyLower] ?: "anon"
+                }
+            } else {
+                geoNicknames[pubkeyLower] ?: "anon"
+            }
+        } catch (_: Exception) {
+            geoNicknames[pubkeyLower] ?: "anon"
+        }
+
+        // If not in a geohash context, no need for disambiguation
+        if (currentGeohash == null) return baseName
+
+        // Count active participants sharing the same base name within 5 minutes
+        return try {
+            val cutoff = Date(System.currentTimeMillis() - 5 * 60 * 1000)
+            val participants = geohashParticipants[currentGeohash] ?: emptyMap()
+
+            var count = 0
+            for ((participantKey, lastSeen) in participants) {
+                if (lastSeen.before(cutoff)) continue
+                val participantLower = participantKey.lowercase()
+                val name = if (participantLower == pubkeyLower) baseName else (geoNicknames[participantLower] ?: "anon")
+                if (name.equals(baseName, ignoreCase = true)) {
+                    count++
+                    if (count > 1) break
+                }
+            }
+
+            if (!participants.containsKey(pubkeyLower)) {
+                count += 1
+            }
+
+            if (count > 1) "$baseName#$suffix" else baseName
+        } catch (_: Exception) {
+            baseName
+        }
+    }
+
+    /**
+     * Mention handle for a Nostr pubkey (ALWAYS includes #hash)
+     * Use for mentions, hug/slap targets, and mention detection contexts.
+     */
+    fun mentionHandleForNostrPubkey(pubkeyHex: String): String {
+        return displayNameForNostrPubkey(pubkeyHex)
     }
     
     // MARK: - Color System
