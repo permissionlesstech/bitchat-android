@@ -171,41 +171,43 @@ fun MessageInput(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // Text input with placeholder
+        val counterReservedWidth = 56.dp
         Box(
-            modifier = Modifier.weight(1f)
-        ) {
-        // Handle max length for input (visual + logical)
-        val cappedValue = if (value.text.length > MAX_MESSAGE_LENGTH) {
-            value.copy(text = value.text.take(MAX_MESSAGE_LENGTH), selection = androidx.compose.ui.text.TextRange(MAX_MESSAGE_LENGTH))
-        } else value
-        BasicTextField(
-            value = cappedValue,
-            onValueChange = { newValue ->
-                val limited = if (newValue.text.length > MAX_MESSAGE_LENGTH) {
-                    newValue.copy(text = newValue.text.take(MAX_MESSAGE_LENGTH), selection = androidx.compose.ui.text.TextRange(MAX_MESSAGE_LENGTH))
-                } else newValue
-                onValueChange(limited)
-            },
-            textStyle = MaterialTheme.typography.bodyMedium.copy(
-                color = colorScheme.primary,
-                fontFamily = FontFamily.Monospace
-            ),
-            cursorBrush = SolidColor(colorScheme.primary),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-            keyboardActions = KeyboardActions(onSend = { 
-                if (hasText) onSend() // Only send if there's text
-            }),
-            visualTransformation = CombinedVisualTransformation(
-                listOf(SlashCommandVisualTransformation(), MentionVisualTransformation())
-            ),
             modifier = Modifier
-                .fillMaxWidth()
-                .onFocusChanged { focusState ->
-                    isFocused.value = focusState.isFocused
-                }
-        )
-            
+                .weight(1f)
+        ) {
+            // Handle max length for input (visual + logical)
+            val cappedValue = if (value.text.length > MAX_MESSAGE_LENGTH) {
+                value.copy(text = value.text.take(MAX_MESSAGE_LENGTH), selection = androidx.compose.ui.text.TextRange(MAX_MESSAGE_LENGTH))
+            } else value
+            BasicTextField(
+                value = cappedValue,
+                onValueChange = { newValue ->
+                    val limited = if (newValue.text.length > MAX_MESSAGE_LENGTH) {
+                        newValue.copy(text = newValue.text.take(MAX_MESSAGE_LENGTH), selection = androidx.compose.ui.text.TextRange(MAX_MESSAGE_LENGTH))
+                    } else newValue
+                    onValueChange(limited)
+                },
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                    color = colorScheme.primary,
+                    fontFamily = FontFamily.Monospace
+                ),
+                cursorBrush = SolidColor(colorScheme.primary),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                keyboardActions = KeyboardActions(onSend = { 
+                    if (hasText) onSend() // Only send if there's text
+                }),
+                visualTransformation = CombinedVisualTransformation(
+                    listOf(SlashCommandVisualTransformation(), MentionVisualTransformation())
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = counterReservedWidth)
+                    .onFocusChanged { focusState ->
+                        isFocused.value = focusState.isFocused
+                    }
+            )
+
             // Show placeholder when there's no text
             if (value.text.isEmpty()) {
                 Text(
@@ -214,7 +216,7 @@ fun MessageInput(
                         fontFamily = FontFamily.Monospace
                     ),
                     color = colorScheme.onSurface.copy(alpha = 0.5f), // Muted grey
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().padding(end = counterReservedWidth)
                 )
             }
             // Live character counter (always visible)

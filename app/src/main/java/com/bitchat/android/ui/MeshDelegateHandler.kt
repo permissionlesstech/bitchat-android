@@ -63,15 +63,17 @@ class MeshDelegateHandler(
                 }
             } else if (message.channel != null) {
                 // Channel message
-                if (state.getJoinedChannelsValue().contains(message.channel)) {
+                if (message.content.length <= MAX_MESSAGE_LENGTH && state.getJoinedChannelsValue().contains(message.channel)) {
                     channelManager.addChannelMessage(message.channel, message, message.senderPeerID)
                 }
             } else {
                 // Public message
-                messageManager.addMessage(message)
+                if (message.content.length <= MAX_MESSAGE_LENGTH) {
+                    messageManager.addMessage(message)
 
-                // Check for mentions in mesh chat
-                checkAndTriggerMeshMentionNotification(message)
+                    // Check for mentions in mesh chat
+                    checkAndTriggerMeshMentionNotification(message)
+                }
             }
             
             // Periodic cleanup

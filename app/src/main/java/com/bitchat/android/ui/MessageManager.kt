@@ -19,6 +19,9 @@ class MessageManager(private val state: ChatState) {
     // MARK: - Public Message Management
     
     fun addMessage(message: BitchatMessage) {
+        if (message.sender != "system" && message.content.length > MAX_MESSAGE_LENGTH) {
+            return
+        }
         val safeMessage = message.copy(
             sender = capDisplayName(message.sender),
             content = capMessageContent(message.content)
@@ -35,6 +38,9 @@ class MessageManager(private val state: ChatState) {
     // MARK: - Channel Message Management
     
     fun addChannelMessage(channel: String, message: BitchatMessage) {
+        if (message.content.length > MAX_MESSAGE_LENGTH) {
+            return
+        }
         val safeMessage = message.copy(
             sender = capDisplayName(message.sender),
             content = capMessageContent(message.content)

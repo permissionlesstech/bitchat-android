@@ -21,10 +21,14 @@ import java.util.*
 
 // Global limits
 const val MAX_MESSAGE_LENGTH = 280
-const val MAX_DISPLAY_NAME_LENGTH = 80
+const val MAX_DISPLAY_NAME_LENGTH = 30
 
 fun capMessageContent(content: String): String = content.take(MAX_MESSAGE_LENGTH)
-fun capDisplayName(name: String): String = name.take(MAX_DISPLAY_NAME_LENGTH)
+fun capDisplayName(name: String): String {
+    val (base, suffix) = splitSuffix(name)
+    val allowedBase = (MAX_DISPLAY_NAME_LENGTH - suffix.length).coerceAtLeast(0)
+    return base.take(allowedBase) + suffix
+}
 
 /**
  * Get RSSI-based color for signal strength visualization

@@ -185,7 +185,8 @@ private fun MessageTextWithClickableNicknames(
     onMessageLongPress: ((BitchatMessage) -> Unit)?,
     modifier: Modifier = Modifier
 ) {
-        val safeSender = capDisplayName(message.sender)
+    val displaySender = message.originalSender ?: message.sender
+        val safeSender = capDisplayName(displaySender)
         val safeMessage = capMessageContent(message.content)
         val annotatedText = formatMessageAsAnnotatedString(
             message = message.copy(sender = safeSender, content = safeMessage),
