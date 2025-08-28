@@ -13,8 +13,13 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineBreak
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
@@ -205,46 +210,44 @@ private fun GeohashPersonItem(
         val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
         val assignedColor = viewModel.colorForNostrPubkey(person.id, isDark)
         val baseColor = if (isMe) Color(0xFFFF9500) else assignedColor
-        
-        Row(
-            modifier = Modifier.weight(1f),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+
+        // Render all name parts in a single Text for wrapping
+        val annotated = buildAnnotatedString {
             // Base name with peer-specific color
-            Text(
-                text = baseName,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = BASE_FONT_SIZE.sp,
+            withStyle(
+                SpanStyle(
+                    color = baseColor,
                     fontWeight = if (isMe) FontWeight.Bold else FontWeight.Normal
-                ),
-                color = baseColor
-            )
-            
-            // Suffix (collision-resistant #abcd) in lighter shade
+                )
+            ) { append(baseName) }
+
+            // Suffix (collision-resistant #abcd) in lighter shade appended
             if (suffix.isNotEmpty()) {
-                Text(
-                    text = suffix,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = BASE_FONT_SIZE.sp
-                    ),
-                    color = baseColor.copy(alpha = 0.6f)
-                )
+                withStyle(SpanStyle(color = baseColor.copy(alpha = 0.6f))) {
+                    append(suffix)
+                }
             }
-            
-            // "You" indicator for current user
+
+            // "You" indicator for current user identification
             if (isMe) {
-                Text(
-                    text = " (you)",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = BASE_FONT_SIZE.sp
-                    ),
-                    color = baseColor
-                )
+                withStyle(SpanStyle(color = baseColor)) {
+                    append(" (you)")
+                }
             }
         }
+
+        Text(
+            text = annotated,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontFamily = FontFamily.Monospace,
+                fontSize = BASE_FONT_SIZE.sp,
+                lineBreak = LineBreak.Paragraph,
+            ),
+            softWrap = true,
+            overflow = TextOverflow.Clip,
+            maxLines = Int.MAX_VALUE
+        )
         
         Spacer(modifier = Modifier.width(8.dp))
     }
