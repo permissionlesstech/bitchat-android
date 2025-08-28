@@ -457,6 +457,31 @@ class NostrRelayManager private constructor() {
     }
     
     /**
+     * Clear all subscription tracking, message handlers, routing caches, and queued messages.
+     * Intended for panic/reset flows prior to reconnecting and re-subscribing from scratch.
+     */
+    fun clearAllSubscriptions() {
+        try {
+            // Clear persistent subscription tracking
+            activeSubscriptions.clear()
+            messageHandlers.clear()
+            subscriptions.clear()
+
+            // Clear routing caches (per-geohash relay selections)
+            geohashToRelays.clear()
+
+            // Clear any queued messages waiting to be sent
+            synchronized(messageQueueLock) {
+                messageQueue.clear()
+            }
+
+            Log.i(TAG, "🧹 Cleared all Nostr subscriptions and routing caches")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to clear subscriptions: ${e.message}")
+        }
+    }
+    
+    /**
      * Get detailed status for all relays
      */
     fun getRelayStatuses(): List<Relay> {

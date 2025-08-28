@@ -135,6 +135,76 @@ class NostrGeohashService(
             Log.i(TAG, "✅ Nostr integration initialized with gift wrap subscription")
         }
     }
+
+    /**
+     * Panic/reset flow for Nostr + geohash systems.
+     * - Disconnect and clear all Nostr relay subscriptions and caches
+     * - Delete device-wide Nostr keys and per-geohash seed cache
+     * - Clear geohash participants, nicknames, message history
+     * - Recreate identity and reconnect; reinitialize subscriptions from scratch
+     */
+    fun panicResetNostrAndGeohash() {
+        coroutineScope.launch {
+            try {
+                val relayManager = NostrRelayManager.getInstance(application)
+
+                // 1) Disconnect from all relays
+                relayManager.disconnect()
+
+                // 2) Clear all subscription tracking and caches
+                relayManager.clearAllSubscriptions()
+
+                // 3) Clear Nostr identity (npub/private) and geohash identity cache/seed
+                try {
+                    NostrIdentityBridge.clearAllAssociations(application)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to clear Nostr associations: ${e.message}")
+                }
+
+                // 4) Clear local geohash state (participants, nicknames, message history)
+                try {
+                    geohashParticipants.clear()
+                    geoNicknames.clear()
+                    geohashMessageHistory.clear()
+                    processedNostrEvents.clear()
+                    processedNostrEventOrder.clear()
+                    currentGeohashSubscriptionId = null
+                    currentGeohashDmSubscriptionId = null
+                    currentGeohash = null
+                    state.setGeohashPeople(emptyList())
+                    state.setTeleportedGeo(emptySet())
+                    state.setGeohashParticipantCounts(emptyMap())
+                    // Stop any timers/jobs
+                    geohashSamplingJob?.cancel()
+                    geohashSamplingJob = null
+                    geoParticipantsTimer?.cancel()
+                    geoParticipantsTimer = null
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to clear geohash state: ${e.message}")
+                }
+
+                // 5) Recreate identity and reconnect, then re-subscribe
+                try {
+                    // Touch identity to recreate
+                    val identity = NostrIdentityBridge.getCurrentNostrIdentity(application)
+                    if (identity == null) {
+                        Log.w(TAG, "No identity after reset; skipping subscriptions")
+                        return@launch
+                    }
+
+                    // Reconnect to relays and reinitialize subscriptions
+                    relayManager.connect()
+                    initializeNostrIntegration()
+                    // Re-establish location channel state observers and subscriptions
+                    initializeLocationChannelState()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to reinitialize Nostr after reset: ${e.message}")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "panicResetNostrAndGeohash error: ${e.message}")
+            }
+        }
+    }
     
     /**
      * Initialize location channel state
