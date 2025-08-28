@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import java.util.*
+import androidx.compose.ui.text.style.TextOverflow
 
 /**
  * GeohashPeopleList - iOS-compatible component for displaying geohash participants
@@ -115,6 +116,16 @@ fun GeohashPeopleList(
                     }
                 }
             }
+
+            // Compute base name collisions to decide whether to show hash suffix
+            val baseNameCounts = remember(geohashPeople) {
+                val counts = mutableMapOf<String, Int>()
+                geohashPeople.forEach { person ->
+                    val (b, _) = com.bitchat.android.ui.splitSuffix(person.displayName)
+                    counts[b] = (counts[b] ?: 0) + 1
+                }
+                counts
+            }
             
             val firstID = orderedPeople.firstOrNull()?.id
             
@@ -129,6 +140,7 @@ fun GeohashPeopleList(
                     nickname = nickname,
                     colorScheme = colorScheme,
                     viewModel = viewModel,
+                    showHashSuffix = (baseNameCounts[com.bitchat.android.ui.splitSuffix(person.displayName).first] ?: 0) > 1,
                     onTap = {
                         if (person.id != myHex) {
                             // TODO: Re-enable when NIP-17 geohash DM issues are fixed
@@ -154,6 +166,7 @@ private fun GeohashPersonItem(
     nickname: String,
     colorScheme: ColorScheme,
     viewModel: ChatViewModel,
+    showHashSuffix: Boolean,
     onTap: () -> Unit
 ) {
     Row(
@@ -198,8 +211,10 @@ private fun GeohashPersonItem(
         
         Spacer(modifier = Modifier.width(8.dp))
         
-        // Display name with suffix handling (matches iOS splitSuffix logic)
-        val (baseName, suffix) = com.bitchat.android.ui.splitSuffix(person.displayName)
+        // Display name with suffix handling
+        val (baseNameRaw, suffixRaw) = com.bitchat.android.ui.splitSuffix(person.displayName)
+        val baseName = truncateNickname(baseNameRaw)
+        val suffix = if (showHashSuffix) suffixRaw else ""
         
         // Get consistent peer color (matches iOS color assignment exactly)
         val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
@@ -218,7 +233,9 @@ private fun GeohashPersonItem(
                     fontSize = BASE_FONT_SIZE.sp,
                     fontWeight = if (isMe) FontWeight.Bold else FontWeight.Normal
                 ),
-                color = baseColor
+                color = baseColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             
             // Suffix (collision-resistant #abcd) in lighter shade

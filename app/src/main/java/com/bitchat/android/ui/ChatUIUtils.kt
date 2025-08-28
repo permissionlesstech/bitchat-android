@@ -78,7 +78,8 @@ fun formatMessageAsAnnotatedString(
             fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
         ))
         val nicknameStart = builder.length
-        builder.append(baseName)
+        val truncatedBase = truncateNickname(baseName)
+        builder.append(truncatedBase)
         val nicknameEnd = builder.length
         
         // Add click annotation for nickname (store canonical sender name with hash if available)
@@ -332,13 +333,13 @@ private fun appendIOSFormattedContent(
                 builder.append("@")
                 builder.pop()
                 
-                // Base name
+                // Base name (truncate for rendering)
                 builder.pushStyle(SpanStyle(
                     color = mentionColor,
                     fontSize = BASE_FONT_SIZE.sp,
                     fontWeight = if (isSelf) FontWeight.Bold else FontWeight.SemiBold
                 ))
-                builder.append(mBase)
+                builder.append(truncateNickname(mBase))
                 builder.pop()
                 
                 // Hashtag suffix in lighter color
