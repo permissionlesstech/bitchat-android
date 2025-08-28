@@ -1231,12 +1231,14 @@ class NostrGeohashService(
                 Log.d(TAG, "🔔 Triggering geohash notification - geohash: $geohash, mention: $isMention, first: $isFirstMessage")
                 
                 withContext(Dispatchers.Main) {
+                    val locationName = getLocationNameForGeohash(geohash)
                     notificationManager.showGeohashNotification(
                         geohash = geohash,
                         senderNickname = senderName,
                         messageContent = content,
                         isMention = isMention,
-                        isFirstMessage = isFirstMessage
+                        isFirstMessage = isFirstMessage,
+                        locationName = locationName
                     )
                 }
             }
@@ -1604,6 +1606,31 @@ class NostrGeohashService(
      */
     private fun isGeohashUserBlocked(pubkeyHex: String): Boolean {
         return dataManager.isGeohashUserBlocked(pubkeyHex)
+    }
+    
+    /**
+     * Get location name for a geohash if available
+     */
+    private fun getLocationNameForGeohash(geohash: String): String? {
+        return try {
+            val locationManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(application)
+            val locationNames = locationManager.locationNames.value ?: return null
+            
+            // Determine the level from geohash length
+            val level = when (geohash.length) {
+                in 0..2 -> com.bitchat.android.geohash.GeohashChannelLevel.REGION
+                in 3..4 -> com.bitchat.android.geohash.GeohashChannelLevel.PROVINCE
+                5 -> com.bitchat.android.geohash.GeohashChannelLevel.CITY
+                6 -> com.bitchat.android.geohash.GeohashChannelLevel.NEIGHBORHOOD
+                7 -> com.bitchat.android.geohash.GeohashChannelLevel.BLOCK
+                else -> com.bitchat.android.geohash.GeohashChannelLevel.BLOCK
+            }
+            
+            locationNames[level]
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to get location name for geohash $geohash: ${e.message}")
+            null
+        }
     }
 
 }

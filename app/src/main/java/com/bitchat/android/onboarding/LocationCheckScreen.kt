@@ -139,7 +139,7 @@ private fun LocationDisabledContent(
                 )
                 
                 Text(
-                    text = "• Bluetooth device scanning (Android requirement)\n" +
+                    text = "• Bluetooth device scanning\n" +
                             "• Discovering nearby users on mesh network\n" +
                             "• Geohash chat feature\n" +
                             "• No tracking or location collection",
