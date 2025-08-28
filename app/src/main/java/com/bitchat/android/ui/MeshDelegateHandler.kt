@@ -54,11 +54,11 @@ class MeshDelegateHandler(
                 // Show notification with enhanced information - now includes senderPeerID 
                 message.senderPeerID?.let { senderPeerID ->
                     // Use nickname if available, fall back to sender or senderPeerID
-                    val senderNickname = message.sender.takeIf { it != senderPeerID } ?: senderPeerID
+                    val senderNickname = capDisplayName(message.sender.takeIf { it != senderPeerID } ?: senderPeerID)
                     notificationManager.showPrivateMessageNotification(
                         senderPeerID = senderPeerID, 
                         senderNickname = senderNickname, 
-                        messageContent = message.content
+                        messageContent = capMessageContent(message.content)
                     )
                 }
             } else if (message.channel != null) {
@@ -227,8 +227,8 @@ class MeshDelegateHandler(
                 android.util.Log.d("MeshDelegateHandler", "🔔 Triggering mesh mention notification from ${message.sender}")
 
                 notificationManager.showMeshMentionNotification(
-                    senderNickname = message.sender,
-                    messageContent = message.content,
+                    senderNickname = capDisplayName(message.sender),
+                    messageContent = capMessageContent(message.content),
                     senderPeerID = message.senderPeerID
                 )
             }

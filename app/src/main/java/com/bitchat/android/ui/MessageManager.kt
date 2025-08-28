@@ -19,8 +19,12 @@ class MessageManager(private val state: ChatState) {
     // MARK: - Public Message Management
     
     fun addMessage(message: BitchatMessage) {
+        val safeMessage = message.copy(
+            sender = capDisplayName(message.sender),
+            content = capMessageContent(message.content)
+        )
         val currentMessages = state.getMessagesValue().toMutableList()
-        currentMessages.add(message)
+        currentMessages.add(safeMessage)
         state.setMessages(currentMessages)
     }
     
@@ -31,13 +35,17 @@ class MessageManager(private val state: ChatState) {
     // MARK: - Channel Message Management
     
     fun addChannelMessage(channel: String, message: BitchatMessage) {
+        val safeMessage = message.copy(
+            sender = capDisplayName(message.sender),
+            content = capMessageContent(message.content)
+        )
         val currentChannelMessages = state.getChannelMessagesValue().toMutableMap()
         if (!currentChannelMessages.containsKey(channel)) {
             currentChannelMessages[channel] = mutableListOf()
         }
         
         val channelMessageList = currentChannelMessages[channel]?.toMutableList() ?: mutableListOf()
-        channelMessageList.add(message)
+        channelMessageList.add(safeMessage)
         currentChannelMessages[channel] = channelMessageList
         state.setChannelMessages(currentChannelMessages)
         
@@ -74,18 +82,22 @@ class MessageManager(private val state: ChatState) {
     // MARK: - Private Message Management
 
     fun addPrivateMessage(peerID: String, message: BitchatMessage) {
+        val safeMessage = message.copy(
+            sender = capDisplayName(message.sender),
+            content = capMessageContent(message.content)
+        )
         val currentPrivateChats = state.getPrivateChatsValue().toMutableMap()
         if (!currentPrivateChats.containsKey(peerID)) {
             currentPrivateChats[peerID] = mutableListOf()
         }
         
         val chatMessages = currentPrivateChats[peerID]?.toMutableList() ?: mutableListOf()
-        chatMessages.add(message)
+        chatMessages.add(safeMessage)
         currentPrivateChats[peerID] = chatMessages
         state.setPrivateChats(currentPrivateChats)
         
         // Mark as unread if not currently viewing this chat
-        if (state.getSelectedPrivateChatPeerValue() != peerID && message.sender != state.getNicknameValue()) {
+        if (state.getSelectedPrivateChatPeerValue() != peerID && safeMessage.sender != state.getNicknameValue()) {
             val currentUnread = state.getUnreadPrivateMessagesValue().toMutableSet()
             currentUnread.add(peerID)
             state.setUnreadPrivateMessages(currentUnread)

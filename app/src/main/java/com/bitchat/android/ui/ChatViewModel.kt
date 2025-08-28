@@ -120,7 +120,7 @@ class ChatViewModel(
     
     private fun loadAndInitialize() {
         // Load nickname
-        val nickname = dataManager.loadNickname()
+        val nickname = capDisplayName(dataManager.loadNickname())
         state.setNickname(nickname)
         
         // Load data
@@ -190,8 +190,9 @@ class ChatViewModel(
     // MARK: - Nickname Management
     
     fun setNickname(newNickname: String) {
-        state.setNickname(newNickname)
-        dataManager.saveNickname(newNickname)
+        val capped = capDisplayName(newNickname)
+        state.setNickname(capped)
+        dataManager.saveNickname(capped)
         meshService.sendBroadcastAnnounce()
     }
     

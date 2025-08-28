@@ -185,13 +185,15 @@ private fun MessageTextWithClickableNicknames(
     onMessageLongPress: ((BitchatMessage) -> Unit)?,
     modifier: Modifier = Modifier
 ) {
-    val annotatedText = formatMessageAsAnnotatedString(
-        message = message,
-        currentUserNickname = currentUserNickname,
-        meshService = meshService,
-        colorScheme = colorScheme,
-        timeFormatter = timeFormatter
-    )
+        val safeSender = capDisplayName(message.sender)
+        val safeMessage = capMessageContent(message.content)
+        val annotatedText = formatMessageAsAnnotatedString(
+            message = message.copy(sender = safeSender, content = safeMessage),
+            currentUserNickname = currentUserNickname,
+            meshService = meshService,
+            colorScheme = colorScheme,
+            timeFormatter = timeFormatter
+        )
     
     // Check if this message was sent by self to avoid click interactions on own nickname
     val isSelf = message.senderPeerID == meshService.myPeerID || 

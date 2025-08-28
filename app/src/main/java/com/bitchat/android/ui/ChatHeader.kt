@@ -113,7 +113,7 @@ fun NicknameEditor(
         
         BasicTextField(
             value = value,
-            onValueChange = onValueChange,
+            onValueChange = { onValueChange(capDisplayName(it)) },
             textStyle = MaterialTheme.typography.bodyMedium.copy(
                 color = colorScheme.primary,
                 fontFamily = FontFamily.Monospace
@@ -327,7 +327,7 @@ private fun PrivateChatHeader(
         val geohash = (selectedLocationChannel as? com.bitchat.android.geohash.ChannelID.Location)?.channel?.geohash
         val shortId = peerID.removePrefix("nostr_").removePrefix("nostr:")
         val person = geohashPeople.firstOrNull { it.id.startsWith(shortId, ignoreCase = true) }
-        val baseName = person?.displayName?.substringBefore('#') ?: peerNicknames[peerID] ?: "unknown"
+        val baseName = capDisplayName(person?.displayName?.substringBefore('#') ?: peerNicknames[peerID] ?: "unknown")
         val geoPart = geohash?.let { "#$it" } ?: "#geohash"
         "$geoPart/@$baseName"
     } else {

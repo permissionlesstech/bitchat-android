@@ -175,27 +175,36 @@ fun MessageInput(
         Box(
             modifier = Modifier.weight(1f)
         ) {
-            BasicTextField(
-                value = value,
-                onValueChange = onValueChange,
-                textStyle = MaterialTheme.typography.bodyMedium.copy(
-                    color = colorScheme.primary,
-                    fontFamily = FontFamily.Monospace
-                ),
-                cursorBrush = SolidColor(colorScheme.primary),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions = KeyboardActions(onSend = { 
-                    if (hasText) onSend() // Only send if there's text
-                }),
-                visualTransformation = CombinedVisualTransformation(
-                    listOf(SlashCommandVisualTransformation(), MentionVisualTransformation())
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onFocusChanged { focusState ->
-                        isFocused.value = focusState.isFocused
-                    }
-            )
+        // Handle max length for input (visual + logical)
+        val cappedValue = if (value.text.length > MAX_MESSAGE_LENGTH) {
+            value.copy(text = value.text.take(MAX_MESSAGE_LENGTH), selection = androidx.compose.ui.text.TextRange(MAX_MESSAGE_LENGTH))
+        } else value
+        BasicTextField(
+            value = cappedValue,
+            onValueChange = { newValue ->
+                val limited = if (newValue.text.length > MAX_MESSAGE_LENGTH) {
+                    newValue.copy(text = newValue.text.take(MAX_MESSAGE_LENGTH), selection = androidx.compose.ui.text.TextRange(MAX_MESSAGE_LENGTH))
+                } else newValue
+                onValueChange(limited)
+            },
+            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                color = colorScheme.primary,
+                fontFamily = FontFamily.Monospace
+            ),
+            cursorBrush = SolidColor(colorScheme.primary),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+            keyboardActions = KeyboardActions(onSend = { 
+                if (hasText) onSend() // Only send if there's text
+            }),
+            visualTransformation = CombinedVisualTransformation(
+                listOf(SlashCommandVisualTransformation(), MentionVisualTransformation())
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged { focusState ->
+                    isFocused.value = focusState.isFocused
+                }
+        )
             
             // Show placeholder when there's no text
             if (value.text.isEmpty()) {
@@ -206,6 +215,26 @@ fun MessageInput(
                     ),
                     color = colorScheme.onSurface.copy(alpha = 0.5f), // Muted grey
                     modifier = Modifier.fillMaxWidth()
+                )
+            }
+            // Live character counter (always visible)
+            val count = value.text.length
+            val counterBg = colorScheme.surfaceVariant.copy(alpha = 0.35f)
+            val counterColor = if (count >= MAX_MESSAGE_LENGTH) Color(0xFFFF3B30) else colorScheme.onSurface.copy(alpha = 0.75f)
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 4.dp, bottom = 2.dp)
+                    .background(counterBg, RoundedCornerShape(8.dp))
+                    .padding(horizontal = 6.dp, vertical = 1.dp)
+            ) {
+                Text(
+                    text = "$count/$MAX_MESSAGE_LENGTH",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 10.sp
+                    ),
+                    color = counterColor
                 )
             }
         }

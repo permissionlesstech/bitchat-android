@@ -199,7 +199,8 @@ private fun GeohashPersonItem(
         Spacer(modifier = Modifier.width(8.dp))
         
         // Display name with suffix handling (matches iOS splitSuffix logic)
-        val (baseName, suffix) = com.bitchat.android.ui.splitSuffix(person.displayName)
+        var (baseName, suffix) = com.bitchat.android.ui.splitSuffix(person.displayName)
+        baseName = capDisplayName(baseName)
         
         // Get consistent peer color (matches iOS color assignment exactly)
         val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f

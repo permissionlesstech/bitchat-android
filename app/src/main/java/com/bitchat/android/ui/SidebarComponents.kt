@@ -335,7 +335,7 @@ fun PeopleSection(
 
             PeerItem(
                 peerID = peerID,
-                displayName = if (peerID == nickname) "You" else (peerNicknames[peerID] ?: (privateChats[peerID]?.lastOrNull()?.sender ?: peerID.take(12))),
+                displayName = capDisplayName(if (peerID == nickname) "You" else (peerNicknames[peerID] ?: (privateChats[peerID]?.lastOrNull()?.sender ?: peerID.take(12)))),
                 signalStrength = convertRSSIToSignalStrength(peerRSSI[peerID]),
                 isSelected = peerID == selectedPrivatePeer,
                 isFavorite = isFavorite,

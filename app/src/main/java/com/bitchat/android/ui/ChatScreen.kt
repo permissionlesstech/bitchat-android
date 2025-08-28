@@ -149,9 +149,13 @@ fun ChatScreen(viewModel: ChatViewModel) {
             ChatInputSection(
                 messageText = messageText,
                 onMessageTextChange = { newText: TextFieldValue ->
-                    messageText = newText
-                    viewModel.updateCommandSuggestions(newText.text)
-                    viewModel.updateMentionSuggestions(newText.text)
+                val limitedText = newText.text.take(MAX_MESSAGE_LENGTH)
+                val adjusted = if (limitedText.length != newText.text.length) {
+                    TextFieldValue(text = limitedText, selection = TextRange(limitedText.length))
+                } else newText
+                messageText = adjusted
+                viewModel.updateCommandSuggestions(adjusted.text)
+                viewModel.updateMentionSuggestions(adjusted.text)
                 },
                 onSend = {
                     if (messageText.text.trim().isNotEmpty()) {

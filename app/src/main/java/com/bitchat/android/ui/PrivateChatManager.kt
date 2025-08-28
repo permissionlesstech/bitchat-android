@@ -99,8 +99,8 @@ class PrivateChatManager(
         }
 
         val message = BitchatMessage(
-            sender = senderNickname ?: myPeerID,
-            content = content,
+            sender = capDisplayName(senderNickname ?: myPeerID),
+            content = capMessageContent(content),
             timestamp = Date(),
             isRelay = false,
             isPrivate = true,

@@ -19,6 +19,13 @@ import java.util.*
  * Extracted from ChatScreen.kt for better organization
  */
 
+// Global limits
+const val MAX_MESSAGE_LENGTH = 280
+const val MAX_DISPLAY_NAME_LENGTH = 80
+
+fun capMessageContent(content: String): String = content.take(MAX_MESSAGE_LENGTH)
+fun capDisplayName(name: String): String = name.take(MAX_DISPLAY_NAME_LENGTH)
+
 /**
  * Get RSSI-based color for signal strength visualization
  */
