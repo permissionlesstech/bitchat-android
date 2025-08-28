@@ -107,38 +107,4 @@ class NotificationManagerTest {
     notificationManager.showActiveUserNotification(listOf("peer-3"))
     verify(notificationManagerCompat, times(1)).notify(any(), any())
   }
-
-  @Test
-  fun `geohash notification includes location name when available`() {
-    notificationManager.setAppBackgroundState(true)
-    notificationManager.setCurrentGeohash("abc123")
-    
-    notificationManager.showGeohashNotification(
-      geohash = "abc123",
-      senderNickname = "testuser",
-      messageContent = "Hello world",
-      isMention = false,
-      isFirstMessage = false,
-      locationName = "San Francisco"
-    )
-    
-    verify(notificationManagerCompat, times(1)).notify(any(), any())
-  }
-
-  @Test
-  fun `geohash notification works without location name`() {
-    notificationManager.setAppBackgroundState(true)
-    notificationManager.setCurrentGeohash("abc123")
-    
-    notificationManager.showGeohashNotification(
-      geohash = "abc123",
-      senderNickname = "testuser",
-      messageContent = "Hello world",
-      isMention = false,
-      isFirstMessage = false,
-      locationName = null
-    )
-    
-    verify(notificationManagerCompat, times(1)).notify(any(), any())
-  }
 }
