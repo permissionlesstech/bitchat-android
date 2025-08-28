@@ -270,18 +270,29 @@ private fun appendIOSFormattedContent(
         }
     }
 
+    // Add URL matches (http/https/www/bare domains). Exclude overlaps with mentions.
+    val urlMatches = MessageSpecialParser.findUrls(content)
+    for (um in urlMatches) {
+        val range = um.start until um.endExclusive
+        if (!overlapsMention(range)) {
+            allMatches.add(range to "url")
+        }
+    }
+
     // Remove generic hashtag matches that overlap with detected geohash ranges to avoid duplicate rendering
     fun rangesOverlap(a: IntRange, b: IntRange): Boolean {
         return a.first < b.last && a.last > b.first
     }
+    val urlRanges = allMatches.filter { it.second == "url" }.map { it.first }
     val geoRanges = allMatches.filter { it.second == "geohash" }.map { it.first }
-    if (geoRanges.isNotEmpty()) {
+    if (geoRanges.isNotEmpty() || urlRanges.isNotEmpty()) {
         val iterator = allMatches.listIterator()
         while (iterator.hasNext()) {
             val (range, type) = iterator.next()
-            if (type == "hashtag" && geoRanges.any { rangesOverlap(range, it) }) {
-                iterator.remove()
-            }
+            // Remove generic hashtags that overlap with geohashes, and geohashes that overlap with URLs
+            val overlapsGeo = geoRanges.any { rangesOverlap(range, it) }
+            val overlapsUrl = urlRanges.any { rangesOverlap(range, it) }
+            if ((type == "hashtag" && overlapsGeo) || (type == "geohash" && overlapsUrl)) iterator.remove()
         }
     }
     
@@ -385,6 +396,24 @@ private fun appendIOSFormattedContent(
                     builder.addStringAnnotation(
                         tag = "geohash_click",
                         annotation = geohash,
+                        start = start,
+                        end = end
+                    )
+                    builder.pop()
+                } else if (type == "url") {
+                    // Style URL in blue, underlined, and add click annotation with the raw text
+                    builder.pushStyle(SpanStyle(
+                        color = Color(0xFF007AFF),
+                        fontSize = BASE_FONT_SIZE.sp,
+                        fontWeight = if (isSelf) FontWeight.Bold else FontWeight.SemiBold,
+                        textDecoration = TextDecoration.Underline
+                    ))
+                    val start = builder.length
+                    builder.append(matchText)
+                    val end = builder.length
+                    builder.addStringAnnotation(
+                        tag = "url_click",
+                        annotation = matchText,
                         start = start,
                         end = end
                     )
