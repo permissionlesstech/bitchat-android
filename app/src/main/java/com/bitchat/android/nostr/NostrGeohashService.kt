@@ -1771,6 +1771,7 @@ class NostrGeohashService(
         return try {
             val locationManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(application)
             val locationNames = locationManager.locationNames.value ?: return null
+            val available = locationManager.availableChannels.value ?: emptyList()
             
             // Determine the level from geohash length
             val level = when (geohash.length) {
@@ -1781,8 +1782,14 @@ class NostrGeohashService(
                 7 -> com.bitchat.android.geohash.GeohashChannelLevel.BLOCK
                 else -> com.bitchat.android.geohash.GeohashChannelLevel.BLOCK
             }
-            
-            locationNames[level]
+
+            // Only show location name if the notification's geohash matches the device's current geohash at that level
+            val currentAtLevel = available.firstOrNull { it.level == level }?.geohash
+            if (currentAtLevel != null && currentAtLevel.equals(geohash, ignoreCase = true)) {
+                locationNames[level]
+            } else {
+                null
+            }
         } catch (e: Exception) {
             Log.w(TAG, "Failed to get location name for geohash $geohash: ${e.message}")
             null
