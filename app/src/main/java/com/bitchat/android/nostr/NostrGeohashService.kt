@@ -1302,11 +1302,29 @@ class NostrGeohashService(
                 Log.d(TAG, "🔔 Triggering geohash notification - geohash: $geohash, mention: $isMention, first: $isFirstMessage")
                 
                 withContext(Dispatchers.Main) {
+                    // Sanitize mention for notifications: hide '#hash' from @username#hash if not needed
+                    val contentForNotification = if (isMention) {
+                        var sanitized = content
+                        try {
+                            val myGeoIdentity = NostrIdentityBridge.deriveIdentity(
+                                forGeohash = geohash,
+                                context = application
+                            )
+                            val myDisplay = displayNameForNostrPubkeyUI(myGeoIdentity.publicKeyHex)
+                            val needsDisambiguation = myDisplay.contains("#")
+                            if (!needsDisambiguation) {
+                                val pattern = ("@" + java.util.regex.Pattern.quote(currentNickname) + "#[a-fA-F0-9]{4}\\b").toRegex()
+                                sanitized = sanitized.replace(pattern, "@" + currentNickname)
+                            }
+                        } catch (_: Exception) { }
+                        sanitized
+                    } else content
+                    
                     val locationName = getLocationNameForGeohash(geohash)
                     notificationManager.showGeohashNotification(
                         geohash = geohash,
                         senderNickname = senderName,
-                        messageContent = content,
+                        messageContent = contentForNotification,
                         isMention = isMention,
                         isFirstMessage = isFirstMessage,
                         locationName = locationName

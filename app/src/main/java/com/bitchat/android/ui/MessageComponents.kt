@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import com.bitchat.android.model.BitchatMessage
@@ -199,6 +200,7 @@ private fun MessageTextWithClickableNicknames(
     
     if (!isSelf && (onNicknameClick != null || onMessageLongPress != null)) {
         val haptic = LocalHapticFeedback.current
+        val context = LocalContext.current
         var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
         Text(
             text = annotatedText,
@@ -216,6 +218,33 @@ private fun MessageTextWithClickableNicknames(
                             val nickname = nicknameAnnotations.first().item
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onNicknameClick?.invoke(nickname)
+                            return@detectTapGestures
+                        }
+                        // Handle geohash click to teleport
+                        val geohashAnnotations = annotatedText.getStringAnnotations(
+                            tag = "geohash_click",
+                            start = offset,
+                            end = offset
+                        )
+                        if (geohashAnnotations.isNotEmpty()) {
+                            val geohash = geohashAnnotations.first().item
+                            try {
+                                val locationManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(
+                                    context
+                                )
+                                // Select appropriate precision based on length
+                                val level = when (geohash.length) {
+                                    in 0..2 -> com.bitchat.android.geohash.GeohashChannelLevel.REGION
+                                    in 3..4 -> com.bitchat.android.geohash.GeohashChannelLevel.PROVINCE
+                                    5 -> com.bitchat.android.geohash.GeohashChannelLevel.CITY
+                                    6 -> com.bitchat.android.geohash.GeohashChannelLevel.NEIGHBORHOOD
+                                    else -> com.bitchat.android.geohash.GeohashChannelLevel.BLOCK
+                                }
+                                val channel = com.bitchat.android.geohash.GeohashChannel(level, geohash.lowercase())
+                                locationManager.setTeleported(true)
+                                locationManager.select(com.bitchat.android.geohash.ChannelID.Location(channel))
+                            } catch (_: Exception) { }
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         }
                     },
                     onLongPress = {
