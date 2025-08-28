@@ -501,7 +501,6 @@ class PrivateChatManager(
         }
 
         if (didMerge) {
-            targetList.sortBy { it.timestamp }
             currentChats[targetPeerID] = targetList
             state.setPrivateChats(currentChats)
 

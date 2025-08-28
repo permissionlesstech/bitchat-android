@@ -60,7 +60,7 @@ object ConversationAliasResolver {
             }
         }
         if (didMerge) {
-            targetList.sortBy { it.timestamp }
+            // Preserve arrival order; do not sort by timestamp
             currentChats[targetPeerID] = targetList
             state.setPrivateChats(currentChats)
 

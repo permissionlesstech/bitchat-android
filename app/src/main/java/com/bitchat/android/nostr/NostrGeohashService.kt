@@ -680,7 +680,6 @@ class NostrGeohashService(
     private fun storeGeohashMessage(geohash: String, message: BitchatMessage) {
         val messages = geohashMessageHistory.getOrPut(geohash) { mutableListOf() }
         messages.add(message)
-        messages.sortBy { it.timestamp }
         
         // Limit message history to prevent memory issues
         if (messages.size > maxGeohashMessages) {
@@ -1234,8 +1233,8 @@ class NostrGeohashService(
             val senderName = displayNameForNostrPubkeyUI(event.pubkey)
             val content = event.content
             
-            // Use local time instead of Nostr event time for consistent message ordering
-            val messageTimestamp = Date()
+            // Preserve Nostr event time to avoid reordering
+            val messageTimestamp = Date(event.createdAt.toLong() * 1000L)
             // Note: mentions parsing needs peer nicknames parameter
             // val mentions = messageManager.parseMentions(content, peerNicknames, nickname)
             
