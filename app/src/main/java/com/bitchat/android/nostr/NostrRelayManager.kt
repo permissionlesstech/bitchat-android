@@ -674,8 +674,19 @@ class NostrRelayManager private constructor() {
                 val relay = relaysList.find { it.url == relayUrl }
                 relay?.messagesSent = (relay?.messagesSent ?: 0) + 1
                 updateRelaysList()
+
+                // Reset error flag on successful send
+                hasReportedNetworkError = false
             } else {
                 Log.e(TAG, "❌ Failed to send event to $relayUrl: WebSocket send failed")
+                
+                // Check if all relays are disconnected (likely network issue)
+                if (connections.isEmpty() || relaysList.none { it.isConnected }) {
+                    if (!hasReportedNetworkError) {
+                        hasReportedNetworkError = true
+                        networkErrorCallback?.invoke(NETWORK_ERROR_MESSAGE)
+                    }
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "❌ Failed to send event to $relayUrl: ${e.message}")
