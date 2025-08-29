@@ -119,7 +119,9 @@ object TorManager {
                         Log.i(TAG, "applyMode: ON -> starting arti")
                         nextSocksPort = if (currentSocksPort < DEFAULT_SOCKS_PORT) DEFAULT_SOCKS_PORT else currentSocksPort
                         lifecycleState = LifecycleState.STARTING
-                        startArti(application, isolation = false)
+                        // For OFF->ON, no delay needed
+                        val needsDelay = s.mode == TorMode.ISOLATION
+                        startArti(application, isolation = false, useDelay = needsDelay)
                         _status.value = _status.value.copy(mode = TorMode.ON)
                         // Defer enabling proxy until bootstrap completes
                         appScope.launch {
@@ -136,7 +138,10 @@ object TorManager {
                         Log.i(TAG, "applyMode: ISOLATION -> starting arti")
                         nextSocksPort = if (currentSocksPort < DEFAULT_SOCKS_PORT) DEFAULT_SOCKS_PORT else currentSocksPort
                         lifecycleState = LifecycleState.STARTING
-                        startArti(application, isolation = true)
+                        // For ON->ISOLATION, immediate status change and delay
+                        _status.value = _status.value.copy(running = false, bootstrapPercent = 0)
+                        val needsDelay = s.mode == TorMode.ON
+                        startArti(application, isolation = true, useDelay = needsDelay)
                         _status.value = _status.value.copy(mode = TorMode.ISOLATION)
                         appScope.launch {
                             waitUntilBootstrapped()
@@ -155,12 +160,14 @@ object TorManager {
         }
     }
 
-    private suspend fun startArti(application: Application, isolation: Boolean) {
+    private suspend fun startArti(application: Application, isolation: Boolean, useDelay: Boolean = false) {
         try {
             stopArtiInternal()
 
             Log.i(TAG, "Starting Arti…")
-            delay(RESTART_DELAY_MS)
+            if (useDelay) {
+                delay(RESTART_DELAY_MS)
+            }
 
             // Determine port
             val port = nextSocksPort
@@ -226,7 +233,7 @@ object TorManager {
         Log.i(TAG, "Restarting Arti (keeping SOCKS proxy enabled)...")
         stopArtiInternal()
         delay(RESTART_DELAY_MS)
-        startArti(application, isolation)
+        startArti(application, isolation, useDelay = false) // Already delayed above
     }
 
     private fun startInactivityMonitoring() {
