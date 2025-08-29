@@ -110,129 +110,74 @@ fun LocationChannelsSheet(
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                 )
                 
-                // Location Services Toggle
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "location services",
-                                fontSize = 14.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            
-                            Switch(
-                                checked = locationServicesEnabled,
-                                onCheckedChange = { enabled ->
-                                    if (enabled) {
-                                        locationManager.enableLocationServices()
-                                    } else {
-                                        locationManager.disableLocationServices()
-                                    }
-                                },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Color.White,
-                                    checkedTrackColor = standardGreen,
-                                    uncheckedThumbColor = Color.White,
-                                    uncheckedTrackColor = Color.Gray
+                // Location Services Control - Show permission handling if enabled
+                if (locationServicesEnabled) {
+                    when (permissionState) {
+                        LocationChannelManager.PermissionState.NOT_DETERMINED -> {
+                            Button(
+                                onClick = { locationManager.enableLocationChannels() },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = standardGreen.copy(alpha = 0.12f),
+                                    contentColor = standardGreen
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = "grant location permission",
+                                    fontSize = 12.sp,
+                                    fontFamily = FontFamily.Monospace
                                 )
+                            }
+                        }
+                        
+                        LocationChannelManager.PermissionState.DENIED,
+                        LocationChannelManager.PermissionState.RESTRICTED -> {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    text = "location permission denied. enable in settings to use location channels.",
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = Color.Red.copy(alpha = 0.8f)
+                                )
+                                
+                                TextButton(
+                                    onClick = {
+                                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                            data = Uri.fromParts("package", context.packageName, null)
+                                        }
+                                        context.startActivity(intent)
+                                    }
+                                ) {
+                                    Text(
+                                        text = "open settings",
+                                        fontSize = 11.sp,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+                            }
+                        }
+                        
+                        LocationChannelManager.PermissionState.AUTHORIZED -> {
+                            Text(
+                                text = "✓ location permission granted",
+                                fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = standardGreen
                             )
                         }
                         
-                        Text(
-                            text = if (locationServicesEnabled) {
-                                "location services are enabled. your approximate location is used to find nearby geohash channels."
-                            } else {
-                                "location services are disabled. enable to find geohash channels near you."
-                            },
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                        )
-                        
-                        // Show permission status if location services are enabled
-                        if (locationServicesEnabled) {
-                            when (permissionState) {
-                                LocationChannelManager.PermissionState.NOT_DETERMINED -> {
-                                    Button(
-                                        onClick = { locationManager.enableLocationChannels() },
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = standardGreen.copy(alpha = 0.12f),
-                                            contentColor = standardGreen
-                                        ),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Text(
-                                            text = "grant location permission",
-                                            fontSize = 12.sp,
-                                            fontFamily = FontFamily.Monospace
-                                        )
-                                    }
-                                }
-                                
-                                LocationChannelManager.PermissionState.DENIED,
-                                LocationChannelManager.PermissionState.RESTRICTED -> {
-                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Text(
-                                            text = "location permission denied. enable in settings to use location channels.",
-                                            fontSize = 11.sp,
-                                            fontFamily = FontFamily.Monospace,
-                                            color = Color.Red.copy(alpha = 0.8f)
-                                        )
-                                        
-                                        TextButton(
-                                            onClick = {
-                                                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                                    data = Uri.fromParts("package", context.packageName, null)
-                                                }
-                                                context.startActivity(intent)
-                                            }
-                                        ) {
-                                            Text(
-                                                text = "open settings",
-                                                fontSize = 11.sp,
-                                                fontFamily = FontFamily.Monospace
-                                            )
-                                        }
-                                    }
-                                }
-                                
-                                LocationChannelManager.PermissionState.AUTHORIZED -> {
-                                    Text(
-                                        text = "✓ location permission granted",
-                                        fontSize = 11.sp,
-                                        fontFamily = FontFamily.Monospace,
-                                        color = standardGreen
-                                    )
-                                }
-                                
-                                null -> {
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        CircularProgressIndicator(modifier = Modifier.size(12.dp))
-                                        Text(
-                                            text = "checking permissions...",
-                                            fontSize = 11.sp,
-                                            fontFamily = FontFamily.Monospace,
-                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                                        )
-                                    }
-                                }
+                        null -> {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                CircularProgressIndicator(modifier = Modifier.size(12.dp))
+                                Text(
+                                    text = "checking permissions...",
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                )
                             }
                         }
                     }
@@ -421,28 +366,39 @@ fun LocationChannelsSheet(
                         }
                     }
                     
-                    // Footer action - remove location access
-                    if (permissionState == LocationChannelManager.PermissionState.AUTHORIZED) {
-                        item {
-                            Button(
-                                onClick = {
-                                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                        data = Uri.fromParts("package", context.packageName, null)
-                                    }
-                                    context.startActivity(intent)
+                    // Location services toggle button
+                    item {
+                        Button(
+                            onClick = {
+                                if (locationServicesEnabled) {
+                                    locationManager.disableLocationServices()
+                                } else {
+                                    locationManager.enableLocationServices()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (locationServicesEnabled) {
+                                    Color.Red.copy(alpha = 0.08f)
+                                } else {
+                                    standardGreen.copy(alpha = 0.12f)
                                 },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color.Red.copy(alpha = 0.08f),
-                                    contentColor = Color(0xFFBF1A1A)
-                                ),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = "remove location access",
-                                    fontSize = 12.sp,
-                                    fontFamily = FontFamily.Monospace
-                                )
-                            }
+                                contentColor = if (locationServicesEnabled) {
+                                    Color(0xFFBF1A1A)
+                                } else {
+                                    standardGreen
+                                }
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = if (locationServicesEnabled) {
+                                    "disable location services"
+                                } else {
+                                    "enable location services"
+                                },
+                                fontSize = 12.sp,
+                                fontFamily = FontFamily.Monospace
+                            )
                         }
                     }
                 }
