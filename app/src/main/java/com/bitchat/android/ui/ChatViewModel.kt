@@ -556,8 +556,12 @@ class ChatViewModel(
         // Clear all notifications
         notificationManager.clearAllNotifications()
         
-        // Clear geohash message history
-        nostrGeohashService.clearGeohashMessageHistory()
+        // Clear Nostr/geohash state, keys, connections, and reinitialize from scratch
+        try {
+            nostrGeohashService.panicResetNostrAndGeohash()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to reset Nostr/geohash: ${e.message}")
+        }
 
         // Reset nickname
         val newNickname = "anon${Random.nextInt(1000, 9999)}"

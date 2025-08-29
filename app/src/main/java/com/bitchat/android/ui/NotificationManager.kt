@@ -82,7 +82,8 @@ class NotificationManager(
         val messageContent: String,
         val timestamp: Long,
         val isMention: Boolean,
-        val isFirstMessage: Boolean
+        val isFirstMessage: Boolean,
+        val locationName: String? = null
     )
 
     init {
@@ -397,7 +398,8 @@ class NotificationManager(
         senderNickname: String,
         messageContent: String,
         isMention: Boolean = false,
-        isFirstMessage: Boolean = false
+        isFirstMessage: Boolean = false,
+        locationName: String? = null
     ) {
         // Only show notifications if app is in background OR user is not viewing this specific geohash
         val shouldNotify = isAppInBackground || (!isAppInBackground && currentGeohash != geohash)
@@ -415,7 +417,8 @@ class NotificationManager(
             messageContent = messageContent,
             timestamp = System.currentTimeMillis(),
             isMention = isMention,
-            isFirstMessage = isFirstMessage
+            isFirstMessage = isFirstMessage,
+            locationName = locationName
         )
 
         // Add to pending notifications for this geohash
@@ -453,12 +456,13 @@ class NotificationManager(
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        // Build notification content
+        // Build notification content with location name if available
+        val geohashDisplay = latestNotification.locationName?.let { "$it (#$geohash)" } ?: "#$geohash"
         val contentTitle = when {
-            mentionCount > 0 && firstMessageCount > 0 -> "Mentioned in #$geohash (+${messageCount - 1} more)"
-            mentionCount > 0 -> if (mentionCount == 1) "Mentioned in #$geohash" else "$mentionCount mentions in #$geohash"
-            firstMessageCount > 0 -> "New activity in #$geohash"
-            else -> "Messages in #$geohash"
+            mentionCount > 0 && firstMessageCount > 0 && messageCount > 1 -> "Mentioned in $geohashDisplay (+${messageCount - 1} more)"
+            mentionCount > 0 -> if (mentionCount == 1) "Mentioned in $geohashDisplay" else "$mentionCount mentions in $geohashDisplay"
+            firstMessageCount > 0 -> "New activity in $geohashDisplay"
+            else -> "Messages in $geohashDisplay"
         }
 
         val contentText = when {
@@ -564,10 +568,12 @@ class NotificationManager(
         pendingGeohashNotifications.entries.take(5).forEach { (geohash, notifications) ->
             val mentionCount = notifications.count { it.isMention }
             val messageCount = notifications.size
+            val latestNotification = notifications.last()
+            val geohashDisplay = latestNotification.locationName?.let { "$it (#$geohash)" } ?: "#$geohash"
             val line = when {
-                mentionCount > 0 -> "#$geohash: $mentionCount mentions (+${messageCount - mentionCount} more)"
-                messageCount == 1 -> "#$geohash: 1 message"
-                else -> "#$geohash: $messageCount messages"
+                mentionCount > 0 -> "$geohashDisplay: $mentionCount mentions (+${messageCount - mentionCount} more)"
+                messageCount == 1 -> "$geohashDisplay: 1 message"
+                else -> "$geohashDisplay: $messageCount messages"
             }
             style.addLine(line)
         }

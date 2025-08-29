@@ -88,12 +88,12 @@ class MessageHandler(private val myPeerID: String) {
                             return
                         }
                         
-                        // Create BitchatMessage - use local system time for incoming messages
+                        // Create BitchatMessage - preserve source packet timestamp
                         val message = BitchatMessage(
                             id = privateMessage.messageID,
                             sender = delegate?.getPeerNickname(peerID) ?: "Unknown",
                             content = privateMessage.content,
-                            timestamp = java.util.Date(), // Use local system time instead of packet timestamp
+                            timestamp = java.util.Date(packet.timestamp.toLong()),
                             isRelay = false,
                             originalSender = null,
                             isPrivate = true,
@@ -343,7 +343,7 @@ class MessageHandler(private val myPeerID: String) {
                 sender = delegate?.getPeerNickname(peerID) ?: "unknown",
                 content = String(packet.payload, Charsets.UTF_8),
                 senderPeerID = peerID,
-                timestamp = Date()
+                timestamp = Date(packet.timestamp.toLong())
             )
 
             delegate?.onMessageReceived(message)
@@ -369,7 +369,7 @@ class MessageHandler(private val myPeerID: String) {
                 sender = delegate?.getPeerNickname(peerID) ?: "unknown",
                 content = String(packet.payload, Charsets.UTF_8),
                 senderPeerID = peerID,
-                timestamp = Date()
+                timestamp = Date(packet.timestamp.toLong())
             )
             delegate?.onMessageReceived(message)
 
