@@ -49,6 +49,27 @@ fun isFavoriteReactive(
 }
 
 @Composable
+fun TorStatusIcon(
+    modifier: Modifier = Modifier
+) {
+    val torStatus by com.bitchat.android.net.TorManager.statusFlow.collectAsState()
+    
+    if (torStatus.mode != com.bitchat.android.net.TorMode.OFF) {
+        val cableColor = when {
+            torStatus.running && torStatus.bootstrapPercent < 100 -> Color(0xFFFF9500)
+            torStatus.running && torStatus.bootstrapPercent >= 100 -> Color(0xFF00C851)
+            else -> Color.Red
+        }
+        Icon(
+            imageVector = Icons.Outlined.Cable,
+            contentDescription = "Tor status",
+            modifier = modifier,
+            tint = cableColor
+        )
+    }
+}
+
+@Composable
 fun NoiseSessionIcon(
     sessionState: String?,
     modifier: Modifier = Modifier
@@ -543,20 +564,7 @@ private fun MainHeader(
         ) {
             
             // Tor status cable icon when Tor is enabled
-            val torStatus by com.bitchat.android.net.TorManager.statusFlow.collectAsState()
-            if (torStatus.mode != com.bitchat.android.net.TorMode.OFF) {
-                val cableColor = when {
-                    torStatus.running && torStatus.bootstrapPercent < 100 -> Color(0xFFFF9500)
-                    torStatus.running && torStatus.bootstrapPercent >= 100 -> Color(0xFF00C851)
-                    else -> Color.Red
-                }
-                Icon(
-                    imageVector = Icons.Outlined.Cable,
-                    contentDescription = "Tor status",
-                    modifier = Modifier.size(15.dp),
-                    tint = cableColor
-                )
-            }
+            TorStatusIcon(modifier = Modifier.size(15.dp))
 
             // Location channels button (matching iOS implementation)
             LocationChannelsButton(
