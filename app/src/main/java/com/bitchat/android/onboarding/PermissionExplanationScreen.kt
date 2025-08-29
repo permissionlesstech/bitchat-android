@@ -100,8 +100,8 @@ fun PermissionExplanationScreen(
                     
                     Text(
                         text = "• bitchat doesn't track you or collect personal data\n" +
-                                "• No servers, no internet required, no data logging\n" +
-                                "• Location permission is only used by Android for Bluetooth scanning\n" +
+                                "• Bluetooth mesh chats are fully offline and require no internet\n" +
+                                "• Geohash chats use the internet but your location is generalized\n" +
                                 "• Your messages stay on your device and peer devices only",
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontFamily = FontFamily.Monospace,

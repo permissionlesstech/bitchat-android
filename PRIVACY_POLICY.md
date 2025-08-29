@@ -9,7 +9,9 @@ bitchat is designed with privacy as its foundation. We believe private communica
 ## Summary
 
 - **No personal data collection** - We don't collect names, emails, or phone numbers
-- **No servers** - Everything happens on your device and through peer-to-peer connections
+- **Hybrid Functionality** - bitchat offers two modes of communication:
+  - **Bluetooth Mesh Chat**: This mode is completely offline, using peer-to-peer Bluetooth connections. It does not use any servers or internet connection.
+  - **Geohash Chat**: This mode uses an internet connection to communicate with others in a specific geographic area. It relies on Nostr relays for message transport.
 - **No tracking** - We have no analytics, telemetry, or user tracking
 - **Open source** - You can verify these claims by reading our code
 

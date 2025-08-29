@@ -3,6 +3,7 @@ package com.bitchat.android
 import android.app.Application
 import com.bitchat.android.nostr.RelayDirectory
 import com.bitchat.android.ui.theme.ThemePreferenceManager
+import com.bitchat.android.net.TorManager
 
 /**
  * Main application class for bitchat Android
@@ -12,6 +13,9 @@ class BitchatApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         
+        // Initialize Tor first so any early network goes over Tor
+        try { TorManager.init(this) } catch (_: Exception) { }
+
         // Initialize relay directory (loads assets/nostr_relays.csv)
         RelayDirectory.initialize(this)
 
@@ -27,5 +31,7 @@ class BitchatApplication : Application() {
 
         // Initialize theme preference
         ThemePreferenceManager.init(this)
+
+        // TorManager already initialized above
     }
 }

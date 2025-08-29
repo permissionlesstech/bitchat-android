@@ -95,6 +95,9 @@ dependencies {
     // WebSocket
     implementation(libs.okhttp)
 
+    // Arti (Tor in Rust) Android bridge - use published AAR with native libs
+    implementation("info.guardianproject:arti-mobile-ex:1.2.3")
+
     // Google Play Services Location
     implementation(libs.gms.location)
 
