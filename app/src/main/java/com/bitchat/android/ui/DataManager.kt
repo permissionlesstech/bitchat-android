@@ -70,7 +70,7 @@ class DataManager(private val context: Context) {
     }
     
     fun isLocationServicesEnabled(): Boolean {
-        return prefs.getBoolean("location_services_enabled", false)
+        return prefs.getBoolean("location_services_enabled", true) // Default to enabled
     }
     
     // MARK: - Channel Data Management
