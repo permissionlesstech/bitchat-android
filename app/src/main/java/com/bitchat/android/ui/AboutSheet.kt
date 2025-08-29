@@ -199,6 +199,7 @@ fun AboutSheet(
                 item {
                     val ctx = LocalContext.current
                     val torMode = remember { mutableStateOf(com.bitchat.android.net.TorPreferenceManager.get(ctx)) }
+                    val torStatus by com.bitchat.android.net.TorManager.statusFlow.collectAsState()
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -242,6 +243,36 @@ fun AboutSheet(
                             fontFamily = FontFamily.Monospace,
                             color = colorScheme.onSurface.copy(alpha = 0.6f)
                         )
+
+                        // Debug status (temporary)
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = colorScheme.surfaceVariant.copy(alpha = 0.25f),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "tor status: " +
+                                            (if (torStatus.running) "running" else "stopped") +
+                                            ", bootstrap=" + torStatus.bootstrapPercent + "%",
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = colorScheme.onSurface.copy(alpha = 0.75f)
+                                )
+                                val last = torStatus.lastLogLine
+                                if (last.isNotEmpty()) {
+                                    Text(
+                                        text = "last: " + last.take(160),
+                                        fontSize = 10.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        color = colorScheme.onSurface.copy(alpha = 0.6f)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
                 
