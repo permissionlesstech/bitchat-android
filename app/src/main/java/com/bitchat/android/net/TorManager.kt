@@ -147,6 +147,8 @@ object TorManager {
         try {
             stopArti()
 
+            Log.i(TAG, "Starting Arti…")
+
             // Determine port
             val port = nextSocksPort
             currentSocksPort = port
@@ -155,7 +157,10 @@ object TorManager {
                 val s = text.toString()
                 Log.i(TAG, "arti: $s")
                 _status.value = _status.value.copy(lastLogLine = s)
-                if (s.contains("Sufficiently bootstrapped", ignoreCase = true)) {
+                if (
+                    s.contains("Sufficiently bootstrapped", ignoreCase = true) ||
+                    s.contains("AMEx: state changed to Running", ignoreCase = true)
+                ) {
                     _status.value = _status.value.copy(bootstrapPercent = 100)
                 }
             }
