@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileWriter
@@ -32,6 +34,14 @@ object TorManager {
     private val torProcessRef = AtomicReference<Process?>(null)
     private val logReaderJobRef = AtomicReference<Job?>(null)
     @Volatile private var lastMode: TorMode = TorMode.OFF
+    private val applyMutex = Mutex()
+    @Volatile private var desiredMode: TorMode = TorMode.OFF
+    @Volatile private var currentSocksPort: Int = DEFAULT_SOCKS_PORT
+    @Volatile private var nextSocksPort: Int = DEFAULT_SOCKS_PORT
+    @Volatile private var bindRetryScheduled: Boolean = false
+
+    private enum class LifecycleState { STOPPED, STARTING, RUNNING, STOPPING }
+    @Volatile private var lifecycleState: LifecycleState = LifecycleState.STOPPED
 
     data class TorStatus(
         val mode: TorMode = TorMode.OFF,
@@ -67,44 +77,62 @@ object TorManager {
     fun currentSocksAddress(): InetSocketAddress? = socksAddr
 
     suspend fun applyMode(application: Application, mode: TorMode) {
-        try {
-            lastMode = mode
-            when (mode) {
-                TorMode.OFF -> {
-                    stopTor()
-                    socksAddr = null
-                    _status.value = _status.value.copy(mode = TorMode.OFF, running = false, bootstrapPercent = 0)
-                    Log.i(TAG, "Tor OFF: disabled proxy")
+        applyMutex.withLock {
+            try {
+                desiredMode = mode
+                lastMode = mode
+                val s = _status.value
+                if (mode == s.mode && mode != TorMode.OFF && (lifecycleState == LifecycleState.STARTING || lifecycleState == LifecycleState.RUNNING)) {
+                    Log.i(TAG, "applyMode: already in progress/running mode=$mode, state=$lifecycleState; skip")
+                    return
                 }
-                TorMode.ON -> {
-                    startTor(application, isolation = false)
-                    // Defer enabling proxy until bootstrap completes
-                    appScope.launch {
-                        waitUntilBootstrapped()
-                        socksAddr = InetSocketAddress("127.0.0.1", DEFAULT_SOCKS_PORT)
-                        Log.i(TAG, "Tor ON: proxy set to ${socksAddr}")
-                        // Rebuild OkHttp clients
-                        OkHttpProvider.reset()
-                        // Reconnect Nostr relays with new settings
-                        try { com.bitchat.android.nostr.NostrRelayManager.shared.resetAllConnections() } catch (_: Throwable) { }
+                when (mode) {
+                    TorMode.OFF -> {
+                        Log.i(TAG, "applyMode: OFF -> stopping tor")
+                        lifecycleState = LifecycleState.STOPPING
+                        stopTor()
+                        socksAddr = null
+                        _status.value = _status.value.copy(mode = TorMode.OFF, running = false, bootstrapPercent = 0)
+                        nextSocksPort = DEFAULT_SOCKS_PORT
+                        lifecycleState = LifecycleState.STOPPED
                     }
-                    _status.value = _status.value.copy(mode = TorMode.ON)
-                }
-                TorMode.ISOLATION -> {
-                    startTor(application, isolation = true)
-                    // Defer enabling proxy until bootstrap completes
-                    appScope.launch {
-                        waitUntilBootstrapped()
-                        socksAddr = InetSocketAddress("127.0.0.1", DEFAULT_SOCKS_PORT)
-                        Log.i(TAG, "Tor ISOLATION: proxy set to ${socksAddr}")
-                        OkHttpProvider.reset()
-                        try { com.bitchat.android.nostr.NostrRelayManager.shared.resetAllConnections() } catch (_: Throwable) { }
+                    TorMode.ON -> {
+                        Log.i(TAG, "applyMode: ON -> starting tor")
+                        nextSocksPort = if (currentSocksPort < DEFAULT_SOCKS_PORT) DEFAULT_SOCKS_PORT else currentSocksPort
+                        lifecycleState = LifecycleState.STARTING
+                        startTor(application, isolation = false)
+                        _status.value = _status.value.copy(mode = TorMode.ON)
+                        // Defer enabling proxy until bootstrap completes
+                        appScope.launch {
+                            waitUntilBootstrapped()
+                            if (_status.value.running && desiredMode == TorMode.ON) {
+                                socksAddr = InetSocketAddress("127.0.0.1", currentSocksPort)
+                                Log.i(TAG, "Tor ON: proxy set to ${socksAddr}")
+                                OkHttpProvider.reset()
+                                try { com.bitchat.android.nostr.NostrRelayManager.shared.resetAllConnections() } catch (_: Throwable) { }
+                            }
+                        }
                     }
-                    _status.value = _status.value.copy(mode = TorMode.ISOLATION)
+                    TorMode.ISOLATION -> {
+                        Log.i(TAG, "applyMode: ISOLATION -> starting tor")
+                        nextSocksPort = if (currentSocksPort < DEFAULT_SOCKS_PORT) DEFAULT_SOCKS_PORT else currentSocksPort
+                        lifecycleState = LifecycleState.STARTING
+                        startTor(application, isolation = true)
+                        _status.value = _status.value.copy(mode = TorMode.ISOLATION)
+                        appScope.launch {
+                            waitUntilBootstrapped()
+                            if (_status.value.running && desiredMode == TorMode.ISOLATION) {
+                                socksAddr = InetSocketAddress("127.0.0.1", currentSocksPort)
+                                Log.i(TAG, "Tor ISOLATION: proxy set to ${socksAddr}")
+                                OkHttpProvider.reset()
+                                try { com.bitchat.android.nostr.NostrRelayManager.shared.resetAllConnections() } catch (_: Throwable) { }
+                            }
+                        }
+                    }
                 }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to apply Tor mode: ${e.message}")
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to apply Tor mode: ${e.message}")
         }
     }
 
@@ -134,6 +162,11 @@ object TorManager {
             val geoip = File(appBinHome, "geoip")
             val geoip6 = File(appBinHome, "geoip6")
 
+            // Determine port
+            val port = nextSocksPort
+            currentSocksPort = port
+            bindRetryScheduled = false
+
             // Write torrc
             val torrc = File(application.filesDir, "torrc").apply {
                 FileWriter(this, false).use { w ->
@@ -143,11 +176,10 @@ object TorManager {
                     w.appendLine("DataDirectory ${appDataDir.absolutePath}")
                     w.appendLine("DisableNetwork 0")
                     val isoFlags = if (isolation) " IsolateDestAddr IsolateDestPort" else ""
-                    w.appendLine("SOCKSPort 127.0.0.1:${DEFAULT_SOCKS_PORT}${isoFlags}")
+                    w.appendLine("SOCKSPort 127.0.0.1:${port}${isoFlags}")
                     // Prefer IPv6 where available to improve bootstrap on IPv6-only networks
                     w.appendLine("ClientUseIPv6 1")
-                    w.appendLine("ClientPreferIPv6OR 1")
-                    w.appendLine("ClientPreferIPv6DirPort 1")
+                    w.appendLine("ClientPreferIPv6ORPort 1")
                     if (geoip.exists()) w.appendLine("GeoIPFile ${geoip.absolutePath}")
                     if (geoip6.exists()) w.appendLine("GeoIPv6File ${geoip6.absolutePath}")
                     w.appendLine("Log notice stdout")
@@ -169,6 +201,7 @@ object TorManager {
             torProcessRef.set(process)
 
             _status.value = _status.value.copy(running = true, bootstrapPercent = 0)
+            lifecycleState = LifecycleState.RUNNING
 
             val readerJob = appScope.launch {
                 try {
@@ -186,6 +219,25 @@ object TorManager {
                                         _status.value = _status.value.copy(bootstrapPercent = pct)
                                     }
                                 }
+                                if (!bindRetryScheduled && (line.contains("Could not bind", ignoreCase = true) || line.contains("Address already in use", ignoreCase = true) || line.contains("Failed to bind", ignoreCase = true))) {
+                                    bindRetryScheduled = true
+                                    Log.w(TAG, "Detected bind error on port $port; scheduling restart on next port")
+                                    appScope.launch {
+                                        applyMutex.withLock {
+                                            try {
+                                                stopTor()
+                                                nextSocksPort = port + 1
+                                                Log.i(TAG, "Retrying Tor start on port ${nextSocksPort}")
+                                                if (desiredMode != TorMode.OFF) {
+                                                    lifecycleState = LifecycleState.STARTING
+                                                    startTor(application, isolation)
+                                                }
+                                            } catch (t: Throwable) {
+                                                Log.e(TAG, "Error during bind-retry restart: ${t.message}")
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -195,18 +247,14 @@ object TorManager {
             }
             logReaderJobRef.getAndSet(readerJob)?.cancel()
 
-            // Watch for process exit and optionally restart if user mode requests Tor
+            // Watch for process exit (no automatic restart; we keep state consistent)
             appScope.launch {
                 try {
                     val exitCode = process.waitFor()
                     Log.i(TAG, "Tor process exited with code $exitCode")
                 } catch (_: Throwable) { }
                 _status.value = _status.value.copy(running = false)
-                if (lastMode != TorMode.OFF) {
-                    // Attempt automatic restart after a brief delay
-                    try { Thread.sleep(2000) } catch (_: Throwable) {}
-                    try { startTor(application, isolation = (lastMode == TorMode.ISOLATION)) } catch (_: Throwable) {}
-                }
+                lifecycleState = LifecycleState.STOPPED
             }
 
             Log.i(TAG, "Launched Tor process")
