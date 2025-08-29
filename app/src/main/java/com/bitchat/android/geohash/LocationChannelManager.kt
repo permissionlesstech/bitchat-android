@@ -71,12 +71,17 @@ class LocationChannelManager private constructor(private val context: Context) {
     // Add a new LiveData property to indicate when location is being fetched
     private val _isLoadingLocation = MutableLiveData(false)
     val isLoadingLocation: LiveData<Boolean> = _isLoadingLocation
+    
+    // Add a new LiveData property to track if location services are enabled by user
+    private val _locationServicesEnabled = MutableLiveData(false)
+    val locationServicesEnabled: LiveData<Boolean> = _locationServicesEnabled
 
     init {
         updatePermissionState()
-        // Initialize DataManager and load persisted channel selection
+        // Initialize DataManager and load persisted settings
         dataManager = com.bitchat.android.ui.DataManager(context)
         loadPersistedChannelSelection()
+        loadLocationServicesState()
     }
 
     // MARK: - Public API (matching iOS interface)
@@ -108,7 +113,7 @@ class LocationChannelManager private constructor(private val context: Context) {
      * Refresh available channels from current location
      */
     fun refreshChannels() {
-        if (_permissionState.value == PermissionState.AUTHORIZED) {
+        if (_permissionState.value == PermissionState.AUTHORIZED && isLocationServicesEnabled()) {
             requestOneShotLocation()
         }
     }
@@ -123,6 +128,11 @@ class LocationChannelManager private constructor(private val context: Context) {
             Log.w(TAG, "Cannot start live refresh - permission not authorized")
             return
         }
+        
+        if (!isLocationServicesEnabled()) {
+            Log.w(TAG, "Cannot start live refresh - location services disabled by user")
+            return
+        }
 
         // Cancel existing timer
         refreshTimer?.cancel()
@@ -130,7 +140,9 @@ class LocationChannelManager private constructor(private val context: Context) {
         // Start new timer with coroutines
         refreshTimer = CoroutineScope(Dispatchers.IO).launch {
             while (isActive) {
-                requestOneShotLocation()
+                if (isLocationServicesEnabled()) {
+                    requestOneShotLocation()
+                }
                 delay(interval)
             }
         }
@@ -183,6 +195,48 @@ class LocationChannelManager private constructor(private val context: Context) {
     fun setTeleported(teleported: Boolean) {
         Log.d(TAG, "Setting teleported status: $teleported")
         _teleported.postValue(teleported)
+    }
+
+    /**
+     * Enable location services (user-controlled toggle)
+     */
+    fun enableLocationServices() {
+        Log.d(TAG, "enableLocationServices() called by user")
+        _locationServicesEnabled.postValue(true)
+        saveLocationServicesState(true)
+        
+        // If we have permission, start location operations
+        if (_permissionState.value == PermissionState.AUTHORIZED) {
+            requestOneShotLocation()
+        }
+    }
+
+    /**
+     * Disable location services (user-controlled toggle)
+     */
+    fun disableLocationServices() {
+        Log.d(TAG, "disableLocationServices() called by user")
+        _locationServicesEnabled.postValue(false)
+        saveLocationServicesState(false)
+        
+        // Stop any ongoing location operations
+        endLiveRefresh()
+        
+        // Clear available channels when location is disabled
+        _availableChannels.postValue(emptyList())
+        _locationNames.postValue(emptyMap())
+        
+        // If user had a location channel selected, switch back to mesh
+        if (_selectedChannel.value is ChannelID.Location) {
+            select(ChannelID.Mesh)
+        }
+    }
+
+    /**
+     * Check if location services are enabled by the user
+     */
+    fun isLocationServicesEnabled(): Boolean {
+        return _locationServicesEnabled.value ?: false
     }
 
     // MARK: - Location Operations
@@ -570,6 +624,34 @@ class LocationChannelManager private constructor(private val context: Context) {
         dataManager?.clearLastGeohashChannel()
         _selectedChannel.postValue(ChannelID.Mesh)
         Log.d(TAG, "Cleared persisted channel selection")
+    }
+
+    // MARK: - Location Services State Persistence
+
+    /**
+     * Save location services enabled state to persistent storage
+     */
+    private fun saveLocationServicesState(enabled: Boolean) {
+        try {
+            dataManager?.saveLocationServicesEnabled(enabled)
+            Log.d(TAG, "Saved location services state: $enabled")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save location services state: ${e.message}")
+        }
+    }
+
+    /**
+     * Load persisted location services state from storage
+     */
+    private fun loadLocationServicesState() {
+        try {
+            val enabled = dataManager?.isLocationServicesEnabled() ?: false
+            _locationServicesEnabled.postValue(enabled)
+            Log.d(TAG, "Loaded location services state: $enabled")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load location services state: ${e.message}")
+            _locationServicesEnabled.postValue(false)
+        }
     }
 
     /**
