@@ -229,6 +229,10 @@ object TorManager {
                                         _status.value = _status.value.copy(bootstrapPercent = pct)
                                     }
                                 }
+                                // Ensure we never report green before bootstrapping begins
+                                if (_status.value.running && _status.value.bootstrapPercent == 0) {
+                                    // keep as non-green until Tor emits first Bootstrapped > 0
+                                }
                                 if (!bindRetryScheduled && (line.contains("Could not bind", ignoreCase = true) || line.contains("Address already in use", ignoreCase = true) || line.contains("Failed to bind", ignoreCase = true))) {
                                     bindRetryScheduled = true
                                     Log.w(TAG, "Detected bind error on port $port; scheduling restart on next port")

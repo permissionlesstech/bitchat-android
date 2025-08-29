@@ -546,9 +546,9 @@ private fun MainHeader(
             val torStatus by com.bitchat.android.net.TorManager.statusFlow.collectAsState()
             if (torStatus.mode != com.bitchat.android.net.TorMode.OFF) {
                 val cableColor = when {
-                    !torStatus.running -> Color.Red
-                    torStatus.bootstrapPercent in 1..99 -> Color(0xFFFF9500)
-                    else -> Color(0xFF00C851)
+                    torStatus.running && torStatus.bootstrapPercent < 100 -> Color(0xFFFF9500)
+                    torStatus.running && torStatus.bootstrapPercent >= 100 -> Color(0xFF00C851)
+                    else -> Color.Red
                 }
                 Icon(
                     imageVector = Icons.Outlined.Cable,

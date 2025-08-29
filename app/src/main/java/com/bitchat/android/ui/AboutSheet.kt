@@ -212,24 +212,6 @@ fun AboutSheet(
                             color = colorScheme.onSurface.copy(alpha = 0.8f)
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            // Status indicator (red/orange/green)
-                            val statusColor = when {
-                                !torStatus.running -> Color.Red
-                                torStatus.bootstrapPercent in 1..99 -> Color(0xFFFF9500)
-                                else -> if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .size(10.dp)
-                                    .padding(end = 2.dp)
-                                    .then(Modifier),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Surface(
-                                    color = statusColor,
-                                    shape = RoundedCornerShape(50)
-                                ) { Box(Modifier.size(10.dp)) }
-                            }
                             FilterChip(
                                 selected = torMode.value == com.bitchat.android.net.TorMode.OFF,
                                 onClick = {
@@ -254,6 +236,16 @@ fun AboutSheet(
                                 },
                                 label = { Text("isolation mode", fontFamily = FontFamily.Monospace) }
                             )
+                            // Status indicator (red/orange/green) shown to the right of buttons
+                            val statusColor = when {
+                                torStatus.running && torStatus.bootstrapPercent < 100 -> Color(0xFFFF9500)
+                                torStatus.running && torStatus.bootstrapPercent >= 100 -> if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
+                                else -> Color.Red
+                            }
+                            Surface(
+                                color = statusColor,
+                                shape = RoundedCornerShape(50)
+                            ) { Box(Modifier.size(10.dp)) }
                         }
                         Text(
                             text = "route internet over tor. isolation uses separate circuits per relay.",
