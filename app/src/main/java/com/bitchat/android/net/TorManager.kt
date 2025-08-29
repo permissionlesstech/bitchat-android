@@ -124,9 +124,7 @@ object TorManager {
                         }
                         bindRetryAttempts = 0
                         lifecycleState = LifecycleState.STARTING
-                        // For OFF->ON, no delay needed
-                        val needsDelay = s.mode == TorMode.ISOLATION
-                        startArti(application, isolation = false, useDelay = needsDelay)
+                        startArti(application, useDelay = false)
                         _status.value = _status.value.copy(mode = TorMode.ON)
                         // Defer enabling proxy until bootstrap completes
                         appScope.launch {
@@ -139,29 +137,6 @@ object TorManager {
                             }
                         }
                     }
-                    TorMode.ISOLATION -> {
-                        Log.i(TAG, "applyMode: ISOLATION -> starting arti")
-                        // Reset port to default unless we're already using a higher port
-                        if (currentSocksPort < DEFAULT_SOCKS_PORT) {
-                            currentSocksPort = DEFAULT_SOCKS_PORT
-                        }
-                        bindRetryAttempts = 0
-                        lifecycleState = LifecycleState.STARTING
-                        // For ON->ISOLATION, immediate status change and delay
-                        _status.value = _status.value.copy(running = false, bootstrapPercent = 0)
-                        val needsDelay = s.mode == TorMode.ON
-                        startArti(application, isolation = true, useDelay = needsDelay)
-                        _status.value = _status.value.copy(mode = TorMode.ISOLATION)
-                        appScope.launch {
-                            waitUntilBootstrapped()
-                            if (_status.value.running && desiredMode == TorMode.ISOLATION) {
-                                socksAddr = InetSocketAddress("127.0.0.1", currentSocksPort)
-                                Log.i(TAG, "Arti ISOLATION: proxy set to ${socksAddr}")
-                                OkHttpProvider.reset()
-                                try { com.bitchat.android.nostr.NostrRelayManager.shared.resetAllConnections() } catch (_: Throwable) { }
-                            }
-                        }
-                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to apply Arti mode: ${e.message}")
@@ -169,7 +144,7 @@ object TorManager {
         }
     }
 
-    private suspend fun startArti(application: Application, isolation: Boolean, useDelay: Boolean = false) {
+    private suspend fun startArti(application: Application, useDelay: Boolean = false) {
         try {
             stopArtiInternal()
 
@@ -219,14 +194,14 @@ object TorManager {
                 currentSocksPort++
                 Log.w(TAG, "Port bind failed (attempt $bindRetryAttempts/$MAX_RETRY_ATTEMPTS), retrying with port $currentSocksPort")
                 // Immediate retry with incremented port, no exponential backoff for bind errors
-                startArti(application, isolation, useDelay = false)
+                startArti(application, useDelay = false)
             } else if (isBindError) {
                 Log.e(TAG, "Max bind retry attempts reached ($MAX_RETRY_ATTEMPTS), giving up")
                 lifecycleState = LifecycleState.STOPPED
                 _status.value = _status.value.copy(running = false, bootstrapPercent = 0)
             } else {
                 // For non-bind errors, use the existing retry mechanism
-                scheduleRetry(application, isolation)
+                scheduleRetry(application)
             }
         }
     }
@@ -263,11 +238,11 @@ object TorManager {
         _status.value = _status.value.copy(running = false, bootstrapPercent = 0)
     }
 
-    private suspend fun restartArti(application: Application, isolation: Boolean) {
+    private suspend fun restartArti(application: Application) {
         Log.i(TAG, "Restarting Arti (keeping SOCKS proxy enabled)...")
         stopArtiInternal()
         delay(RESTART_DELAY_MS)
-        startArti(application, isolation, useDelay = false) // Already delayed above
+        startArti(application, useDelay = false) // Already delayed above
     }
 
     private fun startInactivityMonitoring() {
@@ -281,13 +256,13 @@ object TorManager {
                 
                 if (timeSinceLastActivity > INACTIVITY_TIMEOUT_MS) {
                     val currentMode = _status.value.mode
-                    if (currentMode == TorMode.ON || currentMode == TorMode.ISOLATION) {
+                    if (currentMode == TorMode.ON) {
                         val bootstrapPercent = _status.value.bootstrapPercent
                         if (bootstrapPercent < 100) {
                             Log.w(TAG, "Inactivity detected (${timeSinceLastActivity}ms), restarting Arti")
                             currentApplication?.let { app ->
                                 appScope.launch {
-                                    restartArti(app, currentMode == TorMode.ISOLATION)
+                                    restartArti(app)
                                 }
                             }
                             break
@@ -303,7 +278,7 @@ object TorManager {
         inactivityJob = null
     }
 
-    private fun scheduleRetry(application: Application, isolation: Boolean) {
+    private fun scheduleRetry(application: Application) {
         retryJob?.cancel()
         if (retryAttempts < MAX_RETRY_ATTEMPTS) {
             retryAttempts++
@@ -312,9 +287,9 @@ object TorManager {
             retryJob = appScope.launch {
                 delay(delayMs)
                 val currentMode = _status.value.mode
-                if (currentMode == TorMode.ON || currentMode == TorMode.ISOLATION) {
+                if (currentMode == TorMode.ON) {
                     Log.i(TAG, "Retrying Arti start (attempt $retryAttempts)")
-                    restartArti(application, currentMode == TorMode.ISOLATION)
+                    restartArti(application)
                 }
             }
         } else {

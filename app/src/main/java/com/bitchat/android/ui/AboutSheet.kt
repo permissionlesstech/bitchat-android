@@ -119,8 +119,8 @@ fun AboutSheet(
                         FeatureCard(
                             icon = Icons.Filled.Public,
                             iconColor = standardGreen,
-                            title = "geohash channels",
-                            description = "internet-based location channels using coarse geohash coordinates. connect with people in your area while preserving privacy.",
+                            title = "online geohash channels",
+                            description = "connect with people in your area using geohash-based channels. extend the mesh using public internet relays.",
                             modifier = Modifier.fillMaxWidth()
                         )
                         
@@ -128,36 +128,9 @@ fun AboutSheet(
                             icon = Icons.Filled.Lock,
                             iconColor = if (isDark) Color(0xFFFFD60A) else Color(0xFFF5A623),
                             title = "end-to-end encryption",
-                            description = "all direct messages use noise protocol encryption. channel messages are protected with optional passwords.",
+                            description = "private messages are encrypted. channel messages are public.",
                             modifier = Modifier.fillMaxWidth()
                         )
-                    }
-                }
-                
-                // Additional features
-                item {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = "additional features",
-                                fontSize = 12.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Medium,
-                                color = colorScheme.onSurface.copy(alpha = 0.8f)
-                            )
-                            
-                            FeatureItem("store-and-forward messaging for offline peers")
-                            FeatureItem("ephemeral messaging with automatic cleanup")
-                            FeatureItem("peer discovery and identity verification")
-                            FeatureItem("minimal metadata leakage")
-                        }
                     }
                 }
 
@@ -226,29 +199,28 @@ fun AboutSheet(
                                     torMode.value = com.bitchat.android.net.TorMode.ON
                                     com.bitchat.android.net.TorPreferenceManager.set(ctx, torMode.value)
                                 },
-                                label = { Text("tor on", fontFamily = FontFamily.Monospace) }
+                                label = { 
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("tor on", fontFamily = FontFamily.Monospace)
+                                        // Status indicator (red/orange/green) moved inside the "tor on" button
+                                        val statusColor = when {
+                                            torStatus.running && torStatus.bootstrapPercent < 100 -> Color(0xFFFF9500)
+                                            torStatus.running && torStatus.bootstrapPercent >= 100 -> if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
+                                            else -> Color.Red
+                                        }
+                                        Surface(
+                                            color = statusColor,
+                                            shape = RoundedCornerShape(50)
+                                        ) { Box(Modifier.size(8.dp)) }
+                                    }
+                                }
                             )
-                            FilterChip(
-                                selected = torMode.value == com.bitchat.android.net.TorMode.ISOLATION,
-                                onClick = {
-                                    torMode.value = com.bitchat.android.net.TorMode.ISOLATION
-                                    com.bitchat.android.net.TorPreferenceManager.set(ctx, torMode.value)
-                                },
-                                label = { Text("isolation mode", fontFamily = FontFamily.Monospace) }
-                            )
-                            // Status indicator (red/orange/green) shown to the right of buttons
-                            val statusColor = when {
-                                torStatus.running && torStatus.bootstrapPercent < 100 -> Color(0xFFFF9500)
-                                torStatus.running && torStatus.bootstrapPercent >= 100 -> if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
-                                else -> Color.Red
-                            }
-                            Surface(
-                                color = statusColor,
-                                shape = RoundedCornerShape(50)
-                            ) { Box(Modifier.size(10.dp)) }
                         }
                         Text(
-                            text = "route internet over tor. isolation uses separate circuits per relay.",
+                            text = "route internet over tor for enhanced privacy.",
                             fontSize = 10.sp,
                             fontFamily = FontFamily.Monospace,
                             color = colorScheme.onSurface.copy(alpha = 0.6f)
