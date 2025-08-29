@@ -539,9 +539,25 @@ private fun MainHeader(
         // Right section with location channels button and peer counter
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             
+            // Tor status cable icon when Tor is enabled
+            val torStatus by com.bitchat.android.net.TorManager.statusFlow.collectAsState()
+            if (torStatus.mode != com.bitchat.android.net.TorMode.OFF) {
+                val cableColor = when {
+                    !torStatus.running -> Color.Red
+                    torStatus.bootstrapPercent in 1..99 -> Color(0xFFFF9500)
+                    else -> Color(0xFF00C851)
+                }
+                Icon(
+                    imageVector = Icons.Outlined.Cable,
+                    contentDescription = "Tor status",
+                    modifier = Modifier.size(15.dp),
+                    tint = cableColor
+                )
+            }
+
             // Location channels button (matching iOS implementation)
             LocationChannelsButton(
                 viewModel = viewModel,

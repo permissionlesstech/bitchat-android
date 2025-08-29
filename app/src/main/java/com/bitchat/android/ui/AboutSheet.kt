@@ -211,14 +211,32 @@ fun AboutSheet(
                             fontWeight = FontWeight.Medium,
                             color = colorScheme.onSurface.copy(alpha = 0.8f)
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            // Status indicator (red/orange/green)
+                            val statusColor = when {
+                                !torStatus.running -> Color.Red
+                                torStatus.bootstrapPercent in 1..99 -> Color(0xFFFF9500)
+                                else -> if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .padding(end = 2.dp)
+                                    .then(Modifier),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Surface(
+                                    color = statusColor,
+                                    shape = RoundedCornerShape(50)
+                                ) { Box(Modifier.size(10.dp)) }
+                            }
                             FilterChip(
                                 selected = torMode.value == com.bitchat.android.net.TorMode.OFF,
                                 onClick = {
                                     torMode.value = com.bitchat.android.net.TorMode.OFF
                                     com.bitchat.android.net.TorPreferenceManager.set(ctx, torMode.value)
                                 },
-                                label = { Text("off", fontFamily = FontFamily.Monospace) }
+                                label = { Text("tor off", fontFamily = FontFamily.Monospace) }
                             )
                             FilterChip(
                                 selected = torMode.value == com.bitchat.android.net.TorMode.ON,
@@ -234,7 +252,7 @@ fun AboutSheet(
                                     torMode.value = com.bitchat.android.net.TorMode.ISOLATION
                                     com.bitchat.android.net.TorPreferenceManager.set(ctx, torMode.value)
                                 },
-                                label = { Text("isolation", fontFamily = FontFamily.Monospace) }
+                                label = { Text("isolation mode", fontFamily = FontFamily.Monospace) }
                             )
                         }
                         Text(
