@@ -122,9 +122,13 @@ class NostrTestManager(private val context: Context) {
         val (recipientPrivate, recipientPublic) = NostrCrypto.generateKeyPair()
         val plaintext = "Hello, Nostr world! This is a test message."
         
-        val encrypted = NostrCrypto.encryptNIP44(plaintext, recipientPublic, privateKey)
+        val encrypted = NostrCrypto.encryptNIP44(
+            plaintext,
+            recipientPublic,
+            privateKey
+        )
         require(encrypted.isNotEmpty()) { "Encryption failed" }
-        
+
         val decrypted = NostrCrypto.decryptNIP44(encrypted, publicKey, recipientPrivate)
         require(decrypted == plaintext) { "Decryption failed: expected '$plaintext', got '$decrypted'" }
         

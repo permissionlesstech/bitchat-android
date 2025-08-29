@@ -465,7 +465,8 @@ class BluetoothMeshService(private val context: Context) {
      * Uses NoisePayloadType system exactly like iOS SimplifiedBluetoothService
      */
     fun sendPrivateMessage(content: String, recipientPeerID: String, recipientNickname: String, messageID: String? = null) {
-        if (content.isEmpty() || recipientPeerID.isEmpty() || recipientNickname.isEmpty()) return
+        if (content.isEmpty() || recipientPeerID.isEmpty()) return
+        if (!recipientPeerID.startsWith("nostr_") && recipientNickname.isEmpty()) return
         
         serviceScope.launch {
             val finalMessageID = messageID ?: java.util.UUID.randomUUID().toString()

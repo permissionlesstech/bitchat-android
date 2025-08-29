@@ -5,6 +5,8 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
@@ -15,7 +17,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import java.util.*
+import androidx.compose.ui.text.style.TextOverflow
 
 /**
  * GeohashPeopleList - iOS-compatible component for displaying geohash participants
@@ -77,7 +81,7 @@ fun GeohashPeopleList(
                 text = "nobody around...",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 14.sp
+                    fontSize = BASE_FONT_SIZE.sp
                 ),
                 color = colorScheme.onSurface.copy(alpha = 0.5f),
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
@@ -112,6 +116,16 @@ fun GeohashPeopleList(
                     }
                 }
             }
+
+            // Compute base name collisions to decide whether to show hash suffix
+            val baseNameCounts = remember(geohashPeople) {
+                val counts = mutableMapOf<String, Int>()
+                geohashPeople.forEach { person ->
+                    val (b, _) = com.bitchat.android.ui.splitSuffix(person.displayName)
+                    counts[b] = (counts[b] ?: 0) + 1
+                }
+                counts
+            }
             
             val firstID = orderedPeople.firstOrNull()?.id
             
@@ -126,11 +140,12 @@ fun GeohashPeopleList(
                     nickname = nickname,
                     colorScheme = colorScheme,
                     viewModel = viewModel,
+                    showHashSuffix = (baseNameCounts[com.bitchat.android.ui.splitSuffix(person.displayName).first] ?: 0) > 1,
                     onTap = {
                         if (person.id != myHex) {
                             // TODO: Re-enable when NIP-17 geohash DM issues are fixed
                             // Start geohash DM (iOS-compatible)
-                            // viewModel.startGeohashDM(person.id)
+                            viewModel.startGeohashDM(person.id)
                             onTapPerson()
                         }
                     }
@@ -151,6 +166,7 @@ private fun GeohashPersonItem(
     nickname: String,
     colorScheme: ColorScheme,
     viewModel: ChatViewModel,
+    showHashSuffix: Boolean,
     onTap: () -> Unit
 ) {
     Row(
@@ -181,8 +197,8 @@ private fun GeohashPersonItem(
             
             // Use appropriate Material icon (closest match to iOS SF Symbols)
             val icon = when (iconName) {
-                "face.dashed" -> Icons.Default.Face // Use regular face icon (no dashed variant in Material)
-                else -> Icons.Default.Face
+                "face.dashed" -> Icons.Outlined.Explore
+                else -> Icons.Outlined.LocationOn
             }
             
             Icon(
@@ -195,8 +211,10 @@ private fun GeohashPersonItem(
         
         Spacer(modifier = Modifier.width(8.dp))
         
-        // Display name with suffix handling (matches iOS splitSuffix logic)
-        val (baseName, suffix) = com.bitchat.android.ui.splitSuffix(person.displayName)
+        // Display name with suffix handling
+        val (baseNameRaw, suffixRaw) = com.bitchat.android.ui.splitSuffix(person.displayName)
+        val baseName = truncateNickname(baseNameRaw)
+        val suffix = if (showHashSuffix) suffixRaw else ""
         
         // Get consistent peer color (matches iOS color assignment exactly)
         val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
@@ -212,10 +230,12 @@ private fun GeohashPersonItem(
                 text = baseName,
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 14.sp,
+                    fontSize = BASE_FONT_SIZE.sp,
                     fontWeight = if (isMe) FontWeight.Bold else FontWeight.Normal
                 ),
-                color = baseColor
+                color = baseColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             
             // Suffix (collision-resistant #abcd) in lighter shade
@@ -224,7 +244,7 @@ private fun GeohashPersonItem(
                     text = suffix,
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontFamily = FontFamily.Monospace,
-                        fontSize = 14.sp
+                        fontSize = BASE_FONT_SIZE.sp
                     ),
                     color = baseColor.copy(alpha = 0.6f)
                 )
@@ -236,7 +256,7 @@ private fun GeohashPersonItem(
                     text = " (you)",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontFamily = FontFamily.Monospace,
-                        fontSize = 14.sp
+                        fontSize = BASE_FONT_SIZE.sp
                     ),
                     color = baseColor
                 )

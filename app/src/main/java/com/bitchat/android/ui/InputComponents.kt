@@ -34,6 +34,8 @@ import androidx.compose.ui.unit.sp
 import com.bitchat.android.R
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.withStyle
+import com.bitchat.android.ui.theme.BASE_FONT_SIZE
+import androidx.compose.foundation.isSystemInDarkTheme
 
 /**
  * Input components for ChatScreen
@@ -326,7 +328,7 @@ fun CommandSuggestionItem(
                 fontWeight = FontWeight.Medium
             ),
             color = colorScheme.primary,
-            fontSize = 11.sp
+            fontSize = (BASE_FONT_SIZE - 4).sp
         )
 
         // Show syntax if any
@@ -337,7 +339,7 @@ fun CommandSuggestionItem(
                     fontFamily = FontFamily.Monospace
                 ),
                 color = colorScheme.onSurface.copy(alpha = 0.8f),
-                fontSize = 10.sp
+                fontSize = (BASE_FONT_SIZE - 5).sp
             )
         }
 
@@ -348,7 +350,7 @@ fun CommandSuggestionItem(
                 fontFamily = FontFamily.Monospace
             ),
             color = colorScheme.onSurface.copy(alpha = 0.7f),
-            fontSize = 10.sp,
+            fontSize = (BASE_FONT_SIZE - 5).sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -400,7 +402,7 @@ fun MentionSuggestionItem(
                 fontWeight = FontWeight.SemiBold
             ),
             color = Color(0xFFFF9500), // Orange like mentions
-            fontSize = 11.sp
+            fontSize = (BASE_FONT_SIZE - 4).sp
         )
         
         Spacer(modifier = Modifier.weight(1f))
@@ -411,7 +413,7 @@ fun MentionSuggestionItem(
                 fontFamily = FontFamily.Monospace
             ),
             color = colorScheme.onSurface.copy(alpha = 0.7f),
-            fontSize = 10.sp
+            fontSize = (BASE_FONT_SIZE - 5).sp
         )
     }
 }

@@ -6,48 +6,51 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-// Typography matching the iOS monospace design - increased font sizes for better readability
+// Base font size for consistent scaling across the app
+const val BASE_FONT_SIZE = 15 // sp - increased from 14sp for better readability
+
+// Typography matching the iOS monospace design - using BASE_FONT_SIZE for consistency
 val Typography = Typography(
     bodyLarge = TextStyle(
         fontFamily = FontFamily.Monospace,
         fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 22.sp
+        fontSize = (BASE_FONT_SIZE + 1).sp,
+        lineHeight = (BASE_FONT_SIZE + 7).sp
     ),
     bodyMedium = TextStyle(
         fontFamily = FontFamily.Monospace,
         fontWeight = FontWeight.Normal,
-        fontSize = 14.sp,
-        lineHeight = 18.sp
+        fontSize = BASE_FONT_SIZE.sp,
+        lineHeight = (BASE_FONT_SIZE + 3).sp
     ),
     bodySmall = TextStyle(
         fontFamily = FontFamily.Monospace,
         fontWeight = FontWeight.Normal,
-        fontSize = 12.sp,
-        lineHeight = 16.sp
+        fontSize = (BASE_FONT_SIZE - 3).sp,
+        lineHeight = (BASE_FONT_SIZE + 1).sp
     ),
     headlineSmall = TextStyle(
         fontFamily = FontFamily.Monospace,
         fontWeight = FontWeight.Medium,
-        fontSize = 18.sp,
-        lineHeight = 24.sp
+        fontSize = (BASE_FONT_SIZE + 3).sp,
+        lineHeight = (BASE_FONT_SIZE + 9).sp
     ),
     titleMedium = TextStyle(
         fontFamily = FontFamily.Monospace,
         fontWeight = FontWeight.Medium,
-        fontSize = 16.sp,
-        lineHeight = 22.sp
+        fontSize = (BASE_FONT_SIZE + 1).sp,
+        lineHeight = (BASE_FONT_SIZE + 7).sp
     ),
     labelMedium = TextStyle(
         fontFamily = FontFamily.Monospace,
         fontWeight = FontWeight.Medium,
-        fontSize = 13.sp,
-        lineHeight = 18.sp
+        fontSize = (BASE_FONT_SIZE - 2).sp,
+        lineHeight = (BASE_FONT_SIZE + 3).sp
     ),
     labelSmall = TextStyle(
         fontFamily = FontFamily.Monospace,
         fontWeight = FontWeight.Normal,
-        fontSize = 11.sp,
-        lineHeight = 16.sp
+        fontSize = (BASE_FONT_SIZE - 4).sp,
+        lineHeight = (BASE_FONT_SIZE + 1).sp
     )
 )

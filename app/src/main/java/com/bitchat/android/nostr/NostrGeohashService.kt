@@ -16,6 +16,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.util.*
 
 /**
@@ -29,7 +31,8 @@ class NostrGeohashService(
     private val privateChatManager: PrivateChatManager,
     private val meshDelegateHandler: MeshDelegateHandler,
     private val coroutineScope: CoroutineScope,
-    private val dataManager: com.bitchat.android.ui.DataManager
+    private val dataManager: com.bitchat.android.ui.DataManager,
+    private val notificationManager: com.bitchat.android.ui.NotificationManager
 ) {
     
     companion object {
@@ -51,7 +54,8 @@ class NostrGeohashService(
             privateChatManager: PrivateChatManager,
             meshDelegateHandler: MeshDelegateHandler,
             coroutineScope: CoroutineScope,
-            dataManager: com.bitchat.android.ui.DataManager
+            dataManager: com.bitchat.android.ui.DataManager,
+            notificationManager: com.bitchat.android.ui.NotificationManager
         ): NostrGeohashService {
             return synchronized(this) {
                 INSTANCE ?: NostrGeohashService(
@@ -61,7 +65,8 @@ class NostrGeohashService(
                     privateChatManager,
                     meshDelegateHandler,
                     coroutineScope,
-                    dataManager
+                    dataManager,
+                    notificationManager
                 ).also { INSTANCE = it }
             }
         }
@@ -72,7 +77,7 @@ class NostrGeohashService(
     private val processedNostrEvents = mutableSetOf<String>()
     private val processedNostrEventOrder = mutableListOf<String>()
     private val maxProcessedNostrEvents = 2000
-    private val processedNostrAcks = mutableSetOf<String>()
+    // removed unused processedNostrAcks
     private val nostrKeyMapping = mutableMapOf<String, String>() // senderPeerID -> nostrPubkey
     
     // MARK: - Geohash Participant Tracking Properties
@@ -116,7 +121,7 @@ class NostrGeohashService(
             // Subscribe to gift wraps (NIP-17 private messages)
             val dmFilter = NostrFilter.giftWrapsFor(
                 pubkey = currentIdentity.publicKeyHex,
-                since = System.currentTimeMillis() - 86400000L // Last 24 hours
+                since = System.currentTimeMillis() - 172800000L // Last 48 hours (align with NIP-17 randomization)
             )
             
             nostrRelayManager.subscribe(
@@ -128,6 +133,76 @@ class NostrGeohashService(
             )
             
             Log.i(TAG, "✅ Nostr integration initialized with gift wrap subscription")
+        }
+    }
+
+    /**
+     * Panic/reset flow for Nostr + geohash systems.
+     * - Disconnect and clear all Nostr relay subscriptions and caches
+     * - Delete device-wide Nostr keys and per-geohash seed cache
+     * - Clear geohash participants, nicknames, message history
+     * - Recreate identity and reconnect; reinitialize subscriptions from scratch
+     */
+    fun panicResetNostrAndGeohash() {
+        coroutineScope.launch {
+            try {
+                val relayManager = NostrRelayManager.getInstance(application)
+
+                // 1) Disconnect from all relays
+                relayManager.disconnect()
+
+                // 2) Clear all subscription tracking and caches
+                relayManager.clearAllSubscriptions()
+
+                // 3) Clear Nostr identity (npub/private) and geohash identity cache/seed
+                try {
+                    NostrIdentityBridge.clearAllAssociations(application)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to clear Nostr associations: ${e.message}")
+                }
+
+                // 4) Clear local geohash state (participants, nicknames, message history)
+                try {
+                    geohashParticipants.clear()
+                    geoNicknames.clear()
+                    geohashMessageHistory.clear()
+                    processedNostrEvents.clear()
+                    processedNostrEventOrder.clear()
+                    currentGeohashSubscriptionId = null
+                    currentGeohashDmSubscriptionId = null
+                    currentGeohash = null
+                    state.setGeohashPeople(emptyList())
+                    state.setTeleportedGeo(emptySet())
+                    state.setGeohashParticipantCounts(emptyMap())
+                    // Stop any timers/jobs
+                    geohashSamplingJob?.cancel()
+                    geohashSamplingJob = null
+                    geoParticipantsTimer?.cancel()
+                    geoParticipantsTimer = null
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to clear geohash state: ${e.message}")
+                }
+
+                // 5) Recreate identity and reconnect, then re-subscribe
+                try {
+                    // Touch identity to recreate
+                    val identity = NostrIdentityBridge.getCurrentNostrIdentity(application)
+                    if (identity == null) {
+                        Log.w(TAG, "No identity after reset; skipping subscriptions")
+                        return@launch
+                    }
+
+                    // Reconnect to relays and reinitialize subscriptions
+                    relayManager.connect()
+                    initializeNostrIntegration()
+                    // Re-establish location channel state observers and subscriptions
+                    initializeLocationChannelState()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to reinitialize Nostr after reset: ${e.message}")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "panicResetNostrAndGeohash error: ${e.message}")
+            }
         }
     }
     
@@ -178,11 +253,17 @@ class NostrGeohashService(
                     content = content,
                     geohash = channel.geohash,
                     senderIdentity = identity,
-                    nickname = nickname
+                    nickname = nickname,
+                    teleported = teleported
                 )
                 
                 val nostrRelayManager = NostrRelayManager.getInstance(application)
-                nostrRelayManager.sendEvent(event)
+                nostrRelayManager.sendEventToGeohash(
+                    event = event,
+                    geohash = channel.geohash,
+                    includeDefaults = false,
+                    nRelays = 5
+                )
                 
                 Log.i(TAG, "📤 Sent geohash message to ${channel.geohash}: ${content.take(50)}")
                 
@@ -212,9 +293,11 @@ class NostrGeohashService(
      * Handle incoming Nostr message (gift wrap)
      */
     private fun handleNostrMessage(giftWrap: NostrEvent) {
-        // Simple deduplication
-        if (processedNostrEvents.contains(giftWrap.id)) return
-        processedNostrEvents.add(giftWrap.id)
+        // Offload processing to avoid blocking UI
+        coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+            // Simple deduplication
+            if (processedNostrEvents.contains(giftWrap.id)) return@launch
+            processedNostrEvents.add(giftWrap.id)
         
         // Manage deduplication cache size
         processedNostrEventOrder.add(giftWrap.id)
@@ -225,17 +308,19 @@ class NostrGeohashService(
         
         // Client-side filtering: ignore messages older than 24 hours + 15 minutes buffer
         val messageAge = System.currentTimeMillis() / 1000 - giftWrap.createdAt
-        if (messageAge > 87300) { // 24 hours + 15 minutes
-            return
+        if (messageAge > 173700) { // 48 hours + 15 minutes
+            return@launch
         }
         
-        Log.d(TAG, "Processing Nostr message: ${giftWrap.id.take(16)}...")
+            Log.d(TAG, "Processing Nostr message: ${giftWrap.id.take(16)}...")
+
+        // Removed legacy NostrReadStore usage; rely on SeenMessageStore by message ID
         
-        val currentIdentity = NostrIdentityBridge.getCurrentNostrIdentity(application)
-        if (currentIdentity == null) {
-            Log.w(TAG, "No Nostr identity available for decryption")
-            return
-        }
+            val currentIdentity = NostrIdentityBridge.getCurrentNostrIdentity(application)
+            if (currentIdentity == null) {
+                Log.w(TAG, "No Nostr identity available for decryption")
+                return@launch
+            }
         
         try {
             val decryptResult = NostrProtocol.decryptPrivateMessage(
@@ -245,7 +330,7 @@ class NostrGeohashService(
             
             if (decryptResult == null) {
                 Log.w(TAG, "Failed to decrypt Nostr message")
-                return
+                return@launch
             }
             
             val (content, senderPubkey, rumorTimestamp) = decryptResult
@@ -253,26 +338,26 @@ class NostrGeohashService(
             // Expect embedded BitChat packet content
             if (!content.startsWith("bitchat1:")) {
                 Log.d(TAG, "Ignoring non-embedded Nostr DM content")
-                return
+                return@launch
             }
             
             val base64Content = content.removePrefix("bitchat1:")
             val packetData = base64URLDecode(base64Content)
             if (packetData == null) {
                 Log.e(TAG, "Failed to decode base64url BitChat packet")
-                return
+                return@launch
             }
             
             val packet = com.bitchat.android.protocol.BitchatPacket.fromBinaryData(packetData)
             if (packet == null) {
                 Log.e(TAG, "Failed to parse embedded BitChat packet from Nostr DM")
-                return
+                return@launch
             }
             
             // Only process noiseEncrypted envelope for private messages/receipts
             if (packet.type != com.bitchat.android.protocol.MessageType.NOISE_ENCRYPTED.value) {
                 Log.w(TAG, "Unsupported embedded packet type: ${packet.type}")
-                return
+                return@launch
             }
             
             // Validate recipient if present
@@ -286,38 +371,87 @@ class NostrGeohashService(
             val noisePayload = com.bitchat.android.model.NoisePayload.decode(packet.payload)
             if (noisePayload == null) {
                 Log.e(TAG, "Failed to parse embedded NoisePayload")
-                return
+                return@launch
             }
             
             // Map sender by Nostr pubkey to Noise key when possible
             val senderNoiseKey = findNoiseKeyForNostrPubkey(senderPubkey)
             val messageTimestamp = Date(rumorTimestamp * 1000L)
-            val senderNickname = if (senderNoiseKey != null) {
-                // Get nickname from favorites
-                getFavoriteNickname(senderNoiseKey) ?: "Unknown"
+
+            // If we know the Noise key, try to resolve a currently connected mesh peer ID for it
+            val targetPeerID: String = if (senderNoiseKey != null) {
+                val meshPeerId = resolveMeshPeerIdForNoiseKey(senderNoiseKey)
+                if (meshPeerId != null) {
+                    // Also unify existing noise-hex/nostr-temp chats into this mesh peer
+                    val noiseHex = senderNoiseKey.joinToString("") { b -> "%02x".format(b) }
+                    val tempKey = "nostr_${senderPubkey.take(16)}"
+                    unifyChatsIntoPeer(meshPeerId, listOf(noiseHex, tempKey))
+
+                    // If currently viewing the temporary or noise-hex chat, auto-switch to mesh peer
+                    val selected = state.getSelectedPrivateChatPeerValue()
+                    if (selected == noiseHex || selected == tempKey) {
+                        state.setSelectedPrivateChatPeer(meshPeerId)
+                    }
+                    meshPeerId
+                } else {
+                    senderNoiseKey.joinToString("") { b -> "%02x".format(b) }
+                }
+            } else {
+                "nostr_${senderPubkey.take(16)}"
+            }
+
+            // Prefer nickname from mesh when connected; else fallback to favorites
+            val senderNickname: String = if (senderNoiseKey != null) {
+                val meshPeerId = resolveMeshPeerIdForNoiseKey(senderNoiseKey)
+                if (meshPeerId != null) {
+                    // Use live mesh nickname if available
+                    meshDelegateHandler.getPeerInfo(meshPeerId)?.nickname
+                        ?: getFavoriteNickname(senderNoiseKey)
+                        ?: "Unknown"
+                } else {
+                    getFavoriteNickname(senderNoiseKey) ?: "Unknown"
+                }
             } else {
                 "Unknown"
             }
             
-            // Stable target ID if we know Noise key; otherwise temporary Nostr-based peer
-            val targetPeerID = senderNoiseKey?.let { 
-                it.joinToString("") { byte -> "%02x".format(byte) }
-            } ?: "nostr_${senderPubkey.take(16)}"
-            
             // Store Nostr key mapping
             nostrKeyMapping[targetPeerID] = senderPubkey
             
+            // Process payload and update UI/state
             processNoisePayload(noisePayload, targetPeerID, senderNickname, messageTimestamp)
+
+            // If this was a private message, send a delivery ACK back over Nostr
+            if (noisePayload.type == com.bitchat.android.model.NoisePayloadType.PRIVATE_MESSAGE) {
+                val pm = com.bitchat.android.model.PrivateMessagePacket.decode(noisePayload.data)
+                pm?.let { pmsg ->
+                    val seen = com.bitchat.android.services.SeenMessageStore.getInstance(application)
+                    if (!seen.hasDelivered(pmsg.messageID)) {
+                        val nostrTransport = NostrTransport.getInstance(application)
+                        if (senderNoiseKey != null) {
+                            val peerIdHex = senderNoiseKey.joinToString("") { b -> "%02x".format(b) }
+                            nostrTransport.sendDeliveryAck(pmsg.messageID, peerIdHex)
+                        } else {
+                            val identity = NostrIdentityBridge.getCurrentNostrIdentity(application)
+                            if (identity != null) {
+                                nostrTransport.sendDeliveryAckGeohash(pmsg.messageID, senderPubkey, identity)
+                            }
+                        }
+                        seen.markDelivered(pmsg.messageID)
+                    }
+                }
+            }
             
         } catch (e: Exception) {
             Log.e(TAG, "Error processing Nostr message: ${e.message}")
+        }
         }
     }
     
     /**
      * Process NoisePayload from Nostr message
      */
-    private fun processNoisePayload(
+    private suspend fun processNoisePayload(
         noisePayload: com.bitchat.android.model.NoisePayload,
         targetPeerID: String,
         senderNickname: String,
@@ -333,6 +467,8 @@ class NostrGeohashService(
                 
                 val messageId = pm.messageID
                 val messageContent = pm.content
+                val seen = com.bitchat.android.services.SeenMessageStore.getInstance(application)
+                val suppressUnread = seen.hasRead(messageId)
                 
                 // Handle favorite/unfavorite notifications
                 if (messageContent.startsWith("[FAVORITED]") || messageContent.startsWith("[UNFAVORITED]")) {
@@ -370,13 +506,18 @@ class NostrGeohashService(
                     )
                 )
                 
-                // Add to private chats
-                privateChatManager.handleIncomingPrivateMessage(message)
-                
-                // Send read receipt if viewing
-                if (isViewingThisChat) {
-                    // Note: meshService needs to be passed as parameter
-                    // privateChatManager.sendReadReceiptsForPeer(targetPeerID, meshService)
+                // Add to private chats on Main
+                withContext(Dispatchers.Main) {
+                    privateChatManager.handleIncomingPrivateMessage(message, suppressUnread)
+                }
+
+                // Send read receipt if viewing (only once across restarts)
+                if (isViewingThisChat && !seen.hasRead(messageId)) {
+                    try {
+                        val rr = com.bitchat.android.model.ReadReceipt(originalMessageID = messageId)
+                        NostrTransport.getInstance(application).sendReadReceipt(rr, targetPeerID)
+                        seen.markRead(messageId)
+                    } catch (_: Exception) { }
                 }
                 
                 Log.i(TAG, "📥 Processed Nostr private message from $senderNickname")
@@ -384,15 +525,19 @@ class NostrGeohashService(
             
             com.bitchat.android.model.NoisePayloadType.DELIVERED -> {
                 val messageId = String(noisePayload.data, Charsets.UTF_8)
-                // Use the existing delegate to handle delivery acknowledgment
-                meshDelegateHandler.didReceiveDeliveryAck(messageId, targetPeerID)
+                // Use the existing delegate to handle delivery acknowledgment on Main
+                withContext(Dispatchers.Main) {
+                    meshDelegateHandler.didReceiveDeliveryAck(messageId, targetPeerID)
+                }
                 Log.d(TAG, "📥 Processed Nostr delivery ACK for message $messageId")
             }
             
             com.bitchat.android.model.NoisePayloadType.READ_RECEIPT -> {
                 val messageId = String(noisePayload.data, Charsets.UTF_8)
-                // Use the existing delegate to handle read receipt
-                meshDelegateHandler.didReceiveReadReceipt(messageId, targetPeerID)
+                // Use the existing delegate to handle read receipt on Main
+                withContext(Dispatchers.Main) {
+                    meshDelegateHandler.didReceiveReadReceipt(messageId, targetPeerID)
+                }
                 Log.d(TAG, "📥 Processed Nostr read receipt for message $messageId")
             }
         }
@@ -411,6 +556,28 @@ class NostrGeohashService(
     private fun getFavoriteNickname(noiseKey: ByteArray): String? {
         return com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)?.peerNickname
     }
+
+    /**
+     * Resolve a currently-connected mesh peer ID for a given Noise public key
+     * by matching against the mesh service's peer info noisePublicKey values.
+     */
+    private fun resolveMeshPeerIdForNoiseKey(noiseKey: ByteArray): String? {
+        return try {
+            val peers: List<String> = state.getConnectedPeersValue()
+            peers.firstOrNull { peerId: String ->
+                val info = meshDelegateHandler.getPeerInfo(peerId)
+                info?.noisePublicKey?.contentEquals(noiseKey) == true
+            }
+        } catch (_: Exception) { null }
+    }
+
+    /**
+     * Merge any chats stored under the given keys into the target peer's chat entry
+     * so messages received while offline appear in the same chat when the peer connects.
+     */
+    private fun unifyChatsIntoPeer(targetPeerID: String, keysToMerge: List<String>) {
+        com.bitchat.android.services.ConversationAliasResolver.unifyChatsIntoPeer(state, targetPeerID, keysToMerge)
+    }
     
     /**
      * Handle favorite/unfavorite notification
@@ -418,16 +585,72 @@ class NostrGeohashService(
     private fun handleFavoriteNotification(content: String, fromPeerID: String, senderNickname: String) {
         val isFavorite = content.startsWith("[FAVORITED]")
         val action = if (isFavorite) "favorited" else "unfavorited"
-        
+
+        // Try to extract npub after colon, if present
+        val npub = content.substringAfter(":", "").trim().takeIf { it.startsWith("npub1") }
+
+        // Resolve noise key if possible and persist relationship + npub mapping
+        try {
+            var noiseKey: ByteArray? = null
+            // If fromPeerID looks like hex (noise key), decode
+            val hexRegex = Regex("^[0-9a-fA-F]+$")
+            if (fromPeerID.matches(hexRegex) && (fromPeerID.length % 2 == 0)) {
+                // Expect 64 hex chars for full Curve25519 key; accept others best-effort
+                val bytes = fromPeerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+                // Use only if length is plausible
+                if (bytes.isNotEmpty()) noiseKey = bytes
+            } else {
+                // fromPeerID likely a temporary key like "nostr_..."; map to Nostr pubkey
+                val senderPubkey = nostrKeyMapping[fromPeerID]
+                if (senderPubkey != null) {
+                    noiseKey = findNoiseKeyForNostrPubkey(senderPubkey)
+                }
+            }
+
+            if (noiseKey != null) {
+                com.bitchat.android.favorites.FavoritesPersistenceService.shared.updatePeerFavoritedUs(noiseKey, isFavorite)
+                if (npub != null) {
+                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateNostrPublicKey(noiseKey, npub)
+                }
+            }
+        } catch (_: Exception) {
+            // Best-effort
+        }
+
+        // Determine guidance text based on mutual status (iOS-style)
+        val guidance = try {
+            val rel = run {
+                // Try to resolve via noise key directly or mapping
+                var key: ByteArray? = null
+                val hexRegex = Regex("^[0-9a-fA-F]+$")
+                if (fromPeerID.matches(hexRegex) && (fromPeerID.length % 2 == 0)) {
+                    key = fromPeerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+                } else {
+                    val mappedNostr = nostrKeyMapping[fromPeerID]
+                    key = mappedNostr?.let { findNoiseKeyForNostrPubkey(it) }
+                }
+                key?.let { com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(it) }
+            }
+            if (isFavorite) {
+                if (rel?.isFavorite == true) {
+                    " — mutual! You can continue DMs via Nostr when out of mesh."
+                } else {
+                    " — favorite back to continue DMs later."
+                }
+            } else {
+                ". DMs over Nostr will pause unless you both favorite again."
+            }
+        } catch (_: Exception) { "" }
+
         // Show system message
         val systemMessage = BitchatMessage(
             sender = "system",
-            content = "$senderNickname $action you",
+            content = "$senderNickname $action you$guidance",
             timestamp = Date(),
             isRelay = false
         )
         messageManager.addMessage(systemMessage)
-        
+
         Log.i(TAG, "📥 Processed favorite notification: $senderNickname $action you")
     }
     
@@ -457,7 +680,6 @@ class NostrGeohashService(
     private fun storeGeohashMessage(geohash: String, message: BitchatMessage) {
         val messages = geohashMessageHistory.getOrPut(geohash) { mutableListOf() }
         messages.add(message)
-        messages.sortBy { it.timestamp }
         
         // Limit message history to prevent memory issues
         if (messages.size > maxGeohashMessages) {
@@ -528,7 +750,7 @@ class NostrGeohashService(
         geohashSamplingJob = coroutineScope.launch {
             val nostrRelayManager = NostrRelayManager.getInstance(application)
             
-            // Subscribe to each geohash for ephemeral events (kind 20000)
+            // Subscribe to each geohash for ephemeral events (kind 20000) using geohash-specific relays
             geohashes.forEach { geohash ->
                 val filter = NostrFilter.geohashEphemeral(
                     geohash = geohash,
@@ -536,12 +758,15 @@ class NostrGeohashService(
                     limit = 200
                 )
                 
-                nostrRelayManager.subscribe(
+                nostrRelayManager.subscribeForGeohash(
+                    geohash = geohash,
                     filter = filter,
                     id = "geohash-$geohash",
                     handler = { event ->
                         handleUnifiedGeohashEvent(event, geohash)
-                    }
+                    },
+                    includeDefaults = false,
+                    nRelays = 5
                 )
                 
                 Log.d(TAG, "Subscribed to geohash events for: $geohash")
@@ -751,6 +976,10 @@ class NostrGeohashService(
                     Log.d(TAG, "📡 Switched to mesh channel")
                     // Immediate UI state updates
                     currentGeohash = null
+                    // Update notification manager with current geohash
+                    notificationManager.setCurrentGeohash(null)
+                    // Clear mesh mention notifications since user is now viewing mesh chat
+                    notificationManager.clearMeshMentionNotifications()
                     // Note: Don't clear geoNicknames - keep cached for when we return to location channels
                     stopGeoParticipantsTimer()
                     state.setGeohashPeople(emptyList())
@@ -760,6 +989,10 @@ class NostrGeohashService(
                 is com.bitchat.android.geohash.ChannelID.Location -> {
                     Log.d(TAG, "📍 Switching to geohash channel: ${channel.channel.geohash}")
                     currentGeohash = channel.channel.geohash
+                    // Update notification manager with current geohash
+                    notificationManager.setCurrentGeohash(channel.channel.geohash)
+                    // Clear notifications for this geohash since user is now viewing it
+                    notificationManager.clearNotificationsForGeohash(channel.channel.geohash)
                     // Note: Don't clear geoNicknames - they contain cached nicknames for all geohashes
                     
                     // Load stored messages for this geohash immediately
@@ -846,7 +1079,7 @@ class NostrGeohashService(
                     try {
                         val nostrRelayManager = NostrRelayManager.getInstance(application)
                         
-                        // Subscribe to geohash ephemeral events for this specific channel
+                        // Subscribe to geohash ephemeral events for this specific channel using geohash-specific relays
                         val geohashSubId = "geohash-${channel.channel.geohash}"
                         currentGeohashSubscriptionId = geohashSubId
                         
@@ -856,12 +1089,15 @@ class NostrGeohashService(
                             limit = 200
                         )
                         
-                        nostrRelayManager.subscribe(
+                        nostrRelayManager.subscribeForGeohash(
+                            geohash = channel.channel.geohash,
                             filter = geohashFilter,
                             id = geohashSubId,
                             handler = { event ->
                                 handleUnifiedGeohashEvent(event, channel.channel.geohash)
-                            }
+                            },
+                            includeDefaults = false,
+                            nRelays = 5
                         )
                         
                         Log.i(TAG, "✅ Subscribed to geohash ephemeral events: #${channel.channel.geohash}")
@@ -877,15 +1113,17 @@ class NostrGeohashService(
                         
                         val dmFilter = NostrFilter.giftWrapsFor(
                             pubkey = dmIdentity.publicKeyHex,
-                            since = System.currentTimeMillis() - 86400000L // Last 24 hours
+                            since = System.currentTimeMillis() - 172800000L // Last 48 hours (align with NIP-17 randomization)
                         )
                         
+                        // IMPORTANT: For geohash DMs, use default relays (iOS behavior)
                         nostrRelayManager.subscribe(
                             filter = dmFilter,
                             id = dmSubId,
                             handler = { giftWrap ->
                                 handleGeohashDmEvent(giftWrap, channel.channel.geohash, dmIdentity)
-                            }
+                            },
+                            targetRelayUrls = null
                         )
                         
                         Log.i(TAG, "✅ Subscribed to geohash DMs for identity: ${dmIdentity.publicKeyHex.take(16)}...")
@@ -908,25 +1146,26 @@ class NostrGeohashService(
      * Handles participant tracking, nickname caching, message display, and teleport state
      */
     private fun handleUnifiedGeohashEvent(event: NostrEvent, geohash: String) {
+        coroutineScope.launch(Dispatchers.Default) {
         try {
             Log.v(TAG, "🔍 handleUnifiedGeohashEvent called - eventGeohash: $geohash, currentGeohash: $currentGeohash, eventKind: ${event.kind}, eventId: ${event.id.take(8)}...")
             
             // Only handle ephemeral kind 20000 events
             if (event.kind != 20000) {
                 Log.v(TAG, "❌ Skipping non-ephemeral event (kind ${event.kind})")
-                return
+                return@launch
             }
             
             // Check if this user is blocked in geohash channels BEFORE any processing
             if (isGeohashUserBlocked(event.pubkey)) {
                 Log.v(TAG, "🚫 Skipping event from blocked geohash user: ${event.pubkey.take(8)}...")
-                return
+                return@launch
             }
             
             // Deduplicate events
             if (processedNostrEvents.contains(event.id)) {
                 Log.v(TAG, "❌ Skipping duplicate event ${event.id.take(8)}...")
-                return
+                return@launch
             }
             processedNostrEvents.add(event.id)
             
@@ -939,7 +1178,7 @@ class NostrGeohashService(
             
             // STEP 1: Always update participant activity for all geohashes (for location channel list)
             val timestamp = Date(event.createdAt * 1000L)
-            updateGeohashParticipant(geohash, event.pubkey, timestamp)
+            withContext(Dispatchers.Main) { updateGeohashParticipant(geohash, event.pubkey, timestamp) }
             
             // STEP 2: Always cache nickname from tag if present (for all geohashes)
             event.tags.find { it.size >= 2 && it[0] == "n" }?.let { nickTag ->
@@ -951,7 +1190,7 @@ class NostrGeohashService(
                 
                 // If this is a new nickname or nickname change for current geohash, refresh people list
                 if (previousNick != nick && currentGeohash == geohash) {
-                    refreshGeohashPeople()
+                    withContext(Dispatchers.Main) { refreshGeohashPeople() }
                 }
             }
             
@@ -961,7 +1200,7 @@ class NostrGeohashService(
                 val currentTeleported = state.getTeleportedGeoValue().toMutableSet()
                 if (!currentTeleported.contains(key)) {
                     currentTeleported.add(key)
-                    state.setTeleportedGeo(currentTeleported)
+                    withContext(Dispatchers.Main) { state.setTeleportedGeo(currentTeleported) }
                     Log.d(TAG, "📍 Marked geohash participant as teleported: ${event.pubkey.take(8)}...")
                 }
             }
@@ -972,7 +1211,7 @@ class NostrGeohashService(
                 context = application
             )
             if (myGeoIdentity.publicKeyHex.lowercase() == event.pubkey.lowercase()) {
-                return
+                return@launch
             }
             
             // STEP 5: Store mapping for potential geohash DM initiation
@@ -987,14 +1226,15 @@ class NostrGeohashService(
                                      event.content.trim().isEmpty()
             if (isTeleportPresence) {
                 Log.v(TAG, "Skipping empty teleport presence event")
-                return
+                return@launch
             }
             
-            val senderName = displayNameForNostrPubkey(event.pubkey)
+            val senderHandle = displayNameForNostrPubkey(event.pubkey)
+            val senderName = displayNameForNostrPubkeyUI(event.pubkey)
             val content = event.content
             
-            // Use local time instead of Nostr event time for consistent message ordering
-            val messageTimestamp = Date()
+            // Preserve Nostr event time to avoid reordering
+            val messageTimestamp = Date(event.createdAt.toLong() * 1000L)
             // Note: mentions parsing needs peer nicknames parameter
             // val mentions = messageManager.parseMentions(content, peerNicknames, nickname)
             
@@ -1004,6 +1244,7 @@ class NostrGeohashService(
                 content = content,
                 timestamp = messageTimestamp,
                 isRelay = false,
+                originalSender = senderHandle,
                 senderPeerID = "nostr:${event.pubkey.take(8)}",
                 mentions = null, // mentions need to be passed from outside
                 channel = "#$geohash"
@@ -1020,14 +1261,138 @@ class NostrGeohashService(
                  selectedLocationChannel.channel.geohash == geohash)
             
             if (shouldShowMessage) {
-                messageManager.addMessage(message)
+                withContext(Dispatchers.Main) { messageManager.addMessage(message) }
             }
+            
+            // NOTIFICATION LOGIC: Check for mentions and first messages
+            checkAndTriggerGeohashNotifications(geohash, senderName, content, message)
             
             Log.d(TAG, "📥 Unified geohash event processed - geohash: $geohash, sender: $senderName, content: ${content.take(50)}")
             
         } catch (e: Exception) {
             Log.e(TAG, "Error handling unified geohash event: ${e.message}")
         }
+        }
+    }
+    
+    /**
+     * Check and trigger geohash notifications for mentions and first messages
+     */
+    private suspend fun checkAndTriggerGeohashNotifications(
+        geohash: String,
+        senderName: String,
+        content: String,
+        message: BitchatMessage
+    ) {
+        try {
+            // Get user's current nickname
+            val currentNickname = state.getNicknameValue()
+            if (currentNickname.isNullOrEmpty()) {
+                return
+            }
+            
+            // Check if this message mentions the current user
+            val isMention = checkForMention(content, currentNickname)
+            
+            // Check if this is the first message in a subscribed geohash chat
+            val isFirstMessage = checkIfFirstMessage(geohash, message)
+            
+            // Only trigger notifications if we have a mention or first message
+            if (isMention || isFirstMessage) {
+                Log.d(TAG, "🔔 Triggering geohash notification - geohash: $geohash, mention: $isMention, first: $isFirstMessage")
+                
+                withContext(Dispatchers.Main) {
+                    // Sanitize mention for notifications: hide '#hash' from @username#hash if not needed
+                    val contentForNotification = if (isMention) {
+                        var sanitized = content
+                        try {
+                            val myGeoIdentity = NostrIdentityBridge.deriveIdentity(
+                                forGeohash = geohash,
+                                context = application
+                            )
+                            val myDisplay = displayNameForNostrPubkeyUI(myGeoIdentity.publicKeyHex)
+                            val needsDisambiguation = myDisplay.contains("#")
+                            if (!needsDisambiguation) {
+                                val pattern = ("@" + java.util.regex.Pattern.quote(currentNickname) + "#[a-fA-F0-9]{4}\\b").toRegex()
+                                sanitized = sanitized.replace(pattern, "@" + currentNickname)
+                            }
+                        } catch (_: Exception) { }
+                        sanitized
+                    } else content
+                    
+                    val locationName = getLocationNameForGeohash(geohash)
+                    notificationManager.showGeohashNotification(
+                        geohash = geohash,
+                        senderNickname = senderName,
+                        messageContent = contentForNotification,
+                        isMention = isMention,
+                        isFirstMessage = isFirstMessage,
+                        locationName = locationName
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error checking geohash notifications: ${e.message}")
+        }
+    }
+    
+    /**
+     * Check if the content mentions the current user with @nickname#hash format
+     */
+    private fun checkForMention(content: String, currentNickname: String): Boolean {
+        // iOS-style mention pattern: @nickname#1234 or @nickname
+        val mentionPattern = "@([\\p{L}0-9_]+(?:#[a-fA-F0-9]{4})?)".toRegex()
+        
+        return mentionPattern.findAll(content).any { match ->
+            val mentionWithoutAt = match.groupValues[1]
+            // Split the mention to get base nickname (without #hash suffix)
+            val baseName = if (mentionWithoutAt.contains("#")) {
+                mentionWithoutAt.substringBeforeLast("#")
+            } else {
+                mentionWithoutAt
+            }
+            
+            // Check if the base name matches current user's nickname
+            baseName.equals(currentNickname, ignoreCase = true)
+        }
+    }
+    
+    /**
+     * Check if this is the first message in a subscribed geohash chat
+     */
+    private fun checkIfFirstMessage(geohash: String, message: BitchatMessage): Boolean {
+        // Get the message history for this geohash
+        val messageHistory = geohashMessageHistory[geohash] ?: return true
+        
+        // Filter out our own messages (local echoes and messages from our identity)
+        val otherUserMessages = messageHistory.filter { msg ->
+            // Check if this is our own message by comparing sender ID with our geohash identity
+            try {
+                val myGeoIdentity = NostrIdentityBridge.deriveIdentity(
+                    forGeohash = geohash,
+                    context = application
+                )
+                val myIdentityId = "nostr:${myGeoIdentity.publicKeyHex.take(8)}"
+                msg.senderPeerID != myIdentityId && msg.senderPeerID != message.senderPeerID
+            } catch (e: Exception) {
+                // If we can't determine identity, assume it's not our message
+                msg.senderPeerID != message.senderPeerID
+            }
+        }
+        
+        // This is a first message if there are no other user messages and this isn't from us
+        val isFromUs = try {
+            val myGeoIdentity = NostrIdentityBridge.deriveIdentity(
+                forGeohash = geohash,
+                context = application
+            )
+            val myIdentityId = "nostr:${myGeoIdentity.publicKeyHex.take(8)}"
+            message.senderPeerID == myIdentityId
+        } catch (e: Exception) {
+            false
+        }
+        
+        return otherUserMessages.isEmpty() && !isFromUs
     }
     
     /**
@@ -1038,10 +1403,13 @@ class NostrGeohashService(
         geohash: String, 
         identity: NostrIdentity
     ) {
+        coroutineScope.launch(kotlinx.coroutines.Dispatchers.Default) {
         try {
             // Deduplicate
-            if (processedNostrEvents.contains(giftWrap.id)) return
+            if (processedNostrEvents.contains(giftWrap.id)) return@launch
             processedNostrEvents.add(giftWrap.id)
+
+            // Removed legacy NostrReadStore usage; rely on SeenMessageStore by message ID
             
             // Decrypt with per-geohash identity
             val decryptResult = NostrProtocol.decryptPrivateMessage(
@@ -1050,29 +1418,29 @@ class NostrGeohashService(
             )
             
             if (decryptResult == null) {
-                Log.w(TAG, "Failed to decrypt geohash DM")
-                return
+                Log.d(TAG, "Skipping geohash DM: unwrap/open failed (non-fatal)")
+                return@launch
             }
             
             val (content, senderPubkey, rumorTimestamp) = decryptResult
             
             // Only process BitChat embedded messages
-            if (!content.startsWith("bitchat1:")) return
+            if (!content.startsWith("bitchat1:")) return@launch
             
             val base64Content = content.removePrefix("bitchat1:")
-            val packetData = base64URLDecode(base64Content) ?: return
-            val packet = com.bitchat.android.protocol.BitchatPacket.fromBinaryData(packetData) ?: return
+            val packetData = base64URLDecode(base64Content) ?: return@launch
+            val packet = com.bitchat.android.protocol.BitchatPacket.fromBinaryData(packetData) ?: return@launch
             
-            if (packet.type != com.bitchat.android.protocol.MessageType.NOISE_ENCRYPTED.value) return
+            if (packet.type != com.bitchat.android.protocol.MessageType.NOISE_ENCRYPTED.value) return@launch
             
-            val noisePayload = com.bitchat.android.model.NoisePayload.decode(packet.payload) ?: return
+            val noisePayload = com.bitchat.android.model.NoisePayload.decode(packet.payload) ?: return@launch
             val messageTimestamp = Date(rumorTimestamp * 1000L)
             val convKey = "nostr_${senderPubkey.take(16)}"
             nostrKeyMapping[convKey] = senderPubkey
             
             when (noisePayload.type) {
                 com.bitchat.android.model.NoisePayloadType.PRIVATE_MESSAGE -> {
-                    val pm = com.bitchat.android.model.PrivateMessagePacket.decode(noisePayload.data) ?: return
+                    val pm = com.bitchat.android.model.PrivateMessagePacket.decode(noisePayload.data) ?: return@launch
                     val messageId = pm.messageID
                     
                     Log.d(TAG, "📥 Received geohash DM from ${senderPubkey.take(8)}...")
@@ -1086,9 +1454,10 @@ class NostrGeohashService(
                             break
                         }
                     }
-                    if (messageExists) return
+                    if (messageExists) return@launch
                     
-                    val senderName = displayNameForNostrPubkey(senderPubkey)
+                    val senderHandle = displayNameForNostrPubkey(senderPubkey)
+                    val senderName = displayNameForNostrPubkeyUI(senderPubkey)
                     val isViewingThisChat = state.getSelectedPrivateChatPeerValue() == convKey
                     
                     val message = BitchatMessage(
@@ -1100,19 +1469,30 @@ class NostrGeohashService(
                         isPrivate = true,
                         recipientNickname = state.getNicknameValue(),
                         senderPeerID = convKey,
+                        originalSender = senderHandle,
                         deliveryStatus = com.bitchat.android.model.DeliveryStatus.Delivered(
                             to = state.getNicknameValue() ?: "Unknown",
                             at = Date()
                         )
                     )
                     
-                    // Add to private chats
-                    privateChatManager.handleIncomingPrivateMessage(message)
-                    
+                    // Add to private chats (suppress unread if already read)
+                    val seen = com.bitchat.android.services.SeenMessageStore.getInstance(application)
+                    privateChatManager.handleIncomingPrivateMessage(message, suppressUnread = seen.hasRead(messageId))
+
+                    // Send delivery ACK for geohash DMs only once
+                    if (!seen.hasDelivered(messageId)) {
+                        val nostrTransport = NostrTransport.getInstance(application)
+                        nostrTransport.sendDeliveryAckGeohash(messageId, senderPubkey, identity)
+                        seen.markDelivered(messageId)
+                    }
+
                     // Send read receipt if viewing this chat
-                    if (isViewingThisChat) {
+                    if (isViewingThisChat && !seen.hasRead(messageId)) {
                         // Send read receipt via Nostr for geohash DM
                         sendGeohashReadReceipt(messageId, senderPubkey, geohash)
+                        // Mark message as read persistently
+                        try { seen.markRead(messageId) } catch (_: Exception) { }
                     }
                 }
                 
@@ -1129,6 +1509,7 @@ class NostrGeohashService(
             
         } catch (e: Exception) {
             Log.e(TAG, "Error handling geohash DM event: ${e.message}")
+        }
         }
     }
     
@@ -1164,6 +1545,71 @@ class NostrGeohashService(
         // Otherwise, anonymous with collision-resistant suffix
         //Log.v(TAG, "❌ No cached nickname for ${pubkeyHex.take(8)}, using anon")
         return "anon#$suffix"
+    }
+
+    /**
+     * UI display name for Nostr pubkey (conditionally hides #hash when not needed)
+     * Used in chat window sender labels, geohash people list, and notifications.
+     */
+    fun displayNameForNostrPubkeyUI(pubkeyHex: String): String {
+        val pubkeyLower = pubkeyHex.lowercase()
+        val suffix = pubkeyHex.takeLast(4)
+        val currentGeohash = this.currentGeohash
+
+        // Determine base name (self nickname, cached nickname, or anon)
+        val baseName: String = try {
+            if (currentGeohash != null) {
+                val myGeoIdentity = NostrIdentityBridge.deriveIdentity(
+                    forGeohash = currentGeohash,
+                    context = application
+                )
+                if (myGeoIdentity.publicKeyHex.lowercase() == pubkeyLower) {
+                    state.getNicknameValue() ?: "anon"
+                } else {
+                    geoNicknames[pubkeyLower] ?: "anon"
+                }
+            } else {
+                geoNicknames[pubkeyLower] ?: "anon"
+            }
+        } catch (_: Exception) {
+            geoNicknames[pubkeyLower] ?: "anon"
+        }
+
+        // If not in a geohash context, no need for disambiguation
+        if (currentGeohash == null) return baseName
+
+        // Count active participants sharing the same base name within 5 minutes
+        return try {
+            val cutoff = Date(System.currentTimeMillis() - 5 * 60 * 1000)
+            val participants = geohashParticipants[currentGeohash] ?: emptyMap()
+
+            var count = 0
+            for ((participantKey, lastSeen) in participants) {
+                if (lastSeen.before(cutoff)) continue
+                val participantLower = participantKey.lowercase()
+                val name = if (participantLower == pubkeyLower) baseName else (geoNicknames[participantLower] ?: "anon")
+                if (name.equals(baseName, ignoreCase = true)) {
+                    count++
+                    if (count > 1) break
+                }
+            }
+
+            if (!participants.containsKey(pubkeyLower)) {
+                count += 1
+            }
+
+            if (count > 1) "$baseName#$suffix" else baseName
+        } catch (_: Exception) {
+            baseName
+        }
+    }
+
+    /**
+     * Mention handle for a Nostr pubkey (ALWAYS includes #hash)
+     * Use for mentions, hug/slap targets, and mention detection contexts.
+     */
+    fun mentionHandleForNostrPubkey(pubkeyHex: String): String {
+        return displayNameForNostrPubkey(pubkeyHex)
     }
     
     // MARK: - Color System
@@ -1316,6 +1762,38 @@ class NostrGeohashService(
      */
     private fun isGeohashUserBlocked(pubkeyHex: String): Boolean {
         return dataManager.isGeohashUserBlocked(pubkeyHex)
+    }
+    
+    /**
+     * Get location name for a geohash if available
+     */
+    private fun getLocationNameForGeohash(geohash: String): String? {
+        return try {
+            val locationManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(application)
+            val locationNames = locationManager.locationNames.value ?: return null
+            val available = locationManager.availableChannels.value ?: emptyList()
+            
+            // Determine the level from geohash length
+            val level = when (geohash.length) {
+                in 0..2 -> com.bitchat.android.geohash.GeohashChannelLevel.REGION
+                in 3..4 -> com.bitchat.android.geohash.GeohashChannelLevel.PROVINCE
+                5 -> com.bitchat.android.geohash.GeohashChannelLevel.CITY
+                6 -> com.bitchat.android.geohash.GeohashChannelLevel.NEIGHBORHOOD
+                7 -> com.bitchat.android.geohash.GeohashChannelLevel.BLOCK
+                else -> com.bitchat.android.geohash.GeohashChannelLevel.BLOCK
+            }
+
+            // Only show location name if the notification's geohash matches the device's current geohash at that level
+            val currentAtLevel = available.firstOrNull { it.level == level }?.geohash
+            if (currentAtLevel != null && currentAtLevel.equals(geohash, ignoreCase = true)) {
+                locationNames[level]
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to get location name for geohash $geohash: ${e.message}")
+            null
+        }
     }
 
 }

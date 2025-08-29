@@ -9,11 +9,18 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Alignment
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.IconButton
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.zIndex
+import com.bitchat.android.model.BitchatMessage
 
 /**
  * Main ChatScreen - REFACTORED to use component-based architecture
@@ -22,7 +29,7 @@ import androidx.compose.ui.zIndex
  * - MessageComponents: Message display and formatting
  * - InputComponents: Message input and command suggestions
  * - SidebarComponents: Navigation drawer with channels and people
- * - DialogComponents: Password prompts and modals
+ * - AboutSheet: App info and password prompts
  * - ChatUIUtils: Utility functions for formatting and colors
  */
 @Composable
@@ -52,7 +59,9 @@ fun ChatScreen(viewModel: ChatViewModel) {
     var showLocationChannelsSheet by remember { mutableStateOf(false) }
     var showUserSheet by remember { mutableStateOf(false) }
     var selectedUserForSheet by remember { mutableStateOf("") }
+    var selectedMessageForSheet by remember { mutableStateOf<BitchatMessage?>(null) }
     var forceScrollToBottom by remember { mutableStateOf(false) }
+    var isScrolledUp by remember { mutableStateOf(false) }
 
     // Show password dialog when needed
     LaunchedEffect(showPasswordPrompt) {
@@ -70,18 +79,26 @@ fun ChatScreen(viewModel: ChatViewModel) {
     }
 
     // Use WindowInsets to handle keyboard properly
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(colorScheme.background) // Extend background to fill entire screen including status bar
+    ) {
         val headerHeight = 42.dp
         
         // Main content area that responds to keyboard/window insets
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(colorScheme.background)
                 .windowInsetsPadding(WindowInsets.ime) // This handles keyboard insets
+                .windowInsetsPadding(WindowInsets.navigationBars) // Add bottom padding when keyboard is not expanded
         ) {
-            // Header spacer - creates space for the floating header
-            Spacer(modifier = Modifier.height(headerHeight))
+            // Header spacer - creates exact space for the floating header (status bar + compact header)
+            Spacer(
+                modifier = Modifier
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .height(headerHeight)
+            )
 
             // Messages area - takes up available space, will compress when keyboard appears
             MessagesList(
@@ -90,6 +107,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 meshService = viewModel.meshService,
                 modifier = Modifier.weight(1f),
                 forceScrollToBottom = forceScrollToBottom,
+                onScrolledUpChanged = { isUp -> isScrolledUp = isUp },
                 onNicknameClick = { fullSenderName ->
                     // Single click - mention user in text input
                     val currentText = messageText.text
@@ -118,11 +136,12 @@ fun ChatScreen(viewModel: ChatViewModel) {
                         selection = TextRange(newText.length)
                     )
                 },
-                onNicknameLongPress = { fullSenderName ->
-                    // Long press - open user action sheet
-                    // Extract base nickname from full sender name
-                    val (baseName, _) = splitSuffix(fullSenderName)
+                onMessageLongPress = { message ->
+                    // Message long press - open user action sheet with message context
+                    // Extract base nickname from message sender (contains all necessary info)
+                    val (baseName, _) = splitSuffix(message.sender)
                     selectedUserForSheet = baseName
+                    selectedMessageForSheet = message
                     showUserSheet = true
                 }
             )
@@ -180,6 +199,16 @@ fun ChatScreen(viewModel: ChatViewModel) {
             onLocationChannelsClick = { showLocationChannelsSheet = true }
         )
 
+        // Divider under header - positioned after status bar + header height
+        HorizontalDivider(
+            modifier = Modifier
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .offset(y = headerHeight)
+                .zIndex(1f),
+            color = colorScheme.outline.copy(alpha = 0.3f)
+        )
+
         val alpha by animateFloatAsState(
             targetValue = if (showSidebar) 0.5f else 0f,
             animationSpec = tween(
@@ -197,6 +226,35 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     .clickable { viewModel.hideSidebar() }
                     .zIndex(1f)
             )
+        }
+
+        // Scroll-to-bottom floating button
+        AnimatedVisibility(
+            visible = isScrolledUp && !showSidebar,
+            enter = slideInVertically(initialOffsetY = { it / 2 }) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { it / 2 }) + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = 64.dp)
+                .zIndex(1.5f)
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .windowInsetsPadding(WindowInsets.ime)
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = colorScheme.background,
+                tonalElevation = 3.dp,
+                shadowElevation = 6.dp,
+                border = BorderStroke(2.dp, Color(0xFF00C851))
+            ) {
+                IconButton(onClick = { forceScrollToBottom = !forceScrollToBottom }) {
+                    Icon(
+                        imageVector = Icons.Filled.ArrowDownward,
+                        contentDescription = "Scroll to bottom",
+                        tint = Color(0xFF00C851)
+                    )
+                }
+            }
         }
 
         AnimatedVisibility(
@@ -243,8 +301,12 @@ fun ChatScreen(viewModel: ChatViewModel) {
         showLocationChannelsSheet = showLocationChannelsSheet,
         onLocationChannelsSheetDismiss = { showLocationChannelsSheet = false },
         showUserSheet = showUserSheet,
-        onUserSheetDismiss = { showUserSheet = false },
+        onUserSheetDismiss = { 
+            showUserSheet = false
+            selectedMessageForSheet = null // Reset message when dismissing
+        },
         selectedUserForSheet = selectedUserForSheet,
+        selectedMessageForSheet = selectedMessageForSheet,
         viewModel = viewModel
     )
 }
@@ -267,8 +329,7 @@ private fun ChatInputSection(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = colorScheme.background,
-        shadowElevation = 8.dp
+        color = colorScheme.background
     ) {
         Column {
             HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
@@ -324,11 +385,9 @@ private fun ChatFloatingHeader(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .height(headerHeight)
             .zIndex(1f)
-            .windowInsetsPadding(WindowInsets.statusBars), // Only respond to status bar
-        color = colorScheme.background.copy(alpha = 0.95f),
-        shadowElevation = 8.dp
+            .windowInsetsPadding(WindowInsets.statusBars), // Extend into status bar area
+        color = colorScheme.background // Solid background color extending into status bar
     ) {
         TopAppBar(
             title = {
@@ -351,18 +410,10 @@ private fun ChatFloatingHeader(
             },
             colors = TopAppBarDefaults.topAppBarColors(
                 containerColor = Color.Transparent
-            )
+            ),
+            modifier = Modifier.height(headerHeight) // Ensure compact header height
         )
     }
-
-    // Divider under header
-    HorizontalDivider(
-        modifier = Modifier
-            .fillMaxWidth()
-            .offset(y = headerHeight)
-            .zIndex(1f),
-        color = colorScheme.outline.copy(alpha = 0.3f)
-    )
 }
 
 @Composable
@@ -380,6 +431,7 @@ private fun ChatDialogs(
     showUserSheet: Boolean,
     onUserSheetDismiss: () -> Unit,
     selectedUserForSheet: String,
+    selectedMessageForSheet: BitchatMessage?,
     viewModel: ChatViewModel
 ) {
     // Password dialog
@@ -392,9 +444,9 @@ private fun ChatDialogs(
         onDismiss = onPasswordDismiss
     )
 
-    // App info dialog
-    AppInfoDialog(
-        show = showAppInfo,
+    // About sheet
+    AboutSheet(
+        isPresented = showAppInfo,
         onDismiss = onAppInfoDismiss
     )
     
@@ -413,6 +465,7 @@ private fun ChatDialogs(
             isPresented = showUserSheet,
             onDismiss = onUserSheetDismiss,
             targetNickname = selectedUserForSheet,
+            selectedMessage = selectedMessageForSheet,
             viewModel = viewModel
         )
     }
