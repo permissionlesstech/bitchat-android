@@ -24,6 +24,39 @@ class NostrRelayManager private constructor() {
         val shared = NostrRelayManager()
         
         private const val TAG = "NostrRelayManager"
+        private const val NETWORK_ERROR_MESSAGE = "Network unreachable. Please ensure the device is connected and has all necessary permissions."
+        
+        // Network error callback for reporting failures to UI
+        @Volatile
+        private var networkErrorCallback: ((String) -> Unit)? = null
+        @Volatile
+        private var hasReportedNetworkError = false
+        
+        /**
+         * Set callback for network error reporting
+         * Throws IllegalStateException if a callback is already set
+         */
+        fun setNetworkErrorCallback(callback: (String) -> Unit) {
+            if (networkErrorCallback != null) {
+                throw IllegalStateException("Network error callback already set. Only one service instance should be active.")
+            }
+            networkErrorCallback = callback
+        }
+        
+        /**
+         * Clear the network error callback (should be called when service is destroyed)
+         */
+        fun clearNetworkErrorCallback() {
+            networkErrorCallback = null
+            hasReportedNetworkError = false
+        }
+        
+        /**
+         * Reset network error flag (e.g., when network comes back)
+         */
+        fun resetNetworkErrorFlag() {
+            hasReportedNetworkError = false
+        }
         
         /**
          * Get instance for Android compatibility (context-aware calls)
