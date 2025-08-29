@@ -41,9 +41,9 @@ object TorManager {
     private val applyMutex = Mutex()
     @Volatile private var desiredMode: TorMode = TorMode.OFF
     @Volatile private var currentSocksPort: Int = DEFAULT_SOCKS_PORT
-    @Volatile private var nextSocksPort: Int = DEFAULT_SOCKS_PORT
     @Volatile private var lastLogTime = AtomicLong(0L)
     @Volatile private var retryAttempts = 0
+    @Volatile private var bindRetryAttempts = 0
     private var inactivityJob: Job? = null
     private var retryJob: Job? = null
     private var currentApplication: Application? = null
@@ -107,7 +107,8 @@ object TorManager {
                         stopArti()
                         socksAddr = null
                         _status.value = _status.value.copy(mode = TorMode.OFF, running = false, bootstrapPercent = 0)
-                        nextSocksPort = DEFAULT_SOCKS_PORT
+                        currentSocksPort = DEFAULT_SOCKS_PORT
+                        bindRetryAttempts = 0
                         lifecycleState = LifecycleState.STOPPED
                         // Rebuild clients WITHOUT proxy and reconnect relays
                         try {
@@ -117,7 +118,11 @@ object TorManager {
                     }
                     TorMode.ON -> {
                         Log.i(TAG, "applyMode: ON -> starting arti")
-                        nextSocksPort = if (currentSocksPort < DEFAULT_SOCKS_PORT) DEFAULT_SOCKS_PORT else currentSocksPort
+                        // Reset port to default unless we're already using a higher port
+                        if (currentSocksPort < DEFAULT_SOCKS_PORT) {
+                            currentSocksPort = DEFAULT_SOCKS_PORT
+                        }
+                        bindRetryAttempts = 0
                         lifecycleState = LifecycleState.STARTING
                         // For OFF->ON, no delay needed
                         val needsDelay = s.mode == TorMode.ISOLATION
@@ -136,7 +141,11 @@ object TorManager {
                     }
                     TorMode.ISOLATION -> {
                         Log.i(TAG, "applyMode: ISOLATION -> starting arti")
-                        nextSocksPort = if (currentSocksPort < DEFAULT_SOCKS_PORT) DEFAULT_SOCKS_PORT else currentSocksPort
+                        // Reset port to default unless we're already using a higher port
+                        if (currentSocksPort < DEFAULT_SOCKS_PORT) {
+                            currentSocksPort = DEFAULT_SOCKS_PORT
+                        }
+                        bindRetryAttempts = 0
                         lifecycleState = LifecycleState.STARTING
                         // For ON->ISOLATION, immediate status change and delay
                         _status.value = _status.value.copy(running = false, bootstrapPercent = 0)
@@ -164,14 +173,10 @@ object TorManager {
         try {
             stopArtiInternal()
 
-            Log.i(TAG, "Starting Arti…")
+            Log.i(TAG, "Starting Arti on port $currentSocksPort…")
             if (useDelay) {
                 delay(RESTART_DELAY_MS)
             }
-
-            // Determine port
-            val port = nextSocksPort
-            currentSocksPort = port
 
             val logListener = ArtiLogListener { logLine ->
                 val text = logLine ?: return@ArtiLogListener
@@ -185,13 +190,14 @@ object TorManager {
                 ) {
                     _status.value = _status.value.copy(bootstrapPercent = 100)
                     retryAttempts = 0 // Reset retry attempts on successful bootstrap
+                    bindRetryAttempts = 0 // Reset bind retry attempts on successful bootstrap
                     startInactivityMonitoring()
                 }
             }
 
             val proxy = ArtiProxy.Builder(application)
-                .setSocksPort(port)
-                .setDnsPort(port + 1)
+                .setSocksPort(currentSocksPort)
+                .setDnsPort(currentSocksPort + 1)
                 .setLogListener(logListener)
                 .build()
 
@@ -204,9 +210,37 @@ object TorManager {
             startInactivityMonitoring()
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error starting Arti: ${e.message}")
-            scheduleRetry(application, isolation)
+            Log.e(TAG, "Error starting Arti on port $currentSocksPort: ${e.message}")
+            
+            // Check if this is a bind error
+            val isBindError = isBindError(e)
+            if (isBindError && bindRetryAttempts < MAX_RETRY_ATTEMPTS) {
+                bindRetryAttempts++
+                currentSocksPort++
+                Log.w(TAG, "Port bind failed (attempt $bindRetryAttempts/$MAX_RETRY_ATTEMPTS), retrying with port $currentSocksPort")
+                // Immediate retry with incremented port, no exponential backoff for bind errors
+                startArti(application, isolation, useDelay = false)
+            } else if (isBindError) {
+                Log.e(TAG, "Max bind retry attempts reached ($MAX_RETRY_ATTEMPTS), giving up")
+                lifecycleState = LifecycleState.STOPPED
+                _status.value = _status.value.copy(running = false, bootstrapPercent = 0)
+            } else {
+                // For non-bind errors, use the existing retry mechanism
+                scheduleRetry(application, isolation)
+            }
         }
+    }
+    
+    /**
+     * Checks if the exception indicates a port binding failure
+     */
+    private fun isBindError(exception: Exception): Boolean {
+        val message = exception.message?.lowercase() ?: ""
+        return message.contains("bind") ||
+               message.contains("address already in use") ||
+               message.contains("port") && message.contains("use") ||
+               message.contains("permission denied") && message.contains("port") ||
+               message.contains("could not bind")
     }
 
     private fun stopArtiInternal() {
