@@ -53,6 +53,11 @@ object TorManager {
     private val _status = MutableStateFlow(TorStatus())
     val statusFlow: StateFlow<TorStatus> = _status.asStateFlow()
 
+    fun isProxyEnabled(): Boolean {
+        val s = _status.value
+        return s.mode != TorMode.OFF && s.running && s.bootstrapPercent >= 100 && socksAddr != null
+    }
+
     fun init(application: Application) {
         if (initialized) return
         synchronized(this) {
@@ -95,6 +100,11 @@ object TorManager {
                         _status.value = _status.value.copy(mode = TorMode.OFF, running = false, bootstrapPercent = 0)
                         nextSocksPort = DEFAULT_SOCKS_PORT
                         lifecycleState = LifecycleState.STOPPED
+                        // Rebuild clients WITHOUT proxy and reconnect relays
+                        try {
+                            OkHttpProvider.reset()
+                            com.bitchat.android.nostr.NostrRelayManager.shared.resetAllConnections()
+                        } catch (_: Throwable) { }
                     }
                     TorMode.ON -> {
                         Log.i(TAG, "applyMode: ON -> starting tor")

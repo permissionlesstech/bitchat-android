@@ -43,7 +43,7 @@ object OkHttpProvider {
     private fun baseBuilderForCurrentProxy(): OkHttpClient.Builder {
         val builder = OkHttpClient.Builder()
         val socks: InetSocketAddress? = TorManager.currentSocksAddress()
-        if (socks != null) {
+        if (socks != null && TorManager.isProxyEnabled()) {
             val proxy = Proxy(Proxy.Type.SOCKS, socks)
             builder.proxy(proxy)
         }
