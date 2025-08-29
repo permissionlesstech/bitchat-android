@@ -660,6 +660,21 @@ class NostrRelayManager private constructor() {
             
         } catch (e: Exception) {
             Log.e(TAG, "❌ Failed to create WebSocket connection to $urlString: ${e.message}")
+            
+            // Check if this is a network connectivity issue
+            val errorMessage = e.message?.lowercase() ?: ""
+            if (errorMessage.contains("unable to resolve host") || 
+                errorMessage.contains("failed to connect") ||
+                errorMessage.contains("network is unreachable") ||
+                errorMessage.contains("connection refused")) {
+                
+                // Report network error only once per session
+                if (!hasReportedNetworkError) {
+                    hasReportedNetworkError = true
+                    networkErrorCallback?.invoke(NETWORK_ERROR_MESSAGE)
+                }
+            }
+            
             handleDisconnection(urlString, e)
         }
     }
@@ -677,11 +692,33 @@ class NostrRelayManager private constructor() {
                 val relay = relaysList.find { it.url == relayUrl }
                 relay?.messagesSent = (relay?.messagesSent ?: 0) + 1
                 updateRelaysList()
+                // Reset error flag on successful send
+                hasReportedNetworkError = false
             } else {
                 Log.e(TAG, "❌ Failed to send event to $relayUrl: WebSocket send failed")
+                
+                // Check if all relays are disconnected (likely network issue)
+                if (connections.isEmpty() || relaysList.none { it.isConnected }) {
+                    if (!hasReportedNetworkError) {
+                        hasReportedNetworkError = true
+                        networkErrorCallback?.invoke(NETWORK_ERROR_MESSAGE)
+                    }
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "❌ Failed to send event to $relayUrl: ${e.message}")
+            
+            // Report network error if this looks like a connectivity issue
+            val errorMessage = e.message?.lowercase() ?: ""
+            if (errorMessage.contains("broken pipe") || 
+                errorMessage.contains("socket closed") ||
+                errorMessage.contains("connection reset")) {
+                
+                if (!hasReportedNetworkError && connections.isEmpty()) {
+                    hasReportedNetworkError = true
+                    networkErrorCallback?.invoke(NETWORK_ERROR_MESSAGE)
+                }
+            }
         }
     }
     
