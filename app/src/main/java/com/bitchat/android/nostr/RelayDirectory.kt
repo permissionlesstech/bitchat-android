@@ -34,13 +34,8 @@ object RelayDirectory {
     private val ONE_DAY_MS = TimeUnit.DAYS.toMillis(1)
 
     private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val httpClient: OkHttpClient by lazy {
-        OkHttpClient.Builder()
-            .callTimeout(15, TimeUnit.SECONDS)
-            .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.SECONDS)
-            .build()
-    }
+    private val httpClient: OkHttpClient
+        get() = com.bitchat.android.net.OkHttpProvider.httpClient()
 
     data class RelayInfo(
         val url: String,
@@ -305,5 +300,4 @@ object RelayDirectory {
         }
     }
 }
-
 

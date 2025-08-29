@@ -95,6 +95,9 @@ dependencies {
     // WebSocket
     implementation(libs.okhttp)
 
+    // Tor binary (embedded). Used by TorManager to install and run Tor.
+    implementation(libs.tor.android.binary)
+
     // Google Play Services Location
     implementation(libs.gms.location)
 

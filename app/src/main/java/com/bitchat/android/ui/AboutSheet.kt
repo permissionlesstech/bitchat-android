@@ -194,6 +194,56 @@ fun AboutSheet(
                         }
                     }
                 }
+
+                // Network (Tor) section
+                item {
+                    val ctx = LocalContext.current
+                    val torMode = remember { mutableStateOf(com.bitchat.android.net.TorPreferenceManager.get(ctx)) }
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "network",
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Medium,
+                            color = colorScheme.onSurface.copy(alpha = 0.8f)
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = torMode.value == com.bitchat.android.net.TorMode.OFF,
+                                onClick = {
+                                    torMode.value = com.bitchat.android.net.TorMode.OFF
+                                    com.bitchat.android.net.TorPreferenceManager.set(ctx, torMode.value)
+                                },
+                                label = { Text("off", fontFamily = FontFamily.Monospace) }
+                            )
+                            FilterChip(
+                                selected = torMode.value == com.bitchat.android.net.TorMode.ON,
+                                onClick = {
+                                    torMode.value = com.bitchat.android.net.TorMode.ON
+                                    com.bitchat.android.net.TorPreferenceManager.set(ctx, torMode.value)
+                                },
+                                label = { Text("tor on", fontFamily = FontFamily.Monospace) }
+                            )
+                            FilterChip(
+                                selected = torMode.value == com.bitchat.android.net.TorMode.ISOLATION,
+                                onClick = {
+                                    torMode.value = com.bitchat.android.net.TorMode.ISOLATION
+                                    com.bitchat.android.net.TorPreferenceManager.set(ctx, torMode.value)
+                                },
+                                label = { Text("isolation", fontFamily = FontFamily.Monospace) }
+                            )
+                        }
+                        Text(
+                            text = "route internet over tor. isolation uses separate circuits per relay.",
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                    }
+                }
                 
                 // Emergency warning
                 item {
