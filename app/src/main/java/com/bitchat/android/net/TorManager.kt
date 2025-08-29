@@ -14,17 +14,23 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.launch
- 
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
+
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Manages embedded Tor lifecycle & provides SOCKS proxy address.
- * Uses org.torproject:tor-android-binary to bundle Tor.
+ * Uses Arti (Tor in Rust) for improved security and reliability.
  */
 object TorManager {
     private const val TAG = "TorManager"
     private const val DEFAULT_SOCKS_PORT = 9060
+    private const val RESTART_DELAY_MS = 2000L // 2 seconds between stop/start
+    private const val INACTIVITY_TIMEOUT_MS = 5000L // 5 seconds of no activity before restart
+    private const val MAX_RETRY_ATTEMPTS = 5
 
     private val appScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -36,6 +42,11 @@ object TorManager {
     @Volatile private var desiredMode: TorMode = TorMode.OFF
     @Volatile private var currentSocksPort: Int = DEFAULT_SOCKS_PORT
     @Volatile private var nextSocksPort: Int = DEFAULT_SOCKS_PORT
+    @Volatile private var lastLogTime = AtomicLong(0L)
+    @Volatile private var retryAttempts = 0
+    private var inactivityJob: Job? = null
+    private var retryJob: Job? = null
+    private var currentApplication: Application? = null
 
     private enum class LifecycleState { STOPPED, STARTING, RUNNING, STOPPING }
     @Volatile private var lifecycleState: LifecycleState = LifecycleState.STOPPED
@@ -60,6 +71,7 @@ object TorManager {
         synchronized(this) {
             if (initialized) return
             initialized = true
+            currentApplication = application
             TorPreferenceManager.init(application)
 
             // Apply saved mode at startup
@@ -143,25 +155,30 @@ object TorManager {
         }
     }
 
-    private fun startArti(application: Application, isolation: Boolean) {
+    private suspend fun startArti(application: Application, isolation: Boolean) {
         try {
-            stopArti()
+            stopArtiInternal()
 
             Log.i(TAG, "Starting Arti…")
+            delay(RESTART_DELAY_MS)
 
             // Determine port
             val port = nextSocksPort
             currentSocksPort = port
+
             val logListener = ArtiLogListener { logLine ->
                 val text = logLine ?: return@ArtiLogListener
                 val s = text.toString()
                 Log.i(TAG, "arti: $s")
+                lastLogTime.set(System.currentTimeMillis())
                 _status.value = _status.value.copy(lastLogLine = s)
                 if (
                     s.contains("Sufficiently bootstrapped", ignoreCase = true) ||
                     s.contains("AMEx: state changed to Running", ignoreCase = true)
                 ) {
                     _status.value = _status.value.copy(bootstrapPercent = 100)
+                    retryAttempts = 0 // Reset retry attempts on successful bootstrap
+                    startInactivityMonitoring()
                 }
             }
 
@@ -173,26 +190,100 @@ object TorManager {
 
             artiProxyRef.set(proxy)
             proxy.start()
+            lastLogTime.set(System.currentTimeMillis())
 
             _status.value = _status.value.copy(running = true, bootstrapPercent = 0)
             lifecycleState = LifecycleState.RUNNING
+            startInactivityMonitoring()
+
         } catch (e: Exception) {
             Log.e(TAG, "Error starting Arti: ${e.message}")
+            scheduleRetry(application, isolation)
         }
     }
 
-    private fun stopArti() {
+    private fun stopArtiInternal() {
         try {
             val proxy = artiProxyRef.getAndSet(null)
             if (proxy != null) {
                 Log.i(TAG, "Stopping Arti…")
                 try { proxy.stop() } catch (_: Throwable) {}
             }
-            socksAddr = null
-            _status.value = _status.value.copy(running = false, bootstrapPercent = 0)
+            stopInactivityMonitoring()
+            stopRetryMonitoring()
         } catch (e: Exception) {
             Log.w(TAG, "Error stopping Arti: ${e.message}")
         }
+    }
+
+    private fun stopArti() {
+        stopArtiInternal()
+        socksAddr = null
+        _status.value = _status.value.copy(running = false, bootstrapPercent = 0)
+    }
+
+    private suspend fun restartArti(application: Application, isolation: Boolean) {
+        Log.i(TAG, "Restarting Arti (keeping SOCKS proxy enabled)...")
+        stopArtiInternal()
+        delay(RESTART_DELAY_MS)
+        startArti(application, isolation)
+    }
+
+    private fun startInactivityMonitoring() {
+        inactivityJob?.cancel()
+        inactivityJob = appScope.launch {
+            while (true) {
+                delay(INACTIVITY_TIMEOUT_MS)
+                val currentTime = System.currentTimeMillis()
+                val lastActivity = lastLogTime.get()
+                val timeSinceLastActivity = currentTime - lastActivity
+                
+                if (timeSinceLastActivity > INACTIVITY_TIMEOUT_MS) {
+                    val currentMode = _status.value.mode
+                    if (currentMode == TorMode.ON || currentMode == TorMode.ISOLATION) {
+                        val bootstrapPercent = _status.value.bootstrapPercent
+                        if (bootstrapPercent < 100) {
+                            Log.w(TAG, "Inactivity detected (${timeSinceLastActivity}ms), restarting Arti")
+                            currentApplication?.let { app ->
+                                appScope.launch {
+                                    restartArti(app, currentMode == TorMode.ISOLATION)
+                                }
+                            }
+                            break
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun stopInactivityMonitoring() {
+        inactivityJob?.cancel()
+        inactivityJob = null
+    }
+
+    private fun scheduleRetry(application: Application, isolation: Boolean) {
+        retryJob?.cancel()
+        if (retryAttempts < MAX_RETRY_ATTEMPTS) {
+            retryAttempts++
+            val delayMs = (1000L * (1 shl retryAttempts)).coerceAtMost(30000L) // Exponential backoff, max 30s
+            Log.w(TAG, "Scheduling Arti retry attempt $retryAttempts in ${delayMs}ms")
+            retryJob = appScope.launch {
+                delay(delayMs)
+                val currentMode = _status.value.mode
+                if (currentMode == TorMode.ON || currentMode == TorMode.ISOLATION) {
+                    Log.i(TAG, "Retrying Arti start (attempt $retryAttempts)")
+                    restartArti(application, currentMode == TorMode.ISOLATION)
+                }
+            }
+        } else {
+            Log.e(TAG, "Max retry attempts reached, giving up on Arti connection")
+        }
+    }
+
+    private fun stopRetryMonitoring() {
+        retryJob?.cancel()
+        retryJob = null
     }
 
     // Removed Tor resource installation: not needed for Arti
