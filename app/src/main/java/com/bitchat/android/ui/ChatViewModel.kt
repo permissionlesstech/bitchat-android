@@ -184,6 +184,8 @@ class ChatViewModel(
     
     override fun onCleared() {
         super.onCleared()
+        // Clean up NostrGeohashService
+        nostrGeohashService.cleanup()
         // Note: Mesh service lifecycle is now managed by MainActivity
     }
     

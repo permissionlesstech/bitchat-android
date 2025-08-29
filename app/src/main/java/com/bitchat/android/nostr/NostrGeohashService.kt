@@ -108,6 +108,18 @@ class NostrGeohashService(
         coroutineScope.launch {
             val nostrRelayManager = NostrRelayManager.getInstance(application)
             
+            // Set up network error callback to display system messages
+            NostrRelayManager.setNetworkErrorCallback { errorMessage ->
+                // Display network error as a system message in chat
+                val systemMessage = BitchatMessage(
+                    sender = "system",
+                    content = errorMessage,
+                    timestamp = Date(),
+                    isRelay = false
+                )
+                messageManager.addMessage(systemMessage)
+            }
+            
             // Connect to relays
             nostrRelayManager.connect()
             
@@ -153,6 +165,9 @@ class NostrGeohashService(
 
                 // 2) Clear all subscription tracking and caches
                 relayManager.clearAllSubscriptions()
+                
+                // Clear network error callback
+                NostrRelayManager.clearNetworkErrorCallback()
 
                 // 3) Clear Nostr identity (npub/private) and geohash identity cache/seed
                 try {
@@ -203,6 +218,27 @@ class NostrGeohashService(
             } catch (e: Exception) {
                 Log.e(TAG, "panicResetNostrAndGeohash error: ${e.message}")
             }
+        }
+    }
+    
+    /**
+     * Clean up the service and release resources
+     * Should be called when the service is no longer needed
+     */
+    fun cleanup() {
+        try {
+            // Clear the network error callback
+            NostrRelayManager.clearNetworkErrorCallback()
+            
+            // Cancel any running jobs
+            geohashSamplingJob?.cancel()
+            geohashSamplingJob = null
+            geoParticipantsTimer?.cancel()
+            geoParticipantsTimer = null
+            
+            Log.d(TAG, "NostrGeohashService cleaned up")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error during cleanup: ${e.message}")
         }
     }
     
