@@ -1,23 +1,30 @@
 package com.bitchat.android.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.text.ClickableText
+ 
 
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import android.content.Intent
+import android.net.Uri
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.mesh.BluetoothMeshService
@@ -36,6 +43,7 @@ fun MessagesList(
     meshService: BluetoothMeshService,
     modifier: Modifier = Modifier,
     forceScrollToBottom: Boolean = false,
+    onScrolledUpChanged: ((Boolean) -> Unit)? = null,
     onNicknameClick: ((String) -> Unit)? = null,
     onMessageLongPress: ((BitchatMessage) -> Unit)? = null
 ) {
@@ -63,9 +71,20 @@ fun MessagesList(
         }
     }
     
+    // Track whether user has scrolled away from the latest messages
+    val isAtLatest by remember {
+        derivedStateOf {
+            val firstVisibleIndex = listState.layoutInfo.visibleItemsInfo.firstOrNull()?.index ?: -1
+            firstVisibleIndex <= 2
+        }
+    }
+    LaunchedEffect(isAtLatest) {
+        onScrolledUpChanged?.invoke(!isAtLatest)
+    }
+    
     // Force scroll to bottom when requested (e.g., when user sends a message)
     LaunchedEffect(forceScrollToBottom) {
-        if (forceScrollToBottom && messages.isNotEmpty()) {
+        if (messages.isNotEmpty()) {
             // With reverseLayout=true and reversed data, latest is at index 0
             listState.animateScrollToItem(0)
         }
@@ -131,27 +150,7 @@ fun MessageItem(
             }
         }
         
-        // Link preview pills for URLs in message content
-        if (message.sender != "system") {
-            val urls = URLDetector.extractUrls(message.content)
-            if (urls.isNotEmpty()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 3.dp, start = 1.dp, end = 1.dp),
-                    verticalArrangement = Arrangement.spacedBy(3.dp)
-                ) {
-                    // Show up to 3 URL previews (matches iOS behavior)
-                    urls.take(3).forEach { urlMatch ->
-                        LinkPreviewPill(
-                            url = urlMatch.url,
-                            title = null,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                }
-            }
-        }
+        // Link previews removed; links are now highlighted inline and clickable within the message text
     }
 }
 
@@ -180,55 +179,88 @@ private fun MessageTextWithClickableNicknames(
                  message.sender == currentUserNickname ||
                  message.sender.startsWith("$currentUserNickname#")
     
-    if (!isSelf && (onNicknameClick != null || onMessageLongPress != null)) {
-        // Use Text with combinedClickable for nickname interactions and message long press
-        Text(
-            text = annotatedText,
-            modifier = modifier.combinedClickable(
-                onClick = {
-                    // We can't get the click offset here, so we'll handle the first nickname
-                    val nicknameAnnotations = annotatedText.getStringAnnotations(
-                        tag = "nickname_click",
-                        start = 0,
-                        end = annotatedText.length
+    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+    Text(
+        text = annotatedText,
+        modifier = modifier.pointerInput(message) {
+            detectTapGestures(
+                onTap = { position ->
+                    val layout = textLayoutResult ?: return@detectTapGestures
+                    val offset = layout.getOffsetForPosition(position)
+                    // Nickname click only when not self
+                    if (!isSelf && onNicknameClick != null) {
+                        val nicknameAnnotations = annotatedText.getStringAnnotations(
+                            tag = "nickname_click",
+                            start = offset,
+                            end = offset
+                        )
+                        if (nicknameAnnotations.isNotEmpty()) {
+                            val nickname = nicknameAnnotations.first().item
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onNicknameClick.invoke(nickname)
+                            return@detectTapGestures
+                        }
+                    }
+                    // Geohash teleport (all messages)
+                    val geohashAnnotations = annotatedText.getStringAnnotations(
+                        tag = "geohash_click",
+                        start = offset,
+                        end = offset
                     )
-                    if (nicknameAnnotations.isNotEmpty()) {
-                        val nickname = nicknameAnnotations.first().item
-                        onNicknameClick?.invoke(nickname)
+                    if (geohashAnnotations.isNotEmpty()) {
+                        val geohash = geohashAnnotations.first().item
+                        try {
+                            val locationManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(
+                                context
+                            )
+                            val level = when (geohash.length) {
+                                in 0..2 -> com.bitchat.android.geohash.GeohashChannelLevel.REGION
+                                in 3..4 -> com.bitchat.android.geohash.GeohashChannelLevel.PROVINCE
+                                5 -> com.bitchat.android.geohash.GeohashChannelLevel.CITY
+                                6 -> com.bitchat.android.geohash.GeohashChannelLevel.NEIGHBORHOOD
+                                else -> com.bitchat.android.geohash.GeohashChannelLevel.BLOCK
+                            }
+                            val channel = com.bitchat.android.geohash.GeohashChannel(level, geohash.lowercase())
+                            locationManager.setTeleported(true)
+                            locationManager.select(com.bitchat.android.geohash.ChannelID.Location(channel))
+                        } catch (_: Exception) { }
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        return@detectTapGestures
+                    }
+                    // URL open (all messages)
+                    val urlAnnotations = annotatedText.getStringAnnotations(
+                        tag = "url_click",
+                        start = offset,
+                        end = offset
+                    )
+                    if (urlAnnotations.isNotEmpty()) {
+                        val raw = urlAnnotations.first().item
+                        val resolved = if (raw.startsWith("http://", ignoreCase = true) || raw.startsWith("https://", ignoreCase = true)) raw else "https://$raw"
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(resolved))
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            context.startActivity(intent)
+                        } catch (_: Exception) { }
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        return@detectTapGestures
                     }
                 },
-                onLongClick = {
-                    // Always use message long press - contains all necessary information
+                onLongPress = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     onMessageLongPress?.invoke(message)
                 }
-            ),
-            fontFamily = FontFamily.Monospace,
-            softWrap = true,
-            overflow = TextOverflow.Visible,
-            style = androidx.compose.ui.text.TextStyle(
-                color = colorScheme.onSurface
             )
-        )
-    } else {
-        // Use regular text with message long press support for own messages
-        Text(
-            text = annotatedText,
-            modifier = if (onMessageLongPress != null) {
-                modifier.combinedClickable(
-                    onClick = { /* No action for own messages */ },
-                    onLongClick = { onMessageLongPress.invoke(message) }
-                )
-            } else {
-                modifier
-            },
-            fontFamily = FontFamily.Monospace,
-            softWrap = true,
-            overflow = TextOverflow.Visible,
-            style = androidx.compose.ui.text.TextStyle(
-                color = colorScheme.onSurface
-            )
-        )
-    }
+        },
+        fontFamily = FontFamily.Monospace,
+        softWrap = true,
+        overflow = TextOverflow.Visible,
+        style = androidx.compose.ui.text.TextStyle(
+            color = colorScheme.onSurface
+        ),
+        onTextLayout = { result -> textLayoutResult = result }
+    )
 }
 
 @Composable
@@ -244,15 +276,17 @@ fun DeliveryStatusIcon(status: DeliveryStatus) {
             )
         }
         is DeliveryStatus.Sent -> {
+            // Use a subtle hollow marker for Sent; single check is reserved for Delivered (iOS parity)
             Text(
-                text = "✓",
+                text = "○",
                 fontSize = 10.sp,
                 color = colorScheme.primary.copy(alpha = 0.6f)
             )
         }
         is DeliveryStatus.Delivered -> {
+            // Single check for Delivered (matches iOS expectations)
             Text(
-                text = "✓✓",
+                text = "✓",
                 fontSize = 10.sp,
                 color = colorScheme.primary.copy(alpha = 0.8f)
             )

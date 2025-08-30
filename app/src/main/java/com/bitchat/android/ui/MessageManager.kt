@@ -21,7 +21,6 @@ class MessageManager(private val state: ChatState) {
     fun addMessage(message: BitchatMessage) {
         val currentMessages = state.getMessagesValue().toMutableList()
         currentMessages.add(message)
-        currentMessages.sortBy { it.timestamp }
         state.setMessages(currentMessages)
     }
     
@@ -39,7 +38,6 @@ class MessageManager(private val state: ChatState) {
         
         val channelMessageList = currentChannelMessages[channel]?.toMutableList() ?: mutableListOf()
         channelMessageList.add(message)
-        channelMessageList.sortBy { it.timestamp }
         currentChannelMessages[channel] = channelMessageList
         state.setChannelMessages(currentChannelMessages)
         
@@ -74,7 +72,7 @@ class MessageManager(private val state: ChatState) {
     }
     
     // MARK: - Private Message Management
-    
+
     fun addPrivateMessage(peerID: String, message: BitchatMessage) {
         val currentPrivateChats = state.getPrivateChatsValue().toMutableMap()
         if (!currentPrivateChats.containsKey(peerID)) {
@@ -83,7 +81,6 @@ class MessageManager(private val state: ChatState) {
         
         val chatMessages = currentPrivateChats[peerID]?.toMutableList() ?: mutableListOf()
         chatMessages.add(message)
-        chatMessages.sortBy { it.timestamp }
         currentPrivateChats[peerID] = chatMessages
         state.setPrivateChats(currentPrivateChats)
         
@@ -93,6 +90,18 @@ class MessageManager(private val state: ChatState) {
             currentUnread.add(peerID)
             state.setUnreadPrivateMessages(currentUnread)
         }
+    }
+
+    // Variant that does not mark unread (used when we know the message has been read already, e.g., persisted Nostr read store)
+    fun addPrivateMessageNoUnread(peerID: String, message: BitchatMessage) {
+        val currentPrivateChats = state.getPrivateChatsValue().toMutableMap()
+        if (!currentPrivateChats.containsKey(peerID)) {
+            currentPrivateChats[peerID] = mutableListOf()
+        }
+        val chatMessages = currentPrivateChats[peerID]?.toMutableList() ?: mutableListOf()
+        chatMessages.add(message)
+        currentPrivateChats[peerID] = chatMessages
+        state.setPrivateChats(currentPrivateChats)
     }
     
     fun clearPrivateMessages(peerID: String) {

@@ -78,13 +78,22 @@ class MessageHandler(private val myPeerID: String) {
                     val privateMessage = com.bitchat.android.model.PrivateMessagePacket.decode(noisePayload.data)
                     if (privateMessage != null) {
                         Log.d(TAG, "🔓 Decrypted TLV PM from $peerID: ${privateMessage.content.take(30)}...")
+
+                        // Handle favorite/unfavorite notifications embedded as PMs
+                        val pmContent = privateMessage.content
+                        if (pmContent.startsWith("[FAVORITED]") || pmContent.startsWith("[UNFAVORITED]")) {
+                            handleFavoriteNotificationFromMesh(pmContent, peerID)
+                            // Acknowledge delivery for UX parity
+                            sendDeliveryAck(privateMessage.messageID, peerID)
+                            return
+                        }
                         
-                        // Create BitchatMessage - use local system time for incoming messages
+                        // Create BitchatMessage - preserve source packet timestamp
                         val message = BitchatMessage(
                             id = privateMessage.messageID,
                             sender = delegate?.getPeerNickname(peerID) ?: "Unknown",
                             content = privateMessage.content,
-                            timestamp = java.util.Date(), // Use local system time instead of packet timestamp
+                            timestamp = java.util.Date(packet.timestamp.toLong()),
                             isRelay = false,
                             originalSender = null,
                             isPrivate = true,
@@ -334,7 +343,7 @@ class MessageHandler(private val myPeerID: String) {
                 sender = delegate?.getPeerNickname(peerID) ?: "unknown",
                 content = String(packet.payload, Charsets.UTF_8),
                 senderPeerID = peerID,
-                timestamp = Date()
+                timestamp = Date(packet.timestamp.toLong())
             )
 
             delegate?.onMessageReceived(message)
@@ -360,7 +369,7 @@ class MessageHandler(private val myPeerID: String) {
                 sender = delegate?.getPeerNickname(peerID) ?: "unknown",
                 content = String(packet.payload, Charsets.UTF_8),
                 senderPeerID = peerID,
-                timestamp = Date()
+                timestamp = Date(packet.timestamp.toLong())
             )
             delegate?.onMessageReceived(message)
 
@@ -425,6 +434,52 @@ class MessageHandler(private val myPeerID: String) {
      */
     fun shutdown() {
         handlerScope.cancel()
+    }
+
+    /**
+     * Handle favorite/unfavorite notification received over mesh as a private message.
+     * Content format: "[FAVORITED]:npub..." or "[UNFAVORITED]:npub..."
+     */
+    private fun handleFavoriteNotificationFromMesh(content: String, fromPeerID: String) {
+        try {
+            val isFavorite = content.startsWith("[FAVORITED]")
+            val npub = content.substringAfter(":", "").trim().takeIf { it.startsWith("npub1") }
+
+            // Update mutual favorite status in persistence
+            // Resolve full Noise key if available via delegate peer info
+            val peerInfo = delegate?.getPeerInfo(fromPeerID)
+            val noiseKey = peerInfo?.noisePublicKey
+            if (noiseKey != null) {
+                com.bitchat.android.favorites.FavoritesPersistenceService.shared.updatePeerFavoritedUs(noiseKey, isFavorite)
+                if (npub != null) {
+                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateNostrPublicKey(noiseKey, npub)
+                }
+
+                // Determine iOS-style guidance text
+                val rel = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)
+                val guidance = if (isFavorite) {
+                    if (rel?.isFavorite == true) {
+                        " — mutual! You can continue DMs via Nostr when out of mesh."
+                    } else {
+                        " — favorite back to continue DMs later."
+                    }
+                } else {
+                    ". DMs over Nostr will pause unless you both favorite again."
+                }
+
+                // Emit system message via delegate callback
+                val action = if (isFavorite) "favorited" else "unfavorited"
+                val sys = com.bitchat.android.model.BitchatMessage(
+                    sender = "system",
+                    content = "${peerInfo.nickname} $action you$guidance",
+                    timestamp = java.util.Date(),
+                    isRelay = false
+                )
+                delegate?.onMessageReceived(sys)
+            }
+        } catch (_: Exception) {
+            // Best-effort; ignore errors
+        }
     }
 }
 

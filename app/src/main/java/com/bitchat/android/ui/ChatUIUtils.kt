@@ -5,6 +5,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.mesh.BluetoothMeshService
@@ -77,14 +78,15 @@ fun formatMessageAsAnnotatedString(
             fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
         ))
         val nicknameStart = builder.length
-        builder.append(baseName)
+        val truncatedBase = truncateNickname(baseName)
+        builder.append(truncatedBase)
         val nicknameEnd = builder.length
         
-        // Add click annotation for nickname (store full sender name with hash)
+        // Add click annotation for nickname (store canonical sender name with hash if available)
         if (!isSelf) {
             builder.addStringAnnotation(
                 tag = "nickname_click",
-                annotation = message.sender, // Store full sender name with hash
+                annotation = (message.originalSender ?: message.sender),
                 start = nicknameStart,
                 end = nicknameEnd
             )
@@ -257,6 +259,42 @@ private fun appendIOSFormattedContent(
     for (match in mentionMatches) {
         allMatches.add(match.range to "mention") 
     }
+
+    // Add standalone geohash matches (e.g., "#9q") that are not part of another word
+    // We use MessageSpecialParser to find exact ranges; then merge with existing ranges avoiding overlaps
+    val geoMatches = MessageSpecialParser.findStandaloneGeohashes(content)
+    for (gm in geoMatches) {
+        val range = gm.start until gm.endExclusive
+        if (!overlapsMention(range)) {
+            allMatches.add(range to "geohash")
+        }
+    }
+
+    // Add URL matches (http/https/www/bare domains). Exclude overlaps with mentions.
+    val urlMatches = MessageSpecialParser.findUrls(content)
+    for (um in urlMatches) {
+        val range = um.start until um.endExclusive
+        if (!overlapsMention(range)) {
+            allMatches.add(range to "url")
+        }
+    }
+
+    // Remove generic hashtag matches that overlap with detected geohash ranges to avoid duplicate rendering
+    fun rangesOverlap(a: IntRange, b: IntRange): Boolean {
+        return a.first < b.last && a.last > b.first
+    }
+    val urlRanges = allMatches.filter { it.second == "url" }.map { it.first }
+    val geoRanges = allMatches.filter { it.second == "geohash" }.map { it.first }
+    if (geoRanges.isNotEmpty() || urlRanges.isNotEmpty()) {
+        val iterator = allMatches.listIterator()
+        while (iterator.hasNext()) {
+            val (range, type) = iterator.next()
+            // Remove generic hashtags that overlap with geohashes, and geohashes that overlap with URLs
+            val overlapsGeo = geoRanges.any { rangesOverlap(range, it) }
+            val overlapsUrl = urlRanges.any { rangesOverlap(range, it) }
+            if ((type == "hashtag" && overlapsGeo) || (type == "geohash" && overlapsUrl)) iterator.remove()
+        }
+    }
     
     allMatches.sortBy { it.first.first }
     
@@ -306,13 +344,13 @@ private fun appendIOSFormattedContent(
                 builder.append("@")
                 builder.pop()
                 
-                // Base name
+                // Base name (truncate for rendering)
                 builder.pushStyle(SpanStyle(
                     color = mentionColor,
                     fontSize = BASE_FONT_SIZE.sp,
                     fontWeight = if (isSelf) FontWeight.Bold else FontWeight.SemiBold
                 ))
-                builder.append(mBase)
+                builder.append(truncateNickname(mBase))
                 builder.pop()
                 
                 // Hashtag suffix in lighter color
@@ -327,7 +365,7 @@ private fun appendIOSFormattedContent(
                 }
             }
             "hashtag" -> {
-                // iOS-style: render hashtags like normal content (no special styling)
+                // Render general hashtags like normal content
                 builder.pushStyle(SpanStyle(
                     color = baseColor,
                     fontSize = BASE_FONT_SIZE.sp,
@@ -341,6 +379,55 @@ private fun appendIOSFormattedContent(
                     builder.append(matchText)
                 }
                 builder.pop()
+            }
+            else -> {
+                if (type == "geohash") {
+                    // Style geohash in blue, underlined, and add click annotation
+                    builder.pushStyle(SpanStyle(
+                        color = Color(0xFF007AFF),
+                        fontSize = BASE_FONT_SIZE.sp,
+                        fontWeight = if (isSelf) FontWeight.Bold else FontWeight.SemiBold,
+                        textDecoration = TextDecoration.Underline
+                    ))
+                    val start = builder.length
+                    builder.append(matchText)
+                    val end = builder.length
+                    val geohash = matchText.removePrefix("#").lowercase()
+                    builder.addStringAnnotation(
+                        tag = "geohash_click",
+                        annotation = geohash,
+                        start = start,
+                        end = end
+                    )
+                    builder.pop()
+                } else if (type == "url") {
+                    // Style URL in blue, underlined, and add click annotation with the raw text
+                    builder.pushStyle(SpanStyle(
+                        color = Color(0xFF007AFF),
+                        fontSize = BASE_FONT_SIZE.sp,
+                        fontWeight = if (isSelf) FontWeight.Bold else FontWeight.SemiBold,
+                        textDecoration = TextDecoration.Underline
+                    ))
+                    val start = builder.length
+                    builder.append(matchText)
+                    val end = builder.length
+                    builder.addStringAnnotation(
+                        tag = "url_click",
+                        annotation = matchText,
+                        start = start,
+                        end = end
+                    )
+                    builder.pop()
+                } else {
+                    // Fallback: treat as normal text
+                    builder.pushStyle(SpanStyle(
+                        color = baseColor,
+                        fontSize = BASE_FONT_SIZE.sp,
+                        fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Normal
+                    ))
+                    builder.append(matchText)
+                    builder.pop()
+                }
             }
         }
         

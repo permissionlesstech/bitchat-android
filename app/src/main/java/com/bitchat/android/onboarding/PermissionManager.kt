@@ -41,6 +41,8 @@ class PermissionManager(private val context: Context) {
 
     /**
      * Get all permissions required by the app
+     * Note: Notification permission is optional and not included here,
+     * so the app works without notification access.
      */
     fun getRequiredPermissions(): List<String> {
         val permissions = mutableListOf<String>()
@@ -65,12 +67,21 @@ class PermissionManager(private val context: Context) {
             Manifest.permission.ACCESS_FINE_LOCATION
         ))
 
-        // Notification permission (Android 13+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
-        }
+        // Notification permission intentionally excluded to keep it optional
 
         return permissions
+    }
+
+    /**
+     * Get optional permissions that improve the experience but aren't required.
+     * Currently includes POST_NOTIFICATIONS on Android 13+.
+     */
+    fun getOptionalPermissions(): List<String> {
+        val optional = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            optional.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        return optional
     }
 
     /**

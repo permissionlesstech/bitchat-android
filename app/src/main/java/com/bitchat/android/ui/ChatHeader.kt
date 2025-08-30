@@ -51,6 +51,27 @@ fun isFavoriteReactive(
 }
 
 @Composable
+fun TorStatusIcon(
+    modifier: Modifier = Modifier
+) {
+    val torStatus by com.bitchat.android.net.TorManager.statusFlow.collectAsState()
+    
+    if (torStatus.mode != com.bitchat.android.net.TorMode.OFF) {
+        val cableColor = when {
+            torStatus.running && torStatus.bootstrapPercent < 100 -> Color(0xFFFF9500)
+            torStatus.running && torStatus.bootstrapPercent >= 100 -> Color(0xFF00C851)
+            else -> Color.Red
+        }
+        Icon(
+            imageVector = Icons.Outlined.Cable,
+            contentDescription = "Tor status",
+            modifier = modifier,
+            tint = cableColor
+        )
+    }
+}
+
+@Composable
 fun NoiseSessionIcon(
     sessionState: String?,
     modifier: Modifier = Modifier
@@ -259,11 +280,17 @@ fun ChatHeaderContent(
             
             Log.d("ChatHeader", "Header recomposing: peer=$selectedPrivatePeer, isFav=$isFavorite, sessionState=$sessionState")
             
+            // Pass geohash context and people for NIP-17 chat title formatting
+            val selectedLocationChannel by viewModel.selectedLocationChannel.observeAsState()
+            val geohashPeople by viewModel.geohashPeople.observeAsState(emptyList())
+
             PrivateChatHeader(
                 peerID = selectedPrivatePeer,
                 peerNicknames = peerNicknames,
                 isFavorite = isFavorite,
                 sessionState = sessionState,
+                selectedLocationChannel = selectedLocationChannel,
+                geohashPeople = geohashPeople,
                 onBackClick = onBackClick,
                 onToggleFavorite = { viewModel.toggleFavorite(selectedPrivatePeer) }
             )
@@ -298,11 +325,48 @@ private fun PrivateChatHeader(
     peerNicknames: Map<String, String>,
     isFavorite: Boolean,
     sessionState: String?,
+    selectedLocationChannel: com.bitchat.android.geohash.ChannelID?,
+    geohashPeople: List<GeoPerson>,
     onBackClick: () -> Unit,
     onToggleFavorite: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val peerNickname = peerNicknames[peerID] ?: peerID
+    val isNostrDM = peerID.startsWith("nostr_") || peerID.startsWith("nostr:")
+    // Determine mutual favorite state for this peer (supports mesh ephemeral 16-hex via favorites lookup)
+    val isMutualFavorite = remember(peerID, peerNicknames) {
+        try {
+            if (isNostrDM) return@remember false
+            if (peerID.length == 64 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
+                val noiseKeyBytes = peerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+                com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKeyBytes)?.isMutual == true
+            } else if (peerID.length == 16 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
+                com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(peerID)?.isMutual == true
+            } else false
+        } catch (_: Exception) { false }
+    }
+
+    // Compute title text: for NIP-17 chats show "#geohash/@username" (iOS parity)
+    val titleText: String = if (isNostrDM) {
+        val geohash = (selectedLocationChannel as? com.bitchat.android.geohash.ChannelID.Location)?.channel?.geohash
+        val shortId = peerID.removePrefix("nostr_").removePrefix("nostr:")
+        val person = geohashPeople.firstOrNull { it.id.startsWith(shortId, ignoreCase = true) }
+        val baseName = person?.displayName?.substringBefore('#') ?: peerNicknames[peerID] ?: "unknown"
+        val geoPart = geohash?.let { "#$it" } ?: "#geohash"
+        "$geoPart/@$baseName"
+    } else {
+        // Prefer live mesh nickname; fallback to favorites nickname (supports 16-hex), finally short key
+        peerNicknames[peerID] ?: run {
+            val titleFromFavorites = try {
+                if (peerID.length == 64 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
+                    val noiseKeyBytes = peerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKeyBytes)?.peerNickname
+                } else if (peerID.length == 16 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
+                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(peerID)?.peerNickname
+                } else null
+            } catch (_: Exception) { null }
+            titleFromFavorites ?: peerID.take(12)
+        }
+    }
     
     Box(modifier = Modifier.fillMaxWidth()) {
         // Back button - positioned all the way to the left with minimal margin
@@ -342,17 +406,28 @@ private fun PrivateChatHeader(
         ) {
             
             Text(
-                text = peerNickname,
+                text = titleText,
                 style = MaterialTheme.typography.titleMedium,
                 color = Color(0xFFFF9500) // Orange
             )
 
             Spacer(modifier = Modifier.width(4.dp))
 
-            NoiseSessionIcon(
-                sessionState = sessionState,
-                modifier = Modifier.size(14.dp)
-            )
+            // Show a globe when chatting via Nostr alias, or when mesh session not established but mutual favorite exists
+            val showGlobe = isNostrDM || (sessionState != "established" && isMutualFavorite)
+            if (showGlobe) {
+                Icon(
+                    imageVector = Icons.Outlined.Public,
+                    contentDescription = "Nostr reachable",
+                    modifier = Modifier.size(14.dp),
+                    tint = Color(0xFF9B59B6) // Purple like iOS
+                )
+            } else {
+                NoiseSessionIcon(
+                    sessionState = sessionState,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
 
         }
         
@@ -487,39 +562,18 @@ private fun MainHeader(
         // Right section with location channels button and peer counter
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
-            // Unread indicator (like iOS)
-            if (hasUnreadPrivateMessages.isNotEmpty()) {
-                Button(
-                    onClick = { 
-                        // Open most relevant private chat (first unread)
-                        val firstUnread = hasUnreadPrivateMessages.firstOrNull()
-                        if (firstUnread != null) {
-                            viewModel.startPrivateChat(firstUnread)
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Transparent,
-                        contentColor = Color(0xFFFF9500)
-                    ),
-                    contentPadding = PaddingValues(4.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Email,
-                        contentDescription = "Open unread private chat",
-                        modifier = Modifier.size(12.dp),
-                        tint = Color(0xFFFF9500)
-                    )
-                }
-            }
-            
+
             // Location channels button (matching iOS implementation)
             LocationChannelsButton(
                 viewModel = viewModel,
                 onClick = onLocationChannelsClick
             )
-            
+
+            // Tor status cable icon when Tor is enabled
+            TorStatusIcon(modifier = Modifier.size(14.dp))
+
             PeerCounter(
                 connectedPeers = connectedPeers.filter { it != viewModel.meshService.myPeerID },
                 joinedChannels = joinedChannels,
