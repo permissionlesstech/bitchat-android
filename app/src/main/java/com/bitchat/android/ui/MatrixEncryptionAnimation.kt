@@ -303,7 +303,7 @@ private fun AnimatedMessageDisplay(
                 text = buildAnnotatedString {
                     withStyle(SpanStyle(
                         color = baseColor,
-                        fontSize = com.bitchat.android.ui.theme.BASE_FONT_SIZE.sp,
+                        fontSize = 15.sp, // Use BASE_FONT_SIZE directly
                         fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
                     )) {
                         append("<@")
@@ -319,26 +319,18 @@ private fun AnimatedMessageDisplay(
                 fontFamily = FontFamily.Monospace
             )
             
-            // Animated content portion
+            // Animated content portion (no timestamp during animation)
             AnimatedMatrixText(
                 targetText = message.content,
                 isAnimating = true,
                 color = baseColor,
-                fontSize = com.bitchat.android.ui.theme.BASE_FONT_SIZE.sp,
+                fontSize = 15.sp, // Use BASE_FONT_SIZE directly (15sp)
                 fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Normal,
                 modifier = Modifier.weight(1f)
             )
-            
-            // Timestamp at the end (iOS style)
-            Text(
-                text = " [${timeFormatter.format(message.timestamp)}]",
-                color = Color.Gray.copy(alpha = 0.7f),
-                fontSize = (com.bitchat.android.ui.theme.BASE_FONT_SIZE - 4).sp,
-                fontFamily = FontFamily.Monospace
-            )
         }
     } else {
-        // System message with animation
+        // System message with animation (no timestamp during animation)
         Row(
             modifier = modifier,
             verticalAlignment = androidx.compose.ui.Alignment.Top
@@ -346,7 +338,7 @@ private fun AnimatedMessageDisplay(
             Text(
                 text = "* ",
                 color = Color.Gray,
-                fontSize = (com.bitchat.android.ui.theme.BASE_FONT_SIZE - 2).sp,
+                fontSize = 13.sp, // (BASE_FONT_SIZE - 2).sp = 13sp
                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
                 fontFamily = FontFamily.Monospace
             )
@@ -355,14 +347,15 @@ private fun AnimatedMessageDisplay(
                 targetText = message.content,
                 isAnimating = true,
                 color = Color.Gray,
-                fontSize = (com.bitchat.android.ui.theme.BASE_FONT_SIZE - 2).sp,
+                fontSize = 13.sp, // (BASE_FONT_SIZE - 2).sp = 13sp
                 modifier = Modifier.weight(1f)
             )
             
             Text(
-                text = " * [${timeFormatter.format(message.timestamp)}]",
-                color = Color.Gray.copy(alpha = 0.5f),
-                fontSize = (com.bitchat.android.ui.theme.BASE_FONT_SIZE - 4).sp,
+                text = " *",
+                color = Color.Gray,
+                fontSize = 13.sp, // (BASE_FONT_SIZE - 2).sp = 13sp
+                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
                 fontFamily = FontFamily.Monospace
             )
         }
