@@ -86,7 +86,6 @@
     <string name="mention">mention</string>
 
     <string name="app_info_tagline">mesh sidegroupchat</string>
-    <string name="features_title">Features</string>
     <string name="feature_offline_title">offline communication</string>
     <string name="feature_offline_desc">works without internet using Bluetooth low energy</string>
     <string name="feature_encryption_title">end-to-end encryption</string>
@@ -161,5 +160,33 @@
         <item quantity="one">person</item>
         <item quantity="other">people</item>
     </plurals>
+
+    <!-- About Sheet Strings -->
+    <string name="about_sheet_description">decentralized mesh messaging with end-to-end encryption</string>
+    <string name="feature_offline_mesh_title">offline mesh chat</string>
+    <string name="feature_offline_mesh_desc">communicate directly via bluetooth le without internet or servers. messages relay through nearby devices to extend range.</string>
+    <string name="feature_geohash_title">online geohash channels</string>
+    <string name="feature_geohash_desc">connect with people in your area using geohash-based channels. extend the mesh using public internet relays.</string>
+    <string name="feature_e2ee_desc">private messages are encrypted. channel messages are public.</string>
+
+    <string name="appearance_title">appearance</string>
+    <string name="theme_system">system</string>
+    <string name="theme_light">light</string>
+    <string name="theme_dark">dark</string>
+
+    <string name="network_title">network</string>
+    <string name="network_tor_off">tor off</string>
+    <string name="network_tor_on">tor on</string>
+    <string name="network_tor_desc">route internet over tor for enhanced privacy.</string>
+    <string name="tor_status_running">running</string>
+    <string name="tor_status_stopped">stopped</string>
+    <string name="tor_status_label">tor status: %1$s, bootstrap=%2$d%%</string>
+    <string name="tor_status_last_log">last: %1$s</string>
+
+    <string name="emergency_delete_title">emergency data deletion</string>
+    <string name="emergency_delete_desc">tip: triple-click the app title to emergency delete all stored data including messages, keys, and settings.</string>
+    <string name="footer_text">open source • privacy first • decentralized</string>
+    <string name="join_button">Join</string>
+    <string name="version_prefix">v%1$s</string>
 
 </resources>
