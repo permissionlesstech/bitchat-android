@@ -19,6 +19,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.*
+import kotlin.random.Random
 
 /**
  * Service responsible for all Nostr and Geohash business logic extracted from ChatViewModel
@@ -242,6 +243,35 @@ class NostrGeohashService(
     fun sendGeohashMessage(content: String, channel: com.bitchat.android.geohash.GeohashChannel, myPeerID: String, nickname: String?) {
         coroutineScope.launch {
             try {
+                // Generate a temporary message ID for tracking animation
+                val tempMessageId = "temp_${System.currentTimeMillis()}_${Random.nextInt(1000)}"
+                
+                // Add local echo message IMMEDIATELY (with temporary ID)
+                val localMessage = BitchatMessage(
+                    id = tempMessageId,
+                    sender = nickname ?: myPeerID,
+                    content = content,
+                    timestamp = Date(),
+                    isRelay = false,
+                    senderPeerID = "geohash:${channel.geohash}",
+                    channel = "#${channel.geohash}"
+                )
+                
+                // Store and display the message immediately
+                storeGeohashMessage(channel.geohash, localMessage)
+                messageManager.addMessage(localMessage)
+                
+                Log.d(TAG, "📝 Added message immediately with temp ID: $tempMessageId")
+                
+                // Check if PoW is enabled before starting animation
+                val powSettings = PoWPreferenceManager.getCurrentSettings()
+                if (powSettings.enabled && powSettings.difficulty > 0) {
+                    // Start matrix animation for this message
+                    com.bitchat.android.ui.PoWMiningTracker.startMiningMessage(tempMessageId)
+                    Log.d(TAG, "🎭 Started matrix animation for message: $tempMessageId")
+                }
+                
+                // Now begin the async PoW process
                 val identity = NostrIdentityBridge.deriveIdentity(
                     forGeohash = channel.geohash,
                     context = application
@@ -257,6 +287,12 @@ class NostrGeohashService(
                     teleported = teleported
                 )
                 
+                // Stop animation when PoW completes
+                if (powSettings.enabled && powSettings.difficulty > 0) {
+                    com.bitchat.android.ui.PoWMiningTracker.stopMiningMessage(tempMessageId)
+                    Log.d(TAG, "🎭 Stopped matrix animation for message: $tempMessageId")
+                }
+                
                 val nostrRelayManager = NostrRelayManager.getInstance(application)
                 nostrRelayManager.sendEventToGeohash(
                     event = event,
@@ -267,22 +303,10 @@ class NostrGeohashService(
                 
                 Log.i(TAG, "📤 Sent geohash message to ${channel.geohash}: ${content.take(50)}")
                 
-                // Add local echo message
-                val localMessage = BitchatMessage(
-                    sender = nickname ?: myPeerID,
-                    content = content,
-                    timestamp = Date(),
-                    isRelay = false,
-                    senderPeerID = "geohash:${channel.geohash}",
-                    channel = "#${channel.geohash}"
-                )
-                
-                // Store our own message in geohash history 
-                storeGeohashMessage(channel.geohash, localMessage)
-                messageManager.addMessage(localMessage)
-                
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send geohash message: ${e.message}")
+                // Make sure to stop animation even if there's an error
+                com.bitchat.android.ui.PoWMiningTracker.stopMiningMessage("temp_${System.currentTimeMillis()}")
             }
         }
     }
