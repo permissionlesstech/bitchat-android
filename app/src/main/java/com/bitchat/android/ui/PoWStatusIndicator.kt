@@ -23,11 +23,11 @@ import com.bitchat.android.nostr.PoWPreferenceManager
 @Composable
 fun PoWStatusIndicator(
     modifier: Modifier = Modifier,
-    isMining: Boolean = false,
     style: PoWIndicatorStyle = PoWIndicatorStyle.COMPACT
 ) {
     val powEnabled by PoWPreferenceManager.powEnabled.collectAsState()
     val powDifficulty by PoWPreferenceManager.powDifficulty.collectAsState()
+    val isMining by PoWPreferenceManager.isMining.collectAsState()
     val colorScheme = MaterialTheme.colorScheme
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
     

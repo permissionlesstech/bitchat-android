@@ -126,19 +126,27 @@ object NostrProtocol {
         if (powSettings.enabled && powSettings.difficulty > 0) {
             Log.d(TAG, "PoW enabled for geohash event: difficulty=${powSettings.difficulty}")
             
-            // Mine the event before signing
-            val minedEvent = NostrProofOfWork.mineEvent(
-                event = event,
-                targetDifficulty = powSettings.difficulty,
-                maxIterations = 2_000_000 // Allow up to 2M iterations for reasonable mining time
-            )
-            
-            if (minedEvent != null) {
-                event = minedEvent
-                val actualDifficulty = NostrProofOfWork.calculateDifficulty(event.id)
-                Log.d(TAG, "✅ PoW mining successful: target=${powSettings.difficulty}, actual=$actualDifficulty, nonce=${NostrProofOfWork.getNonce(event)}")
-            } else {
-                Log.w(TAG, "❌ PoW mining failed, proceeding without PoW")
+            try {
+                // Start mining state for animated indicators
+                PoWPreferenceManager.startMining()
+                
+                // Mine the event before signing
+                val minedEvent = NostrProofOfWork.mineEvent(
+                    event = event,
+                    targetDifficulty = powSettings.difficulty,
+                    maxIterations = 2_000_000 // Allow up to 2M iterations for reasonable mining time
+                )
+                
+                if (minedEvent != null) {
+                    event = minedEvent
+                    val actualDifficulty = NostrProofOfWork.calculateDifficulty(event.id)
+                    Log.d(TAG, "✅ PoW mining successful: target=${powSettings.difficulty}, actual=$actualDifficulty, nonce=${NostrProofOfWork.getNonce(event)}")
+                } else {
+                    Log.w(TAG, "❌ PoW mining failed, proceeding without PoW")
+                }
+            } finally {
+                // Always stop mining state when done (success or failure)
+                PoWPreferenceManager.stopMining()
             }
         }
         

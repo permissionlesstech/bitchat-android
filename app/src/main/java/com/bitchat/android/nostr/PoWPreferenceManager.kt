@@ -26,6 +26,10 @@ object PoWPreferenceManager {
     private val _powDifficulty = MutableStateFlow(DEFAULT_POW_DIFFICULTY)
     val powDifficulty: StateFlow<Int> = _powDifficulty.asStateFlow()
     
+    // Mining state for animated indicators
+    private val _isMining = MutableStateFlow(false)
+    val isMining: StateFlow<Boolean> = _isMining.asStateFlow()
+    
     private lateinit var sharedPrefs: SharedPreferences
     private var isInitialized = false
     
@@ -120,5 +124,26 @@ object PoWPreferenceManager {
             28 to "Extreme (~2h)",
             32 to "Maximum (~8h)"
         )
+    }
+    
+    /**
+     * Get current mining state
+     */
+    fun isMining(): Boolean {
+        return _isMining.value
+    }
+    
+    /**
+     * Start mining state - triggers animated indicators
+     */
+    fun startMining() {
+        _isMining.value = true
+    }
+    
+    /**
+     * Stop mining state - stops animated indicators
+     */
+    fun stopMining() {
+        _isMining.value = false
     }
 }
