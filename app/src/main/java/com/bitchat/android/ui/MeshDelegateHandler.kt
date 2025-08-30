@@ -4,6 +4,7 @@ import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
+import com.bitchat.android.services.SpamFilterService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.util.Date
@@ -37,6 +38,12 @@ class MeshDelegateHandler(
                 if (privateChatManager.isPeerBlocked(senderPeerID)) {
                     return@launch
                 }
+            }
+            
+            // Check if message is spam
+            val spamFilterService = SpamFilterService.getInstance()
+            if (spamFilterService.isSpamMessage(message)) {
+                return@launch
             }
             
             // Trigger haptic feedback
