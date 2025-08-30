@@ -1,10 +1,19 @@
 package com.bitchat.android.ui
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -33,139 +42,155 @@ fun ChatUserSheet(
     viewModel: ChatViewModel,
     modifier: Modifier = Modifier
 ) {
-    val coroutineScope = rememberCoroutineScope()
-    val clipboardManager = LocalClipboardManager.current
-
-    // Bottom sheet state
-    val sheetState = rememberModalBottomSheetState(
-        skipPartiallyExpanded = true
-    )
-    
-    // iOS system colors (matches LocationChannelsSheet exactly)
-    val colorScheme = MaterialTheme.colorScheme
-    val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
-    val standardGreen = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D) // iOS green
-    val standardBlue = Color(0xFF007AFF) // iOS blue
-    val standardRed = Color(0xFFFF3B30) // iOS red
-    val standardGrey = if (isDark) Color(0xFF8E8E93) else Color(0xFF6D6D70) // iOS grey
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     if (isPresented) {
         ModalBottomSheet(
             onDismissRequest = onDismiss,
             sheetState = sheetState,
-            modifier = modifier.statusBarsPadding(),
-            ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Header
-                Text(
-                    text = stringResource(R.string.user_sheet_header, targetNickname),
-                    fontSize = 18.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                
-                Text(
-                    text = if (selectedMessage != null) stringResource(R.string.user_sheet_subtitle_message_or_user) else stringResource(R.string.user_sheet_subtitle),
-                    fontSize = 12.sp,
-                    fontFamily = FontFamily.Monospace,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                )
-                
-                // Action list (iOS-style plain list)
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    // Copy message action (only show if we have a message)
-                    selectedMessage?.let { message ->
-                        item {
-                            UserActionRow(
-                                title = stringResource(R.string.user_sheet_action_copy_message),
-                                subtitle = stringResource(R.string.user_sheet_action_copy_message_subtitle),
-                                titleColor = standardGrey,
-                                onClick = {
-                                    // Copy the message content to clipboard
-                                    clipboardManager.setText(AnnotatedString(message.content))
-                                    onDismiss()
-                                }
-                            )
-                        }
-                    }
+            modifier = modifier,
+            containerColor = MaterialTheme.colorScheme.background,
+            dragHandle = null
+        ) {
+            ChatUserSheetContent(
+                onDismiss = onDismiss,
+                targetNickname = targetNickname,
+                selectedMessage = selectedMessage,
+                viewModel = viewModel
+            )
+        }
+    }
+}
 
-                    // Only show user actions for other users' messages or when no message is selected
-                    if (selectedMessage?.sender != viewModel.nickname.value) {
-                        // Slap action
-                        item {
-                            UserActionRow(
-                                title = stringResource(R.string.user_sheet_action_slap, targetNickname),
-                                subtitle = stringResource(R.string.user_sheet_action_slap_subtitle),
-                                titleColor = standardBlue,
-                                onClick = {
-                                    // Send slap command
-                                    viewModel.sendMessage("/slap $targetNickname")
-                                    onDismiss()
-                                }
-                            )
-                        }
+@Composable
+private fun ChatUserSheetContent(
+    onDismiss: () -> Unit,
+    targetNickname: String,
+    selectedMessage: BitchatMessage?,
+    viewModel: ChatViewModel
+) {
+    val clipboardManager = LocalClipboardManager.current
+    // Define colors for consistency
+    val colorScheme = MaterialTheme.colorScheme
+    val isDark =
+        colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
+    val standardGreen = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
+    val standardBlue = Color(0xFF007AFF)
+    val standardRed = Color(0xFFFF3B30)
+    val standardGrey = MaterialTheme.colorScheme.onSurfaceVariant
 
-                        // Hug action
-                        item {
-                            UserActionRow(
-                                title = stringResource(R.string.user_sheet_action_hug, targetNickname),
-                                subtitle = stringResource(R.string.user_sheet_action_hug_subtitle),
-                                titleColor = standardGreen,
-                                onClick = {
-                                    // Send hug command
-                                    viewModel.sendMessage("/hug $targetNickname")
-                                    onDismiss()
-                                }
-                            )
-                        }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Header
+        Text(
+            text = stringResource(R.string.user_sheet_header, targetNickname),
+            fontSize = 18.sp,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(top = 16.dp)
+        )
 
-                        // Block action
-                        item {
-                            UserActionRow(
-                                title = stringResource(R.string.user_sheet_action_block, targetNickname),
-                                subtitle = stringResource(R.string.user_sheet_action_block_subtitle),
-                                titleColor = standardRed,
-                                onClick = {
-                                    // Check if we're in a geohash channel
-                                    val selectedLocationChannel = viewModel.selectedLocationChannel.value
-                                    if (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location) {
-                                        // Get user's nostr public key and add to geohash block list
-                                        viewModel.blockUserInGeohash(targetNickname)
-                                    } else {
-                                        // Regular mesh blocking
-                                        viewModel.sendMessage("/block $targetNickname")
-                                    }
-                                    onDismiss()
-                                }
-                            )
+        Text(
+            text = if (selectedMessage != null) stringResource(R.string.user_sheet_subtitle_message_or_user) else stringResource(
+                R.string.user_sheet_subtitle
+            ),
+            fontSize = 12.sp,
+            fontFamily = FontFamily.Monospace,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+        )
+
+        // Action list (iOS-style plain list)
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            // Copy message action (only show if we have a message)
+            selectedMessage?.let { message ->
+                item {
+                    UserActionRow(
+                        title = stringResource(R.string.user_sheet_action_copy_message),
+                        subtitle = stringResource(R.string.user_sheet_action_copy_message_subtitle),
+                        titleColor = standardGrey,
+                        onClick = {
+                            // Copy the message content to clipboard
+                            clipboardManager.setText(AnnotatedString(message.content))
+                            onDismiss()
                         }
-                    }
-                }
-                
-                // Cancel button (iOS-style)
-                Button(
-                    onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
-                        contentColor = MaterialTheme.colorScheme.onSurface
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = stringResource(id = R.string.cancel),
-                        fontSize = BASE_FONT_SIZE.sp,
-                        fontFamily = FontFamily.Monospace
                     )
                 }
             }
+
+            // Only show user actions for other users' messages or when no message is selected
+            if (selectedMessage?.sender != viewModel.nickname.value) {
+                // Slap action
+                item {
+                    UserActionRow(
+                        title = stringResource(R.string.user_sheet_action_slap, targetNickname),
+                        subtitle = stringResource(R.string.user_sheet_action_slap_subtitle),
+                        titleColor = standardBlue,
+                        onClick = {
+                            // Send slap command
+                            viewModel.sendMessage("/slap $targetNickname")
+                            onDismiss()
+                        }
+                    )
+                }
+
+                // Hug action
+                item {
+                    UserActionRow(
+                        title = stringResource(R.string.user_sheet_action_hug, targetNickname),
+                        subtitle = stringResource(R.string.user_sheet_action_hug_subtitle),
+                        titleColor = standardGreen,
+                        onClick = {
+                            // Send hug command
+                            viewModel.sendMessage("/hug $targetNickname")
+                            onDismiss()
+                        }
+                    )
+                }
+
+                // Block action
+                item {
+                    UserActionRow(
+                        title = stringResource(R.string.user_sheet_action_block, targetNickname),
+                        subtitle = stringResource(R.string.user_sheet_action_block_subtitle),
+                        titleColor = standardRed,
+                        onClick = {
+                            // Check if we're in a geohash channel
+                            val selectedLocationChannel = viewModel.selectedLocationChannel.value
+                            if (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location) {
+                                // Get user's nostr public key and add to geohash block list
+                                viewModel.blockUserInGeohash(targetNickname)
+                            } else {
+                                // Regular mesh blocking
+                                viewModel.sendMessage("/block $targetNickname")
+                            }
+                            onDismiss()
+                        }
+                    )
+                }
+            }
+        }
+
+        // Cancel button (iOS-style)
+        Button(
+            onClick = onDismiss,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
+                contentColor = MaterialTheme.colorScheme.onSurface
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = stringResource(id = R.string.cancel),
+                fontSize = BASE_FONT_SIZE.sp,
+                fontFamily = FontFamily.Monospace
+            )
         }
     }
 }
@@ -197,7 +222,7 @@ private fun UserActionRow(
                 fontWeight = FontWeight.Medium,
                 color = titleColor
             )
-            
+
             Text(
                 text = subtitle,
                 fontSize = 12.sp,
