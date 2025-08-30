@@ -226,7 +226,7 @@ fun AboutSheet(
                         }
                         
                         Text(
-                            text = "add computational proof of work to geohash messages for spam deterrence.",
+                            text = "add proof of work to geohash messages for spam deterrence.",
                             fontSize = 10.sp,
                             fontFamily = FontFamily.Monospace,
                             color = colorScheme.onSurface.copy(alpha = 0.6f)
