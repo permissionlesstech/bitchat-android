@@ -3,6 +3,8 @@ package com.bitchat.android.nostr
 import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.JsonParser
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * NIP-17 Protocol Implementation for Private Direct Messages
@@ -90,14 +92,15 @@ object NostrProtocol {
     
     /**
      * Create a geohash-scoped ephemeral public message (kind 20000)
+     * Includes Proof of Work mining if enabled in settings
      */
-    fun createEphemeralGeohashEvent(
+    suspend fun createEphemeralGeohashEvent(
         content: String,
         geohash: String,
         senderIdentity: NostrIdentity,
         nickname: String? = null,
         teleported: Boolean = false
-    ): NostrEvent {
+    ): NostrEvent = withContext(Dispatchers.Default) {
         val tags = mutableListOf<List<String>>()
         tags.add(listOf("g", geohash))
         
@@ -110,7 +113,7 @@ object NostrProtocol {
             tags.add(listOf("t", "teleport"))
         }
         
-        val event = NostrEvent(
+        var event = NostrEvent(
             pubkey = senderIdentity.publicKeyHex,
             createdAt = (System.currentTimeMillis() / 1000).toInt(),
             kind = NostrKind.EPHEMERAL_EVENT,
@@ -118,7 +121,36 @@ object NostrProtocol {
             content = content
         )
         
-        return senderIdentity.signEvent(event)
+        // Check if Proof of Work is enabled
+        val powSettings = PoWPreferenceManager.getCurrentSettings()
+        if (powSettings.enabled && powSettings.difficulty > 0) {
+            Log.d(TAG, "PoW enabled for geohash event: difficulty=${powSettings.difficulty}")
+            
+            try {
+                // Start mining state for animated indicators
+                PoWPreferenceManager.startMining()
+                
+                // Mine the event before signing
+                val minedEvent = NostrProofOfWork.mineEvent(
+                    event = event,
+                    targetDifficulty = powSettings.difficulty,
+                    maxIterations = 2_000_000 // Allow up to 2M iterations for reasonable mining time
+                )
+                
+                if (minedEvent != null) {
+                    event = minedEvent
+                    val actualDifficulty = NostrProofOfWork.calculateDifficulty(event.id)
+                    Log.d(TAG, "✅ PoW mining successful: target=${powSettings.difficulty}, actual=$actualDifficulty, nonce=${NostrProofOfWork.getNonce(event)}")
+                } else {
+                    Log.w(TAG, "❌ PoW mining failed, proceeding without PoW")
+                }
+            } finally {
+                // Always stop mining state when done (success or failure)
+                PoWPreferenceManager.stopMining()
+            }
+        }
+        
+        return@withContext senderIdentity.signEvent(event)
     }
     
     // MARK: - Private Methods

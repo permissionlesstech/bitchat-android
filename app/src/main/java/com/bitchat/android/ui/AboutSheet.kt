@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -20,6 +21,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bitchat.android.nostr.NostrProofOfWork
+import com.bitchat.android.nostr.PoWPreferenceManager
 
 /**
  * About Sheet for bitchat app information
@@ -164,6 +167,128 @@ fun AboutSheet(
                                 onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Dark) },
                                 label = { Text("dark", fontFamily = FontFamily.Monospace) }
                             )
+                        }
+                    }
+                }
+
+                // Proof of Work section
+                item {
+                    val context = LocalContext.current
+                    
+                    // Initialize PoW preferences if not already done
+                    LaunchedEffect(Unit) {
+                        PoWPreferenceManager.init(context)
+                    }
+                    
+                    val powEnabled by PoWPreferenceManager.powEnabled.collectAsState()
+                    val powDifficulty by PoWPreferenceManager.powDifficulty.collectAsState()
+                    
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "proof of work",
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Medium,
+                            color = colorScheme.onSurface.copy(alpha = 0.8f)
+                        )
+                        
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            FilterChip(
+                                selected = !powEnabled,
+                                onClick = { PoWPreferenceManager.setPowEnabled(false) },
+                                label = { Text("pow off", fontFamily = FontFamily.Monospace) }
+                            )
+                            FilterChip(
+                                selected = powEnabled,
+                                onClick = { PoWPreferenceManager.setPowEnabled(true) },
+                                label = { 
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("pow on", fontFamily = FontFamily.Monospace)
+                                        // Show current difficulty
+                                        if (powEnabled) {
+                                            Surface(
+                                                color = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D),
+                                                shape = RoundedCornerShape(50)
+                                            ) { Box(Modifier.size(8.dp)) }
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                        
+                        Text(
+                            text = "add proof of work to geohash messages for spam deterrence.",
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                        
+                        // Show difficulty slider when enabled
+                        if (powEnabled) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "difficulty: $powDifficulty bits (~${NostrProofOfWork.estimateMiningTime(powDifficulty)})",
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = colorScheme.onSurface.copy(alpha = 0.7f)
+                                )
+                                
+                                Slider(
+                                    value = powDifficulty.toFloat(),
+                                    onValueChange = { PoWPreferenceManager.setPowDifficulty(it.toInt()) },
+                                    valueRange = 0f..20f,
+                                    steps = 21, // 20 discrete values (0-20)
+                                    colors = SliderDefaults.colors(
+                                        thumbColor = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D),
+                                        activeTrackColor = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
+                                    )
+                                )
+                                
+                                // Show difficulty description
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = colorScheme.surfaceVariant.copy(alpha = 0.25f),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(12.dp),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Text(
+                                            text = "difficulty $powDifficulty requires ~${NostrProofOfWork.estimateWork(powDifficulty)} hash attempts",
+                                            fontSize = 10.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            color = colorScheme.onSurface.copy(alpha = 0.7f)
+                                        )
+                                        Text(
+                                            text = when {
+                                                powDifficulty == 0 -> "no proof of work required"
+                                                powDifficulty <= 8 -> "very low - minimal spam protection"
+                                                powDifficulty <= 12 -> "low - basic spam protection"
+                                                powDifficulty <= 16 -> "medium - good spam protection"
+                                                powDifficulty <= 20 -> "high - strong spam protection"
+                                                powDifficulty <= 24 -> "very high - may cause delays"
+                                                else -> "extreme - significant computation required"
+                                            },
+                                            fontSize = 10.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            color = colorScheme.onSurface.copy(alpha = 0.6f)
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }

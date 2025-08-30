@@ -166,101 +166,120 @@ private fun MessageTextWithClickableNicknames(
     onMessageLongPress: ((BitchatMessage) -> Unit)?,
     modifier: Modifier = Modifier
 ) {
-    val annotatedText = formatMessageAsAnnotatedString(
-        message = message,
-        currentUserNickname = currentUserNickname,
-        meshService = meshService,
-        colorScheme = colorScheme,
-        timeFormatter = timeFormatter
-    )
+    // Check if this message should be animated during PoW mining
+    val shouldAnimate = shouldAnimateMessage(message.id)
     
-    // Check if this message was sent by self to avoid click interactions on own nickname
-    val isSelf = message.senderPeerID == meshService.myPeerID || 
-                 message.sender == currentUserNickname ||
-                 message.sender.startsWith("$currentUserNickname#")
-    
-    val haptic = LocalHapticFeedback.current
-    val context = LocalContext.current
-    var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
-    Text(
-        text = annotatedText,
-        modifier = modifier.pointerInput(message) {
-            detectTapGestures(
-                onTap = { position ->
-                    val layout = textLayoutResult ?: return@detectTapGestures
-                    val offset = layout.getOffsetForPosition(position)
-                    // Nickname click only when not self
-                    if (!isSelf && onNicknameClick != null) {
-                        val nicknameAnnotations = annotatedText.getStringAnnotations(
-                            tag = "nickname_click",
+    // If animation is needed, use the matrix animation component for content only
+    if (shouldAnimate) {
+        // Display message with matrix animation for content
+        MessageWithMatrixAnimation(
+            message = message,
+            currentUserNickname = currentUserNickname,
+            meshService = meshService,
+            colorScheme = colorScheme,
+            timeFormatter = timeFormatter,
+            onNicknameClick = onNicknameClick,
+            onMessageLongPress = onMessageLongPress,
+            modifier = modifier
+        )
+    } else {
+        // Normal message display
+        val annotatedText = formatMessageAsAnnotatedString(
+            message = message,
+            currentUserNickname = currentUserNickname,
+            meshService = meshService,
+            colorScheme = colorScheme,
+            timeFormatter = timeFormatter
+        )
+        
+        // Check if this message was sent by self to avoid click interactions on own nickname
+        val isSelf = message.senderPeerID == meshService.myPeerID || 
+                     message.sender == currentUserNickname ||
+                     message.sender.startsWith("$currentUserNickname#")
+        
+        val haptic = LocalHapticFeedback.current
+        val context = LocalContext.current
+        var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+        Text(
+            text = annotatedText,
+            modifier = modifier.pointerInput(message) {
+                detectTapGestures(
+                    onTap = { position ->
+                        val layout = textLayoutResult ?: return@detectTapGestures
+                        val offset = layout.getOffsetForPosition(position)
+                        // Nickname click only when not self
+                        if (!isSelf && onNicknameClick != null) {
+                            val nicknameAnnotations = annotatedText.getStringAnnotations(
+                                tag = "nickname_click",
+                                start = offset,
+                                end = offset
+                            )
+                            if (nicknameAnnotations.isNotEmpty()) {
+                                val nickname = nicknameAnnotations.first().item
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onNicknameClick.invoke(nickname)
+                                return@detectTapGestures
+                            }
+                        }
+                        // Geohash teleport (all messages)
+                        val geohashAnnotations = annotatedText.getStringAnnotations(
+                            tag = "geohash_click",
                             start = offset,
                             end = offset
                         )
-                        if (nicknameAnnotations.isNotEmpty()) {
-                            val nickname = nicknameAnnotations.first().item
+                        if (geohashAnnotations.isNotEmpty()) {
+                            val geohash = geohashAnnotations.first().item
+                            try {
+                                val locationManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(
+                                    context
+                                )
+                                val level = when (geohash.length) {
+                                    in 0..2 -> com.bitchat.android.geohash.GeohashChannelLevel.REGION
+                                    in 3..4 -> com.bitchat.android.geohash.GeohashChannelLevel.PROVINCE
+                                    5 -> com.bitchat.android.geohash.GeohashChannelLevel.CITY
+                                    6 -> com.bitchat.android.geohash.GeohashChannelLevel.NEIGHBORHOOD
+                                    else -> com.bitchat.android.geohash.GeohashChannelLevel.BLOCK
+                                }
+                                val channel = com.bitchat.android.geohash.GeohashChannel(level, geohash.lowercase())
+                                locationManager.setTeleported(true)
+                                locationManager.select(com.bitchat.android.geohash.ChannelID.Location(channel))
+                            } catch (_: Exception) { }
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            onNicknameClick.invoke(nickname)
                             return@detectTapGestures
                         }
+                        // URL open (all messages)
+                        val urlAnnotations = annotatedText.getStringAnnotations(
+                            tag = "url_click",
+                            start = offset,
+                            end = offset
+                        )
+                        if (urlAnnotations.isNotEmpty()) {
+                            val raw = urlAnnotations.first().item
+                            val resolved = if (raw.startsWith("http://", ignoreCase = true) || raw.startsWith("https://", ignoreCase = true)) raw else "https://$raw"
+                            try {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(resolved))
+                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                context.startActivity(intent)
+                            } catch (_: Exception) { }
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            return@detectTapGestures
+                        }
+                    },
+                    onLongPress = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onMessageLongPress?.invoke(message)
                     }
-                    // Geohash teleport (all messages)
-                    val geohashAnnotations = annotatedText.getStringAnnotations(
-                        tag = "geohash_click",
-                        start = offset,
-                        end = offset
-                    )
-                    if (geohashAnnotations.isNotEmpty()) {
-                        val geohash = geohashAnnotations.first().item
-                        try {
-                            val locationManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(
-                                context
-                            )
-                            val level = when (geohash.length) {
-                                in 0..2 -> com.bitchat.android.geohash.GeohashChannelLevel.REGION
-                                in 3..4 -> com.bitchat.android.geohash.GeohashChannelLevel.PROVINCE
-                                5 -> com.bitchat.android.geohash.GeohashChannelLevel.CITY
-                                6 -> com.bitchat.android.geohash.GeohashChannelLevel.NEIGHBORHOOD
-                                else -> com.bitchat.android.geohash.GeohashChannelLevel.BLOCK
-                            }
-                            val channel = com.bitchat.android.geohash.GeohashChannel(level, geohash.lowercase())
-                            locationManager.setTeleported(true)
-                            locationManager.select(com.bitchat.android.geohash.ChannelID.Location(channel))
-                        } catch (_: Exception) { }
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        return@detectTapGestures
-                    }
-                    // URL open (all messages)
-                    val urlAnnotations = annotatedText.getStringAnnotations(
-                        tag = "url_click",
-                        start = offset,
-                        end = offset
-                    )
-                    if (urlAnnotations.isNotEmpty()) {
-                        val raw = urlAnnotations.first().item
-                        val resolved = if (raw.startsWith("http://", ignoreCase = true) || raw.startsWith("https://", ignoreCase = true)) raw else "https://$raw"
-                        try {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(resolved))
-                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            context.startActivity(intent)
-                        } catch (_: Exception) { }
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        return@detectTapGestures
-                    }
-                },
-                onLongPress = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onMessageLongPress?.invoke(message)
-                }
-            )
-        },
-        fontFamily = FontFamily.Monospace,
-        softWrap = true,
-        overflow = TextOverflow.Visible,
-        style = androidx.compose.ui.text.TextStyle(
-            color = colorScheme.onSurface
-        ),
-        onTextLayout = { result -> textLayoutResult = result }
-    )
+                )
+            },
+            fontFamily = FontFamily.Monospace,
+            softWrap = true,
+            overflow = TextOverflow.Visible,
+            style = androidx.compose.ui.text.TextStyle(
+                color = colorScheme.onSurface
+            ),
+            onTextLayout = { result -> textLayoutResult = result }
+        )
+    }
 }
 
 @Composable

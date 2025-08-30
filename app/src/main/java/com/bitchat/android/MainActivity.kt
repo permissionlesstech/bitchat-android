@@ -42,6 +42,7 @@ import com.bitchat.android.ui.ChatViewModel
 import com.bitchat.android.ui.theme.BitchatTheme
 import com.bitchat.android.ui.theme.ThemePreference
 import com.bitchat.android.ui.theme.ThemePreferenceManager
+import com.bitchat.android.nostr.PoWPreferenceManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -590,6 +591,10 @@ class MainActivity : ComponentActivity() {
                 delay(1000) // Give the system time to process permission grants
                 
                 Log.d("MainActivity", "Permissions verified, initializing chat system")
+                
+                // Initialize PoW preferences early in the initialization process
+                PoWPreferenceManager.init(this@MainActivity)
+                Log.d("MainActivity", "PoW preferences initialized")
                 
                 // Ensure all permissions are still granted (user might have revoked in settings)
                 if (!permissionManager.areAllPermissionsGranted()) {
