@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -217,7 +218,7 @@ object PoWMiningTracker {
 
 /**
  * Enhanced message display that shows matrix animation during PoW mining
- * This version integrates with the full message display system
+ * Formats message like a normal message but animates only the content portion
  */
 @Composable
 fun MessageWithMatrixAnimation(
@@ -230,28 +231,142 @@ fun MessageWithMatrixAnimation(
     onMessageLongPress: ((com.bitchat.android.model.BitchatMessage) -> Unit)?,
     modifier: Modifier = Modifier
 ) {
-    // For simplicity, just animate the entire message content
-    val baseAnnotatedText = formatMessageAsAnnotatedString(
-        message = message,
-        currentUserNickname = currentUserNickname,
-        meshService = meshService,
-        colorScheme = colorScheme,
-        timeFormatter = timeFormatter
-    )
+    val isAnimating = shouldAnimateMessage(message.id)
     
-    // Use matrix animation only for the content
-    AnimatedMatrixText(
-        targetText = message.content,
-        isAnimating = shouldAnimateMessage(message.id),
-        color = colorScheme.onSurface,
-        fontSize = TextUnit.Unspecified,
-        fontWeight = if (message.sender == currentUserNickname || message.sender.startsWith("$currentUserNickname#")) {
-            FontWeight.Bold
+    if (isAnimating) {
+        // During animation: Show formatted message with animated content
+        AnimatedMessageDisplay(
+            message = message,
+            currentUserNickname = currentUserNickname,
+            meshService = meshService,
+            colorScheme = colorScheme,
+            timeFormatter = timeFormatter,
+            modifier = modifier
+        )
+    } else {
+        // After animation: Show complete normal message using existing formatter
+        val annotatedText = formatMessageAsAnnotatedString(
+            message = message,
+            currentUserNickname = currentUserNickname,
+            meshService = meshService,
+            colorScheme = colorScheme,
+            timeFormatter = timeFormatter
+        )
+        
+        Text(
+            text = annotatedText,
+            modifier = modifier,
+            fontFamily = FontFamily.Monospace,
+            softWrap = true
+        )
+    }
+}
+
+/**
+ * Display message with proper formatting but animated content
+ * Reuses the same styling logic as formatMessageAsAnnotatedString
+ */
+@Composable
+private fun AnimatedMessageDisplay(
+    message: com.bitchat.android.model.BitchatMessage,
+    currentUserNickname: String,
+    meshService: com.bitchat.android.mesh.BluetoothMeshService,
+    colorScheme: androidx.compose.material3.ColorScheme,
+    timeFormatter: java.text.SimpleDateFormat,
+    modifier: Modifier = Modifier
+) {
+    val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
+    
+    // Determine if this message was sent by self
+    val isSelf = message.senderPeerID == meshService.myPeerID || 
+                 message.sender == currentUserNickname ||
+                 message.sender.startsWith("$currentUserNickname#")
+    
+    if (message.sender != "system") {
+        // Get base color for this peer (same logic as formatMessageAsAnnotatedString)
+        val baseColor = if (isSelf) {
+            Color(0xFFFF9500) // Orange for self (iOS orange)
         } else {
-            null
-        },
-        modifier = modifier
-    )
+            getPeerColor(message, isDark)
+        }
+        
+        // Split sender into base name and hashtag suffix
+        val (baseName, suffix) = splitSuffix(message.sender)
+        
+        // Build the message with animated content
+        Row(
+            modifier = modifier,
+            verticalAlignment = androidx.compose.ui.Alignment.Top
+        ) {
+            // Sender portion: <@nickname>
+            Text(
+                text = buildAnnotatedString {
+                    withStyle(SpanStyle(
+                        color = baseColor,
+                        fontSize = com.bitchat.android.ui.theme.BASE_FONT_SIZE.sp,
+                        fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
+                    )) {
+                        append("<@")
+                        append(truncateNickname(baseName))
+                        if (suffix.isNotEmpty()) {
+                            withStyle(SpanStyle(color = baseColor.copy(alpha = 0.6f))) {
+                                append(suffix)
+                            }
+                        }
+                        append("> ")
+                    }
+                },
+                fontFamily = FontFamily.Monospace
+            )
+            
+            // Animated content portion
+            AnimatedMatrixText(
+                targetText = message.content,
+                isAnimating = true,
+                color = baseColor,
+                fontSize = com.bitchat.android.ui.theme.BASE_FONT_SIZE.sp,
+                fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Normal,
+                modifier = Modifier.weight(1f)
+            )
+            
+            // Timestamp at the end (iOS style)
+            Text(
+                text = " [${timeFormatter.format(message.timestamp)}]",
+                color = Color.Gray.copy(alpha = 0.7f),
+                fontSize = (com.bitchat.android.ui.theme.BASE_FONT_SIZE - 4).sp,
+                fontFamily = FontFamily.Monospace
+            )
+        }
+    } else {
+        // System message with animation
+        Row(
+            modifier = modifier,
+            verticalAlignment = androidx.compose.ui.Alignment.Top
+        ) {
+            Text(
+                text = "* ",
+                color = Color.Gray,
+                fontSize = (com.bitchat.android.ui.theme.BASE_FONT_SIZE - 2).sp,
+                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                fontFamily = FontFamily.Monospace
+            )
+            
+            AnimatedMatrixText(
+                targetText = message.content,
+                isAnimating = true,
+                color = Color.Gray,
+                fontSize = (com.bitchat.android.ui.theme.BASE_FONT_SIZE - 2).sp,
+                modifier = Modifier.weight(1f)
+            )
+            
+            Text(
+                text = " * [${timeFormatter.format(message.timestamp)}]",
+                color = Color.Gray.copy(alpha = 0.5f),
+                fontSize = (com.bitchat.android.ui.theme.BASE_FONT_SIZE - 4).sp,
+                fontFamily = FontFamily.Monospace
+            )
+        }
+    }
 }
 
 /**
