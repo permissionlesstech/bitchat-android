@@ -1,7 +1,10 @@
 package com.bitchat.android.ui
 
+import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
@@ -15,9 +18,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.BaselineShift
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -244,14 +251,46 @@ fun AboutSheet(
                                     fontFamily = FontFamily.Monospace,
                                     color = colorScheme.onSurface.copy(alpha = 0.75f)
                                 )
+
+                                // Last log line with ANSI color rendering and horizontal scroll
                                 val last = torStatus.lastLogLine
-                                if (last.isNotEmpty()) {
-                                    Text(
-                                        text = "last: " + last.take(160),
-                                        fontSize = 10.sp,
-                                        fontFamily = FontFamily.Monospace,
-                                        color = colorScheme.onSurface.copy(alpha = 0.6f)
-                                    )
+                                if (last.isNotBlank()) {
+                                    val scrollState = rememberScrollState()
+                                    val ansiText: AnnotatedString = remember(last, isDark) {
+                                        parseAnsiToAnnotatedString(
+                                            input = last,
+                                            defaultColor = colorScheme.onSurface.copy(alpha = 0.6f),
+                                            isDark = isDark
+                                        )
+                                    }
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text(
+                                            text = "last:",
+                                            fontSize = 10.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            color = colorScheme.onSurface.copy(alpha = 0.6f)
+                                        )
+                                        Surface(
+                                            modifier = Modifier
+                                                .border(1.dp, colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(6.dp)),
+                                            color = Color.Transparent,
+                                            shape = RoundedCornerShape(6.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .horizontalScroll(scrollState)
+                                                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                                            ) {
+                                                Text(
+                                                    text = ansiText,
+                                                    fontSize = 10.sp,
+                                                    fontFamily = FontFamily.Monospace,
+                                                    softWrap = false
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -461,5 +500,91 @@ fun PasswordPromptDialog(
             containerColor = colorScheme.surface,
             tonalElevation = 8.dp
         )
+    }
+}
+
+// --- Utility: ANSI -> AnnotatedString ---------------------------------------------------------
+private fun parseAnsiToAnnotatedString(
+    input: String,
+    defaultColor: Color,
+    isDark: Boolean
+): AnnotatedString {
+    // Support both ESC-prefixed ("\u001B[32m") and bare ("[32m") sequences
+    val pattern = Regex("""(?:\u001B\[|\[)([0-9;]+)m""")
+
+    // Current style state
+    var currentColor = defaultColor
+    var currentBold = false
+
+    fun currentStyle(): SpanStyle = SpanStyle(
+        color = currentColor,
+        fontWeight = if (currentBold) FontWeight.Bold else null
+    )
+
+    fun colorFor(code: Int): Color = when (code) {
+        // Standard colors 30..37
+        30 -> if (isDark) Color(0xFF121212) else Color(0xFF000000) // black
+        31 -> Color(0xFFE53935) // red
+        32 -> Color(0xFF43A047) // green
+        33 -> Color(0xFFFDD835) // yellow
+        34 -> Color(0xFF1E88E5) // blue
+        35 -> Color(0xFFD81B60) // magenta
+        36 -> Color(0xFF00ACC1) // cyan
+        37 -> if (isDark) Color(0xFFEEEEEE) else Color(0xFF424242) // white (light gray on light theme)
+        // Bright colors 90..97
+        90 -> if (isDark) Color(0xFF2E2E2E) else Color(0xFF616161) // bright black (gray)
+        91 -> Color(0xFFEF5350)
+        92 -> Color(0xFF66BB6A)
+        93 -> Color(0xFFFFEE58)
+        94 -> Color(0xFF42A5F5)
+        95 -> Color(0xFFEC407A)
+        96 -> Color(0xFF26C6DA)
+        97 -> if (isDark) Color(0xFFFFFFFF) else Color(0xFF212121) // bright white
+        else -> defaultColor
+    }
+
+    return buildAnnotatedString {
+        var index = 0
+        for (match in pattern.findAll(input)) {
+            val start = match.range.first
+            val end = match.range.last + 1
+            if (start > index) {
+                withStyle(currentStyle()) {
+                    append(input.substring(index, start))
+                }
+            }
+            // Parse SGR params like "32", "1;32", etc.
+            val params = match.groupValues[1]
+                .split(';')
+                .mapNotNull { it.toIntOrNull() }
+            if (params.isEmpty()) {
+                // Treat empty as reset
+                currentColor = defaultColor
+                currentBold = false
+            } else {
+                for (p in params) {
+                    when (p) {
+                        0 -> { // reset
+                            currentColor = defaultColor
+                            currentBold = false
+                        }
+                        1 -> currentBold = true // bold on
+                        22 -> currentBold = false // normal intensity
+                        in 30..37, in 90..97 -> currentColor = colorFor(p)
+                        39 -> currentColor = defaultColor // default foreground
+                        // Background colors ignored for simplicity (40..47,100..107)
+                        else -> {
+                            // ignore unsupported codes
+                        }
+                    }
+                }
+            }
+            index = end
+        }
+        if (index < input.length) {
+            withStyle(currentStyle()) {
+                append(input.substring(index))
+            }
+        }
     }
 }
