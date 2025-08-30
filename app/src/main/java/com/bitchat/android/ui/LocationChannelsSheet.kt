@@ -206,7 +206,7 @@ private fun LocationChannelsContent(
 
                             LocationChannelManager.PermissionState.AUTHORIZED -> {
                                 Text(
-                                    text = "✓ location permission granted",
+                                    text = stringResource(R.string.location_permission_granted),
                                     fontSize = 11.sp,
                                     fontFamily = FontFamily.Monospace,
                                     color = standardGreen
@@ -220,7 +220,7 @@ private fun LocationChannelsContent(
                                 ) {
                                     CircularProgressIndicator(modifier = Modifier.size(12.dp))
                                     Text(
-                                        text = "checking permissions...",
+                                        text = stringResource(R.string.checking_permissions),
                                         fontSize = 11.sp,
                                         fontFamily = FontFamily.Monospace,
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
@@ -378,7 +378,7 @@ private fun LocationChannelsContent(
                                         locationManager.select(ChannelID.Location(channel))
                                         onDismiss()
                                     } else {
-                                        customError = "invalid geohash"
+                                        customError = invalidGeohashErrorText
                                     }
                                 },
                                 enabled = isValid,
@@ -400,7 +400,7 @@ private fun LocationChannelsContent(
                                     // iOS has a face.dashed icon, use closest Material equivalent
                                     Icon(
                                         imageVector = Icons.Filled.PinDrop,
-                                        contentDescription = "Teleport",
+                                        contentDescription = stringResource(R.string.teleport_button_description),
                                         modifier = Modifier.size(14.dp),
                                         tint = MaterialTheme.colorScheme.onSurface
                                     )
@@ -448,9 +448,9 @@ private fun LocationChannelsContent(
                 ) {
                     Text(
                         text = if (locationServicesEnabled) {
-                            "disable location services"
+                            stringResource(R.string.disable_location_services)
                         } else {
-                            "enable location services"
+                            stringResource(R.string.enable_location_services)
                         },
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace
@@ -691,6 +691,7 @@ private fun levelForLength(length: Int): GeohashChannelLevel {
     }
 }
 
+@Composable
 private fun coverageString(precision: Int): String {
     // Approximate max cell dimension at equator for a given geohash length
     val maxMeters = when (precision) {
@@ -711,7 +712,7 @@ private fun coverageString(precision: Int): String {
 
     // Use metric system for simplicity (could be made locale-aware)
     val km = maxMeters / 1000.0
-    return "~${formatDistance(km)} km"
+    return stringResource(R.string.coverage_format, formatDistance(km))
 }
 
 private fun formatDistance(value: Double): String {

@@ -149,6 +149,12 @@
     <string name="checkmark_symbol">✔︎</string>
     <string name="location_channels_sheet_mesh_title">mesh [%1$d %2$s]</string>
     <string name="location_channels_sheet_geohash_title">%1$s [%2$d %3$s]</string>
+    <string name="location_permission_granted">✓ location permission granted</string>
+    <string name="checking_permissions">checking permissions…</string>
+    <string name="disable_location_services">disable location services</string>
+    <string name="enable_location_services">enable location services</string>
+    <string name="teleport_icon_description">Teleport</string>
+    <string name="coverage_format">~%1$s km</string>
 
     <!-- Plurals for person/people count -->
     <plurals name="person_count">
