@@ -218,15 +218,7 @@ fun AboutSheet(
                                             Surface(
                                                 color = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D),
                                                 shape = RoundedCornerShape(50)
-                                            ) { 
-                                                Text(
-                                                    text = "$powDifficulty",
-                                                    fontSize = 9.sp,
-                                                    fontFamily = FontFamily.Monospace,
-                                                    color = Color.White,
-                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                                )
-                                            }
+                                            ) { Box(Modifier.size(8.dp)) }
                                         }
                                     }
                                 }
@@ -256,8 +248,8 @@ fun AboutSheet(
                                 Slider(
                                     value = powDifficulty.toFloat(),
                                     onValueChange = { PoWPreferenceManager.setPowDifficulty(it.toInt()) },
-                                    valueRange = 0f..32f,
-                                    steps = 31, // 32 discrete values (0-32)
+                                    valueRange = 0f..20f,
+                                    steps = 21, // 20 discrete values (0-20)
                                     colors = SliderDefaults.colors(
                                         thumbColor = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D),
                                         activeTrackColor = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
