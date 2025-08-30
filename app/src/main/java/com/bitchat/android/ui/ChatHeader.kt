@@ -571,6 +571,12 @@ private fun MainHeader(
 
             // Tor status cable icon when Tor is enabled
             TorStatusIcon(modifier = Modifier.size(14.dp))
+            
+            // PoW status indicator
+            PoWStatusIndicator(
+                modifier = Modifier,
+                style = PoWIndicatorStyle.COMPACT
+            )
 
             PeerCounter(
                 connectedPeers = connectedPeers.filter { it != viewModel.meshService.myPeerID },

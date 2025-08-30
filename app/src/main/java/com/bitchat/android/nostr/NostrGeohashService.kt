@@ -1156,6 +1156,16 @@ class NostrGeohashService(
                 return@launch
             }
             
+            // Check Proof of Work validation BEFORE other processing
+            val powSettings = PoWPreferenceManager.getCurrentSettings()
+            if (powSettings.enabled && powSettings.difficulty > 0) {
+                if (!NostrProofOfWork.validateDifficulty(event, powSettings.difficulty)) {
+                    Log.w(TAG, "🚫 Rejecting geohash event ${event.id.take(8)}... due to insufficient PoW (required: ${powSettings.difficulty})")
+                    return@launch
+                }
+                Log.v(TAG, "✅ PoW validation passed for event ${event.id.take(8)}...")
+            }
+            
             // Check if this user is blocked in geohash channels BEFORE any processing
             if (isGeohashUserBlocked(event.pubkey)) {
                 Log.v(TAG, "🚫 Skipping event from blocked geohash user: ${event.pubkey.take(8)}...")
