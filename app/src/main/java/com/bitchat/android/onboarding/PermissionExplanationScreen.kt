@@ -133,7 +133,7 @@ fun PermissionExplanationScreen(
         }
 
         // Fixed button at bottom
-        Surface(
+        Surface(x
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth(),

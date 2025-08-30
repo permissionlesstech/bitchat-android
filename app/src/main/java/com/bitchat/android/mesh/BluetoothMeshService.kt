@@ -134,8 +134,14 @@ class BluetoothMeshService(private val context: Context) {
                     payload = response,
                     ttl = MAX_TTL
                 )
-                connectionManager.broadcastPacket(RoutedPacket(responsePacket))
+                // Sign the handshake response
+                val signedPacket = signPacketBeforeBroadcast(responsePacket)
+                connectionManager.broadcastPacket(RoutedPacket(signedPacket))
                 Log.d(TAG, "Sent Noise handshake response to $peerID (${response.size} bytes)")
+            }
+            
+            override fun getPeerInfo(peerID: String): PeerInfo? {
+                return peerManager.getPeerInfo(peerID)
             }
         }
         
@@ -191,7 +197,9 @@ class BluetoothMeshService(private val context: Context) {
             
             // Packet operations
             override fun sendPacket(packet: BitchatPacket) {
-                connectionManager.broadcastPacket(RoutedPacket(packet))
+                // Sign the packet before broadcasting
+                val signedPacket = signPacketBeforeBroadcast(packet)
+                connectionManager.broadcastPacket(RoutedPacket(signedPacket))
             }
             
             override fun relayPacket(routed: RoutedPacket) {
@@ -240,7 +248,9 @@ class BluetoothMeshService(private val context: Context) {
                             ttl = MAX_TTL
                         )
 
-                        connectionManager.broadcastPacket(RoutedPacket(packet))
+                        // Sign the handshake packet before broadcasting
+                        val signedPacket = signPacketBeforeBroadcast(packet)
+                        connectionManager.broadcastPacket(RoutedPacket(signedPacket))
                         Log.d(TAG, "Initiated Noise handshake with $peerID (${handshakeData.size} bytes)")
                     } else {
                         Log.w(TAG, "Failed to generate Noise handshake data for $peerID")
@@ -456,7 +466,9 @@ class BluetoothMeshService(private val context: Context) {
                 ttl = MAX_TTL
             )
 
-            connectionManager.broadcastPacket(RoutedPacket(packet))
+            // Sign the packet before broadcasting
+            val signedPacket = signPacketBeforeBroadcast(packet)
+            connectionManager.broadcastPacket(RoutedPacket(signedPacket))
         }
     }
     
@@ -521,7 +533,9 @@ class BluetoothMeshService(private val context: Context) {
                         ttl = MAX_TTL
                     )
                     
-                    connectionManager.broadcastPacket(RoutedPacket(packet))
+                    // Sign the packet before broadcasting
+                    val signedPacket = signPacketBeforeBroadcast(packet)
+                    connectionManager.broadcastPacket(RoutedPacket(signedPacket))
                     Log.d(TAG, "📤 Sent encrypted private message to $recipientPeerID (${encrypted.size} bytes)")
                     
                     // FIXED: Don't send didReceiveMessage for our own sent messages
@@ -584,7 +598,9 @@ class BluetoothMeshService(private val context: Context) {
                     ttl = 7u // Same TTL as iOS messageTTL
                 )
                 
-                connectionManager.broadcastPacket(RoutedPacket(packet))
+                // Sign the packet before broadcasting
+                val signedPacket = signPacketBeforeBroadcast(packet)
+                connectionManager.broadcastPacket(RoutedPacket(signedPacket))
                 Log.d(TAG, "📤 Sent read receipt to $recipientPeerID for message $messageID")
                 
             } catch (e: Exception) {
@@ -699,7 +715,9 @@ class BluetoothMeshService(private val context: Context) {
             payload = nickname.toByteArray()
         )
         
-        connectionManager.broadcastPacket(RoutedPacket(packet))
+        // Sign the packet before broadcasting
+        val signedPacket = signPacketBeforeBroadcast(packet)
+        connectionManager.broadcastPacket(RoutedPacket(signedPacket))
     }
     
     /**
@@ -859,6 +877,33 @@ class BluetoothMeshService(private val context: Context) {
         }
         
         return result
+    }
+    
+    /**
+     * Sign packet before broadcasting using our signing private key
+     */
+    private fun signPacketBeforeBroadcast(packet: BitchatPacket): BitchatPacket {
+        return try {
+            // Get the canonical packet data for signing (without signature)
+            val packetDataForSigning = packet.toBinaryDataForSigning()
+            if (packetDataForSigning == null) {
+                Log.w(TAG, "Failed to encode packet type ${packet.type} for signing, sending unsigned")
+                return packet
+            }
+            
+            // Sign the packet data using our signing key
+            val signature = encryptionService.signData(packetDataForSigning)
+            if (signature != null) {
+                Log.d(TAG, "✅ Signed packet type ${packet.type} (signature ${signature.size} bytes)")
+                packet.copy(signature = signature)
+            } else {
+                Log.w(TAG, "Failed to sign packet type ${packet.type}, sending unsigned")
+                packet
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Error signing packet type ${packet.type}: ${e.message}, sending unsigned")
+            packet
+        }
     }
     
     // MARK: - Panic Mode Support
