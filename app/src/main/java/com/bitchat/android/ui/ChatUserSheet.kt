@@ -7,6 +7,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -16,6 +17,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import kotlinx.coroutines.launch
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.R
 
 /**
  * User Action Sheet for selecting actions on a specific user (slap, hug, block)
@@ -33,7 +35,7 @@ fun ChatUserSheet(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val clipboardManager = LocalClipboardManager.current
-    
+
     // Bottom sheet state
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
@@ -46,13 +48,13 @@ fun ChatUserSheet(
     val standardBlue = Color(0xFF007AFF) // iOS blue
     val standardRed = Color(0xFFFF3B30) // iOS red
     val standardGrey = if (isDark) Color(0xFF8E8E93) else Color(0xFF6D6D70) // iOS grey
-    
+
     if (isPresented) {
         ModalBottomSheet(
             onDismissRequest = onDismiss,
             sheetState = sheetState,
-            modifier = modifier
-        ) {
+            modifier = modifier.statusBarsPadding(),
+            ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -61,7 +63,7 @@ fun ChatUserSheet(
             ) {
                 // Header
                 Text(
-                    text = "@$targetNickname",
+                    text = stringResource(R.string.user_sheet_header, targetNickname),
                     fontSize = 18.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
@@ -69,7 +71,7 @@ fun ChatUserSheet(
                 )
                 
                 Text(
-                    text = if (selectedMessage != null) "choose an action for this message or user" else "choose an action for this user",
+                    text = if (selectedMessage != null) stringResource(R.string.user_sheet_subtitle_message_or_user) else stringResource(R.string.user_sheet_subtitle),
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
@@ -83,8 +85,8 @@ fun ChatUserSheet(
                     selectedMessage?.let { message ->
                         item {
                             UserActionRow(
-                                title = "copy message",
-                                subtitle = "copy this message to clipboard",
+                                title = stringResource(R.string.user_sheet_action_copy_message),
+                                subtitle = stringResource(R.string.user_sheet_action_copy_message_subtitle),
                                 titleColor = standardGrey,
                                 onClick = {
                                     // Copy the message content to clipboard
@@ -94,14 +96,14 @@ fun ChatUserSheet(
                             )
                         }
                     }
-                    
+
                     // Only show user actions for other users' messages or when no message is selected
                     if (selectedMessage?.sender != viewModel.nickname.value) {
                         // Slap action
                         item {
                             UserActionRow(
-                                title = "slap $targetNickname",
-                                subtitle = "send a playful slap message",
+                                title = stringResource(R.string.user_sheet_action_slap, targetNickname),
+                                subtitle = stringResource(R.string.user_sheet_action_slap_subtitle),
                                 titleColor = standardBlue,
                                 onClick = {
                                     // Send slap command
@@ -110,12 +112,12 @@ fun ChatUserSheet(
                                 }
                             )
                         }
-                        
-                        // Hug action  
+
+                        // Hug action
                         item {
                             UserActionRow(
-                                title = "hug $targetNickname",
-                                subtitle = "send a friendly hug message",
+                                title = stringResource(R.string.user_sheet_action_hug, targetNickname),
+                                subtitle = stringResource(R.string.user_sheet_action_hug_subtitle),
                                 titleColor = standardGreen,
                                 onClick = {
                                     // Send hug command
@@ -124,12 +126,12 @@ fun ChatUserSheet(
                                 }
                             )
                         }
-                        
+
                         // Block action
                         item {
                             UserActionRow(
-                                title = "block $targetNickname",
-                                subtitle = "block all messages from this user",
+                                title = stringResource(R.string.user_sheet_action_block, targetNickname),
+                                subtitle = stringResource(R.string.user_sheet_action_block_subtitle),
                                 titleColor = standardRed,
                                 onClick = {
                                     // Check if we're in a geohash channel
@@ -158,7 +160,7 @@ fun ChatUserSheet(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "cancel",
+                        text = stringResource(id = R.string.cancel),
                         fontSize = BASE_FONT_SIZE.sp,
                         fontFamily = FontFamily.Monospace
                     )
