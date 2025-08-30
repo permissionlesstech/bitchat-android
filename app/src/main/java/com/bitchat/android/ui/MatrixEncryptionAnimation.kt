@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlin.random.Random
+import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 
 /**
  * Matrix-style encryption animation for messages during PoW computation
@@ -264,7 +265,7 @@ fun MessageWithMatrixAnimation(
 
 /**
  * Display message with proper formatting but animated content
- * Reuses the same styling logic as formatMessageAsAnnotatedString
+ * Uses IDENTICAL layout structure as normal message for pixel-perfect alignment
  */
 @Composable
 private fun AnimatedMessageDisplay(
@@ -275,109 +276,115 @@ private fun AnimatedMessageDisplay(
     timeFormatter: java.text.SimpleDateFormat,
     modifier: Modifier = Modifier
 ) {
-    val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
+    // Get the animated content text
+    var animatedContent by remember(message.content) { mutableStateOf(message.content) }
+    val isAnimating = shouldAnimateMessage(message.id)
     
-    // Determine if this message was sent by self
-    val isSelf = message.senderPeerID == meshService.myPeerID || 
-                 message.sender == currentUserNickname ||
-                 message.sender.startsWith("$currentUserNickname#")
-    
-    if (message.sender != "system") {
-        // Get base color for this peer (same logic as formatMessageAsAnnotatedString)
-        val baseColor = if (isSelf) {
-            Color(0xFFFF9500) // Orange for self (iOS orange)
-        } else {
-            getPeerColor(message, isDark)
-        }
-        
-        // Split sender into base name and hashtag suffix
-        val (baseName, suffix) = splitSuffix(message.sender)
-        
-        // Build the message with animated content
-        Row(
-            modifier = modifier,
-            verticalAlignment = androidx.compose.ui.Alignment.Top
-        ) {
-            // Sender portion: <@nickname>
-            Text(
-                text = buildAnnotatedString {
-                    withStyle(SpanStyle(
-                        color = baseColor,
-                        fontSize = 15.sp, // Use BASE_FONT_SIZE directly
-                        fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
-                    )) {
-                        append("<@")
-                        append(truncateNickname(baseName))
-                        if (suffix.isNotEmpty()) {
-                            withStyle(SpanStyle(color = baseColor.copy(alpha = 0.6f))) {
-                                append(suffix)
-                            }
+    // Update animated content when animation state changes
+    LaunchedEffect(isAnimating, message.content) {
+        if (isAnimating && message.content.isNotEmpty()) {
+            // Start with encrypted content
+            val encryptedChars = "!@#$%^&*()_+-=[]{}|;:,.<>?~`".toCharArray()
+            
+            // Animate each character gradually
+            message.content.forEachIndexed { index, targetChar ->
+                launch {
+                    // Stagger character animations
+                    delay(index * 50L)
+                    
+                    val animationDuration = Random.nextLong(1000, 3000)
+                    val startTime = System.currentTimeMillis()
+                    
+                    // Phase 1: Random encrypted characters
+                    while (System.currentTimeMillis() - startTime < animationDuration) {
+                        val randomChar = encryptedChars[Random.nextInt(encryptedChars.size)]
+                        val currentText = animatedContent.toCharArray()
+                        if (index < currentText.size) {
+                            currentText[index] = randomChar
+                            animatedContent = String(currentText)
                         }
-                        append("> ")
+                        delay(100)
                     }
-                },
-                fontFamily = FontFamily.Monospace
-            )
-            
-            // Animated content portion (no timestamp during animation)
-            AnimatedMatrixText(
-                targetText = message.content,
-                isAnimating = true,
-                color = baseColor,
-                fontSize = 15.sp, // Use BASE_FONT_SIZE directly (15sp)
-                fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Normal,
-                modifier = Modifier.weight(1f)
-            )
-        }
-    } else {
-        // System message with animation (no timestamp during animation)
-        Row(
-            modifier = modifier,
-            verticalAlignment = androidx.compose.ui.Alignment.Top
-        ) {
-            Text(
-                text = "* ",
-                color = Color.Gray,
-                fontSize = 13.sp, // (BASE_FONT_SIZE - 2).sp = 13sp
-                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                fontFamily = FontFamily.Monospace
-            )
-            
-            AnimatedMatrixText(
-                targetText = message.content,
-                isAnimating = true,
-                color = Color.Gray,
-                fontSize = 13.sp, // (BASE_FONT_SIZE - 2).sp = 13sp
-                modifier = Modifier.weight(1f)
-            )
-            
-            Text(
-                text = " *",
-                color = Color.Gray,
-                fontSize = 13.sp, // (BASE_FONT_SIZE - 2).sp = 13sp
-                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                fontFamily = FontFamily.Monospace
-            )
+                    
+                    // Phase 2: Reveal final character
+                    val finalText = animatedContent.toCharArray()
+                    if (index < finalText.size) {
+                        finalText[index] = targetChar
+                        animatedContent = String(finalText)
+                    }
+                }
+            }
+        } else {
+            // Not animating, show final content
+            animatedContent = message.content
         }
     }
+    
+    // Create a temporary message with animated content for formatting
+    val animatedMessage = message.copy(content = animatedContent)
+    
+    // Use the EXACT same formatting function as normal messages, but without timestamp during animation
+    val annotatedText = if (isAnimating) {
+        formatMessageAsAnnotatedStringWithoutTimestamp(
+            message = animatedMessage,
+            currentUserNickname = currentUserNickname,
+            meshService = meshService,
+            colorScheme = colorScheme
+        )
+    } else {
+        formatMessageAsAnnotatedString(
+            message = animatedMessage,
+            currentUserNickname = currentUserNickname,
+            meshService = meshService,
+            colorScheme = colorScheme,
+            timeFormatter = timeFormatter
+        )
+    }
+    
+    // Use IDENTICAL Text composable structure as normal message
+    Text(
+        text = annotatedText,
+        modifier = modifier,
+        fontFamily = FontFamily.Monospace,
+        softWrap = true
+    )
 }
 
 /**
- * Find the start index of the message content (after timestamp and sender)
+ * Format message without timestamp for animation phase
+ * Identical to formatMessageAsAnnotatedString but excludes timestamp
  */
-private fun findContentStartIndex(messageText: String): Int {
-    // Look for pattern like "] <@sender> " to find where content starts
-    val pattern = """] <[^>]+> """.toRegex()
-    val match = pattern.find(messageText)
-    return match?.range?.last?.plus(1) ?: -1
-}
-
-/**
- * Find the end index of the message content (before final timestamp)
- */
-private fun findContentEndIndex(messageText: String): Int {
-    // Look for pattern like " [HH:mm:ss]" at the end
-    val pattern = """ \[\d{2}:\d{2}:\d{2}]$""".toRegex()
-    val match = pattern.find(messageText)
-    return match?.range?.first ?: messageText.length
+private fun formatMessageAsAnnotatedStringWithoutTimestamp(
+    message: com.bitchat.android.model.BitchatMessage,
+    currentUserNickname: String,
+    meshService: com.bitchat.android.mesh.BluetoothMeshService,
+    colorScheme: androidx.compose.material3.ColorScheme
+): AnnotatedString {
+    // Simply call the main formatting function with a dummy formatter, 
+    // then remove the timestamp part
+    val timeFormatter = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
+    val fullText = formatMessageAsAnnotatedString(
+        message = message,
+        currentUserNickname = currentUserNickname,
+        meshService = meshService,
+        colorScheme = colorScheme,
+        timeFormatter = timeFormatter
+    )
+    
+    // Find and remove the timestamp at the end
+    val text = fullText.text
+    val timestampPattern = """ \[\d{2}:\d{2}:\d{2}]$""".toRegex()
+    val match = timestampPattern.find(text)
+    
+    return if (match != null) {
+        // Remove timestamp portion
+        val endIndex = match.range.first
+        AnnotatedString(
+            text = text.substring(0, endIndex),
+            spanStyles = fullText.spanStyles.filter { it.end <= endIndex },
+            paragraphStyles = fullText.paragraphStyles.filter { it.end <= endIndex }
+        )
+    } else {
+        fullText
+    }
 }
