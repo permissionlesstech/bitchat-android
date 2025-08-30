@@ -562,16 +562,16 @@ private fun MainHeader(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
-            
-            // Tor status cable icon when Tor is enabled
-            TorStatusIcon(modifier = Modifier.size(15.dp))
 
             // Location channels button (matching iOS implementation)
             LocationChannelsButton(
                 viewModel = viewModel,
                 onClick = onLocationChannelsClick
             )
-            
+
+            // Tor status cable icon when Tor is enabled
+            TorStatusIcon(modifier = Modifier.size(14.dp))
+
             PeerCounter(
                 connectedPeers = connectedPeers.filter { it != viewModel.meshService.myPeerID },
                 joinedChannels = joinedChannels,
