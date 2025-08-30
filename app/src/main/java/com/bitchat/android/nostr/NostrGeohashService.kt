@@ -12,6 +12,7 @@ import com.bitchat.android.ui.MeshDelegateHandler
 import com.bitchat.android.ui.PrivateChatManager
 import com.bitchat.android.ui.GeoPerson
 import com.bitchat.android.ui.colorForPeerSeed
+import com.bitchat.android.services.SpamFilterService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -242,6 +243,17 @@ class NostrGeohashService(
     fun sendGeohashMessage(content: String, channel: com.bitchat.android.geohash.GeohashChannel, myPeerID: String, nickname: String?) {
         coroutineScope.launch {
             try {
+                // Check if message content is spam before sending
+                val spamFilterService = SpamFilterService.getInstance()
+                if (spamFilterService.isSpamMessage(BitchatMessage(
+                    sender = nickname ?: myPeerID,
+                    content = content,
+                    timestamp = Date()
+                ))) {
+                    Log.w(TAG, "🚫 Blocked spam message from being sent: $content")
+                    return@launch
+                }
+                
                 val identity = NostrIdentityBridge.deriveIdentity(
                     forGeohash = channel.geohash,
                     context = application
@@ -1249,6 +1261,13 @@ class NostrGeohashService(
                 mentions = null, // mentions need to be passed from outside
                 channel = "#$geohash"
             )
+            
+            // Check if message is spam before processing
+            val spamFilterService = SpamFilterService.getInstance()
+            if (spamFilterService.isSpamMessage(message)) {
+                Log.d(TAG, "Skipping spam message from ${message.sender} in geohash $geohash")
+                return@launch
+            }
             
             // Store in geohash history for persistence across channel switches
             storeGeohashMessage(geohash, message)

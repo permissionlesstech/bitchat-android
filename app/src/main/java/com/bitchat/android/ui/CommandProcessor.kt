@@ -2,6 +2,7 @@ package com.bitchat.android.ui
 
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.services.SpamFilterService
 import java.util.*
 
 /**
@@ -24,7 +25,9 @@ class CommandProcessor(
         CommandSuggestion("/m", listOf("/msg"), "<nickname> [message]", "send private message"),
         CommandSuggestion("/slap", emptyList(), "<nickname>", "slap someone with a trout"),
         CommandSuggestion("/unblock", emptyList(), "<nickname>", "unblock a peer"),
-        CommandSuggestion("/w", emptyList(), null, "see who's online")
+        CommandSuggestion("/w", emptyList(), null, "see who's online"),
+        CommandSuggestion("/spam", emptyList(), "[add/remove] [nickname]", "manage spam filter"),
+        CommandSuggestion("/spamlist", emptyList(), null, "list blocked spam bots")
     )
     
     // MARK: - Command Processing
@@ -46,6 +49,8 @@ class CommandProcessor(
             "/hug" -> handleActionCommand(parts, "gives", "a warm hug 🫂", meshService, myPeerID, onSendMessage)
             "/slap" -> handleActionCommand(parts, "slaps", "around a bit with a large trout 🐟", meshService, myPeerID, onSendMessage)
             "/channels" -> handleChannelsCommand()
+            "/spam" -> handleSpamCommand(parts)
+            "/spamlist" -> handleSpamListCommand()
             else -> handleUnknownCommand(cmd)
         }
         
@@ -511,5 +516,117 @@ class CommandProcessor(
     
     private fun sendPrivateMessageVia(meshService: BluetoothMeshService, content: String, peerID: String, recipientNickname: String, messageId: String) {
         meshService.sendPrivateMessage(content, peerID, recipientNickname, messageId)
+    }
+    
+    // MARK: - Spam Filter Commands
+    
+    private fun handleSpamCommand(parts: List<String>) {
+        val spamFilterService = SpamFilterService.getInstance()
+        
+        when {
+            parts.size == 1 -> {
+                // Show usage
+                val systemMessage = BitchatMessage(
+                    sender = "system",
+                    content = "usage: /spam [add/remove] [nickname]",
+                    timestamp = Date(),
+                    isRelay = false
+                )
+                messageManager.addMessage(systemMessage)
+            }
+            parts.size == 2 -> {
+                when (parts[1].lowercase()) {
+                    "add" -> {
+                        val systemMessage = BitchatMessage(
+                            sender = "system",
+                            content = "usage: /spam add <nickname>",
+                            timestamp = Date(),
+                            isRelay = false
+                        )
+                        messageManager.addMessage(systemMessage)
+                    }
+                    "remove" -> {
+                        val systemMessage = BitchatMessage(
+                            sender = "system",
+                            content = "usage: /spam remove <nickname>",
+                            timestamp = Date(),
+                            isRelay = false
+                        )
+                        messageManager.addMessage(systemMessage)
+                    }
+                    else -> {
+                        val systemMessage = BitchatMessage(
+                            sender = "system",
+                            content = "usage: /spam [add/remove] [nickname]",
+                            timestamp = Date(),
+                            isRelay = false
+                        )
+                        messageManager.addMessage(systemMessage)
+                    }
+                }
+            }
+            parts.size == 3 -> {
+                val action = parts[1].lowercase()
+                val nickname = parts[2]
+                
+                when (action) {
+                    "add" -> {
+                        spamFilterService.addSpamBotNickname(nickname)
+                        val systemMessage = BitchatMessage(
+                            sender = "system",
+                            content = "added '$nickname' to spam filter",
+                            timestamp = Date(),
+                            isRelay = false
+                        )
+                        messageManager.addMessage(systemMessage)
+                    }
+                    "remove" -> {
+                        spamFilterService.removeSpamBotNickname(nickname)
+                        val systemMessage = BitchatMessage(
+                            sender = "system",
+                            content = "removed '$nickname' from spam filter",
+                            timestamp = Date(),
+                            isRelay = false
+                        )
+                        messageManager.addMessage(systemMessage)
+                    }
+                    else -> {
+                        val systemMessage = BitchatMessage(
+                            sender = "system",
+                            content = "usage: /spam [add/remove] [nickname]",
+                            timestamp = Date(),
+                            isRelay = false
+                        )
+                        messageManager.addMessage(systemMessage)
+                    }
+                }
+            }
+            else -> {
+                val systemMessage = BitchatMessage(
+                    sender = "system",
+                    content = "usage: /spam [add/remove] [nickname]",
+                    timestamp = Date(),
+                    isRelay = false
+                )
+                messageManager.addMessage(systemMessage)
+            }
+        }
+    }
+    
+    private fun handleSpamListCommand() {
+        val spamFilterService = SpamFilterService.getInstance()
+        val blockedBots = spamFilterService.getSpamBotNicknames()
+        
+        val systemMessage = BitchatMessage(
+            sender = "system",
+            content = if (blockedBots.isEmpty()) {
+                "no spam bots blocked"
+            } else {
+                "blocked spam bots: ${blockedBots.joinToString(", ")}"
+            },
+            timestamp = Date(),
+            isRelay = false
+        )
+        messageManager.addMessage(systemMessage)
     }
 }

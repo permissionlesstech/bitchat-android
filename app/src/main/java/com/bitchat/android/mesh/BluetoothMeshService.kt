@@ -11,6 +11,7 @@ import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
 import com.bitchat.android.util.toHexString
+import com.bitchat.android.services.SpamFilterService
 import kotlinx.coroutines.*
 import java.util.*
 import kotlin.math.sign
@@ -453,6 +454,17 @@ class BluetoothMeshService(private val context: Context) {
      */
     fun sendMessage(content: String, mentions: List<String> = emptyList(), channel: String? = null) {
         if (content.isEmpty()) return
+        
+        // Check if message content is spam before sending
+        val spamFilterService = SpamFilterService.getInstance()
+        if (spamFilterService.isSpamMessage(BitchatMessage(
+            sender = "me",
+            content = content,
+            timestamp = Date()
+        ))) {
+            Log.w(TAG, "Blocked spam message from being sent: $content")
+            return
+        }
         
         serviceScope.launch {
             val packet = BitchatPacket(
