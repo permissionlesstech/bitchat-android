@@ -337,7 +337,11 @@ private fun AnimatedMessageDisplay(
         text = annotatedText,
         modifier = modifier,
         fontFamily = FontFamily.Monospace,
-        softWrap = true
+        softWrap = true,
+        overflow = androidx.compose.ui.text.style.TextOverflow.Visible,
+        style = androidx.compose.ui.text.TextStyle(
+            color = colorScheme.onSurface
+        )
     )
 }
 
