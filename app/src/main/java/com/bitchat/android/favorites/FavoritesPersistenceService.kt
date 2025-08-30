@@ -47,6 +47,11 @@ data class FavoriteRelationship(
     }
 }
 
+interface FavoritesChangeListener {
+    fun onFavoriteChanged(noiseKeyHex: String)
+    fun onAllCleared()
+}
+
 /**
  * Manages favorites with Noise↔Nostr mapping
  * Singleton pattern matching iOS implementation
@@ -77,6 +82,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
     private val stateManager = SecureIdentityStateManager(context)
     private val gson = Gson()
     private val favorites = mutableMapOf<String, FavoriteRelationship>() // noiseKeyHex -> relationship
+    private val listeners = mutableListOf<FavoritesChangeListener>()
     
     init {
         loadFavorites()
@@ -133,6 +139,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
         }
         
         saveFavorites()
+        notifyChanged(keyHex)
         Log.d(TAG, "Updated Nostr pubkey association for ${keyHex.take(16)}...")
     }
     
@@ -164,7 +171,8 @@ class FavoritesPersistenceService private constructor(private val context: Conte
         
         favorites[keyHex] = updated
         saveFavorites()
-        
+        notifyChanged(keyHex)
+
         Log.d(TAG, "Updated favorite status for $nickname: $isFavorite")
     }
     
@@ -182,6 +190,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
             )
             favorites[keyHex] = updated
             saveFavorites()
+            notifyChanged(keyHex)
             
             Log.d(TAG, "Updated peer favorited us for ${keyHex.take(16)}...: $theyFavoritedUs")
         }
@@ -208,13 +217,19 @@ class FavoritesPersistenceService private constructor(private val context: Conte
         favorites.clear()
         saveFavorites()
         Log.i(TAG, "Cleared all favorites")
+        notifyAllCleared()
     }
     
     /**
      * Find Noise key by Nostr pubkey
      */
     fun findNoiseKey(forNostrPubkey: String): ByteArray? {
-        return favorites.values.firstOrNull { it.peerNostrPublicKey == forNostrPubkey }?.peerNoisePublicKey
+        val targetHex = normalizeNostrKeyToHex(forNostrPubkey) ?: return null
+        return favorites.values.firstOrNull { rel ->
+            rel.peerNostrPublicKey?.let { stored ->
+                normalizeNostrKeyToHex(stored)
+            } == targetHex
+        }?.peerNoisePublicKey
     }
     
     /**
@@ -264,6 +279,40 @@ class FavoritesPersistenceService private constructor(private val context: Conte
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save favorites: ${e.message}")
         }
+    }
+
+    // MARK: - Listeners
+    fun addListener(listener: FavoritesChangeListener) {
+        synchronized(listeners) {
+            if (!listeners.contains(listener)) listeners.add(listener)
+        }
+    }
+    fun removeListener(listener: FavoritesChangeListener) {
+        synchronized(listeners) { listeners.remove(listener) }
+    }
+    private fun notifyChanged(noiseKeyHex: String) {
+        val snapshot = synchronized(listeners) { listeners.toList() }
+        snapshot.forEach { runCatching { it.onFavoriteChanged(noiseKeyHex) } }
+    }
+    private fun notifyAllCleared() {
+        val snapshot = synchronized(listeners) { listeners.toList() }
+        snapshot.forEach { runCatching { it.onAllCleared() } }
+    }
+
+    /**
+     * Normalize a Nostr public key string (npub bech32 or hex) to lowercase hex for comparison
+     */
+    private fun normalizeNostrKeyToHex(value: String): String? {
+        return try {
+            if (value.startsWith("npub1")) {
+                val (hrp, data) = com.bitchat.android.nostr.Bech32.decode(value)
+                if (hrp != "npub") return null
+                data.joinToString("") { "%02x".format(it) }
+            } else {
+                // Assume hex
+                value.lowercase()
+            }
+        } catch (_: Exception) { null }
     }
 }
 

@@ -36,6 +36,8 @@ nordic-ble = "2.6.1"
 
 # WebSocket
 okhttp = "4.12.0"
+tor-android-binary = "0.4.4.6"
+
 
 # Google Play Services
 gms-location = "21.3.0"
@@ -47,6 +49,9 @@ security-crypto = "1.1.0-beta01"
 junit = "4.13.2"
 androidx-test-ext = "1.2.1"
 espresso = "3.6.1"
+mockito-kotlin = "4.1.0"
+mockito-inline = "4.1.0"
+roboelectric = "4.15"
 
 [libraries]
 # AndroidX Core
@@ -90,6 +95,9 @@ nordic-ble = { module = "no.nordicsemi.android:ble", version.ref = "nordic-ble" 
 
 # WebSocket
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+tor-android-binary = { module = "org.torproject:tor-android-binary", version.ref = "tor-android-binary" }
+
+# Tor (embed) intentionally not pinned yet; add once repo is chosen
 
 # Google Play Services
 gms-location = { module = "com.google.android.gms:play-services-location", version.ref = "gms-location" }
@@ -103,6 +111,9 @@ androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "a
 androidx-test-espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "espresso" }
 androidx-compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
 androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
+mockito-kotlin = { module = "org.mockito.kotlin:mockito-kotlin", version.ref = "mockito-kotlin" }
+mockito-inline = { module = "org.mockito:mockito-inline", version.ref = "mockito-inline" }
+roboelectric = { module = "org.robolectric:robolectric", version.ref = "roboelectric"}
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -135,7 +146,10 @@ cryptography = [
 testing = [
     "junit",
     "androidx-test-ext-junit",
-    "androidx-test-espresso-core"
+    "androidx-test-espresso-core",
+    "mockito-kotlin",
+    "mockito-inline",
+    "roboelectric"
 ]
 
 compose-testing = [

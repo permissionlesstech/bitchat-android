@@ -113,12 +113,9 @@ class NostrRelayManager private constructor() {
     private var subscriptionValidationJob: Job? = null
     private val SUBSCRIPTION_VALIDATION_INTERVAL = 30000L // 30 seconds
     
-    // OkHttp client for WebSocket connections
-    private val httpClient = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(0, TimeUnit.SECONDS) // No read timeout for WebSocket
-        .writeTimeout(10, TimeUnit.SECONDS)
-        .build()
+    // OkHttp client for WebSocket connections (via provider to honor Tor)
+    private val httpClient: OkHttpClient
+        get() = com.bitchat.android.net.OkHttpProvider.webSocketClient()
     
     private val gson by lazy { NostrRequest.createGson() }
     
@@ -453,6 +450,31 @@ class NostrRelayManager private constructor() {
             connections.forEach { (relayUrl, webSocket) ->
                 restoreSubscriptionsForRelay(relayUrl, webSocket)
             }
+        }
+    }
+    
+    /**
+     * Clear all subscription tracking, message handlers, routing caches, and queued messages.
+     * Intended for panic/reset flows prior to reconnecting and re-subscribing from scratch.
+     */
+    fun clearAllSubscriptions() {
+        try {
+            // Clear persistent subscription tracking
+            activeSubscriptions.clear()
+            messageHandlers.clear()
+            subscriptions.clear()
+
+            // Clear routing caches (per-geohash relay selections)
+            geohashToRelays.clear()
+
+            // Clear any queued messages waiting to be sent
+            synchronized(messageQueueLock) {
+                messageQueue.clear()
+            }
+
+            Log.i(TAG, "🧹 Cleared all Nostr subscriptions and routing caches")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to clear subscriptions: ${e.message}")
         }
     }
     

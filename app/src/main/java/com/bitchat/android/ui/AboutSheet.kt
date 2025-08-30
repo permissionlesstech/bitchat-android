@@ -119,8 +119,8 @@ fun AboutSheet(
                         FeatureCard(
                             icon = Icons.Filled.Public,
                             iconColor = standardGreen,
-                            title = "geohash channels",
-                            description = "internet-based location channels using coarse geohash coordinates. connect with people in your area while preserving privacy.",
+                            title = "online geohash channels",
+                            description = "connect with people in your area using geohash-based channels. extend the mesh using public internet relays.",
                             modifier = Modifier.fillMaxWidth()
                         )
                         
@@ -128,35 +128,132 @@ fun AboutSheet(
                             icon = Icons.Filled.Lock,
                             iconColor = if (isDark) Color(0xFFFFD60A) else Color(0xFFF5A623),
                             title = "end-to-end encryption",
-                            description = "all direct messages use noise protocol encryption. channel messages are protected with optional passwords.",
+                            description = "private messages are encrypted. channel messages are public.",
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
-                
-                // Additional features
+
+                // Appearance section (theme toggle)
                 item {
-                    Surface(
+                    val themePref by com.bitchat.android.ui.theme.ThemePreferenceManager.themeFlow.collectAsState()
+                    Column(
                         modifier = Modifier.fillMaxWidth(),
-                        color = colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                        shape = RoundedCornerShape(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = "additional features",
-                                fontSize = 12.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Medium,
-                                color = colorScheme.onSurface.copy(alpha = 0.8f)
+                        Text(
+                            text = "appearance",
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Medium,
+                            color = colorScheme.onSurface.copy(alpha = 0.8f)
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = themePref == com.bitchat.android.ui.theme.ThemePreference.System,
+                                onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.System) },
+                                label = { Text("system", fontFamily = FontFamily.Monospace) }
                             )
-                            
-                            FeatureItem("store-and-forward messaging for offline peers")
-                            FeatureItem("ephemeral messaging with automatic cleanup")
-                            FeatureItem("peer discovery and identity verification")
-                            FeatureItem("minimal metadata leakage")
+                            FilterChip(
+                                selected = themePref == com.bitchat.android.ui.theme.ThemePreference.Light,
+                                onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Light) },
+                                label = { Text("light", fontFamily = FontFamily.Monospace) }
+                            )
+                            FilterChip(
+                                selected = themePref == com.bitchat.android.ui.theme.ThemePreference.Dark,
+                                onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Dark) },
+                                label = { Text("dark", fontFamily = FontFamily.Monospace) }
+                            )
+                        }
+                    }
+                }
+
+                // Network (Tor) section
+                item {
+                    val ctx = LocalContext.current
+                    val torMode = remember { mutableStateOf(com.bitchat.android.net.TorPreferenceManager.get(ctx)) }
+                    val torStatus by com.bitchat.android.net.TorManager.statusFlow.collectAsState()
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "network",
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Medium,
+                            color = colorScheme.onSurface.copy(alpha = 0.8f)
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            FilterChip(
+                                selected = torMode.value == com.bitchat.android.net.TorMode.OFF,
+                                onClick = {
+                                    torMode.value = com.bitchat.android.net.TorMode.OFF
+                                    com.bitchat.android.net.TorPreferenceManager.set(ctx, torMode.value)
+                                },
+                                label = { Text("tor off", fontFamily = FontFamily.Monospace) }
+                            )
+                            FilterChip(
+                                selected = torMode.value == com.bitchat.android.net.TorMode.ON,
+                                onClick = {
+                                    torMode.value = com.bitchat.android.net.TorMode.ON
+                                    com.bitchat.android.net.TorPreferenceManager.set(ctx, torMode.value)
+                                },
+                                label = { 
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("tor on", fontFamily = FontFamily.Monospace)
+                                        // Status indicator (red/orange/green) moved inside the "tor on" button
+                                        val statusColor = when {
+                                            torStatus.running && torStatus.bootstrapPercent < 100 -> Color(0xFFFF9500)
+                                            torStatus.running && torStatus.bootstrapPercent >= 100 -> if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
+                                            else -> Color.Red
+                                        }
+                                        Surface(
+                                            color = statusColor,
+                                            shape = RoundedCornerShape(50)
+                                        ) { Box(Modifier.size(8.dp)) }
+                                    }
+                                }
+                            )
+                        }
+                        Text(
+                            text = "route internet over tor for enhanced privacy.",
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+
+                        // Debug status (temporary)
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = colorScheme.surfaceVariant.copy(alpha = 0.25f),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "tor status: " +
+                                            (if (torStatus.running) "running" else "stopped") +
+                                            ", bootstrap=" + torStatus.bootstrapPercent + "%",
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = colorScheme.onSurface.copy(alpha = 0.75f)
+                                )
+                                val last = torStatus.lastLogLine
+                                if (last.isNotEmpty()) {
+                                    Text(
+                                        text = "last: " + last.take(160),
+                                        fontSize = 10.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        color = colorScheme.onSurface.copy(alpha = 0.6f)
+                                    )
+                                }
+                            }
                         }
                     }
                 }

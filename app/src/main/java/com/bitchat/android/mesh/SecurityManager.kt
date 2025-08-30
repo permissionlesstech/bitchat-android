@@ -41,7 +41,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
     }
     
     /**
-     * Validate packet security (timestamp, replay attacks, duplicates)
+     * Validate packet security (timestamp, replay attacks, duplicates, signatures)
      */
     fun validatePacket(packet: BitchatPacket, peerID: String): Boolean {
         // Skip validation for our own packets
@@ -82,6 +82,9 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         // Add to processed messages
         processedMessages.add(messageID)
         messageTimestamps[messageID] = currentTime
+        
+        // NEW: Signature verification logging (not rejecting yet)
+        verifyPacketSignatureWithLogging(packet, peerID)
         
         Log.d(TAG, "Packet validation passed for $peerID, messageID: $messageID")
         return true
@@ -226,6 +229,52 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
     }
     
     /**
+     * Verify packet signature using peer's signing public key and log the result
+     */
+    private fun verifyPacketSignatureWithLogging(packet: BitchatPacket, peerID: String) {
+        try {
+            // Check if packet has a signature
+            if (packet.signature == null) {
+                Log.d(TAG, "📝 Signature check for $peerID: NO_SIGNATURE (packet type ${packet.type})")
+                return
+            }
+            
+            // Try to get peer's signing public key from peer info
+            val peerInfo = delegate?.getPeerInfo(peerID)
+            val signingPublicKey = peerInfo?.signingPublicKey
+            
+            if (signingPublicKey == null) {
+                Log.d(TAG, "📝 Signature check for $peerID: NO_SIGNING_KEY (packet type ${packet.type})")
+                return
+            }
+            
+            // Get the canonical packet data for signature verification (without signature)
+            val packetDataForSigning = packet.toBinaryDataForSigning()
+            if (packetDataForSigning == null) {
+                Log.w(TAG, "📝 Signature check for $peerID: ENCODING_ERROR (packet type ${packet.type})")
+                return
+            }
+            
+            // Verify the signature using the peer's signing public key
+            val signature = packet.signature!! // We already checked for null above
+            val isSignatureValid = encryptionService.verifyEd25519Signature(
+                signature,
+                packetDataForSigning,
+                signingPublicKey
+            )
+            
+            if (isSignatureValid) {
+                Log.d(TAG, "📝 Signature check for $peerID: ✅ VALID (packet type ${packet.type})")
+            } else {
+                Log.w(TAG, "📝 Signature check for $peerID: ❌ INVALID (packet type ${packet.type})")
+            }
+            
+        } catch (e: Exception) {
+            Log.w(TAG, "📝 Signature check for $peerID: ERROR - ${e.message} (packet type ${packet.type})")
+        }
+    }
+    
+    /**
      * Check if we have encryption keys for a peer
      */
     fun hasKeysForPeer(peerID: String): Boolean {
@@ -339,4 +388,5 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
 interface SecurityManagerDelegate {
     fun onKeyExchangeCompleted(peerID: String, peerPublicKeyData: ByteArray)
     fun sendHandshakeResponse(peerID: String, response: ByteArray)
+    fun getPeerInfo(peerID: String): PeerInfo? // NEW: For signature verification
 }

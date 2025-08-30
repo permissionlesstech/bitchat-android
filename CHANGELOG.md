@@ -10,7 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [0.7.1] - 2025-07-19
 
 ### Added
--feat(battery): add battery optimization management for background reliability
+- feat(battery): add battery optimization management for background reliability
 
 ### Fixed
 - fix: center align toolbar item in ChatHeader - passed modifier.fillmaxHeight so the content inside the row can actually be centered

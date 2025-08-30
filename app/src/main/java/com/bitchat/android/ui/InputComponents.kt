@@ -38,6 +38,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.withStyle
 import com.bitchat.android.R
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
+import androidx.compose.foundation.isSystemInDarkTheme
 
 /**
  * Input components for ChatScreen

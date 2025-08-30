@@ -65,7 +65,16 @@ class OnboardingCoordinator(
     fun requestPermissions() {
         Log.d(TAG, "User accepted permission explanation, requesting permissions")
         
-        val missingPermissions = permissionManager.getMissingPermissions()
+        // Required permissions
+        val missingRequired = permissionManager.getMissingPermissions()
+
+        // Optional permissions (ask, but do not block if denied)
+        val optionalToRequest = permissionManager
+            .getOptionalPermissions()
+            .filter { !permissionManager.isPermissionGranted(it) }
+
+        val missingPermissions = (missingRequired + optionalToRequest).distinct()
+
         if (missingPermissions.isEmpty()) {
             completeOnboarding()
             return
