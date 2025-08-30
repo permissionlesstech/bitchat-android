@@ -323,23 +323,14 @@ private fun AnimatedMessageDisplay(
     // Create a temporary message with animated content for formatting
     val animatedMessage = message.copy(content = animatedContent)
     
-    // Use the EXACT same formatting function as normal messages, but without timestamp during animation
-    val annotatedText = if (isAnimating) {
-        formatMessageAsAnnotatedStringWithoutTimestamp(
-            message = animatedMessage,
-            currentUserNickname = currentUserNickname,
-            meshService = meshService,
-            colorScheme = colorScheme
-        )
-    } else {
-        formatMessageAsAnnotatedString(
-            message = animatedMessage,
-            currentUserNickname = currentUserNickname,
-            meshService = meshService,
-            colorScheme = colorScheme,
-            timeFormatter = timeFormatter
-        )
-    }
+    // Use the EXACT same formatting function as normal messages, including timestamp
+    val annotatedText = formatMessageAsAnnotatedString(
+        message = animatedMessage,
+        currentUserNickname = currentUserNickname,
+        meshService = meshService,
+        colorScheme = colorScheme,
+        timeFormatter = timeFormatter
+    )
     
     // Use IDENTICAL Text composable structure as normal message
     Text(
@@ -350,41 +341,4 @@ private fun AnimatedMessageDisplay(
     )
 }
 
-/**
- * Format message without timestamp for animation phase
- * Identical to formatMessageAsAnnotatedString but excludes timestamp
- */
-private fun formatMessageAsAnnotatedStringWithoutTimestamp(
-    message: com.bitchat.android.model.BitchatMessage,
-    currentUserNickname: String,
-    meshService: com.bitchat.android.mesh.BluetoothMeshService,
-    colorScheme: androidx.compose.material3.ColorScheme
-): AnnotatedString {
-    // Simply call the main formatting function with a dummy formatter, 
-    // then remove the timestamp part
-    val timeFormatter = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
-    val fullText = formatMessageAsAnnotatedString(
-        message = message,
-        currentUserNickname = currentUserNickname,
-        meshService = meshService,
-        colorScheme = colorScheme,
-        timeFormatter = timeFormatter
-    )
-    
-    // Find and remove the timestamp at the end
-    val text = fullText.text
-    val timestampPattern = """ \[\d{2}:\d{2}:\d{2}]$""".toRegex()
-    val match = timestampPattern.find(text)
-    
-    return if (match != null) {
-        // Remove timestamp portion
-        val endIndex = match.range.first
-        AnnotatedString(
-            text = text.substring(0, endIndex),
-            spanStyles = fullText.spanStyles.filter { it.end <= endIndex },
-            paragraphStyles = fullText.paragraphStyles.filter { it.end <= endIndex }
-        )
-    } else {
-        fullText
-    }
-}
+
