@@ -68,17 +68,6 @@ fun PoWStatusIndicator(
                         modifier = Modifier.size(12.dp)
                     )
                 }
-                
-                // Difficulty indicator
-                Text(
-                    text = powDifficulty.toString(),
-                    fontSize = 10.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Medium,
-                    color = if (isMining) Color(0xFFFF9500) else {
-                        if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
-                    }
-                )
             }
         }
         
