@@ -247,6 +247,7 @@ class NostrGeohashService(
                 val tempMessageId = "temp_${System.currentTimeMillis()}_${Random.nextInt(1000)}"
                 
                 // Add local echo message IMMEDIATELY (with temporary ID)
+                val powSettingsLocal = PoWPreferenceManager.getCurrentSettings()
                 val localMessage = BitchatMessage(
                     id = tempMessageId,
                     sender = nickname ?: myPeerID,
@@ -254,7 +255,8 @@ class NostrGeohashService(
                     timestamp = Date(),
                     isRelay = false,
                     senderPeerID = "geohash:${channel.geohash}",
-                    channel = "#${channel.geohash}"
+                    channel = "#${channel.geohash}",
+                    powDifficulty = if (powSettingsLocal.enabled) powSettingsLocal.difficulty else null
                 )
                 
                 // Store and display the message immediately
@@ -1272,6 +1274,9 @@ class NostrGeohashService(
             // Note: mentions parsing needs peer nicknames parameter
             // val mentions = messageManager.parseMentions(content, peerNicknames, nickname)
             
+            // Calculate actual PoW difficulty from the finalized event ID so we can show it for incoming messages too
+            val actualPow = try { NostrProofOfWork.calculateDifficulty(event.id) } catch (e: Exception) { 0 }
+
             val message = BitchatMessage(
                 id = event.id,
                 sender = senderName,
@@ -1281,7 +1286,8 @@ class NostrGeohashService(
                 originalSender = senderHandle,
                 senderPeerID = "nostr:${event.pubkey.take(8)}",
                 mentions = null, // mentions need to be passed from outside
-                channel = "#$geohash"
+                channel = "#$geohash",
+                powDifficulty = actualPow.takeIf { it > 0 }
             )
             
             // Store in geohash history for persistence across channel switches
