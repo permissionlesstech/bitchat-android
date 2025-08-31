@@ -6,7 +6,9 @@
   <style>
     html, body, #map { height: 100%; margin: 0; padding: 0; }
     .leaflet-div-icon { background: transparent; border: none; }
-    .gh-label { pointer-events: none; } /* don't intercept clicks */
+    /* Hide labels entirely */
+    .gh-label { display: none; }
+    .gh-badge { display:none; }
   </style>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
@@ -84,20 +86,32 @@
     const canvasRenderer = L.canvas();
     const gridLayer = L.layerGroup().addTo(map);
 
-    let precision = 5;
+    // Display precision controls what grid to render; selection holds the chosen hash
+    let displayPrecision = 5;
     let center = { lat: 0, lng: 0 };
-    let currentGeohash = '';
+    let selectedGeohash = '';
+
+    function notifySelection() {
+      if (window.Android && window.Android.onGeohashChanged && selectedGeohash) {
+        window.Android.onGeohashChanged(selectedGeohash);
+      }
+    }
 
     function drawGrid() {
       // Clear all previously drawn cells and labels in one go
       gridLayer.clearLayers();
 
-      const gh = window.__geohash.encode(center.lat, center.lng, precision);
-      currentGeohash = gh;
-      if (window.Android && window.Android.onGeohashChanged) window.Android.onGeohashChanged(gh);
+      // Use the center and displayPrecision only for drawing the grid around
+      const centerHash = window.__geohash.encode(center.lat, center.lng, displayPrecision);
+
+      // If nothing selected yet, initialize selection to the center cell at current precision
+      if (!selectedGeohash) {
+        selectedGeohash = centerHash;
+        notifySelection();
+      }
 
       // Compute neighborhood around the center using BFS with bounds
-      const box = { '0,0': gh };
+      const box = { '0,0': centerHash };
       const xMin=-6, xMax=6, yMin=-5, yMax=5;
       const queue = [[0,0]];
       const visited = new Set([`0,0`]);
@@ -119,33 +133,52 @@
       for (const [coord, geohash] of Object.entries(box)) {
         const b = window.__geohash.bounds(geohash);
         const sw = [b.sw.lat, b.sw.lng], ne = [b.ne.lat, b.ne.lng];
-        const rect = L.rectangle([sw, ne], { renderer: canvasRenderer, color: '#0d6efd', weight: 2, fillOpacity: 0.2, opacity: 0.8 });
-        const opacity = 1 - (Math.abs(parseInt(coord.split(',')[0])) + Math.abs(parseInt(coord.split(',')[1]))) / 10;
-        rect.setStyle({ opacity: 0.8 * opacity, fillOpacity: 0.2 * opacity });
-        rect.on('click', () => {
+        const isSelected = geohash === selectedGeohash;
+        const rect = L.rectangle([sw, ne], {
+          renderer: canvasRenderer,
+          color: isSelected ? '#d63384' : '#0d6efd',
+          weight: isSelected ? 3 : 2,
+          fillOpacity: isSelected ? 0.25 : 0.2,
+          opacity: 0.9
+        });
+        const opacityFalloff = 1 - (Math.abs(parseInt(coord.split(',')[0])) + Math.abs(parseInt(coord.split(',')[1]))) / 10;
+        rect.setStyle({ opacity: rect.options.opacity * opacityFalloff, fillOpacity: rect.options.fillOpacity * opacityFalloff });
+
+        rect.on('click', (e) => {
+          // Prevent map click handler from also firing
+          if (e) { L.DomEvent.stop(e); }
+          // 1) Select exactly this quadrant's geohash (no auto sub-selection)
+          selectedGeohash = geohash;
+          notifySelection();
+
+          // 2) Recenter on this cell and drill down by increasing display precision
           const b2 = window.__geohash.bounds(geohash);
           const lat = (b2.sw.lat + b2.ne.lat) / 2;
           const lng = (b2.sw.lng + b2.ne.lng) / 2;
           center = { lat, lng };
-          precision = Math.min(12, geohash.length + 1);
+          displayPrecision = Math.min(12, geohash.length + 1);
           drawGrid();
           map.fitBounds([[b2.sw.lat, b2.sw.lng],[b2.ne.lat, b2.ne.lng]]);
         });
         rect.addTo(gridLayer);
 
-        const labelLat = (sw[0]+ne[0])/2, labelLng=(sw[1]+ne[1])/2;
-        const labelHtml = `<div style="font-weight:bold;color:#6c757d;background:rgba(255,255,255,0.8);padding:2px 4px;border-radius:4px">${geohash.toUpperCase()}</div>`;
-        const label = L.marker([labelLat, labelLng], {
-          icon: L.divIcon({ className: 'gh-label', html: labelHtml }),
-          interactive: false
-        });
-        label.addTo(gridLayer);
       }
     }
 
+    // Clicking anywhere on the map (outside rectangles) should behave like selecting the cell at that point,
+    // then drilling down one level, without auto-selecting a subquadrant.
     map.on('click', (e) => {
-      center = { lat: e.latlng.lat, lng: e.latlng.lng };
+      const ghAtPoint = window.__geohash.encode(e.latlng.lat, e.latlng.lng, displayPrecision);
+      selectedGeohash = ghAtPoint;
+      notifySelection();
+
+      const b2 = window.__geohash.bounds(ghAtPoint);
+      const lat = (b2.sw.lat + b2.ne.lat) / 2;
+      const lng = (b2.sw.lng + b2.ne.lng) / 2;
+      center = { lat, lng };
+      displayPrecision = Math.min(12, displayPrecision + 1);
       drawGrid();
+      map.fitBounds([[b2.sw.lat, b2.sw.lng],[b2.ne.lat, b2.ne.lng]]);
     });
 
     function setCenter(lat, lng) {
@@ -153,8 +186,8 @@
       map.setView([lat, lng], map.getZoom());
       drawGrid();
     }
-    function setPrecision(p) { precision = Math.max(1, Math.min(12, p)); drawGrid(); }
-    function getGeohash() { return currentGeohash; }
+    function setPrecision(p) { displayPrecision = Math.max(1, Math.min(12, p)); drawGrid(); }
+    function getGeohash() { return selectedGeohash; }
 
     window.setCenter = setCenter;
     window.setPrecision = setPrecision;
