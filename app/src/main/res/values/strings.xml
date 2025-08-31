@@ -118,6 +118,7 @@
     <string name="warning_message">private message security has not yet been fully audited. do not use for critical situations until this warning disappears.</string>
 
     <string name="done">Done</string>
+    <string name="close">close</string>
 
     <!-- Chat User Action Sheet -->
     <string name="user_sheet_header">\@%1$s</string>

@@ -543,7 +543,7 @@ private fun SheetTopBar(
                 .padding(horizontal = 16.dp),
         ) {
             Text(
-                text = stringResource(R.string.cancel).uppercase(),
+                text = stringResource(R.string.close),
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                 color = colorScheme.onBackground
             )
