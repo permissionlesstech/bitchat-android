@@ -124,11 +124,11 @@ fun formatMessageAsAnnotatedString(
         ))
         builder.append(" [${timeFormatter.format(message.timestamp)}]")
         // If message has valid PoW difficulty, append bits immediately after timestamp with minimal spacing
-        message.powDifficulty?.let { bits ->
-            if (bits > 0) {
-                builder.append(" ${bits}b")
-            }
-        }
+        //message.powDifficulty?.let { bits ->
+        //    if (bits > 0) {
+        //        builder.append(" ${bits}b")
+        //    }
+        //}
         builder.pop()
         
     } else {
