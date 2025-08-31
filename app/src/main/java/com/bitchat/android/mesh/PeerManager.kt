@@ -13,6 +13,7 @@ data class PeerInfo(
     val id: String,
     var nickname: String,
     var isConnected: Boolean,
+    var isDirectConnection: Boolean,
     var noisePublicKey: ByteArray?,
     var signingPublicKey: ByteArray?,      // NEW: Ed25519 public key for verification
     var isVerifiedNickname: Boolean,       // NEW: Verification status flag
@@ -27,6 +28,7 @@ data class PeerInfo(
         if (id != other.id) return false
         if (nickname != other.nickname) return false
         if (isConnected != other.isConnected) return false
+        if (isDirectConnection != other.isDirectConnection) return false
         if (noisePublicKey != null) {
             if (other.noisePublicKey == null) return false
             if (!noisePublicKey.contentEquals(other.noisePublicKey)) return false
@@ -45,6 +47,7 @@ data class PeerInfo(
         var result = id.hashCode()
         result = 31 * result + nickname.hashCode()
         result = 31 * result + isConnected.hashCode()
+        result = 31 * result + isDirectConnection.hashCode()
         result = 31 * result + (noisePublicKey?.contentHashCode() ?: 0)
         result = 31 * result + (signingPublicKey?.contentHashCode() ?: 0)
         result = 31 * result + isVerifiedNickname.hashCode()
@@ -113,6 +116,7 @@ class PeerManager {
             id = peerID,
             nickname = nickname,
             isConnected = true,
+            isDirectConnection = existingPeer?.isDirectConnection ?: false,
             noisePublicKey = noisePublicKey,
             signingPublicKey = signingPublicKey,
             isVerifiedNickname = isVerified,
@@ -158,6 +162,19 @@ class PeerManager {
      */
     fun getVerifiedPeers(): Map<String, PeerInfo> {
         return peers.filterValues { it.isVerifiedNickname }
+    }
+
+    /**
+     * Set whether a peer is directly connected over Bluetooth.
+     * Triggers a peer list update to refresh UI badges.
+     */
+    fun setDirectConnection(peerID: String, isDirect: Boolean) {
+        peers[peerID]?.let { existing ->
+            if (existing.isDirectConnection != isDirect) {
+                peers[peerID] = existing.copy(isDirectConnection = isDirect)
+                notifyPeerListUpdate()
+            }
+        }
     }
 
     // MARK: - Legacy Methods (maintained for compatibility)
@@ -209,6 +226,7 @@ class PeerManager {
                 id = peerID,
                 nickname = nickname,
                 isConnected = true,
+                isDirectConnection = false,
                 noisePublicKey = null,
                 signingPublicKey = null,
                 isVerifiedNickname = false,
@@ -346,7 +364,8 @@ class PeerManager {
                 val deviceAddress = addressPeerMap?.entries?.find { it.value == peerID }?.key
                 val addressInfo = deviceAddress?.let { " [Device: $it]" } ?: " [Device: Unknown]"
                 val status = if (activeIds.contains(peerID)) "ACTIVE" else "INACTIVE"
-                appendLine("  - $peerID (${info.nickname})$addressInfo - $status, last seen ${timeSince}s ago, RSSI: $rssi")
+                val direct = if (info.isDirectConnection) "DIRECT" else "ROUTED"
+                appendLine("  - $peerID (${info.nickname})$addressInfo - $status/$direct, last seen ${timeSince}s ago, RSSI: $rssi")
             }
             appendLine("Announced Peers: ${announcedPeers.size}")
             appendLine("Announced To Peers: ${announcedToPeers.size}")
