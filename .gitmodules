@@ -1,0 +1,3 @@
+[submodule "geohash"]
+	path = geohash
+	url = git@github.com:JorrenH/geohash

@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    html, body, #map { height: 100%; margin: 0; padding: 0; }
+    .leaflet-div-icon { background: transparent; border: none; }
+    .gh-label { pointer-events: none; } /* don't intercept clicks */
+  </style>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Minimal geohash implementation ported from submodule (bounds/encode/adjacent)
+    (function(){
+      const base32 = '0123456789bcdefghjkmnpqrstuvwxyz';
+      function bounds(geohash) {
+        let evenBit = true;
+        let latMin=-90, latMax=90, lonMin=-180, lonMax=180;
+        geohash = geohash.toLowerCase();
+        for (let i=0; i<geohash.length; i++) {
+          const chr = geohash.charAt(i);
+          const idx = base32.indexOf(chr);
+          if (idx == -1) throw new Error('Invalid geohash');
+          for (let n=4; n>=0; n--) {
+            const bitN = idx >> n & 1;
+            if (evenBit) {
+              const lonMid = (lonMin+lonMax)/2;
+              if (bitN == 1) lonMin = lonMid; else lonMax = lonMid;
+            } else {
+              const latMid = (latMin+latMax)/2;
+              if (bitN == 1) latMin = latMid; else latMax = latMid;
+            }
+            evenBit = !evenBit;
+          }
+        }
+        return { sw: {lat: latMin, lng: lonMin}, ne: {lat: latMax, lng: lonMax} };
+      }
+      function encode(lat, lon, precision) {
+        let idx=0, bit=0, evenBit=true, hash='';
+        let latMin=-90, latMax=90, lonMin=-180, lonMax=180;
+        while (hash.length < precision) {
+          if (evenBit) {
+            const lonMid=(lonMin+lonMax)/2; if (lon>=lonMid) { idx=idx*2+1; lonMin=lonMid; } else { idx=idx*2; lonMax=lonMid; }
+          } else {
+            const latMid=(latMin+latMax)/2; if (lat>=latMid) { idx=idx*2+1; latMin=latMid; } else { idx=idx*2; latMax=latMid; }
+          }
+          evenBit = !evenBit;
+          if (++bit==5) { hash += base32.charAt(idx); bit=0; idx=0; }
+        }
+        return hash;
+      }
+      function adjacent(hash, dir) {
+        const neighbour = {
+            n: [ 'p0r21436x8zb9dcf5h7kjnmqesgutwvy', 'bc01fg45238967deuvhjyznpkmstqrwx' ],
+            s: [ '14365h7k9dcfesgujnmqp0r2twvyx8zb', '238967debc01fg45kmstqrwxuvhjyznp' ],
+            e: [ 'bc01fg45238967deuvhjyznpkmstqrwx', 'p0r21436x8zb9dcf5h7kjnmqesgutwvy' ],
+            w: [ '238967debc01fg45kmstqrwxuvhjyznp', '14365h7k9dcfesgujnmqp0r2twvyx8zb' ],
+        };
+        const border = {
+            n: [ 'prxz',     'bcfguvyz' ],
+            s: [ '028b',     '0145hjnp' ],
+            e: [ 'bcfguvyz', 'prxz'     ],
+            w: [ '0145hjnp', '028b'     ],
+        };
+        hash = hash.toLowerCase();
+        const lastCh = hash.slice(-1);
+        let parent = hash.slice(0, -1);
+        const type = hash.length % 2;
+        if (border[dir][type].indexOf(lastCh) != -1 && parent != '') parent = adjacent(parent, dir);
+        return parent + base32.charAt(neighbour[dir][type].indexOf(lastCh));
+      }
+      window.__geohash = { bounds, encode, adjacent };
+    })();
+
+    // Map logic
+    const map = L.map('map', { zoomControl: true, minZoom: 2, maxZoom: 21 }).setView([0,0], 3);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 21, attribution: '&copy; OpenStreetMap' }).addTo(map);
+
+    const canvasRenderer = L.canvas();
+    const gridLayer = L.layerGroup().addTo(map);
+
+    let precision = 5;
+    let center = { lat: 0, lng: 0 };
+    let currentGeohash = '';
+
+    function drawGrid() {
+      // Clear all previously drawn cells and labels in one go
+      gridLayer.clearLayers();
+
+      const gh = window.__geohash.encode(center.lat, center.lng, precision);
+      currentGeohash = gh;
+      if (window.Android && window.Android.onGeohashChanged) window.Android.onGeohashChanged(gh);
+
+      // Compute neighborhood around the center using BFS with bounds
+      const box = { '0,0': gh };
+      const xMin=-6, xMax=6, yMin=-5, yMax=5;
+      const queue = [[0,0]];
+      const visited = new Set([`0,0`]);
+      const dirs = [[1,0,'e'],[-1,0,'w'],[0,1,'s'],[0,-1,'n']];
+      while (queue.length) {
+        const [x,y] = queue.shift();
+        for (const [dx,dy,d] of dirs) {
+          const nx=x+dx, ny=y+dy;
+          const key = `${nx},${ny}`;
+          if (nx<xMin||nx>xMax||ny<yMin||ny>yMax||visited.has(key)) continue;
+          const base = box[`${x},${y}`];
+          const next = window.__geohash.adjacent(base, d);
+          box[key] = next;
+          visited.add(key);
+          queue.push([nx,ny]);
+        }
+      }
+
+      for (const [coord, geohash] of Object.entries(box)) {
+        const b = window.__geohash.bounds(geohash);
+        const sw = [b.sw.lat, b.sw.lng], ne = [b.ne.lat, b.ne.lng];
+        const rect = L.rectangle([sw, ne], { renderer: canvasRenderer, color: '#0d6efd', weight: 2, fillOpacity: 0.2, opacity: 0.8 });
+        const opacity = 1 - (Math.abs(parseInt(coord.split(',')[0])) + Math.abs(parseInt(coord.split(',')[1]))) / 10;
+        rect.setStyle({ opacity: 0.8 * opacity, fillOpacity: 0.2 * opacity });
+        rect.on('click', () => {
+          const b2 = window.__geohash.bounds(geohash);
+          const lat = (b2.sw.lat + b2.ne.lat) / 2;
+          const lng = (b2.sw.lng + b2.ne.lng) / 2;
+          center = { lat, lng };
+          precision = Math.min(12, geohash.length + 1);
+          drawGrid();
+          map.fitBounds([[b2.sw.lat, b2.sw.lng],[b2.ne.lat, b2.ne.lng]]);
+        });
+        rect.addTo(gridLayer);
+
+        const labelLat = (sw[0]+ne[0])/2, labelLng=(sw[1]+ne[1])/2;
+        const labelHtml = `<div style="font-weight:bold;color:#6c757d;background:rgba(255,255,255,0.8);padding:2px 4px;border-radius:4px">${geohash.toUpperCase()}</div>`;
+        const label = L.marker([labelLat, labelLng], {
+          icon: L.divIcon({ className: 'gh-label', html: labelHtml }),
+          interactive: false
+        });
+        label.addTo(gridLayer);
+      }
+    }
+
+    map.on('click', (e) => {
+      center = { lat: e.latlng.lat, lng: e.latlng.lng };
+      drawGrid();
+    });
+
+    function setCenter(lat, lng) {
+      center = { lat, lng };
+      map.setView([lat, lng], map.getZoom());
+      drawGrid();
+    }
+    function setPrecision(p) { precision = Math.max(1, Math.min(12, p)); drawGrid(); }
+    function getGeohash() { return currentGeohash; }
+
+    window.setCenter = setCenter;
+    window.setPrecision = setPrecision;
+    window.getGeohash = getGeohash;
+
+    // initial draw
+    drawGrid();
+  </script>
+</body>
+</html>
