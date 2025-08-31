@@ -128,6 +128,16 @@ class GeohashPickerActivity : ComponentActivity() {
                                     width = ViewGroup.LayoutParams.MATCH_PARENT
                                     height = ViewGroup.LayoutParams.MATCH_PARENT
                                 }
+                            },
+                            onRelease = { webView ->
+                                // Best-effort cleanup to avoid leaks and timers
+                                try { webView.evaluateJavascript("window.cleanup && window.cleanup()", null) } catch (_: Throwable) {}
+                                try { webView.stopLoading() } catch (_: Throwable) {}
+                                try { webView.clearHistory() } catch (_: Throwable) {}
+                                try { webView.clearCache(true) } catch (_: Throwable) {}
+                                try { webView.loadUrl("about:blank") } catch (_: Throwable) {}
+                                try { webView.removeAllViews() } catch (_: Throwable) {}
+                                try { webView.destroy() } catch (_: Throwable) {}
                             }
                         )
                     }

@@ -6,9 +6,9 @@
   <style>
     html, body, #map { height: 100%; margin: 0; padding: 0; }
     .leaflet-div-icon { background: transparent; border: none; }
-    /* Hide labels entirely */
-    .gh-label { display: none; }
-    .gh-badge { display:none; }
+    /* Geohash labels: text only, no background */
+    .gh-label { background: transparent; border: none; pointer-events: none; }
+    .gh-text { color: #6c757d; font-weight: 600; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial; font-size: 12px; line-height: 1; }
   </style>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
@@ -162,6 +162,25 @@
         });
         rect.addTo(gridLayer);
 
+        // Text-only label (transparent background)
+        // Compute dynamic font-size relative to on-screen rectangle size
+        const pSw = map.latLngToLayerPoint([sw[0], sw[1]]);
+        const pNe = map.latLngToLayerPoint([ne[0], ne[1]]);
+        const pxWidth = Math.abs(pNe.x - pSw.x);
+        const pxHeight = Math.abs(pSw.y - pNe.y);
+        const cellPx = Math.min(pxWidth, pxHeight);
+        // Scale label size to fit; clamp to keep legible
+        const fontSize = Math.max(10, Math.min(24, Math.floor(cellPx / 6)));
+        const labelHtml = `<span class=\"gh-text\" style=\"font-size:${fontSize}px\">${geohash.toUpperCase()}</span>`;
+
+        const labelLat = (sw[0]+ne[0])/2, labelLng=(sw[1]+ne[1])/2;
+        const label = L.marker([labelLat, labelLng], {
+          icon: L.divIcon({ className: 'gh-label', html: labelHtml }),
+          interactive: false
+        });
+        label.addTo(gridLayer);
+
+
       }
     }
 
@@ -186,12 +205,22 @@
       map.setView([lat, lng], map.getZoom());
       drawGrid();
     }
+    // Rescale labels on zoom so font-size tracks on-screen cell size
+    map.on('zoomend', () => drawGrid());
     function setPrecision(p) { displayPrecision = Math.max(1, Math.min(12, p)); drawGrid(); }
     function getGeohash() { return selectedGeohash; }
 
     window.setCenter = setCenter;
     window.setPrecision = setPrecision;
     window.getGeohash = getGeohash;
+
+    // Cleanup to release Leaflet resources when WebView is destroyed
+    function cleanup() {
+      try { map.off(); } catch (e) {}
+      try { gridLayer.clearLayers(); } catch (e) {}
+      try { map.remove(); } catch (e) {}
+    }
+    window.cleanup = cleanup;
 
     // initial draw
     drawGrid();
