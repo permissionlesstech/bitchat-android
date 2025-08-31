@@ -1,85 +1,16 @@
 package com.bitchat.android.ui
 
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.TextUnit
-import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlin.random.Random
-import com.bitchat.android.ui.theme.BASE_FONT_SIZE
-
-/**
- * Matrix-style encryption animation for messages during PoW computation
- * Animates message content with random characters that gradually resolve to real text
- */
-@Composable
-fun AnimatedMatrixText(
-    targetText: String,
-    isAnimating: Boolean,
-    modifier: Modifier = Modifier,
-    color: Color = Color.Unspecified,
-    fontSize: TextUnit = TextUnit.Unspecified,
-    fontWeight: FontWeight? = null
-) {
-    // Continuous animation: loop random characters until isAnimating becomes false
-    var animatedText by remember(targetText) { mutableStateOf(targetText) }
-
-    LaunchedEffect(isAnimating, targetText) {
-        if (isAnimating && targetText.isNotEmpty()) {
-            val encryptedChars = "!@#$%^&*()_+-=[]{}|;:,.<>?~`".toCharArray()
-            while (true) {
-                val frame = CharArray(targetText.length) {
-                    encryptedChars[Random.nextInt(encryptedChars.size)]
-                }
-                animatedText = String(frame)
-                delay(80L)
-            }
-        } else {
-            animatedText = targetText
-        }
-    }
-
-    val styledText = buildAnnotatedString {
-        animatedText.forEach { char ->
-            withStyle(
-                style = SpanStyle(
-                    color = color,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = fontWeight
-                )
-            ) {
-                append(char)
-            }
-        }
-    }
-
-    Text(
-        text = styledText,
-        modifier = modifier,
-        fontSize = fontSize,
-        fontFamily = FontFamily.Monospace
-    )
-}
 
 /**
  * Animation state for individual characters
@@ -88,63 +19,6 @@ private enum class CharacterAnimationState {
     ENCRYPTED,    // Showing random encrypted characters
     DECRYPTING,   // Transitioning to final character
     FINAL         // Showing final decrypted character
-}
-
-/**
- * Animate a single character from encrypted to final state
- */
-private suspend fun animateCharacter(
-    index: Int,
-    targetChar: Char,
-    currentText: () -> String,
-    updateText: (String) -> Unit,
-    updateState: (List<CharacterAnimationState>) -> Unit
-) {
-    val encryptedChars = "!@#$%^&*()_+-=[]{}|;:,.<>?~`".toCharArray()
-    val animationDuration = Random.nextLong(1000, 3000) // 1-3 seconds of encryption
-    val startTime = System.currentTimeMillis()
-    
-    // Phase 1: Animate with random encrypted characters
-    while (System.currentTimeMillis() - startTime < animationDuration) {
-        val randomChar = encryptedChars[Random.nextInt(encryptedChars.size)]
-        
-        // Update the character at this index
-        val text = currentText()
-        if (index < text.length) {
-            val newText = text.toCharArray()
-            newText[index] = randomChar
-            updateText(String(newText))
-        }
-        
-        delay(100) // Change character every 100ms
-    }
-    
-    // Phase 2: Brief transition state (yellow)
-    val states = currentText().indices.map { i ->
-        when {
-            i == index -> CharacterAnimationState.DECRYPTING
-            i < index -> CharacterAnimationState.FINAL  // Already revealed
-            else -> CharacterAnimationState.ENCRYPTED   // Still encrypted
-        }
-    }
-    updateState(states)
-    delay(200) // Brief yellow flash
-    
-    // Phase 3: Reveal final character
-    val text = currentText()
-    if (index < text.length) {
-        val newText = text.toCharArray()
-        newText[index] = targetChar
-        updateText(String(newText))
-        
-        val finalStates = currentText().indices.map { i ->
-            when {
-                i <= index -> CharacterAnimationState.FINAL
-                else -> CharacterAnimationState.ENCRYPTED
-            }
-        }
-        updateState(finalStates)
-    }
 }
 
 /**
@@ -256,26 +130,69 @@ private fun AnimatedMessageDisplay(
     var animatedContent by remember(message.content) { mutableStateOf(message.content) }
     val isAnimating = shouldAnimateMessage(message.id)
     
+    // Character-by-character animation state like the JavaScript version
+    var characterStates by remember(message.content) { 
+        mutableStateOf(message.content.map { char -> 
+            if (char == ' ') CharacterAnimationState.FINAL else CharacterAnimationState.ENCRYPTED 
+        })
+    }
+    
     // Update animated content when animation state changes
     LaunchedEffect(isAnimating, message.content) {
         if (isAnimating && message.content.isNotEmpty()) {
-            val encryptedChars = "!@#$%^&*()_+-=[]{}|;:,.<>?~`".toCharArray()
-            val baseLength = message.content.length
+            val encryptedChars = "!@$%^&*()_+-=[]{}|;:,<>?".toCharArray()
             
-            // Loop animation continuously until PoW stops (LaunchedEffect will cancel on recomposition)
-            while (true) {
-                // Generate a new random frame of the same length as the real content
-                val frame = CharArray(baseLength) {
-                    encryptedChars[Random.nextInt(encryptedChars.size)]
+            // Start character animations with staggered delays (like JS version)
+            message.content.forEachIndexed { index, targetChar ->
+                if (targetChar != ' ') { // Skip spaces
+                    launch {
+                        delay(index * 50L) // Stagger start like JS version
+                        
+                        // Animate this character indefinitely in a loop
+                        while (true) {
+                            // Animate with random characters
+                            while (characterStates.getOrNull(index) == CharacterAnimationState.ENCRYPTED) {
+                                // Generate random encrypted character for this position
+                                val newContent = animatedContent.toCharArray()
+                                if (index < newContent.size) {
+                                    newContent[index] = encryptedChars[Random.nextInt(encryptedChars.size)]
+                                    animatedContent = String(newContent)
+                                }
+                                
+                                delay(100L) // Change character every 100ms like JS
+                                
+                                // Random chance to reveal (10% like JS version)
+                                if (Random.nextFloat() < 0.1f) {
+                                    // Reveal the final character
+                                    val finalContent = animatedContent.toCharArray()
+                                    if (index < finalContent.size) {
+                                        finalContent[index] = targetChar
+                                        animatedContent = String(finalContent)
+                                    }
+                                    
+                                    // Mark as revealed
+                                    val finalStates = characterStates.toMutableList()
+                                    finalStates[index] = CharacterAnimationState.FINAL
+                                    characterStates = finalStates
+                                    break
+                                }
+                            }
+                            
+                            // Keep revealed for 2 seconds, then fade back to encrypted (like JS)
+                            delay(2000L)
+                            
+                            // Reset back to encrypted for next cycle
+                            val resetStates = characterStates.toMutableList()
+                            resetStates[index] = CharacterAnimationState.ENCRYPTED
+                            characterStates = resetStates
+                        }
+                    }
                 }
-                animatedContent = String(frame)
-                
-                // Small delay for smooth animation; adjust if needed
-                delay(80L)
             }
         } else {
             // Not animating, show final content
             animatedContent = message.content
+            characterStates = message.content.map { CharacterAnimationState.FINAL }
         }
     }
     
