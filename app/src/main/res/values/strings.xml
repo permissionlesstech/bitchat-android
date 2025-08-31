@@ -174,6 +174,21 @@
     <string name="theme_system">system</string>
     <string name="theme_light">light</string>
     <string name="theme_dark">dark</string>
+    <string name="pow_title">Proof of Work</string>
+
+    <!-- Proof of Work (PoW) Section -->
+    <string name="pow_off">pow off</string>
+    <string name="pow_on">pow on</string>
+    <string name="pow_description">add proof of work to geohash messages for spam deterrence.</string>
+    <string name="pow_difficulty_label">difficulty: %d bits (~%s)</string>
+    <string name="pow_difficulty_attempts">difficulty %d requires ~%s hash attempts</string>
+    <string name="pow_difficulty_desc_0">no proof of work required</string>
+    <string name="pow_difficulty_desc_8">very low - minimal spam protection</string>
+    <string name="pow_difficulty_desc_12">low - basic spam protection</string>
+    <string name="pow_difficulty_desc_16">medium - good spam protection</string>
+    <string name="pow_difficulty_desc_20">high - strong spam protection</string>
+    <string name="pow_difficulty_desc_24">very high - may cause delays</string>
+    <string name="pow_difficulty_desc_else">extreme - significant computation required</string>
 
     <string name="network_title">network</string>
     <string name="network_tor_off">tor off</string>

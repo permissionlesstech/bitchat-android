@@ -169,7 +169,7 @@ class NostrClient private constructor(private val context: Context) {
                 // Derive geohash-specific identity
                 val geohashIdentity = NostrIdentityBridge.deriveIdentity(geohash, context)
                 
-                // Create ephemeral event
+                // Create ephemeral event (with PoW if enabled)
                 val event = NostrProtocol.createEphemeralGeohashEvent(
                     content = content,
                     geohash = geohash,
@@ -281,6 +281,16 @@ class NostrClient private constructor(private val context: Context) {
         handler: (content: String, senderPubkey: String, nickname: String?, timestamp: Int) -> Unit
     ) {
         try {
+            // Check Proof of Work validation for incoming geohash events
+            val powSettings = PoWPreferenceManager.getCurrentSettings()
+            if (powSettings.enabled && powSettings.difficulty > 0) {
+                if (!NostrProofOfWork.validateDifficulty(event, powSettings.difficulty)) {
+                    Log.w(TAG, "🚫 Rejecting geohash event ${event.id.take(8)}... due to insufficient PoW (required: ${powSettings.difficulty})")
+                    return
+                }
+                Log.v(TAG, "✅ PoW validation passed for geohash event ${event.id.take(8)}...")
+            }
+            
             // Extract nickname from tags
             val nickname = event.tags.find { it.size >= 2 && it[0] == "n" }?.get(1)
             

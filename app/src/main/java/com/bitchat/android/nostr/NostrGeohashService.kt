@@ -19,6 +19,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.*
+import kotlin.random.Random
 
 /**
  * Service responsible for all Nostr and Geohash business logic extracted from ChatViewModel
@@ -242,6 +243,37 @@ class NostrGeohashService(
     fun sendGeohashMessage(content: String, channel: com.bitchat.android.geohash.GeohashChannel, myPeerID: String, nickname: String?) {
         coroutineScope.launch {
             try {
+                // Generate a temporary message ID for tracking animation
+                val tempMessageId = "temp_${System.currentTimeMillis()}_${Random.nextInt(1000)}"
+                
+                // Add local echo message IMMEDIATELY (with temporary ID)
+                val powSettingsLocal = PoWPreferenceManager.getCurrentSettings()
+                val localMessage = BitchatMessage(
+                    id = tempMessageId,
+                    sender = nickname ?: myPeerID,
+                    content = content,
+                    timestamp = Date(),
+                    isRelay = false,
+                    senderPeerID = "geohash:${channel.geohash}",
+                    channel = "#${channel.geohash}",
+                    powDifficulty = if (powSettingsLocal.enabled) powSettingsLocal.difficulty else null
+                )
+                
+                // Store and display the message immediately
+                storeGeohashMessage(channel.geohash, localMessage)
+                messageManager.addMessage(localMessage)
+                
+                Log.d(TAG, "📝 Added message immediately with temp ID: $tempMessageId")
+                
+                // Check if PoW is enabled before starting animation
+                val powSettings = PoWPreferenceManager.getCurrentSettings()
+                if (powSettings.enabled && powSettings.difficulty > 0) {
+                    // Start matrix animation for this message
+                    com.bitchat.android.ui.PoWMiningTracker.startMiningMessage(tempMessageId)
+                    Log.d(TAG, "🎭 Started matrix animation for message: $tempMessageId")
+                }
+                
+                // Now begin the async PoW process
                 val identity = NostrIdentityBridge.deriveIdentity(
                     forGeohash = channel.geohash,
                     context = application
@@ -257,6 +289,12 @@ class NostrGeohashService(
                     teleported = teleported
                 )
                 
+                // Stop animation when PoW completes
+                if (powSettings.enabled && powSettings.difficulty > 0) {
+                    com.bitchat.android.ui.PoWMiningTracker.stopMiningMessage(tempMessageId)
+                    Log.d(TAG, "🎭 Stopped matrix animation for message: $tempMessageId")
+                }
+                
                 val nostrRelayManager = NostrRelayManager.getInstance(application)
                 nostrRelayManager.sendEventToGeohash(
                     event = event,
@@ -267,22 +305,10 @@ class NostrGeohashService(
                 
                 Log.i(TAG, "📤 Sent geohash message to ${channel.geohash}: ${content.take(50)}")
                 
-                // Add local echo message
-                val localMessage = BitchatMessage(
-                    sender = nickname ?: myPeerID,
-                    content = content,
-                    timestamp = Date(),
-                    isRelay = false,
-                    senderPeerID = "geohash:${channel.geohash}",
-                    channel = "#${channel.geohash}"
-                )
-                
-                // Store our own message in geohash history 
-                storeGeohashMessage(channel.geohash, localMessage)
-                messageManager.addMessage(localMessage)
-                
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send geohash message: ${e.message}")
+                // Make sure to stop animation even if there's an error
+                com.bitchat.android.ui.PoWMiningTracker.stopMiningMessage("temp_${System.currentTimeMillis()}")
             }
         }
     }
@@ -1156,6 +1182,16 @@ class NostrGeohashService(
                 return@launch
             }
             
+            // Check Proof of Work validation BEFORE other processing
+            val powSettings = PoWPreferenceManager.getCurrentSettings()
+            if (powSettings.enabled && powSettings.difficulty > 0) {
+                if (!NostrProofOfWork.validateDifficulty(event, powSettings.difficulty)) {
+                    Log.w(TAG, "🚫 Rejecting geohash event ${event.id.take(8)}... due to insufficient PoW (required: ${powSettings.difficulty})")
+                    return@launch
+                }
+                Log.v(TAG, "✅ PoW validation passed for event ${event.id.take(8)}...")
+            }
+            
             // Check if this user is blocked in geohash channels BEFORE any processing
             if (isGeohashUserBlocked(event.pubkey)) {
                 Log.v(TAG, "🚫 Skipping event from blocked geohash user: ${event.pubkey.take(8)}...")
@@ -1238,6 +1274,9 @@ class NostrGeohashService(
             // Note: mentions parsing needs peer nicknames parameter
             // val mentions = messageManager.parseMentions(content, peerNicknames, nickname)
             
+            // Calculate actual PoW difficulty from the finalized event ID so we can show it for incoming messages too
+            val actualPow = try { NostrProofOfWork.calculateDifficulty(event.id) } catch (e: Exception) { 0 }
+
             val message = BitchatMessage(
                 id = event.id,
                 sender = senderName,
@@ -1247,7 +1286,8 @@ class NostrGeohashService(
                 originalSender = senderHandle,
                 senderPeerID = "nostr:${event.pubkey.take(8)}",
                 mentions = null, // mentions need to be passed from outside
-                channel = "#$geohash"
+                channel = "#$geohash",
+                powDifficulty = actualPow.takeIf { it > 0 }
             )
             
             // Store in geohash history for persistence across channel switches

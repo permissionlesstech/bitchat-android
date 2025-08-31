@@ -117,11 +117,18 @@ fun formatMessageAsAnnotatedString(
         appendIOSFormattedContent(builder, message.content, message.mentions, currentUserNickname, baseColor, isSelf, isDark)
         
         // iOS-style timestamp at the END (smaller, grey)
+        // Timestamp (and optional PoW badge)
         builder.pushStyle(SpanStyle(
             color = Color.Gray.copy(alpha = 0.7f),
             fontSize = (BASE_FONT_SIZE - 4).sp
         ))
         builder.append(" [${timeFormatter.format(message.timestamp)}]")
+        // If message has valid PoW difficulty, append bits immediately after timestamp with minimal spacing
+        //message.powDifficulty?.let { bits ->
+        //    if (bits > 0) {
+        //        builder.append(" ${bits}b")
+        //    }
+        //}
         builder.pop()
         
     } else {

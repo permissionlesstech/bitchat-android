@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -29,6 +30,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bitchat.android.nostr.NostrProofOfWork
+import com.bitchat.android.nostr.PoWPreferenceManager
 import com.bitchat.android.R
 import com.bitchat.android.net.TorManager
 import com.bitchat.android.net.TorPreferenceManager
@@ -114,6 +117,14 @@ fun AboutSheetContent(
                 AppearanceSection(
                     context = context,
                     modifier = Modifier.padding(horizontal = 24.dp)
+                )
+            }
+
+            item(key = "pow_section") {
+                SectionHeader(titleRes = R.string.pow_title)
+                ProofOfWorkSection(
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                    context = context
                 )
             }
 
@@ -291,22 +302,124 @@ private fun AppearanceSection(
 }
 
 @Composable
-private fun NetworkSection(
-    modifier: Modifier = Modifier,
-    context: Context
-) {
-    val torMode =
-        remember { mutableStateOf(TorPreferenceManager.get(context)) }
+private fun ProofOfWorkSection(modifier: Modifier = Modifier, context: Context) {
+    LaunchedEffect(Unit) {
+        PoWPreferenceManager.init(context)
+    }
+
+    val powEnabled by PoWPreferenceManager.powEnabled.collectAsState()
+    val powDifficulty by PoWPreferenceManager.powDifficulty.collectAsState()
+    val colorScheme = MaterialTheme.colorScheme
+    val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
+
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            FilterChip(
+                selected = !powEnabled,
+                onClick = { PoWPreferenceManager.setPowEnabled(false) },
+                label = { Text(stringResource(R.string.pow_off), fontFamily = FontFamily.Monospace) }
+            )
+            FilterChip(
+                selected = powEnabled,
+                onClick = { PoWPreferenceManager.setPowEnabled(true) },
+                label = {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(stringResource(R.string.pow_on), fontFamily = FontFamily.Monospace)
+                        if (powEnabled) {
+                            val statusColor = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
+                            Surface(color = statusColor, shape = CircleShape) {
+                                Box(Modifier.size(8.dp))
+                            }
+                        }
+                    }
+                }
+            )
+        }
+
+        Text(
+            text = stringResource(R.string.pow_description),
+            style = MaterialTheme.typography.bodySmall,
+            color = colorScheme.onSurface.copy(alpha = 0.6f)
+        )
+
+        if (powEnabled) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = stringResource(
+                        R.string.pow_difficulty_label,
+                        powDifficulty,
+                        NostrProofOfWork.estimateMiningTime(powDifficulty)
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.onSurface.copy(alpha = 0.7f)
+                )
+
+                Slider(
+                    value = powDifficulty.toFloat(),
+                    onValueChange = { PoWPreferenceManager.setPowDifficulty(it.toInt()) },
+                    valueRange = 0f..20f,
+                    steps = 21,
+                    colors = SliderDefaults.colors(
+                        thumbColor = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D),
+                        activeTrackColor = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
+                    )
+                )
+
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = colorScheme.surfaceVariant.copy(alpha = 0.25f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = stringResource(
+                                R.string.pow_difficulty_attempts,
+                                powDifficulty,
+                                NostrProofOfWork.estimateWork(powDifficulty)
+                            ),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colorScheme.onSurface.copy(alpha = 0.7f)
+                        )
+                        Text(
+                            text = when {
+                                powDifficulty == 0 -> stringResource(R.string.pow_difficulty_desc_0)
+                                powDifficulty <= 8 -> stringResource(R.string.pow_difficulty_desc_8)
+                                powDifficulty <= 12 -> stringResource(R.string.pow_difficulty_desc_12)
+                                powDifficulty <= 16 -> stringResource(R.string.pow_difficulty_desc_16)
+                                powDifficulty <= 20 -> stringResource(R.string.pow_difficulty_desc_20)
+                                powDifficulty <= 24 -> stringResource(R.string.pow_difficulty_desc_24)
+                                else -> stringResource(R.string.pow_difficulty_desc_else)
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+@Composable
+private fun NetworkSection(modifier: Modifier = Modifier, context: Context) {
+    val torMode = remember { mutableStateOf(TorPreferenceManager.get(context)) }
     val torStatus by TorManager.statusFlow.collectAsState()
 
     val colorScheme = MaterialTheme.colorScheme
-    val isDark =
-        colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
+    val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
 
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -340,14 +453,8 @@ private fun NetworkSection(
                             fontFamily = FontFamily.Monospace
                         )
                         val statusColor = when {
-                            torStatus.running && torStatus.bootstrapPercent < 100 -> Color(
-                                0xFFFF9500
-                            )
-
-                            torStatus.running && torStatus.bootstrapPercent >= 100 -> if (isDark) Color(
-                                0xFF32D74B
-                            ) else Color(0xFF248A3D)
-
+                            torStatus.running && torStatus.bootstrapPercent < 100 -> Color(0xFFFF9500)
+                            torStatus.running && torStatus.bootstrapPercent >= 100 -> if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
                             else -> Color.Red
                         }
                         Surface(color = statusColor, shape = CircleShape) {
@@ -359,8 +466,7 @@ private fun NetworkSection(
         }
         Text(
             text = stringResource(R.string.network_tor_desc),
-            fontSize = 12.sp,
-            fontFamily = FontFamily.Monospace,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
         )
         // Debug status (optional)
@@ -372,8 +478,7 @@ private fun NetworkSection(
 
 @Composable
 fun TorStatusDebug(torStatus: TorManager.TorStatus) {
-    val statusText =
-        if (torStatus.running) stringResource(R.string.tor_status_running) else stringResource(R.string.tor_status_stopped)
+    val statusText = if (torStatus.running) stringResource(R.string.tor_status_running) else stringResource(R.string.tor_status_stopped)
     val colorScheme = MaterialTheme.colorScheme
 
     Surface(
@@ -386,21 +491,15 @@ fun TorStatusDebug(torStatus: TorManager.TorStatus) {
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Text(
-                text = stringResource(
-                    R.string.tor_status_label,
-                    statusText,
-                    torStatus.bootstrapPercent
-                ),
-                fontSize = 11.sp,
-                fontFamily = FontFamily.Monospace,
+                text = stringResource(R.string.tor_status_label, statusText, torStatus.bootstrapPercent),
+                style = MaterialTheme.typography.bodySmall,
                 color = colorScheme.onSurface.copy(alpha = 0.75f)
             )
             val lastLog = torStatus.lastLogLine
             if (lastLog.isNotEmpty()) {
                 Text(
                     text = stringResource(R.string.tor_status_last_log, lastLog.take(160)),
-                    fontSize = 10.sp,
-                    fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.labelSmall,
                     color = colorScheme.onSurface.copy(alpha = 0.6f)
                 )
             }
