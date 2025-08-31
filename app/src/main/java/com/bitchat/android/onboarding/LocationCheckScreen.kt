@@ -11,10 +11,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.bitchat.android.R
+import com.bitchat.android.ui.theme.BitchatTheme
 
 /**
  * Screen shown when checking location services status or requesting location services enable
@@ -28,33 +32,44 @@ fun LocationCheckScreen(
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        when (status) {
-            LocationStatus.DISABLED -> {
-                LocationDisabledContent(
-                    onEnableLocation = onEnableLocation,
-                    onRetry = onRetry,
-                    colorScheme = colorScheme,
-                    isLoading = isLoading
-                )
-            }
-            LocationStatus.NOT_AVAILABLE -> {
-                LocationNotAvailableContent(
-                    colorScheme = colorScheme
-                )
-            }
-            LocationStatus.ENABLED -> {
-                LocationCheckingContent(
-                    colorScheme = colorScheme
-                )
+    Scaffold(
+        content = { paddingValues ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(32.dp),
+                verticalArrangement = Arrangement.spacedBy(
+                    32.dp,
+                    alignment = Alignment.CenterVertically
+                ),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                when (status) {
+                    LocationStatus.DISABLED -> {
+                        LocationDisabledContent(
+                            onEnableLocation = onEnableLocation,
+                            onRetry = onRetry,
+                            colorScheme = colorScheme,
+                            isLoading = isLoading
+                        )
+                    }
+
+                    LocationStatus.NOT_AVAILABLE -> {
+                        LocationNotAvailableContent(
+                            colorScheme = colorScheme
+                        )
+                    }
+
+                    LocationStatus.ENABLED -> {
+                        LocationCheckingContent(
+                            colorScheme = colorScheme
+                        )
+                    }
+                }
             }
         }
-    }
+    )
 }
 
 @Composable
@@ -104,13 +119,13 @@ private fun LocationDisabledContent(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Security,
-                        contentDescription = "Privacy",
+                        contentDescription = stringResource(R.string.privacy_description),
                         tint = Color(0xFF4CAF50),
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Privacy First",
+                        text = stringResource(R.string.privacy_first),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = colorScheme.onSurface
@@ -119,7 +134,7 @@ private fun LocationDisabledContent(
                 }
                 
                 Text(
-                    text = "bitchat does NOT track your location.\n\nLocation services are required for Bluetooth scanning and for the Geohash chat feature.",
+                    text = stringResource(R.string.location_privacy_assurance),
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontFamily = FontFamily.Monospace,
                         color = colorScheme.onSurface.copy(alpha = 0.8f)
@@ -129,7 +144,7 @@ private fun LocationDisabledContent(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = "bitchat needs location services for:",
+                    text = stringResource(R.string.location_services_needed_for),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.Medium,
                         color = colorScheme.onSurface
@@ -137,12 +152,9 @@ private fun LocationDisabledContent(
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
-                
+
                 Text(
-                    text = "• Bluetooth device scanning\n" +
-                            "• Discovering nearby users on mesh network\n" +
-                            "• Geohash chat feature\n" +
-                            "• No tracking or location collection",
+                    text = stringResource(R.string.location_services_features),
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontFamily = FontFamily.Monospace,
                         color = colorScheme.onSurface.copy(alpha = 0.8f)
@@ -166,7 +178,7 @@ private fun LocationDisabledContent(
                     )
                 ) {
                     Text(
-                        text = "Open Location Settings",
+                        text = stringResource(R.string.open_location_settings),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold
@@ -180,7 +192,7 @@ private fun LocationDisabledContent(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "Check Again",
+                        text = stringResource(R.string.battery_optimization_check_again),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = FontFamily.Monospace
                         ),
@@ -203,13 +215,13 @@ private fun LocationNotAvailableContent(
         // Error icon
         Icon(
             imageVector = Icons.Filled.ErrorOutline,
-            contentDescription = "Error",
+            contentDescription = stringResource(R.string.error_description),
             modifier = Modifier.size(64.dp),
             tint = colorScheme.error
         )
 
         Text(
-            text = "Location Services Unavailable",
+            text = stringResource(R.string.location_services_unavailable),
             style = MaterialTheme.typography.headlineSmall.copy(
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
@@ -226,7 +238,7 @@ private fun LocationNotAvailableContent(
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Text(
-                text = "Location services are not available on this device. This is unusual as location services are standard on Android devices.\n\nbitchat needs location services for Bluetooth scanning to work properly (Android requirement). Without this, the app cannot discover nearby users.",
+                text = stringResource(R.string.location_services_unavailable_message),
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontFamily = FontFamily.Monospace,
                     color = colorScheme.onSurface
@@ -247,7 +259,7 @@ private fun LocationCheckingContent(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "bitchat",
+            text = stringResource(R.string.app_name),
             style = MaterialTheme.typography.headlineLarge.copy(
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
@@ -259,7 +271,7 @@ private fun LocationCheckingContent(
         LocationLoadingIndicator()
 
         Text(
-            text = "Checking location services...",
+            text = stringResource(R.string.checking_location_services),
             style = MaterialTheme.typography.bodyLarge.copy(
                 fontFamily = FontFamily.Monospace,
                 color = colorScheme.onSurface.copy(alpha = 0.7f)
@@ -292,6 +304,18 @@ private fun LocationLoadingIndicator() {
                 .rotate(rotationAngle),
             color = Color(0xFF4CAF50), // Location green
             strokeWidth = 3.dp
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun PreviewLocationCheckScreen() {
+    BitchatTheme{
+        LocationCheckScreen(
+            status = LocationStatus.ENABLED,
+            onEnableLocation = {},
+            onRetry = {}
         )
     }
 }

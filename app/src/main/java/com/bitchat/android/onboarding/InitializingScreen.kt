@@ -8,10 +8,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.bitchat.android.R
+import com.bitchat.android.ui.theme.BitchatTheme
 
 /**
  * Loading screen shown during app initialization after permissions are granted
@@ -49,102 +53,103 @@ fun InitializingScreen() {
         alpha
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // App title
-            Text(
-                text = "bitchat",
-                style = MaterialTheme.typography.headlineLarge.copy(
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    color = colorScheme.primary
-                ),
-                textAlign = TextAlign.Center
-            )
-
-            // Loading indicator
-            Box(
-                modifier = Modifier.size(60.dp),
-                contentAlignment = Alignment.Center
+    Scaffold(
+        content = { paddingValues ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(32.dp),
+                verticalArrangement = Arrangement.spacedBy(32.dp, alignment = Alignment.CenterVertically),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                CircularProgressIndicator(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .rotate(rotationAngle),
-                    color = colorScheme.primary,
-                    strokeWidth = 3.dp
-                )
-            }
-
-            // Loading text with animated dots
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
+                // App title
                 Text(
-                    text = "Initializing mesh network",
-                    style = MaterialTheme.typography.bodyLarge.copy(
+                    text = stringResource(R.string.app_name),
+                    style = MaterialTheme.typography.headlineLarge.copy(
                         fontFamily = FontFamily.Monospace,
-                        color = colorScheme.onSurface.copy(alpha = 0.7f)
-                    )
+                        fontWeight = FontWeight.Bold,
+                        color = colorScheme.primary
+                    ),
+                    textAlign = TextAlign.Center
                 )
-                
-                // Animated dots
-                dots.forEach { alpha ->
-                    Text(
-                        text = ".",
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            fontFamily = FontFamily.Monospace,
-                            color = colorScheme.onSurface.copy(alpha = alpha)
-                        )
+
+                // Loading indicator
+                Box(
+                    modifier = Modifier.size(60.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .rotate(rotationAngle),
+                        color = colorScheme.primary,
+                        strokeWidth = 3.dp
                     )
                 }
-            }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Status message
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                // Loading text with animated dots
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text = "Setting up Bluetooth mesh networking...",
-                        style = MaterialTheme.typography.bodyMedium.copy(
+                        text = stringResource(R.string.initializing_mesh_network),
+                        style = MaterialTheme.typography.bodyLarge.copy(
                             fontFamily = FontFamily.Monospace,
-                            color = colorScheme.onSurface.copy(alpha = 0.8f)
-                        ),
-                        textAlign = TextAlign.Center
+                            color = colorScheme.onSurface.copy(alpha = 0.7f)
+                        )
                     )
-                    
-                    Text(
-                        text = "This should only take a few seconds",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontFamily = FontFamily.Monospace,
-                            color = colorScheme.onSurface.copy(alpha = 0.6f)
-                        ),
-                        textAlign = TextAlign.Center
-                    )
+
+                    // Animated dots
+                    dots.forEach { alpha ->
+                        Text(
+                            text = ".",
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                fontFamily = FontFamily.Monospace,
+                                color = colorScheme.onSurface.copy(alpha = alpha)
+                            )
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Status message
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = stringResource(R.string.setting_up_bluetooth_mesh),
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontFamily = FontFamily.Monospace,
+                                color = colorScheme.onSurface.copy(alpha = 0.8f)
+                            ),
+                            textAlign = TextAlign.Center
+                        )
+
+                        Text(
+                            text = stringResource(R.string.setup_duration),
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontFamily = FontFamily.Monospace,
+                                color = colorScheme.onSurface.copy(alpha = 0.6f)
+                            ),
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
             }
         }
-    }
+    )
 }
 
 /**
@@ -183,7 +188,7 @@ fun InitializationErrorScreen(
             }
 
             Text(
-                text = "Setup Not Complete",
+                text = stringResource(R.string.setup_not_complete),
                 style = MaterialTheme.typography.headlineSmall.copy(
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
@@ -219,7 +224,7 @@ fun InitializationErrorScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "Try Again",
+                        text = stringResource(R.string.try_again),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold
@@ -233,7 +238,7 @@ fun InitializationErrorScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "Open Settings",
+                        text = stringResource(R.string.open_settings),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = FontFamily.Monospace
                         ),
@@ -242,5 +247,22 @@ fun InitializationErrorScreen(
                 }
             }
         }
+    }
+}
+
+
+@Preview
+@Composable
+private fun InitializingScreenWhitePrew() {
+    BitchatTheme(false) {
+        InitializingScreen()
+    }
+}
+
+@Preview
+@Composable
+private fun InitializingScreenDarkPrew() {
+    BitchatTheme(true) {
+        InitializingScreen()
     }
 }
