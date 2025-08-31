@@ -242,10 +242,9 @@ class NostrGeohashService(
      */
     fun sendGeohashMessage(content: String, channel: com.bitchat.android.geohash.GeohashChannel, myPeerID: String, nickname: String?) {
         coroutineScope.launch {
+            // Generate a temporary message ID for tracking animation
+            val tempMessageId = "temp_${System.currentTimeMillis()}_${Random.nextInt(1000)}"
             try {
-                // Generate a temporary message ID for tracking animation
-                val tempMessageId = "temp_${System.currentTimeMillis()}_${Random.nextInt(1000)}"
-                
                 // Add local echo message IMMEDIATELY (with temporary ID)
                 val powSettingsLocal = PoWPreferenceManager.getCurrentSettings()
                 val localMessage = BitchatMessage(
@@ -289,12 +288,6 @@ class NostrGeohashService(
                     teleported = teleported
                 )
                 
-                // Stop animation when PoW completes
-                if (powSettings.enabled && powSettings.difficulty > 0) {
-                    com.bitchat.android.ui.PoWMiningTracker.stopMiningMessage(tempMessageId)
-                    Log.d(TAG, "🎭 Stopped matrix animation for message: $tempMessageId")
-                }
-                
                 val nostrRelayManager = NostrRelayManager.getInstance(application)
                 nostrRelayManager.sendEventToGeohash(
                     event = event,
@@ -307,8 +300,8 @@ class NostrGeohashService(
                 
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send geohash message: ${e.message}")
-                // Make sure to stop animation even if there's an error
-                com.bitchat.android.ui.PoWMiningTracker.stopMiningMessage("temp_${System.currentTimeMillis()}")
+            } finally {
+                com.bitchat.android.ui.PoWMiningTracker.stopMiningMessage(tempMessageId)
             }
         }
     }
