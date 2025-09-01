@@ -153,17 +153,17 @@ fun AboutSheet(
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilterChip(
-                                selected = themePref == com.bitchat.android.ui.theme.ThemePreference.System,
+                                selected = themePref.isSystem,
                                 onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.System) },
                                 label = { Text("system", fontFamily = FontFamily.Monospace) }
                             )
                             FilterChip(
-                                selected = themePref == com.bitchat.android.ui.theme.ThemePreference.Light,
+                                selected = themePref.isLight,
                                 onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Light) },
                                 label = { Text("light", fontFamily = FontFamily.Monospace) }
                             )
                             FilterChip(
-                                selected = themePref == com.bitchat.android.ui.theme.ThemePreference.Dark,
+                                selected = themePref.isDark,
                                 onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Dark) },
                                 label = { Text("dark", fontFamily = FontFamily.Monospace) }
                             )

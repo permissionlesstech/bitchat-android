@@ -8,7 +8,13 @@ import kotlinx.coroutines.flow.StateFlow
  * App theme preference: System default, Light, or Dark.
  */
 enum class ThemePreference {
-    System, Light, Dark
+    System,
+    Light,
+    Dark;
+
+    val isSystem : Boolean get() = this == System
+    val isLight : Boolean get() = this == Light
+    val isDark : Boolean get() = this == Dark
 }
 
 /**
