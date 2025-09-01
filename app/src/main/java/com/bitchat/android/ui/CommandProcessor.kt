@@ -35,7 +35,7 @@ class CommandProcessor(
         val parts = command.split(" ")
         val cmd = parts.first()
         
-        when (cmd) {
+        when (cmd.lowercase()) {
             "/j", "/join" -> handleJoinCommand(parts, myPeerID)
             "/m", "/msg" -> handleMessageCommand(parts, meshService)
             "/w" -> handleWhoCommand(meshService, viewModel)
