@@ -2,7 +2,7 @@ package com.bitchat.android.ui
 
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
-import java.util.*
+import java.util.Date
 
 /**
  * Handles processing of IRC-style commands
@@ -33,8 +33,7 @@ class CommandProcessor(
         if (!command.startsWith("/")) return false
         
         val parts = command.split(" ")
-        val cmd = parts.first()
-        
+        val cmd = parts.first().lowercase()
         when (cmd) {
             "/j", "/join" -> handleJoinCommand(parts, myPeerID)
             "/m", "/msg" -> handleMessageCommand(parts, meshService)
