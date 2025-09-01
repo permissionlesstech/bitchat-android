@@ -7,6 +7,9 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.ui.graphics.vector.ImageVector
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.mesh.BluetoothMeshService
 import androidx.compose.material3.ColorScheme
@@ -124,11 +127,11 @@ fun formatMessageAsAnnotatedString(
         ))
         builder.append(" [${timeFormatter.format(message.timestamp)}]")
         // If message has valid PoW difficulty, append bits immediately after timestamp with minimal spacing
-        //message.powDifficulty?.let { bits ->
-        //    if (bits > 0) {
-        //        builder.append(" ${bits}b")
-        //    }
-        //}
+        message.powDifficulty?.let { bits ->
+            if (bits > 0) {
+                builder.append(" ⛨${bits}b")
+            }
+        }
         builder.pop()
         
     } else {

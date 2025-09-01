@@ -248,8 +248,8 @@ fun AboutSheet(
                                 Slider(
                                     value = powDifficulty.toFloat(),
                                     onValueChange = { PoWPreferenceManager.setPowDifficulty(it.toInt()) },
-                                    valueRange = 0f..20f,
-                                    steps = 21, // 20 discrete values (0-20)
+                                    valueRange = 0f..32f,
+                                    steps = 33, // 33 discrete values (0-32)
                                     colors = SliderDefaults.colors(
                                         thumbColor = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D),
                                         activeTrackColor = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
