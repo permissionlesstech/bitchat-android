@@ -71,10 +71,7 @@ class MainActivity : ComponentActivity() {
         
         // Enable edge-to-edge display for modern Android look
         enableEdgeToEdge()
-        
-        // Make status bar transparent and content can extend behind it
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        
+
         // Initialize permission management
         permissionManager = PermissionManager(this)
         // Initialize core mesh service first
