@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.sp
  */
 @Composable
 fun PermissionExplanationScreen(
+    modifier: Modifier,
     permissionCategories: List<PermissionCategory>,
     onContinue: () -> Unit
 ) {
@@ -27,7 +28,7 @@ fun PermissionExplanationScreen(
     val scrollState = rememberScrollState()
 
     Box(
-        modifier = Modifier.fillMaxSize()
+        modifier = modifier
     ) {
         // Scrollable content
         Column(

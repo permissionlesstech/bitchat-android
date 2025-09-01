@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.dp
  * Loading screen shown during app initialization after permissions are granted
  */
 @Composable
-fun InitializingScreen() {
+fun InitializingScreen(modifier: Modifier) {
     val colorScheme = MaterialTheme.colorScheme
     
     // Animated rotation for the loading indicator
@@ -50,9 +50,7 @@ fun InitializingScreen() {
     }
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
+        modifier = modifier.padding(32.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -152,6 +150,7 @@ fun InitializingScreen() {
  */
 @Composable
 fun InitializationErrorScreen(
+    modifier: Modifier,
     errorMessage: String,
     onRetry: () -> Unit,
     onOpenSettings: () -> Unit
@@ -159,9 +158,7 @@ fun InitializationErrorScreen(
     val colorScheme = MaterialTheme.colorScheme
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
+        modifier = modifier.padding(32.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(

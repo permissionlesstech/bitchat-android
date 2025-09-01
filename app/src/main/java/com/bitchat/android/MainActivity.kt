@@ -1,7 +1,6 @@
 package com.bitchat.android
 
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -9,14 +8,14 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.core.view.WindowCompat
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.repeatOnLifecycle
@@ -40,8 +39,6 @@ import com.bitchat.android.onboarding.PermissionManager
 import com.bitchat.android.ui.ChatScreen
 import com.bitchat.android.ui.ChatViewModel
 import com.bitchat.android.ui.theme.BitchatTheme
-import com.bitchat.android.ui.theme.ThemePreference
-import com.bitchat.android.ui.theme.ThemePreferenceManager
 import com.bitchat.android.nostr.PoWPreferenceManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -103,11 +100,14 @@ class MainActivity : ComponentActivity() {
         
         setContent {
             BitchatTheme {
-                Surface(
+                Scaffold(
                     modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    OnboardingFlowScreen()
+                    containerColor = MaterialTheme.colorScheme.background
+                ) { innerPadding ->
+                    OnboardingFlowScreen(modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                    )
                 }
             }
         }
@@ -129,7 +129,7 @@ class MainActivity : ComponentActivity() {
     }
     
     @Composable
-    private fun OnboardingFlowScreen() {
+    private fun OnboardingFlowScreen(modifier: Modifier = Modifier) {
         val context = LocalContext.current
         val onboardingState by mainViewModel.onboardingState.collectAsState()
         val bluetoothStatus by mainViewModel.bluetoothStatus.collectAsState()
@@ -164,11 +164,12 @@ class MainActivity : ComponentActivity() {
 
         when (onboardingState) {
             OnboardingState.CHECKING -> {
-                InitializingScreen()
+                InitializingScreen(modifier)
             }
             
             OnboardingState.BLUETOOTH_CHECK -> {
                 BluetoothCheckScreen(
+                    modifier = modifier,
                     status = bluetoothStatus,
                     onEnableBluetooth = {
                         mainViewModel.updateBluetoothLoading(true)
@@ -183,6 +184,7 @@ class MainActivity : ComponentActivity() {
             
             OnboardingState.LOCATION_CHECK -> {
                 LocationCheckScreen(
+                    modifier = modifier,
                     status = locationStatus,
                     onEnableLocation = {
                         mainViewModel.updateLocationLoading(true)
@@ -197,6 +199,7 @@ class MainActivity : ComponentActivity() {
             
             OnboardingState.BATTERY_OPTIMIZATION_CHECK -> {
                 BatteryOptimizationScreen(
+                    modifier = modifier,
                     status = batteryOptimizationStatus,
                     onDisableBatteryOptimization = {
                         mainViewModel.updateBatteryOptimizationLoading(true)
@@ -215,6 +218,7 @@ class MainActivity : ComponentActivity() {
             
             OnboardingState.PERMISSION_EXPLANATION -> {
                 PermissionExplanationScreen(
+                    modifier = modifier,
                     permissionCategories = permissionManager.getCategorizedPermissions(),
                     onContinue = {
                         mainViewModel.updateOnboardingState(OnboardingState.PERMISSION_REQUESTING)
@@ -224,11 +228,11 @@ class MainActivity : ComponentActivity() {
             }
             
             OnboardingState.PERMISSION_REQUESTING -> {
-                InitializingScreen()
+                InitializingScreen(modifier)
             }
             
             OnboardingState.INITIALIZING -> {
-                InitializingScreen()
+                InitializingScreen(modifier)
             }
             
             OnboardingState.COMPLETE -> {
@@ -254,6 +258,7 @@ class MainActivity : ComponentActivity() {
             
             OnboardingState.ERROR -> {
                 InitializationErrorScreen(
+                    modifier = modifier,
                     errorMessage = errorMessage,
                     onRetry = {
                         mainViewModel.updateOnboardingState(OnboardingState.CHECKING)
