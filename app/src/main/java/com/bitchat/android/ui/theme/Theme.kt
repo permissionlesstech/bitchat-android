@@ -1,13 +1,20 @@
 package com.bitchat.android.ui.theme
 
+import android.app.Activity
+import android.os.Build
+import android.view.View
+import android.view.WindowInsetsController
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalView
 
 // Colors that match the iOS bitchat theme
 private val DarkColorScheme = darkColorScheme(
@@ -54,6 +61,27 @@ fun BitchatTheme(
     }
 
     val colorScheme = if (shouldUseDark) DarkColorScheme else LightColorScheme
+
+    val view = LocalView.current
+    SideEffect {
+        (view.context as? Activity)?.window?.let { window ->
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                window.insetsController?.setSystemBarsAppearance(
+                    if (!shouldUseDark) WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS else 0,
+                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                window.decorView.systemUiVisibility = if (!shouldUseDark) {
+                    View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+                } else 0
+            }
+            window.navigationBarColor = colorScheme.background.toArgb()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                window.isNavigationBarContrastEnforced = false
+            }
+        }
+    }
 
     MaterialTheme(
         colorScheme = colorScheme,
