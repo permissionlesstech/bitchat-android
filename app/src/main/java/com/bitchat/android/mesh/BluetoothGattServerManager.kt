@@ -144,6 +144,8 @@ class BluetoothGattServerManager(
                     BluetoothProfile.STATE_DISCONNECTED -> {
                         Log.i(TAG, "Server: Device disconnected ${device.address}")
                         connectionTracker.cleanupDeviceConnection(device.address)
+                        // Notify delegate about device disconnection so higher layers can update direct flags
+                        delegate?.onDeviceDisconnected(device)
                     }
                 }
             }

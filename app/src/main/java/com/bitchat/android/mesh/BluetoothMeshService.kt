@@ -407,6 +407,21 @@ class BluetoothMeshService(private val context: Context) {
                     sendBroadcastAnnounce()
                 }
             }
+
+            override fun onDeviceDisconnected(device: android.bluetooth.BluetoothDevice) {
+                val addr = device.address
+                // Remove mapping and, if that was the last direct path for the peer, clear direct flag
+                val peer = connectionManager.addressPeerMap[addr]
+                // ConnectionTracker has already removed the address mapping; be defensive either way
+                connectionManager.addressPeerMap.remove(addr)
+                if (peer != null) {
+                    val stillMapped = connectionManager.addressPeerMap.values.any { it == peer }
+                    if (!stillMapped) {
+                        // Peer might still be reachable indirectly; mark as not-direct
+                        try { peerManager.setDirectConnection(peer, false) } catch (_: Exception) { }
+                    }
+                }
+            }
             
             override fun onRSSIUpdated(deviceAddress: String, rssi: Int) {
                 // Find the peer ID for this device address and update RSSI in PeerManager
