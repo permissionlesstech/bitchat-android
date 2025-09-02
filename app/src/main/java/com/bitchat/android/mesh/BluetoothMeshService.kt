@@ -343,7 +343,34 @@ class BluetoothMeshService(private val context: Context) {
             }
             
             override fun handleAnnounce(routed: RoutedPacket) {
-                serviceScope.launch { messageHandler.handleAnnounce(routed) }
+                serviceScope.launch {
+                    // Process the announce
+                    val isFirst = messageHandler.handleAnnounce(routed)
+
+                    // Map device address -> peerID on first announce seen over this device connection
+                    val deviceAddress = routed.relayAddress
+                    val pid = routed.peerID
+                    if (deviceAddress != null && pid != null) {
+                        // Only set mapping if not already mapped
+                        if (!connectionManager.addressPeerMap.containsKey(deviceAddress)) {
+                            connectionManager.addressPeerMap[deviceAddress] = pid
+                            Log.d(TAG, "Mapped device $deviceAddress to peer $pid on ANNOUNCE")
+
+                            // Mark this peer as directly connected for UI
+                            try {
+                                peerManager.getPeerInfo(pid)?.let {
+                                    // Set direct connection flag
+                                    // (This will also trigger a peer list update)
+                                    peerManager.setDirectConnection(pid, true)
+                                    // Also push reactive directness state to UI (best-effort)
+                                    try {
+                                        // Note: UI observes via didUpdatePeerList, but we can also update ChatState on a timer
+                                    } catch (_: Exception) { }
+                                }
+                            } catch (_: Exception) { }
+                        }
+                    }
+                }
             }
             
             override fun handleMessage(routed: RoutedPacket) {
@@ -382,6 +409,21 @@ class BluetoothMeshService(private val context: Context) {
                 serviceScope.launch {
                     delay(200)
                     sendBroadcastAnnounce()
+                }
+            }
+
+            override fun onDeviceDisconnected(device: android.bluetooth.BluetoothDevice) {
+                val addr = device.address
+                // Remove mapping and, if that was the last direct path for the peer, clear direct flag
+                val peer = connectionManager.addressPeerMap[addr]
+                // ConnectionTracker has already removed the address mapping; be defensive either way
+                connectionManager.addressPeerMap.remove(addr)
+                if (peer != null) {
+                    val stillMapped = connectionManager.addressPeerMap.values.any { it == peer }
+                    if (!stillMapped) {
+                        // Peer might still be reachable indirectly; mark as not-direct
+                        try { peerManager.setDirectConnection(peer, false) } catch (_: Exception) { }
+                    }
                 }
             }
             

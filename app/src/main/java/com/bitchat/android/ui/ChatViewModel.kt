@@ -106,6 +106,7 @@ class ChatViewModel(
     val peerFingerprints: LiveData<Map<String, String>> = state.peerFingerprints
     val peerNicknames: LiveData<Map<String, String>> = state.peerNicknames
     val peerRSSI: LiveData<Map<String, Int>> = state.peerRSSI
+    val peerDirect: LiveData<Map<String, Boolean>> = state.peerDirect
     val showAppInfo: LiveData<Boolean> = state.showAppInfo
     val selectedLocationChannel: LiveData<com.bitchat.android.geohash.ChannelID?> = state.selectedLocationChannel
     val isTeleported: LiveData<Boolean> = state.isTeleported
@@ -437,6 +438,14 @@ class ChatViewModel(
 
         val rssiValues = meshService.getPeerRSSI()
         state.setPeerRSSI(rssiValues)
+
+        // Update directness per peer (driven by PeerManager state)
+        try {
+            val directMap = state.getConnectedPeersValue().associateWith { pid ->
+                meshService.getPeerInfo(pid)?.isDirectConnection == true
+            }
+            state.setPeerDirect(directMap)
+        } catch (_: Exception) { }
     }
 
     // MARK: - Debug and Troubleshooting

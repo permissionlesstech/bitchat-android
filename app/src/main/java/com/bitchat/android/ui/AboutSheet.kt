@@ -153,17 +153,17 @@ fun AboutSheet(
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilterChip(
-                                selected = themePref == com.bitchat.android.ui.theme.ThemePreference.System,
+                                selected = themePref.isSystem,
                                 onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.System) },
                                 label = { Text("system", fontFamily = FontFamily.Monospace) }
                             )
                             FilterChip(
-                                selected = themePref == com.bitchat.android.ui.theme.ThemePreference.Light,
+                                selected = themePref.isLight,
                                 onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Light) },
                                 label = { Text("light", fontFamily = FontFamily.Monospace) }
                             )
                             FilterChip(
-                                selected = themePref == com.bitchat.android.ui.theme.ThemePreference.Dark,
+                                selected = themePref.isDark,
                                 onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Dark) },
                                 label = { Text("dark", fontFamily = FontFamily.Monospace) }
                             )
@@ -248,8 +248,8 @@ fun AboutSheet(
                                 Slider(
                                     value = powDifficulty.toFloat(),
                                     onValueChange = { PoWPreferenceManager.setPowDifficulty(it.toInt()) },
-                                    valueRange = 0f..20f,
-                                    steps = 21, // 20 discrete values (0-20)
+                                    valueRange = 0f..32f,
+                                    steps = 33, // 33 discrete values (0-32)
                                     colors = SliderDefaults.colors(
                                         thumbColor = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D),
                                         activeTrackColor = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)

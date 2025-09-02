@@ -384,10 +384,12 @@ fun PeopleSection(
             val (bName, _) = com.bitchat.android.ui.splitSuffix(displayName)
             val showHash = (baseNameCounts[bName] ?: 0) > 1
 
+            val directMap by viewModel.peerDirect.observeAsState(emptyMap())
+            val isDirectLive = directMap[peerID] ?: try { viewModel.meshService.getPeerInfo(peerID)?.isDirectConnection == true } catch (_: Exception) { false }
             PeerItem(
                 peerID = peerID,
                 displayName = displayName,
-                signalStrength = convertRSSIToSignalStrength(peerRSSI[peerID]),
+                isDirect = isDirectLive,
                 isSelected = peerID == selectedPrivatePeer,
                 isFavorite = isFavorite,
                 hasUnreadDM = combinedHasUnread,
@@ -421,7 +423,7 @@ fun PeopleSection(
             PeerItem(
                 peerID = favPeerID,
                 displayName = dn,
-                signalStrength = 0,
+                isDirect = false,
                 isSelected = (mappedConnectedPeerID ?: favPeerID) == selectedPrivatePeer,
                 isFavorite = true,
                 hasUnreadDM = hasUnreadPrivateMessages.contains(favPeerID),
@@ -458,15 +460,15 @@ fun PeopleSection(
                 val (bName, _) = com.bitchat.android.ui.splitSuffix(dn)
                 val showHash = (baseNameCounts[bName] ?: 0) > 1
 
-                PeerItem(
-                    peerID = convKey,
-                    displayName = dn,
-                    signalStrength = 0,
-                    isSelected = convKey == selectedPrivatePeer,
-                    isFavorite = false,
-                    hasUnreadDM = hasUnreadPrivateMessages.contains(convKey),
-                    colorScheme = colorScheme,
-                    viewModel = viewModel,
+            PeerItem(
+                peerID = convKey,
+                displayName = dn,
+                isDirect = false,
+                isSelected = convKey == selectedPrivatePeer,
+                isFavorite = false,
+                hasUnreadDM = hasUnreadPrivateMessages.contains(convKey),
+                colorScheme = colorScheme,
+                viewModel = viewModel,
                     onItemClick = { onPrivateChatStart(convKey) },
                     onToggleFavorite = { viewModel.toggleFavorite(convKey) },
                     unreadCount = privateChats[convKey]?.count { msg ->
@@ -483,7 +485,7 @@ fun PeopleSection(
 private fun PeerItem(
     peerID: String,
     displayName: String,
-    signalStrength: Int,
+    isDirect: Boolean,
     isSelected: Boolean,
     isFavorite: Boolean,
     hasUnreadDM: Boolean,
@@ -527,7 +529,7 @@ private fun PeerItem(
                 tint = Color(0xFFFF9500) // iOS orange
             )
         } else {
-            // Signal strength indicators
+            // Connection indicator icons
             if (showNostrGlobe) {
                 // Purple globe to indicate Nostr availability
                 Icon(
@@ -537,9 +539,11 @@ private fun PeerItem(
                     tint = Color(0xFF9C27B0) // Purple
                 )
             } else {
-                SignalStrengthIndicator(
-                    signalStrength = signalStrength,
-                    colorScheme = colorScheme
+                Icon(
+                    imageVector = if (isDirect) Icons.Outlined.SettingsInputAntenna else Icons.Filled.Route,
+                    contentDescription = if (isDirect) "Direct Bluetooth" else "Routed",
+                    modifier = Modifier.size(16.dp),
+                    tint = colorScheme.onSurface.copy(alpha = 0.8f)
                 )
             }
         }

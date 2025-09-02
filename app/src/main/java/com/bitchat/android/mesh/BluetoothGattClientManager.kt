@@ -343,6 +343,9 @@ class BluetoothGattClientManager(
                         connectionTracker.cleanupDeviceConnection(deviceAddress)
                     }
 
+                    // Notify higher layers about device disconnection to update direct flags
+                    delegate?.onDeviceDisconnected(gatt.device)
+
                     connectionScope.launch {
                         delay(500) // CLEANUP_DELAY
                         try {

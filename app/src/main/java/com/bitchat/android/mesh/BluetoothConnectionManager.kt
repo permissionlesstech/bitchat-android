@@ -43,12 +43,6 @@ class BluetoothConnectionManager(
         override fun onPacketReceived(packet: BitchatPacket, peerID: String, device: BluetoothDevice?) {
             Log.d(TAG, "onPacketReceived: Packet received from ${device?.address} ($peerID)")
             device?.let { bluetoothDevice ->
-                // if connection does not have a peerID yet, we assume that the first package
-                // we receive from that connection is from the peer
-                if (!connectionTracker.addressPeerMap.containsKey(device.address)) {
-                    Log.d(TAG, "First packet received from new device: ${bluetoothDevice.address}, assuming peerID: $peerID")
-                    connectionTracker.addressPeerMap[device.address] = peerID
-                }
                 // Get current RSSI for this device and update if available
                 val currentRSSI = connectionTracker.getBestRSSI(bluetoothDevice.address)
                 if (currentRSSI != null) {
@@ -63,6 +57,10 @@ class BluetoothConnectionManager(
         
         override fun onDeviceConnected(device: BluetoothDevice) {
             delegate?.onDeviceConnected(device)
+        }
+
+        override fun onDeviceDisconnected(device: BluetoothDevice) {
+            delegate?.onDeviceDisconnected(device)
         }
         
         override fun onRSSIUpdated(deviceAddress: String, rssi: Int) {
@@ -262,5 +260,6 @@ class BluetoothConnectionManager(
 interface BluetoothConnectionManagerDelegate {
     fun onPacketReceived(packet: BitchatPacket, peerID: String, device: BluetoothDevice?)
     fun onDeviceConnected(device: BluetoothDevice)
+    fun onDeviceDisconnected(device: BluetoothDevice)
     fun onRSSIUpdated(deviceAddress: String, rssi: Int)
 }
