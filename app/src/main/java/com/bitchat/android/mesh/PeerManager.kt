@@ -173,6 +173,11 @@ class PeerManager {
             if (existing.isDirectConnection != isDirect) {
                 peers[peerID] = existing.copy(isDirectConnection = isDirect)
                 notifyPeerListUpdate()
+                // NEW: notify UI state (if available via delegate path) about directness change
+                try {
+                    // Best-effort: delegate path flows up to ChatViewModel via didUpdatePeerList
+                    // No direct reference to UI layer here by design.
+                } catch (_: Exception) { }
             }
         }
     }

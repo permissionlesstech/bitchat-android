@@ -103,6 +103,10 @@ class ChatState {
 
     private val _peerRSSI = MutableLiveData<Map<String, Int>>(emptyMap())
     val peerRSSI: LiveData<Map<String, Int>> = _peerRSSI
+
+    // Direct connection status per peer (for live UI updates)
+    private val _peerDirect = MutableLiveData<Map<String, Boolean>>(emptyMap())
+    val peerDirect: LiveData<Map<String, Boolean>> = _peerDirect
     
     // peerIDToPublicKeyFingerprint REMOVED - fingerprints now handled centrally in PeerManager
     
@@ -275,6 +279,10 @@ class ChatState {
 
     fun setPeerRSSI(rssi: Map<String, Int>) {
         _peerRSSI.value = rssi
+    }
+
+    fun setPeerDirect(direct: Map<String, Boolean>) {
+        _peerDirect.value = direct
     }
     
     fun setShowAppInfo(show: Boolean) {

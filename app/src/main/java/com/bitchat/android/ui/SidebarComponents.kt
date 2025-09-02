@@ -384,10 +384,12 @@ fun PeopleSection(
             val (bName, _) = com.bitchat.android.ui.splitSuffix(displayName)
             val showHash = (baseNameCounts[bName] ?: 0) > 1
 
+            val directMap by viewModel.peerDirect.observeAsState(emptyMap())
+            val isDirectLive = directMap[peerID] ?: try { viewModel.meshService.getPeerInfo(peerID)?.isDirectConnection == true } catch (_: Exception) { false }
             PeerItem(
                 peerID = peerID,
                 displayName = displayName,
-                isDirect = try { viewModel.meshService.getPeerInfo(peerID)?.isDirectConnection == true } catch (_: Exception) { false },
+                isDirect = isDirectLive,
                 isSelected = peerID == selectedPrivatePeer,
                 isFavorite = isFavorite,
                 hasUnreadDM = combinedHasUnread,
