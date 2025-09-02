@@ -1268,6 +1268,8 @@ class NostrGeohashService(
             // val mentions = messageManager.parseMentions(content, peerNicknames, nickname)
             
             // Calculate actual PoW difficulty from the finalized event ID so we can show it for incoming messages too
+            val isPowEnabled = PoWPreferenceManager.isPowEnabled()
+            val eventHasNonseTag = event.tags.any { it.isNotEmpty() && it[0] == "nonce" }
             val actualPow = try { NostrProofOfWork.calculateDifficulty(event.id) } catch (e: Exception) { 0 }
 
             val message = BitchatMessage(
@@ -1280,7 +1282,7 @@ class NostrGeohashService(
                 senderPeerID = "nostr:${event.pubkey.take(8)}",
                 mentions = null, // mentions need to be passed from outside
                 channel = "#$geohash",
-                powDifficulty = actualPow.takeIf { it > 0 }
+                powDifficulty = actualPow.takeIf { it > 0 && isPowEnabled && eventHasNonseTag } ?: null
             )
             
             // Store in geohash history for persistence across channel switches
