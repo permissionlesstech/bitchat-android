@@ -713,6 +713,7 @@ class MainActivity : ComponentActivity() {
                         6 -> com.bitchat.android.geohash.GeohashChannelLevel.NEIGHBORHOOD
                         5 -> com.bitchat.android.geohash.GeohashChannelLevel.CITY
                         4 -> com.bitchat.android.geohash.GeohashChannelLevel.PROVINCE
+                        3 -> com.bitchat.android.geohash.GeohashChannelLevel.STATE
                         2 -> com.bitchat.android.geohash.GeohashChannelLevel.REGION
                         else -> com.bitchat.android.geohash.GeohashChannelLevel.CITY // Default fallback
                     }

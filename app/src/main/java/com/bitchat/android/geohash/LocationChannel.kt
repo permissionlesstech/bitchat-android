@@ -9,6 +9,7 @@ enum class GeohashChannelLevel(val precision: Int, val displayName: String) {
     NEIGHBORHOOD(6, "Neighborhood"),
     CITY(5, "City"),
     PROVINCE(4, "Province"),
+    STATE(3, "State"),
     REGION(2, "REGION");
     
     companion object {

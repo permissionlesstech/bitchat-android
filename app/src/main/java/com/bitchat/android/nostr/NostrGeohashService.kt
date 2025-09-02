@@ -1816,7 +1816,8 @@ class NostrGeohashService(
             // Determine the level from geohash length
             val level = when (geohash.length) {
                 in 0..2 -> com.bitchat.android.geohash.GeohashChannelLevel.REGION
-                in 3..4 -> com.bitchat.android.geohash.GeohashChannelLevel.PROVINCE
+                3 -> com.bitchat.android.geohash.GeohashChannelLevel.STATE
+                4 -> com.bitchat.android.geohash.GeohashChannelLevel.PROVINCE
                 5 -> com.bitchat.android.geohash.GeohashChannelLevel.CITY
                 6 -> com.bitchat.android.geohash.GeohashChannelLevel.NEIGHBORHOOD
                 7 -> com.bitchat.android.geohash.GeohashChannelLevel.BLOCK

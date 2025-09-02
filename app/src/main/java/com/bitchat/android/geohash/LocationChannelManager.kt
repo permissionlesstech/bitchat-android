@@ -495,10 +495,15 @@ class LocationChannelManager private constructor(private val context: Context) {
             dict[GeohashChannelLevel.REGION] = it
         }
         
-        // Province (state/province or county)
+        // State (administrative area - state/province level)
         address.adminArea?.takeIf { it.isNotEmpty() }?.let {
+            dict[GeohashChannelLevel.STATE] = it
+        }
+        
+        // Province (county/subadministrative level)
+        address.subAdminArea?.takeIf { it.isNotEmpty() }?.let {
             dict[GeohashChannelLevel.PROVINCE] = it
-        } ?: address.subAdminArea?.takeIf { it.isNotEmpty() }?.let {
+        } ?: address.adminArea?.takeIf { it.isNotEmpty() }?.let {
             dict[GeohashChannelLevel.PROVINCE] = it
         }
         
