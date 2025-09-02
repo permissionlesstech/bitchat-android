@@ -4,16 +4,57 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    html, body, #map { height: 100%; margin: 0; padding: 0; }
+    :root {
+      --bg-deep: #0b1620;         /* deep navy */
+      --grid-major: rgba(24, 56, 72, 0.6);
+      --grid-minor: rgba(24, 56, 72, 0.25);
+      --neon: #00C851;            /* bitchat green */
+      --neon-soft: rgba(0, 200, 81, 0.25);
+      --neon-ghost: rgba(0, 200, 81, 0.08);
+    }
+
+    html, body, #map { height: 100%; margin: 0; padding: 0; background: var(--bg-deep); }
+
+    /* Cyber matrix background grid (minor + major lines) */
+    #map {
+      background-image:
+        /* major grid every 6 minor cells */
+        linear-gradient(var(--grid-major) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-major) 1px, transparent 1px),
+        linear-gradient(var(--grid-minor) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-minor) 1px, transparent 1px);
+      background-size: 144px 144px, 144px 144px, 24px 24px, 24px 24px; /* 6x minor */
+      background-position: -1px -1px, -1px -1px, 0 0, 0 0;
+    }
+
+    .leaflet-container { background: transparent; }
     .leaflet-div-icon { background: transparent; border: none; }
-    /* Geohash labels: text only, no background */
-    .gh-label { background: transparent; border: none; pointer-events: none; }
-    .gh-text { color: #6c757d; font-weight: 600; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial; font-size: 12px; line-height: 1; }
+
+    /* Geohash labels: bright neon text w/ subtle glow */
+    .gh-label { background: transparent; border: none; pointer-events: none; filter: drop-shadow(0 0 6px var(--neon-ghost)); }
+    .gh-text {
+      color: var(--neon);
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+      line-height: 1;
+      text-shadow: 0 0 6px var(--neon-ghost), 0 0 12px var(--neon-ghost);
+    }
+
+    /* Vignette mask to give the oval/CRT feel */
+    .vignette {
+      position: absolute; inset: 0;
+      pointer-events: none;
+      background: radial-gradient(120% 85% at 50% 50%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.35) 100%);
+      mix-blend-mode: screen;
+    }
   </style>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
 <body>
   <div id="map"></div>
+  <div class="vignette"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
@@ -75,13 +116,46 @@
         const type = hash.length % 2;
         if (border[dir][type].indexOf(lastCh) != -1 && parent != '') parent = adjacent(parent, dir);
         return parent + base32.charAt(neighbour[dir][type].indexOf(lastCh));
+
+    // subtle animated sweep line like a radar
+    let sweep; function addSweep() {
+      const bounds = map.getBounds();
+      const midLat = (bounds.getSouth()+bounds.getNorth())/2;
+      let lat = bounds.getSouth();
+      sweep = L.polyline([[lat, bounds.getWest()], [lat, bounds.getEast()]], {
+        color: 'rgba(0,255,195,0.35)', weight: 2, opacity: 0.6
+      }).addTo(gridLayer);
+      let dir = 1;
+      function tick() {
+        if (!sweep) return;
+        const b = map.getBounds();
+        const north = b.getNorth(), south = b.getSouth();
+        lat += dir * (north - south) / 300; // speed
+        if (lat >= north || lat <= south) dir *= -1;
+        sweep.setLatLngs([[lat, b.getWest()], [lat, b.getEast()]]);
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    }
+    map.whenReady(addSweep);
+
+
       }
       window.__geohash = { bounds, encode, adjacent };
     })();
 
     // Map logic
     const map = L.map('map', { zoomControl: true, minZoom: 2, maxZoom: 21 }).setView([0,0], 3);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 21, attribution: '&copy; OpenStreetMap' }).addTo(map);
+
+    /* Dark cyber tiles with low contrast so our neon grid pops.
+       Using Carto Voyager dark as base with low opacity. */
+    const baseTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
+      maxZoom: 21,
+      attribution: '&copy; OpenStreetMap &copy; Carto',
+      opacity: 0.25
+    }).addTo(map);
+
+    /* Add subtle scanline/overlay glow grid on top using canvas rectangles */
 
     const canvasRenderer = L.canvas();
     const gridLayer = L.layerGroup().addTo(map);
@@ -136,13 +210,14 @@
         const isSelected = geohash === selectedGeohash;
         const rect = L.rectangle([sw, ne], {
           renderer: canvasRenderer,
-          color: isSelected ? '#d63384' : '#0d6efd',
-          weight: isSelected ? 3 : 2,
-          fillOpacity: isSelected ? 0.25 : 0.2,
+          color: isSelected ? '#00ffc3' : '#00C851',
+          weight: isSelected ? 3.5 : 2,
+          fillColor: isSelected ? 'rgba(0, 200, 81, 0.22)' : 'rgba(0, 200, 81, 0.10)',
+          fillOpacity: isSelected ? 0.22 : 0.10,
           opacity: 0.9
         });
         const opacityFalloff = 1 - (Math.abs(parseInt(coord.split(',')[0])) + Math.abs(parseInt(coord.split(',')[1]))) / 10;
-        rect.setStyle({ opacity: rect.options.opacity * opacityFalloff, fillOpacity: rect.options.fillOpacity * opacityFalloff });
+        rect.setStyle({ opacity: rect.options.opacity * opacityFalloff, fillOpacity: rect.options.fillOpacity * opacityFalloff, color: isSelected ? '#00ffc3' : '#00C851' });
 
         rect.on('click', (e) => {
           // Prevent map click handler from also firing
@@ -171,7 +246,7 @@
         const cellPx = Math.min(pxWidth, pxHeight);
         // Scale label size to fit; clamp to keep legible
         const fontSize = Math.max(10, Math.min(24, Math.floor(cellPx / 6)));
-        const labelHtml = `<span class=\"gh-text\" style=\"font-size:${fontSize}px\">${geohash.toUpperCase()}</span>`;
+        const labelHtml = `<span class=\"gh-text\" style=\"font-size:${fontSize}px; letter-spacing:1px\">${geohash.toLowerCase()}</span>`;
 
         const labelLat = (sw[0]+ne[0])/2, labelLng=(sw[1]+ne[1])/2;
         const label = L.marker([labelLat, labelLng], {
