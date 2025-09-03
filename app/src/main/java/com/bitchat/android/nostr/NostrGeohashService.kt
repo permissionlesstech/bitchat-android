@@ -258,11 +258,12 @@ class NostrGeohashService(
                     powDifficulty = if (powSettingsLocal.enabled) powSettingsLocal.difficulty else null
                 )
                 
-                // Store and display the message immediately
+                // Store immediately; UI will display from geohash history (not main mesh timeline)
                 storeGeohashMessage(channel.geohash, localMessage)
-                messageManager.addMessage(localMessage)
+                // IMPORTANT: Do not add to main mesh timeline to avoid duplication in mesh chat view
+                // messageManager.addMessage(localMessage)
                 
-                Log.d(TAG, "📝 Added message immediately with temp ID: $tempMessageId")
+                Log.d(TAG, "📝 Added geohash local echo with temp ID: $tempMessageId (not shown in mesh timeline)")
                 
                 // Check if PoW is enabled before starting animation
                 val powSettings = PoWPreferenceManager.getCurrentSettings()
