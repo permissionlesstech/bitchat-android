@@ -307,6 +307,18 @@ class BluetoothGattClientManager(
         
         // Store RSSI from scan results for later use (especially for server connections)
         connectionTracker.updateScanRSSI(deviceAddress, rssi)
+
+        // Publish scan result to debug UI buffer
+        try {
+            DebugSettingsManager.getInstance().addScanResult(
+                DebugScanResult(
+                    deviceName = device.name,
+                    deviceAddress = deviceAddress,
+                    rssi = rssi,
+                    peerID = null // peerID unknown at scan time
+                )
+            )
+        } catch (_: Exception) { }
         
         // Power-aware RSSI filtering
         if (rssi < powerManager.getRSSIThreshold()) {
