@@ -190,7 +190,7 @@ class PacketRelayManager(private val myPeerID: String) {
             appendLine("=== Packet Relay Manager Debug Info ===")
             appendLine("Relay Scope Active: ${'$'}{relayScope.isActive}")
             appendLine("My Peer ID: ${'$'}myPeerID")
-            appendLine("Network Size: ${'$'}{delegate?.getNetworkSize() ?: "unknown"}")
+            appendLine("Network Size: ${'$'}{delegate?.getNetworkSize() ?: \"unknown\"}")
         }
     }
     
