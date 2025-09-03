@@ -45,6 +45,33 @@ fun DebugSettingsSheet(
     val connectedDevices by manager.connectedDevices.collectAsState()
     val relayStats by manager.relayStats.collectAsState()
 
+    // Push live connected devices from mesh service whenever sheet is visible
+    LaunchedEffect(isPresented) {
+        if (isPresented) {
+            // Poll device list periodically for now (TODO: add callbacks)
+            while (true) {
+                val entries = meshService.connectionManager.getConnectedDeviceEntries()
+                val mapping = meshService.getDeviceAddressToPeerMapping()
+                val peers = mapping.values.toSet()
+                val nicknames = meshService.getPeerNicknames()
+                val directMap = peers.associateWith { pid -> meshService.getPeerInfo(pid)?.isDirectConnection == true }
+                val devices = entries.map { (address, isClient, rssi) ->
+                    val pid = mapping[address]
+                    com.bitchat.android.ui.debug.ConnectedDevice(
+                        deviceAddress = address,
+                        peerID = pid,
+                        nickname = pid?.let { nicknames[it] },
+                        rssi = rssi,
+                        connectionType = if (isClient) ConnectionType.GATT_CLIENT else ConnectionType.GATT_SERVER,
+                        isDirectConnection = pid?.let { directMap[it] } ?: false
+                    )
+                }
+                manager.updateConnectedDevices(devices)
+                kotlinx.coroutines.delay(1000)
+            }
+        }
+    }
+
     val scope = rememberCoroutineScope()
 
     if (!isPresented) return

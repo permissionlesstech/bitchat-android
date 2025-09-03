@@ -205,6 +205,22 @@ class BluetoothConnectionManager(
     fun startClient() { connectionScope.launch { clientManager.start() } }
     fun stopClient() { connectionScope.launch { clientManager.stop() } }
 
+    // Debug snapshots for connected devices
+    fun getConnectedDeviceEntries(): List<Triple<String, Boolean, Int?>> {
+        return try {
+            connectionTracker.getConnectedDevices().values.map { dc ->
+                val rssi = if (dc.rssi != Int.MIN_VALUE) dc.rssi else null
+                Triple(dc.device.address, dc.isClient, rssi)
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    fun isClientConnection(address: String): Boolean? {
+        return try { connectionTracker.getConnectedDevices()[address]?.isClient } catch (e: Exception) { null }
+    }
+
     /**
      * Public: connect/disconnect helpers for debug UI
      */

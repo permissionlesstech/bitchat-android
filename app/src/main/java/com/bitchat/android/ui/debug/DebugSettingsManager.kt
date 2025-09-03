@@ -10,6 +10,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
  * Debug settings manager for controlling debug features and collecting debug data
  */
 class DebugSettingsManager private constructor() {
+    // NOTE: This singleton is referenced from mesh layer. Keep in ui.debug but avoid Compose deps.
     
     companion object {
         @Volatile
@@ -48,10 +49,35 @@ class DebugSettingsManager private constructor() {
     // Packet relay statistics
     private val _relayStats = MutableStateFlow(PacketRelayStats())
     val relayStats: StateFlow<PacketRelayStats> = _relayStats.asStateFlow()
+
+    // Timestamps to compute rolling window stats
+    private val relayTimestamps = ConcurrentLinkedQueue<Long>()
     
     // Internal data storage for managing debug data
     private val debugMessageQueue = ConcurrentLinkedQueue<DebugMessage>()
     private val scanResultsQueue = ConcurrentLinkedQueue<DebugScanResult>()
+    
+    private fun updateRelayStatsFromTimestamps() {
+        val now = System.currentTimeMillis()
+        // prune older than 15m
+        while (true) {
+            val head = relayTimestamps.peek() ?: break
+            if (now - head > 15 * 60 * 1000L) {
+                relayTimestamps.poll()
+            } else break
+        }
+        val last10s = relayTimestamps.count { now - it <= 10_000L }
+        val last1m = relayTimestamps.count { now - it <= 60_000L }
+        val last15m = relayTimestamps.size
+        val total = _relayStats.value.totalRelaysCount + 1
+        _relayStats.value = PacketRelayStats(
+            totalRelaysCount = total,
+            last10SecondRelays = last10s,
+            lastMinuteRelays = last1m,
+            last15MinuteRelays = last15m,
+            lastResetTime = _relayStats.value.lastResetTime
+        )
+    }
     
     // MARK: - Setting Controls
     
@@ -155,15 +181,9 @@ class DebugSettingsManager private constructor() {
                 "📡 Relayed $packetType from $originalSender to $relayedTo"
             ))
         }
-        
-        // Update relay statistics
-        val currentStats = _relayStats.value
-        _relayStats.value = currentStats.copy(
-            totalRelaysCount = currentStats.totalRelaysCount + 1,
-            last10SecondRelays = currentStats.last10SecondRelays + 1,
-            lastMinuteRelays = currentStats.lastMinuteRelays + 1,
-            last15MinuteRelays = currentStats.last15MinuteRelays + 1
-        )
+        // Update rolling statistics
+        relayTimestamps.offer(System.currentTimeMillis())
+        updateRelayStatsFromTimestamps()
     }
     
     // MARK: - Clear Data

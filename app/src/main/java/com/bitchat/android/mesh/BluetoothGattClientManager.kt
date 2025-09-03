@@ -118,6 +118,14 @@ class BluetoothGattClientManager(
         isActive = false
         
         connectionScope.launch {
+            // Disconnect all client connections decisively
+            try {
+                val conns = connectionTracker.getConnectedDevices().values.filter { it.isClient && it.gatt != null }
+                conns.forEach { dc ->
+                    try { dc.gatt?.disconnect() } catch (_: Exception) { }
+                }
+            } catch (_: Exception) { }
+            
             stopScanning()
             stopRSSIMonitoring()
             Log.i(TAG, "GATT client manager stopped")
@@ -303,6 +311,18 @@ class BluetoothGattClientManager(
         // Power-aware RSSI filtering
         if (rssi < powerManager.getRSSIThreshold()) {
             Log.d(TAG, "Skipping device $deviceAddress due to weak signal: $rssi < ${powerManager.getRSSIThreshold()}")
+            // Even if we skip connecting, still publish scan result to debug UI
+            try {
+                val pid: String? = null // We don't know peerID until packet exchange
+                DebugSettingsManager.getInstance().addScanResult(
+                    DebugScanResult(
+                        deviceName = device.name,
+                        deviceAddress = deviceAddress,
+                        rssi = rssi,
+                        peerID = pid
+                    )
+                )
+            } catch (_: Exception) { }
             return
         }
         
