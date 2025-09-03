@@ -77,6 +77,9 @@ object TorManager {
     fun init(application: Application) {
         if (initialized) return
         synchronized(this) {
+            // Initialize bridge prefs once
+            try { TorBridgePreferenceManager.init(application) } catch (_: Throwable) {}
+
             if (initialized) return
             initialized = true
             currentApplication = application
@@ -178,6 +181,17 @@ object TorManager {
                 .setSocksPort(currentSocksPort)
                 .setDnsPort(currentSocksPort + 1)
                 .setLogListener(logListener)
+                .apply {
+                    // Apply bridge settings
+                    val bridgesEnabled = TorBridgePreferenceManager.isEnabled(application)
+                    if (bridgesEnabled) {
+                        val bridgeLines = TorBridgePreferenceManager.getLines(application)
+                        if (bridgeLines.isNotEmpty()) {
+                            setBridgeLines(bridgeLines)
+                            Log.i(TAG, "Using ${bridgeLines.size} bridge(s): ${bridgeLines.joinToString("; ")}")
+                        }
+                    }
+                }
                 .build()
 
             artiProxyRef.set(proxy)

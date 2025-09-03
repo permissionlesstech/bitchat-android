@@ -108,6 +108,43 @@ fun AboutSheet(
                     }
                 }
                 
+                // Tor Bridges section (minimal)
+                item {
+                    var showBridgeSheet by remember { mutableStateOf(false) }
+                    if (showBridgeSheet) {
+                        TorBridgeSheet(
+                            isPresented = true,
+                            onDismiss = { showBridgeSheet = false }
+                        )
+                    }
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "tor bridges",
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Medium,
+                            color = colorScheme.onSurface.copy(alpha = 0.8f)
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(
+                                onClick = { showBridgeSheet = true },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9500).copy(alpha = 0.15f)),
+                            ) {
+                                Text("manage bridges", fontFamily = FontFamily.Monospace, color = colorScheme.onSurface)
+                            }
+                        }
+                        Text(
+                            text = "add custom bridge lines for censored networks.",
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                    }
+                }
+
                 // Features section
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
