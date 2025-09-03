@@ -726,6 +726,13 @@ class NostrGeohashService(
             messageManager.addMessage(message)
         }
     }
+
+    /**
+     * Get stored messages for a geohash without mutating UI state
+     */
+    fun getGeohashMessages(geohash: String): List<BitchatMessage> {
+        return geohashMessageHistory[geohash]?.toList() ?: emptyList()
+    }
     
     /**
      * Clear geohash message history
@@ -986,9 +993,8 @@ class NostrGeohashService(
     private fun switchLocationChannel(channel: com.bitchat.android.geohash.ChannelID?) {
         // STEP 1: Immediate UI updates (synchronous, no blocking)
         try {
-            // Clear all displayed messages and load stored messages for the new channel
-            messageManager.clearMessages()
-            Log.d(TAG, "🗑️ Cleared all messages for channel switch")
+            // NOTE: Don't clear messages here - let ChatScreen's displayMessages logic handle what to show
+            // This preserves mesh message history when switching between views
             
             when (channel) {
                 is com.bitchat.android.geohash.ChannelID.Mesh -> {
@@ -1013,9 +1019,7 @@ class NostrGeohashService(
                     // Clear notifications for this geohash since user is now viewing it
                     notificationManager.clearNotificationsForGeohash(channel.channel.geohash)
                     // Note: Don't clear geoNicknames - they contain cached nicknames for all geohashes
-                    
-                    // Load stored messages for this geohash immediately
-                    loadGeohashMessages(channel.channel.geohash)
+                    // Note: Don't load messages here - ChatScreen will get them via getGeohashMessages()
                     
                     // Immediate self-registration for instant UI feedback
                     try {
@@ -1287,16 +1291,8 @@ class NostrGeohashService(
             // Store in geohash history for persistence across channel switches
             storeGeohashMessage(geohash, message)
             
-            // CRITICAL BUG FIX: Add to message timeline if we're viewing this geohash OR if it matches our selected location channel
-            // This prevents messages from being lost during channel switching race conditions
-            val selectedLocationChannel = state.selectedLocationChannel.value
-            val shouldShowMessage = currentGeohash == geohash || 
-                (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location && 
-                 selectedLocationChannel.channel.geohash == geohash)
-            
-            if (shouldShowMessage) {
-                withContext(Dispatchers.Main) { messageManager.addMessage(message) }
-            }
+            // NOTE: Don't add to main message timeline here - ChatScreen will display geohash messages
+            // from the separate geohash history via getGeohashMessages()
             
             // NOTIFICATION LOGIC: Check for mentions and first messages
             checkAndTriggerGeohashNotifications(geohash, senderName, content, message)

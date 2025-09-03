@@ -71,11 +71,23 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val isConnected by viewModel.isConnected.observeAsState(false)
     val passwordPromptChannel by viewModel.passwordPromptChannel.observeAsState(null)
 
-    // Determine what messages to show
+    // Get location channel info for timeline switching
+    val selectedLocationChannel by viewModel.selectedLocationChannel.observeAsState()
+
+    // Determine what messages to show based on current context
     val displayMessages = when {
         selectedPrivatePeer != null -> privateChats[selectedPrivatePeer] ?: emptyList()
         currentChannel != null -> channelMessages[currentChannel] ?: emptyList()
-        else -> messages
+        else -> {
+            val locationChannel = selectedLocationChannel
+            if (locationChannel is com.bitchat.android.geohash.ChannelID.Location) {
+                // For geohash channels, get messages from geohash history
+                val geohash = locationChannel.channel.geohash
+                viewModel.getGeohashMessages(geohash)
+            } else {
+                messages // Mesh/public messages
+            }
+        }
     }
 
     // Use WindowInsets to handle keyboard properly
