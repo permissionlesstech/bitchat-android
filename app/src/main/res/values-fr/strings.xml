@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+    <string name="permission_bluetooth_rationale">L’autorisation Bluetooth est requise pour la messagerie pair à pair sans Internet.</string>
+    <string name="permission_location_rationale">L’autorisation de localisation est requise pour découvrir les appareils à proximité via Bluetooth.</string>
+    <string name="permission_notification_rationale">L’autorisation de notification est requise pour vous alerter des nouveaux messages.</string>
+    <string name="nickname_hint">pseudo</string>
+    <string name="message_hint">écrire un message…</string>
+    <string name="channel_password_hint">Mot de passe</string>
+    <string name="join_channel">Rejoindre le canal</string>
+    <string name="leave_channel">Quitter</string>
+    <string name="send_message">Envoyer</string>
+    <string name="show_commands">Afficher les commandes</string>
+    <string name="back">Retour</string>
+    <string name="people">Personnes</string>
+    <string name="channels">Canaux</string>
+    <string name="online_users">Utilisateurs en ligne</string>
+    <string name="no_one_connected">Personne connecté</string>
+    <string name="emergency_clear_hint">Touchez trois fois pour effacer toutes les données</string>
+    <string name="your_network">Réseau</string>
+
+    <!-- Battery Optimization Strings -->
+    <string name="battery_optimization_detected">Optimisation de la batterie détectée</string>
+    <string name="battery_optimization_disabled">Optimisation de la batterie désactivée</string>
+    <string name="battery_optimization_not_required">Optimisation de la batterie non requise</string>
+    <string name="battery_optimization_checking">Vérification de l’optimisation de la batterie</string>
+    <string name="battery_optimization_why_disable">Pourquoi désactiver l’optimisation de la batterie ?</string>
+    <string name="battery_optimization_explanation">bitchat fonctionne en arrière-plan pour maintenir les connexions du réseau maillé avec les appareils à proximité. L’optimisation de la batterie peut interrompre ces connexions, entraînant des messages retardés ou manqués.\n\nDésactiver l’optimisation de la batterie garantit une messagerie pair à pair fiable.</string>
+    <string name="battery_optimization_disable_button">Désactiver l’optimisation de la batterie</string>
+    <string name="battery_optimization_note">Remarque : vous pouvez modifier ce paramètre plus tard dans Paramètres Android &gt; Applications &gt; bitchat &gt; Batterie</string>
+    <string name="battery_optimization_not_supported_explanation">Votre appareil n’a pas besoin de paramètres d’optimisation de la batterie. bitchat fonctionnera normalement.</string>
+    <string name="battery_optimization_not_supported_message">Votre appareil n’a pas besoin de paramètres d’optimisation de la batterie. bitchat fonctionnera normalement.</string>
+    <string name="battery_optimization_success_message">bitchat peut fonctionner de manière fiable en arrière-plan</string>
+    <string name="battery_optimization_benefits">• Garantit une livraison fiable des messages\n• Maintient la connectivité du réseau maillé\n• Autorise la retransmission des messages en arrière-plan\n• Empêche les coupures de connexion</string>
+    <string name="battery_optimization_check_again">Vérifier à nouveau</string>
+    <string name="battery_optimization_skip">Passer pour l’instant</string>
+    <string name="battery_optimization_continue">Continuer</string>
+    <string name="retry">Réessayer</string>
+    <string name="skip">Passer</string>
+
+    <!-- General labels and placeholders -->
+    <string name="label_you">Vous</string>
+    <string name="mention_label">mention</string>
+    <string name="slash" translatable="false">/</string>
+
+    <!-- Content descriptions for accessibility -->
+    <string name="content_desc_channels_icon">Canaux</string>
+    <string name="content_desc_people_icon">Personnes</string>
+    <string name="content_desc_leave_channel">Quitter le canal</string>
+    <string name="content_desc_unread_message">Message non lu</string>
+    <string name="content_desc_reachable_via_nostr">Joignable via Nostr</string>
+    <string name="content_desc_direct_bluetooth">Bluetooth direct</string>
+    <string name="content_desc_routed">Routé</string>
+    <string name="content_desc_favorite_add">Ajouter aux favoris</string>
+    <string name="content_desc_favorite_remove">Retirer des favoris</string>
+    <string name="content_desc_battery_optimization">Optimisation de la batterie</string>
+    <string name="content_desc_checking_battery_optimization">Vérification de l’optimisation de la batterie</string>
+    <string name="content_desc_battery_optimization_not_supported">Optimisation de la batterie non prise en charge</string>
+
+    <!-- Delivery status symbols (non-translatable) -->
+    <string name="delivery_status_sending_symbol" translatable="false">○</string>
+    <string name="delivery_status_sent_symbol" translatable="false">○</string>
+    <string name="delivery_status_delivered_symbol" translatable="false">✓</string>
+    <string name="delivery_status_read_symbol" translatable="false">✓✓</string>
+    <string name="delivery_status_failed_symbol" translatable="false">⚠</string>
+</resources>
+
