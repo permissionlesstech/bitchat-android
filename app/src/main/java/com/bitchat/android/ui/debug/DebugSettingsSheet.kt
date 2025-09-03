@@ -106,7 +106,7 @@ fun DebugSettingsSheet(
                             Switch(checked = gattServerEnabled, onCheckedChange = {
                                 manager.setGattServerEnabled(it)
                                 scope.launch {
-                                    if (it) meshService.connectionManager.serverManager.start() else meshService.connectionManager.serverManager.stop()
+                                    if (it) meshService.connectionManager.startServer() else meshService.connectionManager.stopServer()
                                 }
                             })
                         }
@@ -115,7 +115,7 @@ fun DebugSettingsSheet(
                             Switch(checked = gattClientEnabled, onCheckedChange = {
                                 manager.setGattClientEnabled(it)
                                 scope.launch {
-                                    if (it) meshService.connectionManager.clientManager.start() else meshService.connectionManager.clientManager.stop()
+                                    if (it) meshService.connectionManager.startClient() else meshService.connectionManager.stopClient()
                                 }
                             })
                         }

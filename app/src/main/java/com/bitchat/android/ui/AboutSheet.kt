@@ -216,27 +216,6 @@ fun AboutSheet(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Text("pow on", fontFamily = FontFamily.Monospace)
-
-                // Debug tools launcher at bottom
-                item {
-                    var showDebug by remember { mutableStateOf(false) }
-                    TextButton(onClick = { showDebug = true }) {
-                        Text(
-                            text = "debug settings",
-                            fontFamily = FontFamily.Monospace,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    if (showDebug) {
-                        // Emit a system message suggesting to open from main UI where meshService is available
-                        // Actual sheet is shown from ChatScreen where we have access to viewModel.meshService
-                        // This button simply toggles a static flag via singleton (coarse approach)
-                        com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(
-                            com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Open debug settings from main screen")
-                        )
-                    }
-                }
-
                                         // Show current difficulty
                                         if (powEnabled) {
                                             Surface(
