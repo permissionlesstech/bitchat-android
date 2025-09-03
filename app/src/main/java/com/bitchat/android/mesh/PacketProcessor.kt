@@ -134,7 +134,9 @@ class PacketProcessor(private val myPeerID: String) {
         // Verbose logging to debug manager (and chat via ChatViewModel observer)
         try {
             val mt = messageType?.name ?: packet.type.toString()
-            debugManager?.logIncomingPacket(peerID, mt, routed.relayAddress)
+            // Include deviceId and nickname via delegate when available
+            val routeDevice = routed.relayAddress
+            debugManager?.logIncomingPacket(peerID, mt, routeDevice)
         } catch (_: Exception) { }
         
         
