@@ -445,10 +445,19 @@ private fun ChatDialogs(
     )
 
     // About sheet
+    var showDebugSheet by remember { mutableStateOf(false) }
     AboutSheet(
         isPresented = showAppInfo,
-        onDismiss = onAppInfoDismiss
+        onDismiss = onAppInfoDismiss,
+        onShowDebug = { showDebugSheet = true }
     )
+    if (showDebugSheet) {
+        com.bitchat.android.ui.debug.DebugSettingsSheet(
+            isPresented = showDebugSheet,
+            onDismiss = { showDebugSheet = false },
+            meshService = viewModel.meshService
+        )
+    }
     
     // Location channels sheet
     if (showLocationChannelsSheet) {

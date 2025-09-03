@@ -34,6 +34,7 @@ import com.bitchat.android.ui.debug.DebugSettingsSheet
 fun AboutSheet(
     isPresented: Boolean,
     onDismiss: () -> Unit,
+    onShowDebug: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -48,33 +49,6 @@ fun AboutSheet(
     }
     
     // Bottom sheet state
-
-                // Debug settings entry
-                item {
-                    var showDebug by remember { mutableStateOf(false) }
-                    if (showDebug) {
-                        // Render the debug sheet as nested bottom sheet
-                        com.bitchat.android.ui.debug.DebugSettingsSheet(
-                            isPresented = showDebug,
-                            onDismiss = { showDebug = false },
-                            meshService = (LocalContext.current as? android.app.Application)?.let { app ->
-                                // Best-effort: retrieve from ChatScreen via CompositionLocal would be better;
-                                // for now we assume ChatViewModel holds a reference
-                                // This entry will be wired from ChatDialogs for proper access
-                                null
-                            } ?: run {
-                                // Fallback not available here; wired from ChatDialogs where viewModel is available
-                                // Placeholder; actual invocation is in ChatDialogs for access to viewModel.meshService
-                                // This block won't be reached
-                                throw IllegalStateException("Debug sheet requires meshService")
-                            }
-                        )
-                    }
-                    TextButton(onClick = { showDebug = true }) {
-                        Text("debug settings", fontFamily = FontFamily.Monospace)
-                    }
-                }
-
 
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = false
@@ -242,6 +216,27 @@ fun AboutSheet(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Text("pow on", fontFamily = FontFamily.Monospace)
+
+                // Debug tools launcher at bottom
+                item {
+                    var showDebug by remember { mutableStateOf(false) }
+                    TextButton(onClick = { showDebug = true }) {
+                        Text(
+                            text = "debug settings",
+                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    if (showDebug) {
+                        // Emit a system message suggesting to open from main UI where meshService is available
+                        // Actual sheet is shown from ChatScreen where we have access to viewModel.meshService
+                        // This button simply toggles a static flag via singleton (coarse approach)
+                        com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(
+                            com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Open debug settings from main screen")
+                        )
+                    }
+                }
+
                                         // Show current difficulty
                                         if (powEnabled) {
                                             Surface(
