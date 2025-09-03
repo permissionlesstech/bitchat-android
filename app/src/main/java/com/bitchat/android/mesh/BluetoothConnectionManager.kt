@@ -138,27 +138,6 @@ class BluetoothConnectionManager(
                     this@BluetoothConnectionManager.isActive = false
                     return@launch
                 }
-    // Expose role controls for debug UI
-    fun startServer() { connectionScope.launch { serverManager.start() } }
-    fun stopServer() { connectionScope.launch { serverManager.stop() } }
-    fun startClient() { connectionScope.launch { clientManager.start() } }
-    fun stopClient() { connectionScope.launch { clientManager.stop() } }
-
-    // Optionally disconnect all connections (server and client)
-    fun disconnectAll() {
-        connectionScope.launch {
-            // Stop and restart to force disconnects
-            clientManager.stop()
-            serverManager.stop()
-            delay(200)
-            if (isActive) {
-                // Restart managers if service is active
-                serverManager.start()
-                clientManager.start()
-            }
-        }
-    }
-
                 
                 Log.i(TAG, "Bluetooth services started successfully")
             }
@@ -219,6 +198,28 @@ class BluetoothConnectionManager(
         )
     }
     
+
+    // Expose role controls for debug UI
+    fun startServer() { connectionScope.launch { serverManager.start() } }
+    fun stopServer() { connectionScope.launch { serverManager.stop() } }
+    fun startClient() { connectionScope.launch { clientManager.start() } }
+    fun stopClient() { connectionScope.launch { clientManager.stop() } }
+
+    // Optionally disconnect all connections (server and client)
+    fun disconnectAll() {
+        connectionScope.launch {
+            // Stop and restart to force disconnects
+            clientManager.stop()
+            serverManager.stop()
+            delay(200)
+            if (isActive) {
+                // Restart managers if service is active
+                serverManager.start()
+                clientManager.start()
+            }
+        }
+    }
+
     /**
      * Get connected device count
      */
