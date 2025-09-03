@@ -44,6 +44,21 @@ class BluetoothGattClientManager(
     private val bluetoothAdapter: BluetoothAdapter? = bluetoothManager.adapter
     private val bleScanner: BluetoothLeScanner? = bluetoothAdapter?.bluetoothLeScanner
     
+    /**
+     * Public: Connect to a device by MAC address (for debug UI)
+     */
+    fun connectToAddress(deviceAddress: String): Boolean {
+        val device = bluetoothAdapter?.getRemoteDevice(deviceAddress)
+        return if (device != null) {
+            val rssi = connectionTracker.getBestRSSI(deviceAddress) ?: -50
+            connectToDevice(device, rssi)
+            true
+        } else {
+            Log.w(TAG, "connectToAddress: No device for $deviceAddress")
+            false
+        }
+    }
+
     // Scan management
     private var scanCallback: ScanCallback? = null
     

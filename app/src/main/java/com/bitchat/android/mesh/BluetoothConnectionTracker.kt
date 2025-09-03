@@ -202,6 +202,17 @@ class BluetoothConnectionTracker(
     }
     
     /**
+     * Disconnect a specific device (by MAC address)
+     */
+    fun disconnectDevice(deviceAddress: String) {
+        connectedDevices[deviceAddress]?.gatt?.let {
+            try { it.disconnect() } catch (_: Exception) { }
+        }
+        cleanupDeviceConnection(deviceAddress)
+        Log.d(TAG, "Requested disconnect for $deviceAddress")
+    }
+
+    /**
      * Remove a pending connection
      */
     fun removePendingConnection(deviceAddress: String) {

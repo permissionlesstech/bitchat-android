@@ -164,8 +164,7 @@ fun DebugSettingsSheet(
                                             Text("${dev.nickname ?: ""} • RSSI: ${dev.rssi ?: "?"} • ${if (dev.connectionType == ConnectionType.GATT_SERVER) "server" else "client"}${if (dev.isDirectConnection) " • direct" else ""}", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                                         }
                                         Text("disconnect", color = Color(0xFFBF1A1A), fontFamily = FontFamily.Monospace, modifier = Modifier.clickable {
-                                            // Disconnect logic: find device and disconnect
-                                            // This requires exposing a disconnect method on connection tracker
+                                            meshService.connectionManager.disconnectAddress(dev.deviceAddress)
                                         })
                                     }
                                 }
@@ -194,7 +193,7 @@ fun DebugSettingsSheet(
                                             Text("${res.deviceName ?: ""} • RSSI: ${res.rssi}", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                                         }
                                         Text("connect", color = Color(0xFF00C851), fontFamily = FontFamily.Monospace, modifier = Modifier.clickable {
-                                            // TODO: Initiate client connection to this device
+                                            meshService.connectionManager.connectToAddress(res.deviceAddress)
                                         })
                                     }
                                 }

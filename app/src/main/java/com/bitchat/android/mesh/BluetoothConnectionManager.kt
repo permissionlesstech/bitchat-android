@@ -205,6 +205,13 @@ class BluetoothConnectionManager(
     fun startClient() { connectionScope.launch { clientManager.start() } }
     fun stopClient() { connectionScope.launch { clientManager.stop() } }
 
+    /**
+     * Public: connect/disconnect helpers for debug UI
+     */
+    fun connectToAddress(address: String): Boolean = clientManager.connectToAddress(address)
+    fun disconnectAddress(address: String) { connectionTracker.disconnectDevice(address) }
+
+
     // Optionally disconnect all connections (server and client)
     fun disconnectAll() {
         connectionScope.launch {
@@ -219,6 +226,7 @@ class BluetoothConnectionManager(
             }
         }
     }
+
 
     /**
      * Get connected device count
