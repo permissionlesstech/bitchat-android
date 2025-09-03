@@ -380,19 +380,6 @@ class BluetoothMeshService(private val context: Context) {
             
             override fun handleLeave(routed: RoutedPacket) {
                 serviceScope.launch { messageHandler.handleLeave(routed) }
-                    // Map device to peer and log assignment event
-                    connectionManager.addressPeerMap[deviceAddress] = pid
-                    Log.d(TAG, "Mapped device $deviceAddress to peer $pid on ANNOUNCE")
-                    try {
-                        val nick = peerManager.getPeerNickname(pid) ?: "unknown"
-                        com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
-                            .addDebugMessage(
-                                com.bitchat.android.ui.debug.DebugMessage.PeerEvent(
-                                    "🔄 assigned device $deviceAddress to $nick ($pid)"
-                                )
-                            )
-                    } catch (_: Exception) { }
-
             }
             
             override fun handleFragment(packet: BitchatPacket): BitchatPacket? {

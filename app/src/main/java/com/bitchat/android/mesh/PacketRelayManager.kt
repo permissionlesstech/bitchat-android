@@ -67,7 +67,8 @@ class PacketRelayManager(private val myPeerID: String) {
             relayPacket(RoutedPacket(relayPacket, peerID, routed.relayAddress))
             try {
                 val typeName = MessageType.fromValue(packet.type)?.name ?: packet.type.toString()
-                debugManager?.logPacketRelay(typeName, peerID, routed.relayAddress ?: "unknown")
+                val nick: String? = null // Caller can enrich if needed
+                debugManager?.logPacketRelay(typeName, peerID, nick, routed.relayAddress)
             } catch (_: Exception) { }
         } else {
             Log.d(TAG, "Relay decision: NOT relaying packet type ${packet.type}")
