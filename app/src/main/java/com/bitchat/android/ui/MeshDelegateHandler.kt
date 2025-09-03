@@ -67,10 +67,14 @@ class MeshDelegateHandler(
                     channelManager.addChannelMessage(message.channel, message, message.senderPeerID)
                 }
             } else {
-                // Public message
-                messageManager.addMessage(message)
+                // Public mesh message
+                // Only show in timeline when Mesh channel is selected (preserve separation from geohash chats)
+                val selectedLocation = state.selectedLocationChannel.value
+                if (selectedLocation is com.bitchat.android.geohash.ChannelID.Mesh) {
+                    messageManager.addMessage(message)
+                }
 
-                // Check for mentions in mesh chat
+                // Check for mentions in mesh chat regardless of current view (notifications)
                 checkAndTriggerMeshMentionNotification(message)
             }
             

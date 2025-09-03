@@ -156,9 +156,13 @@ class ChatViewModel(
         viewModelScope.launch {
             com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().debugMessages.collect { msgs ->
                 if (com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().verboseLoggingEnabled.value) {
-                    // Append only latest debug message as system message to avoid flooding
-                    msgs.lastOrNull()?.let { dm ->
-                        messageManager.addSystemMessage(dm.content)
+                    // Only show debug logs in the Mesh chat timeline to avoid leaking into geohash chats
+                    val selectedLocation = state.selectedLocationChannel.value
+                    if (selectedLocation is com.bitchat.android.geohash.ChannelID.Mesh) {
+                        // Append only latest debug message as system message to avoid flooding
+                        msgs.lastOrNull()?.let { dm ->
+                            messageManager.addSystemMessage(dm.content)
+                        }
                     }
                 }
             }
