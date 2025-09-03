@@ -10,6 +10,17 @@ import kotlinx.coroutines.*
 import kotlin.random.Random
 
 /**
+    private fun isRelayEnabled(): Boolean = try {
+        com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().packetRelayEnabled.value
+    } catch (_: Exception) { true }
+
+    private fun maybeLogRelay(packetTypeName: String, peerID: String, viaDeviceId: String?, nickname: String? = null) {
+        try {
+            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
+                .logPacketRelay(packetTypeName, peerID, nickname, viaDeviceId)
+        } catch (_: Exception) { }
+    }
+
  * Centralized packet relay management
  * 
  * This class handles all relay decisions and logic for bitchat packets.
@@ -60,16 +71,13 @@ class PacketRelayManager(private val myPeerID: String) {
         val relayPacket = packet.copy(ttl = (packet.ttl - 1u).toUByte())
         Log.d(TAG, "Decremented TTL from ${packet.ttl} to ${relayPacket.ttl}")
         
-        // Apply relay logic based on packet type
-        val shouldRelay = shouldRelayPacket(relayPacket, peerID)
+        // Apply relay logic based on packet type and debug switch
+        val shouldRelay = isRelayEnabled() && shouldRelayPacket(relayPacket, peerID)
         
         if (shouldRelay) {
             relayPacket(RoutedPacket(relayPacket, peerID, routed.relayAddress))
-            try {
-                val typeName = MessageType.fromValue(packet.type)?.name ?: packet.type.toString()
-                val nick: String? = null // Caller can enrich if needed
-                debugManager?.logPacketRelay(typeName, peerID, nick, routed.relayAddress)
-            } catch (_: Exception) { }
+            val typeName = MessageType.fromValue(packet.type)?.name ?: packet.type.toString()
+            maybeLogRelay(typeName, peerID, routed.relayAddress)
         } else {
             Log.d(TAG, "Relay decision: NOT relaying packet type ${packet.type}")
         }
