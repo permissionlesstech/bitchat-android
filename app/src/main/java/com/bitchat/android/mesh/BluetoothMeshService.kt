@@ -380,6 +380,19 @@ class BluetoothMeshService(private val context: Context) {
             
             override fun handleLeave(routed: RoutedPacket) {
                 serviceScope.launch { messageHandler.handleLeave(routed) }
+                    // Map device to peer and log assignment event
+                    connectionManager.addressPeerMap[deviceAddress] = pid
+                    Log.d(TAG, "Mapped device $deviceAddress to peer $pid on ANNOUNCE")
+                    try {
+                        val nick = peerManager.getPeerNickname(pid) ?: "unknown"
+                        com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
+                            .addDebugMessage(
+                                com.bitchat.android.ui.debug.DebugMessage.PeerEvent(
+                                    "🔄 assigned device $deviceAddress to $nick ($pid)"
+                                )
+                            )
+                    } catch (_: Exception) { }
+
             }
             
             override fun handleFragment(packet: BitchatPacket): BitchatPacket? {
@@ -411,6 +424,14 @@ class BluetoothMeshService(private val context: Context) {
                     delay(200)
                     sendBroadcastAnnounce()
                 }
+                // Verbose debug: device connected
+                try {
+                    val addr = device.address
+                    val peer = connectionManager.addressPeerMap[addr]
+                    val nick = peer?.let { peerManager.getPeerNickname(it) } ?: "unknown"
+                    com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
+                        .logPeerConnection(peer ?: "unknown", nick, addr, isInbound = !connectionManager.isClientConnection(addr)!!)
+                } catch (_: Exception) { }
             }
 
             override fun onDeviceDisconnected(device: android.bluetooth.BluetoothDevice) {
@@ -425,6 +446,12 @@ class BluetoothMeshService(private val context: Context) {
                         // Peer might still be reachable indirectly; mark as not-direct
                         try { peerManager.setDirectConnection(peer, false) } catch (_: Exception) { }
                     }
+                    // Verbose debug: device disconnected
+                    try {
+                        val nick = peerManager.getPeerNickname(peer) ?: "unknown"
+                        com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
+                            .logPeerDisconnection(peer, nick, addr)
+                    } catch (_: Exception) { }
                 }
             }
             
