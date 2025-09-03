@@ -36,6 +36,18 @@ class DebugSettingsManager private constructor() {
     private val _packetRelayEnabled = MutableStateFlow(true)
     val packetRelayEnabled: StateFlow<Boolean> = _packetRelayEnabled.asStateFlow()
     
+    init {
+        // Load persisted defaults (if preference manager already initialized)
+        try {
+            _verboseLoggingEnabled.value = DebugPreferenceManager.getVerboseLogging(false)
+            _gattServerEnabled.value = DebugPreferenceManager.getGattServerEnabled(true)
+            _gattClientEnabled.value = DebugPreferenceManager.getGattClientEnabled(true)
+            _packetRelayEnabled.value = DebugPreferenceManager.getPacketRelayEnabled(true)
+        } catch (_: Exception) {
+            // Preferences not ready yet; keep defaults. They will be applied on first change.
+        }
+    }
+
     // Debug data collections
     private val _debugMessages = MutableStateFlow<List<DebugMessage>>(emptyList())
     val debugMessages: StateFlow<List<DebugMessage>> = _debugMessages.asStateFlow()
@@ -82,6 +94,7 @@ class DebugSettingsManager private constructor() {
     // MARK: - Setting Controls
     
     fun setVerboseLoggingEnabled(enabled: Boolean) {
+        DebugPreferenceManager.setVerboseLogging(enabled)
         _verboseLoggingEnabled.value = enabled
         if (enabled) {
             addDebugMessage(DebugMessage.SystemMessage("🔊 Verbose logging enabled"))
@@ -91,6 +104,7 @@ class DebugSettingsManager private constructor() {
     }
     
     fun setGattServerEnabled(enabled: Boolean) {
+        DebugPreferenceManager.setGattServerEnabled(enabled)
         _gattServerEnabled.value = enabled
         addDebugMessage(DebugMessage.SystemMessage(
             if (enabled) "🟢 GATT Server enabled" else "🔴 GATT Server disabled"
@@ -98,6 +112,7 @@ class DebugSettingsManager private constructor() {
     }
     
     fun setGattClientEnabled(enabled: Boolean) {
+        DebugPreferenceManager.setGattClientEnabled(enabled)
         _gattClientEnabled.value = enabled
         addDebugMessage(DebugMessage.SystemMessage(
             if (enabled) "🟢 GATT Client enabled" else "🔴 GATT Client disabled"
@@ -105,6 +120,7 @@ class DebugSettingsManager private constructor() {
     }
     
     fun setPacketRelayEnabled(enabled: Boolean) {
+        DebugPreferenceManager.setPacketRelayEnabled(enabled)
         _packetRelayEnabled.value = enabled
         addDebugMessage(DebugMessage.SystemMessage(
             if (enabled) "📡 Packet relay enabled" else "🚫 Packet relay disabled"

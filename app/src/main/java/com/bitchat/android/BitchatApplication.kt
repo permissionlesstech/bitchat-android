@@ -32,6 +32,9 @@ class BitchatApplication : Application() {
         // Initialize theme preference
         ThemePreferenceManager.init(this)
 
+        // Initialize debug preference manager (persists debug toggles)
+        try { com.bitchat.android.ui.debug.DebugPreferenceManager.init(this) } catch (_: Exception) { }
+
         // TorManager already initialized above
     }
 }
