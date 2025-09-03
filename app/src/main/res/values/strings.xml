@@ -37,4 +37,30 @@
     <string name="battery_optimization_continue">Continue</string>
     <string name="retry">Retry</string>
     <string name="skip">Skip</string>
+
+    <!-- General labels and placeholders -->
+    <string name="label_you">You</string>
+    <string name="mention_label">mention</string>
+    <string name="slash" translatable="false">/</string>
+
+    <!-- Content descriptions for accessibility -->
+    <string name="content_desc_channels_icon">Channels</string>
+    <string name="content_desc_people_icon">People</string>
+    <string name="content_desc_leave_channel">Leave channel</string>
+    <string name="content_desc_unread_message">Unread message</string>
+    <string name="content_desc_reachable_via_nostr">Reachable via Nostr</string>
+    <string name="content_desc_direct_bluetooth">Direct Bluetooth</string>
+    <string name="content_desc_routed">Routed</string>
+    <string name="content_desc_favorite_add">Add to favorites</string>
+    <string name="content_desc_favorite_remove">Remove from favorites</string>
+    <string name="content_desc_battery_optimization">Battery Optimization</string>
+    <string name="content_desc_checking_battery_optimization">Checking Battery Optimization</string>
+    <string name="content_desc_battery_optimization_not_supported">Battery Optimization Not Supported</string>
+
+    <!-- Delivery status symbols (non-translatable) -->
+    <string name="delivery_status_sending_symbol" translatable="false">○</string>
+    <string name="delivery_status_sent_symbol" translatable="false">○</string>
+    <string name="delivery_status_delivered_symbol" translatable="false">✓</string>
+    <string name="delivery_status_read_symbol" translatable="false">✓✓</string>
+    <string name="delivery_status_failed_symbol" translatable="false">⚠</string>
 </resources>

@@ -1,0 +1,36 @@
+Localization Plan
+
+1) Inventory and extraction
+- Identify all user-visible strings across UI: labels, placeholders, button texts, dialogs, toasts, headings, contentDescription for icons and images.
+- Replace hardcoded literals with references to resources in res/values/strings.xml.
+
+2) Resource structuring
+- Use clear, stable keys (prefix with context where helpful: screen_, action_, content_desc_).
+- Add <plurals> for count-dependent text and <string-array> for option lists where needed.
+- Mark non-translatable items with translatable="false" (e.g., symbols like "/").
+
+3) Compose usage
+- Use stringResource(R.string.key) in composables.
+- For non-composable helpers, pass localized strings in as parameters or compute at call sites.
+
+4) Locale-specific resources
+- Add res/values-<lang>/strings.xml (e.g., values-es, values-fr) for target locales.
+- Keep keys identical; only translate values.
+
+5) Android 13+ per-app language (optional)
+- Create res/xml/locales_config.xml listing supported locales.
+- Reference in AndroidManifest.xml via android:localeConfig="@xml/locales_config".
+- For in-app language picker, call AppCompatDelegate.setApplicationLocales(...) and persist selection.
+
+6) Locale-sensitive formatting
+- Prefer DateFormat / NumberFormat for locale-aware formatting and respect 12/24h settings.
+
+7) Accessibility
+- Ensure all Icon/IconButton/Image have meaningful contentDescription using string resources.
+- Use semantics for non-textual interactive elements where needed.
+
+8) QA
+- Test by switching device language; verify truncation, RTL mirroring, and TalkBack.
+- Maintain a translation workflow (spreadsheet/service) with key ownership and review.
+
+

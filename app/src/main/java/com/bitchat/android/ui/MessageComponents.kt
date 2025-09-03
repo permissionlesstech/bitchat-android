@@ -289,7 +289,7 @@ fun DeliveryStatusIcon(status: DeliveryStatus) {
     when (status) {
         is DeliveryStatus.Sending -> {
             Text(
-                text = "○",
+                text = stringResource(id = R.string.delivery_status_sending_symbol),
                 fontSize = 10.sp,
                 color = colorScheme.primary.copy(alpha = 0.6f)
             )
@@ -297,7 +297,7 @@ fun DeliveryStatusIcon(status: DeliveryStatus) {
         is DeliveryStatus.Sent -> {
             // Use a subtle hollow marker for Sent; single check is reserved for Delivered (iOS parity)
             Text(
-                text = "○",
+                text = stringResource(id = R.string.delivery_status_sent_symbol),
                 fontSize = 10.sp,
                 color = colorScheme.primary.copy(alpha = 0.6f)
             )
@@ -305,14 +305,14 @@ fun DeliveryStatusIcon(status: DeliveryStatus) {
         is DeliveryStatus.Delivered -> {
             // Single check for Delivered (matches iOS expectations)
             Text(
-                text = "✓",
+                text = stringResource(id = R.string.delivery_status_delivered_symbol),
                 fontSize = 10.sp,
                 color = colorScheme.primary.copy(alpha = 0.8f)
             )
         }
         is DeliveryStatus.Read -> {
             Text(
-                text = "✓✓",
+                text = stringResource(id = R.string.delivery_status_read_symbol),
                 fontSize = 10.sp,
                 color = Color(0xFF007AFF), // Blue
                 fontWeight = FontWeight.Bold
@@ -320,7 +320,7 @@ fun DeliveryStatusIcon(status: DeliveryStatus) {
         }
         is DeliveryStatus.Failed -> {
             Text(
-                text = "⚠",
+                text = stringResource(id = R.string.delivery_status_failed_symbol),
                 fontSize = 10.sp,
                 color = Color.Red.copy(alpha = 0.8f)
             )

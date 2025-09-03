@@ -98,7 +98,7 @@ private fun BatteryOptimizationEnabledContent(
             
             Icon(
                 imageVector = Icons.Outlined.BatteryAlert,
-                contentDescription = "Battery Optimization",
+                contentDescription = stringResource(id = R.string.content_desc_battery_optimization),
                 modifier = Modifier.size(64.dp),
                 tint = colorScheme.error
             )
@@ -231,7 +231,7 @@ private fun BatteryOptimizationCheckingContent(
         
         Icon(
             imageVector = Icons.Filled.BatteryStd,
-            contentDescription = "Checking Battery Optimization",
+            contentDescription = stringResource(id = R.string.content_desc_checking_battery_optimization),
             modifier = Modifier
                 .size(64.dp)
                 .rotate(rotation),
@@ -277,7 +277,7 @@ private fun BatteryOptimizationNotSupportedContent(
         
         Icon(
             imageVector = Icons.Filled.CheckCircle,
-            contentDescription = "Battery Optimization Not Supported",
+            contentDescription = stringResource(id = R.string.content_desc_battery_optimization_not_supported),
             modifier = Modifier.size(64.dp),
             tint = colorScheme.primary
         )
