@@ -1,0 +1,47 @@
+# bitchat android ios read-receipts notifications noise-protocol
+✅ COMPLETED: iOS-Compatible Read Receipts and Self-Notification Bug Fix
+
+**FIXED: Self-Notification Bug**
+- **Problem**: When sending private messages, Android was calling `delegate?.didReceiveMessage()` for our own sent messages, causing notifications for messages we sent ourselves
+- **Root Cause**: In `BluetoothMeshService.sendPrivateMessage()`, both success and failure paths called `delegate?.didReceiveMessage()` with our own message
+- **Solution**: Removed the `delegate?.didReceiveMessage()` calls from sendPrivateMessage() - the UI handles showing sent messages through its own logic
+- **iOS Compatibility**: iOS doesn't send didReceiveMessage for self-sent messages - only for received messages
+
+**IMPLEMENTED: iOS-Compatible Read Receipts**
+- **New Implementation**: Added `sendReadReceipt()` method using NoisePayloadType system exactly like iOS
+- **Protocol Format**: Uses `NoisePayloadType.READ_RECEIPT` (0x02) + messageID as UTF-8 bytes
+- **Encryption**: Encrypts the payload and sends as `NOISE_ENCRYPTED` packet (type 0x11)
+- **Method Signature**: `sendReadReceipt(messageID: String, recipientPeerID: String, readerNickname: String)`
+- **Integration**: Method is called by existing `PrivateChatManager.sendReadReceiptsForPeer()` via reflection
+
+**Technical Implementation**:
+```kotlin
+// Create read receipt payload using NoisePayloadType exactly like iOS
+val readReceiptPayload = NoisePayload(
+    type = NoisePayloadType.READ_RECEIPT,
+    data = messageID.toByteArray(Charsets.UTF_8)
+)
+
+// Encrypt and send as NOISE_ENCRYPTED packet
+val encrypted = encryptionService.encrypt(readReceiptPayload.encode(), recipientPeerID)
+val packet = BitchatPacket(type = NOISE_ENCRYPTED, payload = encrypted, ...)
+```
+
+**Files Modified**:
+- BluetoothMeshService.kt - Removed self-notifications and added new sendReadReceipt()
+- NoiseHandshakePayload.kt - Already contains NoisePayloadType.READ_RECEIPT definition
+- MessageHandler.kt - Already handles READ_RECEIPT decoding in handleNoiseEncrypted()
+
+**Build Status**: ✅ Successful compilation with only deprecation warnings
+
+**Expected Result**: 
+- No more notifications for messages we send ourselves
+- Read receipts sent using iOS-compatible NoisePayloadType system
+- Both delivery ACKs and read receipts work through same encrypted channel
+- Perfect iOS-Android read receipt interoperability
+
+**Testing Points**:
+1. Send private message from Android - should not trigger self-notification
+2. Receive private message on Android while viewing chat - should send read receipt
+3. iOS should receive Android read receipts correctly via NoisePayloadType parsing
+

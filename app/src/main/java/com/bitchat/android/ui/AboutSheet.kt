@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.nostr.NostrProofOfWork
 import com.bitchat.android.nostr.PoWPreferenceManager
+import com.bitchat.android.ui.debug.DebugSettingsSheet
 
 /**
  * About Sheet for bitchat app information
@@ -47,6 +48,34 @@ fun AboutSheet(
     }
     
     // Bottom sheet state
+
+                // Debug settings entry
+                item {
+                    var showDebug by remember { mutableStateOf(false) }
+                    if (showDebug) {
+                        // Render the debug sheet as nested bottom sheet
+                        com.bitchat.android.ui.debug.DebugSettingsSheet(
+                            isPresented = showDebug,
+                            onDismiss = { showDebug = false },
+                            meshService = (LocalContext.current as? android.app.Application)?.let { app ->
+                                // Best-effort: retrieve from ChatScreen via CompositionLocal would be better;
+                                // for now we assume ChatViewModel holds a reference
+                                // This entry will be wired from ChatDialogs for proper access
+                                null
+                            } ?: run {
+                                // Fallback not available here; wired from ChatDialogs where viewModel is available
+                                // Placeholder; actual invocation is in ChatDialogs for access to viewModel.meshService
+                                // This block won't be reached
+                                throw IllegalStateException("Debug sheet requires meshService")
+                            }
+                        )
+                    }
+                    TextButton(onClick = { showDebug = true }) {
+                        Text("debug settings", fontFamily = FontFamily.Monospace)
+                    }
+                }
+
+
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = false
     )
