@@ -1,4 +1,6 @@
 package com.bitchat.android.mesh
+import com.bitchat.android.protocol.MessageType
+
 
 import android.util.Log
 import com.bitchat.android.model.RoutedPacket

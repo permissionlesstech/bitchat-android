@@ -166,19 +166,22 @@ class DebugSettingsManager private constructor() {
         }
     }
     
-    fun logIncomingPacket(senderPeerID: String, messageType: String, routedBy: String?) {
+    fun logIncomingPacket(senderPeerID: String, senderNickname: String?, messageType: String, viaDeviceId: String?) {
         if (verboseLoggingEnabled.value) {
-            val routeInfo = if (routedBy != null) " (routed by $routedBy)" else " (direct)"
+            val who = if (!senderNickname.isNullOrBlank()) "$senderNickname ($senderPeerID)" else senderPeerID
+            val routeInfo = if (!viaDeviceId.isNullOrBlank()) " via $viaDeviceId" else " (direct)"
             addDebugMessage(DebugMessage.PacketEvent(
-                "📥 Received $messageType from $senderPeerID$routeInfo"
+                "📥 Received $messageType from $who$routeInfo"
             ))
         }
     }
     
-    fun logPacketRelay(packetType: String, originalSender: String, relayedTo: String) {
+    fun logPacketRelay(packetType: String, originalPeerID: String, originalNickname: String?, viaDeviceId: String?) {
         if (verboseLoggingEnabled.value) {
+            val who = if (!originalNickname.isNullOrBlank()) "$originalNickname ($originalPeerID)" else originalPeerID
+            val routeInfo = if (!viaDeviceId.isNullOrBlank()) " via $viaDeviceId" else ""
             addDebugMessage(DebugMessage.RelayEvent(
-                "📡 Relayed $packetType from $originalSender to $relayedTo"
+                "📡 Relayed $packetType from $who$routeInfo"
             ))
         }
         // Update rolling statistics
