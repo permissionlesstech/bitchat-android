@@ -89,12 +89,14 @@ class DebugSettingsManager private constructor() {
                 relayTimestamps.poll()
             } else break
         }
+        val last1s = relayTimestamps.count { now - it <= 1_000L }
         val last10s = relayTimestamps.count { now - it <= 10_000L }
         val last1m = relayTimestamps.count { now - it <= 60_000L }
         val last15m = relayTimestamps.size
         val total = _relayStats.value.totalRelaysCount + 1
         _relayStats.value = PacketRelayStats(
             totalRelaysCount = total,
+            lastSecondRelays = last1s,
             last10SecondRelays = last10s,
             lastMinuteRelays = last1m,
             last15MinuteRelays = last15m,
@@ -263,8 +265,7 @@ class DebugSettingsManager private constructor() {
         toDeviceAddress: String?,
         ttl: UByte?
     ) {
-        if (!verboseLoggingEnabled.value) return
-
+        // Build message only if verbose logging is enabled, but always update stats
         val senderLabel = when {
             !senderNickname.isNullOrBlank() && !senderPeerID.isNullOrBlank() -> "$senderNickname ($senderPeerID)"
             !senderNickname.isNullOrBlank() -> senderNickname
@@ -286,11 +287,13 @@ class DebugSettingsManager private constructor() {
         val toAddr = toDeviceAddress ?: "?"
         val ttlStr = ttl?.toString() ?: "?"
 
-        addDebugMessage(
-            DebugMessage.RelayEvent(
-                "♻️ Relayed $packetType by $senderLabel from $fromName (${fromPeerID ?: "?"}, $fromAddr) to $toName (${toPeerID ?: "?"}, $toAddr) with TTL $ttlStr"
+        if (verboseLoggingEnabled.value) {
+            addDebugMessage(
+                DebugMessage.RelayEvent(
+                    "♻️ Relayed $packetType by $senderLabel from $fromName (${fromPeerID ?: "?"}, $fromAddr) to $toName (${toPeerID ?: "?"}, $toAddr) with TTL $ttlStr"
+                )
             )
-        )
+        }
 
         // Update rolling statistics
         relayTimestamps.offer(System.currentTimeMillis())
@@ -357,6 +360,7 @@ enum class ConnectionType {
  */
 data class PacketRelayStats(
     val totalRelaysCount: Long = 0,
+    val lastSecondRelays: Int = 0,
     val last10SecondRelays: Int = 0,
     val lastMinuteRelays: Int = 0,
     val last15MinuteRelays: Int = 0,

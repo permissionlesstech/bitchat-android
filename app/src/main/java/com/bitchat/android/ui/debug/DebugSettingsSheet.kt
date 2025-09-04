@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.draw.rotate
 import com.bitchat.android.mesh.BluetoothMeshService
 import kotlinx.coroutines.launch
 
@@ -202,28 +203,50 @@ fun DebugSettingsSheet(
                         }
                         Text("since start: ${relayStats.totalRelaysCount}", fontFamily = FontFamily.Monospace, fontSize = 11.sp)
                         Text("last 10s: ${relayStats.last10SecondRelays} • 1m: ${relayStats.lastMinuteRelays} • 15m: ${relayStats.last15MinuteRelays}", fontFamily = FontFamily.Monospace, fontSize = 11.sp)
-                        // realtime sparkline based on last10s metric
-                        var series by remember { mutableStateOf(List(30) { 0 }) }
+                        // Realtime graph: per-second relays, full-width canvas, bottom-up bars, fast decay
+                        var series by remember { mutableStateOf(List(60) { 0f }) }
                         LaunchedEffect(isPresented) {
                             while (isPresented) {
-                                series = (series + relayStats.last10SecondRelays).takeLast(30)
-                                kotlinx.coroutines.delay(500)
+                                val s = relayStats.lastSecondRelays.toFloat()
+                                val last = series.lastOrNull() ?: 0f
+                                // Faster decay and smoothing
+                                val v = last * 0.5f + s * 0.5f
+                                series = (series + v).takeLast(60)
+                                kotlinx.coroutines.delay(400)
                             }
                         }
-                        val maxVal = (series.maxOrNull() ?: 1).coerceAtLeast(1)
-                        Row(Modifier.fillMaxWidth().height(36.dp)) {
-                            val barWidth = 4.dp
-                            val gap = 2.dp
-                            series.forEach { v ->
-                                val ratio = (v.toFloat() / maxVal.toFloat()).coerceIn(0f, 1f)
-                                Box(
-                                    Modifier
-                                        .width(barWidth)
-                                        .fillMaxHeight(ratio)
-                                        .background(Color(0xFF00C851))
+                        val maxValRaw = series.maxOrNull() ?: 0f
+                        val maxVal = if (maxValRaw > 0f) maxValRaw else 0f
+                        Box(Modifier.fillMaxWidth().height(48.dp)) {
+                            androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                                val axisPx = 28.dp.toPx() // leave room on left for ticks
+                                val barCount = series.size
+                                val availW = (size.width - axisPx).coerceAtLeast(1f)
+                                val w = availW / barCount
+                                val h = size.height
+                                // draw baseline at y=0 (bottom)
+                                drawLine(
+                                    color = Color(0x33888888),
+                                    start = androidx.compose.ui.geometry.Offset(axisPx, h - 1f),
+                                    end = androidx.compose.ui.geometry.Offset(size.width, h - 1f),
+                                    strokeWidth = 1f
                                 )
-                                Spacer(Modifier.width(gap))
+                                series.forEachIndexed { i, value ->
+                                    val ratio = if (maxVal > 0f) (value / maxVal).coerceIn(0f, 1f) else 0f // min always 0
+                                    val barHeight = h * ratio
+                                    // Draw bars from bottom up, starting after left axis area
+                                    drawRect(
+                                        color = Color(0xFF00C851),
+                                        topLeft = androidx.compose.ui.geometry.Offset(x = axisPx + i * w, y = h - barHeight),
+                                        size = androidx.compose.ui.geometry.Size(w, barHeight)
+                                    )
+                                }
                             }
+                            // Y-axis ticks (min/max) in the left margin
+                            Text("0", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = colorScheme.onSurface.copy(alpha = 0.7f), modifier = Modifier.align(Alignment.BottomStart).padding(start = 4.dp, bottom = 2.dp))
+                            Text("${maxVal.toInt()}", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = colorScheme.onSurface.copy(alpha = 0.7f), modifier = Modifier.align(Alignment.TopStart).padding(start = 4.dp, top = 2.dp))
+                            // Y-axis unit label (vertical)
+                            Text("p/s", fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = colorScheme.onSurface.copy(alpha = 0.7f), modifier = Modifier.align(Alignment.CenterStart).padding(start = 2.dp).rotate(-90f))
                         }
                     }
                 }
