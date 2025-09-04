@@ -80,6 +80,18 @@ class BluetoothGattClientManager(
      * Start client manager
      */
     fun start(): Boolean {
+        // Respect debug setting
+        try {
+            if (!com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattClientEnabled.value) {
+                Log.i(TAG, "Client start skipped: GATT Client disabled in debug settings")
+                return false
+            }
+        } catch (_: Exception) { }
+
+        if (isActive) {
+            Log.d(TAG, "GATT client already active; start is a no-op")
+            return true
+        }
         if (!permissionManager.hasBluetoothPermissions()) {
             Log.e(TAG, "Missing Bluetooth permissions")
             return false
@@ -115,6 +127,14 @@ class BluetoothGattClientManager(
      * Stop client manager
      */
     fun stop() {
+        if (!isActive) {
+            // Idempotent stop
+            stopScanning()
+            stopRSSIMonitoring()
+            Log.i(TAG, "GATT client manager stopped (already inactive)")
+            return
+        }
+
         isActive = false
         
         connectionScope.launch {
@@ -136,7 +156,8 @@ class BluetoothGattClientManager(
      * Handle scan state changes from power manager
      */
     fun onScanStateChanged(shouldScan: Boolean) {
-        if (shouldScan) {
+        val enabled = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattClientEnabled.value } catch (_: Exception) { true }
+        if (shouldScan && enabled) {
             startScanning()
         } else {
             stopScanning()
@@ -183,7 +204,9 @@ class BluetoothGattClientManager(
      */
     @Suppress("DEPRECATION")
     private fun startScanning() {
-        if (!permissionManager.hasBluetoothPermissions() || bleScanner == null || !isActive) return
+        // Respect debug setting
+        val enabled = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattClientEnabled.value } catch (_: Exception) { true }
+        if (!permissionManager.hasBluetoothPermissions() || bleScanner == null || !isActive || !enabled) return
         
         // Rate limit scan starts to prevent "scanning too frequently" errors
         val currentTime = System.currentTimeMillis()
@@ -523,7 +546,9 @@ class BluetoothGattClientManager(
      * Restart scanning for power mode changes
      */
     fun restartScanning() {
-        if (!isActive) return
+        // Respect debug setting
+        val enabled = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattClientEnabled.value } catch (_: Exception) { true }
+        if (!isActive || !enabled) return
         
         connectionScope.launch {
             stopScanning()
