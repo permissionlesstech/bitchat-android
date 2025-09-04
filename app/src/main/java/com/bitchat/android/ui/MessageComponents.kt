@@ -18,6 +18,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
@@ -26,6 +27,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import android.content.Intent
 import android.net.Uri
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.R
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.mesh.BluetoothMeshService
 import java.text.SimpleDateFormat

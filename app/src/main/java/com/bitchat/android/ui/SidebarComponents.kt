@@ -258,6 +258,7 @@ fun PeopleSection(
     onPrivateChatStart: (String) -> Unit
 ) {
     Column {
+        val youLabel = stringResource(id = R.string.label_you)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -317,7 +318,7 @@ fun PeopleSection(
             compareBy<String> { !hasUnreadPrivateMessages.contains(it) } // Unread DM senders first
             .thenByDescending { privateChats[it]?.maxByOrNull { msg -> msg.timestamp }?.timestamp?.time ?: 0L } // Most recent DM (convert Date to Long)
             .thenBy { !(peerFavoriteStates[it] ?: false) } // Favorites first
-            .thenBy { (if (it == nickname) stringResource(id = R.string.label_you) else (peerNicknames[it] ?: it)).lowercase() } // Alphabetical
+            .thenBy { (if (it == nickname) youLabel else (peerNicknames[it] ?: it)).lowercase() } // Alphabetical
         )
         
         // Build a map of base name counts across all people shown in the list (connected + offline + nostr)
@@ -325,7 +326,7 @@ fun PeopleSection(
 
         // Helper to compute display name used for a given key
         fun computeDisplayNameForPeerId(key: String): String {
-            return if (key == nickname) stringResource(id = R.string.label_you) else (peerNicknames[key] ?: (privateChats[key]?.lastOrNull()?.sender ?: key.take(12)))
+            return if (key == nickname) youLabel else (peerNicknames[key] ?: (privateChats[key]?.lastOrNull()?.sender ?: key.take(12)))
         }
 
         
@@ -336,7 +337,7 @@ fun PeopleSection(
         sortedPeers.forEach { pid ->
             val dn = computeDisplayNameForPeerId(pid)
             val (b, _) = com.bitchat.android.ui.splitSuffix(dn)
-            if (b != stringResource(id = R.string.label_you)) baseNameCounts[b] = (baseNameCounts[b] ?: 0) + 1
+            if (b != youLabel) baseNameCounts[b] = (baseNameCounts[b] ?: 0) + 1
         }
 
         // Offline favorites (exclude ones mapped to connected)
@@ -347,7 +348,7 @@ fun PeopleSection(
             if (!isMappedToConnected) {
                 val dn = peerNicknames[favPeerID] ?: fav.peerNickname
                 val (b, _) = com.bitchat.android.ui.splitSuffix(dn)
-                if (b != stringResource(id = R.string.label_you)) baseNameCounts[b] = (baseNameCounts[b] ?: 0) + 1
+                if (b != youLabel) baseNameCounts[b] = (baseNameCounts[b] ?: 0) + 1
             }
         }
 
@@ -363,7 +364,7 @@ fun PeopleSection(
             .forEach { convKey ->
                 val dn = peerNicknames[convKey] ?: (privateChats[convKey]?.lastOrNull()?.sender ?: convKey.take(12))
                 val (b, _) = com.bitchat.android.ui.splitSuffix(dn)
-                if (b != stringResource(id = R.string.label_you)) baseNameCounts[b] = (baseNameCounts[b] ?: 0) + 1
+                if (b != youLabel) baseNameCounts[b] = (baseNameCounts[b] ?: 0) + 1
             }
 
         sortedPeers.forEach { peerID ->
@@ -380,7 +381,7 @@ fun PeopleSection(
                 if (noiseHex != null) privateChats[noiseHex]?.count { msg -> msg.sender != nickname && nostrUnread } ?: 0 else 0
             )
 
-            val displayName = if (peerID == nickname) stringResource(id = R.string.label_you) else (peerNicknames[peerID] ?: (privateChats[peerID]?.lastOrNull()?.sender ?: peerID.take(12)))
+            val displayName = if (peerID == nickname) youLabel else (peerNicknames[peerID] ?: (privateChats[peerID]?.lastOrNull()?.sender ?: peerID.take(12)))
             val (bName, _) = com.bitchat.android.ui.splitSuffix(displayName)
             val showHash = (baseNameCounts[bName] ?: 0) > 1
 
