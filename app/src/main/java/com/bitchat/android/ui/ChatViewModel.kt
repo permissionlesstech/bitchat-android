@@ -16,6 +16,7 @@ import com.bitchat.android.util.NotificationIntervalManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Date
+import com.bitchat.android.R
 import kotlin.random.Random
 
 /**
@@ -48,7 +49,7 @@ class ChatViewModel(
     }
     
     val privateChatManager = PrivateChatManager(state, messageManager, dataManager, noiseSessionDelegate)
-    private val commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager)
+    private val commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager, application.applicationContext)
     private val notificationManager = NotificationManager(
       application.applicationContext,
       NotificationManagerCompat.from(application.applicationContext),
@@ -191,7 +192,7 @@ class ChatViewModel(
             if (state.getConnectedPeersValue().isEmpty() && state.getMessagesValue().isEmpty()) {
                 val welcomeMessage = BitchatMessage(
                     sender = "system",
-                    content = "get people around you to download bitchat and chat with them here!",
+                    content = getApplication<Application>().getString(R.string.welcome_warmup),
                     timestamp = Date(),
                     isRelay = false
                 )

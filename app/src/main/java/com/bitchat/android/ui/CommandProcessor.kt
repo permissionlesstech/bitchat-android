@@ -1,5 +1,7 @@
 package com.bitchat.android.ui
 
+import android.content.Context
+import com.bitchat.android.R
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
 import java.util.Date
@@ -11,20 +13,21 @@ class CommandProcessor(
     private val state: ChatState,
     private val messageManager: MessageManager,
     private val channelManager: ChannelManager,
-    private val privateChatManager: PrivateChatManager
+    private val privateChatManager: PrivateChatManager,
+    private val context: Context
 ) {
     
     // Available commands list
     private val baseCommands = listOf(
-        CommandSuggestion("/block", emptyList(), "[nickname]", "block or list blocked peers"),
-        CommandSuggestion("/channels", emptyList(), null, "show all discovered channels"),
-        CommandSuggestion("/clear", emptyList(), null, "clear chat messages"),
-        CommandSuggestion("/hug", emptyList(), "<nickname>", "send someone a warm hug"),
-        CommandSuggestion("/j", listOf("/join"), "<channel>", "join or create a channel"),
-        CommandSuggestion("/m", listOf("/msg"), "<nickname> [message]", "send private message"),
-        CommandSuggestion("/slap", emptyList(), "<nickname>", "slap someone with a trout"),
-        CommandSuggestion("/unblock", emptyList(), "<nickname>", "unblock a peer"),
-        CommandSuggestion("/w", emptyList(), null, "see who's online")
+        CommandSuggestion("/block", emptyList(), "[nickname]", context.getString(R.string.cmd_block_desc)),
+        CommandSuggestion("/channels", emptyList(), null, context.getString(R.string.cmd_channels_desc)),
+        CommandSuggestion("/clear", emptyList(), null, context.getString(R.string.cmd_clear_desc)),
+        CommandSuggestion("/hug", emptyList(), "<nickname>", context.getString(R.string.cmd_hug_desc)),
+        CommandSuggestion("/j", listOf("/join"), "<channel>", context.getString(R.string.cmd_join_desc)),
+        CommandSuggestion("/m", listOf("/msg"), "<nickname> [message]", context.getString(R.string.cmd_msg_desc)),
+        CommandSuggestion("/slap", emptyList(), "<nickname>", context.getString(R.string.cmd_slap_desc)),
+        CommandSuggestion("/unblock", emptyList(), "<nickname>", context.getString(R.string.cmd_unblock_desc)),
+        CommandSuggestion("/w", emptyList(), null, context.getString(R.string.cmd_w_desc))
     )
     
     // MARK: - Command Processing

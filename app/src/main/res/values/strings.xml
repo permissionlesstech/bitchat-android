@@ -181,4 +181,27 @@
     <string name="privacy_points">• %1$s doesn’t track you or collect personal data\n• Bluetooth mesh chats are fully offline and require no internet\n• Geohash chats use the internet but your location is generalized\n• Your messages stay on your device and peer devices only</string>
     <string name="needs_permissions_intro">To work properly, %1$s needs these permissions:</string>
     <string name="does_not_track_location">%1$s does NOT track your location</string>
+
+    <!-- Command helper descriptions -->
+    <string name="cmd_block_desc">block or list blocked peers</string>
+    <string name="cmd_channels_desc">show all discovered channels</string>
+    <string name="cmd_clear_desc">clear chat messages</string>
+    <string name="cmd_hug_desc">send someone a warm hug</string>
+    <string name="cmd_join_desc">join or create a channel</string>
+    <string name="cmd_msg_desc">send private message</string>
+    <string name="cmd_slap_desc">slap someone with a trout</string>
+    <string name="cmd_unblock_desc">unblock a peer</string>
+    <string name="cmd_w_desc">see who's online</string>
+
+    <!-- Geohash level labels and people nouns -->
+    <string name="level_block">block</string>
+    <string name="level_neighborhood">neighborhood</string>
+    <string name="level_city">city</string>
+    <string name="level_province">province</string>
+    <string name="level_region">region</string>
+    <string name="person_one">person</string>
+    <string name="people_many">people</string>
+
+    <!-- Welcome message -->
+    <string name="welcome_warmup">get people around you to download bitchat and chat with them here!</string>
 </resources>

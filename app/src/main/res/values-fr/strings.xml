@@ -135,7 +135,6 @@
     <string name="location_channels_desc">discutez avec des personnes proches via des canaux geohash. seul un geohash approximatif est partagé, jamais le GPS exact. ne faites pas de capture d’écran et ne partagez pas cet écran pour protéger votre confidentialité.</string>
     <string name="grant_location_permission">autoriser l’accès à la localisation</string>
     <string name="location_permission_denied">autorisation de localisation refusée. activez-la dans les paramètres pour utiliser les canaux de localisation.</string>
-    <string name="open_settings">ouvrir les paramètres</string>
     <string name="location_permission_granted">✓ autorisation de localisation accordée</string>
     <string name="checking_permissions">vérification des autorisations…</string>
     <string name="finding_nearby_channels">recherche des canaux à proximité…</string>
@@ -181,5 +180,28 @@
     <string name="privacy_points">• %1$s ne vous piste pas et ne collecte pas de données personnelles\n• Les conversations maillées Bluetooth sont entièrement hors ligne et sans internet\n• Les canaux geohash utilisent internet mais votre position est généralisée\n• Vos messages restent sur votre appareil et ceux des pairs uniquement</string>
     <string name="needs_permissions_intro">Pour fonctionner correctement, %1$s a besoin de ces autorisations :</string>
     <string name="does_not_track_location">%1$s ne suit PAS votre position</string>
+
+    <!-- Command helper descriptions -->
+    <string name="cmd_block_desc">bloquer ou lister les pairs bloqués</string>
+    <string name="cmd_channels_desc">afficher tous les canaux découverts</string>
+    <string name="cmd_clear_desc">effacer les messages du chat</string>
+    <string name="cmd_hug_desc">envoyer un câlin</string>
+    <string name="cmd_join_desc">rejoindre ou créer un canal</string>
+    <string name="cmd_msg_desc">envoyer un message privé</string>
+    <string name="cmd_slap_desc">gifler quelqu’un avec une truite</string>
+    <string name="cmd_unblock_desc">débloquer un pair</string>
+    <string name="cmd_w_desc">voir qui est en ligne</string>
+
+    <!-- Geohash level labels and people nouns -->
+    <string name="level_block">bloc</string>
+    <string name="level_neighborhood">quartier</string>
+    <string name="level_city">ville</string>
+    <string name="level_province">province</string>
+    <string name="level_region">région</string>
+    <string name="person_one">personne</string>
+    <string name="people_many">personnes</string>
+
+    <!-- Welcome message -->
+    <string name="welcome_warmup">invitez les personnes autour de vous à télécharger bitchat et discutez ici avec elles !</string>
 </resources>
 
