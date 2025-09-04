@@ -35,6 +35,14 @@ class DebugSettingsManager private constructor() {
     
     private val _packetRelayEnabled = MutableStateFlow(true)
     val packetRelayEnabled: StateFlow<Boolean> = _packetRelayEnabled.asStateFlow()
+
+    // Connection limit overrides (debug)
+    private val _maxConnectionsOverall = MutableStateFlow(8)
+    val maxConnectionsOverall: StateFlow<Int> = _maxConnectionsOverall.asStateFlow()
+    private val _maxServerConnections = MutableStateFlow(8)
+    val maxServerConnections: StateFlow<Int> = _maxServerConnections.asStateFlow()
+    private val _maxClientConnections = MutableStateFlow(8)
+    val maxClientConnections: StateFlow<Int> = _maxClientConnections.asStateFlow()
     
     init {
         // Load persisted defaults (if preference manager already initialized)
@@ -43,6 +51,9 @@ class DebugSettingsManager private constructor() {
             _gattServerEnabled.value = DebugPreferenceManager.getGattServerEnabled(true)
             _gattClientEnabled.value = DebugPreferenceManager.getGattClientEnabled(true)
             _packetRelayEnabled.value = DebugPreferenceManager.getPacketRelayEnabled(true)
+            _maxConnectionsOverall.value = DebugPreferenceManager.getMaxConnectionsOverall(8)
+            _maxServerConnections.value = DebugPreferenceManager.getMaxConnectionsServer(8)
+            _maxClientConnections.value = DebugPreferenceManager.getMaxConnectionsClient(8)
         } catch (_: Exception) {
             // Preferences not ready yet; keep defaults. They will be applied on first change.
         }
@@ -126,6 +137,27 @@ class DebugSettingsManager private constructor() {
             if (enabled) "📡 Packet relay enabled" else "🚫 Packet relay disabled"
         ))
     }
+
+    fun setMaxConnectionsOverall(value: Int) {
+        val clamped = value.coerceIn(1, 32)
+        DebugPreferenceManager.setMaxConnectionsOverall(clamped)
+        _maxConnectionsOverall.value = clamped
+        addDebugMessage(DebugMessage.SystemMessage("🔢 Max overall connections set to $clamped"))
+    }
+
+    fun setMaxServerConnections(value: Int) {
+        val clamped = value.coerceIn(1, 32)
+        DebugPreferenceManager.setMaxConnectionsServer(clamped)
+        _maxServerConnections.value = clamped
+        addDebugMessage(DebugMessage.SystemMessage("🖥️ Max server connections set to $clamped"))
+    }
+
+    fun setMaxClientConnections(value: Int) {
+        val clamped = value.coerceIn(1, 32)
+        DebugPreferenceManager.setMaxConnectionsClient(clamped)
+        _maxClientConnections.value = clamped
+        addDebugMessage(DebugMessage.SystemMessage("📱 Max client connections set to $clamped"))
+    }
     
     // MARK: - Debug Data Collection
     
@@ -145,13 +177,18 @@ class DebugSettingsManager private constructor() {
     }
     
     fun addScanResult(scanResult: DebugScanResult) {
+        // De-duplicate by device address; keep most recent
+        if (scanResultsQueue.isNotEmpty()) {
+            val toRemove = scanResultsQueue.filter { it.deviceAddress == scanResult.deviceAddress }
+            toRemove.forEach { scanResultsQueue.remove(it) }
+        }
         scanResultsQueue.offer(scanResult)
-        
-        // Keep only last 100 scan results
+
+        // Keep only last 100 unique scan results
         while (scanResultsQueue.size > 100) {
             scanResultsQueue.poll()
         }
-        
+
         _scanResults.value = scanResultsQueue.toList()
     }
     

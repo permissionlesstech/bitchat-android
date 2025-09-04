@@ -90,6 +90,7 @@ class BluetoothConnectionManager(
         // Observe debug settings to enforce role state while active
         try {
             val dbg = com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
+            // Role enable/disable
             connectionScope.launch {
                 dbg.gattServerEnabled.collect { enabled ->
                     if (!isActive) return@collect
@@ -100,6 +101,27 @@ class BluetoothConnectionManager(
                 dbg.gattClientEnabled.collect { enabled ->
                     if (!isActive) return@collect
                     if (enabled) startClient() else stopClient()
+                }
+            }
+            // Connection caps: enforce on change
+            connectionScope.launch {
+                dbg.maxConnectionsOverall.collect {
+                    if (!isActive) return@collect
+                    connectionTracker.enforceConnectionLimits()
+                    // Also enforce server side best-effort
+                    serverManager.enforceServerLimit(dbg.maxServerConnections.value)
+                }
+            }
+            connectionScope.launch {
+                dbg.maxClientConnections.collect {
+                    if (!isActive) return@collect
+                    connectionTracker.enforceConnectionLimits()
+                }
+            }
+            connectionScope.launch {
+                dbg.maxServerConnections.collect {
+                    if (!isActive) return@collect
+                    serverManager.enforceServerLimit(dbg.maxServerConnections.value)
                 }
             }
         } catch (_: Exception) { }
@@ -331,6 +353,11 @@ class BluetoothConnectionManager(
             
             // Enforce connection limits
             connectionTracker.enforceConnectionLimits()
+            // Best-effort server cap
+            try {
+                val maxServer = com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().maxServerConnections.value
+                serverManager.enforceServerLimit(maxServer)
+            } catch (_: Exception) { }
         }
     }
     

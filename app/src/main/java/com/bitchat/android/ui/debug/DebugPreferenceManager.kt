@@ -13,6 +13,9 @@ object DebugPreferenceManager {
     private const val KEY_GATT_SERVER = "gatt_server_enabled"
     private const val KEY_GATT_CLIENT = "gatt_client_enabled"
     private const val KEY_PACKET_RELAY = "packet_relay_enabled"
+    private const val KEY_MAX_CONN_OVERALL = "max_connections_overall"
+    private const val KEY_MAX_CONN_SERVER = "max_connections_server"
+    private const val KEY_MAX_CONN_CLIENT = "max_connections_client"
 
     private lateinit var prefs: SharedPreferences
 
@@ -48,5 +51,27 @@ object DebugPreferenceManager {
 
     fun setPacketRelayEnabled(value: Boolean) {
         if (ready()) prefs.edit().putBoolean(KEY_PACKET_RELAY, value).apply()
+    }
+
+    // Optional connection limits (0 or missing => use defaults)
+    fun getMaxConnectionsOverall(default: Int = 8): Int =
+        if (ready()) prefs.getInt(KEY_MAX_CONN_OVERALL, default) else default
+
+    fun setMaxConnectionsOverall(value: Int) {
+        if (ready()) prefs.edit().putInt(KEY_MAX_CONN_OVERALL, value).apply()
+    }
+
+    fun getMaxConnectionsServer(default: Int = 8): Int =
+        if (ready()) prefs.getInt(KEY_MAX_CONN_SERVER, default) else default
+
+    fun setMaxConnectionsServer(value: Int) {
+        if (ready()) prefs.edit().putInt(KEY_MAX_CONN_SERVER, value).apply()
+    }
+
+    fun getMaxConnectionsClient(default: Int = 8): Int =
+        if (ready()) prefs.getInt(KEY_MAX_CONN_CLIENT, default) else default
+
+    fun setMaxConnectionsClient(value: Int) {
+        if (ready()) prefs.edit().putInt(KEY_MAX_CONN_CLIENT, value).apply()
     }
 }

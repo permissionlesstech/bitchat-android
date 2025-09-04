@@ -40,6 +40,9 @@ fun DebugSettingsSheet(
     val gattServerEnabled by manager.gattServerEnabled.collectAsState()
     val gattClientEnabled by manager.gattClientEnabled.collectAsState()
     val packetRelayEnabled by manager.packetRelayEnabled.collectAsState()
+    val maxOverall by manager.maxConnectionsOverall.collectAsState()
+    val maxServer by manager.maxServerConnections.collectAsState()
+    val maxClient by manager.maxClientConnections.collectAsState()
     val debugMessages by manager.debugMessages.collectAsState()
     val scanResults by manager.scanResults.collectAsState()
     val connectedDevices by manager.connectedDevices.collectAsState()
@@ -137,6 +140,17 @@ fun DebugSettingsSheet(
                                 }
                             })
                         }
+                        val serverCount = connectedDevices.count { it.connectionType == ConnectionType.GATT_SERVER }
+                        Text("connections: $serverCount / $maxServer", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("max server", fontFamily = FontFamily.Monospace, modifier = Modifier.width(90.dp))
+                            Slider(
+                                value = maxServer.toFloat(),
+                                onValueChange = { manager.setMaxServerConnections(it.toInt().coerceAtLeast(1)) },
+                                valueRange = 1f..32f,
+                                steps = 30
+                            )
+                        }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("gatt client", fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
                             Switch(checked = gattClientEnabled, onCheckedChange = {
@@ -145,6 +159,26 @@ fun DebugSettingsSheet(
                                     if (it) meshService.connectionManager.startClient() else meshService.connectionManager.stopClient()
                                 }
                             })
+                        }
+                        val clientCount = connectedDevices.count { it.connectionType == ConnectionType.GATT_CLIENT }
+                        Text("connections: $clientCount / $maxClient", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("max client", fontFamily = FontFamily.Monospace, modifier = Modifier.width(90.dp))
+                            Slider(
+                                value = maxClient.toFloat(),
+                                onValueChange = { manager.setMaxClientConnections(it.toInt().coerceAtLeast(1)) },
+                                valueRange = 1f..32f,
+                                steps = 30
+                            )
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("max overall", fontFamily = FontFamily.Monospace, modifier = Modifier.width(90.dp))
+                            Slider(
+                                value = maxOverall.toFloat(),
+                                onValueChange = { manager.setMaxConnectionsOverall(it.toInt().coerceAtLeast(1)) },
+                                valueRange = 1f..32f,
+                                steps = 30
+                            )
                         }
                         Text(
                             "turn roles on/off and close all connections when disabled",
@@ -168,6 +202,29 @@ fun DebugSettingsSheet(
                         }
                         Text("since start: ${relayStats.totalRelaysCount}", fontFamily = FontFamily.Monospace, fontSize = 11.sp)
                         Text("last 10s: ${relayStats.last10SecondRelays} • 1m: ${relayStats.lastMinuteRelays} • 15m: ${relayStats.last15MinuteRelays}", fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+                        // realtime sparkline based on last10s metric
+                        var series by remember { mutableStateOf(List(30) { 0 }) }
+                        LaunchedEffect(isPresented) {
+                            while (isPresented) {
+                                series = (series + relayStats.last10SecondRelays).takeLast(30)
+                                kotlinx.coroutines.delay(500)
+                            }
+                        }
+                        val maxVal = (series.maxOrNull() ?: 1).coerceAtLeast(1)
+                        Row(Modifier.fillMaxWidth().height(36.dp)) {
+                            val barWidth = 4.dp
+                            val gap = 2.dp
+                            series.forEach { v ->
+                                val ratio = (v.toFloat() / maxVal.toFloat()).coerceIn(0f, 1f)
+                                Box(
+                                    Modifier
+                                        .width(barWidth)
+                                        .fillMaxHeight(ratio)
+                                        .background(Color(0xFF00C851))
+                                )
+                                Spacer(Modifier.width(gap))
+                            }
+                        }
                     }
                 }
             }
@@ -188,7 +245,8 @@ fun DebugSettingsSheet(
                                     Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                                         Column(Modifier.weight(1f)) {
                                             Text("${dev.peerID ?: "unknown"} • ${dev.deviceAddress}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
-                                            Text("${dev.nickname ?: ""} • RSSI: ${dev.rssi ?: "?"} • ${if (dev.connectionType == ConnectionType.GATT_SERVER) "server" else "client"}${if (dev.isDirectConnection) " • direct" else ""}", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                                            val roleLabel = if (dev.connectionType == ConnectionType.GATT_SERVER) "as server (we host)" else "as client (we connect)"
+                                            Text("${dev.nickname ?: ""} • RSSI: ${dev.rssi ?: "?"} • $roleLabel${if (dev.isDirectConnection) " • direct" else ""}", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                                         }
                                         Text("disconnect", color = Color(0xFFBF1A1A), fontFamily = FontFamily.Monospace, modifier = Modifier.clickable {
                                             meshService.connectionManager.disconnectAddress(dev.deviceAddress)
