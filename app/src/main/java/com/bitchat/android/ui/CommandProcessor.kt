@@ -291,7 +291,11 @@ class CommandProcessor(
         if (parts.size > 1) {
             val targetName = parts[1].removePrefix("@")
             val actionMessage = "* ${state.getNicknameValue() ?: "someone"} $verb $targetName $object_ *"
-            
+
+            // If we're in a geohash location channel, don't add a local echo here.
+            // NostrGeohashService.sendGeohashMessage() will add the local echo with proper metadata.
+            val isInLocationChannel = state.selectedLocationChannel.value is com.bitchat.android.geohash.ChannelID.Location
+
             // Send as regular message
             if (state.getSelectedPrivateChatPeerValue() != null) {
                 val peerID = state.getSelectedPrivateChatPeerValue()!!
@@ -304,6 +308,9 @@ class CommandProcessor(
                 ) { content, peerIdParam, recipientNicknameParam, messageId ->
                     sendPrivateMessageVia(meshService, content, peerIdParam, recipientNicknameParam, messageId)
                 }
+            } else if (isInLocationChannel) {
+                // Let the transport layer add the echo; just send it out
+                onSendMessage(actionMessage, emptyList(), null)
             } else {
                 val message = BitchatMessage(
                     sender = state.getNicknameValue() ?: myPeerID,
