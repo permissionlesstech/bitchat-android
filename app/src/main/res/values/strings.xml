@@ -135,7 +135,7 @@
     <string name="location_channels_desc">chat with people near you using geohash channels. only a coarse geohash is shared, never exact gps. do not screenshot or share this screen to protect your privacy.</string>
     <string name="grant_location_permission">grant location permission</string>
     <string name="location_permission_denied">location permission denied. enable in settings to use location channels.</string>
-    <string name="open_settings">open settings</string>
+    
     <string name="location_permission_granted">✓ location permission granted</string>
     <string name="checking_permissions">checking permissions...</string>
     <string name="finding_nearby_channels">finding nearby channels…</string>
@@ -165,4 +165,20 @@
     <string name="notif_geohash_mentions_title">bitchat - %1$d mentions</string>
     <string name="notif_geohash_location_chats">bitchat - location chats</string>
     <string name="notif_geohash_summary_messages_from_locations">%1$d messages from %2$d locations</string>
+
+    <!-- Onboarding: Initializing -->
+    <string name="initializing_mesh_network">Initializing mesh network</string>
+    <string name="setting_up_bluetooth_mesh">Setting up Bluetooth mesh networking...</string>
+    <string name="initializing_note_seconds">This should only take a few seconds</string>
+    <string name="setup_not_complete">Setup Not Complete</string>
+    <string name="try_again">Try Again</string>
+    <string name="open_settings">Open Settings</string>
+
+    <!-- Onboarding: Permission explanation -->
+    <string name="welcome_to_app">Welcome to %1$s</string>
+    <string name="decentralized_mesh_bluetooth">Decentralized mesh messaging over Bluetooth</string>
+    <string name="privacy_protected">Your Privacy is Protected</string>
+    <string name="privacy_points">• %1$s doesn’t track you or collect personal data\n• Bluetooth mesh chats are fully offline and require no internet\n• Geohash chats use the internet but your location is generalized\n• Your messages stay on your device and peer devices only</string>
+    <string name="needs_permissions_intro">To work properly, %1$s needs these permissions:</string>
+    <string name="does_not_track_location">%1$s does NOT track your location</string>
 </resources>

@@ -165,5 +165,21 @@
     <string name="notif_geohash_mentions_title">bitchat - %1$d mentions</string>
     <string name="notif_geohash_location_chats">bitchat - discussions par localisation</string>
     <string name="notif_geohash_summary_messages_from_locations">%1$d messages de %2$d emplacements</string>
+
+    <!-- Onboarding: Initializing -->
+    <string name="initializing_mesh_network">Initialisation du réseau maillé</string>
+    <string name="setting_up_bluetooth_mesh">Configuration du réseau maillé Bluetooth…</string>
+    <string name="initializing_note_seconds">Cela ne devrait prendre que quelques secondes</string>
+    <string name="setup_not_complete">Configuration incomplète</string>
+    <string name="try_again">Réessayer</string>
+    <string name="open_settings">Ouvrir les paramètres</string>
+
+    <!-- Onboarding: Permission explanation -->
+    <string name="welcome_to_app">Bienvenue sur %1$s</string>
+    <string name="decentralized_mesh_bluetooth">Messagerie maillée décentralisée via Bluetooth</string>
+    <string name="privacy_protected">Votre confidentialité est protégée</string>
+    <string name="privacy_points">• %1$s ne vous piste pas et ne collecte pas de données personnelles\n• Les conversations maillées Bluetooth sont entièrement hors ligne et sans internet\n• Les canaux geohash utilisent internet mais votre position est généralisée\n• Vos messages restent sur votre appareil et ceux des pairs uniquement</string>
+    <string name="needs_permissions_intro">Pour fonctionner correctement, %1$s a besoin de ces autorisations :</string>
+    <string name="does_not_track_location">%1$s ne suit PAS votre position</string>
 </resources>
 

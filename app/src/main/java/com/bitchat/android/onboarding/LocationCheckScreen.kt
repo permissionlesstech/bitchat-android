@@ -70,7 +70,7 @@ private fun LocationDisabledContent(
         // Location icon - using LocationOn outlined icon in app's green color
         Icon(
             imageVector = Icons.Outlined.LocationOn,
-            contentDescription = "Location Services",
+            contentDescription = stringResource(id = R.string.content_desc_location_services),
             modifier = Modifier.size(64.dp),
             tint = Color(0xFF00C851) // App's main green color
         )
@@ -103,7 +103,7 @@ private fun LocationDisabledContent(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Security,
-                        contentDescription = "Privacy",
+                        contentDescription = stringResource(id = R.string.content_desc_privacy),
                         tint = Color(0xFF4CAF50),
                         modifier = Modifier.size(20.dp)
                     )
@@ -202,7 +202,7 @@ private fun LocationNotAvailableContent(
         // Error icon
         Icon(
             imageVector = Icons.Filled.ErrorOutline,
-            contentDescription = "Error",
+            contentDescription = stringResource(id = R.string.content_desc_error),
             modifier = Modifier.size(64.dp),
             tint = colorScheme.error
         )

@@ -69,7 +69,7 @@ private fun BluetoothDisabledContent(
         // Bluetooth icon - using Bluetooth outlined icon in app's green color
         Icon(
             imageVector = Icons.Outlined.Bluetooth,
-            contentDescription = "Bluetooth",
+            contentDescription = stringResource(id = R.string.content_desc_bluetooth),
             modifier = Modifier.size(64.dp),
             tint = Color(0xFF00C851) // App's main green color
         )

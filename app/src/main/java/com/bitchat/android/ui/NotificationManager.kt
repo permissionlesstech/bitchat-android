@@ -710,7 +710,7 @@ class NotificationManager(
             }
 
             if (messageCount > 5) {
-                style.setSummaryText("and ${messageCount - 5} more")
+                style.setSummaryText(context.getString(R.string.notif_and_more, messageCount - 5))
             }
 
             builder.setStyle(style)
