@@ -249,9 +249,21 @@ class ChatViewModel(
         
         // Check for commands
         if (content.startsWith("/")) {
+            val selectedLocationForCommand = state.selectedLocationChannel.value
             commandProcessor.processCommand(content, meshService, meshService.myPeerID, { messageContent, mentions, channel ->
-                meshService.sendMessage(messageContent, mentions, channel)
-            }, this)
+                if (selectedLocationForCommand is com.bitchat.android.geohash.ChannelID.Location) {
+                    // Route command-generated public messages via Nostr in geohash channels
+                    nostrGeohashService.sendGeohashMessage(
+                        messageContent,
+                        selectedLocationForCommand.channel,
+                        meshService.myPeerID,
+                        state.getNicknameValue()
+                    )
+                } else {
+                    // Default: route via mesh
+                    meshService.sendMessage(messageContent, mentions, channel)
+                }
+            })
             return
         }
         
