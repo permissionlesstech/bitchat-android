@@ -33,6 +33,8 @@ import com.bitchat.android.geohash.LocationChannelManager
 import java.util.*
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.res.stringResource
+import com.bitchat.android.R
 
 /**
  * Location Channels Sheet for selecting geohash-based location channels
@@ -381,7 +383,7 @@ fun LocationChannelsSheet(
                                             // iOS has a face.dashed icon, use closest Material equivalent
                                             Icon(
                                                 imageVector = Icons.Filled.PinDrop,
-                                                contentDescription = "Teleport",
+                                                contentDescription = stringResource(id = R.string.content_desc_teleport),
                                                 modifier = Modifier.size(14.dp),
                                                 tint = MaterialTheme.colorScheme.onSurface
                                             )

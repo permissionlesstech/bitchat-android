@@ -63,4 +63,106 @@
     <string name="delivery_status_delivered_symbol" translatable="false">✓</string>
     <string name="delivery_status_read_symbol" translatable="false">✓✓</string>
     <string name="delivery_status_failed_symbol" translatable="false">⚠</string>
+
+    <!-- General/common strings -->
+    <string name="link">Link</string>
+    <string name="appearance">appearance</string>
+    <string name="system_theme">system</string>
+    <string name="light_theme">light</string>
+    <string name="dark_theme">dark</string>
+
+    <!-- Content descriptions additional -->
+    <string name="content_desc_pow_mining">Mining PoW</string>
+    <string name="content_desc_pow_enabled">PoW Enabled</string>
+    <string name="content_desc_proof_of_work">Proof of Work</string>
+    <string name="content_desc_teleport">Teleport</string>
+    <string name="content_desc_link">Link</string>
+    <string name="content_desc_scroll_to_bottom">Scroll to bottom</string>
+    <string name="content_desc_tor_status">Tor status</string>
+    <string name="content_desc_unread_private_messages">Unread private messages</string>
+    <string name="content_desc_back">Back</string>
+    <string name="content_desc_nostr_reachable">Nostr reachable</string>
+    <string name="content_desc_teleported">Teleported</string>
+    <string name="content_desc_warning">Warning</string>
+    <string name="content_desc_location_services">Location Services</string>
+    <string name="content_desc_privacy">Privacy</string>
+    <string name="content_desc_error">Error</string>
+    <string name="content_desc_bluetooth">Bluetooth</string>
+
+    <!-- Sidebar/Badges -->
+    <string name="unread_overflow_99_plus" translatable="false">99+</string>
+
+    <!-- About sheet -->
+    <string name="about_tagline">decentralized mesh messaging with end-to-end encryption</string>
+    <string name="about_feature_offline_mesh_title">offline mesh chat</string>
+    <string name="about_feature_offline_mesh_desc">communicate directly via bluetooth le without internet or servers. messages relay through nearby devices to extend range.</string>
+    <string name="about_feature_geohash_title">online geohash channels</string>
+    <string name="about_feature_geohash_desc">connect with people in your area using geohash-based channels. extend the mesh using public internet relays.</string>
+    <string name="about_feature_e2e_title">end-to-end encryption</string>
+    <string name="about_feature_e2e_desc">private messages are encrypted. channel messages are public.</string>
+    <string name="about_proof_of_work">proof of work</string>
+    <string name="about_pow_off">pow off</string>
+    <string name="about_pow_on">pow on</string>
+    <string name="about_pow_desc">add proof of work to geohash messages for spam deterrence.</string>
+    <string name="about_difficulty_bits">difficulty: %1$d bits (~%2$s)</string>
+    <string name="about_difficulty_hash_attempts">difficulty %1$d requires ~%2$s hash attempts</string>
+    <string name="about_difficulty_none">no proof of work required</string>
+    <string name="about_difficulty_very_low">very low - minimal spam protection</string>
+    <string name="about_difficulty_low">low - basic spam protection</string>
+    <string name="about_difficulty_medium">medium - good spam protection</string>
+    <string name="about_difficulty_high">high - strong spam protection</string>
+    <string name="about_difficulty_very_high">very high - may cause delays</string>
+    <string name="about_difficulty_extreme">extreme - significant computation required</string>
+    <string name="about_network">network</string>
+    <string name="about_tor_off">tor off</string>
+    <string name="about_tor_on">tor on</string>
+    <string name="about_tor_desc">route internet over tor for enhanced privacy.</string>
+    <string name="about_tor_status_running">running</string>
+    <string name="about_tor_status_stopped">stopped</string>
+    <string name="about_last">last:</string>
+    <string name="about_emergency_title">emergency data deletion</string>
+    <string name="about_emergency_tip">tip: triple-click the app title to emergency delete all stored data including messages, keys, and settings.</string>
+    <string name="about_footer">open source • privacy first • decentralized</string>
+
+    <!-- Dialogs / prompts -->
+    <string name="enter_channel_password_title">Enter Channel Password</string>
+    <string name="enter_channel_password_body">Channel %1$s is password protected. Enter the password to join.</string>
+    <string name="join">Join</string>
+    <string name="cancel">Cancel</string>
+
+    <!-- Location channels sheet -->
+    <string name="location_channels_header">#location channels</string>
+    <string name="location_channels_desc">chat with people near you using geohash channels. only a coarse geohash is shared, never exact gps. do not screenshot or share this screen to protect your privacy.</string>
+    <string name="grant_location_permission">grant location permission</string>
+    <string name="location_permission_denied">location permission denied. enable in settings to use location channels.</string>
+    <string name="open_settings">open settings</string>
+    <string name="location_permission_granted">✓ location permission granted</string>
+    <string name="checking_permissions">checking permissions...</string>
+    <string name="finding_nearby_channels">finding nearby channels…</string>
+    <string name="geohash_placeholder">geohash</string>
+    <string name="teleport">teleport</string>
+    <string name="invalid_geohash">invalid geohash</string>
+    <string name="disable_location_services">disable location services</string>
+    <string name="enable_location_services">enable location services</string>
+
+    <!-- Notifications -->
+    <string name="channel_name_dm">Direct Messages</string>
+    <string name="channel_desc_dm">Notifications for private messages from other users</string>
+    <string name="channel_name_geohash">Geohash Chats</string>
+    <string name="channel_desc_geohash">Notifications for mentions and messages in geohash location channels</string>
+    <string name="notif_and_more">and %1$d more</string>
+    <string name="notif_and_more_conversations">and %1$d more conversations</string>
+    <string name="notif_and_more_locations">and %1$d more locations</string>
+    <string name="notif_new_messages">New Messages</string>
+    <string name="notif_new_location_messages">New Location Messages</string>
+    <string name="notif_title_active_peers">👥 bitchatters nearby!</string>
+    <string name="notif_people_around_one">1 person around</string>
+    <string name="notif_people_around_many">%1$d people around</string>
+    <string name="notif_app_name">bitchat</string>
+    <string name="notif_summary_messages_from_people">%1$d messages from %2$d people</string>
+    <string name="notif_mesh_mentioned_one">Mentioned in Mesh Chat</string>
+    <string name="notif_mesh_mentioned_many">%1$d mentions in Mesh Chat</string>
+    <string name="notif_geohash_mentions_title">bitchat - %1$d mentions</string>
+    <string name="notif_geohash_location_chats">bitchat - location chats</string>
+    <string name="notif_geohash_summary_messages_from_locations">%1$d messages from %2$d locations</string>
 </resources>

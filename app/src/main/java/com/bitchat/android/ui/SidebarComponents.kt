@@ -644,7 +644,7 @@ private fun UnreadBadge(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = if (count > 99) "99+" else count.toString(),
+                text = if (count > 99) stringResource(id = R.string.unread_overflow_99_plus) else count.toString(),
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold

@@ -63,5 +63,107 @@
     <string name="delivery_status_delivered_symbol" translatable="false">✓</string>
     <string name="delivery_status_read_symbol" translatable="false">✓✓</string>
     <string name="delivery_status_failed_symbol" translatable="false">⚠</string>
+
+    <!-- General/common strings -->
+    <string name="link">Lien</string>
+    <string name="appearance">apparence</string>
+    <string name="system_theme">système</string>
+    <string name="light_theme">clair</string>
+    <string name="dark_theme">sombre</string>
+
+    <!-- Content descriptions additional -->
+    <string name="content_desc_pow_mining">Minage PoW</string>
+    <string name="content_desc_pow_enabled">PoW activé</string>
+    <string name="content_desc_proof_of_work">Preuve de travail</string>
+    <string name="content_desc_teleport">Téléporter</string>
+    <string name="content_desc_link">Lien</string>
+    <string name="content_desc_scroll_to_bottom">Aller en bas</string>
+    <string name="content_desc_tor_status">Statut Tor</string>
+    <string name="content_desc_unread_private_messages">Messages privés non lus</string>
+    <string name="content_desc_back">Retour</string>
+    <string name="content_desc_nostr_reachable">Joignable via Nostr</string>
+    <string name="content_desc_teleported">Téléporté</string>
+    <string name="content_desc_warning">Avertissement</string>
+    <string name="content_desc_location_services">Services de localisation</string>
+    <string name="content_desc_privacy">Confidentialité</string>
+    <string name="content_desc_error">Erreur</string>
+    <string name="content_desc_bluetooth">Bluetooth</string>
+
+    <!-- Sidebar/Badges -->
+    <string name="unread_overflow_99_plus" translatable="false">99+</string>
+
+    <!-- About sheet -->
+    <string name="about_tagline">messagerie maillée décentralisée avec chiffrement de bout en bout</string>
+    <string name="about_feature_offline_mesh_title">messagerie maillée hors ligne</string>
+    <string name="about_feature_offline_mesh_desc">communiquez directement via bluetooth le sans internet ni serveurs. les messages sont relayés par les appareils à proximité pour étendre la portée.</string>
+    <string name="about_feature_geohash_title">canaux geohash en ligne</string>
+    <string name="about_feature_geohash_desc">connectez-vous avec des personnes de votre région via des canaux basés sur geohash. étendez le maillage à l’aide de relais internet publics.</string>
+    <string name="about_feature_e2e_title">chiffrement de bout en bout</string>
+    <string name="about_feature_e2e_desc">les messages privés sont chiffrés. les messages des canaux sont publics.</string>
+    <string name="about_proof_of_work">preuve de travail</string>
+    <string name="about_pow_off">pow désactivé</string>
+    <string name="about_pow_on">pow activé</string>
+    <string name="about_pow_desc">ajoutez une preuve de travail aux messages geohash pour dissuader le spam.</string>
+    <string name="about_difficulty_bits">difficulté : %1$d bits (~%2$s)</string>
+    <string name="about_difficulty_hash_attempts">difficulté %1$d nécessite ~%2$s tentatives de hachage</string>
+    <string name="about_difficulty_none">aucune preuve de travail requise</string>
+    <string name="about_difficulty_very_low">très faible - protection anti-spam minimale</string>
+    <string name="about_difficulty_low">faible - protection anti-spam basique</string>
+    <string name="about_difficulty_medium">moyenne - bonne protection anti-spam</string>
+    <string name="about_difficulty_high">élevée - protection anti-spam forte</string>
+    <string name="about_difficulty_very_high">très élevée - peut causer des retards</string>
+    <string name="about_difficulty_extreme">extrême - calcul important requis</string>
+    <string name="about_network">réseau</string>
+    <string name="about_tor_off">tor désactivé</string>
+    <string name="about_tor_on">tor activé</string>
+    <string name="about_tor_desc">redirigez internet via tor pour une confidentialité renforcée.</string>
+    <string name="about_tor_status_running">en cours d’exécution</string>
+    <string name="about_tor_status_stopped">arrêté</string>
+    <string name="about_last">dernier :</string>
+    <string name="about_emergency_title">suppression d’urgence des données</string>
+    <string name="about_emergency_tip">astuce : appuyez trois fois sur le titre de l’application pour supprimer d’urgence toutes les données stockées, y compris les messages, les clés et les paramètres.</string>
+    <string name="about_footer">open source • confidentialité d’abord • décentralisé</string>
+
+    <!-- Dialogs / prompts -->
+    <string name="enter_channel_password_title">Entrer le mot de passe du canal</string>
+    <string name="enter_channel_password_body">Le canal %1$s est protégé par mot de passe. Entrez le mot de passe pour le rejoindre.</string>
+    <string name="join">Rejoindre</string>
+    <string name="cancel">Annuler</string>
+
+    <!-- Location channels sheet -->
+    <string name="location_channels_header">#canaux de localisation</string>
+    <string name="location_channels_desc">discutez avec des personnes proches via des canaux geohash. seul un geohash approximatif est partagé, jamais le GPS exact. ne faites pas de capture d’écran et ne partagez pas cet écran pour protéger votre confidentialité.</string>
+    <string name="grant_location_permission">autoriser l’accès à la localisation</string>
+    <string name="location_permission_denied">autorisation de localisation refusée. activez-la dans les paramètres pour utiliser les canaux de localisation.</string>
+    <string name="open_settings">ouvrir les paramètres</string>
+    <string name="location_permission_granted">✓ autorisation de localisation accordée</string>
+    <string name="checking_permissions">vérification des autorisations…</string>
+    <string name="finding_nearby_channels">recherche des canaux à proximité…</string>
+    <string name="geohash_placeholder">geohash</string>
+    <string name="teleport">téléporter</string>
+    <string name="invalid_geohash">geohash invalide</string>
+    <string name="disable_location_services">désactiver les services de localisation</string>
+    <string name="enable_location_services">activer les services de localisation</string>
+
+    <!-- Notifications -->
+    <string name="channel_name_dm">Messages directs</string>
+    <string name="channel_desc_dm">Notifications pour les messages privés d’autres utilisateurs</string>
+    <string name="channel_name_geohash">Discussions Geohash</string>
+    <string name="channel_desc_geohash">Notifications pour les mentions et messages dans les canaux de localisation geohash</string>
+    <string name="notif_and_more">et %1$d de plus</string>
+    <string name="notif_and_more_conversations">et %1$d conversations de plus</string>
+    <string name="notif_and_more_locations">et %1$d emplacements de plus</string>
+    <string name="notif_new_messages">Nouveaux messages</string>
+    <string name="notif_new_location_messages">Nouveaux messages de localisation</string>
+    <string name="notif_title_active_peers">👥 utilisateurs bitchat à proximité !</string>
+    <string name="notif_people_around_one">1 personne autour</string>
+    <string name="notif_people_around_many">%1$d personnes autour</string>
+    <string name="notif_app_name">bitchat</string>
+    <string name="notif_summary_messages_from_people">%1$d messages de %2$d personnes</string>
+    <string name="notif_mesh_mentioned_one">Mention dans le chat maillé</string>
+    <string name="notif_mesh_mentioned_many">%1$d mentions dans le chat maillé</string>
+    <string name="notif_geohash_mentions_title">bitchat - %1$d mentions</string>
+    <string name="notif_geohash_location_chats">bitchat - discussions par localisation</string>
+    <string name="notif_geohash_summary_messages_from_locations">%1$d messages de %2$d emplacements</string>
 </resources>
 

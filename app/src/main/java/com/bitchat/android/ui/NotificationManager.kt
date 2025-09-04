@@ -93,8 +93,8 @@ class NotificationManager(
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             // DM notifications channel
-            val dmName = "Direct Messages"
-            val dmDescriptionText = "Notifications for private messages from other users"
+            val dmName = context.getString(R.string.channel_name_dm)
+            val dmDescriptionText = context.getString(R.string.channel_desc_dm)
             val dmImportance = NotificationManager.IMPORTANCE_HIGH
             val dmChannel = NotificationChannel(CHANNEL_ID, dmName, dmImportance).apply {
                 description = dmDescriptionText
@@ -104,8 +104,8 @@ class NotificationManager(
             systemNotificationManager.createNotificationChannel(dmChannel)
 
             // Geohash notifications channel
-            val geohashName = "Geohash Chats"
-            val geohashDescriptionText = "Notifications for mentions and messages in geohash location channels"
+            val geohashName = context.getString(R.string.channel_name_geohash)
+            val geohashDescriptionText = context.getString(R.string.channel_desc_geohash)
             val geohashImportance = NotificationManager.IMPORTANCE_HIGH
             val geohashChannel = NotificationChannel(GEOHASH_CHANNEL_ID, geohashName, geohashImportance).apply {
                 description = geohashDescriptionText
@@ -258,7 +258,7 @@ class NotificationManager(
             }
             
             if (messageCount > 5) {
-                style.setSummaryText("and ${messageCount - 5} more")
+                style.setSummaryText(context.getString(R.string.notif_and_more, messageCount - 5))
             }
             
             builder.setStyle(style)
@@ -291,11 +291,11 @@ class NotificationManager(
         )
 
         // Build notification content
-        val contentTitle = "👥 bitchatters nearby!"
+        val contentTitle = context.getString(R.string.notif_title_active_peers)
         val contentText = if (peersSize == 1) {
-            "1 person around"
+            context.getString(R.string.notif_people_around_one)
         } else {
-            "$peersSize people around"
+            context.getString(R.string.notif_people_around_many, peersSize)
         }
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
@@ -331,8 +331,8 @@ class NotificationManager(
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("bitchat")
-            .setContentText("$totalMessages messages from $senderCount people")
+            .setContentTitle(context.getString(R.string.notif_app_name))
+            .setContentText(context.getString(R.string.notif_summary_messages_from_people, totalMessages, senderCount))
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -342,7 +342,7 @@ class NotificationManager(
 
         // Add inbox style showing recent senders
         val style = NotificationCompat.InboxStyle()
-            .setBigContentTitle("New Messages")
+            .setBigContentTitle(context.getString(R.string.notif_new_messages))
             
         pendingNotifications.entries.take(5).forEach { (peerID, notifications) ->
             val latestNotif = notifications.last()
@@ -356,7 +356,7 @@ class NotificationManager(
         }
         
         if (pendingNotifications.size > 5) {
-            style.setSummaryText("and ${pendingNotifications.size - 5} more conversations")
+            style.setSummaryText(context.getString(R.string.notif_and_more_conversations, pendingNotifications.size - 5))
         }
         
         builder.setStyle(style)
@@ -503,7 +503,7 @@ class NotificationManager(
             }
 
             if (messageCount > 5) {
-                style.setSummaryText("and ${messageCount - 5} more")
+                style.setSummaryText(context.getString(R.string.notif_and_more, messageCount - 5))
             }
 
             builder.setStyle(style)
@@ -543,12 +543,12 @@ class NotificationManager(
         )
 
         val contentTitle = if (totalMentions > 0) {
-            "bitchat - $totalMentions mentions"
+            context.getString(R.string.notif_geohash_mentions_title, totalMentions)
         } else {
-            "bitchat - location chats"
+            context.getString(R.string.notif_geohash_location_chats)
         }
 
-        val contentText = "$totalMessages messages from $geohashCount locations"
+        val contentText = context.getString(R.string.notif_geohash_summary_messages_from_locations, totalMessages, geohashCount)
 
         val builder = NotificationCompat.Builder(context, GEOHASH_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
@@ -563,7 +563,7 @@ class NotificationManager(
 
         // Add inbox style showing recent geohashes
         val style = NotificationCompat.InboxStyle()
-            .setBigContentTitle("New Location Messages")
+            .setBigContentTitle(context.getString(R.string.notif_new_location_messages))
 
         pendingGeohashNotifications.entries.take(5).forEach { (geohash, notifications) ->
             val mentionCount = notifications.count { it.isMention }
@@ -579,7 +579,7 @@ class NotificationManager(
         }
 
         if (pendingGeohashNotifications.size > 5) {
-            style.setSummaryText("and ${pendingGeohashNotifications.size - 5} more locations")
+            style.setSummaryText(context.getString(R.string.notif_and_more_locations, pendingGeohashNotifications.size - 5))
         }
 
         builder.setStyle(style)

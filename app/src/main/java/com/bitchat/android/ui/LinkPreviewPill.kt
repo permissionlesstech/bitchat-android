@@ -19,6 +19,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.stringResource
+import com.bitchat.android.R
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
@@ -56,7 +58,7 @@ fun LinkPreviewPill(
         null
     }
     
-    val displayTitle = title ?: parsedUrl?.host ?: "Link"
+    val displayTitle = title ?: parsedUrl?.host ?: stringResource(id = R.string.link)
     val displayHost = parsedUrl?.host ?: url
     
     Surface(
@@ -94,7 +96,7 @@ fun LinkPreviewPill(
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.Link,
-                        contentDescription = "Link",
+                        contentDescription = stringResource(id = R.string.content_desc_link),
                         modifier = Modifier.size(24.dp),
                         tint = Color.Blue
                     )
