@@ -192,14 +192,69 @@ class DebugSettingsManager private constructor() {
         }
     }
     
-    fun logPacketRelay(packetType: String, originalPeerID: String, originalNickname: String?, viaDeviceId: String?) {
-        if (verboseLoggingEnabled.value) {
-            val who = if (!originalNickname.isNullOrBlank()) "$originalNickname ($originalPeerID)" else originalPeerID
-            val routeInfo = if (!viaDeviceId.isNullOrBlank()) " via $viaDeviceId" else ""
-            addDebugMessage(DebugMessage.RelayEvent(
-                "📡 Relayed $packetType from $who$routeInfo"
-            ))
+    fun logPacketRelay(
+        packetType: String,
+        originalPeerID: String,
+        originalNickname: String?,
+        viaDeviceId: String?
+    ) {
+        // Backward-compatible simple API; delegate to detailed formatter with best effort
+        logPacketRelayDetailed(
+            packetType = packetType,
+            senderPeerID = originalPeerID,
+            senderNickname = originalNickname,
+            fromPeerID = null,
+            fromNickname = null,
+            fromDeviceAddress = viaDeviceId,
+            toPeerID = null,
+            toNickname = null,
+            toDeviceAddress = null,
+            ttl = null
+        )
+    }
+
+    // New, more detailed relay logger used by the mesh/broadcaster
+    fun logPacketRelayDetailed(
+        packetType: String,
+        senderPeerID: String?,
+        senderNickname: String?,
+        fromPeerID: String?,
+        fromNickname: String?,
+        fromDeviceAddress: String?,
+        toPeerID: String?,
+        toNickname: String?,
+        toDeviceAddress: String?,
+        ttl: UByte?
+    ) {
+        if (!verboseLoggingEnabled.value) return
+
+        val senderLabel = when {
+            !senderNickname.isNullOrBlank() && !senderPeerID.isNullOrBlank() -> "$senderNickname ($senderPeerID)"
+            !senderNickname.isNullOrBlank() -> senderNickname
+            !senderPeerID.isNullOrBlank() -> senderPeerID
+            else -> "unknown"
         }
+        val fromName = when {
+            !fromNickname.isNullOrBlank() -> fromNickname
+            !fromPeerID.isNullOrBlank() -> fromPeerID
+            else -> "unknown"
+        }
+        val toName = when {
+            !toNickname.isNullOrBlank() -> toNickname
+            !toPeerID.isNullOrBlank() -> toPeerID
+            else -> "unknown"
+        }
+
+        val fromAddr = fromDeviceAddress ?: "?"
+        val toAddr = toDeviceAddress ?: "?"
+        val ttlStr = ttl?.toString() ?: "?"
+
+        addDebugMessage(
+            DebugMessage.RelayEvent(
+                "♻️ Relayed $packetType by $senderLabel from $fromName (${fromPeerID ?: "?"}, $fromAddr) to $toName (${toPeerID ?: "?"}, $toAddr) with TTL $ttlStr"
+            )
+        )
+
         // Update rolling statistics
         relayTimestamps.offer(System.currentTimeMillis())
         updateRelayStatsFromTimestamps()

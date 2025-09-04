@@ -25,12 +25,7 @@ class PacketRelayManager(private val myPeerID: String) {
         com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().packetRelayEnabled.value
     } catch (_: Exception) { true }
 
-    private fun maybeLogRelay(packetTypeName: String, peerID: String, viaDeviceId: String?, nickname: String? = null) {
-        try {
-            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
-                .logPacketRelay(packetTypeName, peerID, nickname, viaDeviceId)
-        } catch (_: Exception) { }
-    }
+    // Logging moved to BluetoothPacketBroadcaster per actual transmission target
     
     // Delegate for callbacks
     var delegate: PacketRelayManagerDelegate? = null
@@ -75,8 +70,6 @@ class PacketRelayManager(private val myPeerID: String) {
         
         if (shouldRelay) {
             relayPacket(RoutedPacket(relayPacket, peerID, routed.relayAddress))
-            val typeName = MessageType.fromValue(packet.type)?.name ?: packet.type.toString()
-            maybeLogRelay(typeName, peerID, routed.relayAddress)
         } else {
             Log.d(TAG, "Relay decision: NOT relaying packet type ${'$'}{packet.type}")
         }

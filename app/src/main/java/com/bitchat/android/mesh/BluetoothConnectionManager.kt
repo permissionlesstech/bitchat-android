@@ -233,6 +233,9 @@ class BluetoothConnectionManager(
     fun startClient() { connectionScope.launch { clientManager.start() } }
     fun stopClient() { connectionScope.launch { clientManager.stop() } }
 
+    // Inject nickname resolver for broadcaster logs
+    fun setNicknameResolver(resolver: (String) -> String?) { packetBroadcaster.setNicknameResolver(resolver) }
+
     // Debug snapshots for connected devices
     fun getConnectedDeviceEntries(): List<Triple<String, Boolean, Int?>> {
         return try {
