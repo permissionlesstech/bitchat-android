@@ -28,15 +28,24 @@ class MeshGraphService private constructor() {
      * Update graph from a verified announcement.
      * Replaces previous neighbors for origin if this is newer (by timestamp).
      */
-    fun updateFromAnnouncement(originPeerID: String, originNickname: String?, neighbors: List<String>, timestamp: ULong) {
-        // Newer-only replacement per origin
-        val prevTs = lastUpdate[originPeerID]
-        if (prevTs != null && prevTs >= timestamp) return
-        lastUpdate[originPeerID] = timestamp
-
+    fun updateFromAnnouncement(originPeerID: String, originNickname: String?, neighborsOrNull: List<String>?, timestamp: ULong) {
         synchronized(this) {
-            // Update nickname
+            // Always update nickname if provided
             if (originNickname != null) nicknames[originPeerID] = originNickname
+
+            // If no neighbors TLV present, do not modify edges or timestamps
+            if (neighborsOrNull == null) {
+                publishSnapshot()
+                return
+            }
+
+            // Newer-only replacement per origin (based on TLV-bearing announcements only)
+            val prevTs = lastUpdate[originPeerID]
+            if (prevTs != null && prevTs >= timestamp) {
+                // Older or equal TLV-bearing update: ignore
+                return
+            }
+            lastUpdate[originPeerID] = timestamp
 
             // Remove old symmetric edges contributed by this origin
             val prevNeighbors = adjacency[originPeerID]?.toSet().orEmpty()
@@ -44,17 +53,15 @@ class MeshGraphService private constructor() {
                 adjacency[n]?.remove(originPeerID)
             }
 
-            // Replace origin's adjacency with new set
-            val newSet = neighbors.distinct().take(10).filter { it != originPeerID }.toMutableSet()
+            // Replace origin's adjacency with new set (may be empty)
+            val newSet = neighborsOrNull.distinct().take(10).filter { it != originPeerID }.toMutableSet()
             adjacency[originPeerID] = newSet
-            // Ensure nodes exist for neighbors
+            // Ensure undirected edges
             newSet.forEach { n ->
                 adjacency.putIfAbsent(n, mutableSetOf())
-                // Add symmetric edge for undirected graph visualization
                 adjacency[n]?.add(originPeerID)
             }
 
-            // Compute snapshot
             publishSnapshot()
         }
     }
@@ -93,4 +100,3 @@ class MeshGraphService private constructor() {
         }
     }
 }
-

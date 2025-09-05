@@ -26,6 +26,9 @@ import androidx.compose.ui.draw.rotate
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.services.meshgraph.MeshGraphService
 import kotlinx.coroutines.launch
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 
 @Composable
 fun MeshTopologySection() {
@@ -77,6 +80,22 @@ fun MeshTopologySection() {
                         nodes.forEach { node ->
                             val pos = positions[node.peerID] ?: androidx.compose.ui.geometry.Offset(cx, cy)
                             drawCircle(color = Color(0xFF00C851), radius = 10f, center = pos)
+                        }
+
+                        // Draw labels near nodes (nickname or short ID)
+                        val labelColor = colorScheme.onSurface.toArgb()
+                        val textSizePx = 10.sp.toPx()
+                        drawIntoCanvas { canvas ->
+                            val paint = android.graphics.Paint().apply {
+                                isAntiAlias = true
+                                color = labelColor
+                                textSize = textSizePx
+                            }
+                            nodes.forEach { node ->
+                                val pos = positions[node.peerID] ?: androidx.compose.ui.geometry.Offset(cx, cy)
+                                val label = (node.nickname?.takeIf { it.isNotBlank() } ?: node.peerID.take(8))
+                                canvas.nativeCanvas.drawText(label, pos.x + 12f, pos.y - 12f, paint)
+                            }
                         }
                     }
                 }
@@ -158,11 +177,6 @@ fun DebugSettingsSheet(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                // Mesh topology visualization
-                MeshTopologySection()
-            }
-
-            item {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.Filled.BugReport, contentDescription = null, tint = Color(0xFFFF9500))
                     Text("debug tools", fontFamily = FontFamily.Monospace, fontSize = 18.sp, fontWeight = FontWeight.Medium)
@@ -193,6 +207,11 @@ fun DebugSettingsSheet(
                         )
                     }
                 }
+            }
+
+            // Mesh topology visualization (moved below verbose logging)
+            item {
+                MeshTopologySection()
             }
 
             // GATT controls

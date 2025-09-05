@@ -24,9 +24,10 @@ object GossipTLV {
     }
 
     /**
-     * Scan a TLV-encoded announce payload and extract neighbor peerIDs if present.
+     * Scan a TLV-encoded announce payload and extract neighbor peerIDs.
+     * Returns null if the TLV is not present at all; returns an empty list if present with length 0.
      */
-    fun decodeNeighborsFromAnnouncementPayload(payload: ByteArray): List<String> {
+    fun decodeNeighborsFromAnnouncementPayload(payload: ByteArray): List<String>? {
         val result = mutableListOf<String>()
         var offset = 0
         while (offset + 2 <= payload.size) {
@@ -45,10 +46,11 @@ object GossipTLV {
                     result.add(bytesToPeerIdHex(idBytes))
                     pos += 8
                 }
-                break // only one neighbors TLV expected
+                return result // present (possibly empty)
             }
         }
-        return result
+        // Not present
+        return null
     }
 
     private fun hexStringPeerIdTo8Bytes(hexString: String): ByteArray {
@@ -73,4 +75,3 @@ object GossipTLV {
         return sb.toString()
     }
 }
-

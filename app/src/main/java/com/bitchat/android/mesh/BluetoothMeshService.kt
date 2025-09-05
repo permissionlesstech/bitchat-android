@@ -707,6 +707,11 @@ class BluetoothMeshService(private val context: Context) {
                     val gossip = com.bitchat.android.services.meshgraph.GossipTLV.encodeNeighbors(directPeers)
                     tlvPayload = tlvPayload + gossip
                 }
+                // Always update our own node in the mesh graph with the neighbor list we used
+                try {
+                    com.bitchat.android.services.meshgraph.MeshGraphService.getInstance()
+                        .updateFromAnnouncement(myPeerID, nickname, directPeers, System.currentTimeMillis().toULong())
+                } catch (_: Exception) { }
             } catch (_: Exception) { }
             
             val announcePacket = BitchatPacket(
@@ -763,6 +768,11 @@ class BluetoothMeshService(private val context: Context) {
                 val gossip = com.bitchat.android.services.meshgraph.GossipTLV.encodeNeighbors(directPeers)
                 tlvPayload = tlvPayload + gossip
             }
+            // Always update our own node in the mesh graph with the neighbor list we used
+            try {
+                com.bitchat.android.services.meshgraph.MeshGraphService.getInstance()
+                    .updateFromAnnouncement(myPeerID, nickname, directPeers, System.currentTimeMillis().toULong())
+            } catch (_: Exception) { }
         } catch (_: Exception) { }
         
         val packet = BitchatPacket(
