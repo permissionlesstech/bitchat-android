@@ -270,6 +270,9 @@ class BluetoothConnectionManager(
         }
     }
 
+    // Expose local adapter address for debug UI
+    fun getLocalAdapterAddress(): String? = try { bluetoothAdapter?.address } catch (e: Exception) { null }
+
     fun isClientConnection(address: String): Boolean? {
         return try { connectionTracker.getConnectedDevices()[address]?.isClient } catch (e: Exception) { null }
     }
