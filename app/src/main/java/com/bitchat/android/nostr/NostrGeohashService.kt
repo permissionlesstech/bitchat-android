@@ -1167,10 +1167,28 @@ class NostrGeohashService(
     private fun handleUnifiedGeohashEvent(event: NostrEvent, geohash: String) {
         coroutineScope.launch(Dispatchers.Default) {
         try {
-            Log.v(TAG, "🔍 handleUnifiedGeohashEvent called - eventGeohash: $geohash, currentGeohash: $currentGeohash, eventKind: ${event.kind}, eventId: ${event.id.take(8)}...")
+            Log.v(TAG, "🔍 handleUnifiedGeohashEvent called - subGeohash: $geohash, currentGeohash: $currentGeohash, kind: ${event.kind}, id: ${event.id.take(8)}...")
             
             // Only handle ephemeral kind 20000 events
             if (event.kind != 20000) {
+                Log.v(TAG, "❌ Skipping non-ephemeral event (kind ${event.kind})")
+                return@launch
+            }
+
+            // VALIDATE EVENT G TAG AGAINST SUBSCRIPTION GEOHASH
+            val eventGeohash = event.tags.firstOrNull { it.size >= 2 && it[0] == "g" }?.getOrNull(1)
+            if (eventGeohash == null) {
+                Log.w(TAG, "🚫 Dropping kind=20000 without 'g' tag id=${event.id.take(8)}")
+                return@launch
+            }
+            if (!eventGeohash.equals(geohash, ignoreCase = true)) {
+                Log.w(TAG, "🚫 Dropping mismatched geohash event: sub=$geohash eventTag=$eventGeohash id=${event.id.take(8)}")
+                return@launch
+            }
+            
+            // Check Proof of Work validation BEFORE other processing
+            val powSettings = PoWPreferenceManager.getCurrentSettings()
+            if (powSettings.enabled && powSettings.difficulty > 0) {
                 Log.v(TAG, "❌ Skipping non-ephemeral event (kind ${event.kind})")
                 return@launch
             }
