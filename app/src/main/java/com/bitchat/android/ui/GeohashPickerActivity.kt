@@ -3,6 +3,7 @@ package com.bitchat.android.ui
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Bundle
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
@@ -101,11 +102,23 @@ class GeohashPickerActivity : ComponentActivity() {
                                     webViewClient = object : WebViewClient() {
                                         override fun onPageFinished(view: WebView?, url: String?) {
                                             super.onPageFinished(view, url)
-                                            // Initialize map center & precision
-                                            evaluateJavascript(
-                                                "window.setCenter(${initLat}, ${initLon}); window.setPrecision(${precision});",
-                                                null
-                                            )
+                                            // Initialize to last/initial geohash if provided, otherwise center
+                                            if (!initialGeohash.isNullOrEmpty()) {
+                                                evaluateJavascript(
+                                                    "window.focusGeohash('${initialGeohash}')",
+                                                    null
+                                                )
+                                            } else {
+                                                evaluateJavascript(
+                                                    "window.setCenter(${initLat}, ${initLon})",
+                                                    null
+                                                )
+                                            }
+
+                                            // Apply theme to map tiles
+                                            val nightModeFlags = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+                                            val theme = if (nightModeFlags == Configuration.UI_MODE_NIGHT_YES) "dark" else "light"
+                                            evaluateJavascript("window.setMapTheme('" + theme + "')", null)
                                         }
                                     }
                                     addJavascriptInterface(object {

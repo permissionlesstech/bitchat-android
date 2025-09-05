@@ -330,8 +330,13 @@ fun LocationChannelsSheet(
                                     
                                     // Map picker button
                                     IconButton(onClick = {
+                                        val initial = when {
+                                            normalized.isNotBlank() -> normalized
+                                            selectedChannel is ChannelID.Location -> (selectedChannel as ChannelID.Location).channel.geohash
+                                            else -> ""
+                                        }
                                         val intent = Intent(context, GeohashPickerActivity::class.java).apply {
-                                            putExtra(GeohashPickerActivity.EXTRA_INITIAL_GEOHASH, normalized)
+                                            putExtra(GeohashPickerActivity.EXTRA_INITIAL_GEOHASH, initial)
                                         }
                                         mapPickerLauncher.launch(intent)
                                     }) {

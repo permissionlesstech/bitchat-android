@@ -4,507 +4,167 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
-      :root {
-        --bg-deep: #0b1620; /* deep navy */
-        --grid-major: rgba(24, 56, 72, 0.6);
-        --grid-minor: rgba(24, 56, 72, 0.25);
-        --neon: #00c851; /* bitchat green */
-        --neon-soft: rgba(0, 200, 81, 0.25);
-        --neon-ghost: rgba(0, 200, 81, 0.08);
-        --crt-green: #39ff14; /* CRT phosphor green */
-        --country-outline: #006400; /* dark green for country borders - darker than grid */
-        --light-grey: #d3d3d3; /* light grey for text and features */
-      }
-
-      html,
-      body,
-      #map {
-        height: 100%;
-        margin: 0;
-        padding: 0;
-        background: var(--bg-deep);
-      }
-
-      /* Cyber matrix background grid (minor + major lines) */
-      #map {
-        background-image:
-        /* major grid every 6 minor cells */ linear-gradient(
-            var(--grid-major) 1px,
-            transparent 1px
-          ),
-          linear-gradient(90deg, var(--grid-major) 1px, transparent 1px),
-          linear-gradient(var(--grid-minor) 1px, transparent 1px),
-          linear-gradient(90deg, var(--grid-minor) 1px, transparent 1px);
-        background-size: 144px 144px, 144px 144px, 24px 24px, 24px 24px; /* 6x minor */
-        background-position: -1px -1px, -1px -1px, 0 0, 0 0;
-      }
-
-      .leaflet-container {
-        background: transparent;
-      }
-      .leaflet-div-icon {
-        background: transparent;
-        border: none;
-      }
-
-      /* Geohash labels: CRT green text w/ subtle glow */
-      .gh-label {
-        background: transparent;
-        border: none;
-        pointer-events: none;
-        filter: drop-shadow(0 0 6px var(--neon-ghost));
-      }
-      .gh-text {
-        color: var(--light-grey);
-        font-weight: 700;
-        letter-spacing: 0.5px;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-          "Liberation Mono", "Courier New", monospace;
-        font-size: 12px;
-        line-height: 1;
-        text-shadow: 0 0 6px rgba(211, 211, 211, 0.3),
-          0 0 12px rgba(211, 211, 211, 0.2);
-      }
-
-      /* Vignette mask to give the oval/CRT feel */
-      .vignette {
-        position: absolute;
-        inset: 0;
-        pointer-events: none;
-        background: radial-gradient(
-          120% 85% at 50% 50%,
-          rgba(0, 0, 0, 0) 55%,
-          rgba(0, 0, 0, 0.35) 100%
-        );
-        mix-blend-mode: screen;
-      }
+      :root { --text: #333; }
+      html, body, #map { height: 100%; margin: 0; padding: 0; background: #ffffff; }
+      .leaflet-container { background: #ffffff; }
+      .leaflet-div-icon { background: transparent; border: none; }
+      .gh-label { background: transparent; border: none; pointer-events: none; filter: none; }
+      .gh-text { color: var(--text); font-weight: 700; letter-spacing: 0.5px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; line-height: 1; text-shadow: none; }
     </style>
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   </head>
   <body>
     <div id="map"></div>
-    <div class="vignette"></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-      // Minimal geohash implementation ported from submodule (bounds/encode/adjacent)
+      // Minimal geohash (bounds/encode/adjacent)
       (function () {
         const base32 = "0123456789bcdefghjkmnpqrstuvwxyz";
         function bounds(geohash) {
-          let evenBit = true;
-          let latMin = -90,
-            latMax = 90,
-            lonMin = -180,
-            lonMax = 180;
+          let evenBit = true; let latMin = -90, latMax = 90, lonMin = -180, lonMax = 180;
           geohash = geohash.toLowerCase();
           for (let i = 0; i < geohash.length; i++) {
-            const chr = geohash.charAt(i);
-            const idx = base32.indexOf(chr);
+            const idx = base32.indexOf(geohash.charAt(i));
             if (idx == -1) throw new Error("Invalid geohash");
             for (let n = 4; n >= 0; n--) {
               const bitN = (idx >> n) & 1;
-              if (evenBit) {
-                const lonMid = (lonMin + lonMax) / 2;
-                if (bitN == 1) lonMin = lonMid;
-                else lonMax = lonMid;
-              } else {
-                const latMid = (latMin + latMax) / 2;
-                if (bitN == 1) latMin = latMid;
-                else latMax = latMid;
-              }
+              if (evenBit) { const lonMid = (lonMin + lonMax) / 2; if (bitN == 1) lonMin = lonMid; else lonMax = lonMid; }
+              else { const latMid = (latMin + latMax) / 2; if (bitN == 1) latMin = latMid; else latMax = latMid; }
               evenBit = !evenBit;
             }
           }
-          return {
-            sw: { lat: latMin, lng: lonMin },
-            ne: { lat: latMax, lng: lonMax },
-          };
+          return { sw: { lat: latMin, lng: lonMin }, ne: { lat: latMax, lng: lonMax } };
         }
         function encode(lat, lon, precision) {
-          let idx = 0,
-            bit = 0,
-            evenBit = true,
-            hash = "";
-          let latMin = -90,
-            latMax = 90,
-            lonMin = -180,
-            lonMax = 180;
+          let idx = 0, bit = 0, evenBit = true, hash = "";
+          let latMin = -90, latMax = 90, lonMin = -180, lonMax = 180;
           while (hash.length < precision) {
-            if (evenBit) {
-              const lonMid = (lonMin + lonMax) / 2;
-              if (lon >= lonMid) {
-                idx = idx * 2 + 1;
-                lonMin = lonMid;
-              } else {
-                idx = idx * 2;
-                lonMax = lonMid;
-              }
-            } else {
-              const latMid = (latMin + latMax) / 2;
-              if (lat >= latMid) {
-                idx = idx * 2 + 1;
-                latMin = latMid;
-              } else {
-                idx = idx * 2;
-                latMax = latMid;
-              }
-            }
-            evenBit = !evenBit;
-            if (++bit == 5) {
-              hash += base32.charAt(idx);
-              bit = 0;
-              idx = 0;
-            }
+            if (evenBit) { const lonMid = (lonMin + lonMax) / 2; if (lon >= lonMid) { idx = idx * 2 + 1; lonMin = lonMid; } else { idx = idx * 2; lonMax = lonMid; } }
+            else { const latMid = (latMin + latMax) / 2; if (lat >= latMid) { idx = idx * 2 + 1; latMin = latMid; } else { idx = idx * 2; latMax = latMid; } }
+            evenBit = !evenBit; if (++bit == 5) { hash += base32.charAt(idx); bit = 0; idx = 0; }
           }
           return hash;
         }
         function adjacent(hash, dir) {
-          const neighbour = {
-            n: [
-              "p0r21436x8zb9dcf5h7kjnmqesgutwvy",
-              "bc01fg45238967deuvhjyznpkmstqrwx",
-            ],
-            s: [
-              "14365h7k9dcfesgujnmqp0r2twvyx8zb",
-              "238967debc01fg45kmstqrwxuvhjyznp",
-            ],
-            e: [
-              "bc01fg45238967deuvhjyznpkmstqrwx",
-              "p0r21436x8zb9dcf5h7kjnmqesgutwvy",
-            ],
-            w: [
-              "238967debc01fg45kmstqrwxuvhjyznp",
-              "14365h7k9dcfesgujnmqp0r2twvyx8zb",
-            ],
-          };
-          const border = {
-            n: ["prxz", "bcfguvyz"],
-            s: ["028b", "0145hjnp"],
-            e: ["bcfguvyz", "prxz"],
-            w: ["0145hjnp", "028b"],
-          };
-          hash = hash.toLowerCase();
-          const lastCh = hash.slice(-1);
-          let parent = hash.slice(0, -1);
-          const type = hash.length % 2;
-          if (border[dir][type].indexOf(lastCh) != -1 && parent != "")
-            parent = adjacent(parent, dir);
+          const neighbour = { n:["p0r21436x8zb9dcf5h7kjnmqesgutwvy","bc01fg45238967deuvhjyznpkmstqrwx"], s:["14365h7k9dcfesgujnmqp0r2twvyx8zb","238967debc01fg45kmstqrwxuvhjyznp"], e:["bc01fg45238967deuvhjyznpkmstqrwx","p0r21436x8zb9dcf5h7kjnmqesgutwvy"], w:["238967debc01fg45kmstqrwxuvhjyznp","14365h7k9dcfesgujnmqp0r2twvyx8zb"] };
+          const border = { n:["prxz","bcfguvyz"], s:["028b","0145hjnp"], e:["bcfguvyz","prxz"], w:["0145hjnp","028b"] };
+          hash = hash.toLowerCase(); const lastCh = hash.slice(-1); let parent = hash.slice(0, -1); const type = hash.length % 2;
+          if (border[dir][type].indexOf(lastCh) != -1 && parent != "") parent = adjacent(parent, dir);
           return parent + base32.charAt(neighbour[dir][type].indexOf(lastCh));
         }
         window.__geohash = { bounds, encode, adjacent };
       })();
 
-      // Map logic
-      const map = L.map("map", {
-        zoomControl: true,
-        minZoom: 2,
-        maxZoom: 21,
-      }).setView([0, 0], 3);
+      // Map: no grid. Geohash follows viewport; show the current cell outline.
+      const map = L.map("map", { zoomControl: true, minZoom: 2, maxZoom: 21 }).setView([0, 0], 3);
 
-      /* Dark cyber tiles with low contrast so our neon grid pops.
-       Using Carto Voyager dark as base with low opacity. */
-      const baseTiles = L.tileLayer(
-        "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-        {
-          maxZoom: 21,
-          attribution: "&copy; OpenStreetMap &copy; Carto",
-          opacity: 0.25,
-        }
-      ).addTo(map);
+      // Brighter tiles for readability
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png", { maxZoom: 21, attribution: "&copy; OpenStreetMap &copy; Carto", opacity: 1.0 }).addTo(map);
 
-      /* Add country boundaries with neon green outlines for better contrast */
-      const countryBoundaries = L.tileLayer(
-        "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-        {
-          maxZoom: 21,
-          attribution: "&copy; OpenStreetMap &copy; Carto",
-          opacity: 0.15,
-        }
-      ).addTo(map);
-
-      // Add country boundaries overlay with neon green outlines
-      const countryLayer = L.layerGroup().addTo(map);
-
-      // Fetch country boundaries from Natural Earth Data
-      fetch(
-        "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson"
-      )
-        .then((response) => response.json())
-        .then((data) => {
-          L.geoJSON(data, {
-            style: {
-              color: "var(--country-outline)",
-              weight: 2,
-              opacity: 0.9,
-              fillColor: "transparent",
-              fillOpacity: 0,
-            },
-            onEachFeature: function (feature, layer) {
-              // Add subtle glow effect to country borders
-              layer.setStyle({
-                color: "var(--country-outline)",
-                weight: 2,
-                opacity: 0.9,
-                fillColor: "transparent",
-                fillOpacity: 0,
-              });
-            },
-          }).addTo(countryLayer);
-        })
-        .catch((error) => {
-          console.log("Could not load country boundaries:", error);
-          // Fallback: create a simple grid overlay for countries
-          const fallbackCountries = L.tileLayer(
-            "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-            {
-              maxZoom: 21,
-              opacity: 0.1,
-            }
-          ).addTo(countryLayer);
-        });
-
-      /* Add subtle scanline/overlay glow grid on top using canvas rectangles */
-
-      const canvasRenderer = L.canvas();
-      const gridLayer = L.layerGroup().addTo(map);
-
-      // Display precision controls what grid to render; selection holds the chosen hash
-      let displayPrecision = 5;
-      let center = { lat: 0, lng: 0 };
       let selectedGeohash = "";
+      let cellRect = null; // L.rectangle of current geohash cell
+      let pinnedPrecision = null; // one-shot precision override when focusing a specific geohash
+      let outlineColor = "#00C851"; // static outline color
+
+      function pickPrecisionForViewport() {
+        const c = map.getCenter();
+        const minPx = 80;  // desired minimum cell size in pixels
+        const maxPx = 240; // desired maximum cell size in pixels
+        let chosen = 1;
+        let lastAboveMin = 1;
+        for (let p = 1; p <= 12; p++) {
+          const gh = window.__geohash.encode(c.lat, c.lng, p);
+          const b = window.__geohash.bounds(gh);
+          const pSw = map.latLngToLayerPoint([b.sw.lat, b.sw.lng]);
+          const pNe = map.latLngToLayerPoint([b.ne.lat, b.ne.lng]);
+          const cellPx = Math.min(Math.abs(pNe.x - pSw.x), Math.abs(pSw.y - pNe.y));
+          if (cellPx >= minPx && cellPx <= maxPx) { chosen = p; break; }
+          if (cellPx >= minPx) { lastAboveMin = p; }
+          if (cellPx < minPx) { chosen = lastAboveMin; break; }
+          if (p === 12) { chosen = 12; }
+        }
+        return chosen;
+      }
 
       function notifySelection() {
-        if (
-          window.Android &&
-          window.Android.onGeohashChanged &&
-          selectedGeohash
-        ) {
+        if (window.Android && window.Android.onGeohashChanged && selectedGeohash) {
           window.Android.onGeohashChanged(selectedGeohash);
         }
       }
 
-      // subtle animated sweep line like a radar
-      let sweep;
-      function addSweep() {
-        const bounds = map.getBounds();
-        const midLat = (bounds.getSouth() + bounds.getNorth()) / 2;
-        let lat = bounds.getSouth();
-        sweep = L.polyline(
-          [
-            [lat, bounds.getWest()],
-            [lat, bounds.getEast()],
-          ],
-          {
-            color: "var(--light-grey)",
-            weight: 2,
-            opacity: 0.6,
-          }
-        ).addTo(gridLayer);
-        let dir = 1;
-        function tick() {
-          if (!sweep) return;
-          const b = map.getBounds();
-          const north = b.getNorth(),
-            south = b.getSouth();
-          lat += (dir * (north - south)) / 300; // speed
-          if (lat >= north || lat <= south) dir *= -1;
-          sweep.setLatLngs([
-            [lat, b.getWest()],
-            [lat, b.getEast()],
-          ]);
-          requestAnimationFrame(tick);
-        }
-        requestAnimationFrame(tick);
-      }
-      map.whenReady(addSweep);
-
-      function drawGrid() {
-        // Clear all previously drawn cells and labels in one go
-        gridLayer.clearLayers();
-
-        // Use the center and displayPrecision only for drawing the grid around
-        const centerHash = window.__geohash.encode(
-          center.lat,
-          center.lng,
-          displayPrecision
-        );
-
-        // If nothing selected yet, initialize selection to the center cell at current precision
-        if (!selectedGeohash) {
-          selectedGeohash = centerHash;
-          notifySelection();
-        }
-
-        // Compute neighborhood around the center using BFS with bounds
-        const box = { "0,0": centerHash };
-        const xMin = -6,
-          xMax = 6,
-          yMin = -5,
-          yMax = 5;
-        const queue = [[0, 0]];
-        const visited = new Set([`0,0`]);
-        const dirs = [
-          [1, 0, "e"],
-          [-1, 0, "w"],
-          [0, 1, "s"],
-          [0, -1, "n"],
-        ];
-        while (queue.length) {
-          const [x, y] = queue.shift();
-          for (const [dx, dy, d] of dirs) {
-            const nx = x + dx,
-              ny = y + dy;
-            const key = `${nx},${ny}`;
-            if (
-              nx < xMin ||
-              nx > xMax ||
-              ny < yMin ||
-              ny > yMax ||
-              visited.has(key)
-            )
-              continue;
-            const base = box[`${x},${y}`];
-            const next = window.__geohash.adjacent(base, d);
-            box[key] = next;
-            visited.add(key);
-            queue.push([nx, ny]);
-          }
-        }
-
-        for (const [coord, geohash] of Object.entries(box)) {
-          const b = window.__geohash.bounds(geohash);
-          const sw = [b.sw.lat, b.sw.lng],
-            ne = [b.ne.lat, b.ne.lng];
-          const isSelected = geohash === selectedGeohash;
-          const rect = L.rectangle([sw, ne], {
-            renderer: canvasRenderer,
-            color: isSelected ? "#00ffc3" : "#00C851",
-            weight: isSelected ? 3.5 : 2,
-            fillColor: isSelected
-              ? "rgba(0, 200, 81, 0.22)"
-              : "rgba(0, 200, 81, 0.10)",
-            fillOpacity: isSelected ? 0.22 : 0.1,
-            opacity: 0.9,
-          });
-          const opacityFalloff =
-            1 -
-            (Math.abs(parseInt(coord.split(",")[0])) +
-              Math.abs(parseInt(coord.split(",")[1]))) /
-              10;
-          rect.setStyle({
-            opacity: rect.options.opacity * opacityFalloff,
-            fillOpacity: rect.options.fillOpacity * opacityFalloff,
-            color: isSelected ? "#00ffc3" : "#00C851",
-          });
-
-          rect.on("click", (e) => {
-            // Prevent map click handler from also firing
-            if (e) {
-              L.DomEvent.stop(e);
-            }
-            // 1) Select exactly this quadrant's geohash (no auto sub-selection)
-            selectedGeohash = geohash;
-            notifySelection();
-
-            // 2) Recenter on this cell and drill down by increasing display precision
-            const b2 = window.__geohash.bounds(geohash);
-            const lat = (b2.sw.lat + b2.ne.lat) / 2;
-            const lng = (b2.sw.lng + b2.ne.lng) / 2;
-            center = { lat, lng };
-            displayPrecision = Math.min(12, geohash.length + 1);
-            drawGrid();
-            map.fitBounds([
-              [b2.sw.lat, b2.sw.lng],
-              [b2.ne.lat, b2.ne.lng],
-            ]);
-          });
-          rect.addTo(gridLayer);
-
-          // Text-only label (transparent background)
-          // Compute dynamic font-size relative to on-screen rectangle size
-          const pSw = map.latLngToLayerPoint([sw[0], sw[1]]);
-          const pNe = map.latLngToLayerPoint([ne[0], ne[1]]);
-          const pxWidth = Math.abs(pNe.x - pSw.x);
-          const pxHeight = Math.abs(pSw.y - pNe.y);
-          const cellPx = Math.min(pxWidth, pxHeight);
-          // Scale label size to fit; clamp to keep legible
-          const fontSize = Math.max(10, Math.min(24, Math.floor(cellPx / 6)));
-          const labelHtml = `<span class=\"gh-text\" style=\"font-size:${fontSize}px; letter-spacing:1px\">${geohash.toLowerCase()}</span>`;
-
-          const labelLat = (sw[0] + ne[0]) / 2,
-            labelLng = (sw[1] + ne[1]) / 2;
-          const label = L.marker([labelLat, labelLng], {
-            icon: L.divIcon({ className: "gh-label", html: labelHtml }),
-            interactive: false,
-          });
-          label.addTo(gridLayer);
-        }
+      // Optional helper: approximate zoom for requested precision (used by setPrecision)
+      function zoomForPrecision(p) {
+        if (p <= 1) return 1;
+        if (p === 2) return 2;
+        if (p === 3) return 3;
+        if (p === 4) return 4;
+        if (p === 5) return 5;
+        if (p === 6) return 7;
+        if (p === 7) return 9;
+        if (p === 8) return 11;
+        if (p === 9) return 13;
+        if (p === 10) return 15;
+        if (p === 11) return 17;
+        return 18; // p>=12
       }
 
-      // Clicking anywhere on the map (outside rectangles) should behave like selecting the cell at that point,
-      // then drilling down one level, without auto-selecting a subquadrant.
-      map.on("click", (e) => {
-        const ghAtPoint = window.__geohash.encode(
-          e.latlng.lat,
-          e.latlng.lng,
-          displayPrecision
-        );
-        selectedGeohash = ghAtPoint;
+      function updateOverlay() {
+        const c = map.getCenter();
+        const usePinned = pinnedPrecision !== null;
+        const p = usePinned ? pinnedPrecision : pickPrecisionForViewport();
+        selectedGeohash = window.__geohash.encode(c.lat, c.lng, p);
         notifySelection();
 
-        const b2 = window.__geohash.bounds(ghAtPoint);
-        const lat = (b2.sw.lat + b2.ne.lat) / 2;
-        const lng = (b2.sw.lng + b2.ne.lng) / 2;
-        center = { lat, lng };
-        displayPrecision = Math.min(12, displayPrecision + 1);
-        drawGrid();
-        map.fitBounds([
-          [b2.sw.lat, b2.sw.lng],
-          [b2.ne.lat, b2.ne.lng],
-        ]);
-      });
+        // Draw current cell outline
+        const b = window.__geohash.bounds(selectedGeohash);
+        const sw = [b.sw.lat, b.sw.lng], ne = [b.ne.lat, b.ne.lng];
+        if (cellRect) { try { cellRect.remove(); } catch (e) {} cellRect = null; }
+        cellRect = L.rectangle([sw, ne], {
+          color: outlineColor,
+          weight: 3,
+          fillOpacity: 0.0,
+          opacity: 0.9,
+          interactive: false
+        }).addTo(map);
+      }
 
-      function setCenter(lat, lng) {
-        center = { lat, lng };
-        map.setView([lat, lng], map.getZoom());
-        drawGrid();
-      }
-      // Rescale labels on zoom so font-size tracks on-screen cell size
-      map.on("zoomend", () => drawGrid());
+      map.on("movestart", () => { pinnedPrecision = null; });
+      map.on("zoomstart", () => { pinnedPrecision = null; });
+      map.on("moveend", updateOverlay);
+      map.on("zoomend", updateOverlay);
+
+      function setCenter(lat, lng) { map.setView([lat, lng], map.getZoom()); }
       function setPrecision(p) {
-        displayPrecision = Math.max(1, Math.min(12, p));
-        drawGrid();
+        const clamped = Math.max(1, Math.min(12, p|0));
+        const targetZoom = zoomForPrecision(clamped);
+        map.setZoom(targetZoom);
       }
-      function getGeohash() {
-        return selectedGeohash;
+      function focusGeohash(gh) {
+        if (!gh || typeof gh !== 'string') return;
+        const g = gh.toLowerCase();
+        const b = window.__geohash.bounds(g);
+        pinnedPrecision = g.length;
+        map.fitBounds([[b.sw.lat, b.sw.lng],[b.ne.lat, b.ne.lng]], { animate: false, padding: [8,8] });
+        // after fit, update overlay will render the exact cell
+        selectedGeohash = g;
       }
+      function getGeohash() { return selectedGeohash; }
 
       window.setCenter = setCenter;
       window.setPrecision = setPrecision;
+      window.focusGeohash = focusGeohash;
       window.getGeohash = getGeohash;
 
-      // Cleanup to release Leaflet resources when WebView is destroyed
       function cleanup() {
-        try {
-          map.off();
-        } catch (e) {}
-        try {
-          gridLayer.clearLayers();
-        } catch (e) {}
-        try {
-          countryLayer.clearLayers();
-        } catch (e) {}
-        try {
-          map.remove();
-        } catch (e) {}
+        try { map.off(); } catch (_) {}
+        try { if (cellRect) cellRect.remove(); } catch (_) {}
+        try { map.remove(); } catch (_) {}
       }
       window.cleanup = cleanup;
 
-      // initial draw
-      drawGrid();
+      // Initial draw once map is ready
+      map.whenReady(updateOverlay);
     </script>
   </body>
 </html>
