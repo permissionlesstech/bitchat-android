@@ -191,7 +191,7 @@
     <string name="app_cmd_msg_desc">send private message</string>
     <string name="app_cmd_slap_desc">slap someone with a trout</string>
     <string name="app_cmd_unblock_desc">unblock a peer</string>
-    <string name="app_cmd_w_desc">see who's online</string>
+    <string name="app_cmd_w_desc">see who\'s online</string>
 
     <!-- Geohash level labels and people nouns -->
     <string name="level_block">block</string>

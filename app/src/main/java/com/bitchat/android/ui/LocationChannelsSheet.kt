@@ -584,6 +584,7 @@ private fun meshCount(viewModel: ChatViewModel): Int {
     } ?: 0
 }
 
+@Composable
 private fun geohashTitleWithCount(channel: GeohashChannel, participantCount: Int): String {
     val noun = if (participantCount == 1) stringResource(id = R.string.person_one) else stringResource(id = R.string.people_many)
     return "${channel.level.displayName.lowercase()} [$participantCount $noun]"
