@@ -22,6 +22,7 @@ class BluetoothConnectionTracker(
         private const val TAG = "BluetoothConnectionTracker"
         private const val CONNECTION_RETRY_DELAY = 5000L
         private const val MAX_CONNECTION_ATTEMPTS = 3
+        private const val DEFAULT_ANNOUNCE_TIMEOUT_MS = 5000L
         private const val CLEANUP_DELAY = 500L
         private const val CLEANUP_INTERVAL = 30000L // 30 seconds
     }
@@ -36,9 +37,19 @@ class BluetoothConnectionTracker(
     
     // Connection attempt tracking with automatic cleanup
     private val pendingConnections = ConcurrentHashMap<String, ConnectionAttempt>()
+    // Track consecutive failures per device
+    private val failureCounts = ConcurrentHashMap<String, Int>()
+    // Devices to avoid reconnecting to (blacklist)
+    private val avoidedDevices = ConcurrentHashMap<String, AvoidInfo>()
+    // Announce watchdog jobs per device address
+    private val announceWatchdogs = ConcurrentHashMap<String, kotlinx.coroutines.Job>()
+    // Configurable ANNOUNCE timeout (ms)
+    @Volatile private var announceTimeoutMs: Long = DEFAULT_ANNOUNCE_TIMEOUT_MS
     
     // State management
     private var isActive = false
+    // Optional callback to actively drop connections when a device is avoided
+    @Volatile private var onDeviceAvoided: ((address: String, reason: String) -> Unit)? = null
     
     /**
      * Consolidated device connection information
@@ -66,6 +77,14 @@ class BluetoothConnectionTracker(
             attempts < MAX_CONNECTION_ATTEMPTS && 
             System.currentTimeMillis() - lastAttempt > CONNECTION_RETRY_DELAY
     }
+
+    /**
+     * Metadata for avoided devices
+     */
+    data class AvoidInfo(
+        val reason: String,
+        val since: Long = System.currentTimeMillis()
+    )
     
     /**
      * Start the connection tracker
@@ -91,6 +110,9 @@ class BluetoothConnectionTracker(
         Log.d(TAG, "Tracker: Adding device connection for $deviceAddress (isClient: ${deviceConn.isClient}")
         connectedDevices[deviceAddress] = deviceConn
         pendingConnections.remove(deviceAddress)
+        // Successful connection -> reset failure count and cancel any blacklist for this address
+        failureCounts.remove(deviceAddress)
+        // Do not auto-remove from avoidedDevices to keep defensive policy; only manual removal
     }
     
     /**
@@ -171,6 +193,11 @@ class BluetoothConnectionTracker(
      * Check if connection attempt is allowed
      */
     fun isConnectionAttemptAllowed(deviceAddress: String): Boolean {
+        // Never attempt to connect to avoided devices
+        if (avoidedDevices.containsKey(deviceAddress)) {
+            Log.d(TAG, "Tracker: Device $deviceAddress is in avoid list; skipping attempts")
+            return false
+        }
         val existingAttempt = pendingConnections[deviceAddress]
         return existingAttempt?.let { 
             it.isExpired() || it.shouldRetry() 
@@ -217,6 +244,89 @@ class BluetoothConnectionTracker(
      */
     fun removePendingConnection(deviceAddress: String) {
         pendingConnections.remove(deviceAddress)
+    }
+
+    /**
+     * Record a connection failure. If failures exceed threshold, avoid device.
+     */
+    fun recordConnectionFailure(deviceAddress: String, reason: String? = null) {
+        val newCount = (failureCounts[deviceAddress] ?: 0) + 1
+        failureCounts[deviceAddress] = newCount
+        Log.w(TAG, "Tracker: Failure #$newCount for $deviceAddress${reason?.let { ": $it" } ?: ""}")
+        if (newCount >= MAX_CONNECTION_ATTEMPTS) {
+            addToAvoidList(deviceAddress, reason ?: "too_many_failures")
+        }
+    }
+
+    /**
+     * Add device to avoid list and cleanup its connection state.
+     */
+    fun addToAvoidList(deviceAddress: String, reason: String) {
+        Log.w(TAG, "Tracker: Adding $deviceAddress to avoid list (reason: $reason)")
+        avoidedDevices[deviceAddress] = AvoidInfo(reason)
+        // Actively drop connection via callback if provided
+        try { onDeviceAvoided?.invoke(deviceAddress, reason) } catch (_: Exception) { }
+        // Ensure connection state is removed afterwards
+        cleanupDeviceConnection(deviceAddress)
+    }
+
+    /**
+     * Set the ANNOUNCE timeout in milliseconds (configurable).
+     */
+    fun setAnnounceTimeout(timeoutMs: Long) {
+        announceTimeoutMs = timeoutMs.coerceAtLeast(1000L)
+    }
+
+    /** Set a callback invoked when a device is added to avoid list. */
+    fun setOnDeviceAvoided(callback: (address: String, reason: String) -> Unit) {
+        onDeviceAvoided = callback
+    }
+
+    /**
+     * Start a watchdog that drops the connection if ANNOUNCE not mapped for this address.
+     */
+    fun startAnnounceWatchdog(deviceAddress: String) {
+        // Cancel any existing watchdog first
+        cancelAnnounceWatchdog(deviceAddress)
+        val job = connectionScope.launch {
+            val startedAt = System.currentTimeMillis()
+            delay(announceTimeoutMs)
+            // If no ANNOUNCE mapping exists and device still connected, drop and avoid
+            val mapped = addressPeerMap.containsKey(deviceAddress)
+            val stillConnected = connectedDevices.containsKey(deviceAddress) ||
+                subscribedDevices.any { it.address == deviceAddress }
+            if (!mapped && stillConnected) {
+                Log.w(TAG, "Tracker: ANNOUNCE not received within ${announceTimeoutMs}ms for $deviceAddress; dropping + avoiding")
+                addToAvoidList(deviceAddress, "announce_timeout")
+            } else {
+                Log.d(TAG, "Tracker: ANNOUNCE watchdog passed for $deviceAddress in ${System.currentTimeMillis() - startedAt}ms (mapped=$mapped, connected=$stillConnected)")
+            }
+        }
+        announceWatchdogs[deviceAddress] = job
+    }
+
+    /** Cancel ANNOUNCE watchdog for an address. */
+    fun cancelAnnounceWatchdog(deviceAddress: String) {
+        announceWatchdogs.remove(deviceAddress)?.cancel()
+    }
+
+    /** Notify tracker that ANNOUNCE was received/mapped for this device. */
+    fun markAnnounceReceived(deviceAddress: String, peerID: String) {
+        // Map is updated externally; we just cancel watchdog here
+        cancelAnnounceWatchdog(deviceAddress)
+        Log.d(TAG, "Tracker: ANNOUNCE mapped for $deviceAddress -> $peerID; watchdog canceled")
+    }
+
+    /** Remove a single device from the avoid list (allow future attempts). */
+    fun removeFromAvoidList(deviceAddress: String) {
+        avoidedDevices.remove(deviceAddress)
+        Log.d(TAG, "Tracker: Removed $deviceAddress from avoid list")
+    }
+
+    /** Clear the entire avoid list (dangerous; for debug UI). */
+    fun clearAvoidList() {
+        avoidedDevices.clear()
+        Log.d(TAG, "Tracker: Cleared avoid list")
     }
     
     /**
@@ -280,6 +390,7 @@ class BluetoothConnectionTracker(
             addressPeerMap.remove(deviceAddress)
         }
         pendingConnections.remove(deviceAddress)
+        cancelAnnounceWatchdog(deviceAddress)
         Log.d(TAG, "Cleaned up device connection for $deviceAddress")
     }
     
@@ -313,6 +424,10 @@ class BluetoothConnectionTracker(
         addressPeerMap.clear()
         pendingConnections.clear()
         scanRSSI.clear()
+        failureCounts.clear()
+        avoidedDevices.clear()
+        announceWatchdogs.values.forEach { it.cancel() }
+        announceWatchdogs.clear()
     }
     
     /**
@@ -337,7 +452,7 @@ class BluetoothConnectionTracker(
                     
                     // Log current state
                     Log.d(TAG, "Periodic cleanup: ${connectedDevices.size} connections, ${pendingConnections.size} pending")
-                    
+                
                 } catch (e: Exception) {
                     Log.w(TAG, "Error in periodic cleanup: ${e.message}")
                 }
@@ -365,10 +480,26 @@ class BluetoothConnectionTracker(
                 appendLine("  - $address: ${attempt.attempts} attempts, last ${elapsed}s ago")
             }
             appendLine()
+            appendLine("Failures: ${failureCounts.size}")
+            failureCounts.forEach { (address, count) ->
+                appendLine("  - $address: $count failures")
+            }
+            appendLine()
+            appendLine("Avoid List: ${avoidedDevices.size}")
+            avoidedDevices.forEach { (address, info) ->
+                val age = (now - info.since) / 1000
+                appendLine("  - $address: ${info.reason} (${age}s)")
+            }
+            appendLine()
             appendLine("Scan RSSI Cache: ${scanRSSI.size}")
             scanRSSI.forEach { (address, rssi) ->
                 appendLine("  - $address: $rssi dBm")
             }
         }
+    }
+
+    /** Snapshot of avoided devices for debug UI */
+    fun getAvoidedDevicesSnapshot(): Map<String, AvoidInfo> {
+        return avoidedDevices.toMap()
     }
 } 

@@ -359,7 +359,25 @@ class BluetoothMeshService(private val context: Context) {
                         // Only set mapping if not already mapped
                         if (!connectionManager.addressPeerMap.containsKey(deviceAddress)) {
                             connectionManager.addressPeerMap[deviceAddress] = pid
+                            // Cancel watchdog and mark announce received
+                            connectionManager.markAnnounceReceived(deviceAddress, pid)
                             Log.d(TAG, "Mapped device $deviceAddress to peer $pid on ANNOUNCE")
+
+                            // If we already have connections for this peer on other devices, drop the older ones
+                            try {
+                                val duplicates = connectionManager.addressPeerMap
+                                    .filter { (addr, mappedPid) -> mappedPid == pid && addr != deviceAddress }
+                                    .map { it.key }
+                                if (duplicates.isNotEmpty()) {
+                                    Log.w(TAG, "Duplicate connections for peer $pid on devices: $duplicates — dropping old ones")
+                                    duplicates.forEach { otherAddr ->
+                                        // Blacklist the old devices to avoid reconnect storm
+                                        connectionManager.forceDisconnectAddress(otherAddr, "duplicate_peer_$pid")
+                                        // Remove mapping explicitly
+                                        connectionManager.addressPeerMap.remove(otherAddr)
+                                    }
+                                }
+                            } catch (_: Exception) { }
 
                             // Mark this peer as directly connected for UI
                             try {

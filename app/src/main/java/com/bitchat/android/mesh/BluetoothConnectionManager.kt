@@ -57,6 +57,8 @@ class BluetoothConnectionManager(
         }
         
         override fun onDeviceConnected(device: BluetoothDevice) {
+            // Start ANNOUNCE watchdog generically for both client/server connections
+            try { connectionTracker.startAnnounceWatchdog(device.address) } catch (_: Exception) { }
             delegate?.onDeviceConnected(device)
         }
 
@@ -87,6 +89,8 @@ class BluetoothConnectionManager(
     
     init {
         powerManager.delegate = this
+        // When tracker avoids a device, actively drop its connection (client or server)
+        try { connectionTracker.setOnDeviceAvoided { addr, _ -> forceDisconnectAddress(addr, null) } } catch (_: Exception) { }
         // Observe debug settings to enforce role state while active
         try {
             val dbg = com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
@@ -270,6 +274,26 @@ class BluetoothConnectionManager(
         }
     }
 
+    // Debug: avoided devices snapshot (address, reason, since)
+    fun getAvoidedDevices(): List<Triple<String, String, Long>> {
+        return try {
+            val snap = connectionTracker.getAvoidedDevicesSnapshot()
+            snap.map { (addr, info) -> Triple(addr, info.reason, info.since) }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    // Debug: remove one entry from avoid list
+    fun removeFromAvoidList(address: String) {
+        try { connectionTracker.removeFromAvoidList(address) } catch (_: Exception) { }
+    }
+
+    // Debug: clear the entire avoid list
+    fun clearAvoidList() {
+        try { connectionTracker.clearAvoidList() } catch (_: Exception) { }
+    }
+
     // Expose local adapter address for debug UI
     fun getLocalAdapterAddress(): String? = try { bluetoothAdapter?.address } catch (e: Exception) { null }
 
@@ -282,6 +306,36 @@ class BluetoothConnectionManager(
      */
     fun connectToAddress(address: String): Boolean = clientManager.connectToAddress(address)
     fun disconnectAddress(address: String) { connectionTracker.disconnectDevice(address) }
+
+    // Disconnect a device whether it is a client or server connection; optionally add to avoid list
+    fun forceDisconnectAddress(address: String, blacklistReason: String? = null) {
+        try {
+            // If client-side GATT exists, disconnect via GATT
+            val dc = connectionTracker.getConnectedDevices()[address]
+            if (dc?.gatt != null) {
+                try { dc.gatt.disconnect() } catch (_: Exception) { }
+            }
+            // If it's a server-side subscribed device, cancel via GATT server
+            val server = serverManager.getGattServer()
+            if (server != null) {
+                val sub = connectionTracker.getSubscribedDevices().firstOrNull { it.address == address }
+                if (sub != null) {
+                    try { server.cancelConnection(sub) } catch (_: Exception) { }
+                }
+            }
+        } finally {
+            if (blacklistReason != null) {
+                try { connectionTracker.addToAvoidList(address, blacklistReason) } catch (_: Exception) { }
+            } else {
+                connectionTracker.cleanupDeviceConnection(address)
+            }
+        }
+    }
+
+    // Helper for Mesh to acknowledge announce mapping and cancel watchdog
+    fun markAnnounceReceived(deviceAddress: String, peerID: String) {
+        try { connectionTracker.markAnnounceReceived(deviceAddress, peerID) } catch (_: Exception) { }
+    }
 
 
     // Optionally disconnect all connections (server and client)

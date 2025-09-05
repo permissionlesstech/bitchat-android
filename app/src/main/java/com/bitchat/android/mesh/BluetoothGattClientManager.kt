@@ -410,6 +410,8 @@ class BluetoothGattClientManager(
                         if (status == 147) {
                             Log.e(TAG, "Client: Connection establishment failed (status 147) for $deviceAddress")
                         }
+                        // Record failure for retry policy / blacklist
+                        connectionTracker.recordConnectionFailure(deviceAddress, "gatt_status_$status")
                     } else {
                         Log.d(TAG, "Client: Cleanly disconnected from $deviceAddress")
                         connectionTracker.cleanupDeviceConnection(deviceAddress)

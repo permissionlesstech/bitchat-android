@@ -48,6 +48,7 @@ fun DebugSettingsSheet(
     val scanResults by manager.scanResults.collectAsState()
     val connectedDevices by manager.connectedDevices.collectAsState()
     val relayStats by manager.relayStats.collectAsState()
+    var avoided by remember { mutableStateOf(listOf<Triple<String, String, Long>>()) }
 
     // Push live connected devices from mesh service whenever sheet is visible
     LaunchedEffect(isPresented) {
@@ -71,6 +72,7 @@ fun DebugSettingsSheet(
                     )
                 }
                 manager.updateConnectedDevices(devices)
+                avoided = meshService.connectionManager.getAvoidedDevices()
                 kotlinx.coroutines.delay(1000)
             }
         }
@@ -305,6 +307,47 @@ fun DebugSettingsSheet(
                                         Text("connect", color = Color(0xFF00C851), fontFamily = FontFamily.Monospace, modifier = Modifier.clickable {
                                             meshService.connectionManager.connectToAddress(res.deviceAddress)
                                         })
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Avoid list (under scan results)
+            item {
+                Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Filled.Cancel, contentDescription = null, tint = Color(0xFFBF1A1A))
+                            Text("avoid list", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Spacer(Modifier.weight(1f))
+                            Text(
+                                "clear",
+                                color = Color(0xFFBF1A1A),
+                                fontFamily = FontFamily.Monospace,
+                                modifier = Modifier.clickable { meshService.connectionManager.clearAvoidList() }
+                            )
+                        }
+                        if (avoided.isEmpty()) {
+                            Text("none", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
+                        } else {
+                            val now = System.currentTimeMillis()
+                            avoided.sortedByDescending { it.third }.forEach { (addr, reason, since) ->
+                                val ageSec = ((now - since) / 1000).coerceAtLeast(0)
+                                Surface(shape = RoundedCornerShape(8.dp), color = colorScheme.surface.copy(alpha = 0.6f)) {
+                                    Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Column(Modifier.weight(1f)) {
+                                            Text(addr, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                                            Text("reason: $reason • ${ageSec}s", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                                        }
+                                        Text(
+                                            "remove",
+                                            color = Color(0xFF007AFF),
+                                            fontFamily = FontFamily.Monospace,
+                                            modifier = Modifier.clickable { meshService.connectionManager.removeFromAvoidList(addr) }
+                                        )
                                     }
                                 }
                             }
