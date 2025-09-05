@@ -694,11 +694,20 @@ class BluetoothMeshService(private val context: Context) {
             
             // Create iOS-compatible IdentityAnnouncement with TLV encoding
             val announcement = IdentityAnnouncement(nickname, staticKey, signingKey)
-            val tlvPayload = announcement.encode()
+            var tlvPayload = announcement.encode()
             if (tlvPayload == null) {
                 Log.e(TAG, "Failed to encode announcement as TLV")
                 return@launch
             }
+
+            // Append gossip TLV containing up to 10 direct neighbors (compact IDs)
+            try {
+                val directPeers = getDirectPeerIDsForGossip()
+                if (directPeers.isNotEmpty()) {
+                    val gossip = com.bitchat.android.services.meshgraph.GossipTLV.encodeNeighbors(directPeers)
+                    tlvPayload = tlvPayload + gossip
+                }
+            } catch (_: Exception) { }
             
             val announcePacket = BitchatPacket(
                 type = MessageType.ANNOUNCE.value,
@@ -741,11 +750,20 @@ class BluetoothMeshService(private val context: Context) {
         
         // Create iOS-compatible IdentityAnnouncement with TLV encoding
         val announcement = IdentityAnnouncement(nickname, staticKey, signingKey)
-        val tlvPayload = announcement.encode()
+        var tlvPayload = announcement.encode()
         if (tlvPayload == null) {
             Log.e(TAG, "Failed to encode peer announcement as TLV")
             return
         }
+
+        // Append gossip TLV containing up to 10 direct neighbors (compact IDs)
+        try {
+            val directPeers = getDirectPeerIDsForGossip()
+            if (directPeers.isNotEmpty()) {
+                val gossip = com.bitchat.android.services.meshgraph.GossipTLV.encodeNeighbors(directPeers)
+                tlvPayload = tlvPayload + gossip
+            }
+        } catch (_: Exception) { }
         
         val packet = BitchatPacket(
             type = MessageType.ANNOUNCE.value,
@@ -762,6 +780,20 @@ class BluetoothMeshService(private val context: Context) {
         connectionManager.broadcastPacket(RoutedPacket(signedPacket))
         peerManager.markPeerAsAnnouncedTo(peerID)
         Log.d(TAG, "Sent iOS-compatible signed TLV peer announce to $peerID (${tlvPayload.size} bytes)")
+    }
+
+    /**
+     * Collect up to 10 direct neighbors for gossip TLV.
+     */
+    private fun getDirectPeerIDsForGossip(): List<String> {
+        return try {
+            // Prefer verified peers that are currently marked as direct
+            val verified = peerManager.getVerifiedPeers()
+            val direct = verified.filter { it.value.isDirectConnection }.keys.toList()
+            direct.take(10)
+        } catch (_: Exception) {
+            emptyList()
+        }
     }
 
     /**

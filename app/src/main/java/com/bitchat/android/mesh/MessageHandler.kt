@@ -240,6 +240,13 @@ class MessageHandler(private val myPeerID: String) {
             previousPeerID = null
         )
         
+        // Update mesh graph from gossip neighbors (if present)
+        try {
+            val neighbors = com.bitchat.android.services.meshgraph.GossipTLV.decodeNeighborsFromAnnouncementPayload(packet.payload)
+            com.bitchat.android.services.meshgraph.MeshGraphService.getInstance()
+                .updateFromAnnouncement(peerID, nickname, neighbors, packet.timestamp)
+        } catch (_: Exception) { }
+
         Log.d(TAG, "✅ Processed verified TLV announce: stored identity for $peerID")
         return isFirstAnnounce
     }
