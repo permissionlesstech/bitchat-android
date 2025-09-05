@@ -58,7 +58,7 @@ data class BitchatPacket(
     val payload: ByteArray,
     var signature: ByteArray? = null,  // Changed from val to var for packet signing
     var ttl: UByte,
-    var route: List<ByteArray>? = null // Optional source route: ordered list of peerIDs (8 bytes each), including sender and final recipient
+    var route: List<ByteArray>? = null // Optional source route: ordered list of peerIDs (8 bytes each), not including sender and final recipient
 ) : Parcelable {
 
     constructor(

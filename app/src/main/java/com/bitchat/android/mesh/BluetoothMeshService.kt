@@ -1001,6 +1001,7 @@ class BluetoothMeshService(private val context: Context) {
                         // Exclude first (sender) and last (recipient); only intermediates
                         val intermediates = path.subList(1, path.size - 1)
                         val hopsBytes = intermediates.map { hexStringToByteArray(it) }
+                        Log.d(TAG, "✅ Signed packet type ${packet.type} (route ${hopsBytes.size} hops: $intermediates)")
                         packet.copy(route = hopsBytes)
                     } else packet.copy(route = null)
                 } else packet
