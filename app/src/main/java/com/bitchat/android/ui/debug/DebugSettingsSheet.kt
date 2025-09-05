@@ -120,6 +120,21 @@ fun DebugSettingsSheet(
                             fontSize = 11.sp,
                             color = colorScheme.onSurface.copy(alpha = 0.7f)
                         )
+                        // New: hide ANNOUNCE logs toggle
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("hide announce logs", fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
+                            val hideAnnounce by manager.hideAnnounceLogging.collectAsState()
+                            Switch(
+                                checked = hideAnnounce,
+                                onCheckedChange = { manager.setHideAnnounceLogging(it) }
+                            )
+                        }
+                        Text(
+                            "suppress debug log entries for received/relayed ANNOUNCE packets",
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp,
+                            color = colorScheme.onSurface.copy(alpha = 0.7f)
+                        )
                     }
                 }
             }

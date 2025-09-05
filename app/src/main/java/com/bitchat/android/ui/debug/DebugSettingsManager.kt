@@ -41,6 +41,9 @@ class DebugSettingsManager private constructor() {
     val maxConnectionsOverall: StateFlow<Int> = _maxConnectionsOverall.asStateFlow()
     private val _maxServerConnections = MutableStateFlow(8)
     val maxServerConnections: StateFlow<Int> = _maxServerConnections.asStateFlow()
+    private val _hideAnnounceLogging = MutableStateFlow(false)
+    val hideAnnounceLogging: StateFlow<Boolean> = _hideAnnounceLogging.asStateFlow()
+
     private val _maxClientConnections = MutableStateFlow(8)
     val maxClientConnections: StateFlow<Int> = _maxClientConnections.asStateFlow()
     
@@ -51,6 +54,7 @@ class DebugSettingsManager private constructor() {
             _gattServerEnabled.value = DebugPreferenceManager.getGattServerEnabled(true)
             _gattClientEnabled.value = DebugPreferenceManager.getGattClientEnabled(true)
             _packetRelayEnabled.value = DebugPreferenceManager.getPacketRelayEnabled(true)
+            _hideAnnounceLogging.value = DebugPreferenceManager.getHideAnnounceLogging(false)
             _maxConnectionsOverall.value = DebugPreferenceManager.getMaxConnectionsOverall(8)
             _maxServerConnections.value = DebugPreferenceManager.getMaxConnectionsServer(8)
             _maxClientConnections.value = DebugPreferenceManager.getMaxConnectionsClient(8)
@@ -114,6 +118,14 @@ class DebugSettingsManager private constructor() {
         } else {
             addDebugMessage(DebugMessage.SystemMessage("🔇 Verbose logging disabled"))
         }
+    }
+
+    fun setHideAnnounceLogging(enabled: Boolean) {
+        DebugPreferenceManager.setHideAnnounceLogging(enabled)
+        _hideAnnounceLogging.value = enabled
+        addDebugMessage(DebugMessage.SystemMessage(
+            if (enabled) "🙈 Hiding ANNOUNCE logs" else "👀 Showing ANNOUNCE logs"
+        ))
     }
     
     fun setGattServerEnabled(enabled: Boolean) {
@@ -223,6 +235,10 @@ class DebugSettingsManager private constructor() {
     
     fun logIncomingPacket(senderPeerID: String, senderNickname: String?, messageType: String, viaDeviceId: String?) {
         if (verboseLoggingEnabled.value) {
+            // Optional filter: hide ANNOUNCE logs if enabled
+            if (hideAnnounceLogging.value && messageType.equals("ANNOUNCE", ignoreCase = true)) {
+                return
+            }
             val who = if (!senderNickname.isNullOrBlank()) "$senderNickname ($senderPeerID)" else senderPeerID
             val routeInfo = if (!viaDeviceId.isNullOrBlank()) " via $viaDeviceId" else " (direct)"
             addDebugMessage(DebugMessage.PacketEvent(
@@ -288,11 +304,16 @@ class DebugSettingsManager private constructor() {
         val ttlStr = ttl?.toString() ?: "?"
 
         if (verboseLoggingEnabled.value) {
-            addDebugMessage(
-                DebugMessage.RelayEvent(
-                    "♻️ Relayed $packetType by $senderLabel from $fromName (${fromPeerID ?: "?"}, $fromAddr) to $toName (${toPeerID ?: "?"}, $toAddr) with TTL $ttlStr"
+            // Optional filter: hide ANNOUNCE relay logs if enabled
+            if (hideAnnounceLogging.value && packetType.equals("ANNOUNCE", ignoreCase = true)) {
+                // Still update stats below, but do not emit a debug message
+            } else {
+                addDebugMessage(
+                    DebugMessage.RelayEvent(
+                        "♻️ Relayed $packetType by $senderLabel from $fromName (${fromPeerID ?: "?"}, $fromAddr) to $toName (${toPeerID ?: "?"}, $toAddr) with TTL $ttlStr"
+                    )
                 )
-            )
+            }
         }
 
         // Update rolling statistics
