@@ -1189,13 +1189,6 @@ class NostrGeohashService(
             // Check Proof of Work validation BEFORE other processing
             val powSettings = PoWPreferenceManager.getCurrentSettings()
             if (powSettings.enabled && powSettings.difficulty > 0) {
-                Log.v(TAG, "❌ Skipping non-ephemeral event (kind ${event.kind})")
-                return@launch
-            }
-            
-            // Check Proof of Work validation BEFORE other processing
-            val powSettings = PoWPreferenceManager.getCurrentSettings()
-            if (powSettings.enabled && powSettings.difficulty > 0) {
                 if (!NostrProofOfWork.validateDifficulty(event, powSettings.difficulty)) {
                     Log.w(TAG, "🚫 Rejecting geohash event ${event.id.take(8)}... due to insufficient PoW (required: ${powSettings.difficulty})")
                     return@launch
