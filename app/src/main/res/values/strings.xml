@@ -183,15 +183,15 @@
     <string name="does_not_track_location">%1$s does NOT track your location</string>
 
     <!-- Command helper descriptions -->
-    <string name="cmd_block_desc">block or list blocked peers</string>
-    <string name="cmd_channels_desc">show all discovered channels</string>
-    <string name="cmd_clear_desc">clear chat messages</string>
-    <string name="cmd_hug_desc">send someone a warm hug</string>
-    <string name="cmd_join_desc">join or create a channel</string>
-    <string name="cmd_msg_desc">send private message</string>
-    <string name="cmd_slap_desc">slap someone with a trout</string>
-    <string name="cmd_unblock_desc">unblock a peer</string>
-    <string name="cmd_w_desc">see who's online</string>
+    <string name="app_cmd_block_desc">block or list blocked peers</string>
+    <string name="app_cmd_channels_desc">show all discovered channels</string>
+    <string name="app_cmd_clear_desc">clear chat messages</string>
+    <string name="app_cmd_hug_desc">send someone a warm hug</string>
+    <string name="app_cmd_join_desc">join or create a channel</string>
+    <string name="app_cmd_msg_desc">send private message</string>
+    <string name="app_cmd_slap_desc">slap someone with a trout</string>
+    <string name="app_cmd_unblock_desc">unblock a peer</string>
+    <string name="app_cmd_w_desc">see who's online</string>
 
     <!-- Geohash level labels and people nouns -->
     <string name="level_block">block</string>

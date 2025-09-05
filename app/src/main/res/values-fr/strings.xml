@@ -182,15 +182,15 @@
     <string name="does_not_track_location">%1$s ne suit PAS votre position</string>
 
     <!-- Command helper descriptions -->
-    <string name="cmd_block_desc">bloquer ou lister les pairs bloqués</string>
-    <string name="cmd_channels_desc">afficher tous les canaux découverts</string>
-    <string name="cmd_clear_desc">effacer les messages du chat</string>
-    <string name="cmd_hug_desc">envoyer un câlin</string>
-    <string name="cmd_join_desc">rejoindre ou créer un canal</string>
-    <string name="cmd_msg_desc">envoyer un message privé</string>
-    <string name="cmd_slap_desc">gifler quelqu’un avec une truite</string>
-    <string name="cmd_unblock_desc">débloquer un pair</string>
-    <string name="cmd_w_desc">voir qui est en ligne</string>
+    <string name="app_cmd_block_desc">bloquer ou lister les pairs bloqués</string>
+    <string name="app_cmd_channels_desc">afficher tous les canaux découverts</string>
+    <string name="app_cmd_clear_desc">effacer les messages du chat</string>
+    <string name="app_cmd_hug_desc">envoyer un câlin</string>
+    <string name="app_cmd_join_desc">rejoindre ou créer un canal</string>
+    <string name="app_cmd_msg_desc">envoyer un message privé</string>
+    <string name="app_cmd_slap_desc">gifler quelqu’un avec une truite</string>
+    <string name="app_cmd_unblock_desc">débloquer un pair</string>
+    <string name="app_cmd_w_desc">voir qui est en ligne</string>
 
     <!-- Geohash level labels and people nouns -->
     <string name="level_block">bloc</string>

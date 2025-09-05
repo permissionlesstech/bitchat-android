@@ -19,15 +19,15 @@ class CommandProcessor(
     
     // Available commands list
     private val baseCommands = listOf(
-        CommandSuggestion("/block", emptyList(), "[nickname]", context.getString(R.string.cmd_block_desc)),
-        CommandSuggestion("/channels", emptyList(), null, context.getString(R.string.cmd_channels_desc)),
-        CommandSuggestion("/clear", emptyList(), null, context.getString(R.string.cmd_clear_desc)),
-        CommandSuggestion("/hug", emptyList(), "<nickname>", context.getString(R.string.cmd_hug_desc)),
-        CommandSuggestion("/j", listOf("/join"), "<channel>", context.getString(R.string.cmd_join_desc)),
-        CommandSuggestion("/m", listOf("/msg"), "<nickname> [message]", context.getString(R.string.cmd_msg_desc)),
-        CommandSuggestion("/slap", emptyList(), "<nickname>", context.getString(R.string.cmd_slap_desc)),
-        CommandSuggestion("/unblock", emptyList(), "<nickname>", context.getString(R.string.cmd_unblock_desc)),
-        CommandSuggestion("/w", emptyList(), null, context.getString(R.string.cmd_w_desc))
+        CommandSuggestion("/block", emptyList(), "[nickname]", context.getString(R.string.app_cmd_block_desc)),
+        CommandSuggestion("/channels", emptyList(), null, context.getString(R.string.app_cmd_channels_desc)),
+        CommandSuggestion("/clear", emptyList(), null, context.getString(R.string.app_cmd_clear_desc)),
+        CommandSuggestion("/hug", emptyList(), "<nickname>", context.getString(R.string.app_cmd_hug_desc)),
+        CommandSuggestion("/j", listOf("/join"), "<channel>", context.getString(R.string.app_cmd_join_desc)),
+        CommandSuggestion("/m", listOf("/msg"), "<nickname> [message]", context.getString(R.string.app_cmd_msg_desc)),
+        CommandSuggestion("/slap", emptyList(), "<nickname>", context.getString(R.string.app_cmd_slap_desc)),
+        CommandSuggestion("/unblock", emptyList(), "<nickname>", context.getString(R.string.app_cmd_unblock_desc)),
+        CommandSuggestion("/w", emptyList(), null, context.getString(R.string.app_cmd_w_desc))
     )
     
     // MARK: - Command Processing
