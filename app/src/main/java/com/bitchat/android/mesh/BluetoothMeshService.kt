@@ -401,6 +401,10 @@ class BluetoothMeshService(private val context: Context) {
             override fun relayPacket(routed: RoutedPacket) {
                 connectionManager.broadcastPacket(routed)
             }
+
+            override fun sendToPeer(peerID: String, routed: RoutedPacket): Boolean {
+                return connectionManager.sendToPeer(peerID, routed)
+            }
         }
         
         // BluetoothConnectionManager delegates
@@ -987,21 +991,36 @@ class BluetoothMeshService(private val context: Context) {
      */
     private fun signPacketBeforeBroadcast(packet: BitchatPacket): BitchatPacket {
         return try {
+            // Optionally compute and attach a source route for addressed packets
+            val withRoute = try {
+                val rec = packet.recipientID
+                if (rec != null && !rec.contentEquals(SpecialRecipients.BROADCAST)) {
+                    val dest = rec.joinToString("") { b -> "%02x".format(b) }
+                    val path = com.bitchat.android.services.meshgraph.RoutePlanner.shortestPath(myPeerID, dest)
+                    if (path != null && path.size >= 3) {
+                        // Exclude first (sender) and last (recipient); only intermediates
+                        val intermediates = path.subList(1, path.size - 1)
+                        val hopsBytes = intermediates.map { hexStringToByteArray(it) }
+                        packet.copy(route = hopsBytes)
+                    } else packet.copy(route = null)
+                } else packet
+            } catch (_: Exception) { packet }
+
             // Get the canonical packet data for signing (without signature)
-            val packetDataForSigning = packet.toBinaryDataForSigning()
+            val packetDataForSigning = withRoute.toBinaryDataForSigning()
             if (packetDataForSigning == null) {
                 Log.w(TAG, "Failed to encode packet type ${packet.type} for signing, sending unsigned")
-                return packet
+                return withRoute
             }
             
             // Sign the packet data using our signing key
             val signature = encryptionService.signData(packetDataForSigning)
             if (signature != null) {
                 Log.d(TAG, "✅ Signed packet type ${packet.type} (signature ${signature.size} bytes)")
-                packet.copy(signature = signature)
+                withRoute.copy(signature = signature)
             } else {
                 Log.w(TAG, "Failed to sign packet type ${packet.type}, sending unsigned")
-                packet
+                withRoute
             }
         } catch (e: Exception) {
             Log.w(TAG, "Error signing packet type ${packet.type}: ${e.message}, sending unsigned")
