@@ -54,6 +54,40 @@ class BluetoothPacketBroadcaster(
         nicknameResolver = resolver
     }
     
+    /**
+     * Debug logging helper - can be easily removed/disabled for production
+     */
+    private fun logPacketRelay(
+        typeName: String,
+        senderPeerID: String,
+        senderNick: String?,
+        incomingPeer: String?,
+        incomingAddr: String?,
+        toPeer: String?,
+        toDeviceAddress: String,
+        ttl: UByte
+    ) {
+        try {
+            val fromNick = incomingPeer?.let { nicknameResolver?.invoke(it) }
+            val toNick = toPeer?.let { nicknameResolver?.invoke(it) }
+            
+            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().logPacketRelayDetailed(
+                packetType = typeName,
+                senderPeerID = senderPeerID,
+                senderNickname = senderNick,
+                fromPeerID = incomingPeer,
+                fromNickname = fromNick,
+                fromDeviceAddress = incomingAddr,
+                toPeerID = toPeer,
+                toNickname = toNick,
+                toDeviceAddress = toDeviceAddress,
+                ttl = ttl
+            )
+        } catch (_: Exception) { 
+            // Silently ignore debug logging failures
+        }
+    }
+    
     // Data class to hold broadcast request information
     private data class BroadcastRequest(
         val routed: RoutedPacket,
@@ -156,23 +190,7 @@ class BluetoothPacketBroadcaster(
                 Log.d(TAG, "Send packet type ${packet.type} directly to target device for recipient $recipientID: ${targetDevice.address}")
                 if (notifyDevice(targetDevice, data, gattServer, characteristic)) {
                     val toPeer = connectionTracker.addressPeerMap[targetDevice.address]
-                    val toNick = toPeer?.let { nicknameResolver?.invoke(it) }
-                    val fromNick = incomingPeer?.let { nicknameResolver?.invoke(it) }
-                    // Verbose relay log
-                    try {
-                        com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().logPacketRelayDetailed(
-                            packetType = typeName,
-                            senderPeerID = senderPeerID,
-                            senderNickname = senderNick,
-                            fromPeerID = incomingPeer,
-                            fromNickname = fromNick,
-                            fromDeviceAddress = incomingAddr,
-                            toPeerID = toPeer,
-                            toNickname = toNick,
-                            toDeviceAddress = targetDevice.address,
-                            ttl = packet.ttl
-                        )
-                    } catch (_: Exception) { }
+                    logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, toPeer, targetDevice.address, packet.ttl)
                     return  // Sent, no need to continue
                 }
             }
@@ -186,23 +204,7 @@ class BluetoothPacketBroadcaster(
                 Log.d(TAG, "Send packet type ${packet.type} directly to target client connection for recipient $recipientID: ${targetDeviceConn.device.address}")
                 if (writeToDeviceConn(targetDeviceConn, data)) {
                     val toPeer = connectionTracker.addressPeerMap[targetDeviceConn.device.address]
-                    val toNick = toPeer?.let { nicknameResolver?.invoke(it) }
-                    val fromNick = incomingPeer?.let { nicknameResolver?.invoke(it) }
-                    // Verbose relay log
-                    try {
-                        com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().logPacketRelayDetailed(
-                            packetType = typeName,
-                            senderPeerID = senderPeerID,
-                            senderNickname = senderNick,
-                            fromPeerID = incomingPeer,
-                            fromNickname = fromNick,
-                            fromDeviceAddress = incomingAddr,
-                            toPeerID = toPeer,
-                            toNickname = toNick,
-                            toDeviceAddress = targetDeviceConn.device.address,
-                            ttl = packet.ttl
-                        )
-                    } catch (_: Exception) { }
+                    logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, toPeer, targetDeviceConn.device.address, packet.ttl)
                     return  // Sent, no need to continue
                 }
             }
@@ -229,22 +231,7 @@ class BluetoothPacketBroadcaster(
             val sent = notifyDevice(device, data, gattServer, characteristic)
             if (sent) {
                 val toPeer = connectionTracker.addressPeerMap[device.address]
-                val toNick = toPeer?.let { nicknameResolver?.invoke(it) }
-                val fromNick = incomingPeer?.let { nicknameResolver?.invoke(it) }
-                try {
-                    com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().logPacketRelayDetailed(
-                        packetType = typeName,
-                        senderPeerID = senderPeerID,
-                        senderNickname = senderNick,
-                        fromPeerID = incomingPeer,
-                        fromNickname = fromNick,
-                        fromDeviceAddress = incomingAddr,
-                        toPeerID = toPeer,
-                        toNickname = toNick,
-                        toDeviceAddress = device.address,
-                        ttl = packet.ttl
-                    )
-                } catch (_: Exception) { }
+                logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, toPeer, device.address, packet.ttl)
             }
         }
         
@@ -262,22 +249,7 @@ class BluetoothPacketBroadcaster(
                 val sent = writeToDeviceConn(deviceConn, data)
                 if (sent) {
                     val toPeer = connectionTracker.addressPeerMap[deviceConn.device.address]
-                    val toNick = toPeer?.let { nicknameResolver?.invoke(it) }
-                    val fromNick = incomingPeer?.let { nicknameResolver?.invoke(it) }
-                    try {
-                        com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().logPacketRelayDetailed(
-                            packetType = typeName,
-                            senderPeerID = senderPeerID,
-                            senderNickname = senderNick,
-                            fromPeerID = incomingPeer,
-                            fromNickname = fromNick,
-                            fromDeviceAddress = incomingAddr,
-                            toPeerID = toPeer,
-                            toNickname = toNick,
-                            toDeviceAddress = deviceConn.device.address,
-                            ttl = packet.ttl
-                        )
-                    } catch (_: Exception) { }
+                    logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, toPeer, deviceConn.device.address, packet.ttl)
                 }
             }
         }
