@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+    <string name="permission_bluetooth_rationale">인터넷 없이 P2P(피어투피어) 메시징을 사용하려면 Bluetooth 권한이 필요합니다.</string>
+    <string name="permission_location_rationale">Bluetooth를 통해 근처 기기를 검색하려면 위치 권한이 필요합니다.</string>
+    <string name="permission_notification_rationale">새 메시지를 알리려면 알림 권한이 필요합니다.</string>
+    <string name="nickname_hint">닉네임</string>
+    <string name="message_hint">메시지 입력…</string>
+    <string name="channel_password_hint">비밀번호</string>
+    <string name="join_channel">채널 가입</string>
+    <string name="leave_channel">나가기</string>
+    <string name="send_message">보내기</string>
+    <string name="back">뒤로</string>
+    <string name="people">사람들</string>
+    <string name="channels">채널</string>
+    <string name="online_users">온라인 사용자</string>
+    <string name="no_one_connected">연결된 사용자 없음</string>
+    <string name="emergency_clear_hint">세 번 탭하여 모든 데이터 삭제</string>
+    <string name="your_network">귀하의 네트워크</string>
+</resources>
