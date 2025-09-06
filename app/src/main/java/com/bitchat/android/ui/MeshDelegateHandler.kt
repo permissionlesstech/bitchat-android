@@ -67,7 +67,7 @@ class MeshDelegateHandler(
                     channelManager.addChannelMessage(message.channel, message, message.senderPeerID)
                 }
             } else {
-                // Public message
+                // Public mesh message - always store to preserve message history
                 messageManager.addMessage(message)
 
                 // Check for mentions in mesh chat

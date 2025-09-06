@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.nostr.NostrProofOfWork
 import com.bitchat.android.nostr.PoWPreferenceManager
+import com.bitchat.android.ui.debug.DebugSettingsSheet
 
 /**
  * About Sheet for bitchat app information
@@ -33,6 +34,7 @@ import com.bitchat.android.nostr.PoWPreferenceManager
 fun AboutSheet(
     isPresented: Boolean,
     onDismiss: () -> Unit,
+    onShowDebug: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -47,6 +49,7 @@ fun AboutSheet(
     }
     
     // Bottom sheet state
+
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = false
     )
@@ -422,6 +425,30 @@ fun AboutSheet(
                     }
                 }
                 
+                // Debug settings button
+                item {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Debug button styled to match the app aesthetic
+                        TextButton(
+                            onClick = { onShowDebug?.invoke() },
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                        ) {
+                            Text(
+                                text = "debug settings",
+                                fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                        }
+                    }
+                }
+
                 // Version and footer space
                 item {
                     Column(

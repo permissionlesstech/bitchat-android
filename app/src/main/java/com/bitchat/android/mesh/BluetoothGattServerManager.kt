@@ -47,11 +47,37 @@ class BluetoothGattServerManager(
     
     // State management
     private var isActive = false
+
+    // Enforce a server connection limit by canceling the oldest connections (best-effort)
+    fun enforceServerLimit(maxServer: Int) {
+        if (maxServer <= 0) return
+        try {
+            val subs = connectionTracker.getSubscribedDevices()
+            if (subs.size > maxServer) {
+                val excess = subs.size - maxServer
+                subs.take(excess).forEach { d ->
+                    try { gattServer?.cancelConnection(d) } catch (_: Exception) { }
+                }
+            }
+        } catch (_: Exception) { }
+    }
     
     /**
      * Start GATT server
      */
     fun start(): Boolean {
+        // Respect debug setting
+        try {
+            if (!com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattServerEnabled.value) {
+                Log.i(TAG, "Server start skipped: GATT Server disabled in debug settings")
+                return false
+            }
+        } catch (_: Exception) { }
+
+        if (isActive) {
+            Log.d(TAG, "GATT server already active; start is a no-op")
+            return true
+        }
         if (!permissionManager.hasBluetoothPermissions()) {
             Log.e(TAG, "Missing Bluetooth permissions")
             return false
@@ -82,10 +108,28 @@ class BluetoothGattServerManager(
      * Stop GATT server
      */
     fun stop() {
+        if (!isActive) {
+            // Idempotent stop
+            stopAdvertising()
+            // Ensure server is closed if present
+            gattServer?.close()
+            gattServer = null
+            Log.i(TAG, "GATT server stopped (already inactive)")
+            return
+        }
+
         isActive = false
-        
+
         connectionScope.launch {
             stopAdvertising()
+            
+            // Try to cancel any active connections explicitly before closing
+            try {
+                val devices = connectionTracker.getSubscribedDevices()
+                devices.forEach { d ->
+                    try { gattServer?.cancelConnection(d) } catch (_: Exception) { }
+                }
+            } catch (_: Exception) { }
             
             // Close GATT server
             gattServer?.close()
@@ -281,7 +325,9 @@ class BluetoothGattServerManager(
      */
     @Suppress("DEPRECATION")
     private fun startAdvertising() {
-        if (!permissionManager.hasBluetoothPermissions() || bleAdvertiser == null || !isActive || bluetoothAdapter == null || !bluetoothAdapter.isMultipleAdvertisementSupported()) {
+        // Respect debug setting
+        val enabled = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattServerEnabled.value } catch (_: Exception) { true }
+        if (!permissionManager.hasBluetoothPermissions() || bleAdvertiser == null || !isActive || bluetoothAdapter == null || !bluetoothAdapter.isMultipleAdvertisementSupported() || !enabled) {
             throw Exception("Missing Bluetooth permissions or BLE advertiser not available")
         }
 
@@ -327,8 +373,13 @@ class BluetoothGattServerManager(
      * Restart advertising (for power mode changes)
      */
     fun restartAdvertising() {
-        if (!isActive) return
-        
+        // Respect debug setting
+        val enabled = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattServerEnabled.value } catch (_: Exception) { true }
+        if (!isActive || !enabled) {
+            stopAdvertising()
+            return
+        }
+
         connectionScope.launch {
             stopAdvertising()
             delay(100)
