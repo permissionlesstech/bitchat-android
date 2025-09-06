@@ -344,7 +344,8 @@ object TorManager {
                 bindRetryAttempts = 0
                 startInactivityMonitoring()
             }
-            s.contains("AMEx: state changed to Running", ignoreCase = true) -> {
+            //s.contains("AMEx: state changed to Running", ignoreCase = true) -> {
+            s.contains("We have found that guard [scrubbed] is usable.", ignoreCase = true) -> {
                 // If we already saw Sufficiently bootstrapped, mark as RUNNING and ready.
                 val bp = if (_status.value.bootstrapPercent >= 100) 100 else 100 // treat Running as ready
                 _status.value = _status.value.copy(state = TorState.RUNNING, bootstrapPercent = bp, running = true)
