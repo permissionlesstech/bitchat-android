@@ -13,7 +13,6 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -22,7 +21,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -32,16 +30,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.updateLayoutParams
 import com.bitchat.android.geohash.Geohash
+import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,14 +55,38 @@ class GeohashPickerActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         val initialGeohash = intent.getStringExtra(EXTRA_INITIAL_GEOHASH)?.trim()?.lowercase()
-        val initialPrecision = initialGeohash?.length ?: 5
-        val (initLat, initLon) = if (!initialGeohash.isNullOrEmpty()) {
-            Geohash.decodeToCenter(initialGeohash)
-        } else 0.0 to 0.0
+        var geohashToFocus: String? = null
+        var (initLat, initLon) = 0.0 to 0.0
+
+        if (!initialGeohash.isNullOrEmpty()) {
+            geohashToFocus = initialGeohash
+            try {
+                val (lat, lon) = Geohash.decodeToCenter(initialGeohash)
+                initLat = lat
+                initLon = lon
+            } catch (_: Throwable) {}
+        } else {
+            // If no initial geohash, try to use the user's coarsest location
+            val locationManager = LocationChannelManager.getInstance(applicationContext)
+            val channels = locationManager.availableChannels.value
+            if (!channels.isNullOrEmpty()) {
+                val coarsestChannel = channels.minByOrNull { it.geohash.length }
+                if (coarsestChannel != null) {
+                    geohashToFocus = coarsestChannel.geohash
+                    try {
+                        val (lat, lon) = Geohash.decodeToCenter(coarsestChannel.geohash)
+                        initLat = lat
+                        initLon = lon
+                    } catch (_: Throwable) {}
+                }
+            }
+        }
+
+        val initialPrecision = geohashToFocus?.length ?: 5
 
         setContent {
             MaterialTheme {
-                var currentGeohash by remember { mutableStateOf(initialGeohash ?: "") }
+                var currentGeohash by remember { mutableStateOf(geohashToFocus ?: "") }
                 var precision by remember { mutableStateOf(initialPrecision.coerceIn(1, 12)) }
                 var webViewRef by remember { mutableStateOf<WebView?>(null) }
 
@@ -88,9 +110,9 @@ class GeohashPickerActivity : ComponentActivity() {
                                         override fun onPageFinished(view: WebView?, url: String?) {
                                             super.onPageFinished(view, url)
                                             // Initialize to last/initial geohash if provided, otherwise center
-                                            if (!initialGeohash.isNullOrEmpty()) {
+                                            if (!geohashToFocus.isNullOrEmpty()) {
                                                 evaluateJavascript(
-                                                    "window.focusGeohash('${initialGeohash}')",
+                                                    "window.focusGeohash('${geohashToFocus}')",
                                                     null
                                                 )
                                             } else {
@@ -140,6 +162,28 @@ class GeohashPickerActivity : ComponentActivity() {
                                 try { webView.destroy() } catch (_: Throwable) {}
                             }
                         )
+
+                        // Floating info pill
+                        Surface(
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(top = 20.dp)
+                                .fillMaxWidth(0.75f),
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                            shape = RoundedCornerShape(12.dp),
+                            tonalElevation = 3.dp,
+                            shadowElevation = 6.dp
+                        ) {
+                            Text(
+                                text = "pan and zoom to select a geohash",
+                                fontSize = 12.sp,
+                                textAlign = TextAlign.Center,
+                                fontFamily = FontFamily.Monospace,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier
+                                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                            )
+                        }
 
                         // Floating bottom controls
                         Column(
