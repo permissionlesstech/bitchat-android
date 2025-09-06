@@ -67,6 +67,8 @@ class MessageRouter private constructor(
             Log.d(TAG, "Queued PM for ${toPeerID.take(8)}… (no mesh, no Nostr mapping) id=${messageID.take(8)}…")
             val q = outbox.getOrPut(toPeerID) { mutableListOf() }
             q.add(Triple(content, recipientNickname, messageID))
+            Log.d(TAG, "Initiating noise handshake after queueing PM for ${toPeerID.take(8)}…")
+            mesh.initiateNoiseHandshake(toPeerID)
         }
     }
 
