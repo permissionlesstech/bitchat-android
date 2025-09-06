@@ -365,85 +365,10 @@ class PrivateChatManager(
                 "Our peer ID lexicographically >= target peer ID, sending identity announcement to prompt handshake from $peerID"
             )
             meshService.sendAnnouncementToPeer(peerID)
+            Log.d(TAG, "Sent identity announcement to $peerID – starting handshake now from our side")
+            noiseSessionDelegate.initiateHandshake(peerID)
         }
 
-    }
-
-//    /**
-//     * Legacy reflection-based implementation for backward compatibility
-//     */
-//    private fun establishNoiseSessionIfNeededLegacy(peerID: String, meshService: Any) {
-//        try {
-//            // Check if we already have an established Noise session with this peer
-//            val hasSessionMethod = meshService::class.java.getDeclaredMethod("hasEstablishedSession", String::class.java)
-//            val hasSession = hasSessionMethod.invoke(meshService, peerID) as Boolean
-//
-//            if (hasSession) {
-//                Log.d(TAG, "Noise session already established with $peerID")
-//                return
-//            }
-//
-//            Log.d(TAG, "No Noise session with $peerID, determining who should initiate handshake")
-//
-//            // Get our peer ID from mesh service for lexicographical comparison
-//            val myPeerIDField = meshService::class.java.getField("myPeerID")
-//            val myPeerID = myPeerIDField.get(meshService) as String
-//
-//            // Use lexicographical comparison to decide who initiates (same logic as MessageHandler)
-//            if (myPeerID < peerID) {
-//                // We should initiate the handshake
-//                Log.d(TAG, "Our peer ID lexicographically < target peer ID, initiating Noise handshake with $peerID")
-//                initiateHandshakeWithPeer(peerID, meshService)
-//            } else {
-//                // They should initiate, we send a Noise identity announcement
-//                Log.d(TAG, "Our peer ID lexicographically >= target peer ID, sending Noise identity announcement to prompt handshake from $peerID")
-//                sendNoiseIdentityAnnouncement(meshService)
-//            }
-//
-//        } catch (e: Exception) {
-//            Log.e(TAG, "Failed to establish Noise session with $peerID: ${e.message}")
-//        }
-//    }
-
-    /**
-     * Initiate handshake with specific peer using the existing delegate pattern
-     */
-    private fun initiateHandshakeWithPeer(peerID: String, meshService: Any) {
-        try {
-            // Use the existing MessageHandler delegate approach to initiate handshake
-            // This calls the same code that's in MessageHandler's delegate.initiateNoiseHandshake()
-            val messageHandler = meshService::class.java.getDeclaredField("messageHandler")
-            messageHandler.isAccessible = true
-            val handler = messageHandler.get(meshService)
-
-            val delegate = handler::class.java.getDeclaredField("delegate")
-            delegate.isAccessible = true
-            val handlerDelegate = delegate.get(handler)
-
-            val method =
-                handlerDelegate::class.java.getMethod("initiateNoiseHandshake", String::class.java)
-            method.invoke(handlerDelegate, peerID)
-
-            Log.d(TAG, "Successfully initiated Noise handshake with $peerID using delegate pattern")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to initiate Noise handshake with $peerID: ${e.message}")
-        }
-    }
-
-    /**
-     * Send Noise identity announcement to prompt other peer to initiate handshake
-     * This follows the same pattern as broadcastNoiseIdentityAnnouncement() in BluetoothMeshService
-     */
-    private fun sendNoiseIdentityAnnouncement(meshService: Any) {
-        try {
-            // Call broadcastNoiseIdentityAnnouncement which sends a NoiseIdentityAnnouncement
-            val method =
-                meshService::class.java.getDeclaredMethod("broadcastNoiseIdentityAnnouncement")
-            method.invoke(meshService)
-            Log.d(TAG, "Successfully sent Noise identity announcement")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to send Noise identity announcement: ${e.message}")
-        }
     }
 
     // MARK: - Utility Functions
