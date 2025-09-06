@@ -9,7 +9,8 @@
       .leaflet-container { background: #ffffff; }
       .leaflet-div-icon { background: transparent; border: none; }
       .gh-label { background: transparent; border: none; pointer-events: none; filter: none; }
-      .gh-text { color: var(--text); font-weight: 700; letter-spacing: 0.5px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; line-height: 1; text-shadow: none; }
+      .gh-text { color: #555555; font-weight: 700; letter-spacing: 0.5px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; line-height: 1; text-shadow: none; }
+      .dark .gh-text { color: #bbbbbb; }
     </style>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   </head>
@@ -56,21 +57,33 @@
         window.__geohash = { bounds, encode, adjacent };
       })();
 
-      // Map: no grid. Geohash follows viewport; show the current cell outline.
       const map = L.map("map", { zoomControl: true, minZoom: 2, maxZoom: 21 }).setView([0, 0], 3);
-
-      // Brighter tiles for readability
       L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png", { maxZoom: 21, attribution: "&copy; OpenStreetMap &copy; Carto", opacity: 1.0 }).addTo(map);
 
       let selectedGeohash = "";
-      let cellRect = null; // L.rectangle of current geohash cell
-      let pinnedPrecision = null; // one-shot precision override when focusing a specific geohash
-      let outlineColor = "#00C851"; // static outline color
+      let gridLayer = L.layerGroup().addTo(map);
+      let pinnedPrecision = null;
+      let outlineColor = "#00C851";
+
+      function getNeighbors(hash) {
+        const neighbors = [];
+        // N, S, E, W
+        neighbors.push(window.__geohash.adjacent(hash, 'n'));
+        neighbors.push(window.__geohash.adjacent(hash, 's'));
+        neighbors.push(window.__geohash.adjacent(hash, 'e'));
+        neighbors.push(window.__geohash.adjacent(hash, 'w'));
+        // Diagonals
+        neighbors.push(window.__geohash.adjacent(window.__geohash.adjacent(hash, 'n'), 'e'));
+        neighbors.push(window.__geohash.adjacent(window.__geohash.adjacent(hash, 'n'), 'w'));
+        neighbors.push(window.__geohash.adjacent(window.__geohash.adjacent(hash, 's'), 'e'));
+        neighbors.push(window.__geohash.adjacent(window.__geohash.adjacent(hash, 's'), 'w'));
+        return neighbors;
+      }
 
       function pickPrecisionForViewport() {
         const c = map.getCenter();
-        const minPx = 80;  // desired minimum cell size in pixels
-        const maxPx = 240; // desired maximum cell size in pixels
+        const minPx = 80;
+        const maxPx = 240;
         let chosen = 1;
         let lastAboveMin = 1;
         for (let p = 1; p <= 12; p++) {
@@ -93,40 +106,64 @@
         }
       }
 
-      // Optional helper: approximate zoom for requested precision (used by setPrecision)
       function zoomForPrecision(p) {
-        if (p <= 1) return 1;
-        if (p === 2) return 2;
-        if (p === 3) return 3;
-        if (p === 4) return 4;
-        if (p === 5) return 5;
-        if (p === 6) return 7;
-        if (p === 7) return 9;
-        if (p === 8) return 11;
-        if (p === 9) return 13;
-        if (p === 10) return 15;
-        if (p === 11) return 17;
-        return 18; // p>=12
+        if (p <= 1) return 1; if (p === 2) return 2; if (p === 3) return 3; if (p === 4) return 4;
+        if (p === 5) return 5; if (p === 6) return 7; if (p === 7) return 9; if (p === 8) return 11;
+        if (p === 9) return 13; if (p === 10) return 15; if (p === 11) return 17;
+        return 18;
       }
 
       function updateOverlay() {
+        gridLayer.clearLayers();
         const c = map.getCenter();
         const usePinned = pinnedPrecision !== null;
         const p = usePinned ? pinnedPrecision : pickPrecisionForViewport();
         selectedGeohash = window.__geohash.encode(c.lat, c.lng, p);
         notifySelection();
 
-        // Draw current cell outline
-        const b = window.__geohash.bounds(selectedGeohash);
-        const sw = [b.sw.lat, b.sw.lng], ne = [b.ne.lat, b.ne.lng];
-        if (cellRect) { try { cellRect.remove(); } catch (e) {} cellRect = null; }
-        cellRect = L.rectangle([sw, ne], {
-          color: outlineColor,
-          weight: 3,
-          fillOpacity: 0.0,
-          opacity: 0.9,
-          interactive: false
-        }).addTo(map);
+        const centerBounds = window.__geohash.bounds(selectedGeohash);
+        const centerLon = (centerBounds.sw.lng + centerBounds.ne.lng) / 2;
+        const centerLat = (centerBounds.sw.lat + centerBounds.ne.lat) / 2;
+
+        const allHashes = [selectedGeohash, ...getNeighbors(selectedGeohash)];
+
+        const filteredHashes = allHashes.filter(gh => {
+            if (!gh) return false;
+            try {
+                const b = window.__geohash.bounds(gh);
+                const lon = (b.sw.lng + b.ne.lng) / 2;
+                const lat = (b.sw.lat + b.ne.lat) / 2;
+                if (Math.abs(lon - centerLon) > 180) return false; // anti-meridian wrap
+                if (Math.abs(lat - centerLat) > 90) return false; // pole wrap
+                return true;
+            } catch (e) { return false; }
+        });
+
+        filteredHashes.forEach(gh => {
+            const b = window.__geohash.bounds(gh);
+            const sw = [b.sw.lat, b.sw.lng];
+            const ne = [b.ne.lat, b.ne.lng];
+            const isSelected = (gh === selectedGeohash);
+
+            const rect = L.rectangle([sw, ne], {
+                color: isSelected ? outlineColor : '#cccccc',
+                weight: isSelected ? 3 : 1,
+                fillOpacity: 0.0,
+                opacity: 0.9,
+                interactive: false
+            });
+            gridLayer.addLayer(rect);
+
+            const center = [(b.sw.lat + b.ne.lat) / 2, (b.sw.lng + b.ne.lng) / 2];
+            const label = L.marker(center, {
+                icon: L.divIcon({
+                    className: 'gh-label',
+                    html: `<span class="gh-text">${gh}</span>`
+                }),
+                interactive: false
+            });
+            gridLayer.addLayer(label);
+        });
       }
 
       map.on("movestart", () => { pinnedPrecision = null; });
@@ -146,24 +183,28 @@
         const b = window.__geohash.bounds(g);
         pinnedPrecision = g.length;
         map.fitBounds([[b.sw.lat, b.sw.lng],[b.ne.lat, b.ne.lng]], { animate: false, padding: [8,8] });
-        // after fit, update overlay will render the exact cell
         selectedGeohash = g;
       }
       function getGeohash() { return selectedGeohash; }
+      
+      // Android side will call this with 'dark' or 'light'
+      function setMapTheme(theme) {
+        document.body.className = theme;
+      }
 
       window.setCenter = setCenter;
       window.setPrecision = setPrecision;
       window.focusGeohash = focusGeohash;
       window.getGeohash = getGeohash;
+      window.setMapTheme = setMapTheme;
 
       function cleanup() {
         try { map.off(); } catch (_) {}
-        try { if (cellRect) cellRect.remove(); } catch (_) {}
+        try { gridLayer.clearLayers(); } catch (_) {}
         try { map.remove(); } catch (_) {}
       }
       window.cleanup = cleanup;
 
-      // Initial draw once map is ready
       map.whenReady(updateOverlay);
     </script>
   </body>
