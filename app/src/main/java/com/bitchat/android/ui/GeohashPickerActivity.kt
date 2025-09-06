@@ -13,24 +13,36 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.view.updateLayoutParams
-import com.bitchat.android.geohash.Geohash
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.updateLayoutParams
+import com.bitchat.android.geohash.Geohash
+import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 
 @OptIn(ExperimentalMaterial3Api::class)
 class GeohashPickerActivity : ComponentActivity() {
@@ -56,39 +68,12 @@ class GeohashPickerActivity : ComponentActivity() {
                 var precision by remember { mutableStateOf(initialPrecision.coerceIn(1, 12)) }
                 var webViewRef by remember { mutableStateOf<WebView?>(null) }
 
-                Scaffold(
-                    topBar = {
-                        TopAppBar(
-                            title = { Text(text = if (currentGeohash.isNotEmpty()) "#${currentGeohash}" else "Select location") },
-                            actions = {
-                                IconButton(onClick = {
-                                    precision = (precision - 1).coerceAtLeast(1)
-                                    webViewRef?.evaluateJavascript("window.setPrecision($precision)", null)
-                                }) {
-                                    Icon(Icons.Filled.Remove, contentDescription = "Decrease precision")
-                                }
-                                IconButton(onClick = {
-                                    precision = (precision + 1).coerceAtMost(12)
-                                    webViewRef?.evaluateJavascript("window.setPrecision($precision)", null)
-                                }) {
-                                    Icon(Icons.Filled.Add, contentDescription = "Increase precision")
-                                }
-                                IconButton(onClick = {
-                                    // Retrieve current geohash from the page and return
-                                    webViewRef?.evaluateJavascript("window.getGeohash()") { value ->
-                                        // value comes quoted, remove quotes
-                                        val gh = value?.trim('"') ?: currentGeohash
-                                        val result = Intent().apply { putExtra(EXTRA_RESULT_GEOHASH, gh) }
-                                        setResult(Activity.RESULT_OK, result)
-                                        finish()
-                                    }
-                                }) {
-                                    Icon(Icons.Filled.Check, contentDescription = "Done")
-                                }
-                            }
-                        )
-                    }
-                ) { padding ->
+                // iOS system-like colors used across app
+                val colorScheme = MaterialTheme.colorScheme
+                val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
+                val standardGreen = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
+
+                Scaffold { padding ->
                     Box(Modifier.fillMaxSize()) {
                         AndroidView(
                             factory = { context ->
@@ -133,7 +118,9 @@ class GeohashPickerActivity : ComponentActivity() {
                                     loadUrl("file:///android_asset/geohash_picker.html")
                                 }
                             },
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(padding),
                             update = { webView ->
                                 webViewRef = webView
                                 // ensure it fills parent
@@ -153,6 +140,97 @@ class GeohashPickerActivity : ComponentActivity() {
                                 try { webView.destroy() } catch (_: Throwable) {}
                             }
                         )
+
+                        // Floating bottom controls
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(bottom = 20.dp, start = 16.dp, end = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            // Geohash label (monospace, app style)
+                            Surface(
+                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                                shape = RoundedCornerShape(12.dp),
+                                tonalElevation = 3.dp,
+                                shadowElevation = 6.dp
+                            ) {
+                                Text(
+                                    text = if (currentGeohash.isNotEmpty()) "#${currentGeohash}" else "select location",
+                                    fontSize = BASE_FONT_SIZE.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier
+                                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                                )
+                            }
+
+                            // Button row
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Decrease precision
+                                Button(
+                                    onClick = {
+                                        precision = (precision - 1).coerceAtLeast(1)
+                                        webViewRef?.evaluateJavascript("window.setPrecision($precision)", null)
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = standardGreen.copy(alpha = 0.12f),
+                                        contentColor = standardGreen
+                                    )
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Filled.Remove, contentDescription = "Decrease precision")
+                                    }
+                                }
+
+                                // Increase precision
+                                Button(
+                                    onClick = {
+                                        precision = (precision + 1).coerceAtMost(12)
+                                        webViewRef?.evaluateJavascript("window.setPrecision($precision)", null)
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = standardGreen.copy(alpha = 0.12f),
+                                        contentColor = standardGreen
+                                    )
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Filled.Add, contentDescription = "Increase precision")
+                                    }
+                                }
+
+                                // Select button
+                                Button(
+                                    onClick = {
+                                        webViewRef?.evaluateJavascript("window.getGeohash()") { value ->
+                                            val gh = value?.trim('"') ?: currentGeohash
+                                            val result = Intent().apply { putExtra(EXTRA_RESULT_GEOHASH, gh) }
+                                            setResult(Activity.RESULT_OK, result)
+                                            finish()
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
+                                        contentColor = MaterialTheme.colorScheme.onSurface
+                                    )
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Filled.Check, contentDescription = "Select geohash")
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            text = "select",
+                                            fontSize = (BASE_FONT_SIZE - 2).sp,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
