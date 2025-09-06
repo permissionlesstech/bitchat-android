@@ -23,6 +23,17 @@ class MessageManager(private val state: ChatState) {
         currentMessages.add(message)
         state.setMessages(currentMessages)
     }
+
+    // Log a system message into the main chat (visible to user)
+    fun addSystemMessage(text: String) {
+        val sys = BitchatMessage(
+            sender = "system",
+            content = text,
+            timestamp = Date(),
+            isRelay = false
+        )
+        addMessage(sys)
+    }
     
     fun clearMessages() {
         state.setMessages(emptyList())
