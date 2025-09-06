@@ -72,7 +72,7 @@ class CommandProcessor(
         } else {
             val systemMessage = BitchatMessage(
                 sender = "system",
-                content = "usage: /join <channel>",
+                content = context.getString(R.string.usage_join),
                 timestamp = Date(),
                 isRelay = false
             )
@@ -105,7 +105,7 @@ class CommandProcessor(
                     } else {
                         val systemMessage = BitchatMessage(
                             sender = "system",
-                            content = "started private chat with $targetName",
+                            content = context.getString(R.string.started_private_chat_fmt, targetName),
                             timestamp = Date(),
                             isRelay = false
                         )
@@ -115,7 +115,7 @@ class CommandProcessor(
             } else {
                 val systemMessage = BitchatMessage(
                     sender = "system",
-                    content = "user '$targetName' not found. they may be offline or using a different nickname.",
+                    content = context.getString(R.string.user_not_found_fmt, targetName),
                     timestamp = Date(),
                     isRelay = false
                 )
@@ -175,11 +175,8 @@ class CommandProcessor(
         
         val systemMessage = BitchatMessage(
             sender = "system",
-            content = if (peerList.isEmpty()) {
-                "no one else is around right now."
-            } else {
-                "$contextDescription: $peerList"
-            },
+            content = if (peerList.isEmpty()) context.getString(R.string.no_one_else_around)
+                      else context.getString(R.string.context_list_fmt, contextDescription, peerList),
             timestamp = Date(),
             isRelay = false
         )
@@ -211,7 +208,7 @@ class CommandProcessor(
         if (currentChannel == null) {
             val systemMessage = BitchatMessage(
                 sender = "system",
-                content = "you must be in a channel to set a password.",
+                content = context.getString(R.string.must_be_in_channel),
                 timestamp = Date(),
                 isRelay = false
             )

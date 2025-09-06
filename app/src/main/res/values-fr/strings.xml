@@ -200,6 +200,31 @@
     <string name="level_region">région</string>
     <string name="person_one">personne</string>
     <string name="people_many">personnes</string>
+    <string name="mesh_label">maillage</string>
+    <string name="location_services_required">Services de localisation requis</string>
+    <string name="privacy_first">Confidentialité d\’abord</string>
+    <string name="bt_required">Bluetooth requis</string>
+    <string name="bt_needs">bitchat a besoin du Bluetooth pour :</string>
+    <string name="bt_bullet_1">• Découvrir les utilisateurs à proximité</string>
+    <string name="bt_bullet_2">• Créer des connexions de réseau maillé</string>
+    <string name="bt_bullet_3">• Envoyer et recevoir des messages</string>
+    <string name="bt_bullet_4">• Fonctionner sans internet ni serveurs</string>
+    <string name="enable_bluetooth">Activer le Bluetooth</string>
+    <string name="bt_not_supported">Bluetooth non pris en charge</string>
+    <string name="bt_not_supported_paragraph">Cet appareil ne prend pas en charge Bluetooth Low Energy (BLE), requis pour le fonctionnement de bitchat.\n\nbitchat a besoin de BLE pour créer des réseaux maillés et communiquer avec des appareils à proximité sans internet.</string>
+    <string name="checking_bluetooth_status">Vérification de l\’état du Bluetooth…</string>
+    <string name="loc_bitchat_does_not_track">bitchat ne piste PAS votre position.\n\nLes services de localisation sont requis pour l\’analyse Bluetooth et pour la messagerie geohash.</string>
+    <string name="loc_needs">bitchat a besoin des services de localisation pour :</string>
+    <string name="loc_bullet_1">• Analyse des appareils Bluetooth</string>
+    <string name="loc_bullet_2">• Découvrir les utilisateurs proches sur le réseau maillé</string>
+    <string name="loc_bullet_3">• Fonction geohash</string>
+    <string name="loc_bullet_4">• Aucun pistage ni collecte de position</string>
+    <string name="open_location_settings">Ouvrir les paramètres de localisation</string>
+    <string name="check_again">Vérifier à nouveau</string>
+    <string name="loc_unavailable">Services de localisation indisponibles</string>
+    <string name="loc_unavailable_paragraph">Les services de localisation ne sont pas disponibles sur cet appareil. C\’est inhabituel car ils sont généralement présents sur Android.\n\nbitchat a besoin des services de localisation pour que l\’analyse Bluetooth fonctionne correctement (exigence Android). Sans cela, l\’app ne peut pas découvrir les utilisateurs à proximité.</string>
+    <string name="checking_location_services">Vérification des services de localisation…</string>
+    <string name="unknown_label">inconnu</string>
 
     <!-- Welcome message -->
     <string name="welcome_warmup">invitez les personnes autour de vous à télécharger bitchat et discutez ici avec elles !</string>

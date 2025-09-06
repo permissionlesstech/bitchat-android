@@ -201,7 +201,45 @@
     <string name="level_region">region</string>
     <string name="person_one">person</string>
     <string name="people_many">people</string>
+    <string name="mesh_label">mesh</string>
+    <string name="location_services_required">Location Services Required</string>
+    <string name="privacy_first">Privacy First</string>
+    <string name="bt_required">Bluetooth Required</string>
+    <string name="bt_needs">bitchat needs Bluetooth to:</string>
+    <string name="bt_bullet_1">• Discover nearby users</string>
+    <string name="bt_bullet_2">• Create mesh network connections</string>
+    <string name="bt_bullet_3">• Send and receive messages</string>
+    <string name="bt_bullet_4">• Work without internet or servers</string>
+    <string name="enable_bluetooth">Enable Bluetooth</string>
+    <string name="bt_not_supported">Bluetooth Not Supported</string>
+    <string name="bt_not_supported_paragraph">This device doesn\'t support Bluetooth Low Energy (BLE), which is required for bitchat to function.\n\nbitchat needs BLE to create mesh networks and communicate with nearby devices without internet.</string>
+    <string name="checking_bluetooth_status">Checking Bluetooth status...</string>
+    <string name="loc_bitchat_does_not_track">bitchat does NOT track your location.\n\nLocation services are required for Bluetooth scanning and for the Geohash chat feature.</string>
+    <string name="loc_needs">bitchat needs location services for:</string>
+    <string name="loc_bullet_1">• Bluetooth device scanning</string>
+    <string name="loc_bullet_2">• Discovering nearby users on mesh network</string>
+    <string name="loc_bullet_3">• Geohash chat feature</string>
+    <string name="loc_bullet_4">• No tracking or location collection</string>
+    <string name="open_location_settings">Open Location Settings</string>
+    <string name="check_again">Check Again</string>
+    <string name="loc_unavailable">Location Services Unavailable</string>
+    <string name="loc_unavailable_paragraph">Location services are not available on this device. This is unusual as location services are standard on Android devices.\n\nbitchat needs location services for Bluetooth scanning to work properly (Android requirement). Without this, the app cannot discover nearby users.</string>
+    <string name="checking_location_services">Checking location services...</string>
+    <string name="unknown_label">unknown</string>
 
     <!-- Welcome message -->
     <string name="welcome_warmup">get people around you to download bitchat and chat with them here!</string>
+    <string name="usage_join">usage: /join &lt;channel&gt;</string>
+    <string name="started_private_chat_fmt">started private chat with %1$s</string>
+    <string name="user_not_found_fmt">user '%1$s' not found. they may be offline or using a different nickname.</string>
+    <string name="no_one_else_around">no one else is around right now.</string>
+    <string name="context_list_fmt">%1$s: %2$s</string>
+    <string name="must_be_in_channel">you must be in a channel to set a password.</string>
+    <string name="must_be_creator">you must be the channel creator to set a password.</string>
+    <string name="password_changed_fmt">password changed for channel %1$s</string>
+    <string name="usage_msg">usage: /msg &lt;nickname&gt; [message]</string>
+    <string name="usage_pass">usage: /pass &lt;password&gt;</string>
+    <string name="no_channels_joined">no channels joined</string>
+    <string name="joined_channels_fmt">joined channels: %1$s</string>
+    <string name="unknown_command_fmt">unknown command: %1$s. type / to see available commands.</string>
 </resources>

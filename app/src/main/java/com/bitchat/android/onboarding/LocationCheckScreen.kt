@@ -78,7 +78,7 @@ private fun LocationDisabledContent(
         )
 
         Text(
-            text = "Location Services Required",
+            text = stringResource(id = R.string.location_services_required),
             style = MaterialTheme.typography.headlineSmall.copy(
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
@@ -111,7 +111,7 @@ private fun LocationDisabledContent(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Privacy First",
+                        text = stringResource(id = R.string.privacy_first),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = colorScheme.onSurface
@@ -120,7 +120,7 @@ private fun LocationDisabledContent(
                 }
                 
                 Text(
-                    text = "bitchat does NOT track your location.\n\nLocation services are required for Bluetooth scanning and for the Geohash chat feature.",
+                    text = stringResource(id = R.string.loc_bitchat_does_not_track),
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontFamily = FontFamily.Monospace,
                         color = colorScheme.onSurface.copy(alpha = 0.8f)
@@ -130,7 +130,7 @@ private fun LocationDisabledContent(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = "bitchat needs location services for:",
+                    text = stringResource(id = R.string.loc_needs),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.Medium,
                         color = colorScheme.onSurface
@@ -140,10 +140,10 @@ private fun LocationDisabledContent(
                 )
                 
                 Text(
-                    text = "• Bluetooth device scanning\n" +
-                            "• Discovering nearby users on mesh network\n" +
-                            "• Geohash chat feature\n" +
-                            "• No tracking or location collection",
+                    text = stringResource(id = R.string.loc_bullet_1) + "\n" +
+                            stringResource(id = R.string.loc_bullet_2) + "\n" +
+                            stringResource(id = R.string.loc_bullet_3) + "\n" +
+                            stringResource(id = R.string.loc_bullet_4),
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontFamily = FontFamily.Monospace,
                         color = colorScheme.onSurface.copy(alpha = 0.8f)
@@ -167,7 +167,7 @@ private fun LocationDisabledContent(
                     )
                 ) {
                     Text(
-                        text = "Open Location Settings",
+                        text = stringResource(id = R.string.open_location_settings),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold
@@ -181,7 +181,7 @@ private fun LocationDisabledContent(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "Check Again",
+                        text = stringResource(id = R.string.check_again),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = FontFamily.Monospace
                         ),
@@ -210,7 +210,7 @@ private fun LocationNotAvailableContent(
         )
 
         Text(
-            text = "Location Services Unavailable",
+            text = stringResource(id = R.string.loc_unavailable),
             style = MaterialTheme.typography.headlineSmall.copy(
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
@@ -227,7 +227,7 @@ private fun LocationNotAvailableContent(
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Text(
-                text = "Location services are not available on this device. This is unusual as location services are standard on Android devices.\n\nbitchat needs location services for Bluetooth scanning to work properly (Android requirement). Without this, the app cannot discover nearby users.",
+                text = stringResource(id = R.string.loc_unavailable_paragraph),
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontFamily = FontFamily.Monospace,
                     color = colorScheme.onSurface

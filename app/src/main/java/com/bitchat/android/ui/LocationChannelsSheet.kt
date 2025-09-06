@@ -571,10 +571,11 @@ private fun splitTitleAndCount(title: String): Pair<String, String?> {
     }
 }
 
+@Composable
 private fun meshTitleWithCount(viewModel: ChatViewModel): String {
     val meshCount = meshCount(viewModel)
-    val noun = if (meshCount == 1) "person" else "people"
-    return "mesh [$meshCount $noun]"
+    val noun = if (meshCount == 1) stringResource(id = R.string.person_one) else stringResource(id = R.string.people_many)
+    return stringResource(id = R.string.mesh_label) + " [" + meshCount + " " + noun + "]"
 }
 
 private fun meshCount(viewModel: ChatViewModel): Int {
