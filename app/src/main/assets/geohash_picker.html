@@ -9,8 +9,21 @@
       .leaflet-container { background: #ffffff; }
       .leaflet-div-icon { background: transparent; border: none; }
       .gh-label { background: transparent; border: none; pointer-events: none; filter: none; }
-      .gh-text { color: #555555; font-weight: 700; letter-spacing: 0.5px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; line-height: 1; text-shadow: none; }
-      .dark .gh-text { color: #bbbbbb; }
+      .gh-text {
+        color: #444444;
+        font-weight: 700;
+        font-size: 14px;
+        line-height: 1;
+        text-shadow: 0 0 2px #ffffff, 0 0 2px #ffffff, 0 0 2px #ffffff;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      }
+      .dark .gh-text {
+        color: #dddddd;
+        text-shadow: 0 0 2px #000000, 0 0 2px #000000, 0 0 2px #000000;
+      }
+      .gh-text-selected {
+        color: #00C851 !important;
+      }
     </style>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   </head>
@@ -155,10 +168,11 @@
             gridLayer.addLayer(rect);
 
             const center = [(b.sw.lat + b.ne.lat) / 2, (b.sw.lng + b.ne.lng) / 2];
+            const labelClass = isSelected ? 'gh-text gh-text-selected' : 'gh-text';
             const label = L.marker(center, {
                 icon: L.divIcon({
                     className: 'gh-label',
-                    html: `<span class="gh-text">${gh}</span>`
+                    html: `<span class="${labelClass}">${gh}</span>`
                 }),
                 interactive: false
             });
