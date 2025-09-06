@@ -277,7 +277,6 @@ class BluetoothConnectionTracker(
     fun cleanupDeviceConnection(deviceAddress: String) {
         connectedDevices.remove(deviceAddress)?.let { deviceConn ->
             subscribedDevices.removeAll { it.address == deviceAddress }
-            addressPeerMap.remove(deviceAddress)
         }
         pendingConnections.remove(deviceAddress)
         Log.d(TAG, "Cleaned up device connection for $deviceAddress")

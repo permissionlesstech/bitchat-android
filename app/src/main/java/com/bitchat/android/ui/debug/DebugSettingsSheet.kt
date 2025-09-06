@@ -172,6 +172,8 @@ fun DebugSettingsSheet(
                                 steps = 30
                             )
                         }
+                        val overallCount = connectedDevices.size
+                        Text("connections: $overallCount / $maxOverall", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("max overall", fontFamily = FontFamily.Monospace, modifier = Modifier.width(90.dp))
                             Slider(
@@ -217,36 +219,66 @@ fun DebugSettingsSheet(
                         }
                         val maxValRaw = series.maxOrNull() ?: 0f
                         val maxVal = if (maxValRaw > 0f) maxValRaw else 0f
-                        Box(Modifier.fillMaxWidth().height(48.dp)) {
+                        val leftGutter = 40.dp
+                        Box(Modifier.fillMaxWidth().height(56.dp)) {
+                            // Graph canvas
                             androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
-                                val axisPx = 28.dp.toPx() // leave room on left for ticks
+                                val axisPx = leftGutter.toPx() // reserved left gutter for labels
                                 val barCount = series.size
                                 val availW = (size.width - axisPx).coerceAtLeast(1f)
                                 val w = availW / barCount
                                 val h = size.height
-                                // draw baseline at y=0 (bottom)
+                                // Baseline at bottom (y = 0)
                                 drawLine(
                                     color = Color(0x33888888),
                                     start = androidx.compose.ui.geometry.Offset(axisPx, h - 1f),
                                     end = androidx.compose.ui.geometry.Offset(size.width, h - 1f),
                                     strokeWidth = 1f
                                 )
+                                // Bars from bottom-up; skip zeros entirely
                                 series.forEachIndexed { i, value ->
-                                    val ratio = if (maxVal > 0f) (value / maxVal).coerceIn(0f, 1f) else 0f // min always 0
-                                    val barHeight = h * ratio
-                                    // Draw bars from bottom up, starting after left axis area
-                                    drawRect(
-                                        color = Color(0xFF00C851),
-                                        topLeft = androidx.compose.ui.geometry.Offset(x = axisPx + i * w, y = h - barHeight),
-                                        size = androidx.compose.ui.geometry.Size(w, barHeight)
-                                    )
+                                    if (value > 0f && maxVal > 0f) {
+                                        val ratio = (value / maxVal).coerceIn(0f, 1f)
+                                        val barHeight = (h * ratio).coerceAtLeast(0f)
+                                        if (barHeight > 0.5f) {
+                                            drawRect(
+                                                color = Color(0xFF00C851),
+                                                topLeft = androidx.compose.ui.geometry.Offset(x = axisPx + i * w, y = h - barHeight),
+                                                size = androidx.compose.ui.geometry.Size(w, barHeight)
+                                            )
+                                        }
+                                    }
                                 }
                             }
-                            // Y-axis ticks (min/max) in the left margin
-                            Text("0", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = colorScheme.onSurface.copy(alpha = 0.7f), modifier = Modifier.align(Alignment.BottomStart).padding(start = 4.dp, bottom = 2.dp))
-                            Text("${maxVal.toInt()}", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = colorScheme.onSurface.copy(alpha = 0.7f), modifier = Modifier.align(Alignment.TopStart).padding(start = 4.dp, top = 2.dp))
-                            // Y-axis unit label (vertical)
-                            Text("p/s", fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = colorScheme.onSurface.copy(alpha = 0.7f), modifier = Modifier.align(Alignment.CenterStart).padding(start = 2.dp).rotate(-90f))
+                            // Left gutter layout: unit + ticks neatly aligned
+                            Row(Modifier.fillMaxSize()) {
+                                Box(Modifier.width(leftGutter).fillMaxHeight()) {
+                                    // Unit label on the far left, centered vertically
+                                    Text(
+                                        "p/s",
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 10.sp,
+                                        color = colorScheme.onSurface.copy(alpha = 0.7f),
+                                        modifier = Modifier.align(Alignment.CenterStart).padding(start = 2.dp).rotate(-90f)
+                                    )
+                                    // Tick labels right-aligned in gutter, top and bottom aligned
+                                    Text(
+                                        "${maxVal.toInt()}",
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 10.sp,
+                                        color = colorScheme.onSurface.copy(alpha = 0.7f),
+                                        modifier = Modifier.align(Alignment.TopEnd).padding(end = 4.dp, top = 0.dp)
+                                    )
+                                    Text(
+                                        "0",
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 10.sp,
+                                        color = colorScheme.onSurface.copy(alpha = 0.7f),
+                                        modifier = Modifier.align(Alignment.BottomEnd).padding(end = 4.dp, bottom = 0.dp)
+                                    )
+                                }
+                                Spacer(Modifier.weight(1f))
+                            }
                         }
                     }
                 }
