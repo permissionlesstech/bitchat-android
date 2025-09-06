@@ -159,6 +159,46 @@ class BluetoothPacketBroadcaster(
             }
         }
     }
+
+    /**
+     * Targeted send to a specific peer (by peerID) if directly connected.
+     * Returns true if sent to at least one matching connection.
+     */
+    fun sendToPeer(
+        targetPeerID: String,
+        routed: RoutedPacket,
+        gattServer: BluetoothGattServer?,
+        characteristic: BluetoothGattCharacteristic?
+    ): Boolean {
+        val packet = routed.packet
+        val data = packet.toBinaryData() ?: return false
+        val typeName = MessageType.fromValue(packet.type)?.name ?: packet.type.toString()
+        val senderPeerID = routed.peerID ?: packet.senderID.toHexString()
+        val incomingAddr = routed.relayAddress
+        val incomingPeer = incomingAddr?.let { connectionTracker.addressPeerMap[it] }
+        val senderNick = senderPeerID.let { pid -> nicknameResolver?.invoke(pid) }
+
+        // Try server-side connections first
+        val targetDevice = connectionTracker.getSubscribedDevices()
+            .firstOrNull { connectionTracker.addressPeerMap[it.address] == targetPeerID }
+        if (targetDevice != null) {
+            if (notifyDevice(targetDevice, data, gattServer, characteristic)) {
+                logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, targetPeerID, targetDevice.address, packet.ttl)
+                return true
+            }
+        }
+
+        // Try client-side connections next
+        val targetConn = connectionTracker.getConnectedDevices().values
+            .firstOrNull { connectionTracker.addressPeerMap[it.device.address] == targetPeerID }
+        if (targetConn != null) {
+            if (writeToDeviceConn(targetConn, data)) {
+                logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, targetPeerID, targetConn.device.address, packet.ttl)
+                return true
+            }
+        }
+        return false
+    }
     
     /**
      * Internal broadcast implementation - runs in serialized actor context
