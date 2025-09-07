@@ -1480,9 +1480,8 @@ class NostrGeohashService(
                     val seen = com.bitchat.android.services.SeenMessageStore.getInstance(application)
                     privateChatManager.handleIncomingPrivateMessage(message, suppressUnread = seen.hasRead(messageId))
 
-                    // IMPORTANT: Ensure this sender appears in geohash people list even if they've never posted a public geo message
+                    // Ensure the sender appears in the geohash people list (not as mesh offline contact)
                     try {
-                        // Record participant activity for this geohash and refresh list if this is the current geohash
                         updateGeohashParticipant(geohash, senderPubkey, messageTimestamp)
                         if (currentGeohash == geohash) {
                             withContext(Dispatchers.Main) { refreshGeohashPeople() }
@@ -1503,6 +1502,7 @@ class NostrGeohashService(
                         // Mark message as read persistently
                         try { seen.markRead(messageId) } catch (_: Exception) { }
                     }
+                    
                 }
                 
                 com.bitchat.android.model.NoisePayloadType.DELIVERED -> {

@@ -443,12 +443,16 @@ fun PeopleSection(
             appendedOfflineIds.add(favPeerID)
         }
 
-        // Also show any incoming Nostr chats that exist locally but are not in connected peers or favorites yet
-        // This ensures a user can open and read Nostr messages while the sender remains offline
+        // NOTE: Do NOT append Nostr-only (nostr_*) conversations to the mesh people list.
+        // Geohash DMs should appear in the GeohashPeople list for the active geohash, not in mesh offline contacts.
+        // We intentionally remove previously-added behavior that mixed geohash DMs into mesh sidebar.
+        // If you need to surface non-geohash offline mesh conversations in the future, do it here for 64-hex noise IDs only.
+        /*
         val alreadyShownIds = connectedIds + appendedOfflineIds
         privateChats.keys
             .filter { key ->
-                (key.startsWith("nostr_") || hex64Regex.matches(key)) &&
+                // Only include 64-hex noise IDs (mesh identities); exclude any nostr_* aliases
+                hex64Regex.matches(key) &&
                 !alreadyShownIds.contains(key) &&
                 // Skip if this key maps to a connected peer via noiseHex mapping
                 !noiseHexByPeerID.values.any { it.equals(key, ignoreCase = true) }
@@ -460,24 +464,27 @@ fun PeopleSection(
                 val (bName, _) = com.bitchat.android.ui.splitSuffix(dn)
                 val showHash = (baseNameCounts[bName] ?: 0) > 1
 
-            PeerItem(
-                peerID = convKey,
-                displayName = dn,
-                isDirect = false,
-                isSelected = convKey == selectedPrivatePeer,
-                isFavorite = false,
-                hasUnreadDM = hasUnreadPrivateMessages.contains(convKey),
-                colorScheme = colorScheme,
-                viewModel = viewModel,
+                PeerItem(
+                    peerID = convKey,
+                    displayName = dn,
+                    isDirect = false,
+                    isSelected = convKey == selectedPrivatePeer,
+                    isFavorite = false,
+                    hasUnreadDM = hasUnreadPrivateMessages.contains(convKey),
+                    colorScheme = colorScheme,
+                    viewModel = viewModel,
                     onItemClick = { onPrivateChatStart(convKey) },
                     onToggleFavorite = { viewModel.toggleFavorite(convKey) },
                     unreadCount = privateChats[convKey]?.count { msg ->
                         msg.sender != nickname && hasUnreadPrivateMessages.contains(convKey)
                     } ?: if (hasUnreadPrivateMessages.contains(convKey)) 1 else 0,
-                    showNostrGlobe = true,
+                    showNostrGlobe = false,
                     showHashSuffix = showHash
                 )
             }
+        */
+        // End intentional removal
+        
     }
 }
 
