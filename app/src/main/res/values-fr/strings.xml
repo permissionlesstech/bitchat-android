@@ -228,5 +228,20 @@
 
     <!-- Welcome message -->
     <string name="welcome_warmup">invitez les personnes autour de vous à télécharger bitchat et discutez ici avec elles !</string>
+
+    <!-- Commands and feedback -->
+    <string name="usage_join">utilisation : /join &lt;canal&gt;</string>
+    <string name="started_private_chat_fmt">discussion privée démarrée avec %1$s</string>
+    <string name="user_not_found_fmt">utilisateur « %1$s » introuvable. il peut être hors ligne ou utiliser un autre pseudo.</string>
+    <string name="no_one_else_around">personne d’autre n’est présent pour le moment.</string>
+    <string name="context_list_fmt">%1$s : %2$s</string>
+    <string name="must_be_in_channel">vous devez être dans un canal pour définir un mot de passe.</string>
+    <string name="must_be_creator">vous devez être le créateur du canal pour définir un mot de passe.</string>
+    <string name="password_changed_fmt">mot de passe modifié pour le canal %1$s</string>
+    <string name="usage_msg">utilisation : /msg &lt;pseudo&gt; [message]</string>
+    <string name="usage_pass">utilisation : /pass &lt;mot de passe&gt;</string>
+    <string name="no_channels_joined">aucun canal rejoint</string>
+    <string name="joined_channels_fmt">canaux rejoints : %1$s</string>
+    <string name="unknown_command_fmt">commande inconnue : %1$s. tapez / pour voir les commandes disponibles.</string>
 </resources>
 

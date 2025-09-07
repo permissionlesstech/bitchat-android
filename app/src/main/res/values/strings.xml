@@ -229,6 +229,8 @@
 
     <!-- Welcome message -->
     <string name="welcome_warmup">get people around you to download bitchat and chat with them here!</string>
+    
+    <!-- Commands and feedback -->
     <string name="usage_join">usage: /join &lt;channel&gt;</string>
     <string name="started_private_chat_fmt">started private chat with %1$s</string>
     <string name="user_not_found_fmt">user "%1$s" not found. they may be offline or using a different nickname.</string>
