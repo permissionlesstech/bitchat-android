@@ -43,7 +43,7 @@ class NostrDirectMessageHandler(
         return false
     }
 
-    fun onGiftWrap(giftWrap: NostrEvent, identity: NostrIdentity) {
+    fun onGiftWrap(giftWrap: NostrEvent, geohash: String, identity: NostrIdentity) {
         scope.launch(Dispatchers.Default) {
             try {
                 if (dedupe(giftWrap.id)) return@launch
@@ -70,6 +70,18 @@ class NostrDirectMessageHandler(
                 val messageTimestamp = Date(rumorTimestamp * 1000L)
                 val convKey = "nostr_${senderPubkey.take(16)}"
                 repo.putNostrKeyMapping(convKey, senderPubkey)
+                com.bitchat.android.nostr.GeohashAliasRegistry.put(convKey, senderPubkey)
+
+                // Ensure sender appears in geohash people list even if they haven't posted publicly yet
+                if (geohash.isNotEmpty()) {
+                    // Cache a best-effort nickname and mark as participant
+                    val cached = repo.getCachedNickname(senderPubkey)
+                    if (cached == null) {
+                        val base = repo.displayNameForNostrPubkeyUI(senderPubkey).substringBefore("#")
+                        repo.cacheNickname(senderPubkey, base)
+                    }
+                    repo.updateParticipant(geohash, senderPubkey, messageTimestamp)
+                }
 
                 val senderNickname = repo.displayNameForNostrPubkeyUI(senderPubkey)
 

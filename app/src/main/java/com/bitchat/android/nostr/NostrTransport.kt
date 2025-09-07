@@ -411,9 +411,18 @@ class NostrTransport(
     fun sendPrivateMessageGeohash(
         content: String,
         toRecipientHex: String,
-        fromIdentity: NostrIdentity,
         messageID: String
     ) {
+        // Derive current geohash identity automatically from LocationChannelManager
+        val selected = try { com.bitchat.android.geohash.LocationChannelManager.getInstance(context).selectedChannel.value } catch (_: Exception) { null }
+        if (selected !is com.bitchat.android.geohash.ChannelID.Location) {
+            Log.w(TAG, "NostrTransport: cannot send geohash PM - not in a location channel")
+            return
+        }
+        val fromIdentity = try { NostrIdentityBridge.deriveIdentity(selected.channel.geohash, context) } catch (e: Exception) {
+            Log.e(TAG, "NostrTransport: cannot derive geohash identity: ${e.message}")
+            return
+        }
         transportScope.launch {
             try {
                 if (toRecipientHex.isEmpty()) return@launch

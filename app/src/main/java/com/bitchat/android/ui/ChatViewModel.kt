@@ -70,7 +70,7 @@ class ChatViewModel(
     )
     
     // New Geohash architecture ViewModel (replaces God object service usage in UI path)
-    private val geohashViewModel = com.bitchat.android.ui.GeohashViewModel(
+    private val geohashViewModel = GeohashViewModel(
         application = application,
         state = state,
         messageManager = messageManager,
@@ -311,7 +311,7 @@ class ChatViewModel(
                 connectedPeers = state.getConnectedPeersValue(),
                 meshNoiseKeyForPeer = { pid -> meshService.getPeerInfo(pid)?.noisePublicKey },
                 meshHasPeer = { pid -> meshService.getPeerInfo(pid)?.isConnected == true },
-                nostrPubHexForAlias = { alias -> nostrGeohashService.getNostrKeyMapping()[alias] },
+                nostrPubHexForAlias = { alias -> com.bitchat.android.nostr.GeohashAliasRegistry.get(alias) },
                 findNoiseKeyForNostr = { key -> com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNoiseKey(key) }
             ).also { canonical ->
                 if (canonical != state.getSelectedPrivateChatPeerValue()) {
@@ -336,7 +336,7 @@ class ChatViewModel(
             val selectedLocationChannel = state.selectedLocationChannel.value
             if (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location) {
                 // Send to geohash channel via Nostr ephemeral event
-                nostrGeohashService.sendGeohashMessage(content, selectedLocationChannel.channel, meshService.myPeerID, state.getNicknameValue())
+                geohashViewModel.sendGeohashMessage(content, selectedLocationChannel.channel, meshService.myPeerID, state.getNicknameValue())
             } else {
                 // Send public/channel message via mesh
                 val message = BitchatMessage(
@@ -700,7 +700,7 @@ class ChatViewModel(
     }
 
     fun selectLocationChannel(channel: com.bitchat.android.geohash.ChannelID) {
-        nostrGeohashService.selectLocationChannel(channel)
+        geohashViewModel.selectLocationChannel(channel)
     }
 
     /**

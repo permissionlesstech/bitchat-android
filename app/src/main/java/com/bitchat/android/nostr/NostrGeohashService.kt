@@ -25,6 +25,7 @@ import kotlin.random.Random
  * Service responsible for all Nostr and Geohash business logic extracted from ChatViewModel
  * Maintains 100% iOS compatibility and exact same functionality
  */
+@Deprecated("Use GeohashViewModel + GeohashRepository + NostrSubscriptionManager stack. This service remains only as a legacy facade for a few send helpers that are being migrated.")
 class NostrGeohashService(
     private val application: Application,
     private val state: ChatState,
@@ -1459,6 +1460,17 @@ class NostrGeohashService(
                     val senderHandle = displayNameForNostrPubkey(senderPubkey)
                     val senderName = displayNameForNostrPubkeyUI(senderPubkey)
                     val isViewingThisChat = state.getSelectedPrivateChatPeerValue() == convKey
+
+                    // If we don't yet have a cached nickname for this pubkey (hasn't posted publicly),
+                    // cache a best-effort base name derived from the DM context so they appear in the
+                    // geohash peer list immediately (iOS-style behavior).
+                    runCatching {
+                        val pubkeyLower = senderPubkey.lowercase()
+                        if (!geoNicknames.containsKey(pubkeyLower)) {
+                            val baseName = senderName.substringBefore("#")
+                            geoNicknames[pubkeyLower] = baseName
+                        }
+                    }
                     
                     val message = BitchatMessage(
                         id = messageId,
@@ -1669,7 +1681,6 @@ class NostrGeohashService(
                 nostrTransport.sendPrivateMessageGeohash(
                     content = content,
                     toRecipientHex = recipientHex,
-                    fromIdentity = senderIdentity,
                     messageID = messageID
                 )
                 

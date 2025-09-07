@@ -48,11 +48,12 @@ class GeohashViewModel(
         subscriptionManager.connect()
         val identity = NostrIdentityBridge.getCurrentNostrIdentity(getApplication())
         if (identity != null) {
+            // Use global chat-messages only for full account DMs (mesh context). For geohash DMs, subscribe per-geohash below.
             subscriptionManager.subscribeGiftWraps(
                 pubkey = identity.publicKeyHex,
                 sinceMs = System.currentTimeMillis() - 172800000L,
                 id = "chat-messages",
-                handler = { event -> dmHandler.onGiftWrap(event, identity) }
+                handler = { event -> dmHandler.onGiftWrap(event, "", identity) } // geohash="" means global account DM (not geohash identity)
             )
         }
         try {
@@ -219,8 +220,10 @@ class GeohashViewModel(
                         pubkey = dmIdentity.publicKeyHex,
                         sinceMs = System.currentTimeMillis() - 172800000L,
                         id = dmSubId,
-                        handler = { event -> dmHandler.onGiftWrap(event, dmIdentity) }
+                        handler = { event -> dmHandler.onGiftWrap(event, geohash, dmIdentity) }
                     )
+                    // Also register alias in global registry for routing convenience
+                    com.bitchat.android.nostr.GeohashAliasRegistry.put("nostr_${dmIdentity.publicKeyHex.take(16)}", dmIdentity.publicKeyHex)
                 }
             }
             null -> {
