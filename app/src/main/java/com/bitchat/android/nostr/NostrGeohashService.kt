@@ -626,6 +626,17 @@ class NostrGeohashService(
                 com.bitchat.android.favorites.FavoritesPersistenceService.shared.updatePeerFavoritedUs(noiseKey, isFavorite)
                 if (npub != null) {
                     com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateNostrPublicKey(noiseKey, npub)
+                    // Also index by current mesh peerID when available (best-effort)
+                    try {
+                        val peers = state.getConnectedPeersValue()
+                        val mappedPeer = peers.firstOrNull { pid ->
+                            meshDelegateHandler.getPeerInfo(pid)?.noisePublicKey?.contentEquals(noiseKey) == true
+                        }
+                        if (mappedPeer != null) {
+                            com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateNostrPublicKeyForPeerID(mappedPeer, npub)
+                        }
+                    } catch (_: Exception) { }
+
                 }
             }
         } catch (_: Exception) {

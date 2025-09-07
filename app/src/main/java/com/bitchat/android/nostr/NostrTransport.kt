@@ -56,8 +56,7 @@ class NostrTransport(
                 // Resolve favorite by full noise key or by short peerID fallback
                 var recipientNostrPubkey: String? = null
                 
-                // Try to resolve from favorites persistence service
-                // This would need integration with the existing favorites system
+                // Resolve by peerID first (new peerID→npub index), then fall back to noise key mapping
                 recipientNostrPubkey = resolveNostrPublicKey(to)
                 
                 if (recipientNostrPubkey == null) {
@@ -458,14 +457,15 @@ class NostrTransport(
      */
     private fun resolveNostrPublicKey(peerID: String): String? {
         try {
-            // Try to resolve from favorites persistence service
+            // 1) Fast path: direct peerID→npub mapping (mutual favorites after mesh mapping)
+            com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNostrPubkeyForPeerID(peerID)?.let { return it }
+
+            // 2) Legacy path: resolve by noise public key association
             val noiseKey = hexStringToByteArray(peerID)
             val favoriteStatus = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)
-            if (favoriteStatus?.peerNostrPublicKey != null) {
-                return favoriteStatus.peerNostrPublicKey
-            }
-            
-            // Fallback: try with 16-hex peerID lookup
+            if (favoriteStatus?.peerNostrPublicKey != null) return favoriteStatus.peerNostrPublicKey
+
+            // 3) Prefix match on noiseHex from 16-hex peerID
             if (peerID.length == 16) {
                 val fallbackStatus = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(peerID)
                 return fallbackStatus?.peerNostrPublicKey
