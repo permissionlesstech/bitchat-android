@@ -11,6 +11,7 @@ import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.nostr.NostrGeohashService
+import com.bitchat.android.ui.GeohashViewModel
 import kotlinx.coroutines.launch
 import com.bitchat.android.util.NotificationIntervalManager
 import kotlinx.coroutines.delay
@@ -68,7 +69,18 @@ class ChatViewModel(
         getMeshService = { meshService }
     )
     
-    // Nostr and Geohash service - initialize singleton
+    // New Geohash architecture ViewModel (replaces God object service usage in UI path)
+    private val geohashViewModel = GeohashViewModel(
+        application = application,
+        state = state,
+        messageManager = messageManager,
+        privateChatManager = privateChatManager,
+        meshDelegateHandler = meshDelegateHandler,
+        dataManager = dataManager,
+        notificationManager = notificationManager
+    )
+
+    // Legacy facade retained for BluetoothMeshService static access (DM send/read over Nostr)
     private val nostrGeohashService = NostrGeohashService.initialize(
         application = application,
         state = state,
@@ -79,6 +91,7 @@ class ChatViewModel(
         dataManager = dataManager,
         notificationManager = notificationManager
     )
+
 
     // Expose state through LiveData (maintaining the same interface)
     val messages: LiveData<List<BitchatMessage>> = state.messages
@@ -168,8 +181,8 @@ class ChatViewModel(
             }
         }
         
-        // Initialize location channel state
-        nostrGeohashService.initializeLocationChannelState()
+        // Initialize new geohash architecture
+        geohashViewModel.initialize()
 
         // Initialize favorites persistence service
         com.bitchat.android.favorites.FavoritesPersistenceService.initialize(getApplication())
