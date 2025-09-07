@@ -55,6 +55,18 @@ class MessageRouter private constructor(
     }
 
     fun sendPrivate(content: String, toPeerID: String, recipientNickname: String, messageID: String) {
+        // First: if this is a geohash DM alias managed by NostrGeohashService, route there
+        val geo = runCatching { com.bitchat.android.nostr.NostrGeohashService.getInstance(context.applicationContext as android.app.Application) }.getOrNull()
+        val isGeoAlias = try {
+            val map = geo?.getNostrKeyMapping() ?: emptyMap()
+            map.containsKey(toPeerID)
+        } catch (_: Exception) { false }
+        if (isGeoAlias) {
+            Log.d(TAG, "Routing PM via Nostr (geohash) to alias ${toPeerID.take(12)}… id=${messageID.take(8)}…")
+            runCatching { geo?.sendNostrGeohashDM(content, toPeerID, messageID, mesh.myPeerID) }
+            return
+        }
+
         val hasMesh = mesh.getPeerInfo(toPeerID)?.isConnected == true
         val hasEstablished = mesh.hasEstablishedSession(toPeerID)
         if (hasMesh && hasEstablished) {
@@ -84,7 +96,13 @@ class MessageRouter private constructor(
 
     fun sendDeliveryAck(messageID: String, toPeerID: String) {
         // Mesh delivery ACKs are sent by the receiver automatically.
-        // Only route via Nostr when mesh path isn't available.
+        // Only route via Nostr when mesh path isn't available or when this is a geohash alias
+        val geo = runCatching { com.bitchat.android.nostr.NostrGeohashService.getInstance(context.applicationContext as android.app.Application) }.getOrNull()
+        val isGeoAlias = try { geo?.getNostrKeyMapping()?.containsKey(toPeerID) == true } catch (_: Exception) { false }
+        if (isGeoAlias && geo != null) {
+            geo.sendNostrGeohashDeliveryAck(messageID, toPeerID, mesh.myPeerID)
+            return
+        }
         if (!((mesh.getPeerInfo(toPeerID)?.isConnected == true) && mesh.hasEstablishedSession(toPeerID))) {
             nostr.sendDeliveryAck(messageID, toPeerID)
         }

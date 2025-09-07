@@ -1480,6 +1480,15 @@ class NostrGeohashService(
                     val seen = com.bitchat.android.services.SeenMessageStore.getInstance(application)
                     privateChatManager.handleIncomingPrivateMessage(message, suppressUnread = seen.hasRead(messageId))
 
+                    // IMPORTANT: Ensure this sender appears in geohash people list even if they've never posted a public geo message
+                    try {
+                        // Record participant activity for this geohash and refresh list if this is the current geohash
+                        updateGeohashParticipant(geohash, senderPubkey, messageTimestamp)
+                        if (currentGeohash == geohash) {
+                            withContext(Dispatchers.Main) { refreshGeohashPeople() }
+                        }
+                    } catch (_: Exception) { }
+
                     // Send delivery ACK for geohash DMs only once
                     if (!seen.hasDelivered(messageId)) {
                         val nostrTransport = NostrTransport.getInstance(application)
@@ -1671,6 +1680,42 @@ class NostrGeohashService(
             }
         }
     }
+
+    /**
+     * Send delivery ack via Nostr for geohash contacts
+     */
+    fun sendNostrGeohashDeliveryAck(messageID: String, recipientPeerID: String, myPeerID: String) {
+        coroutineScope.launch {
+            try {
+                val locationChannelManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(application)
+                val selectedChannel = locationChannelManager.selectedChannel.value
+                if (selectedChannel !is com.bitchat.android.geohash.ChannelID.Location) {
+                    Log.w(TAG, "Cannot send geohash delivery ack: not in a location channel")
+                    return@launch
+                }
+                val recipientHex = nostrKeyMapping[recipientPeerID]
+                if (recipientHex == null) {
+                    Log.w(TAG, "Cannot send geohash delivery ack: no public key mapping for $recipientPeerID")
+                    return@launch
+                }
+                val senderIdentity = NostrIdentityBridge.deriveIdentity(
+                    forGeohash = selectedChannel.channel.geohash,
+                    context = application
+                )
+                val nostrTransport = NostrTransport.getInstance(application)
+                nostrTransport.senderPeerID = myPeerID
+                nostrTransport.sendDeliveryAckGeohash(
+                    messageID = messageID,
+                    toRecipientHex = recipientHex,
+                    fromIdentity = senderIdentity
+                )
+                Log.d(TAG, "📤 Sent geohash delivery ack for $messageID to $recipientPeerID via Nostr")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send geohash delivery ack: ${e.message}")
+            }
+        }
+    }
+
     
     /**
      * Send read receipt via Nostr for geohash contacts

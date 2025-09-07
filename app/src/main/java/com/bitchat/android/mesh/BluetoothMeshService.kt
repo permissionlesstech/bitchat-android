@@ -546,24 +546,12 @@ class BluetoothMeshService(private val context: Context) {
      */
     fun sendPrivateMessage(content: String, recipientPeerID: String, recipientNickname: String, messageID: String? = null) {
         if (content.isEmpty() || recipientPeerID.isEmpty()) return
-        if (!recipientPeerID.startsWith("nostr_") && recipientNickname.isEmpty()) return
+        if (recipientNickname.isEmpty()) return
         
         serviceScope.launch {
             val finalMessageID = messageID ?: java.util.UUID.randomUUID().toString()
             
             Log.d(TAG, "📨 Sending PM to $recipientPeerID: ${content.take(30)}...")
-            
-            // Check if this is a Nostr contact (geohash DM)
-            if (recipientPeerID.startsWith("nostr_")) {
-                // Get NostrGeohashService instance and send via Nostr
-                try {
-                    val nostrGeohashService = com.bitchat.android.nostr.NostrGeohashService.getInstance(context.applicationContext as android.app.Application)
-                    nostrGeohashService.sendNostrGeohashDM(content, recipientPeerID, finalMessageID, myPeerID)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to send Nostr geohash DM: ${e.message}")
-                }
-                return@launch
-            }
             
             // Check if we have an established Noise session
             if (encryptionService.hasEstablishedSession(recipientPeerID)) {
@@ -632,15 +620,14 @@ class BluetoothMeshService(private val context: Context) {
         serviceScope.launch {
             Log.d(TAG, "📖 Sending read receipt for message $messageID to $recipientPeerID")
             
-            // Check if this is a Nostr contact (geohash DM)
-            if (recipientPeerID.startsWith("nostr_")) {
-                // Get NostrGeohashService instance and send read receipt via Nostr
-                try {
-                    val nostrGeohashService = com.bitchat.android.nostr.NostrGeohashService.getInstance(context.applicationContext as android.app.Application)
-                    nostrGeohashService.sendNostrGeohashReadReceipt(messageID, recipientPeerID, myPeerID)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to send Nostr geohash read receipt: ${e.message}")
-                }
+            // Route geohash read receipts via MessageRouter instead of here
+            val geo = runCatching { com.bitchat.android.services.MessageRouter.tryGetInstance() }.getOrNull()
+            val isGeoAlias = try {
+                val map = runCatching { com.bitchat.android.nostr.NostrGeohashService.getInstance(context.applicationContext as android.app.Application).getNostrKeyMapping() }.getOrNull()
+                map?.containsKey(recipientPeerID) == true
+            } catch (_: Exception) { false }
+            if (isGeoAlias && geo != null) {
+                geo.sendReadReceipt(com.bitchat.android.model.ReadReceipt(messageID), recipientPeerID)
                 return@launch
             }
             
