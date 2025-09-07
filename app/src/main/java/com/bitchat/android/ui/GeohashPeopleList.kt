@@ -8,6 +8,8 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material3.*
+import androidx.compose.ui.res.stringResource
+import com.bitchat.android.R
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
@@ -182,7 +184,7 @@ private fun GeohashPersonItem(
             // Unread DM indicator (orange envelope)
             Icon(
                 imageVector = Icons.Filled.Email,
-                contentDescription = "Unread message",
+                contentDescription = stringResource(id = R.string.content_desc_unread_message),
                 modifier = Modifier.size(12.dp),
                 tint = Color(0xFFFF9500) // iOS orange
             )

@@ -14,6 +14,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.bitchat.android.R
 
 /**
  * Screen shown when checking Bluetooth status or requesting Bluetooth enable
@@ -69,7 +71,7 @@ private fun BluetoothDisabledContent(
         // Bluetooth icon - using Bluetooth outlined icon in app's green color
         Icon(
             imageVector = Icons.Outlined.Bluetooth,
-            contentDescription = "Bluetooth",
+            contentDescription = stringResource(id = R.string.content_desc_bluetooth),
             modifier = Modifier.size(64.dp),
             tint = Color(0xFF00C851) // App's main green color
         )
@@ -184,7 +186,7 @@ private fun BluetoothNotSupportedContent(
         }
 
         Text(
-            text = "Bluetooth Not Supported",
+            text = stringResource(id = R.string.bt_not_supported),
             style = MaterialTheme.typography.headlineSmall.copy(
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
@@ -201,7 +203,7 @@ private fun BluetoothNotSupportedContent(
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Text(
-                text = "This device doesn't support Bluetooth Low Energy (BLE), which is required for bitchat to function.\n\nbitchat needs BLE to create mesh networks and communicate with nearby devices without internet.",
+                text = stringResource(id = R.string.bt_not_supported_paragraph),
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontFamily = FontFamily.Monospace,
                     color = colorScheme.onSurface
@@ -222,7 +224,7 @@ private fun BluetoothCheckingContent(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "bitchat",
+            text = stringResource(id = R.string.app_name),
             style = MaterialTheme.typography.headlineLarge.copy(
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
@@ -234,7 +236,7 @@ private fun BluetoothCheckingContent(
         BluetoothLoadingIndicator()
 
         Text(
-            text = "Checking Bluetooth status...",
+            text = stringResource(id = R.string.checking_bluetooth_status),
             style = MaterialTheme.typography.bodyLarge.copy(
                 fontFamily = FontFamily.Monospace,
                 color = colorScheme.onSurface.copy(alpha = 0.7f)

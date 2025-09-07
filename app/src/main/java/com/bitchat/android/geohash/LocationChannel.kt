@@ -5,11 +5,11 @@ package com.bitchat.android.geohash
  * Direct port from iOS implementation for 100% compatibility
  */
 enum class GeohashChannelLevel(val precision: Int, val displayName: String) {
-    BLOCK(7, "Block"),
-    NEIGHBORHOOD(6, "Neighborhood"),
-    CITY(5, "City"),
-    PROVINCE(4, "Province"),
-    REGION(2, "REGION");
+    BLOCK(7, "block"),
+    NEIGHBORHOOD(6, "neighborhood"),
+    CITY(5, "city"),
+    PROVINCE(4, "province"),
+    REGION(2, "region");
     
     companion object {
         fun allCases(): List<GeohashChannelLevel> = values().toList()

@@ -18,6 +18,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.res.stringResource
+import com.bitchat.android.R
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -62,7 +64,7 @@ fun TorStatusIcon(
         }
         Icon(
             imageVector = Icons.Outlined.Cable,
-            contentDescription = "Tor status",
+            contentDescription = stringResource(id = R.string.content_desc_tor_status),
             modifier = modifier,
             tint = cableColor
         )
@@ -209,7 +211,7 @@ fun PeerCounter(
             // Filled mail icon to match sidebar style
             Icon(
                 imageVector = Icons.Filled.Email,
-                contentDescription = "Unread private messages",
+                contentDescription = stringResource(id = R.string.content_desc_unread_private_messages),
                 modifier = Modifier.size(16.dp),
                 tint = Color(0xFFFF9500) // Orange to match private message theme
             )
@@ -384,7 +386,7 @@ private fun PrivateChatHeader(
             ) {
                 Icon(
                     imageVector = Icons.Filled.ArrowBack,
-                    contentDescription = "Back",
+                    contentDescription = stringResource(id = R.string.content_desc_back),
                     modifier = Modifier.size(16.dp),
                     tint = colorScheme.primary
                 )
@@ -416,7 +418,7 @@ private fun PrivateChatHeader(
             if (showGlobe) {
                 Icon(
                     imageVector = Icons.Outlined.Public,
-                    contentDescription = "Nostr reachable",
+                    contentDescription = stringResource(id = R.string.content_desc_nostr_reachable),
                     modifier = Modifier.size(14.dp),
                     tint = Color(0xFF9B59B6) // Purple like iOS
                 )
@@ -474,7 +476,7 @@ private fun ChannelHeader(
             ) {
                 Icon(
                     imageVector = Icons.Filled.ArrowBack,
-                    contentDescription = "Back",
+                    contentDescription = stringResource(id = R.string.content_desc_back),
                     modifier = Modifier.size(16.dp),
                     tint = colorScheme.primary
                 )
@@ -637,7 +639,7 @@ private fun LocationChannelsButton(
                 Spacer(modifier = Modifier.width(2.dp))
                 Icon(
                     imageVector = Icons.Default.PinDrop,
-                    contentDescription = "Teleported",
+                    contentDescription = stringResource(id = R.string.content_desc_teleported),
                     modifier = Modifier.size(12.dp),
                     tint = badgeColor
                 )

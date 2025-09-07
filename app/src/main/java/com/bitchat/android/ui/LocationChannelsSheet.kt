@@ -33,6 +33,8 @@ import com.bitchat.android.geohash.LocationChannelManager
 import java.util.*
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.res.stringResource
+import com.bitchat.android.R
 
 /**
  * Location Channels Sheet for selecting geohash-based location channels
@@ -381,7 +383,7 @@ fun LocationChannelsSheet(
                                             // iOS has a face.dashed icon, use closest Material equivalent
                                             Icon(
                                                 imageVector = Icons.Filled.PinDrop,
-                                                contentDescription = "Teleport",
+                                                contentDescription = stringResource(id = R.string.content_desc_teleport),
                                                 modifier = Modifier.size(14.dp),
                                                 tint = MaterialTheme.colorScheme.onSurface
                                             )
@@ -569,10 +571,11 @@ private fun splitTitleAndCount(title: String): Pair<String, String?> {
     }
 }
 
+@Composable
 private fun meshTitleWithCount(viewModel: ChatViewModel): String {
     val meshCount = meshCount(viewModel)
-    val noun = if (meshCount == 1) "person" else "people"
-    return "mesh [$meshCount $noun]"
+    val noun = if (meshCount == 1) stringResource(id = R.string.person_one) else stringResource(id = R.string.people_many)
+    return stringResource(id = R.string.mesh_label) + " [" + meshCount + " " + noun + "]"
 }
 
 private fun meshCount(viewModel: ChatViewModel): Int {
@@ -582,8 +585,9 @@ private fun meshCount(viewModel: ChatViewModel): Int {
     } ?: 0
 }
 
+@Composable
 private fun geohashTitleWithCount(channel: GeohashChannel, participantCount: Int): String {
-    val noun = if (participantCount == 1) "person" else "people"
+    val noun = if (participantCount == 1) stringResource(id = R.string.person_one) else stringResource(id = R.string.people_many)
     return "${channel.level.displayName.lowercase()} [$participantCount $noun]"
 }
 

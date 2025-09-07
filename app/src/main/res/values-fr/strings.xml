@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+    <string name="permission_bluetooth_rationale">L’autorisation Bluetooth est requise pour la messagerie pair à pair sans Internet.</string>
+    <string name="permission_location_rationale">L’autorisation de localisation est requise pour découvrir les appareils à proximité via Bluetooth.</string>
+    <string name="permission_notification_rationale">L’autorisation de notification est requise pour vous alerter des nouveaux messages.</string>
+    <string name="nickname_hint">pseudo</string>
+    <string name="message_hint">écrire un message…</string>
+    <string name="channel_password_hint">Mot de passe</string>
+    <string name="join_channel">Rejoindre le canal</string>
+    <string name="leave_channel">Quitter</string>
+    <string name="send_message">Envoyer</string>
+    <string name="show_commands">Afficher les commandes</string>
+    <string name="back">Retour</string>
+    <string name="people">Personnes</string>
+    <string name="channels">Canaux</string>
+    <string name="online_users">Utilisateurs en ligne</string>
+    <string name="no_one_connected">Personne connecté</string>
+    <string name="emergency_clear_hint">Touchez trois fois pour effacer toutes les données</string>
+    <string name="your_network">Réseau</string>
+
+    <!-- Battery Optimization Strings -->
+    <string name="battery_optimization_detected">Optimisation de la batterie détectée</string>
+    <string name="battery_optimization_disabled">Optimisation de la batterie désactivée</string>
+    <string name="battery_optimization_not_required">Optimisation de la batterie non requise</string>
+    <string name="battery_optimization_checking">Vérification de l’optimisation de la batterie</string>
+    <string name="battery_optimization_why_disable">Pourquoi désactiver l’optimisation de la batterie ?</string>
+    <string name="battery_optimization_explanation">bitchat fonctionne en arrière-plan pour maintenir les connexions du réseau maillé avec les appareils à proximité. L’optimisation de la batterie peut interrompre ces connexions, entraînant des messages retardés ou manqués.\n\nDésactiver l’optimisation de la batterie garantit une messagerie pair à pair fiable.</string>
+    <string name="battery_optimization_disable_button">Désactiver l’optimisation de la batterie</string>
+    <string name="battery_optimization_note">Remarque : vous pouvez modifier ce paramètre plus tard dans Paramètres Android &gt; Applications &gt; bitchat &gt; Batterie</string>
+    <string name="battery_optimization_not_supported_explanation">Votre appareil n’a pas besoin de paramètres d’optimisation de la batterie. bitchat fonctionnera normalement.</string>
+    <string name="battery_optimization_not_supported_message">Votre appareil n’a pas besoin de paramètres d’optimisation de la batterie. bitchat fonctionnera normalement.</string>
+    <string name="battery_optimization_success_message">bitchat peut fonctionner de manière fiable en arrière-plan</string>
+    <string name="battery_optimization_benefits">• Garantit une livraison fiable des messages\n• Maintient la connectivité du réseau maillé\n• Autorise la retransmission des messages en arrière-plan\n• Empêche les coupures de connexion</string>
+    <string name="battery_optimization_check_again">Vérifier à nouveau</string>
+    <string name="battery_optimization_skip">Passer pour l’instant</string>
+    <string name="battery_optimization_continue">Continuer</string>
+    <string name="retry">Réessayer</string>
+    <string name="skip">Passer</string>
+
+    <!-- General labels and placeholders -->
+    <string name="label_you">Vous</string>
+    <string name="mention_label">mention</string>
+    <string name="slash" translatable="false">/</string>
+
+    <!-- Content descriptions for accessibility -->
+    <string name="content_desc_channels_icon">Canaux</string>
+    <string name="content_desc_people_icon">Personnes</string>
+    <string name="content_desc_leave_channel">Quitter le canal</string>
+    <string name="content_desc_unread_message">Message non lu</string>
+    <string name="content_desc_reachable_via_nostr">Joignable via Nostr</string>
+    <string name="content_desc_direct_bluetooth">Bluetooth direct</string>
+    <string name="content_desc_routed">Routé</string>
+    <string name="content_desc_favorite_add">Ajouter aux favoris</string>
+    <string name="content_desc_favorite_remove">Retirer des favoris</string>
+    <string name="content_desc_battery_optimization">Optimisation de la batterie</string>
+    <string name="content_desc_checking_battery_optimization">Vérification de l’optimisation de la batterie</string>
+    <string name="content_desc_battery_optimization_not_supported">Optimisation de la batterie non prise en charge</string>
+
+    <!-- Delivery status symbols (non-translatable) -->
+    <string name="delivery_status_sending_symbol" translatable="false">○</string>
+    <string name="delivery_status_sent_symbol" translatable="false">○</string>
+    <string name="delivery_status_delivered_symbol" translatable="false">✓</string>
+    <string name="delivery_status_read_symbol" translatable="false">✓✓</string>
+    <string name="delivery_status_failed_symbol" translatable="false">⚠</string>
+
+    <!-- General/common strings -->
+    <string name="link">Lien</string>
+    <string name="appearance">apparence</string>
+    <string name="system_theme">système</string>
+    <string name="light_theme">clair</string>
+    <string name="dark_theme">sombre</string>
+
+    <!-- Content descriptions additional -->
+    <string name="content_desc_pow_mining">Minage PoW</string>
+    <string name="content_desc_pow_enabled">PoW activé</string>
+    <string name="content_desc_proof_of_work">Preuve de travail</string>
+    <string name="content_desc_teleport">Téléporter</string>
+    <string name="content_desc_link">Lien</string>
+    <string name="content_desc_scroll_to_bottom">Aller en bas</string>
+    <string name="content_desc_tor_status">Statut Tor</string>
+    <string name="content_desc_unread_private_messages">Messages privés non lus</string>
+    <string name="content_desc_back">Retour</string>
+    <string name="content_desc_nostr_reachable">Joignable via Nostr</string>
+    <string name="content_desc_teleported">Téléporté</string>
+    <string name="content_desc_warning">Avertissement</string>
+    <string name="content_desc_location_services">Services de localisation</string>
+    <string name="content_desc_privacy">Confidentialité</string>
+    <string name="content_desc_error">Erreur</string>
+    <string name="content_desc_bluetooth">Bluetooth</string>
+
+    <!-- Sidebar/Badges -->
+    <string name="unread_overflow_99_plus" translatable="false">99+</string>
+
+    <!-- About sheet -->
+    <string name="about_tagline">messagerie maillée décentralisée avec chiffrement de bout en bout</string>
+    <string name="about_feature_offline_mesh_title">messagerie maillée hors ligne</string>
+    <string name="about_feature_offline_mesh_desc">communiquez directement via bluetooth le sans internet ni serveurs. les messages sont relayés par les appareils à proximité pour étendre la portée.</string>
+    <string name="about_feature_geohash_title">canaux geohash en ligne</string>
+    <string name="about_feature_geohash_desc">connectez-vous avec des personnes de votre région via des canaux basés sur geohash. étendez le maillage à l’aide de relais internet publics.</string>
+    <string name="about_feature_e2e_title">chiffrement de bout en bout</string>
+    <string name="about_feature_e2e_desc">les messages privés sont chiffrés. les messages des canaux sont publics.</string>
+    <string name="about_proof_of_work">preuve de travail</string>
+    <string name="about_pow_off">pow désactivé</string>
+    <string name="about_pow_on">pow activé</string>
+    <string name="about_pow_desc">ajoutez une preuve de travail aux messages geohash pour dissuader le spam.</string>
+    <string name="about_difficulty_bits">difficulté : %1$d bits (~%2$s)</string>
+    <string name="about_difficulty_hash_attempts">difficulté %1$d nécessite ~%2$s tentatives de hachage</string>
+    <string name="about_difficulty_none">aucune preuve de travail requise</string>
+    <string name="about_difficulty_very_low">très faible - protection anti-spam minimale</string>
+    <string name="about_difficulty_low">faible - protection anti-spam basique</string>
+    <string name="about_difficulty_medium">moyenne - bonne protection anti-spam</string>
+    <string name="about_difficulty_high">élevée - protection anti-spam forte</string>
+    <string name="about_difficulty_very_high">très élevée - peut causer des retards</string>
+    <string name="about_difficulty_extreme">extrême - calcul important requis</string>
+    <string name="about_network">réseau</string>
+    <string name="about_tor_off">tor désactivé</string>
+    <string name="about_tor_on">tor activé</string>
+    <string name="about_tor_desc">redirigez internet via tor pour une confidentialité renforcée.</string>
+    <string name="about_tor_status_running">en cours d’exécution</string>
+    <string name="about_tor_status_stopped">arrêté</string>
+    <string name="about_last">dernier :</string>
+    <string name="about_emergency_title">suppression d’urgence des données</string>
+    <string name="about_emergency_tip">astuce : appuyez trois fois sur le titre de l’application pour supprimer d’urgence toutes les données stockées, y compris les messages, les clés et les paramètres.</string>
+    <string name="about_footer">open source • confidentialité d’abord • décentralisé</string>
+
+    <!-- Dialogs / prompts -->
+    <string name="enter_channel_password_title">Entrer le mot de passe du canal</string>
+    <string name="enter_channel_password_body">Le canal %1$s est protégé par mot de passe. Entrez le mot de passe pour le rejoindre.</string>
+    <string name="join">Rejoindre</string>
+    <string name="cancel">Annuler</string>
+
+    <!-- Location channels sheet -->
+    <string name="location_channels_header">#canaux de localisation</string>
+    <string name="location_channels_desc">discutez avec des personnes proches via des canaux geohash. seul un geohash approximatif est partagé, jamais le GPS exact. ne faites pas de capture d’écran et ne partagez pas cet écran pour protéger votre confidentialité.</string>
+    <string name="grant_location_permission">autoriser l’accès à la localisation</string>
+    <string name="location_permission_denied">autorisation de localisation refusée. activez-la dans les paramètres pour utiliser les canaux de localisation.</string>
+    <string name="location_permission_granted">✓ autorisation de localisation accordée</string>
+    <string name="checking_permissions">vérification des autorisations…</string>
+    <string name="finding_nearby_channels">recherche des canaux à proximité…</string>
+    <string name="geohash_placeholder">geohash</string>
+    <string name="teleport">téléporter</string>
+    <string name="invalid_geohash">geohash invalide</string>
+    <string name="disable_location_services">désactiver les services de localisation</string>
+    <string name="enable_location_services">activer les services de localisation</string>
+
+    <!-- Notifications -->
+    <string name="channel_name_dm">Messages directs</string>
+    <string name="channel_desc_dm">Notifications pour les messages privés d’autres utilisateurs</string>
+    <string name="channel_name_geohash">Discussions Geohash</string>
+    <string name="channel_desc_geohash">Notifications pour les mentions et messages dans les canaux de localisation geohash</string>
+    <string name="notif_and_more">et %1$d de plus</string>
+    <string name="notif_and_more_conversations">et %1$d conversations de plus</string>
+    <string name="notif_and_more_locations">et %1$d emplacements de plus</string>
+    <string name="notif_new_messages">Nouveaux messages</string>
+    <string name="notif_new_location_messages">Nouveaux messages de localisation</string>
+    <string name="notif_title_active_peers">👥 utilisateurs bitchat à proximité !</string>
+    <string name="notif_people_around_one">1 personne autour</string>
+    <string name="notif_people_around_many">%1$d personnes autour</string>
+    <string name="notif_app_name">bitchat</string>
+    <string name="notif_summary_messages_from_people">%1$d messages de %2$d personnes</string>
+    <string name="notif_mesh_mentioned_one">Mention dans le chat maillé</string>
+    <string name="notif_mesh_mentioned_many">%1$d mentions dans le chat maillé</string>
+    <string name="notif_geohash_mentions_title">bitchat - %1$d mentions</string>
+    <string name="notif_geohash_location_chats">bitchat - discussions par localisation</string>
+    <string name="notif_geohash_summary_messages_from_locations">%1$d messages de %2$d emplacements</string>
+
+    <!-- Onboarding: Initializing -->
+    <string name="initializing_mesh_network">Initialisation du réseau maillé</string>
+    <string name="setting_up_bluetooth_mesh">Configuration du réseau maillé Bluetooth…</string>
+    <string name="initializing_note_seconds">Cela ne devrait prendre que quelques secondes</string>
+    <string name="setup_not_complete">Configuration incomplète</string>
+    <string name="try_again">Réessayer</string>
+    <string name="open_settings">Ouvrir les paramètres</string>
+
+    <!-- Onboarding: Permission explanation -->
+    <string name="welcome_to_app">Bienvenue sur %1$s</string>
+    <string name="decentralized_mesh_bluetooth">Messagerie maillée décentralisée via Bluetooth</string>
+    <string name="privacy_protected">Votre confidentialité est protégée</string>
+    <string name="privacy_points">• %1$s ne vous piste pas et ne collecte pas de données personnelles\n• Les conversations maillées Bluetooth sont entièrement hors ligne et sans internet\n• Les canaux geohash utilisent internet mais votre position est généralisée\n• Vos messages restent sur votre appareil et ceux des pairs uniquement</string>
+    <string name="needs_permissions_intro">Pour fonctionner correctement, %1$s a besoin de ces autorisations :</string>
+    <string name="does_not_track_location">%1$s ne suit PAS votre position</string>
+
+    <!-- Command helper descriptions -->
+    <string name="app_cmd_block_desc">bloquer ou lister les pairs bloqués</string>
+    <string name="app_cmd_channels_desc">afficher tous les canaux découverts</string>
+    <string name="app_cmd_clear_desc">effacer les messages du chat</string>
+    <string name="app_cmd_hug_desc">envoyer un câlin</string>
+    <string name="app_cmd_join_desc">rejoindre ou créer un canal</string>
+    <string name="app_cmd_msg_desc">envoyer un message privé</string>
+    <string name="app_cmd_slap_desc">gifler quelqu’un avec une truite</string>
+    <string name="app_cmd_unblock_desc">débloquer un pair</string>
+    <string name="app_cmd_w_desc">voir qui est en ligne</string>
+
+    <!-- Geohash level labels and people nouns -->
+    <string name="level_block">bloc</string>
+    <string name="level_neighborhood">quartier</string>
+    <string name="level_city">ville</string>
+    <string name="level_province">province</string>
+    <string name="level_region">région</string>
+    <string name="person_one">personne</string>
+    <string name="people_many">personnes</string>
+    <string name="mesh_label">maillage</string>
+    <string name="location_services_required">Services de localisation requis</string>
+    <string name="privacy_first">Confidentialité d\’abord</string>
+    <string name="bt_required">Bluetooth requis</string>
+    <string name="bt_needs">bitchat a besoin du Bluetooth pour :</string>
+    <string name="bt_bullet_1">• Découvrir les utilisateurs à proximité</string>
+    <string name="bt_bullet_2">• Créer des connexions de réseau maillé</string>
+    <string name="bt_bullet_3">• Envoyer et recevoir des messages</string>
+    <string name="bt_bullet_4">• Fonctionner sans internet ni serveurs</string>
+    <string name="enable_bluetooth">Activer le Bluetooth</string>
+    <string name="bt_not_supported">Bluetooth non pris en charge</string>
+    <string name="bt_not_supported_paragraph">Cet appareil ne prend pas en charge Bluetooth Low Energy (BLE), requis pour le fonctionnement de bitchat.\n\nbitchat a besoin de BLE pour créer des réseaux maillés et communiquer avec des appareils à proximité sans internet.</string>
+    <string name="checking_bluetooth_status">Vérification de l\’état du Bluetooth…</string>
+    <string name="loc_bitchat_does_not_track">bitchat ne piste PAS votre position.\n\nLes services de localisation sont requis pour l\’analyse Bluetooth et pour la messagerie geohash.</string>
+    <string name="loc_needs">bitchat a besoin des services de localisation pour :</string>
+    <string name="loc_bullet_1">• Analyse des appareils Bluetooth</string>
+    <string name="loc_bullet_2">• Découvrir les utilisateurs proches sur le réseau maillé</string>
+    <string name="loc_bullet_3">• Fonction geohash</string>
+    <string name="loc_bullet_4">• Aucun pistage ni collecte de position</string>
+    <string name="open_location_settings">Ouvrir les paramètres de localisation</string>
+    <string name="check_again">Vérifier à nouveau</string>
+    <string name="loc_unavailable">Services de localisation indisponibles</string>
+    <string name="loc_unavailable_paragraph">Les services de localisation ne sont pas disponibles sur cet appareil. C\’est inhabituel car ils sont généralement présents sur Android.\n\nbitchat a besoin des services de localisation pour que l\’analyse Bluetooth fonctionne correctement (exigence Android). Sans cela, l\’app ne peut pas découvrir les utilisateurs à proximité.</string>
+    <string name="checking_location_services">Vérification des services de localisation…</string>
+    <string name="unknown_label">inconnu</string>
+
+    <!-- Welcome message -->
+    <string name="welcome_warmup">invitez les personnes autour de vous à télécharger bitchat et discutez ici avec elles !</string>
+
+    <!-- Commands and feedback -->
+    <string name="usage_join">utilisation : /join &lt;canal&gt;</string>
+    <string name="started_private_chat_fmt">discussion privée démarrée avec %1$s</string>
+    <string name="user_not_found_fmt">utilisateur « %1$s » introuvable. il peut être hors ligne ou utiliser un autre pseudo.</string>
+    <string name="no_one_else_around">personne d’autre n’est présent pour le moment.</string>
+    <string name="context_list_fmt">%1$s : %2$s</string>
+    <string name="must_be_in_channel">vous devez être dans un canal pour définir un mot de passe.</string>
+    <string name="must_be_creator">vous devez être le créateur du canal pour définir un mot de passe.</string>
+    <string name="password_changed_fmt">mot de passe modifié pour le canal %1$s</string>
+    <string name="usage_msg">utilisation : /msg &lt;pseudo&gt; [message]</string>
+    <string name="usage_pass">utilisation : /pass &lt;mot de passe&gt;</string>
+    <string name="no_channels_joined">aucun canal rejoint</string>
+    <string name="joined_channels_fmt">canaux rejoints : %1$s</string>
+    <string name="unknown_command_fmt">commande inconnue : %1$s. tapez / pour voir les commandes disponibles.</string>
+</resources>
+

@@ -1,5 +1,7 @@
 package com.bitchat.android.ui
 
+import android.content.Context
+import com.bitchat.android.R
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
 import java.util.Date
@@ -11,20 +13,21 @@ class CommandProcessor(
     private val state: ChatState,
     private val messageManager: MessageManager,
     private val channelManager: ChannelManager,
-    private val privateChatManager: PrivateChatManager
+    private val privateChatManager: PrivateChatManager,
+    private val context: Context
 ) {
     
     // Available commands list
     private val baseCommands = listOf(
-        CommandSuggestion("/block", emptyList(), "[nickname]", "block or list blocked peers"),
-        CommandSuggestion("/channels", emptyList(), null, "show all discovered channels"),
-        CommandSuggestion("/clear", emptyList(), null, "clear chat messages"),
-        CommandSuggestion("/hug", emptyList(), "<nickname>", "send someone a warm hug"),
-        CommandSuggestion("/j", listOf("/join"), "<channel>", "join or create a channel"),
-        CommandSuggestion("/m", listOf("/msg"), "<nickname> [message]", "send private message"),
-        CommandSuggestion("/slap", emptyList(), "<nickname>", "slap someone with a trout"),
-        CommandSuggestion("/unblock", emptyList(), "<nickname>", "unblock a peer"),
-        CommandSuggestion("/w", emptyList(), null, "see who's online")
+        CommandSuggestion("/block", emptyList(), "[nickname]", context.getString(R.string.app_cmd_block_desc)),
+        CommandSuggestion("/channels", emptyList(), null, context.getString(R.string.app_cmd_channels_desc)),
+        CommandSuggestion("/clear", emptyList(), null, context.getString(R.string.app_cmd_clear_desc)),
+        CommandSuggestion("/hug", emptyList(), "<nickname>", context.getString(R.string.app_cmd_hug_desc)),
+        CommandSuggestion("/j", listOf("/join"), "<channel>", context.getString(R.string.app_cmd_join_desc)),
+        CommandSuggestion("/m", listOf("/msg"), "<nickname> [message]", context.getString(R.string.app_cmd_msg_desc)),
+        CommandSuggestion("/slap", emptyList(), "<nickname>", context.getString(R.string.app_cmd_slap_desc)),
+        CommandSuggestion("/unblock", emptyList(), "<nickname>", context.getString(R.string.app_cmd_unblock_desc)),
+        CommandSuggestion("/w", emptyList(), null, context.getString(R.string.app_cmd_w_desc))
     )
     
     // MARK: - Command Processing
@@ -69,7 +72,7 @@ class CommandProcessor(
         } else {
             val systemMessage = BitchatMessage(
                 sender = "system",
-                content = "usage: /join <channel>",
+                content = context.getString(R.string.usage_join),
                 timestamp = Date(),
                 isRelay = false
             )
@@ -102,7 +105,7 @@ class CommandProcessor(
                     } else {
                         val systemMessage = BitchatMessage(
                             sender = "system",
-                            content = "started private chat with $targetName",
+                            content = context.getString(R.string.started_private_chat_fmt, targetName),
                             timestamp = Date(),
                             isRelay = false
                         )
@@ -112,7 +115,7 @@ class CommandProcessor(
             } else {
                 val systemMessage = BitchatMessage(
                     sender = "system",
-                    content = "user '$targetName' not found. they may be offline or using a different nickname.",
+                    content = context.getString(R.string.user_not_found_fmt, targetName),
                     timestamp = Date(),
                     isRelay = false
                 )
@@ -172,11 +175,8 @@ class CommandProcessor(
         
         val systemMessage = BitchatMessage(
             sender = "system",
-            content = if (peerList.isEmpty()) {
-                "no one else is around right now."
-            } else {
-                "$contextDescription: $peerList"
-            },
+            content = if (peerList.isEmpty()) context.getString(R.string.no_one_else_around)
+                      else context.getString(R.string.context_list_fmt, contextDescription, peerList),
             timestamp = Date(),
             isRelay = false
         )
@@ -208,7 +208,7 @@ class CommandProcessor(
         if (currentChannel == null) {
             val systemMessage = BitchatMessage(
                 sender = "system",
-                content = "you must be in a channel to set a password.",
+                content = context.getString(R.string.must_be_in_channel),
                 timestamp = Date(),
                 isRelay = false
             )

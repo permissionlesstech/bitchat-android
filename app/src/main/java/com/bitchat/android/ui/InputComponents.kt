@@ -200,7 +200,7 @@ fun MessageInput(
             // Show placeholder when there's no text
             if (value.text.isEmpty()) {
                 Text(
-                    text = "type a message...",
+                    text = stringResource(id = R.string.message_hint),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontFamily = FontFamily.Monospace
                     ),
@@ -221,7 +221,7 @@ fun MessageInput(
                 modifier = Modifier.size(32.dp)
             ) {
                 Text(
-                    text = "/",
+                    text = stringResource(id = R.string.slash),
                     textAlign = TextAlign.Center
                 )
             }
@@ -408,7 +408,7 @@ fun MentionSuggestionItem(
         Spacer(modifier = Modifier.weight(1f))
         
         Text(
-            text = "mention",
+            text = stringResource(id = R.string.mention_label),
             style = MaterialTheme.typography.bodySmall.copy(
                 fontFamily = FontFamily.Monospace
             ),

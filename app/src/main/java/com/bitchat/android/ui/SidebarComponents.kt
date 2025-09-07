@@ -186,7 +186,7 @@ fun ChannelsSection(
         ) {
             Icon(
                 imageVector = Icons.Default.Person, // Using Person icon as placeholder
-                contentDescription = null,
+                contentDescription = stringResource(id = R.string.content_desc_people_icon),
                 modifier = Modifier.size(10.dp),
                 tint = colorScheme.onSurface.copy(alpha = 0.6f)
             )
@@ -236,7 +236,7 @@ fun ChannelsSection(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "Leave channel",
+                        contentDescription = stringResource(id = R.string.content_desc_leave_channel),
                         modifier = Modifier.size(14.dp),
                         tint = colorScheme.onSurface.copy(alpha = 0.5f)
                     )
@@ -258,6 +258,7 @@ fun PeopleSection(
     onPrivateChatStart: (String) -> Unit
 ) {
     Column {
+        val youLabel = stringResource(id = R.string.label_you)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -266,7 +267,7 @@ fun PeopleSection(
         ) {
             Icon(
                 imageVector = Icons.Default.Group, // Using Person icon for people
-                contentDescription = null,
+                contentDescription = stringResource(id = R.string.content_desc_people_icon),
                 modifier = Modifier.size(12.dp),
                 tint = colorScheme.onSurface.copy(alpha = 0.6f)
             )
@@ -317,7 +318,7 @@ fun PeopleSection(
             compareBy<String> { !hasUnreadPrivateMessages.contains(it) } // Unread DM senders first
             .thenByDescending { privateChats[it]?.maxByOrNull { msg -> msg.timestamp }?.timestamp?.time ?: 0L } // Most recent DM (convert Date to Long)
             .thenBy { !(peerFavoriteStates[it] ?: false) } // Favorites first
-            .thenBy { (if (it == nickname) "You" else (peerNicknames[it] ?: it)).lowercase() } // Alphabetical
+            .thenBy { (if (it == nickname) youLabel else (peerNicknames[it] ?: it)).lowercase() } // Alphabetical
         )
         
         // Build a map of base name counts across all people shown in the list (connected + offline + nostr)
@@ -325,7 +326,7 @@ fun PeopleSection(
 
         // Helper to compute display name used for a given key
         fun computeDisplayNameForPeerId(key: String): String {
-            return if (key == nickname) "You" else (peerNicknames[key] ?: (privateChats[key]?.lastOrNull()?.sender ?: key.take(12)))
+            return if (key == nickname) youLabel else (peerNicknames[key] ?: (privateChats[key]?.lastOrNull()?.sender ?: key.take(12)))
         }
 
         
@@ -336,7 +337,7 @@ fun PeopleSection(
         sortedPeers.forEach { pid ->
             val dn = computeDisplayNameForPeerId(pid)
             val (b, _) = com.bitchat.android.ui.splitSuffix(dn)
-            if (b != "You") baseNameCounts[b] = (baseNameCounts[b] ?: 0) + 1
+            if (b != youLabel) baseNameCounts[b] = (baseNameCounts[b] ?: 0) + 1
         }
 
         // Offline favorites (exclude ones mapped to connected)
@@ -347,7 +348,7 @@ fun PeopleSection(
             if (!isMappedToConnected) {
                 val dn = peerNicknames[favPeerID] ?: fav.peerNickname
                 val (b, _) = com.bitchat.android.ui.splitSuffix(dn)
-                if (b != "You") baseNameCounts[b] = (baseNameCounts[b] ?: 0) + 1
+                if (b != youLabel) baseNameCounts[b] = (baseNameCounts[b] ?: 0) + 1
             }
         }
 
@@ -363,7 +364,7 @@ fun PeopleSection(
             .forEach { convKey ->
                 val dn = peerNicknames[convKey] ?: (privateChats[convKey]?.lastOrNull()?.sender ?: convKey.take(12))
                 val (b, _) = com.bitchat.android.ui.splitSuffix(dn)
-                if (b != "You") baseNameCounts[b] = (baseNameCounts[b] ?: 0) + 1
+                if (b != youLabel) baseNameCounts[b] = (baseNameCounts[b] ?: 0) + 1
             }
 
         sortedPeers.forEach { peerID ->
@@ -380,7 +381,7 @@ fun PeopleSection(
                 if (noiseHex != null) privateChats[noiseHex]?.count { msg -> msg.sender != nickname && nostrUnread } ?: 0 else 0
             )
 
-            val displayName = if (peerID == nickname) "You" else (peerNicknames[peerID] ?: (privateChats[peerID]?.lastOrNull()?.sender ?: peerID.take(12)))
+            val displayName = if (peerID == nickname) youLabel else (peerNicknames[peerID] ?: (privateChats[peerID]?.lastOrNull()?.sender ?: peerID.take(12)))
             val (bName, _) = com.bitchat.android.ui.splitSuffix(displayName)
             val showHash = (baseNameCounts[bName] ?: 0) > 1
 
@@ -501,7 +502,7 @@ private fun PeerItem(
     val (baseNameRaw, suffixRaw) = com.bitchat.android.ui.splitSuffix(displayName)
     val baseName = truncateNickname(baseNameRaw)
     val suffix = if (showHashSuffix) suffixRaw else ""
-    val isMe = displayName == "You" || peerID == viewModel.nickname.value
+    val isMe = displayName == stringResource(id = R.string.label_you) || peerID == viewModel.nickname.value
     
     // Get consistent peer color (iOS-compatible)
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
@@ -524,7 +525,7 @@ private fun PeerItem(
             // Show mail icon for unread DMs (iOS orange)
             Icon(
                 imageVector = Icons.Filled.Email,
-                contentDescription = "Unread message",
+                contentDescription = stringResource(id = R.string.content_desc_unread_message),
                 modifier = Modifier.size(16.dp),
                 tint = Color(0xFFFF9500) // iOS orange
             )
@@ -534,14 +535,14 @@ private fun PeerItem(
                 // Purple globe to indicate Nostr availability
                 Icon(
                     imageVector = Icons.Filled.Public,
-                    contentDescription = "Reachable via Nostr",
+                    contentDescription = stringResource(id = R.string.content_desc_reachable_via_nostr),
                     modifier = Modifier.size(16.dp),
                     tint = Color(0xFF9C27B0) // Purple
                 )
             } else {
                 Icon(
                     imageVector = if (isDirect) Icons.Outlined.SettingsInputAntenna else Icons.Filled.Route,
-                    contentDescription = if (isDirect) "Direct Bluetooth" else "Routed",
+                    contentDescription = if (isDirect) stringResource(id = R.string.content_desc_direct_bluetooth) else stringResource(id = R.string.content_desc_routed),
                     modifier = Modifier.size(16.dp),
                     tint = colorScheme.onSurface.copy(alpha = 0.8f)
                 )
@@ -588,7 +589,7 @@ private fun PeerItem(
         ) {
             Icon(
                 imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
-                contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
+                contentDescription = if (isFavorite) stringResource(id = R.string.content_desc_favorite_remove) else stringResource(id = R.string.content_desc_favorite_add),
                 modifier = Modifier.size(16.dp),
                 tint = if (isFavorite) Color(0xFFFFD700) else Color(0xFF4CAF50)
             )
@@ -643,7 +644,7 @@ private fun UnreadBadge(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = if (count > 99) "99+" else count.toString(),
+                text = if (count > 99) stringResource(id = R.string.unread_overflow_99_plus) else count.toString(),
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold
