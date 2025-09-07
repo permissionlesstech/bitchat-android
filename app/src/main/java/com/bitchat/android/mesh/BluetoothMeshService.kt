@@ -623,8 +623,8 @@ class BluetoothMeshService(private val context: Context) {
             // Route geohash read receipts via MessageRouter instead of here
             val geo = runCatching { com.bitchat.android.services.MessageRouter.tryGetInstance() }.getOrNull()
             val isGeoAlias = try {
-                val map = runCatching { com.bitchat.android.nostr.NostrGeohashService.getInstance(context.applicationContext as android.app.Application).getNostrKeyMapping() }.getOrNull()
-                map?.containsKey(recipientPeerID) == true
+                val map = com.bitchat.android.nostr.GeohashAliasRegistry.snapshot()
+                map.containsKey(recipientPeerID)
             } catch (_: Exception) { false }
             if (isGeoAlias && geo != null) {
                 geo.sendReadReceipt(com.bitchat.android.model.ReadReceipt(messageID), recipientPeerID)

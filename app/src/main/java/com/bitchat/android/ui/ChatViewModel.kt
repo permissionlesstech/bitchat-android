@@ -10,7 +10,7 @@ import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.protocol.BitchatPacket
-import com.bitchat.android.nostr.NostrGeohashService
+
 
 import kotlinx.coroutines.launch
 import com.bitchat.android.util.NotificationIntervalManager
@@ -80,17 +80,7 @@ class ChatViewModel(
         notificationManager = notificationManager
     )
 
-    // Legacy facade retained for BluetoothMeshService static access (DM send/read over Nostr)
-    private val nostrGeohashService = NostrGeohashService.initialize(
-        application = application,
-        state = state,
-        messageManager = messageManager,
-        privateChatManager = privateChatManager,
-        meshDelegateHandler = meshDelegateHandler,
-        coroutineScope = viewModelScope,
-        dataManager = dataManager,
-        notificationManager = notificationManager
-    )
+
 
 
     // Expose state through LiveData (maintaining the same interface)
@@ -187,8 +177,6 @@ class ChatViewModel(
         // Initialize favorites persistence service
         com.bitchat.android.favorites.FavoritesPersistenceService.initialize(getApplication())
 
-        // Initialize Nostr integration
-        nostrGeohashService.initializeNostrIntegration()
 
         // Ensure NostrTransport knows our mesh peer ID for embedded packets
         try {
@@ -283,7 +271,7 @@ class ChatViewModel(
             commandProcessor.processCommand(content, meshService, meshService.myPeerID, { messageContent, mentions, channel ->
                 if (selectedLocationForCommand is com.bitchat.android.geohash.ChannelID.Location) {
                     // Route command-generated public messages via Nostr in geohash channels
-                    nostrGeohashService.sendGeohashMessage(
+                    geohashViewModel.sendGeohashMessage(
                         messageContent,
                         selectedLocationForCommand.channel,
                         meshService.myPeerID,
@@ -609,7 +597,7 @@ class ChatViewModel(
         
         // Clear Nostr/geohash state, keys, connections, and reinitialize from scratch
         try {
-            nostrGeohashService.panicResetNostrAndGeohash()
+            geohashViewModel.panicReset()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to reset Nostr/geohash: ${e.message}")
         }
@@ -666,35 +654,35 @@ class ChatViewModel(
      * Get participant count for a specific geohash (5-minute activity window)
      */
     fun geohashParticipantCount(geohash: String): Int {
-        return nostrGeohashService.geohashParticipantCount(geohash)
+        return geohashViewModel.geohashParticipantCount(geohash)
     }
 
     /**
      * Begin sampling multiple geohashes for participant activity
      */
     fun beginGeohashSampling(geohashes: List<String>) {
-        nostrGeohashService.beginGeohashSampling(geohashes)
+        geohashViewModel.beginGeohashSampling(geohashes)
     }
 
     /**
      * End geohash sampling
      */
     fun endGeohashSampling() {
-        nostrGeohashService.endGeohashSampling()
+        // No-op in refactored architecture; sampling subscriptions are short-lived
     }
 
     /**
      * Check if a geohash person is teleported (iOS-compatible)
      */
     fun isPersonTeleported(pubkeyHex: String): Boolean {
-        return nostrGeohashService.isPersonTeleported(pubkeyHex)
+        return geohashViewModel.isPersonTeleported(pubkeyHex)
     }
 
     /**
      * Start geohash DM with pubkey hex (iOS-compatible)
      */
     fun startGeohashDM(pubkeyHex: String) {
-        nostrGeohashService.startGeohashDM(pubkeyHex) { convKey ->
+        geohashViewModel.startGeohashDM(pubkeyHex) { convKey ->
             startPrivateChat(convKey)
         }
     }
@@ -707,7 +695,7 @@ class ChatViewModel(
      * Block a user in geohash channels by their nickname
      */
     fun blockUserInGeohash(targetNickname: String) {
-        nostrGeohashService.blockUserInGeohash(targetNickname)
+        geohashViewModel.blockUserInGeohash(targetNickname)
     }
 
     // MARK: - Navigation Management
@@ -780,6 +768,6 @@ class ChatViewModel(
      * Get consistent color for a Nostr pubkey (iOS-compatible)
      */
     fun colorForNostrPubkey(pubkeyHex: String, isDark: Boolean): androidx.compose.ui.graphics.Color {
-        return nostrGeohashService.colorForNostrPubkey(pubkeyHex, isDark)
+        return geohashViewModel.colorForNostrPubkey(pubkeyHex, isDark)
     }
 }
