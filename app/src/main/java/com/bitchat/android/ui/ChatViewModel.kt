@@ -650,13 +650,6 @@ class ChatViewModel(
     }
 
     /**
-     * Get messages for a specific geohash timeline
-     */
-    fun getGeohashMessages(geohash: String): List<BitchatMessage> {
-        return nostrGeohashService.getGeohashMessages(geohash)
-    }
-
-    /**
      * Get participant count for a specific geohash (5-minute activity window)
      */
     fun geohashParticipantCount(geohash: String): Int {

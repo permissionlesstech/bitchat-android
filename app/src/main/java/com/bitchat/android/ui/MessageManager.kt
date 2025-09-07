@@ -52,8 +52,18 @@ class MessageManager(private val state: ChatState) {
         currentChannelMessages[channel] = channelMessageList
         state.setChannelMessages(currentChannelMessages)
         
-        // Update unread count if not currently in this channel
-        if (state.getCurrentChannelValue() != channel) {
+        // Update unread count if not currently viewing this channel
+        // Consider both classic channels (state.currentChannel) and geohash location channel selection
+        val viewingClassicChannel = state.getCurrentChannelValue() == channel
+        val viewingGeohashChannel = try {
+            if (channel.startsWith("geo:")) {
+                val geo = channel.removePrefix("geo:")
+                val selected = state.selectedLocationChannel.value
+                selected is com.bitchat.android.geohash.ChannelID.Location && selected.channel.geohash.equals(geo, ignoreCase = true)
+            } else false
+        } catch (_: Exception) { false }
+
+        if (!viewingClassicChannel && !viewingGeohashChannel) {
             val currentUnread = state.getUnreadChannelMessagesValue().toMutableMap()
             currentUnread[channel] = (currentUnread[channel] ?: 0) + 1
             state.setUnreadChannelMessages(currentUnread)

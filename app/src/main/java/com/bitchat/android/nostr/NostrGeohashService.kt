@@ -87,10 +87,8 @@ class NostrGeohashService(
     private var geohashSamplingJob: Job? = null
     private var geoParticipantsTimer: Job? = null
     
-    // MARK: - Geohash Message History Properties
-    
-    private val geohashMessageHistory = mutableMapOf<String, MutableList<BitchatMessage>>() // geohash -> messages
-    private val maxGeohashMessages = 1000 // Maximum messages per geohash
+    // MARK: - Geohash Message Routing
+    // Geohash messages are routed through MessageManager channel timelines using key "geo:<geohash>"
     
     // MARK: - Location Channel Management Properties
     
@@ -166,7 +164,6 @@ class NostrGeohashService(
                 try {
                     geohashParticipants.clear()
                     geoNicknames.clear()
-                    geohashMessageHistory.clear()
                     processedNostrEvents.clear()
                     processedNostrEventOrder.clear()
                     currentGeohashSubscriptionId = null
@@ -258,10 +255,8 @@ class NostrGeohashService(
                     powDifficulty = if (powSettingsLocal.enabled) powSettingsLocal.difficulty else null
                 )
                 
-                // Store immediately; UI will display from geohash history (not main mesh timeline)
-                storeGeohashMessage(channel.geohash, localMessage)
-                // IMPORTANT: Do not add to main mesh timeline to avoid duplication in mesh chat view
-                // messageManager.addMessage(localMessage)
+                // Local echo into geohash channel timeline via unified MessageManager
+                messageManager.addChannelMessage("geo:${channel.geohash}", localMessage)
                 
                 Log.d(TAG, "📝 Added geohash local echo with temp ID: $tempMessageId (not shown in mesh timeline)")
                 
@@ -692,55 +687,7 @@ class NostrGeohashService(
         }
     }
     
-    // MARK: - Geohash Message History
-    
-    /**
-     * Store a message in geohash history
-     */
-    private fun storeGeohashMessage(geohash: String, message: BitchatMessage) {
-        val messages = geohashMessageHistory.getOrPut(geohash) { mutableListOf() }
-        messages.add(message)
-        
-        // Limit message history to prevent memory issues
-        if (messages.size > maxGeohashMessages) {
-            messages.removeAt(0) // Remove oldest message
-        }
-        
-        Log.v(TAG, "📦 Stored message in geohash $geohash history (${messages.size} total) - sender: ${message.sender}, content: '${message.content.take(30)}...'")
-    }
-    
-    /**
-     * Load stored messages for a geohash channel
-     */
-    fun loadGeohashMessages(geohash: String) {
-        val storedMessages = geohashMessageHistory[geohash]
-        if (storedMessages == null) {
-            Log.d(TAG, "📥 No stored messages found for geohash $geohash")
-            return
-        }
-        
-        Log.d(TAG, "📥 Loading ${storedMessages.size} stored messages for geohash $geohash")
-        
-        // Add all stored messages to the current message timeline
-        storedMessages.forEach { message ->
-            Log.v(TAG, "📥 Loading stored message: ${message.sender} - '${message.content.take(30)}...'")
-            messageManager.addMessage(message)
-        }
-    }
-
-    /**
-     * Get stored messages for a geohash without mutating UI state
-     */
-    fun getGeohashMessages(geohash: String): List<BitchatMessage> {
-        return geohashMessageHistory[geohash]?.toList() ?: emptyList()
-    }
-    
-    /**
-     * Clear geohash message history
-     */
-    fun clearGeohashMessageHistory() {
-        geohashMessageHistory.clear()
-    }
+    // Geohash message history is maintained in ChatState.channelMessages; no local cache here
     
     // MARK: - Geohash Participant Tracking
     
@@ -994,8 +941,7 @@ class NostrGeohashService(
     private fun switchLocationChannel(channel: com.bitchat.android.geohash.ChannelID?) {
         // STEP 1: Immediate UI updates (synchronous, no blocking)
         try {
-            // NOTE: Don't clear messages here - let ChatScreen's displayMessages logic handle what to show
-            // This preserves mesh message history when switching between views
+            // Do not clear messages here - preserve mesh history when switching between views
             
             when (channel) {
                 is com.bitchat.android.geohash.ChannelID.Mesh -> {
@@ -1020,7 +966,10 @@ class NostrGeohashService(
                     // Clear notifications for this geohash since user is now viewing it
                     notificationManager.clearNotificationsForGeohash(channel.channel.geohash)
                     // Note: Don't clear geoNicknames - they contain cached nicknames for all geohashes
-                    // Note: Don't load messages here - ChatScreen will get them via getGeohashMessages()
+                    // Clear unread for this geohash since user is now viewing it
+                    try {
+                        messageManager.clearChannelUnreadCount("geo:${channel.channel.geohash}")
+                    } catch (_: Exception) { }
                     
                     // Immediate self-registration for instant UI feedback
                     try {
@@ -1300,11 +1249,8 @@ class NostrGeohashService(
                 powDifficulty = actualPow.takeIf { it > 0 && eventHasNonseTag } ?: null
             )
             
-            // Store in geohash history for persistence across channel switches
-            storeGeohashMessage(geohash, message)
-            
-            // NOTE: Don't add to main message timeline here - ChatScreen will display geohash messages
-            // from the separate geohash history via getGeohashMessages()
+            // Add to geohash channel timeline (unified pipeline)
+            withContext(Dispatchers.Main) { messageManager.addChannelMessage("geo:$geohash", message) }
             
             // NOTIFICATION LOGIC: Check for mentions and first messages
             checkAndTriggerGeohashNotifications(geohash, senderName, content, message)
@@ -1403,8 +1349,9 @@ class NostrGeohashService(
      * Check if this is the first message in a subscribed geohash chat
      */
     private fun checkIfFirstMessage(geohash: String, message: BitchatMessage): Boolean {
-        // Get the message history for this geohash
-        val messageHistory = geohashMessageHistory[geohash] ?: return true
+        // Use ChatState.channelMessages for geohash history
+        val channelKey = "geo:$geohash"
+        val messageHistory = state.getChannelMessagesValue()[channelKey] ?: emptyList()
         
         // Filter out our own messages (local echoes and messages from our identity)
         val otherUserMessages = messageHistory.filter { msg ->

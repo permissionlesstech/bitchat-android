@@ -74,18 +74,17 @@ fun ChatScreen(viewModel: ChatViewModel) {
     // Get location channel info for timeline switching
     val selectedLocationChannel by viewModel.selectedLocationChannel.observeAsState()
 
-    // Determine what messages to show based on current context
+    // Determine what messages to show based on current context (unified timelines)
     val displayMessages = when {
         selectedPrivatePeer != null -> privateChats[selectedPrivatePeer] ?: emptyList()
         currentChannel != null -> channelMessages[currentChannel] ?: emptyList()
         else -> {
             val locationChannel = selectedLocationChannel
             if (locationChannel is com.bitchat.android.geohash.ChannelID.Location) {
-                // For geohash channels, get messages from geohash history
-                val geohash = locationChannel.channel.geohash
-                viewModel.getGeohashMessages(geohash)
+                val geokey = "geo:${locationChannel.channel.geohash}"
+                channelMessages[geokey] ?: emptyList()
             } else {
-                messages // Mesh/public messages
+                messages // Mesh timeline
             }
         }
     }
