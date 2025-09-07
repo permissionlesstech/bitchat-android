@@ -5,17 +5,19 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.viewModelScope
-import com.bitchat.android.nostr.*
+import com.bitchat.android.nostr.GeohashMessageHandler
+import com.bitchat.android.nostr.GeohashRepository
+import com.bitchat.android.nostr.NostrDirectMessageHandler
+import com.bitchat.android.nostr.NostrIdentityBridge
+import com.bitchat.android.nostr.NostrProtocol
+import com.bitchat.android.nostr.NostrRelayManager
+import com.bitchat.android.nostr.NostrSubscriptionManager
+import com.bitchat.android.nostr.PoWPreferenceManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Date
 
-/**
- * GeohashViewModel
- * - Coordinates geohash functionality for UI
- * - Uses focused components for data and subscriptions
- */
 class GeohashViewModel(
     application: Application,
     private val state: ChatState,
@@ -31,34 +33,28 @@ class GeohashViewModel(
     private val repo = GeohashRepository(application, state)
     private val subscriptionManager = NostrSubscriptionManager(application, viewModelScope)
     private val geohashMessageHandler = GeohashMessageHandler(application, state, messageManager, repo, viewModelScope)
-    private val dmHandler = NostrDirectMessageHandler(application, state, messageManager, privateChatManager, meshDelegateHandler, viewModelScope, repo)
+    private val dmHandler = NostrDirectMessageHandler(application, state, privateChatManager, meshDelegateHandler, viewModelScope, repo)
 
     private var currentGeohashSubId: String? = null
     private var currentDmSubId: String? = null
     private var geoTimer: Job? = null
     private var locationChannelManager: com.bitchat.android.geohash.LocationChannelManager? = null
 
-    // Expose state
     val geohashPeople: LiveData<List<GeoPerson>> = state.geohashPeople
     val geohashParticipantCounts: LiveData<Map<String, Int>> = state.geohashParticipantCounts
     val selectedLocationChannel: LiveData<com.bitchat.android.geohash.ChannelID?> = state.selectedLocationChannel
 
     fun initialize() {
-        // Connect to relays
         subscriptionManager.connect()
-        
-        // Subscribe to global DMs
         val identity = NostrIdentityBridge.getCurrentNostrIdentity(getApplication())
         if (identity != null) {
             subscriptionManager.subscribeGiftWraps(
                 pubkey = identity.publicKeyHex,
                 sinceMs = System.currentTimeMillis() - 172800000L,
                 id = "chat-messages",
-                handler = dmHandler::onGiftWrap
+                handler = { event -> dmHandler.onGiftWrap(event, identity) }
             )
         }
-
-        // Initialize location channel management
         try {
             locationChannelManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(getApplication())
             locationChannelManager?.selectedChannel?.observeForever { channel ->
@@ -82,9 +78,7 @@ class GeohashViewModel(
         currentDmSubId = null
         geoTimer?.cancel()
         geoTimer = null
-        try {
-            NostrIdentityBridge.clearAllAssociations(getApplication())
-        } catch (_: Exception) { }
+        try { NostrIdentityBridge.clearAllAssociations(getApplication()) } catch (_: Exception) {}
         initialize()
     }
 
@@ -134,13 +128,8 @@ class GeohashViewModel(
         }
     }
 
-    fun endGeohashSampling() {
-        Log.d(TAG, "🌍 Ending geohash sampling")
-        // Unsubscribe sampling subs here if needed
-    }
-
+    fun endGeohashSampling() { Log.d(TAG, "🌍 Ending geohash sampling") }
     fun geohashParticipantCount(geohash: String): Int = repo.geohashParticipantCount(geohash)
-
     fun isPersonTeleported(pubkeyHex: String): Boolean = repo.isPersonTeleported(pubkeyHex)
 
     fun startGeohashDM(pubkeyHex: String, onStartPrivateChat: (String) -> Unit) {
@@ -153,7 +142,6 @@ class GeohashViewModel(
     fun getNostrKeyMapping(): Map<String, String> = repo.getNostrKeyMapping()
 
     fun blockUserInGeohash(targetNickname: String) {
-        // Find pubkey by nickname from cached names
         val pubkey = repo.findPubkeyByNickname(targetNickname)
         if (pubkey != null) {
             dataManager.addGeohashBlockedUser(pubkey)
@@ -164,7 +152,6 @@ class GeohashViewModel(
                 isRelay = false
             )
             messageManager.addMessage(sysMsg)
-            Log.i(TAG, "🚫 Blocked geohash user: $targetNickname")
         } else {
             val sysMsg = com.bitchat.android.model.BitchatMessage(
                 sender = "system",
@@ -177,9 +164,7 @@ class GeohashViewModel(
     }
 
     fun selectLocationChannel(channel: com.bitchat.android.geohash.ChannelID) {
-        locationChannelManager?.select(channel) ?: run {
-            Log.w(TAG, "Cannot select location channel - LocationChannelManager not initialized")
-        }
+        locationChannelManager?.select(channel) ?: run { Log.w(TAG, "Cannot select location channel - not initialized") }
     }
 
     fun displayNameForNostrPubkeyUI(pubkeyHex: String): String = repo.displayNameForNostrPubkeyUI(pubkeyHex)
@@ -190,11 +175,7 @@ class GeohashViewModel(
     }
 
     private fun switchLocationChannel(channel: com.bitchat.android.geohash.ChannelID?) {
-        // Stop previous timer
-        geoTimer?.cancel()
-        geoTimer = null
-        
-        // Unsubscribe previous
+        geoTimer?.cancel(); geoTimer = null
         currentGeohashSubId?.let { subscriptionManager.unsubscribe(it); currentGeohashSubId = null }
         currentDmSubId?.let { subscriptionManager.unsubscribe(it); currentDmSubId = null }
 
@@ -213,24 +194,18 @@ class GeohashViewModel(
                 notificationManager.clearNotificationsForGeohash(channel.channel.geohash)
                 try { messageManager.clearChannelUnreadCount("geo:${channel.channel.geohash}") } catch (_: Exception) { }
 
-                // Self-register
                 try {
                     val identity = NostrIdentityBridge.deriveIdentity(channel.channel.geohash, getApplication())
                     repo.updateParticipant(channel.channel.geohash, identity.publicKeyHex, Date())
                     val teleported = state.isTeleported.value ?: false
                     if (teleported) repo.markTeleported(identity.publicKeyHex)
-                } catch (e: Exception) {
-                    Log.w(TAG, "Failed identity setup: ${e.message}")
-                }
+                } catch (e: Exception) { Log.w(TAG, "Failed identity setup: ${e.message}") }
 
-                // Start timer
                 startGeoParticipantsTimer()
                 
-                // Subscribe to geohash events
                 viewModelScope.launch {
                     val geohash = channel.channel.geohash
-                    val subId = "geohash-$geohash"
-                    currentGeohashSubId = subId
+                    val subId = "geohash-$geohash"; currentGeohashSubId = subId
                     subscriptionManager.subscribeGeohash(
                         geohash = geohash,
                         sinceMs = System.currentTimeMillis() - 3600000L,
@@ -238,16 +213,13 @@ class GeohashViewModel(
                         id = subId,
                         handler = { event -> geohashMessageHandler.onEvent(event, geohash) }
                     )
-
-                    // Subscribe to DMs for this identity
                     val dmIdentity = NostrIdentityBridge.deriveIdentity(geohash, getApplication())
-                    val dmSubId = "geo-dm-$geohash"
-                    currentDmSubId = dmSubId
+                    val dmSubId = "geo-dm-$geohash"; currentDmSubId = dmSubId
                     subscriptionManager.subscribeGiftWraps(
                         pubkey = dmIdentity.publicKeyHex,
                         sinceMs = System.currentTimeMillis() - 172800000L,
                         id = dmSubId,
-                        handler = dmHandler::onGiftWrap
+                        handler = { event -> dmHandler.onGiftWrap(event, dmIdentity) }
                     )
                 }
             }
@@ -262,7 +234,7 @@ class GeohashViewModel(
     private fun startGeoParticipantsTimer() {
         geoTimer = viewModelScope.launch {
             while (repo.getCurrentGeohash() != null) {
-                delay(30000) // 30 seconds
+                delay(30000)
                 repo.refreshGeohashPeople()
             }
         }

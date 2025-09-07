@@ -11,7 +11,7 @@ import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.nostr.NostrGeohashService
-import com.bitchat.android.ui.GeohashViewModel
+
 import kotlinx.coroutines.launch
 import com.bitchat.android.util.NotificationIntervalManager
 import kotlinx.coroutines.delay
@@ -70,7 +70,7 @@ class ChatViewModel(
     )
     
     // New Geohash architecture ViewModel (replaces God object service usage in UI path)
-    private val geohashViewModel = GeohashViewModel(
+    private val geohashViewModel = com.bitchat.android.ui.GeohashViewModel(
         application = application,
         state = state,
         messageManager = messageManager,
