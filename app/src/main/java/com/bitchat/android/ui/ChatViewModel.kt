@@ -259,6 +259,60 @@ class ChatViewModel(
         // Clear mesh mention notifications since user is now back in mesh chat
         clearMeshMentionNotifications()
     }
+
+    // MARK: - Open Latest Unread Private Chat
+
+    fun openLatestUnreadPrivateChat() {
+        try {
+            val unreadKeys = state.getUnreadPrivateMessagesValue()
+            if (unreadKeys.isEmpty()) return
+
+            val me = state.getNicknameValue() ?: meshService.myPeerID
+            val chats = state.getPrivateChatsValue()
+
+            // Pick the latest incoming message among unread conversations
+            var bestKey: String? = null
+            var bestTime: Long = Long.MIN_VALUE
+
+            unreadKeys.forEach { key ->
+                val list = chats[key]
+                if (!list.isNullOrEmpty()) {
+                    // Prefer the latest incoming message (sender != me), fallback to last message
+                    val latestIncoming = list.lastOrNull { it.sender != me }
+                    val candidateTime = (latestIncoming ?: list.last()).timestamp.time
+                    if (candidateTime > bestTime) {
+                        bestTime = candidateTime
+                        bestKey = key
+                    }
+                }
+            }
+
+            val targetKey = bestKey ?: unreadKeys.firstOrNull() ?: return
+
+            // Resolve to a canonical peerID (mesh vs nostr alias) using existing resolver logic
+            val canonical = com.bitchat.android.services.ConversationAliasResolver.resolveCanonicalPeerID(
+                selectedPeerID = targetKey,
+                connectedPeers = state.getConnectedPeersValue(),
+                meshNoiseKeyForPeer = { pid -> meshService.getPeerInfo(pid)?.noisePublicKey },
+                meshHasPeer = { pid -> meshService.getPeerInfo(pid)?.isConnected == true },
+                nostrPubHexForAlias = { alias -> com.bitchat.android.nostr.GeohashAliasRegistry.get(alias) },
+                findNoiseKeyForNostr = { key -> com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNoiseKey(key) }
+            )
+
+            val openPeer = canonical ?: targetKey
+            startPrivateChat(openPeer)
+
+            // If sidebar visible, hide it to focus on the private chat
+            if (state.getShowSidebarValue()) {
+                state.setShowSidebar(false)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "openLatestUnreadPrivateChat failed: ${e.message}")
+        }
+    }
+
+    // END - Open Latest Unread Private Chat
+
     
     // MARK: - Message Sending
     

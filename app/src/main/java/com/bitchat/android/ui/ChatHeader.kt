@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+
 import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -30,6 +31,7 @@ import com.bitchat.android.core.ui.utils.singleOrTripleClickable
  * Header components for ChatScreen
  * Extracted from ChatScreen.kt for better organization
  */
+
 
 /**
  * Reactive helper to compute favorite state from fingerprint mapping
@@ -159,7 +161,6 @@ fun PeerCounter(
     connectedPeers: List<String>,
     joinedChannels: Set<String>,
     hasUnreadChannels: Map<String, Int>,
-    hasUnreadPrivateMessages: Set<String>,
     isConnected: Boolean,
     selectedLocationChannel: com.bitchat.android.geohash.ChannelID?,
     geohashPeople: List<GeoPerson>,
@@ -189,17 +190,6 @@ fun PeerCounter(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier.clickable { onClick() }.padding(end = 8.dp) // Added right margin to match "bitchat" logo spacing
     ) {
-        if (hasUnreadPrivateMessages.isNotEmpty()) {
-            // Filled mail icon to match sidebar style
-            Icon(
-                imageVector = Icons.Filled.Email,
-                contentDescription = "Unread private messages",
-                modifier = Modifier.size(16.dp),
-                tint = Color(0xFFFF9500) // Orange to match private message theme
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-        }
-        
         Icon(
             imageVector = Icons.Default.Group,
             contentDescription = when (selectedLocationChannel) {
@@ -210,6 +200,7 @@ fun PeerCounter(
             tint = countColor
         )
         Spacer(modifier = Modifier.width(4.dp))
+
         Text(
             text = "$peopleCount",
             style = MaterialTheme.typography.bodyMedium,
@@ -547,6 +538,19 @@ private fun MainHeader(
             horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
 
+            // Unread private messages badge (click to open most recent DM)
+            if (hasUnreadPrivateMessages.isNotEmpty()) {
+                // Render icon directly to avoid symbol resolution issues
+                Icon(
+                    imageVector = Icons.Filled.Email,
+                    contentDescription = "Unread private messages",
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clickable { viewModel.openLatestUnreadPrivateChat() },
+                    tint = Color(0xFFFF9500)
+                )
+            }
+
             // Location channels button (matching iOS implementation)
             LocationChannelsButton(
                 viewModel = viewModel,
@@ -566,7 +570,6 @@ private fun MainHeader(
                 connectedPeers = connectedPeers.filter { it != viewModel.meshService.myPeerID },
                 joinedChannels = joinedChannels,
                 hasUnreadChannels = hasUnreadChannels,
-                hasUnreadPrivateMessages = hasUnreadPrivateMessages,
                 isConnected = isConnected,
                 selectedLocationChannel = selectedLocationChannel,
                 geohashPeople = geohashPeople,
