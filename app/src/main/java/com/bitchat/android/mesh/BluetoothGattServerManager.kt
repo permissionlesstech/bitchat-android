@@ -327,8 +327,31 @@ class BluetoothGattServerManager(
     private fun startAdvertising() {
         // Respect debug setting
         val enabled = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattServerEnabled.value } catch (_: Exception) { true }
-        if (!permissionManager.hasBluetoothPermissions() || bleAdvertiser == null || !isActive || bluetoothAdapter == null || !bluetoothAdapter.isMultipleAdvertisementSupported() || !enabled) {
-            throw Exception("Missing Bluetooth permissions or BLE advertiser not available")
+
+        // Guard conditions – never throw here to avoid crashing the app from a background coroutine
+        if (!permissionManager.hasBluetoothPermissions()) {
+            Log.w(TAG, "Not starting advertising: missing Bluetooth permissions")
+            return
+        }
+        if (bluetoothAdapter == null) {
+            Log.w(TAG, "Not starting advertising: bluetoothAdapter is null")
+            return
+        }
+        if (!isActive) {
+            Log.d(TAG, "Not starting advertising: manager not active")
+            return
+        }
+        if (!enabled) {
+            Log.i(TAG, "Not starting advertising: GATT Server disabled via debug settings")
+            return
+        }
+        if (bleAdvertiser == null) {
+            Log.w(TAG, "Not starting advertising: BLE advertiser not available on this device")
+            return
+        }
+        if (!bluetoothAdapter.isMultipleAdvertisementSupported) {
+            Log.w(TAG, "Not starting advertising: multiple advertisement not supported on this device")
+            return
         }
 
         val settings = powerManager.getAdvertiseSettings()
@@ -341,7 +364,10 @@ class BluetoothGattServerManager(
         
         advertiseCallback = object : AdvertiseCallback() {
             override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
-                Log.i(TAG, "Advertising started (power mode: ${powerManager.getPowerInfo().split("Current Mode: ")[1].split("\n")[0]})")
+                val mode = try {
+                    powerManager.getPowerInfo().split("Current Mode: ")[1].split("\n")[0]
+                } catch (_: Exception) { "unknown" }
+                Log.i(TAG, "Advertising started (power mode: $mode)")
             }
             
             override fun onStartFailure(errorCode: Int) {
@@ -351,6 +377,8 @@ class BluetoothGattServerManager(
         
         try {
             bleAdvertiser.startAdvertising(settings, data, advertiseCallback)
+        } catch (se: SecurityException) {
+            Log.e(TAG, "SecurityException starting advertising (missing permission?): ${se.message}")
         } catch (e: Exception) {
             Log.e(TAG, "Exception starting advertising: ${e.message}")
         }
@@ -363,7 +391,7 @@ class BluetoothGattServerManager(
     private fun stopAdvertising() {
         if (!permissionManager.hasBluetoothPermissions() || bleAdvertiser == null) return
         try {
-            advertiseCallback?.let { bleAdvertiser.stopAdvertising(it) }
+            advertiseCallback?.let { cb -> bleAdvertiser.stopAdvertising(cb) }
         } catch (e: Exception) {
             Log.w(TAG, "Error stopping advertising: ${e.message}")
         }
@@ -386,4 +414,4 @@ class BluetoothGattServerManager(
             startAdvertising()
         }
     }
-} 
+}
