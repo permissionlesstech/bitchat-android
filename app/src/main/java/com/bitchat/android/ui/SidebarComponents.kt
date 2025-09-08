@@ -413,6 +413,22 @@ fun PeopleSection(
             val isMappedToConnected = noiseHexByPeerID.values.any { it.equals(favPeerID, ignoreCase = true) }
             if (isMappedToConnected) return@forEach
 
+            // Resolve potential Nostr conversation key for this favorite (for unread detection)
+            val nostrConvKey: String? = try {
+                val npubOrHex = com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNostrPubkey(fav.peerNoisePublicKey)
+                if (npubOrHex != null) {
+                    val hex = if (npubOrHex.startsWith("npub")) {
+                        val (hrp, data) = com.bitchat.android.nostr.Bech32.decode(npubOrHex)
+                        if (hrp == "npub") data.joinToString("") { "%02x".format(it) } else null
+                    } else {
+                        npubOrHex.lowercase()
+                    }
+                    hex?.let { "nostr_${it.take(16)}" }
+                } else null
+            } catch (_: Exception) { null }
+
+            val hasUnread = hasUnreadPrivateMessages.contains(favPeerID) || (nostrConvKey != null && hasUnreadPrivateMessages.contains(nostrConvKey))
+
             // If user clicks an offline favorite and the mapped peer is currently connected under a different ID,
             // open chat with the connected peerID instead of the noise hex for a seamless window
             val mappedConnectedPeerID = noiseHexByPeerID.entries.firstOrNull { it.value.equals(favPeerID, ignoreCase = true) }?.key
@@ -420,13 +436,20 @@ fun PeopleSection(
             val (bName, _) = com.bitchat.android.ui.splitSuffix(dn)
             val showHash = (baseNameCounts[bName] ?: 0) > 1
 
+            // Compute unreadCount from either noise conversation or Nostr conversation
+            val unreadCount = (
+                privateChats[favPeerID]?.count { msg -> msg.sender != nickname && hasUnreadPrivateMessages.contains(favPeerID) } ?: 0
+            ) + (
+                if (nostrConvKey != null) privateChats[nostrConvKey]?.count { msg -> msg.sender != nickname && hasUnreadPrivateMessages.contains(nostrConvKey) } ?: 0 else 0
+            )
+
             PeerItem(
                 peerID = favPeerID,
                 displayName = dn,
                 isDirect = false,
                 isSelected = (mappedConnectedPeerID ?: favPeerID) == selectedPrivatePeer,
                 isFavorite = true,
-                hasUnreadDM = hasUnreadPrivateMessages.contains(favPeerID),
+                hasUnreadDM = hasUnread,
                 colorScheme = colorScheme,
                 viewModel = viewModel,
                 onItemClick = { onPrivateChatStart(mappedConnectedPeerID ?: favPeerID) },
@@ -434,21 +457,23 @@ fun PeopleSection(
                     Log.d("SidebarComponents", "Sidebar toggle favorite (offline): peerID=$favPeerID")
                     viewModel.toggleFavorite(favPeerID)
                 },
-                unreadCount = privateChats[favPeerID]?.count { msg ->
-                    msg.sender != nickname && hasUnreadPrivateMessages.contains(favPeerID)
-                } ?: if (hasUnreadPrivateMessages.contains(favPeerID)) 1 else 0,
+                unreadCount = if (unreadCount > 0) unreadCount else if (hasUnread) 1 else 0,
                 showNostrGlobe = (fav.isMutual && fav.peerNostrPublicKey != null),
                 showHashSuffix = showHash
             )
             appendedOfflineIds.add(favPeerID)
         }
 
-        // Also show any incoming Nostr chats that exist locally but are not in connected peers or favorites yet
-        // This ensures a user can open and read Nostr messages while the sender remains offline
+        // NOTE: Do NOT append Nostr-only (nostr_*) conversations to the mesh people list.
+        // Geohash DMs should appear in the GeohashPeople list for the active geohash, not in mesh offline contacts.
+        // We intentionally remove previously-added behavior that mixed geohash DMs into mesh sidebar.
+        // If you need to surface non-geohash offline mesh conversations in the future, do it here for 64-hex noise IDs only.
+        /*
         val alreadyShownIds = connectedIds + appendedOfflineIds
         privateChats.keys
             .filter { key ->
-                (key.startsWith("nostr_") || hex64Regex.matches(key)) &&
+                // Only include 64-hex noise IDs (mesh identities); exclude any nostr_* aliases
+                hex64Regex.matches(key) &&
                 !alreadyShownIds.contains(key) &&
                 // Skip if this key maps to a connected peer via noiseHex mapping
                 !noiseHexByPeerID.values.any { it.equals(key, ignoreCase = true) }
@@ -460,24 +485,27 @@ fun PeopleSection(
                 val (bName, _) = com.bitchat.android.ui.splitSuffix(dn)
                 val showHash = (baseNameCounts[bName] ?: 0) > 1
 
-            PeerItem(
-                peerID = convKey,
-                displayName = dn,
-                isDirect = false,
-                isSelected = convKey == selectedPrivatePeer,
-                isFavorite = false,
-                hasUnreadDM = hasUnreadPrivateMessages.contains(convKey),
-                colorScheme = colorScheme,
-                viewModel = viewModel,
+                PeerItem(
+                    peerID = convKey,
+                    displayName = dn,
+                    isDirect = false,
+                    isSelected = convKey == selectedPrivatePeer,
+                    isFavorite = false,
+                    hasUnreadDM = hasUnreadPrivateMessages.contains(convKey),
+                    colorScheme = colorScheme,
+                    viewModel = viewModel,
                     onItemClick = { onPrivateChatStart(convKey) },
                     onToggleFavorite = { viewModel.toggleFavorite(convKey) },
                     unreadCount = privateChats[convKey]?.count { msg ->
                         msg.sender != nickname && hasUnreadPrivateMessages.contains(convKey)
                     } ?: if (hasUnreadPrivateMessages.contains(convKey)) 1 else 0,
-                    showNostrGlobe = true,
+                    showNostrGlobe = false,
                     showHashSuffix = showHash
                 )
             }
+        */
+        // End intentional removal
+        
     }
 }
 
@@ -537,6 +565,15 @@ private fun PeerItem(
                     contentDescription = "Reachable via Nostr",
                     modifier = Modifier.size(16.dp),
                     tint = Color(0xFF9C27B0) // Purple
+                )
+            } else if (!isDirect && isFavorite) {
+                // Offline favorited user: show outlined circle icon
+                Icon(
+                    //painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_offline_favorite),
+                    imageVector = Icons.Outlined.Circle,
+                    contentDescription = "Offline favorite",
+                    modifier = Modifier.size(16.dp),
+                    tint = Color.Gray
                 )
             } else {
                 Icon(

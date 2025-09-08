@@ -43,6 +43,7 @@ class MessageRouter private constructor(
 
     // Listener for favorites changes to flush outbox when npub mapping appears/changes
     private val favoriteListener = object: com.bitchat.android.favorites.FavoritesChangeListener {
+
         override fun onFavoriteChanged(noiseKeyHex: String) {
             flushOutboxFor(noiseKeyHex)
             // Also try 16-hex short id commonly used in UI if any client used that
@@ -55,18 +56,34 @@ class MessageRouter private constructor(
     }
 
     fun sendPrivate(content: String, toPeerID: String, recipientNickname: String, messageID: String) {
+        // First: if this is a geohash DM alias (nostr_<pub16>), route via Nostr using global registry
+        if (com.bitchat.android.nostr.GeohashAliasRegistry.contains(toPeerID)) {
+            Log.d(TAG, "Routing PM via Nostr (geohash) to alias ${toPeerID.take(12)}… id=${messageID.take(8)}…")
+            val recipientHex = com.bitchat.android.nostr.GeohashAliasRegistry.get(toPeerID)
+            if (recipientHex != null) {
+                // Resolve the conversation's source geohash, so we can send from anywhere
+                val sourceGeohash = com.bitchat.android.nostr.GeohashConversationRegistry.get(toPeerID)
+
+                // If repository knows the source geohash, pass it so NostrTransport derives the correct identity
+                nostr.sendPrivateMessageGeohash(content, recipientHex, messageID, sourceGeohash)
+                return
+            }
+        }
+
         val hasMesh = mesh.getPeerInfo(toPeerID)?.isConnected == true
         val hasEstablished = mesh.hasEstablishedSession(toPeerID)
         if (hasMesh && hasEstablished) {
-            Log.d(TAG, "Routing PM via mesh to ${toPeerID.take(8)}… id=${messageID.take(8)}…")
+            Log.d(TAG, "Routing PM via mesh to ${toPeerID} msg_id=${messageID.take(8)}…")
             mesh.sendPrivateMessage(content, toPeerID, recipientNickname, messageID)
         } else if (canSendViaNostr(toPeerID)) {
-            Log.d(TAG, "Routing PM via Nostr to ${toPeerID.take(8)}… id=${messageID.take(8)}…")
+            Log.d(TAG, "Routing PM via Nostr to ${toPeerID.take(32)}… msg_id=${messageID.take(8)}…")
             nostr.sendPrivateMessage(content, toPeerID, recipientNickname, messageID)
         } else {
-            Log.d(TAG, "Queued PM for ${toPeerID.take(8)}… (no mesh, no Nostr mapping) id=${messageID.take(8)}…")
+            Log.d(TAG, "Queued PM for ${toPeerID} (no mesh, no Nostr mapping) msg_id=${messageID.take(8)}…")
             val q = outbox.getOrPut(toPeerID) { mutableListOf() }
             q.add(Triple(content, recipientNickname, messageID))
+            Log.d(TAG, "Initiating noise handshake after queueing PM for ${toPeerID.take(8)}…")
+            mesh.initiateNoiseHandshake(toPeerID)
         }
     }
 
@@ -82,7 +99,14 @@ class MessageRouter private constructor(
 
     fun sendDeliveryAck(messageID: String, toPeerID: String) {
         // Mesh delivery ACKs are sent by the receiver automatically.
-        // Only route via Nostr when mesh path isn't available.
+        // Only route via Nostr when mesh path isn't available or when this is a geohash alias
+        if (com.bitchat.android.nostr.GeohashAliasRegistry.contains(toPeerID)) {
+            val recipientHex = com.bitchat.android.nostr.GeohashAliasRegistry.get(toPeerID)
+            if (recipientHex != null) {
+                nostr.sendDeliveryAckGeohash(messageID, recipientHex, try { com.bitchat.android.nostr.NostrIdentityBridge.getCurrentNostrIdentity(context)!! } catch (_: Exception) { return })
+                return
+            }
+        }
         if (!((mesh.getPeerInfo(toPeerID)?.isConnected == true) && mesh.hasEstablishedSession(toPeerID))) {
             nostr.sendDeliveryAck(messageID, toPeerID)
         }

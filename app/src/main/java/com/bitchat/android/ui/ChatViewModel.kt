@@ -10,7 +10,8 @@ import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.protocol.BitchatPacket
-import com.bitchat.android.nostr.NostrGeohashService
+
+
 import kotlinx.coroutines.launch
 import com.bitchat.android.util.NotificationIntervalManager
 import kotlinx.coroutines.delay
@@ -68,17 +69,19 @@ class ChatViewModel(
         getMeshService = { meshService }
     )
     
-    // Nostr and Geohash service - initialize singleton
-    private val nostrGeohashService = NostrGeohashService.initialize(
+    // New Geohash architecture ViewModel (replaces God object service usage in UI path)
+    val geohashViewModel = GeohashViewModel(
         application = application,
         state = state,
         messageManager = messageManager,
         privateChatManager = privateChatManager,
         meshDelegateHandler = meshDelegateHandler,
-        coroutineScope = viewModelScope,
         dataManager = dataManager,
         notificationManager = notificationManager
     )
+
+
+
 
     // Expose state through LiveData (maintaining the same interface)
     val messages: LiveData<List<BitchatMessage>> = state.messages
@@ -168,14 +171,12 @@ class ChatViewModel(
             }
         }
         
-        // Initialize location channel state
-        nostrGeohashService.initializeLocationChannelState()
+        // Initialize new geohash architecture
+        geohashViewModel.initialize()
 
         // Initialize favorites persistence service
         com.bitchat.android.favorites.FavoritesPersistenceService.initialize(getApplication())
 
-        // Initialize Nostr integration
-        nostrGeohashService.initializeNostrIntegration()
 
         // Ensure NostrTransport knows our mesh peer ID for embedded packets
         try {
@@ -213,6 +214,46 @@ class ChatViewModel(
         meshService.sendBroadcastAnnounce()
     }
     
+    /**
+     * Ensure Nostr DM subscription for a geohash conversation key if known
+     * Minimal-change approach: reflectively access GeohashViewModel internals to reuse pipeline
+     */
+    private fun ensureGeohashDMSubscriptionIfNeeded(convKey: String) {
+        try {
+            val repoField = GeohashViewModel::class.java.getDeclaredField("repo")
+            repoField.isAccessible = true
+            val repo = repoField.get(geohashViewModel) as com.bitchat.android.nostr.GeohashRepository
+            val gh = repo.getConversationGeohash(convKey)
+            if (!gh.isNullOrEmpty()) {
+                val subMgrField = GeohashViewModel::class.java.getDeclaredField("subscriptionManager")
+                subMgrField.isAccessible = true
+                val subMgr = subMgrField.get(geohashViewModel) as com.bitchat.android.nostr.NostrSubscriptionManager
+                val identity = com.bitchat.android.nostr.NostrIdentityBridge.deriveIdentity(gh, getApplication())
+                val subId = "geo-dm-$gh"
+                val currentDmSubField = GeohashViewModel::class.java.getDeclaredField("currentDmSubId")
+                currentDmSubField.isAccessible = true
+                val currentId = currentDmSubField.get(geohashViewModel) as String?
+                if (currentId != subId) {
+                    (currentId)?.let { subMgr.unsubscribe(it) }
+                    currentDmSubField.set(geohashViewModel, subId)
+                    subMgr.subscribeGiftWraps(
+                        pubkey = identity.publicKeyHex,
+                        sinceMs = System.currentTimeMillis() - 172800000L,
+                        id = subId,
+                        handler = { event ->
+                            val dmHandlerField = GeohashViewModel::class.java.getDeclaredField("dmHandler")
+                            dmHandlerField.isAccessible = true
+                            val dmHandler = dmHandlerField.get(geohashViewModel) as com.bitchat.android.nostr.NostrDirectMessageHandler
+                            dmHandler.onGiftWrap(event, gh, identity)
+                        }
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "ensureGeohashDMSubscriptionIfNeeded failed: ${e.message}")
+        }
+    }
+
     // MARK: - Channel Management (delegated)
     
     fun joinChannel(channel: String, password: String? = null): Boolean {
@@ -231,6 +272,11 @@ class ChatViewModel(
     // MARK: - Private Chat Management (delegated)
     
     fun startPrivateChat(peerID: String) {
+        // For geohash conversation keys, ensure DM subscription is active
+        if (peerID.startsWith("nostr_")) {
+            ensureGeohashDMSubscriptionIfNeeded(peerID)
+        }
+        
         val success = privateChatManager.startPrivateChat(peerID, meshService)
         if (success) {
             // Notify notification manager about current private chat
@@ -258,6 +304,66 @@ class ChatViewModel(
         // Clear mesh mention notifications since user is now back in mesh chat
         clearMeshMentionNotifications()
     }
+
+    // MARK: - Open Latest Unread Private Chat
+
+    fun openLatestUnreadPrivateChat() {
+        try {
+            val unreadKeys = state.getUnreadPrivateMessagesValue()
+            if (unreadKeys.isEmpty()) return
+
+            val me = state.getNicknameValue() ?: meshService.myPeerID
+            val chats = state.getPrivateChatsValue()
+
+            // Pick the latest incoming message among unread conversations
+            var bestKey: String? = null
+            var bestTime: Long = Long.MIN_VALUE
+
+            unreadKeys.forEach { key ->
+                val list = chats[key]
+                if (!list.isNullOrEmpty()) {
+                    // Prefer the latest incoming message (sender != me), fallback to last message
+                    val latestIncoming = list.lastOrNull { it.sender != me }
+                    val candidateTime = (latestIncoming ?: list.last()).timestamp.time
+                    if (candidateTime > bestTime) {
+                        bestTime = candidateTime
+                        bestKey = key
+                    }
+                }
+            }
+
+            val targetKey = bestKey ?: unreadKeys.firstOrNull() ?: return
+
+            val openPeer: String = if (targetKey.startsWith("nostr_")) {
+                // Use the exact conversation key for geohash DMs and ensure DM subscription
+                ensureGeohashDMSubscriptionIfNeeded(targetKey)
+                targetKey
+            } else {
+                // Resolve to a canonical mesh peer if needed
+                val canonical = com.bitchat.android.services.ConversationAliasResolver.resolveCanonicalPeerID(
+                    selectedPeerID = targetKey,
+                    connectedPeers = state.getConnectedPeersValue(),
+                    meshNoiseKeyForPeer = { pid -> meshService.getPeerInfo(pid)?.noisePublicKey },
+                    meshHasPeer = { pid -> meshService.getPeerInfo(pid)?.isConnected == true },
+                    nostrPubHexForAlias = { alias -> com.bitchat.android.nostr.GeohashAliasRegistry.get(alias) },
+                    findNoiseKeyForNostr = { key -> com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNoiseKey(key) }
+                )
+                canonical ?: targetKey
+            }
+
+            startPrivateChat(openPeer)
+
+            // If sidebar visible, hide it to focus on the private chat
+            if (state.getShowSidebarValue()) {
+                state.setShowSidebar(false)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "openLatestUnreadPrivateChat failed: ${e.message}")
+        }
+    }
+
+    // END - Open Latest Unread Private Chat
+
     
     // MARK: - Message Sending
     
@@ -270,7 +376,7 @@ class ChatViewModel(
             commandProcessor.processCommand(content, meshService, meshService.myPeerID, { messageContent, mentions, channel ->
                 if (selectedLocationForCommand is com.bitchat.android.geohash.ChannelID.Location) {
                     // Route command-generated public messages via Nostr in geohash channels
-                    nostrGeohashService.sendGeohashMessage(
+                    geohashViewModel.sendGeohashMessage(
                         messageContent,
                         selectedLocationForCommand.channel,
                         meshService.myPeerID,
@@ -298,7 +404,7 @@ class ChatViewModel(
                 connectedPeers = state.getConnectedPeersValue(),
                 meshNoiseKeyForPeer = { pid -> meshService.getPeerInfo(pid)?.noisePublicKey },
                 meshHasPeer = { pid -> meshService.getPeerInfo(pid)?.isConnected == true },
-                nostrPubHexForAlias = { alias -> nostrGeohashService.getNostrKeyMapping()[alias] },
+                nostrPubHexForAlias = { alias -> com.bitchat.android.nostr.GeohashAliasRegistry.get(alias) },
                 findNoiseKeyForNostr = { key -> com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNoiseKey(key) }
             ).also { canonical ->
                 if (canonical != state.getSelectedPrivateChatPeerValue()) {
@@ -323,7 +429,7 @@ class ChatViewModel(
             val selectedLocationChannel = state.selectedLocationChannel.value
             if (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location) {
                 // Send to geohash channel via Nostr ephemeral event
-                nostrGeohashService.sendGeohashMessage(content, selectedLocationChannel.channel, meshService.myPeerID, state.getNicknameValue())
+                geohashViewModel.sendGeohashMessage(content, selectedLocationChannel.channel, meshService.myPeerID, state.getNicknameValue())
             } else {
                 // Send public/channel message via mesh
                 val message = BitchatMessage(
@@ -376,17 +482,36 @@ class ChatViewModel(
         Log.d("ChatViewModel", "toggleFavorite called for peerID: $peerID")
         privateChatManager.toggleFavorite(peerID)
 
-        // Persist relationship in FavoritesPersistenceService when we have Noise key
+        // Persist relationship in FavoritesPersistenceService
         try {
+            var noiseKey: ByteArray? = null
+            var nickname: String = meshService.getPeerNicknames()[peerID] ?: peerID
+
+            // Case 1: Live mesh peer with known info
             val peerInfo = meshService.getPeerInfo(peerID)
-            val noiseKey = peerInfo?.noisePublicKey
-            val nickname = peerInfo?.nickname ?: (meshService.getPeerNicknames()[peerID] ?: peerID)
+            if (peerInfo?.noisePublicKey != null) {
+                noiseKey = peerInfo.noisePublicKey
+                nickname = peerInfo.nickname
+            } else {
+                // Case 2: Offline favorite entry using 64-hex noise public key as peerID
+                if (peerID.length == 64 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
+                    try {
+                        noiseKey = peerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+                        // Prefer nickname from favorites store if available
+                        val rel = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey!!)
+                        if (rel != null) nickname = rel.peerNickname
+                    } catch (_: Exception) { }
+                }
+            }
+
             if (noiseKey != null) {
-                val isNowFavorite = dataManager.favoritePeers.contains(
-                    com.bitchat.android.mesh.PeerFingerprintManager.getInstance().getFingerprintForPeer(peerID) ?: ""
-                )
+                // Determine current favorite state from DataManager using fingerprint
+                val identityManager = com.bitchat.android.identity.SecureIdentityStateManager(getApplication())
+                val fingerprint = identityManager.generateFingerprint(noiseKey!!)
+                val isNowFavorite = dataManager.favoritePeers.contains(fingerprint)
+
                 com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateFavoriteStatus(
-                    noisePublicKey = noiseKey,
+                    noisePublicKey = noiseKey!!,
                     nickname = nickname,
                     isFavorite = isNowFavorite
                 )
@@ -596,7 +721,7 @@ class ChatViewModel(
         
         // Clear Nostr/geohash state, keys, connections, and reinitialize from scratch
         try {
-            nostrGeohashService.panicResetNostrAndGeohash()
+            geohashViewModel.panicReset()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to reset Nostr/geohash: ${e.message}")
         }
@@ -638,10 +763,20 @@ class ChatViewModel(
             try {
                 val identityManager = com.bitchat.android.identity.SecureIdentityStateManager(getApplication())
                 identityManager.clearIdentityData()
-                Log.d(TAG, "✅ Cleared secure identity state")
+                // Also clear secure values used by FavoritesPersistenceService (favorites + peerID index)
+                try {
+                    identityManager.clearSecureValues("favorite_relationships", "favorite_peerid_index")
+                } catch (_: Exception) { }
+                Log.d(TAG, "✅ Cleared secure identity state and secure favorites store")
             } catch (e: Exception) {
                 Log.d(TAG, "SecureIdentityStateManager not available or already cleared: ${e.message}")
             }
+
+            // Clear FavoritesPersistenceService persistent relationships
+            try {
+                com.bitchat.android.favorites.FavoritesPersistenceService.shared.clearAllFavorites()
+                Log.d(TAG, "✅ Cleared FavoritesPersistenceService relationships")
+            } catch (_: Exception) { }
             
             Log.d(TAG, "✅ Cleared all cryptographic data")
         } catch (e: Exception) {
@@ -650,58 +785,51 @@ class ChatViewModel(
     }
 
     /**
-     * Get messages for a specific geohash timeline
-     */
-    fun getGeohashMessages(geohash: String): List<BitchatMessage> {
-        return nostrGeohashService.getGeohashMessages(geohash)
-    }
-
-    /**
      * Get participant count for a specific geohash (5-minute activity window)
      */
     fun geohashParticipantCount(geohash: String): Int {
-        return nostrGeohashService.geohashParticipantCount(geohash)
+        return geohashViewModel.geohashParticipantCount(geohash)
     }
 
     /**
      * Begin sampling multiple geohashes for participant activity
      */
     fun beginGeohashSampling(geohashes: List<String>) {
-        nostrGeohashService.beginGeohashSampling(geohashes)
+        geohashViewModel.beginGeohashSampling(geohashes)
     }
 
     /**
      * End geohash sampling
      */
     fun endGeohashSampling() {
-        nostrGeohashService.endGeohashSampling()
+        // No-op in refactored architecture; sampling subscriptions are short-lived
     }
 
     /**
      * Check if a geohash person is teleported (iOS-compatible)
      */
     fun isPersonTeleported(pubkeyHex: String): Boolean {
-        return nostrGeohashService.isPersonTeleported(pubkeyHex)
+        return geohashViewModel.isPersonTeleported(pubkeyHex)
     }
 
     /**
      * Start geohash DM with pubkey hex (iOS-compatible)
      */
     fun startGeohashDM(pubkeyHex: String) {
-        nostrGeohashService.startGeohashDM(pubkeyHex) { convKey ->
+        geohashViewModel.startGeohashDM(pubkeyHex) { convKey ->
             startPrivateChat(convKey)
         }
     }
 
     fun selectLocationChannel(channel: com.bitchat.android.geohash.ChannelID) {
-        nostrGeohashService.selectLocationChannel(channel)
+        geohashViewModel.selectLocationChannel(channel)
     }
 
     /**
      * Block a user in geohash channels by their nickname
      */
     fun blockUserInGeohash(targetNickname: String) {
-        nostrGeohashService.blockUserInGeohash(targetNickname)
+        geohashViewModel.blockUserInGeohash(targetNickname)
     }
 
     // MARK: - Navigation Management
@@ -774,6 +902,6 @@ class ChatViewModel(
      * Get consistent color for a Nostr pubkey (iOS-compatible)
      */
     fun colorForNostrPubkey(pubkeyHex: String, isDark: Boolean): androidx.compose.ui.graphics.Color {
-        return nostrGeohashService.colorForNostrPubkey(pubkeyHex, isDark)
+        return geohashViewModel.colorForNostrPubkey(pubkeyHex, isDark)
     }
 }
