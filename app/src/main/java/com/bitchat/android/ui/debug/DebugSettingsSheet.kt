@@ -48,6 +48,9 @@ fun DebugSettingsSheet(
     val scanResults by manager.scanResults.collectAsState()
     val connectedDevices by manager.connectedDevices.collectAsState()
     val relayStats by manager.relayStats.collectAsState()
+    val seenCapacity by manager.seenPacketCapacity.collectAsState()
+    val bloomBytes by manager.bloomBytes.collectAsState()
+    val bloomFpr by manager.bloomFprPercent.collectAsState()
 
     // Push live connected devices from mesh service whenever sheet is visible
     LaunchedEffect(isPresented) {
@@ -280,6 +283,24 @@ fun DebugSettingsSheet(
                                 Spacer(Modifier.weight(1f))
                             }
                         }
+                    }
+                }
+            }
+
+            // Connected devices
+            item {
+                Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Filled.SettingsEthernet, contentDescription = null, tint = Color(0xFF9C27B0))
+                            Text("sync settings", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        }
+                        Text("recent packets kept: $seenCapacity", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        Slider(value = seenCapacity.toFloat(), onValueChange = { manager.setSeenPacketCapacity(it.toInt()) }, valueRange = 10f..1000f, steps = 99)
+                        Text("bloom bytes: $bloomBytes", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        Slider(value = bloomBytes.toFloat(), onValueChange = { manager.setBloomBytes(it.toInt()) }, valueRange = 16f..256f, steps = 15)
+                        Text("target FPR: ${String.format("%.2f", bloomFpr)}%", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        Slider(value = bloomFpr.toFloat(), onValueChange = { manager.setBloomFprPercent(it.toDouble()) }, valueRange = 0.1f..5.0f, steps = 49)
                     }
                 }
             }

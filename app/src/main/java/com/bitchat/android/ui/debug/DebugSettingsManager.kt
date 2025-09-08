@@ -201,6 +201,37 @@ class DebugSettingsManager private constructor() {
     fun updateRelayStats(stats: PacketRelayStats) {
         _relayStats.value = stats
     }
+
+    // Sync/Bloom settings (UI-configurable)
+    private val _seenPacketCapacity = MutableStateFlow(DebugPreferenceManager.getSeenPacketCapacity(100))
+    val seenPacketCapacity: StateFlow<Int> = _seenPacketCapacity.asStateFlow()
+
+    private val _bloomBytes = MutableStateFlow(DebugPreferenceManager.getBloomFilterBytes(256))
+    val bloomBytes: StateFlow<Int> = _bloomBytes.asStateFlow()
+
+    private val _bloomFprPercent = MutableStateFlow(DebugPreferenceManager.getBloomFilterFprPercent(1.0))
+    val bloomFprPercent: StateFlow<Double> = _bloomFprPercent.asStateFlow()
+
+    fun setSeenPacketCapacity(value: Int) {
+        val clamped = value.coerceIn(10, 1000)
+        DebugPreferenceManager.setSeenPacketCapacity(clamped)
+        _seenPacketCapacity.value = clamped
+        addDebugMessage(DebugMessage.SystemMessage("🧩 seen packet capacity set to $clamped"))
+    }
+
+    fun setBloomBytes(value: Int) {
+        val clamped = value.coerceIn(16, 256)
+        DebugPreferenceManager.setBloomFilterBytes(clamped)
+        _bloomBytes.value = clamped
+        addDebugMessage(DebugMessage.SystemMessage("🌸 bloom filter bytes set to $clamped"))
+    }
+
+    fun setBloomFprPercent(value: Double) {
+        val clamped = value.coerceIn(0.1, 5.0)
+        DebugPreferenceManager.setBloomFilterFprPercent(clamped)
+        _bloomFprPercent.value = clamped
+        addDebugMessage(DebugMessage.SystemMessage("🎯 bloom FPR set to ${String.format("%.2f", clamped)}%"))
+    }
     
     // MARK: - Debug Message Creation Helpers
     

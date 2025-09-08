@@ -10,6 +10,8 @@ import com.bitchat.android.model.IdentityAnnouncement
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
+import com.bitchat.android.model.RequestSyncPacket
+import com.bitchat.android.sync.GossipSyncManager
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.*
 import java.util.*
@@ -49,6 +51,23 @@ class BluetoothMeshService(private val context: Context) {
     private val messageHandler = MessageHandler(myPeerID)
     internal val connectionManager = BluetoothConnectionManager(context, myPeerID, fragmentManager) // Made internal for access
     private val packetProcessor = PacketProcessor(myPeerID)
+    private val gossipSyncManager = GossipSyncManager(
+        myPeerID = myPeerID,
+        scope = serviceScope,
+        configProvider = object : GossipSyncManager.ConfigProvider {
+            override fun seenCapacity(): Int = try {
+                com.bitchat.android.ui.debug.DebugPreferenceManager.getSeenPacketCapacity(100)
+            } catch (_: Exception) { 100 }
+
+            override fun bloomMaxBytes(): Int = try {
+                com.bitchat.android.ui.debug.DebugPreferenceManager.getBloomFilterBytes(256)
+            } catch (_: Exception) { 256 }
+
+            override fun bloomTargetFpr(): Double = try {
+                com.bitchat.android.ui.debug.DebugPreferenceManager.getBloomFilterFprPercent(1.0) / 100.0
+            } catch (_: Exception) { 0.01 }
+        }
+    )
     
     // Service state management
     private var isActive = false
@@ -63,6 +82,16 @@ class BluetoothMeshService(private val context: Context) {
         setupDelegates()
         messageHandler.packetProcessor = packetProcessor
         //startPeriodicDebugLogging()
+
+        // Wire sync manager delegate
+        gossipSyncManager.delegate = object : GossipSyncManager.Delegate {
+            override fun sendPacket(packet: BitchatPacket) {
+                connectionManager.broadcastPacket(RoutedPacket(packet))
+            }
+            override fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket {
+                return signPacketBeforeBroadcast(packet)
+            }
+        }
     }
     
     /**
@@ -382,11 +411,21 @@ class BluetoothMeshService(private val context: Context) {
                             } catch (_: Exception) { }
                         }
                     }
+                    // Track for sync
+                    try { gossipSyncManager.onPublicPacketSeen(routed.packet) } catch (_: Exception) { }
                 }
             }
             
             override fun handleMessage(routed: RoutedPacket) {
                 serviceScope.launch { messageHandler.handleMessage(routed) }
+                // Track broadcast messages for sync
+                try {
+                    val pkt = routed.packet
+                    val isBroadcast = (pkt.recipientID == null || pkt.recipientID.contentEquals(SpecialRecipients.BROADCAST))
+                    if (isBroadcast && pkt.type == MessageType.MESSAGE.value) {
+                        gossipSyncManager.onPublicPacketSeen(pkt)
+                    }
+                } catch (_: Exception) { }
             }
             
             override fun handleLeave(routed: RoutedPacket) {
@@ -408,6 +447,13 @@ class BluetoothMeshService(private val context: Context) {
             override fun relayPacket(routed: RoutedPacket) {
                 connectionManager.broadcastPacket(routed)
             }
+
+            override fun handleRequestSync(routed: RoutedPacket) {
+                // Decode request and respond with missing packets
+                val fromPeer = routed.peerID ?: return
+                val req = RequestSyncPacket.decode(routed.packet.payload) ?: return
+                gossipSyncManager.handleRequestSync(fromPeer, req)
+            }
         }
         
         // BluetoothConnectionManager delegates
@@ -422,6 +468,8 @@ class BluetoothMeshService(private val context: Context) {
                     delay(200)
                     sendBroadcastAnnounce()
                 }
+                // Schedule initial sync shortly after new neighbor connects
+                gossipSyncManager.scheduleInitialSync(5_000)
                 // Verbose debug: device connected
                 try {
                     val addr = device.address
@@ -480,6 +528,8 @@ class BluetoothMeshService(private val context: Context) {
             // Start periodic announcements for peer discovery and connectivity
             sendPeriodicBroadcastAnnounce()
             Log.d(TAG, "Started periodic broadcast announcements (every 30 seconds)")
+            // Start periodic syncs
+            gossipSyncManager.start()
         } else {
             Log.e(TAG, "Failed to start Bluetooth services")
         }
@@ -504,6 +554,7 @@ class BluetoothMeshService(private val context: Context) {
             delay(200) // Give leave message time to send
             
             // Stop all components
+            gossipSyncManager.stop()
             connectionManager.stopServices()
             peerManager.shutdown()
             fragmentManager.shutdown()
@@ -708,6 +759,8 @@ class BluetoothMeshService(private val context: Context) {
             
             connectionManager.broadcastPacket(RoutedPacket(signedPacket))
             Log.d(TAG, "Sent iOS-compatible signed TLV announce (${tlvPayload.size} bytes)")
+            // Track announce for sync
+            try { gossipSyncManager.onPublicPacketSeen(signedPacket) } catch (_: Exception) { }
         }
     }
     
