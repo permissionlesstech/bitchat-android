@@ -413,6 +413,22 @@ fun PeopleSection(
             val isMappedToConnected = noiseHexByPeerID.values.any { it.equals(favPeerID, ignoreCase = true) }
             if (isMappedToConnected) return@forEach
 
+            // Resolve potential Nostr conversation key for this favorite (for unread detection)
+            val nostrConvKey: String? = try {
+                val npubOrHex = com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNostrPubkey(fav.peerNoisePublicKey)
+                if (npubOrHex != null) {
+                    val hex = if (npubOrHex.startsWith("npub")) {
+                        val (hrp, data) = com.bitchat.android.nostr.Bech32.decode(npubOrHex)
+                        if (hrp == "npub") data.joinToString("") { "%02x".format(it) } else null
+                    } else {
+                        npubOrHex.lowercase()
+                    }
+                    hex?.let { "nostr_${it.take(16)}" }
+                } else null
+            } catch (_: Exception) { null }
+
+            val hasUnread = hasUnreadPrivateMessages.contains(favPeerID) || (nostrConvKey != null && hasUnreadPrivateMessages.contains(nostrConvKey))
+
             // If user clicks an offline favorite and the mapped peer is currently connected under a different ID,
             // open chat with the connected peerID instead of the noise hex for a seamless window
             val mappedConnectedPeerID = noiseHexByPeerID.entries.firstOrNull { it.value.equals(favPeerID, ignoreCase = true) }?.key
@@ -420,13 +436,20 @@ fun PeopleSection(
             val (bName, _) = com.bitchat.android.ui.splitSuffix(dn)
             val showHash = (baseNameCounts[bName] ?: 0) > 1
 
+            // Compute unreadCount from either noise conversation or Nostr conversation
+            val unreadCount = (
+                privateChats[favPeerID]?.count { msg -> msg.sender != nickname && hasUnreadPrivateMessages.contains(favPeerID) } ?: 0
+            ) + (
+                if (nostrConvKey != null) privateChats[nostrConvKey]?.count { msg -> msg.sender != nickname && hasUnreadPrivateMessages.contains(nostrConvKey) } ?: 0 else 0
+            )
+
             PeerItem(
                 peerID = favPeerID,
                 displayName = dn,
                 isDirect = false,
                 isSelected = (mappedConnectedPeerID ?: favPeerID) == selectedPrivatePeer,
                 isFavorite = true,
-                hasUnreadDM = hasUnreadPrivateMessages.contains(favPeerID),
+                hasUnreadDM = hasUnread,
                 colorScheme = colorScheme,
                 viewModel = viewModel,
                 onItemClick = { onPrivateChatStart(mappedConnectedPeerID ?: favPeerID) },
@@ -434,9 +457,7 @@ fun PeopleSection(
                     Log.d("SidebarComponents", "Sidebar toggle favorite (offline): peerID=$favPeerID")
                     viewModel.toggleFavorite(favPeerID)
                 },
-                unreadCount = privateChats[favPeerID]?.count { msg ->
-                    msg.sender != nickname && hasUnreadPrivateMessages.contains(favPeerID)
-                } ?: if (hasUnreadPrivateMessages.contains(favPeerID)) 1 else 0,
+                unreadCount = if (unreadCount > 0) unreadCount else if (hasUnread) 1 else 0,
                 showNostrGlobe = (fav.isMutual && fav.peerNostrPublicKey != null),
                 showHashSuffix = showHash
             )

@@ -69,13 +69,13 @@ class MessageRouter private constructor(
         val hasMesh = mesh.getPeerInfo(toPeerID)?.isConnected == true
         val hasEstablished = mesh.hasEstablishedSession(toPeerID)
         if (hasMesh && hasEstablished) {
-            Log.d(TAG, "Routing PM via mesh to ${toPeerID.take(8)}… id=${messageID.take(8)}…")
+            Log.d(TAG, "Routing PM via mesh to ${toPeerID} msg_id=${messageID.take(8)}…")
             mesh.sendPrivateMessage(content, toPeerID, recipientNickname, messageID)
         } else if (canSendViaNostr(toPeerID)) {
-            Log.d(TAG, "Routing PM via Nostr to ${toPeerID.take(8)}… id=${messageID.take(8)}…")
+            Log.d(TAG, "Routing PM via Nostr to ${toPeerID.take(32)}… msg_id=${messageID.take(8)}…")
             nostr.sendPrivateMessage(content, toPeerID, recipientNickname, messageID)
         } else {
-            Log.d(TAG, "Queued PM for ${toPeerID.take(8)}… (no mesh, no Nostr mapping) id=${messageID.take(8)}…")
+            Log.d(TAG, "Queued PM for ${toPeerID} (no mesh, no Nostr mapping) msg_id=${messageID.take(8)}…")
             val q = outbox.getOrPut(toPeerID) { mutableListOf() }
             q.add(Triple(content, recipientNickname, messageID))
             Log.d(TAG, "Initiating noise handshake after queueing PM for ${toPeerID.take(8)}…")
