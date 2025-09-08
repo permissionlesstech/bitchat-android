@@ -10,7 +10,7 @@ import kotlin.math.ln
 class SeenPacketsBloomFilter(
     private val maxBytes: Int = 256,        // up to 256 bytes
     private val targetFpr: Double = 0.01,   // 1%
-    private val seed: Long = 0x9E3779B97F4A7C15L
+    private val seed: Long = 0x27d4eb2f165667c5L
 ) {
     data class Snapshot(val mBytes: Int, val k: Int, val bits: ByteArray)
 
@@ -30,7 +30,9 @@ class SeenPacketsBloomFilter(
     }
 
     private val mBits = (maxBytes * 8).coerceAtLeast(8)
-    private val (kOptimal, capacityOptimal) = deriveParams(mBits, targetFpr)
+    private val derivedParams: Pair<Int, Int> = deriveParams(mBits, targetFpr)
+    private val kOptimal: Int = derivedParams.first
+    private val capacityOptimal: Int = derivedParams.second
 
     // Active/standby filters
     @Volatile private var active = newFilter()
@@ -125,4 +127,3 @@ class SeenPacketsBloomFilter(
         return Snapshot(mBytes = a.bits.size, k = a.k, bits = a.bits.copyOf())
     }
 }
-

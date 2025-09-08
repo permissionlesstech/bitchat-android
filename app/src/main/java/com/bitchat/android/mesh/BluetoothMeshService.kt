@@ -51,23 +51,7 @@ class BluetoothMeshService(private val context: Context) {
     private val messageHandler = MessageHandler(myPeerID)
     internal val connectionManager = BluetoothConnectionManager(context, myPeerID, fragmentManager) // Made internal for access
     private val packetProcessor = PacketProcessor(myPeerID)
-    private val gossipSyncManager = GossipSyncManager(
-        myPeerID = myPeerID,
-        scope = serviceScope,
-        configProvider = object : GossipSyncManager.ConfigProvider {
-            override fun seenCapacity(): Int = try {
-                com.bitchat.android.ui.debug.DebugPreferenceManager.getSeenPacketCapacity(100)
-            } catch (_: Exception) { 100 }
-
-            override fun bloomMaxBytes(): Int = try {
-                com.bitchat.android.ui.debug.DebugPreferenceManager.getBloomFilterBytes(256)
-            } catch (_: Exception) { 256 }
-
-            override fun bloomTargetFpr(): Double = try {
-                com.bitchat.android.ui.debug.DebugPreferenceManager.getBloomFilterFprPercent(1.0) / 100.0
-            } catch (_: Exception) { 0.01 }
-        }
-    )
+    private lateinit var gossipSyncManager: GossipSyncManager
     
     // Service state management
     private var isActive = false
@@ -82,6 +66,25 @@ class BluetoothMeshService(private val context: Context) {
         setupDelegates()
         messageHandler.packetProcessor = packetProcessor
         //startPeriodicDebugLogging()
+
+        // Initialize sync manager (needs serviceScope)
+        gossipSyncManager = GossipSyncManager(
+            myPeerID = myPeerID,
+            scope = serviceScope,
+            configProvider = object : GossipSyncManager.ConfigProvider {
+                override fun seenCapacity(): Int = try {
+                    com.bitchat.android.ui.debug.DebugPreferenceManager.getSeenPacketCapacity(100)
+                } catch (_: Exception) { 100 }
+
+                override fun bloomMaxBytes(): Int = try {
+                    com.bitchat.android.ui.debug.DebugPreferenceManager.getBloomFilterBytes(256)
+                } catch (_: Exception) { 256 }
+
+                override fun bloomTargetFpr(): Double = try {
+                    com.bitchat.android.ui.debug.DebugPreferenceManager.getBloomFilterFprPercent(1.0) / 100.0
+                } catch (_: Exception) { 0.01 }
+            }
+        )
 
         // Wire sync manager delegate
         gossipSyncManager.delegate = object : GossipSyncManager.Delegate {

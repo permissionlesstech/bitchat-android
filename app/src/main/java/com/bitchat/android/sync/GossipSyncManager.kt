@@ -54,7 +54,7 @@ class GossipSyncManager(
                 try {
                     delay(30_000)
                     sendRequestSync()
-                } catch (_: CancellationException) { throw _ }
+                } catch (e: CancellationException) { throw e }
                 catch (e: Exception) { Log.e(TAG, "Periodic sync error: ${e.message}") }
             }
         }
@@ -130,7 +130,7 @@ class GossipSyncManager(
             fun mightContain(id: ByteArray): Boolean {
                 // Double hashing same as SeenPacketsBloomFilter to ensure compatibility
                 var h1 = 1469598103934665603L
-                var h2 = 0x9E3779B97F4A7C15L
+                var h2 = 0x27d4eb2f165667c5L
                 for (b in id) {
                     h1 = (h1 xor (b.toLong() and 0xFF)) * 1099511628211L
                     h2 = (h2 xor (b.toLong() and 0xFF)) * 0x100000001B3L
@@ -194,4 +194,3 @@ class GossipSyncManager(
         return out
     }
 }
-
