@@ -85,12 +85,22 @@ class NostrTransport(
                     return@launch
                 }
                 
+                // Strict: lookup the recipient's current BitChat peer ID using favorites mapping
+                val recipientPeerIDForEmbed = try {
+                    com.bitchat.android.favorites.FavoritesPersistenceService.shared
+                        .findPeerIDForNostrPubkey(recipientNostrPubkey)
+                } catch (_: Exception) { null }
+                if (recipientPeerIDForEmbed.isNullOrBlank()) {
+                    Log.e(TAG, "NostrTransport: no peerID stored for recipient npub; cannot embed PM. npub=${recipientNostrPubkey.take(16)}...")
+                    return@launch
+                }
                 val embedded = NostrEmbeddedBitChat.encodePMForNostr(
                     content = content,
                     messageID = messageID,
-                    recipientPeerID = to,
+                    recipientPeerID = recipientPeerIDForEmbed,
                     senderPeerID = senderPeerID
                 )
+                
                 
                 if (embedded == null) {
                     Log.e(TAG, "NostrTransport: failed to embed PM packet")

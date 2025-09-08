@@ -155,9 +155,29 @@ class FavoritesPersistenceService private constructor(private val context: Conte
         return peerIdIndex[peerID.lowercase()]
     }
 
+    /** NEW: Resolve peerID (16-hex) for a given Nostr pubkey (npub or hex). */
+    fun findPeerIDForNostrPubkey(nostrPubkey: String): String? {
+        // First, try direct match in peerIdIndex (values are stored as npub strings)
+        peerIdIndex.entries.firstOrNull { it.value.equals(nostrPubkey, ignoreCase = true) }?.let { return it.key }
+        
+        // Attempt legacy mapping via favorites Noise key association
+        val targetHex = normalizeNostrKeyToHex(nostrPubkey)
+        if (targetHex != null) {
+            // Find relationship with matching nostr pubkey (normalized to hex) and then try to map to current peerID via noise key prefix
+            val rel = favorites.values.firstOrNull { it.peerNostrPublicKey?.let { stored -> normalizeNostrKeyToHex(stored) } == targetHex }
+            if (rel != null) {
+                val noiseHex = rel.peerNoisePublicKey.joinToString("") { "%02x".format(it) }
+                // Return 16-hex prefix as best-effort if no explicit mapping exists
+                return noiseHex.take(16)
+            }
+        }
+        return null
+    }
+
     /** Update favorite status */
     fun updateFavoriteStatus(noisePublicKey: ByteArray, nickname: String, isFavorite: Boolean) {
         val keyHex = noisePublicKey.joinToString("") { "%02x".format(it) }
+
         val existing = favorites[keyHex]
 
         val updated = if (existing != null) {
