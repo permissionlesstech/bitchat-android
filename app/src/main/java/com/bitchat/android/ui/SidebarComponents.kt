@@ -545,6 +545,15 @@ private fun PeerItem(
                     modifier = Modifier.size(16.dp),
                     tint = Color(0xFF9C27B0) // Purple
                 )
+            } else if (!isDirect && isFavorite) {
+                // Offline favorited user: show outlined circle icon
+                Icon(
+                    //painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_offline_favorite),
+                    imageVector = Icons.Outlined.Circle,
+                    contentDescription = "Offline favorite",
+                    modifier = Modifier.size(16.dp),
+                    tint = Color.Gray
+                )
             } else {
                 Icon(
                     imageVector = if (isDirect) Icons.Outlined.SettingsInputAntenna else Icons.Filled.Route,

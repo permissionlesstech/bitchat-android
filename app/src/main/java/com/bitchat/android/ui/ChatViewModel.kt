@@ -377,17 +377,36 @@ class ChatViewModel(
         Log.d("ChatViewModel", "toggleFavorite called for peerID: $peerID")
         privateChatManager.toggleFavorite(peerID)
 
-        // Persist relationship in FavoritesPersistenceService when we have Noise key
+        // Persist relationship in FavoritesPersistenceService
         try {
+            var noiseKey: ByteArray? = null
+            var nickname: String = meshService.getPeerNicknames()[peerID] ?: peerID
+
+            // Case 1: Live mesh peer with known info
             val peerInfo = meshService.getPeerInfo(peerID)
-            val noiseKey = peerInfo?.noisePublicKey
-            val nickname = peerInfo?.nickname ?: (meshService.getPeerNicknames()[peerID] ?: peerID)
+            if (peerInfo?.noisePublicKey != null) {
+                noiseKey = peerInfo.noisePublicKey
+                nickname = peerInfo.nickname
+            } else {
+                // Case 2: Offline favorite entry using 64-hex noise public key as peerID
+                if (peerID.length == 64 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
+                    try {
+                        noiseKey = peerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+                        // Prefer nickname from favorites store if available
+                        val rel = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey!!)
+                        if (rel != null) nickname = rel.peerNickname
+                    } catch (_: Exception) { }
+                }
+            }
+
             if (noiseKey != null) {
-                val isNowFavorite = dataManager.favoritePeers.contains(
-                    com.bitchat.android.mesh.PeerFingerprintManager.getInstance().getFingerprintForPeer(peerID) ?: ""
-                )
+                // Determine current favorite state from DataManager using fingerprint
+                val identityManager = com.bitchat.android.identity.SecureIdentityStateManager(getApplication())
+                val fingerprint = identityManager.generateFingerprint(noiseKey!!)
+                val isNowFavorite = dataManager.favoritePeers.contains(fingerprint)
+
                 com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateFavoriteStatus(
-                    noisePublicKey = noiseKey,
+                    noisePublicKey = noiseKey!!,
                     nickname = nickname,
                     isFavorite = isNowFavorite
                 )
@@ -639,10 +658,20 @@ class ChatViewModel(
             try {
                 val identityManager = com.bitchat.android.identity.SecureIdentityStateManager(getApplication())
                 identityManager.clearIdentityData()
-                Log.d(TAG, "✅ Cleared secure identity state")
+                // Also clear secure values used by FavoritesPersistenceService (favorites + peerID index)
+                try {
+                    identityManager.clearSecureValues("favorite_relationships", "favorite_peerid_index")
+                } catch (_: Exception) { }
+                Log.d(TAG, "✅ Cleared secure identity state and secure favorites store")
             } catch (e: Exception) {
                 Log.d(TAG, "SecureIdentityStateManager not available or already cleared: ${e.message}")
             }
+
+            // Clear FavoritesPersistenceService persistent relationships
+            try {
+                com.bitchat.android.favorites.FavoritesPersistenceService.shared.clearAllFavorites()
+                Log.d(TAG, "✅ Cleared FavoritesPersistenceService relationships")
+            } catch (_: Exception) { }
             
             Log.d(TAG, "✅ Cleared all cryptographic data")
         } catch (e: Exception) {

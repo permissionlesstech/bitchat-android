@@ -3,6 +3,8 @@ package com.bitchat.android.ui
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.mesh.PeerFingerprintManager
+import java.security.MessageDigest
+
 import com.bitchat.android.mesh.BluetoothMeshService
 import java.util.*
 import android.util.Log
@@ -123,21 +125,40 @@ class PrivateChatManager(
     }
 
     fun toggleFavorite(peerID: String) {
-        val fingerprint = fingerprintManager.getFingerprintForPeer(peerID) ?: return
+        var fingerprint = fingerprintManager.getFingerprintForPeer(peerID)
+
+        // Fallback: if this looks like a 64-hex Noise public key (offline favorite entry),
+        // compute a synthetic fingerprint (SHA-256 of public key) to allow unfollowing offline peers
+        if (fingerprint == null && peerID.length == 64 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
+            try {
+                val pubBytes = peerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+                val digest = java.security.MessageDigest.getInstance("SHA-256")
+                val fpBytes = digest.digest(pubBytes)
+                fingerprint = fpBytes.joinToString("") { "%02x".format(it) }
+                Log.d(TAG, "Computed fingerprint from noise key hex for offline toggle: $fingerprint")
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to compute fingerprint from noise key hex: ${e.message}")
+            }
+        }
+
+        if (fingerprint == null) {
+            Log.w(TAG, "toggleFavorite: no fingerprint for peerID=$peerID; ignoring toggle")
+            return
+        }
 
         Log.d(TAG, "toggleFavorite called for peerID: $peerID, fingerprint: $fingerprint")
 
-        val wasFavorite = dataManager.isFavorite(fingerprint)
+        val wasFavorite = dataManager.isFavorite(fingerprint!!)
         Log.d(TAG, "Current favorite status: $wasFavorite")
 
         val currentFavorites = state.getFavoritePeersValue()
         Log.d(TAG, "Current UI state favorites: $currentFavorites")
 
         if (wasFavorite) {
-            dataManager.removeFavorite(fingerprint)
+            dataManager.removeFavorite(fingerprint!!)
             Log.d(TAG, "Removed from favorites: $fingerprint")
         } else {
-            dataManager.addFavorite(fingerprint)
+            dataManager.addFavorite(fingerprint!!)
             Log.d(TAG, "Added to favorites: $fingerprint")
         }
 
@@ -148,6 +169,7 @@ class PrivateChatManager(
         Log.d(TAG, "Force updated favorite peers state. New favorites: $newFavorites")
         Log.d(TAG, "All peer fingerprints: ${fingerprintManager.getAllPeerFingerprints()}")
     }
+
 
     fun isFavorite(peerID: String): Boolean {
         val fingerprint = fingerprintManager.getFingerprintForPeer(peerID) ?: return false
