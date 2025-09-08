@@ -64,6 +64,10 @@ class GeohashMessageHandler(
                 repo.updateParticipant(subscribedGeohash, event.pubkey, Date(event.createdAt * 1000L))
                 event.tags.find { it.size >= 2 && it[0] == "n" }?.let { repo.cacheNickname(event.pubkey, it[1]) }
                 event.tags.find { it.size >= 2 && it[0] == "t" && it[1] == "teleport" }?.let { repo.markTeleported(event.pubkey) }
+                // Register a geohash DM alias for this participant so MessageRouter can route DMs via Nostr
+                try {
+                    com.bitchat.android.nostr.GeohashAliasRegistry.put("nostr_${event.pubkey.take(16)}", event.pubkey)
+                } catch (_: Exception) { }
 
                 // Skip our own events for message emission
                 val my = NostrIdentityBridge.deriveIdentity(subscribedGeohash, application)
