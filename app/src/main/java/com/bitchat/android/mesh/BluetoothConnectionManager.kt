@@ -247,16 +247,6 @@ class BluetoothConnectionManager(
             serverManager.getCharacteristic()
         )
     }
-
-    fun sendToPeer(peerID: String, routed: RoutedPacket): Boolean {
-        if (!isActive) return false
-        return packetBroadcaster.sendToPeer(
-            peerID,
-            routed,
-            serverManager.getGattServer(),
-            serverManager.getCharacteristic()
-        )
-    }
     
 
     // Expose role controls for debug UI

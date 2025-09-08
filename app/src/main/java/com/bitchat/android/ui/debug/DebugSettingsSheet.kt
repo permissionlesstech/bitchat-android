@@ -24,92 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.rotate
 import com.bitchat.android.mesh.BluetoothMeshService
-import com.bitchat.android.services.meshgraph.MeshGraphService
 import kotlinx.coroutines.launch
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.nativeCanvas
-
-@Composable
-fun MeshTopologySection() {
-    val colorScheme = MaterialTheme.colorScheme
-    val graphService = remember { MeshGraphService.getInstance() }
-    val snapshot by graphService.graphState.collectAsState()
-
-    Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Filled.SettingsEthernet, contentDescription = null, tint = Color(0xFF8E8E93))
-                Text("mesh topology", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-            }
-            val nodes = snapshot.nodes
-            val edges = snapshot.edges
-            val empty = nodes.isEmpty()
-            if (empty) {
-                Text("no gossip yet", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
-            } else {
-                androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(220.dp).background(colorScheme.surface.copy(alpha = 0.4f))) {
-                    val w = size.width
-                    val h = size.height
-                    val cx = w / 2f
-                    val cy = h / 2f
-                    val radius = (minOf(w, h) * 0.36f)
-                    val n = nodes.size
-                    if (n == 1) {
-                        // Single node centered
-                        drawCircle(color = Color(0xFF00C851), radius = 12f, center = androidx.compose.ui.geometry.Offset(cx, cy))
-                    } else {
-                        // Circular layout
-                        val positions = nodes.mapIndexed { i, node ->
-                            val angle = (2 * Math.PI * i.toDouble()) / n
-                            val x = cx + (radius * Math.cos(angle)).toFloat()
-                            val y = cy + (radius * Math.sin(angle)).toFloat()
-                            node.peerID to androidx.compose.ui.geometry.Offset(x, y)
-                        }.toMap()
-
-                        // Draw edges
-                        edges.forEach { e ->
-                            val p1 = positions[e.a]
-                            val p2 = positions[e.b]
-                            if (p1 != null && p2 != null) {
-                                drawLine(color = Color(0xFF4A90E2), start = p1, end = p2, strokeWidth = 2f)
-                            }
-                        }
-
-                        // Draw nodes
-                        nodes.forEach { node ->
-                            val pos = positions[node.peerID] ?: androidx.compose.ui.geometry.Offset(cx, cy)
-                            drawCircle(color = Color(0xFF00C851), radius = 10f, center = pos)
-                        }
-
-                        // Draw labels near nodes (nickname or short ID)
-                        val labelColor = colorScheme.onSurface.toArgb()
-                        val textSizePx = 10.sp.toPx()
-                        drawIntoCanvas { canvas ->
-                            val paint = android.graphics.Paint().apply {
-                                isAntiAlias = true
-                                color = labelColor
-                                textSize = textSizePx
-                            }
-                            nodes.forEach { node ->
-                                val pos = positions[node.peerID] ?: androidx.compose.ui.geometry.Offset(cx, cy)
-                                val label = (node.nickname?.takeIf { it.isNotBlank() } ?: node.peerID.take(8))
-                                canvas.nativeCanvas.drawText(label, pos.x + 12f, pos.y - 12f, paint)
-                            }
-                        }
-                    }
-                }
-                // Label list for clarity under the canvas
-                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 140.dp)) {
-                    items(nodes) { node ->
-                        val label = "${node.peerID.take(8)} • ${node.nickname ?: "unknown"}"
-                        Text(label, fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.85f))
-                    }
-                }
-            }
-        }
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -207,11 +122,6 @@ fun DebugSettingsSheet(
                         )
                     }
                 }
-            }
-
-            // Mesh topology visualization (moved below verbose logging)
-            item {
-                MeshTopologySection()
             }
 
             // GATT controls
@@ -340,82 +250,39 @@ fun DebugSettingsSheet(
                                     }
                                 }
                             }
-                            // Y-axis ticks (min/max) in the left margin
-                            Text("0", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = colorScheme.onSurface.copy(alpha = 0.7f), modifier = Modifier.align(Alignment.BottomStart).padding(start = 4.dp, bottom = 2.dp))
-                            Text("${maxVal.toInt()}", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = colorScheme.onSurface.copy(alpha = 0.7f), modifier = Modifier.align(Alignment.TopStart).padding(start = 4.dp, top = 2.dp))
-                            // Y-axis unit label (vertical)
-                            Text("p/s", fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = colorScheme.onSurface.copy(alpha = 0.7f), modifier = Modifier.align(Alignment.CenterStart).padding(start = 2.dp).rotate(-90f))
-            }
-        }
-    }
-}
-
-@Composable
-fun MeshTopologySection() {
-    val colorScheme = MaterialTheme.colorScheme
-    val graphService = remember { MeshGraphService.getInstance() }
-    val snapshot by graphService.graphState.collectAsState()
-
-    Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Filled.SettingsEthernet, contentDescription = null, tint = Color(0xFF8E8E93))
-                Text("mesh topology", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-            }
-            val nodes = snapshot.nodes
-            val edges = snapshot.edges
-            val empty = nodes.isEmpty()
-            if (empty) {
-                Text("no gossip yet", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
-            } else {
-                androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(220.dp).background(colorScheme.surface.copy(alpha = 0.4f))) {
-                    val w = size.width
-                    val h = size.height
-                    val cx = w / 2f
-                    val cy = h / 2f
-                    val radius = (minOf(w, h) * 0.36f)
-                    val n = nodes.size
-                    if (n == 1) {
-                        // Single node centered
-                        drawCircle(color = Color(0xFF00C851), radius = 12f, center = androidx.compose.ui.geometry.Offset(cx, cy))
-                    } else {
-                        // Circular layout
-                        val positions = nodes.mapIndexed { i, node ->
-                            val angle = (2 * Math.PI * i.toDouble()) / n
-                            val x = cx + (radius * Math.cos(angle)).toFloat()
-                            val y = cy + (radius * Math.sin(angle)).toFloat()
-                            node.peerID to androidx.compose.ui.geometry.Offset(x, y)
-                        }.toMap()
-
-                        // Draw edges
-                        edges.forEach { e ->
-                            val p1 = positions[e.a]
-                            val p2 = positions[e.b]
-                            if (p1 != null && p2 != null) {
-                                drawLine(color = Color(0xFF4A90E2), start = p1, end = p2, strokeWidth = 2f)
+                            // Left gutter layout: unit + ticks neatly aligned
+                            Row(Modifier.fillMaxSize()) {
+                                Box(Modifier.width(leftGutter).fillMaxHeight()) {
+                                    // Unit label on the far left, centered vertically
+                                    Text(
+                                        "p/s",
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 10.sp,
+                                        color = colorScheme.onSurface.copy(alpha = 0.7f),
+                                        modifier = Modifier.align(Alignment.CenterStart).padding(start = 2.dp).rotate(-90f)
+                                    )
+                                    // Tick labels right-aligned in gutter, top and bottom aligned
+                                    Text(
+                                        "${maxVal.toInt()}",
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 10.sp,
+                                        color = colorScheme.onSurface.copy(alpha = 0.7f),
+                                        modifier = Modifier.align(Alignment.TopEnd).padding(end = 4.dp, top = 0.dp)
+                                    )
+                                    Text(
+                                        "0",
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 10.sp,
+                                        color = colorScheme.onSurface.copy(alpha = 0.7f),
+                                        modifier = Modifier.align(Alignment.BottomEnd).padding(end = 4.dp, bottom = 0.dp)
+                                    )
+                                }
+                                Spacer(Modifier.weight(1f))
                             }
                         }
-
-                        // Draw nodes
-                        nodes.forEach { node ->
-                            val pos = positions[node.peerID] ?: androidx.compose.ui.geometry.Offset(cx, cy)
-                            drawCircle(color = Color(0xFF00C851), radius = 10f, center = pos)
-                        }
-                    }
-                }
-                // Label list for clarity under the canvas
-                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 140.dp)) {
-                    items(nodes) { node ->
-                        val label = "${node.peerID.take(8)} • ${node.nickname ?: "unknown"}"
-                        Text(label, fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.85f))
                     }
                 }
             }
-        }
-    }
-}
-
-
 
             // Connected devices
             item {

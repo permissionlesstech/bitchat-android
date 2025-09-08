@@ -57,8 +57,7 @@ data class BitchatPacket(
     val timestamp: ULong,
     val payload: ByteArray,
     var signature: ByteArray? = null,  // Changed from val to var for packet signing
-    var ttl: UByte,
-    var route: List<ByteArray>? = null // Optional source route: ordered list of peerIDs (8 bytes each), not including sender and final recipient
+    var ttl: UByte
 ) : Parcelable {
 
     constructor(
@@ -96,8 +95,7 @@ data class BitchatPacket(
             timestamp = timestamp,
             payload = payload,
             signature = null, // Remove signature for signing
-            ttl = 0u, // Use fixed TTL=0 for signing to ensure relay compatibility
-            route = route
+            ttl = 0u // Use fixed TTL=0 for signing to ensure relay compatibility
         )
         return BinaryProtocol.encode(unsignedPacket)
     }
@@ -149,11 +147,6 @@ data class BitchatPacket(
             if (!signature.contentEquals(other.signature)) return false
         } else if (other.signature != null) return false
         if (ttl != other.ttl) return false
-        if (route != null || other.route != null) {
-            val a = route?.map { it.toList() } ?: emptyList()
-            val b = other.route?.map { it.toList() } ?: emptyList()
-            if (a != b) return false
-        }
 
         return true
     }
@@ -167,7 +160,6 @@ data class BitchatPacket(
         result = 31 * result + payload.contentHashCode()
         result = 31 * result + (signature?.contentHashCode() ?: 0)
         result = 31 * result + ttl.hashCode()
-        result = 31 * result + (route?.fold(1) { acc, bytes -> 31 * acc + bytes.contentHashCode() } ?: 0)
         return result
     }
 }
@@ -185,7 +177,6 @@ object BinaryProtocol {
         const val HAS_RECIPIENT: UByte = 0x01u
         const val HAS_SIGNATURE: UByte = 0x02u
         const val IS_COMPRESSED: UByte = 0x04u
-        const val HAS_ROUTE: UByte = 0x08u
     }
     
     fun encode(packet: BitchatPacket): ByteArray? {
@@ -224,9 +215,6 @@ object BinaryProtocol {
             if (isCompressed) {
                 flags = flags or Flags.IS_COMPRESSED
             }
-            if (!packet.route.isNullOrEmpty()) {
-                flags = flags or Flags.HAS_ROUTE
-            }
             buffer.put(flags.toByte())
             
             // Payload length (2 bytes, big-endian) - includes original size if compressed
@@ -247,14 +235,6 @@ object BinaryProtocol {
                 if (recipientBytes.size < RECIPIENT_ID_SIZE) {
                     buffer.put(ByteArray(RECIPIENT_ID_SIZE - recipientBytes.size))
                 }
-            }
-
-            // Route (optional): 1 byte count + N*8 bytes
-            packet.route?.let { routeList ->
-                val cleaned = routeList.map { bytes -> bytes.take(SENDER_ID_SIZE).toByteArray().let { if (it.size < SENDER_ID_SIZE) it + ByteArray(SENDER_ID_SIZE - it.size) else it } }
-                val count = cleaned.size.coerceAtMost(255)
-                buffer.put(count.toByte())
-                cleaned.take(count).forEach { hop -> buffer.put(hop) }
             }
             
             // Payload (with original size prepended if compressed)
@@ -322,7 +302,6 @@ object BinaryProtocol {
             val hasRecipient = (flags and Flags.HAS_RECIPIENT) != 0u.toUByte()
             val hasSignature = (flags and Flags.HAS_SIGNATURE) != 0u.toUByte()
             val isCompressed = (flags and Flags.IS_COMPRESSED) != 0u.toUByte()
-            val hasRoute = (flags and Flags.HAS_ROUTE) != 0u.toUByte()
             
             // Payload length
             val payloadLength = buffer.getShort().toUShort()
@@ -330,15 +309,6 @@ object BinaryProtocol {
             // Calculate expected total size
             var expectedSize = HEADER_SIZE + SENDER_ID_SIZE + payloadLength.toInt()
             if (hasRecipient) expectedSize += RECIPIENT_ID_SIZE
-            var routeCount = 0
-            if (hasRoute) {
-                // Peek count (1 byte) without consuming buffer for now
-                val mark = buffer.position()
-                if (raw.size >= mark + 1) {
-                    routeCount = raw[mark].toUByte().toInt()
-                }
-                expectedSize += 1 + (routeCount * SENDER_ID_SIZE)
-            }
             if (hasSignature) expectedSize += SIGNATURE_SIZE
             
             if (raw.size < expectedSize) return null
@@ -354,18 +324,6 @@ object BinaryProtocol {
                 recipientBytes
             } else null
             
-            // Route (optional)
-            val route: List<ByteArray>? = if (hasRoute) {
-                val count = buffer.get().toUByte().toInt()
-                val hops = mutableListOf<ByteArray>()
-                repeat(count) {
-                    val hop = ByteArray(SENDER_ID_SIZE)
-                    buffer.get(hop)
-                    hops.add(hop)
-                }
-                hops
-            } else null
-
             // Payload
             val payload = if (isCompressed) {
                 // First 2 bytes are original size
@@ -399,8 +357,7 @@ object BinaryProtocol {
                 timestamp = timestamp,
                 payload = payload,
                 signature = signature,
-                ttl = ttl,
-                route = route
+                ttl = ttl
             )
             
         } catch (e: Exception) {

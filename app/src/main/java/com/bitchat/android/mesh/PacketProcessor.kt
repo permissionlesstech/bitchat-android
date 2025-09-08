@@ -112,9 +112,6 @@ class PacketProcessor(private val myPeerID: String) {
             override fun broadcastPacket(routed: RoutedPacket) {
                 delegate?.relayPacket(routed)
             }
-            override fun sendToPeer(peerID: String, routed: RoutedPacket): Boolean {
-                return delegate?.sendToPeer(peerID, routed) ?: false
-            }
         }
     }
     
@@ -313,5 +310,4 @@ interface PacketProcessorDelegate {
     fun sendAnnouncementToPeer(peerID: String)
     fun sendCachedMessages(peerID: String)
     fun relayPacket(routed: RoutedPacket)
-    fun sendToPeer(peerID: String, routed: RoutedPacket): Boolean
 }
