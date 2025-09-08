@@ -21,6 +21,7 @@ class GeohashRepository(
     // geohash -> (participant pubkeyHex -> lastSeen)
     private val geohashParticipants: MutableMap<String, MutableMap<String, Date>> = mutableMapOf()
 
+
     // pubkeyHex(lowercase) -> nickname (without #hash)
     private val geoNicknames: MutableMap<String, String> = mutableMapOf()
 

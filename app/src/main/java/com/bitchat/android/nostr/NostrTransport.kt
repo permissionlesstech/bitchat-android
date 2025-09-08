@@ -421,48 +421,58 @@ class NostrTransport(
     fun sendPrivateMessageGeohash(
         content: String,
         toRecipientHex: String,
-        messageID: String
+        messageID: String,
+        sourceGeohash: String? = null
     ) {
-        // Derive current geohash identity automatically from LocationChannelManager
-        val selected = try { com.bitchat.android.geohash.LocationChannelManager.getInstance(context).selectedChannel.value } catch (_: Exception) { null }
-        if (selected !is com.bitchat.android.geohash.ChannelID.Location) {
-            Log.w(TAG, "NostrTransport: cannot send geohash PM - not in a location channel")
+        // Use provided geohash or derive from current location
+        val geohash = sourceGeohash ?: run {
+            val selected = try {
+                com.bitchat.android.geohash.LocationChannelManager.getInstance(context).selectedChannel.value
+            } catch (_: Exception) { null }
+            if (selected !is com.bitchat.android.geohash.ChannelID.Location) {
+                Log.w(TAG, "NostrTransport: cannot send geohash PM - not in a location channel and no geohash provided")
+                return
+            }
+            selected.channel.geohash
+        }
+        
+        val fromIdentity = try {
+            NostrIdentityBridge.deriveIdentity(geohash, context)
+        } catch (e: Exception) {
+            Log.e(TAG, "NostrTransport: cannot derive geohash identity for $geohash: ${e.message}")
             return
         }
-        val fromIdentity = try { NostrIdentityBridge.deriveIdentity(selected.channel.geohash, context) } catch (e: Exception) {
-            Log.e(TAG, "NostrTransport: cannot derive geohash identity: ${e.message}")
-            return
-        }
+        
         transportScope.launch {
             try {
                 if (toRecipientHex.isEmpty()) return@launch
-                
-                Log.d(TAG, "GeoDM: send PM -> recip=${toRecipientHex.take(8)}... mid=${messageID.take(8)}... from=${fromIdentity.publicKeyHex.take(8)}...")
-                
+
+                Log.d(
+                    TAG,
+                    "GeoDM: send PM -> recip=${toRecipientHex.take(8)}... mid=${messageID.take(8)}... from=${fromIdentity.publicKeyHex.take(8)}... geohash=$geohash"
+                )
+
                 // Build embedded BitChat packet without recipient peer ID
                 val embedded = NostrEmbeddedBitChat.encodePMForNostrNoRecipient(
                     content = content,
                     messageID = messageID,
                     senderPeerID = senderPeerID
-                )
-                
-                if (embedded == null) {
+                ) ?: run {
                     Log.e(TAG, "NostrTransport: failed to embed geohash PM packet")
                     return@launch
                 }
-                
+
                 val giftWraps = NostrProtocol.createPrivateMessage(
                     content = embedded,
                     recipientPubkey = toRecipientHex,
                     senderIdentity = fromIdentity
                 )
-                
+
                 giftWraps.forEach { event ->
                     Log.d(TAG, "NostrTransport: sending geohash PM giftWrap id=${event.id.take(16)}...")
                     NostrRelayManager.registerPendingGiftWrap(event.id)
                     NostrRelayManager.getInstance(context).sendEvent(event)
                 }
-                
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send geohash private message: ${e.message}")
             }

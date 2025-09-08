@@ -74,6 +74,7 @@ class NostrDirectMessageHandler(
                 if (geohash.isNotEmpty()) {
                     // Remember which geohash this conversation belongs to so we can subscribe on-demand
                     repo.setConversationGeohash(convKey, geohash)
+                    GeohashConversationRegistry.set(convKey, geohash)
                 }
 
                 // Ensure sender appears in geohash people list even if they haven't posted publicly yet

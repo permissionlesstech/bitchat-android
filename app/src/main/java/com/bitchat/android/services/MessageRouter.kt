@@ -43,6 +43,7 @@ class MessageRouter private constructor(
 
     // Listener for favorites changes to flush outbox when npub mapping appears/changes
     private val favoriteListener = object: com.bitchat.android.favorites.FavoritesChangeListener {
+
         override fun onFavoriteChanged(noiseKeyHex: String) {
             flushOutboxFor(noiseKeyHex)
             // Also try 16-hex short id commonly used in UI if any client used that
@@ -60,8 +61,11 @@ class MessageRouter private constructor(
             Log.d(TAG, "Routing PM via Nostr (geohash) to alias ${toPeerID.take(12)}… id=${messageID.take(8)}…")
             val recipientHex = com.bitchat.android.nostr.GeohashAliasRegistry.get(toPeerID)
             if (recipientHex != null) {
-                // Derive current geohash identity automatically in NostrTransport
-                nostr.sendPrivateMessageGeohash(content, recipientHex, messageID)
+                // Resolve the conversation's source geohash, so we can send from anywhere
+                val sourceGeohash = com.bitchat.android.nostr.GeohashConversationRegistry.get(toPeerID)
+
+                // If repository knows the source geohash, pass it so NostrTransport derives the correct identity
+                nostr.sendPrivateMessageGeohash(content, recipientHex, messageID, sourceGeohash)
                 return
             }
         }
