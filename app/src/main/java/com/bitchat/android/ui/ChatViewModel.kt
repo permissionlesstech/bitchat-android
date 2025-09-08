@@ -70,7 +70,7 @@ class ChatViewModel(
     )
     
     // New Geohash architecture ViewModel (replaces God object service usage in UI path)
-    private val geohashViewModel = GeohashViewModel(
+    val geohashViewModel = GeohashViewModel(
         application = application,
         state = state,
         messageManager = messageManager,
@@ -214,6 +214,46 @@ class ChatViewModel(
         meshService.sendBroadcastAnnounce()
     }
     
+    /**
+     * Ensure Nostr DM subscription for a geohash conversation key if known
+     * Minimal-change approach: reflectively access GeohashViewModel internals to reuse pipeline
+     */
+    private fun ensureGeohashDMSubscriptionIfNeeded(convKey: String) {
+        try {
+            val repoField = GeohashViewModel::class.java.getDeclaredField("repo")
+            repoField.isAccessible = true
+            val repo = repoField.get(geohashViewModel) as com.bitchat.android.nostr.GeohashRepository
+            val gh = repo.getConversationGeohash(convKey)
+            if (!gh.isNullOrEmpty()) {
+                val subMgrField = GeohashViewModel::class.java.getDeclaredField("subscriptionManager")
+                subMgrField.isAccessible = true
+                val subMgr = subMgrField.get(geohashViewModel) as com.bitchat.android.nostr.NostrSubscriptionManager
+                val identity = com.bitchat.android.nostr.NostrIdentityBridge.deriveIdentity(gh, getApplication())
+                val subId = "geo-dm-$gh"
+                val currentDmSubField = GeohashViewModel::class.java.getDeclaredField("currentDmSubId")
+                currentDmSubField.isAccessible = true
+                val currentId = currentDmSubField.get(geohashViewModel) as String?
+                if (currentId != subId) {
+                    (currentId)?.let { subMgr.unsubscribe(it) }
+                    currentDmSubField.set(geohashViewModel, subId)
+                    subMgr.subscribeGiftWraps(
+                        pubkey = identity.publicKeyHex,
+                        sinceMs = System.currentTimeMillis() - 172800000L,
+                        id = subId,
+                        handler = { event ->
+                            val dmHandlerField = GeohashViewModel::class.java.getDeclaredField("dmHandler")
+                            dmHandlerField.isAccessible = true
+                            val dmHandler = dmHandlerField.get(geohashViewModel) as com.bitchat.android.nostr.NostrDirectMessageHandler
+                            dmHandler.onGiftWrap(event, gh, identity)
+                        }
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "ensureGeohashDMSubscriptionIfNeeded failed: ${e.message}")
+        }
+    }
+
     // MARK: - Channel Management (delegated)
     
     fun joinChannel(channel: String, password: String? = null): Boolean {
@@ -232,6 +272,11 @@ class ChatViewModel(
     // MARK: - Private Chat Management (delegated)
     
     fun startPrivateChat(peerID: String) {
+        // For geohash conversation keys, ensure DM subscription is active
+        if (peerID.startsWith("nostr_")) {
+            ensureGeohashDMSubscriptionIfNeeded(peerID)
+        }
+        
         val success = privateChatManager.startPrivateChat(peerID, meshService)
         if (success) {
             // Notify notification manager about current private chat
@@ -289,17 +334,23 @@ class ChatViewModel(
 
             val targetKey = bestKey ?: unreadKeys.firstOrNull() ?: return
 
-            // Resolve to a canonical peerID (mesh vs nostr alias) using existing resolver logic
-            val canonical = com.bitchat.android.services.ConversationAliasResolver.resolveCanonicalPeerID(
-                selectedPeerID = targetKey,
-                connectedPeers = state.getConnectedPeersValue(),
-                meshNoiseKeyForPeer = { pid -> meshService.getPeerInfo(pid)?.noisePublicKey },
-                meshHasPeer = { pid -> meshService.getPeerInfo(pid)?.isConnected == true },
-                nostrPubHexForAlias = { alias -> com.bitchat.android.nostr.GeohashAliasRegistry.get(alias) },
-                findNoiseKeyForNostr = { key -> com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNoiseKey(key) }
-            )
+            val openPeer: String = if (targetKey.startsWith("nostr_")) {
+                // Use the exact conversation key for geohash DMs and ensure DM subscription
+                ensureGeohashDMSubscriptionIfNeeded(targetKey)
+                targetKey
+            } else {
+                // Resolve to a canonical mesh peer if needed
+                val canonical = com.bitchat.android.services.ConversationAliasResolver.resolveCanonicalPeerID(
+                    selectedPeerID = targetKey,
+                    connectedPeers = state.getConnectedPeersValue(),
+                    meshNoiseKeyForPeer = { pid -> meshService.getPeerInfo(pid)?.noisePublicKey },
+                    meshHasPeer = { pid -> meshService.getPeerInfo(pid)?.isConnected == true },
+                    nostrPubHexForAlias = { alias -> com.bitchat.android.nostr.GeohashAliasRegistry.get(alias) },
+                    findNoiseKeyForNostr = { key -> com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNoiseKey(key) }
+                )
+                canonical ?: targetKey
+            }
 
-            val openPeer = canonical ?: targetKey
             startPrivateChat(openPeer)
 
             // If sidebar visible, hide it to focus on the private chat

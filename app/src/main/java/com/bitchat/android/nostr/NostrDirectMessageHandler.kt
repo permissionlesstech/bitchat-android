@@ -71,6 +71,10 @@ class NostrDirectMessageHandler(
                 val convKey = "nostr_${senderPubkey.take(16)}"
                 repo.putNostrKeyMapping(convKey, senderPubkey)
                 com.bitchat.android.nostr.GeohashAliasRegistry.put(convKey, senderPubkey)
+                if (geohash.isNotEmpty()) {
+                    // Remember which geohash this conversation belongs to so we can subscribe on-demand
+                    repo.setConversationGeohash(convKey, geohash)
+                }
 
                 // Ensure sender appears in geohash people list even if they haven't posted publicly yet
                 if (geohash.isNotEmpty()) {

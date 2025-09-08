@@ -265,7 +265,8 @@ fun ChatHeaderContent(
                 selectedLocationChannel = selectedLocationChannel,
                 geohashPeople = geohashPeople,
                 onBackClick = onBackClick,
-                onToggleFavorite = { viewModel.toggleFavorite(selectedPrivatePeer) }
+                onToggleFavorite = { viewModel.toggleFavorite(selectedPrivatePeer) },
+                viewModel = viewModel
             )
         }
         currentChannel != null -> {
@@ -301,7 +302,8 @@ private fun PrivateChatHeader(
     selectedLocationChannel: com.bitchat.android.geohash.ChannelID?,
     geohashPeople: List<GeoPerson>,
     onBackClick: () -> Unit,
-    onToggleFavorite: () -> Unit
+    onToggleFavorite: () -> Unit,
+    viewModel: ChatViewModel
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val isNostrDM = peerID.startsWith("nostr_") || peerID.startsWith("nostr:")
@@ -320,12 +322,24 @@ private fun PrivateChatHeader(
 
     // Compute title text: for NIP-17 chats show "#geohash/@username" (iOS parity)
     val titleText: String = if (isNostrDM) {
-        val geohash = (selectedLocationChannel as? com.bitchat.android.geohash.ChannelID.Location)?.channel?.geohash
-        val shortId = peerID.removePrefix("nostr_").removePrefix("nostr:")
-        val person = geohashPeople.firstOrNull { it.id.startsWith(shortId, ignoreCase = true) }
-        val baseName = person?.displayName?.substringBefore('#') ?: peerNicknames[peerID] ?: "unknown"
-        val geoPart = geohash?.let { "#$it" } ?: "#geohash"
-        "$geoPart/@$baseName"
+        // For geohash DMs, get the actual source geohash and proper display name
+        val (conversationGeohash, baseName) = try {
+            val repoField = com.bitchat.android.ui.GeohashViewModel::class.java.getDeclaredField("repo")
+            repoField.isAccessible = true
+            val repo = repoField.get(viewModel.geohashViewModel) as com.bitchat.android.nostr.GeohashRepository
+            val gh = repo.getConversationGeohash(peerID) ?: "geohash"
+            val fullPubkey = com.bitchat.android.nostr.GeohashAliasRegistry.get(peerID) ?: ""
+            val displayName = if (fullPubkey.isNotEmpty()) {
+                repo.displayNameForGeohashConversation(fullPubkey, gh)
+            } else {
+                peerNicknames[peerID] ?: "unknown"
+            }
+            Pair(gh, displayName)
+        } catch (e: Exception) { 
+            Pair("geohash", peerNicknames[peerID] ?: "unknown")
+        }
+        
+        "#$conversationGeohash/@$baseName"
     } else {
         // Prefer live mesh nickname; fallback to favorites nickname (supports 16-hex), finally short key
         peerNicknames[peerID] ?: run {

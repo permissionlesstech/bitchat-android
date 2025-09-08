@@ -24,6 +24,17 @@ class GeohashRepository(
     // pubkeyHex(lowercase) -> nickname (without #hash)
     private val geoNicknames: MutableMap<String, String> = mutableMapOf()
 
+    // conversation key (e.g., "nostr_<pub16>") -> source geohash it belongs to
+    private val conversationGeohash: MutableMap<String, String> = mutableMapOf()
+
+    fun setConversationGeohash(convKey: String, geohash: String) {
+        if (geohash.isNotEmpty()) {
+            conversationGeohash[convKey] = geohash
+        }
+    }
+
+    fun getConversationGeohash(convKey: String): String? = conversationGeohash[convKey]
+
     fun findPubkeyByNickname(targetNickname: String): String? {
         return geoNicknames.entries.firstOrNull { (_, nickname) ->
             val base = nickname.split("#").firstOrNull() ?: nickname
@@ -172,6 +183,27 @@ class GeohashRepository(
         return try {
             val cutoff = Date(System.currentTimeMillis() - 5 * 60 * 1000)
             val participants = geohashParticipants[current] ?: emptyMap()
+            var count = 0
+            for ((k, t) in participants) {
+                if (t.before(cutoff)) continue
+                val name = if (k.equals(lower, true)) base else (geoNicknames[k.lowercase()] ?: "anon")
+                if (name.equals(base, true)) { count++; if (count > 1) break }
+            }
+            if (!participants.containsKey(lower)) count += 1
+            if (count > 1) "$base#$suffix" else base
+        } catch (_: Exception) { base }
+    }
+
+    /**
+     * Get display name for any geohash (not just current one) for header titles
+     */
+    fun displayNameForGeohashConversation(pubkeyHex: String, sourceGeohash: String): String {
+        val lower = pubkeyHex.lowercase()
+        val suffix = pubkeyHex.takeLast(4)
+        val base = geoNicknames[lower] ?: "anon"
+        return try {
+            val cutoff = Date(System.currentTimeMillis() - 5 * 60 * 1000)
+            val participants = geohashParticipants[sourceGeohash] ?: emptyMap()
             var count = 0
             for ((k, t) in participants) {
                 if (t.before(cutoff)) continue
