@@ -24,6 +24,39 @@ class NostrRelayManager private constructor() {
         val shared = NostrRelayManager()
         
         private const val TAG = "NostrRelayManager"
+        private const val NETWORK_ERROR_MESSAGE = "Network unreachable. Please ensure the device is connected and has all necessary permissions."
+        
+        // Network error callback for reporting failures to UI
+        @Volatile
+        private var networkErrorCallback: ((String) -> Unit)? = null
+        @Volatile
+        private var hasReportedNetworkError = false
+        
+        /**
+         * Set callback for network error reporting
+         * Throws IllegalStateException if a callback is already set
+         */
+        fun setNetworkErrorCallback(callback: (String) -> Unit) {
+            if (networkErrorCallback != null) {
+                throw IllegalStateException("Network error callback already set. Only one service instance should be active.")
+            }
+            networkErrorCallback = callback
+        }
+        
+        /**
+         * Clear the network error callback (should be called when service is destroyed)
+         */
+        fun clearNetworkErrorCallback() {
+            networkErrorCallback = null
+            hasReportedNetworkError = false
+        }
+        
+        /**
+         * Reset network error flag (e.g., when network comes back)
+         */
+        fun resetNetworkErrorFlag() {
+            hasReportedNetworkError = false
+        }
         
         /**
          * Get instance for Android compatibility (context-aware calls)
@@ -641,8 +674,19 @@ class NostrRelayManager private constructor() {
                 val relay = relaysList.find { it.url == relayUrl }
                 relay?.messagesSent = (relay?.messagesSent ?: 0) + 1
                 updateRelaysList()
+
+                // Reset error flag on successful send
+                hasReportedNetworkError = false
             } else {
                 Log.e(TAG, "❌ Failed to send event to $relayUrl: WebSocket send failed")
+                
+                // Check if all relays are disconnected (likely network issue)
+                if (connections.isEmpty() || relaysList.none { it.isConnected }) {
+                    if (!hasReportedNetworkError) {
+                        hasReportedNetworkError = true
+                        networkErrorCallback?.invoke(NETWORK_ERROR_MESSAGE)
+                    }
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "❌ Failed to send event to $relayUrl: ${e.message}")
