@@ -67,7 +67,7 @@ class NostrDirectMessageHandler(
                 if (packet.type != com.bitchat.android.protocol.MessageType.NOISE_ENCRYPTED.value) return@launch
 
                 val noisePayload = com.bitchat.android.model.NoisePayload.decode(packet.payload) ?: return@launch
-                val messageTimestamp = Date(rumorTimestamp * 1000L)
+                val messageTimestamp = Date(giftWrap.createdAt * 1000L)
                 val convKey = "nostr_${senderPubkey.take(16)}"
                 repo.putNostrKeyMapping(convKey, senderPubkey)
                 com.bitchat.android.nostr.GeohashAliasRegistry.put(convKey, senderPubkey)
@@ -173,4 +173,3 @@ class NostrDirectMessageHandler(
         }
     }
 }
-
