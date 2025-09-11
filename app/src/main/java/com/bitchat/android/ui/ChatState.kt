@@ -103,6 +103,10 @@ class ChatState {
 
     private val _peerRSSI = MutableLiveData<Map<String, Int>>(emptyMap())
     val peerRSSI: LiveData<Map<String, Int>> = _peerRSSI
+
+    // Direct connection status per peer (for live UI updates)
+    private val _peerDirect = MutableLiveData<Map<String, Boolean>>(emptyMap())
+    val peerDirect: LiveData<Map<String, Boolean>> = _peerDirect
     
     // peerIDToPublicKeyFingerprint REMOVED - fingerprints now handled centrally in PeerManager
     
@@ -120,6 +124,9 @@ class ChatState {
     // Geohash people state (iOS-compatible)
     private val _geohashPeople = MutableLiveData<List<GeoPerson>>(emptyList())
     val geohashPeople: LiveData<List<GeoPerson>> = _geohashPeople
+    // For background thread updates by repositories/handlers in their own scopes
+    val geohashPeopleMutable: MutableLiveData<List<GeoPerson>> get() = _geohashPeople
+    
     
     private val _teleportedGeo = MutableLiveData<Set<String>>(emptySet())
     val teleportedGeo: LiveData<Set<String>> = _teleportedGeo
@@ -151,6 +158,16 @@ class ChatState {
     fun getSelectedPrivateChatPeerValue() = _selectedPrivateChatPeer.value
     fun getUnreadPrivateMessagesValue() = _unreadPrivateMessages.value ?: emptySet()
     fun getJoinedChannelsValue() = _joinedChannels.value ?: emptySet()
+    // Thread-safe posting helpers for background updates
+    fun postGeohashPeople(people: List<GeoPerson>) {
+        _geohashPeople.postValue(people)
+    }
+
+    fun postGeohashParticipantCounts(counts: Map<String, Int>) {
+        _geohashParticipantCounts.postValue(counts)
+    }
+
+
     fun getCurrentChannelValue() = _currentChannel.value
     fun getChannelMessagesValue() = _channelMessages.value ?: emptyMap()
     fun getUnreadChannelMessagesValue() = _unreadChannelMessages.value ?: emptyMap()
@@ -179,6 +196,10 @@ class ChatState {
         _connectedPeers.value = peers
     }
     
+    fun postTeleportedGeo(teleported: Set<String>) {
+        _teleportedGeo.postValue(teleported)
+    }
+
     fun setNickname(nickname: String) {
         _nickname.value = nickname
     }
@@ -275,6 +296,10 @@ class ChatState {
 
     fun setPeerRSSI(rssi: Map<String, Int>) {
         _peerRSSI.value = rssi
+    }
+
+    fun setPeerDirect(direct: Map<String, Boolean>) {
+        _peerDirect.value = direct
     }
     
     fun setShowAppInfo(show: Boolean) {

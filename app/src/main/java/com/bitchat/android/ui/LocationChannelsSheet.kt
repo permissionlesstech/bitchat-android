@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.PinDrop
 import androidx.compose.material3.*
 import androidx.compose.ui.text.font.FontWeight
@@ -30,6 +31,8 @@ import com.bitchat.android.geohash.GeohashChannel
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
 import java.util.*
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 
 /**
  * Location Channels Sheet for selecting geohash-based location channels
@@ -70,6 +73,18 @@ fun LocationChannelsSheet(
     
     // Scroll state for LazyColumn
     val listState = rememberLazyListState()
+    
+    val mapPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val gh = result.data?.getStringExtra(GeohashPickerActivity.EXTRA_RESULT_GEOHASH)
+            if (!gh.isNullOrBlank()) {
+                customGeohash = gh
+                customError = null
+            }
+        }
+    }
     
     // iOS system colors (matches iOS exactly)
     val colorScheme = MaterialTheme.colorScheme
@@ -312,6 +327,26 @@ fun LocationChannelsSheet(
                                     )
                                     
                                     val normalized = customGeohash.trim().lowercase().replace("#", "")
+                                    
+                                    // Map picker button
+                                    IconButton(onClick = {
+                                        val initial = when {
+                                            normalized.isNotBlank() -> normalized
+                                            selectedChannel is ChannelID.Location -> (selectedChannel as ChannelID.Location).channel.geohash
+                                            else -> ""
+                                        }
+                                        val intent = Intent(context, GeohashPickerActivity::class.java).apply {
+                                            putExtra(GeohashPickerActivity.EXTRA_INITIAL_GEOHASH, initial)
+                                        }
+                                        mapPickerLauncher.launch(intent)
+                                    }) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Map,
+                                            contentDescription = "Open map",
+                                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                                        )
+                                    }
+                                    
                                     val isValid = validateGeohash(normalized)
                                     
                                     // iOS-style teleport button

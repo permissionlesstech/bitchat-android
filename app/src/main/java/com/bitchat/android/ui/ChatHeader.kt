@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+
 import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -30,6 +31,7 @@ import com.bitchat.android.core.ui.utils.singleOrTripleClickable
  * Header components for ChatScreen
  * Extracted from ChatScreen.kt for better organization
  */
+
 
 /**
  * Reactive helper to compute favorite state from fingerprint mapping
@@ -159,7 +161,6 @@ fun PeerCounter(
     connectedPeers: List<String>,
     joinedChannels: Set<String>,
     hasUnreadChannels: Map<String, Int>,
-    hasUnreadPrivateMessages: Set<String>,
     isConnected: Boolean,
     selectedLocationChannel: com.bitchat.android.geohash.ChannelID?,
     geohashPeople: List<GeoPerson>,
@@ -189,33 +190,6 @@ fun PeerCounter(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier.clickable { onClick() }.padding(end = 8.dp) // Added right margin to match "bitchat" logo spacing
     ) {
-        if (hasUnreadChannels.values.any { it > 0 }) {
-            // Channel icon in a Box to ensure consistent size with other icons
-            Box(
-                modifier = Modifier.size(16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "#",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF0080FF),
-                    fontSize = 16.sp
-                )
-            }
-            Spacer(modifier = Modifier.width(6.dp))
-        }
-        
-        if (hasUnreadPrivateMessages.isNotEmpty()) {
-            // Filled mail icon to match sidebar style
-            Icon(
-                imageVector = Icons.Filled.Email,
-                contentDescription = "Unread private messages",
-                modifier = Modifier.size(16.dp),
-                tint = Color(0xFFFF9500) // Orange to match private message theme
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-        }
-        
         Icon(
             imageVector = Icons.Default.Group,
             contentDescription = when (selectedLocationChannel) {
@@ -226,6 +200,7 @@ fun PeerCounter(
             tint = countColor
         )
         Spacer(modifier = Modifier.width(4.dp))
+
         Text(
             text = "$peopleCount",
             style = MaterialTheme.typography.bodyMedium,
@@ -290,7 +265,8 @@ fun ChatHeaderContent(
                 selectedLocationChannel = selectedLocationChannel,
                 geohashPeople = geohashPeople,
                 onBackClick = onBackClick,
-                onToggleFavorite = { viewModel.toggleFavorite(selectedPrivatePeer) }
+                onToggleFavorite = { viewModel.toggleFavorite(selectedPrivatePeer) },
+                viewModel = viewModel
             )
         }
         currentChannel != null -> {
@@ -326,7 +302,8 @@ private fun PrivateChatHeader(
     selectedLocationChannel: com.bitchat.android.geohash.ChannelID?,
     geohashPeople: List<GeoPerson>,
     onBackClick: () -> Unit,
-    onToggleFavorite: () -> Unit
+    onToggleFavorite: () -> Unit,
+    viewModel: ChatViewModel
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val isNostrDM = peerID.startsWith("nostr_") || peerID.startsWith("nostr:")
@@ -345,12 +322,24 @@ private fun PrivateChatHeader(
 
     // Compute title text: for NIP-17 chats show "#geohash/@username" (iOS parity)
     val titleText: String = if (isNostrDM) {
-        val geohash = (selectedLocationChannel as? com.bitchat.android.geohash.ChannelID.Location)?.channel?.geohash
-        val shortId = peerID.removePrefix("nostr_").removePrefix("nostr:")
-        val person = geohashPeople.firstOrNull { it.id.startsWith(shortId, ignoreCase = true) }
-        val baseName = person?.displayName?.substringBefore('#') ?: peerNicknames[peerID] ?: "unknown"
-        val geoPart = geohash?.let { "#$it" } ?: "#geohash"
-        "$geoPart/@$baseName"
+        // For geohash DMs, get the actual source geohash and proper display name
+        val (conversationGeohash, baseName) = try {
+            val repoField = com.bitchat.android.ui.GeohashViewModel::class.java.getDeclaredField("repo")
+            repoField.isAccessible = true
+            val repo = repoField.get(viewModel.geohashViewModel) as com.bitchat.android.nostr.GeohashRepository
+            val gh = repo.getConversationGeohash(peerID) ?: "geohash"
+            val fullPubkey = com.bitchat.android.nostr.GeohashAliasRegistry.get(peerID) ?: ""
+            val displayName = if (fullPubkey.isNotEmpty()) {
+                repo.displayNameForGeohashConversation(fullPubkey, gh)
+            } else {
+                peerNicknames[peerID] ?: "unknown"
+            }
+            Pair(gh, displayName)
+        } catch (e: Exception) { 
+            Pair("geohash", peerNicknames[peerID] ?: "unknown")
+        }
+        
+        "#$conversationGeohash/@$baseName"
     } else {
         // Prefer live mesh nickname; fallback to favorites nickname (supports 16-hex), finally short key
         peerNicknames[peerID] ?: run {
@@ -563,6 +552,19 @@ private fun MainHeader(
             horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
 
+            // Unread private messages badge (click to open most recent DM)
+            if (hasUnreadPrivateMessages.isNotEmpty()) {
+                // Render icon directly to avoid symbol resolution issues
+                Icon(
+                    imageVector = Icons.Filled.Email,
+                    contentDescription = "Unread private messages",
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clickable { viewModel.openLatestUnreadPrivateChat() },
+                    tint = Color(0xFFFF9500)
+                )
+            }
+
             // Location channels button (matching iOS implementation)
             LocationChannelsButton(
                 viewModel = viewModel,
@@ -582,7 +584,6 @@ private fun MainHeader(
                 connectedPeers = connectedPeers.filter { it != viewModel.meshService.myPeerID },
                 joinedChannels = joinedChannels,
                 hasUnreadChannels = hasUnreadChannels,
-                hasUnreadPrivateMessages = hasUnreadPrivateMessages,
                 isConnected = isConnected,
                 selectedLocationChannel = selectedLocationChannel,
                 geohashPeople = geohashPeople,
