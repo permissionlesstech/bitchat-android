@@ -115,7 +115,7 @@ class GossipSyncManager(
             timestamp = System.currentTimeMillis().toULong(),
             payload = payload,
             signature = null,
-            ttl = 1u // neighbors only
+            ttl = 0u // neighbors only
         )
         // Sign and broadcast
         val signed = delegate?.signPacketForBroadcast(packet) ?: packet
@@ -153,7 +153,7 @@ class GossipSyncManager(
             val idBytes = hexToBytes(id)
             if (!remoteChecker.mightContain(idBytes)) {
                 // Send original packet with TTL=1 to keep local and avoid signature issues
-                val toSend = pkt.copy(ttl = 1u)
+                val toSend = pkt.copy(ttl = 0u)
                 delegate?.sendPacket(toSend)
             }
         }
@@ -163,7 +163,7 @@ class GossipSyncManager(
         for (pkt in toSendMsgs) {
             val idBytes = PacketIdUtil.computeIdBytes(pkt)
             if (!remoteChecker.mightContain(idBytes)) {
-                val toSend = pkt.copy(ttl = 1u)
+                val toSend = pkt.copy(ttl = 0u)
                 delegate?.sendPacket(toSend)
             }
         }

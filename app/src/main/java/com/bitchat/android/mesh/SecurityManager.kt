@@ -50,12 +50,6 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
             return false
         }
         
-        // TTL check
-        if (packet.ttl == 0u.toUByte()) {
-            Log.d(TAG, "Dropping packet with TTL 0")
-            return false
-        }
-        
         // Validate packet payload
         if (packet.payload.isEmpty()) {
             Log.d(TAG, "Dropping packet with empty payload")
