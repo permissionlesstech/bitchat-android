@@ -204,5 +204,6 @@
     <string name="footer_text">open source • privacy first • decentralized</string>
     <string name="join_button">Join</string>
     <string name="version_prefix">v%1$s</string>
+    <string name="debug_settings">debug settings</string>
 
 </resources>
