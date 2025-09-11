@@ -39,13 +39,14 @@ jobs:
     - name: Run unit tests
       run: ./gradlew testDebugUnitTest
 
-    - name: Generate test report
-      uses: dorny/test-reporter@v1
-      if: success() || failure()
+    - name: Upload Test Reports (xml+html)
+      if: always()
+      uses: actions/upload-artifact@v4
       with:
-        name: Unit Test Results
-        path: '**/build/test-results/testDebugUnitTest/TEST-*.xml'
-        reporter: java-junit
+        name: test-reports
+        path: |
+          **/build/test-results/
+          **/build/reports/tests/
 
     - name: Upload test results
       uses: actions/upload-artifact@v4
