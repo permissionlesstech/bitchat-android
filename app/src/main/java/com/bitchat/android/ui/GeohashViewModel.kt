@@ -153,7 +153,7 @@ class GeohashViewModel(
                 isRelay = false
             )
     fun startGeohashDM(pubkeyHex: String, onStartPrivateChat: (String) -> Unit) {
-        val convKey = "nostr_${'$'}{pubkeyHex.take(16)}"
+        val convKey = "nostr_${pubkeyHex.take(16)}"
         repo.putNostrKeyMapping(convKey, pubkeyHex)
         // Record the conversation's geohash using the currently selected location channel (if any)
         val current = state.selectedLocationChannel.value
@@ -163,7 +163,7 @@ class GeohashViewModel(
             com.bitchat.android.nostr.GeohashConversationRegistry.set(convKey, gh)
         }
         onStartPrivateChat(convKey)
-        Log.d(TAG, "🗨️ Started geohash DM with ${'$'}pubkeyHex -> ${'$'}convKey (geohash=${'$'}gh)")
+        Log.d(TAG, "🗨️ Started geohash DM with ${pubkeyHex} -> ${convKey} (geohash=${gh})")
     }
 
             messageManager.addMessage(sysMsg)
