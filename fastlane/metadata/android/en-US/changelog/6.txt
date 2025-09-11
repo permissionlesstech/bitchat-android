@@ -1,0 +1,12 @@
+Let there be noise.
+
+Big update with changes to the bitchat protocol to make it more reliable and and private messages more secure. This update is a breaking change for private messages.
+
+New
+
+- Noise XX Handshake protocol with forward secrecy
+- Delivery ACKs and read receipts
+- Chat header icons reactive
+- Lots of code cleanup
+
+This release has been thoroughly tested for compatibility with bitchat for iOS version 1.1.0.
