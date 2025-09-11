@@ -8,11 +8,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bitchat.android.R
 
 /**
  * Permission explanation screen shown before requesting permissions
@@ -58,7 +60,7 @@ fun PermissionExplanationScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 Text(
-                    text = "Decentralized mesh messaging over Bluetooth",
+                    text = stringResource(R.string.app_description),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontFamily = FontFamily.Monospace,
                         color = colorScheme.onSurface.copy(alpha = 0.7f)
@@ -91,7 +93,7 @@ fun PermissionExplanationScreen(
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
-                            text = "Your Privacy is Protected",
+                            text = stringResource(R.string.privacy_protected),
                             style = MaterialTheme.typography.titleSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = colorScheme.onSurface
@@ -100,10 +102,7 @@ fun PermissionExplanationScreen(
                     }
                     
                     Text(
-                        text = "• bitchat doesn't track you or collect personal data\n" +
-                                "• Bluetooth mesh chats are fully offline and require no internet\n" +
-                                "• Geohash chats use the internet but your location is generalized\n" +
-                                "• Your messages stay on your device and peer devices only",
+                        text = stringResource(R.string.privacy_details),
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontFamily = FontFamily.Monospace,
                             color = colorScheme.onSurface.copy(alpha = 0.8f)
@@ -151,7 +150,7 @@ fun PermissionExplanationScreen(
                 )
             ) {
                 Text(
-                    text = "Grant Permissions",
+                    text = stringResource(R.string.grant_permissions),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold
@@ -220,7 +219,7 @@ private fun PermissionCategoryCard(
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
-                        text = "bitchat does NOT track your location",
+                        text = stringResource(R.string.location_no_gps),
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Medium,

@@ -10,7 +10,6 @@
     <string name="join_channel">Join Channel</string>
     <string name="leave_channel">Leave</string>
     <string name="send_message">Send</string>
-    <string name="show_commands">Show commands</string>
     <string name="back">Back</string>
     <string name="people">People</string>
     <string name="channels">Channels</string>
@@ -37,4 +36,174 @@
     <string name="battery_optimization_continue">Continue</string>
     <string name="retry">Retry</string>
     <string name="skip">Skip</string>
+
+    <string name="channel_label">channel: %s</string>
+
+    <string name="bluetooth_icon_description">Bluetooth</string>
+    <string name="bluetooth_required_title">Bluetooth Required</string>
+    <string name="bluetooth_required_message">bitchat needs Bluetooth to:</string>
+    <string name="bluetooth_required_details">• Discover nearby users\n• Create mesh network connections\n• Send and receive messages\n• Work without internet or servers</string>
+    <string name="enable_bluetooth">Enable Bluetooth</string>
+    <string name="check_again">Check Again</string>
+    <string name="bluetooth_not_supported_title">Bluetooth Not Supported</string>
+    <string name="bluetooth_not_supported_message">This device doesn\'t support Bluetooth Low Energy (BLE), which is required for bitchat to function.\n\nbitchat needs BLE to create mesh networks and communicate with nearby devices without internet.</string>
+    <string name="checking_bluetooth_status">Checking Bluetooth status…</string>
+
+    <string name="channel_password">Enter Channel Password</string>
+    <string name="channel_password_prompt">Channel %1$s is password protected. Enter the password to join.</string>
+    <string name="cancel">Cancel</string>
+    <string name="app_info_title">About bitchat</string>
+    <string name="app_info_description">Decentralized mesh messaging over Bluetooth LE\n\n• No servers or internet required\n• End-to-end encrypted private messages\n• Password-protected channels\n• Store-and-forward for offline peers\n\nTriple-click title to emergency clear all data</string>
+    <string name="ok">OK</string>
+
+    <string name="error_description">Error</string>
+    <string name="initializing_mesh_network">Initializing mesh network</string>
+    <string name="setting_up_bluetooth_mesh">Setting up Bluetooth mesh networking…</string>
+    <string name="setup_duration">This should only take a few seconds</string>
+    <string name="setup_not_complete">Setup Not Complete</string>
+    <string name="try_again">Try Again</string>
+    <string name="open_settings">Open Settings</string>
+    <string name="location_services_description">Location Services</string>
+    <string name="location_services_required">Location Services Required</string>
+    <string name="privacy_description">Privacy</string>
+    <string name="privacy_first">Privacy First</string>
+    <string name="location_privacy_assurance">bitchat does NOT track your location or use GPS.\n\nLocation services are required by Android for Bluetooth scanning to work properly. This is an Android system requirement.</string>
+    <string name="location_services_needed_for">bitchat needs location services for:</string>
+    <string name="location_services_features">• Bluetooth device scanning (Android requirement)\n• Discovering nearby users on mesh network\n• Creating connections without internet\n• No GPS tracking or location collection</string>
+    <string name="open_location_settings">Open Location Settings</string>
+    <string name="location_services_unavailable">Location Services Unavailable</string>
+    <string name="location_services_unavailable_message">Location services are not available on this device. This is unusual as location services are standard on Android devices.\n\nbitchat needs location services for Bluetooth scanning to work properly (Android requirement). Without this, the app cannot discover nearby users.</string>
+    <string name="checking_location_services">Checking location services…</string>
+
+    <string name="welcome_to_app">Welcome to bitchat</string>
+    <string name="app_description">Decentralized mesh messaging over Bluetooth</string>
+    <string name="privacy_protected">Your Privacy is Protected</string>
+    <string name="privacy_details">• bitchat doesn\'t track you or collect personal data\n• No servers, no internet required, no data logging\n• Location permission is only used by Android for Bluetooth scanning\n• Your messages stay on your device and peer devices only</string>
+    <string name="permissions_needed">To work properly, bitchat needs these permissions:</string>
+    <string name="grant_permissions">Grant Permissions</string>
+    <string name="location_no_gps">bitchat does NOT use GPS or track location</string>
+
+    <string name="mention">mention</string>
+
+    <string name="app_info_tagline">mesh sidegroupchat</string>
+    <string name="feature_offline_title">offline communication</string>
+    <string name="feature_offline_desc">works without internet using Bluetooth low energy</string>
+    <string name="feature_encryption_title">end-to-end encryption</string>
+    <string name="feature_encryption_desc">private messages encrypted with noise protocol</string>
+    <string name="feature_range_title">extended range</string>
+    <string name="feature_range_desc">messages relay through peers, going the distance</string>
+    <string name="feature_favorites_title">favorites</string>
+    <string name="feature_favorites_desc">get notified when your favorite people join</string>
+    <string name="feature_mutual_favorites_title">mutual favorites</string>
+    <string name="feature_mutual_favorites_desc">private message each other via nostr when out of mesh range</string>
+    <string name="feature_mentions_title">mentions</string>
+    <string name="feature_mentions_desc">use @nickname to notify specific people</string>
+
+    <string name="privacy_title">Privacy</string>
+    <string name="privacy_no_tracking_title">no tracking</string>
+    <string name="privacy_no_tracking_desc">no servers, accounts, or data collection</string>
+    <string name="privacy_ephemeral_title">ephemeral identity</string>
+    <string name="privacy_ephemeral_desc">new peer ID generated regularly</string>
+    <string name="privacy_panic_title">panic mode</string>
+    <string name="privacy_panic_desc">triple-tap logo to instantly clear all data</string>
+
+    <string name="how_to_use_title">How to use</string>
+    <string name="how_to_use_1">• set your nickname by tapping it</string>
+    <string name="how_to_use_2">• swipe left for sidebar</string>
+    <string name="how_to_use_3">• tap a peer to start a private chat</string>
+    <string name="how_to_use_4">• use @nickname to mention someone</string>
+    <string name="how_to_use_5">• triple-tap chat to clear</string>
+
+    <string name="warning_title">Warning</string>
+    <string name="warning_message">private message security has not yet been fully audited. do not use for critical situations until this warning disappears.</string>
+
+    <string name="done">Done</string>
+    <string name="close">close</string>
+
+    <!-- Chat User Action Sheet -->
+    <string name="user_sheet_header">\@%1$s</string>
+    <string name="user_sheet_subtitle">Choose an action for this user</string>
+    <string name="user_sheet_subtitle_message_or_user">Choose an action for this message or user</string>
+    <string name="user_sheet_action_copy_message">Copy message</string>
+    <string name="user_sheet_action_copy_message_subtitle">Copy this message to clipboard</string>
+    <string name="user_sheet_action_slap">Slap %1$s</string>
+    <string name="user_sheet_action_slap_subtitle">Send a playful slap message</string>
+    <string name="user_sheet_action_hug">Hug %1$s</string>
+    <string name="user_sheet_action_hug_subtitle">Send a friendly hug message</string>
+    <string name="user_sheet_action_block">Block %1$s</string>
+    <string name="user_sheet_action_block_subtitle">Block all messages from this user</string>
+
+    <!-- Location Channels Sheet -->
+    <string name="location_channels_sheet_title">#location channels</string>
+    <string name="location_channels_sheet_description">Chat with people near you using geohash channels. Only a coarse geohash is shared, never exact GPS. Do not screenshot or share this screen to protect your privacy.</string>
+    <string name="location_channels_sheet_get_location_button">Get location and my geohashes</string>
+    <string name="location_channels_sheet_permission_denied">Location permission denied. Enable in settings to use location channels.</string>
+    <string name="location_channels_sheet_finding_channels">Finding nearby channels…</string>
+    <string name="location_channels_sheet_bluetooth_subtitle">#bluetooth • %1$s</string>
+    <string name="bluetooth_range_approximate">~10–50 m</string>
+    <string name="geohash_placeholder">geohash</string>
+    <string name="teleport_button">Teleport</string>
+    <string name="teleport_button_description">Teleport</string>
+    <string name="invalid_geohash_error">Invalid geohash</string>
+    <string name="location_channels_sheet_remove_access_button">Remove location access</string>
+    <string name="checkmark_symbol">✔︎</string>
+    <string name="location_channels_sheet_mesh_title">mesh [%1$d %2$s]</string>
+    <string name="location_channels_sheet_geohash_title">%1$s [%2$d %3$s]</string>
+    <string name="location_permission_granted">✓ location permission granted</string>
+    <string name="checking_permissions">checking permissions…</string>
+    <string name="disable_location_services">disable location services</string>
+    <string name="enable_location_services">enable location services</string>
+    <string name="teleport_icon_description">Teleport</string>
+    <string name="coverage_format">~%1$s km</string>
+
+    <!-- Plurals for person/people count -->
+    <plurals name="person_count">
+        <item quantity="one">person</item>
+        <item quantity="other">people</item>
+    </plurals>
+
+    <!-- About Sheet Strings -->
+    <string name="about_sheet_description">decentralized mesh messaging with end-to-end encryption</string>
+    <string name="feature_offline_mesh_title">offline mesh chat</string>
+    <string name="feature_offline_mesh_desc">communicate directly via bluetooth le without internet or servers. messages relay through nearby devices to extend range.</string>
+    <string name="feature_geohash_title">online geohash channels</string>
+    <string name="feature_geohash_desc">connect with people in your area using geohash-based channels. extend the mesh using public internet relays.</string>
+    <string name="feature_e2ee_desc">private messages are encrypted. channel messages are public.</string>
+
+    <string name="appearance_title">appearance</string>
+    <string name="theme_system">system</string>
+    <string name="theme_light">light</string>
+    <string name="theme_dark">dark</string>
+    <string name="pow_title">Proof of Work</string>
+
+    <!-- Proof of Work (PoW) Section -->
+    <string name="pow_off">pow off</string>
+    <string name="pow_on">pow on</string>
+    <string name="pow_description">add proof of work to geohash messages for spam deterrence.</string>
+    <string name="pow_difficulty_label">difficulty: %d bits (~%s)</string>
+    <string name="pow_difficulty_attempts">difficulty %d requires ~%s hash attempts</string>
+    <string name="pow_difficulty_desc_0">no proof of work required</string>
+    <string name="pow_difficulty_desc_8">very low - minimal spam protection</string>
+    <string name="pow_difficulty_desc_12">low - basic spam protection</string>
+    <string name="pow_difficulty_desc_16">medium - good spam protection</string>
+    <string name="pow_difficulty_desc_20">high - strong spam protection</string>
+    <string name="pow_difficulty_desc_24">very high - may cause delays</string>
+    <string name="pow_difficulty_desc_else">extreme - significant computation required</string>
+
+    <string name="network_title">network</string>
+    <string name="network_tor_off">tor off</string>
+    <string name="network_tor_on">tor on</string>
+    <string name="network_tor_desc">route internet over tor for enhanced privacy.</string>
+    <string name="tor_status_running">running</string>
+    <string name="tor_status_stopped">stopped</string>
+    <string name="tor_status_label">tor status: %1$s, bootstrap=%2$d%%</string>
+    <string name="tor_status_last_log">last: %1$s</string>
+
+    <string name="emergency_delete_title">emergency data deletion</string>
+    <string name="emergency_delete_desc">tip: triple-click the app title to emergency delete all stored data including messages, keys, and settings.</string>
+    <string name="footer_text">open source • privacy first • decentralized</string>
+    <string name="join_button">Join</string>
+    <string name="version_prefix">v%1$s</string>
+    <string name="debug_settings">debug settings</string>
+
 </resources>
