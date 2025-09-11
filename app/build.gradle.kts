@@ -101,6 +101,12 @@ dependencies {
     // Google Play Services Location
     implementation(libs.gms.location)
 
+    //Google Material
+    implementation(libs.google.material)
+
+    // Google play in-app update
+    implementation(libs.app.update)
+
     // Security preferences
     implementation(libs.androidx.security.crypto)
     
