@@ -16,8 +16,8 @@ object PoWPreferenceManager {
     private const val KEY_POW_DIFFICULTY = "pow_difficulty"
     
     // Default values
-    private const val DEFAULT_POW_ENABLED = true
-    private const val DEFAULT_POW_DIFFICULTY = 10 // Reasonable default for geohash spam prevention
+    private const val DEFAULT_POW_ENABLED = false
+    private const val DEFAULT_POW_DIFFICULTY = 16 // Reasonable default for geohash spam prevention
     
     // State flows for reactive UI
     private val _powEnabled = MutableStateFlow(DEFAULT_POW_ENABLED)

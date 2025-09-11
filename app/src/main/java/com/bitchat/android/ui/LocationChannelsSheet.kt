@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.PinDrop
 import androidx.compose.material3.*
 import androidx.compose.ui.text.font.FontWeight
@@ -34,6 +35,9 @@ import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.GeohashChannel
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
+import java.util.*
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import com.bitchat.android.R
 
 /**
@@ -75,7 +79,7 @@ private fun LocationChannelsContent(
 ) {
     val context = LocalContext.current
     val locationManager = LocationChannelManager.getInstance(context)
-
+    
     // Observe location manager state
     val permissionState by locationManager.permissionState.observeAsState()
     val availableChannels by locationManager.availableChannels.observeAsState(emptyList())
@@ -83,10 +87,10 @@ private fun LocationChannelsContent(
     val teleported by locationManager.teleported.observeAsState(false)
     val locationNames by locationManager.locationNames.observeAsState(emptyMap())
     val locationServicesEnabled by locationManager.locationServicesEnabled.observeAsState(false)
-
+    
     // CRITICAL FIX: Observe reactive participant counts for real-time updates
     val geohashParticipantCounts by viewModel.geohashParticipantCounts.observeAsState(emptyMap())
-
+    
     // UI state
     var customGeohash by remember { mutableStateOf("") }
     var customError by remember { mutableStateOf<String?>(null) }
@@ -96,6 +100,19 @@ private fun LocationChannelsContent(
 
     // Scroll state for LazyColumn
     val listState = rememberLazyListState()
+
+    val mapPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val gh = result.data?.getStringExtra(GeohashPickerActivity.EXTRA_RESULT_GEOHASH)
+            if (!gh.isNullOrBlank()) {
+                customGeohash = gh
+                customError = null
+            }
+        }
+    }
+
     val isScrolled by remember {
         derivedStateOf {
             listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0
@@ -107,8 +124,7 @@ private fun LocationChannelsContent(
     )
     // iOS system colors (matches iOS exactly)
     val colorScheme = MaterialTheme.colorScheme
-    val isDark =
-        colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
+    val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
     val standardGreen = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D) // iOS green
     val standardBlue = Color(0xFF007AFF) // iOS blue
     val invalidGeohashErrorText = stringResource(R.string.invalid_geohash_error)
@@ -364,6 +380,26 @@ private fun LocationChannelsContent(
                             )
 
                             val normalized = customGeohash.trim().lowercase().replace("#", "")
+
+                            // Map picker button
+                            IconButton(onClick = {
+                                val initial = when {
+                                    normalized.isNotBlank() -> normalized
+                                    selectedChannel is ChannelID.Location -> (selectedChannel as ChannelID.Location).channel.geohash
+                                    else -> ""
+                                }
+                                val intent = Intent(context, GeohashPickerActivity::class.java).apply {
+                                    putExtra(GeohashPickerActivity.EXTRA_INITIAL_GEOHASH, initial)
+                                }
+                                mapPickerLauncher.launch(intent)
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Filled.Map,
+                                    contentDescription = "Open map",
+                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                                )
+                            }
+
                             val isValid = validateGeohash(normalized)
 
                             // iOS-style teleport button
@@ -465,7 +501,7 @@ private fun LocationChannelsContent(
             modifier = Modifier.align(Alignment.TopCenter)
         )
     }
-
+    
     // Lifecycle management
     LaunchedEffect(isPresented) {
         if (isPresented) {
@@ -489,21 +525,21 @@ private fun LocationChannelsContent(
             viewModel.endGeohashSampling()
         }
     }
-
+    
     // React to permission changes
     LaunchedEffect(permissionState) {
         if (permissionState == LocationChannelManager.PermissionState.AUTHORIZED && locationServicesEnabled) {
             locationManager.refreshChannels()
         }
     }
-
+    
     // React to location services enable/disable
     LaunchedEffect(locationServicesEnabled) {
         if (locationServicesEnabled && permissionState == LocationChannelManager.PermissionState.AUTHORIZED) {
             locationManager.refreshChannels()
         }
     }
-
+    
     // React to available channels changes
     LaunchedEffect(availableChannels) {
         val geohashes = availableChannels.map { it.geohash }
@@ -586,7 +622,7 @@ private fun ChannelRow(
             ) {
                 // Split title to handle count part with smaller font (iOS style)
                 val (baseTitle, countSuffix) = splitTitleAndCount(title)
-
+                
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
                         text = baseTitle,
@@ -595,7 +631,7 @@ private fun ChannelRow(
                         fontWeight = if (titleBold) FontWeight.Bold else FontWeight.Normal,
                         color = titleColor ?: MaterialTheme.colorScheme.onSurface
                     )
-
+                    
                     countSuffix?.let { count ->
                         Text(
                             text = count,
@@ -605,7 +641,7 @@ private fun ChannelRow(
                         )
                     }
                 }
-
+                
                 Text(
                     text = subtitle,
                     fontSize = 12.sp,
@@ -613,7 +649,7 @@ private fun ChannelRow(
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
             }
-
+            
             if (isSelected) {
                 Text(
                     text = stringResource(R.string.checkmark_symbol),
@@ -709,7 +745,7 @@ private fun coverageString(precision: Int): String {
             (precision - 10).toDouble()
         )
     }
-
+    
     // Use metric system for simplicity (could be made locale-aware)
     val km = maxMeters / 1000.0
     return stringResource(R.string.coverage_format, formatDistance(km))

@@ -9,19 +9,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.bitchat.android.R
-import com.bitchat.android.ui.theme.BitchatTheme
 
 /**
  * Loading screen shown during app initialization after permissions are granted
  */
 @Composable
-fun InitializingScreen() {
+fun InitializingScreen(modifier: Modifier) {
     val colorScheme = MaterialTheme.colorScheme
     
     // Animated rotation for the loading indicator
@@ -53,103 +52,100 @@ fun InitializingScreen() {
         alpha
     }
 
-    Scaffold(
-        content = { paddingValues ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(32.dp),
-                verticalArrangement = Arrangement.spacedBy(32.dp, alignment = Alignment.CenterVertically),
-                horizontalAlignment = Alignment.CenterHorizontally
+    Box(
+        modifier = modifier.padding(32.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // App title
+            Text(
+                text = stringResource(R.string.app_name),
+                style = MaterialTheme.typography.headlineLarge.copy(
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    color = colorScheme.primary
+                ),
+                textAlign = TextAlign.Center
+            )
+
+            // Loading indicator
+            Box(
+                modifier = Modifier.size(60.dp),
+                contentAlignment = Alignment.Center
             ) {
-                // App title
-                Text(
-                    text = stringResource(R.string.app_name),
-                    style = MaterialTheme.typography.headlineLarge.copy(
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        color = colorScheme.primary
-                    ),
-                    textAlign = TextAlign.Center
+                CircularProgressIndicator(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .rotate(rotationAngle),
+                    color = colorScheme.primary,
+                    strokeWidth = 3.dp
                 )
+            }
 
-                // Loading indicator
-                Box(
-                    modifier = Modifier.size(60.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .rotate(rotationAngle),
-                        color = colorScheme.primary,
-                        strokeWidth = 3.dp
+            // Loading text with animated dots
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = stringResource(R.string.initializing_mesh_network),
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontFamily = FontFamily.Monospace,
+                        color = colorScheme.onSurface.copy(alpha = 0.7f)
                     )
-                }
-
-                // Loading text with animated dots
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
+                )
+                
+                // Animated dots
+                dots.forEach { alpha ->
                     Text(
-                        text = stringResource(R.string.initializing_mesh_network),
+                        text = ".",
                         style = MaterialTheme.typography.bodyLarge.copy(
                             fontFamily = FontFamily.Monospace,
-                            color = colorScheme.onSurface.copy(alpha = 0.7f)
+                            color = colorScheme.onSurface.copy(alpha = alpha)
                         )
                     )
-
-                    // Animated dots
-                    dots.forEach { alpha ->
-                        Text(
-                            text = ".",
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                fontFamily = FontFamily.Monospace,
-                                color = colorScheme.onSurface.copy(alpha = alpha)
-                            )
-                        )
-                    }
                 }
+            }
 
-                Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-                // Status message
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            // Status message
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = stringResource(R.string.setting_up_bluetooth_mesh),
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontFamily = FontFamily.Monospace,
-                                color = colorScheme.onSurface.copy(alpha = 0.8f)
-                            ),
-                            textAlign = TextAlign.Center
-                        )
-
-                        Text(
-                            text = stringResource(R.string.setup_duration),
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontFamily = FontFamily.Monospace,
-                                color = colorScheme.onSurface.copy(alpha = 0.6f)
-                            ),
-                            textAlign = TextAlign.Center
-                        )
-                    }
+                    Text(
+                        text = stringResource(R.string.setting_up_bluetooth_mesh),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = FontFamily.Monospace,
+                            color = colorScheme.onSurface.copy(alpha = 0.8f)
+                        ),
+                        textAlign = TextAlign.Center
+                    )
+                    
+                    Text(
+                        text = stringResource(R.string.setup_duration),
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = FontFamily.Monospace,
+                            color = colorScheme.onSurface.copy(alpha = 0.6f)
+                        ),
+                        textAlign = TextAlign.Center
+                    )
                 }
             }
         }
-    )
+    }
 }
 
 /**
@@ -157,6 +153,7 @@ fun InitializingScreen() {
  */
 @Composable
 fun InitializationErrorScreen(
+    modifier: Modifier,
     errorMessage: String,
     onRetry: () -> Unit,
     onOpenSettings: () -> Unit
@@ -164,9 +161,7 @@ fun InitializationErrorScreen(
     val colorScheme = MaterialTheme.colorScheme
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
+        modifier = modifier.padding(32.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -247,22 +242,5 @@ fun InitializationErrorScreen(
                 }
             }
         }
-    }
-}
-
-
-@Preview
-@Composable
-private fun InitializingScreenWhitePrew() {
-    BitchatTheme(false) {
-        InitializingScreen()
-    }
-}
-
-@Preview
-@Composable
-private fun InitializingScreenDarkPrew() {
-    BitchatTheme(true) {
-        InitializingScreen()
     }
 }

@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.nostr.NostrProofOfWork
 import com.bitchat.android.nostr.PoWPreferenceManager
+import com.bitchat.android.ui.debug.DebugSettingsSheet
 import com.bitchat.android.R
 import com.bitchat.android.net.TorManager
 import com.bitchat.android.net.TorPreferenceManager
@@ -61,6 +62,7 @@ private val featuresData = listOf(
 fun AboutSheet(
     isPresented: Boolean,
     onDismiss: () -> Unit,
+    onShowDebug: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -73,7 +75,10 @@ fun AboutSheet(
             containerColor = MaterialTheme.colorScheme.background,
             dragHandle = null
         ) {
-            AboutSheetContent(onDismiss = onDismiss)
+            AboutSheetContent(
+                onDismiss = onDismiss,
+                onShowDebug = onShowDebug
+            )
         }
     }
 }
@@ -82,7 +87,8 @@ fun AboutSheet(
 @Composable
 fun AboutSheetContent(
     onDismiss: () -> Unit,
-) {
+    onShowDebug: (() -> Unit)? = null,
+    ) {
     val context = LocalContext.current
     val lazyListState = rememberLazyListState()
     val isScrolled by remember {
@@ -145,7 +151,10 @@ fun AboutSheetContent(
             }
 
             item(key = "footer") {
-                Footer(modifier = Modifier.padding(horizontal = 24.dp))
+                Footer(
+                    onShowDebug = onShowDebug,
+                    modifier = Modifier.padding(horizontal = 24.dp)
+                )
             }
         }
 
@@ -366,8 +375,8 @@ private fun ProofOfWorkSection(modifier: Modifier = Modifier, context: Context) 
                 Slider(
                     value = powDifficulty.toFloat(),
                     onValueChange = { PoWPreferenceManager.setPowDifficulty(it.toInt()) },
-                    valueRange = 0f..20f,
-                    steps = 21,
+                    valueRange = 0f..32f,
+                    steps = 33, // 33 discrete values (0-32)
                     colors = SliderDefaults.colors(
                         thumbColor = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D),
                         activeTrackColor = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
@@ -476,6 +485,7 @@ private fun NetworkSection(modifier: Modifier = Modifier, context: Context) {
     }
 }
 
+// Debug status (temporary)
 @Composable
 fun TorStatusDebug(torStatus: TorManager.TorStatus) {
     val statusText = if (torStatus.running) stringResource(R.string.tor_status_running) else stringResource(R.string.tor_status_stopped)
@@ -507,7 +517,7 @@ fun TorStatusDebug(torStatus: TorManager.TorStatus) {
     }
 }
 
-
+// Emergency warning
 @Composable
 private fun WarningSection(modifier: Modifier = Modifier) {
     val colorScheme = MaterialTheme.colorScheme
@@ -527,19 +537,19 @@ private fun WarningSection(modifier: Modifier = Modifier) {
                 imageVector = Icons.Filled.Warning,
                 contentDescription = stringResource(R.string.warning_title),
                 tint = errorColor,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(16.dp)
             )
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = stringResource(R.string.emergency_delete_title),
-                    fontSize = 13.sp,
+                    fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
                     color = errorColor
                 )
                 Text(
                     text = stringResource(R.string.emergency_delete_desc),
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     fontFamily = FontFamily.Monospace,
                     color = colorScheme.onSurface.copy(alpha = 0.8f)
                 )
@@ -549,12 +559,31 @@ private fun WarningSection(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun Footer(modifier: Modifier = Modifier) {
+private fun Footer(
+    modifier: Modifier = Modifier,
+    onShowDebug: (() -> Unit)? = null,
+    ) {
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        // Debug button styled to match the app aesthetic
+        if (onShowDebug != null) {
+            TextButton(
+                onClick = onShowDebug,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+            ) {
+                Text(
+                    text = stringResource(R.string.debug_settings),
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+        }
+
         Text(
             text = stringResource(R.string.footer_text),
             fontSize = 11.sp,
@@ -630,12 +659,7 @@ fun PasswordPromptDialog(
                     OutlinedTextField(
                         value = passwordInput,
                         onValueChange = onPasswordChange,
-                        label = {
-                            Text(
-                                stringResource(R.string.channel_password_hint),
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        },
+                        label = { Text(stringResource(R.string.channel_password_hint), style = MaterialTheme.typography.bodyMedium) },
                         textStyle = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = FontFamily.Monospace
                         ),
