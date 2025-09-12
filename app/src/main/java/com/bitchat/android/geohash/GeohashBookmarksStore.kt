@@ -137,6 +137,26 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
         } catch (_: Exception) {}
     }
 
+    // MARK: - Destructive Reset
+
+    fun clearAll() {
+        try {
+            membership.clear()
+            _bookmarks.postValue(emptyList())
+            _bookmarkNames.postValue(emptyMap())
+            prefs.edit()
+                .remove(STORE_KEY)
+                .remove(NAMES_STORE_KEY)
+                .apply()
+            // Clear any in-flight resolutions to avoid repopulating
+            resolving.clear()
+            Log.i(TAG, "Cleared all geohash bookmarks and names")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to clear geohash bookmarks: ${e.message}")
+        }
+    }
+
+
     // MARK: - Friendly Name Resolution
 
     fun resolveNameIfNeeded(geohash: String) {
