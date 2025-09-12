@@ -91,6 +91,9 @@ class BluetoothMeshService(private val context: Context) {
             override fun sendPacket(packet: BitchatPacket) {
                 connectionManager.broadcastPacket(RoutedPacket(packet))
             }
+            override fun sendPacketToPeer(peerID: String, packet: BitchatPacket) {
+                connectionManager.sendPacketToPeer(peerID, packet)
+            }
             override fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket {
                 return signPacketBeforeBroadcast(packet)
             }
@@ -412,6 +415,9 @@ class BluetoothMeshService(private val context: Context) {
                                     } catch (_: Exception) { }
                                 }
                             } catch (_: Exception) { }
+
+                            // Schedule initial sync for this new directly connected peer only
+                            try { gossipSyncManager.scheduleInitialSyncToPeer(pid, 5_000) } catch (_: Exception) { }
                         }
                     }
                     // Track for sync
@@ -471,8 +477,6 @@ class BluetoothMeshService(private val context: Context) {
                     delay(200)
                     sendBroadcastAnnounce()
                 }
-                // Schedule initial sync shortly after new neighbor connects
-                gossipSyncManager.scheduleInitialSync(5_000)
                 // Verbose debug: device connected
                 try {
                     val addr = device.address
@@ -591,6 +595,8 @@ class BluetoothMeshService(private val context: Context) {
             // Sign the packet before broadcasting
             val signedPacket = signPacketBeforeBroadcast(packet)
             connectionManager.broadcastPacket(RoutedPacket(signedPacket))
+            // Track our own broadcast message for sync
+            try { gossipSyncManager.onPublicPacketSeen(signedPacket) } catch (_: Exception) { }
         }
     }
     

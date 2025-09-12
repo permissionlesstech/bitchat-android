@@ -1,6 +1,7 @@
 package com.bitchat.android.sync
 
 import android.util.Log
+import com.bitchat.android.mesh.BluetoothPacketBroadcaster
 import com.bitchat.android.model.RequestSyncPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
@@ -20,6 +21,7 @@ class GossipSyncManager(
 ) {
     interface Delegate {
         fun sendPacket(packet: BitchatPacket)
+        fun sendPacketToPeer(peerID: String, packet: BitchatPacket)
         fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket
     }
 
@@ -68,6 +70,13 @@ class GossipSyncManager(
         scope.launch(Dispatchers.IO) {
             delay(delayMs)
             sendRequestSync()
+        }
+    }
+
+    fun scheduleInitialSyncToPeer(peerID: String, delayMs: Long = 5_000L) {
+        scope.launch(Dispatchers.IO) {
+            delay(delayMs)
+            sendRequestSyncToPeer(peerID)
         }
     }
 
@@ -122,6 +131,29 @@ class GossipSyncManager(
         delegate?.sendPacket(signed)
     }
 
+    private fun sendRequestSyncToPeer(peerID: String) {
+        val snap = bloom.snapshotActive()
+        val payload = RequestSyncPacket(
+            mBytes = snap.mBytes,
+            k = snap.k,
+            bits = snap.bits
+        ).encode()
+
+        val packet = BitchatPacket(
+            version = 1u,
+            type = MessageType.REQUEST_SYNC.value,
+            senderID = hexStringToByteArray(myPeerID),
+            recipientID = hexStringToByteArray(peerID),
+            timestamp = System.currentTimeMillis().toULong(),
+            payload = payload,
+            signature = null,
+            ttl = 0u // neighbor only
+        )
+        // Sign and send directly to peer
+        val signed = delegate?.signPacketForBroadcast(packet) ?: packet
+        delegate?.sendPacketToPeer(peerID, signed)
+    }
+
     fun handleRequestSync(fromPeerID: String, request: RequestSyncPacket) {
         // Build a checker against provided bloom (mBytes and k are supplied).
         val remoteChecker = object {
@@ -152,9 +184,10 @@ class GossipSyncManager(
             val (id, pkt) = pair
             val idBytes = hexToBytes(id)
             if (!remoteChecker.mightContain(idBytes)) {
-                // Send original packet with TTL=1 to keep local and avoid signature issues
+                // Send original packet unchanged to requester only (keep local TTL)
                 val toSend = pkt.copy(ttl = 0u)
-                delegate?.sendPacket(toSend)
+                delegate?.sendPacketToPeer(fromPeerID, toSend)
+                Log.d(TAG, "Sent sync announce: Type ${toSend.type} from ${toSend.senderID.toHexString()} to $fromPeerID packet id ${idBytes.toHexString()}")
             }
         }
 
@@ -164,7 +197,8 @@ class GossipSyncManager(
             val idBytes = PacketIdUtil.computeIdBytes(pkt)
             if (!remoteChecker.mightContain(idBytes)) {
                 val toSend = pkt.copy(ttl = 0u)
-                delegate?.sendPacket(toSend)
+                delegate?.sendPacketToPeer(fromPeerID, toSend)
+                Log.d(TAG, "Sent sync message: Type ${toSend.type} to $fromPeerID packet id ${idBytes.toHexString()}")
             }
         }
     }
