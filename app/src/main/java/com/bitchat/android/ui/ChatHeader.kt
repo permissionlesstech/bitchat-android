@@ -518,7 +518,12 @@ private fun MainHeader(
     val isConnected by viewModel.isConnected.observeAsState(false)
     val selectedLocationChannel by viewModel.selectedLocationChannel.observeAsState()
     val geohashPeople by viewModel.geohashPeople.observeAsState(emptyList())
-    
+
+    // Bookmarks store for current geohash toggle (iOS parity)
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val bookmarksStore = remember { com.bitchat.android.geohash.GeohashBookmarksStore.getInstance(context) }
+    val bookmarks by bookmarksStore.bookmarks.observeAsState(emptyList())
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -570,6 +575,23 @@ private fun MainHeader(
                 viewModel = viewModel,
                 onClick = onLocationChannelsClick
             )
+
+            // Bookmark toggle for current geohash (not shown for mesh)
+            val currentGeohash: String? = when (val sc = selectedLocationChannel) {
+                is com.bitchat.android.geohash.ChannelID.Location -> sc.channel.geohash
+                else -> null
+            }
+            if (currentGeohash != null) {
+                val isBookmarked = bookmarks.contains(currentGeohash)
+                IconButton(onClick = { bookmarksStore.toggle(currentGeohash) }) {
+                    Icon(
+                        imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                        contentDescription = "Toggle bookmark",
+                        tint = if (isBookmarked) Color(0xFF00C851) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
 
             // Tor status cable icon when Tor is enabled
             TorStatusIcon(modifier = Modifier.size(14.dp))
