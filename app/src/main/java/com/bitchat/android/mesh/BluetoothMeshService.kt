@@ -420,7 +420,7 @@ class BluetoothMeshService(private val context: Context) {
                             } catch (_: Exception) { }
 
                             // Schedule initial sync for this new directly connected peer only
-                            try { gossipSyncManager.scheduleInitialSyncToPeer(pid, 5_000) } catch (_: Exception) { }
+                            try { gossipSyncManager.scheduleInitialSyncToPeer(pid, 1_000) } catch (_: Exception) { }
                         }
                     }
                     // Track for sync
