@@ -136,6 +136,7 @@ class GossipSyncManager(
             signature = null,
             ttl = 0u // neighbor only
         )
+        Log.d(TAG, "Sending sync request to $peerID (${payload.size} bytes)")
         // Sign and send directly to peer
         val signed = delegate?.signPacketForBroadcast(packet) ?: packet
         delegate?.sendPacketToPeer(peerID, signed)

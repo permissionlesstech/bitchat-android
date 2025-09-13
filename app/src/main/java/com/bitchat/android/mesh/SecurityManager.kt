@@ -61,11 +61,11 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         val packetTime = packet.timestamp.toLong()
         val timeDiff = kotlin.math.abs(currentTime - packetTime)
         
-        //if (timeDiff > MESSAGE_TIMEOUT) {
-        //    Log.d(TAG, "Dropping old packet from $peerID, time diff: ${timeDiff/1000}s")
-        //    return false
-        //}
-        
+//        if (timeDiff > MESSAGE_TIMEOUT) {
+//            Log.d(TAG, "Dropping old packet from $peerID, time diff: ${timeDiff/1000}s")
+//            return false
+//        }
+
         // Duplicate detection
         val messageID = generateMessageID(packet, peerID)
         if (processedMessages.contains(messageID)) {
