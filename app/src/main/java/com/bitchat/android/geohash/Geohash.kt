@@ -11,6 +11,8 @@ object Geohash {
     private val base32Chars = "0123456789bcdefghjkmnpqrstuvwxyz".toCharArray()
     private val charToValue: Map<Char, Int> = base32Chars.withIndex().associate { it.value to it.index }
 
+    data class Bounds(val latMin: Double, val latMax: Double, val lonMin: Double, val lonMax: Double)
+
     /**
      * Encodes the provided coordinates into a geohash string.
      * @param latitude Latitude in degrees (-90...90)
@@ -69,14 +71,24 @@ object Geohash {
      * @return Pair(latitude, longitude)
      */
     fun decodeToCenter(geohash: String): Pair<Double, Double> {
-        if (geohash.isEmpty()) return 0.0 to 0.0
+        val b = decodeToBounds(geohash)
+        val latCenter = (b.latMin + b.latMax) / 2
+        val lonCenter = (b.lonMin + b.lonMax) / 2
+        return latCenter to lonCenter
+    }
+
+    /**
+     * Decodes a geohash string to bounding box (lat/lon min/max).
+     */
+    fun decodeToBounds(geohash: String): Bounds {
+        if (geohash.isEmpty()) return Bounds(0.0, 0.0, 0.0, 0.0)
 
         var latInterval = -90.0 to 90.0
         var lonInterval = -180.0 to 180.0
         var isEven = true
 
         geohash.lowercase().forEach { ch ->
-            val cd = charToValue[ch] ?: return 0.0 to 0.0
+            val cd = charToValue[ch] ?: return Bounds(0.0, 0.0, 0.0, 0.0)
             for (mask in intArrayOf(16, 8, 4, 2, 1)) {
                 if (isEven) {
                     val mid = (lonInterval.first + lonInterval.second) / 2
@@ -96,9 +108,11 @@ object Geohash {
                 isEven = !isEven
             }
         }
-
-        val latCenter = (latInterval.first + latInterval.second) / 2
-        val lonCenter = (lonInterval.first + lonInterval.second) / 2
-        return latCenter to lonCenter
+        return Bounds(
+            latMin = minOf(latInterval.first, latInterval.second),
+            latMax = maxOf(latInterval.first, latInterval.second),
+            lonMin = minOf(lonInterval.first, lonInterval.second),
+            lonMax = maxOf(lonInterval.first, lonInterval.second)
+        )
     }
 }
