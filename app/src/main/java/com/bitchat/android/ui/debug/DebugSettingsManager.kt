@@ -216,21 +216,21 @@ class DebugSettingsManager private constructor() {
         val clamped = value.coerceIn(10, 1000)
         DebugPreferenceManager.setSeenPacketCapacity(clamped)
         _seenPacketCapacity.value = clamped
-        addDebugMessage(DebugMessage.SystemMessage("🧩 seen packet capacity set to $clamped"))
+        addDebugMessage(DebugMessage.SystemMessage("🧩 max packets per sync set to $clamped"))
     }
 
     fun setBloomBytes(value: Int) {
-        val clamped = value.coerceIn(16, 256)
+        val clamped = value.coerceIn(128, 1024)
         DebugPreferenceManager.setBloomFilterBytes(clamped)
         _bloomBytes.value = clamped
-        addDebugMessage(DebugMessage.SystemMessage("🌸 bloom filter bytes set to $clamped"))
+        addDebugMessage(DebugMessage.SystemMessage("🌸 GCS filter bytes set to $clamped"))
     }
 
     fun setBloomFprPercent(value: Double) {
         val clamped = value.coerceIn(0.1, 5.0)
         DebugPreferenceManager.setBloomFilterFprPercent(clamped)
         _bloomFprPercent.value = clamped
-        addDebugMessage(DebugMessage.SystemMessage("🎯 bloom FPR set to ${String.format("%.2f", clamped)}%"))
+        addDebugMessage(DebugMessage.SystemMessage("🎯 GCS FPR set to ${String.format("%.2f", clamped)}%"))
     }
     
     // MARK: - Debug Message Creation Helpers

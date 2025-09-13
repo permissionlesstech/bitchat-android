@@ -295,12 +295,15 @@ fun DebugSettingsSheet(
                             Icon(Icons.Filled.SettingsEthernet, contentDescription = null, tint = Color(0xFF9C27B0))
                             Text("sync settings", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         }
-                        Text("recent packets kept: $seenCapacity", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        Text("max packets per sync: $seenCapacity", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         Slider(value = seenCapacity.toFloat(), onValueChange = { manager.setSeenPacketCapacity(it.toInt()) }, valueRange = 10f..1000f, steps = 99)
-                        Text("bloom bytes: $bloomBytes", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
-                        Slider(value = bloomBytes.toFloat(), onValueChange = { manager.setBloomBytes(it.toInt()) }, valueRange = 16f..256f, steps = 15)
+                        Text("GCS filter bytes: $bloomBytes (128–1024)", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        Slider(value = bloomBytes.toFloat(), onValueChange = { manager.setBloomBytes(it.toInt()) }, valueRange = 128f..1024f, steps = 0)
                         Text("target FPR: ${String.format("%.2f", bloomFpr)}%", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         Slider(value = bloomFpr.toFloat(), onValueChange = { manager.setBloomFprPercent(it.toDouble()) }, valueRange = 0.1f..5.0f, steps = 49)
+                        val p = remember(bloomFpr) { com.bitchat.android.sync.GCSFilter.deriveP(bloomFpr / 100.0) }
+                        val nmax = remember(bloomFpr, bloomBytes) { com.bitchat.android.sync.GCSFilter.estimateMaxElementsForSize(bloomBytes, p) }
+                        Text("derived P: $p • est. max elements: $nmax", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                     }
                 }
             }

@@ -76,11 +76,11 @@ class BluetoothMeshService(private val context: Context) {
                     com.bitchat.android.ui.debug.DebugPreferenceManager.getSeenPacketCapacity(100)
                 } catch (_: Exception) { 100 }
 
-                override fun bloomMaxBytes(): Int = try {
+                override fun gcsMaxBytes(): Int = try {
                     com.bitchat.android.ui.debug.DebugPreferenceManager.getBloomFilterBytes(256)
                 } catch (_: Exception) { 256 }
 
-                override fun bloomTargetFpr(): Double = try {
+                override fun gcsTargetFpr(): Double = try {
                     com.bitchat.android.ui.debug.DebugPreferenceManager.getBloomFilterFprPercent(1.0) / 100.0
                 } catch (_: Exception) { 0.01 }
             }

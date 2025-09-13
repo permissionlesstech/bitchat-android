@@ -10,7 +10,7 @@ import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Gossip-based synchronization manager using rotating Bloom filters.
+ * Gossip-based synchronization manager using on-demand GCS filters.
  * Tracks seen public packets (ANNOUNCE, broadcast MESSAGE) and periodically requests sync
  * from neighbors. Responds to REQUEST_SYNC by sending missing packets.
  */
@@ -26,20 +26,18 @@ class GossipSyncManager(
     }
 
     interface ConfigProvider {
-        fun seenCapacity(): Int // total stored broadcast messages (not including announcements map)
-        fun bloomMaxBytes(): Int
-        fun bloomTargetFpr(): Double
+        fun seenCapacity(): Int // max packets we sync per request (cap across types)
+        fun gcsMaxBytes(): Int
+        fun gcsTargetFpr(): Double // percent -> 0.0..1.0
     }
 
     companion object { private const val TAG = "GossipSyncManager" }
 
     var delegate: Delegate? = null
 
-    // Bloom filter
-    @Volatile private var bloom = SeenPacketsBloomFilter(
-        maxBytes = configProvider.bloomMaxBytes(),
-        targetFpr = configProvider.bloomTargetFpr()
-    )
+    // Defaults (configurable constants)
+    private val defaultMaxBytes = SyncDefaults.DEFAULT_FILTER_BYTES
+    private val defaultFpr = SyncDefaults.DEFAULT_FPR_PERCENT
 
     // Stored packets for sync:
     // - broadcast messages: keep up to seenCapacity() most recent, keyed by packetId
@@ -88,7 +86,6 @@ class GossipSyncManager(
         if (!isBroadcastMessage && !isAnnouncement) return
 
         val idBytes = PacketIdUtil.computeIdBytes(packet)
-        bloom.add(idBytes)
         val id = idBytes.joinToString("") { b -> "%02x".format(b) }
 
         if (isBroadcastMessage) {
@@ -109,12 +106,7 @@ class GossipSyncManager(
     }
 
     private fun sendRequestSync() {
-        val snap = bloom.snapshotActive()
-        val payload = RequestSyncPacket(
-            mBytes = snap.mBytes,
-            k = snap.k,
-            bits = snap.bits
-        ).encode()
+        val payload = buildGcsPayload()
 
         val packet = BitchatPacket(
             version = 1u,
@@ -132,12 +124,7 @@ class GossipSyncManager(
     }
 
     private fun sendRequestSyncToPeer(peerID: String) {
-        val snap = bloom.snapshotActive()
-        val payload = RequestSyncPacket(
-            mBytes = snap.mBytes,
-            k = snap.k,
-            bits = snap.bits
-        ).encode()
+        val payload = buildGcsPayload()
 
         val packet = BitchatPacket(
             version = 1u,
@@ -155,35 +142,24 @@ class GossipSyncManager(
     }
 
     fun handleRequestSync(fromPeerID: String, request: RequestSyncPacket) {
-        // Build a checker against provided bloom (mBytes and k are supplied).
-        val remoteChecker = object {
-            val mBits = request.mBytes * 8
-            val k = request.k
-            fun mightContain(id: ByteArray): Boolean {
-                // Double hashing same as SeenPacketsBloomFilter to ensure compatibility
-                var h1 = 1469598103934665603L
-                var h2 = 0x27d4eb2f165667c5L
-                for (b in id) {
-                    h1 = (h1 xor (b.toLong() and 0xFF)) * 1099511628211L
-                    h2 = (h2 xor (b.toLong() and 0xFF)) * 0x100000001B3L
-                }
-                for (i in 0 until k) {
-                    val combined = (h1 + i * h2)
-                    val idx = ((combined and Long.MAX_VALUE) % mBits).toInt()
-                    val byteIndex = idx / 8
-                    val bitIndex = idx % 8
-                    val bit = ((request.bits[byteIndex].toInt() shr (7 - bitIndex)) and 1) == 1
-                    if (!bit) return false
-                }
-                return true
-            }
+        // Decode GCS into sorted set for membership checks
+        val sorted = GCSFilter.decodeToSortedSet(request.p, request.m, request.data)
+        fun mightContain(id: ByteArray): Boolean {
+            val v = (GCSFilter.run {
+                // reuse hashing method from GCSFilter
+                val md = java.security.MessageDigest.getInstance("SHA-256");
+                md.update(id); val d = md.digest();
+                var x = 0L; for (i in 0 until 8) { x = (x shl 8) or (d[i].toLong() and 0xFF) }
+                (x and 0x7fff_ffff_ffff_ffffL) % request.m
+            })
+            return GCSFilter.contains(sorted, v)
         }
 
         // 1) Announcements: send latest per peerID if remote doesn't have them
         for ((_, pair) in latestAnnouncementByPeer.entries) {
             val (id, pkt) = pair
             val idBytes = hexToBytes(id)
-            if (!remoteChecker.mightContain(idBytes)) {
+            if (!mightContain(idBytes)) {
                 // Send original packet unchanged to requester only (keep local TTL)
                 val toSend = pkt.copy(ttl = 0u)
                 delegate?.sendPacketToPeer(fromPeerID, toSend)
@@ -195,7 +171,7 @@ class GossipSyncManager(
         val toSendMsgs = synchronized(messages) { messages.values.toList() }
         for (pkt in toSendMsgs) {
             val idBytes = PacketIdUtil.computeIdBytes(pkt)
-            if (!remoteChecker.mightContain(idBytes)) {
+            if (!mightContain(idBytes)) {
                 val toSend = pkt.copy(ttl = 0u)
                 delegate?.sendPacketToPeer(fromPeerID, toSend)
                 Log.d(TAG, "Sent sync message: Type ${toSend.type} to $fromPeerID packet id ${idBytes.toHexString()}")
@@ -226,5 +202,35 @@ class GossipSyncManager(
             i += 2
         }
         return out
+    }
+
+    private fun buildGcsPayload(): ByteArray {
+        // Collect candidates: latest announcement per peer + recent broadcast messages
+        val list = ArrayList<BitchatPacket>()
+        // announcements
+        for ((_, pair) in latestAnnouncementByPeer) {
+            list.add(pair.second)
+        }
+        // messages
+        synchronized(messages) {
+            list.addAll(messages.values)
+        }
+        // sort by timestamp desc, then take up to min(seenCapacity, fit capacity)
+        list.sortByDescending { it.timestamp.toLong() }
+
+        val maxBytes = try { configProvider.gcsMaxBytes() } catch (_: Exception) { defaultMaxBytes }
+        val fpr = try { configProvider.gcsTargetFpr() } catch (_: Exception) { defaultFpr }
+        val p = GCSFilter.deriveP(fpr)
+        val nMax = GCSFilter.estimateMaxElementsForSize(maxBytes, p)
+        val cap = configProvider.seenCapacity().coerceAtLeast(1)
+        val takeN = minOf(nMax, cap, list.size)
+        if (takeN <= 0) {
+            val p0 = GCSFilter.deriveP(fpr)
+            return RequestSyncPacket(p = p0, m = 1, data = ByteArray(0)).encode()
+        }
+        val ids = list.take(takeN).map { pkt -> PacketIdUtil.computeIdBytes(pkt) }
+        val params = GCSFilter.buildFilter(ids, maxBytes, fpr)
+        val mVal = if (params.m <= 0L) 1 else params.m
+        return RequestSyncPacket(p = params.p, m = mVal, data = params.data).encode()
     }
 }
