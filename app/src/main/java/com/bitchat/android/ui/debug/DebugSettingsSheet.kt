@@ -49,8 +49,8 @@ fun DebugSettingsSheet(
     val connectedDevices by manager.connectedDevices.collectAsState()
     val relayStats by manager.relayStats.collectAsState()
     val seenCapacity by manager.seenPacketCapacity.collectAsState()
-    val bloomBytes by manager.bloomBytes.collectAsState()
-    val bloomFpr by manager.bloomFprPercent.collectAsState()
+    val gcsMaxBytes by manager.gcsMaxBytes.collectAsState()
+    val gcsFpr by manager.gcsFprPercent.collectAsState()
 
     // Push live connected devices from mesh service whenever sheet is visible
     LaunchedEffect(isPresented) {
@@ -297,12 +297,12 @@ fun DebugSettingsSheet(
                         }
                         Text("max packets per sync: $seenCapacity", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         Slider(value = seenCapacity.toFloat(), onValueChange = { manager.setSeenPacketCapacity(it.toInt()) }, valueRange = 10f..1000f, steps = 99)
-                        Text("GCS filter bytes: $bloomBytes (128–1024)", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
-                        Slider(value = bloomBytes.toFloat(), onValueChange = { manager.setBloomBytes(it.toInt()) }, valueRange = 128f..1024f, steps = 0)
-                        Text("target FPR: ${String.format("%.2f", bloomFpr)}%", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
-                        Slider(value = bloomFpr.toFloat(), onValueChange = { manager.setBloomFprPercent(it.toDouble()) }, valueRange = 0.1f..5.0f, steps = 49)
-                        val p = remember(bloomFpr) { com.bitchat.android.sync.GCSFilter.deriveP(bloomFpr / 100.0) }
-                        val nmax = remember(bloomFpr, bloomBytes) { com.bitchat.android.sync.GCSFilter.estimateMaxElementsForSize(bloomBytes, p) }
+                        Text("max GCS filter size: $gcsMaxBytes bytes (128–1024)", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        Slider(value = gcsMaxBytes.toFloat(), onValueChange = { manager.setGcsMaxBytes(it.toInt()) }, valueRange = 128f..1024f, steps = 0)
+                        Text("target FPR: ${String.format("%.2f", gcsFpr)}%", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        Slider(value = gcsFpr.toFloat(), onValueChange = { manager.setGcsFprPercent(it.toDouble()) }, valueRange = 0.1f..5.0f, steps = 49)
+                        val p = remember(gcsFpr) { com.bitchat.android.sync.GCSFilter.deriveP(gcsFpr / 100.0) }
+                        val nmax = remember(gcsFpr, gcsMaxBytes) { com.bitchat.android.sync.GCSFilter.estimateMaxElementsForSize(gcsMaxBytes, p) }
                         Text("derived P: $p • est. max elements: $nmax", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                     }
                 }

@@ -77,11 +77,11 @@ class BluetoothMeshService(private val context: Context) {
                 } catch (_: Exception) { 100 }
 
                 override fun gcsMaxBytes(): Int = try {
-                    com.bitchat.android.ui.debug.DebugPreferenceManager.getBloomFilterBytes(256)
+                    com.bitchat.android.ui.debug.DebugPreferenceManager.getGcsMaxFilterBytes(256)
                 } catch (_: Exception) { 256 }
 
                 override fun gcsTargetFpr(): Double = try {
-                    com.bitchat.android.ui.debug.DebugPreferenceManager.getBloomFilterFprPercent(1.0) / 100.0
+                    com.bitchat.android.ui.debug.DebugPreferenceManager.getGcsFprPercent(1.0) / 100.0
                 } catch (_: Exception) { 0.01 }
             }
         )

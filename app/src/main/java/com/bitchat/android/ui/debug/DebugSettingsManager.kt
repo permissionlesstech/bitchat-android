@@ -202,15 +202,15 @@ class DebugSettingsManager private constructor() {
         _relayStats.value = stats
     }
 
-    // Sync/Bloom settings (UI-configurable)
+    // Sync/GCS settings (UI-configurable)
     private val _seenPacketCapacity = MutableStateFlow(DebugPreferenceManager.getSeenPacketCapacity(100))
     val seenPacketCapacity: StateFlow<Int> = _seenPacketCapacity.asStateFlow()
 
-    private val _bloomBytes = MutableStateFlow(DebugPreferenceManager.getBloomFilterBytes(256))
-    val bloomBytes: StateFlow<Int> = _bloomBytes.asStateFlow()
+    private val _gcsMaxBytes = MutableStateFlow(DebugPreferenceManager.getGcsMaxFilterBytes(256))
+    val gcsMaxBytes: StateFlow<Int> = _gcsMaxBytes.asStateFlow()
 
-    private val _bloomFprPercent = MutableStateFlow(DebugPreferenceManager.getBloomFilterFprPercent(1.0))
-    val bloomFprPercent: StateFlow<Double> = _bloomFprPercent.asStateFlow()
+    private val _gcsFprPercent = MutableStateFlow(DebugPreferenceManager.getGcsFprPercent(1.0))
+    val gcsFprPercent: StateFlow<Double> = _gcsFprPercent.asStateFlow()
 
     fun setSeenPacketCapacity(value: Int) {
         val clamped = value.coerceIn(10, 1000)
@@ -219,17 +219,17 @@ class DebugSettingsManager private constructor() {
         addDebugMessage(DebugMessage.SystemMessage("🧩 max packets per sync set to $clamped"))
     }
 
-    fun setBloomBytes(value: Int) {
+    fun setGcsMaxBytes(value: Int) {
         val clamped = value.coerceIn(128, 1024)
-        DebugPreferenceManager.setBloomFilterBytes(clamped)
-        _bloomBytes.value = clamped
-        addDebugMessage(DebugMessage.SystemMessage("🌸 GCS filter bytes set to $clamped"))
+        DebugPreferenceManager.setGcsMaxFilterBytes(clamped)
+        _gcsMaxBytes.value = clamped
+        addDebugMessage(DebugMessage.SystemMessage("🌸 max GCS filter size set to $clamped bytes"))
     }
 
-    fun setBloomFprPercent(value: Double) {
+    fun setGcsFprPercent(value: Double) {
         val clamped = value.coerceIn(0.1, 5.0)
-        DebugPreferenceManager.setBloomFilterFprPercent(clamped)
-        _bloomFprPercent.value = clamped
+        DebugPreferenceManager.setGcsFprPercent(clamped)
+        _gcsFprPercent.value = clamped
         addDebugMessage(DebugMessage.SystemMessage("🎯 GCS FPR set to ${String.format("%.2f", clamped)}%"))
     }
     

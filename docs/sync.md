@@ -92,14 +92,14 @@ Not included:
 
 Exposed under “sync settings” in the debug settings sheet:
 - Max packets per sync (default 100)
-- GCS filter size in bytes (default 256, min 128, max 1024)
+- Max GCS filter size in bytes (default 256, min 128, max 1024)
 - GCS target FPR in percent (default 1%, 0.1%–5%)
 - Derived values (display only): P and the estimated maximum number of elements that fit into the filter.
 
 Backed by `DebugPreferenceManager` getters and setters:
 - `getSeenPacketCapacity` / `setSeenPacketCapacity`
-- `getBloomFilterBytes` / `setBloomFilterBytes` (repurposed for GCS size)
-- `getBloomFilterFprPercent` / `setBloomFilterFprPercent` (repurposed for GCS FPR)
+- `getGcsMaxFilterBytes` / `setGcsMaxFilterBytes`
+- `getGcsFprPercent` / `setGcsFprPercent`
 
 ## Android Integration
 

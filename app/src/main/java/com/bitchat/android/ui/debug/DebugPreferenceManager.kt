@@ -17,8 +17,9 @@ object DebugPreferenceManager {
     private const val KEY_MAX_CONN_SERVER = "max_connections_server"
     private const val KEY_MAX_CONN_CLIENT = "max_connections_client"
     private const val KEY_SEEN_PACKET_CAP = "seen_packet_capacity"
-    private const val KEY_BLOOM_BYTES = "bloom_filter_bytes"
-    private const val KEY_BLOOM_FPR = "bloom_filter_fpr_percent"
+    // GCS keys (no migration/back-compat)
+    private const val KEY_GCS_MAX_BYTES = "gcs_max_filter_bytes"
+    private const val KEY_GCS_FPR = "gcs_filter_fpr_percent"
 
     private lateinit var prefs: SharedPreferences
 
@@ -78,7 +79,7 @@ object DebugPreferenceManager {
         if (ready()) prefs.edit().putInt(KEY_MAX_CONN_CLIENT, value).apply()
     }
 
-    // Sync/bloom settings
+    // Sync/GCS settings
     fun getSeenPacketCapacity(default: Int = 100): Int =
         if (ready()) prefs.getInt(KEY_SEEN_PACKET_CAP, default) else default
 
@@ -86,17 +87,17 @@ object DebugPreferenceManager {
         if (ready()) prefs.edit().putInt(KEY_SEEN_PACKET_CAP, value).apply()
     }
 
-    fun getBloomFilterBytes(default: Int = 256): Int =
-        if (ready()) prefs.getInt(KEY_BLOOM_BYTES, default) else default
+    fun getGcsMaxFilterBytes(default: Int = 256): Int =
+        if (ready()) prefs.getInt(KEY_GCS_MAX_BYTES, default) else default
 
-    fun setBloomFilterBytes(value: Int) {
-        if (ready()) prefs.edit().putInt(KEY_BLOOM_BYTES, value).apply()
+    fun setGcsMaxFilterBytes(value: Int) {
+        if (ready()) prefs.edit().putInt(KEY_GCS_MAX_BYTES, value).apply()
     }
 
-    fun getBloomFilterFprPercent(default: Double = 1.0): Double =
-        if (ready()) java.lang.Double.longBitsToDouble(prefs.getLong(KEY_BLOOM_FPR, java.lang.Double.doubleToRawLongBits(default))) else default
+    fun getGcsFprPercent(default: Double = 1.0): Double =
+        if (ready()) java.lang.Double.longBitsToDouble(prefs.getLong(KEY_GCS_FPR, java.lang.Double.doubleToRawLongBits(default))) else default
 
-    fun setBloomFilterFprPercent(value: Double) {
-        if (ready()) prefs.edit().putLong(KEY_BLOOM_FPR, java.lang.Double.doubleToRawLongBits(value)).apply()
+    fun setGcsFprPercent(value: Double) {
+        if (ready()) prefs.edit().putLong(KEY_GCS_FPR, java.lang.Double.doubleToRawLongBits(value)).apply()
     }
 }
