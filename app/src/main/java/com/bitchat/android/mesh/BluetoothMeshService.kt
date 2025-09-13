@@ -37,11 +37,11 @@ class BluetoothMeshService(private val context: Context) {
         private const val MAX_TTL: UByte = 7u
     }
     
-    // My peer identification - same format as iOS
-    val myPeerID: String = generateCompatiblePeerID()
-    
     // Core components - each handling specific responsibilities
     private val encryptionService = EncryptionService(context)
+
+    // My peer identification - derived from persisted Noise identity fingerprint (first 16 hex chars)
+    val myPeerID: String = encryptionService.getIdentityFingerprint().take(16)
     private val peerManager = PeerManager()
     private val fragmentManager = FragmentManager()
     private val securityManager = SecurityManager(encryptionService, myPeerID)
@@ -902,15 +902,6 @@ class BluetoothMeshService(private val context: Context) {
             appendLine()
             appendLine(packetProcessor.getDebugInfo())
         }
-    }
-    
-    /**
-     * Generate peer ID compatible with iOS - exactly 8 bytes (16 hex characters)
-     */
-    private fun generateCompatiblePeerID(): String {
-        val randomBytes = ByteArray(8)  // 8 bytes = 16 hex characters (like iOS)
-        Random.nextBytes(randomBytes)
-        return randomBytes.joinToString("") { "%02x".format(it) }
     }
     
     /**
