@@ -5,7 +5,6 @@ import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import java.security.MessageDigest
-import java.security.SecureRandom
 import android.util.Log
 
 /**
@@ -13,7 +12,6 @@ import android.util.Log
  * 
  * Handles:
  * - Static identity key persistence across app sessions
- * - Peer ID rotation timing (5-15 minute random intervals)
  * - Secure storage using Android EncryptedSharedPreferences
  * - Fingerprint calculation and identity validation
  */
@@ -26,16 +24,9 @@ class SecureIdentityStateManager(private val context: Context) {
         private const val KEY_STATIC_PUBLIC_KEY = "static_public_key"
         private const val KEY_SIGNING_PRIVATE_KEY = "signing_private_key"
         private const val KEY_SIGNING_PUBLIC_KEY = "signing_public_key"
-        private const val KEY_LAST_ROTATION = "last_rotation"
-        private const val KEY_NEXT_ROTATION_INTERVAL = "next_rotation_interval"
-        
-        // Rotation intervals (same as iOS)
-        private const val MIN_ROTATION_INTERVAL = 5 * 60 * 1000L  // 5 minutes
-        private const val MAX_ROTATION_INTERVAL = 15 * 60 * 1000L // 15 minutes
     }
     
     private val prefs: SharedPreferences
-    private val random = SecureRandom()
     
     init {
         // Create master key for encryption
@@ -188,70 +179,9 @@ class SecureIdentityStateManager(private val context: Context) {
         return fingerprint.matches(Regex("^[a-fA-F0-9]{64}$"))
     }
     
-    // MARK: - Peer ID Rotation Management
-    
-    /**
-     * Check if peer ID should be rotated based on random interval
-     */
-    fun shouldRotatePeerID(): Boolean {
-        val lastRotation = prefs.getLong(KEY_LAST_ROTATION, 0L)
-        val nextInterval = prefs.getLong(KEY_NEXT_ROTATION_INTERVAL, 0L)
-        val now = System.currentTimeMillis()
-        
-        if (lastRotation == 0L || nextInterval == 0L) {
-            // First run or missing data - schedule next rotation and don't rotate now
-            scheduleNextRotation()
-            return false
-        }
-        
-        val shouldRotate = (now - lastRotation) >= nextInterval
-        if (shouldRotate) {
-            Log.d(TAG, "Peer ID rotation due: ${(now - lastRotation) / 1000}s since last rotation")
-        }
-        
-        return shouldRotate
-    }
-    
-    /**
-     * Mark rotation as completed and schedule next one
-     */
-    fun markRotationCompleted() {
-        val now = System.currentTimeMillis()
-        prefs.edit()
-            .putLong(KEY_LAST_ROTATION, now)
-            .apply()
-        
-        scheduleNextRotation()
-        
-        Log.d(TAG, "Peer ID rotation marked as completed")
-    }
-    
-    /**
-     * Schedule the next rotation with random interval (5-15 minutes)
-     */
-    private fun scheduleNextRotation() {
-        val nextInterval = MIN_ROTATION_INTERVAL + random.nextLong(MAX_ROTATION_INTERVAL - MIN_ROTATION_INTERVAL)
-        
-        prefs.edit()
-            .putLong(KEY_NEXT_ROTATION_INTERVAL, nextInterval)
-            .apply()
-        
-        Log.d(TAG, "Next peer ID rotation scheduled in ${nextInterval / 60000} minutes")
-    }
-    
-    /**
-     * Get time until next rotation (for debugging)
-     */
-    fun getTimeUntilNextRotation(): Long {
-        val lastRotation = prefs.getLong(KEY_LAST_ROTATION, 0L)
-        val nextInterval = prefs.getLong(KEY_NEXT_ROTATION_INTERVAL, 0L)
-        val now = System.currentTimeMillis()
-        
-        if (lastRotation == 0L || nextInterval == 0L) return -1
-        
-        val elapsed = now - lastRotation
-        return maxOf(0L, nextInterval - elapsed)
-    }
+    // MARK: - Peer ID Rotation Management (removed)
+    // Android now derives peer ID from the persisted Noise identity fingerprint.
+    // No timed peer ID rotation is performed here.
     
     // MARK: - Identity Validation
     
@@ -305,14 +235,6 @@ class SecureIdentityStateManager(private val context: Context) {
         appendLine("Has identity: $hasIdentity")
         
         if (hasIdentity) {
-            val lastRotation = prefs.getLong(KEY_LAST_ROTATION, 0L)
-            val nextInterval = prefs.getLong(KEY_NEXT_ROTATION_INTERVAL, 0L)
-            val timeUntilNext = getTimeUntilNextRotation()
-            
-            appendLine("Last rotation: ${if (lastRotation > 0) "${(System.currentTimeMillis() - lastRotation) / 1000}s ago" else "never"}")
-            appendLine("Next rotation in: ${if (timeUntilNext >= 0) "${timeUntilNext / 1000}s" else "not scheduled"}")
-            appendLine("Rotation interval: ${nextInterval / 1000}s")
-            
             try {
                 val keyPair = loadStaticKey()
                 if (keyPair != null) {
