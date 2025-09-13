@@ -46,6 +46,7 @@ class GossipSyncManager(
     private val latestAnnouncementByPeer = ConcurrentHashMap<String, Pair<String, BitchatPacket>>()
 
     private var periodicJob: Job? = null
+    private var pruneJob: Job? = null
 
     fun start() {
         periodicJob?.cancel()
@@ -58,10 +59,22 @@ class GossipSyncManager(
                 catch (e: Exception) { Log.e(TAG, "Periodic sync error: ${e.message}") }
             }
         }
+
+        pruneJob?.cancel()
+        pruneJob = scope.launch(Dispatchers.IO) {
+            while (isActive) {
+                try {
+                    delay(15_000)
+                    pruneOldAnnouncements()
+                } catch (e: CancellationException) { throw e }
+                catch (e: Exception) { Log.e(TAG, "Prune job error: ${e.message}") }
+            }
+        }
     }
 
     fun stop() {
         periodicJob?.cancel(); periodicJob = null
+        pruneJob?.cancel(); pruneJob = null
     }
 
     fun scheduleInitialSync(delayMs: Long = 5_000L) {
@@ -233,5 +246,21 @@ class GossipSyncManager(
         val params = GCSFilter.buildFilter(ids, maxBytes, fpr)
         val mVal = if (params.m <= 0L) 1 else params.m
         return RequestSyncPacket(p = params.p, m = mVal, data = params.data).encode()
+    }
+
+    // Remove announcements older than maxAgeMs (default 1 minute)
+    fun pruneOldAnnouncements(maxAgeMs: Long = 60_000L) {
+        val cutoff = System.currentTimeMillis() - maxAgeMs
+        val toRemove = ArrayList<String>()
+        for ((peer, pair) in latestAnnouncementByPeer) {
+            val pkt = pair.second
+            if (pkt.timestamp.toLong() < cutoff) {
+                toRemove.add(peer)
+            }
+        }
+        if (toRemove.isNotEmpty()) {
+            toRemove.forEach { latestAnnouncementByPeer.remove(it) }
+            Log.d(TAG, "Pruned ${toRemove.size} old announcements older than ${maxAgeMs}ms")
+        }
     }
 }
