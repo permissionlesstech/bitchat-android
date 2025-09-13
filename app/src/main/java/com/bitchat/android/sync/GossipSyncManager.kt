@@ -263,4 +263,12 @@ class GossipSyncManager(
             Log.d(TAG, "Pruned ${toRemove.size} old announcements older than ${maxAgeMs}ms")
         }
     }
+
+    // Explicitly remove stored announcement for a given peer (hex ID)
+    fun removeAnnouncementForPeer(peerID: String) {
+        val key = peerID.lowercase()
+        if (latestAnnouncementByPeer.remove(key) != null) {
+            Log.d(TAG, "Removed stored announcement for peer $peerID")
+        }
+    }
 }

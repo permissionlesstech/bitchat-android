@@ -76,6 +76,13 @@ Receiver behavior:
   - For announcements, send only the latest announcement per (sender peerID).
   - For broadcast messages, send all missing ones.
 
+Announcement retention and pruning (consensus):
+- Store only the most recent announcement per peerID for sync purposes.
+- Age-out policy: announcements older than 60 seconds MUST be removed from the sync candidate set.
+- Pruning cadence: run pruning every 15 seconds to drop expired announcements.
+- LEAVE handling: upon receiving a LEAVE message from a peer, immediately remove that peer’s stored announcement from the sync candidate set.
+- Stale/offline peer handling: when a peer is considered stale/offline (e.g., last announcement older than 60 seconds), immediately remove that peer’s stored announcement from the sync candidate set.
+
 Important: original packets are sent unmodified to preserve original signatures (e.g., ANNOUNCE). They MUST NOT be relayed beyond immediate neighbors. Implementations SHOULD send these response packets with TTL=0 (local-only) and, when possible, route them only to the requesting peer without altering the original packet contents.
 
 ## Scope and Types Included
@@ -84,6 +91,7 @@ Included in sync:
 - Public broadcast messages: `MessageType.MESSAGE` with BROADCAST recipient (or null recipient).
 - Identity announcements: `MessageType.ANNOUNCE`.
 - Both packets produced by other peers and packets produced by the requester itself MUST be represented in the requester’s GCS; the responder MUST track and consider its own produced public packets as candidates to return when they are missing on the requester.
+- Announcements included in the GCS MUST be at most 60 seconds old at the time of filter construction; older announcements are excluded by pruning.
 
 Not included:
 - Private messages and any packets addressed to a non-broadcast recipient.

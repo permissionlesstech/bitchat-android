@@ -148,6 +148,9 @@ class BluetoothMeshService(private val context: Context) {
             override fun onPeerListUpdated(peerIDs: List<String>) {
                 delegate?.didUpdatePeerList(peerIDs)
             }
+            override fun onPeerRemoved(peerID: String) {
+                try { gossipSyncManager.removeAnnouncementForPeer(peerID) } catch (_: Exception) { }
+            }
         }
         
         // SecurityManager delegate for key exchange notifications
