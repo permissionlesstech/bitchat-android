@@ -139,6 +139,47 @@ class BluetoothPacketBroadcaster(
         broadcastSinglePacket(routed, gattServer, characteristic)
     }
 
+    /**
+     * Send a packet to a specific peer only, without broadcasting.
+     * Returns true if a direct path was found and used.
+     */
+    fun sendPacketToPeer(
+        routed: RoutedPacket,
+        targetPeerID: String,
+        gattServer: BluetoothGattServer?,
+        characteristic: BluetoothGattCharacteristic?
+    ): Boolean {
+        val packet = routed.packet
+        val data = packet.toBinaryData() ?: return false
+        val typeName = MessageType.fromValue(packet.type)?.name ?: packet.type.toString()
+        val incomingAddr = routed.relayAddress
+        val incomingPeer = incomingAddr?.let { connectionTracker.addressPeerMap[it] }
+        val senderPeerID = routed.peerID ?: packet.senderID.toHexString()
+        val senderNick = senderPeerID.let { pid -> nicknameResolver?.invoke(pid) }
+
+        // Prefer server-side subscriptions
+        val serverTarget = connectionTracker.getSubscribedDevices()
+            .firstOrNull { connectionTracker.addressPeerMap[it.address] == targetPeerID }
+        if (serverTarget != null) {
+            if (notifyDevice(serverTarget, data, gattServer, characteristic)) {
+                logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, targetPeerID, serverTarget.address, packet.ttl)
+                return true
+            }
+        }
+
+        // Then client connections
+        val clientTarget = connectionTracker.getConnectedDevices().values
+            .firstOrNull { connectionTracker.addressPeerMap[it.device.address] == targetPeerID }
+        if (clientTarget != null) {
+            if (writeToDeviceConn(clientTarget, data)) {
+                logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, targetPeerID, clientTarget.device.address, packet.ttl)
+                return true
+            }
+        }
+
+        return false
+    }
+
     
     /**
      * Public entry point for broadcasting - submits request to actor for serialization
