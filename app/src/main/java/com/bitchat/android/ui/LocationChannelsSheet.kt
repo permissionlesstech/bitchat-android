@@ -121,7 +121,7 @@ fun LocationChannelsSheet(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(top = 80.dp, bottom = 20.dp)
+                    contentPadding = PaddingValues(top = 48.dp, bottom = 16.dp)
                 ) {
                     // Header Section
                     item(key = "header") {
@@ -129,8 +129,8 @@ fun LocationChannelsSheet(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 24.dp)
-                                .padding(bottom = 16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                                .padding(bottom = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Text(
                                 text = "#location channels",
@@ -156,8 +156,8 @@ fun LocationChannelsSheet(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = 24.dp)
-                                    .padding(bottom = 16.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    .padding(bottom = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 when (permissionState) {
                                     LocationChannelManager.PermissionState.NOT_DETERMINED -> {
@@ -178,7 +178,7 @@ fun LocationChannelsSheet(
                                     }
                                     LocationChannelManager.PermissionState.DENIED,
                                     LocationChannelManager.PermissionState.RESTRICTED -> {
-                                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                             Text(
                                                 text = "location permission denied. enable in settings to use location channels.",
                                                 fontSize = 11.sp,
@@ -211,7 +211,7 @@ fun LocationChannelsSheet(
                                     }
                                     null -> {
                                         Row(
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             CircularProgressIndicator(modifier = Modifier.size(12.dp))
@@ -281,7 +281,7 @@ fun LocationChannelsSheet(
                     } else if (permissionState == LocationChannelManager.PermissionState.AUTHORIZED && locationServicesEnabled) {
                         item {
                             Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 CircularProgressIndicator(modifier = Modifier.size(16.dp))
@@ -305,7 +305,7 @@ fun LocationChannelsSheet(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = 24.dp)
-                                    .padding(top = 16.dp, bottom = 8.dp)
+                                    .padding(top = 8.dp, bottom = 4.dp)
                             )
                         }
                         items(bookmarks) { gh ->
@@ -354,10 +354,10 @@ fun LocationChannelsSheet(
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 24.dp, vertical = 8.dp),
+                                .padding(horizontal = 24.dp, vertical = 4.dp),
                             color = Color.Transparent
                         ) {
-                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Row(
                                     horizontalArrangement = Arrangement.spacedBy(1.dp),
                                     verticalAlignment = Alignment.CenterVertically
@@ -460,7 +460,7 @@ fun LocationChannelsSheet(
                                         )
                                     ) {
                                         Row(
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Text(
@@ -497,7 +497,7 @@ fun LocationChannelsSheet(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 24.dp)
-                                .padding(top = 16.dp)
+                                .padding(top = 8.dp)
                         ) {
                             Button(
                                 onClick = {
@@ -540,7 +540,7 @@ fun LocationChannelsSheet(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .fillMaxWidth()
-                        .height(64.dp)
+                        .height(56.dp)
                         .background(MaterialTheme.colorScheme.background.copy(alpha = topBarAlpha))
                 ) {
                     TextButton(
@@ -613,18 +613,18 @@ private fun ChannelRow(
         shape = MaterialTheme.shapes.medium,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 8.dp)
+            .padding(horizontal = 24.dp, vertical = 2.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 16.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 // Split title to handle count part with smaller font (iOS style)
                 val (baseTitle, countSuffix) = splitTitleAndCount(title)
