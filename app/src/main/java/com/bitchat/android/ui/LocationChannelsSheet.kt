@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.PinDrop
 import androidx.compose.material.icons.outlined.BookmarkBorder
@@ -243,7 +244,7 @@ fun LocationChannelsSheet(
                                         Icon(
                                             imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
                                             contentDescription = if (isBookmarked) "Unbookmark" else "Bookmark",
-                                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                                         )
                                     }
                                 },
@@ -303,7 +304,7 @@ fun LocationChannelsSheet(
                                         Icon(
                                             imageVector = Icons.Filled.Bookmark,
                                             contentDescription = "Remove bookmark",
-                                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                                         )
                                     }
                                 },
@@ -599,19 +600,19 @@ private fun ChannelRow(
                 )
             }
 
-            if (trailingContent != null) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (isSelected) {
+                    Icon(
+                        imageVector = Icons.Filled.Check,
+                        contentDescription = "Selected",
+                        tint = Color(0xFF32D74B), // iOS green for checkmark
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                
+                if (trailingContent != null) {
                     trailingContent()
                 }
-            }
-
-            if (isSelected) {
-                Text(
-                    text = "✔︎",
-                    fontSize = 16.sp,
-                    fontFamily = FontFamily.Monospace,
-                    color = Color(0xFF32D74B) // iOS green for checkmark
-                )
             }
         }
     }
