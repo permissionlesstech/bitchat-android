@@ -156,14 +156,6 @@ fun formatMessageAsAnnotatedString(
     return builder.toAnnotatedString()
 }
 
-fun truncateNickname(nickname: String, maxLength: Int = 16): String {
-    return if (nickname.length > maxLength) {
-        nickname.take(maxLength) + "…"
-    } else {
-        nickname
-    }
-}
-
 /**
  * iOS-style peer color assignment using djb2 hash algorithm
  * Avoids orange (~30°) reserved for self messages
