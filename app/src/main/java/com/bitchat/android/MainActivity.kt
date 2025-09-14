@@ -25,6 +25,7 @@ import com.bitchat.android.onboarding.BluetoothCheckScreen
 import com.bitchat.android.onboarding.BluetoothStatus
 import com.bitchat.android.onboarding.BluetoothStatusManager
 import com.bitchat.android.onboarding.BatteryOptimizationManager
+import com.bitchat.android.onboarding.BatteryOptimizationPreferenceManager
 import com.bitchat.android.onboarding.BatteryOptimizationScreen
 import com.bitchat.android.onboarding.BatteryOptimizationStatus
 import com.bitchat.android.onboarding.InitializationErrorScreen
@@ -529,6 +530,13 @@ class MainActivity : ComponentActivity() {
         // We'll check battery optimization after permissions are granted
         if (permissionManager.isFirstTimeLaunch()) {
             android.util.Log.d("MainActivity", "First-time launch, skipping battery optimization check - will check after permissions")
+            proceedWithPermissionCheck()
+            return
+        }
+        
+        // Check if user has previously skipped battery optimization
+        if (BatteryOptimizationPreferenceManager.isSkipped(this)) {
+            android.util.Log.d("MainActivity", "User previously skipped battery optimization, proceeding to permissions")
             proceedWithPermissionCheck()
             return
         }
