@@ -357,7 +357,7 @@ object TorManager {
                 completeWaitersIf(TorState.STARTING)
             }
             s.contains("Sufficiently bootstrapped; system SOCKS now functional", ignoreCase = true) -> {
-                _status.value = _status.value.copy(bootstrapPercent = 100, state = TorState.BOOTSTRAPPING)
+                _status.value = _status.value.copy(bootstrapPercent = 75, state = TorState.BOOTSTRAPPING)
                 retryAttempts = 0
                 bindRetryAttempts = 0
                 startInactivityMonitoring()
