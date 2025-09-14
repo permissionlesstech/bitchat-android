@@ -99,14 +99,22 @@ class GeohashViewModel(
                     powDifficulty = if (pow.enabled) pow.difficulty else null
                 )
                 messageManager.addChannelMessage("geo:${channel.geohash}", localMsg)
-                if (pow.enabled && pow.difficulty > 0) {
+                val startedMining = pow.enabled && pow.difficulty > 0
+                if (startedMining) {
                     com.bitchat.android.ui.PoWMiningTracker.startMiningMessage(tempId)
                 }
-                val identity = NostrIdentityBridge.deriveIdentity(forGeohash = channel.geohash, context = getApplication())
-                val teleported = state.isTeleported.value ?: false
-                val event = NostrProtocol.createEphemeralGeohashEvent(content, channel.geohash, identity, nickname, teleported)
-                val relayManager = NostrRelayManager.getInstance(getApplication())
-                relayManager.sendEventToGeohash(event, channel.geohash, includeDefaults = false, nRelays = 5)
+                try {
+                    val identity = NostrIdentityBridge.deriveIdentity(forGeohash = channel.geohash, context = getApplication())
+                    val teleported = state.isTeleported.value ?: false
+                    val event = NostrProtocol.createEphemeralGeohashEvent(content, channel.geohash, identity, nickname, teleported)
+                    val relayManager = NostrRelayManager.getInstance(getApplication())
+                    relayManager.sendEventToGeohash(event, channel.geohash, includeDefaults = false, nRelays = 5)
+                } finally {
+                    // Ensure we stop the per-message mining animation regardless of success/failure
+                    if (startedMining) {
+                        com.bitchat.android.ui.PoWMiningTracker.stopMiningMessage(tempId)
+                    }
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send geohash message: ${e.message}")
             }
