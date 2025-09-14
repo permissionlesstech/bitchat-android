@@ -29,6 +29,7 @@ import com.bitchat.android.onboarding.BatteryOptimizationPreferenceManager
 import com.bitchat.android.onboarding.BatteryOptimizationScreen
 import com.bitchat.android.onboarding.BatteryOptimizationStatus
 import com.bitchat.android.onboarding.InitializationErrorScreen
+import com.bitchat.android.onboarding.InitializingScreen
 import com.bitchat.android.onboarding.LocationCheckScreen
 import com.bitchat.android.onboarding.LocationStatus
 import com.bitchat.android.onboarding.LocationStatusManager
@@ -163,6 +164,9 @@ class MainActivity : ComponentActivity() {
         }
 
         when (onboardingState) {
+            OnboardingState.PERMISSION_REQUESTING -> {
+                InitializingScreen(modifier)
+            }
             
             OnboardingState.BLUETOOTH_CHECK -> {
                 BluetoothCheckScreen(
@@ -224,7 +228,7 @@ class MainActivity : ComponentActivity() {
                 )
             }
 
-            OnboardingState.CHECKING, OnboardingState.PERMISSION_REQUESTING, OnboardingState.INITIALIZING, OnboardingState.COMPLETE -> {
+            OnboardingState.CHECKING, OnboardingState.INITIALIZING, OnboardingState.COMPLETE -> {
                 // Set up back navigation handling for the chat screen
                 val backCallback = object : OnBackPressedCallback(true) {
                     override fun handleOnBackPressed() {
