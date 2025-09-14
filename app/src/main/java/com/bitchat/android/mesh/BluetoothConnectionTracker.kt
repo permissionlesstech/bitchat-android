@@ -88,7 +88,7 @@ class BluetoothConnectionTracker(
      * Add a device connection
      */
     fun addDeviceConnection(deviceAddress: String, deviceConn: DeviceConnection) {
-        Log.d(TAG, "Tracker: Adding device connection for $deviceAddress (isClient: ${deviceConn.isClient}")
+        Log.d(TAG, "Tracker: Adding device connection for $deviceAddress (isClient: ${deviceConn.isClient})")
         connectedDevices[deviceAddress] = deviceConn
         pendingConnections.remove(deviceAddress)
     }
@@ -313,6 +313,14 @@ class BluetoothConnectionTracker(
         addressPeerMap.clear()
         pendingConnections.clear()
         scanRSSI.clear()
+    }
+
+    /**
+     * Public: Clear all tracking state without affecting PowerManager or timers
+     */
+    fun clearAllTracking() {
+        clearAllConnections()
+        Log.w(TAG, "Tracker: Cleared all device tracking state")
     }
     
     /**

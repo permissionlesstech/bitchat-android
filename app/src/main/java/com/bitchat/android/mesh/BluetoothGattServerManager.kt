@@ -23,7 +23,8 @@ class BluetoothGattServerManager(
     private val connectionTracker: BluetoothConnectionTracker,
     private val permissionManager: BluetoothPermissionManager,
     private val powerManager: PowerManager,
-    private val delegate: BluetoothConnectionManagerDelegate?
+    private val delegate: BluetoothConnectionManagerDelegate?,
+    private val deviceMonitor: DeviceMonitoringManager
 ) {
     
     companion object {
@@ -167,6 +168,17 @@ class BluetoothGattServerManager(
                 when (newState) {
                     BluetoothProfile.STATE_CONNECTED -> {
                         Log.i(TAG, "Server: Device connected ${device.address}")
+                        // Deny immediately if blocked
+                        if (deviceMonitor.isBlocked(device.address)) {
+                            Log.w(TAG, "Server: Blocked device ${device.address} attempted to connect — canceling")
+                            try {
+                                com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(
+                                    com.bitchat.android.ui.debug.DebugMessage.SystemMessage("⛔ Denied incoming connection from blocked ${device.address}")
+                                )
+                            } catch (_: Exception) { }
+                            try { gattServer?.cancelConnection(device) } catch (_: Exception) { }
+                            return
+                        }
                         
                         // Get best available RSSI (scan RSSI for server connections)
                         val rssi = connectionTracker.getBestRSSI(device.address) ?: Int.MIN_VALUE
@@ -181,6 +193,8 @@ class BluetoothGattServerManager(
                         connectionScope.launch {
                             delay(1000)
                             if (isActive) { // Check if still active
+                                // Start monitoring timers for this connection
+                                deviceMonitor.onConnectionEstablished(device.address)
                                 delegate?.onDeviceConnected(device)
                             }
                         }
@@ -188,6 +202,7 @@ class BluetoothGattServerManager(
                     BluetoothProfile.STATE_DISCONNECTED -> {
                         Log.i(TAG, "Server: Device disconnected ${device.address}")
                         connectionTracker.cleanupDeviceConnection(device.address)
+                        deviceMonitor.onDeviceDisconnected(device.address, status)
                         // Notify delegate about device disconnection so higher layers can update direct flags
                         delegate?.onDeviceDisconnected(device)
                     }
@@ -229,6 +244,8 @@ class BluetoothGattServerManager(
                     if (packet != null) {
                         val peerID = packet.senderID.take(8).toByteArray().joinToString("") { "%02x".format(it) }
                         Log.d(TAG, "Server: Parsed packet type ${packet.type} from $peerID")
+                        // Update per-device activity
+                        deviceMonitor.onAnyPacketReceived(device.address)
                         delegate?.onPacketReceived(packet, peerID, device)
                     } else {
                         Log.w(TAG, "Server: Failed to parse packet from ${device.address}, size: ${value.size} bytes")
@@ -263,6 +280,7 @@ class BluetoothGattServerManager(
                     connectionScope.launch {
                         delay(100)
                         if (isActive) { // Check if still active
+                            deviceMonitor.onConnectionEstablished(device.address)
                             delegate?.onDeviceConnected(device)
                         }
                     }

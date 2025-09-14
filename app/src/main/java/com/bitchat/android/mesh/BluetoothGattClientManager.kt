@@ -26,7 +26,8 @@ class BluetoothGattClientManager(
     private val connectionTracker: BluetoothConnectionTracker,
     private val permissionManager: BluetoothPermissionManager,
     private val powerManager: PowerManager,
-    private val delegate: BluetoothConnectionManagerDelegate?
+    private val delegate: BluetoothConnectionManagerDelegate?,
+    private val deviceMonitor: DeviceMonitoringManager
 ) {
     
     companion object {
@@ -52,6 +53,15 @@ class BluetoothGattClientManager(
     fun connectToAddress(deviceAddress: String): Boolean {
         val device = bluetoothAdapter?.getRemoteDevice(deviceAddress)
         return if (device != null) {
+            if (deviceMonitor.isBlocked(device.address)) {
+                Log.w(TAG, "connectToAddress: Blocked device ${device.address}, denying connection")
+                try {
+                    com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(
+                        com.bitchat.android.ui.debug.DebugMessage.SystemMessage("⛔ Denied outgoing connect to blocked ${device.address}")
+                    )
+                } catch (_: Exception) { }
+                return false
+            }
             val rssi = connectionTracker.getBestRSSI(deviceAddress) ?: -50
             connectToDevice(device, rssi)
             true
@@ -319,10 +329,21 @@ class BluetoothGattClientManager(
         val rssi = result.rssi
         val deviceAddress = device.address
         val scanRecord = result.scanRecord
-        
+
         // CRITICAL: Only process devices that have our service UUID
         val hasOurService = scanRecord?.serviceUuids?.any { it.uuid == SERVICE_UUID } == true
         if (!hasOurService) {
+            return
+        }
+
+        // Deny connection attempts to blocked devices
+        if (deviceMonitor.isBlocked(deviceAddress)) {
+            Log.d(TAG, "Skipping blocked device $deviceAddress from scan result")
+            try {
+                com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(
+                    com.bitchat.android.ui.debug.DebugMessage.SystemMessage("⛔ Skipping blocked device in scan: $deviceAddress")
+                )
+            } catch (_: Exception) { }
             return
         }
 
@@ -392,6 +413,16 @@ class BluetoothGattClientManager(
 
         val deviceAddress = device.address
         Log.i(TAG, "Connecting to bitchat device: $deviceAddress")
+
+        if (deviceMonitor.isBlocked(deviceAddress)) {
+            Log.w(TAG, "Blocked device $deviceAddress — aborting client connect")
+            try {
+                com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(
+                    com.bitchat.android.ui.debug.DebugMessage.SystemMessage("⛔ Aborting client connect to blocked $deviceAddress")
+                )
+            } catch (_: Exception) { }
+            return
+        }
         
         val gattCallback = object : BluetoothGattCallback() {
             override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
@@ -414,6 +445,9 @@ class BluetoothGattClientManager(
                         Log.d(TAG, "Client: Cleanly disconnected from $deviceAddress")
                         connectionTracker.cleanupDeviceConnection(deviceAddress)
                     }
+
+                    // Record disconnect for monitoring (error bursts -> block)
+                    deviceMonitor.onDeviceDisconnected(deviceAddress, status)
 
                     // Notify higher layers about device disconnection to update direct flags
                     delegate?.onDeviceDisconnected(gatt.device)
@@ -475,6 +509,8 @@ class BluetoothGattClientManager(
                                 connectionScope.launch {
                                     delay(200)
                                     Log.i(TAG, "Client: Connection setup complete for $deviceAddress")
+                                    // Start monitoring timers for this connection
+                                    deviceMonitor.onConnectionEstablished(deviceAddress)
                                     delegate?.onDeviceConnected(device)
                                 }
                             } else {
@@ -502,6 +538,8 @@ class BluetoothGattClientManager(
                 if (packet != null) {
                     val peerID = packet.senderID.take(8).toByteArray().joinToString("") { "%02x".format(it) }
                     Log.d(TAG, "Client: Parsed packet type ${packet.type} from $peerID")
+                    // Update per-device activity
+                    deviceMonitor.onAnyPacketReceived(gatt.device.address)
                     delegate?.onPacketReceived(packet, peerID, gatt.device)
                 } else {
                     Log.w(TAG, "Client: Failed to parse packet from ${gatt.device.address}, size: ${value.size} bytes")

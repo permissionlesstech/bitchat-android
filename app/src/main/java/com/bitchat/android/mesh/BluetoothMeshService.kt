@@ -405,6 +405,8 @@ class BluetoothMeshService(private val context: Context) {
                         if (!connectionManager.addressPeerMap.containsKey(deviceAddress)) {
                             connectionManager.addressPeerMap[deviceAddress] = pid
                             Log.d(TAG, "Mapped device $deviceAddress to peer $pid on ANNOUNCE")
+                            // Let monitor know first ANNOUNCE was seen for this device
+                            try { connectionManager.noteAnnounceReceived(deviceAddress) } catch (_: Exception) { }
 
                             // Mark this peer as directly connected for UI
                             try {
@@ -1034,6 +1036,8 @@ class BluetoothMeshService(private val context: Context) {
             securityManager.clearAllData()
             peerManager.clearAllPeers()
             peerManager.clearAllFingerprints()
+            // Also clear device monitoring + connection tracking
+            try { connectionManager.clearDeviceMonitoringAndTracking() } catch (_: Exception) { }
             Log.d(TAG, "✅ Cleared all mesh service internal data")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error clearing mesh service internal data: ${e.message}")

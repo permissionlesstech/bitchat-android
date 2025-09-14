@@ -38,6 +38,7 @@ class BluetoothConnectionManager(
     private val permissionManager = BluetoothPermissionManager(context)
     private val connectionTracker = BluetoothConnectionTracker(connectionScope, powerManager)
     private val packetBroadcaster = BluetoothPacketBroadcaster(connectionScope, connectionTracker, fragmentManager)
+    private val deviceMonitor = DeviceMonitoringManager(connectionScope)
     
     // Delegate for component managers to call back to main manager
     private val componentDelegate = object : BluetoothConnectionManagerDelegate {
@@ -49,6 +50,8 @@ class BluetoothConnectionManager(
                 if (currentRSSI != null) {
                     delegate?.onRSSIUpdated(bluetoothDevice.address, currentRSSI)
                 }
+                // Update monitor activity timer
+                try { deviceMonitor.onAnyPacketReceived(bluetoothDevice.address) } catch (_: Exception) { }
             }
 
             if (peerID == myPeerID) return // Ignore messages from self
@@ -70,10 +73,10 @@ class BluetoothConnectionManager(
     }
     
     private val serverManager = BluetoothGattServerManager(
-        context, connectionScope, connectionTracker, permissionManager, powerManager, componentDelegate
+        context, connectionScope, connectionTracker, permissionManager, powerManager, componentDelegate, deviceMonitor
     )
     private val clientManager = BluetoothGattClientManager(
-        context, connectionScope, connectionTracker, permissionManager, powerManager, componentDelegate
+        context, connectionScope, connectionTracker, permissionManager, powerManager, componentDelegate, deviceMonitor
     )
     
     // Service state
@@ -87,6 +90,20 @@ class BluetoothConnectionManager(
     
     init {
         powerManager.delegate = this
+        // Provide disconnect callback for monitor to drop either client or server connections
+        deviceMonitor.setDisconnectCallback { address ->
+            try {
+                // Try client disconnect first
+                connectionTracker.disconnectDevice(address)
+            } catch (_: Exception) { }
+            try {
+                // Then cancel any server-side connection
+                val dev = connectionTracker.getSubscribedDevices().firstOrNull { it.address == address }
+                serverManager.getGattServer()?.let { gs -> dev?.let { d -> gs.cancelConnection(d) } }
+            } catch (_: Exception) { }
+            // Ensure tracker cleanup
+            try { connectionTracker.cleanupDeviceConnection(address) } catch (_: Exception) { }
+        }
         // Observe debug settings to enforce role state while active
         try {
             val dbg = com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
@@ -295,6 +312,36 @@ class BluetoothConnectionManager(
      */
     fun connectToAddress(address: String): Boolean = clientManager.connectToAddress(address)
     fun disconnectAddress(address: String) { connectionTracker.disconnectDevice(address) }
+
+    // Notify monitor when we see a verified announce on a device
+    fun noteAnnounceReceived(address: String) { deviceMonitor.onAnnounceReceived(address) }
+
+    // Clear blocklist + monitoring timers and all connection tracking (panic triple-tap)
+    fun clearDeviceMonitoringAndTracking() {
+        try {
+            // Attempt to disconnect active client connections
+            connectionTracker.getConnectedDevices().values.forEach { dc ->
+                try { dc.gatt?.disconnect() } catch (_: Exception) { }
+            }
+        } catch (_: Exception) { }
+
+        try {
+            // Attempt to cancel server-side connections
+            val gs = serverManager.getGattServer()
+            connectionTracker.getSubscribedDevices().forEach { d ->
+                try { gs?.cancelConnection(d) } catch (_: Exception) { }
+            }
+        } catch (_: Exception) { }
+
+        try { deviceMonitor.clearAll() } catch (_: Exception) { }
+        try { connectionTracker.clearAllTracking() } catch (_: Exception) { }
+
+        try {
+            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(
+                com.bitchat.android.ui.debug.DebugMessage.SystemMessage("🧹 Cleared device blocklist + tracking (panic)")
+            )
+        } catch (_: Exception) { }
+    }
 
 
     // Optionally disconnect all connections (server and client)
