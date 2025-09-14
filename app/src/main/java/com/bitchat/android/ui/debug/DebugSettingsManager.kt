@@ -203,10 +203,10 @@ class DebugSettingsManager private constructor() {
     }
 
     // Sync/GCS settings (UI-configurable)
-    private val _seenPacketCapacity = MutableStateFlow(DebugPreferenceManager.getSeenPacketCapacity(100))
+    private val _seenPacketCapacity = MutableStateFlow(DebugPreferenceManager.getSeenPacketCapacity(500))
     val seenPacketCapacity: StateFlow<Int> = _seenPacketCapacity.asStateFlow()
 
-    private val _gcsMaxBytes = MutableStateFlow(DebugPreferenceManager.getGcsMaxFilterBytes(256))
+    private val _gcsMaxBytes = MutableStateFlow(DebugPreferenceManager.getGcsMaxFilterBytes(400))
     val gcsMaxBytes: StateFlow<Int> = _gcsMaxBytes.asStateFlow()
 
     private val _gcsFprPercent = MutableStateFlow(DebugPreferenceManager.getGcsFprPercent(1.0))

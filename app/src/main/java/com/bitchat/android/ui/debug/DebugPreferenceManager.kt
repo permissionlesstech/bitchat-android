@@ -80,7 +80,7 @@ object DebugPreferenceManager {
     }
 
     // Sync/GCS settings
-    fun getSeenPacketCapacity(default: Int = 100): Int =
+    fun getSeenPacketCapacity(default: Int = 500): Int =
         if (ready()) prefs.getInt(KEY_SEEN_PACKET_CAP, default) else default
 
     fun setSeenPacketCapacity(value: Int) {

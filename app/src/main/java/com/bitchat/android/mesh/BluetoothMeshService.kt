@@ -73,8 +73,8 @@ class BluetoothMeshService(private val context: Context) {
             scope = serviceScope,
             configProvider = object : GossipSyncManager.ConfigProvider {
                 override fun seenCapacity(): Int = try {
-                    com.bitchat.android.ui.debug.DebugPreferenceManager.getSeenPacketCapacity(100)
-                } catch (_: Exception) { 100 }
+                    com.bitchat.android.ui.debug.DebugPreferenceManager.getSeenPacketCapacity(500)
+                } catch (_: Exception) { 500 }
 
                 override fun gcsMaxBytes(): Int = try {
                     com.bitchat.android.ui.debug.DebugPreferenceManager.getGcsMaxFilterBytes(400)
