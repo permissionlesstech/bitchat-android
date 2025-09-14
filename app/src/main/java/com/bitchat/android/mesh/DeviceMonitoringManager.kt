@@ -123,9 +123,6 @@ class DeviceMonitoringManager(
                 block(address, "Inactivity >60s")
             }
         }
-        debugManager?.addDebugMessage(
-            com.bitchat.android.ui.debug.DebugMessage.SystemMessage("⏳ Inactivity timer set for $address (60s)")
-        )
     }
 
     fun onDeviceDisconnected(address: String, status: Int) {
