@@ -22,7 +22,8 @@ class GeohashMessageHandler(
     private val state: ChatState,
     private val messageManager: MessageManager,
     private val repo: GeohashRepository,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    private val dataManager: com.bitchat.android.ui.DataManager
 ) {
     companion object { private const val TAG = "GeohashMessageHandler" }
 
@@ -56,8 +57,8 @@ class GeohashMessageHandler(
                     if (!NostrProofOfWork.validateDifficulty(event, pow.difficulty)) return@launch
                 }
 
-                // Blocked users check
-                if (com.bitchat.android.ui.DataManager(application).isGeohashUserBlocked(event.pubkey)) return@launch
+                // Blocked users check (use injected DataManager which has loaded state)
+                if (dataManager.isGeohashUserBlocked(event.pubkey)) return@launch
 
                 // Update repository (participants, nickname, teleport)
                 // Update repository on a background-safe path; repository will post updates to LiveData
