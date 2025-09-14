@@ -21,7 +21,8 @@ class NostrDirectMessageHandler(
     private val privateChatManager: PrivateChatManager,
     private val meshDelegateHandler: MeshDelegateHandler,
     private val scope: CoroutineScope,
-    private val repo: GeohashRepository
+    private val repo: GeohashRepository,
+    private val dataManager: com.bitchat.android.ui.DataManager
 ) {
     companion object { private const val TAG = "NostrDirectMessageHandler" }
 
@@ -58,6 +59,10 @@ class NostrDirectMessageHandler(
                 }
 
                 val (content, senderPubkey, rumorTimestamp) = decryptResult
+
+                // If sender is blocked for geohash contexts, drop any events from this pubkey
+                // Applies to both geohash DMs (geohash != "") and account DMs (geohash == "")
+                if (dataManager.isGeohashUserBlocked(senderPubkey)) return@launch
                 if (!content.startsWith("bitchat1:")) return@launch
 
                 val base64Content = content.removePrefix("bitchat1:")

@@ -14,7 +14,8 @@ import java.util.Date
  */
 class GeohashRepository(
     private val application: Application,
-    private val state: ChatState
+    private val state: ChatState,
+    private val dataManager: com.bitchat.android.ui.DataManager
 ) {
     companion object { private const val TAG = "GeohashRepository" }
 
@@ -103,7 +104,8 @@ class GeohashRepository(
             val e = it.next()
             if (e.value.before(cutoff)) it.remove()
         }
-        return participants.size
+        // exclude blocked users
+        return participants.keys.count { !dataManager.isGeohashUserBlocked(it) }
     }
 
     fun refreshGeohashPeople() {
@@ -122,7 +124,9 @@ class GeohashRepository(
             if (e.value.before(cutoff)) it.remove()
         }
         geohashParticipants[geohash] = participants
-        val people = participants.map { (pubkeyHex, lastSeen) ->
+        // exclude blocked users from people list
+        val people = participants.filterKeys { !dataManager.isGeohashUserBlocked(it) }
+            .map { (pubkeyHex, lastSeen) ->
             val base = getCachedNickname(pubkeyHex) ?: "anon"
             GeoPerson(
                 id = pubkeyHex.lowercase(),
@@ -138,7 +142,8 @@ class GeohashRepository(
         val cutoff = Date(System.currentTimeMillis() - 5 * 60 * 1000)
         val counts = mutableMapOf<String, Int>()
         for ((gh, participants) in geohashParticipants) {
-            val active = participants.values.count { !it.before(cutoff) }
+            val active = participants.filterKeys { !dataManager.isGeohashUserBlocked(it) }
+                .values.count { !it.before(cutoff) }
             counts[gh] = active
         }
         // Use postValue for thread safety - this can be called from background threads  
@@ -186,6 +191,7 @@ class GeohashRepository(
             val participants = geohashParticipants[current] ?: emptyMap()
             var count = 0
             for ((k, t) in participants) {
+                if (dataManager.isGeohashUserBlocked(k)) continue
                 if (t.before(cutoff)) continue
                 val name = if (k.equals(lower, true)) base else (geoNicknames[k.lowercase()] ?: "anon")
                 if (name.equals(base, true)) { count++; if (count > 1) break }
@@ -207,6 +213,7 @@ class GeohashRepository(
             val participants = geohashParticipants[sourceGeohash] ?: emptyMap()
             var count = 0
             for ((k, t) in participants) {
+                if (dataManager.isGeohashUserBlocked(k)) continue
                 if (t.before(cutoff)) continue
                 val name = if (k.equals(lower, true)) base else (geoNicknames[k.lowercase()] ?: "anon")
                 if (name.equals(base, true)) { count++; if (count > 1) break }
