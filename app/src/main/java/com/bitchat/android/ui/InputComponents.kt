@@ -211,13 +211,22 @@ fun MessageInput(
                         kotlinx.coroutines.delay(80)
                     }
                 }
-                // Visualizer + elapsed timer
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    CyberpunkVisualizer(amplitude = amp.value, color = Color(0xFF00FF7F))
+                // Visualizer + elapsed timer on a single line
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CyberpunkVisualizer(
+                        amplitude = amp.value,
+                        color = Color(0xFF00FF7F),
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(Modifier.width(12.dp))
                     val secs = (elapsedMs / 1000).toInt()
                     val mm = secs / 60
                     val ss = secs % 60
-                    Text(text = String.format("%02d:%02d", mm, ss), fontFamily = FontFamily.Monospace, color = colorScheme.primary)
+                    Text(
+                        text = String.format("%02d:%02d", mm, ss),
+                        fontFamily = FontFamily.Monospace,
+                        color = colorScheme.primary
+                    )
                 }
             } else {
                 BasicTextField(

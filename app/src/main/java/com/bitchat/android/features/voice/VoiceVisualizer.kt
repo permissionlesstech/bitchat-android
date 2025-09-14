@@ -15,14 +15,14 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.min
 
 @Composable
-fun CyberpunkVisualizer(amplitude: Int, color: Color) {
+fun CyberpunkVisualizer(amplitude: Int, color: Color, modifier: Modifier = Modifier) {
     val norm = min(1f, amplitude / 20_000f)
     val heightFrac by animateFloatAsState(
         targetValue = 0.1f + 0.9f * norm,
         animationSpec = tween(120, easing = LinearEasing), label = "amp"
     )
     Canvas(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(48.dp)
     ) {
@@ -40,4 +40,3 @@ fun CyberpunkVisualizer(amplitude: Int, color: Color) {
         }
     }
 }
-
