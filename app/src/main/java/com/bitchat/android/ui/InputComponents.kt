@@ -40,6 +40,10 @@ import com.bitchat.android.features.voice.VoiceRecorder
 import com.bitchat.android.features.voice.CyberpunkVisualizer
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.rememberPermissionState
+import com.google.accompanist.permissions.PermissionStatus
+import android.Manifest
 
 /**
  * Input components for ChatScreen
@@ -156,12 +160,13 @@ class CombinedVisualTransformation(private val transformations: List<VisualTrans
 
 
 
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun MessageInput(
     value: TextFieldValue,
     onValueChange: (TextFieldValue) -> Unit,
     onSend: () -> Unit,
-    onSendVoiceNote: (String, String, String) -> Unit,
+    onSendVoiceNote: (String?, String?, String) -> Unit,
     selectedPrivatePeer: String?,
     currentChannel: String?,
     nickname: String,
@@ -172,6 +177,7 @@ fun MessageInput(
     val hasText = value.text.isNotBlank() // Check if there's text for send button state
     val context = androidx.compose.ui.platform.LocalContext.current
     var isRecording by remember { mutableStateOf(false) }
+    var recordingSessionId by remember { mutableStateOf(0) }
     val recorderHolder = remember { mutableStateOf<VoiceRecorder?>(null) }
     var recordedFilePath by remember { mutableStateOf<String?>(null) }
     var peerOnion by remember { mutableStateOf<String?>(null) }
@@ -183,6 +189,8 @@ fun MessageInput(
         } catch (_: Exception) { null }
     }
     
+    val micPermission = rememberPermissionState(Manifest.permission.RECORD_AUDIO)
+
     Row(
         modifier = modifier.padding(horizontal = 12.dp, vertical = 8.dp), // Reduced padding
         verticalAlignment = Alignment.CenterVertically,
@@ -195,7 +203,7 @@ fun MessageInput(
             if (isRecording) {
                 // Visualizer in the input slot
                 val amp = remember { mutableStateOf(0) }
-                LaunchedEffect(Unit) {
+                LaunchedEffect(recordingSessionId) {
                     while (isRecording) {
                         val ar = recorderHolder.value?.pollAmplitude() ?: 0
                         amp.value = ar
@@ -242,8 +250,8 @@ fun MessageInput(
         
         Spacer(modifier = Modifier.width(8.dp)) // Reduced spacing
         
-        // Command quick access button or voice record button
-        if (value.text.isEmpty() && selectedPrivatePeer != null && !peerOnion.isNullOrBlank()) {
+        // Voice record button when no text (always visible for mesh + channels + private)
+        if (value.text.isEmpty()) {
             // Hold-to-record microphone
             val bg = if (colorScheme.background == Color.Black) Color(0xFF00FF00).copy(alpha = 0.75f) else Color(0xFF008000).copy(alpha = 0.75f)
             Box(
@@ -254,11 +262,16 @@ fun MessageInput(
                         detectTapGestures(
                             onPress = {
                                 if (!isRecording) {
+                                    if (micPermission.status !is PermissionStatus.Granted) {
+                                        micPermission.launchPermissionRequest()
+                                        return@detectTapGestures
+                                    }
                                     val rec = VoiceRecorder(context)
                                     val f = rec.start()
                                     recorderHolder.value = rec
                                     isRecording = f != null
                                     recordedFilePath = f?.absolutePath
+                                    recordingSessionId += 1
                                 }
                                 try {
                                     awaitRelease()
@@ -267,8 +280,14 @@ fun MessageInput(
                                     isRecording = false
                                     recorderHolder.value = null
                                     val path = (file?.absolutePath ?: recordedFilePath)
-                                    if (!path.isNullOrBlank() && selectedPrivatePeer != null && !peerOnion.isNullOrBlank()) {
-                                        onSendVoiceNote(selectedPrivatePeer, peerOnion!!, path)
+                                    if (!path.isNullOrBlank()) {
+                                        if (selectedPrivatePeer != null && !peerOnion.isNullOrBlank()) {
+                                            // Tor path
+                                            onSendVoiceNote(selectedPrivatePeer, peerOnion, path)
+                                        } else {
+                                            // BLE path (private without onion or public channel)
+                                            onSendVoiceNote(selectedPrivatePeer, currentChannel, path)
+                                        }
                                     }
                                     recordedFilePath = null
                                 }
@@ -285,18 +304,6 @@ fun MessageInput(
                 )
             }
             
-        } else if (value.text.isEmpty()) {
-            FilledTonalIconButton(
-                onClick = {
-                    onValueChange(TextFieldValue(text = "/", selection = TextRange("/".length)))
-                },
-                modifier = Modifier.size(32.dp)
-            ) {
-                Text(
-                    text = "/",
-                    textAlign = TextAlign.Center
-                )
-            }
         } else {
             // Send button with enabled/disabled state
             IconButton(

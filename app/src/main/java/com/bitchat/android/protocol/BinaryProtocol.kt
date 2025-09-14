@@ -16,7 +16,8 @@ enum class MessageType(val value: UByte) {
     NOISE_HANDSHAKE(0x10u),  // Noise handshake
     NOISE_ENCRYPTED(0x11u),  // Noise encrypted transport message
     FRAGMENT(0x20u), // Fragmentation for large packets
-    REQUEST_SYNC(0x21u); // GCS-based sync request
+    REQUEST_SYNC(0x21u), // GCS-based sync request
+    FILE_TRANSFER(0x22u); // New: File transfer packet (BLE voice notes, etc.)
 
     companion object {
         fun fromValue(value: UByte): MessageType? {
@@ -195,7 +196,12 @@ object BinaryProtocol {
                 }
             }
             
-            val buffer = ByteBuffer.allocate(4096).apply { order(ByteOrder.BIG_ENDIAN) }
+            // Compute a safe capacity for the unpadded frame
+            val recipientBytes = if (packet.recipientID != null) RECIPIENT_ID_SIZE else 0
+            val signatureBytes = if (packet.signature != null) SIGNATURE_SIZE else 0
+            val payloadBytes = payload.size + if (isCompressed) 2 else 0
+            val capacity = HEADER_SIZE + SENDER_ID_SIZE + recipientBytes + payloadBytes + signatureBytes + 16 // small slack
+            val buffer = ByteBuffer.allocate(capacity.coerceAtLeast(512)).apply { order(ByteOrder.BIG_ENDIAN) }
             
             // Header
             buffer.put(packet.version.toByte())

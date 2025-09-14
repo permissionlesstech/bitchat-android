@@ -171,8 +171,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     forceScrollToBottom = !forceScrollToBottom // Toggle to trigger scroll
                 }
             },
-            onSendVoiceNote = { peer, onion, path ->
-                viewModel.sendVoiceNote(peer, onion, path)
+            onSendVoiceNote = { peer, onionOrChannel, path ->
+                viewModel.sendVoiceNote(peer, onionOrChannel, path)
             },
             showCommandSuggestions = showCommandSuggestions,
             commandSuggestions = commandSuggestions,
@@ -330,7 +330,7 @@ private fun ChatInputSection(
     messageText: TextFieldValue,
     onMessageTextChange: (TextFieldValue) -> Unit,
     onSend: () -> Unit,
-    onSendVoiceNote: (String, String, String) -> Unit,
+    onSendVoiceNote: (String?, String?, String) -> Unit,
     showCommandSuggestions: Boolean,
     commandSuggestions: List<CommandSuggestion>,
     showMentionSuggestions: Boolean,

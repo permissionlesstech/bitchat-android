@@ -38,7 +38,8 @@ class VoiceRecorder(private val context: Context) {
             rec.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
             rec.setAudioChannels(1)
             rec.setAudioSamplingRate(44100)
-            rec.setAudioEncodingBitRate(128_000)
+            // Lower bitrate to keep BLE payloads <= 64KiB for fragmentation
+            rec.setAudioEncodingBitRate(64_000)
             rec.setOutputFile(file.absolutePath)
             rec.prepare()
             rec.start()
@@ -73,4 +74,3 @@ class VoiceRecorder(private val context: Context) {
         return f
     }
 }
-

@@ -33,19 +33,65 @@ class ChatViewModel(
         private const val TAG = "ChatViewModel"
     }
 
-    fun sendVoiceNote(toPeerID: String, onion: String, filePath: String) {
+    fun sendVoiceNote(toPeerIDOrNull: String?, onionOrChannel: String?, filePath: String) {
         try {
-            com.bitchat.android.features.torfiles.TorFileTransferClient.sendVoiceNote(onion, meshService.myPeerID, java.io.File(filePath))
-            val msg = BitchatMessage(
-                sender = state.getNicknameValue() ?: "me",
-                content = "[voice] $filePath",
-                timestamp = Date(),
-                isRelay = false,
-                isPrivate = true,
-                recipientNickname = try { meshService.getPeerNicknames()[toPeerID] } catch (_: Exception) { null },
-                senderPeerID = meshService.myPeerID
-            )
-            messageManager.addPrivateMessage(toPeerID, msg)
+            val file = java.io.File(filePath)
+            if (toPeerIDOrNull != null && !onionOrChannel.isNullOrBlank() && onionOrChannel!!.contains(".onion")) {
+                // Tor private
+                com.bitchat.android.features.torfiles.TorFileTransferClient.sendVoiceNote(onionOrChannel, meshService.myPeerID, file)
+                val msg = BitchatMessage(
+                    sender = state.getNicknameValue() ?: "me",
+                    content = "[voice] $filePath",
+                    timestamp = Date(),
+                    isRelay = false,
+                    isPrivate = true,
+                    recipientNickname = try { meshService.getPeerNicknames()[toPeerIDOrNull] } catch (_: Exception) { null },
+                    senderPeerID = meshService.myPeerID
+                )
+                messageManager.addPrivateMessage(toPeerIDOrNull, msg)
+            } else if (toPeerIDOrNull != null) {
+                // BLE private
+                val packet = com.bitchat.android.model.BitchatFilePacket(
+                    fileName = file.name,
+                    fileSize = file.length(),
+                    mimeType = "audio/mp4",
+                    content = file.readBytes()
+                )
+                meshService.sendFilePrivate(toPeerIDOrNull, packet)
+                val msg = BitchatMessage(
+                    sender = state.getNicknameValue() ?: "me",
+                    content = "[voice] $filePath",
+                    timestamp = Date(),
+                    isRelay = false,
+                    isPrivate = true,
+                    recipientNickname = try { meshService.getPeerNicknames()[toPeerIDOrNull] } catch (_: Exception) { null },
+                    senderPeerID = meshService.myPeerID
+                )
+                messageManager.addPrivateMessage(toPeerIDOrNull, msg)
+            } else {
+                // BLE broadcast (public mesh/channel)
+                val packet = com.bitchat.android.model.BitchatFilePacket(
+                    fileName = file.name,
+                    fileSize = file.length(),
+                    mimeType = "audio/mp4",
+                    content = file.readBytes()
+                )
+                meshService.sendFileBroadcast(packet)
+                val message = BitchatMessage(
+                    sender = state.getNicknameValue() ?: meshService.myPeerID,
+                    content = "[voice] $filePath",
+                    timestamp = Date(),
+                    isRelay = false,
+                    senderPeerID = meshService.myPeerID,
+                    channel = onionOrChannel // if we're in a channel, show locally
+                )
+                if (!onionOrChannel.isNullOrBlank()) {
+                    // Note: Channel association is local-only in current design
+                    channelManager.addChannelMessage(onionOrChannel, message, meshService.myPeerID)
+                } else {
+                    messageManager.addMessage(message)
+                }
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to send voice note: ${e.message}")
         }

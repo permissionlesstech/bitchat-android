@@ -15,7 +15,7 @@ import kotlin.random.Random
  * Handles processing of different message types
  * Extracted from BluetoothMeshService for better separation of concerns
  */
-class MessageHandler(private val myPeerID: String) {
+class MessageHandler(private val myPeerID: String, private val appContext: android.content.Context) {
     
     companion object {
         private const val TAG = "MessageHandler"
@@ -338,16 +338,28 @@ class MessageHandler(private val myPeerID: String) {
         }
         
         try {
-            // Parse message
+            // Try file packet first
+            val file = com.bitchat.android.model.BitchatFilePacket.decode(packet.payload)
+            if (file != null) {
+                val savedPath = saveIncomingFile(file)
+                val message = BitchatMessage(
+                    sender = delegate?.getPeerNickname(peerID) ?: "unknown",
+                    content = "[voice] $savedPath",
+                    senderPeerID = peerID,
+                    timestamp = Date(packet.timestamp.toLong())
+                )
+                delegate?.onMessageReceived(message)
+                return
+            }
+
+            // Fallback: plain text
             val message = BitchatMessage(
                 sender = delegate?.getPeerNickname(peerID) ?: "unknown",
                 content = String(packet.payload, Charsets.UTF_8),
                 senderPeerID = peerID,
                 timestamp = Date(packet.timestamp.toLong())
             )
-
             delegate?.onMessageReceived(message)
-            
         } catch (e: Exception) {
             Log.e(TAG, "Failed to process broadcast message: ${e.message}")
         }
@@ -364,7 +376,23 @@ class MessageHandler(private val myPeerID: String) {
                 return
             }
 
-            // Parse message
+            // Try file packet first
+            val file = com.bitchat.android.model.BitchatFilePacket.decode(packet.payload)
+            if (file != null) {
+                val savedPath = saveIncomingFile(file)
+                val message = BitchatMessage(
+                    sender = delegate?.getPeerNickname(peerID) ?: "unknown",
+                    content = "[voice] $savedPath",
+                    senderPeerID = peerID,
+                    timestamp = Date(packet.timestamp.toLong()),
+                    isPrivate = true,
+                    recipientNickname = delegate?.getMyNickname()
+                )
+                delegate?.onMessageReceived(message)
+                return
+            }
+
+            // Fallback: plain text
             val message = BitchatMessage(
                 sender = delegate?.getPeerNickname(peerID) ?: "unknown",
                 content = String(packet.payload, Charsets.UTF_8),
@@ -375,6 +403,29 @@ class MessageHandler(private val myPeerID: String) {
 
         } catch (e: Exception) {
             Log.e(TAG, "Failed to process private message from $peerID: ${e.message}")
+        }
+    }
+
+    private fun saveIncomingFile(file: com.bitchat.android.model.BitchatFilePacket): String {
+        return try {
+            val base = appContext.filesDir
+            val dir = java.io.File(base, "voicenotes/incoming").apply { mkdirs() }
+            val safeName = if (file.fileName.isBlank()) "voice_${System.currentTimeMillis()}.m4a" else file.fileName
+            val out = java.io.File(dir, safeName)
+            out.outputStream().use { it.write(file.content) }
+            out.absolutePath
+        } catch (_: Exception) {
+            // Last resort: cache dir
+            try {
+                val dir = appContext.cacheDir
+                val out = java.io.File(dir, "voice_${System.currentTimeMillis()}.m4a")
+                out.outputStream().use { it.write(file.content) }
+                out.absolutePath
+            } catch (_: Exception) {
+                val temp = java.io.File.createTempFile("voice_", ".m4a")
+                temp.writeBytes(file.content)
+                temp.absolutePath
+            }
         }
     }
     

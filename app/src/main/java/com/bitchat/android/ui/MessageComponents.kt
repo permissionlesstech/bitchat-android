@@ -38,24 +38,48 @@ import androidx.compose.material.icons.filled.Pause
 
 @Composable
 private fun VoiceNotePlayer(path: String) {
-    val context = LocalContext.current
     var isPlaying by remember { mutableStateOf(false) }
+    var isPrepared by remember { mutableStateOf(false) }
+    var isError by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf(0f) }
     var durationMs by remember { mutableStateOf(0) }
-    val player = remember {
-        MediaPlayer().apply {
-            try {
-                setDataSource(path)
-                prepare()
-            } catch (_: Exception) {}
+    val player = remember { MediaPlayer() }
+
+    LaunchedEffect(path) {
+        isPrepared = false
+        isError = false
+        progress = 0f
+        durationMs = 0
+        isPlaying = false
+        try {
+            player.reset()
+            player.setOnPreparedListener {
+                isPrepared = true
+                durationMs = try { player.duration } catch (_: Exception) { 0 }
+            }
+            player.setOnCompletionListener {
+                isPlaying = false
+                progress = 1f
+            }
+            player.setOnErrorListener { _, _, _ ->
+                isError = true
+                isPlaying = false
+                true
+            }
+            player.setDataSource(path)
+            player.prepareAsync()
+        } catch (_: Exception) {
+            isError = true
         }
     }
-    LaunchedEffect(Unit) { durationMs = player.duration }
-    LaunchedEffect(isPlaying) {
-        if (isPlaying) player.start() else try { player.pause() } catch (_: Exception) {}
+
+    LaunchedEffect(isPlaying, isPrepared) {
+        try {
+            if (isPlaying && isPrepared) player.start() else if (isPrepared && player.isPlaying) player.pause()
+        } catch (_: Exception) {}
     }
-    LaunchedEffect(isPlaying) {
-        while (isPlaying) {
+    LaunchedEffect(isPlaying, isPrepared) {
+        while (isPlaying && isPrepared) {
             progress = try { player.currentPosition.toFloat() / (player.duration.toFloat().coerceAtLeast(1f)) } catch (_: Exception) { 0f }
             kotlinx.coroutines.delay(100)
         }
@@ -67,17 +91,15 @@ private fun VoiceNotePlayer(path: String) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        FilledTonalIconButton(onClick = { isPlaying = !isPlaying }) {
+        FilledTonalIconButton(onClick = { if (isPrepared && !isError) isPlaying = !isPlaying }, enabled = isPrepared && !isError) {
             Icon(
                 imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                 contentDescription = if (isPlaying) "Pause" else "Play"
             )
         }
-        LinearProgressIndicator(
-            progress = progress,
-            modifier = Modifier.weight(1f)
-        )
-        Text(text = String.format("%02d:%02d", (durationMs / 1000) / 60, (durationMs / 1000) % 60), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+        LinearProgressIndicator(progress = progress, modifier = Modifier.weight(1f))
+        val durText = if (durationMs > 0) String.format("%02d:%02d", (durationMs / 1000) / 60, (durationMs / 1000) % 60) else "--:--"
+        Text(text = durText, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
     }
 }
 

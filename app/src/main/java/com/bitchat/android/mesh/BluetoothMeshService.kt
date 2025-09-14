@@ -48,7 +48,7 @@ class BluetoothMeshService(private val context: Context) {
     private val fragmentManager = FragmentManager()
     private val securityManager = SecurityManager(encryptionService, myPeerID)
     private val storeForwardManager = StoreForwardManager()
-    private val messageHandler = MessageHandler(myPeerID)
+    private val messageHandler = MessageHandler(myPeerID, context.applicationContext)
     internal val connectionManager = BluetoothConnectionManager(context, myPeerID, fragmentManager) // Made internal for access
     private val packetProcessor = PacketProcessor(myPeerID)
     private lateinit var gossipSyncManager: GossipSyncManager
@@ -600,6 +600,51 @@ class BluetoothMeshService(private val context: Context) {
             connectionManager.broadcastPacket(RoutedPacket(signedPacket))
             // Track our own broadcast message for sync
             try { gossipSyncManager.onPublicPacketSeen(signedPacket) } catch (_: Exception) { }
+        }
+    }
+
+    /**
+     * Send a file over mesh as a broadcast MESSAGE (public mesh timeline/channels).
+     */
+    fun sendFileBroadcast(file: com.bitchat.android.model.BitchatFilePacket) {
+        val payload = file.encode() ?: return
+        serviceScope.launch {
+            val packet = BitchatPacket(
+                version = 1u,
+                type = MessageType.FILE_TRANSFER.value,
+                senderID = hexStringToByteArray(myPeerID),
+                recipientID = SpecialRecipients.BROADCAST,
+                timestamp = System.currentTimeMillis().toULong(),
+                payload = payload,
+                signature = null,
+                ttl = MAX_TTL
+            )
+            val signed = signPacketBeforeBroadcast(packet)
+            connectionManager.broadcastPacket(RoutedPacket(signed))
+            try { gossipSyncManager.onPublicPacketSeen(signed) } catch (_: Exception) { }
+        }
+    }
+
+    /**
+     * Send a file as a private MESSAGE to a peer (unencrypted envelope; file bytes inside TLV).
+     */
+    fun sendFilePrivate(recipientPeerID: String, file: com.bitchat.android.model.BitchatFilePacket) {
+        val payload = file.encode() ?: return
+        serviceScope.launch {
+            val packet = BitchatPacket(
+                version = 1u,
+                type = MessageType.FILE_TRANSFER.value,
+                senderID = hexStringToByteArray(myPeerID),
+                recipientID = hexStringToByteArray(recipientPeerID),
+                timestamp = System.currentTimeMillis().toULong(),
+                payload = payload,
+                signature = null,
+                ttl = 7u
+            )
+            // For private MESSAGE, also sign before send for integrity
+            val signed = signPacketBeforeBroadcast(packet)
+            // Send directly; fragmentation happens inside broadcaster
+            connectionManager.sendPacketToPeer(recipientPeerID, signed)
         }
     }
     

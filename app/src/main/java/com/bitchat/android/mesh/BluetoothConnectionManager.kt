@@ -29,7 +29,7 @@ class BluetoothConnectionManager(
     private val bluetoothAdapter: BluetoothAdapter? = bluetoothManager.adapter
     
     // Power management
-    private val powerManager = PowerManager(context)
+    private val powerManager = PowerManager(context.applicationContext)
     
     // Coroutines
     private val connectionScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
