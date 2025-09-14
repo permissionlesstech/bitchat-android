@@ -78,6 +78,7 @@ class GeohashMessageHandler(
                 if (isTeleportPresence) return@launch
 
                 val senderName = repo.displayNameForNostrPubkeyUI(event.pubkey)
+                val hasNonce = try { NostrProofOfWork.hasNonce(event) } catch (_: Exception) { false }
                 val msg = BitchatMessage(
                     id = event.id,
                     sender = senderName,
@@ -88,7 +89,9 @@ class GeohashMessageHandler(
                     senderPeerID = "nostr:${event.pubkey.take(8)}",
                     mentions = null,
                     channel = "#$subscribedGeohash",
-                    powDifficulty = try { NostrProofOfWork.calculateDifficulty(event.id).takeIf { it > 0 } } catch (_: Exception) { null }
+                    powDifficulty = try {
+                        if (hasNonce) NostrProofOfWork.calculateDifficulty(event.id).takeIf { it > 0 } else null
+                    } catch (_: Exception) { null }
                 )
                 withContext(Dispatchers.Main) { messageManager.addChannelMessage("geo:$subscribedGeohash", msg) }
             } catch (e: Exception) {
