@@ -46,8 +46,6 @@ class GossipSyncManager(
     private val latestAnnouncementByPeer = ConcurrentHashMap<String, Pair<String, BitchatPacket>>()
 
     private var periodicJob: Job? = null
-    private var pruneJob: Job? = null
-
     fun start() {
         periodicJob?.cancel()
         periodicJob = scope.launch(Dispatchers.IO) {
@@ -59,22 +57,10 @@ class GossipSyncManager(
                 catch (e: Exception) { Log.e(TAG, "Periodic sync error: ${e.message}") }
             }
         }
-
-        pruneJob?.cancel()
-        pruneJob = scope.launch(Dispatchers.IO) {
-            while (isActive) {
-                try {
-                    delay(30_000)
-                    pruneOldAnnouncements()
-                } catch (e: CancellationException) { throw e }
-                catch (e: Exception) { Log.e(TAG, "Prune job error: ${e.message}") }
-            }
-        }
     }
 
     fun stop() {
         periodicJob?.cancel(); periodicJob = null
-        pruneJob?.cancel(); pruneJob = null
     }
 
     fun scheduleInitialSync(delayMs: Long = 5_000L) {
@@ -249,39 +235,29 @@ class GossipSyncManager(
         return RequestSyncPacket(p = params.p, m = mVal, data = params.data).encode()
     }
 
-    // Remove announcements older than maxAgeMs (default 5 minutes)
-    fun pruneOldAnnouncements(maxAgeMs: Long = 300_000L) {
-        val cutoff = System.currentTimeMillis() - maxAgeMs
-        val toRemove = ArrayList<String>()
-        for ((peer, pair) in latestAnnouncementByPeer) {
-            val pkt = pair.second
-            if (pkt.timestamp.toLong() < cutoff) {
-                toRemove.add(peer)
-            }
-        }
-        if (toRemove.isNotEmpty()) {
-            toRemove.forEach { latestAnnouncementByPeer.remove(it) }
-            Log.d(TAG, "Pruned ${toRemove.size} old announcements older than ${maxAgeMs}ms")
-        }
-        // prune messages with senders whose announcements we don't have
-        var nMessagesPruned = 0
-        for ((id, message) in messages) {
-            val sender = message.senderID.joinToString("") { b -> "%02x".format(b) }
-            if (!latestAnnouncementByPeer.contains(key = sender)) {
-                messages.remove(id)
-                nMessagesPruned++
-            }
-        }
-        if (nMessagesPruned > 0) {
-            Log.d(TAG, "Pruned $nMessagesPruned messages with senders without announcements")
-        }
-    }
-
     // Explicitly remove stored announcement for a given peer (hex ID)
     fun removeAnnouncementForPeer(peerID: String) {
         val key = peerID.lowercase()
         if (latestAnnouncementByPeer.remove(key) != null) {
             Log.d(TAG, "Removed stored announcement for peer $peerID")
+        }
+
+        // Collect IDs to remove first to avoid modifying collection while iterating
+        val idsToRemove = mutableListOf<String>()
+        for ((id, message) in messages) {
+            val sender = message.senderID.joinToString("") { b -> "%02x".format(b) }
+            if (sender == key) {
+                idsToRemove.add(id)
+            }
+        }
+        
+        // Now remove the collected IDs
+        for (id in idsToRemove) {
+            messages.remove(id)
+        }
+        
+        if (idsToRemove.isNotEmpty()) {
+            Log.d(TAG, "Pruned ${idsToRemove.size} messages with senders without announcements")
         }
     }
 }
