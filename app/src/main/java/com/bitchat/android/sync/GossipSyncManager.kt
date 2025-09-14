@@ -64,7 +64,7 @@ class GossipSyncManager(
         pruneJob = scope.launch(Dispatchers.IO) {
             while (isActive) {
                 try {
-                    delay(15_000)
+                    delay(30_000)
                     pruneOldAnnouncements()
                 } catch (e: CancellationException) { throw e }
                 catch (e: Exception) { Log.e(TAG, "Prune job error: ${e.message}") }
