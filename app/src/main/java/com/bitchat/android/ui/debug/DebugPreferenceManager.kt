@@ -87,7 +87,7 @@ object DebugPreferenceManager {
         if (ready()) prefs.edit().putInt(KEY_SEEN_PACKET_CAP, value).apply()
     }
 
-    fun getGcsMaxFilterBytes(default: Int = 256): Int =
+    fun getGcsMaxFilterBytes(default: Int = 400): Int =
         if (ready()) prefs.getInt(KEY_GCS_MAX_BYTES, default) else default
 
     fun setGcsMaxFilterBytes(value: Int) {
