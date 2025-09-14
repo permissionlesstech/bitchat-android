@@ -201,6 +201,37 @@ class DebugSettingsManager private constructor() {
     fun updateRelayStats(stats: PacketRelayStats) {
         _relayStats.value = stats
     }
+
+    // Sync/GCS settings (UI-configurable)
+    private val _seenPacketCapacity = MutableStateFlow(DebugPreferenceManager.getSeenPacketCapacity(500))
+    val seenPacketCapacity: StateFlow<Int> = _seenPacketCapacity.asStateFlow()
+
+    private val _gcsMaxBytes = MutableStateFlow(DebugPreferenceManager.getGcsMaxFilterBytes(400))
+    val gcsMaxBytes: StateFlow<Int> = _gcsMaxBytes.asStateFlow()
+
+    private val _gcsFprPercent = MutableStateFlow(DebugPreferenceManager.getGcsFprPercent(1.0))
+    val gcsFprPercent: StateFlow<Double> = _gcsFprPercent.asStateFlow()
+
+    fun setSeenPacketCapacity(value: Int) {
+        val clamped = value.coerceIn(10, 1000)
+        DebugPreferenceManager.setSeenPacketCapacity(clamped)
+        _seenPacketCapacity.value = clamped
+        addDebugMessage(DebugMessage.SystemMessage("🧩 max packets per sync set to $clamped"))
+    }
+
+    fun setGcsMaxBytes(value: Int) {
+        val clamped = value.coerceIn(128, 1024)
+        DebugPreferenceManager.setGcsMaxFilterBytes(clamped)
+        _gcsMaxBytes.value = clamped
+        addDebugMessage(DebugMessage.SystemMessage("🌸 max GCS filter size set to $clamped bytes"))
+    }
+
+    fun setGcsFprPercent(value: Double) {
+        val clamped = value.coerceIn(0.1, 5.0)
+        DebugPreferenceManager.setGcsFprPercent(clamped)
+        _gcsFprPercent.value = clamped
+        addDebugMessage(DebugMessage.SystemMessage("🎯 GCS FPR set to ${String.format("%.2f", clamped)}%"))
+    }
     
     // MARK: - Debug Message Creation Helpers
     

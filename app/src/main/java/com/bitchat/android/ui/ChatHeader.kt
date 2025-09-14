@@ -518,7 +518,12 @@ private fun MainHeader(
     val isConnected by viewModel.isConnected.observeAsState(false)
     val selectedLocationChannel by viewModel.selectedLocationChannel.observeAsState()
     val geohashPeople by viewModel.geohashPeople.observeAsState(emptyList())
-    
+
+    // Bookmarks store for current geohash toggle (iOS parity)
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val bookmarksStore = remember { com.bitchat.android.geohash.GeohashBookmarksStore.getInstance(context) }
+    val bookmarks by bookmarksStore.bookmarks.observeAsState(emptyList())
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -565,11 +570,36 @@ private fun MainHeader(
                 )
             }
 
-            // Location channels button (matching iOS implementation)
-            LocationChannelsButton(
-                viewModel = viewModel,
-                onClick = onLocationChannelsClick
-            )
+            // Location channels button (matching iOS implementation) and bookmark grouped tightly
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 14.dp)) {
+                LocationChannelsButton(
+                    viewModel = viewModel,
+                    onClick = onLocationChannelsClick
+                )
+
+                // Bookmark toggle for current geohash (not shown for mesh)
+                val currentGeohash: String? = when (val sc = selectedLocationChannel) {
+                    is com.bitchat.android.geohash.ChannelID.Location -> sc.channel.geohash
+                    else -> null
+                }
+                if (currentGeohash != null) {
+                    val isBookmarked = bookmarks.contains(currentGeohash)
+                    Box(
+                        modifier = Modifier
+                            .padding(start = 1.dp) // minimal gap between geohash and bookmark
+                            .size(20.dp)
+                            .clickable { bookmarksStore.toggle(currentGeohash) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                            contentDescription = "Toggle bookmark",
+                            tint = if (isBookmarked) Color(0xFF00C851) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
 
             // Tor status cable icon when Tor is enabled
             TorStatusIcon(modifier = Modifier.size(14.dp))
@@ -621,7 +651,7 @@ private fun LocationChannelsButton(
             containerColor = Color.Transparent,
             contentColor = badgeColor
         ),
-        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+        contentPadding = PaddingValues(start = 4.dp, end = 0.dp, top = 2.dp, bottom = 2.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(

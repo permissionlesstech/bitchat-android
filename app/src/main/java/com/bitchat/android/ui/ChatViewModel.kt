@@ -719,8 +719,14 @@ class ChatViewModel(
         // Clear all notifications
         notificationManager.clearAllNotifications()
         
-        // Clear Nostr/geohash state, keys, connections, and reinitialize from scratch
+        // Clear Nostr/geohash state, keys, connections, bookmarks, and reinitialize from scratch
         try {
+            // Clear geohash bookmarks too (panic should remove everything)
+            try {
+                val store = com.bitchat.android.geohash.GeohashBookmarksStore.getInstance(getApplication())
+                store.clearAll()
+            } catch (_: Exception) { }
+
             geohashViewModel.panicReset()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to reset Nostr/geohash: ${e.message}")

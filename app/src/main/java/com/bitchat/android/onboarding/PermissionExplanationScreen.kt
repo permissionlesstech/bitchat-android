@@ -2,12 +2,22 @@ package com.bitchat.android.onboarding
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Power
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -40,86 +50,87 @@ fun PermissionExplanationScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Spacer(modifier = Modifier.height(24.dp))
-            // Header
+            
+            // Header Section - matching AboutSheet style
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.Bottom,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "bitchat",
+                        style = MaterialTheme.typography.headlineLarge.copy(
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 32.sp
+                        ),
+                        color = colorScheme.onBackground
+                    )
+                }
+
                 Text(
-                    text = "Welcome to bitchat",
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        color = colorScheme.primary
-                    ),
-                    textAlign = TextAlign.Center
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Text(
-                    text = "Decentralized mesh messaging over Bluetooth",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = FontFamily.Monospace,
-                        color = colorScheme.onSurface.copy(alpha = 0.7f)
-                    ),
-                    textAlign = TextAlign.Center
+                    text = "decentralized mesh messaging with end-to-end encryption",
+                    fontSize = 12.sp,
+                    fontFamily = FontFamily.Monospace,
+                    color = colorScheme.onBackground.copy(alpha = 0.7f)
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Privacy assurance section
-            Card(
+            // Privacy assurance section - matching AboutSheet card style
+            Surface(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                color = colorScheme.surfaceVariant.copy(alpha = 0.25f),
+                shape = RoundedCornerShape(12.dp)
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalAlignment = Alignment.Top,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(
-                            text = "🔒",
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.size(20.dp)
+                        Icon(
+                            imageVector = Icons.Filled.Security,
+                            contentDescription = "Privacy Protected",
+                            tint = colorScheme.primary,
+                            modifier = Modifier
+                                .padding(top = 2.dp)
+                                .size(20.dp)
                         )
-                        Text(
-                            text = "Your Privacy is Protected",
-                            style = MaterialTheme.typography.titleSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = colorScheme.onSurface
+                        Column {
+                            Text(
+                                text = "Your Privacy is Protected",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = colorScheme.onBackground
                             )
-                        )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "• no tracking or data collection\n" +
+                                        "• Bluetooth mesh chats are fully offline\n" +
+                                        "• Geohash chats use the internet",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontFamily = FontFamily.Monospace,
+                                color = colorScheme.onBackground.copy(alpha = 0.8f)
+                            )
+                        }
                     }
-                    
-                    Text(
-                        text = "• bitchat doesn't track you or collect personal data\n" +
-                                "• Bluetooth mesh chats are fully offline and require no internet\n" +
-                                "• Geohash chats use the internet but your location is generalized\n" +
-                                "• Your messages stay on your device and peer devices only",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontFamily = FontFamily.Monospace,
-                            color = colorScheme.onSurface.copy(alpha = 0.8f)
-                        )
-                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
+            // Section header
             Text(
-                text = "To work properly, bitchat needs these permissions:",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.Medium,
-                    color = colorScheme.onSurface
-                )
+                text = "permissions",
+                style = MaterialTheme.typography.labelLarge,
+                color = colorScheme.onBackground.copy(alpha = 0.7f),
+                modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
             )
 
             // Permission categories
@@ -168,55 +179,46 @@ private fun PermissionCategoryCard(
     category: PermissionCategory,
     colorScheme: ColorScheme
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    Row(
+        verticalAlignment = Alignment.Top,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    text = getPermissionEmoji(category.type),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = getPermissionIconColor(category.type),
-                    modifier = Modifier.size(24.dp)
-                )
-                
-                Text(
-                    text = category.type.nameValue,
-                    style = MaterialTheme.typography.titleSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = colorScheme.onSurface
-                    )
-                )
-            }
-            
+        Icon(
+            imageVector = getPermissionIcon(category.type),
+            contentDescription = category.type.nameValue,
+            tint = colorScheme.primary,
+            modifier = Modifier
+                .padding(top = 2.dp)
+                .size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Column {
+            Text(
+                text = category.type.nameValue,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium,
+                color = colorScheme.onBackground
+            )
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = category.description,
-                style = MaterialTheme.typography.bodySmall.copy(
-                    fontFamily = FontFamily.Monospace,
-                    color = colorScheme.onSurface.copy(alpha = 0.8f),
-                    lineHeight = 18.sp
-                )
+                style = MaterialTheme.typography.bodySmall,
+                color = colorScheme.onBackground.copy(alpha = 0.8f)
             )
 
             if (category.type == PermissionType.PRECISE_LOCATION) {
                 // Extra emphasis for location permission
+                Spacer(modifier = Modifier.height(4.dp))
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text(
-                        text = "⚠️",
-                        style = MaterialTheme.typography.bodyMedium,
+                    Icon(
+                        imageVector = Icons.Filled.Warning,
+                        contentDescription = "Warning",
+                        tint = Color(0xFFFF9800),
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
@@ -233,22 +235,12 @@ private fun PermissionCategoryCard(
     }
 }
 
-private fun getPermissionEmoji(permissionType: PermissionType): String {
+private fun getPermissionIcon(permissionType: PermissionType): ImageVector {
     return when (permissionType) {
-        PermissionType.NEARBY_DEVICES -> "📱"
-        PermissionType.PRECISE_LOCATION -> "📍"
-        PermissionType.NOTIFICATIONS -> "🔔"
-        PermissionType.BATTERY_OPTIMIZATION -> "🔋"
-        PermissionType.OTHER -> "🔧"
-    }
-}
-
-private fun getPermissionIconColor(permissionType: PermissionType): Color {
-    return when (permissionType) {
-        PermissionType.NEARBY_DEVICES -> Color(0xFF2196F3) // Blue
-        PermissionType.PRECISE_LOCATION -> Color(0xFFFF9800) // Orange
-        PermissionType.NOTIFICATIONS -> Color(0xFF4CAF50) // Green
-        PermissionType.BATTERY_OPTIMIZATION -> Color(0xFFF44336) // Red
-        PermissionType.OTHER -> Color(0xFF9C27B0) // Purple
+        PermissionType.NEARBY_DEVICES -> Icons.Filled.Bluetooth
+        PermissionType.PRECISE_LOCATION -> Icons.Filled.LocationOn
+        PermissionType.NOTIFICATIONS -> Icons.Filled.Notifications
+        PermissionType.BATTERY_OPTIMIZATION -> Icons.Filled.Power
+        PermissionType.OTHER -> Icons.Filled.Settings
     }
 }

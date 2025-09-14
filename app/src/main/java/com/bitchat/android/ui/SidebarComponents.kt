@@ -123,6 +123,7 @@ fun SidebarOverlay(
                             else -> {
                                 // Show mesh peer list when in mesh channel (default)
                                 PeopleSection(
+                                    modifier = modifier.padding(bottom = 16.dp),
                                     connectedPeers = connectedPeers,
                                     peerNicknames = peerNicknames,
                                     peerRSSI = peerRSSI,
@@ -248,6 +249,7 @@ fun ChannelsSection(
 
 @Composable
 fun PeopleSection(
+    modifier: Modifier  = Modifier,
     connectedPeers: List<String>,
     peerNicknames: Map<String, String>,
     peerRSSI: Map<String, Int>,
@@ -257,7 +259,7 @@ fun PeopleSection(
     viewModel: ChatViewModel,
     onPrivateChatStart: (String) -> Unit
 ) {
-    Column {
+    Column(modifier = modifier) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -327,8 +329,6 @@ fun PeopleSection(
         fun computeDisplayNameForPeerId(key: String): String {
             return if (key == nickname) "You" else (peerNicknames[key] ?: (privateChats[key]?.lastOrNull()?.sender ?: key.take(12)))
         }
-
-        
 
         val baseNameCounts = mutableMapOf<String, Int>()
 

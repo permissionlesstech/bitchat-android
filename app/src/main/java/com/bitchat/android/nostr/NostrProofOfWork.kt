@@ -54,6 +54,12 @@ object NostrProofOfWork {
     fun validateDifficulty(event: NostrEvent, minimumDifficulty: Int): Boolean {
         if (minimumDifficulty <= 0) return true
         
+        // Require explicit nonce tag to recognize PoW per NIP-13 intent
+        if (!hasNonce(event)) {
+            Log.w(TAG, "Event ${event.id.take(16)}... missing nonce tag; treating as no PoW")
+            return false
+        }
+        
         val actualDifficulty = calculateDifficulty(event.id)
         val committedDifficulty = getCommittedDifficulty(event)
         
