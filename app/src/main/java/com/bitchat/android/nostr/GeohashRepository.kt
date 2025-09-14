@@ -127,7 +127,15 @@ class GeohashRepository(
         // exclude blocked users from people list
         val people = participants.filterKeys { !dataManager.isGeohashUserBlocked(it) }
             .map { (pubkeyHex, lastSeen) ->
-            val base = getCachedNickname(pubkeyHex) ?: "anon"
+            // Use our actual nickname for self; otherwise use cached nickname or anon
+            val base = try {
+                val myHex = currentGeohash?.let { NostrIdentityBridge.deriveIdentity(it, application).publicKeyHex }
+                if (myHex != null && myHex.equals(pubkeyHex, true)) {
+                    state.getNicknameValue() ?: "anon"
+                } else {
+                    getCachedNickname(pubkeyHex) ?: "anon"
+                }
+            } catch (_: Exception) { getCachedNickname(pubkeyHex) ?: "anon" }
             GeoPerson(
                 id = pubkeyHex.lowercase(),
                 displayName = base, // UI can add #hash if necessary
