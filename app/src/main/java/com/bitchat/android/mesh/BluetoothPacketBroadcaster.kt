@@ -122,16 +122,27 @@ class BluetoothPacketBroadcaster(
         characteristic: BluetoothGattCharacteristic?
     ) {
         val packet = routed.packet
+        val isFile = packet.type == MessageType.FILE_TRANSFER.value
+        val transferId = if (isFile) sha256Hex(packet.payload) else null
         // Check if we need to fragment
         if (fragmentManager != null) {
             val fragments = fragmentManager.createFragments(packet)
             if (fragments.size > 1) {
                 Log.d(TAG, "Fragmenting packet into ${fragments.size} fragments")
+                if (transferId != null) {
+                    TransferProgressManager.start(transferId, fragments.size)
+                }
                 connectionScope.launch {
+                    var sent = 0
                     fragments.forEach { fragment ->
                         broadcastSinglePacket(RoutedPacket(fragment), gattServer, characteristic)
                         // 20ms delay between fragments (matching iOS/Rust)
                         delay(200)
+                        if (transferId != null) {
+                            sent += 1
+                            TransferProgressManager.progress(transferId, sent, fragments.size)
+                            if (sent == fragments.size) TransferProgressManager.complete(transferId, fragments.size)
+                        }
                     }
                 }
                 return
@@ -139,7 +150,14 @@ class BluetoothPacketBroadcaster(
         }
         
         // Send single packet if no fragmentation needed
+        if (transferId != null) {
+            TransferProgressManager.start(transferId, 1)
+        }
         broadcastSinglePacket(routed, gattServer, characteristic)
+        if (transferId != null) {
+            TransferProgressManager.progress(transferId, 1, 1)
+            TransferProgressManager.complete(transferId, 1)
+        }
     }
 
     /**
@@ -154,6 +172,11 @@ class BluetoothPacketBroadcaster(
     ): Boolean {
         val packet = routed.packet
         val data = packet.toBinaryData() ?: return false
+        val isFile = packet.type == MessageType.FILE_TRANSFER.value
+        val transferId = if (isFile) sha256Hex(packet.payload) else null
+        if (transferId != null) {
+            TransferProgressManager.start(transferId, 1)
+        }
         val typeName = MessageType.fromValue(packet.type)?.name ?: packet.type.toString()
         val incomingAddr = routed.relayAddress
         val incomingPeer = incomingAddr?.let { connectionTracker.addressPeerMap[it] }
@@ -166,6 +189,10 @@ class BluetoothPacketBroadcaster(
         if (serverTarget != null) {
             if (notifyDevice(serverTarget, data, gattServer, characteristic)) {
                 logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, targetPeerID, serverTarget.address, packet.ttl)
+                if (transferId != null) {
+                    TransferProgressManager.progress(transferId, 1, 1)
+                    TransferProgressManager.complete(transferId, 1)
+                }
                 return true
             }
         }
@@ -176,12 +203,22 @@ class BluetoothPacketBroadcaster(
         if (clientTarget != null) {
             if (writeToDeviceConn(clientTarget, data)) {
                 logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, targetPeerID, clientTarget.device.address, packet.ttl)
+                if (transferId != null) {
+                    TransferProgressManager.progress(transferId, 1, 1)
+                    TransferProgressManager.complete(transferId, 1)
+                }
                 return true
             }
         }
 
         return false
     }
+
+    private fun sha256Hex(bytes: ByteArray): String = try {
+        val md = java.security.MessageDigest.getInstance("SHA-256")
+        md.update(bytes)
+        md.digest().joinToString("") { "%02x".format(it) }
+    } catch (_: Exception) { bytes.size.toString(16) }
 
     
     /**

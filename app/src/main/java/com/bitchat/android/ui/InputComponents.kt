@@ -33,6 +33,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.R
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.withStyle
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -176,6 +179,8 @@ fun MessageInput(
     val isFocused = remember { mutableStateOf(false) }
     val hasText = value.text.isNotBlank() // Check if there's text for send button state
     val context = androidx.compose.ui.platform.LocalContext.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focusRequester = remember { FocusRequester() }
     var isRecording by remember { mutableStateOf(false) }
     var recordingSessionId by remember { mutableStateOf(0) }
     val recorderHolder = remember { mutableStateOf<VoiceRecorder?>(null) }
@@ -183,6 +188,8 @@ fun MessageInput(
     // BLE-only branch: no onion resolution
     
     val micPermission = rememberPermissionState(Manifest.permission.RECORD_AUDIO)
+    var recordingStart by remember { mutableStateOf(0L) }
+    var elapsedMs by remember { mutableStateOf(0L) }
 
     Row(
         modifier = modifier.padding(horizontal = 12.dp, vertical = 8.dp), // Reduced padding
@@ -200,10 +207,18 @@ fun MessageInput(
                     while (isRecording) {
                         val ar = recorderHolder.value?.pollAmplitude() ?: 0
                         amp.value = ar
+                        elapsedMs = (System.currentTimeMillis() - recordingStart).coerceAtLeast(0L)
                         kotlinx.coroutines.delay(80)
                     }
                 }
-                CyberpunkVisualizer(amplitude = amp.value, color = Color(0xFF00FF7F))
+                // Visualizer + elapsed timer
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    CyberpunkVisualizer(amplitude = amp.value, color = Color(0xFF00FF7F))
+                    val secs = (elapsedMs / 1000).toInt()
+                    val mm = secs / 60
+                    val ss = secs % 60
+                    Text(text = String.format("%02d:%02d", mm, ss), fontFamily = FontFamily.Monospace, color = colorScheme.primary)
+                }
             } else {
                 BasicTextField(
                     value = value,
@@ -222,13 +237,14 @@ fun MessageInput(
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
+                        .focusRequester(focusRequester)
                         .onFocusChanged { focusState ->
                             isFocused.value = focusState.isFocused
                         }
                 )
                 
                 // Show placeholder when there's no text
-                if (value.text.isEmpty()) {
+    if (value.text.isEmpty()) {
                     Text(
                         text = "type a message...",
                         style = MaterialTheme.typography.bodyMedium.copy(
@@ -265,6 +281,8 @@ fun MessageInput(
                                     isRecording = f != null
                                     recordedFilePath = f?.absolutePath
                                     recordingSessionId += 1
+                                    recordingStart = System.currentTimeMillis()
+                                    elapsedMs = 0L
                                 }
                                 try {
                                     awaitRelease()
@@ -336,6 +354,23 @@ fun MessageInput(
                         }
                     )
                 }
+            }
+        }
+    }
+
+    // Auto-stop after 10 seconds
+    LaunchedEffect(isRecording, recordingSessionId) {
+        if (isRecording) {
+            kotlinx.coroutines.delay(10_000)
+            if (isRecording) {
+                val file = recorderHolder.value?.stop()
+                isRecording = false
+                recorderHolder.value = null
+                val path = (file?.absolutePath ?: recordedFilePath)
+                if (!path.isNullOrBlank()) {
+                    onSendVoiceNote(selectedPrivatePeer, currentChannel, path)
+                }
+                recordedFilePath = null
             }
         }
     }

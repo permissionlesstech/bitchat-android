@@ -33,18 +33,23 @@ class ChatViewModel(
         private const val TAG = "ChatViewModel"
     }
 
+    // Track in-flight transfer progress: transferId -> messageId
+    private val transferMessageMap = mutableMapOf<String, String>()
+
     fun sendVoiceNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
         try {
             val file = java.io.File(filePath)
             if (toPeerIDOrNull != null) {
                 // BLE private
-                val packet = com.bitchat.android.model.BitchatFilePacket(
+                val filePacket = com.bitchat.android.model.BitchatFilePacket(
                     fileName = file.name,
                     fileSize = file.length(),
                     mimeType = "audio/mp4",
                     content = file.readBytes()
                 )
-                meshService.sendFilePrivate(toPeerIDOrNull, packet)
+                val payload = filePacket.encode() ?: return
+                val transferId = sha256Hex(payload)
+                // Pre-insert message and map transferId
                 val msg = BitchatMessage(
                     sender = state.getNicknameValue() ?: "me",
                     content = "[voice] $filePath",
@@ -55,15 +60,19 @@ class ChatViewModel(
                     senderPeerID = meshService.myPeerID
                 )
                 messageManager.addPrivateMessage(toPeerIDOrNull, msg)
+                synchronized(transferMessageMap) { transferMessageMap[transferId] = msg.id }
+                // Kick off send
+                meshService.sendFilePrivate(toPeerIDOrNull, filePacket)
             } else {
                 // BLE broadcast (public mesh/channel)
-                val packet = com.bitchat.android.model.BitchatFilePacket(
+                val filePacket = com.bitchat.android.model.BitchatFilePacket(
                     fileName = file.name,
                     fileSize = file.length(),
                     mimeType = "audio/mp4",
                     content = file.readBytes()
                 )
-                meshService.sendFileBroadcast(packet)
+                val payload = filePacket.encode() ?: return
+                val transferId = sha256Hex(payload)
                 val message = BitchatMessage(
                     sender = state.getNicknameValue() ?: meshService.myPeerID,
                     content = "[voice] $filePath",
@@ -78,11 +87,19 @@ class ChatViewModel(
                 } else {
                     messageManager.addMessage(message)
                 }
+                synchronized(transferMessageMap) { transferMessageMap[transferId] = message.id }
+                meshService.sendFileBroadcast(filePacket)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to send voice note: ${e.message}")
         }
     }
+
+    private fun sha256Hex(bytes: ByteArray): String = try {
+        val md = java.security.MessageDigest.getInstance("SHA-256")
+        md.update(bytes)
+        md.digest().joinToString("") { "%02x".format(it) }
+    } catch (_: Exception) { bytes.size.toString(16) }
 
     // State management
     private val state = ChatState()
@@ -172,6 +189,26 @@ class ChatViewModel(
     init {
         // Note: Mesh service delegate is now set by MainActivity
         loadAndInitialize()
+        // Subscribe to BLE transfer progress and reflect in message deliveryStatus
+        viewModelScope.launch {
+            com.bitchat.android.mesh.TransferProgressManager.events.collect { evt ->
+                val msgId = synchronized(transferMessageMap) { transferMessageMap[evt.transferId] }
+                if (msgId != null) {
+                    if (evt.completed) {
+                        messageManager.updateMessageDeliveryStatus(
+                            msgId,
+                            com.bitchat.android.model.DeliveryStatus.Delivered(to = "mesh", at = java.util.Date())
+                        )
+                        synchronized(transferMessageMap) { transferMessageMap.remove(evt.transferId) }
+                    } else {
+                        messageManager.updateMessageDeliveryStatus(
+                            msgId,
+                            com.bitchat.android.model.DeliveryStatus.PartiallyDelivered(evt.sent, evt.total)
+                        )
+                    }
+                }
+            }
+        }
     }
     
     private fun loadAndInitialize() {
@@ -950,6 +987,31 @@ class ChatViewModel(
 
     /**
      * Get consistent color for a mesh peer by ID (iOS-compatible)
+    // Track transfer progress: transferId -> messageId
+    private val transferMessageMap = mutableMapOf<String, String>()
+
+    init {
+        // Subscribe to BLE transfer progress and update message delivery status
+        viewModelScope.launch {
+            com.bitchat.android.mesh.TransferProgressManager.events.collect { evt ->
+                val msgId = synchronized(transferMessageMap) { transferMessageMap[evt.transferId] }
+                if (msgId != null) {
+                    if (evt.completed) {
+                        messageManager.updateMessageDeliveryStatus(
+                            msgId,
+                            com.bitchat.android.model.DeliveryStatus.Delivered(to = "mesh", at = java.util.Date())
+                        )
+                        synchronized(transferMessageMap) { transferMessageMap.remove(evt.transferId) }
+                    } else {
+                        messageManager.updateMessageDeliveryStatus(
+                            msgId,
+                            com.bitchat.android.model.DeliveryStatus.PartiallyDelivered(evt.sent, evt.total)
+                        )
+                    }
+                }
+            }
+        }
+    }
      */
     fun colorForMeshPeer(peerID: String, isDark: Boolean): androidx.compose.ui.graphics.Color {
         // Try to get stable Noise key, fallback to peer ID

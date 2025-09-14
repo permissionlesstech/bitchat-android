@@ -241,7 +241,16 @@ private fun MessageTextWithClickableNicknames(
     // Voice note special rendering
     if (message.content.startsWith("[voice] ")) {
         val path = message.content.removePrefix("[voice] ").trim()
-        VoiceNotePlayer(path = path)
+        Column(modifier = modifier.fillMaxWidth()) {
+            VoiceNotePlayer(path = path)
+            // Outgoing progress bar for file sending
+            message.deliveryStatus?.let { status ->
+                if (status is com.bitchat.android.model.DeliveryStatus.PartiallyDelivered && status.total > 0 && status.reached < status.total) {
+                    val frac = status.reached.toFloat() / status.total.toFloat()
+                    LinearProgressIndicator(progress = frac, modifier = Modifier.fillMaxWidth())
+                }
+            }
+        }
         return
     }
     // Check if this message should be animated during PoW mining
