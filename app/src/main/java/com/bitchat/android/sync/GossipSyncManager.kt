@@ -115,6 +115,12 @@ class GossipSyncManager(
             // senderID is fixed-size 8 bytes; map to hex string for key
             val sender = packet.senderID.joinToString("") { b -> "%02x".format(b) }
             latestAnnouncementByPeer[sender] = id to packet
+            // Enforce capacity (remove oldest when exceeded)
+            val cap = configProvider.seenCapacity().coerceAtLeast(1)
+            while (latestAnnouncementByPeer.size > cap) {
+                val it = latestAnnouncementByPeer.entries.iterator()
+                if (it.hasNext()) { it.next(); it.remove() } else break
+            }
         }
     }
 
@@ -122,13 +128,10 @@ class GossipSyncManager(
         val payload = buildGcsPayload()
 
         val packet = BitchatPacket(
-            version = 1u,
             type = MessageType.REQUEST_SYNC.value,
             senderID = hexStringToByteArray(myPeerID),
-            recipientID = SpecialRecipients.BROADCAST,
             timestamp = System.currentTimeMillis().toULong(),
             payload = payload,
-            signature = null,
             ttl = 0u // neighbors only
         )
         // Sign and broadcast
@@ -140,13 +143,11 @@ class GossipSyncManager(
         val payload = buildGcsPayload()
 
         val packet = BitchatPacket(
-            version = 1u,
             type = MessageType.REQUEST_SYNC.value,
             senderID = hexStringToByteArray(myPeerID),
             recipientID = hexStringToByteArray(peerID),
             timestamp = System.currentTimeMillis().toULong(),
             payload = payload,
-            signature = null,
             ttl = 0u // neighbor only
         )
         Log.d(TAG, "Sending sync request to $peerID (${payload.size} bytes)")
@@ -248,8 +249,8 @@ class GossipSyncManager(
         return RequestSyncPacket(p = params.p, m = mVal, data = params.data).encode()
     }
 
-    // Remove announcements older than maxAgeMs (default 1 minute)
-    fun pruneOldAnnouncements(maxAgeMs: Long = 60_000L) {
+    // Remove announcements older than maxAgeMs (default 5 minutes)
+    fun pruneOldAnnouncements(maxAgeMs: Long = 300_000L) {
         val cutoff = System.currentTimeMillis() - maxAgeMs
         val toRemove = ArrayList<String>()
         for ((peer, pair) in latestAnnouncementByPeer) {
@@ -261,6 +262,18 @@ class GossipSyncManager(
         if (toRemove.isNotEmpty()) {
             toRemove.forEach { latestAnnouncementByPeer.remove(it) }
             Log.d(TAG, "Pruned ${toRemove.size} old announcements older than ${maxAgeMs}ms")
+        }
+        // prune messages with senders whose announcements we don't have
+        var nMessagesPruned = 0
+        for ((id, message) in messages) {
+            val sender = message.senderID.joinToString("") { b -> "%02x".format(b) }
+            if (!latestAnnouncementByPeer.contains(key = sender)) {
+                messages.remove(id)
+                nMessagesPruned++
+            }
+        }
+        if (nMessagesPruned > 0) {
+            Log.d(TAG, "Pruned $nMessagesPruned messages with senders without announcements")
         }
     }
 
