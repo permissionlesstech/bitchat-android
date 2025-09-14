@@ -1,3 +1,4 @@
+
 package com.bitchat.android.mesh
 
 import android.bluetooth.BluetoothDevice
@@ -70,6 +71,7 @@ class BluetoothPacketBroadcaster(
         try {
             val fromNick = incomingPeer?.let { nicknameResolver?.invoke(it) }
             val toNick = toPeer?.let { nicknameResolver?.invoke(it) }
+            val isRelay = (incomingAddr != null || incomingPeer != null)
             
             com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().logPacketRelayDetailed(
                 packetType = typeName,
@@ -81,7 +83,8 @@ class BluetoothPacketBroadcaster(
                 toPeerID = toPeer,
                 toNickname = toNick,
                 toDeviceAddress = toDeviceAddress,
-                ttl = ttl
+                ttl = ttl,
+                isRelay = isRelay
             )
         } catch (_: Exception) { 
             // Silently ignore debug logging failures
