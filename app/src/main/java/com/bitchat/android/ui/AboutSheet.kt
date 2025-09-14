@@ -415,7 +415,7 @@ fun AboutSheet(
                                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Text("Tor On", fontFamily = FontFamily.Monospace)
+                                            Text("tor on", fontFamily = FontFamily.Monospace)
                                             val statusColor = when {
                                                 torStatus.running && torStatus.bootstrapPercent < 100 -> Color(0xFFFF9500)
                                                 torStatus.running && torStatus.bootstrapPercent >= 100 -> if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)

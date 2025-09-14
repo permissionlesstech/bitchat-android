@@ -68,8 +68,9 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
         val gh = normalize(geohash)
         if (gh.isEmpty() || membership.contains(gh)) return
         membership.add(gh)
-        _bookmarks.postValue(listOf(gh) + (_bookmarks.value ?: emptyList()))
-        persist()
+        val updated = listOf(gh) + (_bookmarks.value ?: emptyList())
+        _bookmarks.postValue(updated)
+        persist(updated)
         // Resolve friendly name asynchronously
         resolveNameIfNeeded(gh)
     }
@@ -78,14 +79,15 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
         val gh = normalize(geohash)
         if (!membership.contains(gh)) return
         membership.remove(gh)
-        _bookmarks.postValue((_bookmarks.value ?: emptyList()).filterNot { it == gh })
+        val updated = (_bookmarks.value ?: emptyList()).filterNot { it == gh }
+        _bookmarks.postValue(updated)
         // Remove stored name to avoid stale cache growth
         val names = _bookmarkNames.value?.toMutableMap() ?: mutableMapOf()
         if (names.remove(gh) != null) {
             _bookmarkNames.postValue(names)
-            persistNames()
+            persistNames(names)
         }
-        persist()
+        persist(updated)
     }
 
     // MARK: - Persistence
@@ -210,7 +212,7 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
                     val current = _bookmarkNames.value?.toMutableMap() ?: mutableMapOf()
                     current[gh] = name
                     _bookmarkNames.postValue(current)
-                    persistNames()
+                    persistNames(current)
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Name resolution failed for #$gh: ${e.message}")
@@ -229,5 +231,19 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
             in 6..7 -> address.subLocality ?: address.locality ?: address.adminArea
             else -> address.subLocality ?: address.locality ?: address.adminArea ?: address.countryName
         }
+    }
+
+    private fun persist(list: List<String>) {
+        try {
+            val json = gson.toJson(list)
+            prefs.edit().putString(STORE_KEY, json).apply()
+        } catch (_: Exception) {}
+    }
+
+    private fun persistNames(map: Map<String, String>) {
+        try {
+            val json = gson.toJson(map)
+            prefs.edit().putString(NAMES_STORE_KEY, json).apply()
+        } catch (_: Exception) {}
     }
 }
