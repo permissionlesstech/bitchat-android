@@ -494,10 +494,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
     private fun handleFavoriteNotificationFromMesh(content: String, fromPeerID: String) {
         try {
             val isFavorite = content.startsWith("[FAVORITED]")
-            // New format: [FAVORITED]:npub=<npub>;onion=<addr>
-            val payload = content.substringAfter(":", "").trim()
-            val npub = if (payload.contains("npub=")) payload.substringAfter("npub=").substringBefore(";") else payload.takeIf { it.startsWith("npub1") }
-            val onion = if (payload.contains("onion=")) payload.substringAfter("onion=").substringBefore(";") else null
+            val npub = content.substringAfter(":", "").trim().takeIf { it.startsWith("npub1") }
 
             // Update mutual favorite status in persistence
             // Resolve full Noise key if available via delegate peer info
@@ -509,10 +506,6 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     // Index by noise key and current mesh peerID for fast Nostr routing
                     com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateNostrPublicKey(noiseKey, npub)
                     com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateNostrPublicKeyForPeerID(fromPeerID, npub)
-                }
-                if (!onion.isNullOrBlank()) {
-                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateOnionAddress(noiseKey, onion)
-                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateOnionAddressForPeerID(fromPeerID, onion)
                 }
 
                 // Determine iOS-style guidance text
@@ -531,11 +524,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 val action = if (isFavorite) "favorited" else "unfavorited"
                 val sys = com.bitchat.android.model.BitchatMessage(
                     sender = "system",
-                    content = buildString {
-                        append("${peerInfo.nickname} $action you")
-                        if (!onion.isNullOrBlank()) append("; shared onion: $onion")
-                        append(guidance)
-                    },
+                    content = "${peerInfo.nickname} $action you$guidance",
                     timestamp = java.util.Date(),
                     isRelay = false
                 )

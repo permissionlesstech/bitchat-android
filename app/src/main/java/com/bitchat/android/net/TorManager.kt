@@ -202,10 +202,7 @@ object TorManager {
             lifecycleState = LifecycleState.RUNNING
             startInactivityMonitoring()
 
-            // Kick off onion service manager (best-effort)
-            try {
-                com.bitchat.android.features.torfiles.OnionServiceManager.ensureStarted(application)
-            } catch (_: Exception) { }
+            // Removed onion service startup (BLE-only file transfer in this branch)
 
         } catch (e: Exception) {
             Log.e(TAG, "Error starting Arti on port $currentSocksPort: ${e.message}")

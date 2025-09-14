@@ -33,23 +33,10 @@ class ChatViewModel(
         private const val TAG = "ChatViewModel"
     }
 
-    fun sendVoiceNote(toPeerIDOrNull: String?, onionOrChannel: String?, filePath: String) {
+    fun sendVoiceNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
         try {
             val file = java.io.File(filePath)
-            if (toPeerIDOrNull != null && !onionOrChannel.isNullOrBlank() && onionOrChannel!!.contains(".onion")) {
-                // Tor private
-                com.bitchat.android.features.torfiles.TorFileTransferClient.sendVoiceNote(onionOrChannel, meshService.myPeerID, file)
-                val msg = BitchatMessage(
-                    sender = state.getNicknameValue() ?: "me",
-                    content = "[voice] $filePath",
-                    timestamp = Date(),
-                    isRelay = false,
-                    isPrivate = true,
-                    recipientNickname = try { meshService.getPeerNicknames()[toPeerIDOrNull] } catch (_: Exception) { null },
-                    senderPeerID = meshService.myPeerID
-                )
-                messageManager.addPrivateMessage(toPeerIDOrNull, msg)
-            } else if (toPeerIDOrNull != null) {
+            if (toPeerIDOrNull != null) {
                 // BLE private
                 val packet = com.bitchat.android.model.BitchatFilePacket(
                     fileName = file.name,
@@ -83,11 +70,11 @@ class ChatViewModel(
                     timestamp = Date(),
                     isRelay = false,
                     senderPeerID = meshService.myPeerID,
-                    channel = onionOrChannel // if we're in a channel, show locally
+                    channel = channelOrNull
                 )
-                if (!onionOrChannel.isNullOrBlank()) {
+                if (!channelOrNull.isNullOrBlank()) {
                     // Note: Channel association is local-only in current design
-                    channelManager.addChannelMessage(onionOrChannel, message, meshService.myPeerID)
+                    channelManager.addChannelMessage(channelOrNull, message, meshService.myPeerID)
                 } else {
                     messageManager.addMessage(message)
                 }
@@ -264,21 +251,7 @@ class ChatViewModel(
             }
         }
 
-        // Listen for incoming voice note events
-        viewModelScope.launch {
-            com.bitchat.android.features.voice.VoiceNoteBus.events.collect { evt ->
-                val nick = try { meshService.getPeerNicknames()[evt.fromPeerID] } catch (_: Exception) { null }
-                val msg = BitchatMessage(
-                    sender = nick ?: evt.fromPeerID,
-                    content = "[voice] ${evt.filePath}",
-                    timestamp = Date(),
-                    isRelay = false,
-                    isPrivate = true,
-                    senderPeerID = evt.fromPeerID
-                )
-                messageManager.addPrivateMessage(evt.fromPeerID, msg)
-            }
-        }
+        // BLE receives are inserted by MessageHandler path; no VoiceNoteBus for Tor in this branch.
     }
     
     override fun onCleared() {

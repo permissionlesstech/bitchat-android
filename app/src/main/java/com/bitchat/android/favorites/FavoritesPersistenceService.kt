@@ -15,7 +15,6 @@ import java.util.*
 data class FavoriteRelationship(
     val peerNoisePublicKey: ByteArray,    // Noise static public key (32 bytes)
     val peerNostrPublicKey: String?,      // npub bech32 string
-    val peerOnionAddress: String?,        // onion address (host[:port])
     val peerNickname: String,
     val isFavorite: Boolean,              // We favorited them
     val theyFavoritedUs: Boolean,         // They favorited us
@@ -125,7 +124,6 @@ class FavoritesPersistenceService private constructor(private val context: Conte
             val relationship = FavoriteRelationship(
                 peerNoisePublicKey = noisePublicKey,
                 peerNostrPublicKey = nostrPubkey,
-                peerOnionAddress = null,
                 peerNickname = "Unknown",
                 isFavorite = false,
                 theyFavoritedUs = false,
@@ -140,29 +138,6 @@ class FavoritesPersistenceService private constructor(private val context: Conte
         Log.d(TAG, "Updated Nostr pubkey association for ${keyHex.take(16)}...")
     }
 
-    /** Update Onion address for a peer (indexed by Noise key) */
-    fun updateOnionAddress(noisePublicKey: ByteArray, onion: String) {
-        val keyHex = noisePublicKey.joinToString("") { "%02x".format(it) }
-        val existing = favorites[keyHex]
-        val updated = if (existing != null) {
-            existing.copy(peerOnionAddress = onion, lastUpdated = Date())
-        } else {
-            FavoriteRelationship(
-                peerNoisePublicKey = noisePublicKey,
-                peerNostrPublicKey = null,
-                peerOnionAddress = onion,
-                peerNickname = "Unknown",
-                isFavorite = false,
-                theyFavoritedUs = false,
-                favoritedAt = Date(),
-                lastUpdated = Date()
-            )
-        }
-        favorites[keyHex] = updated
-        saveFavorites()
-        notifyChanged(keyHex)
-        Log.d(TAG, "Updated onion address association for ${keyHex.take(16)}...")
-    }
 
     /** NEW: Update Nostr pubkey for specific mesh peerID (16-hex). */
     fun updateNostrPublicKeyForPeerID(peerID: String, nostrPubkey: String) {
@@ -176,27 +151,6 @@ class FavoritesPersistenceService private constructor(private val context: Conte
         }
     }
 
-    /** NEW: Update Onion address for specific mesh peerID (16-hex). */
-    fun updateOnionAddressForPeerID(peerID: String, onion: String) {
-        val pid = peerID.lowercase()
-        if (pid.length == 16 && pid.matches(Regex("^[0-9a-f]+$"))) {
-            // store alongside existing peerIdIndex in same prefs blob for simplicity
-            // Reuse SecureIdentityStateManager key space via a supplemental map
-            try {
-                val map = loadPeerOnionIndexInternal()
-                map[pid] = onion
-                savePeerOnionIndexInternal(map)
-                Log.d(TAG, "Indexed onion for peerID ${pid.take(8)}…")
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to store onion for peerID: ${e.message}")
-            }
-        }
-    }
-
-    /** Resolve onion via peerID mapping. */
-    fun findOnionForPeerID(peerID: String): String? {
-        return try { loadPeerOnionIndexInternal()[peerID.lowercase()] } catch (_: Exception) { null }
-    }
 
     /** NEW: Resolve Nostr pubkey via current peerID mapping (fast path). */
     fun findNostrPubkeyForPeerID(peerID: String): String? {
@@ -239,7 +193,6 @@ class FavoritesPersistenceService private constructor(private val context: Conte
             FavoriteRelationship(
                 peerNoisePublicKey = noisePublicKey,
                 peerNostrPublicKey = null,
-                peerOnionAddress = null,
                 peerNickname = nickname,
                 isFavorite = isFavorite,
                 theyFavoritedUs = false,
@@ -357,25 +310,6 @@ class FavoritesPersistenceService private constructor(private val context: Conte
         }
     }
 
-    // Secondary index for peerID → onion string
-    private fun loadPeerOnionIndexInternal(): MutableMap<String, String> {
-        return try {
-            val json = stateManager.getSecureValue("favorite_peerid_onion_index")
-            if (json != null) {
-                val type = object : com.google.gson.reflect.TypeToken<Map<String, String>>() {}.type
-                val data: Map<String, String> = gson.fromJson(json, type)
-                data.toMutableMap()
-            } else mutableMapOf()
-        } catch (_: Exception) { mutableMapOf() }
-    }
-
-    private fun savePeerOnionIndexInternal(map: MutableMap<String, String>) {
-        try {
-            val json = gson.toJson(map)
-            stateManager.storeSecureValue("favorite_peerid_onion_index", json)
-        } catch (_: Exception) { }
-    }
-
     // MARK: - Listeners
     fun addListener(listener: FavoritesChangeListener) {
         synchronized(listeners) { if (!listeners.contains(listener)) listeners.add(listener) }
@@ -405,7 +339,6 @@ class FavoritesPersistenceService private constructor(private val context: Conte
 private data class FavoriteRelationshipData(
     val peerNoisePublicKeyHex: String,
     val peerNostrPublicKey: String?,
-    val peerOnionAddress: String?,
     val peerNickname: String,
     val isFavorite: Boolean,
     val theyFavoritedUs: Boolean,
@@ -417,7 +350,6 @@ private data class FavoriteRelationshipData(
             return FavoriteRelationshipData(
                 peerNoisePublicKeyHex = relationship.peerNoisePublicKey.joinToString("") { "%02x".format(it) },
                 peerNostrPublicKey = relationship.peerNostrPublicKey,
-                peerOnionAddress = relationship.peerOnionAddress,
                 peerNickname = relationship.peerNickname,
                 isFavorite = relationship.isFavorite,
                 theyFavoritedUs = relationship.theyFavoritedUs,
@@ -432,7 +364,6 @@ private data class FavoriteRelationshipData(
         return FavoriteRelationship(
             peerNoisePublicKey = noiseKeyBytes,
             peerNostrPublicKey = peerNostrPublicKey,
-            peerOnionAddress = peerOnionAddress,
             peerNickname = peerNickname,
             isFavorite = isFavorite,
             theyFavoritedUs = theyFavoritedUs,

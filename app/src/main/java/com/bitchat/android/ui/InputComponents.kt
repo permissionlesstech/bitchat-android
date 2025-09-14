@@ -180,14 +180,7 @@ fun MessageInput(
     var recordingSessionId by remember { mutableStateOf(0) }
     val recorderHolder = remember { mutableStateOf<VoiceRecorder?>(null) }
     var recordedFilePath by remember { mutableStateOf<String?>(null) }
-    var peerOnion by remember { mutableStateOf<String?>(null) }
-
-    // Resolve onion for selected private peer (if any)
-    LaunchedEffect(selectedPrivatePeer) {
-        peerOnion = try {
-            selectedPrivatePeer?.let { com.bitchat.android.favorites.FavoritesPersistenceService.shared.findOnionForPeerID(it) }
-        } catch (_: Exception) { null }
-    }
+    // BLE-only branch: no onion resolution
     
     val micPermission = rememberPermissionState(Manifest.permission.RECORD_AUDIO)
 
@@ -281,13 +274,8 @@ fun MessageInput(
                                     recorderHolder.value = null
                                     val path = (file?.absolutePath ?: recordedFilePath)
                                     if (!path.isNullOrBlank()) {
-                                        if (selectedPrivatePeer != null && !peerOnion.isNullOrBlank()) {
-                                            // Tor path
-                                            onSendVoiceNote(selectedPrivatePeer, peerOnion, path)
-                                        } else {
-                                            // BLE path (private without onion or public channel)
-                                            onSendVoiceNote(selectedPrivatePeer, currentChannel, path)
-                                        }
+                                        // BLE path (private or public)
+                                        onSendVoiceNote(selectedPrivatePeer, currentChannel, path)
                                     }
                                     recordedFilePath = null
                                 }
