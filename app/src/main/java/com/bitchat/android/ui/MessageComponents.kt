@@ -30,6 +30,56 @@ import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.mesh.BluetoothMeshService
 import java.text.SimpleDateFormat
 import java.util.*
+import android.media.MediaPlayer
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Pause
+
+@Composable
+private fun VoiceNotePlayer(path: String) {
+    val context = LocalContext.current
+    var isPlaying by remember { mutableStateOf(false) }
+    var progress by remember { mutableStateOf(0f) }
+    var durationMs by remember { mutableStateOf(0) }
+    val player = remember {
+        MediaPlayer().apply {
+            try {
+                setDataSource(path)
+                prepare()
+            } catch (_: Exception) {}
+        }
+    }
+    LaunchedEffect(Unit) { durationMs = player.duration }
+    LaunchedEffect(isPlaying) {
+        if (isPlaying) player.start() else try { player.pause() } catch (_: Exception) {}
+    }
+    LaunchedEffect(isPlaying) {
+        while (isPlaying) {
+            progress = try { player.currentPosition.toFloat() / (player.duration.toFloat().coerceAtLeast(1f)) } catch (_: Exception) { 0f }
+            kotlinx.coroutines.delay(100)
+        }
+    }
+    DisposableEffect(Unit) { onDispose { try { player.release() } catch (_: Exception) {} } }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        FilledTonalIconButton(onClick = { isPlaying = !isPlaying }) {
+            Icon(
+                imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                contentDescription = if (isPlaying) "Pause" else "Play"
+            )
+        }
+        LinearProgressIndicator(
+            progress = progress,
+            modifier = Modifier.weight(1f)
+        )
+        Text(text = String.format("%02d:%02d", (durationMs / 1000) / 60, (durationMs / 1000) % 60), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+    }
+}
 
 /**
  * Message display components for ChatScreen
@@ -166,6 +216,12 @@ private fun MessageTextWithClickableNicknames(
     onMessageLongPress: ((BitchatMessage) -> Unit)?,
     modifier: Modifier = Modifier
 ) {
+    // Voice note special rendering
+    if (message.content.startsWith("[voice] ")) {
+        val path = message.content.removePrefix("[voice] ").trim()
+        VoiceNotePlayer(path = path)
+        return
+    }
     // Check if this message should be animated during PoW mining
     val shouldAnimate = shouldAnimateMessage(message.id)
     

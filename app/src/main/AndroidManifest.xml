@@ -20,6 +20,9 @@
     <!-- Notification permissions -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     
+    <!-- Microphone for voice notes -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    
     <!-- Haptic feedback permission -->
     <uses-permission android:name="android.permission.VIBRATE" />
     

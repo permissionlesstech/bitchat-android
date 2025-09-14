@@ -114,10 +114,17 @@ class MessageRouter private constructor(
 
     fun sendFavoriteNotification(toPeerID: String, isFavorite: Boolean) {
         if (mesh.getPeerInfo(toPeerID)?.isConnected == true) {
-            val myNpub = try {
-                com.bitchat.android.nostr.NostrIdentityBridge.getCurrentNostrIdentity(context)?.npub
-            } catch (_: Exception) { null }
-            val content = if (isFavorite) "[FAVORITED]:${myNpub ?: ""}" else "[UNFAVORITED]:${myNpub ?: ""}"
+            val myNpub = try { com.bitchat.android.nostr.NostrIdentityBridge.getCurrentNostrIdentity(context)?.npub } catch (_: Exception) { null }
+            val myOnion = try { com.bitchat.android.features.torfiles.OnionServiceManager.getMyOnionAddress() } catch (_: Exception) { null }
+            val content = buildString {
+                append(if (isFavorite) "[FAVORITED]:" else "[UNFAVORITED]:")
+                append("npub=")
+                append(myNpub ?: "")
+                if (!myOnion.isNullOrBlank()) {
+                    append(";onion=")
+                    append(myOnion)
+                }
+            }
             val nickname = mesh.getPeerNicknames()[toPeerID] ?: toPeerID
             mesh.sendPrivateMessage(content, toPeerID, nickname)
         } else {

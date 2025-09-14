@@ -33,6 +33,24 @@ class ChatViewModel(
         private const val TAG = "ChatViewModel"
     }
 
+    fun sendVoiceNote(toPeerID: String, onion: String, filePath: String) {
+        try {
+            com.bitchat.android.features.torfiles.TorFileTransferClient.sendVoiceNote(onion, meshService.myPeerID, java.io.File(filePath))
+            val msg = BitchatMessage(
+                sender = state.getNicknameValue() ?: "me",
+                content = "[voice] $filePath",
+                timestamp = Date(),
+                isRelay = false,
+                isPrivate = true,
+                recipientNickname = try { meshService.getPeerNicknames()[toPeerID] } catch (_: Exception) { null },
+                senderPeerID = meshService.myPeerID
+            )
+            messageManager.addPrivateMessage(toPeerID, msg)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to send voice note: ${e.message}")
+        }
+    }
+
     // State management
     private val state = ChatState()
     
@@ -197,6 +215,22 @@ class ChatViewModel(
                     isRelay = false
                 )
                 messageManager.addMessage(welcomeMessage)
+            }
+        }
+
+        // Listen for incoming voice note events
+        viewModelScope.launch {
+            com.bitchat.android.features.voice.VoiceNoteBus.events.collect { evt ->
+                val nick = try { meshService.getPeerNicknames()[evt.fromPeerID] } catch (_: Exception) { null }
+                val msg = BitchatMessage(
+                    sender = nick ?: evt.fromPeerID,
+                    content = "[voice] ${evt.filePath}",
+                    timestamp = Date(),
+                    isRelay = false,
+                    isPrivate = true,
+                    senderPeerID = evt.fromPeerID
+                )
+                messageManager.addPrivateMessage(evt.fromPeerID, msg)
             }
         }
     }

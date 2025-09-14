@@ -78,6 +78,9 @@ class PermissionManager(private val context: Context) {
      */
     fun getOptionalPermissions(): List<String> {
         val optional = mutableListOf<String>()
+        // Microphone for voice notes
+        optional.add(Manifest.permission.RECORD_AUDIO)
+        // Notifications on Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             optional.add(Manifest.permission.POST_NOTIFICATIONS)
         }
@@ -189,6 +192,17 @@ class PermissionManager(private val context: Context) {
             )
         }
 
+        // Microphone category (optional)
+        categories.add(
+            PermissionCategory(
+                type = PermissionType.MICROPHONE,
+                description = "Record and send voice notes in private chats",
+                permissions = listOf(Manifest.permission.RECORD_AUDIO),
+                isGranted = isPermissionGranted(Manifest.permission.RECORD_AUDIO),
+                systemDescription = "Allow bitchat to access your microphone"
+            )
+        )
+
         // Battery optimization category (if applicable)
         if (isBatteryOptimizationSupported()) {
             categories.add(
@@ -257,6 +271,7 @@ data class PermissionCategory(
 enum class PermissionType(val nameValue: String) {
     NEARBY_DEVICES("Nearby Devices"),
     PRECISE_LOCATION("Precise Location"),
+    MICROPHONE("Microphone"),
     NOTIFICATIONS("Notifications"),
     BATTERY_OPTIMIZATION("Battery Optimization"),
     OTHER("Other")

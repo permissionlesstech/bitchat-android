@@ -36,6 +36,10 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.withStyle
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import androidx.compose.foundation.isSystemInDarkTheme
+import com.bitchat.android.features.voice.VoiceRecorder
+import com.bitchat.android.features.voice.CyberpunkVisualizer
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 
 /**
  * Input components for ChatScreen
@@ -157,6 +161,7 @@ fun MessageInput(
     value: TextFieldValue,
     onValueChange: (TextFieldValue) -> Unit,
     onSend: () -> Unit,
+    onSendVoiceNote: (String, String, String) -> Unit,
     selectedPrivatePeer: String?,
     currentChannel: String?,
     nickname: String,
@@ -165,55 +170,122 @@ fun MessageInput(
     val colorScheme = MaterialTheme.colorScheme
     val isFocused = remember { mutableStateOf(false) }
     val hasText = value.text.isNotBlank() // Check if there's text for send button state
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var isRecording by remember { mutableStateOf(false) }
+    val recorderHolder = remember { mutableStateOf<VoiceRecorder?>(null) }
+    var recordedFilePath by remember { mutableStateOf<String?>(null) }
+    var peerOnion by remember { mutableStateOf<String?>(null) }
+
+    // Resolve onion for selected private peer (if any)
+    LaunchedEffect(selectedPrivatePeer) {
+        peerOnion = try {
+            selectedPrivatePeer?.let { com.bitchat.android.favorites.FavoritesPersistenceService.shared.findOnionForPeerID(it) }
+        } catch (_: Exception) { null }
+    }
     
     Row(
         modifier = modifier.padding(horizontal = 12.dp, vertical = 8.dp), // Reduced padding
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // Text input with placeholder
+        // Text input with placeholder OR visualizer when recording
         Box(
             modifier = Modifier.weight(1f)
         ) {
-            BasicTextField(
-                value = value,
-                onValueChange = onValueChange,
-                textStyle = MaterialTheme.typography.bodyMedium.copy(
-                    color = colorScheme.primary,
-                    fontFamily = FontFamily.Monospace
-                ),
-                cursorBrush = SolidColor(colorScheme.primary),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions = KeyboardActions(onSend = { 
-                    if (hasText) onSend() // Only send if there's text
-                }),
-                visualTransformation = CombinedVisualTransformation(
-                    listOf(SlashCommandVisualTransformation(), MentionVisualTransformation())
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onFocusChanged { focusState ->
-                        isFocused.value = focusState.isFocused
+            if (isRecording) {
+                // Visualizer in the input slot
+                val amp = remember { mutableStateOf(0) }
+                LaunchedEffect(Unit) {
+                    while (isRecording) {
+                        val ar = recorderHolder.value?.pollAmplitude() ?: 0
+                        amp.value = ar
+                        kotlinx.coroutines.delay(80)
                     }
-            )
-            
-            // Show placeholder when there's no text
-            if (value.text.isEmpty()) {
-                Text(
-                    text = "type a message...",
-                    style = MaterialTheme.typography.bodyMedium.copy(
+                }
+                CyberpunkVisualizer(amplitude = amp.value, color = Color(0xFF00FF7F))
+            } else {
+                BasicTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(
+                        color = colorScheme.primary,
                         fontFamily = FontFamily.Monospace
                     ),
-                    color = colorScheme.onSurface.copy(alpha = 0.5f), // Muted grey
-                    modifier = Modifier.fillMaxWidth()
+                    cursorBrush = SolidColor(colorScheme.primary),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                    keyboardActions = KeyboardActions(onSend = { 
+                        if (hasText) onSend() // Only send if there's text
+                    }),
+                    visualTransformation = CombinedVisualTransformation(
+                        listOf(SlashCommandVisualTransformation(), MentionVisualTransformation())
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onFocusChanged { focusState ->
+                            isFocused.value = focusState.isFocused
+                        }
                 )
+                
+                // Show placeholder when there's no text
+                if (value.text.isEmpty()) {
+                    Text(
+                        text = "type a message...",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = FontFamily.Monospace
+                        ),
+                        color = colorScheme.onSurface.copy(alpha = 0.5f), // Muted grey
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         }
         
         Spacer(modifier = Modifier.width(8.dp)) // Reduced spacing
         
-        // Command quick access button
-        if (value.text.isEmpty()) {
+        // Command quick access button or voice record button
+        if (value.text.isEmpty() && selectedPrivatePeer != null && !peerOnion.isNullOrBlank()) {
+            // Hold-to-record microphone
+            val bg = if (colorScheme.background == Color.Black) Color(0xFF00FF00).copy(alpha = 0.75f) else Color(0xFF008000).copy(alpha = 0.75f)
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .background(bg, CircleShape)
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onPress = {
+                                if (!isRecording) {
+                                    val rec = VoiceRecorder(context)
+                                    val f = rec.start()
+                                    recorderHolder.value = rec
+                                    isRecording = f != null
+                                    recordedFilePath = f?.absolutePath
+                                }
+                                try {
+                                    awaitRelease()
+                                } finally {
+                                    val file = recorderHolder.value?.stop()
+                                    isRecording = false
+                                    recorderHolder.value = null
+                                    val path = (file?.absolutePath ?: recordedFilePath)
+                                    if (!path.isNullOrBlank() && selectedPrivatePeer != null && !peerOnion.isNullOrBlank()) {
+                                        onSendVoiceNote(selectedPrivatePeer, peerOnion!!, path)
+                                    }
+                                    recordedFilePath = null
+                                }
+                            }
+                        )
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Mic,
+                    contentDescription = "Record voice note",
+                    tint = Color.Black,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            
+        } else if (value.text.isEmpty()) {
             FilledTonalIconButton(
                 onClick = {
                     onValueChange(TextFieldValue(text = "/", selection = TextRange("/".length)))

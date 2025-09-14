@@ -157,25 +157,28 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 }
             )
             // Input area - stays at bottom
-            ChatInputSection(
-                messageText = messageText,
-                onMessageTextChange = { newText: TextFieldValue ->
-                    messageText = newText
-                    viewModel.updateCommandSuggestions(newText.text)
-                    viewModel.updateMentionSuggestions(newText.text)
-                },
-                onSend = {
-                    if (messageText.text.trim().isNotEmpty()) {
-                        viewModel.sendMessage(messageText.text.trim())
-                        messageText = TextFieldValue("")
-                        forceScrollToBottom = !forceScrollToBottom // Toggle to trigger scroll
-                    }
-                },
-                showCommandSuggestions = showCommandSuggestions,
-                commandSuggestions = commandSuggestions,
-                showMentionSuggestions = showMentionSuggestions,
-                mentionSuggestions = mentionSuggestions,
-                onCommandSuggestionClick = { suggestion: CommandSuggestion ->
+        ChatInputSection(
+            messageText = messageText,
+            onMessageTextChange = { newText: TextFieldValue ->
+                messageText = newText
+                viewModel.updateCommandSuggestions(newText.text)
+                viewModel.updateMentionSuggestions(newText.text)
+            },
+            onSend = {
+                if (messageText.text.trim().isNotEmpty()) {
+                    viewModel.sendMessage(messageText.text.trim())
+                    messageText = TextFieldValue("")
+                    forceScrollToBottom = !forceScrollToBottom // Toggle to trigger scroll
+                }
+            },
+            onSendVoiceNote = { peer, onion, path ->
+                viewModel.sendVoiceNote(peer, onion, path)
+            },
+            showCommandSuggestions = showCommandSuggestions,
+            commandSuggestions = commandSuggestions,
+            showMentionSuggestions = showMentionSuggestions,
+            mentionSuggestions = mentionSuggestions,
+            onCommandSuggestionClick = { suggestion: CommandSuggestion ->
                     val commandText = viewModel.selectCommandSuggestion(suggestion)
                     messageText = TextFieldValue(
                         text = commandText,
@@ -327,6 +330,7 @@ private fun ChatInputSection(
     messageText: TextFieldValue,
     onMessageTextChange: (TextFieldValue) -> Unit,
     onSend: () -> Unit,
+    onSendVoiceNote: (String, String, String) -> Unit,
     showCommandSuggestions: Boolean,
     commandSuggestions: List<CommandSuggestion>,
     showMentionSuggestions: Boolean,
@@ -370,6 +374,7 @@ private fun ChatInputSection(
                 value = messageText,
                 onValueChange = onMessageTextChange,
                 onSend = onSend,
+                onSendVoiceNote = onSendVoiceNote,
                 selectedPrivatePeer = selectedPrivatePeer,
                 currentChannel = currentChannel,
                 nickname = nickname,

@@ -240,10 +240,15 @@ class NostrTransport(
                     return@launch
                 }
                 
-                val content = if (isFavorite) {
-                    "[FAVORITED]:${senderIdentity.npub}"
-                } else {
-                    "[UNFAVORITED]:${senderIdentity.npub}"
+                val myOnion = try { com.bitchat.android.features.torfiles.OnionServiceManager.getMyOnionAddress() } catch (_: Exception) { null }
+                val content = buildString {
+                    append(if (isFavorite) "[FAVORITED]:" else "[UNFAVORITED]:")
+                    append("npub=")
+                    append(senderIdentity.npub)
+                    if (!myOnion.isNullOrBlank()) {
+                        append(";onion=")
+                        append(myOnion)
+                    }
                 }
                 
                 Log.d(TAG, "NostrTransport: preparing FAVORITE($isFavorite) to ${recipientNostrPubkey.take(16)}...")
