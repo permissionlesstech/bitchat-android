@@ -301,6 +301,10 @@ fun MessageInput(
                                 try {
                                     awaitRelease()
                                 } finally {
+                                    // Extend recording after release to avoid clipping
+                                    if (isRecording) {
+                                        kotlinx.coroutines.delay(200)
+                                    }
                                     val file = recorderHolder.value?.stop()
                                     isRecording = false
                                     recorderHolder.value = null
