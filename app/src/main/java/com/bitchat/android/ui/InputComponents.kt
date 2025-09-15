@@ -39,14 +39,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.withStyle
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import androidx.compose.foundation.isSystemInDarkTheme
-import com.bitchat.android.features.voice.VoiceRecorder
 import com.bitchat.android.features.voice.CyberpunkVisualizer
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.input.pointer.pointerInput
-import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.rememberPermissionState
-import com.google.accompanist.permissions.PermissionStatus
-import android.Manifest
 
 /**
  * Input components for ChatScreen
@@ -163,7 +156,6 @@ class CombinedVisualTransformation(private val transformations: List<VisualTrans
 
 
 
-@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun MessageInput(
     value: TextFieldValue,
@@ -178,18 +170,11 @@ fun MessageInput(
     val colorScheme = MaterialTheme.colorScheme
     val isFocused = remember { mutableStateOf(false) }
     val hasText = value.text.isNotBlank() // Check if there's text for send button state
-    val context = androidx.compose.ui.platform.LocalContext.current
     val keyboard = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
     var isRecording by remember { mutableStateOf(false) }
-    var recordingSessionId by remember { mutableStateOf(0) }
-    val recorderHolder = remember { mutableStateOf<VoiceRecorder?>(null) }
-    var recordedFilePath by remember { mutableStateOf<String?>(null) }
-    // BLE-only branch: no onion resolution
-    
-    val micPermission = rememberPermissionState(Manifest.permission.RECORD_AUDIO)
-    var recordingStart by remember { mutableStateOf(0L) }
     var elapsedMs by remember { mutableStateOf(0L) }
+    var amplitude by remember { mutableStateOf(0) }
 
     Row(
         modifier = modifier.padding(horizontal = 12.dp, vertical = 8.dp), // Reduced padding
@@ -201,20 +186,10 @@ fun MessageInput(
             modifier = Modifier.weight(1f)
         ) {
             if (isRecording) {
-                // Visualizer in the input slot
-                val amp = remember { mutableStateOf(0) }
-                LaunchedEffect(recordingSessionId) {
-                    while (isRecording) {
-                        val ar = recorderHolder.value?.pollAmplitude() ?: 0
-                        amp.value = ar
-                        elapsedMs = (System.currentTimeMillis() - recordingStart).coerceAtLeast(0L)
-                        kotlinx.coroutines.delay(80)
-                    }
-                }
                 // Visualizer + elapsed timer on a single line
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CyberpunkVisualizer(
-                        amplitude = amp.value,
+                        amplitude = amplitude,
                         color = Color(0xFF00FF7F),
                         modifier = Modifier.weight(1f)
                     )
@@ -273,64 +248,31 @@ fun MessageInput(
             // Hold-to-record microphone
             val bg = if (colorScheme.background == Color.Black) Color(0xFF00FF00).copy(alpha = 0.75f) else Color(0xFF008000).copy(alpha = 0.75f)
 
-            // Ensure latest values are used inside long-lived gesture callbacks
+            // Ensure latest values are used when finishing recording
             val latestSelectedPeer = rememberUpdatedState(selectedPrivatePeer)
             val latestChannel = rememberUpdatedState(currentChannel)
             val latestOnSendVoiceNote = rememberUpdatedState(onSendVoiceNote)
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .background(bg, CircleShape)
-                    .pointerInput(Unit) {
-                        detectTapGestures(
-                            onPress = {
-                                if (!isRecording) {
-                                    if (micPermission.status !is PermissionStatus.Granted) {
-                                        micPermission.launchPermissionRequest()
-                                        return@detectTapGestures
-                                    }
-                                    val rec = VoiceRecorder(context)
-                                    val f = rec.start()
-                                    recorderHolder.value = rec
-                                    isRecording = f != null
-                                    recordedFilePath = f?.absolutePath
-                                    recordingSessionId += 1
-                                    recordingStart = System.currentTimeMillis()
-                                    elapsedMs = 0L
-                                }
-                                try {
-                                    awaitRelease()
-                                } finally {
-                                    // Extend recording after release to avoid clipping
-                                    if (isRecording) {
-                                        kotlinx.coroutines.delay(200)
-                                    }
-                                    val file = recorderHolder.value?.stop()
-                                    isRecording = false
-                                    recorderHolder.value = null
-                                    val path = (file?.absolutePath ?: recordedFilePath)
-                                    if (!path.isNullOrBlank()) {
-                                        // BLE path (private or public) — use latest values to avoid stale captures
-                                        latestOnSendVoiceNote.value(
-                                            latestSelectedPeer.value,
-                                            latestChannel.value,
-                                            path
-                                        )
-                                    }
-                                    recordedFilePath = null
-                                }
-                            }
-                        )
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Mic,
-                    contentDescription = "Record voice note",
-                    tint = Color.Black,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
+
+            VoiceRecordButton(
+                backgroundColor = bg,
+                onStart = {
+                    isRecording = true
+                    elapsedMs = 0L
+                },
+                onAmplitude = { amp, ms ->
+                    amplitude = amp
+                    elapsedMs = ms
+                },
+                onFinish = { path ->
+                    isRecording = false
+                    // BLE path (private or public) — use latest values to avoid stale captures
+                    latestOnSendVoiceNote.value(
+                        latestSelectedPeer.value,
+                        latestChannel.value,
+                        path
+                    )
+                }
+            )
             
         } else {
             // Send button with enabled/disabled state
@@ -380,22 +322,7 @@ fun MessageInput(
         }
     }
 
-    // Auto-stop after 10 seconds
-    LaunchedEffect(isRecording, recordingSessionId) {
-        if (isRecording) {
-            kotlinx.coroutines.delay(10_000)
-            if (isRecording) {
-                val file = recorderHolder.value?.stop()
-                isRecording = false
-                recorderHolder.value = null
-                val path = (file?.absolutePath ?: recordedFilePath)
-                if (!path.isNullOrBlank()) {
-                    onSendVoiceNote(selectedPrivatePeer, currentChannel, path)
-                }
-                recordedFilePath = null
-            }
-        }
-    }
+    // Auto-stop handled inside VoiceRecordButton
 }
 
 @Composable
