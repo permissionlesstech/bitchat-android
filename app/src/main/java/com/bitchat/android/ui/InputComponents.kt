@@ -272,6 +272,11 @@ fun MessageInput(
         if (value.text.isEmpty()) {
             // Hold-to-record microphone
             val bg = if (colorScheme.background == Color.Black) Color(0xFF00FF00).copy(alpha = 0.75f) else Color(0xFF008000).copy(alpha = 0.75f)
+
+            // Ensure latest values are used inside long-lived gesture callbacks
+            val latestSelectedPeer = rememberUpdatedState(selectedPrivatePeer)
+            val latestChannel = rememberUpdatedState(currentChannel)
+            val latestOnSendVoiceNote = rememberUpdatedState(onSendVoiceNote)
             Box(
                 modifier = Modifier
                     .size(32.dp)
@@ -301,8 +306,12 @@ fun MessageInput(
                                     recorderHolder.value = null
                                     val path = (file?.absolutePath ?: recordedFilePath)
                                     if (!path.isNullOrBlank()) {
-                                        // BLE path (private or public)
-                                        onSendVoiceNote(selectedPrivatePeer, currentChannel, path)
+                                        // BLE path (private or public) — use latest values to avoid stale captures
+                                        latestOnSendVoiceNote.value(
+                                            latestSelectedPeer.value,
+                                            latestChannel.value,
+                                            path
+                                        )
                                     }
                                     recordedFilePath = null
                                 }
