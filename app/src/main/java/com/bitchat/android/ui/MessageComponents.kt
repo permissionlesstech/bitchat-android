@@ -192,7 +192,10 @@ fun MessagesList(
         modifier = modifier,
         reverseLayout = true
     ) {
-                    items(messages.asReversed()) { message ->
+        items(
+            items = messages.asReversed(),
+            key = { it.id }
+        ) { message ->
                 MessageItem(
                     message = message,
                     currentUserNickname = currentUserNickname,

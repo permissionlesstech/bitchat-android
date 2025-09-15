@@ -425,7 +425,8 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         }
 
         val defaultName = if (isImage) "img_${System.currentTimeMillis()}${extFromMime(lowerMime)}" else "voice_${System.currentTimeMillis()}${extFromMime(lowerMime)}"
-        val safeName = if (file.fileName.isBlank()) defaultName else file.fileName
+        // Always generate a unique name on receive to avoid collisions/overwrites
+        val safeName = defaultName
 
         return try {
             val out = java.io.File(dir, safeName)
