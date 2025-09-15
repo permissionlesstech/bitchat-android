@@ -42,7 +42,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import com.bitchat.android.features.voice.normalizeAmplitudeSample
 import com.bitchat.android.features.voice.AudioWaveformExtractor
 import com.bitchat.android.ui.media.ImagePickerButton
-import com.bitchat.android.ui.media.RecordingProgressLine
+import com.bitchat.android.ui.media.RealtimeScrollingWaveform
 
 /**
  * Input components for ChatScreen
@@ -225,12 +225,12 @@ fun MessageInput(
                 )
             }
 
-            // Overlay the progress line while recording, without removing the text field
+            // Overlay the real-time scrolling waveform while recording
             if (isRecording) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height(42.dp)) {
-                    RecordingProgressLine(
+                    RealtimeScrollingWaveform(
                         modifier = Modifier.weight(1f).fillMaxHeight(),
-                        elapsedMs = elapsedMs
+                        amplitudeNorm = normalizeAmplitudeSample(amplitude)
                     )
                     Spacer(Modifier.width(12.dp))
                     val secs = (elapsedMs / 1000).toInt()
