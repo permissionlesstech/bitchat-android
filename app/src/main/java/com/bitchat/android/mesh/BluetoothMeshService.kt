@@ -49,7 +49,7 @@ class BluetoothMeshService(private val context: Context) {
     private val securityManager = SecurityManager(encryptionService, myPeerID)
     private val storeForwardManager = StoreForwardManager()
     private val messageHandler = MessageHandler(myPeerID)
-    internal val connectionManager = BluetoothConnectionManager(context, myPeerID, fragmentManager) // Made internal for access
+    internal val connectionManager = UnifiedConnectionManager(context, myPeerID, fragmentManager) // Unified BLE + Wi‑Fi Direct
     private val packetProcessor = PacketProcessor(myPeerID)
     private lateinit var gossipSyncManager: GossipSyncManager
     
@@ -139,6 +139,8 @@ class BluetoothMeshService(private val context: Context) {
      * Setup delegate connections between components
      */
     private fun setupDelegates() {
+        // Provide active peer list to Wi‑Fi Direct overlap gate
+        try { PeerManagerReflection.setProvider { peerManager.getActivePeerIDs() } } catch (_: Exception) {}
         // Provide nickname resolver to BLE broadcaster for detailed logs
         try {
             connectionManager.setNicknameResolver { pid -> peerManager.getPeerNickname(pid) }
@@ -472,6 +474,10 @@ class BluetoothMeshService(private val context: Context) {
         connectionManager.delegate = object : BluetoothConnectionManagerDelegate {
             override fun onPacketReceived(packet: BitchatPacket, peerID: String, device: android.bluetooth.BluetoothDevice?) {
                 packetProcessor.processPacket(RoutedPacket(packet, peerID, device?.address))
+            }
+
+            override fun onRelayPacketReceived(packet: BitchatPacket, peerID: String, relayAddress: String) {
+                packetProcessor.processPacket(RoutedPacket(packet, peerID, relayAddress))
             }
             
             override fun onDeviceConnected(device: android.bluetooth.BluetoothDevice) {

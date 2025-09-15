@@ -36,6 +36,33 @@ class DebugSettingsManager private constructor() {
     private val _packetRelayEnabled = MutableStateFlow(true)
     val packetRelayEnabled: StateFlow<Boolean> = _packetRelayEnabled.asStateFlow()
 
+
+    // Wi‑Fi Direct status model and flow
+    data class WifiDirectStatus(
+        val active: Boolean = false,
+        val linkId: String? = null,
+        val myP2pMac: String? = null,
+        val lastDecision: String? = null,
+        val lastCandidate: String? = null,
+        val lastError: String? = null
+    )
+    private val _wifiDirectStatus = MutableStateFlow(WifiDirectStatus())
+    val wifiDirectStatus: StateFlow<WifiDirectStatus> = _wifiDirectStatus.asStateFlow()
+
+    // Wi‑Fi Direct settings
+    private val _wifiDirectEnabled = MutableStateFlow(true)
+    val wifiDirectEnabled: StateFlow<Boolean> = _wifiDirectEnabled.asStateFlow()
+
+    private val _wifiDirectOverlapThreshold = MutableStateFlow(3)
+    val wifiDirectOverlapThreshold: StateFlow<Int> = _wifiDirectOverlapThreshold.asStateFlow()
+
+    private val _wifiPreferDirectForUnicast = MutableStateFlow(true)
+    val wifiPreferDirectForUnicast: StateFlow<Boolean> = _wifiPreferDirectForUnicast.asStateFlow()
+
+    // New: role override (0=AUTO,1=GO,2=CLIENT)
+    private val _wifiDirectRoleOverride = MutableStateFlow(0)
+    val wifiDirectRoleOverride: StateFlow<Int> = _wifiDirectRoleOverride.asStateFlow()
+
     // Connection limit overrides (debug)
     private val _maxConnectionsOverall = MutableStateFlow(8)
     val maxConnectionsOverall: StateFlow<Int> = _maxConnectionsOverall.asStateFlow()
@@ -51,15 +78,45 @@ class DebugSettingsManager private constructor() {
             _gattServerEnabled.value = DebugPreferenceManager.getGattServerEnabled(true)
             _gattClientEnabled.value = DebugPreferenceManager.getGattClientEnabled(true)
             _packetRelayEnabled.value = DebugPreferenceManager.getPacketRelayEnabled(true)
+            // Wi‑Fi Direct
+            _wifiDirectEnabled.value = DebugPreferenceManager.getWifiDirectEnabled(true)
+            _wifiDirectOverlapThreshold.value = DebugPreferenceManager.getWifiDirectOverlapThreshold(3)
+            _wifiPreferDirectForUnicast.value = DebugPreferenceManager.getWifiPreferDirectForUnicast(true)
+            _wifiDirectRoleOverride.value = DebugPreferenceManager.getWifiDirectRoleOverride(0)
+
             _maxConnectionsOverall.value = DebugPreferenceManager.getMaxConnectionsOverall(8)
             _maxServerConnections.value = DebugPreferenceManager.getMaxConnectionsServer(8)
             _maxClientConnections.value = DebugPreferenceManager.getMaxConnectionsClient(8)
         } catch (_: Exception) {
             // Preferences not ready yet; keep defaults. They will be applied on first change.
         }
+        // Initialize Wi‑Fi Direct status defaults
+        _wifiDirectStatus.value = WifiDirectStatus(active = false, linkId = null, myP2pMac = null)
     }
 
     // Debug data collections
+
+    // Wi‑Fi Direct runtime status setters
+    fun setWifiDirectActive(active: Boolean) {
+        _wifiDirectStatus.value = _wifiDirectStatus.value.copy(active = active)
+    }
+    fun setWifiDirectLinkId(linkId: String?) {
+        _wifiDirectStatus.value = _wifiDirectStatus.value.copy(linkId = linkId)
+    }
+    fun setWifiDirectMyMac(mac: String?) {
+        _wifiDirectStatus.value = _wifiDirectStatus.value.copy(myP2pMac = mac)
+    }
+    fun setWifiDirectDecision(decision: String, candidate: String?) {
+        _wifiDirectStatus.value = _wifiDirectStatus.value.copy(lastDecision = decision, lastCandidate = candidate)
+        if (verboseLoggingEnabled.value) {
+            addDebugMessage(DebugMessage.SystemMessage("[Wi‑Fi Direct] $decision${candidate?.let { " — candidate=$it" } ?: ""}"))
+        }
+    }
+    fun setWifiDirectError(error: String) {
+        _wifiDirectStatus.value = _wifiDirectStatus.value.copy(lastError = error)
+        addDebugMessage(DebugMessage.SystemMessage("[Wi‑Fi Direct] ⚠️ $error"))
+    }
+
     private val _debugMessages = MutableStateFlow<List<DebugMessage>>(emptyList())
     val debugMessages: StateFlow<List<DebugMessage>> = _debugMessages.asStateFlow()
     
@@ -74,11 +131,11 @@ class DebugSettingsManager private constructor() {
     val relayStats: StateFlow<PacketRelayStats> = _relayStats.asStateFlow()
 
     // Timestamps to compute rolling window stats
-    private val relayTimestamps = ConcurrentLinkedQueue<Long>()
+    private val relayTimestamps = java.util.concurrent.ConcurrentLinkedQueue<Long>()
     
     // Internal data storage for managing debug data
-    private val debugMessageQueue = ConcurrentLinkedQueue<DebugMessage>()
-    private val scanResultsQueue = ConcurrentLinkedQueue<DebugScanResult>()
+    private val debugMessageQueue = java.util.concurrent.ConcurrentLinkedQueue<DebugMessage>()
+    private val scanResultsQueue = java.util.concurrent.ConcurrentLinkedQueue<DebugScanResult>()
     
     private fun updateRelayStatsFromTimestamps() {
         val now = System.currentTimeMillis()
@@ -138,6 +195,37 @@ class DebugSettingsManager private constructor() {
         addDebugMessage(DebugMessage.SystemMessage(
             if (enabled) "📡 Packet relay enabled" else "🚫 Packet relay disabled"
         ))
+    }
+
+    fun setWifiDirectEnabled(enabled: Boolean) {
+        DebugPreferenceManager.setWifiDirectEnabled(enabled)
+        _wifiDirectEnabled.value = enabled
+        addDebugMessage(DebugMessage.SystemMessage(
+            if (enabled) "📶 Wi‑Fi Direct enabled" else "📴 Wi‑Fi Direct disabled"
+        ))
+    }
+
+    fun setWifiDirectOverlapThreshold(value: Int) {
+        val clamped = value.coerceIn(0, 100)
+        DebugPreferenceManager.setWifiDirectOverlapThreshold(clamped)
+        _wifiDirectOverlapThreshold.value = clamped
+        addDebugMessage(DebugMessage.SystemMessage("🧮 Wi‑Fi Direct overlap threshold set to $clamped"))
+    }
+
+    fun setWifiPreferDirectForUnicast(prefer: Boolean) {
+        DebugPreferenceManager.setWifiPreferDirectForUnicast(prefer)
+        _wifiPreferDirectForUnicast.value = prefer
+        addDebugMessage(DebugMessage.SystemMessage(
+            if (prefer) "🚀 Prefer Wi‑Fi for direct unicast" else "🟦 Prefer BLE for direct unicast"
+        ))
+    }
+
+    fun setWifiDirectRoleOverride(value: Int) {
+        val clamped = value.coerceIn(0, 2)
+        DebugPreferenceManager.setWifiDirectRoleOverride(clamped)
+        _wifiDirectRoleOverride.value = clamped
+        val label = when (clamped) { 1 -> "GO"; 2 -> "CLIENT"; else -> "AUTO" }
+        addDebugMessage(DebugMessage.SystemMessage("🎚️ Wi‑Fi Direct role override: $label"))
     }
 
     fun setMaxConnectionsOverall(value: Int) {
@@ -340,6 +428,33 @@ class DebugSettingsManager private constructor() {
         if (isRelay) {
             relayTimestamps.offer(System.currentTimeMillis())
             updateRelayStatsFromTimestamps()
+        }
+    }
+
+    // Wi‑Fi Direct debug helpers
+    fun logWifiScanResult(deviceName: String?, deviceAddress: String, status: String) {
+        if (verboseLoggingEnabled.value) {
+            addDebugMessage(DebugMessage.PacketEvent("📶 [Wi‑Fi Direct] Scan: $deviceName/$deviceAddress — $status"))
+        }
+    }
+
+    fun logWifiConnectionAttempt(deviceAddress: String, role: String) {
+        if (verboseLoggingEnabled.value) {
+            addDebugMessage(DebugMessage.PeerEvent("🔌 [Wi‑Fi Direct] Connecting to $deviceAddress as $role"))
+        }
+    }
+
+    fun logWifiConnectionResult(deviceAddress: String, success: Boolean, reason: String? = null) {
+        if (verboseLoggingEnabled.value) {
+            val icon = if (success) "✅" else "❌"
+            val msg = reason?.let { " — $it" } ?: ""
+            addDebugMessage(DebugMessage.PeerEvent("$icon [Wi‑Fi Direct] Link ${if (success) "established" else "failed"} with $deviceAddress$msg"))
+        }
+    }
+
+    fun logWifiOverlapDecision(localCount: Int, remoteCount: Int, overlap: Int, threshold: Int, action: String) {
+        if (verboseLoggingEnabled.value) {
+            addDebugMessage(DebugMessage.SystemMessage("🧮 [Wi‑Fi Direct] overlap local=$localCount remote=$remoteCount overlap=$overlap threshold=$threshold → $action"))
         }
     }
     

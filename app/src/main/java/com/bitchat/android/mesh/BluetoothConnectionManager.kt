@@ -56,6 +56,10 @@ class BluetoothConnectionManager(
             delegate?.onPacketReceived(packet, peerID, device)
         }
         
+        override fun onRelayPacketReceived(packet: BitchatPacket, peerID: String, relayAddress: String) {
+            // Not used in pure BLE manager; Unified manager will call this.
+        }
+        
         override fun onDeviceConnected(device: BluetoothDevice) {
             delegate?.onDeviceConnected(device)
         }
@@ -389,6 +393,7 @@ class BluetoothConnectionManager(
  */
 interface BluetoothConnectionManagerDelegate {
     fun onPacketReceived(packet: BitchatPacket, peerID: String, device: BluetoothDevice?)
+    fun onRelayPacketReceived(packet: BitchatPacket, peerID: String, relayAddress: String)
     fun onDeviceConnected(device: BluetoothDevice)
     fun onDeviceDisconnected(device: BluetoothDevice)
     fun onRSSIUpdated(deviceAddress: String, rssi: Int)
