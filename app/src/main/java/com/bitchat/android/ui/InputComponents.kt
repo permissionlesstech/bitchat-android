@@ -185,9 +185,48 @@ fun MessageInput(
         Box(
             modifier = Modifier.weight(1f)
         ) {
+            // Always keep the text field mounted to retain focus and avoid IME collapse
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                    color = colorScheme.primary,
+                    fontFamily = FontFamily.Monospace
+                ),
+                cursorBrush = SolidColor(colorScheme.primary),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                keyboardActions = KeyboardActions(onSend = { 
+                    if (hasText) onSend() // Only send if there's text
+                }),
+                visualTransformation = CombinedVisualTransformation(
+                    listOf(SlashCommandVisualTransformation(), MentionVisualTransformation())
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focusRequester)
+                    .onFocusChanged { focusState ->
+                        isFocused.value = focusState.isFocused
+                    }
+            )
+
+            // Show placeholder when there's no text and not recording
+            if (value.text.isEmpty() && !isRecording) {
+                Text(
+                    text = "type a message...",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = FontFamily.Monospace
+                    ),
+                    color = colorScheme.onSurface.copy(alpha = 0.5f), // Muted grey
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            // Overlay the visualizer while recording, without removing the text field
             if (isRecording) {
-                // Visualizer + elapsed timer on a single line
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     CyberpunkVisualizer(
                         amplitude = amplitude,
                         color = Color(0xFF00FF7F),
@@ -201,41 +240,6 @@ fun MessageInput(
                         text = String.format("%02d:%02d", mm, ss),
                         fontFamily = FontFamily.Monospace,
                         color = colorScheme.primary
-                    )
-                }
-            } else {
-                BasicTextField(
-                    value = value,
-                    onValueChange = onValueChange,
-                    textStyle = MaterialTheme.typography.bodyMedium.copy(
-                        color = colorScheme.primary,
-                        fontFamily = FontFamily.Monospace
-                    ),
-                    cursorBrush = SolidColor(colorScheme.primary),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                    keyboardActions = KeyboardActions(onSend = { 
-                        if (hasText) onSend() // Only send if there's text
-                    }),
-                    visualTransformation = CombinedVisualTransformation(
-                        listOf(SlashCommandVisualTransformation(), MentionVisualTransformation())
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .focusRequester(focusRequester)
-                        .onFocusChanged { focusState ->
-                            isFocused.value = focusState.isFocused
-                        }
-                )
-                
-                // Show placeholder when there's no text
-    if (value.text.isEmpty()) {
-                    Text(
-                        text = "type a message...",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontFamily = FontFamily.Monospace
-                        ),
-                        color = colorScheme.onSurface.copy(alpha = 0.5f), // Muted grey
-                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
@@ -258,6 +262,8 @@ fun MessageInput(
                 onStart = {
                     isRecording = true
                     elapsedMs = 0L
+                    // Ensure the input keeps focus when recording starts
+                    try { focusRequester.requestFocus() } catch (_: Exception) {}
                 },
                 onAmplitude = { amp, ms ->
                     amplitude = amp
