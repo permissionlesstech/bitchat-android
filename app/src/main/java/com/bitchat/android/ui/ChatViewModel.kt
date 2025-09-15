@@ -50,6 +50,13 @@ class ChatViewModel(
                 )
                 val payload = filePacket.encode() ?: return
                 val transferId = sha256Hex(payload)
+                val contentHash = sha256Hex(filePacket.content)
+                if (toPeerIDOrNull != null) {
+                    Log.d(TAG, "📤 FILE_TRANSFER send (private): name='${file.name}', size=${file.length()}, mime='image/jpeg', sha256=$contentHash, to=${toPeerIDOrNull.take(8)} transferId=${transferId.take(16)}…")
+                } else {
+                    Log.d(TAG, "📤 FILE_TRANSFER send (broadcast): name='${file.name}', size=${file.length()}, mime='image/jpeg', sha256=$contentHash, transferId=${transferId.take(16)}…")
+                }
+
                 // Pre-insert message and map transferId
                 val msg = BitchatMessage(
                     sender = state.getNicknameValue() ?: "me",
@@ -77,6 +84,8 @@ class ChatViewModel(
                 )
                 val payload = filePacket.encode() ?: return
                 val transferId = sha256Hex(payload)
+                val contentHash = sha256Hex(filePacket.content)
+                Log.d(TAG, "📤 FILE_TRANSFER send (broadcast): name='${file.name}', size=${file.length()}, mime='audio/mp4', sha256=$contentHash, transferId=${transferId.take(16)}…")
                 val message = BitchatMessage(
                     sender = state.getNicknameValue() ?: meshService.myPeerID,
                     content = "[voice] $filePath",

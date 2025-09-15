@@ -338,9 +338,17 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         }
         
         try {
-            // Try file packet first (voice, image, etc.)
+            // Try file packet first (voice, image, etc.) and log outcome for FILE_TRANSFER
+            val isFileTransfer = com.bitchat.android.protocol.MessageType.fromValue(packet.type) == com.bitchat.android.protocol.MessageType.FILE_TRANSFER
             val file = com.bitchat.android.model.BitchatFilePacket.decode(packet.payload)
             if (file != null) {
+                if (isFileTransfer) {
+                    val hash = try {
+                        val md = java.security.MessageDigest.getInstance("SHA-256"); md.update(file.content); md.digest()
+                            .joinToString("") { "%02x".format(it) }
+                    } catch (_: Exception) { "?" }
+                    Log.d(TAG, "📥 FILE_TRANSFER decode success (broadcast): name='${file.fileName}', size=${file.fileSize}, mime='${file.mimeType}', sha256=$hash, from=${peerID.take(8)}")
+                }
                 val savedPath = saveIncomingFile(file)
                 val prefix = if (file.mimeType.lowercase().startsWith("image/")) "[image] " else "[voice] "
                 val message = BitchatMessage(
@@ -349,8 +357,11 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     senderPeerID = peerID,
                     timestamp = Date(packet.timestamp.toLong())
                 )
+                Log.d(TAG, "📄 Saved incoming file to $savedPath")
                 delegate?.onMessageReceived(message)
                 return
+            } else if (isFileTransfer) {
+                Log.w(TAG, "⚠️ FILE_TRANSFER decode failed (broadcast) from ${peerID.take(8)} payloadSize=${packet.payload.size}")
             }
 
             // Fallback: plain text
@@ -377,9 +388,17 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 return
             }
 
-            // Try file packet first (voice, image, etc.)
+            // Try file packet first (voice, image, etc.) and log outcome for FILE_TRANSFER
+            val isFileTransfer = com.bitchat.android.protocol.MessageType.fromValue(packet.type) == com.bitchat.android.protocol.MessageType.FILE_TRANSFER
             val file = com.bitchat.android.model.BitchatFilePacket.decode(packet.payload)
             if (file != null) {
+                if (isFileTransfer) {
+                    val hash = try {
+                        val md = java.security.MessageDigest.getInstance("SHA-256"); md.update(file.content); md.digest()
+                            .joinToString("") { "%02x".format(it) }
+                    } catch (_: Exception) { "?" }
+                    Log.d(TAG, "📥 FILE_TRANSFER decode success (private): name='${file.fileName}', size=${file.fileSize}, mime='${file.mimeType}', sha256=$hash, from=${peerID.take(8)}")
+                }
                 val savedPath = saveIncomingFile(file)
                 val prefix = if (file.mimeType.lowercase().startsWith("image/")) "[image] " else "[voice] "
                 val message = BitchatMessage(
@@ -390,8 +409,11 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     isPrivate = true,
                     recipientNickname = delegate?.getMyNickname()
                 )
+                Log.d(TAG, "📄 Saved incoming file to $savedPath")
                 delegate?.onMessageReceived(message)
                 return
+            } else if (isFileTransfer) {
+                Log.w(TAG, "⚠️ FILE_TRANSFER decode failed (private) from ${peerID.take(8)} payloadSize=${packet.payload.size}")
             }
 
             // Fallback: plain text
