@@ -1,6 +1,7 @@
 package com.bitchat.android.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -39,6 +40,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import com.bitchat.android.ui.media.FullScreenImageViewer
 
 @Composable
 private fun VoiceNotePlayer(
@@ -129,7 +135,8 @@ fun MessagesList(
     forceScrollToBottom: Boolean = false,
     onScrolledUpChanged: ((Boolean) -> Unit)? = null,
     onNicknameClick: ((String) -> Unit)? = null,
-    onMessageLongPress: ((BitchatMessage) -> Unit)? = null
+    onMessageLongPress: ((BitchatMessage) -> Unit)? = null,
+    onCancelTransfer: ((BitchatMessage) -> Unit)? = null
 ) {
     val listState = rememberLazyListState()
     
@@ -187,7 +194,8 @@ fun MessagesList(
                     currentUserNickname = currentUserNickname,
                     meshService = meshService,
                     onNicknameClick = onNicknameClick,
-                    onMessageLongPress = onMessageLongPress
+                    onMessageLongPress = onMessageLongPress,
+                    onCancelTransfer = onCancelTransfer
                 )
         }
     }
@@ -200,7 +208,8 @@ fun MessageItem(
     currentUserNickname: String,
     meshService: BluetoothMeshService,
     onNicknameClick: ((String) -> Unit)? = null,
-    onMessageLongPress: ((BitchatMessage) -> Unit)? = null
+    onMessageLongPress: ((BitchatMessage) -> Unit)? = null,
+    onCancelTransfer: ((BitchatMessage) -> Unit)? = null
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val timeFormatter = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
@@ -223,6 +232,7 @@ fun MessageItem(
                 timeFormatter = timeFormatter,
                 onNicknameClick = onNicknameClick,
                 onMessageLongPress = onMessageLongPress,
+                onCancelTransfer = onCancelTransfer,
                 modifier = Modifier.weight(1f)
             )
             
@@ -240,16 +250,17 @@ fun MessageItem(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun MessageTextWithClickableNicknames(
-    message: BitchatMessage,
-    currentUserNickname: String,
-    meshService: BluetoothMeshService,
-    colorScheme: ColorScheme,
-    timeFormatter: SimpleDateFormat,
-    onNicknameClick: ((String) -> Unit)?,
-    onMessageLongPress: ((BitchatMessage) -> Unit)?,
-    modifier: Modifier = Modifier
-) {
+    private fun MessageTextWithClickableNicknames(
+        message: BitchatMessage,
+        currentUserNickname: String,
+        meshService: BluetoothMeshService,
+        colorScheme: ColorScheme,
+        timeFormatter: SimpleDateFormat,
+        onNicknameClick: ((String) -> Unit)?,
+        onMessageLongPress: ((BitchatMessage) -> Unit)?,
+        onCancelTransfer: ((BitchatMessage) -> Unit)?,
+        modifier: Modifier = Modifier
+    ) {
     // Image special rendering
     if (message.content.startsWith("[image] ")) {
         val path = message.content.removePrefix("[image] ").trim()
@@ -282,20 +293,47 @@ private fun MessageTextWithClickableNicknames(
                 onTextLayout = { headerLayout = it }
             )
 
+            val context = LocalContext.current
+            var showViewer by remember { mutableStateOf(false) }
             val bmp = remember(path) { try { android.graphics.BitmapFactory.decodeFile(path) } catch (_: Exception) { null } }
             if (bmp != null) {
                 val img = bmp.asImageBitmap()
-                // Image preview
-                androidx.compose.foundation.Image(
-                    bitmap = img,
-                    contentDescription = "Image",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 300.dp),
-                    contentScale = androidx.compose.ui.layout.ContentScale.Fit
-                )
+                val aspect = (bmp.width.toFloat() / bmp.height.toFloat()).takeIf { it.isFinite() && it > 0 } ?: 1f
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+                    Box {
+                        androidx.compose.foundation.Image(
+                            bitmap = img,
+                            contentDescription = "Image",
+                            modifier = Modifier
+                                .widthIn(max = 300.dp)
+                                .aspectRatio(aspect)
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+                                .clickable { showViewer = true },
+                            contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                        )
+                        // Cancel button overlay during sending
+                        val showCancel = message.sender == currentUserNickname && (message.deliveryStatus is DeliveryStatus.PartiallyDelivered)
+                        if (showCancel) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(4.dp)
+                                    .size(22.dp)
+                                    .background(Color.Gray.copy(alpha = 0.6f), CircleShape)
+                                    .clickable { onCancelTransfer?.invoke(message) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(imageVector = Icons.Filled.Close, contentDescription = "Cancel", tint = Color.White, modifier = Modifier.size(14.dp))
+                            }
+                        }
+                    }
+                }
             } else {
                 Text(text = "[image unavailable]", fontFamily = FontFamily.Monospace, color = Color.Gray)
+            }
+
+            if (showViewer) {
+                FullScreenImageViewer(path = path, onClose = { showViewer = false })
             }
 
             // Optional: show transfer progress if partial delivery
@@ -356,11 +394,26 @@ private fun MessageTextWithClickableNicknames(
                 onTextLayout = { headerLayout = it }
             )
 
-            VoiceNotePlayer(
-                path = path,
-                progressOverride = overrideProgress,
-                progressColor = overrideColor
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                VoiceNotePlayer(
+                    path = path,
+                    progressOverride = overrideProgress,
+                    progressColor = overrideColor
+                )
+                val showCancel = message.sender == currentUserNickname && (message.deliveryStatus is DeliveryStatus.PartiallyDelivered)
+                if (showCancel) {
+                    Spacer(Modifier.width(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(26.dp)
+                            .background(Color.Gray.copy(alpha = 0.6f), CircleShape)
+                            .clickable { onCancelTransfer?.invoke(message) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(imageVector = Icons.Filled.Close, contentDescription = "Cancel", tint = Color.White, modifier = Modifier.size(16.dp))
+                    }
+                }
+            }
         }
         return
     }

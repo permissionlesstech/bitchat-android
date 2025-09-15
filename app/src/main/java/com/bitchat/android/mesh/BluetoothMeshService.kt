@@ -656,6 +656,10 @@ class BluetoothMeshService(private val context: Context) {
             connectionManager.broadcastPacket(RoutedPacket(signed))
         }
     }
+
+    fun cancelFileTransfer(transferId: String): Boolean {
+        return connectionManager.cancelTransfer(transferId)
+    }
     
     /**
      * Send private message - SIMPLIFIED iOS-compatible version 

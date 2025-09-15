@@ -18,6 +18,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.channels.Channel
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.channels.actor
 
 /**
@@ -100,6 +101,7 @@ class BluetoothPacketBroadcaster(
     
     // Actor scope for the broadcaster
     private val broadcasterScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val transferJobs = ConcurrentHashMap<String, Job>()
     
     // SERIALIZATION: Actor to serialize all broadcast operations
     @OptIn(kotlinx.coroutines.ObsoleteCoroutinesApi::class)
@@ -132,9 +134,12 @@ class BluetoothPacketBroadcaster(
                 if (transferId != null) {
                     TransferProgressManager.start(transferId, fragments.size)
                 }
-                connectionScope.launch {
+                val job = connectionScope.launch {
                     var sent = 0
                     fragments.forEach { fragment ->
+                        if (!isActive) return@launch
+                        // If cancelled, stop sending remaining fragments
+                        if (transferId != null && transferJobs[transferId]?.isCancelled == true) return@launch
                         broadcastSinglePacket(RoutedPacket(fragment), gattServer, characteristic)
                         // 20ms delay between fragments (matching iOS/Rust)
                         delay(200)
@@ -144,6 +149,10 @@ class BluetoothPacketBroadcaster(
                             if (sent == fragments.size) TransferProgressManager.complete(transferId, fragments.size)
                         }
                     }
+                }
+                if (transferId != null) {
+                    transferJobs[transferId] = job
+                    job.invokeOnCompletion { transferJobs.remove(transferId) }
                 }
                 return
             }
@@ -158,6 +167,12 @@ class BluetoothPacketBroadcaster(
             TransferProgressManager.progress(transferId, 1, 1)
             TransferProgressManager.complete(transferId, 1)
         }
+    }
+
+    fun cancelTransfer(transferId: String): Boolean {
+        val job = transferJobs.remove(transferId) ?: return false
+        job.cancel()
+        return true
     }
 
     /**

@@ -33,8 +33,9 @@ class ChatViewModel(
         private const val TAG = "ChatViewModel"
     }
 
-    // Track in-flight transfer progress: transferId -> messageId
+    // Track in-flight transfer progress: transferId -> messageId and reverse
     private val transferMessageMap = mutableMapOf<String, String>()
+    private val messageTransferMap = mutableMapOf<String, String>()
 
     fun sendVoiceNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
         try {
@@ -60,7 +61,10 @@ class ChatViewModel(
                     senderPeerID = meshService.myPeerID
                 )
                 messageManager.addPrivateMessage(toPeerIDOrNull, msg)
-                synchronized(transferMessageMap) { transferMessageMap[transferId] = msg.id }
+                synchronized(transferMessageMap) {
+                    transferMessageMap[transferId] = msg.id
+                    messageTransferMap[msg.id] = transferId
+                }
                 // Kick off send
                 meshService.sendFilePrivate(toPeerIDOrNull, filePacket)
             } else {
@@ -87,7 +91,10 @@ class ChatViewModel(
                 } else {
                     messageManager.addMessage(message)
                 }
-                synchronized(transferMessageMap) { transferMessageMap[transferId] = message.id }
+                synchronized(transferMessageMap) {
+                    transferMessageMap[transferId] = message.id
+                    messageTransferMap[message.id] = transferId
+                }
                 meshService.sendFileBroadcast(filePacket)
             }
         } catch (e: Exception) {
@@ -119,7 +126,10 @@ class ChatViewModel(
                     senderPeerID = meshService.myPeerID
                 )
                 messageManager.addPrivateMessage(toPeerIDOrNull, msg)
-                synchronized(transferMessageMap) { transferMessageMap[transferId] = msg.id }
+                synchronized(transferMessageMap) {
+                    transferMessageMap[transferId] = msg.id
+                    messageTransferMap[msg.id] = transferId
+                }
                 meshService.sendFilePrivate(toPeerIDOrNull, filePacket)
             } else {
                 // BLE broadcast (public mesh/channel) image
@@ -144,7 +154,10 @@ class ChatViewModel(
                 } else {
                     messageManager.addMessage(message)
                 }
-                synchronized(transferMessageMap) { transferMessageMap[transferId] = message.id }
+                synchronized(transferMessageMap) {
+                    transferMessageMap[transferId] = message.id
+                    messageTransferMap[message.id] = transferId
+                }
                 meshService.sendFileBroadcast(filePacket)
             }
         } catch (e: Exception) {
@@ -256,13 +269,33 @@ class ChatViewModel(
                             msgId,
                             com.bitchat.android.model.DeliveryStatus.Delivered(to = "mesh", at = java.util.Date())
                         )
-                        synchronized(transferMessageMap) { transferMessageMap.remove(evt.transferId) }
+                        synchronized(transferMessageMap) {
+                            val msgIdRemoved = transferMessageMap.remove(evt.transferId)
+                            if (msgIdRemoved != null) messageTransferMap.remove(msgIdRemoved)
+                        }
                     } else {
                         messageManager.updateMessageDeliveryStatus(
                             msgId,
                             com.bitchat.android.model.DeliveryStatus.PartiallyDelivered(evt.sent, evt.total)
                         )
                     }
+                }
+            }
+        }
+    }
+
+    fun cancelMediaSend(messageId: String) {
+        val transferId = synchronized(transferMessageMap) { messageTransferMap[messageId] }
+        if (transferId != null) {
+            val cancelled = meshService.cancelFileTransfer(transferId)
+            if (cancelled) {
+                messageManager.updateMessageDeliveryStatus(
+                    messageId,
+                    com.bitchat.android.model.DeliveryStatus.Failed("cancelled")
+                )
+                synchronized(transferMessageMap) {
+                    transferMessageMap.remove(transferId)
+                    messageTransferMap.remove(messageId)
                 }
             }
         }

@@ -154,6 +154,9 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     selectedUserForSheet = baseName
                     selectedMessageForSheet = message
                     showUserSheet = true
+                },
+                onCancelTransfer = { msg ->
+                    viewModel.cancelMediaSend(msg.id)
                 }
             )
             // Input area - stays at bottom
