@@ -643,8 +643,10 @@ class BluetoothMeshService(private val context: Context) {
             )
             // For private MESSAGE, also sign before send for integrity
             val signed = signPacketBeforeBroadcast(packet)
-            // Send directly; fragmentation happens inside broadcaster
-            connectionManager.sendPacketToPeer(recipientPeerID, signed)
+            // Reuse broadcast path which handles fragmentation and also targets the recipient first
+            // (If a direct path exists, broadcaster sends directly; otherwise it floods the mesh
+            // with a private-recipient packet, which non-recipients will ignore.)
+            connectionManager.broadcastPacket(RoutedPacket(signed))
         }
     }
     
