@@ -62,36 +62,34 @@ private fun DrawScope.drawProgressive(
     val left = 0f
     val top = (canvasH - dstH) / 2f
 
-    val blockDstW = (dstW / blocksX)
-    val blockDstH = (dstH / blocksY)
-    val blockSrcW = (imgW / blocksX)
-    val blockSrcH = (imgH / blocksY)
+    // Precompute integer edges to avoid 1px gaps due to rounding
+    val xDstEdges = IntArray(blocksX + 1) { i -> (left + (dstW * i / blocksX)).toInt().coerceAtLeast(0) }
+    val yDstEdges = IntArray(blocksY + 1) { i -> (top + (dstH * i / blocksY)).toInt().coerceAtLeast(0) }
+    val xSrcEdges = IntArray(blocksX + 1) { i -> (imgW * i / blocksX) }
+    val ySrcEdges = IntArray(blocksY + 1) { i -> (imgH * i / blocksY) }
 
     var shown = 0
     outer@ for (by in 0 until blocksY) {
         for (bx in 0 until blocksX) {
             if (shown >= toShow) break@outer
-            val sx = bx * blockSrcW
-            val sy = by * blockSrcH
-            val dx = (left + bx * blockDstW)
-            val dy = (top + by * blockDstH)
+            val sx = xSrcEdges[bx]
+            val sy = ySrcEdges[by]
+            val sw = xSrcEdges[bx + 1] - xSrcEdges[bx]
+            val sh = ySrcEdges[by + 1] - ySrcEdges[by]
+            val dx = xDstEdges[bx]
+            val dy = yDstEdges[by]
+            val dw = xDstEdges[bx + 1] - xDstEdges[bx]
+            val dh = yDstEdges[by + 1] - yDstEdges[by]
 
             drawImage(
                 image = bitmap,
                 srcOffset = IntOffset(sx, sy),
-                srcSize = IntSize(
-                    if (bx == blocksX - 1) imgW - sx else blockSrcW,
-                    if (by == blocksY - 1) imgH - sy else blockSrcH
-                ),
-                dstOffset = IntOffset(dx.toInt(), dy.toInt()),
-                dstSize = IntSize(
-                    if (bx == blocksX - 1) (dstW - (bx * blockDstW)).toInt() else blockDstW.toInt(),
-                    if (by == blocksY - 1) (dstH - (by * blockDstH)).toInt() else blockDstH.toInt()
-                ),
+                srcSize = IntSize(sw, sh),
+                dstOffset = IntOffset(dx, dy),
+                dstSize = IntSize(dw.coerceAtLeast(1), dh.coerceAtLeast(1)),
                 alpha = 1f
             )
             shown++
         }
     }
 }
-

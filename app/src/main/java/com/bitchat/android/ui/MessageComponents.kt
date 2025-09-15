@@ -363,19 +363,7 @@ fun MessageItem(
                 FullScreenImageViewer(path = path, onClose = { showViewer = false })
             }
 
-            // Optional: show transfer progress if partial delivery
-            when (val st = message.deliveryStatus) {
-                is com.bitchat.android.model.DeliveryStatus.PartiallyDelivered -> {
-                    if (st.total > 0) {
-                        LinearProgressIndicator(
-                            progress = (st.reached.toFloat() / st.total.toFloat()).coerceIn(0f, 1f),
-                            modifier = Modifier.fillMaxWidth(),
-                            color = Color(0xFF1E88E5)
-                        )
-                    }
-                }
-                else -> {}
-            }
+            // No linear progress for images; block-reveal handles visual progress
         }
         return
     }

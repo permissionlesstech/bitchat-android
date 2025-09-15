@@ -289,10 +289,8 @@ class ChatViewModel(
         if (transferId != null) {
             val cancelled = meshService.cancelFileTransfer(transferId)
             if (cancelled) {
-                messageManager.updateMessageDeliveryStatus(
-                    messageId,
-                    com.bitchat.android.model.DeliveryStatus.Failed("cancelled")
-                )
+                // Remove the message from chat upon explicit cancel
+                messageManager.removeMessageById(messageId)
                 synchronized(transferMessageMap) {
                     transferMessageMap.remove(transferId)
                     messageTransferMap.remove(messageId)

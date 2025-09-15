@@ -244,6 +244,49 @@ class MessageManager(private val state: ChatState) {
         }
         state.setChannelMessages(updatedChannelMessages)
     }
+
+    // Remove a message from all locations (main timeline, private chats, channels)
+    fun removeMessageById(messageID: String) {
+        // Main timeline
+        run {
+            val list = state.getMessagesValue().toMutableList()
+            val idx = list.indexOfFirst { it.id == messageID }
+            if (idx >= 0) {
+                list.removeAt(idx)
+                state.setMessages(list)
+            }
+        }
+        // Private chats
+        run {
+            val chats = state.getPrivateChatsValue().toMutableMap()
+            var changed = false
+            chats.keys.toList().forEach { key ->
+                val msgs = chats[key]?.toMutableList() ?: mutableListOf()
+                val idx = msgs.indexOfFirst { it.id == messageID }
+                if (idx >= 0) {
+                    msgs.removeAt(idx)
+                    chats[key] = msgs
+                    changed = true
+                }
+            }
+            if (changed) state.setPrivateChats(chats)
+        }
+        // Channels
+        run {
+            val chans = state.getChannelMessagesValue().toMutableMap()
+            var changed = false
+            chans.keys.toList().forEach { ch ->
+                val msgs = chans[ch]?.toMutableList() ?: mutableListOf()
+                val idx = msgs.indexOfFirst { it.id == messageID }
+                if (idx >= 0) {
+                    msgs.removeAt(idx)
+                    chans[ch] = msgs
+                    changed = true
+                }
+            }
+            if (changed) state.setChannelMessages(chans)
+        }
+    }
     
     // MARK: - Utility Functions
     
