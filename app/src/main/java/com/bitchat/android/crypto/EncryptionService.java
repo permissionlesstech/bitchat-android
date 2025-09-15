@@ -19,6 +19,12 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.function.Consumer;
 
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
+import javax.crypto.spec.SecretKeySpec;
+
 /**
  * Service de chiffrement qui utilise maintenant NoiseEncryptionService en interne.
  * Maintient la même API publique pour la compatibilité ascendante.
@@ -34,9 +40,12 @@ public class EncryptionService {
 
     public Consumer<String> onHandshakeRequired;
 
-    public EncryptionService(Context context) {
+    public EncryptionService(Context context, String password) throws Exception {
         this.identityManager = new SecureIdentityStateManager(context);
-        this.noiseService = new NoiseEncryptionService(context, identityManager);
+
+        SecretKey secretKey = generateSecretKey(password, identityManager.getSalt());
+
+        this.noiseService = new NoiseEncryptionService(context, identityManager, secretKey);
 
         // Gérer les callbacks
         this.noiseService.onHandshakeRequired = peerID -> {
@@ -46,7 +55,7 @@ public class EncryptionService {
         };
 
         // Charger ou créer la paire de clés de signature Ed25519
-        android.util.Pair<byte[], byte[]> signingKeys = identityManager.loadSigningKey();
+        android.util.Pair<byte[], byte[]> signingKeys = identityManager.loadSigningKey(secretKey);
         if (signingKeys != null) {
             this.ed25519PrivateKey = new Ed25519PrivateKeyParameters(signingKeys.first, 0);
             this.ed25519PublicKey = new Ed25519PublicKeyParameters(signingKeys.second, 0);
@@ -56,8 +65,15 @@ public class EncryptionService {
             AsymmetricCipherKeyPair keyPair = keyGen.generateKeyPair();
             this.ed25519PrivateKey = (Ed25519PrivateKeyParameters) keyPair.getPrivate();
             this.ed25519PublicKey = (Ed25519PublicKeyParameters) keyPair.getPublic();
-            identityManager.saveSigningKey(this.ed25519PrivateKey.getEncoded(), this.ed25519PublicKey.getEncoded());
+            identityManager.saveSigningKey(this.ed25519PrivateKey.getEncoded(), this.ed25519PublicKey.getEncoded(), secretKey);
         }
+    }
+
+    private SecretKey generateSecretKey(String password, byte[] salt) throws Exception {
+        SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+        PBEKeySpec spec = new PBEKeySpec(password.toCharArray(), salt, 65536, 256);
+        SecretKey tmp = factory.generateSecret(spec);
+        return new SecretKeySpec(tmp.getEncoded(), "AES");
     }
 
     public byte[] getStaticPublicKey() {

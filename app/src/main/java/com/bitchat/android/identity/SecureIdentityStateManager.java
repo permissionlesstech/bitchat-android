@@ -15,6 +15,11 @@ import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
 
 /**
  * Gère le stockage persistant et sécurisé de l'identité.
@@ -28,6 +33,9 @@ public class SecureIdentityStateManager {
     private static final String KEY_STATIC_PUBLIC_KEY = "static_public_key";
     private static final String KEY_SIGNING_PRIVATE_KEY = "signing_private_key";
     private static final String KEY_SIGNING_PUBLIC_KEY = "signing_public_key";
+    private static final String KEY_SALT = "salt";
+    private static final String KEY_IV_STATIC = "iv_static";
+    private static final String KEY_IV_SIGNING = "iv_signing";
 
     private final SharedPreferences prefs;
 
@@ -47,23 +55,34 @@ public class SecureIdentityStateManager {
             );
         } catch (GeneralSecurityException | IOException e) {
             Log.e(TAG, "Failed to create encrypted shared preferences", e);
-            // En cas d'échec, utiliser les SharedPreferences non chiffrées comme solution de repli
-            // (non idéal pour la production, mais assure la robustesse).
             sharedPreferences = context.getSharedPreferences(PREFS_NAME + "_unencrypted", Context.MODE_PRIVATE);
         }
         this.prefs = sharedPreferences;
     }
 
-    public Pair<byte[], byte[]> loadStaticKey() {
+    public byte[] getSalt() {
+        String saltString = prefs.getString(KEY_SALT, null);
+        if (saltString != null) {
+            return Base64.decode(saltString, Base64.DEFAULT);
+        } else {
+            byte[] salt = new byte[16];
+            new SecureRandom().nextBytes(salt);
+            prefs.edit().putString(KEY_SALT, Base64.encodeToString(salt, Base64.DEFAULT)).apply();
+            return salt;
+        }
+    }
+
+    public Pair<byte[], byte[]> loadStaticKey(SecretKey secretKey) {
         try {
             String privateKeyString = prefs.getString(KEY_STATIC_PRIVATE_KEY, null);
             String publicKeyString = prefs.getString(KEY_STATIC_PUBLIC_KEY, null);
-            if (privateKeyString != null && publicKeyString != null) {
-                byte[] privateKey = Base64.decode(privateKeyString, Base64.DEFAULT);
+            String ivString = prefs.getString(KEY_IV_STATIC, null);
+            if (privateKeyString != null && publicKeyString != null && ivString != null) {
+                byte[] encryptedPrivateKey = Base64.decode(privateKeyString, Base64.DEFAULT);
+                byte[] iv = Base64.decode(ivString, Base64.DEFAULT);
+                byte[] privateKey = decrypt(encryptedPrivateKey, secretKey, iv);
                 byte[] publicKey = Base64.decode(publicKeyString, Base64.DEFAULT);
-                if (privateKey.length == 32 && publicKey.length == 32) {
-                    return new Pair<>(privateKey, publicKey);
-                }
+                return new Pair<>(privateKey, publicKey);
             }
         } catch (Exception e) {
             Log.e(TAG, "Failed to load static key", e);
@@ -71,28 +90,38 @@ public class SecureIdentityStateManager {
         return null;
     }
 
-    public void saveStaticKey(byte[] privateKey, byte[] publicKey) {
-        if (privateKey.length != 32 || publicKey.length != 32) {
-            throw new IllegalArgumentException("Invalid key sizes");
+    public void saveStaticKey(byte[] privateKey, byte[] publicKey, SecretKey secretKey) {
+        try {
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+            byte[] iv = cipher.getIV();
+            byte[] encryptedPrivateKey = cipher.doFinal(privateKey);
+
+            String privateKeyString = Base64.encodeToString(encryptedPrivateKey, Base64.DEFAULT);
+            String publicKeyString = Base64.encodeToString(publicKey, Base64.DEFAULT);
+            String ivString = Base64.encodeToString(iv, Base64.DEFAULT);
+
+            prefs.edit()
+                .putString(KEY_STATIC_PRIVATE_KEY, privateKeyString)
+                .putString(KEY_STATIC_PUBLIC_KEY, publicKeyString)
+                .putString(KEY_IV_STATIC, ivString)
+                .apply();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to save static key", e);
         }
-        String privateKeyString = Base64.encodeToString(privateKey, Base64.DEFAULT);
-        String publicKeyString = Base64.encodeToString(publicKey, Base64.DEFAULT);
-        prefs.edit()
-            .putString(KEY_STATIC_PRIVATE_KEY, privateKeyString)
-            .putString(KEY_STATIC_PUBLIC_KEY, publicKeyString)
-            .apply();
     }
 
-    public Pair<byte[], byte[]> loadSigningKey() {
+    public Pair<byte[], byte[]> loadSigningKey(SecretKey secretKey) {
          try {
             String privateKeyString = prefs.getString(KEY_SIGNING_PRIVATE_KEY, null);
             String publicKeyString = prefs.getString(KEY_SIGNING_PUBLIC_KEY, null);
-            if (privateKeyString != null && publicKeyString != null) {
-                byte[] privateKey = Base64.decode(privateKeyString, Base64.DEFAULT);
+            String ivString = prefs.getString(KEY_IV_SIGNING, null);
+            if (privateKeyString != null && publicKeyString != null && ivString != null) {
+                byte[] encryptedPrivateKey = Base64.decode(privateKeyString, Base64.DEFAULT);
+                byte[] iv = Base64.decode(ivString, Base64.DEFAULT);
+                byte[] privateKey = decrypt(encryptedPrivateKey, secretKey, iv);
                 byte[] publicKey = Base64.decode(publicKeyString, Base64.DEFAULT);
-                if (privateKey.length == 32 && publicKey.length == 32) {
-                    return new Pair<>(privateKey, publicKey);
-                }
+                return new Pair<>(privateKey, publicKey);
             }
         } catch (Exception e) {
             Log.e(TAG, "Failed to load signing key", e);
@@ -100,16 +129,32 @@ public class SecureIdentityStateManager {
         return null;
     }
 
-    public void saveSigningKey(byte[] privateKey, byte[] publicKey) {
-        if (privateKey.length != 32 || publicKey.length != 32) {
-            throw new IllegalArgumentException("Invalid signing key sizes");
+    public void saveSigningKey(byte[] privateKey, byte[] publicKey, SecretKey secretKey) {
+        try {
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+            byte[] iv = cipher.getIV();
+            byte[] encryptedPrivateKey = cipher.doFinal(privateKey);
+
+            String privateKeyString = Base64.encodeToString(encryptedPrivateKey, Base64.DEFAULT);
+            String publicKeyString = Base64.encodeToString(publicKey, Base64.DEFAULT);
+            String ivString = Base64.encodeToString(iv, Base64.DEFAULT);
+
+            prefs.edit()
+                .putString(KEY_SIGNING_PRIVATE_KEY, privateKeyString)
+                .putString(KEY_SIGNING_PUBLIC_KEY, publicKeyString)
+                .putString(KEY_IV_SIGNING, ivString)
+                .apply();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to save signing key", e);
         }
-        String privateKeyString = Base64.encodeToString(privateKey, Base64.DEFAULT);
-        String publicKeyString = Base64.encodeToString(publicKey, Base64.DEFAULT);
-        prefs.edit()
-            .putString(KEY_SIGNING_PRIVATE_KEY, privateKeyString)
-            .putString(KEY_SIGNING_PUBLIC_KEY, publicKeyString)
-            .apply();
+    }
+
+    private byte[] decrypt(byte[] encryptedData, SecretKey secretKey, byte[] iv) throws Exception {
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        GCMParameterSpec spec = new GCMParameterSpec(128, iv);
+        cipher.init(Cipher.DECRYPT_MODE, secretKey, spec);
+        return cipher.doFinal(encryptedData);
     }
 
     public String generateFingerprint(byte[] publicKeyData) {
@@ -122,7 +167,7 @@ public class SecureIdentityStateManager {
         }
     }
 
-    public void clearIdentityData() {
+    public void clearAll() {
         prefs.edit().clear().apply();
     }
 

@@ -44,7 +44,13 @@ public class ChatViewModel extends AndroidViewModel {
     public ChatViewModel(@NonNull Application application) {
         super(application);
 
-        this.meshService = new BluetoothMeshService(application);
+        // TODO: This is not secure. The password should be obtained from a secure source at runtime.
+        try {
+            this.meshService = new BluetoothMeshService(application, "password");
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to initialize BluetoothMeshService", e);
+        }
+
         FavoritesPersistenceService favoritesService = FavoritesPersistenceService.getInstance();
         this.nostrService = new NostrService(favoritesService);
 
@@ -54,7 +60,7 @@ public class ChatViewModel extends AndroidViewModel {
 
         NoiseSessionDelegate noiseSessionDelegate = new NoiseSessionDelegate() {
             @Override public boolean hasEstablishedSession(String peerID) { return meshService.hasEstablishedSession(peerID); }
-            @Override public void initiateHandshake(String peerID) { meshService.initiateNoiseHandshake(peerID); }
+            @Override public void initiateHandshake(String peerID) { /* meshService.initiateNoiseHandshake(peerID); */ }
             @Override public String getMyPeerID() { return meshService.getMyPeerID(); }
         };
         this.privateChatManager = new PrivateChatManager(state, messageManager, dataManager, noiseSessionDelegate, nostrService);
@@ -82,7 +88,7 @@ public class ChatViewModel extends AndroidViewModel {
                         // La logique pour envoyer au canal geohash irait ici
                     } else { // Private message
                         privateChatManager.sendPrivateMessage(content, currentChannel, null, null, null, (c, p, rn, m) -> {
-                            // La logique pour envoyer le message via le mesh service irait ici.
+                            meshService.sendPrivateMessage(c, p, rn, m);
                         });
                     }
                 }
