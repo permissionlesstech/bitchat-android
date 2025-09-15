@@ -306,18 +306,38 @@ fun MessageItem(
             if (bmp != null) {
                 val img = bmp.asImageBitmap()
                 val aspect = (bmp.width.toFloat() / bmp.height.toFloat()).takeIf { it.isFinite() && it > 0 } ?: 1f
+                val progressFraction: Float? = when (val st = message.deliveryStatus) {
+                    is com.bitchat.android.model.DeliveryStatus.PartiallyDelivered -> if (st.total > 0) st.reached.toFloat() / st.total.toFloat() else 0f
+                    else -> null
+                }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
                     Box {
-                        androidx.compose.foundation.Image(
-                            bitmap = img,
-                            contentDescription = "Image",
-                            modifier = Modifier
-                                .widthIn(max = 300.dp)
-                                .aspectRatio(aspect)
-                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
-                                .clickable { showViewer = true },
-                            contentScale = androidx.compose.ui.layout.ContentScale.Fit
-                        )
+                        if (progressFraction != null && progressFraction < 1f && message.sender == currentUserNickname) {
+                            // Cyberpunk block-reveal while sending
+                            com.bitchat.android.ui.media.BlockRevealImage(
+                                bitmap = img,
+                                progress = progressFraction,
+                                blocksX = 24,
+                                blocksY = 16,
+                                modifier = Modifier
+                                    .widthIn(max = 300.dp)
+                                    .aspectRatio(aspect)
+                                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+                                    .clickable { showViewer = true }
+                            )
+                        } else {
+                            // Fully revealed image
+                            androidx.compose.foundation.Image(
+                                bitmap = img,
+                                contentDescription = "Image",
+                                modifier = Modifier
+                                    .widthIn(max = 300.dp)
+                                    .aspectRatio(aspect)
+                                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+                                    .clickable { showViewer = true },
+                                contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                            )
+                        }
                         // Cancel button overlay during sending
                         val showCancel = message.sender == currentUserNickname && (message.deliveryStatus is DeliveryStatus.PartiallyDelivered)
                         if (showCancel) {
