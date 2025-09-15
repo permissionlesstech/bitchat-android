@@ -39,7 +39,10 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.withStyle
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import androidx.compose.foundation.isSystemInDarkTheme
-import com.bitchat.android.features.voice.CyberpunkVisualizer
+import com.bitchat.android.features.voice.normalizeAmplitudeSample
+import com.bitchat.android.features.voice.VoiceWaveformCache
+import com.bitchat.android.ui.media.ImagePickerButton
+import com.bitchat.android.ui.media.ScrollingWaveformRecorder
 import com.bitchat.android.ui.media.ImagePickerButton
 
 /**
@@ -177,6 +180,7 @@ fun MessageInput(
     var isRecording by remember { mutableStateOf(false) }
     var elapsedMs by remember { mutableStateOf(0L) }
     var amplitude by remember { mutableStateOf(0) }
+    val liveSamples = remember { mutableStateListOf<Float>() }
 
     Row(
         modifier = modifier.padding(horizontal = 12.dp, vertical = 8.dp), // Reduced padding
@@ -225,14 +229,11 @@ fun MessageInput(
 
             // Overlay the visualizer while recording, without removing the text field
             if (isRecording) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    CyberpunkVisualizer(
-                        amplitude = amplitude,
-                        color = Color(0xFF00FF7F),
-                        modifier = Modifier.weight(1f)
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height(42.dp)) {
+                    ScrollingWaveformRecorder(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        currentAmplitude = normalizeAmplitudeSample(amplitude),
+                        samples = liveSamples
                     )
                     Spacer(Modifier.width(12.dp))
                     val secs = (elapsedMs / 1000).toInt()
@@ -273,6 +274,7 @@ fun MessageInput(
                 onStart = {
                     isRecording = true
                     elapsedMs = 0L
+                    liveSamples.clear()
                     // Ensure the input keeps focus when recording starts
                     try { focusRequester.requestFocus() } catch (_: Exception) {}
                 },
@@ -282,6 +284,13 @@ fun MessageInput(
                 },
                 onFinish = { path ->
                     isRecording = false
+                    // Persist waveform for the sent path normalized to 120 bins for consistent look vs receiver
+                    try {
+                        val arr = liveSamples.toFloatArray()
+                        val normalized = com.bitchat.android.features.voice.resampleWave(arr, 120)
+                        VoiceWaveformCache.put(path, normalized)
+                    } catch (_: Exception) {}
+                    liveSamples.clear()
                     // BLE path (private or public) — use latest values to avoid stale captures
                     latestOnSendVoiceNote.value(
                         latestSelectedPeer.value,

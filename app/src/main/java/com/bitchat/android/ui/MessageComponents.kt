@@ -45,6 +45,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
 import com.bitchat.android.ui.media.FullScreenImageViewer
+import com.bitchat.android.ui.media.WaveformPreview
 
 @Composable
 private fun VoiceNotePlayer(
@@ -113,9 +114,12 @@ private fun VoiceNotePlayer(
                 contentDescription = if (isPlaying) "Pause" else "Play"
             )
         }
-        val barProgress = progressOverride ?: progress
-        val barColor = progressColor ?: Color(0xFF00C851) // green for playback
-        LinearProgressIndicator(progress = barProgress, modifier = Modifier.weight(1f), color = barColor)
+        WaveformPreview(
+            modifier = Modifier.weight(1f).height(36.dp),
+            path = path,
+            sendProgress = progressOverride,
+            playbackProgress = if (progressOverride == null) progress else null
+        )
         val durText = if (durationMs > 0) String.format("%02d:%02d", (durationMs / 1000) / 60, (durationMs / 1000) % 60) else "--:--"
         Text(text = durText, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
     }
