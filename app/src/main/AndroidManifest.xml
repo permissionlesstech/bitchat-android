@@ -48,6 +48,13 @@
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize" />
         <activity
+            android:name=".ui.account.SetupActivity"
+            android:exported="false"
+            android:label="Configuration du compte"
+            android:theme="@style/Theme.BitchatAndroid"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"

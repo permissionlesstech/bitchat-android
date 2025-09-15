@@ -1,8 +1,5 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.parcelize)
-    alias(libs.plugins.kotlin.compose)
 }
 
 android {
@@ -43,11 +40,8 @@ android {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
     }
-    kotlinOptions {
-        jvmTarget = "1.8"
-    }
     buildFeatures {
-        compose = true
+        viewBinding = true
     }
     packaging {
         resources {
@@ -63,32 +57,29 @@ android {
 
 dependencies {
     // Core Android dependencies
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.activity.compose)
+    implementation("androidx.core:core:1.13.1")
     implementation(libs.androidx.appcompat)
-    
-    // Compose
-    implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.bundles.compose)
-    
+    implementation("com.google.android.material:material:1.9.0")
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+
     // Lifecycle
-    implementation(libs.bundles.lifecycle)
-    
+    implementation("androidx.lifecycle:lifecycle-viewmodel:2.8.1")
+    implementation("androidx.lifecycle:lifecycle-livedata:2.8.1")
+
     // Navigation
-    implementation(libs.androidx.navigation.compose)
-    
-    // Permissions
-    implementation(libs.accompanist.permissions)
-    
+    implementation("androidx.navigation:navigation-fragment:2.7.7")
+    implementation("androidx.navigation:navigation-ui:2.7.7")
+
+    // Permissions will be handled via runtime permissions in Java
+
     // Cryptography
     implementation(libs.bundles.cryptography)
-    
+
     // JSON
     implementation(libs.gson)
-    
-    // Coroutines
-    implementation(libs.kotlinx.coroutines.android)
-    
+
+    // Coroutines (removed, will use Java concurrency)
+
     // Bluetooth
     implementation(libs.nordic.ble)
 
@@ -103,10 +94,10 @@ dependencies {
 
     // Security preferences
     implementation(libs.androidx.security.crypto)
-    
-    // Testing
-    testImplementation(libs.bundles.testing)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.bundles.compose.testing)
-    debugImplementation(libs.androidx.compose.ui.tooling)
+
+    // Testing - Note: kotlin testing libs below are now incompatible
+    // testImplementation(libs.bundles.testing)
+    // androidTestImplementation(platform(libs.androidx.compose.bom))
+    // androidTestImplementation(libs.bundles.compose.testing)
+    // debugImplementation(libs.androidx.compose.ui.tooling)
 }
