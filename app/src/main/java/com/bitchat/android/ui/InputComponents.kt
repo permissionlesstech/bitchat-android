@@ -197,7 +197,7 @@ fun MessageInput(
                     color = colorScheme.primary,
                     fontFamily = FontFamily.Monospace
                 ),
-                cursorBrush = SolidColor(colorScheme.primary),
+                cursorBrush = SolidColor(if (isRecording) Color.Transparent else colorScheme.primary),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                 keyboardActions = KeyboardActions(onSend = { 
                     if (hasText) onSend() // Only send if there's text
