@@ -26,13 +26,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.Image
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import java.io.File
 
 @Composable
 fun FullScreenImageViewer(path: String, onClose: () -> Unit) {
     val context = LocalContext.current
     val bmp = remember(path) { try { android.graphics.BitmapFactory.decodeFile(path) } catch (_: Exception) { null } }
-    Dialog(onDismissRequest = onClose) {
+    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(color = Color.Black) {
             Box(modifier = Modifier.fillMaxSize()) {
                 bmp?.let {
@@ -107,4 +108,3 @@ private fun saveToDownloads(context: android.content.Context, path: String) {
         }
     }
 }
-
