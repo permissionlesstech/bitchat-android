@@ -150,6 +150,13 @@ class BluetoothMeshService(private val context: Context) {
             }
             override fun onPeerRemoved(peerID: String) {
                 try { gossipSyncManager.removeAnnouncementForPeer(peerID) } catch (_: Exception) { }
+                // Also drop any Noise session state for this peer when they go offline
+                try {
+                    encryptionService.removePeer(peerID)
+                    Log.d(TAG, "Removed Noise session for offline peer $peerID")
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to remove Noise session for $peerID: ${e.message}")
+                }
             }
         }
         
