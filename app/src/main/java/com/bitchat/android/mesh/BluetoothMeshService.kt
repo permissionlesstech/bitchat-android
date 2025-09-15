@@ -452,6 +452,13 @@ class BluetoothMeshService(private val context: Context) {
             }
             
             override fun handleFragment(packet: BitchatPacket): BitchatPacket? {
+                // Track broadcast fragments for gossip sync
+                try {
+                    val isBroadcast = (packet.recipientID == null || packet.recipientID.contentEquals(SpecialRecipients.BROADCAST))
+                    if (isBroadcast && packet.type == MessageType.FRAGMENT.value) {
+                        gossipSyncManager.onPublicPacketSeen(packet)
+                    }
+                } catch (_: Exception) { }
                 return fragmentManager.handleFragment(packet)
             }
             

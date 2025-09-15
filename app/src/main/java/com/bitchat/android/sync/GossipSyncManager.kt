@@ -42,6 +42,8 @@ class GossipSyncManager(
     // Stored packets for sync:
     // - broadcast messages: keep up to seenCapacity() most recent, keyed by packetId
     private val messages = LinkedHashMap<String, BitchatPacket>()
+    // - broadcast fragment packets: keep up to seenCapacity() most recent as well (file transfer fragments)
+    private val fragments = LinkedHashMap<String, BitchatPacket>()
     // - announcements: only keep latest per sender peerID
     private val latestAnnouncementByPeer = ConcurrentHashMap<String, Pair<String, BitchatPacket>>()
 
@@ -78,11 +80,13 @@ class GossipSyncManager(
     }
 
     fun onPublicPacketSeen(packet: BitchatPacket) {
-        // Only ANNOUNCE or broadcast MESSAGE
+        // Track ANNOUNCE, broadcast MESSAGE, and broadcast FRAGMENT packets
         val mt = MessageType.fromValue(packet.type)
-        val isBroadcastMessage = (mt == MessageType.MESSAGE && (packet.recipientID == null || packet.recipientID.contentEquals(SpecialRecipients.BROADCAST)))
+        val isBroadcast = (packet.recipientID == null || packet.recipientID.contentEquals(SpecialRecipients.BROADCAST))
+        val isBroadcastMessage = (mt == MessageType.MESSAGE && isBroadcast)
+        val isBroadcastFragment = (mt == MessageType.FRAGMENT && isBroadcast)
         val isAnnouncement = (mt == MessageType.ANNOUNCE)
-        if (!isBroadcastMessage && !isAnnouncement) return
+        if (!isBroadcastMessage && !isAnnouncement && !isBroadcastFragment) return
 
         val idBytes = PacketIdUtil.computeIdBytes(packet)
         val id = idBytes.joinToString("") { b -> "%02x".format(b) }
@@ -94,6 +98,15 @@ class GossipSyncManager(
                 val cap = configProvider.seenCapacity().coerceAtLeast(1)
                 while (messages.size > cap) {
                     val it = messages.entries.iterator()
+                    if (it.hasNext()) { it.next(); it.remove() } else break
+                }
+            }
+        } else if (isBroadcastFragment) {
+            synchronized(fragments) {
+                fragments[id] = packet
+                val cap = configProvider.seenCapacity().coerceAtLeast(1)
+                while (fragments.size > cap) {
+                    val it = fragments.entries.iterator()
                     if (it.hasNext()) { it.next(); it.remove() } else break
                 }
             }
@@ -178,6 +191,17 @@ class GossipSyncManager(
                 Log.d(TAG, "Sent sync message: Type ${toSend.type} to $fromPeerID packet id ${idBytes.toHexString()}")
             }
         }
+
+        // 3) Broadcast fragments: send all they lack
+        val toSendFrags = synchronized(fragments) { fragments.values.toList() }
+        for (pkt in toSendFrags) {
+            val idBytes = PacketIdUtil.computeIdBytes(pkt)
+            if (!mightContain(idBytes)) {
+                val toSend = pkt.copy(ttl = 0u)
+                delegate?.sendPacketToPeer(fromPeerID, toSend)
+                Log.d(TAG, "Sent sync fragment: Type ${toSend.type} to $fromPeerID packet id ${idBytes.toHexString()}")
+            }
+        }
     }
 
     private fun hexStringToByteArray(hexString: String): ByteArray {
@@ -215,6 +239,10 @@ class GossipSyncManager(
         // messages
         synchronized(messages) {
             list.addAll(messages.values)
+        }
+        // fragments
+        synchronized(fragments) {
+            list.addAll(fragments.values)
         }
         // sort by timestamp desc, then take up to min(seenCapacity, fit capacity)
         list.sortByDescending { it.timestamp.toLong() }
