@@ -37,7 +37,11 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Pause
 
 @Composable
-private fun VoiceNotePlayer(path: String) {
+private fun VoiceNotePlayer(
+    path: String,
+    progressOverride: Float? = null,
+    progressColor: Color? = null
+) {
     var isPlaying by remember { mutableStateOf(false) }
     var isPrepared by remember { mutableStateOf(false) }
     var isError by remember { mutableStateOf(false) }
@@ -91,13 +95,17 @@ private fun VoiceNotePlayer(path: String) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        FilledTonalIconButton(onClick = { if (isPrepared && !isError) isPlaying = !isPlaying }, enabled = isPrepared && !isError) {
+        // Disable play/pause while showing send progress override (optional UX choice)
+        val controlsEnabled = isPrepared && !isError && progressOverride == null
+        FilledTonalIconButton(onClick = { if (controlsEnabled) isPlaying = !isPlaying }, enabled = controlsEnabled) {
             Icon(
                 imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                 contentDescription = if (isPlaying) "Pause" else "Play"
             )
         }
-        LinearProgressIndicator(progress = progress, modifier = Modifier.weight(1f))
+        val barProgress = progressOverride ?: progress
+        val barColor = progressColor ?: Color(0xFF00C851) // green for playback
+        LinearProgressIndicator(progress = barProgress, modifier = Modifier.weight(1f), color = barColor)
         val durText = if (durationMs > 0) String.format("%02d:%02d", (durationMs / 1000) / 60, (durationMs / 1000) % 60) else "--:--"
         Text(text = durText, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
     }
@@ -241,15 +249,21 @@ private fun MessageTextWithClickableNicknames(
     // Voice note special rendering
     if (message.content.startsWith("[voice] ")) {
         val path = message.content.removePrefix("[voice] ").trim()
-        Column(modifier = modifier.fillMaxWidth()) {
-            VoiceNotePlayer(path = path)
-            // Outgoing progress bar for file sending
-            message.deliveryStatus?.let { status ->
-                if (status is com.bitchat.android.model.DeliveryStatus.PartiallyDelivered && status.total > 0 && status.reached < status.total) {
-                    val frac = status.reached.toFloat() / status.total.toFloat()
-                    LinearProgressIndicator(progress = frac, modifier = Modifier.fillMaxWidth())
-                }
+        // Derive sending progress if applicable
+        val (overrideProgress, overrideColor) = when (val st = message.deliveryStatus) {
+            is com.bitchat.android.model.DeliveryStatus.PartiallyDelivered -> {
+                if (st.total > 0 && st.reached < st.total) {
+                    (st.reached.toFloat() / st.total.toFloat()) to Color(0xFF1E88E5) // blue while sending
+                } else null to null
             }
+            else -> null to null
+        }
+        Column(modifier = modifier.fillMaxWidth()) {
+            VoiceNotePlayer(
+                path = path,
+                progressOverride = overrideProgress,
+                progressColor = overrideColor
+            )
         }
         return
     }
