@@ -179,7 +179,7 @@ class MessageHandler(private val myPeerID: String) {
         val packet = routed.packet
         val peerID = routed.peerID ?: "unknown"
 
-        if (peerID == myPeerID) return false
+        if (peerID == myPeerID && routed.packet.ttl != 0u.toUByte()) return false
         
         // Try to decode as iOS-compatible IdentityAnnouncement with TLV format
         val announcement = IdentityAnnouncement.decode(packet.payload)
@@ -304,7 +304,8 @@ class MessageHandler(private val myPeerID: String) {
     suspend fun handleMessage(routed: RoutedPacket) {
         val packet = routed.packet
         val peerID = routed.peerID ?: "unknown"
-        if (peerID == myPeerID) return
+        // IMPORTANT: Allow TTL=0 self packets (sync responses) to flow through
+        if (peerID == myPeerID && packet.ttl != 0u.toUByte()) return
         val senderNickname = delegate?.getPeerNickname(peerID)
         if (senderNickname != null) {
             Log.d(TAG, "Received message from $senderNickname")
@@ -329,10 +330,11 @@ class MessageHandler(private val myPeerID: String) {
     private suspend fun handleBroadcastMessage(routed: RoutedPacket) {
         val packet = routed.packet
         val peerID = routed.peerID ?: "unknown"
-        
+
         // Enforce: only accept public messages from verified peers we know
+        // EXCEPTION: allow our own messages (peerID == myPeerID), e.g. TTL=0 sync responses
         val peerInfo = delegate?.getPeerInfo(peerID)
-        if (peerInfo == null || !peerInfo.isVerifiedNickname) {
+        if (peerID != myPeerID && (peerInfo == null || !peerInfo.isVerifiedNickname)) {
             Log.w(TAG, "🚫 Dropping public message from unverified or unknown peer ${peerID.take(8)}...")
             return
         }
@@ -340,7 +342,7 @@ class MessageHandler(private val myPeerID: String) {
         try {
             // Parse message
             val message = BitchatMessage(
-                sender = delegate?.getPeerNickname(peerID) ?: "unknown",
+                sender = if (peerID == myPeerID) (delegate?.getMyNickname() ?: myPeerID) else (delegate?.getPeerNickname(peerID) ?: "unknown"),
                 content = String(packet.payload, Charsets.UTF_8),
                 senderPeerID = peerID,
                 timestamp = Date(packet.timestamp.toLong())

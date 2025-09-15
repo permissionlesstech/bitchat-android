@@ -51,7 +51,14 @@ class BluetoothConnectionManager(
                 }
             }
 
-            if (peerID == myPeerID) return // Ignore messages from self
+            // Normally ignore messages from self, but accept local-only sync responses (TTL=0)
+            if (peerID == myPeerID) {
+                if (packet.ttl == 0u.toUByte()) {
+                    Log.d(TAG, "Accepting self-sender packet with TTL=0 (likely SYNC response)")
+                } else {
+                    return // Ignore non-sync self packets
+                }
+            }
 
             delegate?.onPacketReceived(packet, peerID, device)
         }
