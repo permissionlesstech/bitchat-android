@@ -1,0 +1,77 @@
+<resources>
+
+	<!-- Default screen margins, per the Android Design guidelines. -->
+	<dimen name="margin_activity_horizontal">16dp</dimen>
+	<dimen name="margin_activity_vertical">16dp</dimen>
+
+	<dimen name="margin_separator">1dp</dimen>
+	<dimen name="margin_tiny">2dp</dimen>
+	<dimen name="margin_small">4dp</dimen>
+	<dimen name="margin_medium">8dp</dimen>
+	<dimen name="margin_large">16dp</dimen>
+	<dimen name="margin_xlarge">32dp</dimen>
+	<dimen name="margin_xxlarge">64dp</dimen>
+
+	<!-- hero icons -->
+	<dimen name="hero_square">128dp</dimen>
+	<dimen name="hero_rect_width">192dp</dimen>
+	<dimen name="hero_rect_height">96dp</dimen>
+
+	<!-- v2 dimens -->
+	<dimen name="text_size_tiny">12sp</dimen>
+	<dimen name="text_size_small">14sp</dimen>
+	<dimen name="text_size_medium">16sp</dimen>
+	<dimen name="text_size_large">20sp</dimen>
+	<dimen name="text_size_xlarge">34sp</dimen>
+
+	<dimen name="listitem_horizontal_margin">16dp</dimen>
+	<dimen name="listitem_vertical_margin">10dp</dimen>
+	<dimen name="listitem_height_one_line_avatar">56dp</dimen>
+	<dimen name="listitem_picture_size">48dp</dimen>
+	<dimen name="listitem_picture_size_small">23dp</dimen>
+	<dimen name="listitem_picture_frame_size">51dp</dimen>
+	<dimen name="listitem_picture_frame_offset_horizontal">1dp</dimen>
+	<dimen name="listitem_picture_frame_offset_vertical">2dp</dimen>
+	<dimen name="listitem_selectable_picture_size">40dp</dimen>
+	<dimen name="listitem_group_member_indentation">40dp</dimen>
+	<dimen name="avatar_forum_size">48dp</dimen>
+	<dimen name="avatar_border_width">1dp</dimen>
+	<dimen name="avatar_text_size">30sp</dimen>
+	<dimen name="button_size">48dp</dimen>
+
+	<dimen name="unread_bubble_text_size">12sp</dimen>
+	<dimen name="unread_bubble_padding_horizontal">6dp</dimen>
+	<dimen name="unread_bubble_size">19dp</dimen>
+
+	<dimen name="message_bubble_radius_big">16dp</dimen>
+	<dimen name="message_bubble_radius_small">4dp</dimen>
+	<dimen name="message_bubble_radius_top_inner">@dimen/message_bubble_radius_small</dimen>
+	<dimen name="message_bubble_radius_top_outer">@dimen/message_bubble_radius_big</dimen>
+	<dimen name="message_bubble_margin">6dp</dimen>
+	<dimen name="message_bubble_image_default">115dp</dimen>
+	<dimen name="message_bubble_image_min_width">150dp</dimen>
+	<dimen name="message_bubble_image_max_width">240dp</dimen>
+	<dimen name="message_bubble_image_min_height">100dp</dimen>
+	<dimen name="message_bubble_image_max_height">320dp</dimen>
+	<dimen name="message_bubble_border">2dp</dimen>
+	<dimen name="message_bubble_padding_sides">12dp</dimen>
+	<dimen name="message_bubble_padding_sides_inner">10dp</dimen>
+	<dimen name="message_bubble_padding_top">6dp</dimen>
+	<dimen name="message_bubble_padding_top_inner">4dp</dimen>
+	<dimen name="message_bubble_padding_bottom">4dp</dimen>
+	<dimen name="message_bubble_padding_bottom_inner">2dp</dimen>
+	<dimen name="message_bubble_timestamp_margin">4dp</dimen>
+	<dimen name="message_bubble_elevation">2dp</dimen>
+	<dimen name="message_bubble_margin_tail">8dp</dimen>
+	<dimen name="message_bubble_margin_non_tail">30dp</dimen>
+	<dimen name="message_bubble_stroke">1px</dimen>
+
+	<dimen name="forum_nested_line_width">1dp</dimen>
+	<dimen name="forum_nested_indicator">25dp</dimen>
+
+	<dimen name="blogs_avatar_normal_size">30dp</dimen>
+	<dimen name="blogs_avatar_icon_size">15dp</dimen>
+	<dimen name="blogs_avatar_comment_size">20dp</dimen>
+
+	<dimen name="text_input_height">42dp</dimen>
+</resources>

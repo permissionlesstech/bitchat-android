@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto">
+
+	<SwitchPreferenceCompat
+		android:defaultValue="false"
+		android:enabled="false"
+		android:key="pref_key_bluetooth"
+		android:persistent="false"
+		android:title="@string/bluetooth_setting"
+		app:iconSpaceReserved="false"
+		app:singleLineTitle="false" />
+
+	<SwitchPreferenceCompat
+		android:defaultValue="false"
+		android:enabled="false"
+		android:key="pref_key_wifi"
+		android:persistent="false"
+		android:title="@string/wifi_setting"
+		app:iconSpaceReserved="false"
+		app:singleLineTitle="false" />
+
+	<SwitchPreferenceCompat
+		android:defaultValue="true"
+		android:enabled="false"
+		android:key="pref_key_tor_enable"
+		android:persistent="false"
+		android:summary="@string/tor_enable_summary"
+		android:title="@string/tor_enable_title"
+		app:iconSpaceReserved="false"
+		app:singleLineTitle="false" />
+
+	<ListPreference
+		android:defaultValue="0"
+		android:dependency="pref_key_tor_enable"
+		android:enabled="false"
+		android:entries="@array/tor_network_setting_names"
+		android:entryValues="@array/tor_network_setting_values"
+		android:key="pref_key_tor_network"
+		android:persistent="false"
+		android:summary="%s"
+		android:title="@string/tor_network_setting"
+		app:iconSpaceReserved="false" />
+
+	<SwitchPreferenceCompat
+		android:defaultValue="true"
+		android:dependency="pref_key_tor_enable"
+		android:enabled="false"
+		android:key="pref_key_tor_mobile_data"
+		android:persistent="false"
+		android:title="@string/tor_mobile_data_title"
+		app:iconSpaceReserved="false"
+		app:singleLineTitle="false" />
+
+	<SwitchPreferenceCompat
+		android:defaultValue="false"
+		android:dependency="pref_key_tor_enable"
+		android:enabled="false"
+		android:key="pref_key_tor_only_when_charging"
+		android:persistent="false"
+		android:summary="@string/tor_only_when_charging_summary"
+		android:title="@string/tor_only_when_charging_title"
+		app:iconSpaceReserved="false"
+		app:singleLineTitle="false" />
+
+</PreferenceScreen>

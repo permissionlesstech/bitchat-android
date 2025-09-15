@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content"
+	android:background="@drawable/list_item_background_selectable"
+	android:orientation="vertical"
+	android:paddingTop="@dimen/message_bubble_margin">
+
+	<include layout="@layout/list_item_conversation_top_notice_out" />
+
+	<com.vanniktech.emoji.EmojiTextView
+		android:id="@+id/msgText"
+		style="@style/TextMessage"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:layout_marginStart="@dimen/message_bubble_margin_non_tail"
+		android:layout_marginLeft="@dimen/message_bubble_margin_non_tail"
+		android:layout_marginTop="@dimen/message_bubble_margin"
+		android:layout_marginEnd="@dimen/message_bubble_margin_tail"
+		android:layout_marginRight="@dimen/message_bubble_margin_tail"
+		android:background="@drawable/msg_out_top"
+		android:elevation="@dimen/message_bubble_elevation"
+		android:textColor="@color/briar_text_primary_inverse"
+		android:textColorLink="@color/briar_text_link_inverse"
+		tools:text="This is a long long long message that spans over several lines.\n\nIt ends here."
+		tools:visibility="visible" />
+
+	<androidx.constraintlayout.widget.ConstraintLayout
+		android:id="@+id/layout"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:layout_marginStart="@dimen/message_bubble_margin_non_tail"
+		android:layout_marginLeft="@dimen/message_bubble_margin_non_tail"
+		android:layout_marginEnd="@dimen/message_bubble_margin_tail"
+		android:layout_marginRight="@dimen/message_bubble_margin_tail"
+		android:layout_marginBottom="@dimen/message_bubble_margin"
+		android:background="@drawable/notice_out_bottom"
+		android:elevation="@dimen/message_bubble_elevation">
+
+		<com.vanniktech.emoji.EmojiTextView
+			android:id="@+id/text"
+			style="@style/TextMessage.Notice"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:textColor="@color/private_message_date_inverse"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toTopOf="parent"
+			tools:text="@string/introduction_request_received" />
+
+		<TextView
+			android:id="@+id/time"
+			style="@style/TextMessage.Timestamp"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_marginTop="@dimen/message_bubble_timestamp_margin"
+			android:textColor="@color/private_message_date_inverse"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/text"
+			tools:text="Dec 24, 13:37" />
+
+		<ImageView
+			android:id="@+id/bomb"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_marginStart="4dp"
+			android:layout_marginLeft="4dp"
+			app:layout_constraintBottom_toBottomOf="@+id/time"
+			app:layout_constraintStart_toEndOf="@+id/time"
+			app:layout_constraintTop_toTopOf="@+id/time"
+			app:srcCompat="@drawable/ic_bomb"
+			app:tint="@color/private_message_date_inverse"
+			tools:ignore="ContentDescription" />
+
+		<ImageView
+			android:id="@+id/status"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_marginStart="4dp"
+			android:layout_marginLeft="4dp"
+			app:layout_constraintBottom_toBottomOf="@+id/time"
+			app:layout_constraintStart_toEndOf="@+id/bomb"
+			app:layout_constraintTop_toTopOf="@+id/time"
+			app:tint="@color/private_message_date_inverse"
+			tools:ignore="ContentDescription"
+			tools:src="@drawable/message_delivered" />
+
+	</androidx.constraintlayout.widget.ConstraintLayout>
+
+</LinearLayout>

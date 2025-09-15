@@ -1,0 +1,191 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<resources>
+	<!--Setup-->
+	<string name="setup_title">Afáyate\'n Briar</string>
+	<string name="setup_name_explanation">El to alcuñu apaecerá cabo cualquier conteníu que publiques.Nun puede cambiase después de crear la cuenta.</string>
+	<string name="setup_next">Siguiente</string>
+	<string name="setup_password_intro">Escueye una contraseña</string>
+	<string name="dnkm_doze_title">Conexones de fondu</string>
+	<string name="dnkm_doze_button">Permitir conexones</string>
+	<string name="choose_nickname">Escueyi un alcuñu</string>
+	<string name="choose_password">Escueyi una contraseña</string>
+	<string name="confirm_password">Confirma la contraseña</string>
+	<string name="name_too_long">El nome ye enforma llargu</string>
+	<string name="password_too_weak">La contraseña ye enforma feble</string>
+	<string name="passwords_do_not_match">Les contraseñes nun casen</string>
+	<string name="create_account_button">Crear cuenta</string>
+	<string name="more_info">Más información</string>
+	<string name="don_t_ask_again">Nun volver a entrugar</string>
+	<string name="dnkm_huawei_protected_button">Protexer Briar</string>
+  <string name="dnkm_warning_dozed">%s nun pudo executase\'n segundu planu</string>
+  <!--Login-->
+  <string name="enter_password">Contraseña</string>
+  <string name="try_again">Contraseña enquivocada, tenta otra vuelta</string>
+  <string name="sign_in_button">Aniciar sesión</string>
+  <string name="forgotten_password">Escaecí la contraseña</string>
+  <string name="dialog_title_lost_password">Contraseña perdida</string>
+  <string name="dialog_message_lost_password">La cuenta de Briar guárdase cifrada nel preséu, non na nube, de manera que nun podemos reaniciala.. ¿Quies desaniciar la cuenta y principiar de cero?\n\nAtención: Les tos identidaes, contautos y mensaxes perderánse de mou permanente.</string>
+  <string name="startup_failed_notification_title">Briar nun pudo arrancar</string>
+  <string name="startup_failed_notification_text">Toca pa más información</string>
+  <string name="startup_failed_activity_title">Fallu nel arranque de Briar</string>
+  <string name="expiry_date_reached">Esti software caducó.\n¡Gracies por probalu!</string>
+  <string name="download_briar">Pa siguir usando Briar, descarga la versión 1.0.</string>
+  <string name="create_new_account">Tendrás de crear una cuenta nueva, pero puedes usar el mesmu alcuñu.</string>
+  <string name="download_briar_button">Descargar Briar 1.0</string>
+  <!--Navigation Drawer-->
+  <string name="nav_drawer_open_description">Abrir el caxón de navegación</string>
+  <string name="nav_drawer_close_description">Zarrar el caxón de navegación</string>
+  <string name="contact_list_button">Contactos</string>
+  <string name="groups_button">Grupos privaos</string>
+  <string name="forums_button">Foros</string>
+  <string name="blogs_button">Blogs</string>
+  <!--This is part of the main menu. The app will be locked when this is tapped.-->
+  <string name="lock_button">Bloquiar App</string>
+  <string name="settings_button">Preferencies</string>
+  <string name="sign_out_button">Colar</string>
+  <!--Transports-->
+  <string name="transport_tor">Internet</string>
+  <string name="transport_bt">Bluetooth</string>
+  <string name="transport_lan">Wi-Fi</string>
+  <!--Notifications-->
+  <string name="ongoing_notification_title">Sesión aniciada</string>
+  <string name="ongoing_notification_text">Toca p\'abrir Briar.</string>
+  <plurals name="private_message_notification_text">
+    <item quantity="one">Mensaxes priváu nuevu.</item>
+    <item quantity="other">%d mensaxes privaos nuevos.</item>
+  </plurals>
+  <plurals name="group_message_notification_text">
+    <item quantity="one">Mensaxe de grupu nuevu.</item>
+    <item quantity="other">%d mensaxes de grupu nuevos.</item>
+  </plurals>
+  <plurals name="forum_post_notification_text">
+    <item quantity="one">Mensaxe de foru nuevu.</item>
+    <item quantity="other">%d mensaxes de foru nuevos.</item>
+  </plurals>
+  <plurals name="blog_post_notification_text">
+    <item quantity="one">Una publicación del blog nueva.</item>
+    <item quantity="other">%d publicaciones del blog nueves.</item>
+  </plurals>
+  <!--Misc-->
+  <string name="now">agora</string>
+  <string name="show">Amosar</string>
+  <string name="hide">Anubrir</string>
+  <string name="ok">Aceutar</string>
+  <string name="cancel">Encaboxar</string>
+  <string name="got_it">Entendílo</string>
+  <string name="delete">Desaniciar</string>
+  <string name="accept">Aceutar</string>
+  <string name="decline">Refugar</string>
+  <string name="options">Opciones</string>
+  <string name="online">En llinia</string>
+  <string name="offline">Sin conexón</string>
+  <string name="send">Unviar</string>
+  <string name="allow">Permitir</string>
+  <string name="open">Abrir</string>
+  <string name="no_data">Sin datos</string>
+  <string name="ellipsis">…</string>
+  <string name="fix">Iguar</string>
+  <string name="help">Ayuda</string>
+  <!--Contacts and Private Conversations-->
+  <string name="date_no_private_messages">Nun hai mensaxes</string>
+  <string name="no_private_messages">Nun hai mensaxes qu\'amosar</string>
+  <string name="message_hint">Escribir mensaxe</string>
+  <string name="delete_contact">Desaniciar contactu</string>
+  <string name="dialog_title_delete_contact">Confirmar desaniciu del contactu</string>
+  <string name="contact_deleted_toast">Contactu desaniciáu</string>
+  <!--Adding Contacts-->
+  <string name="add_contact_title">Amestar un contactu</string>
+  <string name="continue_button">Siguir</string>
+  <string name="try_again_button">Tentar nuevamente</string>
+  <string name="camera_error">Error de cámara</string>
+  <!--Introductions-->
+  <plurals name="contact_added_notification_text">
+    <item quantity="one">Añadióse un contactu nuevu.</item>
+    <item quantity="other">Añadiéronse %d contactos nuevos.</item>
+  </plurals>
+  <!--Private Groups-->
+  <string name="groups_created_by">Creáu por %s</string>
+  <plurals name="messages">
+    <item quantity="one">%d  mensaxe</item>
+    <item quantity="other">%d  mensaxes</item>
+  </plurals>
+  <string name="groups_remove">Desaniciar</string>
+  <string name="groups_create_group_title">Crear Grupu priváu</string>
+  <string name="groups_create_group_button">Crear Grupu</string>
+  <string name="groups_create_group_invitation_button">Unviar Invitación</string>
+  <string name="groups_message_sent">Mensaxe unviáu</string>
+  <string name="groups_member_list">Llista de miembros</string>
+  <string name="groups_invite_members">Invitar a  miembros</string>
+  <string name="groups_member_created_you">Creasti\'\'l grupu</string>
+  <string name="groups_member_created">%s creó\'\'l grupu</string>
+  <string name="groups_member_joined_you">Xunístite al grupu</string>
+  <string name="groups_member_joined">%s xunióse al grupu</string>
+  <string name="groups_leave">Abandonar grupu</string>
+  <string name="groups_dissolve">Disolver grupu</string>
+  <string name="groups_dissolve_dialog_title">Confirma la disolución del grupu</string>
+  <string name="groups_dissolve_button">Disolver</string>
+  <string name="groups_dissolved_dialog_title">Disolvióse\'\'l grupu</string>
+  <!--Private Group Invitations-->
+  <string name="groups_invitations_title">Invitaciones a grupu</string>
+  <string name="groups_invitations_invitation_sent">Invitasti a %1$s a xunise al grupu \"%2$s\".</string>
+  <string name="groups_invitations_invitation_received">%1$s invitóte a xunite al grupu \"%2$s\".</string>
+  <string name="groups_invitations_joined">Entrasti nel grupu</string>
+  <string name="groups_invitations_declined">Invitación a grupu refugada</string>
+  <plurals name="groups_invitations_open">
+    <item quantity="one">%d invitación a grupu abiertu</item>
+    <item quantity="other">%d invitaciones a grupu abiertu</item>
+  </plurals>
+  <string name="groups_invitations_response_accepted_sent">Aceutasti la invitación a grupu de %s.</string>
+  <string name="groups_invitations_response_declined_sent">Refugasti la invitación a grupu de %s.</string>
+  <string name="groups_invitations_response_accepted_received">%s aceutó la invitación a grupu.</string>
+  <string name="groups_invitations_response_declined_received">%s refugó la invitación a grupu.</string>
+  <!--Private Groups Revealing Contacts-->
+  <string name="groups_reveal_contacts">Revelar contautos</string>
+  <!--Forums-->
+  <string name="create_forum_title">Crear foru</string>
+  <string name="choose_forum_hint">Escueyi un nome pal foru</string>
+  <string name="create_forum_button">Crear foru</string>
+  <string name="forum_created_toast">Creóse\'l foru</string>
+  <string name="no_forum_posts">Nun hai mensaxes qu\'amosar</string>
+  <!--Forum Sharing-->
+  <string name="nobody">Naide</string>
+  <!--Blogs-->
+  <string name="blogs_other_blog_empty_state">Nun hai mensaxes qu\'amosar</string>
+  <string name="read_more">lleer más</string>
+  <string name="blogs_publish_blog_post">Publicar</string>
+  <string name="blogs_feed_empty_state">Nun hai mensaxes qu\'amosar</string>
+  <string name="blogs_remove_blog_ok">Desaniciar</string>
+  <!--Blog Sharing-->
+  <!--RSS Feeds-->
+  <string name="blogs_rss_feeds_import">Importar canal RSS</string>
+  <string name="blogs_rss_feeds_import_button">Importar</string>
+  <string name="blogs_rss_feeds_manage_author">Autor:</string>
+  <string name="blogs_rss_remove_feed_ok">Desaniciar</string>
+  <!--Settings Display-->
+  <!--Settings Network-->
+  <string name="network_settings_title">Redes</string>
+  <!--How and when Tor will connect after Automatic: E.g. Don't connect (in China) or Use Tor with bridges (in Belarus)-->
+  <!--Settings Security and Panic-->
+  <string name="security_settings_title">Seguridá</string>
+  <!--The %s placeholder is replaced with the following time spans, e.g. 5 Minutes, 1 Hour-->
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_never">Nunca</string>
+  <string name="panic_setting">Configuración del Botón d\'espantu</string>
+  <string name="panic_setting_title">Botón d\'espantu</string>
+  <string name="panic_setting_signout_title">Colar</string>
+  <string name="uninstall_setting_title">Desinstalar Briar</string>
+  <!--Settings Notifications-->
+  <string name="notification_settings_title">Avisos</string>
+  <string name="notify_private_messages_setting_title">Mensaxes privaos</string>
+  <!--Settings Feedback-->
+  <!--Link Warning-->
+  <!--Crash Reporter-->
+  <!--Sign Out-->
+  <!--Screen Filters & Tapjacking-->
+  <!--Permission Requests-->
+  <!--App Locking-->
+</resources>

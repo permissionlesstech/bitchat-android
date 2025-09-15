@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent">
+
+	<androidx.constraintlayout.widget.ConstraintLayout
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:padding="16dp">
+
+		<androidx.appcompat.widget.AppCompatImageView
+			android:id="@+id/errorIcon"
+			android:layout_width="32dp"
+			android:layout_height="32dp"
+			android:layout_marginVertical="8dp"
+			app:layout_constraintBottom_toBottomOf="@id/errorMessageIntro"
+			app:layout_constraintEnd_toStartOf="@id/errorMessageIntro"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toTopOf="parent"
+			app:srcCompat="@drawable/alerts_and_states_error"
+			app:tint="@color/briar_red_500"
+			tools:ignore="ContentDescription" />
+
+		<TextView
+			android:id="@+id/errorMessageIntro"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:layout_marginStart="16dp"
+			android:layout_marginLeft="16dp"
+			android:layout_marginEnd="16dp"
+			android:layout_marginRight="16dp"
+			android:text="@string/hotspot_error_intro"
+			android:textSize="@dimen/text_size_medium"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toEndOf="@+id/errorIcon"
+			app:layout_constraintTop_toTopOf="parent" />
+
+		<TextView
+			android:id="@+id/errorMessageDetail"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:layout_marginVertical="16dp"
+			android:background="@color/briar_orange_200"
+			android:gravity="center"
+			android:padding="8dp"
+			android:textColor="@color/briar_text_primary"
+			android:textSize="@dimen/text_size_medium"
+			android:typeface="monospace"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintHorizontal_bias="0.0"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/errorMessageIntro"
+			tools:text="@string/hotspot_error_no_wifi_direct" />
+
+		<Button
+			android:id="@+id/feedbackButton"
+			style="@style/BriarButtonOutline.Neutral"
+			android:layout_marginTop="16dp"
+			android:text="@string/send_feedback"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/errorMessageDetail" />
+
+		<androidx.fragment.app.FragmentContainerView
+			android:id="@+id/fallbackFragment"
+			android:name="org.briarproject.briar.android.hotspot.FallbackFragment"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/feedbackButton"
+			tools:layout="@layout/fragment_hotspot_fallback" />
+
+	</androidx.constraintlayout.widget.ConstraintLayout>
+
+</ScrollView>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<dimen name="message_bubble_radius_top_inner">@dimen/message_bubble_radius_big</dimen>
+	<dimen name="message_bubble_radius_top_outer">@dimen/message_bubble_radius_small</dimen>
+</resources>

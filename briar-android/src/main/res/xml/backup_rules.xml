@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+	<!-- docs: https://developer.android.com/guide/topics/data/autobackup#XMLSyntax -->
+	<exclude
+		domain="root"
+		path="." />
+	<!-- the previous entry should exclude things recursively, but we add more just to be sure -->
+	<exclude
+		domain="root"
+		path="app_db" />
+	<exclude
+		domain="root"
+		path="app_key" />
+	<!-- we don't use domain=file (getFilesDir()), but ApplicationInfo#dataDir -->
+	<exclude
+		domain="sharedpref"
+		path="." />
+</full-backup-content>

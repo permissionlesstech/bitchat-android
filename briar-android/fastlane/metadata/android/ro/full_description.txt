@@ -1,0 +1,11 @@
+Briar este o aplicație de mesagerie concepută pentru activiști, jurnaliști și oricine altcineva care are nevoie de o modalitate sigură, ușoară și robustă de a comunica. Spre deosebire de aplicațiile de mesagerie tradiționale, Briar nu se bazează pe un server central, ci mesajele sunt sincronizate direct între dispozitivele utilizatorilor. Dacă nu este disponibilă o conexiune la internet, Briar poate realiza sincronizarea mesajelor prin Bluetooth, Wi-Fi sau carduri de memorie, permițând schimbul de informații într-o situație de criză. Când se reface conexiunea la internet, Briar poate realiza sincronizarea prin intermediul rețelei Tor, asigurând protecția utilizatorilor și a relațiilor lor împotriva supravegherii.
+
+Aplicația oferă mesaje private, grupuri și forumuri, precum și bloguri. Suportul pentru rețeaua Tor este integrat în aplicație. Tot ceea ce faceți în Briar se stochează doar pe dispozitivul dvs., cu excepția cazului în care decideți partajarea cu alți utilizatori.
+
+Nu există reclame și nici urmărire. Codul sursă al aplicației este complet deschis pentru a fi inspectat de oricine și a fost deja auditat de specialiști. Toate versiunile Briar sunt reproductibile, ceea ce face posibilă verificarea potrivirii exacte a codului sursă publicat cu aplicația publicată aici. Dezvoltarea este realizată de o mică echipă non-profit.
+
+Politica de intimitate: https://briarproject.org/privacy
+
+Manualul de utilizare: https://briarproject.org/manual
+
+Codul sursă: https://code.briarproject.org/briar/briar

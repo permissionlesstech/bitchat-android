@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:scrollbars="vertical"
+	android:fillViewport="true">
+
+	<androidx.constraintlayout.widget.ConstraintLayout
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content">
+
+		<TextView
+			android:id="@+id/qrIntroView"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:layout_margin="16dp"
+			android:text="@string/hotspot_qr_wifi"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/cardView"
+			app:layout_constraintTop_toTopOf="parent" />
+
+		<androidx.cardview.widget.CardView
+			android:id="@+id/cardView"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_margin="16dp"
+			app:cardBackgroundColor="#ffffffff"
+			app:cardCornerRadius="16dp"
+			app:layout_constrainedHeight="true"
+			app:layout_constrainedWidth="true"
+			app:layout_constraintBottom_toBottomOf="parent"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/qrIntroView"
+			app:layout_constraintVertical_bias="0.0">
+
+			<ImageView
+				android:id="@+id/qrCodeView"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				tools:ignore="ContentDescription"
+				tools:src="@tools:sample/avatars" />
+
+		</androidx.cardview.widget.CardView>
+
+	</androidx.constraintlayout.widget.ConstraintLayout>
+
+</androidx.core.widget.NestedScrollView>

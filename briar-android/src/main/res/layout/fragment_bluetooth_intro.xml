@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:orientation="vertical">
+
+	<ScrollView
+		android:id="@+id/scrollView"
+		android:layout_width="match_parent"
+		android:layout_height="0dp"
+		android:layout_weight="1">
+
+		<androidx.constraintlayout.widget.ConstraintLayout
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content">
+
+			<androidx.appcompat.widget.AppCompatImageView
+				android:id="@+id/introImageView"
+				android:layout_width="@dimen/hero_rect_width"
+				android:layout_height="@dimen/hero_rect_height"
+				android:layout_margin="16dp"
+				app:layout_constraintBottom_toTopOf="@+id/introTextView"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toTopOf="parent"
+				app:srcCompat="@drawable/il_bluetooth_connect" />
+
+			<TextView
+				android:id="@+id/introTextView"
+				android:layout_width="0dp"
+				android:layout_height="wrap_content"
+				android:layout_margin="16dp"
+				android:text="@string/connect_via_bluetooth_intro"
+				app:layout_constraintBottom_toBottomOf="parent"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@+id/introImageView" />
+
+		</androidx.constraintlayout.widget.ConstraintLayout>
+
+	</ScrollView>
+
+	<Button
+		android:id="@+id/startButton"
+		style="@style/BriarButton"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:layout_marginHorizontal="16dp"
+		android:text="@string/start"
+		app:layout_constraintBottom_toBottomOf="parent"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toStartOf="parent" />
+
+</LinearLayout>

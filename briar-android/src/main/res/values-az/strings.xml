@@ -1,0 +1,490 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<resources>
+	<!--Setup-->
+	<string name="setup_title">Briar-a xoş gəlmisiniz!</string>
+	<string name="setup_name_explanation">Sizin nikiniz yazdığlarınızın yanında görsənəcək. Hesabı yaradandan sonra onu dəyişə bilməzsiniz.</string>
+	<string name="setup_next">Növbəti</string>
+	<string name="setup_password_intro">Şifrə seçin</string>
+	<string name="setup_password_explanation">Sizin Briar hesabınız internetda yox, cihazınızda şifrələnir. Şifrənizi unutursanız və ya Briar\'ı qaldırsanız, hesabınızı bərpa etmək üçün heç bir yol yoxdur. Uzun şifrə seçin. Və o şifrəni təxmin etmək çətin olan dörd təsadüfi sözdən və ya on təsadüfi hərfdən, nömrələrdən və simvollardan olması məsləhətdir.</string>
+	<string name="dnkm_doze_title">Fon qoşulmaları</string>
+	<string name="dnkm_doze_intro">Mesajları qəbul etmək üçün Briar arxa planda işləməlidir.</string>
+	<string name="dnkm_doze_explanation">Mesajları qəbul etmək üçün Briar arxa planda işləməlidir. Briar-ın xəttdə qalması üçün, batareya optimallaşdırmalarını söndürün</string>
+	<string name="dnkm_doze_button">Qoşulmalara izn ver</string>
+	<string name="choose_nickname">Nik seçin</string>
+	<string name="choose_password">Şifrə seçin</string>
+	<string name="confirm_password">Şifrəni təsdiq edin</string>
+	<string name="name_too_long">Adınız çox uzundur</string>
+	<string name="password_too_weak">Şifrə çox zəifdir</string>
+	<string name="passwords_do_not_match">Parollar uyğun deyil</string>
+	<string name="create_account_button">Hesab yaradın</string>
+	<string name="more_info">Digər məlumatlar</string>
+	<string name="don_t_ask_again">Bir daha soruşulmasın</string>
+	<string name="dnkm_huawei_protected_text">Aşağıdakı düyməni basın və əmin olun ki, Briar \"Qorunan proqramlar\" ekranında qorunur.</string>
+	<string name="dnkm_huawei_protected_button">Briar-ın qorunması</string>
+	<string name="dnkm_huawei_protected_help">Briar qorunan tətbiqlər siyahısına əlavə olunmasa, arxa planda işləməyəcəkdir.</string>
+	<string name="dnkm_warning_dozed">%sarxa planda işə düşmədi</string>
+	<!--Login-->
+	<string name="enter_password">Şifrə</string>
+	<string name="try_again">Şifrə yanlışdır, bir daha cəhd edin</string>
+	<string name="sign_in_button">Daxil ol</string>
+	<string name="forgotten_password">Mən şifrəni unutmuşam</string>
+	<string name="dialog_title_lost_password">Yaddan çıxmış şifrə</string>
+	<string name="dialog_message_lost_password">Sizin Briar hesabınız internetda yox, cihazınızda şifrələnir, ona görə biz onu silə bilmirik. Hesabı silib yenidən başlamaq istəyirsiniz? Diqqət: Sizin şəxsi məlumatlarınız, kontaktlarınız, məktublar və parametrlər silinəcək.</string>
+	<string name="startup_failed_notification_title">Briar başlamadı</string>
+  <string name="startup_failed_notification_text">Digər malumat üçün toxunun.</string>
+  <string name="startup_failed_activity_title">Başlama xətası</string>
+  <string name="startup_failed_db_error">Briar məlumat bazası nədənsə sıradan çıxıb. Hesabınız, məlumatlarınız və bütün əlaqələriniz itirilmişdır. Təəssüf ki, Briar\'ı yenidən bərpa etməli və ya \'Şifrəni unutmuşam\' seçərək yeni hesab yaratmalısınız.</string>
+  <string name="startup_failed_data_too_old_error">Hesabınız bu tətbiqin köhnə versiyası ilə yaradılmış və bu versiya ilə açıla bilməz. Parolu istəniləndə \'Mənim parolumu unutdum\' seçərək köhnə versiyanı yenidən bərpa etməli və ya yeni hesab yaratmalısınız</string>
+  <string name="startup_failed_data_too_new_error">Bu tətbiq çox köhnədir. Zəhmət olmasa ən son versiyaya keçin və yenidən cəhd edin</string>
+  <string name="startup_failed_service_error">Briar lazımi bir plugin qura bilmədi. Briarın yenidən qurulması bu problemi həll edir. Lakin, Briar sizin məlumatlarınızı saxlamaq üçün mərkəzi serverlərdən istifadə etmədikdən sonra hesabınızı və onunla əlaqəli bütün məlumatları itirəcəyinizi nəzərə alın.</string>
+  <plurals name="expiry_warning">
+    <item quantity="one">Bu Briar\'ın test versiyasıdır. Hesabınız %dgün ərzində sona çatacaq və yeniləmə mümkün deyil.</item>
+    <item quantity="other">Bu Briar\'ın test versiyasıdır. Hesabınız %dgün ərzində sona çatacaq və yeniləmə mümkün deyil.</item>
+  </plurals>
+  <string name="expiry_date_reached">Bu proqram sona çatdı. Test üçün təşəkkür edirik!</string>
+  <string name="download_briar">Briar-dan istifadə etməyə davam etmək üçün ən son versiyanı yükləyin.</string>
+  <string name="create_new_account">Yeni bir hesab yaratmaq lazımdır, lakin eyni ləqəbi istifadə edə bilərsiniz.</string>
+  <string name="download_briar_button">Son versiyasını yükləyin </string>
+  <string name="startup_open_database">Məlumatlar şifrədən açılması...</string>
+  <string name="startup_migrate_database">Məlumatların təzələnməsi...</string>
+  <string name="startup_compact_database">Məlumatın sıxılması...</string>
+  <!--Navigation Drawer-->
+  <string name="nav_drawer_open_description">Naviqasiya çekmecini açın</string>
+  <string name="nav_drawer_close_description">Naviqasiya çekməyini bağlayın</string>
+  <string name="contact_list_button">Kontaktlar</string>
+  <string name="groups_button">Şəxsi Qruplar</string>
+  <string name="forums_button">Forumlar</string>
+  <string name="blogs_button">Bloglar</string>
+  <!--This is part of the main menu. The app will be locked when this is tapped.-->
+  <string name="lock_button">Tətbiqetməni kilidlə</string>
+  <string name="settings_button">Quraşdırmalar</string>
+  <string name="sign_out_button">Çıxış</string>
+  <!--Transports: Tor-->
+  <string name="transport_tor">Internet</string>
+  <!--Transports: Wi-Fi-->
+  <string name="transport_lan">Wi-Fi</string>
+  <!--Transports: Bluetooth-->
+  <string name="transport_bt">Bluetooth</string>
+  <!--Notifications-->
+  <string name="reminder_notification_title">Briar-dan çıxdı</string>
+  <string name="reminder_notification_text">Daxil olmağınız üçün toxunun.</string>
+  <string name="reminder_notification_channel_title">Briar-a giriş haqqında xatırlama</string>
+  <string name="reminder_notification_dismiss">İmtina</string>
+  <string name="ongoing_notification_title">Briar-da imza olundu</string>
+  <string name="ongoing_notification_text">Briar-ı açmaq üçün toxunun</string>
+  <plurals name="private_message_notification_text">
+    <item quantity="one">Yeni şəxsi məktub</item>
+    <item quantity="other">%dyeni şəxsi məktub</item>
+  </plurals>
+  <plurals name="group_message_notification_text">
+    <item quantity="one">Yeni qrup məktubu</item>
+    <item quantity="other">%dyeni qrup məktubu</item>
+  </plurals>
+  <plurals name="forum_post_notification_text">
+    <item quantity="one">yeni forum postu.</item>
+    <item quantity="other">%dyeni forum postu.</item>
+  </plurals>
+  <plurals name="blog_post_notification_text">
+    <item quantity="one">yeni bloq postu</item>
+    <item quantity="other">%dyeni bloq postu</item>
+  </plurals>
+  <!--Misc-->
+  <string name="now">İndi</string>
+  <string name="show">Göstər</string>
+  <string name="hide">Gizlətmək</string>
+  <string name="ok">Oldu</string>
+  <string name="cancel">Ləğv et</string>
+  <string name="got_it">Anladım</string>
+  <string name="delete">Sil</string>
+  <string name="accept">Qəbul et</string>
+  <string name="decline">Azaldılma</string>
+  <string name="online">Online</string>
+  <string name="offline">Offline</string>
+  <string name="send">Göndər</string>
+  <string name="allow">Izn vermək</string>
+  <string name="open">Aç</string>
+  <string name="change">Dəyiş</string>
+  <string name="no_data">Məlumat yoxdur</string>
+  <string name="ellipsis">...</string>
+  <string name="text_too_long">Daxil olunmuş mətn çox uzundur</string>
+  <string name="show_onboarding">Kömək dialoqunu göstərin</string>
+  <string name="fix">Düzəliş</string>
+  <string name="help">Yardım</string>
+  <string name="sorry">Bağışlayın</string>
+  <string name="error_start_activity">Sizin sistemdə ələçatmazdır. </string>
+  <string name="status_heading">Status:</string>
+  <!--Contacts and Private Conversations-->
+  <string name="no_contacts">Göstərmək üçün əlaqə yoxdur</string>
+  <string name="no_contacts_action">Kontakt əlavə etmək üçün + işarəsinə toxunun</string>
+  <string name="date_no_private_messages">Məktub yixdur.</string>
+  <string name="no_private_messages">Göstərmək üçün məktub yixdur</string>
+  <string name="message_hint">Mesaj yazın</string>
+  <string name="image_caption_hint">Mövzu əlavə edin (isteyə bağlı)</string>
+  <string name="image_attach">Şəkil əlavə edin</string>
+  <string name="image_attach_error">Şəkil (lər) əlavə etmək alınmadı</string>
+  <string name="image_attach_error_too_big">Şəkilin həcmi böyükdür. Limit %d MB.</string>
+  <string name="image_attach_error_invalid_mime_type">Şəkil formatı dəstəklənmir: %s</string>
+  <string name="set_contact_alias">Kontakt adı dəyişdirin</string>
+  <string name="set_contact_alias_hint">Əlaqə adı</string>
+  <string name="delete_all_messages">Bütün mesajları sil</string>
+  <string name="dialog_title_delete_all_messages">Silməyi təsdiq et</string>
+  <string name="dialog_message_delete_all_messages">Bütün mesajları silmək istədiyinizə əminsinizmi? </string>
+  <string name="dialog_title_not_all_messages_deleted">Bütün mesajları silmək alınmadı</string>
+  <string name="delete_contact">Kontakt silin</string>
+  <string name="dialog_title_delete_contact">Kontaktın silinməsini təsdiqləyin</string>
+  <string name="dialog_message_delete_contact">Bu kontaktı və bu kontaktla əvəzlənən bütün mesajları silmək istədiyinizə əminsinizmi?</string>
+  <string name="contact_deleted_toast">Kontakt silindi</string>
+  <!--This is shown in the action bar when opening an image in fullscreen that the user sent-->
+  <string name="you">Siz</string>
+  <string name="save_image">Şəkili saxlamaq</string>
+  <string name="dialog_title_save_image">Şəkili saxlamaq?</string>
+  <string name="dialog_message_save_image">Bu görüntünün saxlanması digər tətbiqlərə daxil olmağa imkan verir. Saxlamaq istədiyinizə əminsinizmi?</string>
+  <string name="save_image_success">Şəkil saxlanıldı</string>
+  <string name="save_image_error">Şəkil saxlanılmadı</string>
+  <string name="dialog_title_no_image_support">Şəkillər mövcud deyil</string>
+  <string name="dialog_message_no_image_support">Sizin Briar kontaktınız hələlik şəkillər dəstəkləmir. Təkmilləşmədən sonra fərqli bir simvol görürsünüz.</string>
+  <string name="dialog_title_image_support">İndi bu kontakta şəkilləri göndərə bilərsiniz</string>
+  <string name="dialog_message_image_support">Şəkilləri əlavə etmək üçün bu simvola toxunun.</string>
+  <string name="messaging_too_many_attachments_toast">Yalnız %d ilk şəkil göndəriləcək</string>
+  <!--Adding Contacts-->
+  <string name="add_contact_title">Yaxında kontakt əlavə etmək</string>
+  <string name="face_to_face">Kontakta əlavə etmək istədiyiniz şəxslə tanış olmalısınız. Bu, hər kəsin kimliyinizi və ya mesajlarınızı gələcəkdə oxumasını maneə törədir.</string>
+  <string name="continue_button">Davam et</string>
+  <string name="try_again_button">Yenidən cəhd elə</string>
+  <string name="waiting_for_contact_to_scan">Skan üçün əlaqə gözləyir və \u2026 qoşulur</string>
+  <string name="exchanging_contact_details">Əlaqə məlumatları mübadiləsi \u2026</string>
+  <string name="contact_added_toast">Kontakt eləvə edildi: %s</string>
+  <string name="contact_already_exists">Kontakt %s artıq mövcuddur</string>
+  <string name="qr_code_invalid">QR kodu yanlışdır</string>
+  <string name="qr_code_too_old">Skan etdiyiniz QR kodunun köhnə bir versiyası gəlir. %s dən ən son versiyaya keçməyi xahiş edin və daha sonra yenidən cəhd edin.</string>
+  <string name="qr_code_too_new">Skan etdiyiniz QR kodunun köhnə bir versiyası gəlir. %sdən ən son versiyaya keçməyi xahiş edin və daha sonra yenidən cəhd edin.</string>
+  <string name="camera_error">Kamera xətası</string>
+  <string name="connecting_to_device">Cihaza qoşulma /2026</string>
+  <string name="authenticating_with_device">Cihazla təsdiqlənir \u2026</string>
+  <string name="connection_error_title">Kontaktınıza qoşula bilmədi</string>
+  <string name="connection_error_feedback"><a href="feedback">Bu problem davam edərsə, tətbiqin təkmilləşdirilməsinə kömək etmək üçün rəy göndərin.</a></string>
+  <!--Adding Contacts Remotely-->
+  <string name="add_contact_remotely_title_case">Məsafədə kontakt əlavə etmək </string>
+  <string name="add_contact_nearby_title">Yaxında kontakt əlavə etmək </string>
+  <string name="add_contact_remotely_title">Məsafədə kontakt əlavə etmək </string>
+  <string name="contact_link_intro">Kontaktın linkini buraya daxil edin</string>
+  <string name="contact_link_hint">Kontaktın linki</string>
+  <string name="paste_button">Yapışdır</string>
+  <string name="add_contact_button">Kontankt əlavə et</string>
+  <string name="copy_button">Kopyala</string>
+  <string name="share_button">Paylaş</string>
+  <string name="send_link_title">Link mübadiləsi</string>
+  <string name="add_contact_choose_nickname">Ad seç</string>
+  <string name="add_contact_choose_a_nickname">Ad daxil et</string>
+  <string name="nickname_intro">Niklə kontakt saxlayın. Bunu ancaq siz görəcəksiniz. </string>
+  <string name="your_link">Əlavə etmək istədiyiniz kontakt üçün bu linki verin</string>
+  <string name="link_clip_label">Briar link</string>
+  <string name="link_copied_toast">Link kopyalandı</string>
+  <string name="adding_contact_error">Kontaktı əlavə edərkən səhv baş verdi.</string>
+  <string name="pending_contact_requests_snackbar">Gözləyən kontakt sorğuları var. </string>
+  <string name="pending_contact_requests">Kənara qoyulmuş kontak sorğuları</string>
+  <string name="no_pending_contacts">Gözləyən kontakt yoxdur</string>
+  <string name="waiting_for_contact_to_come_online">Kontaktı xəttdə gözləyin ...</string>
+  <string name="connecting">Qoşulur...</string>
+  <string name="adding_contact">Kontaktın əlavə etməsi... </string>
+  <string name="adding_contact_failed">Kontakt əlavə etməsi alınmadı</string>
+  <string name="dialog_title_remove_pending_contact">Silməyi təstiqlə</string>
+  <string name="dialog_message_remove_pending_contact">Bu kontakt hələ də əlavə olunur. İndi onu çıxararsanız, əlavə olunmayacaq.</string>
+  <string name="own_link_error">Kontaktınızın linkini daxil edin, özünüzü deyil</string>
+  <string name="nickname_missing">Zəhmət olmasa adı daxil edin</string>
+  <string name="invalid_link">Səhv link</string>
+  <string name="unsupported_link">Bu link Briar-ın daha yeni versiyasından gəlir. Ən son versiyaya keçin və yenidən cəhd edin.</string>
+  <string name="intent_own_link">Öz linkini açdın. Əlavə etmək istədiyiniz kontaktlardan birini istifadə edin!</string>
+  <string name="missing_link">Zəhmət olmasa linki daxil edin</string>
+  <!--This is a numeral indicating the first step in a series of screens-->
+  <string name="step_1">1</string>
+  <!--This is a numeral indicating the second step in a series of screens-->
+  <string name="step_2">2</string>
+  <plurals name="contact_added_notification_text">
+    <item quantity="one">New contact added.</item>
+    <item quantity="other">%d yeni kontakt əlavə olundu. </item>
+  </plurals>
+  <string name="offline_state">İnternet bağlantısı yoxdur</string>
+  <string name="duplicate_link_dialog_title">Dublikat Link</string>
+  <!--This is a question asking whether two nicknames refer to the same person-->
+  <!--This is a button for answering that two nicknames do indeed refer to the same person. This
+	string will be used in a dialog button, so if the translation of this string is longer than 20
+	characters, please use "Yes" instead, and use "No" for the "Different Person" button-->
+  <string name="same_person_button">Eyni şəxs</string>
+  <!--This is a button for answering that two nicknames refer to different people. This string
+	will be used in a dialog button, so if the translation of this string longer than 20 characters,
+	please use "No" instead, and use "Yes" for the "Same Person" button-->
+  <string name="different_person_button">Fərqli şəxs</string>
+  <string name="pending_contact_updated_toast">Gözləyən kontakt yeniləndi</string>
+  <!--Introductions-->
+  <string name="introduction_onboarding_title">Kontaktınızı tanıtın</string>
+  <string name="introduction_onboarding_text">Kontaktlarınızı bir-birinizə təqdim edə bilərsiniz, lakin Briar-a qoşulmaq üçün şəxsən görüşmək lazım deyil.</string>
+  <string name="introduction_menu_item">Giriş edin</string>
+  <string name="introduction_activity_title">Kontakt seçin</string>
+  <string name="introduction_not_possible">Bu kontaktlara artıq bir girişiniz var. Xahiş edirik, bu işi bitirməyə icazə verin. Siz və ya kontaktlarınız nadir hallarda onlaynsa, bu bir az vaxt tələb edə bilər.</string>
+  <string name="introduction_message_title">Kontaktları təqdim edin</string>
+  <string name="introduction_message_hint">Mesaj əlavə et (istəyə bağlı)</string>
+  <string name="introduction_button">Şərh edin</string>
+  <string name="introduction_sent">Şərhiniz göndərildi.</string>
+  <string name="introduction_error">Şərhinizi gödərəndə xəta baş verdi.</string>
+  <string name="introduction_request_sent">Siz %1$s-i %2$s-ə təqdim etmək istədiniz.</string>
+  <string name="introduction_request_received">%1$ssizi%2$s-ə təqdim etmək istədi. %2$s-i kontakt siyahınıza əlavə etmək istəyirsiniz?</string>
+  <string name="introduction_request_exists_received">%1$ssizi %2$s-ə tanıtmaq istədi, ancaq %2$s sizin kontaklarinizda var. %1$sbilənə qədər cavab verə bilərsiniz:</string>
+  <string name="introduction_request_answered_received">%1$ssizi %2$s-ə təqdim etmək istədi.</string>
+  <string name="introduction_response_accepted_sent">%1$s-ə qəbul olundunuz</string>
+  <string name="introduction_response_declined_sent">%1$s-ə girişdən imtina etdiniz</string>
+  <!--Private Groups-->
+  <string name="groups_list_empty">Göstərmək üçün heç bir qrup</string>
+  <string name="groups_list_empty_action">Bir qrup yaratmaq üçün + simvoluna toxunun və ya kontaktlarınızı sizinlə bölüşmək üçün əlaqə saxlayın</string>
+  <string name="groups_created_by">%s yaratdı</string>
+  <plurals name="messages">
+    <item quantity="one">%dmesaj</item>
+    <item quantity="other">%dmesaj</item>
+  </plurals>
+  <string name="groups_group_is_empty">Bu qrup boşdur</string>
+  <string name="groups_group_is_dissolved">Bu qrup ləğv edildi</string>
+  <string name="groups_remove">Sil</string>
+  <string name="groups_create_group_title">Şəxsi qrup yaratmaq</string>
+  <string name="groups_create_group_button">Qrup yaratmaq</string>
+  <string name="groups_create_group_invitation_button">Dəvət göndər</string>
+  <string name="groups_create_group_hint">Şəxsi qrupunuz üçün ad seçin</string>
+  <string name="groups_invitation_sent">Qrup dəvəti göndərildi</string>
+  <string name="groups_member_list">Üzv siyahısı</string>
+  <string name="groups_invite_members">Üzvləri dəvət et</string>
+  <string name="groups_member_created_you">Siz qrup yaratdınız</string>
+  <string name="groups_member_created">%sqrup yaratdı</string>
+  <string name="groups_member_joined_you">Siz qrupa qoşuldunuz</string>
+  <string name="groups_member_joined">%sqrupa qatıldı</string>
+  <string name="groups_leave">Qrupu tərk etmək</string>
+  <string name="groups_leave_dialog_title">Qrupu tərk et</string>
+  <string name="groups_leave_dialog_message">Bu qrupu tərk etmək istədiyinizə əminsinizmi?</string>
+  <string name="groups_dissolve">Qrupu braxın</string>
+  <string name="groups_dissolve_dialog_title">Qrupun braxmasını təsdiqləyin</string>
+  <string name="groups_dissolve_dialog_message">Bu qrupu ləğv etmək istədiyinizə əminsinizmi? Bütün üzvlər söhbətlərinə davam edə bilməyəcək və ən son mesajı ala bilməyəcəklər.</string>
+  <string name="groups_dissolve_button">Braxın</string>
+  <string name="groups_dissolved_dialog_title">Qrup braxıldı</string>
+  <string name="groups_dissolved_dialog_message">Bu qrupun yaradıcısı onu ləğv etdi. Siz qrupa mesaj yaza bilməyəcəksiniz və yazılmış bütün yazıları ala bilməyəcəksiniz.</string>
+  <!--Private Group Invitations-->
+  <string name="groups_invitations_title">Qrup dəvətləri</string>
+  <string name="groups_invitations_joined">Qrupa qoşuldu</string>
+  <string name="groups_invitations_declined">Qrup dəvətləri azaldı</string>
+  <plurals name="groups_invitations_open">
+    <item quantity="one">%daçıq qrup dəvətləri</item>
+    <item quantity="other">%daçıq qrup dəvətləri</item>
+  </plurals>
+  <string name="sharing_status_groups">Yalnız yaradıcı qrupa yeni üzvləri dəvət edə bilər. Aşağıda qrupun bütün üzvləri iştirak edir.</string>
+  <!--Private Groups Revealing Contacts-->
+  <string name="groups_reveal_contacts">Kontaktları aşkar edin</string>
+  <string name="groups_reveal_dialog_message">Bu qrupun bütün mövcud və gələcək üzvlərinə kontaktların aşkarlanıb veriləcəyini seçə bilərsiniz. \n\n Kontaktları geri götürmək, qrupun yaradıcısı olsa da, aşkar əlaqələrlə ünsiyyət qura biləcəyiniz üçün qrupla əlaqənizi daha sürətli və daha etibarlı edir.</string>
+  <string name="groups_reveal_visible">Kontakt qrupda görünə bilər</string>
+  <string name="groups_reveal_visible_revealed_by_us">Kontakt əlaqəsi qrupda görür (sizin üçün görsənir)</string>
+  <string name="groups_reveal_invisible">Kontakt əlaqəsi qrup üçün görünmür</string>
+  <!--Forums-->
+  <string name="no_forums">Göstərmək üçün forum yoxdur</string>
+  <string name="no_forums_action">Bir forum yaratmaq üçün + simgesinə toxunun və ya kontaktlarinizi forumları sizinlə bölüşmək üçün xahiş edin</string>
+  <string name="create_forum_title">Forum yarat</string>
+  <string name="choose_forum_hint">Forum üçün ad seçin</string>
+  <string name="create_forum_button">Forum yarat</string>
+  <string name="forum_created_toast">Forum yaradıldı</string>
+  <string name="no_forum_posts">Göstərilməyən post yoxdur</string>
+  <string name="no_posts">Post yoxdur</string>
+  <plurals name="posts">
+    <item quantity="one">%dpost</item>
+    <item quantity="other">%dpost</item>
+  </plurals>
+  <string name="forum_new_message_hint">Yeni post</string>
+  <string name="forum_message_reply_hint">yeni cavab</string>
+  <string name="btn_reply">Cavab ver</string>
+  <string name="forum_leave">Forumdan çıxın</string>
+  <string name="dialog_title_leave_forum">Forumdan çıxışı təsdiqləyin</string>
+  <string name="dialog_message_leave_forum">Bu forumu tərk etmək istədiyinizə əminsinizmi? \n\n Bu forumu paylaşdığınız hər hansı əlaqələr yenilikləri almağa davam edə bilər.</string>
+  <string name="dialog_button_leave">Buraxın</string>
+  <string name="forum_left_toast">Sol forum</string>
+  <!--Forum Sharing-->
+  <string name="forum_share_button">Forumu paylaş</string>
+  <string name="contacts_selected">Kontaktlar seçildi</string>
+  <string name="activity_share_toolbar_header">Kontaktlar seçin</string>
+  <string name="no_contacts_selector">Göstərmək üçün əlaqə yoxdur</string>
+  <string name="no_contacts_selector_action">Kontakt əlavə etdikdən sonra bura qayıdın</string>
+  <string name="forum_shared_snackbar">Forum seçilmiş kontaktlarla paylaşıldı</string>
+  <string name="forum_share_message">Mesaj əlavə et (istəyə bağlı)</string>
+  <string name="forum_share_error">Bu forumu paylaşan zaman bir səhv oldu. </string>
+  <string name="forum_invitations_title">Forum dəvətləri</string>
+  <string name="forum_invitation_exists">Bu foruma artıq bir dəvət qəbul etdiniz. \n\nDaha dəvətnamələr qəbul edərək foruma daha sürətli və daha etibarlı bir əlaqə yaradacaqsınız.</string>
+  <string name="forum_joined_toast">Foruma qoşul</string>
+  <string name="forum_declined_toast">Dəvət azalıb</string>
+  <string name="shared_by_format">Paylaşdı %silə</string>
+  <string name="forum_invitation_already_sharing">Artıq paylaşırıq</string>
+  <string name="sharing_status">Paylaşma statusu</string>
+  <string name="sharing_status_forum">Bir forumun hər hansı bir üzvü onu əlaqə ilə paylaşa bilər. Bu forumu aşağıdakı əlaqələrlə bölüşürsünüz. Görməyən digər üzvlər də ola bilər.</string>
+  <string name="nobody">Heçkəs</string>
+  <!--Blogs-->
+  <string name="blogs_other_blog_empty_state">Göstərilməyən post yoxdur</string>
+  <string name="read_more">daha çox oxu</string>
+  <string name="blogs_write_blog_post">Blog postu yaz</string>
+  <string name="blogs_write_blog_post_body_hint">Blog yazınızı yazın</string>
+  <string name="blogs_publish_blog_post">Yayımlamaq</string>
+  <string name="blogs_blog_post_created">Blog yazı yaradılıb</string>
+  <string name="blogs_blog_post_received">Yeni blog mesajı qlındı</string>
+  <string name="blogs_blog_post_scroll_to">Gedin</string>
+  <string name="blogs_feed_empty_state">Göstərilməyən post yoxdur</string>
+  <string name="blogs_feed_empty_state_action">Abunə olduğunuz əlaqələrinizdən və bloglarınızdan gələn mesajlar burada görünəcək \n\n bir yazı yazmaq üçün qələm simgesinə toxunun</string>
+  <string name="blogs_remove_blog">Bloqu sil</string>
+  <string name="blogs_remove_blog_dialog_message">Bu blogu silmək istədiyinizə əminsinizmi? \n\n Onalarınız cihazınızdan silinəcək, lakin digər cihazların cihazlarından silinəcəkdir. \n\n Bu blogu paylaşdığınız hər hansı əlaqələr yenilikləri almağa davam edə bilər.</string>
+  <string name="blogs_remove_blog_ok">Sil</string>
+  <string name="blogs_blog_removed">Bloq silindi</string>
+  <string name="blogs_reblog_comment_hint">Şərh əlavə et (istəyə bağlı)</string>
+  <string name="blogs_reblog_button">Rebloq</string>
+  <!--Blog Sharing-->
+  <string name="blogs_sharing_share">Blogu paylaş</string>
+  <string name="blogs_sharing_error">Bu blogu paylaşan zaman bir səhv oldu.</string>
+  <string name="blogs_sharing_button">Blogu paylaş</string>
+  <string name="blogs_sharing_snackbar">Blog seçilmiş kontaktlarla paylaşdı</string>
+  <string name="blogs_sharing_invitations_title">Blog dəvətləri</string>
+  <string name="blogs_sharing_joined_toast">Bloga abunə olundu</string>
+  <string name="blogs_sharing_declined_toast">Dəvət azalıb</string>
+  <!--RSS Feeds-->
+  <string name="blogs_rss_feeds_import">RSS Feed idxalı</string>
+  <string name="blogs_rss_feeds_import_button">İdxal</string>
+  <string name="blogs_rss_feeds_import_hint">RSS kanalın linkini daxil edin</string>
+  <string name="blogs_rss_feeds_import_error">Üzr istəyirik! Feed-inizdə idxal bir xəta baş verdi.</string>
+  <string name="blogs_rss_feeds_manage_imported">İdxal olundu:</string>
+  <string name="blogs_rss_feeds_manage_author">Müəllif:</string>
+  <string name="blogs_rss_feeds_manage_updated">Son yeniləmə:</string>
+  <string name="blogs_rss_remove_feed">Feed\'i sil</string>
+  <string name="blogs_rss_remove_feed_ok">Sil</string>
+  <string name="blogs_rss_feeds_manage_empty_state">Xeyr RSS əks etdirmir\n\nİdxal etmək üçün + düyməsinə toxunun</string>
+  <string name="blogs_rss_feeds_manage_error">Kanal yükləmədə bir problem var. Zəhmət olmasa bir az sonra yenə cəhd edin.</string>
+  <!--Settings Profile Picture-->
+  <!--Settings Display-->
+  <string name="pref_language_title">Dil və region</string>
+  <string name="pref_language_changed">Briar-ı yenidən başlatdığınızda bu parametr qüvvəyə minir. Lütfən çıxın və Briar-ı yenidən başladın.</string>
+  <string name="pref_language_default">Sistemdə olduğu kimi </string>
+  <string name="display_settings_title">Görüntü</string>
+  <string name="pref_theme_title">Tema</string>
+  <string name="pref_theme_light">Ağ</string>
+  <string name="pref_theme_dark">Tünd</string>
+  <string name="pref_theme_auto">Avtomatik (Gündüz)</string>
+  <string name="pref_theme_system">Sistem Olduğu kimi</string>
+  <!--Settings Connections-->
+  <string name="tor_network_setting_automatic">Yerə görə avtomatik olaraq</string>
+  <!--How and when Briar will connect to Tor: E.g. "Don't connect to the Internet (in China)" or "Use Tor network with bridges (in Belarus)"-->
+  <string name="tor_mobile_data_title">Mobil interneti istifadə etmək</string>
+  <string name="tor_only_when_charging_summary">Cihaz batareyadan işləyərkən internet bağlantısını kəsir</string>
+  <!--Settings Security and Panic-->
+  <string name="security_settings_title">Təhlükəsizlik</string>
+  <string name="pref_lock_title">Tətbiq kilidi</string>
+  <string name="pref_lock_summary">Briar-a girmək üçün ekran kilidindən istifadə edin. </string>
+  <string name="pref_lock_disabled_summary">Bundan istifadə etmək üçün ekran kilidini quraşdırın. </string>
+  <string name="pref_lock_timeout_title">Tətbiq kilidinin hərəkətsizlik müddəti</string>
+  <!--The %s placeholder is replaced with the following time spans, e.g. 5 Minutes, 1 Hour-->
+  <string name="pref_lock_timeout_summary">Briar-ı istifadə etməsəniz, onu avtomatik olaraq %s dəqiqədən sonra kilidləyin</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_1">1 dəqiqə</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_5">5 dəqiqə</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_15">15 dəqiqə</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_30">30 dəqiqə</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_60">1 saat</string>
+  <string name="pref_lock_timeout_never">Heç vaxt</string>
+  <string name="pref_lock_timeout_never_summary">Briar-ı avtomatik olaraq kilidləməyin</string>
+  <string name="change_password">Şifrəni dəyiş</string>
+  <string name="current_password">Hazırkı şifrə</string>
+  <string name="choose_new_password">Yeni parol</string>
+  <string name="confirm_new_password">Yeni şifrəni təsdiq et</string>
+  <string name="password_changed">Şifrə dəyişdi.</string>
+  <string name="panic_setting">Təhlükə düyməsini quraşdırılması </string>
+  <string name="panic_setting_title">Təhlükə düyməsi</string>
+  <string name="panic_setting_hint">Təhlükə düyməsini işə salarkən Briarın necə reaksiya verəcəyini konfiqurasiya edin</string>
+  <string name="panic_app_setting_title">Təhlükə tətgiq düyməsi</string>
+  <string name="unknown_app">Naməlum bir tətbiq</string>
+  <string name="panic_app_setting_summary">Heç bir tətbiq quraşdırılmadı</string>
+  <string name="panic_app_setting_none">Heç biri</string>
+  <string name="dialog_title_connect_panic_app">Təhlükəli tətbiqi təsdiq edin</string>
+  <string name="panic_setting_destructive_action">Təhlükəli hərəkətlər</string>
+  <string name="panic_setting_signout_title">Çıxış</string>
+  <string name="panic_setting_signout_summary">Panik düyməsi basarkən Briar-dan çıxın</string>
+  <string name="purge_setting_title">Hesabı sil</string>
+  <!--Settings Notifications-->
+  <string name="notification_settings_title">Bildirişler</string>
+  <string name="notify_sign_in_title">Daxil olmaq üçün mənim yadıma salmaq</string>
+  <string name="notify_sign_in_summary">Telefonu işə saldıqda və ya proqramı yenilədikdə xatırlatmanı göstərin</string>
+  <string name="notify_private_messages_setting_title">Şəxsi ismarışlar</string>
+  <string name="notify_private_messages_setting_summary">Şəxsi mesajlar üçün siqnallar göstərmək</string>
+  <string name="notify_private_messages_setting_summary_26">Şəxsi mesajlar üçün konfiqurasiya siqnalları</string>
+  <string name="notify_group_messages_setting_title">Qrup mesajlar</string>
+  <string name="notify_group_messages_setting_summary">Qrup mesajlar üçün siqnallar göstərmək</string>
+  <string name="notify_group_messages_setting_summary_26">Qrup mesajlar üçün konfiqurasiya siqnalları</string>
+  <string name="notify_forum_posts_setting_title">Forumun postları </string>
+  <string name="notify_forum_posts_setting_summary">Forum postları üçün siqnallar göstərmək</string>
+  <string name="notify_forum_posts_setting_summary_26">Forum postları üçün konfiqurasiya siqnalları</string>
+  <string name="notify_blog_posts_setting_title">Bloq postları</string>
+  <string name="notify_blog_posts_setting_summary">Blog yazıları üçün siqnallar göstərin</string>
+  <string name="notify_blog_posts_setting_summary_26">Blog yazıları üçün siqnallar düzəldin</string>
+  <string name="notify_vibration_setting">Vibrasiya</string>
+  <string name="notify_sound_setting">Səs</string>
+  <string name="notify_sound_setting_default">Standart zəng melodiyası</string>
+  <string name="notify_sound_setting_disabled">Heç biri</string>
+  <string name="choose_ringtone_title">Zəng tonunu seçin</string>
+  <string name="cannot_load_ringtone">Zəng tonu yüklənmir</string>
+  <!--Settings Feedback-->
+  <string name="feedback_settings_title">Şərh</string>
+  <string name="send_feedback">Rəy  göndər</string>
+  <!--Link Warning-->
+  <string name="link_warning_title">Bağlantı xəbərdarlığı</string>
+  <string name="link_warning_intro">Xarici tətbiq ilə aşağıdakı linki açmaq istəyirsən.</string>
+  <string name="link_warning_text">Bu sizi tanımaq üçün istifadə edilə bilər. Sizə bu link göndərən adama etibar edirsinizmi?  Bu linki Tor Browserda açmaq məsləhət görülür. </string>
+  <string name="link_warning_open_link">Link-i aç</string>
+  <!--Crash Reporter-->
+  <string name="crash_report_title">Briar qəza göndərişi</string>
+  <string name="briar_crashed">Bağışlayın, Briar qəzaya uğrayıb.</string>
+  <string name="not_your_fault">Bu sizin günahınız deyil.</string>
+  <string name="please_send_report">Xahiş edirik bizə bir qəza hesabatı göndərərək daha yaxşı bir Briar qurmamıza kömək edin.</string>
+  <string name="report_is_encrypted">Hesabatın şifrələndiyini və təhlükəsiz olaraq göndərildiyinə əmin edirik.</string>
+  <string name="feedback_title">Şərh</string>
+  <string name="describe_crash">Nə baş verdiyini təsvir edin (istəyə bağlıdır)</string>
+  <string name="enter_feedback">Rəyinizi yazın</string>
+  <string name="optional_contact_email">Sizim elektron ünvanınız (istəyinizə bağlıdır)</string>
+  <string name="include_debug_report_crash">Cədvəl haqqında anonim məlumatları əlavə edin</string>
+  <string name="include_debug_report_feedback">Bu cihaz haqqında anonim məlumatları əlavə edin</string>
+  <string name="send_report">Hesabat göndər</string>
+  <string name="close">Bağla</string>
+  <string name="dev_report_saved">Hesabat saxlandı. Briar-a növbəti dəfə daxil olduqda göndəriləcək.</string>
+  <!--Sign Out-->
+  <string name="progress_title_logout">Briar-dan çıxış... </string>
+  <!--Screen Filters & Tapjacking-->
+  <string name="screen_filter_title">Ekran örtüyü aşkarlandı</string>
+  <string name="screen_filter_allow">Bu tətbiqlərin yuxarı çəkilməsinə icazə verin</string>
+  <!--Permission Requests-->
+  <string name="permission_camera_title">Camera izni</string>
+  <string name="permission_camera_request_body">QR kodunu skan etmək üçün Briar-a kameraya icazə lazımdır.</string>
+  <string name="permission_location_title">Mövqe icazəsi</string>
+  <string name="permission_camera_location_title">Kamera və mövqe</string>
+  <string name="permission_camera_denied_body">Kameraya daxil olmağı rədd etdiniz, lakin əlaqə əlavə etmək kameradan istifadə etməyi tələb edir. \n\nİcazə verilməsini düşünün.</string>
+  <string name="qr_code">QR kodu</string>
+  <string name="show_qr_code_fullscreen">QR kodu tam ekranda göstər</string>
+  <!--App Locking-->
+  <string name="lock_unlock">Briar kilidini aç</string>
+  <string name="lock_unlock_verbose">Briar kilidini açmaq üçün cihazınızın PİN, naxış və ya parolunuzu daxil edin</string>
+  <string name="lock_unlock_fingerprint_description">Davam etmək üçün qeyd olunan barmaq ilə barmaq izinizi sensorunuza toxunun</string>
+  <string name="lock_unlock_password">Şifrəni istifadə edin</string>
+  <string name="lock_is_locked">Briar kilidləndi</string>
+  <string name="lock_tap_to_unlock">Kilidi açmaq üçün toxunun</string>
+  <!--Connections Screen-->
+  <!--Screenshots-->
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_alice">Alisa</string>
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_bob">Bob</string>
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_carol">Kerol</string>
+  <!--This is a message to be used in screenshots. Please use the same translation for Bob!-->
+  <string name="screenshot_message_1">Salam Bob!</string>
+  <!--This is a message to be used in screenshots. Please use the same translation for Alice!-->
+  <string name="screenshot_message_2">Salam Elis! Briar haqqında danışdığınız üçün təşəkkür edirik!</string>
+  <!--This is a message to be used in screenshots.-->
+  <string name="screenshot_message_3">Problem yoxdur, bunu ümüd edirəm 😀</string>
+</resources>

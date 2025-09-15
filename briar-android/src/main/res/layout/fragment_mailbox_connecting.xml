@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent">
+
+	<TextView
+		android:id="@+id/title"
+		style="@style/TextAppearance.AppCompat.Large"
+		android:layout_width="0dp"
+		android:layout_height="wrap_content"
+		android:layout_marginHorizontal="@dimen/margin_xlarge"
+		android:layout_marginTop="@dimen/margin_xlarge"
+		android:gravity="center"
+		android:text="@string/mailbox_setup_connecting"
+		app:layout_constraintBottom_toTopOf="@+id/progressBar"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toTopOf="parent"
+		app:layout_constraintVertical_chainStyle="packed" />
+
+	<com.google.android.material.progressindicator.LinearProgressIndicator
+		android:id="@+id/progressBar"
+		android:layout_width="0dp"
+		android:layout_height="wrap_content"
+		android:layout_marginHorizontal="@dimen/margin_xlarge"
+		android:layout_marginTop="@dimen/margin_xlarge"
+		android:max="100"
+		app:indicatorColor="@color/briar_accent"
+		app:layout_constraintBottom_toTopOf="@+id/info"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toBottomOf="@+id/title"
+		tools:progress="50" />
+
+	<TextView
+		android:id="@+id/info"
+		android:layout_width="0dp"
+		android:layout_height="wrap_content"
+		android:layout_marginHorizontal="@dimen/margin_xlarge"
+		android:layout_marginTop="@dimen/margin_xlarge"
+		android:layout_marginBottom="@dimen/margin_xlarge"
+		android:gravity="center"
+		android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
+		app:layout_constraintBottom_toBottomOf="parent"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toBottomOf="@+id/progressBar"
+		tools:text="This may take up to 2 minutes" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

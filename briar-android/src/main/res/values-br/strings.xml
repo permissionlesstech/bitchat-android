@@ -1,0 +1,188 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<resources>
+	<!--Setup-->
+	<string name="setup_title">Degemer mat war Briar</string>
+	<string name="setup_next">De-heul</string>
+	<string name="setup_password_intro">Dibabit ur ger-tremen</string>
+	<string name="dnkm_doze_title">Kevreadennoù drek-leur</string>
+	<string name="dnkm_doze_button">Aotren ar c\'hevreadennoù</string>
+	<string name="choose_nickname">Dibabit ho lezanv</string>
+	<string name="choose_password">Dibabit ho ker-tremen</string>
+	<string name="confirm_password">Kadarnait ho ker-tremen</string>
+	<string name="name_too_long">Re hir eo an anv</string>
+	<string name="password_too_weak">Re wan eo ar ger-kuzh</string>
+	<string name="passwords_do_not_match">Ne glot ket ar gerioù-tremen</string>
+	<string name="create_account_button">Krouiñ ur gont</string>
+	<string name="more_info">Muioc\'h a ditouroù</string>
+	<string name="don_t_ask_again">Arabat goulenn ganin ken</string>
+	<string name="dnkm_huawei_protected_button">Gwareziñ Briar</string>
+  <!--Login-->
+  <string name="enter_password">Ger-tremen</string>
+  <string name="try_again">Ger-tremen fall, klaskit adarre</string>
+  <string name="sign_in_button">Kevreañ</string>
+  <string name="forgotten_password">Ankoueet em eus ma ger-tremen</string>
+  <string name="dialog_title_lost_password">Kollet em eus ma ger-tremen</string>
+  <string name="startup_failed_notification_title">N\'hall ket loc\'hañ Briar</string>
+  <!--Navigation Drawer-->
+  <string name="contact_list_button">Darempredoù</string>
+  <string name="groups_button">Strolladoù prevez</string>
+  <string name="forums_button">Foromoù</string>
+  <string name="blogs_button">Blogoù</string>
+  <!--This is part of the main menu. The app will be locked when this is tapped.-->
+  <string name="lock_button">Prennañ an arload</string>
+  <string name="settings_button">Arventennoù</string>
+  <string name="sign_out_button">Digevreañ</string>
+  <!--Transports-->
+  <string name="transport_tor">Kenrouedad</string>
+  <string name="transport_bt">Bluetooth</string>
+  <string name="transport_lan">Wi-Fi</string>
+  <!--Notifications-->
+  <string name="ongoing_notification_title">Marilhet e-barzh Briar</string>
+  <string name="ongoing_notification_text">Touchit da zigeriñ Briar.</string>
+  <plurals name="private_message_notification_text">
+    <item quantity="one">Kemennadenn prevez nevez</item>
+    <item quantity="two">%d a gemennadennoù prevez nevez. </item>
+    <item quantity="few">%d a gemennadennoù prevez nevez. </item>
+    <item quantity="many">%d a gemennadennoù prevez nevez. </item>
+    <item quantity="other">%d a gemennadennoù prevez nevez. </item>
+  </plurals>
+  <plurals name="group_message_notification_text">
+    <item quantity="one">Kemennadenn strollad nevez.</item>
+    <item quantity="two">%d a gemennadennoù strollad nevez.</item>
+    <item quantity="few">%d a gemennadennoù strollad nevez.</item>
+    <item quantity="many">%d a gemennadennoù strollad nevez.</item>
+    <item quantity="other">%d a gemennadennoù strollad nevez.</item>
+  </plurals>
+  <plurals name="forum_post_notification_text">
+    <item quantity="one">Postadenn forom nevez.</item>
+    <item quantity="two">%da bostadennoù forom nevez.</item>
+    <item quantity="few">%da bostadennoù forom nevez.</item>
+    <item quantity="many">%da bostadennoù forom nevez.</item>
+    <item quantity="other">%da bostadennoù forom nevez.</item>
+  </plurals>
+  <plurals name="blog_post_notification_text">
+    <item quantity="one">Postadenn blog nevez.</item>
+    <item quantity="two">%d a bostadennoù blog nevez.</item>
+    <item quantity="few">%d a bostadennoù blog nevez.</item>
+    <item quantity="many">%d a bostadennoù blog nevez.</item>
+    <item quantity="other">%d a bostadennoù blog nevez.</item>
+  </plurals>
+  <!--Misc-->
+  <string name="now">bremañ</string>
+  <string name="show">Diskouez</string>
+  <string name="hide">Kuzhaat</string>
+  <string name="ok">MAT EO</string>
+  <string name="cancel">Nullañ</string>
+  <string name="got_it">Deuet eo ganin</string>
+  <string name="delete">Dilemel</string>
+  <string name="accept">Asantiñ</string>
+  <string name="decline">Nac\'hañ</string>
+  <string name="options">Dibarzhioù</string>
+  <string name="online">Enlinenn</string>
+  <string name="offline">Ezlinenn</string>
+  <string name="send">Kas</string>
+  <string name="allow">Aotren</string>
+  <string name="open">Digeriñ</string>
+  <string name="no_data">Roadenn ebet</string>
+  <string name="ellipsis">…</string>
+  <string name="text_too_long">An destenn ebarzhet a zo re hir</string>
+  <string name="show_onboarding">Diskouez an diviz skoazell</string>
+  <string name="help">Skoazell</string>
+  <!--Contacts and Private Conversations-->
+  <string name="date_no_private_messages">Kemennadenn ebet.</string>
+  <string name="message_hint">Doare kemennadenn</string>
+  <string name="delete_contact">Dilemel an darempred</string>
+  <string name="dialog_title_delete_contact">Kadarnat dilemel darempred</string>
+  <string name="contact_deleted_toast">Darempred dilemet</string>
+  <!--Adding Contacts-->
+  <string name="add_contact_title">Ouzhpennañ un darempred</string>
+  <string name="continue_button">Kenderc\'hel</string>
+  <string name="try_again_button">Klask adarre</string>
+  <string name="contact_added_toast">Darempred ouzhpennet: %s</string>
+  <string name="contact_already_exists">An darempred %s a zo anezhañ endeo</string>
+  <string name="camera_error">Fazi Kamera</string>
+  <!--Introductions-->
+  <string name="introduction_onboarding_title">Degas e-barzh ho tarempredoù</string>
+  <string name="introduction_menu_item">Sevel un digoradur</string>
+  <string name="introduction_activity_title">Diuziñ darempred</string>
+  <string name="introduction_message_title">Degas e-barzh darempredoù</string>
+  <string name="introduction_message_hint">Ouzhpennañ ur gemennadenn (diret)</string>
+  <string name="introduction_button">Sevel un digoradur</string>
+  <string name="introduction_sent">Kaset eo bet ho tigoradur.</string>
+  <string name="introduction_error">Ur fazi a zo c\'hoarvezet en ur ober an digoradur.</string>
+  <string name="introduction_response_error">Fazi en ur respont d\'an digoradur</string>
+  <plurals name="contact_added_notification_text">
+    <item quantity="one">Darempred nevez ouzhpennet.</item>
+    <item quantity="two">%d a zarempredoù nevez ouzhpennet.</item>
+    <item quantity="few">%d a zarempredoù nevez ouzhpennet.</item>
+    <item quantity="many">%d a zarempredoù nevez ouzhpennet.</item>
+    <item quantity="other">%d a zarempredoù nevez ouzhpennet.</item>
+  </plurals>
+  <!--Private Groups-->
+  <string name="groups_created_by">Graet gant %s</string>
+  <plurals name="messages">
+    <item quantity="one">%d kemennadenn</item>
+    <item quantity="two">%d a gemennadennoù</item>
+    <item quantity="few">%d a gemennadennoù</item>
+    <item quantity="many">%d a gemennadennoù</item>
+    <item quantity="other">%d a gemennadennoù</item>
+  </plurals>
+  <string name="groups_group_is_empty">Leun eo ar strollad-mañ</string>
+  <string name="groups_group_is_dissolved">Divodet eo bet ar strollad-mañ</string>
+  <string name="groups_remove">Dilemel</string>
+  <string name="groups_create_group_title">Krouiñ ur strollad prevez</string>
+  <string name="groups_create_group_button">Krouiñ ur strollad</string>
+  <string name="groups_create_group_invitation_button">Kas pedadennoù</string>
+  <string name="groups_create_group_hint">Dibabit un anv evit ho strollad prevez</string>
+  <string name="groups_invitation_sent">Pedadenn ar strollad a zo bet kaset</string>
+  <string name="groups_message_sent">Kemennadenn kaset</string>
+  <string name="groups_member_list">Listenn an izili</string>
+  <string name="groups_invite_members">Pediñ izili</string>
+  <string name="groups_member_created_you">Krouet ho peus ar strollad</string>
+  <string name="groups_member_created">%s en deus krouet ar strollad</string>
+  <string name="groups_member_joined_you">Emezelet ho peus er strollad</string>
+  <string name="groups_member_joined">%s a zo deuet e-barzh ar strollad</string>
+  <string name="groups_leave">Kuitaat ar strollad</string>
+  <string name="groups_leave_dialog_title">Kadarnaat e kuitait ar strollad</string>
+  <string name="groups_leave_dialog_message">C\'hoant ho peus da guitaat ar strollad-mañ?</string>
+  <string name="groups_dissolve">Divodañ ar strollad</string>
+  <string name="groups_dissolve_dialog_title">Kadarnaat e tivodit ar strollad</string>
+  <string name="groups_dissolve_button">Divodañ</string>
+  <!--Private Group Invitations-->
+  <!--Private Groups Revealing Contacts-->
+  <!--Forums-->
+  <!--Forum Sharing-->
+  <string name="forum_share_message">Ouzhpennañ ur gemennadenn (diret)</string>
+  <!--Blogs-->
+  <string name="blogs_remove_blog_ok">Dilemel</string>
+  <!--Blog Sharing-->
+  <!--RSS Feeds-->
+  <string name="blogs_rss_remove_feed_ok">Dilemel</string>
+  <!--Settings Display-->
+  <!--Settings Network-->
+  <!--How and when Tor will connect after Automatic: E.g. Don't connect (in China) or Use Tor with bridges (in Belarus)-->
+  <!--Settings Security and Panic-->
+  <string name="security_settings_title">Surentezh</string>
+  <!--The %s placeholder is replaced with the following time spans, e.g. 5 Minutes, 1 Hour-->
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_5">5 munutenn</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_60">1 eurvezh</string>
+  <string name="change_password">Cheñch ar ger-tremen</string>
+  <string name="confirm_new_password">Kadarnaat ar ger-tremen nevez</string>
+  <string name="panic_app_setting_none">Hini ebet</string>
+  <string name="panic_setting_signout_title">Digevreañ</string>
+  <!--Settings Notifications-->
+  <string name="notify_sound_setting_disabled">Hini ebet</string>
+  <!--Settings Feedback-->
+  <!--Link Warning-->
+  <!--Crash Reporter-->
+  <string name="close">Serriñ</string>
+  <!--Sign Out-->
+  <!--Screen Filters & Tapjacking-->
+  <!--Permission Requests-->
+  <!--App Locking-->
+</resources>

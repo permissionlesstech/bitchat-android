@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools">
+
+	<item
+		android:id="@+id/action_group_invite"
+		android:icon="@drawable/ic_add_white"
+		android:title="@string/groups_invite_members"
+		android:visible="false"
+		app:showAsAction="never"
+		tools:visible="true" />
+
+	<item
+		android:id="@+id/action_group_member_list"
+		android:icon="@drawable/ic_group_white"
+		android:title="@string/groups_member_list"
+		app:showAsAction="never" />
+
+	<item
+		android:id="@+id/action_group_reveal"
+		android:icon="@drawable/ic_visibility_white"
+		android:title="@string/groups_reveal_contacts"
+		android:visible="false"
+		app:showAsAction="never"
+		tools:visible="true" />
+
+	<item
+		android:id="@+id/action_group_leave"
+		android:icon="@drawable/action_delete_white"
+		android:title="@string/groups_leave"
+		android:visible="false"
+		app:showAsAction="never"
+		tools:visible="true" />
+
+	<item
+		android:id="@+id/action_group_dissolve"
+		android:icon="@drawable/action_delete_white"
+		android:title="@string/groups_dissolve"
+		android:visible="false"
+		app:showAsAction="never"
+		tools:visible="true" />
+
+</menu>

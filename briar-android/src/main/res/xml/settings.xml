@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto">
+
+	<org.briarproject.briar.android.settings.AvatarPreference android:key="pref_key_avatar" />
+
+	<Preference
+		android:title="@string/display_settings_title"
+		app:fragment="org.briarproject.briar.android.settings.DisplayFragment"
+		app:icon="@drawable/ic_settings_brightness" />
+
+	<Preference
+		android:title="@string/network_settings_title"
+		app:fragment="org.briarproject.briar.android.settings.ConnectionsFragment"
+		app:icon="@drawable/ic_connect_without_contact" />
+
+	<Preference
+		android:title="@string/security_settings_title"
+		app:fragment="org.briarproject.briar.android.settings.SecurityFragment"
+		app:icon="@drawable/ic_settings_security" />
+
+	<Preference
+		android:title="@string/notification_settings_title"
+		app:fragment="org.briarproject.briar.android.settings.NotificationsFragment"
+		app:icon="@drawable/ic_notifications" />
+
+	<Preference
+		android:key="pref_key_mailbox"
+		android:title="@string/mailbox_settings_title"
+		app:icon="@drawable/ic_mailbox" />
+
+	<PreferenceCategory
+		android:key="pref_key_actions"
+		android:layout="@layout/preferences_category"
+		android:title="@string/pref_category_actions"
+		app:allowDividerAbove="true">
+		<Preference
+			android:key="pref_key_share_app"
+			android:title="@string/hotspot_title"
+			app:icon="@drawable/ic_settings_share">
+			<intent
+				android:targetClass="org.briarproject.briar.android.hotspot.HotspotActivity"
+				android:targetPackage="@string/app_package" />
+		</Preference>
+		<Preference
+			android:key="pref_key_share_app_link"
+			android:title="@string/share_app_link"
+			app:icon="@drawable/ic_settings_share_link">
+		</Preference>
+		<Preference
+			android:key="pref_key_send_feedback"
+			android:title="@string/send_feedback"
+			app:icon="@drawable/ic_feedback" />
+	</PreferenceCategory>
+
+	<PreferenceCategory
+		android:key="pref_key_dev"
+		android:layout="@layout/preferences_category"
+		android:title="Developer Options"
+		app:allowDividerAbove="true">
+
+		<Preference
+			android:key="pref_key_test_data"
+			android:title="Create test data">
+
+			<intent
+				android:targetClass="org.briarproject.briar.android.test.TestDataActivity"
+				android:targetPackage="@string/app_package" />
+		</Preference>
+
+		<Preference
+			android:key="pref_key_explode"
+			android:title="Crash" />
+
+	</PreferenceCategory>
+
+	<Preference
+		android:title="@string/about_title"
+		app:allowDividerAbove="true"
+		app:fragment="org.briarproject.briar.android.settings.AboutFragment"
+		app:icon="@drawable/ic_info_dark" />
+
+</PreferenceScreen>

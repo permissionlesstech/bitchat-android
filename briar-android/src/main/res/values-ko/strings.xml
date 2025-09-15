@@ -1,0 +1,575 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<resources>
+	<!--Setup-->
+	<string name="setup_title">Briar에 오신 것을 환영합니다</string>
+	<string name="setup_name_explanation">별명은 게시한 모든 컨텐츠 옆에 보여지게 됩니다. 별명은 계정을 만든 후에는 바꿀 수 없습니다.</string>
+	<string name="setup_next">다음</string>
+	<string name="setup_password_intro">비밀번호를 정해주세요.</string>
+	<string name="setup_password_explanation">Briar 계정은 암호화되어 기기에 저장되기 때문에 클라우드에 저장되지 않습니다. 비밀번호를 잊어버리셨거나 Briar를 삭제하셨었다면 계정을 복구할 방법이 없습니다.\n\n연관성 없는 네 단어, 혹은 완전히 무작위적인 글자, 숫자, 그리고 기호의 조합과 같은 길고 알아맞추기 어려운 비밀번호로 정해주세요.</string>
+	<string name="dnkm_doze_title">백그라운드 연결</string>
+	<string name="dnkm_doze_intro">메시지를 받기 위해서는 Briar가 백그라운드에서 연결된 상태를 유지해야 합니다.</string>
+	<string name="dnkm_doze_explanation">메시지를 받기 위해서는 Briar가 백그라운드에서 연결된 상태를 유지해야 합니다. Briar가 백그라운드에서 연결된 상태를 유지할 수 있게 배터리 최적화를 비활성화해 주세요.</string>
+	<string name="dnkm_doze_button">연결 허용하기</string>
+	<string name="choose_nickname">별명을 정하세요</string>
+	<string name="choose_password">비밀번호를 정하세요</string>
+	<string name="confirm_password">비밀번호를 확인하세요</string>
+	<string name="name_too_long">이름이 너무 깁니다.</string>
+	<string name="password_too_weak">비밀번호가 너무 약합니다</string>
+	<string name="passwords_do_not_match">비밀번호가 일치하지 않습니다</string>
+	<string name="create_account_button">계정 만들기</string>
+	<string name="more_info">추가 정보</string>
+	<string name="don_t_ask_again">다시는 물어보지 않기</string>
+	<string name="dnkm_huawei_protected_text">밑의 버튼을 눌러 Briar를 \"보호된 앱\" 스크린에서 보호되게 해 주세요.</string>
+	<string name="dnkm_huawei_protected_button">Briar 보호하기</string>
+	<string name="dnkm_huawei_protected_help">Briar를 보호된 앱 목록에 추가하지 않는다면, 백그라운드에서 실행될 수 없습니다.</string>
+	<string name="dnkm_xiaomi_button">Briar 보호하기</string>
+	<string name="dnkm_warning_dozed">%s가 백그라운드에서 실행될 수 없었습니다</string>
+	<!--Login-->
+	<string name="enter_password">비밀번호</string>
+	<string name="try_again">잘못된 비밀번호입니다. 다시 시도하세요.</string>
+	<string name="dialog_title_cannot_check_password">비밀번호를 확인할 수 없습니다</string>
+	<string name="dialog_message_cannot_check_password">비밀번호를 확인할 수 없었습니다. 이 문제를 해결하기 위해 기기를 재시작 해 보세요.</string>
+	<string name="sign_in_button">로그인</string>
+	<string name="forgotten_password">비밀번호를 잊어버렸습니다</string>
+  <string name="dialog_title_lost_password">비밀번호 분실</string>
+  <string name="dialog_message_lost_password">Briar 계정은 클라우드가 아니라 기기에서 암호화돼 저장되므로 비밀번호를 재설정 할 수 없습니다. 계정을 삭제하고 다시 시작하시겠습니까? \n\n주의 : 신원, 연락처 및 메시지는 영구적으로 손실됩니다.</string>
+  <string name="startup_failed_notification_title">Briar가 켜질 수 없습니다</string>
+  <string name="startup_failed_notification_text">눌러서 추가 정보 확인.</string>
+  <string name="startup_failed_activity_title">Briar 시작 실패</string>
+  <string name="startup_failed_db_error">어떤 이유에선지, Briar 데이터베이스가 복구될 수 없을 정도로 손상됐습니다. 데이터와 모든 연락처 정보가 사라졌습니다. 안타깝게도, Briar를 다시 설치하거나 비밀번호를 입력하는 화면에서 \"비밀번호를 잊어버렸습니다\"를 눌러 새로운 계정을 설정해야 합니다.</string>
+  <string name="startup_failed_data_too_old_error">너무 오래된 버전의 Briar를 이용해 만든 계정이라 이 버전으로는 사용할 수 없습니다. 이전 버전을 다시 설치하거나 비밀번호를 입력하는 창에서 \'비밀번호를 잊어버렸습니다\'를 선택해 새로운 계정을 설정하세요.</string>
+  <string name="startup_failed_data_too_new_error">이 버전의 앱은 너무 오래됐습니다. 최신 버전으로 업그레이드하고 다시 시도해 주세요.</string>
+  <string name="startup_failed_service_error">Briar에서 필요한 플러그인을 시작하지 못했습니다. Briar를 다시 설치하면 대개 이 문제가 해결됩니다. 그렇지만 Briar에서는 데이터를 저장하기 위해 중앙 서버를 사용하고 있지 않기 때문에 계정과 관련된 모든 데이터를 잃게 됩니다.</string>
+  <plurals name="expiry_warning">
+    <item quantity="other">이 Briar는 테스트용입니다. %d일 내에 계정이 만료되고 다시 되돌리지 못합니다.</item>
+  </plurals>
+  <string name="expiry_date_reached">이 소프트웨어는 만료되었습니다. \ n 테스트 해 주셔서 감사합니다!</string>
+  <string name="download_briar">Briar를 계속 이용하기 위해서는 최신 버전을 다운로드 해 주세요.</string>
+  <string name="create_new_account">새로운 계정을 만들어야 하지만, 같은 별명을 사용할 수 있습니다.</string>
+  <string name="download_briar_button">최신 버전 다운로드 받기</string>
+  <string name="startup_open_database">데이터베이스를 복호화하고 있습니다....</string>
+  <string name="startup_migrate_database">데이터베이스를 업그레이드 하고 있습니다...</string>
+  <string name="startup_compact_database">데이터베이스를 작게 만들고 있습니다...</string>
+  <!--Navigation Drawer-->
+  <string name="nav_drawer_open_description">탐색 창 열기</string>
+  <string name="nav_drawer_close_description">탐색 창 닫기</string>
+  <string name="contact_list_button">연락처</string>
+  <string name="groups_button">프라이빗 모임</string>
+  <string name="forums_button">포럼</string>
+  <string name="blogs_button">블로그</string>
+  <!--This is part of the main menu. The app will be locked when this is tapped.-->
+  <string name="lock_button">앱 잠그기</string>
+  <string name="settings_button">설정</string>
+  <string name="sign_out_button">로그아웃</string>
+  <string name="transports_onboarding_text">여기를 눌러 Briar가 연락처와 연결하는 방법을 설정하세요.</string>
+  <!--Transports: Tor-->
+  <string name="transport_tor">인터넷</string>
+  <string name="tor_device_status_online_wifi">와이파이를 통해 인터넷에 연결하고 있습니다</string>
+  <string name="tor_device_status_online_mobile">모바일 데이터로 인터넷에 연결하고 있습니다</string>
+  <string name="tor_device_status_offline">인터넷에 연결돼 있지 않습니다</string>
+  <string name="tor_plugin_status_enabling">인터넷에 연결하고 있습니다</string>
+  <string name="tor_plugin_status_active">인터넷에 연결했습니다</string>
+  <string name="tor_plugin_status_inactive">인터넷에 연결하지 못했습니다</string>
+  <string name="tor_plugin_status_disabled">인터넷을 사용하지 않도록 설정돼 있습니다</string>
+  <string name="tor_plugin_status_disabled_mobile_data">모바일 데이터를 사용하지 않도록 설정돼 있습니다</string>
+  <string name="tor_plugin_status_disabled_battery">충전하지 않고 있을 때에는 인터넷을 사용하지 않도록 설정돼 있습니다</string>
+  <string name="tor_plugin_status_disabled_country_blocked">이 국가에서는 인터넷을 사용하지 않도록 설정돼 있습니다</string>
+  <!--Transports: Wi-Fi-->
+  <string name="transport_lan">Wi-Fi</string>
+  <string name="transport_lan_long">동일한 와이파이 네트워크입니다</string>
+  <string name="lan_device_status_on">와이파이에 연결돼 있습니다</string>
+  <string name="lan_device_status_off">와이파이에 연결돼 있지 않습니다</string>
+  <string name="lan_plugin_status_enabling">와이파이에 연결 중입니다</string>
+  <string name="lan_plugin_status_active">와이파이에 연결됐습니다</string>
+  <string name="lan_plugin_status_inactive">와이파이에 연결하지 못했습니다</string>
+  <string name="lan_plugin_status_disabled">와이파이를 사용하지 않도록 설정돼 있습니다</string>
+  <!--Transports: Bluetooth-->
+  <string name="transport_bt">블루투스</string>
+  <string name="bt_device_status_on">블루투스가 켜져 있습니다</string>
+  <string name="bt_device_status_off">블루투스가 꺼져 있습니다</string>
+  <string name="bt_plugin_status_enabling">블루투스에 연결 중입니다</string>
+  <string name="bt_plugin_status_active">블루투스에 연결했습니다</string>
+  <string name="bt_plugin_status_inactive">블루투스에 연결하지 못했습니다</string>
+  <string name="bt_plugin_status_disabled">블루투스를 사용하지 않도록 설정돼 있습니다</string>
+  <!--Notifications-->
+  <string name="reminder_notification_title">Briar에서 로그아웃 됨</string>
+  <string name="reminder_notification_text">눌러서 다시 로그인하세요.</string>
+  <string name="reminder_notification_channel_title">Briar 로그인 알림</string>
+  <string name="reminder_notification_dismiss">그만 보기</string>
+  <string name="ongoing_notification_title">Briar에 로그인 됨</string>
+  <string name="ongoing_notification_text">Briar를 열려면 만지세요.</string>
+  <plurals name="private_message_notification_text">
+    <item quantity="other">프라이빗 메시지가 %d개 새로 왔습니다.</item>
+  </plurals>
+  <plurals name="group_message_notification_text">
+    <item quantity="other">모임 메시지가 %d개 새로 왔습니다.</item>
+  </plurals>
+  <plurals name="forum_post_notification_text">
+    <item quantity="other">포럼 게시물이 %d개 새로 올라왔습니다.</item>
+  </plurals>
+  <plurals name="blog_post_notification_text">
+    <item quantity="other">블로그 게시물이 %d개 새로 올라왔습니다.</item>
+  </plurals>
+  <!--Misc-->
+  <string name="now">지금</string>
+  <string name="show">Show</string>
+  <string name="hide">숨기기</string>
+  <string name="ok">확인</string>
+  <string name="cancel">취소</string>
+  <string name="got_it">알겠습니다</string>
+  <string name="delete">삭제</string>
+  <string name="accept">받아들이기</string>
+  <string name="decline">거절하기</string>
+  <string name="online">온라인</string>
+  <string name="offline">오프라인</string>
+  <string name="send">보내기</string>
+  <string name="allow">허용하기</string>
+  <string name="open">열기</string>
+  <string name="change">바꾸기</string>
+  <string name="start">시작</string>
+  <string name="no_data">데이터가 없습니다</string>
+  <string name="ellipsis">...</string>
+  <string name="text_too_long">입력된 내용이 너무 깁니다</string>
+  <string name="show_onboarding">도움말 보기</string>
+  <string name="fix">고치기</string>
+  <string name="help">도움</string>
+  <string name="sorry">죄송합니다</string>
+  <string name="error_start_activity">이 시스템에서는 지원되지 않습니다</string>
+  <string name="status_heading">상태</string>
+  <!--Contacts and Private Conversations-->
+  <string name="no_contacts">저장된 연락처가 없습니다</string>
+  <string name="no_contacts_action">+ 상징을 눌러서 연락처를 추가하세요</string>
+  <string name="date_no_private_messages">메시지가 없습니다.</string>
+  <string name="no_private_messages">저장된 메시지가 없습니다</string>
+  <string name="message_hint">새로운 메시지</string>
+  <string name="image_caption_hint">캡션 추가하기(선택 사항)</string>
+  <string name="image_attach">이미지 첨부하기</string>
+  <string name="image_attach_error">이미지를 부치지 못했습니다</string>
+  <string name="image_attach_error_too_big">이미지가 너무 큽니다. %dMB 이하로 부탁드립니다.</string>
+  <string name="image_attach_error_invalid_mime_type">%s는 지원되지 않는 이미지 형식입니다.</string>
+  <string name="set_contact_alias">연락처 이름 바꾸기</string>
+  <string name="set_contact_alias_hint">연락처 이름</string>
+  <string name="menu_item_connect_via_bluetooth">블루투스로 연결하기</string>
+  <string name="connect_via_bluetooth_title">블루투스로 연결하기</string>
+  <!--The first placeholder will show a duration like "7 days". The second placeholder at the end will add "Tap to learn more."-->
+  <!--The placeholder at the end will add "Tap to learn more."-->
+  <!--The first placeholder will show a contact's name. The second placeholder will show a duration like "7 days". The third placeholder at the end will add "Tap to learn more."-->
+  <!--The first placeholder will show a contact's name. The second placeholder at the end will add "Tap to learn more."-->
+  <string name="delete_all_messages">모든 메시지 지우기</string>
+  <string name="dialog_title_delete_all_messages">메시지 삭제 확인</string>
+  <string name="dialog_message_delete_all_messages">정말로 모든 메시지를 지우려고 하시나요?</string>
+  <string name="dialog_title_not_all_messages_deleted">모든 메시지를 지울 수는 없었습니다</string>
+  <string name="dialog_message_not_deleted_ongoing_both">진행 중인 초대와 소개와 관련된 메시지는 완료되기 전에는 지울 수 없습니다.</string>
+  <string name="dialog_message_not_deleted_ongoing_introductions">진행 중인 소개와 관련된 메시지는 완료되기 전에는 지울 수 없습니다.</string>
+  <string name="dialog_message_not_deleted_ongoing_invitations">진행 중인 초대와 관련된 메시지는 완료되기 전에는 지울 수 없습니다.</string>
+  <string name="dialog_message_not_deleted_not_all_selected_both">초대나 소개를 지우기 위해서는 요청을 선택하고 답을 주셔야 합니다.</string>
+  <string name="dialog_message_not_deleted_not_all_selected_introductions">소개를 지우기 위해서는 요청을 선택하고 답을 주셔야 합니다.</string>
+  <string name="dialog_message_not_deleted_not_all_selected_invitations">초대를 지우기 위해서는 요청을 선택하고 답을 주셔야 합니다.</string>
+  <string name="delete_contact">연락처 삭제하기</string>
+  <string name="dialog_title_delete_contact">연락처 삭제 확인</string>
+  <string name="dialog_message_delete_contact">정말로 이 연락처, 그리고 이 연락처와의 메시지를 모두 제거하시겠어요?</string>
+  <string name="contact_deleted_toast">연락처가 삭제됐습니다</string>
+  <!--This is shown in the action bar when opening an image in fullscreen that the user sent-->
+  <string name="you">당신</string>
+  <string name="save_image">이미지 저장하기</string>
+  <string name="dialog_title_save_image">이미지를 저장하시겠어요?</string>
+  <string name="dialog_message_save_image">이 이미지를 저장하면 다른 앱에서도 볼 수 있게 됩니다. 정말로 저장하시겠어요?</string>
+  <string name="save_image_success">이미지가 저장됐습니다</string>
+  <string name="save_image_error">이미지를 저장할 수 없었습니다</string>
+  <string name="dialog_title_no_image_support">이미지를 사용할 수 없습니다</string>
+  <string name="dialog_message_no_image_support">지인 분의 Briar가 이미지 첨부를 지원하지 않습니다. 이 분이 업그레이드하면 다른 상징을 볼 수 있습니다.</string>
+  <string name="dialog_title_image_support">이제 이 분에게 이미지를 보낼 수 있습니다</string>
+  <string name="dialog_message_image_support">이 상징을 눌러 이미지를 첨부하세요.</string>
+  <string name="messaging_too_many_attachments_toast">첫 %d개의 이미지만 보내질 것입니다</string>
+  <!--Adding Contacts-->
+  <string name="add_contact_title">근처의 연락처 추가하기</string>
+  <string name="face_to_face">연락처를 추가하려는 사람과 먼저 만나야 합니다.\n\n나중에 누군가 당신인 척 하거나 메시지를 훔쳐보는 것을 방지할 수 있습니다.</string>
+  <string name="continue_button">계속하기</string>
+  <string name="try_again_button">다시 시도하기</string>
+  <string name="waiting_for_contact_to_scan">지인이 스캔하고 연결하길 기다리고 있습니다\u2026</string>
+  <string name="exchanging_contact_details">연락처 세부사항을 교환하고 있습니다\u2026</string>
+  <string name="contact_added_toast">%s: 연락처를 추가했습니다. </string>
+  <string name="contact_already_exists">%s의 연락처가 이미 있습니다</string>
+  <string name="qr_code_invalid">QR 코드가 잘못됐습니다</string>
+  <string name="qr_code_too_old">스캔한 QR 코드는 너무 오래된 버전의 %s에서 나왔습니다.\n\n지인 분에게 최신 버전으로 업그레이드를 부탁하고 다시 시도해 주세요.</string>
+  <string name="qr_code_too_new">스캔한 QR 코드는 더 새로운 버전인 %s에서 보냈습니다.\n\n최신 버전으로 업그레이드하고 다시 시도해 주세요.</string>
+  <string name="camera_error">카메라 오류</string>
+  <string name="connecting_to_device">\u2026 기기에 연결하고 있습니다</string>
+  <string name="authenticating_with_device">\u2026 기기와 인증하고 있습니다</string>
+  <string name="connection_error_title">연락처에 연결하지 못했습니다</string>
+  <string name="connection_error_feedback">문제가 계속된다면, 부디 <a href="feedback">피드백을 남겨서</a> 앱이 좋아지게 도와주세요.</string>
+  <!--Adding Contacts Remotely-->
+  <string name="add_contact_remotely_title_case">원거리에서 연락처 추가하기</string>
+  <string name="add_contact_nearby_title">근처의 연락처 추가하기</string>
+  <string name="add_contact_remotely_title">원거리에서 연락처 추가하기</string>
+  <string name="contact_link_intro">지인 분에게서 받은 링크를 여기에 입력하세요</string>
+  <string name="contact_link_hint">지인 분의 링크</string>
+  <string name="paste_button">붙여 넣기</string>
+  <string name="add_contact_button">연락처 추가하기</string>
+  <string name="copy_button">복사하기</string>
+  <string name="share_button">공유</string>
+  <string name="send_link_title">링크 교환하기</string>
+  <string name="add_contact_choose_nickname">별명을 정하세요</string>
+  <string name="add_contact_choose_a_nickname">별명을 입력하세요</string>
+  <string name="nickname_intro">연락처에 별명을 붙이세요. 다른 사람에게는 보여지지 않습니다.</string>
+  <string name="your_link">추가하고 싶은 지인에게 이 링크를 보내세요</string>
+  <string name="link_clip_label">Briar 링크</string>
+  <string name="link_copied_toast">링크가 복사됐습니다</string>
+  <string name="adding_contact_error">연락처를 추가하는 과정에서 문제가 있었습니다.</string>
+  <string name="pending_contact_requests_snackbar">기다리고 있는 연락 요청이 있습니다</string>
+  <string name="pending_contact_requests">연락 요청이 받아들여지길 기다리고 있습니다</string>
+  <string name="no_pending_contacts">남은 연락 요청이 없습니다</string>
+  <string name="waiting_for_contact_to_come_online">지인 분이 온라인에 접속하길 기다리고 있습니다...</string>
+  <string name="connecting">접속중...</string>
+  <string name="adding_contact">연락처 추가하는 중입니다...</string>
+  <string name="adding_contact_failed">연락처를 추가하지 못했습니다</string>
+  <string name="dialog_title_remove_pending_contact">빼기 확인하기</string>
+  <string name="dialog_message_remove_pending_contact">연락처가 아직 추가되고 있습니다. 지금 제거하면 추가되지 않게 됩니다.</string>
+  <string name="own_link_error">자신이 아니고 지인 분의 링크를 입력해 주세요</string>
+  <string name="nickname_missing">별명을 입력하세요</string>
+  <string name="invalid_link">잘못된 링크입니다</string>
+  <string name="unsupported_link">이 링크는 더 새로운 버전인 Briar에서 보냈습니다. 최신 버전으로 업그레이드하고 다시 시도해 주세요.</string>
+  <string name="intent_own_link">자신의 링크를 열었습니다. 추가하고 싶은 연락처를 사용하세요!</string>
+  <string name="missing_link">링크를 입력하세요</string>
+  <!--This is a numeral indicating the first step in a series of screens-->
+  <string name="step_1">1</string>
+  <!--This is a numeral indicating the second step in a series of screens-->
+  <string name="step_2">2</string>
+  <plurals name="contact_added_notification_text">
+    <item quantity="other">새로운 연락처 %d개를 추가했습니다.</item>
+  </plurals>
+  <string name="offline_state">인터넷에 연결되지 않음</string>
+  <string name="duplicate_link_dialog_title">중복되는 링크입니다</string>
+  <string name="duplicate_link_dialog_text_1">%s: 이미 이 링크를 통한 연락 요청이 있습니다.</string>
+  <string name="duplicate_link_dialog_text_1_contact">%s: 이 링크의 연락처가 이미 있습니다.</string>
+  <!--This is a question asking whether two nicknames refer to the same person-->
+  <string name="duplicate_link_dialog_text_2">%s 님과 %s 님이 같은 사람인가요?</string>
+  <!--This is a button for answering that two nicknames do indeed refer to the same person. This
+	string will be used in a dialog button, so if the translation of this string is longer than 20
+	characters, please use "Yes" instead, and use "No" for the "Different Person" button-->
+  <string name="same_person_button">같은 사람</string>
+  <!--This is a button for answering that two nicknames refer to different people. This string
+	will be used in a dialog button, so if the translation of this string longer than 20 characters,
+	please use "No" instead, and use "Yes" for the "Same Person" button-->
+  <string name="different_person_button">다른 사람</string>
+  <string name="duplicate_link_dialog_text_3">%s 님과 %s 님이 동일한 링크를 보냈습니다.\n\n누군가 당신의 연락처를 찾으려고 하는 것일 수도 있습니다.\n\n둘 중 누구에게라도 다른 사람에게서 동일한 링크를 받았다고 알리지 마십시오.</string>
+  <string name="pending_contact_updated_toast">남은 연락 요청이 있는지 확인했습니다</string>
+  <!--Introductions-->
+  <string name="introduction_onboarding_title">지인 소개하기</string>
+  <string name="introduction_onboarding_text">지인끼리 서로 소개해서, 직접 만날 필요 없이 Briar로 연결될 수 있습니다.</string>
+  <string name="introduction_menu_item">소개시키기</string>
+  <string name="introduction_activity_title">연락처 선택하기</string>
+  <string name="introduction_not_possible">이미 이 지인 분과 소개시키고 있습니다. 이 과정을 먼저 끝내주세요. 만약 당신이나 지인 분이 자주 온라인이 아니라면, 이 부분은 시간이 좀 걸릴 수 있습니다.</string>
+  <string name="introduction_message_title">지인 소개하기</string>
+  <string name="introduction_message_hint">메시지 추가하기(선택 사항)</string>
+  <string name="introduction_button">소개시키기</string>
+  <string name="introduction_sent">소개시켰습니다.</string>
+  <string name="introduction_error">소개시키는 과정에서 문제가 있었습니다.</string>
+  <string name="introduction_request_sent">%2$s에게 %1$s을(를) 소개하고 싶다고 전했습니다.</string>
+  <string name="introduction_request_received">%1$s 님이 %2$s 님에게 소개하고 싶다고 합니다. %2$s 님을 연락처 목록에 추가하고 싶으십니까?</string>
+  <string name="introduction_request_exists_received">%1$s 님이 당신을 %2$s 님에게 소개하고 싶다고 하지만, %2$s 님은 이미 연락처 목록에 있습니다. %1$s 님이 아직 모르고 있을 수 있으니, 아직 응할 수 있습니다:</string>
+  <string name="introduction_request_answered_received">%1$s 님이 당신을 %2$s 님에게 소개시키고 싶다고 합니다.</string>
+  <string name="introduction_response_accepted_sent">%1$s에게 소개되고 싶다고 했습니다.</string>
+  <string name="introduction_response_accepted_sent_info">%1$s 님이 소개를 승락해야 연락처에 추가될 수 있습니다. 여기서 시간이 좀 걸릴 수 있습니다.</string>
+  <string name="introduction_response_declined_sent">%1$s에게 소개되고 싶지 않다고 했습니다.</string>
+  <string name="introduction_response_accepted_received">%1$s 님이 %2$s 님과의 소개를 승락했습니다.</string>
+  <string name="introduction_response_declined_received">%1$s 님이 %2$s 님과의 소개를 거절했습니다.</string>
+  <string name="introduction_response_declined_received_by_introducee">%1$s 님은 %2$s 님이 소개를 거절했다고 합니다.</string>
+  <!--Private Groups-->
+  <string name="groups_list_empty">모임이 없습니다.</string>
+  <string name="groups_list_empty_action">+ 상징을 눌러 모임을 만들거나, 연락하는 분에게 모임을 공유해 달라고 여쭤보세요</string>
+  <string name="groups_created_by">%s 님이 만듦</string>
+  <plurals name="messages">
+    <item quantity="other">메시지 %d개</item>
+  </plurals>
+  <string name="groups_group_is_empty">이 모임에는 아무도 없습니다</string>
+  <string name="groups_group_is_dissolved">이 모임은 해체됐습니다</string>
+  <string name="groups_remove">제거하기</string>
+  <string name="groups_create_group_title">프라이빗 모임 만들기</string>
+  <string name="groups_create_group_button">모임 만들기</string>
+  <string name="groups_create_group_invitation_button">초대장 보내기</string>
+  <string name="groups_create_group_hint">프라이빗 모임의 이름을 정하세요</string>
+  <string name="groups_invitation_sent">모임 초대장을 보냈습니다</string>
+  <string name="groups_member_list">구성원 목록</string>
+  <string name="groups_invite_members">구성원 초대하기</string>
+  <string name="groups_member_created_you">모임을 만들었습니다</string>
+  <string name="groups_member_created">%s 님이 모임을 만들었습니다</string>
+  <string name="groups_member_joined_you">모임에 참가했습니다</string>
+  <string name="groups_member_joined">%s 님이 모임에 참가했습니다</string>
+  <string name="groups_leave">모임 나가기</string>
+  <string name="groups_leave_dialog_title">모임 떠나기 확인</string>
+  <string name="groups_leave_dialog_message">정말로 이 모임을 나가고 싶으신가요?</string>
+  <string name="groups_dissolve">모임 해체하기</string>
+  <string name="groups_dissolve_dialog_title">모임 해체 확인</string>
+  <string name="groups_dissolve_dialog_message">정말로 이 모임을 해체하려고 하세요?\n\n모든 다른 구성원들이 대화를 계속할 수 없게 되고, 최신 메시지를 받지 못할 수 있습니다.</string>
+  <string name="groups_dissolve_button">해체하기</string>
+  <string name="groups_dissolved_dialog_title">모임이 해체됐습니다</string>
+  <string name="groups_dissolved_dialog_message">이 모임을 만든 분이 모임을 해체하셨습니다.\n\n더 이상 모임에 메시지를 보내지 못하고, 올려진 게시글을 받아보지 못할 수 있습니다.</string>
+  <!--Private Group Invitations-->
+  <string name="groups_invitations_title">모임 초대장</string>
+  <string name="groups_invitations_invitation_sent">%1$s을(를) \"%2$s\" 모임에 참가하도록 초대했습니다.</string>
+  <string name="groups_invitations_invitation_received">%1$s 님이 \"%2$s\" 모임에 참가하도록 초대했습니다.</string>
+  <string name="groups_invitations_joined">모임에 참가했습니다</string>
+  <string name="groups_invitations_declined">모임 초대장 거절함</string>
+  <plurals name="groups_invitations_open">
+    <item quantity="other">받을 수 있는 초대장 %d개</item>
+  </plurals>
+  <string name="groups_invitations_response_accepted_sent">%s(으)로부터 받은 초대장을 승락했습니다.</string>
+  <string name="groups_invitations_response_declined_sent">%s(으)로부터의 모임 초대장을 거절했습니다.</string>
+  <string name="groups_invitations_response_accepted_received">%s 님이 모임 초대장을 승락했습니다.</string>
+  <string name="groups_invitations_response_declined_received">%s 님이 모임 초대장을 거절했습니다.</string>
+  <string name="sharing_status_groups">모임을 만든 분만 새로운 구성원을 초대할 수 있습니다. 다음은 모임의 모든 현재 구성원입니다.</string>
+  <!--Private Groups Revealing Contacts-->
+  <string name="groups_reveal_contacts">연락처 공개하기</string>
+  <string name="groups_reveal_dialog_message">이 모임의 지금과 앞으로 들어올 구성원에게 연락처를 공개할지를 정할 수 있습니다.\n\n연락처를 공개하면, 모임을 만든 사람이 오프라인이어도 공개된 연락처와 연결할 수 있기 때문에 모임에 더 빠르고 안정적으로 연결할 수 있습니다.</string>
+  <string name="groups_reveal_visible">연락처 관계가 모임에서 보입니다</string>
+  <string name="groups_reveal_visible_revealed_by_us">(당신이) 모임에게 지인 관계 공개합니다</string>
+  <string name="groups_reveal_visible_revealed_by_contact">(%s님이) 모임에게 지인 관계를 공개합니다</string>
+  <string name="groups_reveal_invisible">모임에게 지인 관계를 공개하지 않습니다</string>
+  <!--Forums-->
+  <string name="no_forums">보여드릴 포럼이 없습니다</string>
+  <string name="no_forums_action">+ 상징을 눌러 포럼을 만들거나, 연락하는 분에게 포럼을 공유해 달라고 여쭤보세요</string>
+  <string name="create_forum_title">포럼 만들기</string>
+  <string name="choose_forum_hint">만드실 포럼 이름을 정해주세요</string>
+  <string name="create_forum_button">포럼 만들기</string>
+  <string name="forum_created_toast">포럼을 만들었습니다</string>
+  <string name="no_forum_posts">게시물이 없습니다</string>
+  <string name="no_posts">게시글이 없습니다</string>
+  <plurals name="posts">
+    <item quantity="other">게시글 %d개</item>
+  </plurals>
+  <string name="forum_new_message_hint">새로운 게시글</string>
+  <string name="forum_message_reply_hint">새로운 답글</string>
+  <string name="btn_reply">답장</string>
+  <string name="forum_leave">포럼 떠나기</string>
+  <string name="dialog_title_leave_forum">포럼 떠나기 확인</string>
+  <string name="dialog_message_leave_forum">정말로 이 포럼을 떠나려고 하세요?\n\n이 포럼과 공유한 지인이 업데이트를 받지 못할 수 있습니다.</string>
+  <string name="dialog_button_leave">떠나기</string>
+  <string name="forum_left_toast">포럼을 떠났습니다</string>
+  <!--Forum Sharing-->
+  <string name="forum_share_button">포럼 공유하기</string>
+  <string name="contacts_selected">선택한 연락처</string>
+  <string name="activity_share_toolbar_header">연락처 선택하기</string>
+  <string name="no_contacts_selector">저장된 연락처가 없습니다</string>
+  <string name="no_contacts_selector_action">연락처를 추가한 후에 돌아오세요</string>
+  <string name="forum_shared_snackbar">선택한 지인과 공유하는 포럼</string>
+  <string name="forum_share_message">메시지 추가하기(선택 사항)</string>
+  <string name="forum_share_error">포럼을 공유하는 과정에서 문제가 있었습니다</string>
+  <string name="forum_invitation_received">%1$s님이 \"%2$s\" 포럼을 공유했습니다.</string>
+  <string name="forum_invitation_sent">\"%1$s\" 포럼을 %2$s과(와) 공유했습니다.</string>
+  <string name="forum_invitations_title">포럼 초대장</string>
+  <string name="forum_invitation_exists">이미 이 포럼에 초대를 승락했습니다.\n\n초대를 더 많이 승락할수록 더 빠르고 안정적으로 포럼에 연결할 수 있습니다.</string>
+  <string name="forum_joined_toast">포럼에 참가했습니다.</string>
+  <string name="forum_declined_toast">초대장 거절함</string>
+  <string name="shared_by_format">%s에 의해 공유됨</string>
+  <string name="forum_invitation_already_sharing">이미 공유하고 있습니다</string>
+  <string name="forum_invitation_response_accepted_sent">%s(으)로부터의 포럼 초대를 승락했습니다.</string>
+  <string name="forum_invitation_response_declined_sent">%s(으)로부터의 포럼 초대를 거절했습니다.</string>
+  <string name="forum_invitation_response_accepted_received">%s님이 포럼 초대장을 승락했습니다.</string>
+  <string name="forum_invitation_response_declined_received">%s 님이 포럼 초대장을 거절했습니다.</string>
+  <string name="sharing_status">공유 상태</string>
+  <string name="sharing_status_forum">포럼은 참가한 누구나 자신의 지인과 공유할 수 있습니다. 현재 다음 연락처와 포럼을 공유하고 있습니다. 이외 다른 구성원이 더 있을 수 있습니다.</string>
+  <string name="shared_with">와(과) 공유하고 있습니다.(%1$d %2$d명 온라인)</string>
+  <plurals name="forums_shared">
+    <item quantity="other">지인과 공유한 %d개의 포럼</item>
+  </plurals>
+  <string name="nobody">아무도 없음</string>
+  <!--Blogs-->
+  <string name="blogs_other_blog_empty_state">게시물이 없습니다</string>
+  <string name="read_more">더 읽기</string>
+  <string name="blogs_write_blog_post">블로그 게시물 쓰기</string>
+  <string name="blogs_write_blog_post_body_hint">블로그 게시물 입력하기</string>
+  <string name="blogs_publish_blog_post">게시</string>
+  <string name="blogs_blog_post_created">블로그 게시물을 만들었습니다</string>
+  <string name="blogs_blog_post_received">새로운 블로그 게시물을 받았습니다</string>
+  <string name="blogs_blog_post_scroll_to">스크롤</string>
+  <string name="blogs_feed_empty_state">게시물이 없습니다</string>
+  <string name="blogs_feed_empty_state_action">지인이 올린 글과 구독한 블로그의 게시물이 여기에 올라옵니다.\n\n게시물을 작성하려면 펜 상징을 누르세요</string>
+  <string name="blogs_remove_blog">블로그 제거하기</string>
+  <string name="blogs_remove_blog_dialog_message">정말로 이 블로그를 제거하시겠어요?\n\n게시물이 이 기기에서는 제거되지만 다른 사람의 기기에서는 제거되지 않습니다.\n\n이 블로그를 공유하던 지인이 업데이트를 받지 못하게 될 수 있습니다. </string>
+  <string name="blogs_remove_blog_ok">제거하기</string>
+  <string name="blogs_blog_removed">블로그를 제거했습니다</string>
+  <string name="blogs_reblog_comment_hint">글 추가하기(선택 사항)</string>
+  <string name="blogs_reblog_button">재블로그</string>
+  <!--Blog Sharing-->
+  <string name="blogs_sharing_share">블로그 공유하기</string>
+  <string name="blogs_sharing_error">블로그를 공유하는 과정에서 문제가 있었습니다.</string>
+  <string name="blogs_sharing_button">블로그 공유하기</string>
+  <string name="blogs_sharing_snackbar">선택한 지인과 블로그 공유함</string>
+  <string name="blogs_sharing_response_accepted_sent">%s(으)로부터 받은 블로그 초대장을 승락했습니다.</string>
+  <string name="blogs_sharing_response_declined_sent">%s(으)로부터의 블로그 초대장을 거절했습니다.</string>
+  <string name="blogs_sharing_response_accepted_received">%s 님이 블로그 초대를 승락했습니다.</string>
+  <string name="blogs_sharing_response_declined_received">%s 님이 블로그 초대장을 거절했습니다.</string>
+  <string name="blogs_sharing_invitation_received">%1$s 님이 \"%2$s\" 블로그를 공유했습니다.</string>
+  <string name="blogs_sharing_invitation_sent">%2$s와(과) \"%1$s\" 블로그를 공유했습니다.</string>
+  <string name="blogs_sharing_invitations_title">블로그 초대장</string>
+  <string name="blogs_sharing_joined_toast">블로그에 구독함</string>
+  <string name="blogs_sharing_declined_toast">모임 초대장 거절함</string>
+  <string name="sharing_status_blog">블로그는 구독한 누구나 자신의 지인과 공유할 수 있습니다. 현재 다음 연락처와 이 블로그를 공유하고 있습니다. 이외 다른 구독자가 더 있을 수 있습니다.</string>
+  <!--RSS Feeds-->
+  <string name="blogs_rss_feeds_import">RSS 피드 불러오기</string>
+  <string name="blogs_rss_feeds_import_button">가져오기</string>
+  <string name="blogs_rss_feeds_import_hint">RSS 피드 URL을 입력하세요</string>
+  <string name="blogs_rss_feeds_import_error">죄송합니다! 피드를 불러오는 과정에서 문제가 있었습니다.</string>
+  <string name="blogs_rss_feeds_manage_imported">다음을 불러왔습니다:</string>
+  <string name="blogs_rss_feeds_manage_author">작성자:</string>
+  <string name="blogs_rss_feeds_manage_updated">최종 업데이트:</string>
+  <string name="blogs_rss_remove_feed">피드 제거하기</string>
+  <string name="blogs_rss_remove_feed_dialog_message">정말로 이 피드를 제거하시겠어요?\n\n기기에서 게시물은 제거되지만 다른 사람의 기기에서는 제거되지 않습니다.\n\n이 피드를 공유하던 지인이 업데이트를 받지 못하게 될 수 있습니다. </string>
+  <string name="blogs_rss_remove_feed_ok">제거하기</string>
+  <string name="blogs_rss_feeds_manage_empty_state">보여드릴 RSS 피드가 없습니다\n\n+ 상징을 눌러 피드를 불러오세요</string>
+  <string name="blogs_rss_feeds_manage_error">피드를 불러오는 과정에서 문제가 있었습니다. 나중에 다시 시도해 주세요.</string>
+  <!--Settings Profile Picture-->
+  <!--Settings Display-->
+  <string name="pref_language_title">Language &amp; region</string>
+  <string name="pref_language_changed">Briar를 다시 시작한 후에 설정이 적용됩니다. 부디 로그아웃하고 Briar를 다시 시작해 주세요.</string>
+  <string name="pref_language_default">기본 설정</string>
+  <string name="display_settings_title">화면</string>
+  <string name="pref_theme_title">테마</string>
+  <string name="pref_theme_light">빛</string>
+  <string name="pref_theme_dark">어둠</string>
+  <string name="pref_theme_auto">자동(시간에 따라)</string>
+  <string name="pref_theme_system">기본 설정</string>
+  <!--Settings Connections-->
+  <string name="network_settings_title">연결</string>
+  <string name="bluetooth_setting">블루투스로 지인과 연결하기</string>
+  <string name="wifi_setting">같은 와이파이 네트워크에 연결된 지인과 연결하기</string>
+  <string name="tor_enable_title">인터넷을 통해 지인과 연결하기</string>
+  <string name="tor_enable_summary">프라이버시를 위해 모든 연결은 Tor 네트워크를 거칩니다</string>
+  <string name="tor_network_setting">Tor 네트워크 연결 방식</string>
+  <string name="tor_network_setting_automatic">장소에 따라 자동으로</string>
+  <string name="tor_network_setting_without_bridges">브리지 없이 Tor 네트워크 사용하기</string>
+  <string name="tor_network_setting_with_bridges">브지를 통해 Tor 네트워크 사용하기</string>
+  <string name="tor_network_setting_never">인터넷에 연결하지 않기</string>
+  <!--How and when Briar will connect to Tor: E.g. "Don't connect to the Internet (in China)" or "Use Tor network with bridges (in Belarus)"-->
+  <string name="tor_network_setting_summary">자동: %1$s(%2$s에서)</string>
+  <string name="tor_mobile_data_title">모바일 데이터 사용하기</string>
+  <string name="tor_only_when_charging_title">충전할 때만 인터넷에 연결하기</string>
+  <string name="tor_only_when_charging_summary">충전 중이지 않을 때에는 인터넷 연결을 비활성화</string>
+  <!--Settings Security and Panic-->
+  <string name="security_settings_title"> 보안</string>
+  <string name="pref_lock_title">앱 잠금</string>
+  <string name="pref_lock_summary">로그인한 동안 기기의 화면 잠금을 사용해서 Briar 보호하기</string>
+  <string name="pref_lock_disabled_summary">이 기능을 이용하려면 기기에 화면 잠금을 설정하세요</string>
+  <string name="pref_lock_timeout_title">앱 잠금까지의 대기시간</string>
+  <!--The %s placeholder is replaced with the following time spans, e.g. 5 Minutes, 1 Hour-->
+  <string name="pref_lock_timeout_summary">Briar를 사용하지 않으면 %s 후에 자동으로 잠그기</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_1">1분</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_5">5분</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_15">15분</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_30">30분</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_60">1시간</string>
+  <string name="pref_lock_timeout_never">사용하지 않기</string>
+  <string name="pref_lock_timeout_never_summary">절대 자동으로 Briar 잠그지 않기</string>
+  <string name="change_password">비밀번호 바꾸기</string>
+  <string name="current_password">현재 비밀번호</string>
+  <string name="choose_new_password">새 비밀번호</string>
+  <string name="confirm_new_password">새 비밀번호 확인:</string>
+  <string name="password_changed">비밀번호가 바꼈습니다.</string>
+  <string name="panic_setting">패닉 버튼 설정</string>
+  <string name="panic_setting_title">패닉 버튼</string>
+  <string name="panic_setting_hint">패닉 버튼을 누를 때 Briar가 어떻게 반응할지 설정</string>
+  <string name="panic_app_setting_title">패닉 버튼 앱</string>
+  <string name="unknown_app">모르는 앱</string>
+  <string name="panic_app_setting_summary">설정된 앱이 없습니다</string>
+  <string name="panic_app_setting_none">없음</string>
+  <string name="dialog_title_connect_panic_app">패닉 앱 확인</string>
+  <string name="dialog_message_connect_panic_app">%1$s 님이 파기 권한을 지닌 패닉 버튼 동작을 작동시킬 수 있게 허용하시겠어요?</string>
+  <string name="panic_setting_destructive_action">파기하기</string>
+  <string name="panic_setting_signout_title">로그아웃</string>
+  <string name="panic_setting_signout_summary">패닉 버튼이 눌리면 Briar에서 로그아웃하기</string>
+  <string name="purge_setting_title">계정 삭제하기</string>
+  <string name="purge_setting_summary">패닉 버튼이 눌리면 Briar 계정을 삭제하기. 주의: 계정, 연락처와 메시지가 영구적으로 지워집니다</string>
+  <!--Settings Notifications-->
+  <string name="notification_settings_title">알림</string>
+  <string name="notify_sign_in_title">로그인 알려주기</string>
+  <string name="notify_sign_in_summary">폰이 켜지거나 앱이 업데이트되면 알려주기</string>
+  <string name="notify_private_messages_setting_title">프라이빗 메시지</string>
+  <string name="notify_private_messages_setting_summary">프라이빗 메시지에 대해 알림 보이기</string>
+  <string name="notify_private_messages_setting_summary_26">프라이빗 메시지에 대해 알림 설정하기</string>
+  <string name="notify_group_messages_setting_title">모임 메시지</string>
+  <string name="notify_group_messages_setting_summary">모임 메시지 알림 보이기</string>
+  <string name="notify_group_messages_setting_summary_26">모임 메시지 알림 설정</string>
+  <string name="notify_forum_posts_setting_title">포럼 게시물</string>
+  <string name="notify_forum_posts_setting_summary">포럼 게시물 알림 보이기</string>
+  <string name="notify_forum_posts_setting_summary_26">포럼 게시물 알림 설정</string>
+  <string name="notify_blog_posts_setting_title">블로그 게시물</string>
+  <string name="notify_blog_posts_setting_summary">블로그 게시물 알림 보이기</string>
+  <string name="notify_blog_posts_setting_summary_26">블로그 게시물 알림 설정</string>
+  <string name="notify_vibration_setting">진동</string>
+  <string name="notify_sound_setting">소리</string>
+  <string name="notify_sound_setting_default">기본 벨소리</string>
+  <string name="notify_sound_setting_disabled">없음</string>
+  <string name="choose_ringtone_title">벨소리 정하기</string>
+  <string name="cannot_load_ringtone">벨소리를 불러올 수 없었습니다</string>
+  <!--Conversation Settings-->
+  <string name="learn_more">더 알아보기</string>
+  <!--Settings Feedback-->
+  <string name="send_feedback">피드백 보내기</string>
+  <!--Link Warning-->
+  <string name="link_warning_title">링크 경고</string>
+  <string name="link_warning_intro">외부 앱으로 링크를 열려고 합니다</string>
+  <string name="link_warning_text">당신이 추적당할 수 있습니다. 이 링크를 보낸 사람을 믿을 수 있는지 생각해보고 Tor 브라우저로 여는 것을 고려하세요.</string>
+  <string name="link_warning_open_link">링크 열기</string>
+  <!--Crash Reporter-->
+  <string name="crash_report_title">Briar 사고 리포트</string>
+  <string name="briar_crashed">죄송해요, Briar가 꺼졌어요.</string>
+  <string name="not_your_fault">당신 탓이 아니에요.</string>
+  <string name="please_send_report">부디 사고 리포트를 저희에게 보내서 더 나은 Briar를 만드는 것을 도와주세요.</string>
+  <string name="report_is_encrypted">리포트가 암호화되고 안전하게 보내진다고 약속하겠습니다.</string>
+  <string name="feedback_title">피드백</string>
+  <string name="describe_crash">무슨 일이 있었는지 서술해주세요(선택 사항)</string>
+  <string name="enter_feedback">피드백 적기</string>
+  <string name="optional_contact_email">이메일 주소(선택 사항)</string>
+  <string name="include_debug_report_crash">사고에 대해 익명으로 자료도 보내기</string>
+  <string name="include_debug_report_feedback">익명으로 이 기기에 대한 자료도 보내기</string>
+  <string name="dev_report_basic_info">Basic information</string>
+  <string name="dev_report_storage">Storage</string>
+  <string name="dev_report_connectivity">연결</string>
+  <string name="send_report">리포트 보내기</string>
+  <string name="close">닫기</string>
+  <string name="dev_report_saved">리포트를 저장했습니다. 다음 번에 Briar에 로그인 할 때 보내지게 됩니다.</string>
+  <!--Sign Out-->
+  <string name="progress_title_logout">Briar에서 로그아웃하고 있습니다...</string>
+  <!--Screen Filters & Tapjacking-->
+  <string name="screen_filter_title">화면 위 발견</string>
+  <string name="screen_filter_body">다른 앱이 Briar 화면 위에 있습니다. 보안을 위해 Briar는 다른 앱이 위에 있을 때는 만져도 반응하지 않습니다.\n\n다음 앱이 화면 위에 있을 수 있습니다.\n\n%1$s</string>
+  <string name="screen_filter_allow">이 앱이 위에 있는 것을 허용하기</string>
+  <!--Permission Requests-->
+  <string name="permission_camera_title">카메라 권한</string>
+  <string name="permission_camera_request_body">QR 코드를 스캔하려면 Briar가 카메라를 사용할 수 있어야 합니다.</string>
+  <string name="permission_location_title">위치 권한</string>
+  <string name="permission_location_request_body">블루투스 기기를 찾으려면, Briar는 위치 정보에 대한 권한이 필요합니다.\n\nBriar는 위치 정보를 저장하거나 누구에게도 공유하지 않습니다.</string>
+  <string name="permission_camera_location_title">카메라와 위치 정보</string>
+  <string name="permission_camera_location_request_body">QR 코드를 스캔하려면, Briar는 카메라를 사용할 수 있어야 합니다.\n\n블루투스 기기를 찾으려면, Briar는 위치 정보에 대한 권한이 필요합니다.\n\nBriar는 위치 정보를 저장하거나 누구에게도 공유하지 않습니다.</string>
+  <string name="permission_camera_denied_body">카메라 사용을 거절하셨지만, 연락처를 추가하기 위해서는 카메라를 사용해야 합니다.\n\n사용 허가를 고려해주시기 바랍니다.</string>
+  <string name="qr_code">QR 코드</string>
+  <string name="show_qr_code_fullscreen">QR 코드를 큰 화면으로 보이기</string>
+  <!--App Locking-->
+  <string name="lock_unlock">Briar 잠금 해제</string>
+  <string name="lock_unlock_verbose">기기의 PIN, 패턴이나 비밀번호를 입력해 Briar를 잠금 해제하세요</string>
+  <string name="lock_unlock_fingerprint_description">계속하시려면 등록된 손가락으로 지문인식 센서를 만져주세요</string>
+  <string name="lock_unlock_password">비밀번호 사용하기</string>
+  <string name="lock_is_locked">Briar가 잠겼습니다</string>
+  <string name="lock_tap_to_unlock">눌러 잠금해제</string>
+  <!--Connections Screen-->
+  <string name="transports_help_text">Briar는 인터넷이나 Wi-Fi, 블루투스를 통해 지인과 연결할 수 있습니다.\n\n인터넷에 연결할 때는 프라이버시를 위해 언제나 Tor 네트워크를 거칩니다.\n\nBriar는 가능한 연락처에 닿을 수 있는 여러 방식을 병용합니다.</string>
+  <!--Screenshots-->
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_alice">영희</string>
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_bob">철수</string>
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_carol">민수</string>
+  <!--This is a message to be used in screenshots. Please use the same translation for Bob!-->
+  <string name="screenshot_message_1">철수야, 안녕?</string>
+  <!--This is a message to be used in screenshots. Please use the same translation for Alice!-->
+  <string name="screenshot_message_2">영희야, 안녕! Briar에 대해 알려줘서 고마워!</string>
+  <!--This is a message to be used in screenshots.-->
+  <string name="screenshot_message_3">문자나 전화할 때는 Signal도 사용해 봐^^ 엄청 편하고 안전해!</string>
+</resources>

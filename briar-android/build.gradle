@@ -1,0 +1,223 @@
+apply plugin: 'com.android.application'
+apply plugin: 'witness'
+apply from: 'witness.gradle'
+
+def getStdout = { command, defaultValue ->
+	def stdout = new ByteArrayOutputStream()
+	try {
+		exec {
+			commandLine = command
+			standardOutput = stdout
+		}
+		return stdout.toString().trim()
+	} catch (Exception ignored) {
+		return defaultValue
+	}
+}
+
+android {
+	compileSdk 34
+	buildToolsVersion '34.0.0'
+
+	packagingOptions {
+		doNotStrip '**/*.so'
+	}
+
+	defaultConfig {
+		minSdkVersion 21
+		targetSdkVersion 34
+		versionCode 10514
+		versionName "1.5.14"
+		applicationId "org.briarproject.briar.android"
+		buildConfigField "String", "TorVersion", "\"$tor_version\""
+
+		vectorDrawables.useSupportLibrary = true
+		buildConfigField "String", "GitHash",
+			"\"${getStdout(['git', 'rev-parse', '--short=7', 'HEAD'], 'No commit hash')}\""
+		def now = (long) (System.currentTimeMillis() / 1000)
+		buildConfigField "Long", "BuildTimestamp",
+			"${getStdout(['git', 'log', '-n', '1', '--format=%ct'], now)}000L"
+		testInstrumentationRunner 'org.briarproject.briar.android.BriarTestRunner'
+		testInstrumentationRunnerArguments disableAnalytics: 'true'
+	}
+
+	buildTypes {
+		debug {
+			applicationIdSuffix ".debug"
+			shrinkResources false
+			minifyEnabled true
+			crunchPngs false
+			proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.txt'
+			testProguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.txt', 'proguard-test.txt'
+		}
+		release {
+			shrinkResources false
+			minifyEnabled true
+			crunchPngs false
+			proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.txt'
+		}
+	}
+
+	flavorDimensions "version"
+	productFlavors {
+		screenshot {
+			dimension "version"
+			applicationIdSuffix ".screenshot" // = org.briarproject.briar.android.screenshot.debug
+			proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.txt', 'proguard-test.txt'
+		}
+		official {
+			dimension "version"
+		}
+	}
+	variantFilter { variant ->
+		if (variant.flavors*.name.contains("screenshot") && variant.buildType.name == "release") {
+			setIgnore(true)
+		}
+	}
+
+	compileOptions {
+		sourceCompatibility JavaVersion.VERSION_1_8
+		targetCompatibility JavaVersion.VERSION_1_8
+	}
+
+	testOptions {
+		execution 'ANDROIDX_TEST_ORCHESTRATOR'
+		unitTests {
+			includeAndroidResources = true
+		}
+	}
+
+	lintOptions {
+		warning 'MissingTranslation'
+		warning 'MissingDefaultResource'
+		warning 'ImpliedQuantity'
+		warning 'ExtraTranslation'
+		// FIXME
+		warning 'InvalidPackage'
+	}
+}
+
+dependencies {
+	// In theory this dependency shouldn't be needed, but without it Android Studio's linter will
+	// complain about unresolved symbols for bramble-api test classes in briar-android tests,
+	// even though the bramble-api test classes are provided by the testImplementation dependency
+	// below and the compiler can find them
+	implementation project(':bramble-api')
+
+	implementation project(':bramble-core')
+	implementation project(':bramble-android')
+	implementation project(':briar-core')
+
+	// newer versions of the libraries below require compileSdk 34
+	implementation 'androidx.fragment:fragment:1.6.2'
+	implementation 'androidx.preference:preference:1.2.1'
+	implementation 'androidx.exifinterface:exifinterface:1.3.7'
+	implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2'
+	implementation 'androidx.lifecycle:lifecycle-livedata:2.6.2'
+
+	implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+	implementation 'com.google.android.material:material:1.9.0'
+	implementation 'androidx.recyclerview:recyclerview-selection:1.1.0'
+
+	// force kotlin standard lib to latest version to prevent jetifier issues
+	implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+	implementation "com.squareup.okhttp3:okhttp:$okhttp_version"
+	implementation "org.jsoup:jsoup:$jsoup_version"
+	implementation 'info.guardianproject.panic:panic:1.0'
+	implementation 'de.hdodenhof:circleimageview:3.1.0'
+	implementation 'com.google.zxing:core:3.3.3'  // newer version need minSdk 24
+	implementation 'uk.co.samuelwall:material-tap-target-prompt:3.3.2'
+	implementation 'com.vanniktech:emoji-google:0.9.0' // newer versions are more work to adapt
+	implementation 'com.github.kobakei:MaterialFabSpeedDial:1.2.1'
+	implementation 'com.github.chrisbanes:PhotoView:2.3.0'
+	def glideVersion = '4.16.0'
+	implementation("com.github.bumptech.glide:glide:$glideVersion") {
+		exclude group: 'com.android.support'
+		exclude module: 'disklrucache' // when there's no disk cache, we can't accidentally use it
+	}
+	implementation 'org.nanohttpd:nanohttpd:2.3.1'
+
+	annotationProcessor "com.google.dagger:dagger-compiler:$dagger_version"
+	annotationProcessor "com.github.bumptech.glide:compiler:$glideVersion"
+
+	compileOnly 'javax.annotation:jsr250-api:1.0'
+
+	testImplementation project(path: ':bramble-api', configuration: 'testOutput')
+	testImplementation project(path: ':bramble-core', configuration: 'testOutput')
+
+	def espressoVersion = '3.3.0'
+	testImplementation 'androidx.test:runner:1.4.0'
+	testImplementation 'androidx.test.ext:junit:1.1.5'
+	testImplementation 'androidx.fragment:fragment-testing:1.4.0'
+	testImplementation "androidx.arch.core:core-testing:2.1.0"
+	testImplementation "androidx.test.espresso:espresso-core:3.5.0"
+	testImplementation 'org.robolectric:robolectric:4.8.2' // newer versions have SecureRandom issue
+	testImplementation 'org.mockito:mockito-core:5.1.1'
+	testImplementation "junit:junit:$junit_version"
+	testImplementation "org.jmock:jmock:$jmock_version"
+	testImplementation "org.jmock:jmock-junit4:$jmock_version"
+	testImplementation "org.jmock:jmock-imposters:$jmock_version"
+
+	testAnnotationProcessor "com.google.dagger:dagger-compiler:$dagger_version"
+
+	androidTestImplementation project(path: ':bramble-api', configuration: 'testOutput')
+
+	androidTestImplementation 'androidx.test.ext:junit:1.1.3'
+	androidTestImplementation "androidx.test.espresso:espresso-core:$espressoVersion"
+	androidTestImplementation "androidx.test.espresso:espresso-contrib:$espressoVersion"
+	androidTestImplementation "androidx.test.espresso:espresso-intents:$espressoVersion"
+	androidTestImplementation 'androidx.test:runner:1.3.0'
+	androidTestImplementation "junit:junit:$junit_version"
+
+	androidTestUtil 'androidx.test:orchestrator:1.3.0'
+
+	androidTestAnnotationProcessor "com.google.dagger:dagger-compiler:$dagger_version"
+
+	androidTestCompileOnly 'javax.annotation:jsr250-api:1.0'
+
+	androidTestScreenshotImplementation 'tools.fastlane:screengrab:2.1.1'
+	androidTestScreenshotImplementation 'com.jraska:falcon:2.2.0'
+	androidTestScreenshotImplementation 'androidx.test.uiautomator:uiautomator:2.2.0'
+}
+
+task verifyTranslations {
+	doLast {
+		def file = project.file("src/main/res/values/arrays.xml")
+		def arrays = new XmlParser().parse(file)
+		def lc = arrays.children().find { it.@name == "pref_language_values" }
+		def translations = []
+		lc.children().each { value -> translations.add(value.text()) }
+
+		def folders = ["default", "en-US"]
+		def exceptions = ["values-night", "values-v21", "values-v31", "values-ldrtl"]
+		project.file("src/main/res").eachDir { dir ->
+			if (dir.name.startsWith("values-") && !exceptions.contains(dir.name)) {
+				folders.add(dir.name.substring(7).replace("-r", "-"))
+			}
+		}
+		folders.each { n ->
+			if (!translations.remove(n) && n != 'iw') {
+				throw new GradleException("Translation " + n + " is missing in $file")
+			}
+		}
+		if (translations.size() != 0)
+			throw new GradleException("Translations\n" + translations.join("\n")
+				+ "\nhave no matching value folder")
+
+		// Some devices use iw instead of he for hebrew
+		def hebrew_legacy = project.file("src/main/res/values-iw")
+		def hebrew = project.file("src/main/res/values-he")
+		// Copy values-he to values-iw
+		if (hebrew.exists()) {
+			hebrew_legacy.mkdir()
+			copy {
+				from hebrew.getAbsolutePath()
+				into hebrew_legacy.getAbsolutePath()
+			}
+		}
+	}
+}
+
+project.afterEvaluate {
+	preBuild.dependsOn.add(verifyTranslations)
+}

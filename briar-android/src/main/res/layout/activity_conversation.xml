@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:animateLayoutChanges="true"
+	android:orientation="vertical"
+	tools:context=".android.conversation.ConversationActivity">
+
+	<com.google.android.material.appbar.AppBarLayout
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content">
+
+		<com.google.android.material.appbar.MaterialToolbar
+			android:id="@+id/toolbar"
+			style="@style/BriarToolbar"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content">
+
+			<LinearLayout
+				android:layout_width="wrap_content"
+				android:layout_height="match_parent"
+				android:orientation="horizontal">
+
+				<include layout="@layout/contact_avatar_status" />
+
+				<com.vanniktech.emoji.EmojiTextView
+					android:id="@+id/contactName"
+					style="@style/TextAppearance.AppCompat.Widget.ActionBar.Title.Inverse"
+					android:layout_width="wrap_content"
+					android:layout_height="match_parent"
+					android:layout_marginStart="@dimen/margin_medium"
+					android:layout_marginLeft="@dimen/margin_medium"
+					android:ellipsize="end"
+					android:gravity="center_vertical"
+					android:maxLines="1"
+					android:textColor="@color/action_bar_text"
+					tools:text="Contact Name of someone who chose a long name" />
+
+			</LinearLayout>
+
+		</com.google.android.material.appbar.MaterialToolbar>
+
+	</com.google.android.material.appbar.AppBarLayout>
+
+	<org.briarproject.briar.android.view.BriarRecyclerView
+		android:id="@+id/conversationView"
+		android:layout_width="match_parent"
+		android:layout_height="0dp"
+		android:layout_weight="2"
+		app:scrollToEnd="false" />
+
+	<org.briarproject.briar.android.view.ImagePreview
+		android:id="@+id/imagePreview"
+		android:layout_width="match_parent"
+		android:layout_height="0dp"
+		android:layout_weight="1"
+		android:visibility="gone"
+		tools:visibility="visible" />
+
+	<org.briarproject.briar.android.view.TextInputView
+		android:id="@+id/text_input_container"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		app:hint="@string/message_hint" />
+
+</LinearLayout>

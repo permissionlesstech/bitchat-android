@@ -1,0 +1,875 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+  <!--Setup-->
+  <string name="setup_title">Briar এ স্বাগতম</string>
+  <string name="setup_name_explanation">আপনার পোস্ট করা যেকোন বিষয়বস্তুর পাশে আপনার ডাকনাম দেখানো হবে । আপনি আপনার অ্যাকাউন্ট তৈরি করার পর এটি পরিবর্তন করতে পারবেন না।</string>
+  <string name="setup_next">পরবর্তী</string>
+  <string name="setup_password_intro">একটি পাসওয়ার্ড নির্বাচন করুন</string>
+  <string name="setup_password_explanation">আপনার Briar অ্যাকাউন্টটি আপনার ডিভাইসে এনক্রিপ্ট করা থাকে, ক্লাউডে নয়। আপনি যদি আপনার পাসওয়ার্ড ভুলে যান বা Briar আনইনস্টল করেন, আপনার অ্যাকাউন্ট পুনরুদ্ধার করার কোন উপায় নেই। একটি দীর্ঘ পাসওয়ার্ড নির্বাচন করুন যা অনুমান করা কঠিন, যেমন চারটি এলোমেলো শব্দ, বা দশটি এলোমেলো অক্ষর, সংখ্যা এবং প্রতীক।</string>
+  <string name="dnkm_doze_intro">বার্তা পেতে, Briar ব্যাকগ্রাউন্ডে সংযুক্ত থাকতে হবে।</string>
+  <string name="dnkm_doze_explanation">বার্তা পেতে, Briar ব্যাকগ্রাউন্ডে সংযুক্ত থাকতে হবে। অনুগ্রহ করে ব্যাটারি অপ্টিমাইজেশান বন্ধ করুন যতে Briar সংযুক্ত থাকতে পারে.</string>
+  <string name="choose_nickname">আপনার ডাকনাম নির্বাচন করুন</string>
+  <string name="choose_password">একটি পাসওয়ার্ড নির্বাচন করুন</string>
+  <string name="confirm_password">আপনার পাসওয়ার্ড নিশ্চিত করুন</string>
+  <string name="name_too_long">নাম খুব লম্বা</string>
+  <string name="password_too_weak">পাসওয়ার্ড খুব দুর্বল</string>
+  <string name="password_quite_strong">পাসওয়ার্ড ঠিক আছে</string>
+  <string name="password_strong">পাসওয়ার্ডটি শক্তিশালী</string>
+  <string name="passwords_do_not_match">পাসওয়ার্ড মিলছে না</string>
+  <string name="create_account_button">অ্যাকাউন্ট তৈরি করুন</string>
+  <string name="more_info">আরও তথ্য</string>
+  <string name="don_t_ask_again">আবার জিজ্ঞাসা করবেন না</string>
+  <string name="dnkm_huawei_protected_text">নীচের বোতামটি ট্যাপ করুন এবং নিশ্চিত করুন যে Briar \"Protected Apps\" স্ক্রীনে সুরক্ষিত।</string>
+  <string name="dnkm_huawei_protected_button">Briar সুরক্ষিত করুন</string>
+  <string name="dnkm_huawei_protected_help">Briar  সুরক্ষিত অ্যাপ্লিকেশান তালিকায় যুক্ত করা না থাকলে, এটা ব্যাকগ্রাউন্ডে রান করতে পারবে না।</string>
+  <string name="dnkm_huawei_app_launch_text">নীচের বোতামটি চাপুন, \"App launch\" স্ক্রিন খুলুন এবং নিশ্চিত করুন যে Briar \"Manage manually\"-এ সেট করা আছে।</string>
+  <string name="dnkm_huawei_app_launch_help">যদি \"App launch\" স্ক্রিনে Briar \"Manage manually\"-এ সেট করা না থাকে, তবে এটি ব্যাকগ্রাউন্ডে চলবে না।</string>
+  <string name="dnkm_xiaomi_text">ব্যাকগ্রাউন্ডে চালানোর জন্য, Briar কে সাম্প্রতিক অ্যাপের তালিকায় লক করতে হবে।</string>
+  <string name="dnkm_xiaomi_button">Briar সুরক্ষা </string>
+  <string name="dnkm_xiaomi_help">যদি Briar সাম্প্রতিক অ্যাপের তালিকায় লক করা না থাকে, তবে এটি ব্যাকগ্রাউন্ডে চালু থাকবে না।</string>
+  <string name="dnkm_xiaomi_dialog_body_old">১. সাম্প্রতিক অ্যাপের তালিকা (অ্যাপ সুইচার) খুলুন।\n\n ২. Briar এর ছবির ওপর নিচের দিকে সোয়াইপ করুন যাতে তালার আইকনটি দেখা যায়। \n\n৩. যদি তালাটি বন্ধ না থাকে, সেটি লক করতে ট্যাপ করুন।</string>
+  <string name="dnkm_xiaomi_dialog_body_new">১. সাম্প্রতিক অ্যাপের তালিকা (অ্যাপ সুইচার) খুলুন। \n\n২. যদি Briar এর নামের পাশে একটি ছোট তালার আইকন থাকে, তাহলে কিছু করার দরকার নেই। \n\n৩. যদি তালা না থাকে, তবে ব্রায়ারের ছবির ওপর চাপ দিয়ে ধরে রাখুন যতক্ষণ না তালার বোতামটি দেখা যায়, তারপর সেটিতে ট্যাপ করুন।</string>
+  <string name="dnkm_xiaomi_lock_apps_text">নীচের বোতামটি ট্যাপ করে সিকিউরিটি সেটিংস খুলুন। \"Boost speed\" ট্যাপ করুন, তারপর \"Lock apps\" ট্যাপ করুন এবং নিশ্চিত করুন যে Briar \"Locked\" অবস্থায় সেট করা আছে।</string>
+  <string name="dnkm_xiaomi_lock_apps_help">যদি \"Lock apps\" স্ক্রিনে Briar \"Locked\" অবস্থায় সেট না থাকে, তবে এটি ব্যাকগ্রাউন্ডে কাজ করবে না।</string>
+  <string name="dnkm_warning_dozed_1">Briar ব্যাকগ্রাউন্ডে চলতে ব্যর্থ হয়েছে।</string>
+  <!--Login-->
+  <string name="enter_password">পাসওয়ার্ড</string>
+  <string name="try_again">ভুল পাসওয়ার্ড, আবার চেষ্টা করুন</string>
+  <string name="dialog_title_cannot_check_password">পাসওয়ার্ড নিশ্চিত করা যায়নি</string>
+  <string name="dialog_message_cannot_check_password">briar আপনার পাসওয়ার্ড পরীক্ষা করতে পারছে না। এই সমস্যার সমাধানের জন্য অনুগ্রহ করে আপনার ডিভাইসটি বন্ধ করে আবার চালু করুন।</string>
+  <string name="sign_in_title">Briar এ সাইন ইন করুন</string>
+  <string name="sign_in_button">সাইন ইন</string>
+  <string name="forgotten_password">পাসওয়ার্ড ভুলে গেছেন?</string>
+  <string name="dialog_title_lost_password">পাসওয়ার্ড হারিয়েছে</string>
+  <string name="dialog_message_lost_password">আপনার Briar অ্যাকাউন্টটি আপনার ডিভাইসে এনক্রিপ্ট করা থাকে, ক্লাউডে নয়।  তাই আমরা আপনার পাসওয়ার্ড রিসেট করতে পারছি না । আপনি কি আপনার অ্যাকাউন্টটি মুছে দিতে এবং আবার শুরু করতে চান? \n\nসাবধানতা: আপনার পরিচয়, পরিচিতি এবং বার্তাগুলো স্থায়ীভাবে হারিয়ে যাবে ।</string>
+  <string name="startup_failed_activity_title">Briar  চালু হতে পারেনি</string>
+  <string name="startup_failed_clock_error">Briar শুরু হতে পারেনি কারণ আপনার ডিভাইসের সময় সঠিক নয়।\n\nঅনুগ্রহ করে আপনার ডিভাইসের ঘড়ি সঠিক সময়ে সেট করুন এবং আবার চেষ্টা করুন।</string>
+  <string name="startup_failed_db_error">Briar আপনার অ্যাকাউন্ট, কন্টাক্ট এবং বার্তাগুলির ডাটাবেস খুলতে পারছে না।\n\nঅনুগ্রহ করে অ্যাপের সর্বশেষ সংস্করণে আপগ্রেড করুন এবং আবার চেষ্টা করুন, অথবা পাসওয়ার্ড প্রম্পটে \'আমি আমার পাসওয়ার্ড ভুলে গেছি\' অপশনটি নির্বাচন করে একটি নতুন অ্যাকাউন্ট সেটআপ করুন।</string>
+  <string name="startup_failed_data_too_old_error">আপনার অ্যাকাউন্ট এই অ্যাপের পুরানো সংস্করণে তৈরি হয়েছে এবং এই সংস্করণে খোলা যাবে না।\n\nআপনাকে হয় পুরানো সংস্করণটি পুনরায় ইনস্টল করতে হবে, অথবা পাসওয়ার্ড প্রম্পটে \'আমি আমার পাসওয়ার্ড ভুলে গেছি\' অপশনটি নির্বাচন করে একটি নতুন অ্যাকাউন্ট সেটআপ করতে হবে।</string>
+  <string name="startup_failed_data_too_new_error">আপনার অ্যাকাউন্ট এই অ্যাপের নতুন সংস্করণে তৈরি হয়েছে এবং এই সংস্করণে খোলা যাবে না। \n\nঅনুগ্রহ করে সর্বশেষ সংস্করণে আপগ্রেড করুন এবং আবার চেষ্টা করুন।</string>
+  <string name="startup_failed_service_error">Briar একটি প্রয়োজনীয় কম্পোনেন্ট চালু করতে পারেনি। \n\nঅনুগ্রহ করে অ্যাপের সর্বশেষ সংস্করণে আপগ্রেড করুন এবং আবার চেষ্টা করুন।</string>
+  <plurals name="expiry_warning">
+    <item quantity="one">এটি ব্রয়ারের একটি পরীক্ষামূলক সংস্করণ। আপনার অ্যাকাউন্টটি %d দিনের মধ্যে মেয়াদ শেষ হয়ে যাবে এবং পুনর্নবীকরণ করা যাবে না।</item>
+    <item quantity="other">এটি Briar একটি পরীক্ষামূলক সংস্করণ। আপনার অ্যাকাউন্টটি %d দিনের মধ্যে মেয়াদ শেষ হয়ে যাবে এবং পুনর্নবীকরণ করা যাবে না।</item>
+  </plurals>
+  <string name="expiry_date_reached">এই সফটওয়্যারটির মেয়াদ উত্তীর্ণ হয়ে গেছে । \nপরীক্ষার জন্য আপনাকে ধন্যবাদ!</string>
+  <string name="download_briar">Briar ব্যবহার চালিয়ে যেতে, অনুগ্রহ করে সর্বশেষ ভার্সন ডাউনলোড করুন।</string>
+  <string name="create_new_account">আপনাকে একটি নতুন অ্যাকাউন্ট তৈরি করতে হবে, তবে আপনি একই ডাকনাম ব্যবহার করতে পারেন।</string>
+  <string name="download_briar_button">সর্বাধুনিক সংস্করণ ডাউনলোড করো</string>
+  <string name="old_android_expiry_date_reached">Briar আর Android 4-এ কাজ করে না।\nঅনুগ্রহ করে একটি নতুন ডিভাইসে Briar ইনস্টল করুন।</string>
+  <string name="old_android_delete_account">আপনি এই ডিভাইস থেকে আপনার অ্যাকাউন্ট মুছে ফেলতে নিচের বোতামটি চাপতে পারেন।</string>
+  <string name="delete_account_button">অ্যাকাউন্ট মুছে ফেলুন</string>
+  <string name="startup_open_database">ডাটাবেস ডিক্রিপ্ট করা হচ্ছে...</string>
+  <string name="startup_migrate_database">ডেটাবেস আপগ্রেড করা হচ্ছে...</string>
+  <string name="startup_compact_database">ডাটাবেস কম্প্যাক্ট করা হচ্ছে...</string>
+  <!--Navigation Drawer-->
+  <string name="nav_drawer_open_description">ন্যাভিগেশন ড্রয়ার খুলুন</string>
+  <string name="nav_drawer_close_description">ন্যাভিগেশন ড্রয়ার বন্ধ করুন</string>
+  <string name="contact_list_button">যোগাযোগ</string>
+  <string name="groups_button">ব্যক্তিগত গ্রুপ</string>
+  <string name="forums_button">ফোরাম</string>
+  <string name="blogs_button">ব্লগ</string>
+  <!--This is part of the main menu. The app will be locked when this is tapped.-->
+  <string name="lock_button">অ্যাপ লক করুন</string>
+  <string name="settings_button">সেটিংস</string>
+  <string name="sign_out_button">সাইন আউট</string>
+  <string name="transports_onboarding_text">এখানে ট্যাপ করুন যাতে আপনি Briar কিভাবে আপনার কন্টাক্টের সাথে সংযুক্ত হবে তা নিয়ন্ত্রণ করতে পারেন।</string>
+  <!--Transports: Tor-->
+  <string name="transport_tor">ইন্টারনেট</string>
+  <string name="tor_device_status_online_wifi">আপনার ফোনে Wi-Fi এর মাধ্যমে ইন্টারনেটে যুক্ত আছে</string>
+  <string name="tor_device_status_online_mobile">আপনার ফোন মোবাইল ডাটার এর মাধ্যমে ইন্টারনেটে যুক্ত আছে</string>
+  <string name="tor_device_status_offline">আপনার ফোনে কোন ইন্টারনেট সংযোগ নেই</string>
+  <string name="tor_plugin_status_enabling">Briar ইন্টারনেটের সাথে সংযোগ করছে</string>
+  <string name="tor_plugin_status_active">Briar ইন্টারনেটের সাথে সংযুক্ত আছে</string>
+  <string name="tor_plugin_status_inactive">Briar ইন্টারনেটের সাথে সংযোগ স্থাপন করতে পারছে না</string>
+  <string name="tor_plugin_status_disabled">Briar ইন্টারনেট ব্যবহার না করার জন্য কনফিগার করা হয়েছে</string>
+  <string name="tor_plugin_status_disabled_mobile_data">Briar মোবাইল দাতা ব্যবহার না করার জন্য কনফিগার করা হয়েছে</string>
+  <string name="tor_plugin_status_disabled_battery">ব্যাটারিতে চলার সময় Briar ইন্টারনেট ব্যবহার না করার জন্য কনফিগার করা হয়েছে</string>
+  <string name="tor_plugin_status_disabled_country_blocked">Briar এই দেশে ইন্টারনেট ব্যবহার না করার জন্য কনফিগার করা হয়েছে</string>
+  <!--Transports: Wi-Fi-->
+  <string name="transport_lan">ওয়াই-ফাই</string>
+  <string name="transport_lan_long">একই Wi-Fi নেটওয়ার্ক</string>
+  <string name="lan_device_status_on">আপনার ফোন Wi-Fi-এ সংযুক্ত আছে</string>
+  <string name="lan_device_status_off">আপনার ফোন Wi-Fi-এ সংযুক্ত নেই</string>
+  <string name="lan_plugin_status_enabling">briar Wi-Fi নেটওয়ার্কের সাথে সংযোগ করছে</string>
+  <string name="lan_plugin_status_active">Briar Wi-Fi নেটওয়ার্কের সাথে সংযুক্ত হয়েছে</string>
+  <string name="lan_plugin_status_inactive">Briar Wi-Fi নেটওয়ার্কের সাথে সংযোগ করতে পারছে না</string>
+  <string name="lan_plugin_status_disabled">Briar Wi-Fi নেটওয়ার্ক ব্যবহার না করার জন্য কনফিগার করা হয়েছে।</string>
+  <!--Transports: Bluetooth-->
+  <string name="transport_bt">ব্লুটুথ</string>
+  <string name="bt_device_status_on">আপনার ফোনের ব্লুটুথ চালু রয়েছে।</string>
+  <string name="bt_device_status_off">আপনার ফোনের ব্লুটুথ বন্ধ রয়েছে</string>
+  <string name="bt_plugin_status_enabling">Briar ব্লুটুথের সাথে সংযোগ করছে</string>
+  <string name="bt_plugin_status_active">Briar ব্লুটুথের সাথে সংযুক্ত হয়েছে</string>
+  <string name="bt_plugin_status_inactive">Briar ব্লুটুথের সাথে সংযুক্ত হতে পারছে না</string>
+  <string name="bt_plugin_status_disabled">Briar ব্লুটুথ ব্যবহার না করার জন্য কনফিগার করা হয়েছে</string>
+  <!--Notifications-->
+  <string name="reminder_notification_title">Briar থেকে সাইন আউট করুন</string>
+  <string name="reminder_notification_text">আবার সাইন ইন করতে আলতো চাপুন।</string>
+  <string name="reminder_notification_channel_title">Briar সাইন ইন অনুস্মারক</string>
+  <string name="reminder_notification_dismiss">বাতিল</string>
+  <string name="ongoing_notification_title">Briar মধ্যে সাইন ইন করুন</string>
+  <string name="ongoing_notification_text">Briar খুলতে স্পর্শ করুন।</string>
+  <plurals name="private_message_notification_text">
+    <item quantity="one">1 টি নতুন ব্যক্তিগত বার্তা ।</item>
+    <item quantity="other">%d টি নতুন ব্যক্তিগত বার্তা ।</item>
+  </plurals>
+  <plurals name="group_message_notification_text">
+    <item quantity="one">1 টি নতুন গ্রুপ বার্তা ।</item>
+    <item quantity="other">%d টি নতুন গ্রুপ বার্তা ।</item>
+  </plurals>
+  <plurals name="forum_post_notification_text">
+    <item quantity="one">1 টি নতুন ফোরাম পোস্ট ।</item>
+    <item quantity="other">%d টি নতুন ফোরাম পোস্ট ।</item>
+  </plurals>
+  <plurals name="blog_post_notification_text">
+    <item quantity="one">1 টি নতুন ব্লগ পোস্ট ।</item>
+    <item quantity="other">%d টি নতুন ব্লগ পোস্ট ।</item>
+  </plurals>
+  <!--Misc-->
+  <string name="now">এখন</string>
+  <string name="show">প্রদর্শন করুন</string>
+  <string name="hide">লুকান</string>
+  <string name="ok">ঠিক আছে</string>
+  <string name="cancel">বাতিল</string>
+  <string name="got_it">বুঝেছি</string>
+  <string name="delete">মুছুন</string>
+  <string name="accept">গ্রহণ</string>
+  <string name="decline">পতন</string>
+  <string name="online">অনলাইন</string>
+  <string name="offline">অফলাইন</string>
+  <string name="send">পাঠান</string>
+  <string name="allow">সম্মতি</string>
+  <string name="open">খুলুন</string>
+  <string name="change">পরিবর্তন</string>
+  <string name="start">শুরু</string>
+  <string name="finish">শেষ</string>
+  <string name="no_data">কোন তথ্য নেই</string>
+  <string name="ellipsis">…</string>
+  <string name="text_too_long">প্রবেশ পাঠ্যটি অত্যন্ত দীর্ঘ</string>
+  <string name="show_onboarding">সহায়তা ডায়ালগ দেখান</string>
+  <string name="fix">সংশোধন</string>
+  <string name="help">সাহায্য</string>
+  <string name="sorry">দুঃখিত</string>
+  <string name="error_start_activity">আপনার সিস্টেমে নেই</string>
+  <string name="status_heading">অবস্থাঃ</string>
+  <string name="error">ভুল</string>
+  <string name="info">তথ্য</string>
+  <!--Contacts and Private Conversations-->
+  <string name="no_contacts">প্রদর্শন করার জন্য কোন যোগাযোগ নেই</string>
+  <string name="no_contacts_action">একটি পরিচিতি যোগ করতে + আইকন আলতো চাপুন</string>
+  <string name="date_no_private_messages">কোনো বার্তা নেই ।</string>
+  <string name="no_private_messages">প্রদর্শনের জন্য কোনো বার্তা নেই</string>
+  <string name="message_hint">নতুন বার্তা</string>
+  <string name="message_hint_auto_delete">নতুন অদৃশ্য হওয়া বার্তা</string>
+  <string name="message_error">বার্তা পাঠাতে সমস্যা</string>
+  <string name="image_caption_hint">একটি ক্যাপশন যুক্ত করুন (ঐচ্ছিক)</string>
+  <string name="image_attach">ছবি সংযুক্ত করুন</string>
+  <string name="image_attach_error">চিত্র(গুলি) সংযুক্ত করা যায়নি</string>
+  <string name="image_attach_error_too_big">ছবি খুব বড়। সীমা হচ্ছে %d মেবা।</string>
+  <string name="image_attach_error_invalid_mime_type">ছবির ফরম্যাট সমর্থিত নয়: %s</string>
+  <string name="set_contact_alias">পরিচিতির নাম পরিবর্তন করুন</string>
+  <string name="set_contact_alias_hint">পরিচিতির নাম</string>
+  <string name="menu_item_disappearing_messages">অদৃশ্য হওয়া বার্তাগুলি</string>
+  <!--The first placeholder will show a duration like "7 days". The second placeholder at the end will add "Tap to learn more."-->
+  <string name="auto_delete_msg_you_enabled">%1$s পরে আপনার বার্তাগুলি অদৃশ্য হয়ে যাবে। %2$s</string>
+  <!--The placeholder at the end will add "Tap to learn more."-->
+  <string name="auto_delete_msg_you_disabled">আপনার বার্তাগুলি অদৃশ্য হবে না।%1$s</string>
+  <!--The first placeholder will show a contact's name. The second placeholder will show a duration like "7 days". The third placeholder at the end will add "Tap to learn more."-->
+  <string name="auto_delete_msg_contact_enabled">%1$s এর বার্তাগুলি %2$s পরে অদৃশ্য হয়ে যাবে। %3$s</string>
+  <plurals name="duration_minutes">
+    <item quantity="one">%d মিনিট</item>
+    <item quantity="other">%d মিনিট</item>
+  </plurals>
+  <plurals name="duration_hours">
+    <item quantity="one">%d ঘণ্টা</item>
+    <item quantity="other">%d ঘণ্টা</item>
+  </plurals>
+  <plurals name="duration_days">
+    <item quantity="one">%d দিন</item>
+    <item quantity="other">%d দিন</item>
+  </plurals>
+  <!--The first placeholder will show a contact's name. The second placeholder at the end will add "Tap to learn more."-->
+  <string name="auto_delete_msg_contact_disabled">%1$s এর বার্তাগুলি অদৃশ্য হয়ে যাবে না। %2$s</string>
+  <string name="tap_to_learn_more">আরও জানতে ট্যাপ করুন।</string>
+  <string name="auto_delete_changed_warning_title">অদৃশ্য হওয়া বার্তাগুলি পরিবর্তিত হয়েছে</string>
+  <string name="auto_delete_changed_warning_message_enabled">আপনি আপনার বার্তা লিখতে শুরু করার পরে, অদৃশ্য হওয়া বার্তা সচল করা হয়েছে।</string>
+  <string name="auto_delete_changed_warning_message_disabled">আপনি আপনার বার্তা লিখতে শুরু করার পরে, অদৃশ্য হওয়া বার্তা অচল করা হয়েছে।</string>
+  <string name="auto_delete_changed_warning_send">ঠিক আছে, পাঠান</string>
+  <string name="delete_all_messages">সব বার্তা মুছে ফেলুন</string>
+  <string name="dialog_title_delete_all_messages">বার্তা মুছে ফেলার জন্য নিশ্চিত করুন</string>
+  <string name="dialog_message_delete_all_messages">আপনি কি নিশ্চিত যে আপনি সমস্ত বার্তা মুছে ফেলতে চান?</string>
+  <string name="dialog_title_not_all_messages_deleted">সবগুলি বার্তা মুছে ফেলা যায়নি</string>
+  <string name="dialog_message_not_deleted_ongoing_both">চলমান আমন্ত্রণ এবংকন্টাক্টের সাথে সম্পর্কিত বার্তাগুলি শেষ হওয়া না পর্যন্ত মুছে ফেলা যাবে না।</string>
+  <string name="dialog_message_not_deleted_ongoing_introductions">বর্তমান কন্টাক্টের সাথে সম্পর্কিত বার্তাগুলি শেষ হওয়া না পর্যন্ত মুছে ফেলা যাবে না।</string>
+  <string name="dialog_message_not_deleted_ongoing_invitations">চলমান আমন্ত্রণের সাথে সম্পর্কিত বার্তাগুলি শেষ হওয়া না পর্যন্ত মুছে ফেলা যাবে না।</string>
+  <string name="dialog_message_not_deleted_not_all_selected_both">একটি আমন্ত্রণ বা কন্টাক্ট মুছে ফেলতে, আপনাকে অনুরোধ এবং প্রতিক্রিয়া উভয়ই নির্বাচন করতে হবে।</string>
+  <string name="dialog_message_not_deleted_not_all_selected_introductions">একটি কন্টাক্ট মুছে ফেলতে, আপনাকে অনুরোধ এবং প্রতিক্রিয়া উভয়ই নির্বাচন করতে হবে।</string>
+  <string name="dialog_message_not_deleted_not_all_selected_invitations">একটি আমন্ত্রণ মুছে ফেলতে, আপনাকে অনুরোধ এবং প্রতিক্রিয়া উভয়ই নির্বাচন করতে হবে।</string>
+  <string name="delete_contact">কন্টাক্ট মুছে দিন</string>
+  <string name="dialog_title_delete_contact">যোগাযোগ মুছে ফেলা নিশ্চিত করুন</string>
+  <string name="dialog_message_delete_contact">আপনি কি এই কন্টাক্ট এবং এই কন্টাক্টের সাথে বিনিময়কৃত সকল বার্তা মুছে ফেলতে চান?</string>
+  <string name="contact_deleted_toast">যোগাযোগ মুছে ফেলা হয়েছে</string>
+  <!--This is shown in the action bar when opening an image in fullscreen that the user sent-->
+  <string name="you">আপনি</string>
+  <string name="save_image">ছবি সংরক্ষণ করুন</string>
+  <string name="dialog_title_save_image">ছবি সংরক্ষন করুন?</string>
+  <string name="dialog_message_save_image">এই ছবিটি সংরক্ষণ করলে তা অন্যান্য অ্যাপসকে অ্যাক্সেস করার অনুমতি দেবে । \n\nআপনি কি নিশ্চিত যে আপনি সংরক্ষণ করতে চান?</string>
+  <string name="save_image_success">ছবিটি সংরক্ষণ করা হয়েছে</string>
+  <string name="save_image_error">ছবি সংরক্ষণ করা যায়নি</string>
+  <string name="dialog_title_no_image_support">চিত্র অপ্রাপ্য</string>
+  <string name="dialog_message_no_image_support">আপনার কন্টাক্টের Briar এখনও ছবি সংযুক্তি সমর্থন করে না। তারা আপগ্রেড করলে আপনি একটি ভিন্ন আইকন দেখতে পাবেন।</string>
+  <string name="dialog_title_image_support">আপনি এখন এই যোগাযোগে চিত্র প্রেরণ করতে পারেন</string>
+  <string name="dialog_message_image_support">ছবি সংযুক্ত করার জন্য এই আইকন আলতো চাপুন।</string>
+  <string name="messaging_too_many_attachments_toast">শুধুমাত্র প্রথম %d চিত্রগুলি পাঠানো হবে</string>
+  <string name="menu_contact">যোগাযোগ</string>
+  <!--Adding Contacts-->
+  <string name="add_contact_title">নিকটবর্তী কন্টাক্ট যোগ করুন</string>
+  <string name="add_contact_error_two_way">আপনারা কি একে অপরের QR কোড স্ক্যান করেছেন?</string>
+  <string name="face_to_face">আপনাকে সেই ব্যক্তির সাথে দেখা করতে হবে যাকে আপনি কন্টাক্ট হিসেবে যোগ করতে চান। \n\nএটি ভবিষ্যতে কাউকে আপনার প্রতিরূপ তৈরি করা বা আপনার বার্তা পড়া থেকে রোধ করবে।</string>
+  <string name="continue_button">চালিয়ে যান</string>
+  <string name="try_again_button">আবার চেষ্টা কর</string>
+  <string name="waiting_for_contact_to_scan">কন্টাক্ট স্ক্যান করতে এবং সংযোগ করতে অপেক্ষা করা হচ্ছে\u2026</string>
+  <string name="exchanging_contact_details">কন্টাক্টের বিস্তারিত তথ্য আদান-প্রদান হচ্ছে\u2026</string>
+  <string name="contact_added_toast">যোগাযোগ যোগ: %s</string>
+  <string name="contact_already_exists">যোগাযোগ %s ইতোমধ্যে বিদ্যমান</string>
+  <string name="contact_already_exists_general">কন্টাক্ট ইতিমধ্যেই আছে</string>
+  <string name="qr_code_invalid">QR কোড </string>
+  <string name="qr_code_too_old_1">আপনি যে QR কোডটি স্ক্যান করেছেন তা Briar-এর একটি পুরানো ভার্সন থেকে এসেছে। \n\nঅনুগ্রহ করে আপনার কন্টাক্টকে সর্বশেষ ভার্সনে আপগ্রেড করতে বলুন এবং তারপর আবার চেষ্টা করুন।</string>
+  <string name="qr_code_too_new_1">আপনি যে QR কোডটি স্ক্যান করেছেন তা Briar-এর একটি নতুন ভার্সন থেকে এসেছে। \n\nঅনুগ্রহ করে সর্বশেষ ভার্সনে আপগ্রেড করুন এবং তারপর আবার চেষ্টা করুন।</string>
+  <string name="mailbox_qr_code_for_contact">আপনি যে QR কোডটি স্ক্যান করেছেন তা Briar মেইল বক্স থেকে এসেছে। \n\nযদি আপনি একটি মেইল বক্স লিঙ্ক করতে চান, তাহলে Briar মেনু থেকে সেটিংস &gt; মেইল বক্স নির্বাচন করুন।</string>
+  <string name="qr_code_format_unknown">আপনি যে QR কোডটি স্ক্যান করেছেন তা Briar কন্টাক্ট যোগ করার জন্য নয়। \n\nদয়া করে আপনার কন্টাক্টের স্ক্রিনে প্রদর্শিত QR কোডটি স্ক্যান করুন।</string>
+  <string name="camera_error">ক্যামেরার ত্রুটি</string>
+  <string name="connecting_to_device">ডিভাইসে সংযোগ করা হচ্ছে\u2026</string>
+  <string name="authenticating_with_device">ডিভাইসের সাথে যাচাই করা হচ্ছে\u2026</string>
+  <string name="connection_error_title">আপনার কন্টাক্টের সাথে সংযোগ করা যায়নি</string>
+  <string name="connection_error_feedback">যদি এই সমস্যা চলতে থাকে, অনুগ্রহ করে আমাদেরকে <a href="feedback">ফিডব্যাক পাঠান</a> যাতে আমরা অ্যাপটি উন্নত করতে পারি।</string>
+  <string name="info_both_must_scan">আপনাদের উভয়কে একে অপরের QR কোড স্ক্যান করতে হবে</string>
+  <!--Adding Contacts Remotely-->
+  <string name="add_contact_remotely_title_case">দূরে আছে এমন কন্টাক্ট যোগ করুন</string>
+  <string name="add_contact_nearby_title">নিকটবর্তী কন্টাক্ট যোগ করুন</string>
+  <string name="add_contact_remotely_title">দূরে আছে এমন কন্টাক্ট যোগ করুন</string>
+  <string name="contact_link_intro">এখানে আপনার কন্টাক্টের লিঙ্ক দিন</string>
+  <string name="contact_link_hint">কন্টাক্টের লিঙ্ক</string>
+  <string name="paste_button">পেস্ট</string>
+  <string name="add_contact_button">কন্টাক্ট যোগ করুন</string>
+  <string name="copy_button">কপি</string>
+  <string name="share_button">শেয়ার করুন</string>
+  <string name="send_link_title">লিঙ্ক আদান-প্রদান করুন</string>
+  <string name="add_contact_choose_nickname">ডাকনাম নির্বাচন করুন</string>
+  <string name="add_contact_choose_a_nickname">একটি ডাকনাম লিখুন</string>
+  <string name="nickname_intro">আপনার কন্টাক্টকে একটি ডাকনাম দিন। এটি শুধুমাত্র আপনি দেখতে পাবেন।</string>
+  <string name="your_link">এই লিঙ্কটি সেই কন্টাক্টকে দিন যাকে আপনি যোগ করতে চান</string>
+  <string name="link_clip_label">Briar লিংক</string>
+  <string name="link_copied_toast">লিংক কপি করা হয়েছে</string>
+  <string name="adding_contact_error">কন্টাক্ট যোগ করতে একটি ত্রুটি হয়েছে।</string>
+  <string name="pending_contact_requests_snackbar">কন্টাক্ট অনুরোধ অপেক্ষমান রয়েছে</string>
+  <string name="pending_contact_requests">অপেক্ষমান কন্টাক্ট অনুরোধ</string>
+  <string name="no_pending_contacts">কোনও কন্টাক্ট অপেক্ষমান নেই</string>
+  <string name="waiting_for_contact_to_come_online">কন্টাক্ট অনলাইনে আসার জন্য অপেক্ষা করা হচ্ছে…</string>
+  <string name="connecting">সংযুক্ত হচ্ছে ...</string>
+  <string name="adding_contact">কন্টাক্ট যোগ করা হচ্ছে…</string>
+  <string name="adding_contact_failed">কন্টাক্ট যোগ করা যায়নি</string>
+  <string name="dialog_title_remove_pending_contact">অপসারণ নিশ্চিত করুন</string>
+  <string name="dialog_message_remove_pending_contact">এই কন্টাক্টটি এখনও যোগ করা হচ্ছে। যদি আপনি এখন এটি অপসারণ করেন, তবে এটি যোগ করা হবে না।</string>
+  <string name="own_link_error">আপনার কন্টাক্টের লিঙ্ক দিন, আপনার নিজের নয়</string>
+  <string name="nickname_missing">একটি ডাকনাম লিখুন</string>
+  <string name="invalid_link">লিংক সঠিক নয়</string>
+  <string name="unsupported_link">লিংকটি Briar-এর একটি নতুন ভার্সন থেকে এসেছে। অনুগ্রহ করে সর্বশেষ ভার্সনে আপগ্রেড করুন এবং তারপর আবার চেষ্টা করুন।</string>
+  <string name="intent_own_link">এটি আপনার নিজের লিংক। আপনি যাকে যোগ করতে চান তার লিঙ্ক ব্যবহার করুন!</string>
+  <string name="missing_link">একটি লিংক দিন</string>
+  <!--This is a numeral indicating the first step in a series of screens-->
+  <string name="step_1">১</string>
+  <!--This is a numeral indicating the second step in a series of screens-->
+  <string name="step_2">২</string>
+  <plurals name="contact_added_notification_text">
+    <item quantity="one">নতুন কন্টাক্ট যোগ করা হয়েছে।</item>
+    <item quantity="other">%d টি নতুন কন্টাক্ট যোগ করা হয়েছে।</item>
+  </plurals>
+  <string name="offline_state">ইন্টারনেট সংযোগ নেই!</string>
+  <string name="duplicate_link_dialog_title">ডুপ্লিকেট লিংক</string>
+  <string name="duplicate_link_dialog_text_1">আপনার এই লিঙ্কটির মাধ্যমে ইতিমধ্যে একটি অপেক্ষমান কন্টাক্ট রয়েছে: %s</string>
+  <string name="duplicate_link_dialog_text_1_contact">আপনার এই লিঙ্কটির সাথে ইতিমধ্যে একটি কন্টাক্ট রয়েছে: %s</string>
+  <!--This is a question asking whether two nicknames refer to the same person-->
+  <string name="duplicate_link_dialog_text_2">%1$s এবং %2$s কি একই ব্যক্তি?</string>
+  <!--This is a button for answering that two nicknames do indeed refer to the same person. This
+	string will be used in a dialog button, so if the translation of this string is longer than 20
+	characters, please use "Yes" instead, and use "No" for the "Different Person" button-->
+  <string name="same_person_button">একই ব্যক্তি</string>
+  <!--This is a button for answering that two nicknames refer to different people. This string
+	will be used in a dialog button, so if the translation of this string longer than 20 characters,
+	please use "No" instead, and use "Yes" for the "Same Person" button-->
+  <string name="different_person_button">ভিন্ন ব্যক্তি</string>
+  <string name="duplicate_link_dialog_text_3">%1$s এবং %2$s আপনাকে একই লিঙ্ক পাঠিয়েছে। \n\nএকজন সম্ভবত আপনার কন্টাক্টদের পরিচয় জানার চেষ্টা করছে।\n\nতাদেরকে বলবেন না যে আপনি একই লিঙ্ক অন্য কারো কাছ থেকে পেয়েছেন।</string>
+  <string name="pending_contact_updated_toast">অপেক্ষমান কন্টাক্ট আপডেট করা হয়েছে</string>
+  <string name="info_both_must_enter_links">আপনাদের উভয়কে একে অপরের লিংক যুক্ত করতে হবে</string>
+  <!--Peer trust levels-->
+  <string name="peer_trust_level_unverified">অযাচিত কন্টাক্ট</string>
+  <string name="peer_trust_level_verified">যাচাইকৃত কন্টাক্ট</string>
+  <string name="peer_trust_level_ourselves">আমি</string>
+  <string name="peer_trust_level_stranger">অজানা ব্যক্তি</string>
+  <!--Introductions-->
+  <string name="introduction_onboarding_title">আপনার কন্টাক্টগুলোকে পরিচয় করিয়ে দিন</string>
+  <string name="introduction_onboarding_text">আপনার কন্টাক্টগুলোকে একে অপরকে পরিচয় করিয়ে দিন যাতে তারা Briar-এ সংযুক্ত হতে পারে।</string>
+  <string name="introduction_menu_item">ভূমিকা তৈরি করুন</string>
+  <string name="introduction_activity_title">যোগাযোগ নির্বাচন করুন</string>
+  <string name="introduction_not_possible">আপনার কাছে এই কন্টাক্টগুলোর সাথে ইতিমধ্যে একটি পরিচিতি প্রক্রিয়াধীন রয়েছে। দয়া করে আগে এটি শেষ হতে দিন। যদি আপনি বা আপনার কন্টাক্টগুলি অনলাইনে কম থাকেন, তবে এটি কিছু সময় নিতে পারে।</string>
+  <string name="introduction_message_title">কন্টাক্টগুলোকে পরিচয় করিয়ে দিন</string>
+  <string name="introduction_message_hint">একটি বার্তা যুক্ত করুন (ঐচ্ছিক)</string>
+  <string name="introduction_button">ভূমিকা তৈরি করুন</string>
+  <string name="introduction_sent">আপনার ভূমিকা পাঠানো হয়েছে।</string>
+  <string name="introduction_error">পরিচিতি তৈরি করতে সমস্যা হয়েছে ।</string>
+  <string name="introduction_request_sent">আপনি %1$s-কে পরিচয় করানোর জন্য %2$s-কে অনুরোধ করেছেন।</string>
+  <string name="introduction_request_received">%1$s আপনাকে %2$s-কে পরিচয় করানোর জন্য অনুরোধ করেছেন। আপনি কি %2$s-কে আপনার কন্টাক্ট তালিকায় যোগ করতে চান?</string>
+  <string name="introduction_request_exists_received">%1$s আপনাকে %2$s-কে পরিচয় করানোর জন্য অনুরোধ করেছেন, কিন্তু %2$s ইতিমধ্যেই আপনার কন্টাক্ট তালিকায় রয়েছে। যেহেতু %1$s হয়তো এটি জানেন না, তাই আপনি সাড়া দিতে পারেন:</string>
+  <string name="introduction_request_answered_received">%1$s আপনাকে %2$s-কে পরিচয় করানোর জন্য অনুরোধ করেছেন।</string>
+  <string name="introduction_response_accepted_sent">আপনি %1$s-কে পরিচয় করানোর জন্য অনুমোদন দিয়েছেন।</string>
+  <string name="introduction_response_accepted_sent_info">%1$s আপনার কন্টাক্টে যোগ হওয়ার আগে তাকেও পরিচয় স্বীকার করতে হবে। এটি কিছু সময় লাগতে পারে।</string>
+  <string name="introduction_response_declined_sent">আপনি %1$s-কে পরিচয় করানোর জন্য আবেদনটি প্রত্যাখ্যান করেছেন।</string>
+  <string name="introduction_response_declined_auto">%1$s-কে পরিচয় করানোর জন্য আবেদনটি স্বয়ংক্রিয়ভাবে প্রত্যাখ্যাত হয়েছে।</string>
+  <string name="introduction_response_accepted_received">%1$s %2$s-কে পরিচয় করানোর জন্য আবেদনটি গ্রহণ করেছে।</string>
+  <string name="introduction_response_declined_received">%1$s %2$s-কে পরিচয় করানোর জন্য আবেদনটি প্রত্যাখ্যান করেছে।</string>
+  <string name="introduction_response_declined_received_by_introducee">%1$s বলেছে যে %2$s পরিচয় করানোর জন্য আবেদনটি প্রত্যাখ্যান করেছে।</string>
+  <!--Connect via Bluetooth-->
+  <string name="menu_item_connect_via_bluetooth">ব্লুটুথ মাধ্যমে সংযোগ করুন</string>
+  <string name="connect_via_bluetooth_title">ব্লুটুথ মাধ্যমে সংযোগ করুন</string>
+  <string name="connect_via_bluetooth_intro">যদি ব্লুটুথ সংযোগ স্বয়ংক্রিয়ভাবে কাজ না করে, আপনি এই স্ক্রীনটি ব্যবহার করে ম্যানুয়ালি সংযোগ করতে পারেন। \n\nএই কাজটি করার জন্য আপনার কন্টাক্ট কাছাকাছি থাকতে হবে। \n\nআপনি এবং আপনার কন্টাক্ট উভয়কেই একসাথে \"শুরু করুন\" চাপতে হবে।</string>
+  <string name="connect_via_bluetooth_already_discovering">ব্লুটুথের মাধ্যমে সংযোগ করার চেষ্টা চলছে। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।</string>
+  <string name="connect_via_bluetooth_no_location_permission">লোকেশনের অনুমতিসমূহ ছাড়া চালিয়ে যাওয়া সম্ভব নয়</string>
+  <string name="connect_via_bluetooth_no_bluetooth_permission">নিকটস্থ ডিভাইসের অনুমতিসমূহ ছাড়া চালিয়ে যাওয়া সম্ভব নয়</string>
+  <string name="connect_via_bluetooth_start">ব্লুটুথ মাধ্যমে সংযোগ করা হচ্ছে...</string>
+  <string name="connect_via_bluetooth_success">ব্লুটুথের মাধ্যমে সফলভাবে সংযুক্ত হয়েছে</string>
+  <string name="connect_via_bluetooth_error">ব্লুটুথের মাধ্যমে সংযোগ করা যায়নি।</string>
+  <string name="connect_via_bluetooth_error_not_supported">ডিভাইসটি ব্লুটুথ সমর্থন করে না।</string>
+  <!--Private Groups-->
+  <string name="groups_list_empty">দেখানোর মত কোনে  নেই</string>
+  <string name="groups_list_empty_action">একটি দল তৈরি করতে + আইকনে আলতো চাপুন, অথবা আপনার সাথে দল শেয়ার করতে আপনার পরিচিতদের জিজ্ঞাসা করুন</string>
+  <string name="groups_created_by">%s দ্বারা নির্মিত</string>
+  <plurals name="messages">
+    <item quantity="one">%d বার্তা</item>
+    <item quantity="other">%d বার্তা</item>
+  </plurals>
+  <string name="groups_group_is_empty">এই গ্রুপি খালি</string>
+  <string name="groups_group_is_dissolved">এই গ্রুপটি দ্রবীভূত করা হয়েছে</string>
+  <string name="groups_remove">অপসারণ</string>
+  <string name="groups_create_group_title">ব্যক্তিগত গ্রুপ তৈরি করুন</string>
+  <string name="groups_create_group_button">গ্রুপ তৈরি করুন</string>
+  <string name="groups_create_group_invitation_button">আমন্ত্রণ পাঠান</string>
+  <string name="groups_create_group_hint">আপনার ব্যক্তিগত গ্রুপের জন্য একটি নাম নির্বাচন করুন</string>
+  <string name="groups_invitation_sent">গ্রুপ আমন্ত্রণ পাঠানো হয়েছে</string>
+  <string name="groups_member_list">সদস্য তালিকা</string>
+  <string name="groups_invite_members">সদস্যদের আমন্ত্রণ জানান</string>
+  <string name="groups_member_created_you">আপনি গ্রুপটি টি তৈরি করেছেন</string>
+  <string name="groups_member_created">%s দল তৈরি করেছে</string>
+  <string name="groups_member_joined_you">আপনি গ্রুপটিতে যোগদান করেছেন</string>
+  <string name="groups_member_joined">%s গ্রুপটিতে যোগদান করেছে</string>
+  <string name="groups_leave">দল পরিত্যাগ করুন</string>
+  <string name="groups_leave_dialog_title">গোষ্ঠী ত্যাগ নিশ্চিত করুন</string>
+  <string name="groups_leave_dialog_message">আপনি কি নিশ্চিত আপনি এই দল ছেড়ে যেতে চান?</string>
+  <string name="groups_dissolve">দলে ভেঙে দিন</string>
+  <string name="groups_dissolve_dialog_title">গ্রুপটি বিলুপ্ত করার জন্য নিশ্চিত করুন</string>
+  <string name="groups_dissolve_dialog_message">আপনি কি নিশ্চিত যে, আপনি এই গ্রুপটি বিলুপ্ত করতে চান? \n\nঅন্যান্য সদস্যরা তাদের আলোচনা চালিয়ে যেতে পারবে না এবং সম্ভবত সর্বশেষ বার্তাগুলি পাবে না।</string>
+  <string name="groups_dissolve_button">বিলুপ্ত করুন</string>
+  <string name="groups_dissolved_dialog_title">গ্রুপ বিলুপ্ত করা হয়েছে</string>
+  <string name="groups_dissolved_dialog_message">যিনি গ্রুপটি তৈরি করেছিলেন তিনি এটি বিলুপ্ত করেছে। \n\nআপনি আর গ্রুপে বার্তা পাঠাতে পারবেন না এবং সম্ভবত সমস্ত লেখাগুলিও পাবেন না।</string>
+  <!--Private Group Invitations-->
+  <string name="groups_invitations_title">গ্রুপের আমন্ত্রণ</string>
+  <string name="groups_invitations_invitation_sent">আপনি %1$s-কে \"%2$s\" গ্রুপে যোগ দেওয়ার জন্য আমন্ত্রণ জানিয়েছেন।</string>
+  <string name="groups_invitations_invitation_received">%1$s আপনাকে \"%2$s\" গ্রুপে যোগ দেওয়ার জন্য আমন্ত্রণ জানিয়েছে।</string>
+  <string name="groups_invitations_joined">দলের যোগদান</string>
+  <string name="groups_invitations_declined">গ্রুপ আমন্ত্রণ প্রত্যাখ্যাত হয়েছে</string>
+  <plurals name="groups_invitations_open">
+    <item quantity="one">%dটি মুক্ত গ্রুপ আমন্ত্রণ রয়েছে</item>
+    <item quantity="other">%d মুক্ত গ্রুপে আমন্ত্রণ রয়েছে</item>
+  </plurals>
+  <string name="groups_invitations_response_accepted_sent">আপনি %sথেকে গ্রুপ আমন্ত্রণ গ্রহণ করেছেন।</string>
+  <string name="groups_invitations_response_declined_sent">আপনি থেকে %sগ্রুপ আমন্ত্রণ প্রত্যাখ্যান করেছেন।</string>
+  <string name="groups_invitations_response_declined_auto">%s থেকে প্রাপ্ত গ্রুপের আমন্ত্রণ স্বয়ংক্রিয়ভাবে প্রত্যাখ্যাত হয়েছে।</string>
+  <string name="groups_invitations_response_accepted_received">%s গ্রুপে আমন্ত্রণ গ্রহণ করেছেন</string>
+  <string name="groups_invitations_response_declined_received">%s গ্রুপে আমন্ত্রণ প্রত্যাখ্যান করেছেন।</string>
+  <string name="sharing_status_groups">শুধুমাত্র দলের স্রষ্টা নতুন সদস্যদের আমন্ত্রণ করতে পারেন। নীচে দলের সব বর্তমান সদস্য।</string>
+  <!--Private Groups Revealing Contacts-->
+  <string name="groups_reveal_contacts">যোগাযোগ প্রকাশ করুন</string>
+  <string name="groups_reveal_dialog_message">আপনি ঠিক করুন আপনি কি এই গ্রুপের বর্তমান এবং ভবিষ্যত সকল সদস্যদের কাছে আপনার কন্টাক্টগুলি প্রকাশ করবেন কিনা। \n\nকন্টাক্ট প্রকাশ করলে গ্রুপগুলির সাথে সংযোগকে আরও দ্রুত এবং নির্ভরযোগ্য করে তোলে, কারণ গ্রুপ জীই তৈরি করেছেন তিনি অফলাইনে থাকলেই আপনি প্রকাশিত কন্টাক্টগুলির সাথে যোগাযোগ করতে পারবেন।</string>
+  <string name="groups_reveal_visible">কন্টাক্টের সাথে সম্পর্ক গ্রুপের কাছে দৃশ্যমান</string>
+  <string name="groups_reveal_visible_revealed_by_us">কন্টাক্টের সাথে সম্পর্ক গ্রুপের কাছে দৃশ্যমান (আপনি প্রকাশ করেছেন)</string>
+  <string name="groups_reveal_visible_revealed_by_contact">কন্টাক্টের সাথে সম্পর্ক গ্রুপের কাছে দৃশ্যমান (%s  প্রকাশ করেছেন)</string>
+  <string name="groups_reveal_invisible">কন্টাক্টের সাথে সম্পর্ক গ্রুপের কাছে দৃশ্যমান নয়</string>
+  <!--Forums-->
+  <string name="no_forums">প্রদর্শন করার জন্য কোনো ফোরাম নেই</string>
+  <string name="no_forums_action">ফোরাম তৈরি করতে + আইকনে ট্যাপ করুন, অথবা আপনার কন্টাক্টদের বলুন ফোরাম শেয়ার করতে।</string>
+  <string name="create_forum_title">ফোরাম তৈরি করুন</string>
+  <string name="choose_forum_hint">আপনার ফোরামের জন্য একটি নাম নির্বাচন করুন</string>
+  <string name="create_forum_button">ফোরাম তৈরি করুন</string>
+  <string name="forum_created_toast">ফোরাম তৈরি হয়েছে</string>
+  <string name="no_forum_posts">দেখানোর জন্য কোন পোস্ট নেই</string>
+  <string name="no_posts">কোন পোস্ট নেই</string>
+  <plurals name="posts">
+    <item quantity="one">%d টি পোষ্ট</item>
+    <item quantity="other">%d টি পোষ্ট</item>
+  </plurals>
+  <string name="forum_new_message_hint">নতুন পোস্ট</string>
+  <string name="forum_message_reply_hint">নতুন উত্তর</string>
+  <string name="btn_reply">উত্তর</string>
+  <string name="forum_leave">ফোরাম ছেড়ে দিন</string>
+  <string name="dialog_title_leave_forum">ফোরাম ছেড়ে যাওয়া নিশ্চিত করুন</string>
+  <string name="dialog_message_leave_forum">আপনি কি নিশ্চিত যে আপনি এই ফোরাম ত্যাগ করতে চান? \n\nআপনি এই ফোরামে যে কোন পরিচিতি শেয়ার করেছেন তা হালনাগাদ পাওয়া বন্ধ করতে পারে ।</string>
+  <string name="dialog_button_leave">ত্যাগ</string>
+  <string name="forum_left_toast">বাম ফোরাম</string>
+  <!--Forum Sharing-->
+  <string name="forum_share_button">শেয়ার ফোরাম</string>
+  <string name="contacts_selected">নির্বাচিত পরিচিতি</string>
+  <string name="activity_share_toolbar_header">পরিচিতি নির করুন</string>
+  <string name="no_contacts_selector">প্রদর্শন করার জন্য কোন যোগাযোগ নেই</string>
+  <string name="no_contacts_selector_action">একটি পরিচিতি যোগ করার পর দয়া করে এখানে ফিরে আসুন</string>
+  <string name="forum_shared_snackbar">ফোরাম নির্বাচিত পরিচিতি সঙ্গে ভাগ</string>
+  <string name="forum_share_message">একটি বার্তা যুক্ত করুন (ঐচ্ছিক)</string>
+  <string name="forum_share_error">এই ফোরামে অংশীদারি করতে একটি ত্রুটি ঘটেছে </string>
+  <string name="forum_invitation_received">%1$s আপনার সাথে \"%2$s\" ফোরাম শেয়ার করেছেন।</string>
+  <string name="forum_invitation_sent">আপনি \"%1$s\" ফোরাম %2$sএর সাথে শেয়ার করেছেন।</string>
+  <string name="forum_invitations_title">ফোরামের আমন্ত্রণ</string>
+  <string name="forum_invitation_exists">আপনি ইতিমধ্যেই এই ফোরামের একটি আমন্ত্রণ গ্রহণ করেছেন। \n\nআরও আমন্ত্রণ গ্রহণ করলে ফোরামের সাথে আপনার সংযোগ আরও দ্রুত এবং নির্ভরযোগ্য হবে।</string>
+  <string name="forum_joined_toast">ফোরামে যোগদান </string>
+  <string name="forum_declined_toast">আমন্ত্রণ প্রত্যাখ্যান করা হয়েছে</string>
+  <string name="shared_by_format">শেয়ার করেছেন %s</string>
+  <string name="forum_invitation_already_sharing">ইতোমধ্যে শেয়ার করা হচ্ছে</string>
+  <string name="forum_invitation_already_invited">ইতিমধ্যেই আমন্ত্রণ পাঠানো হয়েছে</string>
+  <string name="forum_invitation_invite_received">আমন্ত্রণ ইতিমধ্যে গ্রহণ করা হয়েছে</string>
+  <string name="forum_invitation_not_supported">এই কন্টাক্ট এটি সমর্থন করে না</string>
+  <string name="forum_invitation_error">ত্রুটি। এটি একটি বাগ এবং এর জন্য আপনি দায়ী নন</string>
+  <string name="forum_invitation_response_accepted_sent">আপনি %s-এর ফোরাম আমন্ত্রণ গ্রহণ করেছেন।</string>
+  <string name="forum_invitation_response_declined_sent">আপনি %s-এর ফোরাম আমন্ত্রণ প্রত্যাখ্যান করেছেন।</string>
+  <string name="forum_invitation_response_declined_auto">%s থেকে প্রাপ্ত আমন্ত্রণ স্বয়ংক্রিয়ভাবে প্রত্যাখ্যাত হয়েছে।</string>
+  <string name="forum_invitation_response_accepted_received">%s ফোরাম আমন্ত্রণ গ্রহণ করেছে।</string>
+  <string name="forum_invitation_response_declined_received">%s ফোরাম আমন্ত্রণ প্রত্যাখ্যান করেছে।</string>
+  <string name="sharing_status">শেয়ারিং অবস্থা</string>
+  <string name="sharing_status_forum">ফোরামের যেকোনো সদস্য তাদের কন্টাক্টদের সঙ্গে এটি শেয়ার করতে পারেন। আপনি এই ফোরামটি নিম্নলিখিত কন্টাক্টদের সঙ্গে শেয়ার করছেন। এছাড়াও এখানে এমন সদস্য থাকতে পারে যাদের আপনি দেখতে পাচ্ছেন না।</string>
+  <string name="shared_with">শেয়ার করেছেন %1$d (%2$d অনলাইনে আছেন)</string>
+  <plurals name="forums_shared">
+    <item quantity="one">কন্টাক্টদের দ্বারা শেয়ার করা ফোরাম %d</item>
+    <item quantity="other">কন্টাক্টদের দ্বারা শেয়ার করা ফোরাম %d</item>
+  </plurals>
+  <string name="nobody">কেউ না</string>
+  <!--Blogs-->
+  <string name="blogs_other_blog_empty_state">দেখানোর জন্য কোন পোস্ট নেই</string>
+  <string name="read_more">আরো পড়ুন</string>
+  <string name="blogs_write_blog_post">ব্লগ পোস্ট লিখুন</string>
+  <string name="blogs_write_blog_post_body_hint">আপনার ব্লগ পোস্ট টাইপ করুন</string>
+  <string name="blogs_publish_blog_post">প্রকাশ </string>
+  <string name="blogs_blog_post_created">ব্লগ পোস্ট তৈরি করা হয়েছে</string>
+  <string name="blogs_blog_post_received">নতুন ব্লগ পোস্ট পেয়েছে</string>
+  <string name="blogs_blog_post_scroll_to">স্ক্রোল করুন</string>
+  <string name="blogs_feed_empty_state">দেখানোর জন্য কোন পোস্ট নেই</string>
+  <string name="blogs_feed_empty_state_action">আপনার পরিচিতিগুলির এবং আপনার সাবস্ক্রাইব করা ব্লগগুলির পোস্টগুলি এখানে উপস্থিত হবে \n\nএকটি পোস্ট লিখতে কলম আইকনে আলতো চাপুন</string>
+  <string name="blogs_remove_blog">ব্লগ মুছে ফেলুন</string>
+  <string name="blogs_remove_blog_dialog_message">আপনি কি নিশ্চিত যে আপনি এই ব্লগটি সরাতে চান? \n\nআপনার ডিভাইস থেকে পোস্টগুলি সরানো হবে তবে অন্যের ডিভাইসগুলির থেকে নয়। \n\nআপনি যে কোনও পরিচিতি দিয়ে এই ব্লগটি শেয়ার করেছেন তা আপডেটগুলি পাওয়া বন্ধ করতে পারে।</string>
+  <string name="blogs_remove_blog_ok">অপসারণ</string>
+  <string name="blogs_blog_removed">ব্লগ মুছে ফেলা হয়েছে</string>
+  <string name="blogs_reblog_comment_hint">একটি মন্তব্য যোগ করুন (ঐচ্ছিক)</string>
+  <string name="blogs_reblog_button">ব্লগ করুন</string>
+  <!--Blog Sharing-->
+  <string name="blogs_sharing_share">ব্লগ শেয়ার করুন</string>
+  <string name="blogs_sharing_error">এই ব্লগে শেয়ার করার সময় একটি ত্রুটি ঘটেছে ।</string>
+  <string name="blogs_sharing_button">ব্লগ শেয়ার করুন</string>
+  <string name="blogs_sharing_snackbar">ব্লগটি নির্বাচিত পরিচিতি সঙ্গে শেয়ার করুন</string>
+  <string name="blogs_sharing_response_accepted_sent">আপনি %s থেকে ব্লগের আমন্ত্রণ গ্রহণ করেছেন।</string>
+  <string name="blogs_sharing_response_declined_sent">আপনি %s থেকে ব্লগের আমন্ত্রণ প্রত্যাখ্যান করেছেন।</string>
+  <string name="blogs_sharing_response_declined_auto">%s থেকে প্রাপ্ত ব্লগের আমন্ত্রণ স্বয়ংক্রিয়ভাবে প্রত্যাখ্যাত হয়েছে।</string>
+  <string name="blogs_sharing_response_accepted_received">%s ব্লগের আমন্ত্রণ গ্রহণ করেছেন</string>
+  <string name="blogs_sharing_response_declined_received">%s ব্লগের আমন্ত্রণ প্রত্যাখ্যান করেছেন।</string>
+  <string name="blogs_sharing_invitation_received">%1$s আপনার সাথে \"%2$s\" ব্লগ শেয়ার করেছেন।</string>
+  <string name="blogs_sharing_invitation_sent">আপনি \"%1$s\" ব্লগটি %2$s এর সাথে শেয়ার করেছেন।</string>
+  <string name="blogs_sharing_invitations_title">ব্লগ আমন্ত্রণ</string>
+  <string name="blogs_sharing_joined_toast">ব্লগে সাবস্ক্রাইব করা হয়েছে।</string>
+  <string name="blogs_sharing_declined_toast">আমন্ত্রণ প্রত্যাখ্যান করা হয়েছে</string>
+  <string name="sharing_status_blog">কেউ একটি ব্লগে সাবস্ক্রাইব করলে সেটি তাদের কন্টাক্টদের সঙ্গে শেয়ার করতে পারে। আপনি এই ব্লগটি নিম্নলিখিত কন্টাক্টদের সঙ্গে শেয়ার করছেন। এছাড়াও এমন সাবস্ক্রাইবার থাকতে পারে যাদের আপনি দেখতে পাচ্ছেন না।</string>
+  <!--RSS Feeds-->
+  <string name="blogs_rss_feeds_import">RSS ফিড আমদানি করুন</string>
+  <string name="blogs_rss_feeds_import_button">আমদানি</string>
+  <string name="blogs_rss_feeds_import_hint">RSS এর ফিড URL লিখুন</string>
+  <string name="blogs_rss_feeds_import_progress">RSS ফিড আমদানি করা হচ্ছে...</string>
+  <string name="blogs_rss_feeds_import_error">আমরা দুঃখিত! আপনার ফীডটি আমদানি করতে সমস্যা হয়েছে ।</string>
+  <string name="blogs_rss_feeds_import_title">ফাইল থেকে ফিড আমদানি করুন</string>
+  <string name="blogs_rss_feeds">RSS ফিড সমূহ</string>
+  <string name="blogs_rss_feeds_manage_imported">আমদানি:</string>
+  <string name="blogs_rss_feeds_manage_author">লেখক:</string>
+  <string name="blogs_rss_feeds_manage_updated">সর্বশেষ হালনাগাদ করা হয়েছে:</string>
+  <string name="blogs_rss_remove_feed">ফিড সরান</string>
+  <string name="blogs_rss_remove_feed_dialog_message">আপনি কি নিশ্চিত যে, আপনি এই ফিডটি মুছে ফেলতে চান? \n\nপোস্টগুলি আপনার ডিভাইস থেকে মুছে ফেলা হবে কিন্তু অন্যদের ডিভাইস থেকে নয়। \n\nযে কন্টাক্টদের আপনি এই ফিডটি শেয়ার করেছেন, তাদের আপডেট পাওয়া বন্ধ হয়ে যেতে পারে।</string>
+  <string name="blogs_rss_remove_feed_ok">অপসারণ</string>
+  <string name="blogs_rss_feeds_manage_empty_state">দেখানোর মত কোনও RSS ফিড নেই।\n\nফিড আমদানি করতে + আইকনে ট্যাপ করুন</string>
+  <string name="blogs_rss_feeds_manage_error">আপনার ফিডগুলি লোড করতে একটি সমস্যা হয়েছে। দয়া করে পরে আবার চেষ্টা করুন।</string>
+  <!--Settings Profile Picture-->
+  <string name="change_profile_picture">আপনার প্রোফাইলের ছবি পরিবর্তন করতে ট্যাপ করুন</string>
+  <string name="dialog_confirm_profile_picture_title">প্রোফাইলের ছবি পরিবর্তন করুন</string>
+  <string name="dialog_confirm_profile_picture_remark">এই ছবি কেবল আপনার কন্টাক্টরা দেখতে পারবে</string>
+  <string name="change_profile_picture_failed_message">আমরা দুঃখিত, তবে আপনার প্রোফাইল ছবি আপডেট করার সময় কিছু সমস্যা হয়েছে</string>
+  <!--Settings Display-->
+  <string name="pref_language_title">ভাষা &amp; অঞ্চল</string>
+  <string name="pref_language_changed">এই সেটিংটি কার্যকর হবে যখন আপনি Briar বন্ধ করে আবার চালু করবেন। দয়া করে সাইন আউট করুন এবং Briar বন্ধ করে আবার চালু করুন।</string>
+  <string name="pref_language_default">সিস্টেমের ডিফল্ট</string>
+  <string name="display_settings_title">প্রদর্শন</string>
+  <string name="pref_theme_title">বিষয়</string>
+  <string name="pref_theme_light">আলো</string>
+  <string name="pref_theme_dark">অন্ধকার</string>
+  <string name="pref_theme_system">সিস্টেমের ডিফল্ট</string>
+  <!--Settings Connections-->
+  <string name="network_settings_title">Connections</string>
+  <string name="bluetooth_setting">ব্লুটুথের মাধ্যমে কন্টাক্টদের সাথে সংযুক্ত হন</string>
+  <string name="wifi_setting">একই Wi-Fi নেটওয়ার্কে থাকা কন্টাক্টদের সাথে সংযুক্ত হন</string>
+  <string name="tor_enable_title">ইন্টারনেটের মাধ্যমে কন্টাক্টদের সাথে সংযুক্ত হন</string>
+  <string name="tor_enable_summary">গোপনীয়তার জন্য সকল সংযোগ Tor নেটওয়ার্কের মাধ্যমে যাবে</string>
+  <string name="tor_network_setting">Tor নেটওয়ার্কের সংযোগ পদ্ধতি</string>
+  <string name="tor_network_setting_automatic">স্বয়ংক্রিয় অবস্থানের উপর ভিত্তি করে</string>
+  <string name="tor_network_setting_without_bridges">কোন ব্রিজ ছাড়াই Tor নেটওয়ার্ক ব্যবহার করুন</string>
+  <string name="tor_network_setting_with_bridges">ব্রিজ সহ Tor নেটওয়ার্ক ব্যবহার করুন</string>
+  <string name="tor_network_setting_never">ইন্টারনেটে সংযোগ স্থাপন করবেন না</string>
+  <!--How and when Briar will connect to Tor: E.g. "Don't connect to the Internet (in China)" or "Use Tor network with bridges (in Belarus)"-->
+  <string name="tor_network_setting_summary">স্বয়ংক্রিয়: %1$s (%2$s)</string>
+  <string name="tor_mobile_data_title">মোবাইল ডেটা ব্যবহার করুন</string>
+  <string name="tor_only_when_charging_title">শুধুমাত্র চার্জিংয়ের সময় ইন্টারনেটে সংযোগ স্থাপন করুন</string>
+  <string name="tor_only_when_charging_summary">ব্যাটারিতে চলার সময় ডিভাইসে ইন্টারনেট সংযোগ নিষ্ক্রিয় করুন</string>
+  <!--Settings Security and Panic-->
+  <string name="security_settings_title">সুরক্ষা</string>
+  <string name="pref_lock_title">অ্যাপ লক</string>
+  <string name="pref_lock_summary">সাইন ইন অবস্থায় Briar সুরক্ষিত রাখতে ডিভাইসের স্ক্রীন লক ব্যবহার করুন</string>
+  <string name="pref_lock_disabled_summary">এই ফিচারটি ব্যবহার করতে, আপনার ডিভাইসের জন্য একটি স্ক্রীন লক সেটআপ করুন</string>
+  <string name="pref_lock_timeout_title">কতক্ষণ ব্যবহার না করলে অ্যাপ লক হবে</string>
+  <!--The %s placeholder is replaced with the following time spans, e.g. 5 Minutes, 1 Hour-->
+  <string name="pref_lock_timeout_summary">Briar ব্যবহার না করলে স্বয়ংক্রিয়ভাবে লক করুন: %s</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_1">1 মিনিট</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_5">5 মিনিট</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_15">15 মিনিট</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_30">30 মিনিট</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_60">1 ঘন্টা</string>
+  <string name="pref_lock_timeout_never">কখনো না</string>
+  <string name="pref_lock_timeout_never_summary">কখনোই Briar স্বয়ংক্রিয়ভাবে লক করা হয় না</string>
+  <string name="change_password">পাসওয়ার্ড পরিবর্তন করুন</string>
+  <string name="current_password">বর্তমান পাসওয়ার্ড</string>
+  <string name="choose_new_password">নতুন পাসওয়ার্ড</string>
+  <string name="confirm_new_password">নতুন পাসওয়ার্ড নিশ্চিত করুন</string>
+  <string name="password_changed">পাসওয়ার্ড পরিবর্তন করা হয়েছে ।</string>
+  <string name="panic_setting">প্যানিক বাটন সেটআপ</string>
+  <string name="panic_setting_title">প্যানিক বাটন</string>
+  <string name="panic_setting_hint">যখন আপনি একটি প্যানিক বাটন অ্যাপ ব্যবহার করেন তখন কিভাবে Briar প্রতিক্রিয়া হবে তা কনফিগার করুন</string>
+  <string name="panic_app_setting_title">প্যানিক বাটন অ্যাপ্লিকেশন</string>
+  <string name="unknown_app">একটি অজানা অ্যাপ্লিকেশন</string>
+  <string name="panic_app_setting_summary">কোন অ্যাপ সেট করা হয়নি</string>
+  <string name="panic_app_setting_none">কোনটি না</string>
+  <string name="dialog_title_connect_panic_app">প্যানিক অ্যাপ নিশ্চিত করুন</string>
+  <string name="dialog_message_connect_panic_app">আপনি কি নিশ্চিত যে, আপনি %1$sকে ধ্বংসাত্মক প্যানিক বাটন অ্যাকশন চালানোর অনুমতি দিতে চান?</string>
+  <string name="panic_setting_destructive_action">ধ্বংসাত্মক কাজ</string>
+  <string name="panic_setting_signout_title">সাইন আউট</string>
+  <string name="panic_setting_signout_summary">প্যানিক বাটন চাপা হলে Briar থেকে সাইন আউট করুন</string>
+  <string name="purge_setting_title">অ্যাকাউন্ট মুছে ফেলুন</string>
+  <string name="purge_setting_summary">প্যানিক বাটন চাপা হলে আপনার Briar অ্যাকাউন্ট মুছে ফেলুন। সতর্কতা: এটি স্থায়ীভাবে আপনার পরিচয়, কন্টাক্ট এবং বার্তাগুলি মুছে ফেলবে</string>
+  <!--Settings Notifications-->
+  <string name="notification_settings_title">নোটিফিকেশন্স</string>
+  <string name="notify_sign_in_title">আমাকে সাইন ইন করতে মনে করিয়ে দিন</string>
+  <string name="notify_sign_in_summary">ফোন চালু হলে বা অ্যাপ আপডেট হলে একটি সতর্কবার্তা দেখান</string>
+  <string name="notify_private_messages_setting_title">ব্যক্তিগত বার্তা</string>
+  <string name="notify_private_messages_setting_summary">ব্যক্তিগত বার্তা জন্য এলার্টস দেখান</string>
+  <string name="notify_private_messages_setting_summary_26">প্রাইভেট বার্তার জন্য এলার্টস কনফিগার করুন</string>
+  <string name="notify_group_messages_setting_title">গ্রুপ বার্তা</string>
+  <string name="notify_group_messages_setting_summary">গ্রুপ বার্তার জন্য এলার্টস প্রদর্শন করা হবে</string>
+  <string name="notify_group_messages_setting_summary_26">গ্রুপ বার্তার জন্য এলার্টস কনফিগার করুন</string>
+  <string name="notify_forum_posts_setting_title">ফোরাম পোস্ট</string>
+  <string name="notify_forum_posts_setting_summary">ফোরাম পোস্ট জন্য এলার্টস দেখান</string>
+  <string name="notify_forum_posts_setting_summary_26">ফোরাম পোস্টের জন্য এলার্টস কনফিগার করুন</string>
+  <string name="notify_blog_posts_setting_title">ব্লগ পোস্ট</string>
+  <string name="notify_blog_posts_setting_summary">ব্লগ পোস্টের জন্য এলার্টস দেখান</string>
+  <string name="notify_blog_posts_setting_summary_26">ব্লগ পোস্টের জন্য এলার্টস কনফিগার করুন</string>
+  <string name="notify_vibration_setting">কাম্পান</string>
+  <string name="notify_sound_setting">শব্দ</string>
+  <string name="notify_sound_setting_default">ডিফল্ট রিংটোন</string>
+  <string name="notify_sound_setting_disabled">কোনটি না</string>
+  <string name="choose_ringtone_title">রিংটোন বেছে নিন</string>
+  <string name="cannot_load_ringtone">রিংটোন লোড করা যাচ্ছে না</string>
+  <!--Mailbox-->
+  <string name="mailbox_settings_title">মেইল বক্স</string>
+  <string name="mailbox_setup_title">মেইল বক্স সেটআপ</string>
+  <string name="mailbox_setup_intro">মেইলবক্স আপনার কন্টাক্টদের আপনি অফলাইনে থাকলেও আপনাকে বার্তা পাঠাতে সুযোগ দিবে। মেইলবক্স আপনার বার্তাগুলো গ্রহণ করে সংরক্ষণ করবে যতক্ষণ না আপনি অনলাইনে আসেন। 
+		\nআপনি অন্য একটি ডিভাইসে Briar মেইলবক্স অ্যাপ ইনস্টল করতে পারেন। এটি সবসময় অনলাইনে রাখতে চারজার এবং ওয়াই-ফাইতে সংযুক্ত রাখুন।</string>
+  <string name="mailbox_setup_download">প্রথমে, অন্য একটি ডিভাইসে \"Briar Mailbox\" অ্যাপ ইনস্টল করুন। এটি Google Play অথবা যেখান থেকে আপনি Briar ডাউনলোড করেছিলেন সেখান থেকে খুঁজে পেতে পারেন।\n
+		\nএরপর, মেইলবক্স অ্যাপের দেখানো QR কোড স্ক্যান করে আপনার মেইলবক্সকে Briar এর সঙ্গে সংযুক্ত করুন।</string>
+  <string name="mailbox_setup_download_link">ডাউনলোড লিংক শেয়ার করুন</string>
+  <string name="mailbox_setup_button_scan">মেইলবক্স QR কোড স্ক্যান করুন</string>
+  <string name="permission_camera_qr_denied_body">আপনি ক্যামেরা অ্যাক্সেস প্রত্যাখ্যান করেছেন, QR কোড স্ক্যান করতে ক্যামেরা ব্যবহার জরুরী। \n\nঅনুগ্রহ করে অ্যাক্সেস প্রদান করুন।</string>
+  <string name="mailbox_setup_connecting">মেইলবক্সে সংযোগ করা হচ্ছে...</string>
+  <!--This string is shown when connecting to a Mailbox for the first time. The placeholder will be replaced with a duration, e.g. "2 minutes".-->
+  <string name="mailbox_setup_connecting_info">এতে %1s সময় লাগতে পারে</string>
+  <string name="mailbox_qr_code_too_old">আপনি যে QR কোডটি স্ক্যান করেছেন, তা Briar Mailbox-এর পুরনো সংস্করণ থেকে এসেছে। \n\nদয়া করে Briar Mailbox-টি সর্বশেষ সংস্করণে আপগ্রেড করুন এবং তারপর আবার চেষ্টা করুন।</string>
+  <string name="mailbox_qr_code_too_new">আপনি যে QR কোডটি স্ক্যান করেছেন, তা Briar Mailbox-এর নতুন সংস্করণ থেকে এসেছে। \n\nদয়া করে Briar-টি সর্বশেষ সংস্করণে আপগ্রেড করুন এবং তারপর আবার চেষ্টা করুন।</string>
+  <string name="contact_qr_code_for_mailbox">আপনি যে QR কোডটি স্ক্যান করেছেন, তা Briar কন্টাক্ট যুক্ত করার জন্য। \n\nযদি আপনি একটি কন্টাক্ট যুক্ত করতে চান, তবে দয়া করে কন্টাক্ট লিস্টে গিয়ে + আইকনে ট্যাপ করুন।</string>
+  <string name="mailbox_setup_qr_code_wrong_description">আপনি যে QR কোডটি স্ক্যান করেছেন, তা Briar Mailbox থেকে আসেনি। \n\nদয়া করে আপনার মেইল বক্স ডিভাইসে Briar Mailbox অ্যাপটি খুলুন এবং সেখানে প্রদর্শিত QR কোডটি স্ক্যান করুন।</string>
+  <string name="mailbox_setup_already_paired_title">মেইল বক্স ইতিমধ্যে লিঙ্ক করা রয়েছে।</string>
+  <string name="mailbox_setup_already_paired_description">আপনার অন্য ডিভাইসে Mailbox আনলিঙ্ক করুন এবং আবার চেষ্টা করুন।</string>
+  <string name="mailbox_setup_io_error_title">সংযোগ করতে পারছে না</string>
+  <string name="mailbox_setup_io_error_description">দয়া করে নিশ্চিত করুন যে উভয় ডিভাইস ইন্টারনেটের সাথে সংযুক্ত রয়েছে এবং আবার চেষ্টা করুন।</string>
+  <string name="mailbox_setup_assertion_error_title">মেইল বক্সে সমস্যা</string>
+  <string name="mailbox_setup_assertion_error_description">যদি সমস্যা হতেই থাকে, দয়া করে Briar অ্যাপের মাধ্যমে (অজ্ঞাত তথ্যসহ) ফিডব্যাক পাঠান।</string>
+  <string name="mailbox_setup_camera_error_description">ক্যামেরা অ্যাক্সেস করা যায়নি। আবার চেষ্টা করুন, হয়তো ডিভাইস বন্ধ করে চালু করার পর এটি সমাধান হতে পারে।</string>
+  <string name="mailbox_setup_paired_title">সংযুক্ত</string>
+  <string name="mailbox_setup_paired_description">আপনার মেইলবক্স সফলভাবে ব্রায়ারের সাথে লিঙ্ক হয়েছে।\n
+		\nআপনার মেইলবক্সটি সব সময় অনলাইনে রাখতে এটি চার্জার এবং Wi-Fi এর সাথে সংযুক্ত রাখুন।</string>
+  <string name="tor_offline_title">অফলাইন</string>
+  <string name="tor_offline_description">নিশ্চিত করুন এই ডিভাইসটি অনলাইনে আছে এবং ইন্টারনেট সংযোগ পাচ্ছে।\n
+		\nএরপর, সংযোগ সেটিংস স্ক্রীনে গ্লোব আইকনটি সবুজ হওয়ার জন্য অপেক্ষা করুন।</string>
+  <string name="tor_offline_button_check">কানেকশন সেটিংস চেক করুন</string>
+  <string name="mailbox_status_title">মেইল বক্সের অবস্থা</string>
+  <string name="mailbox_status_connected_title">মেইল বক্স চালু আছে</string>
+  <string name="mailbox_status_problem_title">Briar মেইলবক্সের সাথে সংযোগ করতে সমস্যায় পড়ছে</string>
+  <string name="mailbox_status_failure_title">মেইলবক্স এই মুহূর্তে কাজ করছে না </string>
+  <string name="mailbox_status_app_too_old_title">Briar অনেক পুরাতন</string>
+  <string name="mailbox_status_app_too_old_message">Briar অ্যাপের সর্বশেষ সংস্করণে আপডেট করুন এবং আবার চেষ্টা করুন।</string>
+  <string name="mailbox_status_mailbox_too_old_title">মেইল বক্স অনেক পুরাতন</string>
+  <string name="mailbox_status_mailbox_too_old_message">মেইল বক্স অ্যাপের সর্বশেষ সংস্করণে আপডেট করুন এবং আবার চেষ্টা করুন।</string>
+  <string name="mailbox_status_check_button">সংযোগ পরীক্ষা করুন</string>
+  <!--Example for string substitution: Last connection: 3min ago-->
+  <string name="mailbox_status_connected_info">শেষবার সংযোগ হয়েছে: %s</string>
+  <!--Indicates that there never was a connection to the mailbox. Last connection: Never-->
+  <string name="mailbox_status_connected_never">কখনো না</string>
+  <string name="mailbox_status_unlink_button">আনলিঙ্ক</string>
+  <string name="mailbox_status_unlink_dialog_title">মেইল বক্স আনলিঙ্ক করবেন?</string>
+  <string name="mailbox_status_unlink_dialog_question">আপনি কি নিশ্চিত যে আপনি আপনার মেইলবক্স আনলিঙ্ক করতে চান?</string>
+  <string name="mailbox_status_unlink_dialog_warning">যদি আপনি আপনার মেইলবক্স আনলিঙ্ক করেন, তবে Briar অফলাইন থাকার সময় আপনি বার্তা গ্রহণ করতে পারবেন না।</string>
+  <string name="mailbox_status_unlink_no_wipe_title">আপবার মেইল বক্স আনলিঙ্ক করা হয়েছে</string>
+  <string name="mailbox_status_unlink_no_wipe_message">পরবর্তী সময়ে আপনার মেইলবক্স ডিভাইসে অ্যাক্সেস পাওয়ার পর, দয়া করে মেইলবক্স অ্যাপটি খুলুন এবং প্রক্রিয়া সম্পূর্ণ করতে \"Unlink\" বোতামে ট্যাপ করুন।\n\nযদি আপনার মেইলবক্স ডিভাইসে আর অ্যাক্সেস না থাকে, চিন্তা করবেন না। আপনার ডেটা এনক্রিপ্টেড, তাই প্রক্রিয়া সম্পূর্ণ না করলেও এটি নিরাপদ থাকবে।</string>
+  <string name="mailbox_status_unlink_success">আপবার মেইল বক্স আনলিঙ্ক করা হয়েছে</string>
+  <string name="mailbox_error_notification_channel_title">Briar Mailbox এ সমস্যা</string>
+  <string name="mailbox_error_notification_title">Briar Mailbox এই মুহূর্তে কাজ করছে না</string>
+  <string name="mailbox_error_notification_text">সমস্যা সমাধান করতে ট্যাপ করুন</string>
+  <string name="mailbox_error_wizard_button">সমাধান করুন</string>
+  <string name="mailbox_error_wizard_title">মেইলবক্স সমস্যার সমাধান উইজার্ড</string>
+  <string name="mailbox_error_wizard_question1">আপনার কি মেইলবক্স ডিভাইসে অ্যাক্সেস আছে?</string>
+  <string name="mailbox_error_wizard_answer1">হাঁ, আমার এই মুহূর্তে অ্যাক্সেস আছে।</string>
+  <string name="mailbox_error_wizard_answer2">এই মুহূর্তে নেই কিন্তু পরে অ্যাক্সেস করতে পারি</string>
+  <string name="mailbox_error_wizard_answer3">না, আমার আর এটিতে অ্যাক্সেস নেই।</string>
+  <string name="mailbox_error_wizard_info1_1">মেইলবক্স ডিভাইসটি চালু আছে এবং ইন্টারনেটে সংযুক্ত রয়েছে কিনা তা নিশ্চিত করুন।</string>
+  <string name="mailbox_error_wizard_question1_1">মেইলবক্স অ্যাপটি খুলুন। আপনি কী দেখতে পাচ্ছেন?</string>
+  <string name="mailbox_error_wizard_answer1_1">আমি মেইলবক্স সেট আপ করার জন্য নির্দেশনা দেখছি</string>
+  <string name="mailbox_error_wizard_answer1_2">আমি QR কোড দেখছি</string>
+  <string name="mailbox_error_wizard_answer1_3">আমি দেখছি \"Mailbox is running\"</string>
+  <string name="mailbox_error_wizard_answer1_4">আমি দেখছি \"Device offline\"</string>
+  <string name="mailbox_error_wizard_info1_1_1">অনুগ্রহ করে নিচের বোতামটি ব্যবহার করে আপনার মেইলবক্স আনলিঙ্ক করুন, তারপর মেইলবক্স ডিভাইসে প্রদত্ত নির্দেশনা অনুসরণ করে আবার এটি লিঙ্ক করুন।</string>
+  <string name="mailbox_error_wizard_info_1_1_2">অনুগ্রহ করে নিচের বোতামটি ব্যবহার করে আপনার মেইলবক্স আনলিঙ্ক করুন, তারপর আবার এটি লিঙ্ক করার জন্য কিউআর কোড স্ক্যান করুন।</string>
+  <string name="mailbox_error_wizard_info1_1_3">অনুগ্রহ করে নিচের বোতামটি ব্যবহার করে Briar এবং Mailbox-এর মধ্যে সংযোগ পরীক্ষা করুন।\n\n 
+
+		যদি সংযোগ আবার ব্যর্থ হয়: 
+		\u2022 নিশ্চিত করুন যে Mailbox এবং Briar অ্যাপস সর্বশেষ সংস্করণে আপডেট করা হয়েছে। 
+		\u2022আপনার Mailbox এবং Briar ডিভাইস বন্ধ করে পুনরায় চালু করুন এবং আবার চেষ্টা করুন।</string>
+  <string name="mailbox_error_wizard_info1_1_4">নিশ্চিত করুন যে Mailbox ডিভাইসটি সঠিকভাবে ইন্টারনেটে সংযুক্ত।\n\nনিশ্চিত করুন যে Mailbox ডিভাইসে ঘড়ির সময়, তারিখ এবং সময় অঞ্চল সঠিকভাবে প্রদর্শিত হচ্ছে। \n\nনিশ্চিত করুন যে Mailbox এবং Briar অ্যাপস সর্বশেষ সংস্করণে আপডেট করা হয়েছে। \n\nআপনার Mailbox এবং Briar ডিভাইসগুলি বন্ধ করে পুনরায় চালু করুন এবং আবার চেষ্টা করুন।</string>
+  <string name="mailbox_error_wizard_info2">যখন আপনি ডিভাইসটির অ্যাক্সেস পাবেন, তখন এই স্ক্রীনে ফিরে আসুন।</string>
+  <string name="mailbox_error_wizard_info3">অনুগ্রহ করে নিচের বোতামটি ব্যবহার করে আপনার মেইলবক্স আনলিঙ্ক করুন।\n\nআপনার পুরানো মেইলবক্স আনলিঙ্ক করার পর, আপনি যেকোনো সময় একটি নতুন মেইলবক্স সেটআপ করতে পারবেন।</string>
+  <!--About-->
+  <string name="about_title">আমাদের কথা</string>
+  <string name="briar_version">Briar ভার্সন: %s</string>
+  <string name="tor_version">Tor ভার্সন: %s</string>
+  <string name="links">লিঙ্কসমুহ</string>
+  <string name="briar_website">\u2022 <a href="">ওয়েবসাইট</a></string>
+  <string name="briar_source_code">\u2022 <a href="">সোর্স কোড</a></string>
+  <string name="briar_changelog">\u2022 <a href="">পরিবর্তন সমূহ</a></string>
+  <string name="briar_privacy_policy">\u2022 <a href="">গোপনিয়তার নীতি</a></string>
+  <!--Here translators can add their names or Transifex usernames(eg "Thanks to all the contributors at the Localization Lab, especially Tom, Matthew and Jerry")-->
+  <string name="translator_thanks">Localization Lab-এর সকল অবদানকারীদের ধন্যবাদ। বিশেষ করে আশরাফুল হক কে।</string>
+  <!--Conversation Settings-->
+  <string name="disappearing_messages_title">অদৃশ্য হওয়া বার্তাগুলি</string>
+  <string name="disappearing_messages_explanation_long">এই সেটিংটি চালু করলে এই কথোপকথনে নতুন
+		বার্তাগুলি ৭ \u00A0দিনের পরে স্বয়ংক্রিয়ভাবে অদৃশ্য হয়ে যাবে।
+		প্রেরকের বার্তার কপি ডেলিভারি হওয়ার পর থেকে কাউন্টডাউন শুরু হবে।
+		গ্রহণকারীর জন্য কাউন্টডাউন শুরু হয় বার্তা পড়ার পর।
+		যে বার্তাগুলি অদৃশ্য হবে সেগুলি বোমার আইকনে চিহ্নিত হবে।
+		\nমনে রাখবেন যে, রিসিভার আপনার পাঠানো বার্তার কপি তৈরি করতে পারে।
+		\n\nযদি আপনি এই সেটিংটি পরিবর্তন করেন, তাহলে এটি আপনার নতুন বার্তাগুলিতে সাথেসাথেই প্রযোজ্য হবে এবং
+		আপনার কন্টাক্টের বার্তা তাদের পরবর্তী বার্তা পাওয়ার পর থেকে প্রযোজ্য হবে।
+		আপনার কন্টাক্টও এই সেটিংটি পরিবর্তন করতে পারেন।</string>
+  <string name="learn_more">আরও জানুন</string>
+  <string name="disappearing_messages_summary">ভবিষ্যতে এই কথোপকথনে পাঠানো বার্তাগুলি স্বয়ংক্রিয়ভাবে ৭\u00A0দিনের পরে অদৃশ্য হয়ে যাবে।</string>
+  <!--Settings Actions-->
+  <string name="pref_category_actions">অ্যাকশান</string>
+  <string name="share_app_link">ডাউনলোড লিংক শেয়ার করুন</string>
+  <string name="share_app_link_text">%s থেকে Briar ডাউনলোড করুন</string>
+  <string name="send_feedback">প্রতিক্রিয়া পাঠান</string>
+  <!--Link Warning-->
+  <string name="link_warning_title">লিংক সতর্কবাণী</string>
+  <string name="link_warning_intro">আপনি একটি বাহ্যিক অ্যাপ্লিকেশনের সাথে নিম্নোক্ত লিঙ্কটি খুলতে চলেছেন ।</string>
+  <string name="link_warning_text">এটি আপনাকে চিহ্নিত করতে ব্যবহৃত হতে পারে। ভেবে দেখুন, যিনি এই লিঙ্কটি পাঠিয়েছেন তার উপর আপনি কতটা বিশ্বাস করেন এবং এটি Tor Browser ব্যবহার করে খুলতে পারেন।</string>
+  <string name="link_warning_open_link">যোগসূত্র খুলুন</string>
+  <!--Crash Reporter-->
+  <string name="crash_report_title">Briar ক্র্যাশ রিপোর্ট</string>
+  <string name="briar_crashed">দুঃখিত Briar ভেঙ্গে পড়েছে</string>
+  <string name="not_your_fault">এটা আপনার ভুল নয়</string>
+  <string name="please_send_report">আমাদের একটি ক্র্যাশ রিপোর্ট পাঠিয়ে একটি ভাল Briar গড়ে তুলতে সাহায্য করুন ।</string>
+  <string name="report_is_encrypted">আমরা প্রতিজ্ঞা করছি যে প্রতিবেদনটি এনক্রিপ্ট এবং নিরাপদভাবে পাঠানো হয়েছে ।</string>
+  <string name="feedback_title">প্রতিক্রিয়া</string>
+  <string name="describe_crash">কি ঘটেছে বর্ণনা করুন (ঐচ্ছিক)</string>
+  <string name="enter_feedback">আপনার প্রতিক্রিয়া লিখুন</string>
+  <string name="optional_contact_email">আপনার ইমেল অ্যাড্রেস (ঐচ্ছিক)</string>
+  <string name="privacy_policy">আমাদের কাছে ডেটা পাঠানোর মাধ্যমে আপনি আমাদের <a href="">গোপনীয়তা নীতির</a> মেনে নিচ্ছেন।</string>
+  <string name="include_debug_report_crash">ক্র্যাশ সম্পর্কে বেনামী তথ্য অন্তর্ভুক্ত করুন</string>
+  <string name="include_debug_report_feedback">এই ডিভাইস সম্বন্ধে বেনামী তথ্য অন্তর্ভুক্ত করুন</string>
+  <string name="dev_report_user_info">ব্যবহারকারী তথ্য</string>
+  <string name="dev_report_basic_info">সাধারণ তথ্য</string>
+  <string name="dev_report_device_info">ডিভাইসের তথ্য</string>
+  <string name="dev_report_stacktrace">Stacktrace</string>
+  <string name="dev_report_time_info">সময়ের তথ্য</string>
+  <string name="dev_report_memory">স্মৃতি</string>
+  <string name="dev_report_storage">স্টোরেজ</string>
+  <string name="dev_report_connectivity">সংযোগ</string>
+  <string name="dev_report_network_usage">নেটওয়ার্কের ব্যবহার</string>
+  <string name="dev_report_build_config">তৈরির কনফিগারেশন</string>
+  <string name="dev_report_logcat">অ্যাপ লগ</string>
+  <string name="dev_report_device_features">ডিভাইসের বৈশিষ্ট্য</string>
+  <string name="send_report">প্রতিবেদন প্রেরণ করুন</string>
+  <string name="close">বন্ধ</string>
+  <string name="dev_report_sending">প্রতিক্রিয়া পাঠানো হচ্ছে...</string>
+  <string name="dev_report_sent">ফিডব্যাক পাঠানো হয়েছে</string>
+  <string name="dev_report_saved">রিপোর্ট সংরক্ষিত। পরবর্তী বার আপনি Briar লগ ইন পাঠানো হবে।</string>
+  <string name="dev_report_error">সমস্যা: রিপোর্ট পাঠানো যায়নি</string>
+  <!--Sign Out-->
+  <string name="progress_title_logout">Briar থেকে সাইন-আউট করা হচ্ছে...</string>
+  <!--Screen Filters & Tapjacking-->
+  <string name="screen_filter_title">স্ক্রিন ওভারলে সনাক্ত হয়েছে</string>
+  <string name="screen_filter_body">আরেকটি অ্যাপ Briar এর উপরে কাজ করছে। আপনার নিরাপত্তা সুরক্ষিত রাখতে, অন্য কোনো অ্যাপ Briar এর উপরে সচল থাকলে Briar টাচ করলে প্রতিক্রিয়া দেখাবে না।
+\n\nনিম্নলিখিত অ্যাপগুলি Briar এর উপরে সচল পারে: \n\n%1$s</string>
+  <string name="screen_filter_body_api_30">আরেকটি অ্যাপ Briar এর উপরে কাজ করছে। আপনার নিরাপত্তা সুরক্ষিত রাখতে, অন্য কোনো অ্যাপ Briar এর উপরে সচল থাকলে Briar টাচ করলে প্রতিক্রিয়া দেখাবে না।
+\n\nকোনটি দায়ী জানতে নিম্নলিখিত অ্যাপগুলি পর্যালোচনা করুন।</string>
+  <string name="screen_filter_allow">এই অ্যাপ গুলিকে উপরে কাজ করতে দিন</string>
+  <string name="screen_filter_review_apps">অ্যাপগুলি পর্যালোচনা করুন</string>
+  <!--Permission Requests-->
+  <string name="permission_camera_title">ক্যামেরার অনুমতি</string>
+  <string name="permission_camera_request_body">QR কোড স্ক্যান করতে, Briar এর ক্যামেরার অ্যাক্সেস প্রয়োজন ।</string>
+  <string name="permission_location_title">অবস্থানের অনুমতি</string>
+  <string name="permission_nearby_devices_title">আশেপাশের ডিভাইসের অনুমতি</string>
+  <string name="permission_location_request_body">ব্লুটুথ ডিভাইস আবিষ্কার করতে, Briar আপনার অবস্থান অ্যাক্সেস করার অনুমতি প্রয়োজন । Briar আপনার অবস্থান সংরক্ষণ করে না বা কারো সাথে শেয়ার করে না.</string>
+  <string name="permission_camera_location_title">ক্যামেরা এবং অবস্থান</string>
+  <string name="permission_camera_location_request_body">QR কোড স্ক্যান করতে, Briar এর আপনার ক্যামেরা অ্যাক্সেস করার অনুমতি প্রয়োজন ।\n\nব্লুটুথ ডিভাইস আবিষ্কার করতে, Briar আপনার অবস্থান অ্যাক্সেস করার অনুমতিসমূহ প্রয়োজন।\n\n Briar আপনার অবস্থান সংরক্ষণ করে না বা কারো সাথে শেয়ার করে না।</string>
+  <string name="permission_camera_bluetooth_title">ক্যামেরা এবং আশেপাশের ডিভাইসগুলি</string>
+  <string name="permission_camera_bluetooth_request_body">QR কোড স্ক্যান করার জন্য Briar-এর ক্যামেরার অ্যাক্সেস প্রয়োজন।\n\nBluetooth ডিভাইসগুলি আবিষ্কার করার জন্য Briar-কে কাছাকাছি ডিভাইসগুলি খুঁজে বের করতে এবং সংযুক্ত হওয়ার অনুমতিসমূহ প্রয়োজন।</string>
+  <string name="permission_camera_denied_body">আপনি ক্যামেরার অ্যাক্সেস প্রত্যাখ্যান করেছেন, কিন্তু কন্টাক্ট যোগ করার জন্য ক্যামেরা ব্যবহার জরুরী।\n\nঅনুগ্রহ করে অ্যাক্সেস দেওয়ার কথা বিবেচনা করুন।</string>
+  <string name="permission_location_denied_body">আপনি আপনার অবস্থান অ্যাক্সেস প্রত্যাখ্যান করেছেন, কিন্তু ব্লুটুথ ডিভাইসগুলি আবিষ্কার করার জন্য Briar এর এই অনুমতিসমূহ প্রয়োজন।\n\nঅনুগ্রহ করে অ্যাক্সেস দেওয়ার কথা বিবেচনা করুন।</string>
+  <string name="permission_location_setting_title">অবস্থানের সেটিং</string>
+  <string name="permission_location_setting_body">ব্লুটুথের মাধ্যমে অন্যান্য ডিভাইস খুঁজে বের করার জন্য আপনার ডিভাইসের লোকেশন সেটিংস চালু থাকতে হবে। চালিয়ে যাওয়ার জন্য অনুগ্রহ করে লোকেশন সক্ষম করুন। পরবর্তীতে আপনি এটি আবার বন্ধ করতে পারবেন।</string>
+  <string name="permission_location_setting_hotspot_body">Wi-Fi হটস্পট তৈরি করার জন্য আপনার ডিভাইসের লোকেশন সেটিংস চালু থাকতে হবে। চালিয়ে যাওয়ার জন্য অনুগ্রহ করে লোকেশন সক্ষম করুন। পরবর্তীতে আপনি এটি আবার বন্ধ করতে পারবেন।</string>
+  <string name="permission_location_setting_button">লোকেশন সক্ষম করুন</string>
+  <string name="permission_bluetooth_title">আশেপাশের ডিভাইসের অনুমতিসমূহ</string>
+  <string name="permission_bluetooth_body">Briar এর ব্লুটুথ যোগাযোগ ব্যবহার করার জন্য কাছে থাকা ডিভাইসগুলো খুঁজে পেতে এবং সংযুক্ত করতে অনুমতিসমূহ প্রয়োজন।</string>
+  <string name="permission_bluetooth_denied_body">আপনি আশেপাশের ডিভাইসে অ্যাক্সেস প্রত্যাখ্যান করেছেন, কিন্তু ব্লুটুথ ব্যবহার করার জন্য Briar এর এই অনুমতিসমূহ প্রয়োজন।\n\nঅনুগ্রহ করে অ্যাক্সেস দেওয়ার কথা বিবেচনা করুন।</string>
+  <string name="qr_code">QR কোড</string>
+  <string name="show_qr_code_fullscreen">QR কোড ফুলস্ক্রিনে দেখান</string>
+  <!--App Locking-->
+  <string name="lock_unlock">Briar আনলক করুন</string>
+  <string name="lock_unlock_verbose">Briar আনলক করতে আপনার ডিভাইসের PIN, প্যাটার্ন বা পাসওয়ার্ড লিখুন </string>
+  <string name="lock_unlock_fingerprint_description">চালিয়ে যেতে নিবন্ধিত আঙুল দিয়ে আপনার ফিঙ্গারপ্রিন্ট সেন্সর স্পর্শ করুন</string>
+  <string name="lock_unlock_password">পাসওয়ার্ড ব্যবহার করুন</string>
+  <string name="lock_is_locked">Briar লক করা আছে</string>
+  <string name="lock_tap_to_unlock">আনলক করতে ট্যাপ করুন</string>
+  <!--Connections Screen-->
+  <string name="transports_help_text">Briar ইন্টারনেট, ওয়াই-ফাই বা ব্লুটুথের মাধ্যমে আপনার কন্টাক্টদের সঙ্গে সংযোগ স্থাপন করতে পারে।\n\nসকল ইন্টারনেট সংযোগ গোপনীয়তার জন্য টর নেটওয়ার্কের মাধ্যমে পরিচালিত হয়। \n\nএকজন কন্টাক্টের সঙ্গে একাধিক উপায়ে সংযোগ স্থাপন করা সম্ভব হলে, Briar সেগুলো একসঙ্গে ব্যবহার করবে।</string>
+  <!--Share app offline-->
+  <string name="hotspot_title">এই অ্যাপ অফলাইনে শেয়ার করুন</string>
+  <string name="hotspot_intro">ইন্টারনেট সংযোগ ছাড়াই আপনার ফোনের ওয়াই-ফাই ব্যবহার করে অন্যের সঙ্গে এই অ্যাপটি শেয়ার করুন। \n\nআপনার ফোন একটি ওয়াই-ফাই হটস্পট চালু করবে। আশেপাশের মানুষ সেই হটস্পটের সঙ্গে সংযোগ করে আপনার ফোন থেকে Briar অ্যাপটি ডাউনলোড করতে পারবে।</string>
+  <string name="hotspot_button_start_sharing">হটস্পট চালু করুন</string>
+  <string name="hotspot_button_stop_sharing">হটস্পট বন্ধ করুন</string>
+  <string name="hotspot_progress_text_start">হটস্পট সেট করা হচ্ছে...</string>
+  <string name="hotspot_notification_channel_title">ওয়াইফাই হটস্পট</string>
+  <string name="hotspot_notification_title">Briar অফালিনে শেয়ার করা</string>
+  <string name="hotspot_button_connected">পরবর্তী</string>
+  <string name="permission_hotspot_location_request_body">ওয়াই-ফাই হটস্পট তৈরি করতে, Briar-এর আপনার অবস্থানের অ্যাক্সেসের অনুমতিসমূহ প্রয়োজন।\n\n Briar আপনার অবস্থান সংরক্ষণ করে না বা কারো সাথে তা শেয়ার করে না।</string>
+  <string name="permission_hotspot_location_request_precise_body">ওয়াই-ফাই হটস্পট তৈরি করতে, Briar-এর আপনার নির্দিষ্ট অবস্থানের অনুমতিসমূহ প্রয়োজন। \n\nBriar আপনার অবস্থান সংরক্ষণ করে না বা কারো সাথে তা শেয়ার করে না।</string>
+  <string name="permission_hotspot_location_denied_body">আপনি আপনার অবস্থান অ্যাক্সেস প্রত্যাখ্যান করেছেন, কিন্তু ওয়াইফাই হটস্পট তৈরি করার জন্য Briar এর এই অনুমতিসমূহ প্রয়োজন।\n\nঅনুগ্রহ করে অ্যাক্সেস দেওয়ার কথা বিবেচনা করুন।</string>
+  <string name="permission_hotspot_location_denied_precise_body">আপনি আপনার নির্দিষ্ট অবস্থানের অ্যাক্সেস প্রত্যাখ্যান করেছেন, কিন্তু ওয়াইফাই হটস্পট তৈরি করার জন্য Briar এর এই অনুমতিসমূহ প্রয়োজন।\n\nঅনুগ্রহ করে অ্যাক্সেস দেওয়ার কথা বিবেচনা করুন।</string>
+  <string name="permission_hotspot_nearby_wifi_request_body">Wi-Fi হটস্পট তৈরি করতে, Briar-এর কাছে নিকটস্থ ডিভাইসগুলোতে প্রবেশের অনুমতিসমূহ প্রয়োজন।</string>
+  <string name="permission_hotspot_nearby_wifi_denied_body">আপনি আশেপাশের ডিভাইসে অ্যাক্সেসের অনুমতি প্রত্যাখ্যান করেছেন, কিন্তু ওয়াইফাই হটস্পট তৈরি করার জন্য Briar এর এই অনুমতিসমূহ প্রয়োজন।\n\nঅনুগ্রহ করে অ্যাক্সেস দেওয়ার কথা বিবেচনা করুন।</string>
+  <string name="wifi_settings_title">ওয়াইফাই সেটিং</string>
+  <string name="wifi_settings_request_enable_body">Wi-Fi হটস্পট তৈরি করতে, Briar-এর Wi-Fi ব্যবহার করা প্রয়োজন। অনুগ্রহ করে এটি চালু করুন।</string>
+  <string name="hotspot_tab_manual">নিজে করুন</string>
+  <!--The placeholder to be inserted into the string 'hotspot_manual_wifi': People can connect by %s-->
+  <string name="hotspot_scanning_a_qr_code">QR কোড স্ক্যান করে</string>
+  <!--Wi-Fi setup-->
+  <!--The %s placeholder will be replaced with the translation of 'hotspot_scanning_a_qr_code'-->
+  <string name="hotspot_manual_wifi">আপনার ফোন একটি Wi-Fi হটস্পট তৈরি করছে। যারা Briar ডাউনলোড করতে চায়, তারা তাদের ডিভাইসের Wi-Fi সেটিংসে নীচের নির্দেশনা ব্যবহার করে অথবা %s-এর মাধ্যমে হটস্পটে সংযোগ করতে পারে । তারা হটস্পটে সংযুক্ত হওয়ার পর, \'পরবর্তী\' বোতাম চাপুন।</string>
+  <string name="hotspot_manual_wifi_ssid">নেটওয়ার্কের নাম</string>
+  <string name="hotspot_qr_wifi">আপনার ফোন একটি Wi-Fi হটস্পট তৈরি করছে। যারা Briar ডাউনলোড করতে চায়, তারা এই QR কোড স্ক্যান করে হটস্পটে সংযোগ করতে পারে। তারা হটস্পটে সংযুক্ত হওয়ার পর, \'পরবর্তী\' বোতাম চাপুন।</string>
+  <string name="hotspot_no_peers_connected">কোন ডিভাইস যুক্ত হয়নি</string>
+  <plurals name="hotspot_peers_connected">
+    <item quantity="one">%s টি ডিভাইস যুক্ত হয়েছে</item>
+    <item quantity="other">%s টি ডিভাইস যুক্ত হয়েছে</item>
+  </plurals>
+  <!--Download link-->
+  <!--The %s placeholder will be replaced with the translation of 'hotspot_scanning_a_qr_code'-->
+  <string name="hotspot_manual_site">আপনার ফোন একটি Wi-Fi হটস্পট তৈরিকরছে। যারা হটস্পটে সংযুক্ত রয়েছে, তারা একটি ওয়েব ব্রাউজারে নিচের লিঙ্কটি টাইপ করে অথবা %s Briar ডাউনলোড করতে পারে।</string>
+  <string name="hotspot_manual_site_address">ঠিকানা (লিংক)</string>
+  <string name="hotspot_qr_site">আপনার ফোন একটি Wi-Fi হটস্পট তৈরি করছে। যারা হটস্পটে সংযুক্ত রয়েছে, তারা এই QR কোড স্ক্যান করে Briar ডাউনলোড করতে পারে।</string>
+  <!--e.g. Download Briar 1.2.20-->
+  <string name="website_download_title_1">Briar %s ডাউনলোড করুন</string>
+  <string name="website_download_intro_1">আপনার আশেপাশের কেউ Briar শেয়ার করেছেন</string>
+  <string name="website_download_button">Briar ডাউনলোড করুন</string>
+  <string name="website_download_outro">ডাউনলোড সম্পূর্ণ হওয়ার পরে, ডাউনলোড করা ফাইলটি ওপেন করুন এবং ইনস্টল করুন।</string>
+  <string name="website_troubleshooting_title">সমস্যা সমাধান</string>
+  <string name="website_troubleshooting_1">যদি আপনি অ্যাপটি ডাউনলোড করতে না পারেন, তাহলে একটি ভিন্ন ওয়েব ব্রাউজার ব্যবহার করে চেষ্টা করুন।</string>
+  <string name="website_troubleshooting_2_old">ডাউনলোড করা অ্যাপ ইনস্টল করতে, আপনাকে সিস্টেম সেটিংসে \"Unknown sources\" থেকে অ্যাপ ইনস্টল করার অনুমতি দিতে হতে পারে। এর পরে, আপনাকে আবার অ্যাপটি ডাউনলোড করতে হতে পারে। আমরা অ্যাপ ইনস্টল করার পর \"Unknown sources\" সেটিংটি বন্ধ করার সুপারিশ করি।</string>
+  <string name="website_troubleshooting_2_new">ডাউনলোড করা অ্যাপ ইনস্টল করতে, আপনাকে আপনার ব্রাউজারকে unknown apps ইনস্টল করার অনুমতিসমূহ দিতে হতে পারে। অ্যাপ ইনস্টল করার পর, আমরা সুপারিশ করি যে আপনি ব্রাউজারের \"unknown apps.\" অনুমতি বন্ধ করবেন।</string>
+  <string name="hotspot_help_wifi_title">ওয়াইফাইতে সংযোগ করতে সমস্যা হচ্ছে</string>
+  <string name="hotspot_help_wifi_1">উভয় ফোনে ওয়াইফাই বন্ধ করে আবার চালু করুন এবং পুনরায় চেষ্টা করুন।</string>
+  <string name="hotspot_help_wifi_2">যদি আপনার ফোন অভিযোগ করে যে, Wi-Fi তে ইন্টারনেট নেই, তবে আপনি তবুও সংযুক্ত থাকতে চান নির্বাচন করুন।</string>
+  <string name="hotspot_help_wifi_3">যে ফোনটি Wi-Fi হটস্পট চালাচ্ছে, সেটি রিস্টার্ট করুন, তারপর Briar শুরু করুন এবং আবার শেয়ার করার চেষ্টা করুন।</string>
+  <string name="hotspot_help_site_title">লোকাল ওয়েবসাইটে ঢুকতে সমস্যা হচ্ছে:</string>
+  <string name="hotspot_help_site_1">আপনি ঠিক যেমন দেখানো হয়েছে ঠিক তেমন লিখেছেন কিনা তা পুনরায় চেক করুন। একটি ছোট ত্রুটি হলেও একটি কাজ না করতে পারে।</string>
+  <string name="hotspot_help_site_2">যখন আপনি সাইটে অ্যাক্সেস করার চেষ্টা করবেন, তখন নিশ্চিত করুন যে আপনার ফোন এখনও সঠিক Wi-Fi-এ সংযুক্ত রয়েছে (উপরের তথ্য দেখুন)।</string>
+  <string name="hotspot_help_site_3">যদি আপনার ফোনে একটি ফায়ারওয়াল অ্যাপ থাকে, তাহলে নিশ্চিত করুন যে এটি অ্যাক্সেস ব্লক করছে না।</string>
+  <string name="hotspot_help_site_4">যদি আপনি সাইটটি পরিদর্শন করতে পারেন, কিন্তু Briar অ্যাপ ডাউনলোড করতে পারছেন না, তবে একটি ভিন্ন ওয়েব ব্রাউজার দিয়ে চেষ্টা করুন।</string>
+  <string name="hotspot_help_fallback_title">কিছুতেই কাজ হচ্ছে না?</string>
+  <string name="hotspot_help_fallback_intro">আপনি অ্যাপটি একটি .apk ফাইল হিসেবে সংরক্ষণ করে অন্যভাবে শেয়ার করার চেষ্টা করতে পারেন। একবার ফাইলটি অন্য ডিভাইসে স্থানান্তরিত হলে, এটি দিয়ে Briar ইনস্টল করা যেতে পারে।
+		\n\n পরামর্শ: Bluetooth এর মাধ্যমে শেয়ার করার জন্য, আপনাকে প্রথমে ফাইলটির নাম পরিবর্তন করে এর শেষে .zip লিখতে হতে পারে।</string>
+  <string name="hotspot_help_fallback_button">অ্যাপ সেভ করুন</string>
+  <!--error handling-->
+  <string name="hotspot_error_intro">Wi-Fi এর মাধ্যমে অ্যাপটি শেয়ার করার সময় কিছু সমস্যা হয়েছে:</string>
+  <string name="hotspot_error_no_wifi_direct">ডিভাইসটি Wi-Fi Direct সমর্থন করে না</string>
+  <string name="hotspot_error_start_callback_failed">হটস্পট শুরু করতে ব্যর্থ: সমস্যা %s</string>
+  <string name="hotspot_error_start_callback_failed_unknown">অজানা কারনে হটস্পট শুরু করতে ব্যর্থ, হয়তবা %d</string>
+  <string name="hotspot_error_start_callback_no_group_info">হটস্পট শুরু করতে ব্যর্থ: কোন গ্রুপের তথ্য নেই</string>
+  <string name="hotspot_error_web_server_start">ওয়েব সার্ভার চালু করতে ব্যর্থ</string>
+  <string name="hotspot_error_web_server_serve">ওয়েবসাইট প্রদর্শনে সমস্যা।\n\nযদি সমস্যা হতেই থাকে, অনুগ্রহ করে Briar অ্যাপের মাধ্যমে (গোপনীয় তথ্য সহ) প্রতিক্রিয়া পাঠান।</string>
+  <string name="hotspot_flag_test">সতর্কতা: এই অ্যাপটি Android Studio ব্যবহার করে ইনস্টল করা হয়েছে এবং এটি অন্য ডিভাইসে ইনস্টল করা যাবে না।</string>
+  <string name="hotspot_error_framework_busy">হটস্পট চালু করা যাচ্ছে না।\n\nযদি আপনার আরেকটি হটস্পট চালু থাকে বা আপনি কারো সাথে Wi-Fi এর মাধ্যমে আপনার ইন্টারনেট সংযোগ শেয়ার করছেন, তাহলে সেটি বন্ধ করে আবার চেষ্টা করুন।</string>
+  <!--Transfer Data via Removable Drives-->
+  <string name="removable_drive_menu_title">রিমুভেবল ড্রাইভের মাধ্যমে সংযোগ করুন</string>
+  <string name="removable_drive_intro">যদি আপনি ইন্টারনেট, Wi-Fi বা Bluetooth এর মাধ্যমে আপনার কন্টাক্টের সাথে সংযোগ করতে না পারেন, তাহলে Briar একটি রিমুভেবল ড্রাইভ যেমন পেনড্রাইভ বা মেমোরি কার্ডের মাধ্যমে বার্তা ট্রান্সফার করতে পারে।</string>
+  <string name="removable_drive_explanation">যদি আপনি ইন্টারনেট, Wi-Fi বা Bluetooth এর মাধ্যমে আপনার কন্টাক্টের সাথে সংযোগ করতে না পারেন, তাহলে Briar একটি রিমুভেবল ড্রাইভ যেমন পেনড্রাইভ বা মেমোরি কার্ডের মাধ্যমে বার্তা ট্রান্সফার করতে পারে।\n\nযখন আপনি \"ডাটা পাঠান\" বোতামটি ব্যবহার করবেন, তখন কন্টাক্টের কাছে পাঠানোর জন্য যদি কোন কোনো ডাটা থাকে তবে তা রিমুভেবল ড্রাইভে কপি করা হবে। এর মধ্যে ব্যক্তিগত বার্তা, অ্যাটাচমেন্ট, ব্লগ, ফোরাম এবং ব্যক্তিগত গ্রুপ অন্তর্ভুক্ত থাকবে।\n\nএগুলো রিমুভেবল ড্রাইভে কপি হওয়ার আগে এনক্রিপ্ট করা হবে।\n\nযখন আপনার কন্টাক্ট রিমুভেবল ড্রাইভটি পাবে, তারা \"ডাটা গ্রহণ করুন\" বোতামটি ব্যবহার করে Briar-এ বার্তাগুলি ইমপোর্ট করতে পারবে।</string>
+  <string name="removable_drive_title_send">ডাটা পাঠান</string>
+  <string name="removable_drive_title_receive">ডাটা গ্রহণ করুন</string>
+  <string name="removable_drive_send_intro">নিচের বোতামে ট্যাপ করুন একটি নতুন ফাইল তৈরি করতে যেখানে এনক্রিপ্ট করা বার্তাগুলি থাকবে। আপনি ফাইলটি কোথায় সংরক্ষণ করবেন তা নির্বাচন করতে পারবেন।\n\nযদি আপনি ফাইলটি একটি রিমুভেবল ড্রাইভে সংরক্ষণ করতে চান, সেটি এখন প্রবেশ করান।</string>
+  <string name="removable_drive_send_no_data">বর্তমানে এই কন্টাক্টের জন্য পাঠানোর মত কোনো বার্তা নেই।</string>
+  <string name="removable_drive_send_not_supported">এই কন্টাক্ট একটি পুরোনো ভার্সনের Briar অথবা একটি পুরোনো ডিভাইস ব্যবহার করছেন যা এই ফিচারটি সমর্থন করে না।</string>
+  <string name="removable_drive_send_button">এক্সপোর্ট করার জন্য ফাইল নির্বাচন করুন</string>
+  <string name="removable_drive_ongoing">চলমান কাজ শেষ হওয়া অব্দি অপেক্ষা করুন</string>
+  <string name="removable_drive_receive_intro">আপনার কন্টাক্ট যে ফাইলটি আপনাকে পাঠিয়েছে তা নির্বাচন করতে নীচের বোতামে ট্যাপ করুন। \n\nযদি ফাইলটি একটি রিমুভেবল ড্রাইভে থাকে, তাহলে এখন ড্রাইভটি সংযুক্ত করুন।</string>
+  <string name="removable_drive_receive_button">ইমপোর্ট করার জন্য ফাইল নির্বাচন করুন</string>
+  <string name="removable_drive_success_send_title">এক্সপোর্ট সফল হয়েছে</string>
+  <string name="removable_drive_success_send_text">ডেটা সফলভাবে এক্সপোর্ট করা হয়েছে। এখন আপনার কাছে ২৮ দিন সময় রয়েছে ফাইলটি আপনার কন্টাক্টের নিকট পাঠাতে।\n\nযদি ফাইলটি একটি রিমুভেবল ড্রাইভে থাকে, তবে এটি আনপ্লাগ করার আগে স্ট্যাটাস বার থেকে ড্রাইভটি ইজেক্ট করার জন্য নোটিফিকেশন ব্যবহার করুন।</string>
+  <string name="removable_drive_success_receive_title">ইমপোর্ট সফল হয়েছে</string>
+  <string name="removable_drive_success_receive_text">এই ফাইলে থাকা সমস্ত এনক্রিপ্টেড বার্তা গ্রহণ করা হয়েছে।</string>
+  <string name="removable_drive_error_send_title">ডাটা এক্সপোর্ট করতে সমস্যা হয়েছে</string>
+  <string name="removable_drive_error_send_text">ফাইলে ডেটা লেখার সময় একটি সমস্যা হয়েছে।\n\nযদি আপনি একটি রিমুভেবল ড্রাইভ ব্যবহার করেন, নিশ্চিত করুন যে এটি সঠিকভাবে লাগানো হয়েছে এবং আবার চেষ্টা করুন। \n\nযদি ত্রুটি অব্যাহত থাকে, দয়া করে Briar টিমকে সমস্যাটি জানাতে প্রতিক্রিয়া পাঠান।</string>
+  <string name="removable_drive_error_receive_title">ডাটা ইমপোর্ট করতে সমস্যা হয়েছে</string>
+  <string name="removable_drive_error_receive_text">নির্বাচিত ফাইলটি Briar চিহ্নিত করতে পারছে না।\n\nদয়া করে নিশ্চিত করুন যে আপনি সঠিক ফাইলটি নির্বাচন করেছেন।\n\nযদি আপনার যোগাযোগকারী ব্যক্তি ২৮ দিনের বেশি আগে ফাইলটি তৈরি করে থাকেন, তবে Briar তা চিহ্নিত করতে পারবে না।</string>
+  <!--Screenshots-->
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_alice">আরশি</string>
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_bob">আরিবা</string>
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_carol">রুবা</string>
+  <!--This is a message to be used in screenshots. Please use the same translation for Bob!-->
+  <string name="screenshot_message_1">হাই বব!</string>
+  <!--This is a message to be used in screenshots. Please use the same translation for Alice!-->
+  <string name="screenshot_message_2">হাই অ্যালিস! Briar সম্পর্কে আমাকে বলার জন্য ধন্যবাদ!</string>
+  <!--This is a message to be used in screenshots.-->
+  <string name="screenshot_message_3">সমস্যা নেই, আশা করি আপনি এটি পছন্দ করেন 😀</string>
+</resources>

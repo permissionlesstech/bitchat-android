@@ -1,0 +1,614 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<resources>
+	<!--Setup-->
+	<string name="setup_title">Welkom bij Briar</string>
+	<string name="setup_name_explanation">Je bijnaam wordt getoond bij alle content die je post. Nadat je account is aangemaakt is het niet mogelijk je bijnaam te wijzigen.</string>
+	<string name="setup_next">Volgende</string>
+	<string name="setup_password_intro">Kies een wachtwoord</string>
+	<string name="setup_password_explanation">Je Briar-account is versleuteld opgeslagen op je apparaat, niet in de cloud. Als je je wachtzin vergeet of Briar deïnstalleert is er geen manier om je account te herstellen.\n\nKies een lang wachtwoord die moeilijk is om te raden, bijvoorbeeld vier willekeurige woorden of tien willekeurige letters, cijfers en symbolen.</string>
+	<string name="dnkm_doze_title">Achtergrondverbindingen</string>
+	<string name="dnkm_doze_intro">Om berichten te ontvangen dient Briar in de achtergrond verbonden te blijven.</string>
+	<string name="dnkm_doze_explanation">Briar moet in de achtergrond verbonden blijven om berichten te ontvangen. Schakel batterij-optimalisaties alsjeblieft uit zodat Briar verbonden kan blijven.</string>
+	<string name="dnkm_doze_button">Sta verbindingen toe</string>
+	<string name="choose_nickname">Kies een bijnaam</string>
+	<string name="choose_password">Kies een wachtwoord</string>
+	<string name="confirm_password">Bevestig je wachtwoord</string>
+	<string name="name_too_long">Naam is te lang</string>
+	<string name="password_too_weak">Wachtwoord is te zwak</string>
+	<string name="passwords_do_not_match">Wachtwoorden komen niet overeen</string>
+	<string name="create_account_button">Maak account aan</string>
+	<string name="more_info">Meer informatie</string>
+	<string name="don_t_ask_again">Vraag niet nog een keer</string>
+	<string name="dnkm_huawei_protected_text">Tik alsjeblieft op de knop hieronder en ga nadat Briar is beschermd naar het scherm \"Beveiligde apps\".</string>
+	<string name="dnkm_huawei_protected_button">Bescherm Briar</string>
+	<string name="dnkm_huawei_protected_help">Als Briar niet is toegevoegd aan de beschermde apps, is het niet mogelijk om het in de achtergrond uit te voeren.</string>
+	<string name="dnkm_xiaomi_button">Bescherm Briar</string>
+	<string name="dnkm_warning_dozed">%s kon niet in de achtergrond worden uitgevoerd</string>
+	<!--Login-->
+	<string name="enter_password">Wachtwoord</string>
+	<string name="try_again">Verkeerd wachtwoord, probeer het nog een keer</string>
+	<string name="dialog_title_cannot_check_password">Kan wachtwoord niet controleren</string>
+	<string name="dialog_message_cannot_check_password">Briar kan je wachtwoord niet controleren. Start je apparaat opnieuw op en probeer het nog eens.</string>
+	<string name="sign_in_button">Log in</string>
+	<string name="forgotten_password">Ik ben mijn wachtwoord vergeten</string>
+  <string name="dialog_title_lost_password">Wachtwoord vergeten</string>
+  <string name="dialog_message_lost_password">Je Briar-account is versleuteld opgeslagen op je apparaat, niet in de cloud, dus kunnen we je wachtwoord niet herstellen. Wil je je account verwijderen en opnieuw beginnen?\n\nLet op: Je identiteiten, contacten en berichten zullen permanent verloren gaan.</string>
+  <string name="startup_failed_activity_title">Opstarten Briar mislukt</string>
+  <plurals name="expiry_warning">
+    <item quantity="one">Dit is een testversie van Briar. Je account verloopt binnen %d dag en kan niet worden vernieuwd.</item>
+    <item quantity="other">Dit is een testversie van Briar. Je account verloopt binnen %d dagen en kan niet worden vernieuwd.</item>
+  </plurals>
+  <string name="expiry_date_reached">Deze software is verlopen.\nBedankt vor het testen!</string>
+  <string name="download_briar">Download de laatste versie om Briar te kunnen blijven gebruiken.</string>
+  <string name="create_new_account">Je moet een nieuw account aanmaken. Je kan dezelfde bijnaam gebruiken.</string>
+  <string name="download_briar_button">Download de laatste versie</string>
+  <string name="delete_account_button">Verwijder account</string>
+  <string name="startup_open_database">Database aan het ontsleutelen…</string>
+  <string name="startup_migrate_database">Database aan het upgraden…</string>
+  <string name="startup_compact_database">Database comprimeren...</string>
+  <!--Navigation Drawer-->
+  <string name="nav_drawer_open_description">Open de navigatielade</string>
+  <string name="nav_drawer_close_description">Sluit de navigatielade</string>
+  <string name="contact_list_button">Contacten</string>
+  <string name="groups_button">Privégroepen</string>
+  <string name="forums_button">Fora</string>
+  <string name="blogs_button">Blogs</string>
+  <!--This is part of the main menu. The app will be locked when this is tapped.-->
+  <string name="lock_button">App vergrendelen</string>
+  <string name="settings_button">Instellingen</string>
+  <string name="sign_out_button">Log uit</string>
+  <string name="transports_onboarding_text">Tik hier om in te stellen hoe Briar een verbinding met je contacten opzet.</string>
+  <!--Transports: Tor-->
+  <string name="transport_tor">Internet</string>
+  <string name="tor_device_status_online_wifi">Je apparaat heeft internettoegang via wifi</string>
+  <string name="tor_device_status_online_mobile">Je apparaat heeft internettoegang via mobiele dataverbinding</string>
+  <string name="tor_device_status_offline">Je apparaat heeft geen internettoegang</string>
+  <string name="tor_plugin_status_enabling">Briar is aan het verbinden met internet</string>
+  <string name="tor_plugin_status_active">Briar is verbonden met het internet</string>
+  <string name="tor_plugin_status_inactive">Briar kan geen verbinding maken met het internet</string>
+  <string name="tor_plugin_status_disabled">Briar is geconfigureerd om internet niet te gebruiken</string>
+  <string name="tor_plugin_status_disabled_mobile_data">Briar is geconfigureerd om mobiele dataverbinding niet te gebruiken</string>
+  <string name="tor_plugin_status_disabled_battery">Briar is geconfigureerd om het internet niet te gebruiken als apparaat op baterij loopt</string>
+  <string name="tor_plugin_status_disabled_country_blocked">Briar is geconfigureerd om internet niet te gebruiken in dit land</string>
+  <!--Transports: Wi-Fi-->
+  <string name="transport_lan">Wifi</string>
+  <string name="transport_lan_long">Hetzelfde wifinetwerk</string>
+  <string name="lan_device_status_on">Je apparaat is verbonden met wifi</string>
+  <string name="lan_device_status_off">Je apparaat is niet verbonden met wifi</string>
+  <string name="lan_plugin_status_enabling">Briar is verbinding aan het maken met het wifinetwerk</string>
+  <string name="lan_plugin_status_active">Briar is verbonden met het wifinetwerk</string>
+  <string name="lan_plugin_status_inactive">Briar kan geen verbinding maken met het wifinetwerk</string>
+  <string name="lan_plugin_status_disabled">Briar is geconfigureerd om het wifinetwerk niet te gebruiken</string>
+  <!--Transports: Bluetooth-->
+  <string name="transport_bt">Bluetooth</string>
+  <string name="bt_device_status_on">Bluetooth op je apparaat staat aan</string>
+  <string name="bt_device_status_off">Bluetooth op je apparaat staat uit</string>
+  <string name="bt_plugin_status_enabling">Briar is aan het verbinden met bluetooth</string>
+  <string name="bt_plugin_status_active">Briar is verbonden met bluetooth</string>
+  <string name="bt_plugin_status_inactive">Briar kan geen verbinding maken met bluetooth</string>
+  <string name="bt_plugin_status_disabled">Briar is geconfigureerd om bluetooth niet te gebruiken</string>
+  <!--Notifications-->
+  <string name="reminder_notification_title">Uitgelogd van Briar</string>
+  <string name="reminder_notification_text">Tik om opnieuw in te loggen.</string>
+  <string name="reminder_notification_channel_title">Briar inlogherinnering</string>
+  <string name="reminder_notification_dismiss">Afwijzen</string>
+  <string name="ongoing_notification_title">Ingelogd op Briar</string>
+  <string name="ongoing_notification_text">Raak aan om Briar te openen.</string>
+  <plurals name="private_message_notification_text">
+    <item quantity="one">Nieuwe privéberichten.</item>
+    <item quantity="other">%d nieuwe privéberichten.</item>
+  </plurals>
+  <plurals name="group_message_notification_text">
+    <item quantity="one">Nieuw groepsbericht.</item>
+    <item quantity="other">%d nieuwe groepsberichten.</item>
+  </plurals>
+  <plurals name="forum_post_notification_text">
+    <item quantity="one">Nieuwe forumpost.</item>
+    <item quantity="other">%d nieuwe forumposts.</item>
+  </plurals>
+  <plurals name="blog_post_notification_text">
+    <item quantity="one">Nieuwe blogpost.</item>
+    <item quantity="other">%d nieuwe blogposts.</item>
+  </plurals>
+  <!--Misc-->
+  <string name="now">nu</string>
+  <string name="show">Toon</string>
+  <string name="hide">Verberg</string>
+  <string name="ok">Oké</string>
+  <string name="cancel">Annuleer</string>
+  <string name="got_it">Begrepen</string>
+  <string name="delete">Verwijder</string>
+  <string name="accept">Accepteer</string>
+  <string name="decline">Wijs af</string>
+  <string name="online">Online</string>
+  <string name="offline">Offline</string>
+  <string name="send">Verstuur</string>
+  <string name="allow">Sta toe</string>
+  <string name="open">Open</string>
+  <string name="change">Wijzigen</string>
+  <string name="start">Beginnen</string>
+  <string name="finish">Einde</string>
+  <string name="no_data">Geen gegevens</string>
+  <string name="ellipsis">…</string>
+  <string name="text_too_long">De ingevoerde tekst is te lang</string>
+  <string name="show_onboarding">Toon helpdialoog</string>
+  <string name="fix">Oplossen</string>
+  <string name="help">Help</string>
+  <string name="sorry">Excuses</string>
+  <string name="error_start_activity">Onbeschikbaar op jouw systeem</string>
+  <string name="status_heading">Status:</string>
+  <string name="error">Fout</string>
+  <!--Contacts and Private Conversations-->
+  <string name="no_contacts">Er zijn geen contacten om te tonen</string>
+  <string name="no_contacts_action">Tik op het +-icoon om een contact toe te voegen</string>
+  <string name="date_no_private_messages">Geen berichten.</string>
+  <string name="no_private_messages">Geen berichten om te tonen</string>
+  <string name="message_hint">Nieuw bericht</string>
+  <string name="image_caption_hint">Voeg een titel toe (optioneel)</string>
+  <string name="image_attach">Voeg een afbeelding toe</string>
+  <string name="image_attach_error">Kon afbeelding(en) niet toevoegen</string>
+  <string name="image_attach_error_too_big">Afbeelding is te groot. Grens is %d MB.</string>
+  <string name="image_attach_error_invalid_mime_type">Bestandsformaat wordt niet ondersteund: %s</string>
+  <string name="set_contact_alias">Verander naam van contact</string>
+  <string name="set_contact_alias_hint">Contactnaam</string>
+  <!--The first placeholder will show a duration like "7 days". The second placeholder at the end will add "Tap to learn more."-->
+  <!--The placeholder at the end will add "Tap to learn more."-->
+  <!--The first placeholder will show a contact's name. The second placeholder will show a duration like "7 days". The third placeholder at the end will add "Tap to learn more."-->
+  <!--The first placeholder will show a contact's name. The second placeholder at the end will add "Tap to learn more."-->
+  <string name="delete_all_messages">Verwijder alle berichten</string>
+  <string name="dialog_title_delete_all_messages">Bevestig verwijderen berichten</string>
+  <string name="dialog_message_delete_all_messages">Weet je zeker dat je alle berichten wil verwijderen?</string>
+  <string name="dialog_title_not_all_messages_deleted">Kon niet alle berichten verwijderen</string>
+  <string name="dialog_message_not_deleted_ongoing_both">Berichten gerelateerd aan uitgaande uitnodigingen of introducties kunnen niet worden verwijderd totdat ze zijn afgerond.</string>
+  <string name="dialog_message_not_deleted_ongoing_introductions">Berichten gerelateerd aan uitgaande introducties kunnen niet worden verwijderd totdat ze zijn afgerond.</string>
+  <string name="dialog_message_not_deleted_ongoing_invitations">Berichten gerelateerd aan uitgaande uitnodigingen kunnen niet worden verwijderd totdat ze zijn afgerond.</string>
+  <string name="dialog_message_not_deleted_not_all_selected_both">Om een uitnodiging of introductie te verwijderen met je het verzoek en het antwoord selecteren.</string>
+  <string name="dialog_message_not_deleted_not_all_selected_introductions">Om een introductie te verwijderen met je het verzoek en het antwoord selecteren.</string>
+  <string name="dialog_message_not_deleted_not_all_selected_invitations">Om een uitnodiging te verwijderen met je het verzoek en het antwoord selecteren.</string>
+  <string name="delete_contact">Verwijder contact</string>
+  <string name="dialog_title_delete_contact">Bevestig verwijderen contact</string>
+  <string name="dialog_message_delete_contact">Weet je zeker dat je dit contact en alle berichten die met dit contact zijn uitgewisseld wil verwijderen?</string>
+  <string name="contact_deleted_toast">Contact is verwijderd</string>
+  <!--This is shown in the action bar when opening an image in fullscreen that the user sent-->
+  <string name="you">You</string>
+  <string name="save_image">Sla afbeelding op</string>
+  <string name="dialog_title_save_image">Sla afbeelding op?</string>
+  <string name="dialog_message_save_image">Opslaan van deze afbeelding staat andere apps toe deze te gebruiken.\n\n Weet je zeker dat het wil opslaan?</string>
+  <string name="save_image_success">Afbeelding was opgeslagen</string>
+  <string name="save_image_error">Kon afbeelding niet opslaan</string>
+  <string name="dialog_title_no_image_support">Afbeeldingen niet beschikbaar</string>
+  <string name="dialog_message_no_image_support">Briar van jouw contact ondersteunt nog geen afbeeldingen als bijlagen. Zodat zij upgraden zul je een ander icoon zien.</string>
+  <string name="dialog_title_image_support">Je kan nu afbeeldingen naar dit contact sturen</string>
+  <string name="dialog_message_image_support">Tik op dit icoon om afbeelding bij te sluiten.</string>
+  <string name="messaging_too_many_attachments_toast">Alleen de eerste %d afbeeldingen worden verstuurd</string>
+  <string name="menu_contact">Contact</string>
+  <!--Adding Contacts-->
+  <string name="add_contact_title">Voeg contact in de buurt toe</string>
+  <string name="face_to_face">Je moet een persoon in levenden lijve ontmoeten om die als contact toe te voegen.\n\nDit voortkomt dat anderen zich als jou voor kunnen doen of in de toekomst je berichten kunnen lezen.</string>
+  <string name="continue_button">Ga verder</string>
+  <string name="try_again_button">Probeer nog een keer</string>
+  <string name="waiting_for_contact_to_scan">Wacht op contact om te scannen en te verbinden\u2026</string>
+  <string name="exchanging_contact_details">Contactdetails aan het uitwisselen\u2026</string>
+  <string name="contact_added_toast">Contact toegevoegd: %s</string>
+  <string name="contact_already_exists">Contact %s bestaat al</string>
+  <string name="qr_code_invalid">De QR-code is ongeldig</string>
+  <string name="qr_code_too_old">De QR-code die je hebt gescand komt van een oudere versie van %s.\n\nVraag aan je contact om de app bij de werken naar te laatste versie en probeer het daarna opnieuw.</string>
+  <string name="qr_code_too_new">De QR-code die je hebt gescand komt van een nieuwere versie van %s.\n\nWerk de app bij naar de laatste versie en probeer het daarna opnieuw.</string>
+  <string name="camera_error">Camerafout</string>
+  <string name="connecting_to_device">Aan het verbinden met apparaat\u2026</string>
+  <string name="authenticating_with_device">Aan het authenticeren met apparaat\u2026</string>
+  <string name="connection_error_title">Kon geen verbinding maken met je contact</string>
+  <string name="connection_error_feedback">Als dit probleem aanhoudt, <a href="feedback">stuur feedback</a> alsjeblieft om ons te helpen de app te verbeteren.</string>
+  <!--Adding Contacts Remotely-->
+  <string name="add_contact_remotely_title_case">Voeg een contact ver weg toe</string>
+  <string name="add_contact_nearby_title">Voeg contact dat in de buurt is toe</string>
+  <string name="add_contact_remotely_title">Voeg een contact dat niet in de buurt is toe</string>
+  <string name="contact_link_intro">Voer de link van je contact hier in</string>
+  <string name="contact_link_hint">Link van contact</string>
+  <string name="paste_button">Plakken</string>
+  <string name="add_contact_button">Voeg contact toe</string>
+  <string name="copy_button">Kopiëren</string>
+  <string name="share_button">Delen</string>
+  <string name="send_link_title">Wissel links uit</string>
+  <string name="add_contact_choose_nickname">Kies bijnaam</string>
+  <string name="add_contact_choose_a_nickname">Voer bijnaam in</string>
+  <string name="nickname_intro">Geef je contact een bijnaam. Alleen jij dat dit zien.</string>
+  <string name="your_link">Geef deze link aan de contact die je toe wil voegen</string>
+  <string name="link_clip_label">Briar-link</string>
+  <string name="link_copied_toast">Link is gekopieerd</string>
+  <string name="adding_contact_error">Er was een probleem met toevoegen van het contact.</string>
+  <string name="pending_contact_requests_snackbar">Er zijn geen wachtende contactverzoeken</string>
+  <string name="pending_contact_requests">Wachtende contactverzoeken</string>
+  <string name="no_pending_contacts">Geen wachtende contactverzoeken</string>
+  <string name="waiting_for_contact_to_come_online">Aan het wachten tot contact online komt...</string>
+  <string name="connecting">Bezig met verbinden...</string>
+  <string name="adding_contact">Contact aan het toevoegen...</string>
+  <string name="adding_contact_failed">Toevoegen van contact is gefaald</string>
+  <string name="dialog_title_remove_pending_contact">Bevestig verwijderen</string>
+  <string name="dialog_message_remove_pending_contact">Dit contact wordt nog toegevoegd. Als je het nu verwijderd, zal het niet worden toegevoegd.</string>
+  <string name="own_link_error">Voer de link van je contact in, niet je eigenste</string>
+  <string name="nickname_missing">Voer a.u.b. een bijnaam in</string>
+  <string name="invalid_link">Ongeldige link</string>
+  <string name="unsupported_link">Deze link komt van een nieuwe versie van Briar. Upgrade alsjeblieft naar de laatste versie en probeer het nog eens.</string>
+  <string name="intent_own_link">Je hebt je eigen link geopend. Gebruik de link van jouw contact die je wil toevoegen!</string>
+  <string name="missing_link">Voeg a.u.b. link in</string>
+  <!--This is a numeral indicating the first step in a series of screens-->
+  <string name="step_1">1</string>
+  <!--This is a numeral indicating the second step in a series of screens-->
+  <string name="step_2">2</string>
+  <plurals name="contact_added_notification_text">
+    <item quantity="one">Nieuw contact toegevoegd</item>
+    <item quantity="other">%d nieuwe contacten zijn toegevoegd.</item>
+  </plurals>
+  <string name="offline_state">Geen internetverbinding</string>
+  <string name="duplicate_link_dialog_title">Duplicate link</string>
+  <string name="duplicate_link_dialog_text_1">Je hebt al en wachtend contact met deze link: %s</string>
+  <string name="duplicate_link_dialog_text_1_contact">Je hebt al een contact met deze link: %s</string>
+  <!--This is a question asking whether two nicknames refer to the same person-->
+  <!--This is a button for answering that two nicknames do indeed refer to the same person. This
+	string will be used in a dialog button, so if the translation of this string is longer than 20
+	characters, please use "Yes" instead, and use "No" for the "Different Person" button-->
+  <string name="same_person_button">Zelfde persoon</string>
+  <!--This is a button for answering that two nicknames refer to different people. This string
+	will be used in a dialog button, so if the translation of this string longer than 20 characters,
+	please use "No" instead, and use "Yes" for the "Same Person" button-->
+  <string name="different_person_button">Ander persoon</string>
+  <string name="pending_contact_updated_toast">Wachtend contact is bijgewerkt</string>
+  <!--Introductions-->
+  <string name="introduction_onboarding_title">Introduceer je contacten</string>
+  <string name="introduction_onboarding_text">Je kan je contacten aan elkaar introduceren zodat ze niet in levenden lijve elkaar te hoeven ontmoeten om op Briar in contact te komen.</string>
+  <string name="introduction_menu_item">Introduceer</string>
+  <string name="introduction_activity_title">Selecteer contact</string>
+  <string name="introduction_not_possible">Je bent al met een introductie bezig met deze contacten. Laat dit alsjeblieft eerst voltooien. Als jij of je contact weinig online zijn, kan dit even duren.</string>
+  <string name="introduction_message_title">Intoduceer contacten</string>
+  <string name="introduction_message_hint">Voeg een bericht toe (optioneel)</string>
+  <string name="introduction_button">Introduceer</string>
+  <string name="introduction_sent">Je introductie is verzonden</string>
+  <string name="introduction_error">Er trad een fout op tijdens het aanmaken van de introductie.</string>
+  <string name="introduction_request_sent">Je hebt gevraagd om %1$s te introduceren aan %2$s.</string>
+  <string name="introduction_request_received">%1$s heeft voorgesteld om je te introduceren aan %2$s. Wil je %2$s toevoegen aan je contactenlijst?</string>
+  <string name="introduction_request_exists_received">%1$s heeft gevraagd om je te introduceren aan %2$s, maar %2$s staat al in je contactenlijst. Omdat %1$s dit niet per se weet kun je nog steeds antwoorden:</string>
+  <string name="introduction_request_answered_received">%1$s heeft gevraagd om je te introduceren aan %2$s.</string>
+  <string name="introduction_response_accepted_sent">Je hebt de introductie aan %1$s geaccepteerd.</string>
+  <string name="introduction_response_accepted_sent_info">Voordat %1$s toegevoegd wordt aan je contacten, moeten ze de introductie accepteren. Dit kan even duren.</string>
+  <string name="introduction_response_declined_sent">Je hebt de introductie aan %1$s afgewezen.</string>
+  <string name="introduction_response_accepted_received">%1$s heeft de introductie aan %2$sgeaccepteerd.</string>
+  <string name="introduction_response_declined_received">%1$s heeft de introductie aan %2$s afgewezen.</string>
+  <string name="introduction_response_declined_received_by_introducee">%1$s zegt dat %2$s je introductie heeft afgewezen.</string>
+  <!--Connect via Bluetooth-->
+  <string name="menu_item_connect_via_bluetooth">Verbind via Bluetooth</string>
+  <string name="connect_via_bluetooth_title">Verbind via Bluetooth</string>
+  <!--Private Groups-->
+  <string name="groups_list_empty">Er zijn geen groepen om te tonen</string>
+  <string name="groups_list_empty_action">Tik op het +-icoon om een groep aan te maken of vraag een van je contacten om een groep met je te delen</string>
+  <string name="groups_created_by">Is aangemaakt door %s</string>
+  <plurals name="messages">
+    <item quantity="one">%d bericht</item>
+    <item quantity="other">%d berichten</item>
+  </plurals>
+  <string name="groups_group_is_empty">Deze groep is leeg</string>
+  <string name="groups_group_is_dissolved">Deze groep is opgeheven</string>
+  <string name="groups_remove">Verwijder</string>
+  <string name="groups_create_group_title">Maak privégroep aan</string>
+  <string name="groups_create_group_button">Maak groep aan</string>
+  <string name="groups_create_group_invitation_button">Verstuur uitnodiging</string>
+  <string name="groups_create_group_hint">Voer een naam in voor je privégroep</string>
+  <string name="groups_invitation_sent">Groepsuitnodiging is verstuurd</string>
+  <string name="groups_member_list">Ledenlijst</string>
+  <string name="groups_invite_members">Nodig leden uit</string>
+  <string name="groups_member_created_you">Je hebt de groep aangemaakt</string>
+  <string name="groups_member_created">%s heeft de groep aangemaakt</string>
+  <string name="groups_member_joined_you">Je hebt lid geworden van de groep</string>
+  <string name="groups_member_joined">%s is lid geworden van de groep</string>
+  <string name="groups_leave">Verlaat groep</string>
+  <string name="groups_leave_dialog_title">Bevestig verlaten groep</string>
+  <string name="groups_leave_dialog_message">Weet je zeker dat je deze groep wil verlaten? </string>
+  <string name="groups_dissolve">Hef groep op</string>
+  <string name="groups_dissolve_dialog_title">Bevestig opheffen groep</string>
+  <string name="groups_dissolve_dialog_message">Weet je zeker dat je deze groep wil opheffen?\n\nAlle andere leden zullen dan niet meer hun gesprek voort kunnen zetten en het zou kunnen dat ze de laatste berichten niet ontvangen.</string>
+  <string name="groups_dissolve_button">Hef op</string>
+  <string name="groups_dissolved_dialog_title">Groep is opgeheven</string>
+  <string name="groups_dissolved_dialog_message">De maker van deze groep heeft deze opgeheven.\n\nJe kan niet langer berichten aan de groep sturen en het zou kunnen dat je niet alle posts hebt ontvangen die aan deze groep zijn verstuurd.</string>
+  <!--Private Group Invitations-->
+  <string name="groups_invitations_title">Groepsuitnodigingen</string>
+  <string name="groups_invitations_invitation_sent">Je hebt %1$s uitgenodigd om lid te worden van de groep \"%2$s\".</string>
+  <string name="groups_invitations_invitation_received">%1$s heeft je uitgenodigd om lid te worden van de groep \"%2$s\".</string>
+  <string name="groups_invitations_joined">Lid geworden van groep</string>
+  <string name="groups_invitations_declined">Groepsuitnodiging is afgewezen</string>
+  <plurals name="groups_invitations_open">
+    <item quantity="one">%d openstaande groepsuitnodiging</item>
+    <item quantity="other">%d openstaande groepsuitnodigingen</item>
+  </plurals>
+  <string name="groups_invitations_response_accepted_sent">Je hebt de groepsuitnodiging van %s geaccepteerd.</string>
+  <string name="groups_invitations_response_declined_sent">Je hebt de groepsuitnodiging van %s afgewezen.</string>
+  <string name="groups_invitations_response_accepted_received">%s heeft de groepsuitnodiging geaccepteerd.</string>
+  <string name="groups_invitations_response_declined_received">%s heeft de groepsuitnodiging afgewezen.</string>
+  <string name="sharing_status_groups">Alleen degene die een groep heeft aangemaakt kan nieuwe leden voor die groep uitnodigen. Hieronder staan alle huidige leden van de groep.</string>
+  <!--Private Groups Revealing Contacts-->
+  <string name="groups_reveal_contacts">Openbaar contacten</string>
+  <string name="groups_reveal_dialog_message">Je kan ervoor kiezen om contacten te openbaren aan alle huidige en toekomstige leden van deze groep.\n\nOpenbaren van contacten maakt je verbinding met de groep sneller en betrouwbaarder omdat je kan communiceren met geopenbaarde contacten, zelfs als degene die de groep heeft aangemaakt offline is.</string>
+  <string name="groups_reveal_visible">Contactrelatie is zichtbaar voor de groep</string>
+  <string name="groups_reveal_visible_revealed_by_us">Contactrelatie is zichtbaar voor de groep (door jou geopenbaard)</string>
+  <string name="groups_reveal_visible_revealed_by_contact">Contactrelaties zijn zichtbaar voor de groep (geopenbaard door %s)</string>
+  <string name="groups_reveal_invisible">Contactrelatie is niet zichtbaar voor de groep</string>
+  <!--Forums-->
+  <string name="no_forums">Er zijn geen fora om te tonen</string>
+  <string name="no_forums_action">Tik op het +-icoon om een forum aan te maken of vraag een van je contacten om een forum met je te delen</string>
+  <string name="create_forum_title">Maak forum aan</string>
+  <string name="choose_forum_hint">Voer een naam in voor je forum</string>
+  <string name="create_forum_button">Maak forum aan</string>
+  <string name="forum_created_toast">Forum aangemaakt</string>
+  <string name="no_forum_posts">Geen posts om te tonen</string>
+  <string name="no_posts">Geen posts</string>
+  <plurals name="posts">
+    <item quantity="one">%d post</item>
+    <item quantity="other">%d posts</item>
+  </plurals>
+  <string name="forum_new_message_hint">Nieuw bericht</string>
+  <string name="forum_message_reply_hint">Nieuwe reactie</string>
+  <string name="btn_reply">Antwoord</string>
+  <string name="forum_leave">Verlaat forum</string>
+  <string name="dialog_title_leave_forum">Bevestig verlaten forum</string>
+  <string name="dialog_message_leave_forum">Weet je zeker dat dit forum wil verlaten?\n\nHet is mogelijk dat contacten met wie je dit forum hebt gedeeld geen updates meer ontvangen.</string>
+  <string name="dialog_button_leave">Verlaat</string>
+  <string name="forum_left_toast">Forum verlaten</string>
+  <!--Forum Sharing-->
+  <string name="forum_share_button">Deel forum</string>
+  <string name="contacts_selected">Contacten geselecteerd</string>
+  <string name="activity_share_toolbar_header">Kies contacten</string>
+  <string name="no_contacts_selector">Er zijn geen contacten om te tonen</string>
+  <string name="no_contacts_selector_action">Kom alsjeblieft hier terug na het toevoegen van een contact</string>
+  <string name="forum_shared_snackbar">Forum is gedeeld met uitgekozen contacten</string>
+  <string name="forum_share_message">Voeg een bericht toe (optioneel)</string>
+  <string name="forum_share_error">Er trad een fout op bij het delen van dit forum.</string>
+  <string name="forum_invitation_received">%1$s heeft het forum \"%2$s\" met je gedeeld.</string>
+  <string name="forum_invitation_sent">Jij hebt het forum \"%1$s\" gedeeld met %2$s.</string>
+  <string name="forum_invitations_title">Forumuitnodigingen</string>
+  <string name="forum_invitation_exists">Je hebt de uitnodiging van dit forum al eens geaccepteerd.\n\nHet accepteren van meer uitnodigingen zal je verbinding met het forum sneller en betrouwbaarder maken.</string>
+  <string name="forum_joined_toast">Lid geworden van forum</string>
+  <string name="forum_declined_toast">Uitnodiging afgewezen</string>
+  <string name="shared_by_format">Is gedeeld door %s</string>
+  <string name="forum_invitation_already_sharing">Reeds gedeeld</string>
+  <string name="forum_invitation_response_accepted_sent">Je hebt een forumuitnodiging geaccepteerd van %s.</string>
+  <string name="forum_invitation_response_declined_sent">Je hebt een forumuitnodiging afgewezen van %s.</string>
+  <string name="forum_invitation_response_accepted_received">%s heeft de forumuitnodiging geaccepteerd.</string>
+  <string name="forum_invitation_response_declined_received">%s heeft de forumuitnodiging afgewezen.</string>
+  <string name="sharing_status">Deelstatus</string>
+  <string name="sharing_status_forum">Alle leden van een forum kunnen dat forum delen met hun contacten. Momenteel deel je dit forum met de volgende contacten. Er kunnen ook andere leden zijn die je niet kan zien.</string>
+  <string name="shared_with">Is gedeeld met %1$d (%2$d online)</string>
+  <plurals name="forums_shared">
+    <item quantity="one">%d forum is gedeeld door contacten.</item>
+    <item quantity="other">%d fora zijn gedeeld door contacten.</item>
+  </plurals>
+  <string name="nobody">Niemand</string>
+  <!--Blogs-->
+  <string name="blogs_other_blog_empty_state">Geen posts om te tonen</string>
+  <string name="read_more">lees meer</string>
+  <string name="blogs_write_blog_post">Schrijf blogpost</string>
+  <string name="blogs_write_blog_post_body_hint">Schrijf je blogpost</string>
+  <string name="blogs_publish_blog_post">Publiceer</string>
+  <string name="blogs_blog_post_created">Blogpost aangemaakt</string>
+  <string name="blogs_blog_post_received">Nieuwe blogpost ontvangen</string>
+  <string name="blogs_blog_post_scroll_to">Scroll naar</string>
+  <string name="blogs_feed_empty_state">Geen posts om te tonen</string>
+  <string name="blogs_feed_empty_state_action">Hier verschijnen de posts van je je contacten en blogs waar je op bent geabonneerd\n\nTik op het penicoon om een post te schrijven</string>
+  <string name="blogs_remove_blog">Verwijder blog</string>
+  <string name="blogs_remove_blog_dialog_message">Weet je zeker dat je deze blog wil verwijderen?\n\nPosts zullen van je apparaat worden verwijderd maar niet van apparaten van andere mensen.\n\nContacten met wie je deze blog hebt gedeeld zullen geen updates meer ontvangen.</string>
+  <string name="blogs_remove_blog_ok">Verwijderen</string>
+  <string name="blogs_blog_removed">Blog is verwijderd</string>
+  <string name="blogs_reblog_comment_hint">Voeg commentaar toe (optioneel)</string>
+  <string name="blogs_reblog_button">Reblog</string>
+  <!--Blog Sharing-->
+  <string name="blogs_sharing_share">Deel blog</string>
+  <string name="blogs_sharing_error">Er was een fout tijdens het delen van deze blog.</string>
+  <string name="blogs_sharing_button">Deel blog</string>
+  <string name="blogs_sharing_snackbar">Blog is gedeeld met gekozen contacten</string>
+  <string name="blogs_sharing_response_accepted_sent">Je hebt de bloguitnodiging van %s geaccepteerd.</string>
+  <string name="blogs_sharing_response_declined_sent">Je hebt de bloguitnodiging van %s afgewezen.</string>
+  <string name="blogs_sharing_response_accepted_received">%s heeft de bloguitnodiging geaccepteerd.</string>
+  <string name="blogs_sharing_response_declined_received">%s heeft de bloguitnodiging afgewezen.</string>
+  <string name="blogs_sharing_invitation_received">%1$s heeft de blog \"%2$s\" met je gedeeld.</string>
+  <string name="blogs_sharing_invitation_sent">Je hebt de blog \"%1$s\" gedeeld met %2$s.</string>
+  <string name="blogs_sharing_invitations_title">Bloguitnodigingen</string>
+  <string name="blogs_sharing_joined_toast">Geabonneerd op blog</string>
+  <string name="blogs_sharing_declined_toast">Uitnodiging afgewezen</string>
+  <string name="sharing_status_blog">Alle leden die lid worden van een blog kunnen deze blog delen met hun contacten. Je deelt deze blog al met de volgende contacten. Er kunnen ook andere leden zijn die je niet kan zien.</string>
+  <!--RSS Feeds-->
+  <string name="blogs_rss_feeds_import">Importeer RSS-feed</string>
+  <string name="blogs_rss_feeds_import_button">Importeer</string>
+  <string name="blogs_rss_feeds_import_hint">Voer de URL van de RSS-feed in</string>
+  <string name="blogs_rss_feeds_import_error">Excuses! Er trad een fout op bij het importeren van je feed.</string>
+  <string name="blogs_rss_feeds">RSS-feeds</string>
+  <string name="blogs_rss_feeds_manage_imported">Geïmporteerd:</string>
+  <string name="blogs_rss_feeds_manage_author">Auteur:</string>
+  <string name="blogs_rss_feeds_manage_updated">Laatst bijgewerkt:</string>
+  <string name="blogs_rss_remove_feed">Verwijder feed</string>
+  <string name="blogs_rss_remove_feed_dialog_message">Weet je zeker dat je deze feed wil verwijderen?\n\nPosts zullen van je apparaat worden verwijderd maar niet van apparaten van andere mensen.\n\nContacten met wie je deze feed hebt gedeeld zullen geen updates meer ontvangen.</string>
+  <string name="blogs_rss_remove_feed_ok">Verwijderen</string>
+  <string name="blogs_rss_feeds_manage_empty_state">Geen RSS-feeds om te tonen\n\nTik op het +-icoon om een feed te importeren</string>
+  <string name="blogs_rss_feeds_manage_error">Er was een probleem met het laden van je feeds. Probeer het alsjeblieft later nog een keer.</string>
+  <!--Settings Profile Picture-->
+  <string name="change_profile_picture">Tik om je profielfoto te wijzigen</string>
+  <string name="dialog_confirm_profile_picture_title">Wijzig profielfoto</string>
+  <string name="dialog_confirm_profile_picture_remark">Alleen je contacten kunnen deze afbeelding zien</string>
+  <string name="change_profile_picture_failed_message">Excuses, maar er is iets misgegaan met het updaten van je profielfoto</string>
+  <!--Settings Display-->
+  <string name="pref_language_title">Taal &amp; regio</string>
+  <string name="pref_language_changed">Deze instelling zal werken wanneer u Briar opnieuw opstart. Gelieve uit te loggen en Briar opnieuw te starten.</string>
+  <string name="pref_language_default">Systeemstandaard</string>
+  <string name="display_settings_title">Weergeven</string>
+  <string name="pref_theme_title">Thema</string>
+  <string name="pref_theme_light">Licht</string>
+  <string name="pref_theme_dark">Donker</string>
+  <string name="pref_theme_auto">Automatisch (overdag)</string>
+  <string name="pref_theme_system">Systeemstandaard</string>
+  <!--Settings Connections-->
+  <string name="network_settings_title">Verbindingen</string>
+  <string name="bluetooth_setting">Verbind met contacten via bluetooth</string>
+  <string name="wifi_setting">Verbind met contacten over hetzelfde wifinetwerk</string>
+  <string name="tor_enable_title">Verbind met contactenover het internet</string>
+  <string name="tor_enable_summary">Alle verbindingen gaan door het Tornetwerk voor privacy</string>
+  <string name="tor_network_setting">Verbindingsmethose voor Tornetwerk</string>
+  <string name="tor_network_setting_automatic">Automatisch gebaseerd op locatie</string>
+  <string name="tor_network_setting_without_bridges">Gebruikt Tornetwerk zonder bridges</string>
+  <string name="tor_network_setting_with_bridges">Gebruik Tornetwerk met bridges</string>
+  <string name="tor_network_setting_never">Verbind niet met het internet</string>
+  <!--How and when Briar will connect to Tor: E.g. "Don't connect to the Internet (in China)" or "Use Tor network with bridges (in Belarus)"-->
+  <string name="tor_network_setting_summary">Automatisch: %1$s (in %2$s)</string>
+  <string name="tor_mobile_data_title">Gebruik mobiele data</string>
+  <string name="tor_only_when_charging_title">Verbind alleen met het internet tijdens opladen</string>
+  <string name="tor_only_when_charging_summary">Schakel internetverbinding uit als apparaat op batterij loopt</string>
+  <!--Settings Security and Panic-->
+  <string name="security_settings_title">Beveiliging</string>
+  <string name="pref_lock_title">App-vergrendeling</string>
+  <string name="pref_lock_summary">Gebruik de schermvergrendeling van het apparaat om Briar te beschermen terwijl je bent ingelogd</string>
+  <string name="pref_lock_disabled_summary">Stel een schermvergrendeling in op je apparaat om deze feature te gebruiken</string>
+  <string name="pref_lock_timeout_title">App-vergrendeling inactiviteitstime-out</string>
+  <!--The %s placeholder is replaced with the following time spans, e.g. 5 Minutes, 1 Hour-->
+  <string name="pref_lock_timeout_summary">Als Briar niet wordt gebruikt, vergrendel automatisch na %s</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_1">1 minuut</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_5">5 minuten</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_15">15 minuten</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_30">30 minuten</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_60">1 uur</string>
+  <string name="pref_lock_timeout_never">Nooit</string>
+  <string name="pref_lock_timeout_never_summary">Vergrendel Briar nooit automatisch</string>
+  <string name="change_password">Wijzig wachtwoord</string>
+  <string name="current_password">Huidig wachtwoord</string>
+  <string name="choose_new_password">Nieuw wachtwoord</string>
+  <string name="confirm_new_password">Nieuw wachtwoord bevestigen</string>
+  <string name="password_changed">Wachtwoord is gewijzigd</string>
+  <string name="panic_setting">Paniekknopinstellingen</string>
+  <string name="panic_setting_title">Paniekknop</string>
+  <string name="panic_setting_hint">Configureer hoe Briar reageert als je  paniekknopapp gebruikt.</string>
+  <string name="panic_app_setting_title">Paniekknopapp</string>
+  <string name="unknown_app">een onbekende app</string>
+  <string name="panic_app_setting_summary">Er is geen app ingesteld</string>
+  <string name="panic_app_setting_none">Geen</string>
+  <string name="dialog_title_connect_panic_app">Bevestig paniekapp</string>
+  <string name="dialog_message_connect_panic_app">Weet je zeker dat je wil toestaan dat %1$s vernietigende paniekknopacties mag veroorzaken?</string>
+  <string name="panic_setting_destructive_action">Vernietigende acties</string>
+  <string name="panic_setting_signout_title">Log uit</string>
+  <string name="panic_setting_signout_summary">Log uit op Briar als de paniekknop wordt ingedrukt.</string>
+  <string name="purge_setting_title">Verwijder account</string>
+  <string name="purge_setting_summary">Verwijder je Briar-account als een paniekknop wordt ingedrukt. Let op: dit zal permanent je identiteit, contacten en berichten verwijderen.</string>
+  <!--Settings Notifications-->
+  <string name="notification_settings_title">Meldingen</string>
+  <string name="notify_sign_in_title">Herinner me om in te loggen</string>
+  <string name="notify_sign_in_summary">Stuur een herinnering wanneer de telefoon opstart of als de app is bijgewerkt</string>
+  <string name="notify_private_messages_setting_title">Privéberichten</string>
+  <string name="notify_private_messages_setting_summary">Toon meldingen voor privéberichten</string>
+  <string name="notify_private_messages_setting_summary_26">Configureer meldingen voor privéberichten</string>
+  <string name="notify_group_messages_setting_title">Groepsberichten</string>
+  <string name="notify_group_messages_setting_summary">Toon meldingen voor groepsberichten</string>
+  <string name="notify_group_messages_setting_summary_26">Configureer meldingen voor groepsberichten</string>
+  <string name="notify_forum_posts_setting_title">Forumposts</string>
+  <string name="notify_forum_posts_setting_summary">Toon meldingen voor forumposts</string>
+  <string name="notify_forum_posts_setting_summary_26">Configureer meldingen voor forumposts</string>
+  <string name="notify_blog_posts_setting_title">Blogposts</string>
+  <string name="notify_blog_posts_setting_summary">Toon meldingen voor blogposts</string>
+  <string name="notify_blog_posts_setting_summary_26">Configureer meldingen voor blogposts</string>
+  <string name="notify_vibration_setting">Tril</string>
+  <string name="notify_sound_setting">Geluid</string>
+  <string name="notify_sound_setting_default">Standaard meldingsgeluid</string>
+  <string name="notify_sound_setting_disabled">Geen</string>
+  <string name="choose_ringtone_title">Kies meldingsgeluid</string>
+  <string name="cannot_load_ringtone">Kan meldingsgeluid niet laden</string>
+  <!--Conversation Settings-->
+  <string name="learn_more">Meer info</string>
+  <!--Settings Actions-->
+  <string name="pref_category_actions">Acties</string>
+  <string name="send_feedback">Verstuur feedback</string>
+  <!--Link Warning-->
+  <string name="link_warning_title">Linkwaarschuwing</string>
+  <string name="link_warning_intro">Je staat op het punt om de volgende link te open met een externe app.</string>
+  <string name="link_warning_text">Dit kan worden gebruikt om je te identificeren. Denk goed na of je de persoon die je deze link heeft gestuurd wil vertrouwen en overweeg om deze te openen met een Tor-browser.</string>
+  <string name="link_warning_open_link">Open link</string>
+  <!--Crash Reporter-->
+  <string name="crash_report_title">Briar Crashrapport</string>
+  <string name="not_your_fault">Dit is niet jouw schuld</string>
+  <string name="please_send_report">Help ons alsjeblieft om Briar te verbeteren door crashrapporten naar ons te sturen.</string>
+  <string name="report_is_encrypted">We beloven dat het rapport is versleuteld en veilig wordt verzonden.</string>
+  <string name="feedback_title">Feedback</string>
+  <string name="describe_crash">Beschrijf wat er is gebeurd (optioneel)</string>
+  <string name="enter_feedback">Voer je feedback in</string>
+  <string name="optional_contact_email">Je e-mailadres (optioneel)</string>
+  <string name="include_debug_report_crash">Voeg geanonimiseerde gegevens toe over de crash.</string>
+  <string name="include_debug_report_feedback">Voeg geanonimiseerde gegevens over dit apparaat toe.</string>
+  <string name="dev_report_basic_info">Basis informatie</string>
+  <string name="dev_report_device_info">Apparaatinformatie</string>
+  <string name="dev_report_stacktrace">Stacktrace</string>
+  <string name="dev_report_time_info">Tijdsinformatie</string>
+  <string name="dev_report_memory">Geheugen</string>
+  <string name="dev_report_storage">Storage</string>
+  <string name="dev_report_connectivity">Connectiviteit</string>
+  <string name="dev_report_build_config">Buildinformatie</string>
+  <string name="dev_report_logcat">Applog</string>
+  <string name="dev_report_device_features">Apparaatfeatures</string>
+  <string name="send_report">Verstuur rapport</string>
+  <string name="close">Sluit</string>
+  <string name="dev_report_sending">Verstuur Feedback...</string>
+  <string name="dev_report_sent">Feedback is verzonden</string>
+  <string name="dev_report_saved">Rapport is opgeslagen. Het zal worden verstuurd als je de volgende keer inlogt op Briar </string>
+  <string name="dev_report_error">Fout: Verzenden van rapport is gefaald</string>
+  <!--Sign Out-->
+  <string name="progress_title_logout">Uitloggen bij Briar…</string>
+  <!--Screen Filters & Tapjacking-->
+  <string name="screen_filter_title">Schermoverlay is gedetecteerd</string>
+  <string name="screen_filter_body">Een andere app tekent bovenop Briar. Om je veiligheid te beschermen zal Briar niet reageren op aanrakingen als er een andere app bovenop ligt.\n\nDe volgende apps proberen waarschijnlijk dit te doen:\n\n%1$s</string>
+  <string name="screen_filter_body_api_30">Een andere app wordt voor Briar getoond. Voor veiligheidsredenen zal Briar niet reageren op input als er een andere app voor wordt getoond.\n\nHerzie de apps hieronder om de verantwoordelijke app te vinden.</string>
+  <string name="screen_filter_allow">Sta toe dat deze apps weergeven vóór andere apps.</string>
+  <string name="screen_filter_review_apps">Herzie apps</string>
+  <!--Permission Requests-->
+  <string name="permission_camera_title">Cameratoestemming</string>
+  <string name="permission_camera_request_body">Om de QR-code te scannen moet Briar toegang hebben tot de camera.</string>
+  <string name="permission_location_title">Toegang tot locatie</string>
+  <string name="permission_location_request_body">Om bluetoothapparaten te ontdekken heeft Briar toestemming nodig tot je locatie.\n\nBriar slaat je locatie niet op en deelt het met niemand.</string>
+  <string name="permission_camera_location_title">Camera en locatie</string>
+  <string name="permission_camera_location_request_body">Om de QR-code in te scannen heeft Briar toegang nodig tot de camera.\n\nOm bluetoothapparaten te ontdekken heeft Briar toestemming nodig tot je locatie.\n\nBriar slaat je locatie niet op en deelt het met niemand.</string>
+  <string name="permission_camera_denied_body">Je hebt toegang tot de camera niet vrijgegeven, terwijl het toevoegen van contacten de camera nodig heeft.\n\nOverweeg alsjeblieft toegang vrij te geven.</string>
+  <string name="permission_location_denied_body">Je hebt geen toegang tot je locatie gegeven, maar Briar heeft deze rechten nodig om apparaten via bluetooth te vinden.\n\nOverweeg a.u.b. deze rechten te geven.</string>
+  <string name="qr_code">QR-code</string>
+  <string name="show_qr_code_fullscreen">Toon QR-code op volledig scherm</string>
+  <!--App Locking-->
+  <string name="lock_unlock">Ontgrendel Briar</string>
+  <string name="lock_unlock_verbose">Voer je apparaat PIN, patroon of wachtwoord in om Briar te ontgrendelen</string>
+  <string name="lock_unlock_fingerprint_description">Raak met de geregistreerde vinger de vingerafdrukscanner aan om door te gaan</string>
+  <string name="lock_unlock_password">Gebruik Wachtwoord</string>
+  <string name="lock_is_locked">Briar is vergrendeld</string>
+  <string name="lock_tap_to_unlock">Tik om te ontgrendelen</string>
+  <!--Connections Screen-->
+  <string name="transports_help_text">Briar kan met je contacten verbinden via het internet, wifi of bluetooth.\n\nAlle internetverbindingen gaan voor privacy door het Tornetwerk.\n\nAls een contact via meerdere methoden te bereiken is, zal Briar die parallel gebruiken.</string>
+  <!--Share app offline-->
+  <string name="hotspot_notification_channel_title">Wifi-hotspot</string>
+  <string name="hotspot_button_connected">Volgende</string>
+  <string name="hotspot_tab_manual">Handmatig</string>
+  <!--The placeholder to be inserted into the string 'hotspot_manual_wifi': People can connect by %s-->
+  <!--Wi-Fi setup-->
+  <!--The %s placeholder will be replaced with the translation of 'hotspot_scanning_a_qr_code'-->
+  <!--Download link-->
+  <!--The %s placeholder will be replaced with the translation of 'hotspot_scanning_a_qr_code'-->
+  <!--e.g. Download Briar 1.2.20-->
+  <string name="website_troubleshooting_title">Probleem oplossen</string>
+  <!--error handling-->
+  <!--Transfer Data via Removable Drives-->
+  <string name="removable_drive_success_receive_title">Importeren geslaagd</string>
+  <!--Screenshots-->
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_alice">Veerle</string>
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_bob">Soem</string>
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_carol">Rob</string>
+  <!--This is a message to be used in screenshots. Please use the same translation for Bob!-->
+  <string name="screenshot_message_1">Hoi Soem!</string>
+  <!--This is a message to be used in screenshots. Please use the same translation for Alice!-->
+  <string name="screenshot_message_2">Hoi Veerle! Bedankt dat je me Briar hebt laten zien!</string>
+  <!--This is a message to be used in screenshots.-->
+  <string name="screenshot_message_3">Geen probleem, ik hoop dat je het handig vindt! 😀</string>
+</resources>

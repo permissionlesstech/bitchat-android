@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content">
+
+	<org.briarproject.briar.android.view.TextAvatarView
+		android:id="@+id/avatarView"
+		android:layout_width="@dimen/listitem_picture_frame_size"
+		android:layout_height="@dimen/listitem_picture_frame_size"
+		android:layout_margin="@dimen/listitem_horizontal_margin"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toTopOf="parent" />
+
+	<com.vanniktech.emoji.EmojiTextView
+		android:id="@+id/forumNameView"
+		android:layout_width="0dp"
+		android:layout_height="wrap_content"
+		android:layout_margin="@dimen/listitem_horizontal_margin"
+		android:layout_marginStart="@dimen/listitem_horizontal_margin"
+		android:layout_marginLeft="@dimen/listitem_horizontal_margin"
+		android:textColor="?android:attr/textColorPrimary"
+		android:textSize="@dimen/text_size_medium"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toEndOf="@+id/avatarView"
+		app:layout_constraintTop_toTopOf="parent"
+		tools:text="This is a name of a forum that is available and has a long name" />
+
+	<com.vanniktech.emoji.EmojiTextView
+		android:id="@+id/sharedByView"
+		android:layout_width="0dp"
+		android:layout_height="wrap_content"
+		android:layout_marginTop="@dimen/margin_medium"
+		android:layout_marginEnd="@dimen/listitem_horizontal_margin"
+		android:layout_marginRight="@dimen/listitem_horizontal_margin"
+		android:textColor="?android:attr/textColorSecondary"
+		android:textSize="@dimen/text_size_small"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toStartOf="@+id/forumNameView"
+		app:layout_constraintTop_toBottomOf="@+id/forumNameView"
+		tools:text="Shared by Megalox" />
+
+	<TextView
+		android:id="@+id/forumSubscribedView"
+		android:layout_width="0dp"
+		android:layout_height="wrap_content"
+		android:layout_marginStart="@dimen/listitem_horizontal_margin"
+		android:layout_marginLeft="@dimen/listitem_horizontal_margin"
+		android:layout_marginTop="@dimen/margin_medium"
+		android:layout_marginEnd="@dimen/listitem_horizontal_margin"
+		android:layout_marginRight="@dimen/listitem_horizontal_margin"
+		android:text="@string/forum_invitation_exists"
+		android:textColor="?android:attr/textColorTertiary"
+		android:textSize="@dimen/text_size_small"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toBottomOf="@+id/sharedByView"
+		tools:visibility="visible" />
+
+	<Button
+		android:id="@+id/acceptButton"
+		style="@style/BriarButtonFlat.Positive"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:text="@string/accept"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintTop_toBottomOf="@+id/forumSubscribedView" />
+
+	<Button
+		android:id="@+id/declineButton"
+		style="@style/BriarButtonFlat.Negative"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:text="@string/decline"
+		app:layout_constraintEnd_toStartOf="@+id/acceptButton"
+		app:layout_constraintTop_toBottomOf="@+id/forumSubscribedView" />
+
+	<View
+		android:id="@+id/divider"
+		style="@style/Divider.ThreadItem"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toBottomOf="@+id/acceptButton" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

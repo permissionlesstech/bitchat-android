@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	tools:showIn="@layout/activity_threaded_conversation">
+
+	<com.google.android.material.floatingactionbutton.FloatingActionButton
+		android:id="@+id/fab"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		app:fabSize="mini"
+		app:useCompatPadding="true" />
+
+	<TextView
+		android:id="@+id/unreadCountView"
+		android:layout_width="wrap_content"
+		android:layout_height="@dimen/unread_bubble_size"
+		android:layout_gravity="right|end|top"
+		android:layout_marginTop="10dp"
+		android:layout_marginEnd="5dp"
+		android:layout_marginRight="5dp"
+		android:background="@drawable/bubble"
+		android:elevation="7dp"
+		android:gravity="center"
+		android:minWidth="@dimen/unread_bubble_size"
+		android:textColor="@color/briar_text_primary_inverse"
+		android:textSize="@dimen/unread_bubble_text_size"
+		android:textStyle="bold"
+		tools:text="12" />
+
+</merge>

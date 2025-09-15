@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:orientation="vertical"
+	android:paddingHorizontal="?dialogPreferredPadding">
+
+	<de.hdodenhof.circleimageview.CircleImageView
+		android:id="@+id/image"
+		style="@style/BriarAvatar"
+		android:layout_width="@dimen/listitem_picture_size"
+		android:layout_height="@dimen/listitem_picture_size"
+		android:layout_gravity="bottom|left|start"
+		android:layout_marginTop="@dimen/listitem_vertical_margin"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toTopOf="parent"
+		tools:src="@mipmap/ic_launcher_round" />
+
+	<TextView
+		android:id="@+id/username"
+		android:layout_width="wrap_content"
+		android:layout_height="0dp"
+		android:layout_marginStart="@dimen/margin_medium"
+		android:layout_marginLeft="@dimen/margin_medium"
+		android:layout_marginTop="@dimen/listitem_vertical_margin"
+		android:gravity="center_vertical"
+		android:textSize="@dimen/text_size_medium"
+		app:layout_constraintBottom_toBottomOf="@+id/image"
+		app:layout_constraintStart_toEndOf="@+id/image"
+		app:layout_constraintTop_toTopOf="parent"
+		tools:text="username" />
+
+	<TextView
+		android:id="@+id/remark"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:layout_marginTop="@dimen/listitem_vertical_margin"
+		android:text="@string/dialog_confirm_profile_picture_remark"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toBottomOf="@+id/image" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

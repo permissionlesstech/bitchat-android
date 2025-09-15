@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="0dp"
+	tools:showIn="@layout/navigation_menu">
+
+	<!--
+	This is left intentionally empty for use in screens with a small height.
+	See the other resource file with the same name for the real header layout.
+	 -->
+
+</FrameLayout>

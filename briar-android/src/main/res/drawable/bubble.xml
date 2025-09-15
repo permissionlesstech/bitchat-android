@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape
+	xmlns:android="http://schemas.android.com/apk/res/android"
+	android:shape="rectangle">
+
+	<corners
+		android:radius="@dimen/unread_bubble_size"/>
+
+	<padding
+		android:left="@dimen/unread_bubble_padding_horizontal"
+		android:right="@dimen/unread_bubble_padding_horizontal"
+		android:bottom="1px"/>
+
+	<solid
+		android:color="@color/briar_accent"/>
+
+	<stroke
+		android:color="@color/briar_text_primary_inverse"
+	    android:width="@dimen/avatar_border_width"/>
+
+</shape>
+

@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:fillViewport="true"
+	tools:context=".android.mailbox.MailboxActivity">
+
+	<androidx.constraintlayout.widget.ConstraintLayout
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content">
+
+		<ImageView
+			android:id="@+id/imageView"
+			android:layout_width="32dp"
+			android:layout_height="32dp"
+			android:layout_marginHorizontal="16dp"
+			app:layout_constraintBottom_toTopOf="@+id/statusTitleView"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintHorizontal_bias="0.5"
+			app:layout_constraintHorizontal_chainStyle="packed"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toTopOf="parent"
+			app:layout_constraintVertical_bias="0.25"
+			app:layout_constraintVertical_chainStyle="packed"
+			tools:ignore="ContentDescription"
+			tools:srcCompat="@drawable/ic_help_outline_white"
+			tools:tint="@color/briar_orange_500" />
+
+		<TextView
+			android:id="@+id/statusTitleView"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_marginHorizontal="16dp"
+			android:layout_marginTop="16dp"
+			android:gravity="center"
+			android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6"
+			app:layout_constrainedWidth="true"
+			app:layout_constraintBottom_toTopOf="@+id/statusMessageView"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/imageView"
+			tools:text="@string/mailbox_status_problem_title" />
+
+		<TextView
+			android:id="@+id/statusMessageView"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_marginHorizontal="16dp"
+			android:layout_marginTop="16dp"
+			android:gravity="center"
+			android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
+			android:visibility="gone"
+			app:layout_constrainedWidth="true"
+			app:layout_constraintBottom_toTopOf="@+id/statusInfoView"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/statusTitleView"
+			tools:text="@string/mailbox_status_mailbox_too_old_message"
+			tools:visibility="visible" />
+
+		<TextView
+			android:id="@+id/statusInfoView"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:layout_marginHorizontal="16dp"
+			android:layout_marginTop="16dp"
+			android:gravity="center"
+			app:layout_constraintBottom_toTopOf="@+id/checkButton"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/statusMessageView"
+			tools:text="@string/mailbox_status_connected_info" />
+
+		<org.briarproject.briar.android.view.BriarButton
+			android:id="@+id/checkButton"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_marginHorizontal="16dp"
+			android:layout_marginTop="16dp"
+			app:buttonStyle="@style/BriarButtonOutline.Neutral"
+			app:layout_constraintBottom_toTopOf="@+id/wizardButton"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/statusInfoView"
+			app:text="@string/mailbox_status_check_button" />
+
+		<Button
+			android:id="@+id/wizardButton"
+			style="@style/BriarButtonOutline.Neutral"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_marginHorizontal="16dp"
+			android:layout_marginTop="6dp"
+			android:text="@string/mailbox_error_wizard_button"
+			android:visibility="gone"
+			app:layout_constraintBottom_toTopOf="@+id/unlinkButton"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/checkButton"
+			app:layout_constraintVertical_bias="0.0"
+			tools:visibility="visible" />
+
+		<Button
+			android:id="@+id/unlinkButton"
+			style="@style/BriarButtonOutline.Negative"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_margin="16dp"
+			android:text="@string/mailbox_status_unlink_button"
+			app:layout_constraintBottom_toBottomOf="parent"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent" />
+
+		<com.google.android.material.progressindicator.CircularProgressIndicator
+			android:id="@+id/unlinkProgress"
+			style="@style/CircularProgress"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:visibility="invisible"
+			app:layout_constraintBottom_toBottomOf="@+id/unlinkButton"
+			app:layout_constraintEnd_toEndOf="@+id/unlinkButton"
+			app:layout_constraintStart_toStartOf="@+id/unlinkButton"
+			app:layout_constraintTop_toTopOf="@+id/unlinkButton"
+			tools:visibility="visible" />
+
+	</androidx.constraintlayout.widget.ConstraintLayout>
+
+</ScrollView>

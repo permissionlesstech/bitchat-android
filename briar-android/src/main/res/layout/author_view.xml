@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:id="@+id/merge"
+	tools:layout_height="wrap_content"
+	tools:layout_width="match_parent"
+	tools:parentTag="androidx.constraintlayout.widget.ConstraintLayout"
+	tools:showIn="@layout/list_item_blog_post">
+
+	<de.hdodenhof.circleimageview.CircleImageView
+		android:id="@+id/avatar"
+		style="@style/BriarAvatar"
+		android:layout_width="@dimen/blogs_avatar_normal_size"
+		android:layout_height="@dimen/blogs_avatar_normal_size"
+		app:layout_constraintBottom_toBottomOf="parent"
+		app:layout_constraintEnd_toStartOf="@+id/authorName"
+		app:layout_constraintHorizontal_bias="0.0"
+		app:layout_constraintHorizontal_chainStyle="packed"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toTopOf="parent"
+		tools:src="@mipmap/ic_launcher_round" />
+
+	<ImageView
+		android:id="@+id/avatarIcon"
+		android:layout_width="@dimen/blogs_avatar_icon_size"
+		android:layout_height="@dimen/blogs_avatar_icon_size"
+		android:background="@drawable/bubble_white"
+		android:contentDescription="@string/blogs_reblog_button"
+		android:padding="2dp"
+		android:scaleType="fitCenter"
+		android:visibility="invisible"
+		app:layout_constraintBottom_toBottomOf="@+id/avatar"
+		app:layout_constraintEnd_toEndOf="@+id/avatar"
+		app:srcCompat="@drawable/ic_repeat" />
+
+	<com.vanniktech.emoji.EmojiTextView
+		android:id="@+id/authorName"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:layout_marginStart="@dimen/margin_medium"
+		android:layout_marginLeft="@dimen/margin_medium"
+		android:layout_marginEnd="@dimen/margin_medium"
+		android:layout_marginRight="@dimen/margin_medium"
+		android:textColor="?android:attr/textColorPrimary"
+		android:textSize="@dimen/text_size_small"
+		app:layout_constrainedWidth="true"
+		app:layout_constraintEnd_toStartOf="@+id/trustIndicator"
+		app:layout_constraintStart_toEndOf="@+id/avatar"
+		app:layout_constraintTop_toTopOf="parent"
+		tools:text="Author View that can have a long name" />
+
+	<org.briarproject.briar.android.view.TrustIndicatorView
+		android:id="@+id/trustIndicator"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		app:layout_constraintBottom_toBottomOf="@+id/authorName"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toEndOf="@+id/authorName"
+		app:layout_constraintTop_toTopOf="@+id/authorName"
+		app:layout_goneMarginEnd="0dp"
+		app:layout_goneMarginStart="0dp"
+		tools:src="@drawable/trust_indicator_verified" />
+
+	<TextView
+		android:id="@+id/dateView"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:textColor="?android:attr/textColorSecondary"
+		android:textSize="@dimen/text_size_tiny"
+		app:layout_constraintStart_toStartOf="@+id/authorName"
+		app:layout_constraintTop_toBottomOf="@+id/authorName"
+		tools:text="yesterday"
+		tools:visibility="visible" />
+
+</merge>

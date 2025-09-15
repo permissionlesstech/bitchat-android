@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:orientation="vertical">
+
+	<ScrollView
+		android:layout_width="match_parent"
+		android:layout_height="0dp"
+		android:layout_weight="1">
+
+		<androidx.constraintlayout.widget.ConstraintLayout
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content">
+
+			<ImageView
+				android:id="@+id/imageView"
+				android:layout_width="@dimen/hero_rect_width"
+				android:layout_height="@dimen/hero_rect_height"
+				android:layout_marginHorizontal="@dimen/margin_xlarge"
+				android:layout_marginTop="@dimen/margin_xlarge"
+				app:layout_constraintBottom_toTopOf="@+id/progressBar"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toTopOf="parent"
+				app:layout_constraintVertical_bias="0.25"
+				app:layout_constraintVertical_chainStyle="packed"
+				app:srcCompat="@drawable/il_transfer_data_send"
+				tools:ignore="ContentDescription" />
+
+			<com.google.android.material.progressindicator.LinearProgressIndicator
+				android:id="@+id/progressBar"
+				android:layout_width="0dp"
+				android:layout_height="wrap_content"
+				android:layout_marginHorizontal="@dimen/margin_xlarge"
+				android:layout_marginTop="@dimen/margin_xlarge"
+				android:visibility="gone"
+				app:indicatorColor="@color/briar_accent"
+				app:layout_constraintBottom_toTopOf="@+id/introTextView"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@+id/imageView"
+				tools:progress="50"
+				tools:visibility="visible" />
+
+			<TextView
+				android:id="@+id/introTextView"
+				android:layout_width="0dp"
+				android:layout_height="wrap_content"
+				android:layout_marginHorizontal="@dimen/margin_xlarge"
+				android:layout_marginTop="@dimen/margin_xlarge"
+				android:layout_marginBottom="@dimen/margin_large"
+				android:text="@string/removable_drive_send_intro"
+				android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
+				app:layout_constraintBottom_toBottomOf="parent"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@+id/progressBar" />
+
+		</androidx.constraintlayout.widget.ConstraintLayout>
+
+	</ScrollView>
+
+	<Button
+		android:id="@+id/fileButton"
+		style="@style/BriarButton"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:layout_margin="@dimen/margin_large"
+		android:enabled="false"
+		android:text="@string/removable_drive_send_button"
+		app:layout_constraintBottom_toBottomOf="parent"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toStartOf="parent" />
+
+</LinearLayout>

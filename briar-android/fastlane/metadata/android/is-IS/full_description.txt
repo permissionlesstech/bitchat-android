@@ -1,0 +1,5 @@
+Briar er samskiptaforrit hannað fyrir aðgerðasinna, blaðamenn og alla þá sem þurfa örygga, auðvelda og áreiðanlega leið til að eiga í samskiptum. Ólíkt hefðbundnum skilaboðaforritum reiðir Briar sig ekki á miðlæga þjóna - skilaboðin eru samstillt beint á milli tækja notendanna. Ef internetið liggur niðri getur Briar samstillt í gegnum Bluetooth eða Wi-Fi þráðlaus net og þannig haldið upplýsingaflæðinu gangandi á neyðarstundum. Ef internetið er starfhæft getur Briar samstillt í gegnum Tor-netkerfið, sem verndar notendurna og tengslanet þeirra fyrir eftirliti og ritskoðun.
+
+Forritið býður upp á einkaskilaboð, hópa, spjallsvæði og blogg. Stuðningur við Tor er innbyggður í forritið. Allt sem þú gerir í Briar er einungis geymt á tækinu þínu, nema þú ákveðir að deila einhverju með öðrum.
+
+Það eru engar auglýsingar og ekkert eftirlit. Grunnkóði forritsins er algerlega opinn og aðgengilegur öllum sem vilja skoða hann og hefur verið yfirfarinn af sérfræðingum. Allar útgáfur Briar eru endurgeranlegar, sem gerir kleift að sjá að útgefinn grunnkóði samsvari nákvæmlega forritinu sem birtist hér. Lítið samhent teymi stendur að þróun hugbúnaðarins, án hagnaðarsjónarmiða.

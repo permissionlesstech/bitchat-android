@@ -1,0 +1,5 @@
+Briar egy üzenetküldő alkalmazás, amit aktivisták, újságírók és bárki olyan számára terveztek, akinek szüksége van biztonságos és megbízható módon kommunikálni. A hagyományos üzenetküldő alkalmazásokkal ellentétben a Briar nem függ egy központi szervertől, az üzenetek közvetlenül a felhasználók készülékei között szinkronizálódnak. Ha az internet nem elérhető, a Briar Bluetooth vagy Wi-Fi kapcsolaton keresztül szinkronizál. Amikor az interent elérhető, a Briar a Tor hálózaton keresztül szinkronizál, megvédve a felhasználókat és kapcsolataikat a megfigyeléstől.
+
+Az app biztosít privát üzenteket, csoportokat, fórumokat és blogokat is. A Tor hálózat támogatása beépített az app-ba. Bármi amit a Briar-ban csinálsz csak a saját eszközödön tárolt, amíg nem döntesz úgy, hogy megosztod másokkal.
+
+Nincsennek hirdetések és nincs követés. A forráskódja az app-nak teljesen nyílt, bárki megvizsgálhatja, azonban professzionálisan auditált. Minden kiadása a Briar-nak reprodukálható, lehetővé téve azt, hogy ellenőrizd, hogy a forráskód és az app megegyezik. A fejlesztés egy kis nonprofit csapattal történik.

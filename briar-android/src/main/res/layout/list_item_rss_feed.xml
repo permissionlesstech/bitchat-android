@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content"
+	android:background="?attr/selectableItemBackground">
+
+	<com.vanniktech.emoji.EmojiTextView
+		android:id="@+id/titleView"
+		android:layout_width="0dp"
+		android:layout_height="wrap_content"
+		android:layout_marginStart="@dimen/listitem_horizontal_margin"
+		android:layout_marginLeft="@dimen/listitem_horizontal_margin"
+		android:layout_marginTop="@dimen/listitem_horizontal_margin"
+		android:textColor="?android:attr/textColorPrimary"
+		android:textSize="@dimen/text_size_medium"
+		app:layout_constraintEnd_toStartOf="@+id/deleteButton"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toTopOf="parent"
+		tools:text="This is a name of a RSS Feed that can be long" />
+
+	<androidx.appcompat.widget.AppCompatImageButton
+		android:id="@+id/deleteButton"
+		android:layout_width="@dimen/button_size"
+		android:layout_height="@dimen/button_size"
+		android:layout_margin="@dimen/margin_medium"
+		android:background="?attr/selectableItemBackgroundBorderless"
+		android:contentDescription="@string/delete"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintTop_toTopOf="parent"
+		app:srcCompat="@drawable/action_delete_black"
+		app:tint="?attr/colorControlNormal" />
+
+	<TextView
+		android:id="@+id/author"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:layout_marginTop="@dimen/margin_small"
+		android:text="@string/blogs_rss_feeds_manage_author"
+		android:textColor="?android:attr/textColorSecondary"
+		android:textSize="@dimen/text_size_small"
+		app:layout_constraintStart_toStartOf="@+id/titleView"
+		app:layout_constraintTop_toBottomOf="@+id/titleView" />
+
+	<com.vanniktech.emoji.EmojiTextView
+		android:id="@+id/authorView"
+		android:layout_width="0dp"
+		android:layout_height="wrap_content"
+		android:layout_marginStart="@dimen/margin_small"
+		android:layout_marginLeft="@dimen/margin_small"
+		android:layout_marginEnd="@dimen/listitem_horizontal_margin"
+		android:layout_marginRight="@dimen/listitem_horizontal_margin"
+		android:textColor="?android:attr/textColorSecondary"
+		android:textSize="@dimen/text_size_small"
+		app:layout_constraintBaseline_toBaselineOf="@+id/author"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toEndOf="@+id/author"
+		tools:text="Bruce Schneier" />
+
+	<TextView
+		android:id="@+id/imported"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:layout_marginTop="@dimen/margin_tiny"
+		android:text="@string/blogs_rss_feeds_manage_imported"
+		android:textColor="?android:attr/textColorSecondary"
+		android:textSize="@dimen/text_size_small"
+		app:layout_constraintStart_toStartOf="@+id/titleView"
+		app:layout_constraintTop_toBottomOf="@+id/author" />
+
+	<TextView
+		android:id="@+id/importedView"
+		android:layout_width="0dp"
+		android:layout_height="wrap_content"
+		android:layout_marginStart="@dimen/margin_small"
+		android:layout_marginLeft="@dimen/margin_small"
+		android:layout_marginEnd="@dimen/listitem_horizontal_margin"
+		android:layout_marginRight="@dimen/listitem_horizontal_margin"
+		android:textColor="?android:attr/textColorSecondary"
+		android:textSize="@dimen/text_size_small"
+		app:layout_constraintBaseline_toBaselineOf="@+id/imported"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toEndOf="@+id/imported"
+		tools:text="July 4" />
+
+	<TextView
+		android:id="@+id/updated"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:layout_marginTop="@dimen/margin_tiny"
+		android:text="@string/blogs_rss_feeds_manage_updated"
+		android:textColor="?android:attr/textColorSecondary"
+		android:textSize="@dimen/text_size_small"
+		app:layout_constraintStart_toStartOf="@+id/titleView"
+		app:layout_constraintTop_toBottomOf="@+id/imported" />
+
+	<TextView
+		android:id="@+id/updatedView"
+		android:layout_width="0dp"
+		android:layout_height="wrap_content"
+		android:layout_marginStart="@dimen/margin_small"
+		android:layout_marginLeft="@dimen/margin_small"
+		android:layout_marginEnd="@dimen/listitem_horizontal_margin"
+		android:layout_marginRight="@dimen/listitem_horizontal_margin"
+		android:textColor="?android:attr/textColorSecondary"
+		android:textSize="@dimen/text_size_small"
+		app:layout_constraintBottom_toBottomOf="@+id/updated"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toEndOf="@+id/updated"
+		tools:text="5 min. ago" />
+
+	<com.vanniktech.emoji.EmojiTextView
+		android:id="@+id/descriptionView"
+		android:layout_width="0dp"
+		android:layout_height="wrap_content"
+		android:layout_marginStart="@dimen/listitem_horizontal_margin"
+		android:layout_marginLeft="@dimen/listitem_horizontal_margin"
+		android:layout_marginTop="@dimen/margin_medium"
+		android:layout_marginEnd="@dimen/listitem_horizontal_margin"
+		android:layout_marginRight="@dimen/listitem_horizontal_margin"
+		android:textColor="?android:attr/textColorSecondary"
+		android:textSize="@dimen/text_size_small"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toBottomOf="@+id/updated"
+		tools:text="This is a description of the RSS feed. It can be several lines long, but it can also not exist at all if it is not present in the feed itself." />
+
+	<View
+		style="@style/Divider.ThreadItem"
+		android:layout_marginTop="@dimen/listitem_horizontal_margin"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toBottomOf="@+id/descriptionView" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
+

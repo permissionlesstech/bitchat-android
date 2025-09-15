@@ -1,0 +1,841 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+  <!--Setup-->
+  <string name="setup_title">Välkommen till Briar</string>
+  <string name="setup_name_explanation">Ditt användarnamn kommer att visas bredvid allt innehåll som du lägger upp. Du kan inte ändra ditt användarnamn efter att ditt konto skapats.</string>
+  <string name="setup_next">Nästa</string>
+  <string name="setup_password_intro">Skapa lösenord</string>
+  <string name="setup_password_explanation">Ditt Briar-konto lagras krypterat på din mobil eller läsplatta, inte hos en molntjänst. Om du glömmer ditt lösenord eller avinstallerar Briar är det därför inte möjligt att återställa ditt konto.\n\nSkapa ett långt lösenord som är svårgissat, till exempel fyra slumpvalda ord eller en kombination av tio slumpvalda bokstäver, siffror och andra tecken.</string>
+  <string name="dnkm_doze_intro">För att kunna ta emot meddelanden måste Briar vara anslutet i bakgrunden.</string>
+  <string name="dnkm_doze_explanation">För att kunna ta emot meddelanden måste Briar vara anslutet i bakgrunden. Avaktivera batterioptimering så att Briar kan hålla sig anslutet.</string>
+  <string name="choose_nickname">Välj ditt användarnamn</string>
+  <string name="choose_password">Skapa lösenord</string>
+  <string name="confirm_password">Bekräfta lösenordet</string>
+  <string name="name_too_long">Namnet har för många tecken </string>
+  <string name="password_too_weak">Lösenordet är för svagt</string>
+  <string name="passwords_do_not_match">Lösenorden överensstämmer inte </string>
+  <string name="create_account_button">Skapa konto </string>
+  <string name="more_info">Mer information</string>
+  <string name="don_t_ask_again">Fråga inte igen</string>
+  <string name="dnkm_huawei_protected_text">Tryck på knappen längre ner för att lägga till Briar till listan över \"skyddade appar\".</string>
+  <string name="dnkm_huawei_protected_button">Skydda Briar</string>
+  <string name="dnkm_huawei_protected_help">Om Briar inte läggs till listan över skyddade appar kan det inte köras i bakgrunden.</string>
+  <string name="dnkm_huawei_app_launch_text">Tryck på knappen nedan, öppna skärmen ”App-start” och säkerställ att Briar är inställt på ”Hantera manuellt”</string>
+  <string name="dnkm_huawei_app_launch_help">Om Briar inte är inställt på ”Hantera manuellt” i skärmen ”App-start” kommer den inte att kunna köra i bakgrunden.</string>
+  <string name="dnkm_xiaomi_text">För att köra i bakgrunden måste Briar låsas in i listan över senaste appar.</string>
+  <string name="dnkm_xiaomi_button">Skydda Briar</string>
+  <string name="dnkm_xiaomi_help">Om Briar inte låsas in i listan över senaste appar kommer det inte att kunna köra i bakgrunden.</string>
+  <string name="dnkm_xiaomi_dialog_body_old">1. Öppna listan över senaste appar (också kallade appväxlaren)\n\n2. Svep nedåt vid bilden av Briar för att visa hänglåsikonen\n\n3. Om hänglåsikonen inte är låst, tryck för att låsa den</string>
+  <string name="dnkm_xiaomi_dialog_body_new">1. Öppna listan över senaste appar (också kallad appväxlaren)\n\n2. Om Briar har en liten hänglåsikon bredvid namnet så behöver du inte göra något mer.\n\n3. Om ingen hänglåsikon syns så tryck och håll kvar Briar tills hänglåsikonen dyker upp.</string>
+  <string name="dnkm_xiaomi_lock_apps_text">Vänligen tryck på knappen nedan för att öppna säkerhetsinställningarna. Trycka på \"Öka hastigheten\", och sedan på \"Låsta appar\". Se där till att Briar är inställd på \"Låst\".</string>
+  <string name="dnkm_xiaomi_lock_apps_help">Om Briar inte är inställt på \"Låst\" på \"Låsta appar\"-sidan, så kommer Briar inte att kunna köra i bakgrunden.</string>
+  <string name="dnkm_warning_dozed_1">Briar kunde inte köras i bakgrunden</string>
+  <!--Login-->
+  <string name="enter_password">Lösenord</string>
+  <string name="try_again">Felaktigt lösenord, försök igen </string>
+  <string name="dialog_title_cannot_check_password">Kan ej kontrollera lösenordet</string>
+  <string name="dialog_message_cannot_check_password">Briar kan inte kontrollera ditt lösenord. Prova att starta om din enhet och försök igen.</string>
+  <string name="sign_in_button">Logga in</string>
+  <string name="dialog_title_lost_password">Glömt lösenord?</string>
+  <string name="dialog_message_lost_password">Eftersom ditt Briar-konto lagras krypterat på din mobil eller läsplatta och inte hos en molntjänst kan vi inte återställa ditt lösenord. Vill du radera ditt konto och skapa ett nytt?\n\nCaution: Du kommer att förlora din profil, dina kontakter och dina meddelanden.</string>
+  <string name="startup_failed_activity_title">Briar kunde inte starta</string>
+  <string name="startup_failed_clock_error">Briar kunde inte starta eftersom din enhets klocka är felinställd.\n\nStäll in din enhets klocka på rätt tid och prova igen.</string>
+  <string name="startup_failed_db_error">Briar kunde inte öppna databasen som innehåller ditt konto, dina kontakter och dina meddelanden.\n\nUppgradera till den senaste versionen av appen och prova igen, eller sätt upp ett nytt konto genom att välja ”Jag har glömt mitt lösenord” vid lösenordsförfrågan.</string>
+  <string name="startup_failed_data_too_old_error">Ditt konto skapades med en gammal version av denna appen och kan inte öppnas med denna version.\n\nDu måste antingen återinstallera den gamla versionen eller sätt upp ett nytt konto genom att välja ”Jag har glömt mitt lösenord” vid lösenordsförfrågan.</string>
+  <string name="startup_failed_data_too_new_error">Ditt konto skapades med en nyare version av denna app och kan inte öppnas av denna version.\n\nUppgradera till den senaste versionen och prova igen.</string>
+  <string name="startup_failed_service_error">Briar kan inte starta en nödvändig komponent.\n\nUppgradera till den senaste versionen av appen och prova igen.</string>
+  <plurals name="expiry_warning">
+    <item quantity="one">Det här är en test-version av Briar. Ditt konto kommer att upphöra om %d dagar och kan ej förnyas.</item>
+    <item quantity="other">Det här är en test-version av Briar. Ditt konto kommer att upphöra om %d dag och kan ej förnyas.</item>
+  </plurals>
+  <string name="expiry_date_reached">Mjukvaran har gått ut.\nTack för att du bidragit till att testa!</string>
+  <string name="download_briar">För att fortsätta använda Briar, hämta den senaste utgåvan.</string>
+  <string name="create_new_account">Du måste skapa ett nytt konto, men du kan använda samma användarnamn.</string>
+  <string name="download_briar_button">Hämta senaste utgåvan</string>
+  <string name="old_android_expiry_date_reached">Briar kan inte längre användas på Android 4.
+Vänlige installera Briar på en nyare enhet.</string>
+  <string name="old_android_delete_account">Du kan trycka på knappen nedan för att ta bort ditt konto från denna enhet.</string>
+  <string name="delete_account_button">Radera kontot</string>
+  <string name="startup_open_database">Dekrypterar databasen...</string>
+  <string name="startup_migrate_database">Uppgraderar databasen...</string>
+  <string name="startup_compact_database">Komprimerar databasen...</string>
+  <!--Navigation Drawer-->
+  <string name="nav_drawer_open_description">Öppna navigeringsfacket</string>
+  <string name="nav_drawer_close_description">Stäng navigeringsfacket</string>
+  <string name="contact_list_button">Kontakter</string>
+  <string name="groups_button">Privatgrupper</string>
+  <string name="forums_button">Forum</string>
+  <string name="blogs_button">Bloggar</string>
+  <!--This is part of the main menu. The app will be locked when this is tapped.-->
+  <string name="lock_button">Lås appen</string>
+  <string name="settings_button">Inställningar</string>
+  <string name="sign_out_button">Logga ut</string>
+  <string name="transports_onboarding_text">Tryck här för att styra hur Briar ansluter till dina kontakter.</string>
+  <!--Transports: Tor-->
+  <string name="transport_tor">Internet</string>
+  <string name="tor_device_status_online_wifi">Din telefon har internetåtkomst via Wi-Fi</string>
+  <string name="tor_device_status_online_mobile">Din telefon har internetåtkomst via mobildata</string>
+  <string name="tor_device_status_offline">Din telefon har inte internetåtkomst</string>
+  <string name="tor_plugin_status_enabling">Briar ansluter till internet</string>
+  <string name="tor_plugin_status_active">Briar är anslutet till internet</string>
+  <string name="tor_plugin_status_inactive">Briar kan inte ansluta till internet</string>
+  <string name="tor_plugin_status_disabled">Briar är inte konfigurerat för att använda internet</string>
+  <string name="tor_plugin_status_disabled_mobile_data">Briar är konfigurerat så att de inte använder mobildata</string>
+  <string name="tor_plugin_status_disabled_battery">Briar är konfigurerat att inte använda internet vid batterianvändning</string>
+  <string name="tor_plugin_status_disabled_country_blocked">Briar är konfigurerat att inte använda internet i detta landet</string>
+  <!--Transports: Wi-Fi-->
+  <string name="transport_lan">Wi-Fi</string>
+  <string name="transport_lan_long">Samma Wi-Fi-nätverk</string>
+  <string name="lan_device_status_on">Din telefon är ansluten till Wi-Fi</string>
+  <string name="lan_device_status_off">Din telefon är inte ansluten till Wi-Fi</string>
+  <string name="lan_plugin_status_enabling">Briar ansluter till Wi-Fi-nätverket</string>
+  <string name="lan_plugin_status_active">Briar är anslutet till Wi-Fi nätverket</string>
+  <string name="lan_plugin_status_inactive">Briar kan inte ansluta till Wi-Fi-nätverket</string>
+  <string name="lan_plugin_status_disabled">Briar är konfigurerat för att inte använda Wi-Fi-nätverket</string>
+  <!--Transports: Bluetooth-->
+  <string name="transport_bt">Bluetooth</string>
+  <string name="bt_device_status_on">Din telefons Bluetooth är aktiverad</string>
+  <string name="bt_device_status_off">Din telefons Bluetooth är inaktiverad</string>
+  <string name="bt_plugin_status_enabling">Briar ansluter till Bluetooth</string>
+  <string name="bt_plugin_status_active">Briar är ansluten till Bluetooth</string>
+  <string name="bt_plugin_status_inactive">Briar kan inte ansluta till Bluetooth</string>
+  <string name="bt_plugin_status_disabled">Briar är konfigurerat för att inte använda Bluetooth</string>
+  <!--Notifications-->
+  <string name="reminder_notification_title">Utloggad från Briar</string>
+  <string name="reminder_notification_text">Tryck för att logga in igen.</string>
+  <string name="reminder_notification_channel_title">Inloggningspåminnelse från Briar</string>
+  <string name="reminder_notification_dismiss">Stäng</string>
+  <string name="ongoing_notification_title">Inloggad på Briar</string>
+  <string name="ongoing_notification_text">Tryck för att öppna Briar.</string>
+  <plurals name="private_message_notification_text">
+    <item quantity="one">Nytt privat meddelande.</item>
+    <item quantity="other">%d nya privata meddelanden.</item>
+  </plurals>
+  <plurals name="group_message_notification_text">
+    <item quantity="one">Nytt gruppmeddelande.</item>
+    <item quantity="other">%d nya gruppmeddelanden.</item>
+  </plurals>
+  <plurals name="forum_post_notification_text">
+    <item quantity="one">Ett nytt foruminlägg.</item>
+    <item quantity="other">%dnya foruminlägg.</item>
+  </plurals>
+  <plurals name="blog_post_notification_text">
+    <item quantity="one">Ett nytt blogginlägg.</item>
+    <item quantity="other">%d nya blogginlägg.</item>
+  </plurals>
+  <!--Misc-->
+  <string name="now">nu</string>
+  <string name="show">Visa</string>
+  <string name="hide">Göm</string>
+  <string name="ok">OK</string>
+  <string name="cancel">Avbryt</string>
+  <string name="got_it">Förstått</string>
+  <string name="delete">Radera</string>
+  <string name="accept">Acceptera</string>
+  <string name="decline">Neka</string>
+  <string name="online">Uppkopplad</string>
+  <string name="offline">Nedkopplad</string>
+  <string name="send">Skicka</string>
+  <string name="allow">Tillåt</string>
+  <string name="open">Öppen</string>
+  <string name="change">Ändra</string>
+  <string name="start">Kör</string>
+  <string name="finish">Slutför</string>
+  <string name="no_data">Ingen data</string>
+  <string name="ellipsis">…</string>
+  <string name="text_too_long">Texten innehåller för många tecken</string>
+  <string name="show_onboarding">Visa hjälprutan</string>
+  <string name="fix">Laga</string>
+  <string name="help">Hjälp</string>
+  <string name="sorry">Tyvärr</string>
+  <string name="error_start_activity">Otillgänglig på ditt system</string>
+  <string name="status_heading">Status</string>
+  <string name="error">Fel</string>
+  <string name="info">Information</string>
+  <!--Contacts and Private Conversations-->
+  <string name="no_contacts">Inga kontakter</string>
+  <string name="no_contacts_action">Tryck på plus-ikonen (+) för att lägga till en kontakt</string>
+  <string name="date_no_private_messages">Inga meddelanden</string>
+  <string name="no_private_messages">Inga meddelanden</string>
+  <string name="message_hint">Nytt meddelande</string>
+  <string name="message_hint_auto_delete">Nytt försvinnande meddelande</string>
+  <string name="message_error">Fel vid sändning av meddelanden</string>
+  <string name="image_caption_hint">Lägg till bildtext (valfritt)</string>
+  <string name="image_attach">Bifoga bild</string>
+  <string name="image_attach_error">Kunde inte bifoga en eller flera bilder</string>
+  <string name="image_attach_error_too_big">Bilden är för stor.  Gränsen är %d MB.</string>
+  <string name="image_attach_error_invalid_mime_type">Bildformatet stöds ej: %s</string>
+  <string name="set_contact_alias">Ändra namn på kontakt</string>
+  <string name="set_contact_alias_hint">Kontaktnamn</string>
+  <string name="menu_item_disappearing_messages">Försvinnande meddelanden</string>
+  <!--The first placeholder will show a duration like "7 days". The second placeholder at the end will add "Tap to learn more."-->
+  <string name="auto_delete_msg_you_enabled">Dina meddelanden försvinner efter %1$s. %2$s</string>
+  <!--The placeholder at the end will add "Tap to learn more."-->
+  <string name="auto_delete_msg_you_disabled">Dina meddelanden kommer inte att försvinna %1$s</string>
+  <!--The first placeholder will show a contact's name. The second placeholder will show a duration like "7 days". The third placeholder at the end will add "Tap to learn more."-->
+  <string name="auto_delete_msg_contact_enabled">%1$ss meddelanden kommer att försvinna om %2$s. %3$s</string>
+  <plurals name="duration_minutes">
+    <item quantity="one">%d minut</item>
+    <item quantity="other">%d minuter</item>
+  </plurals>
+  <plurals name="duration_hours">
+    <item quantity="one">%d timme</item>
+    <item quantity="other">%d timmar</item>
+  </plurals>
+  <plurals name="duration_days">
+    <item quantity="one">%d dag</item>
+    <item quantity="other">%d dagar</item>
+  </plurals>
+  <!--The first placeholder will show a contact's name. The second placeholder at the end will add "Tap to learn more."-->
+  <string name="auto_delete_msg_contact_disabled">%1$ss meddelanden kommer inte att försvinna. %2$s</string>
+  <string name="tap_to_learn_more">Tryck för att lära dig mer.</string>
+  <string name="auto_delete_changed_warning_title">Försvinnande meddelanden ändrade</string>
+  <string name="auto_delete_changed_warning_message_enabled">Sedan du börjat skriva ditt meddelande har försvinnande meddelanden aktiverats.</string>
+  <string name="auto_delete_changed_warning_message_disabled">Sedan du börjat skriva ditt meddelande har försvinnande meddelande inaktiverats.</string>
+  <string name="auto_delete_changed_warning_send">Skicka ändå</string>
+  <string name="delete_all_messages">Ta bort alla meddelanden</string>
+  <string name="dialog_title_delete_all_messages">Bekräfta meddelande borttagning</string>
+  <string name="dialog_message_delete_all_messages">Är du säker på att du vill ta bort alla meddelanden?</string>
+  <string name="dialog_title_not_all_messages_deleted">Det gick inte att ta bort alla meddelanden</string>
+  <string name="dialog_message_not_deleted_ongoing_both">Meddelanden relaterade till pågående inbjudningar och introduktioner kan inte tas bort förrän de avslutas.</string>
+  <string name="dialog_message_not_deleted_ongoing_introductions">Meddelanden relaterade till pågående introduktioner kan inte tas bort förrän de avslutas.</string>
+  <string name="dialog_message_not_deleted_ongoing_invitations">Meddelanden relaterade till pågående inbjudningar kan inte tas bort förrän de avslutas.</string>
+  <string name="dialog_message_not_deleted_not_all_selected_both">För att ta bort en inbjudan eller introduktion måste du välja förfrågan och svaret.</string>
+  <string name="dialog_message_not_deleted_not_all_selected_introductions">För att ta bort en introduktion måste du välja förfrågan och svaret.</string>
+  <string name="dialog_message_not_deleted_not_all_selected_invitations">För att ta bort en inbjudan måste du välja förfrågan och svaret.</string>
+  <string name="delete_contact">Radera kontakt</string>
+  <string name="dialog_title_delete_contact">Bekräfta radering av kontakt</string>
+  <string name="dialog_message_delete_contact">Är du säker att du vill radera denna kontakt och alla meddelanden?</string>
+  <string name="contact_deleted_toast">Kontakt raderad</string>
+  <!--This is shown in the action bar when opening an image in fullscreen that the user sent-->
+  <string name="you">Du</string>
+  <string name="save_image">Spara bild</string>
+  <string name="dialog_title_save_image">Spara bilden?</string>
+  <string name="dialog_message_save_image">Om bilden sparas kommer andra appar att komma åt den.\n\nÄr du säker på att du vill spara bilden?</string>
+  <string name="save_image_success">Bilden sparades</string>
+  <string name="save_image_error">Bild ej spara bild</string>
+  <string name="dialog_title_no_image_support">Bilder ej tillgängliga</string>
+  <string name="dialog_message_no_image_support">Din kontakt använder en version av Briar som inte stödjer bifogade bilder. En annan ikon kommer att visas när denne har uppgraderat.</string>
+  <string name="dialog_title_image_support">Du kan nu skicka bilder till den här kontakten</string>
+  <string name="dialog_message_image_support">Tryck på denna ikon för att bifoga bilder.</string>
+  <string name="messaging_too_many_attachments_toast">Endast de första %d bilder kommer att skickas</string>
+  <string name="menu_contact">Kontakt</string>
+  <!--Adding Contacts-->
+  <string name="add_contact_title">Lägg till en närvarande kontakt</string>
+  <string name="add_contact_error_two_way">Skannade ni båda varandras QR-koder?</string>
+  <string name="face_to_face">Du måste personligen träffa den som du vill lägga till som kontakt.\n\nDetta för att undvika att någon senare låtsas vara du eller läser dina meddelanden.</string>
+  <string name="continue_button">Fortsätt</string>
+  <string name="try_again_button">Försök igen</string>
+  <string name="waiting_for_contact_to_scan">Väntar på att kontakten ska skanna och ansluta\u2026</string>
+  <string name="exchanging_contact_details">Utbyter detaljer om kontakten\u2026</string>
+  <string name="contact_added_toast">Kontakt tillagd: %s</string>
+  <string name="contact_already_exists">Kontakten %s finns redan</string>
+  <string name="contact_already_exists_general">Kontakten finns redan</string>
+  <string name="qr_code_invalid">QR-koden är felaktig</string>
+  <string name="qr_code_too_old_1">QR-koden som du har skannat kommer från en äldre version av Briar.\n\nVar vänlig och be din kontakt att uppgradera till den senaste versionen och försök sedan igen.</string>
+  <string name="qr_code_too_new_1">QR-koden som du har skannat kommer från en äldre version av Briar.\n\nVänligen uppgradera till den senaste versionen och försök igen.</string>
+  <string name="mailbox_qr_code_for_contact">QR-koden du skannade kommer från Briar Mailbox.\n\nOm du vill länka en Mailbox, välj Inställningar &gt; Mailbox från Briar-menyn.</string>
+  <string name="camera_error">Kamerafel</string>
+  <string name="connecting_to_device">Ansluter till enhet\u2026</string>
+  <string name="authenticating_with_device">Autentiserar med enhet\u2026</string>
+  <string name="connection_error_title">Kunde ej ansluta till din kontakt</string>
+  <string name="connection_error_feedback">Om det här problemet kvarstår, vänligen lämna <a href="feedback">synpunkter</a> så vi kan förbättra appen.</string>
+  <!--Adding Contacts Remotely-->
+  <string name="add_contact_remotely_title_case">Lägg till en kontakt på avstånd</string>
+  <string name="add_contact_nearby_title">Lägg till en närvarande kontakt</string>
+  <string name="add_contact_remotely_title">Lägg till en kontakt på avstånd</string>
+  <string name="contact_link_intro">Skriv in länken från din kontakt här</string>
+  <string name="contact_link_hint">Kontaktens länk</string>
+  <string name="paste_button">Klistra in</string>
+  <string name="add_contact_button">Lägg till kontakt</string>
+  <string name="copy_button">Kopiera</string>
+  <string name="share_button">Dela</string>
+  <string name="send_link_title">Utbyt länkar</string>
+  <string name="add_contact_choose_nickname">Välj användarnamn</string>
+  <string name="add_contact_choose_a_nickname">Skriv ett användarnamn</string>
+  <string name="nickname_intro">Ge din kontakt ett användarnamn. Bara du kan se detta.</string>
+  <string name="your_link">Ge den här länken till kontakten du vill lägga till</string>
+  <string name="link_clip_label">Briar-länk</string>
+  <string name="link_copied_toast">Länken kopierades</string>
+  <string name="adding_contact_error">Något gick fel när kontakten skulle läggas till.</string>
+  <string name="pending_contact_requests_snackbar">Det finns väntande kontaktförfrågningar</string>
+  <string name="pending_contact_requests">Väntande kontaktförfrågningar</string>
+  <string name="no_pending_contacts">Inga väntande kontakter</string>
+  <string name="waiting_for_contact_to_come_online">Väntar på att kontakten ska koppla upp sig...</string>
+  <string name="connecting">Ansluter...</string>
+  <string name="adding_contact">Lägger till kontakt...</string>
+  <string name="adding_contact_failed">Kontakten kunde ej läggas till</string>
+  <string name="dialog_title_remove_pending_contact">Bekräfta borttagning</string>
+  <string name="dialog_message_remove_pending_contact">Denna kontakt håller på att läggas till. Om du tar bort den nu kommer den ej läggas till.</string>
+  <string name="own_link_error">Skriv in länken du fick från din kontakt, inte din egna länk</string>
+  <string name="nickname_missing">Skriv in ett användarnamn</string>
+  <string name="invalid_link">Felakting länk</string>
+  <string name="unsupported_link">Denna länk kommer från en nyare version av Briar. Var snäll och uppgradera till den senaste versionen och försök igen.</string>
+  <string name="intent_own_link">Du har öppnat din egna länk. Använd länken du fick från kontakten du vill lägga till!</string>
+  <string name="missing_link">Skriv in en länk</string>
+  <!--This is a numeral indicating the first step in a series of screens-->
+  <string name="step_1">Ett</string>
+  <!--This is a numeral indicating the second step in a series of screens-->
+  <string name="step_2">2</string>
+  <plurals name="contact_added_notification_text">
+    <item quantity="one">%d nya kontakter lades till.</item>
+    <item quantity="other">%d nya kontakter lades till.</item>
+  </plurals>
+  <string name="offline_state">Ingen Internetanslutning</string>
+  <string name="duplicate_link_dialog_title">Kopiera länk</string>
+  <string name="duplicate_link_dialog_text_1">Du har redan en väntande kontakt med den här länken: %s</string>
+  <string name="duplicate_link_dialog_text_1_contact">Du har redan en kontakt med den här länken: %s</string>
+  <!--This is a question asking whether two nicknames refer to the same person-->
+  <string name="duplicate_link_dialog_text_2">Är %1$s och %2$s samma person?</string>
+  <!--This is a button for answering that two nicknames do indeed refer to the same person. This
+	string will be used in a dialog button, so if the translation of this string is longer than 20
+	characters, please use "Yes" instead, and use "No" for the "Different Person" button-->
+  <string name="same_person_button">Samma person</string>
+  <!--This is a button for answering that two nicknames refer to different people. This string
+	will be used in a dialog button, so if the translation of this string longer than 20 characters,
+	please use "No" instead, and use "Yes" for the "Same Person" button-->
+  <string name="different_person_button">Olika personer</string>
+  <string name="duplicate_link_dialog_text_3">%1$s och %2$s skickade dig samma länk.\n\nEn av dem kanske försöker ta reda på vilka dina kontakter är.\n\nBerätta inte för dem att du fått samma länk från någon annan.</string>
+  <string name="pending_contact_updated_toast">Väntande kontakt har uppdaterats</string>
+  <!--Peer trust levels-->
+  <string name="peer_trust_level_unverified">Overifierad kontakt.</string>
+  <string name="peer_trust_level_verified">Verifierad kontakt.</string>
+  <string name="peer_trust_level_ourselves">Mig</string>
+  <string name="peer_trust_level_stranger">Främling</string>
+  <!--Introductions-->
+  <string name="introduction_onboarding_title">Presentera dina kontakter</string>
+  <string name="introduction_onboarding_text">Introducera dina kontakter för varandra så att de kan ansluta sig till varandra via Briar.</string>
+  <string name="introduction_menu_item">Presentera kontakt</string>
+  <string name="introduction_activity_title">Välj kontakt</string>
+  <string name="introduction_not_possible">Du har redan påbörjat en presentation mellan dessa kontakter. Vänligen vänta tills detta är klart. Om du eller dina kontakter är online sällan så kan det ta ett tag.</string>
+  <string name="introduction_message_title">Presentera kontakter</string>
+  <string name="introduction_message_hint">Lägg till ett meddelande (valfritt)</string>
+  <string name="introduction_button">Presentera kontakt</string>
+  <string name="introduction_sent">Din presentation har skickats</string>
+  <string name="introduction_error">Något gick fel när presentationen skulle genomföras.</string>
+  <string name="introduction_request_sent">Du har begärt presentation av %2$s för %1$s.</string>
+  <string name="introduction_request_received">%1$s presenterar %2$s för dig. Vill du lägga till %2$s till dina kontakter?</string>
+  <string name="introduction_request_exists_received">%1$s presenterar %2$s för dig, men %2$s finns redan bland dina kontakter. Du kan ändå svara  %1$s, som kanske inte vet detta:</string>
+  <string name="introduction_request_answered_received">%1$s vill presentera dig för %2$s.</string>
+  <string name="introduction_response_accepted_sent">Du godkände att bli presenterad för %1$s.</string>
+  <string name="introduction_response_accepted_sent_info">Innan %1$s läggs till bland dina kontakter, så måste de acceptera presentationen. Detta kan ta ett tag.</string>
+  <string name="introduction_response_declined_sent">Du avvisade presentation för %1$s.</string>
+  <string name="introduction_response_declined_auto">Introduktionen till %1$savböjdes automatiskt.</string>
+  <string name="introduction_response_accepted_received">%1$s godkände att bli presenterad för %2$s.</string>
+  <string name="introduction_response_declined_received">%1$s avvisade presentation för %2$s.</string>
+  <string name="introduction_response_declined_received_by_introducee">%1$s säger att %2$s avvisade presentation.</string>
+  <!--Connect via Bluetooth-->
+  <string name="menu_item_connect_via_bluetooth">Anslut via Bluetooth</string>
+  <string name="connect_via_bluetooth_title">Anslut via Bluetooth</string>
+  <string name="connect_via_bluetooth_intro">Om Bluetooth-anslutning inte fungerar automatiskt kan du använda denna skärmen för att ansluta manuellt.\n\nDin kontakt måste vara i närheten för att detta ska fungera.\n\nDu och din kontakt måste båda trycka på ”Start” samtidigt.</string>
+  <string name="connect_via_bluetooth_already_discovering">Försöker redan ansluta via Bluetooth. Prova igen om ett kort tag.</string>
+  <string name="connect_via_bluetooth_no_location_permission">Kan inte fortsätta utan platsrättigheter</string>
+  <string name="connect_via_bluetooth_start">Ansluter via Bluetooth…</string>
+  <string name="connect_via_bluetooth_success">Anslöt framgångsrikt via Bluetooth</string>
+  <string name="connect_via_bluetooth_error">Kunde inte ansluta via Bluetooth.</string>
+  <string name="connect_via_bluetooth_error_not_supported">Bluetooth stöds inte av denna enhet.</string>
+  <!--Private Groups-->
+  <string name="groups_list_empty">Inga grupper</string>
+  <string name="groups_list_empty_action">Tryck på plus-ikonen (+) för att skapa en grupp. Du kan också fråga en kontakt om att bli inbjuden till en grupp.</string>
+  <string name="groups_created_by">Skapad av %s</string>
+  <plurals name="messages">
+    <item quantity="one">%d meddelande</item>
+    <item quantity="other">%d meddelanden</item>
+  </plurals>
+  <string name="groups_group_is_empty">Denna grupp har inga medlemmar</string>
+  <string name="groups_group_is_dissolved">Denna grupp har raderats</string>
+  <string name="groups_remove">Ta bort</string>
+  <string name="groups_create_group_title">Skapa privatgrupp</string>
+  <string name="groups_create_group_button">Skapa grupp</string>
+  <string name="groups_create_group_invitation_button">Skicka inbjudan</string>
+  <string name="groups_create_group_hint">Skapa ett namn för din privatgrupp</string>
+  <string name="groups_invitation_sent">Gruppinbjudan har skickats</string>
+  <string name="groups_member_list">Medlemmar</string>
+  <string name="groups_invite_members">Bjuda in medlem</string>
+  <string name="groups_member_created_you">Du har skapat en grupp</string>
+  <string name="groups_member_created">%sskapade en grupp</string>
+  <string name="groups_member_joined_you">Du gick med i gruppen</string>
+  <string name="groups_member_joined">%sgick med i gruppen</string>
+  <string name="groups_leave">Gå ur grupp</string>
+  <string name="groups_leave_dialog_title">Bekräfta gå ur grupp</string>
+  <string name="groups_leave_dialog_message">Är du säker på att du vill gå ur den här gruppen?</string>
+  <string name="groups_dissolve">Radera grupp</string>
+  <string name="groups_dissolve_dialog_title"> Bekräfta radering av grupp</string>
+  <string name="groups_dissolve_dialog_message">Är du säker på att du vill radera denna grupp?\n\nMedlemmar kommer inte att kunna fortsätta sin a konversationer, och de sista meddelandena kanske inte kommer fram.</string>
+  <string name="groups_dissolve_button">Radera</string>
+  <string name="groups_dissolved_dialog_title">Gruppen har raderats</string>
+  <string name="groups_dissolved_dialog_message">Skaparen av denna grupp har raderat den.\n\nDu kan inte längre skicka meddelande till gruppen, och kan kanske inte ta emot de sista meddelanden.</string>
+  <!--Private Group Invitations-->
+  <string name="groups_invitations_title">Gruppinbjudningar</string>
+  <string name="groups_invitations_invitation_sent">Du har bjudit in %1$s add gå med i gruppen \"%2$s\".</string>
+  <string name="groups_invitations_invitation_received">%1$s har bjudit in dig att gå med i gruppen \"%2$s\".</string>
+  <string name="groups_invitations_joined">Gick med i grupp</string>
+  <string name="groups_invitations_declined">Gruppinbjudan avvisades</string>
+  <plurals name="groups_invitations_open">
+    <item quantity="one">%dobesvarad gruppinbjudan</item>
+    <item quantity="other">%dobesvarade gruppinbjudningar</item>
+  </plurals>
+  <string name="groups_invitations_response_accepted_sent">Du godkände gruppinbjudan från %s.</string>
+  <string name="groups_invitations_response_declined_sent">Du avvisade gruppinbjudan från %s.</string>
+  <string name="groups_invitations_response_declined_auto">Gruppinbjudan från %s avböjdes automatiskt.</string>
+  <string name="groups_invitations_response_accepted_received">%sgodkände gruppinbjudan.</string>
+  <string name="groups_invitations_response_declined_received">%savvisade gruppinbjudan.</string>
+  <string name="sharing_status_groups">Bara skaparen kan bjuda in nya medlemmare till gruppen. Nedan listas gruppens nuvarande medlemmar.</string>
+  <!--Private Groups Revealing Contacts-->
+  <string name="groups_reveal_contacts">Avslöja kontakter</string>
+  <string name="groups_reveal_dialog_message">Du kan välja att avslöja dina kontakter för alla nuvarande och framtida medlemmar i den här gruppen.\n\nOm du avslöjer dina kontakter så blir din anslutning till gruppen snabbare och med pålitlig, för kommunikation kan ske med avslöjade kontakter även när gruppens skapare är nedkopplad.</string>
+  <string name="groups_reveal_visible">Kontaktrelationer är synliga för gruppen</string>
+  <string name="groups_reveal_visible_revealed_by_us">Kontaktrelationer är synliga för gruppen (avslöjade av dig)</string>
+  <string name="groups_reveal_visible_revealed_by_contact">Kontaktrelationer är synliga för gruppen (avslöjade av %s)</string>
+  <string name="groups_reveal_invisible">Kontaktrelationer är ej synliga för gruppen</string>
+  <!--Forums-->
+  <string name="no_forums">Inga forum</string>
+  <string name="no_forums_action">Tryck på plus-ikonen (+) för att skapa ett forum. Du kan också fråga en kontakt om att bli inbjuden till ett forum.</string>
+  <string name="create_forum_title">Skapa forum</string>
+  <string name="choose_forum_hint">Sätt ett namn på ditt forum</string>
+  <string name="create_forum_button">Skapa forum</string>
+  <string name="forum_created_toast">Forum skapat</string>
+  <string name="no_forum_posts">Inga inlägg</string>
+  <string name="no_posts">Inga inlägg</string>
+  <plurals name="posts">
+    <item quantity="one">%d inlägg</item>
+    <item quantity="other">%d inlägg</item>
+  </plurals>
+  <string name="forum_new_message_hint">Nytt inlägg</string>
+  <string name="forum_message_reply_hint">Nytt svar</string>
+  <string name="btn_reply">Svara</string>
+  <string name="forum_leave">Lämna forum</string>
+  <string name="dialog_title_leave_forum">Bekräfta lämna forum</string>
+  <string name="dialog_message_leave_forum">Är du säker på att du vill lämna det här forumet?\n\nKontakter som du har bjudit in till det här forumet kommer kanske inte längre få uppdateringar från det.</string>
+  <string name="dialog_button_leave">Tillbaka</string>
+  <string name="forum_left_toast">Lämnade forumet</string>
+  <!--Forum Sharing-->
+  <string name="forum_share_button">Bjud in till forum</string>
+  <string name="contacts_selected">Kontakter valda</string>
+  <string name="activity_share_toolbar_header">Välj kontakter</string>
+  <string name="no_contacts_selector">Inga kontakter</string>
+  <string name="no_contacts_selector_action">Vänligen återvänd hit när du lagt till en kontakt</string>
+  <string name="forum_shared_snackbar">Bjud in valda kontakter till forumet</string>
+  <string name="forum_share_message">Lägg till ett meddelande (valfritt)</string>
+  <string name="forum_share_error">Något gick fel vid inbjudan till forum.</string>
+  <string name="forum_invitation_received">%1$shar bjudit in dig till forumet \"%2$s\".</string>
+  <string name="forum_invitation_sent">Du har bjudit in %2$still forumet \"%1$s\".</string>
+  <string name="forum_invitations_title">Foruminbjudningar</string>
+  <string name="forum_invitation_exists">Du har redan godkänt en inbjudan till det här forumet.\n\nOm du godkänner fler inbjudningar så kommer din anslutning till forumet bli snabbare och mer pålitlig.</string>
+  <string name="forum_joined_toast">Gick med i forumet</string>
+  <string name="forum_declined_toast">Inbjudan avvisades</string>
+  <string name="shared_by_format">Delad av %s</string>
+  <string name="forum_invitation_already_sharing">Delas redan</string>
+  <string name="forum_invitation_response_accepted_sent">Du godkände foruminbjudan från %s.</string>
+  <string name="forum_invitation_response_declined_sent">Du avvisade foruminbjudan från %s.</string>
+  <string name="forum_invitation_response_declined_auto">Foruminbjudan från %s avböjdes automatiskt.</string>
+  <string name="forum_invitation_response_accepted_received">%s godkände foruminbjudan.</string>
+  <string name="forum_invitation_response_declined_received">%s avvisade foruminbjudan.</string>
+  <string name="sharing_status">Delningsstatus</string>
+  <string name="sharing_status_forum">Alla medlemmar i ett forum kan bjuda in sina kontakter. Du har bjudit in följande kontakter till detta forum. Det kan finnas fler forummedlemmar som du inte kan se.</string>
+  <string name="shared_with">Delas med %1$d (%2$d uppkopplade)</string>
+  <plurals name="forums_shared">
+    <item quantity="one">%dforum delas med kontakter</item>
+    <item quantity="other">%dforum delas med kontakter </item>
+  </plurals>
+  <string name="nobody">Ingen</string>
+  <!--Blogs-->
+  <string name="blogs_other_blog_empty_state">Inga inlägg</string>
+  <string name="read_more">läs mer</string>
+  <string name="blogs_write_blog_post">Skriv blogginlägg</string>
+  <string name="blogs_write_blog_post_body_hint">Skriv ditt inlägg</string>
+  <string name="blogs_publish_blog_post">Publicera</string>
+  <string name="blogs_blog_post_created">Blogginlägg skapades</string>
+  <string name="blogs_blog_post_received">Nytt blogginlägg togs emot</string>
+  <string name="blogs_blog_post_scroll_to">Rulla till</string>
+  <string name="blogs_feed_empty_state">Inga inlägg</string>
+  <string name="blogs_feed_empty_state_action">Inlägg från dina kontakter och bloggar du följer kommer att dyka upp här\n\nTryck på penna-ikonen för att skriva ett inlägg</string>
+  <string name="blogs_remove_blog">Radera blogg</string>
+  <string name="blogs_remove_blog_dialog_message">Är du säker på att du vill radera den här bloggen?\n\nInläggen kommer att radera från din enhet, men inte från andras enheter.\n\nKontakter som du har delat den här bloggen med kommer kanske inte längre få uppdateringar från det.</string>
+  <string name="blogs_remove_blog_ok">&amp;Ta bort</string>
+  <string name="blogs_blog_removed">Blogg raderad</string>
+  <string name="blogs_reblog_comment_hint">Lägg till kommentar (valfritt)</string>
+  <string name="blogs_reblog_button">Återblogga</string>
+  <!--Blog Sharing-->
+  <string name="blogs_sharing_share">Dela blogg</string>
+  <string name="blogs_sharing_error">Något gick fel när bloggen skulle delas.</string>
+  <string name="blogs_sharing_button">Dela blogg</string>
+  <string name="blogs_sharing_snackbar">Dela bloggen med valda kontakter</string>
+  <string name="blogs_sharing_response_accepted_sent">Du godkände blogginbjudan från %s.</string>
+  <string name="blogs_sharing_response_declined_sent">Du avvisade blogginbjudan från %s.</string>
+  <string name="blogs_sharing_response_declined_auto">Blogginbjudan från %s avböjdes automatiskt.</string>
+  <string name="blogs_sharing_response_accepted_received">%sgodkände blogginbjudan.</string>
+  <string name="blogs_sharing_response_declined_received">%savvisade blogginbjudan.</string>
+  <string name="blogs_sharing_invitation_received">%1$shar delat bloggen \"%2$s\" med dig.</string>
+  <string name="blogs_sharing_invitation_sent">Du har delat bloggen \"%1$s\" med %2$s.</string>
+  <string name="blogs_sharing_invitations_title">Blogginbjudningar</string>
+  <string name="blogs_sharing_joined_toast">Bloggen följs</string>
+  <string name="blogs_sharing_declined_toast">Inbjudan avvisades</string>
+  <string name="sharing_status_blog">Alla följare av en blogg kan dela med sig av den med sina kontakter. Du delar med dig av den här bloggen med följande kontakter. Det kan finnas fler bloggföljare som du inte kan se.</string>
+  <!--RSS Feeds-->
+  <string name="blogs_rss_feeds_import">Importera RSS-flöde</string>
+  <string name="blogs_rss_feeds_import_button">Importera</string>
+  <string name="blogs_rss_feeds_import_hint">Skriv URL till RSS-flödet</string>
+  <string name="blogs_rss_feeds_import_error">Tyvärr! Något gick fel när flödet skulle importeras.</string>
+  <string name="blogs_rss_feeds">RSS-flöden</string>
+  <string name="blogs_rss_feeds_manage_imported">Importerade:</string>
+  <string name="blogs_rss_feeds_manage_author">Författare:</string>
+  <string name="blogs_rss_feeds_manage_updated">Senast uppdaterad:</string>
+  <string name="blogs_rss_remove_feed">Ta bort flöde</string>
+  <string name="blogs_rss_remove_feed_dialog_message">Är du säker på att du vill ta bort det här flödet?\n\nInlägg kommer att tas bort från din enhet, men inte från andras.\n\nKontakter som du har delat det här flödet med kommer kanske inte längre få uppdateringar från det.</string>
+  <string name="blogs_rss_remove_feed_ok">&amp;Ta bort</string>
+  <string name="blogs_rss_feeds_manage_empty_state">Inga RSS-flöden\n\nTryck plus-ikonen (+) för att importera ett flöde</string>
+  <string name="blogs_rss_feeds_manage_error">Något gick fel när dina flöden skulle laddas. Försök ingen senare.</string>
+  <!--Settings Profile Picture-->
+  <string name="change_profile_picture">Tryck för att ändra din profilbild</string>
+  <string name="dialog_confirm_profile_picture_title">Ändra profilbild</string>
+  <string name="dialog_confirm_profile_picture_remark">Bara din kontakter kan se denna bild</string>
+  <string name="change_profile_picture_failed_message">Tyvärr, något gick fel när din profilbild skulle ändras</string>
+  <!--Settings Display-->
+  <string name="pref_language_title">Språk &amp; region</string>
+  <string name="pref_language_changed">Den här inställningen träder i kraft när Briar startas om. Logga ur och starta om Briar.</string>
+  <string name="pref_language_default">Systemets förval</string>
+  <string name="display_settings_title">Visa</string>
+  <string name="pref_theme_title">Tema</string>
+  <string name="pref_theme_light">Ljus</string>
+  <string name="pref_theme_dark">Mörk</string>
+  <string name="pref_theme_system">Systemets förval</string>
+  <!--Settings Connections-->
+  <string name="network_settings_title">Anslutningar</string>
+  <string name="bluetooth_setting">Anslut till kontakter via Bluetooth</string>
+  <string name="wifi_setting">Anslut till kontakter på samma Wi-Fi-nätverk</string>
+  <string name="tor_enable_title">Anslut till kontakter via internet</string>
+  <string name="tor_enable_summary">Alla anslutningar gå via Tor-nätverket av integritetsskäl</string>
+  <string name="tor_network_setting">Anslutningsmetod för Tor-nätverket</string>
+  <string name="tor_network_setting_automatic">Automatisk, baserad på position</string>
+  <string name="tor_network_setting_without_bridges">Använd Tor-nätverket utan bryggor</string>
+  <string name="tor_network_setting_with_bridges">Anvädn Tor-nätverket med bryggor</string>
+  <string name="tor_network_setting_never">Anslut inte till internet</string>
+  <!--How and when Briar will connect to Tor: E.g. "Don't connect to the Internet (in China)" or "Use Tor network with bridges (in Belarus)"-->
+  <string name="tor_network_setting_summary">Automatisk: %1$s (i %2$s)</string>
+  <string name="tor_mobile_data_title">Använd mobildata</string>
+  <string name="tor_only_when_charging_title">Anslut till internet endast vid laddning</string>
+  <string name="tor_only_when_charging_summary">Avaktiverar anslutning över Internet när enheten går på batteri</string>
+  <!--Settings Security and Panic-->
+  <string name="security_settings_title">Säkerhet</string>
+  <string name="pref_lock_title">Applås</string>
+  <string name="pref_lock_summary">Använd enhetens skärmlås för att skydda Briar när du är inloggad</string>
+  <string name="pref_lock_disabled_summary">Slå på skärmlås på din enhet för att använda den här funktionen</string>
+  <string name="pref_lock_timeout_title">Applås efter inaktivitet</string>
+  <!--The %s placeholder is replaced with the following time spans, e.g. 5 Minutes, 1 Hour-->
+  <string name="pref_lock_timeout_summary">Lås Briar automatiskt efter %s inaktivitet</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_1">1 minuts</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_5">5 minuters</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_15">15 minuters</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_30">30 minuters</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_60">1 timme</string>
+  <string name="pref_lock_timeout_never">Aldrig</string>
+  <string name="pref_lock_timeout_never_summary">Lås aldrig Briar automatiskt</string>
+  <string name="change_password">Ändra lösenord</string>
+  <string name="current_password">Nuvarande lösenord</string>
+  <string name="choose_new_password">Nytt lösenord</string>
+  <string name="confirm_new_password">Bekräfta nytt lösenord</string>
+  <string name="password_changed">Lösenordet har ändrats.</string>
+  <string name="panic_setting">Inställning av panik-knapp</string>
+  <string name="panic_setting_title">Panik-knapp</string>
+  <string name="panic_setting_hint">Konfigurera hur Briar ska reagera när du använder särskild app med panik-knapp</string>
+  <string name="panic_app_setting_title">Välj app för panik-knapp</string>
+  <string name="unknown_app">okänd app</string>
+  <string name="panic_app_setting_summary">Ingen app har valts</string>
+  <string name="panic_app_setting_none">Ingen</string>
+  <string name="dialog_title_connect_panic_app">Bekräfta panik-app</string>
+  <string name="dialog_message_connect_panic_app">Är du säker på att du vill tillåta %1$s att verka destruktivt vid tryck på panik-knapp?</string>
+  <string name="panic_setting_destructive_action">Destruktiva handlingar</string>
+  <string name="panic_setting_signout_title">Logga ut</string>
+  <string name="panic_setting_signout_summary">Logga ut från Briar om panikknappen tryckts</string>
+  <string name="purge_setting_title">Radera kontot</string>
+  <string name="purge_setting_summary">Radera ditt Briar-konto om panik-knappen trycks. Varning: detta raderar oåterkalleligt dina indentiteter, kontakter och meddelanden</string>
+  <!--Settings Notifications-->
+  <string name="notification_settings_title">Aviseringar</string>
+  <string name="notify_sign_in_title">Påminn mig om att logga in</string>
+  <string name="notify_sign_in_summary">Visa en påminnelse när telefonen startats om eller appen uppgraderats</string>
+  <string name="notify_private_messages_setting_title">Privata meddelanden</string>
+  <string name="notify_private_messages_setting_summary">Visa aviseringar för privata meddelanden</string>
+  <string name="notify_private_messages_setting_summary_26">Konfigurera aviseringar för privata meddelanden</string>
+  <string name="notify_group_messages_setting_title">Gruppmeddelanden</string>
+  <string name="notify_group_messages_setting_summary">Visa aviseringar för gruppmeddelanden</string>
+  <string name="notify_group_messages_setting_summary_26">Konfigurera aviseringar för gruppmeddelanden</string>
+  <string name="notify_forum_posts_setting_title">Foruminlägg</string>
+  <string name="notify_forum_posts_setting_summary">Visa aviseringar för foruminlägg</string>
+  <string name="notify_forum_posts_setting_summary_26">Konfigurera aviseringar för foruminlägg</string>
+  <string name="notify_blog_posts_setting_title">Blogginlägg</string>
+  <string name="notify_blog_posts_setting_summary">Visa aviseringar för blogginlägg</string>
+  <string name="notify_blog_posts_setting_summary_26">Konfigurera aviseringar för blogginlägg</string>
+  <string name="notify_vibration_setting">Vibrera</string>
+  <string name="notify_sound_setting">Ljud</string>
+  <string name="notify_sound_setting_default">Förvald ringsignal</string>
+  <string name="notify_sound_setting_disabled">Ingen</string>
+  <string name="choose_ringtone_title">Välj ringsignal</string>
+  <string name="cannot_load_ringtone">Kan ej ladda ringsignal</string>
+  <!--Mailbox-->
+  <string name="mailbox_settings_title">Mailbox</string>
+  <string name="mailbox_setup_title">Mailbox-inställning</string>
+  <string name="mailbox_setup_intro">En Mailbox låter dina kontakter skicka dig meddelanden medan du är nedkopplad. Mailbox kommer att ta emot dina meddelanden och spara dem tills du är uppkopplad.\n
+		\nDu kan installera appen Briar Mailbox på en extraenhet. Låt den vara ansluten till ström och Wi-Fi så att den alltid är uppkopplad.</string>
+  <string name="mailbox_setup_download">Installera först Mailbox-appen på en annan enhet genom att söka efter ”Briar Mailbox” på Google Play eller där du hämtat Briar.\n
+		\nLänka sedan din Mailbox med Briar genom att skanna QR-koden som visas i Mailbox-appen.</string>
+  <string name="mailbox_setup_download_link">Dela hämtningslänk</string>
+  <string name="mailbox_setup_button_scan">Skanna Mailbox QR-kod</string>
+  <string name="permission_camera_qr_denied_body">Du har nekat åtkomst till kameran, men att skanna en QR-kod kräver användning av kameran.\n\nÖverväg att bevilja tillstånd.</string>
+  <!--This string is shown when connecting to a Mailbox for the first time. The placeholder will be replaced with a duration, e.g. "2 minutes".-->
+  <string name="mailbox_setup_already_paired_title">Mailbox redan länkad</string>
+  <string name="mailbox_setup_already_paired_description">Avlänka Mailbox på din andra enhet och försök igen.</string>
+  <string name="mailbox_setup_io_error_title">Kunde inte ansluta</string>
+  <string name="mailbox_setup_io_error_description">Säkerställ att båda enheterna är anslutna till internet och försök igen.</string>
+  <string name="mailbox_setup_assertion_error_title">Mailbox-fel</string>
+  <string name="mailbox_setup_assertion_error_description">Skicka återkoppling (med anonymiserad data) via Briar-appen om felet kvarstår.</string>
+  <string name="mailbox_setup_camera_error_description">Kunde inte komma åt kamera. Försök igen, eventuellt efter att ha startat om enheten.</string>
+  <string name="mailbox_setup_paired_title">Ansluten</string>
+  <string name="mailbox_setup_paired_description">Din Mailbox har framgångsrikt länkats med Briar.\n
+		\nHåll din Mailbox ansluten till ström och Wi-Fi så att den alltid är uppkopplad.</string>
+  <string name="tor_offline_title">Nedkopplad</string>
+  <string name="tor_offline_description">Säkerställ att denna enhet är uppkopplad och att anslutningar till internet är tillåtna.\n
+		\nEfteråt, vänta på att ikonen med en glob bland på skärmen för anslutningsinställningar blir grön.</string>
+  <string name="tor_offline_button_check">Kontrollera anslutningsinställningar</string>
+  <string name="mailbox_status_title">Mailbox-status</string>
+  <string name="mailbox_status_connected_title">Mailbox kör</string>
+  <string name="mailbox_status_problem_title">Briar har problem med att ansluta till Mailbox</string>
+  <string name="mailbox_status_failure_title">Mailbox är ogilltänglig</string>
+  <string name="mailbox_status_app_too_old_title">Briar är för gammal</string>
+  <string name="mailbox_status_app_too_old_message">Uppgradera Briar till den senaste versionen av appen och försök igen.</string>
+  <string name="mailbox_status_mailbox_too_old_title">Mailbox är för gammal</string>
+  <string name="mailbox_status_mailbox_too_old_message">Uppdatera din Mailbox till senaste versionen av appen och försök igen.</string>
+  <string name="mailbox_status_check_button">Kontrollera anslutning</string>
+  <!--Example for string substitution: Last connection: 3min ago-->
+  <string name="mailbox_status_connected_info">Senaste anslutning: %s</string>
+  <!--Indicates that there never was a connection to the mailbox. Last connection: Never-->
+  <string name="mailbox_status_connected_never">Aldrig</string>
+  <string name="mailbox_status_unlink_button">Avlänka</string>
+  <string name="mailbox_status_unlink_dialog_title">Koppla ifrån Mailbox?</string>
+  <string name="mailbox_status_unlink_dialog_question">Är du säker på att du vill koppla ifrån din Mailbox?</string>
+  <string name="mailbox_status_unlink_dialog_warning">Om du kopplar från din Mailbox så kommer du inte att kunna ta emot meddelanden medan Briar är bortkopplad från Internet.</string>
+  <string name="mailbox_status_unlink_no_wipe_title">Din Mailbox har kopplats från.</string>
+  <string name="mailbox_status_unlink_no_wipe_message">Nästa gång du har tillgång till din Mailbox-enhet, vänligen öppna Mailbox-appen och trycka på \"Koppla från\"-knappen för att fullfölja proceduren.\n\nOm du inte längre har tillgång till din Mailbox-enhet behöver du inte oroa sig. Din data är krypterad och kommer förbli säkrad även om du inte gör detta.</string>
+  <string name="mailbox_status_unlink_success">Din Mailbox har kopplats från.</string>
+  <string name="mailbox_error_notification_channel_title">Problem med Briar Mailbox</string>
+  <string name="mailbox_error_notification_title">Briar Mailbox är otillgänglig</string>
+  <string name="mailbox_error_notification_text">Tryck för att fixa problemet</string>
+  <string name="mailbox_error_wizard_button">Fixa problemet</string>
+  <string name="mailbox_error_wizard_title">Felsökningsguide för Mailbox</string>
+  <string name="mailbox_error_wizard_question1">Har du tillgång till din Mailbox-enhet?</string>
+  <string name="mailbox_error_wizard_answer1">Ja, jag har den här.</string>
+  <string name="mailbox_error_wizard_answer2">Inte just nu, men jag kan komma åt den senare.</string>
+  <string name="mailbox_error_wizard_answer3">Nej, jag har inte längre tillgång till den.</string>
+  <string name="mailbox_error_wizard_info1_1">Kontrollera att Mailbox-enheten är påslagen och ansluten till Internet.</string>
+  <string name="mailbox_error_wizard_question1_1">Öppna Mailbox-appen. Vad ser du?</string>
+  <string name="mailbox_error_wizard_answer1_1">Jag ser instruktioner för hur man ställer in Mailbox.</string>
+  <string name="mailbox_error_wizard_answer1_2">Jag ser en QR-kod.</string>
+  <string name="mailbox_error_wizard_answer1_3">Jag ser \"Mailbox kör\"</string>
+  <string name="mailbox_error_wizard_answer1_4">Jag ser \"Enheten är nedkopplad\"</string>
+  <string name="mailbox_error_wizard_info1_1_1">Vänligen koppla bort din Mailbox genom knappen nedan, följ sedan instruktionerna i Mailbox-enheten för att länka den igen.</string>
+  <string name="mailbox_error_wizard_info_1_1_2">Vänligen koppla bort din Mailbox genom knappen nedan, skanna sedan QR-koden för att länka den igen.</string>
+  <string name="mailbox_error_wizard_info1_1_3">Vänligen använd knappen nedan för att kontrollera kopplingen mellan Briar och Mailbox.\n\n
+		Om anslutningen misslyckas igen:\n
+		\u2022 Kontrollera att Mailbox- och Briar-apparna är uppdaterade till senaste versionen.\n
+		\u2022 Starta om Mailbox- och Briar-enheterna och försök igen.</string>
+  <string name="mailbox_error_wizard_info1_1_4">Kontrollera att Mailbox-enheten är korrekt ansluten till Internet.\n\nKontrollera att Mailbox-enhetens klocka visar korrekt tid, datum och tidszon.\n\nKontrollera att Mailbox- och Briar-apparna är uppdaterade till senaste versionen.\n\nStart om Mailbox- och Briar-enheterna och försök igen.</string>
+  <string name="mailbox_error_wizard_info2">Vänligen kom tillbaka till den här sidan när du har tillgång till enheten.</string>
+  <string name="mailbox_error_wizard_info3">Vänligen koppla bort din Mailbox med knappen nedan.\n\nEfter att din gamla Mailbox kopplats bort så kan du ställa in en ny Mailbox när som helst.</string>
+  <!--About-->
+  <string name="about_title">Om</string>
+  <string name="briar_version">Version av Briar: %s</string>
+  <string name="tor_version">Version av Tor: %s</string>
+  <string name="links">Länkar</string>
+  <string name="briar_website">\u2020 <a href="">Webbplats</a></string>
+  <string name="briar_source_code">\u2020 <a href="">Källkod</a></string>
+  <string name="briar_changelog">\u2020 <a href="">Ändringar</a></string>
+  <string name="briar_privacy_policy">\u2020 <a href="">Integritetspolicy</a></string>
+  <!--Here translators can add their names or Transifex usernames(eg "Thanks to all the contributors at the Localization Lab, especially Tom, Matthew and Jerry")-->
+  <string name="translator_thanks">Tack till att bidragsgivare vid Localization Lab</string>
+  <!--Conversation Settings-->
+  <string name="disappearing_messages_title">Försvinnande meddelanden</string>
+  <string name="disappearing_messages_explanation_long">Att slå på denna inställning kommer att få nya
+		meddelanden i denna konversation att försvinna automatiskt efter 7\u00A0dagar.
+		\n\nNedräkningen för sändarens kopia av meddelandet börjar efter att meddelandet har levererats.
+		Nedräkningen starta för mottagaren när de har läst meddelandet.
+		\n\nMeddelanden som försvinner kommer att markeras med en bombikon.
+		\n\nKom ihåg att mottagare kan fortfarande göra kopior av meddelanden som du skickar.
+		\n\nOm du ändrar denna inställning kommer den att omedelbart tillämpas för dina nya meddelanden och för dina
+		kontakters meddelanden när de får ditt nästa meddelande.
+		Din kontakt akn också ändra denna inställning för er båda.</string>
+  <string name="learn_more">Läs mer</string>
+  <string name="disappearing_messages_summary">Låt framtida meddelanden i denna konversation försvinna automatiskt efter 7\u00A0dagar.</string>
+  <!--Settings Actions-->
+  <string name="pref_category_actions">Åtgärder</string>
+  <string name="send_feedback">Lämna synpunkter</string>
+  <!--Link Warning-->
+  <string name="link_warning_title">Länkvarning</string>
+  <string name="link_warning_intro">Följande länk är på väg att öppnas i en extern app.</string>
+  <string name="link_warning_text">Detta kan användas för att identifiera dig. Tänk efter om du litar på personen som skickade den här länken, och överväg att öppna den med Tor Browser.</string>
+  <string name="link_warning_open_link">Öppna länk</string>
+  <!--Crash Reporter-->
+  <string name="crash_report_title">Briar-felrapport</string>
+  <string name="briar_crashed">Briar har tvyärr kraschat</string>
+  <string name="not_your_fault">Detta är inte ditt fel.</string>
+  <string name="please_send_report">Hjälp oss att förbättra Briar genom att skicka en felrapport.</string>
+  <string name="report_is_encrypted">Vi lovar att felrapporten är krypterad och skickas säkert.</string>
+  <string name="feedback_title">Synpunkter</string>
+  <string name="describe_crash">Beskriv vad som hänt (valfritt)</string>
+  <string name="enter_feedback">Skriv ner dina synpunkter</string>
+  <string name="optional_contact_email">Din e-postadress (valfritt)</string>
+  <string name="privacy_policy">Genom att skicka data till oss så godkänner du vår <a href="">integritetspolicy</a></string>
+  <string name="include_debug_report_crash">Inkludera anonym data om krashen.</string>
+  <string name="include_debug_report_feedback">Inkludera anonym data om den här enheten</string>
+  <string name="dev_report_user_info">Användarinformation</string>
+  <string name="dev_report_basic_info">Grundläggande information</string>
+  <string name="dev_report_device_info">Enhetsinformation</string>
+  <string name="dev_report_stacktrace">Stacktrace</string>
+  <string name="dev_report_time_info">Tidsinformation</string>
+  <string name="dev_report_memory">Minne</string>
+  <string name="dev_report_storage">Lagringsutrymme</string>
+  <string name="dev_report_connectivity">Anslutningar</string>
+  <string name="dev_report_network_usage">Nätverksanvändning</string>
+  <string name="dev_report_build_config">Byggkonfiguration</string>
+  <string name="dev_report_logcat">Applogg</string>
+  <string name="dev_report_device_features">Enhetsfunktioner</string>
+  <string name="send_report">Skicka rapport</string>
+  <string name="close">Stäng</string>
+  <string name="dev_report_sending">Skickar återkoppling...</string>
+  <string name="dev_report_sent">Återkoppling skickad</string>
+  <string name="dev_report_saved">Rapporten har sparats. Den kommer skickas nästa gång du loggar in i Briar.</string>
+  <string name="dev_report_error">Fel: Sändning av rapporten misslyckades</string>
+  <!--Sign Out-->
+  <string name="progress_title_logout">Loggar ur Briar...</string>
+  <!--Screen Filters & Tapjacking-->
+  <string name="screen_filter_title">Ett skärmöverlägg (overlay) upptäcktes</string>
+  <string name="screen_filter_body">En annan app ritar ovanpå Briar. För säkerhets skull slutar Briar svara på tryckningar när en annan app ritar ovanpå.\n\nFöljande appar kan tänkas rita ovanpå Briar:\n\n%1$s</string>
+  <string name="screen_filter_body_api_30">En annan app ritar ovanpå Briar. För att bevara din säkerhet kommer Briar inte att svara på gester när appen ritar ovanpå.\n\nGranska apparna nedan för att hitta den ansvariga appen.</string>
+  <string name="screen_filter_allow">Tillåt dessa appar att rita ovanpå</string>
+  <string name="screen_filter_review_apps">Granska appar</string>
+  <!--Permission Requests-->
+  <string name="permission_camera_title">Kameraåtkomst</string>
+  <string name="permission_camera_request_body">För att skanna QR-koden så behöver Briar ha tillgång till kameran.</string>
+  <string name="permission_location_title">Platsåtkomst</string>
+  <string name="permission_location_request_body">För att upptäcka Bluetooth-enheter så behöver Briar ha tillgång till din fysiska plats.\n\nBriar lagrar inte din plats och delar den inte med någon.</string>
+  <string name="permission_camera_location_title">Kamera- och platsåtkomst</string>
+  <string name="permission_camera_location_request_body">För att skanna QR-koden så behöver Briar ha tillgång till kameran.\n\nFör att upptäcka Bluetooth-enheter så behöver Briar ha tillgång till din fysiska plats.\n\nBriar lagrar inte din plats och delar den inte med någon.</string>
+  <string name="permission_camera_denied_body">Du har avvisat åtkomst till kameran, men den behövs för att kontakter ska kunna läggas till.\n\nVänligen överväg att godkänna åtkomst.</string>
+  <string name="permission_location_denied_body">Du har nekat åtkomst till din plats, men Briar behöver detta tillstånd för att upptäcka Bluetooth-enheter.\n\nVänligen överväg att ge åtkomst.</string>
+  <string name="permission_location_setting_title">Platsinställningar</string>
+  <string name="permission_location_setting_body">Din enhets platsinställning måste vara påslagen för att hitta andra enheter via Bluetooth. Aktivera plats för att fortsätta. Du kan inaktivera den igen efteråt.</string>
+  <string name="permission_location_setting_button">Aktivera plats</string>
+  <string name="qr_code">QR-kod</string>
+  <string name="show_qr_code_fullscreen">Visa QR-koden i fullskärm</string>
+  <!--App Locking-->
+  <string name="lock_unlock">Lås upp Briar</string>
+  <string name="lock_unlock_verbose">Lås upp Briar med din enhets pinkod, grafiska lösenord, eller lösenord.</string>
+  <string name="lock_unlock_fingerprint_description">Fortsätt genom att beröra fingeravtryckssensorn med registrerat finger</string>
+  <string name="lock_unlock_password">Använd lösenord</string>
+  <string name="lock_is_locked">Briar är låst</string>
+  <string name="lock_tap_to_unlock">Tryck för att låsa upp</string>
+  <!--Connections Screen-->
+  <string name="transports_help_text">Briar kan ansluta till dina kontakter via internet, Wi-Fi eller Bluetooth.\n\nAlla internetanslutningar går via Tor-nätverket av integritetsskäl.\n\nOm en kontakt kan nås via flera metoder kommer Briar att använda dem parallellt.</string>
+  <!--Share app offline-->
+  <string name="hotspot_title">Dela denna app nedkopplat</string>
+  <string name="hotspot_intro">Dela denna app med någon i närheten utan en internetanslutning via din telefons Wi-Fi.
+		\n\nDin telefon kommer att starta en Wi-Fi-hotspot. Personer i närheten kan ansluta till hotspoten och hämta Briar-appen från din telefon.</string>
+  <string name="hotspot_button_start_sharing">Starta hotspot</string>
+  <string name="hotspot_button_stop_sharing">Stoppa hotspot</string>
+  <string name="hotspot_progress_text_start">Ställer in hotspot…</string>
+  <string name="hotspot_notification_channel_title">Wi-Fi-hotspot</string>
+  <string name="hotspot_notification_title">Delar Briar nedkopplat</string>
+  <string name="hotspot_button_connected">Nästa</string>
+  <string name="permission_hotspot_location_request_body">För att skapa en Wi-Fi-hotspot måste Briar ha tillåtelse att komma åt din plats.\n\nBriar sparar inte din plats eller delar den med någon.</string>
+  <string name="permission_hotspot_location_denied_body">Du har nekat åtkomst till din plats, men Briar behöver denna tilltåelse för att skapa en Wi-Fi-hotspot.\n\nÖverväg att bevilja åtkomst.</string>
+  <string name="wifi_settings_title">Wi-Fi-inställning</string>
+  <string name="wifi_settings_request_enable_body">För att skapa en Wi-Fi-hotspot måste Briar använda Wi-Fi. Vänligen aktivera det.</string>
+  <string name="hotspot_tab_manual">Manuellt</string>
+  <!--The placeholder to be inserted into the string 'hotspot_manual_wifi': People can connect by %s-->
+  <string name="hotspot_scanning_a_qr_code">skanna en QR-kod</string>
+  <!--Wi-Fi setup-->
+  <!--The %s placeholder will be replaced with the translation of 'hotspot_scanning_a_qr_code'-->
+  <string name="hotspot_manual_wifi">Din telefon tillhandahåller en Wi-Fi-hotspot. Personer som vill hämta Briar kan ansluta till hotspoten genom att lägga till den bland Wi-Fi-inställningarna i deras enhet med hjälp av detaljerna nedan eller genom %s. När du har anslutit till hotspoten, tryck ”Nästa”.</string>
+  <string name="hotspot_manual_wifi_ssid">Nätverksnamn</string>
+  <string name="hotspot_qr_wifi">Din telefon tillhandahåller en Wi-Fi-hotspot. Personer som vill hämta Briar kan ansluta till hotspoten genom att skanna denna QR-kod. När de har anslutit till hotspoten, tryck ”Nästa”.</string>
+  <string name="hotspot_no_peers_connected">Inga enheter anslutna</string>
+  <plurals name="hotspot_peers_connected">
+    <item quantity="one">%s enhet ansluten</item>
+    <item quantity="other">%s enheter anslutna</item>
+  </plurals>
+  <!--Download link-->
+  <!--The %s placeholder will be replaced with the translation of 'hotspot_scanning_a_qr_code'-->
+  <string name="hotspot_manual_site">Din telefon tillhandahåller en Wi-Fi-hotspot. Personer som är ansluta till hotspoten genom kan hämta Briar genom att skriva in följande länk i en webbläsare eller %s.</string>
+  <string name="hotspot_manual_site_address">Adress (URL)</string>
+  <string name="hotspot_qr_site">Din telfon tillhandahåller en Wi-Fi-hotspot. Personer som är anslutna till hotstpoen kan hämta Briar genom att skanna denna QR-kod.</string>
+  <!--e.g. Download Briar 1.2.20-->
+  <string name="website_download_title_1">Ladda ner Briar %s</string>
+  <string name="website_download_intro_1">Någon i närheten delade med sig av Briar till dig.</string>
+  <string name="website_download_button">Ladda ner Briar</string>
+  <string name="website_download_outro">Efter att hämtningen är slutför öppna den hämtade filen och installera den.</string>
+  <string name="website_troubleshooting_title">Felsökning</string>
+  <string name="website_troubleshooting_1">Om du inte kan hämta appen, prova med en annan webbläsarapp.</string>
+  <string name="website_troubleshooting_2_old">För att installera den hämtade appen kan du behöva tillåta installation av appar från ”Okända källor” bland systeminställningarna. Efteråt kan du behöva hämta appen på nytt. Vi rekommenderar att du inaktiverar inställningen ”Okända källor” efter att installerat appen.</string>
+  <string name="website_troubleshooting_2_new">För att installera den hämtade appen kan du behöva tillåta din webbläsare att installera okända appar. Efter att du installerat appen rekommenderar vi att du ta bort webbläsarens rättighet att installera okända appar.</string>
+  <string name="hotspot_help_wifi_title">Problem att ansluta till Wi-Fi:</string>
+  <string name="hotspot_help_wifi_1">Prova att inaktivera och återaktivera Wi-Fi på båda telefonerna och prova igen.</string>
+  <string name="hotspot_help_wifi_2">Om din telefon klagar på att Wi-Fi inte har internetanslutning, svara att du vill förbli ansluten ändå.</string>
+  <string name="hotspot_help_wifi_3">Starta om telefonen som kör Wi-Fi-hotspoten, starta sedan Briar och prova att dela igen.</string>
+  <string name="hotspot_help_site_title">Problem med att besöka den lokala webbplatsen:</string>
+  <string name="hotspot_help_site_1">Dubbelkolla att du matat in adressen exakt som den visas. Ett litet fel kan orsaka att det misslyckas.</string>
+  <string name="hotspot_help_site_2">Säkerställ att din telefon fortfarande är ansluten till det korrekta Wi-Fi:t (se ovan) när du försöker att nå webbplatsen.</string>
+  <string name="hotspot_help_site_3">Om du har en brandväggsapp, kontrollera att den inte blockerar åtkomst.</string>
+  <string name="hotspot_help_site_4">Om du kan besöka webbplatsen men inte hämta Briar-appen, prova med en annan webbläsarapp.</string>
+  <string name="hotspot_help_fallback_title">Fungerar ingenting?</string>
+  <string name="hotspot_help_fallback_intro">Du kan prova att spara appen som en .apk-fil och dela den på något annat sätt. När filen har överförts till den andra enheten kan den användas för att installera Briar.
+		\n\nTips: För delning via Bluetooth kan du först behöva byta namn på filen så den slutar med med .zip.</string>
+  <string name="hotspot_help_fallback_button">Spara app</string>
+  <!--error handling-->
+  <string name="hotspot_error_intro">Något gick fel vid försök att dela appen via Wi-Fi:</string>
+  <string name="hotspot_error_no_wifi_direct">Enheten har inte stöd för Wi-Fi Direct</string>
+  <string name="hotspot_error_start_callback_failed">Hotspot misslyckades med att starta: fel %s</string>
+  <string name="hotspot_error_start_callback_failed_unknown">Hotspot misslyckades med att starta på grund av ett okänt fel, orsak %d</string>
+  <string name="hotspot_error_start_callback_no_group_info">Hotspot misslyckades med att starta: ingen gruppinformation</string>
+  <string name="hotspot_error_web_server_start">Problem att starta webbserver</string>
+  <string name="hotspot_error_web_server_serve">Fel vid presentatoin av webbplats.\n\nVänligen skicka återkoppling (med anonym data) via Briar appen om problemet kvarstår.</string>
+  <string name="hotspot_flag_test">Varning: Denna app installerades med Android Studio och kan INTE installeras på en annan enhet.</string>
+  <string name="hotspot_error_framework_busy">Kan inte starta hotspot.\n\nOm en annan hotspot redan kör eller du delar din internetanslutning via Wi-Fi, prova avsluta det och försök på nytt efteråt.</string>
+  <!--Transfer Data via Removable Drives-->
+  <string name="removable_drive_menu_title">Anslut via borttagbar enhet</string>
+  <string name="removable_drive_intro">Om du inte kan ansluta till din kontakt internet, Wi-Fi eller Bluetooth, så kan Briar också överföra meddelanden via en borttagbar enhet så som en USB-sticka eller ett SD-kort.</string>
+  <string name="removable_drive_explanation">Om du inte kan ansluta till din kontakter via internet, Wi-Fi eller Bluetooth så kan Briar också överföra meddelanden via en borttagbar enhet så som en USB-stick eller ett SD-kort.\n\nNär du använder knappen ”Skicka data” kommer all data som väntar på att skickas till kontakter att skrivas på den borttagbara enheten. Detta inkluderar privata meddelanden, bifogade filer, bloggar, forum och privata grupper.\n\nAllting kommer att krypteras innan det skrivs på den borttagbara enheten.\n\nNär din kontakt erhåller den borttagbara enheten kan de använda knappen ”Ta emot data” för att importera meddelandena i Briar.</string>
+  <string name="removable_drive_title_send">Skicka data</string>
+  <string name="removable_drive_title_receive">Ta emot data</string>
+  <string name="removable_drive_send_intro">Tryck på knappen nedan för att skapa en ny fil som innehåller de krypterade meddelandena. Du kan välja var filen ska sparas.\n\nOm du vill spara filen på en borttagbar enhet, anslut enheten nu.</string>
+  <string name="removable_drive_send_no_data">Det finns för närvarande inga meddelanden som väntar på att skickas till denna kontakt.</string>
+  <string name="removable_drive_send_not_supported">Denna kontakt använder en gammal version av Briar eller en gammal enhet som inte har stöd för denna funktion.</string>
+  <string name="removable_drive_send_button">Välj fil att exportera</string>
+  <string name="removable_drive_ongoing">Vänligen vänta på att den pågående åtgärden ska slutföras</string>
+  <string name="removable_drive_receive_intro">Tryck på knappen nedan för att välja filen som din kontakt skickat dig.\n\nOm filen finns på en borttagbar enhet, anslut enheten nu.</string>
+  <string name="removable_drive_receive_button">Välj fil att importera</string>
+  <string name="removable_drive_success_send_title">Export framgångsrik</string>
+  <string name="removable_drive_success_send_text">Data exporterades framgångsrikt. Du har nu 28 dagar på dig att transportera filen till din kontakt.\n\nOm filen finns på en borttagbar enhet använd notifikationen i statusraden för att mata ut enheten innan du drar ut den.</string>
+  <string name="removable_drive_success_receive_title">Import framgångsrik</string>
+  <string name="removable_drive_success_receive_text">Alla krypterade meddelanden som finns i denna fil har tagits emot.</string>
+  <string name="removable_drive_error_send_title">Fel vid export av data</string>
+  <string name="removable_drive_error_send_text">Ett fel uppstod vid skrivning av data till filen.\n\nOm du använder en borttagbar enhet, säkerställ att den anslutits korrekt och prova igen.\n\nOm felet kvarstår, vänligen skicka återkoppling så att Briar-gruppen får vetskap om problemet.</string>
+  <string name="removable_drive_error_receive_title">Fel vid import av data</string>
+  <string name="removable_drive_error_receive_text">Den valda filen innehöll inte någo som Briar kunde känna igen.\n\nKontrollera att du valt rätt fil.\n\nOm din kontakt skapade filen för mer än 28 dagar sedan kommer Briar inte att kunna känna igen den.</string>
+  <!--Screenshots-->
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_alice">Alice</string>
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_bob">Bob</string>
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_carol">Carol</string>
+  <!--This is a message to be used in screenshots. Please use the same translation for Bob!-->
+  <string name="screenshot_message_1">Hej Bob!</string>
+  <!--This is a message to be used in screenshots. Please use the same translation for Alice!-->
+  <string name="screenshot_message_2">Hej Alice! Tack för att du berättade för mig om Briar!</string>
+  <!--This is a message to be used in screenshots.-->
+  <string name="screenshot_message_3">Ingen orsak, hoppas att du gillar den :-)</string>
+</resources>

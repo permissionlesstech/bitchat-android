@@ -1,0 +1,779 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+  <!--Setup-->
+  <string name="setup_title">Velkomin í Briar</string>
+  <string name="setup_name_explanation">Stuttnefnið þitt birtist við hlið alls þess efnis sem þú sendir inn. Þú getur ekki breytt því eftir að þú hefur skráð notandaaðganginn þinn.</string>
+  <string name="setup_next">Næsta</string>
+  <string name="setup_password_intro">Veldu lykilorð</string>
+  <string name="setup_password_explanation">Notandaaðgangur þinn í Briar er geymdur dulritaður á tækinu þínu, ekki í tölvuskýi. Ef þú gleymir lykilorðinu þínu eða fjarlægir Briar, þá er engin leið til að endurheimta notandaaðganginn þinn.\n\nVeldu langt lykilorð sem erfitt er að giska á, svo sem eins og fjögur orð af handahófi, eða slembna samsetningu tíu bósktafa, tölustafa og tákna.</string>
+  <string name="dnkm_doze_intro">Til að taka á móti skilaboðum þarf Briar að haldast tengt í bakgrunni.</string>
+  <string name="dnkm_doze_explanation">Til að taka á móti skilaboðum þarf Briar að haldast tengt í bakgrunni. Gerðu orkusparnaðarferli óvirk svo Briar geti haldið tengingum.</string>
+  <string name="choose_nickname">Veldu þér stuttnefni</string>
+  <string name="choose_password">Veldu þér lykilorð</string>
+  <string name="confirm_password">Staðfestu lykilorðið</string>
+  <string name="name_too_long">Nafnið er of langt</string>
+  <string name="password_too_weak">Lykilorðið er of veikt</string>
+  <string name="passwords_do_not_match">Lykilorðin stemma ekki</string>
+  <string name="create_account_button">Búa til notandaaðgang</string>
+  <string name="more_info">Nánari upplýsingar</string>
+  <string name="don_t_ask_again">Ekki spyrja aftur</string>
+  <string name="dnkm_huawei_protected_text">Ýttu á hnappinn hér fyrir neðan og gakktu úr skugga um að Briar sé varið á skjánum \"Varin forrit\".</string>
+  <string name="dnkm_huawei_protected_button">Vernda Briar</string>
+  <string name="dnkm_huawei_protected_help">Ef Briar er ekki bætt á listann yfir varin forrit, getur það ekki keyrt í bakgrunni.</string>
+  <string name="dnkm_huawei_app_launch_text">Ýttu á hnappinn hér fyrir neðan, opnaðu \"Ræsing forrits\" skjáinn og gakktu úr skugga um að Briar sé stillt á \"Stýra handvirkt\".</string>
+  <string name="dnkm_huawei_app_launch_help">Ef Briar er ekki stillt á \"Stýra handvirkt\" í \"Ræsing forrits\" skjánum, mun það ekki geta keyrt í bakgrunni.</string>
+  <string name="dnkm_xiaomi_text">Til að keyra í bakgrunni þarf Briar að vera læst við listann yfir nýleg forrit.</string>
+  <string name="dnkm_xiaomi_button">Vernda Briar</string>
+  <string name="dnkm_xiaomi_help">Ef Briar er ekki læst við listann yfir nýleg forrit, mun það ekki geta keyrt í bakgrunni.</string>
+  <string name="dnkm_xiaomi_dialog_body_old">1. Opnaðu listann yfir nýleg forrit (einnig kallað forritaskiptir)\n\n2. Strjúktu niður myndina af Briar til að birta hengilástáknið\n\n3. Ef hengilásinn er ekki læstur, ýttu á hann til að læsa</string>
+  <!--Login-->
+  <string name="enter_password">Lykilorð</string>
+  <string name="try_again">Rangt lykilorð, reyndu aftur</string>
+  <string name="dialog_title_cannot_check_password">Get ekki yfirfarið lykilorð</string>
+  <string name="dialog_message_cannot_check_password">Briar getur ekki yfirfarið lykilorðið þitt. Prófaðu að endurræsa tækið þitt til að reyna að leysa þetta vandamál.</string>
+  <string name="sign_in_button">Skrá inn</string>
+  <string name="dialog_title_lost_password">Týnt lykilorð</string>
+  <string name="dialog_message_lost_password">Notandaaðgangur þinn í Briar er geymdur dulritaður á tækinu þínu, ekki í tölvuskýi, þannig að við getum ekki endurstillt lykilorðið þitt. Myndirðu vilja eyða notandaaðgangnum þínum og byrja aftur?\n\nVarúð: Auðkennin þín, tengiliðir og skilaboð munu tapast óendurkræft.</string>
+  <string name="startup_failed_activity_title">Bilun í ræsingu Briar</string>
+  <string name="startup_failed_clock_error">Briar gat ekki farið af stað því klukka tækisins þíns er ekki rétt stillt.\n\nLeiðréttu klukku tækisins og prófaðu síðan aftur.</string>
+  <string name="startup_failed_db_error">Briar tókst ekki að opna gagnagrunninn sem inniheldur aðganginn þinn, tengiliðina þína og skilaboð.\n\nAthugaðu hvort Briar sé þegar keyrandi á þessu tæki. Annars skaltu uppfæra í nýjustu útgáfuna og prófa síðan aftur, eða setja upp nýjan aðgang með því að velja \'Ég hef gleymt lykilorðinu mínu\' þar sem spurt er um lykilorð.</string>
+  <string name="startup_failed_data_too_old_error">Notandaaðgangurinn þinn var útbúinn með eldri útgáfu forritsins og er ekki hægt að opna hann með þessari útgáfu.\n\Þú þarft annað hvort að setja gömlu útgáfuna upp aftur, eða setja upp nýjan notandaaðgang með því að velja \'Ég hef gleymt lykilorðinu mínu\' þegar beðið er um lykilorð.</string>
+  <string name="startup_failed_data_too_new_error">Notandaaðgangurinn þinn var útbúinn með nýrri útgáfu forritsins og er ekki hægt að opna hann með þessari útgáfu.\n\Þú þarft að setja upp nýjustu útgáfuna og prófa svo aftur.</string>
+  <string name="startup_failed_service_error">Briar tókst ekki að ræsa nauðsynlega einingu.\n\nUppfærðu í nýjustu útgáfuna og prófaðu síðan aftur.</string>
+  <plurals name="expiry_warning">
+    <item quantity="one">Þetta er prufuútgáfa af Briar. Notandaaðgangurinn þinn mun renna út eftir %d dag og er ekki hægt að endurnýja hann.</item>
+    <item quantity="other">Þetta er prufuútgáfa af Briar. Notandaaðgangurinn þinn mun renna út eftir %d daga og er ekki hægt að endurnýja hann.</item>
+  </plurals>
+  <string name="expiry_date_reached">Þessi hugbúnaður er úreltur.\nTakk fyrir að hafa tekið þátt í prófunum!</string>
+  <string name="download_briar">Til að halda áfram að nota Briar, ættirðu að sækja nýjustu útgáfuna.</string>
+  <string name="create_new_account">Þú þarft að búa til nýjan notandaaðgang, en þú getur notað áfram sama stuttnefni.</string>
+  <string name="download_briar_button">Ná í nýjustu útgáfu</string>
+  <string name="old_android_expiry_date_reached">Briar keyrir ekki lengur á Android 4.\nSettu Briar upp á nýrra tæki.</string>
+  <string name="old_android_delete_account">Þú getur ýtt á hnappinn hér fyrir neðan til að eyða aðgangnum þínum af þessu tæki.</string>
+  <string name="delete_account_button">Eyða notandaaðgangi</string>
+  <string name="startup_open_database">Afkóða gagnagrunn…</string>
+  <string name="startup_migrate_database">Uppfæri gagnagrunn…</string>
+  <string name="startup_compact_database">Þjappa gagnagrunni…</string>
+  <!--Navigation Drawer-->
+  <string name="nav_drawer_open_description">Opna leiðsagnarsleðann</string>
+  <string name="nav_drawer_close_description">Loka leiðsagnarsleðanum</string>
+  <string name="contact_list_button">Tengiliðir</string>
+  <string name="groups_button">Einkahópar</string>
+  <string name="forums_button">Spjallsvæði</string>
+  <string name="blogs_button">Blogg</string>
+  <!--This is part of the main menu. The app will be locked when this is tapped.-->
+  <string name="lock_button">Læsa forriti</string>
+  <string name="settings_button">Stillingar</string>
+  <string name="sign_out_button">Skrá út</string>
+  <string name="transports_onboarding_text">Ýttu hér til að stýra hvernig Briar tengist tengiliðunum þínum.</string>
+  <!--Transports: Tor-->
+  <string name="transport_tor">Internet</string>
+  <string name="tor_device_status_online_wifi">Síminn þinn er með aðgang að internetinu í gegnum Wi-Fi</string>
+  <string name="tor_device_status_online_mobile">Síminn þinn er með aðgang að internetinu í gegnum farsímagögn</string>
+  <string name="tor_device_status_offline">Síminn þinn er ekki með aðgang að internetinu</string>
+  <string name="tor_plugin_status_enabling">Briar er að tengjast við internetið</string>
+  <string name="tor_plugin_status_active">Briar er tengt við internetið</string>
+  <string name="tor_plugin_status_inactive">Briar getur ekki tengst við internetið</string>
+  <string name="tor_plugin_status_disabled">Briar er sett upp til að nota ekki internetið</string>
+  <string name="tor_plugin_status_disabled_mobile_data">Briar er sett upp til að nota ekki farsímagögn</string>
+  <string name="tor_plugin_status_disabled_battery">Briar er sett upp til að nota ekki internetið þegar keyrt er á rafhlöðu</string>
+  <string name="tor_plugin_status_disabled_country_blocked">Briar er sett upp til að nota ekki internetið í þessu landi</string>
+  <!--Transports: Wi-Fi-->
+  <string name="transport_lan">Þráðlaust Wi-Fi net</string>
+  <string name="transport_lan_long">Sama þráðlausa Wi-Fi netkerfið</string>
+  <string name="lan_device_status_on">Síminn þinn er tengdur við Wi-Fi</string>
+  <string name="lan_device_status_off">Síminn þinn er ekki tengdur við Wi-Fi</string>
+  <string name="lan_plugin_status_enabling">Briar er að tengjast við Wi-Fi-netið</string>
+  <string name="lan_plugin_status_active">Briar er tengt við við Wi-Fi-netið</string>
+  <string name="lan_plugin_status_inactive">Briar getur ekki tengst við Wi-Fi-netið</string>
+  <string name="lan_plugin_status_disabled">Briar er sett upp til að nota ekki Wi-Fi-netið</string>
+  <!--Transports: Bluetooth-->
+  <string name="transport_bt">Bluetooth</string>
+  <string name="bt_device_status_on">Kveikt er á Bluetooth-kerfi símans</string>
+  <string name="bt_device_status_off">Slökkt er á Bluetooth-kerfi símans</string>
+  <string name="bt_plugin_status_enabling">Briar er að tengjast við Bluetooth</string>
+  <string name="bt_plugin_status_active">Briar er tengt við Bluetooth</string>
+  <string name="bt_plugin_status_inactive">Briar getur ekki tengst við Bluetooth</string>
+  <string name="bt_plugin_status_disabled">Briar er sett upp til að nota ekki Bluetooth</string>
+  <!--Notifications-->
+  <string name="reminder_notification_title">Skráð út úr Briar</string>
+  <string name="reminder_notification_text">Ýttu til að skrá þig aftur inn.</string>
+  <string name="reminder_notification_channel_title">Áminning um innskráningu í Briar</string>
+  <string name="reminder_notification_dismiss">Hafna</string>
+  <string name="ongoing_notification_title">Skráð inn í Briar</string>
+  <string name="ongoing_notification_text">Snertu til að opna Briar.</string>
+  <plurals name="private_message_notification_text">
+    <item quantity="one"> Ný einkaskilaboð.</item>
+    <item quantity="other">%d ný einkaskilaboð.</item>
+  </plurals>
+  <plurals name="group_message_notification_text">
+    <item quantity="one">Ný hópskilaboð</item>
+    <item quantity="other">%d ný hópskilaboð.</item>
+  </plurals>
+  <plurals name="forum_post_notification_text">
+    <item quantity="one">Ný færsla á spjallsvæði.</item>
+    <item quantity="other">%d nýjar færslur á spjallsvæði.</item>
+  </plurals>
+  <plurals name="blog_post_notification_text">
+    <item quantity="one">Ný bloggfærsla.</item>
+    <item quantity="other">%d nýjar bloggfærslur.</item>
+  </plurals>
+  <!--Misc-->
+  <string name="now">núna</string>
+  <string name="show">Birta</string>
+  <string name="hide">Fela</string>
+  <string name="ok">Í lagi</string>
+  <string name="cancel">Hætta við</string>
+  <string name="got_it">Náði því</string>
+  <string name="delete">Eyða</string>
+  <string name="accept">Samþykkja</string>
+  <string name="decline">Hafna</string>
+  <string name="online">Nettengt</string>
+  <string name="offline">Ónettengt</string>
+  <string name="send">Senda</string>
+  <string name="allow">Leyfa</string>
+  <string name="open">Opna</string>
+  <string name="change">Breyta</string>
+  <string name="start">Byrja</string>
+  <string name="finish">Enda</string>
+  <string name="no_data">Engin gögn</string>
+  <string name="ellipsis">…</string>
+  <string name="text_too_long">Textinn sem var settur inn er of langur</string>
+  <string name="show_onboarding">Birta hjálparglugga</string>
+  <string name="fix">Laga</string>
+  <string name="help">Hjálp</string>
+  <string name="sorry">Því miður</string>
+  <string name="error_start_activity">Er ekki tiltækt fyrir kerfið þitt</string>
+  <string name="status_heading">Staða</string>
+  <string name="error">Villa</string>
+  <!--Contacts and Private Conversations-->
+  <string name="no_contacts">Engir tengiliðir til að birta</string>
+  <string name="no_contacts_action">Ýttu á + táknið til að bæta við tengilið</string>
+  <string name="date_no_private_messages">Engin skilaboð.</string>
+  <string name="no_private_messages">Engin skilaboð sem hægt er að birta</string>
+  <string name="message_hint">Ný skilaboð</string>
+  <string name="message_hint_auto_delete">Ný sjálfeyðandi skilaboð</string>
+  <string name="message_error">Villa við að senda skilaboð</string>
+  <string name="image_caption_hint">Bæta við fyrirsögn (valfrjálst)</string>
+  <string name="image_attach">Hengja við mynd</string>
+  <string name="image_attach_error">Gat ekki hengt við mynd(ir)</string>
+  <string name="image_attach_error_too_big">Myndin er of stór. Hámark er %d MB.</string>
+  <string name="image_attach_error_invalid_mime_type">Myndskráarsnið er ekki stutt: %s</string>
+  <string name="set_contact_alias">Breyta nafni tengiliðar</string>
+  <string name="set_contact_alias_hint">Nafn tengiliðar</string>
+  <string name="menu_item_disappearing_messages">Sjálfeyðandi skilaboð</string>
+  <!--The first placeholder will show a duration like "7 days". The second placeholder at the end will add "Tap to learn more."-->
+  <string name="auto_delete_msg_you_enabled">Skilaboðin þín munu hverfa eftir %1$s. %2$s</string>
+  <!--The placeholder at the end will add "Tap to learn more."-->
+  <string name="auto_delete_msg_you_disabled">Skilaboðin þín munu ekki hverfa. %1$s</string>
+  <!--The first placeholder will show a contact's name. The second placeholder will show a duration like "7 days". The third placeholder at the end will add "Tap to learn more."-->
+  <string name="auto_delete_msg_contact_enabled">Skilaboðin frá %1$s munu hverfa eftir %2$s. %3$s</string>
+  <plurals name="duration_minutes">
+    <item quantity="one">%d mínúta</item>
+    <item quantity="other">%d mínútur</item>
+  </plurals>
+  <plurals name="duration_hours">
+    <item quantity="one">%d klst</item>
+    <item quantity="other">%d klst</item>
+  </plurals>
+  <plurals name="duration_days">
+    <item quantity="one">%d dag</item>
+    <item quantity="other">%d daga</item>
+  </plurals>
+  <!--The first placeholder will show a contact's name. The second placeholder at the end will add "Tap to learn more."-->
+  <string name="auto_delete_msg_contact_disabled">Skilaboð frá %1$s munu ekki hverfa. %2$s</string>
+  <string name="tap_to_learn_more">Ýttu til að kanna nánar.</string>
+  <string name="auto_delete_changed_warning_title">Breytt sjálfeyðandi skilaboð</string>
+  <string name="auto_delete_changed_warning_message_enabled">Síðan þú byrjaðir að skrifa skilaboðin þín, hafa sjálfeyðandi skilaboð verið virkjuð.</string>
+  <string name="auto_delete_changed_warning_message_disabled">Síðan þú byrjaðir að skrifa skilaboðin þín, hafa sjálfeyðandi skilaboð verið gerð óvirk.</string>
+  <string name="auto_delete_changed_warning_send">Senda samt</string>
+  <string name="delete_all_messages">Eyða öllum skilaboðum</string>
+  <string name="dialog_title_delete_all_messages">Staðfesta eyðingu skilaboða</string>
+  <string name="dialog_message_delete_all_messages">Ertu viss um að þú viljir eyða öllum skilaboðum?</string>
+  <string name="dialog_title_not_all_messages_deleted">Gat ekki eytt öllum skilaboðum</string>
+  <string name="dialog_message_not_deleted_ongoing_both">Skilaboð sem tengjast fyrirliggjandi kynningum fyrirliggjandi boðum og kynningum er ekki hægt að eyða fyrr en viðkomandi ferli er lokið.</string>
+  <string name="dialog_message_not_deleted_ongoing_introductions">Skilaboð sem tengjast fyrirliggjandi kynningum fyrirliggjandi kynningum er ekki hægt að eyða fyrr en viðkomandi ferli er lokið.</string>
+  <string name="dialog_message_not_deleted_ongoing_invitations">Skilaboð sem tengjast fyrirliggjandi kynningum fyrirliggjandi boðum er ekki hægt að eyða fyrr en viðkomandi ferli er lokið.</string>
+  <string name="dialog_message_not_deleted_not_all_selected_both">Til að eyða boði eða kynningu, þarftu að velja beiðnina og svarið.</string>
+  <string name="dialog_message_not_deleted_not_all_selected_introductions">Til að eyða kynningu, þarftu að velja beiðnina og svarið.</string>
+  <string name="dialog_message_not_deleted_not_all_selected_invitations">Til að eyða boði, þarftu að velja beiðnina og svarið.</string>
+  <string name="delete_contact">Eyða tengilið</string>
+  <string name="dialog_title_delete_contact">Staðfesta eyðingu tengiliðar</string>
+  <string name="dialog_message_delete_contact">Ertu viss að þú viljir fjarlægja þennan tengilið ásamt öllum þeim skilaboðum sem ykkur hafa farið á milli?</string>
+  <string name="contact_deleted_toast">Tengilið eytt</string>
+  <!--This is shown in the action bar when opening an image in fullscreen that the user sent-->
+  <string name="you">Þú</string>
+  <string name="save_image">Vista mynd</string>
+  <string name="dialog_title_save_image">Vista mynd?</string>
+  <string name="dialog_message_save_image">Ef þú vistar myndina geta önnur forrit fengið aðgang að henni.\n\nErtu viss um að þú viljir vista ?</string>
+  <string name="save_image_success">Mynd var vistuð</string>
+  <string name="save_image_error">Gat ekki vistað mynd</string>
+  <string name="dialog_title_no_image_support">Myndir ekki tiltækar</string>
+  <string name="dialog_message_no_image_support">Briar-útgáfa tengiliðarins þíns styður ekki ennþá myndaviðhengi. Þegar þeir verða búnir að uppgæra hugbúnaðinn muntu sjá öðruvísi tákn.</string>
+  <string name="dialog_title_image_support">Þú getur núna sent myndir til þessa tengiliðar</string>
+  <string name="dialog_message_image_support">Ýttu á þessa táknmynd til að hengja við myndir.</string>
+  <string name="messaging_too_many_attachments_toast">Einungis fyrstu %d myndirnar verða sendar</string>
+  <string name="menu_contact">Hafa samband</string>
+  <!--Adding Contacts-->
+  <string name="add_contact_title">Bæta við nálægum tengilið</string>
+  <string name="face_to_face">Þú verður að hitta persónuna sem þú vilt bæta við sem tengilið.\n\nÞetta kemur í veg fyrir að nokkur geti látist vera þú eða nokkur geti framvegis lesið skilaboðin þín.</string>
+  <string name="continue_button">Halda áfram</string>
+  <string name="try_again_button">Reyndu aftur</string>
+  <string name="waiting_for_contact_to_scan">Bíð eftir að tengiliður skanni og tengist\u2026</string>
+  <string name="exchanging_contact_details">Skiptist á upplýsingum um tengilið\u2026</string>
+  <string name="contact_added_toast">Tengilið bætt við: %s</string>
+  <string name="contact_already_exists">Tengiliðurinn %s er þegar til</string>
+  <string name="qr_code_invalid">QR-kóðinn er ógildur</string>
+  <string name="camera_error">Villa í myndavél</string>
+  <string name="connecting_to_device">Tengist við tæki\u2026</string>
+  <string name="authenticating_with_device">Auðkenni við tæki\u2026</string>
+  <string name="connection_error_title">Gat ekki tengst við tengiliðinn þinn</string>
+  <string name="connection_error_feedback">Ef þetta vandamál er viðvarandi, ættirðu að <a href="feedback">senda umsögn</a> til að hjálpa okkur að bæta forritið.</string>
+  <!--Adding Contacts Remotely-->
+  <string name="add_contact_remotely_title_case">Bæta við fjarlægum tengilið</string>
+  <string name="add_contact_nearby_title">Bæta við nálægum tengilið</string>
+  <string name="add_contact_remotely_title">Bæta við fjarlægum tengilið</string>
+  <string name="contact_link_intro">Settu hér inn tengilinn frá tengiliðnum þínum</string>
+  <string name="contact_link_hint">Tengill á tengilið</string>
+  <string name="paste_button">Líma</string>
+  <string name="add_contact_button">Bæta við tengilið</string>
+  <string name="copy_button">Afrita</string>
+  <string name="share_button">Deila</string>
+  <string name="send_link_title">Skiptast á tenglum</string>
+  <string name="add_contact_choose_nickname">Veldu stuttnefni</string>
+  <string name="add_contact_choose_a_nickname">Settu inn stuttnefni</string>
+  <string name="nickname_intro">Gefðu tengiliðnum þínum stuttnefni/gælunafn. Einungis þú getur séð það.</string>
+  <string name="your_link">Gefðu þennan tengil til tengiliðarins sem þú ætlar að bæta við</string>
+  <string name="link_clip_label">Briar tengill</string>
+  <string name="link_copied_toast">Tengill afritaður</string>
+  <string name="adding_contact_error">Villa kom upp við að bæta við tengiliðnum.</string>
+  <string name="pending_contact_requests_snackbar">Það eru nokkrar tengiliðabeiðnir sem bíða</string>
+  <string name="pending_contact_requests">Tengiliðabeiðnir sem bíða</string>
+  <string name="no_pending_contacts">Engar tengiliðabeiðnir bíða</string>
+  <string name="waiting_for_contact_to_come_online">Bíð eftir að tengiliður tengist netinu…</string>
+  <string name="connecting">Tengist…</string>
+  <string name="adding_contact">Bæti við tengilið…</string>
+  <string name="adding_contact_failed">Það mistókst að bæta við tengilið</string>
+  <string name="dialog_title_remove_pending_contact">Staðfesta að fjarlægja</string>
+  <string name="dialog_message_remove_pending_contact">Það er ennþá verið að bæta þessum tengilið við. Ef þú fjarlægir hann núna, verður honum ekki bætt við.</string>
+  <string name="own_link_error">Settu inn tengilinn frá tengiliðnum þínum, ekki þinn eigin</string>
+  <string name="nickname_missing">Settu inn stuttnefni</string>
+  <string name="invalid_link">Ógildur tengill</string>
+  <string name="unsupported_link">Þessi tengill kemur frá nýrri útgáfu af Briar.\n\nUppfærðu í nýjustu útgáfuna og prófaðu síðan aftur.</string>
+  <string name="intent_own_link">Þú opnaðir þinn eigin tengil. Notaðu tengilinn frá tengiliðnum sem þú ætlar að bæta við!</string>
+  <string name="missing_link">Settu inn tengil</string>
+  <!--This is a numeral indicating the first step in a series of screens-->
+  <string name="step_1">1</string>
+  <!--This is a numeral indicating the second step in a series of screens-->
+  <string name="step_2">2</string>
+  <plurals name="contact_added_notification_text">
+    <item quantity="one">Nýjum tengilið bætt við.</item>
+    <item quantity="other">%d nýjum tengiliðum bætt við.</item>
+  </plurals>
+  <string name="offline_state">Engin internettenging</string>
+  <string name="duplicate_link_dialog_title">Endurtekinn tengill</string>
+  <string name="duplicate_link_dialog_text_1">Þú ert þegar með tengilið í bið sem er með þessum tengli: %s</string>
+  <string name="duplicate_link_dialog_text_1_contact">Þú ert þegar með tengilið með þessum tengli: %s</string>
+  <!--This is a question asking whether two nicknames refer to the same person-->
+  <string name="duplicate_link_dialog_text_2">Eru %1$s og %2$s sami einstaklingurinn?</string>
+  <!--This is a button for answering that two nicknames do indeed refer to the same person. This
+	string will be used in a dialog button, so if the translation of this string is longer than 20
+	characters, please use "Yes" instead, and use "No" for the "Different Person" button-->
+  <string name="same_person_button">Sami einstaklingur</string>
+  <!--This is a button for answering that two nicknames refer to different people. This string
+	will be used in a dialog button, so if the translation of this string longer than 20 characters,
+	please use "No" instead, and use "Yes" for the "Same Person" button-->
+  <string name="different_person_button">Annar einstaklingur</string>
+  <string name="duplicate_link_dialog_text_3">%1$s og %2$s sendu þér sama tengilinn.\n\nAnnar þeirra gæti verið að reyna að finna út hverjir tengiliðirnir þínir eru.\n\nEkki segja þeim að þú hafir fengið sama tengil frá einhverjum öðrum.</string>
+  <string name="pending_contact_updated_toast">Tengiliður í bið uppfærður</string>
+  <!--Peer trust levels-->
+  <!--Introductions-->
+  <string name="introduction_onboarding_title">Kynntu tengiliðina þína</string>
+  <string name="introduction_menu_item">Útbúa kynningu</string>
+  <string name="introduction_activity_title">Veldu tengilið</string>
+  <string name="introduction_not_possible">Þú ert þegar með eina kynningu í vinnslu gagnvart þessum tengiliðum. Leyfðu því ferli að ljúka fyrst. Ef þú eða tengiliðirnir þínir eruð sjaldan á netinu, gæti þetta tekið svolítinn tíma.</string>
+  <string name="introduction_message_title">Kynntu tengiliði</string>
+  <string name="introduction_message_hint">Bættu við skilaboðum (valfrjálst)</string>
+  <string name="introduction_button">Útbúa kynningu</string>
+  <string name="introduction_sent">Kynningin þín hefur verið send.</string>
+  <string name="introduction_error">Villa kom upp við kynninguna.</string>
+  <string name="introduction_request_sent">Þú hefur verið beðin/n um að kynna %1$s fyrir %2$s.</string>
+  <string name="introduction_request_received">%1$s hefur beðið um að fá að kynna þig fyrir %2$s. Viltu bæta %2$s við tengiliðalistann þinn?</string>
+  <string name="introduction_request_exists_received">%1$s hefur beðið um að fá að kynna þig fyrir %2$s, en %2$s er þegar í tengiliðalistanum þínum. Þar sem ekki er víst að %1$s viti það, þá geturðu samt svarað:</string>
+  <string name="introduction_request_answered_received">%1$s hefur beðið um að fá að kynna þig fyrir %2$s.</string>
+  <string name="introduction_response_accepted_sent">Þú samþykktir kynningu við %1$s.</string>
+  <string name="introduction_response_accepted_sent_info">Áður en %1$s verður bætt í tengiliðaskrána þína, verða þeir einnig að samþykkja kynninguna. Það gæti tekið svolítinn tíma.</string>
+  <string name="introduction_response_declined_sent">Þú hafnaðir kynningu við %1$s.</string>
+  <string name="introduction_response_declined_auto">Kynningu við %1$s var sjálfvirkt hafnað.</string>
+  <string name="introduction_response_accepted_received">%1$s samþykkti kynningu við %2$s.</string>
+  <string name="introduction_response_declined_received">%1$s hafnaði kynningu við %2$s.</string>
+  <string name="introduction_response_declined_received_by_introducee">%1$s segir að %2$s hafi hafnað kynningunni.</string>
+  <!--Connect via Bluetooth-->
+  <string name="menu_item_connect_via_bluetooth">Tengjast í gegnum Bluetooth</string>
+  <string name="connect_via_bluetooth_title">Tengjast í gegnum Bluetooth</string>
+  <string name="connect_via_bluetooth_intro">Í þeim tilfellum þegar Bluetooth-tengingar virka ekki sjálfkrafa, geturðu notað þennan skjá til að tengjast handvirkt.\n\nTengiliðurinn þinn þarf að vera nálægt svo þetta virkri.\n\nÞið ættuð báðir/bæði að ýta á \"Byrja\" á sama tíma.</string>
+  <string name="connect_via_bluetooth_already_discovering">Er þegar að reyna að tengjast með Bluetooth. Prófaðu aftur eftir dálitla stund.</string>
+  <string name="connect_via_bluetooth_no_location_permission">Get ekki haldið áfram án heimildar til að nota staðsetningu</string>
+  <string name="connect_via_bluetooth_start">Tengist í gegnum Bluetooth…</string>
+  <string name="connect_via_bluetooth_success">Tókst að tengjast í gegnum Bluetooth</string>
+  <string name="connect_via_bluetooth_error">Gat ekki tengst í gegnum Bluetooth.</string>
+  <string name="connect_via_bluetooth_error_not_supported">Bluetooth er ekki stutt af tækinu.</string>
+  <!--Private Groups-->
+  <string name="groups_list_empty">Engir hópar sem hægt er að birta</string>
+  <string name="groups_list_empty_action">Ýttu á + táknið til að útbúa hóp, eða biddu tengiliðina þína um að deila hópi með þér</string>
+  <string name="groups_created_by">Búið til af %s</string>
+  <plurals name="messages">
+    <item quantity="one">%d skilaboð</item>
+    <item quantity="other">%d skilaboð</item>
+  </plurals>
+  <string name="groups_group_is_empty">Þessi hópur er tómur</string>
+  <string name="groups_group_is_dissolved">Þessi hópur hefur verið leystur upp</string>
+  <string name="groups_remove">Fjarlægja</string>
+  <string name="groups_create_group_title">Búa til einkahóp</string>
+  <string name="groups_create_group_button">Búa til hóp</string>
+  <string name="groups_create_group_invitation_button">Senda boð</string>
+  <string name="groups_create_group_hint">Veldu nafn á einkahópinn þinn</string>
+  <string name="groups_invitation_sent">Boð í hóp hafa verið send</string>
+  <string name="groups_member_list">Listi yfir meðlimi</string>
+  <string name="groups_invite_members">Bjóða meðlimum</string>
+  <string name="groups_member_created_you">Þú bjóst til hópinn</string>
+  <string name="groups_member_created">%s bjó til hópinn</string>
+  <string name="groups_member_joined_you">Þú gekkst í hópinn</string>
+  <string name="groups_member_joined">%s gekk í hópinn</string>
+  <string name="groups_leave">Hætta í hópi</string>
+  <string name="groups_leave_dialog_title">Staðfesting á að hætta í hópi</string>
+  <string name="groups_leave_dialog_message">Ertu viss um að þú viljir hætta í þessum hópi?</string>
+  <string name="groups_dissolve">Leysa upp hóp</string>
+  <string name="groups_dissolve_dialog_title">Staðfesting á að leysa upp hóp</string>
+  <string name="groups_dissolve_dialog_message">Ertu viss um að þú viljir leysa upp þennan hóp?\n\nAllir aðrir meðlimir hópsins eiga á hættu að geta ekki haldið áfram með samtöl sín og gætu misst af síðustu skilaboðunum.</string>
+  <string name="groups_dissolve_button">Leysa upp</string>
+  <string name="groups_dissolved_dialog_title">Hópur var leystur upp</string>
+  <string name="groups_dissolved_dialog_message">Stofnandi hópsins hefur leyst hann upp.\n\nÞú getur ekki lengur skrifað skilaboð til hópsins og mögulega færðu ekki öll þau skilaboð sem þegar hafa verið skrifuð.</string>
+  <!--Private Group Invitations-->
+  <string name="groups_invitations_title">Boð í hópa</string>
+  <string name="groups_invitations_invitation_sent">Þú hefur boðið %1$s að ganga í hópinn \"%2$s\".</string>
+  <string name="groups_invitations_invitation_received">%1$s hefur boðið þér að ganga í hópinn \"%2$s\".</string>
+  <string name="groups_invitations_joined">Hefur gengið í hópinn</string>
+  <string name="groups_invitations_declined">Boði í hóp hafnað</string>
+  <plurals name="groups_invitations_open">
+    <item quantity="one">%d opið boð í hóp</item>
+    <item quantity="other">%d opin boð í hóp</item>
+  </plurals>
+  <string name="groups_invitations_response_accepted_sent">Þú samþykktir boð í hóp frá %s.</string>
+  <string name="groups_invitations_response_declined_sent">Þú hafnaðir boði í hóp frá %s.</string>
+  <string name="groups_invitations_response_declined_auto">Boði í hóp frá %s var sjálfvirkt hafnað.</string>
+  <string name="groups_invitations_response_accepted_received">%s samþykkti boð í hóp.</string>
+  <string name="groups_invitations_response_declined_received">%s hafnaði boði í hóp.</string>
+  <string name="sharing_status_groups">Einungis stofnandinn getur boðið nýjum meðlimum í hópinn. Hé fyrir neðan eru allir skráðir meðlimir í hópnum.</string>
+  <!--Private Groups Revealing Contacts-->
+  <string name="groups_reveal_contacts">Uppljóstra um tengiliði</string>
+  <string name="groups_reveal_dialog_message">Þú getur valið hvort eigi að birta tengiliði fyrir öllum núverandi og verðandi meðlimum þessa hóps.\n\nAð ljóstra upp um tengiliði gerir tengingu þína við hópinn hraðari og áreiðanlegri, vegna þess að þá getur þú átt samskipti við birtu tengiliðina jafnvel þótt stofnandi hópsins sé ekki á netinu.</string>
+  <string name="groups_reveal_visible">Vensl tengiliðar eru sýnileg hópnum</string>
+  <string name="groups_reveal_visible_revealed_by_us">Vensl tengiliðar eru sýnileg hópnum (uppljóstrað af þér)</string>
+  <string name="groups_reveal_visible_revealed_by_contact">Vensl tengiliðar eru sýnileg hópnum (uppljóstrað af %s)</string>
+  <string name="groups_reveal_invisible">Vensl tengiliðar eru ekki sýnileg hópnum</string>
+  <!--Forums-->
+  <string name="no_forums">Engin spjallsvæði sem hægt er að birta</string>
+  <string name="no_forums_action">Ýttu á + táknið til að útbúa spjallsvæði, eða biddu tengiliðina þína um að deila spjallsvæði með þér</string>
+  <string name="create_forum_title">Búa til spjallsvæði</string>
+  <string name="choose_forum_hint">Veldu nafn á spjallsvæðið þitt</string>
+  <string name="create_forum_button">Búa til spjallsvæði</string>
+  <string name="forum_created_toast">Spjallsvæði búið til</string>
+  <string name="no_forum_posts">Engar færslur sem hægt er að birta</string>
+  <string name="no_posts">Engar færslur</string>
+  <plurals name="posts">
+    <item quantity="one">%d færsla</item>
+    <item quantity="other">%d færslur</item>
+  </plurals>
+  <string name="forum_new_message_hint">Ný færsla</string>
+  <string name="forum_message_reply_hint">Nýtt svar</string>
+  <string name="btn_reply">Svara</string>
+  <string name="forum_leave">Hætta á spjallsvæði</string>
+  <string name="dialog_title_leave_forum">Staðfesta að hætt sé á spjallsvæði</string>
+  <string name="dialog_message_leave_forum">Ertu viss um að þú viljir fjarlægja þetta spjallsvæði?\n\nAllir tengiliðir sem þú hefur deilt þessu bloggi með gætu hætt að fá uppfærslur.</string>
+  <string name="dialog_button_leave">Hætta</string>
+  <string name="forum_left_toast">Hætti á spjallsvæði</string>
+  <!--Forum Sharing-->
+  <string name="forum_share_button">Deila spjallsvæði</string>
+  <string name="contacts_selected">Tengiliðir valdir</string>
+  <string name="activity_share_toolbar_header">Veldu tengiliði</string>
+  <string name="no_contacts_selector">Engir tengiliðir til að birta</string>
+  <string name="no_contacts_selector_action">Komdu aftur hingað eftir að þú hefur bætt við tengilið</string>
+  <string name="forum_shared_snackbar">Spjallsvæði deilt með völdum tengiliðum</string>
+  <string name="forum_share_message">Bæta við skilaboðum (valfrjálst)</string>
+  <string name="forum_share_error">Villa kom upp við að deila þessu spjallsvæði.</string>
+  <string name="forum_invitation_received">%1$s hefur deilt spjallsvæðinu \"%2$s\" með þér.</string>
+  <string name="forum_invitation_sent">Þú hefur deilt spjallsvæðinu \"%1$s\" með %2$s.</string>
+  <string name="forum_invitations_title">Boð á spjallsvæði</string>
+  <string name="forum_invitation_exists">Þú hefur þegar samþykkt boð inn á þetta spjallsvæði.\n\nAð samþykkja fleiri boð inn á spjallsvæðið mun gera tenginguna þína við spjallsvæðið hraðvirkari og áreiðanlegri.</string>
+  <string name="forum_joined_toast">Tekur þátt á spjallsvæði</string>
+  <string name="forum_declined_toast">Boði hafnað</string>
+  <string name="shared_by_format">Deilt af %s</string>
+  <string name="forum_invitation_already_sharing">Þegar deilt</string>
+  <string name="forum_invitation_response_accepted_sent">Þú samþykktir boð á spjallsvæði frá %s.</string>
+  <string name="forum_invitation_response_declined_sent">Þú hafnaðir boði á spjallsvæði frá %s.</string>
+  <string name="forum_invitation_response_declined_auto">Boði á spjallsvæði frá %s var sjálfvirkt hafnað.</string>
+  <string name="forum_invitation_response_accepted_received">%s samþykkti boð á spjallsvæði.</string>
+  <string name="forum_invitation_response_declined_received">%s hafnaði boði á spjallsvæði.</string>
+  <string name="sharing_status">Staða deilingar</string>
+  <string name="sharing_status_forum">Hver og einn meðlimur spjallsvæðis getur deilt því með tengiliðunum sínum. Þú ert að deila þessu spjallsvæði með eftirfarandi tengiliðum. Það gætu einnig verið fyrir hendi meðlimir sem þú sérð ekki.</string>
+  <string name="shared_with">Deilt með %1$d (%2$d á netinu)</string>
+  <plurals name="forums_shared">
+    <item quantity="one">%d spjallsvæði deilt með tengiliðum</item>
+    <item quantity="other">%d spjallsvæðum deilt með tengiliðum</item>
+  </plurals>
+  <string name="nobody">Enginn</string>
+  <!--Blogs-->
+  <string name="blogs_other_blog_empty_state">Engar færslur sem hægt er að birta</string>
+  <string name="read_more">lesa meira</string>
+  <string name="blogs_write_blog_post">Skrifa bloggfærslu</string>
+  <string name="blogs_write_blog_post_body_hint">Skrifaðu bloggfærsluna þína</string>
+  <string name="blogs_publish_blog_post">Birta</string>
+  <string name="blogs_blog_post_created">Bloggfærsla útbúin</string>
+  <string name="blogs_blog_post_received">Ný bloggfærsla móttekin</string>
+  <string name="blogs_blog_post_scroll_to">Skruna að</string>
+  <string name="blogs_feed_empty_state">Engar færslur sem hægt er að birta</string>
+  <string name="blogs_feed_empty_state_action">Færslur frá tengiliðum þínum og bloggum sem þú ert áskrifandi að munu birtast hér\n\nÝttu á pennatáknið til að skrifa færslu</string>
+  <string name="blogs_remove_blog">Fjarlægja blogg</string>
+  <string name="blogs_remove_blog_dialog_message">Ertu viss um að þú viljir fjarlægja þetta blogg?\n\nFærslur verða fjarlægðar af tækinu þínu en ekki tækjum annars fólks.\n\nAllir tengiliðir sem þú hefur deilt þessu bloggi með gætu hætt að fá uppfærslur.</string>
+  <string name="blogs_remove_blog_ok">Fjarlægja</string>
+  <string name="blogs_blog_removed">Blogg var fjarlægt</string>
+  <string name="blogs_reblog_comment_hint">Bæta við athugasemd (valkvætt)</string>
+  <string name="blogs_reblog_button">Endurbirta</string>
+  <!--Blog Sharing-->
+  <string name="blogs_sharing_share">Deila bloggi</string>
+  <string name="blogs_sharing_error">Það kom upp villa við að deila þessu bloggi.</string>
+  <string name="blogs_sharing_button">Deila bloggi</string>
+  <string name="blogs_sharing_snackbar">Bloggi deilt með völdum tengiliðum</string>
+  <string name="blogs_sharing_response_accepted_sent">Þú samþykktir boð á blogg frá %s.</string>
+  <string name="blogs_sharing_response_declined_sent">Þú hafnaðir boði á blogg frá %s.</string>
+  <string name="blogs_sharing_response_declined_auto">Boði á blogg frá %s var sjálfvirkt hafnað.</string>
+  <string name="blogs_sharing_response_accepted_received">%s samþykkti boð á blogg.</string>
+  <string name="blogs_sharing_response_declined_received">%s hafnaði boði á blogg.</string>
+  <string name="blogs_sharing_invitation_received">%1$s deildi blogginu \"%2$s\" með þér.</string>
+  <string name="blogs_sharing_invitation_sent">Þú deildir blogginu \"%1$s\" með %2$s.</string>
+  <string name="blogs_sharing_invitations_title">Boð á blogg</string>
+  <string name="blogs_sharing_joined_toast">Gerðist áskrifandi að bloggi</string>
+  <string name="blogs_sharing_declined_toast">Boði hafnað</string>
+  <string name="sharing_status_blog">Hver sá sem gerist áskrifandi að bloggi getur deilt því með tengiliðunum sínum. Þú ert að deila þessu bloggi með eftirfarandi tengiliðum. Það gætu einnig verið fyrir hendi áskrifendur sem þú sérð ekki.</string>
+  <!--RSS Feeds-->
+  <string name="blogs_rss_feeds_import">Flytja inn RSS-streymi</string>
+  <string name="blogs_rss_feeds_import_button">Flytja inn</string>
+  <string name="blogs_rss_feeds_import_hint">Settu inn slóðina á RSS-streymið</string>
+  <string name="blogs_rss_feeds_import_error">Því miður! Það kom upp villa við að flytja inn streymið.</string>
+  <string name="blogs_rss_feeds">RSS-fréttastreymi</string>
+  <string name="blogs_rss_feeds_manage_imported">Flutt inn:</string>
+  <string name="blogs_rss_feeds_manage_author">Höfundur:</string>
+  <string name="blogs_rss_feeds_manage_updated">Síðast uppfært:</string>
+  <string name="blogs_rss_remove_feed">Fjarlægja streymi</string>
+  <string name="blogs_rss_remove_feed_dialog_message">Ertu viss um að þú viljir fjarlægja þetta streymi?\n\nFærslur verða fjarlægðar af tækinu þínu en ekki tækjum annars fólks.\n\nAllir tengiliðir sem þú hefur deilt þessu streymi með gætu hætt að fá uppfærslur.</string>
+  <string name="blogs_rss_remove_feed_ok">Fjarlægja</string>
+  <string name="blogs_rss_feeds_manage_empty_state">Engin RSS-streymi til að birta\n\nÝttu á + táknið til að flytja inn streymi</string>
+  <string name="blogs_rss_feeds_manage_error">Vandamál hefur komið upp með að hlaða inn streymunum þínum. Reyndu aftur síðar.</string>
+  <!--Settings Profile Picture-->
+  <string name="change_profile_picture">Ýttu til að skipta um auðkennismyndina þína</string>
+  <string name="dialog_confirm_profile_picture_title">Skipta um auðkennismynd</string>
+  <string name="dialog_confirm_profile_picture_remark">Einungis tengiliðirnir þínir geta séð þessa mynd</string>
+  <string name="change_profile_picture_failed_message">Því miður, eitthvað fór úrskeiðis við að uppfæra auðkennismyndina þína.</string>
+  <!--Settings Display-->
+  <string name="pref_language_title">Tungumál og landsvæði</string>
+  <string name="pref_language_changed">Þessi stilling tekur gildi í næst þegar þú skráir þig inn í Briar. Skráðu þig út og endurræstu Briar.</string>
+  <string name="pref_language_default">Sjálfgefið í kerfinu</string>
+  <string name="display_settings_title">Birting</string>
+  <string name="pref_theme_title">Þema</string>
+  <string name="pref_theme_light">Ljóst</string>
+  <string name="pref_theme_dark">Dökkt</string>
+  <string name="pref_theme_system">Sjálfgefið í kerfinu</string>
+  <!--Settings Connections-->
+  <string name="network_settings_title">Tengingar</string>
+  <string name="bluetooth_setting">Tengjast tengiliðum í gegnum Bluetooth</string>
+  <string name="wifi_setting">Tengjast tengiliðum á sama þráðlausa Wi-Fi neti</string>
+  <string name="tor_enable_title">Tengjast tengiliðum í gegnum internetið</string>
+  <string name="tor_enable_summary">Allar tengingar fara í gegnum Tor-netið til að vernda persónuupplýsingar</string>
+  <string name="tor_network_setting">Aðferðir til tengingar við Tor-netið</string>
+  <string name="tor_network_setting_automatic">Sjálfvirkt byggt á staðsetningu</string>
+  <string name="tor_network_setting_without_bridges">Nota Tor-netkerfið án brúa</string>
+  <string name="tor_network_setting_with_bridges">Nota Tor-netkerfið með brúm</string>
+  <string name="tor_network_setting_never">Ekki tengjast við internetið</string>
+  <!--How and when Briar will connect to Tor: E.g. "Don't connect to the Internet (in China)" or "Use Tor network with bridges (in Belarus)"-->
+  <string name="tor_network_setting_summary">Sjálfvirkt: %1$s (eftir %2$s)</string>
+  <string name="tor_mobile_data_title">Nota farsímagagnasamband</string>
+  <string name="tor_only_when_charging_title">Tengjast í gegnum internetið aðeins þegar verið er í hleðslu</string>
+  <string name="tor_only_when_charging_summary">Gerir internettengingu óvirka þegar tækið keyrir á rafhlöðu</string>
+  <!--Settings Security and Panic-->
+  <string name="security_settings_title">Öryggi</string>
+  <string name="pref_lock_title">Forritslæsing</string>
+  <string name="pref_lock_summary">Notaðu skjálæsingu tækisins til að vernda Briar á meðan þú ert skráð/ur inn</string>
+  <string name="pref_lock_disabled_summary">Til að nota þetta þarftu að setja upp skjálæsingu fyrir tækið þitt</string>
+  <string name="pref_lock_timeout_title">Tímamörk læsingar forrits við aðgerðaleysi</string>
+  <!--The %s placeholder is replaced with the following time spans, e.g. 5 Minutes, 1 Hour-->
+  <string name="pref_lock_timeout_summary">Þegar ekki er verið að nota Briar, læsa því sjálfvirkt eftir %s</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_1">1 mínúta</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_5">5 mínútur</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_15">15 mínútur</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_30">30 mínútur</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_60">1 klukkustund</string>
+  <string name="pref_lock_timeout_never">Aldrei</string>
+  <string name="pref_lock_timeout_never_summary">Aldrei læsa Briar sjálfvirkt</string>
+  <string name="change_password">Breyta lykilorði</string>
+  <string name="current_password">Núverandi lykilorð</string>
+  <string name="choose_new_password">Nýtt lykilorð</string>
+  <string name="confirm_new_password">Staðfestu nýtt lykilorð</string>
+  <string name="password_changed">Lykilorðinu hefur verið breytt</string>
+  <string name="panic_setting">Uppsetning neyðarhnapps</string>
+  <string name="panic_setting_title">Neyðarhnappur</string>
+  <string name="panic_setting_hint">Stilltu hvernig Briar mun bregðast við ef þú notar neyðarhnappsforrit</string>
+  <string name="panic_app_setting_title">Forrit fyrir neyðarhnapp</string>
+  <string name="unknown_app">óþekkt forrit</string>
+  <string name="panic_app_setting_summary">Ekkert forrit hefur verið stillt</string>
+  <string name="panic_app_setting_none">Ekkert</string>
+  <string name="dialog_title_connect_panic_app">Staðfesta neyðarhnappsforrit</string>
+  <string name="dialog_message_connect_panic_app">Ertu viss um að þú viljir leyfa %1$s að setja í gang eyðileggjandi neyðarhnappsaðgerðir?</string>
+  <string name="panic_setting_destructive_action">Óafturkræfar aðgerðir</string>
+  <string name="panic_setting_signout_title">Skrá út</string>
+  <string name="panic_setting_signout_summary">Skrá út úr Briar ef ýtt er á neyðarhnapp</string>
+  <string name="purge_setting_title">Eyða notandaaðgangi</string>
+  <string name="purge_setting_summary">Eyða Briar-aðgangnum þínum ef ýtt er á neyðarhnapp. Varúð: Þetta mun eyða endanlega auðkennunum þínum, tengiliðum og skilaboðum</string>
+  <!--Settings Notifications-->
+  <string name="notification_settings_title">Tilkynningar</string>
+  <string name="notify_sign_in_title">Minna mig á að skrá inn</string>
+  <string name="notify_sign_in_summary">Birta áminningu þegar síminn er ræstur eða þegar forritið hefur verið uppfært</string>
+  <string name="notify_private_messages_setting_title">Einkaskilaboð</string>
+  <string name="notify_private_messages_setting_summary">Birta aðvaranir vegna einkaskilaboða</string>
+  <string name="notify_private_messages_setting_summary_26">Stilla aðvaranir vegna einkaskilaboða</string>
+  <string name="notify_group_messages_setting_title">Hópskilaboð</string>
+  <string name="notify_group_messages_setting_summary">Birta aðvaranir vegna hópskilaboða</string>
+  <string name="notify_group_messages_setting_summary_26">Stilla aðvaranir vegna hópskilaboða</string>
+  <string name="notify_forum_posts_setting_title">Færslur á spjallsvæði</string>
+  <string name="notify_forum_posts_setting_summary">Birta aðvaranir vegna færslna á spjallsvæði</string>
+  <string name="notify_forum_posts_setting_summary_26">Stilla aðvaranir vegna færslna á spjallsvæði</string>
+  <string name="notify_blog_posts_setting_title">Bloggfærslur</string>
+  <string name="notify_blog_posts_setting_summary">Birta aðvaranir vegna færslna á bloggi</string>
+  <string name="notify_blog_posts_setting_summary_26">Stilla aðvaranir vegna færslna á bloggi</string>
+  <string name="notify_vibration_setting">Titra</string>
+  <string name="notify_sound_setting">Hljóð</string>
+  <string name="notify_sound_setting_default">Sjálfgefinn hringitónn</string>
+  <string name="notify_sound_setting_disabled">Ekkert</string>
+  <string name="choose_ringtone_title">Veldu hringitón</string>
+  <string name="cannot_load_ringtone">Get ekki hlaðið inn hringitóni</string>
+  <!--Mailbox-->
+  <string name="mailbox_settings_title">Pósthólf</string>
+  <string name="mailbox_setup_title">Uppsetning pósthólfs</string>
+  <string name="mailbox_setup_intro">Pósthólf gerir tengiliðunum þínum kleift að senda þér skilaboð á meðan þú ert ekki á netinu. Pósthólfið tekur við skilaboðum og geymir þau þar til þú kemst í samband.\n
+		\nÞú getur sett upp Briar Mailbox pósthólfsforritið á aukatæki. Haltu því tengdu við rafmagn og Wi-Fi þannig að það verði alltaf til taks á netinu.</string>
+  <string name="mailbox_setup_download">Fyrst skaltu setja upp pósthólfsforritið á öðru tæki með því að leita að \"Briar Mailbox\" á Google Play eða hvar sem það var sem þú náðir í Briar.\n
+		\nTengdu síðan pósthólfið við Briar með því að skanna QR-kóðann sem birtist í pósthólfsforritinu.</string>
+  <string name="mailbox_setup_download_link">Deila niðurhalstengli</string>
+  <string name="mailbox_setup_button_scan">Skanna QR-kóða pósthólfs</string>
+  <string name="permission_camera_qr_denied_body">Þú hefur hafnað aðgangi að myndavélinni, en það að skanna QR-kóða krefst notkun hennar.\n\nÍhugaðu að veita þennan aðgang.</string>
+  <!--This string is shown when connecting to a Mailbox for the first time. The placeholder will be replaced with a duration, e.g. "2 minutes".-->
+  <string name="mailbox_setup_already_paired_title">Pósthólf er þegar tengt</string>
+  <string name="mailbox_setup_already_paired_description">Aftengdu pósthólfið á hinu tækinu þínu og prófaðu aftur.</string>
+  <string name="mailbox_setup_io_error_title">Mistókst að tengjast</string>
+  <string name="mailbox_setup_io_error_description">Gakktu úr skugga um að bæði tækin séu tengd við internetið og prófaðu svo aftur.</string>
+  <string name="mailbox_setup_assertion_error_title">Villa í pósthólfi</string>
+  <string name="mailbox_setup_assertion_error_description">Sendu umsögn (með naflausum gögnum) í gegnum Briar forritið ef vandamálið er viðvarandi.</string>
+  <string name="mailbox_setup_camera_error_description">Náði ekki sambandi við myndavél. Prófaðu aftur, kannski eftir að hafa endurræst tækið.</string>
+  <string name="mailbox_setup_paired_title">Tengt</string>
+  <string name="mailbox_setup_paired_description">Tekist hefur að tengja pósthólfið þitt við Briar.\n
+		\nHaltu pósthólfinu þínu tengdu við rafmagn og Wi-Fi þannig að það sé alltaf á netinu.</string>
+  <string name="tor_offline_title">Ónettengt</string>
+  <string name="tor_offline_description">Gakktu úr skugga um að þetta tæki sé tengt við netið og að tengingar við internetið séu leyfðar.\n
+		\nSíðan skaltu bíða eftir að hnatttáknið á tengistillingaskjánum verði grænt.</string>
+  <string name="tor_offline_button_check">Athugaðu tengistillingarnar</string>
+  <string name="mailbox_status_title">Staða pósthólfs</string>
+  <string name="mailbox_status_connected_title">Pósthólf er í gangi</string>
+  <string name="mailbox_status_failure_title">Pósthólf er ekki tiltækt</string>
+  <string name="mailbox_status_check_button">Athugaðu tenginguna</string>
+  <!--Example for string substitution: Last connection: 3min ago-->
+  <string name="mailbox_status_connected_info">Síðasta tenging: %s</string>
+  <!--Indicates that there never was a connection to the mailbox. Last connection: Never-->
+  <string name="mailbox_status_connected_never">Aldrei</string>
+  <string name="mailbox_status_unlink_button">Aftengja</string>
+  <!--About-->
+  <string name="about_title">Um hugbúnaðinn</string>
+  <string name="links">Hlekkir</string>
+  <!--Here translators can add their names or Transifex usernames(eg "Thanks to all the contributors at the Localization Lab, especially Tom, Matthew and Jerry")-->
+  <!--Conversation Settings-->
+  <string name="disappearing_messages_title">Sjálfeyðandi skilaboð</string>
+  <string name="disappearing_messages_explanation_long">Ef kveikt er á þessari stillingu munu ný
+		skilaboð í þessu samtali hverfa sjálfkrafa eftir 7\u00A0daga.
+		\n\nNiðurtalning fyrir afrit sendandans af skilaboðum hefst eftir að það hefur verið afhent.
+		Niðurtalning fyrir viðtakandann hefst þegar hann hefur lesið skilaboðin.
+		\n\nSjálfeyðandi skilaboð eru merkt með sprengjutákni.
+		\n\nHafðu í huga að viðtakendur geta eftir sem áður gert afrit af skilaboðum sem þú sendir.
+		\n\nEf þú breytir þessum stillingum, munu þær eiga strax við um ný skilaboð og við skilaboð 
+		tengiliðarins þíns um leið og hann fær næstu skilaboð frá þér.
+		Tengiliðurinn þinn getur líka breytt þessari stillingu fyrir ykkur báða.</string>
+  <string name="learn_more">Fræðast frekar</string>
+  <string name="disappearing_messages_summary">Láta öll frekari skilaboð í þessu samtali hverfa sjálfkrafa eftir 7\u00A0daga.</string>
+  <!--Settings Actions-->
+  <string name="pref_category_actions">Aðgerðir</string>
+  <string name="send_feedback">Senda umsögn</string>
+  <!--Link Warning-->
+  <string name="link_warning_title">Aðvörun vegna tengils</string>
+  <string name="link_warning_intro">Þú ert í þann mund að fara að opna eftirfarandi tengil með utanaðkomandi forriti.</string>
+  <string name="link_warning_text">Þetta er hægt að nota til að auðkenna þig. Hugsaðu þig vel um hvort þú treystir þeim sem sendi þér þennan tengil og íhugaðu hvort þú ættir frekar að opna hann með Tor-vafranum.</string>
+  <string name="link_warning_open_link">Opna tengil</string>
+  <!--Crash Reporter-->
+  <string name="crash_report_title">Hrunskýrsla fyrir Briar</string>
+  <string name="briar_crashed">Því miður, Briar hefur hrunið</string>
+  <string name="not_your_fault">Það er ekki þér að kenna.</string>
+  <string name="please_send_report">Hjálpaðu okkur við að bæta Briar með því að senda okkur hrunskýrslu.</string>
+  <string name="report_is_encrypted">Við lofum að skýrslan sé dulrituð og send á öruggan máta.</string>
+  <string name="feedback_title">Umsagnir</string>
+  <string name="describe_crash">Lýstu því hvað gerðist (valfrjálst)</string>
+  <string name="enter_feedback">Settu inn umsögnina þína</string>
+  <string name="optional_contact_email">Tölvupóstfangið þitt (valfrjálst)</string>
+  <string name="include_debug_report_crash">Senda nafnlaus gögn um hrunið</string>
+  <string name="include_debug_report_feedback">Senda nafnlaus gögn um tækið</string>
+  <string name="dev_report_user_info">Upplýsingar um notanda</string>
+  <string name="dev_report_basic_info">Grunnupplýsingar</string>
+  <string name="dev_report_device_info">Upplýsingar um tæki</string>
+  <string name="dev_report_stacktrace">Stacktrace-rakning</string>
+  <string name="dev_report_time_info">Tímaupplýsingar</string>
+  <string name="dev_report_memory">Minni</string>
+  <string name="dev_report_storage">Geymslurými</string>
+  <string name="dev_report_connectivity">Tengingar</string>
+  <string name="dev_report_network_usage">Notkun netkerfis</string>
+  <string name="dev_report_build_config">Byggingaruppsetning</string>
+  <string name="dev_report_logcat">Atvikaskrá forrits</string>
+  <string name="dev_report_device_features">Eiginleikar tækis</string>
+  <string name="send_report">Senda skýrslu</string>
+  <string name="close">Loka</string>
+  <string name="dev_report_sending">Sendi umsögn…</string>
+  <string name="dev_report_sent">Umsögn send</string>
+  <string name="dev_report_saved">Skýrsla vistuð. Hún verður send næst þegar þú skráir þig inn í Briar.</string>
+  <string name="dev_report_error">Villa: Sending skýrslu mistókst</string>
+  <!--Sign Out-->
+  <string name="progress_title_logout">Skrái út úr Briar…</string>
+  <!--Screen Filters & Tapjacking-->
+  <string name="screen_filter_title">Skjáyfirlag fannst</string>
+  <string name="screen_filter_body">Annað forrit er að birta upplýsingar ofan á Briar. Í öryggisskyni mun Briar ekki bregðast við snertingum þegar annað forrit teiknar ofaná það.\n\nEftirfarandi forrit gætu verið að birta upplýsingar ofan á:\n\n%1$s</string>
+  <string name="screen_filter_body_api_30">Annað forrit er að birta upplýsingar ofan á Briar. Í öryggisskyni mun Briar ekki bregðast við snertingum þegar annað forrit teiknar ofaná það.\n\nSkoðaðu eftirfarandi forrit til að finna það þeirra sem gæti valdið þessu.</string>
+  <string name="screen_filter_allow">Leyfa þessum forritum að birta upplýsingar efst</string>
+  <string name="screen_filter_review_apps">Yfirfara forrit</string>
+  <!--Permission Requests-->
+  <string name="permission_camera_title">Heimildir á myndavél</string>
+  <string name="permission_camera_request_body">Til að skanna QR-kóðann þarf Briar heimild til að nota myndavélina.</string>
+  <string name="permission_location_title">Heimild fyrir staðsetningu</string>
+  <string name="permission_location_request_body">Til að finna Bluetooth-tæki, þarf Briar heimild til að nota staðsetningu þína.\n\nBriar geymir ekki staðsetningar eða deilir þeim með neinum.</string>
+  <string name="permission_camera_location_title">Myndavél og staðsetning</string>
+  <string name="permission_camera_location_request_body">Til að skanna QR-kóðann, þarf Briar aðgang að myndavélinni.\n\nTil að finna Bluetooth-tæki, þarf Briar heimild til að nota staðsetningu þína.\n\nBriar geymir ekki staðsetningar eða deilir þeim með neinum.</string>
+  <string name="permission_camera_denied_body">Þú hefur hafnað aðgangi að myndavélinni, en það að bæta við tengiliðum krefst notkun hennar.\n\nÍhugaðu að veita þennan aðgang.</string>
+  <string name="permission_location_denied_body">Þú hefur hafnað aðgangi að staðsetningu, en Briar þarf þessa heimild til að geta fundið Bluetooth-tæki.\n\nÍhugaðu að veita þennan aðgang.</string>
+  <string name="permission_location_setting_title">Stilling staðsetningar</string>
+  <string name="permission_location_setting_body">Kveikt þarf að vera á staðsetningu tækisins þíns til að geta fundið önnur tæki með Bluetooth. Virkjaðu staðsetningu til að halda áfram. Þú getur svo gert hana óvirka aftur á eftir.</string>
+  <string name="permission_location_setting_button">Virkja staðsetningu</string>
+  <string name="qr_code">QR-kóði</string>
+  <string name="show_qr_code_fullscreen">Birta QR-kóða á öllum skjánum</string>
+  <!--App Locking-->
+  <string name="lock_unlock">Aflæsa Briar</string>
+  <string name="lock_unlock_verbose">Settu inn PIN-númer tækisins, mynstur eða lykilorðið þitt til að aflæsa Briar</string>
+  <string name="lock_unlock_fingerprint_description">Snertu fingrafaraskynjarann með viðeigandi fingri til að halda áfram</string>
+  <string name="lock_unlock_password">Nota lykilorð</string>
+  <string name="lock_is_locked">Briar er læst</string>
+  <string name="lock_tap_to_unlock">Ýttu til að aflæsa</string>
+  <!--Connections Screen-->
+  <string name="transports_help_text">Briar getur tengst við tengiliðina þína í gegnum internet, Wi-Fi eða Bluetooth.\n\nAllar internettengingar fara í gegnum Tor-netkerfið til að gæta gagnaleyndar.\n\nEf hægt er að nálgast tengilið með mörgum leiðum, notar Briar þær samhliða.</string>
+  <!--Share app offline-->
+  <string name="hotspot_title">Deila þessu forriti án nettengingar</string>
+  <string name="hotspot_intro">Deildu þessu forriti til einhvers í næsta nágrenni án internet-tengingar með því að nota Wi-Fi kerfi símans.
+		\n\nSnjallsíminn þinn mun setja í gang Wi-Fi aðgangsstað. Fólk í nágrenninu getur tengst aðgangsstaðnum og sótt Briar-forritið frá símanum þínum.</string>
+  <string name="hotspot_button_start_sharing">Ræsa aðgangsstað</string>
+  <string name="hotspot_button_stop_sharing">Stöðva aðgangsstað</string>
+  <string name="hotspot_progress_text_start">Set upp aðgangsstað…</string>
+  <string name="hotspot_notification_channel_title">Þráðlaus Wi-Fi aðgangsstaður</string>
+  <string name="hotspot_notification_title">Deiling Briar án nettengingar</string>
+  <string name="hotspot_button_connected">Næsta</string>
+  <string name="permission_hotspot_location_request_body">Til að útbúa Wi-Fi aðgangsstað, þarf Briar heimild til að nota staðsetningu þína.\n\nBriar geymir ekki staðsetningar eða deilir þeim með neinum.</string>
+  <string name="permission_hotspot_location_denied_body">Þú hefur hafnað aðgangi að staðsetningu, en Briar þarf þessa heimild til að geta útbúið Wi-Fi-aðgangsstað.\n\nÍhugaðu að veita þennan aðgang.</string>
+  <string name="wifi_settings_title">Wi-Fi-stillingar</string>
+  <string name="wifi_settings_request_enable_body">Til að útbúa Wi-Fi aðgangsstað þarf Briar að nota Wi-Fi. Virkjaðu það.</string>
+  <string name="hotspot_tab_manual">Handvirkt</string>
+  <!--The placeholder to be inserted into the string 'hotspot_manual_wifi': People can connect by %s-->
+  <string name="hotspot_scanning_a_qr_code">skanna QR-kóða</string>
+  <!--Wi-Fi setup-->
+  <!--The %s placeholder will be replaced with the translation of 'hotspot_scanning_a_qr_code'-->
+  <string name="hotspot_manual_wifi">Síminn þinn er að reka Wi-Fi aðgangsstað. Fólk sem vill sækja Briar getur tengst aðgangsstaðnum með því að bæta honum við í Wi-Fi stillingum tækisins síns með upplýsingunum hér fyrir neðan eða með því að %s. Þegar þau hafa tengst aðgangsstaðnum er ýtt á \'Næsta\'.</string>
+  <string name="hotspot_manual_wifi_ssid">Heiti netkerfis</string>
+  <string name="hotspot_qr_wifi">Síminn þinn er að reka Wi-Fi aðgangsstað. Fólk sem vill sækja Briar getur tengst aðgangsstaðnum með því að skanna þennan QR-kóða. Þegar þau hafa tengst aðgangsstaðnum er ýtt á \'Næsta\'.</string>
+  <string name="hotspot_no_peers_connected">Engin tæki tengd</string>
+  <plurals name="hotspot_peers_connected">
+    <item quantity="one">%s tæki tengt</item>
+    <item quantity="other">%s tæki tengd</item>
+  </plurals>
+  <!--Download link-->
+  <!--The %s placeholder will be replaced with the translation of 'hotspot_scanning_a_qr_code'-->
+  <string name="hotspot_manual_site">Síminn þinn er að reka Wi-Fi aðgangsstað. Fólk sem er tengt aðgangsstaðnum getur sótt Briar með því að skrifa eftirfarandi slóð inn í vafra eða %s.</string>
+  <string name="hotspot_manual_site_address">Vistfang (URL)</string>
+  <string name="hotspot_qr_site">Síminn þinn er að reka Wi-Fi aðgangsstað. Fólk sem er tengt aðgangsstaðnum getur sótt Briar með því að skanna þennan QR-kóða.</string>
+  <!--e.g. Download Briar 1.2.20-->
+  <string name="website_download_outro">Eftir að niðurhalinu er lokið, skaltu opna sóttu skrána og setja hana upp.</string>
+  <string name="website_troubleshooting_title">Lausn á vandamálum</string>
+  <string name="website_troubleshooting_1">Ef þú getur ekki sótt forritið, ættirðu að prófa það með öðrum vafra.</string>
+  <string name="website_troubleshooting_2_old">Til að setja upp forritið sem þú sóttir, gætirðu þurft að leyfa uppsetningar á forritum af \"Óþekktum uppruna - Unknown sources\" í kerfisstillingunum. Síðan gætirðu þurft að ná aftur í forritið. Við mælum með að stillingin \"Óþekktur uppruni - Unknown sources\" sé gert óvirkt aftur eftir að forritið hefur verið sett upp.</string>
+  <string name="website_troubleshooting_2_new">Til að setja upp forritið sem þú sóttir, gætirðu þurft að leyfa vafranum uppsetningar á forritum af óþekktum uppruna. Við mælum með að heimild vafrans til uppsetningar frá óþekktum uppruna sé gert óvirk aftur eftir að forritið hefur verið sett upp.</string>
+  <string name="hotspot_help_wifi_title">Vandamál við að tengjast við Wi-Fi:</string>
+  <string name="hotspot_help_wifi_1">Prófaðu að gera Wi-Fi óvirkt og virkja það aftur á báðum símunum og reyndu svo aftur.</string>
+  <string name="hotspot_help_wifi_2">Ef síminn þinn kvartar yfir að Wi-Fi kerfið sé ekki með neina internettengingu, skaltu segjast vilja samt halda tengingunni.</string>
+  <string name="hotspot_help_wifi_3">Endurræstu símann sem er að keyra Wi-Fi aðgangsstaðinn, ræstu síðan Briar og prófaðu aftur að deila.</string>
+  <string name="hotspot_help_site_title">Vandamál við að skoða staðvært vefsvæði:</string>
+  <string name="hotspot_help_site_1">Gakktu úr skugga um að þú hafir sett vistfangið inn nákvæmlega eins og sýnt er. Smávægileg frávik valta því að þetta virkar ekki.</string>
+  <string name="hotspot_help_site_2">Gakktu úr skugga um að síminn þinn sé ennþá tengdur við rétta Wi-Fi netið (sjá fyrir ofan) þegar þú reynir að tengjast vefsvæðinu.</string>
+  <string name="hotspot_help_site_3">Ef þú ert með eldveggjarhugbúnað í gangi, skaltu vera viss um að það sé ekki að loka fyrir aðgang.</string>
+  <string name="hotspot_help_site_4">Ef þú getur skoðað vefsvæðið en ekki sótt Briar-forritið, ættirðu að prófa það með öðrum vafra.</string>
+  <string name="hotspot_help_fallback_title">Virkar ekkert?</string>
+  <string name="hotspot_help_fallback_intro">Þú getur reynt að vista forritið sem .apk skrá til að deila því á einhvern annan máta. Þegar skráin hefur verið færð yfir á hitt tækið, má nota hana til að setja upp Briar.
+		\n\nÁbending: Til að deila í gegnum Bluetooth, gætirðu fyrst þurft að endurnefna hana þannig að nafnið endi á .zip.</string>
+  <string name="hotspot_help_fallback_button">Vista forrit</string>
+  <!--error handling-->
+  <string name="hotspot_error_intro">Eitthvað fór úrskeiðis þegar reynt var að deila forritinu með Wi-Fi:</string>
+  <string name="hotspot_error_no_wifi_direct">Þetta tæki styður ekki beint Wi-Fi samband.</string>
+  <string name="hotspot_error_start_callback_failed">Aðgangsstaður ræstist ekki: villa %s</string>
+  <string name="hotspot_error_start_callback_failed_unknown">Aðgangsstaður ræstist ekki vegna óþekktrar villu, ástæðan er %d</string>
+  <string name="hotspot_error_start_callback_no_group_info">Aðgangsstaður ræstist ekki: engar hópupplýsingar</string>
+  <string name="hotspot_error_web_server_start">Villa við að ræsa vefþjón</string>
+  <string name="hotspot_error_web_server_serve">Villa við að birta vefsvæði.\n\nSendu umsögn (með naflausum gögnum) í gegnum Briar forritið ef vandamálið er viðvarandi.</string>
+  <string name="hotspot_flag_test">Aðvörun: Þetta forrit var sett upp með Android Studio og er EKKI hægt að setja upp á öðru tæki.</string>
+  <string name="hotspot_error_framework_busy">Tekst ekki að ræsa aðgangsstaðinn.\n\nEf þú ert að keyra annan aðgangsstað eða ert að deila internettengingunni þinni í gegnum Wi-Fi, skaltu slökkva á því og prófa síðan aftur.</string>
+  <!--Transfer Data via Removable Drives-->
+  <string name="removable_drive_menu_title">Tengjast í gegnum útskiptanlegt drif</string>
+  <string name="removable_drive_intro">Ef þú nærð ekki að tengjast tengiliðnum þínum í gegnum internet, Wi-Fi eða Bluetooth, getur Briar einnig flutt skilaboð á útskiptanleg drif á borð við USB-minnislykil eða SD-minniskort.</string>
+  <string name="removable_drive_explanation">Ef þú nærð ekki að tengjast tengiliðnum þínum í gegnum internet, Wi-Fi eða Bluetooth, getur Briar einnig flutt skilaboð á útskiptanleg drif á borð við USB-minnislykil eða SD-minniskort.\n\nÞegar þú sérð hnappinn \"Senda gögn\", verða öll gögn sem bíða eftir að verða send til tengiliðarins skrifuð á útskiptanlega drifið. Þar má telja einkaskilaboð, viðhengi, blogg, spjallsvæði og einkahópar.\n\nAlltsaman verður dulritað áður en það er skrifað á útskiptanlega drifið.\n\nÞegar tengiliðurinn fær svo útskiptanlega drifið í hendurnar, getur hann notað hnappinn \"Taka við gögnum\" til að flytja öll skilaboðin inn í Briar.</string>
+  <string name="removable_drive_title_send">Senda gögn</string>
+  <string name="removable_drive_title_receive">Taka við gögnum</string>
+  <string name="removable_drive_send_intro">Ýttu á hnappinn hér fyrir neðan til að útbúa nýja skrá sem inniheldur dulrituðu skilaboðin. Þú getur valið hvar skráin verður vistuð.\n\nEf þú ætlar að vista skrána á útskiptanlegt drif, skaltu setja það í samband núna.</string>
+  <string name="removable_drive_send_no_data">Það eru engin skilaboð sem bíða eftir að vera send til þessa tengiliðar.</string>
+  <string name="removable_drive_send_not_supported">Þessi tengiliður er að nota gamla útgáfu af Briar eða gamalt tæki sem styður ekki þennan eiginleika.</string>
+  <string name="removable_drive_send_button">Veldu skrá til að flytja út</string>
+  <string name="removable_drive_ongoing">Bíddu eftir að verk sem er í gangi klárist</string>
+  <string name="removable_drive_receive_intro">Ýttu á hnappinn hér fyrir neðan til að velja skrána sem tengiliðurinn sendi þér.\n\nEf skráin er á útskiptanlegu drifi, skaltu tengja það núna.</string>
+  <string name="removable_drive_receive_button">Veldu skrá til að flytja inn</string>
+  <string name="removable_drive_success_send_title">Útflutningur tókst</string>
+  <string name="removable_drive_success_send_text">Tókst að flytja út gögn. Þú hefur núna 28 daga til að koma skránni til tengiliðarins þíns.\n\nEf skráin er á útskiptanlegu drifi, skaltu nota táknið í stöðustikunni til að spýta út drifinu áður en þú aftengir það.</string>
+  <string name="removable_drive_success_receive_title">Innflutningur tókst</string>
+  <string name="removable_drive_success_receive_text">Öll dulrituð skilaboð inni í þessari skrá hafa verið móttekin.</string>
+  <string name="removable_drive_error_send_title">Villa við útflutning gagna</string>
+  <string name="removable_drive_error_send_text">Villa kom upp við að skrifa gögn í skrána.\n\nEf þú ert að nota útskiptanlegt drif, gakkti þá úr skugga um að það sé rétt tengt og prófaðu svo aftur.\n\nEf villan heldur áfram að birtast, skaltu endilega senda Briar-teyminu línu og láta þau vita af vandamálinu.</string>
+  <string name="removable_drive_error_receive_title">Villa í innflutningi gagna</string>
+  <string name="removable_drive_error_receive_text">Valda skráin innihélt ekkert sem Briar gat lagt kennsl á.\n\nVertu viss um að þú hafir valið rétta skrá.\n\nEf tengiliðurinn þinn útbjó skrána fyrir meira en 28 dögum síðan, mun Briar ekki geta þekkt hana.</string>
+  <!--Screenshots-->
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_alice">Lísa</string>
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_bob">Bjössi</string>
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_carol">Kata</string>
+  <!--This is a message to be used in screenshots. Please use the same translation for Bob!-->
+  <string name="screenshot_message_1">Hæ Bjössi!</string>
+  <!--This is a message to be used in screenshots. Please use the same translation for Alice!-->
+  <string name="screenshot_message_2">Hæ Lísa! Takk fyrir að segja mér frá Briar!</string>
+  <!--This is a message to be used in screenshots.-->
+  <string name="screenshot_message_3">Ekki málið, vona að þér líki það 😀</string>
+</resources>

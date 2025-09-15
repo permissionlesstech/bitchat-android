@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent">
+
+	<com.google.android.material.appbar.MaterialToolbar
+		android:id="@+id/toolbar"
+		style="@style/BriarToolbar"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toTopOf="parent"
+		app:navigationIcon="@drawable/abc_ic_ab_back_material"
+		app:title="@string/disappearing_messages_title" />
+
+	<ScrollView
+		android:layout_width="match_parent"
+		android:layout_height="0dp"
+		app:layout_constraintBottom_toBottomOf="parent"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toBottomOf="@id/toolbar">
+
+		<androidx.constraintlayout.widget.ConstraintLayout
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content">
+
+			<ImageView
+				android:id="@+id/imageViewBomb"
+				android:layout_width="64dp"
+				android:layout_height="64dp"
+				android:layout_marginTop="16dp"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toTopOf="parent"
+				app:srcCompat="@drawable/ic_bomb"
+				app:tint="?attr/colorControlNormal"
+				tools:ignore="ContentDescription" />
+
+			<com.google.android.material.materialswitch.MaterialSwitch
+				android:id="@+id/switchDisappearingMessages"
+				android:layout_width="0dp"
+				android:layout_height="wrap_content"
+				android:layout_margin="16dp"
+				android:enabled="false"
+				android:text="@string/disappearing_messages_summary"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@+id/imageViewBomb"
+				tools:checked="true"
+				tools:enabled="true" />
+
+			<Button
+				android:id="@+id/buttonLearnMore"
+				style="@style/BriarButtonFlat.Positive"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:padding="16dp"
+				android:text="@string/learn_more"
+				android:textAllCaps="false"
+				android:textSize="14sp"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@+id/switchDisappearingMessages" />
+
+		</androidx.constraintlayout.widget.ConstraintLayout>
+
+	</ScrollView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

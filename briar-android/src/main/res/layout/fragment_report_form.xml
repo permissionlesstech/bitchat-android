@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:fillViewport="true">
+
+	<androidx.constraintlayout.widget.ConstraintLayout
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content">
+
+		<com.google.android.material.textfield.TextInputLayout
+			android:id="@+id/user_comment_layout"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:layout_marginStart="@dimen/margin_large"
+			android:layout_marginLeft="@dimen/margin_large"
+			android:layout_marginTop="@dimen/margin_large"
+			android:layout_marginEnd="@dimen/margin_large"
+			android:layout_marginRight="@dimen/margin_large"
+			app:hintEnabled="false"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toTopOf="parent">
+
+			<com.google.android.material.textfield.TextInputEditText
+				android:id="@+id/user_comment"
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content"
+				android:imeOptions="flagNoPersonalizedLearning"
+				android:inputType="textMultiLine|textCapSentences"
+				tools:hint="@string/describe_crash" />
+
+		</com.google.android.material.textfield.TextInputLayout>
+
+		<com.google.android.material.textfield.TextInputLayout
+			android:id="@+id/user_email_layout"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:layout_marginStart="@dimen/margin_large"
+			android:layout_marginLeft="@dimen/margin_large"
+			android:layout_marginTop="8dp"
+			android:layout_marginEnd="@dimen/margin_large"
+			android:layout_marginRight="@dimen/margin_large"
+			app:hintEnabled="false"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/user_comment_layout">
+
+			<com.google.android.material.textfield.TextInputEditText
+				android:id="@+id/user_email"
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content"
+				android:hint="@string/optional_contact_email"
+				android:imeOptions="flagNoPersonalizedLearning"
+				android:inputType="textEmailAddress"
+				android:maxLines="1" />
+
+		</com.google.android.material.textfield.TextInputLayout>
+
+		<TextView
+			android:id="@+id/PrivacyPolicy"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_marginLeft="@dimen/margin_large"
+			android:layout_marginTop="@dimen/margin_large"
+			android:layout_marginRight="@dimen/margin_large"
+			android:text="@string/privacy_policy"
+			android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/user_email_layout" />
+
+		<CheckBox
+			android:id="@+id/include_debug_report"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:layout_marginStart="@dimen/margin_large"
+			android:layout_marginLeft="@dimen/margin_large"
+			android:checked="false"
+			android:text="@string/include_debug_report_crash"
+			app:layout_constraintBottom_toBottomOf="@+id/chevron"
+			app:layout_constraintEnd_toStartOf="@+id/chevron"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toTopOf="@+id/chevron" />
+
+		<Button
+			android:id="@+id/chevron"
+			style="@style/BriarButtonFlat.Positive"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_marginTop="@dimen/margin_medium"
+			android:text="@string/show"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/PrivacyPolicy" />
+
+		<androidx.recyclerview.widget.RecyclerView
+			android:id="@+id/list"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:orientation="vertical"
+			android:paddingStart="@dimen/margin_large"
+			android:paddingTop="@dimen/margin_small"
+			android:paddingEnd="@dimen/margin_large"
+			android:paddingBottom="@dimen/margin_large"
+			android:visibility="gone"
+			app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@id/include_debug_report"
+			tools:listitem="@layout/list_item_crash"
+			tools:visibility="visible" />
+
+		<com.google.android.material.progressindicator.CircularProgressIndicator
+			android:id="@+id/progress_wheel"
+			style="@style/CircularProgress.Large"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:visibility="invisible"
+			app:layout_constraintBottom_toBottomOf="parent"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/include_debug_report"
+			tools:visibility="visible" />
+
+	</androidx.constraintlayout.widget.ConstraintLayout>
+
+</androidx.core.widget.NestedScrollView>

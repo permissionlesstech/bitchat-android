@@ -1,0 +1,18 @@
+bin
+gen
+build
+local.properties
+.settings
+src/main/assets/*.zip
+src/main/res/values-iw
+
+# Fastlane Screenshots
+/fastlane/metadata/android/screenshots.html
+/fastlane/metadata/android/*/images
+/fastlane/report.xml
+/fastlane/README.md
+/fastlane/metadata/android/*/changelogs
+# Local Fastlane installation
+/vendor
+/Gemfile
+/Gemfile.lock

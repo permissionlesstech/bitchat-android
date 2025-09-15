@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:id="@+id/postLayout"
+	style="@style/BriarCard"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content"
+	android:foreground="?attr/selectableItemBackground">
+
+	<androidx.constraintlayout.widget.ConstraintLayout
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content">
+
+		<org.briarproject.briar.android.view.AuthorView
+			android:id="@+id/rebloggerView"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:padding="@dimen/listitem_vertical_margin"
+			app:layout_constraintEnd_toStartOf="@+id/commentView"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toTopOf="parent"
+			app:persona="reblogger"
+			tools:visibility="visible" />
+
+		<org.briarproject.briar.android.view.AuthorView
+			android:id="@+id/authorView"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:padding="@dimen/listitem_vertical_margin"
+			app:layout_constraintEnd_toStartOf="@+id/commentView"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/rebloggerView" />
+
+		<androidx.appcompat.widget.AppCompatImageButton
+			android:id="@+id/commentView"
+			android:layout_width="@dimen/button_size"
+			android:layout_height="@dimen/button_size"
+			android:background="?attr/selectableItemBackgroundBorderless"
+			android:contentDescription="@string/blogs_reblog_comment_hint"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintTop_toTopOf="parent"
+			app:srcCompat="@drawable/ic_repeat"
+			app:tint="?attr/colorControlNormal" />
+
+		<com.vanniktech.emoji.EmojiTextView
+			android:id="@+id/textView"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:layout_margin="@dimen/listitem_vertical_margin"
+			android:textColor="?android:attr/textColorSecondary"
+			android:textSize="@dimen/text_size_medium"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/authorView"
+			tools:text="This is a body text that shows the content of a blog post.\n\nThis one is not short, but it is also not too long." />
+
+		<!-- TODO replace with RecyclerView -->
+		<LinearLayout
+			android:id="@+id/commentContainer"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_marginTop="@dimen/listitem_vertical_margin"
+			android:orientation="vertical"
+			app:layout_constraintTop_toBottomOf="@+id/textView">
+
+			<include
+				layout="@layout/list_item_blog_comment"
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content" />
+
+		</LinearLayout>
+
+	</androidx.constraintlayout.widget.ConstraintLayout>
+
+</androidx.cardview.widget.CardView>

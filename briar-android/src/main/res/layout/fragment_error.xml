@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:fillViewport="true">
+
+	<androidx.constraintlayout.widget.ConstraintLayout
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:layout_margin="@dimen/margin_xlarge">
+
+		<androidx.appcompat.widget.AppCompatImageView
+			android:id="@+id/errorIcon"
+			android:layout_width="@dimen/hero_square"
+			android:layout_height="@dimen/hero_square"
+			app:layout_constraintBottom_toTopOf="@+id/errorTitle"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toTopOf="parent"
+			app:layout_constraintVertical_bias="0.25"
+			app:layout_constraintVertical_chainStyle="packed"
+			app:srcCompat="@drawable/alerts_and_states_error"
+			app:tint="@color/briar_red_500"
+			tools:ignore="ContentDescription" />
+
+		<TextView
+			android:id="@+id/errorTitle"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_marginTop="@dimen/margin_xlarge"
+			android:gravity="center"
+			android:text="@string/sorry"
+			android:textAppearance="@style/TextAppearance.MaterialComponents.Headline5"
+			app:layout_constraintBottom_toTopOf="@+id/errorMessage"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/errorIcon" />
+
+		<TextView
+			android:id="@+id/errorMessage"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:layout_marginTop="@dimen/margin_xlarge"
+			android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
+			app:layout_constraintBottom_toBottomOf="parent"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/errorTitle"
+			tools:text="@string/startup_failed_service_error" />
+
+	</androidx.constraintlayout.widget.ConstraintLayout>
+
+</androidx.core.widget.NestedScrollView>

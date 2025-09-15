@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:orientation="vertical">
+
+	<androidx.constraintlayout.widget.ConstraintLayout
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content">
+
+		<de.hdodenhof.circleimageview.CircleImageView
+			android:id="@+id/avatarContact1"
+			style="@style/BriarAvatar"
+			android:layout_width="42dp"
+			android:layout_height="42dp"
+			android:layout_margin="@dimen/margin_large"
+			app:layout_constraintEnd_toStartOf="@+id/introductionIcon"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toTopOf="parent"
+			tools:src="@mipmap/ic_launcher_round" />
+
+		<com.vanniktech.emoji.EmojiTextView
+			android:id="@+id/nameContact1"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:layout_marginStart="@dimen/margin_large"
+			android:layout_marginLeft="@dimen/margin_large"
+			android:layout_marginTop="@dimen/margin_medium"
+			android:layout_marginEnd="@dimen/margin_large"
+			android:layout_marginRight="@dimen/margin_large"
+			android:gravity="center"
+			android:textColor="?android:attr/textColorPrimary"
+			android:textSize="@dimen/text_size_small"
+			app:layout_constraintEnd_toStartOf="@+id/introductionIcon"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/avatarContact1"
+			tools:text="Contact 1" />
+
+		<androidx.appcompat.widget.AppCompatImageView
+			android:id="@+id/introductionIcon"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_margin="@dimen/margin_large"
+			app:layout_constraintBottom_toBottomOf="@+id/barrier"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toTopOf="@+id/avatarContact2"
+			app:srcCompat="@drawable/ic_contact_introduction"
+			app:tint="?attr/colorControlNormal"
+			tools:ignore="ContentDescription" />
+
+		<de.hdodenhof.circleimageview.CircleImageView
+			android:id="@+id/avatarContact2"
+			style="@style/BriarAvatar"
+			android:layout_width="42dp"
+			android:layout_height="42dp"
+			android:layout_margin="@dimen/margin_large"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toEndOf="@+id/introductionIcon"
+			app:layout_constraintTop_toTopOf="parent"
+			tools:src="@mipmap/ic_launcher_round" />
+
+		<com.vanniktech.emoji.EmojiTextView
+			android:id="@+id/nameContact2"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:layout_marginStart="@dimen/margin_large"
+			android:layout_marginLeft="@dimen/margin_large"
+			android:layout_marginTop="@dimen/margin_medium"
+			android:layout_marginEnd="@dimen/margin_large"
+			android:layout_marginRight="@dimen/margin_large"
+			android:gravity="center"
+			android:textColor="?android:attr/textColorPrimary"
+			android:textSize="@dimen/text_size_small"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toEndOf="@+id/introductionIcon"
+			app:layout_constraintTop_toBottomOf="@+id/avatarContact2"
+			tools:text="Contact 2 can have quite a long name" />
+
+		<androidx.constraintlayout.widget.Barrier
+			android:id="@+id/barrier"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			app:barrierDirection="bottom"
+			app:constraint_referenced_ids="nameContact1,nameContact2" />
+
+		<com.google.android.material.progressindicator.CircularProgressIndicator
+			android:id="@+id/progressBar"
+			style="@style/CircularProgress.Large"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_margin="@dimen/margin_large"
+			app:layout_constraintBottom_toTopOf="@+id/introductionNotPossibleView"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toTopOf="@+id/barrier"
+			tools:visibility="gone" />
+
+		<TextView
+			android:id="@+id/introductionNotPossibleView"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:layout_margin="@dimen/margin_large"
+			android:text="@string/introduction_not_possible"
+			android:textSize="@dimen/text_size_large"
+			android:visibility="gone"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/progressBar"
+			tools:visibility="visible" />
+
+		<org.briarproject.briar.android.view.LargeTextInputView
+			android:id="@+id/introductionMessageView"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:layout_marginTop="@dimen/margin_large"
+			android:visibility="gone"
+			app:allowEmptyText="true"
+			app:buttonText="@string/introduction_button"
+			app:hint="@string/introduction_message_hint"
+			app:layout_constraintBottom_toBottomOf="parent"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/introductionNotPossibleView"
+			app:maxLines="5"
+			tools:visibility="visible" />
+
+	</androidx.constraintlayout.widget.ConstraintLayout>
+</ScrollView>

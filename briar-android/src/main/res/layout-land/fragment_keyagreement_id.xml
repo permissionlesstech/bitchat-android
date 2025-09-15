@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:orientation="vertical">
+
+	<ScrollView
+		android:id="@+id/scrollView"
+		android:layout_width="match_parent"
+		android:layout_height="0dp"
+		android:layout_weight="1">
+
+		<androidx.constraintlayout.widget.ConstraintLayout
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content">
+
+			<ImageView
+				android:id="@+id/diagram"
+				android:layout_width="@dimen/hero_square"
+				android:layout_height="@dimen/hero_square"
+				android:layout_margin="16dp"
+				app:layout_constraintEnd_toStartOf="@id/guideline"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toTopOf="parent"
+				app:srcCompat="@drawable/il_qr_code"
+				tools:ignore="ContentDescription" />
+
+			<TextView
+				android:id="@+id/introTwoWay"
+				android:layout_width="0dp"
+				android:layout_height="wrap_content"
+				android:layout_margin="16dp"
+				android:text="@string/info_both_must_scan"
+				app:layout_constraintEnd_toStartOf="@+id/guideline"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@+id/diagram" />
+
+			<androidx.constraintlayout.widget.Guideline
+				android:id="@+id/guideline"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:orientation="vertical"
+				app:layout_constraintGuide_percent="0.5" />
+
+			<ImageView
+				android:id="@+id/explanationImage"
+				android:layout_width="0dp"
+				android:layout_height="wrap_content"
+				android:layout_margin="16dp"
+				android:scaleType="fitCenter"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toStartOf="@+id/guideline"
+				app:layout_constraintTop_toTopOf="parent"
+				app:srcCompat="@drawable/il_qr_code_nearby"
+				tools:ignore="ContentDescription" />
+
+			<TextView
+				android:id="@+id/explanationText"
+				android:layout_width="0dp"
+				android:layout_height="wrap_content"
+				android:layout_margin="16dp"
+				android:text="@string/face_to_face"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toEndOf="@+id/guideline"
+				app:layout_constraintTop_toBottomOf="@+id/explanationImage" />
+
+		</androidx.constraintlayout.widget.ConstraintLayout>
+
+	</ScrollView>
+
+	<Button
+		android:id="@+id/continueButton"
+		style="@style/BriarButton"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:layout_gravity="center_horizontal"
+		android:layout_marginHorizontal="16dp"
+		android:text="@string/continue_button"
+		app:layout_constraintBottom_toBottomOf="parent" />
+
+</LinearLayout>

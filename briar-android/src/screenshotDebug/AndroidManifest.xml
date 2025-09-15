@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:tools="http://schemas.android.com/tools"
+	package="org.briarproject.briar">
+	<!-- The following permissions are only needed for taking automatic screenshots (fastlane) -->
+
+	<!-- Allows unlocking your device and activating its screen so UI tests can succeed -->
+	<uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+	<uses-permission android:name="android.permission.WAKE_LOCK" />
+
+	<!-- Allows for storing and retrieving screenshots -->
+	<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+	<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+
+	<!-- Allows changing locales -->
+	<uses-permission
+		android:name="android.permission.CHANGE_CONFIGURATION"
+		tools:ignore="ProtectedPermissions" />
+
+	<!-- For drawing on top of the app -->
+	<uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+</manifest>

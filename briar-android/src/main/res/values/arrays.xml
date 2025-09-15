@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<string-array name="tor_network_setting_names">
+		<item>@string/tor_network_setting_automatic</item>
+		<item>@string/tor_network_setting_without_bridges</item>
+		<item>@string/tor_network_setting_with_bridges</item>
+	</string-array>
+	<string-array name="tor_network_setting_values">
+		<item>0</item>
+		<item>1</item>
+		<item>2</item>
+	</string-array>
+
+	<string-array name="pref_language_values">
+		<item>default</item>
+		<item>en-US</item>
+		<item>ar</item>
+		<item>ast</item>
+		<item>az</item>
+		<item>bg</item>
+		<item>bn</item>
+		<item>br</item>
+		<item>bs</item>
+		<item>ca</item>
+		<item>cs</item>
+		<item>de</item>
+		<item>es</item>
+		<item>es-CU</item>
+		<item>eu</item>
+		<item>fa</item>
+		<item>fi</item>
+		<item>fr</item>
+		<item>gl</item>
+		<item>he</item>
+		<item>hi</item>
+		<item>hu</item>
+		<item>is</item>
+		<item>it</item>
+		<item>ja</item>
+		<item>ka</item>
+		<item>ko</item>
+		<item>lt</item>
+		<item>mk</item>
+		<item>ms</item>
+		<item>my</item>
+		<item>nb</item>
+		<item>nl</item>
+		<item>oc</item>
+		<item>pl</item>
+		<item>pt-BR</item>
+		<item>pt-PT</item>
+		<item>ro</item>
+		<item>ru</item>
+		<item>sk</item>
+		<item>sq</item>
+		<item>sr</item>
+		<item>sv</item>
+		<item>sw</item>
+		<item>tr</item>
+		<item>uk</item>
+		<item>zh-CN</item>
+		<item>zh-TW</item>
+	</string-array>
+
+	<string-array name="pref_theme_entries">
+		<item>@string/pref_theme_light</item>
+		<item>@string/pref_theme_dark</item>
+		<item>@string/pref_theme_system</item>
+	</string-array>
+	<string name="pref_theme_light_value" translatable="false">light</string>
+	<string name="pref_theme_dark_value" translatable="false">dark</string>
+	<string name="pref_theme_system_value" translatable="false">system</string>
+	<string-array name="pref_theme_values">
+		<item>@string/pref_theme_light_value</item>
+		<item>@string/pref_theme_dark_value</item>
+		<item>@string/pref_theme_system_value</item>
+	</string-array>
+
+	<string-array name="pref_key_lock_timeout_entries">
+		<item>@string/pref_lock_timeout_never</item>
+		<item>@string/pref_lock_timeout_1</item>
+		<item>@string/pref_lock_timeout_5</item>
+		<item>@string/pref_lock_timeout_15</item>
+		<item>@string/pref_lock_timeout_30</item>
+		<item>@string/pref_lock_timeout_60</item>
+	</string-array>
+	<string name="pref_lock_timeout_value_default" translatable="false">5</string>
+	<string name="pref_lock_timeout_value_never" translatable="false">-1</string>
+	<string-array name="pref_key_lock_timeout_values">
+		<item>@string/pref_lock_timeout_value_never</item>
+		<item>1</item>
+		<item>5</item>
+		<item>15</item>
+		<item>30</item>
+		<item>60</item>
+	</string-array>
+</resources>

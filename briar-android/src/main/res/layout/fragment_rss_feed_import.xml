@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:orientation="vertical"
+	android:padding="@dimen/margin_medium">
+
+	<androidx.cardview.widget.CardView
+		android:layout_width="match_parent"
+		android:layout_height="0dp"
+		android:layout_weight="1"
+		android:elevation="@dimen/cardview_default_elevation"
+		app:cardBackgroundColor="@color/card_background"
+		app:cardCornerRadius="0dp"
+		app:cardUseCompatPadding="false">
+
+		<com.google.android.material.textfield.TextInputEditText
+			android:id="@+id/urlInput"
+			android:layout_width="match_parent"
+			android:layout_height="match_parent"
+			android:background="@android:color/transparent"
+			android:gravity="top"
+			android:hint="@string/blogs_rss_feeds_import_hint"
+			android:imeOptions="flagNoPersonalizedLearning|actionDone"
+			android:importantForAutofill="no"
+			android:inputType="textUri"
+			android:padding="@dimen/margin_medium"
+			android:textColor="?android:attr/textColorPrimary">
+
+			<requestFocus />
+
+		</com.google.android.material.textfield.TextInputEditText>
+
+	</androidx.cardview.widget.CardView>
+
+	<Button
+		android:id="@+id/importButton"
+		style="@style/BriarButton"
+		android:enabled="false"
+		android:text="@string/blogs_rss_feeds_import_button"
+		tools:enabled="true" />
+
+	<com.google.android.material.progressindicator.CircularProgressIndicator
+		android:id="@+id/progressBar"
+		style="@style/CircularProgress"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:layout_gravity="center"
+		android:visibility="gone"
+		tools:visibility="gone" />
+
+</LinearLayout>

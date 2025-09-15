@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content"
+	android:orientation="vertical"
+	android:paddingLeft="16dp"
+	android:paddingTop="16dp"
+	android:paddingRight="16dp">
+
+	<TextView
+		android:id="@+id/titleView"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:text="@string/set_contact_alias"
+		android:textColor="?android:attr/textColorPrimary"
+		android:textSize="@dimen/text_size_large"
+		android:textStyle="bold" />
+
+	<com.google.android.material.textfield.TextInputLayout
+		android:id="@+id/aliasEditLayout"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:layout_marginTop="16dp"
+		app:errorEnabled="true"
+		app:hintEnabled="false">
+
+		<com.google.android.material.textfield.TextInputEditText
+			android:id="@+id/aliasEditText"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:hint="@string/set_contact_alias_hint"
+			android:imeOptions="flagNoPersonalizedLearning"
+			android:inputType="text|textCapWords"
+			android:textColor="?android:attr/textColorPrimary"
+			android:textSize="@dimen/text_size_medium" />
+
+	</com.google.android.material.textfield.TextInputLayout>
+
+	<LinearLayout
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:layout_marginStart="@dimen/margin_xxlarge"
+		android:layout_marginBottom="8dp"
+		android:gravity="end"
+		android:orientation="horizontal">
+
+		<Button
+			android:id="@+id/cancelButton"
+			style="@style/BriarButtonFlat.Negative"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:text="@string/cancel" />
+
+		<Button
+			android:id="@+id/setButton"
+			style="@style/BriarButtonFlat.Positive"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:text="@string/change" />
+
+	</LinearLayout>
+
+</LinearLayout>

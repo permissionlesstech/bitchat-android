@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:orientation="vertical"
+	tools:context=".android.forum.ForumActivity">
+
+	<include layout="@layout/toolbar" />
+
+	<FrameLayout
+		android:layout_width="match_parent"
+		android:layout_height="0dp"
+		android:layout_weight="1"
+		android:background="@color/thread_item_background">
+
+		<org.briarproject.briar.android.view.BriarRecyclerView
+			android:id="@+id/list"
+			android:layout_width="match_parent"
+			android:layout_height="match_parent"
+			app:emptyText="@string/no_forum_posts"
+			app:scrollToEnd="false" />
+
+		<org.briarproject.briar.android.view.UnreadMessageButton
+			android:id="@+id/upButton"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_gravity="top|right|end"
+			app:direction="up" />
+
+		<org.briarproject.briar.android.view.UnreadMessageButton
+			android:id="@+id/downButton"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_gravity="bottom|right|end"
+			app:direction="down" />
+
+	</FrameLayout>
+
+	<org.briarproject.briar.android.view.TextInputView
+		android:id="@+id/text_input_container"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		app:hint="@string/forum_new_message_hint" />
+
+</LinearLayout>

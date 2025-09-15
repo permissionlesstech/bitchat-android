@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:fillViewport="true"
+	android:padding="@dimen/margin_medium"
+	tools:ignore="HardcodedText">
+
+	<androidx.constraintlayout.widget.ConstraintLayout
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content">
+
+		<TextView
+			android:id="@+id/textViewContacts"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_margin="@dimen/margin_medium"
+			android:text="Number of contacts"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toTopOf="parent" />
+
+		<SeekBar
+			android:id="@+id/seekBarContacts"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:max="49"
+			android:progress="20"
+			app:layout_constraintEnd_toStartOf="@+id/textViewContactsSb"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/textViewContacts" />
+
+		<TextView
+			android:id="@+id/textViewContactsSb"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:ems="2"
+			android:text="20"
+			app:layout_constraintBottom_toBottomOf="@+id/seekBarContacts"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/textViewContacts" />
+
+		<TextView
+			android:id="@+id/textViewMessages"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_margin="@dimen/margin_medium"
+			android:text="Number of messages per contact"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/seekBarContacts" />
+
+		<SeekBar
+			android:id="@+id/seekBarMessages"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:max="50"
+			android:paddingTop="5dp"
+			android:progress="20"
+			app:layout_constraintEnd_toStartOf="@+id/textViewMessagesSb"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/textViewMessages" />
+
+		<TextView
+			android:id="@+id/textViewMessagesSb"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:ems="2"
+			android:text="20"
+			app:layout_constraintBottom_toBottomOf="@+id/seekBarMessages"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/textViewMessages" />
+
+		<TextView
+			android:id="@+id/textViewAvatars"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_margin="@dimen/margin_medium"
+			android:text="Percentage of contacts with profile pictures"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/seekBarMessages" />
+
+		<SeekBar
+			android:id="@+id/seekBarAvatars"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:max="100"
+			android:paddingTop="5dp"
+			android:progress="75"
+			app:layout_constraintEnd_toStartOf="@+id/textViewAvatarsSb"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/textViewAvatars" />
+
+		<TextView
+			android:id="@+id/textViewAvatarsSb"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:ems="2"
+			android:text="75"
+			app:layout_constraintBottom_toBottomOf="@+id/seekBarAvatars"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/textViewAvatars" />
+
+		<TextView
+			android:id="@+id/textViewBlogPosts"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_margin="@dimen/margin_medium"
+			android:text="Number of blog posts"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/seekBarAvatars" />
+
+		<SeekBar
+			android:id="@+id/seekBarBlogPosts"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:max="50"
+			android:paddingTop="5dp"
+			android:progress="20"
+			app:layout_constraintEnd_toStartOf="@+id/TextViewBlogPostsSb"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/textViewBlogPosts" />
+
+		<TextView
+			android:id="@+id/TextViewBlogPostsSb"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:ems="2"
+			android:text="20"
+			app:layout_constraintBottom_toBottomOf="@+id/seekBarBlogPosts"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/textViewBlogPosts" />
+
+		<TextView
+			android:id="@+id/textViewForums"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_margin="@dimen/margin_medium"
+			android:text="Number of forums"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/seekBarBlogPosts" />
+
+		<SeekBar
+			android:id="@+id/seekBarForums"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:max="50"
+			android:paddingTop="5dp"
+			android:progress="5"
+			app:layout_constraintEnd_toStartOf="@+id/TextViewForumsSb"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/textViewForums" />
+
+		<TextView
+			android:id="@+id/TextViewForumsSb"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:ems="2"
+			android:text="5"
+			app:layout_constraintBottom_toBottomOf="@+id/seekBarForums"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/textViewForums" />
+
+		<TextView
+			android:id="@+id/textViewForumMessages"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_margin="@dimen/margin_medium"
+			android:text="Number of forum messages"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/seekBarForums" />
+
+		<SeekBar
+			android:id="@+id/seekBarForumMessages"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:max="50"
+			android:paddingTop="5dp"
+			android:progress="20"
+			app:layout_constraintEnd_toStartOf="@+id/TextViewForumMessagesSb"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/textViewForumMessages" />
+
+		<TextView
+			android:id="@+id/TextViewForumMessagesSb"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:ems="2"
+			android:text="20"
+			app:layout_constraintBottom_toBottomOf="@+id/seekBarForumMessages"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/textViewForumMessages" />
+
+		<TextView
+			android:id="@+id/textViewPrivateGroups"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_margin="@dimen/margin_medium"
+			android:text="Number of private groups"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/seekBarForumMessages" />
+
+		<SeekBar
+			android:id="@+id/seekBarPrivateGroups"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:max="50"
+			android:paddingTop="5dp"
+			android:progress="5"
+			app:layout_constraintEnd_toStartOf="@+id/TextViewPrivateGroupsSb"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/textViewPrivateGroups" />
+
+		<TextView
+			android:id="@+id/TextViewPrivateGroupsSb"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:ems="2"
+			android:text="5"
+			app:layout_constraintBottom_toBottomOf="@+id/seekBarPrivateGroups"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/textViewPrivateGroups" />
+
+		<TextView
+			android:id="@+id/textViewPrivateGroupMessages"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_margin="@dimen/margin_medium"
+			android:text="Number of private group messages"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/seekBarPrivateGroups" />
+
+		<SeekBar
+			android:id="@+id/seekBarPrivateGroupMessages"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:max="50"
+			android:paddingTop="5dp"
+			android:progress="20"
+			app:layout_constraintEnd_toStartOf="@+id/TextViewPrivateGroupMessagesSb"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/textViewPrivateGroupMessages" />
+
+		<TextView
+			android:id="@+id/TextViewPrivateGroupMessagesSb"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:ems="2"
+			android:text="20"
+			app:layout_constraintBottom_toBottomOf="@+id/seekBarPrivateGroupMessages"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/textViewPrivateGroupMessages" />
+
+		<Button
+			android:id="@+id/buttonZeroValues"
+			style="@style/BriarButton"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_marginTop="15dp"
+			android:textSize="@dimen/text_size_tiny"
+			android:text="Zero values"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/seekBarPrivateGroupMessages"
+			app:layout_constraintVertical_bias="1.0" />
+
+		<Button
+			android:id="@+id/buttonCreateTestData"
+			style="@style/BriarButton"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_margin="10dp"
+			android:text="Create test data"
+			app:layout_constraintBottom_toBottomOf="parent"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/buttonZeroValues"
+			app:layout_constraintVertical_bias="1.0" />
+	</androidx.constraintlayout.widget.ConstraintLayout>
+
+</ScrollView>

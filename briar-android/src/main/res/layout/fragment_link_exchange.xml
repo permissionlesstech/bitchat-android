@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:orientation="vertical">
+
+	<ScrollView
+		android:layout_width="match_parent"
+		android:layout_height="0dp"
+		android:layout_weight="1">
+
+		<androidx.constraintlayout.widget.ConstraintLayout
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:padding="@dimen/margin_large">
+
+			<androidx.constraintlayout.widget.Guideline
+				android:id="@+id/guideline"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:orientation="vertical"
+				app:layout_constraintGuide_percent="0.5" />
+
+			<TextView
+				android:id="@+id/stepOne"
+				style="@style/StepBubble"
+				android:text="@string/step_1"
+				app:layout_constraintBottom_toTopOf="@+id/stepOneText"
+				app:layout_constraintEnd_toStartOf="@+id/guideline"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toTopOf="parent" />
+
+			<TextView
+				android:id="@+id/stepOneText"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:layout_margin="8dp"
+				android:text="@string/send_link_title"
+				app:layout_constraintBottom_toTopOf="@+id/imageView"
+				app:layout_constraintEnd_toStartOf="@+id/guideline"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@+id/stepOne" />
+
+			<View
+				android:id="@+id/stepConnector"
+				android:layout_width="0dp"
+				android:layout_height="1dp"
+				android:layout_margin="16dp"
+				android:alpha="0.5"
+				android:background="?colorTertiary"
+				app:layout_constraintBottom_toBottomOf="@+id/stepOne"
+				app:layout_constraintEnd_toStartOf="@+id/stepTwo"
+				app:layout_constraintStart_toEndOf="@+id/stepOne"
+				app:layout_constraintTop_toTopOf="@+id/stepOne" />
+
+			<TextView
+				android:id="@+id/stepTwo"
+				style="@style/StepBubble.Upcoming"
+				android:text="@string/step_2"
+				app:layout_constraintBottom_toTopOf="@+id/stepTwoText"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toStartOf="@+id/guideline"
+				app:layout_constraintTop_toTopOf="@+id/stepOne"
+				app:layout_constraintVertical_chainStyle="packed" />
+
+			<TextView
+				android:id="@+id/stepTwoText"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:layout_margin="8dp"
+				android:alpha="0.5"
+				android:text="@string/add_contact_choose_nickname"
+				app:layout_constraintBottom_toTopOf="@+id/imageView"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toEndOf="@+id/guideline"
+				app:layout_constraintTop_toBottomOf="@+id/stepTwo" />
+
+			<ImageView
+				android:id="@+id/imageView"
+				android:layout_width="@dimen/hero_rect_width"
+				android:layout_height="@dimen/hero_rect_height"
+				android:layout_marginHorizontal="@dimen/margin_xlarge"
+				app:layout_constraintBottom_toTopOf="@+id/yourLinkIcon"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@+id/stepOneText"
+				app:srcCompat="@drawable/il_add_contact_remote"
+				tools:ignore="ContentDescription" />
+
+			<androidx.appcompat.widget.AppCompatImageView
+				android:id="@+id/yourLinkIcon"
+				android:layout_width="38dp"
+				android:layout_height="38dp"
+				android:layout_marginTop="8dp"
+				android:background="@drawable/bubble_current"
+				android:scaleType="center"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@+id/imageView"
+				app:srcCompat="@drawable/ic_call_made"
+				app:tint="?colorOnTertiary" />
+
+			<TextView
+				android:id="@+id/yourLink"
+				android:layout_width="0dp"
+				android:layout_height="wrap_content"
+				android:layout_marginStart="8dp"
+				android:layout_marginLeft="8dp"
+				android:gravity="left|start"
+				android:text="@string/your_link"
+				android:textSize="16sp"
+				app:layout_constraintBottom_toBottomOf="@+id/yourLinkIcon"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toEndOf="@+id/yourLinkIcon"
+				app:layout_constraintTop_toTopOf="@+id/yourLinkIcon" />
+
+			<TextView
+				android:id="@+id/linkView"
+				android:layout_width="0dp"
+				android:layout_height="wrap_content"
+				android:layout_marginTop="16dp"
+				android:background="@android:color/white"
+				android:ellipsize="end"
+				android:padding="8dp"
+				android:singleLine="true"
+				android:textColor="@color/briar_primary"
+				android:textIsSelectable="true"
+				android:textSize="18sp"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@+id/yourLinkIcon"
+				tools:text="briar://scnsdflamslkfjgluoblmksdfbwevlewajfdlkjewwhqliafskfjhskdjhvoieiv" />
+
+			<Button
+				android:id="@+id/copyButton"
+				style="@style/BriarButtonFlat.Positive.Tiny"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:enabled="false"
+				android:text="@string/copy_button"
+				app:icon="@drawable/ic_content_copy"
+				app:iconPadding="8dp"
+				app:layout_constraintEnd_toStartOf="@id/shareButton"
+				app:layout_constraintHorizontal_bias="1.0"
+				app:layout_constraintHorizontal_chainStyle="packed"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@+id/linkView" />
+
+			<Button
+				android:id="@+id/shareButton"
+				style="@style/BriarButtonFlat.Positive.Tiny"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:enabled="false"
+				android:text="@string/share_button"
+				app:icon="@drawable/social_share_blue"
+				app:iconPadding="8dp"
+				app:layout_constraintBottom_toBottomOf="@id/copyButton"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toEndOf="@id/copyButton"
+				app:layout_constraintTop_toTopOf="@id/copyButton" />
+
+			<androidx.appcompat.widget.AppCompatImageView
+				android:id="@+id/linkInputIcon"
+				android:layout_width="38dp"
+				android:layout_height="38dp"
+				android:layout_marginTop="16dp"
+				android:background="@drawable/bubble_current"
+				android:scaleType="center"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@+id/copyButton"
+				app:srcCompat="@drawable/ic_call_received"
+				app:tint="?colorOnTertiary" />
+
+			<TextView
+				android:id="@+id/inputLink"
+				android:layout_width="0dp"
+				android:layout_height="wrap_content"
+				android:layout_marginStart="8dp"
+				android:layout_marginLeft="8dp"
+				android:gravity="left|start"
+				android:text="@string/contact_link_intro"
+				android:textSize="16sp"
+				app:layout_constraintBottom_toBottomOf="@+id/linkInputIcon"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toEndOf="@+id/linkInputIcon"
+				app:layout_constraintTop_toTopOf="@+id/linkInputIcon" />
+
+			<com.google.android.material.textfield.TextInputLayout
+				android:id="@+id/linkInputLayout"
+				android:layout_width="0dp"
+				android:layout_height="wrap_content"
+				android:layout_marginTop="16dp"
+				app:errorEnabled="true"
+				app:hintEnabled="false"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@+id/linkInputIcon">
+
+				<com.google.android.material.textfield.TextInputEditText
+					android:id="@+id/linkInput"
+					android:layout_width="match_parent"
+					android:layout_height="match_parent"
+					android:hint="@string/contact_link_hint"
+					android:imeOptions="flagNoPersonalizedLearning"
+					android:importantForAutofill="no"
+					android:inputType="textUri" />
+
+			</com.google.android.material.textfield.TextInputLayout>
+
+			<Button
+				android:id="@+id/pasteButton"
+				style="@style/BriarButtonFlat.Positive.Tiny"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:text="@string/paste_button"
+				app:icon="@drawable/ic_content_paste"
+				app:iconPadding="8dp"
+				app:layout_constraintBottom_toTopOf="@+id/infoView"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintHorizontal_bias="1.0"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@+id/linkInputLayout"
+				app:layout_constraintVertical_bias="0.0" />
+
+			<org.briarproject.briar.android.view.InfoView
+				android:id="@+id/infoView"
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content"
+				android:layout_marginTop="16dp"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@+id/pasteButton" />
+
+		</androidx.constraintlayout.widget.ConstraintLayout>
+	</ScrollView>
+
+	<Button
+		android:id="@+id/addButton"
+		style="@style/BriarButton"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:layout_marginHorizontal="16dp"
+		android:enabled="false"
+		android:text="@string/continue_button"
+		app:layout_constraintBottom_toBottomOf="parent"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintHorizontal_bias="0.5"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toBottomOf="@+id/pasteButton"
+		app:layout_constraintVertical_bias="1.0"
+		tools:enabled="true" />
+
+</LinearLayout>

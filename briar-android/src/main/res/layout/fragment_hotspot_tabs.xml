@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent">
+
+	<androidx.coordinatorlayout.widget.CoordinatorLayout
+		android:id="@+id/coordinatorLayout"
+		android:layout_width="match_parent"
+		android:layout_height="0dp"
+		app:layout_constraintBottom_toTopOf="@+id/connectedView"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toTopOf="parent">
+
+		<com.google.android.material.appbar.AppBarLayout
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content">
+
+			<com.google.android.material.tabs.TabLayout
+				android:id="@+id/tabLayout"
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content"
+				app:layout_scrollFlags="scroll|enterAlways"
+				app:tabBackground="@color/briar_primary"
+				app:tabGravity="fill"
+				app:tabIconTint="@color/action_bar_text"
+				app:tabIndicatorColor="@color/briar_lime_400"
+				app:tabIndicatorHeight="4dp"
+				app:tabInlineLabel="true"
+				app:tabMaxWidth="0dp"
+				app:tabMode="fixed"
+				app:tabTextColor="@color/action_bar_text">
+
+				<com.google.android.material.tabs.TabItem
+					android:layout_width="wrap_content"
+					android:layout_height="wrap_content"
+					android:icon="@drawable/forum_item_create_white"
+					android:text="@string/hotspot_tab_manual" />
+
+				<com.google.android.material.tabs.TabItem
+					android:layout_width="wrap_content"
+					android:layout_height="wrap_content"
+					android:icon="@drawable/ic_qr_code"
+					android:text="@string/qr_code" />
+			</com.google.android.material.tabs.TabLayout>
+
+		</com.google.android.material.appbar.AppBarLayout>
+
+		<androidx.viewpager2.widget.ViewPager2
+			android:id="@+id/pager"
+			android:layout_width="match_parent"
+			android:layout_height="match_parent"
+			app:layout_behavior="@string/appbar_scrolling_view_behavior" />
+
+	</androidx.coordinatorlayout.widget.CoordinatorLayout>
+
+	<TextView
+		android:id="@+id/connectedView"
+		android:layout_width="0dp"
+		android:layout_height="wrap_content"
+		android:layout_marginHorizontal="16dp"
+		android:layout_marginTop="6dp"
+		android:gravity="center"
+		android:text="@string/hotspot_no_peers_connected"
+		app:layout_constraintBottom_toTopOf="@+id/connectedButton"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toBottomOf="@+id/coordinatorLayout" />
+
+	<Button
+		android:id="@+id/connectedButton"
+		style="@style/BriarButton"
+		android:layout_width="0dp"
+		android:layout_height="wrap_content"
+		android:layout_marginHorizontal="16dp"
+		android:layout_marginTop="6dp"
+		android:text="@string/hotspot_button_connected"
+		app:icon="@drawable/ic_check_white"
+		app:iconTint="?attr/colorOnPrimary"
+		app:layout_constraintBottom_toTopOf="@+id/stopButton"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toBottomOf="@+id/connectedView"
+		tools:visibility="visible" />
+
+	<Button
+		android:id="@+id/stopButton"
+		style="@style/BriarButtonOutline.Negative"
+		android:layout_width="0dp"
+		android:layout_height="wrap_content"
+		android:layout_marginHorizontal="16dp"
+		android:layout_marginTop="6dp"
+		android:text="@string/hotspot_button_stop_sharing"
+		app:icon="@drawable/ic_portable_wifi_off"
+		app:iconTint="@color/briar_red_500"
+		app:layout_constraintBottom_toBottomOf="parent"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toBottomOf="@+id/connectedButton"
+		tools:visibility="visible" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

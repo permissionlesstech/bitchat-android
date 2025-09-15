@@ -1,0 +1,487 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<resources>
+	<!--Setup-->
+	<string name="setup_title">Dobrodosli u Briar</string>
+	<string name="setup_name_explanation">Vas nadimak ce biti prikazan pored sadrzaja posta. Nemozete ga promijeniti poslije kreiranja racuna.</string>
+	<string name="setup_next">Dalje</string>
+	<string name="setup_password_intro">Izaberite lozinku</string>
+	<string name="setup_password_explanation">Vaš Briar račun je kriptovan i sačuvan na vašem uređaju, ne u server-oblaku. Ako zaboravite šifru ili deinstalirate Briar, nema načina da povratite vaš račun.
+
+Izaberite dugačku lozinku koju je teško pogoditi, kao četiri nasumične riječi ili deset nasumičnih slova, brojeva i simbola.</string>
+	<string name="dnkm_doze_title">Konekcije u pozadini</string>
+	<string name="dnkm_doze_intro">Da bi primao poruke, Briar mora da ostane konektovan u pozadini.</string>
+	<string name="dnkm_doze_explanation">Da bi primao poruke, Briar mora da ostane konektovan u pozadini. Molim vas da isključite optimizacije baterije kako bi Briar ostao konektovan.</string>
+	<string name="dnkm_doze_button">Dozvolite konekcije</string>
+	<string name="choose_nickname">Izaberite vaš nadimak</string>
+	<string name="choose_password">Izaberite vašu šifru</string>
+	<string name="confirm_password">Potvrdite vašu šifru</string>
+	<string name="name_too_long">Ime je predugo</string>
+	<string name="password_too_weak">Šifra je slaba</string>
+	<string name="passwords_do_not_match">Šifre se ne poklapaju</string>
+	<string name="create_account_button">Kreirajte račun</string>
+	<string name="more_info">Vise informacija</string>
+	<string name="don_t_ask_again">Ne pitaj ponovo</string>
+	<string name="dnkm_huawei_protected_text">Molim dotaknite dugme ispod i provjerite da je Briar zasticen na \"Protected Apps\" listi.</string>
+	<string name="dnkm_huawei_protected_button">Zastiti Briar</string>
+	<string name="dnkm_huawei_protected_help">Ako Briar nije dodat u listi zasticenih aplikacija - protected apps, nece moci da radi u pozadini.</string>
+	<string name="dnkm_warning_dozed">%s nije mogao da se pokrene u pozadini</string>
+	<!--Login-->
+	<string name="enter_password">Lozinka</string>
+	<string name="try_again">Pogrešna šifra, probajte opet</string>
+	<string name="sign_in_button">Prijavite se</string>
+	<string name="forgotten_password">Zaboravio sam šifru</string>
+	<string name="dialog_title_lost_password">Izgubljena šifra</string>
+	<string name="dialog_message_lost_password">Vaš Briar račun je kriptovan i sačuvan na vašem uređaju, ne u server-oblaku, pa nemožemo resetovati vašu šifru. Želite li da izbrišete račun i počnete iz početka?\n\nPozor: Vaši identiteti, kontakti i poruke će biti premanentno izgubljeni.</string>
+	<string name="startup_failed_notification_title">Brirar nije mogao da startuje</string>
+  <string name="startup_failed_notification_text">Dotaknite za vise informacija.</string>
+  <string name="startup_failed_activity_title">Briar neuspješno startovanje</string>
+  <string name="startup_failed_db_error">Iz nekog razloga, Briar baza podataka je nepovratno korumpirana. Vaš račun, vaši podaci i svi kontakti su izgubljeni. Nažalost, morate reinstalirati Briar ili podesiti novi račun tako što ćete izabrati  \'ZaboraviIi ste lozinku?\' .</string>
+  <string name="startup_failed_data_too_old_error">Vaš račun je napravljen sa starom verzijom aplikacije i nemoze se otvoriti novom verzijom. Morate reinstalirati staru verziju ili podesiti podesiti novi račun tako što ćete izabrati  \'ZaboraviIi ste lozinku?\' kod unosa lozinke.</string>
+  <string name="startup_failed_data_too_new_error">Ova verzija aplikacije je stara. Molim vas da azurirate na posljednju verziju a zatim ponovo pokušate.</string>
+  <string name="startup_failed_service_error">Briar nije mogao da startuje potreban plugin. Reinstaliranje Briara obično riješi problem. Međutim, imajte na umu da ćete izgubiti vaš račun i sve podatke vezane za njega pošto Briar ne koristi centralne servere da sačuva vaše podatke.</string>
+  <plurals name="expiry_warning">
+    <item quantity="one">Ovo je testna verzija Briara. Vaš račun će isteći za %d dan i ne može se obnoviti.</item>
+    <item quantity="few">Ovo je testna verzija Briara. Vaš račun će isteći za %d dana i ne može se obnoviti.</item>
+    <item quantity="other">Ovo je testna verzija Briara. Vaš račun će isteći za %d dana i ne može se obnoviti.</item>
+  </plurals>
+  <string name="expiry_date_reached">Ovaj softver je istekao.\nHvala na testiranju!</string>
+  <string name="create_new_account">Morate kreirati novi račun, ali možete koristiti isti nadimak.</string>
+  <string name="startup_open_database">Dekriptujem bazu...</string>
+  <string name="startup_migrate_database">Ažuriram bazu...</string>
+  <string name="startup_compact_database">Sabijanje baze</string>
+  <!--Navigation Drawer-->
+  <string name="nav_drawer_open_description">Otvorite navigacionu fioku</string>
+  <string name="nav_drawer_close_description">Zatvorite navigacionu fioku</string>
+  <string name="contact_list_button">Kontakti</string>
+  <string name="groups_button">Privatne Grupe</string>
+  <string name="forums_button">Forumi</string>
+  <string name="blogs_button">Blogovi</string>
+  <!--This is part of the main menu. The app will be locked when this is tapped.-->
+  <string name="lock_button">Zaključaj aplikaciju</string>
+  <string name="settings_button">Podešavanja</string>
+  <string name="sign_out_button">Odjava</string>
+  <!--Transports-->
+  <string name="transport_tor">Internet</string>
+  <string name="transport_bt">Bluetooth</string>
+  <string name="transport_lan">Wi-Fi</string>
+  <!--Notifications-->
+  <string name="reminder_notification_title">Odjavljeni ste iz Briara</string>
+  <string name="reminder_notification_text">Dotaknite da se prijavite nazad.</string>
+  <string name="reminder_notification_channel_title">Briarov podsjetnik za prijavu</string>
+  <string name="reminder_notification_dismiss">Odustani</string>
+  <string name="ongoing_notification_title">Prijavljeni ste u Briar</string>
+  <string name="ongoing_notification_text">Dodirnite da otvorite Briar.</string>
+  <plurals name="private_message_notification_text">
+    <item quantity="one">Nova privatna poruka</item>
+    <item quantity="few">%d nove privatne poruke.</item>
+    <item quantity="other">%d novih privatnih poruka.</item>
+  </plurals>
+  <plurals name="group_message_notification_text">
+    <item quantity="one">Nova grupna poruka.</item>
+    <item quantity="few">%d nove grupne poruke.</item>
+    <item quantity="other">%d novih grupnih poruka.</item>
+  </plurals>
+  <plurals name="forum_post_notification_text">
+    <item quantity="one">Novi forum post.</item>
+    <item quantity="few">%d nova forum posta.</item>
+    <item quantity="other">%d novih forum postova.</item>
+  </plurals>
+  <plurals name="blog_post_notification_text">
+    <item quantity="one">Novi blog post.</item>
+    <item quantity="few">%d nova blog posta.</item>
+    <item quantity="other">%d novih blog postova.</item>
+  </plurals>
+  <!--Misc-->
+  <string name="now">sad</string>
+  <string name="show">Pokazi</string>
+  <string name="hide">Sakrij</string>
+  <string name="ok">OK</string>
+  <string name="cancel">Odustani</string>
+  <string name="got_it">Jasno</string>
+  <string name="delete">Briši</string>
+  <string name="accept">Prihvati</string>
+  <string name="decline">Odbij</string>
+  <string name="online">Na vezi</string>
+  <string name="offline">Iskljucen</string>
+  <string name="send">Šalji</string>
+  <string name="allow">Dozvoli</string>
+  <string name="open">Otvori</string>
+  <string name="no_data">Nema podataka</string>
+  <string name="ellipsis">...</string>
+  <string name="text_too_long">Uneti tekst je predugačak</string>
+  <string name="show_onboarding">Pokazi Pomoc dijalog </string>
+  <string name="fix">Sredi</string>
+  <string name="help">Pomoć</string>
+  <string name="sorry">Izvini</string>
+  <!--Contacts and Private Conversations-->
+  <string name="no_contacts">Nema kontakata za prikazivanje</string>
+  <string name="no_contacts_action">Taknite + ikonu da dodate kontakt</string>
+  <string name="date_no_private_messages">Nema poruka.</string>
+  <string name="no_private_messages">Nema poruka za prikazivanje</string>
+  <string name="message_hint">Ukucajte poruku</string>
+  <string name="image_caption_hint">Dodaj naslov (opciono)</string>
+  <string name="image_attach">Zakaci sliku</string>
+  <string name="set_contact_alias">Promijeni ime kontakta</string>
+  <string name="set_contact_alias_hint">Ime kontakta</string>
+  <string name="change">Promijeni</string>
+  <string name="delete_contact">Izbrišite kontakt</string>
+  <string name="dialog_title_delete_contact">Potvrdite brisanje kontakta</string>
+  <string name="dialog_message_delete_contact">Jeste li sigurni da želite da uklonite ovaj kontakt i sve poruke koje ste razmijenili?</string>
+  <string name="contact_deleted_toast">Kontakt izbrisan</string>
+  <!--This is shown in the action bar when opening an image in fullscreen that the user sent-->
+  <string name="you">Vi</string>
+  <string name="save_image">Sacuvaj sliku</string>
+  <string name="dialog_title_save_image">Da sacuvam sliku?</string>
+  <string name="dialog_message_save_image">Cuvanje ove slike ce omoguciti drugim aplikacijama da joj pristupe.
+
+Jeste li sigurno da zelite da je sacuvate?</string>
+  <!--Adding Contacts-->
+  <string name="face_to_face">Morate se sresti sa osobom koju želite da dodate kao kontakt.\n\nOvo će spriječiti bilo koga da se predstavi kao vi ili da ubuduće čita poruke.</string>
+  <string name="continue_button">Dalje</string>
+  <string name="try_again_button">Probajte opet</string>
+  <string name="waiting_for_contact_to_scan">Čekam da kontakt skenira i poveže se\u2026</string>
+  <string name="exchanging_contact_details">Razmjenjujem detalje kontakta\u2026</string>
+  <string name="contact_added_toast">Kontakt dodat: %s</string>
+  <string name="contact_already_exists">Kontakt %s već postoji</string>
+  <string name="qr_code_invalid">QR kod nije validan</string>
+  <string name="camera_error">Greska kamere</string>
+  <string name="connecting_to_device">Povezujem se sa uređajem\u2026</string>
+  <string name="authenticating_with_device">Autentikacija sa uređajem\u2026</string>
+  <string name="connection_error_title">Nijesmo se mogli povezati sa vašim kontaktom</string>
+  <string name="connection_error_explanation">Provjerite jeste li oboje povezani na ist Wi-Fi mrežu.</string>
+  <string name="connection_error_feedback">Ako se problem ponavlja, Molim vas <a href="feedback">pošaljite povratne informacije</a> kako bi pomogli poboljšanju aplikacije.</string>
+  <!--Adding Contacts Remotely-->
+  <string name="paste_button">Zalepi</string>
+  <string name="copy_button">Копирај</string>
+  <string name="share_button">Дељење</string>
+  <!--This is a numeral indicating the first step in a series of screens-->
+  <string name="step_1">1 </string>
+  <!--This is a numeral indicating the second step in a series of screens-->
+  <string name="step_2">2</string>
+  <!--This is a question asking whether two nicknames refer to the same person-->
+  <!--This is a button for answering that two nicknames do indeed refer to the same person. This
+	string will be used in a dialog button, so if the translation of this string is longer than 20
+	characters, please use "Yes" instead, and use "No" for the "Different Person" button-->
+  <!--This is a button for answering that two nicknames refer to different people. This string
+	will be used in a dialog button, so if the translation of this string longer than 20 characters,
+	please use "No" instead, and use "Yes" for the "Same Person" button-->
+  <!--Introductions-->
+  <string name="introduction_onboarding_title">Upoznajte vaše kontakte</string>
+  <string name="introduction_onboarding_text">Vi možete da upoznate vaše kontakte međusobno, da nebi morali da srijeću lice u liceda bi se povezali na Briar.</string>
+  <string name="introduction_menu_item">Izvršite upoznavanje</string>
+  <string name="introduction_activity_title">Izaberite kontakt</string>
+  <string name="introduction_not_possible">Vi već imate jedno upoznavanje u toku sa ovim kontaktom. Molim vas dozvolite da ono prvo završi. Ako ste vi ili vaš kontakt rijetko na vezi, ovo može da potraje.</string>
+  <string name="introduction_message_title">Upoznajte kontakte</string>
+  <string name="introduction_message_hint">Dodajte poruku (opciono)</string>
+  <string name="introduction_button">Izvršite upoznavanje</string>
+  <string name="introduction_sent">Vaše poziv na upoznavanje je poslat</string>
+  <string name="introduction_error">Došlo je do greške pri izvršenju upoznavanja.</string>
+  <string name="introduction_request_sent">Tražili ste da se %1$s i %2$s upoznaju.</string>
+  <string name="introduction_request_received">%1$s je tražio da vas upozna sa %2$s. Da li želite da dodate %2$s u vašu listu kontakata?</string>
+  <string name="introduction_request_exists_received">%1$s je tražio da vas upozna sa %2$s, ali %2$s je već u vašoj listi kontakata. Pošto %1$s to možda nezna, vi i dalje možete da odgovorite: </string>
+  <string name="introduction_request_answered_received">%1$s je tražio da vas upozna sa %2$s.</string>
+  <string name="introduction_response_accepted_sent">Prihvatili ste upoznavanje sa kontaktom %1$s.</string>
+  <string name="introduction_response_accepted_sent_info">prije nego što %1$s bude u vašim kontaktima, mora da prihvati i upoznavanje. Ovo može potrajati.</string>
+  <string name="introduction_response_declined_sent">Odbili ste upoznavanje sa kontaktom %1$s.</string>
+  <string name="introduction_response_accepted_received">%1$s prihvata upoznavanje sa %2$s.</string>
+  <string name="introduction_response_declined_received">%1$s je prihvatio-la upoznavanje sa kontaktom %2$s.</string>
+  <string name="introduction_response_declined_received_by_introducee">%1$s kaže da je %2$s odbio-la upoznavanje.</string>
+  <!--Private Groups-->
+  <string name="groups_list_empty">Nema grupa za prikazivanje</string>
+  <string name="groups_list_empty_action">Dotaknite + ikonu da kreirate grupu, ili pitajte vaše kontakte da podijele grupe sa vama</string>
+  <string name="groups_created_by">Kreator je %s</string>
+  <plurals name="messages">
+    <item quantity="one">%d poruka</item>
+    <item quantity="few">%d poruke</item>
+    <item quantity="other">%d poruka</item>
+  </plurals>
+  <string name="groups_group_is_empty">Grupa je prazna</string>
+  <string name="groups_group_is_dissolved">Ova grupa je rasformirana</string>
+  <string name="groups_remove">Ukloni</string>
+  <string name="groups_create_group_title">Kreiraj privatnu grupu</string>
+  <string name="groups_create_group_button">Kreiraj grupu</string>
+  <string name="groups_create_group_invitation_button">Pošalji poziv</string>
+  <string name="groups_create_group_hint">Izaberite ime za vašu privatnu grupu</string>
+  <string name="groups_invitation_sent">Grupna pozivnica je poslata</string>
+  <string name="groups_member_list">Lista članova</string>
+  <string name="groups_invite_members">Pošaljite poziv članovima</string>
+  <string name="groups_member_created_you">Vi ste kreirali grupu</string>
+  <string name="groups_member_created">%s je kreator grupe</string>
+  <string name="groups_member_joined_you">Pristupili ste grupi</string>
+  <string name="groups_member_joined">1%s je pristupio-la grupi</string>
+  <string name="groups_leave">Napustite grupu</string>
+  <string name="groups_leave_dialog_title">Potvrdite napuštanje grupe</string>
+  <string name="groups_leave_dialog_message">Jeste li sigurni da želite da napustite grupu?</string>
+  <string name="groups_dissolve">Raspustite grupu</string>
+  <string name="groups_dissolve_dialog_title">Potvrdite raspuštanje grupe</string>
+  <string name="groups_dissolve_dialog_message">Jeste li sigurni da želite da raspustite ovu grupu?\n\nOstali članovi neće više moći da nastave njihovu konverzaciju i možda neće dobiti poslednje poruke.</string>
+  <string name="groups_dissolve_button">Raspusti</string>
+  <string name="groups_dissolved_dialog_title">Grupa je raspuštena</string>
+  <string name="groups_dissolved_dialog_message">Kreator je raspustio ovu grupu.\n\nNemožete više pisati poruke u grupi i možda nećete primiti poljednje poruke koje su napisane.</string>
+  <!--Private Group Invitations-->
+  <string name="groups_invitations_title">Grupni pozivi</string>
+  <string name="groups_invitations_invitation_sent">Pozvali ste kontakt %1$s da se pridruzi grupi \"%2$s\".</string>
+  <string name="groups_invitations_invitation_received">%1$s je poslao-la poziv da pristupite grupi \"%2$s\".</string>
+  <string name="groups_invitations_joined">Pristupili ste grupi</string>
+  <string name="groups_invitations_declined">Grupni poziv je odbijen</string>
+  <plurals name="groups_invitations_open">
+    <item quantity="one">%d poziv u otvorenu grupu</item>
+    <item quantity="few">%d poziva u otvorenu grupu</item>
+    <item quantity="other">%d poziva u otvorenu grupu</item>
+  </plurals>
+  <string name="groups_invitations_response_accepted_sent">Prihvatili ste grupni poziv od kontakta %s.</string>
+  <string name="groups_invitations_response_declined_sent">Odbili ste grupni poziv od kontakta %s.</string>
+  <string name="groups_invitations_response_accepted_received">%s je prihvatio-la  grupni poziv.</string>
+  <string name="groups_invitations_response_declined_received">1%s je odbio-la grupni poziv.</string>
+  <string name="sharing_status_groups">Samo kreator moze da pozove nove članove u grupu. Ispod su trenutni članovi grupe.</string>
+  <!--Private Groups Revealing Contacts-->
+  <string name="groups_reveal_contacts">Otkrijte kontakte</string>
+  <string name="groups_reveal_dialog_message">Možete odlučiti da otkrijete kontakte svim trenutnim i budućim članovima ove grupe.\n\nOtkrivanje kontakata čini konekciju ka članovima grupe bržom i pouzdanijom, jer možete da komunicirate sa otkrivenim kontaktima čak i kad kreator grupe nije na vezi.</string>
+  <string name="groups_reveal_visible">Veze kontakata su vidljive grupi</string>
+  <string name="groups_reveal_visible_revealed_by_us">Veze kontakata su vidljive grupi (vi ste je otkrili)</string>
+  <string name="groups_reveal_visible_revealed_by_contact">Veze kontakata su vidljive grupi (otkriveno od strane %s)</string>
+  <string name="groups_reveal_invisible">Veze kontakata nisu vidljive grupi</string>
+  <!--Forums-->
+  <string name="no_forums">Nema foruma za prikazivanje</string>
+  <string name="no_forums_action">Dotaknite + ikonu da kreirate forum, ili pitajte vaše kontakte da podijele forume sa vama</string>
+  <string name="create_forum_title">Kreirajte forum</string>
+  <string name="choose_forum_hint">Izaberite ime za vaš forum</string>
+  <string name="create_forum_button">Kreirajte forum</string>
+  <string name="forum_created_toast">Forum je kreiran</string>
+  <string name="no_forum_posts">Nema postova za prikazivanje</string>
+  <string name="no_posts">Nema postova</string>
+  <plurals name="posts">
+    <item quantity="one">%d post</item>
+    <item quantity="few">%d posta</item>
+    <item quantity="other">%d postova</item>
+  </plurals>
+  <string name="forum_new_message_hint">Novi post</string>
+  <string name="forum_message_reply_hint">Novi odgovor</string>
+  <string name="btn_reply">Odgovor</string>
+  <string name="forum_leave">Napustite forum</string>
+  <string name="dialog_title_leave_forum">Potvrdite napuštanje foruma</string>
+  <string name="dialog_message_leave_forum">jeste li sigurni da želite da napustite ovaj forum?
+
+Kontakti sa kojima ste podijelili ovaj forum možda prekinu dobijate novosti.</string>
+  <string name="dialog_button_leave">Napusti</string>
+  <string name="forum_left_toast">Napušten forum</string>
+  <!--Forum Sharing-->
+  <string name="forum_share_button">Dijelite forum</string>
+  <string name="contacts_selected">Kontakti selektovani</string>
+  <string name="activity_share_toolbar_header">Izaberite kontakte</string>
+  <string name="no_contacts_selector">Nema kontakata za prikazivanje</string>
+  <string name="no_contacts_selector_action">Molim vas vratite se ovdje nakon dodavanja kontakta</string>
+  <string name="forum_shared_snackbar">Forum je podijeljen sa izabranim kontaktima</string>
+  <string name="forum_share_message">Dodajte poruku (opciono)</string>
+  <string name="forum_share_error">Došlo je do greške prilikom slanja ovog foruma.</string>
+  <string name="forum_invitation_received">%1$s je podijelio-la forum \"%2$s\" sa vama.</string>
+  <string name="forum_invitation_sent">Podijelili ste forum \"%1$s\" sa %2$s.</string>
+  <string name="forum_invitations_title">Pozivnice za forum</string>
+  <string name="forum_invitation_exists">Već ste prihvatili poziv u ovaj forum.
+
+Prihvatanje dodatnih poziva će učiniti vašu vezu sa forumom bržom i pouzdanijom.</string>
+  <string name="forum_joined_toast">Pristupljen forum</string>
+  <string name="forum_declined_toast">Poziv odbijen</string>
+  <string name="shared_by_format">Podijelio-la %s</string>
+  <string name="forum_invitation_already_sharing">Već se dijeli</string>
+  <string name="forum_invitation_response_accepted_sent">Prihvatili ste poziv u forum od %s.</string>
+  <string name="forum_invitation_response_declined_sent">Odbili ste poziv u forum od  %s.</string>
+  <string name="forum_invitation_response_accepted_received">1%s prihvata vaš poziv u forum.</string>
+  <string name="forum_invitation_response_declined_received">%s odbija vaš poziv u forum.</string>
+  <string name="sharing_status">Status dijeljenja</string>
+  <string name="sharing_status_forum">Bilo koji član foruma može ga podijeliti sa svojim kontaktima. Vi dijelite forum sa slijedećim kontaktima. Moguće je da ima drugih članova koje ne vidite.</string>
+  <string name="shared_with">Pdijeljeno sa %1$d (%2$d na vezi)</string>
+  <plurals name="forums_shared">
+    <item quantity="one">%d forum dijeljen sa kontaktima</item>
+    <item quantity="few">%d foruma dijeljena sa kontaktima</item>
+    <item quantity="other">%d foruma dijeljena sa kontaktima</item>
+  </plurals>
+  <string name="nobody">Niko</string>
+  <!--Blogs-->
+  <string name="blogs_other_blog_empty_state">Nema postova za prikazivanje</string>
+  <string name="read_more">pročitaj ostalo</string>
+  <string name="blogs_write_blog_post">Napiši Blog Post</string>
+  <string name="blogs_write_blog_post_body_hint">Ukucajte vaš blog post</string>
+  <string name="blogs_publish_blog_post">Objavi</string>
+  <string name="blogs_blog_post_created">Blog post je kreiran</string>
+  <string name="blogs_blog_post_received">Primljen je novi blog post</string>
+  <string name="blogs_blog_post_scroll_to">Skroluj do</string>
+  <string name="blogs_feed_empty_state">Nema postova za prikazivanje</string>
+  <string name="blogs_feed_empty_state_action">Postovi od vaših kontakata i blogova na koje se prijavite će se prikazivati ovdje
+
+Dotaknite ikonu olovke da napišete post</string>
+  <string name="blogs_remove_blog">Ukloni blog</string>
+  <string name="blogs_remove_blog_dialog_message">Jeste li sigurni da želite da uklonite blog?
+
+Postovi će biti uklonjeni sa vašeg uređaja ali ne is uređaja drugih ljudi.
+
+Kontakti kojima ste podijelili ovaj blog će možda prestati da dobijaju novosti.</string>
+  <string name="blogs_remove_blog_ok">Ukloni</string>
+  <string name="blogs_blog_removed">Blog uklonjen</string>
+  <string name="blogs_reblog_comment_hint">Dodajte komentar (opciono)</string>
+  <string name="blogs_reblog_button">Reblogujte</string>
+  <!--Blog Sharing-->
+  <string name="blogs_sharing_share">Podijelite blog</string>
+  <string name="blogs_sharing_error">Došlo je do greške pri podjeli bloga.</string>
+  <string name="blogs_sharing_button">Podijeli blog</string>
+  <string name="blogs_sharing_snackbar">Blog je podijeljen sa izabranim kontaktima</string>
+  <string name="blogs_sharing_response_accepted_sent">Prihvatili ste blog pozivnicu od %s.</string>
+  <string name="blogs_sharing_response_declined_sent">Odbili ste blog pozivnicu od %s.</string>
+  <string name="blogs_sharing_response_accepted_received">%s je prihvatio-la blog pozivnicu.</string>
+  <string name="blogs_sharing_response_declined_received">%s je odbio-la blog pozivnicu.</string>
+  <string name="blogs_sharing_invitation_received">%1$s je podijelio-la blog \"%2$s\" sa vama.</string>
+  <string name="blogs_sharing_invitation_sent">Podijelili ste blog \"%1$s\" sa %2$s.</string>
+  <string name="blogs_sharing_invitations_title">Blog pozivnice</string>
+  <string name="blogs_sharing_joined_toast">Prijavljeni ste na blog</string>
+  <string name="blogs_sharing_declined_toast">Poziv odbijen</string>
+  <string name="sharing_status_blog">Ko god se potpiše za ovaj blog može da ga podijeli sa svojim kontaktima. Vi dijelite blog sa slijedećim kontaktima. Moguće je da ima još potpisnika koje nemožete da vidite.</string>
+  <!--RSS Feeds-->
+  <string name="blogs_rss_feeds_import">Uvezi RSS kanal</string>
+  <string name="blogs_rss_feeds_import_button">Uvezi</string>
+  <string name="blogs_rss_feeds_import_hint">Unesi URL od RSS kanala</string>
+  <string name="blogs_rss_feeds_import_error">Žao nam je! Došlo je do greške pri unosu vašeg kanala.</string>
+  <string name="blogs_rss_feeds_manage_imported">Uvezeno:</string>
+  <string name="blogs_rss_feeds_manage_author">Autor:</string>
+  <string name="blogs_rss_feeds_manage_updated">Zadnje ažuriranje:</string>
+  <string name="blogs_rss_remove_feed">Uklonite kanal</string>
+  <string name="blogs_rss_remove_feed_dialog_message">Jeste li sigurni da želite da uklonite kanal?
+
+Postovi će biti uklonjeni sa vašeg uređaja ali ne is uređaja drugih ljudi.
+
+Kontakti kojima ste podijelili ovaj blog će možda prestati da dobijaju novosti.</string>
+  <string name="blogs_rss_remove_feed_ok">Ukloni</string>
+  <string name="blogs_rss_feeds_manage_empty_state">Nema RSS kanala za prikazivanje
+
+Dotaknite + ikonu da uvezete kanal</string>
+  <string name="blogs_rss_feeds_manage_error">Došlo je do problema pri učitavanju vaših kanala. Probajte opet kasnije.</string>
+  <!--Settings Display-->
+  <string name="pref_language_title">Jezik i regija</string>
+  <string name="pref_language_changed">Ovo podešavanje će stupiti na snagu kada restartujete Briar. Molim vas da se odjavite i restartujete Briar.</string>
+  <string name="pref_language_default">Default sistema</string>
+  <string name="display_settings_title">Displej</string>
+  <string name="pref_theme_title">Tema</string>
+  <string name="pref_theme_light">Svijetla</string>
+  <string name="pref_theme_dark">Tamna</string>
+  <string name="pref_theme_auto">Automatski (Dnevno)</string>
+  <string name="pref_theme_system">Default sistema</string>
+  <!--Settings Connections-->
+  <string name="tor_network_setting_automatic">Automatski prema na lokaciji</string>
+  <!--How and when Briar will connect to Tor: E.g. "Don't connect to the Internet (in China)" or "Use Tor network with bridges (in Belarus)"-->
+  <string name="tor_network_setting_summary">Automatski: %1$s (za %2$s)</string>
+  <string name="tor_mobile_data_title">Koristi mobilinu mrežu</string>
+  <!--Settings Security and Panic-->
+  <string name="security_settings_title">Sigurnost</string>
+  <string name="pref_lock_title">Zakljucavanje applikacije</string>
+  <string name="pref_lock_summary">Koristi zaključavanje ekrana uređaja da bi zaštitili Briar dok ste prijavljeni</string>
+  <string name="pref_lock_disabled_summary">Da bi koristili ovu mogućnost, podesite zaključavanje ekrana za vaš uređaj</string>
+  <string name="pref_lock_timeout_title">Zaključavanje aplikacije po neaktivnosti</string>
+  <!--The %s placeholder is replaced with the following time spans, e.g. 5 Minutes, 1 Hour-->
+  <string name="pref_lock_timeout_summary">Kada se ne koristi Briar, automatski zaključaj poslije %s</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_1">1 minut</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_5">5 minuta</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_15">15 minuta</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_30">30 minuta</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_60">1 sat</string>
+  <string name="pref_lock_timeout_never">Nikad</string>
+  <string name="pref_lock_timeout_never_summary">Ne zaključavaj Briar automatski</string>
+  <string name="change_password">Promijeni sifru</string>
+  <string name="current_password">Trenutna lozinka</string>
+  <string name="choose_new_password">Nova lozinka</string>
+  <string name="confirm_new_password">Potvrdi novu lozinku</string>
+  <string name="password_changed">Šifra je promijenjena</string>
+  <string name="panic_setting">Podešavanje panik dugmeta</string>
+  <string name="panic_setting_title">Panik dugme</string>
+  <string name="panic_setting_hint">Podesite kako Briar reaguje kad koristite panik dugme app</string>
+  <string name="panic_app_setting_title">Panik Dugne App</string>
+  <string name="unknown_app">nepoznata aplikacija</string>
+  <string name="panic_app_setting_summary">Nema postavljene aplikacije</string>
+  <string name="panic_app_setting_none">Ništa</string>
+  <string name="dialog_title_connect_panic_app">Potvrdi Panic App</string>
+  <string name="dialog_message_connect_panic_app">Jeste li sigurni da želite da dozvolite %1$s da pokrene destruktivne akcije panik dugmeta?</string>
+  <string name="panic_setting_signout_title">Izlogujte se</string>
+  <string name="panic_setting_signout_summary">Izloguj se iz Briar-a ako je pritisnuto panik dugme</string>
+  <string name="purge_setting_title">Izbriši račun</string>
+  <string name="purge_setting_summary">Izbriši Briar račun ako je panik dugme pritisnuto. Pažnja: Ovo će permanentno izbrisati vaše identitete, kontakte i poruke</string>
+  <!--Settings Notifications-->
+  <string name="notification_settings_title">Obavještenja</string>
+  <string name="notify_sign_in_title">Podsjeti me da se prijavim</string>
+  <string name="notify_sign_in_summary">Prikazi podsjetnik kada se telefon uključi ili kada se aplikacija ažurira</string>
+  <string name="notify_private_messages_setting_title">Privatne poruke</string>
+  <string name="notify_private_messages_setting_summary">Prikaži upozorenja na privatne poruke</string>
+  <string name="notify_private_messages_setting_summary_26">Podesite upozorenja za privatne poruke</string>
+  <string name="notify_group_messages_setting_title">Grupne poruke</string>
+  <string name="notify_group_messages_setting_summary">Prikaži upozorenja za grupne poruke</string>
+  <string name="notify_group_messages_setting_summary_26">Podesite upozorenja za grupne poruke</string>
+  <string name="notify_forum_posts_setting_title">Forum postovi</string>
+  <string name="notify_forum_posts_setting_summary">Prikaži upozorenja za forum postove</string>
+  <string name="notify_forum_posts_setting_summary_26">Podesite upozorenja za forum postove</string>
+  <string name="notify_blog_posts_setting_title">Blog postovi</string>
+  <string name="notify_blog_posts_setting_summary">Prikaži upozorenja na blog postove</string>
+  <string name="notify_blog_posts_setting_summary_26">Podesite upozorenja za blog postove</string>
+  <string name="notify_vibration_setting">Vibriranje</string>
+  <string name="notify_sound_setting">Zvuk</string>
+  <string name="notify_sound_setting_default">Podrazumijevanio zvono</string>
+  <string name="notify_sound_setting_disabled">Ništa</string>
+  <string name="choose_ringtone_title">Izaberi zvuk zvona</string>
+  <string name="cannot_load_ringtone">Ne mogu otvoriti ton zvona</string>
+  <!--Settings Feedback-->
+  <string name="feedback_settings_title">Povratne informacije</string>
+  <string name="send_feedback">Šalji povratne informacije</string>
+  <!--Link Warning-->
+  <string name="link_warning_title">Link upozorenje</string>
+  <string name="link_warning_intro">Upravo ćete otvoriti slijedeći link sa eksternom aplikacijom</string>
+  <string name="link_warning_open_link">Otvori link</string>
+  <!--Crash Reporter-->
+  <string name="crash_report_title">Briar izvještaj po krahu</string>
+  <string name="briar_crashed">Izvinite, Briar je krahirao.</string>
+  <string name="not_your_fault">Nijeste vi krivi.</string>
+  <string name="please_send_report">Molimo pomozite nam da napravimo bolji Briar tako što ćete nam poslati izvještaj o krahu.</string>
+  <string name="report_is_encrypted">Obećavamo da je izvještaj kriptovan i sigurno poslat.</string>
+  <string name="feedback_title">Povratna informacija</string>
+  <string name="describe_crash">Opišite šta se desilo (opciono)</string>
+  <string name="enter_feedback">Unesite vašu povratnu informaciju</string>
+  <string name="optional_contact_email">Vaša email adres (opciono)</string>
+  <string name="include_debug_report_crash">Uključite anonimne podatke o krahu</string>
+  <string name="include_debug_report_feedback">Uključite anonimne podatke o ovom uređaju</string>
+  <string name="could_not_load_report_data">Nije bilo moguće učitati podatke izvještaja</string>
+  <string name="send_report">Pošalji izvještaj</string>
+  <string name="close">Zatvori</string>
+  <string name="dev_report_saved">Izvještaj sačuvan. Biće poslat slijedeći put kada se ulogujete u Briar.</string>
+  <!--Sign Out-->
+  <string name="progress_title_logout">Isključujete se iz Briara...</string>
+  <!--Screen Filters & Tapjacking-->
+  <string name="screen_filter_title">Detektovano je prekrivanje ekrana</string>
+  <string name="screen_filter_body">Druga aplikacija precrtava preko Briara. Da bi vas zaštitio, Briar neće reagovati na dodir dok druga aplikacija precrtava preko ekrana.
+
+Slijedeće aplikacije mogu precrtavati preko:
+
+%1$s</string>
+  <string name="screen_filter_allow">Dozvoli ovim aplikacijama da precrtavaju ekran</string>
+  <!--Permission Requests-->
+  <string name="permission_camera_title">Dozvole kamere</string>
+  <string name="permission_camera_request_body">Da bi skenirao QR kod, Briaru je potreban pristup kameri.</string>
+  <string name="permission_camera_denied_body">Uskratili ste pristup kameri, ali dodavanje kontakata zahtijeva pristup kameri.
+
+Molim vas da uzmete u obzir odobravanja pristupa.</string>
+  <string name="qr_code">QR kod</string>
+  <string name="show_qr_code_fullscreen">Prikazi QR kod na puni ekran</string>
+  <!--App Locking-->
+  <string name="lock_unlock">Otključaj Briar</string>
+  <string name="lock_unlock_verbose">Unesite PIN uređaja, figuru ili lozinku</string>
+  <string name="lock_unlock_fingerprint_description">Dodirnite senzor otiska sa registrovanim prstom da bi nastavili</string>
+  <string name="lock_unlock_password">Koristi lozinku</string>
+  <string name="lock_is_locked">Briar je zaključan</string>
+  <string name="lock_tap_to_unlock">Dotakni da otključaš</string>
+  <!--Screenshots-->
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <!--This is a message to be used in screenshots. Please use the same translation for Bob!-->
+  <!--This is a message to be used in screenshots. Please use the same translation for Alice!-->
+  <!--This is a message to be used in screenshots.-->
+</resources>

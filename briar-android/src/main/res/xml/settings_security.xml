@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools">
+
+	<SwitchPreferenceCompat
+		android:enabled="false"
+		android:key="pref_key_lock"
+		android:persistent="false"
+		android:summary="@string/pref_lock_summary"
+		android:title="@string/pref_lock_title"
+		app:iconSpaceReserved="false"
+		app:singleLineTitle="false" />
+
+	<ListPreference
+		android:defaultValue="@string/pref_lock_timeout_value_default"
+		android:dependency="pref_key_lock"
+		android:enabled="false"
+		android:entries="@array/pref_key_lock_timeout_entries"
+		android:entryValues="@array/pref_key_lock_timeout_values"
+		android:key="pref_key_lock_timeout"
+		android:persistent="false"
+		android:title="@string/pref_lock_timeout_title"
+		app:iconSpaceReserved="false"
+		tools:summary="@string/pref_lock_timeout_summary" />
+
+	<Preference
+		android:key="pref_key_change_password"
+		android:title="@string/change_password"
+		app:iconSpaceReserved="false">
+
+		<intent
+			android:targetClass="org.briarproject.briar.android.login.ChangePasswordActivity"
+			android:targetPackage="@string/app_package" />
+	</Preference>
+
+	<PreferenceCategory
+		android:layout="@layout/preferences_category"
+		android:title="@string/panic_setting_title">
+
+		<Preference
+			android:summary="@string/panic_setting_hint"
+			android:title="@string/panic_setting"
+			app:iconSpaceReserved="false">
+
+			<intent
+				android:targetClass="org.briarproject.briar.android.panic.PanicPreferencesActivity"
+				android:targetPackage="@string/app_package" />
+
+		</Preference>
+
+	</PreferenceCategory>
+
+</PreferenceScreen>

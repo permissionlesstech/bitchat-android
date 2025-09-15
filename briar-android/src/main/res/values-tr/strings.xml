@@ -1,0 +1,873 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+  <!--Setup-->
+  <string name="setup_title">Briar uygulamasına hoş geldiniz</string>
+  <string name="setup_name_explanation">Takma adınız, gönderdiğiniz herhangi bir içeriğin yanında görüntülenir. Hesabınızı açtıktan sonra takma adınızı değiştiremezsiniz.</string>
+  <string name="setup_next">Sonraki</string>
+  <string name="setup_password_intro">Bir parola yazın</string>
+  <string name="setup_password_explanation">Briar hesabınız bulutta değil aygıtınızda şifrelenmiş olarak saklanır. Parolanızı unutursanız veya Briar uygulamasını kaldırırsanız hesabınızı kurtarmanın bir yolu yoktur.\n\nÖngörülmesi zor rastgele dört sözcük, on harf, rakam ve simge karakterinden oluşan uzun bir parola seçin.</string>
+  <string name="dnkm_doze_intro">İletileri alabilmesi için Briar arka planda bağlı olmalıdır.</string>
+  <string name="dnkm_doze_explanation">İletileri alabilmesi için Briar arka planda bağlı olmalıdır. Briar uygulamasının bağlı kalabilmesi için lütfen pil tasarrufu seçeneğini kapatın.</string>
+  <string name="choose_nickname">Takma adınızı yazın</string>
+  <string name="choose_password">Parolanızı yazın</string>
+  <string name="confirm_password">Parolanızı onaylayın</string>
+  <string name="name_too_long">Ad çok uzun</string>
+  <string name="password_too_weak">Parola çok zayıf</string>
+  <string name="password_quite_strong">Parola uygun</string>
+  <string name="password_strong">Parola güçlü</string>
+  <string name="passwords_do_not_match">Parola ile onayı aynı değil</string>
+  <string name="create_account_button">Hesap aç</string>
+  <string name="more_info">Diğer bilgiler</string>
+  <string name="don_t_ask_again">Yeniden sorma</string>
+  <string name="dnkm_huawei_protected_text">Lütfen aşağıdaki düğmeye dokunun ve \"Korunan uygulamalar\" bölümünde Briar uygulamasının da korunduğundan emin olun.</string>
+  <string name="dnkm_huawei_protected_button">Briar uygulamasını koru</string>
+  <string name="dnkm_huawei_protected_help">Briar korunan uygulamalar listesine eklenmezse, arka planda çalışamaz.</string>
+  <string name="dnkm_huawei_app_launch_text">Lütfen aşağıdaki düğmeye dokunun, \"Uygulama başlatma\" ekranını açın ve Briar için \"El ile yönetilsin\" olarak ayarlanmış olduğundan emin olun.</string>
+  <string name="dnkm_huawei_app_launch_help">Briar, \"Uygulama başlatma\" ekranında \"El ile yönetilsin\" olarak ayarlanmamışsa, arka planda çalışmayabilir.</string>
+  <string name="dnkm_xiaomi_text">Arka planda çalışabilmesi için Briar korunan uygulamalar listesine eklenmelidir.</string>
+  <string name="dnkm_xiaomi_button">Briar uygulamasını koru</string>
+  <string name="dnkm_xiaomi_help">Briar korunan uygulamalar listesine eklenmezse, arka planda çalışamaz.</string>
+  <string name="dnkm_xiaomi_dialog_body_old">1. Son uygulamalar listesini açın (uygulama değiştirici de deniyor)\n\n2. Briar görselini kilit simgesini görene kadar aşağı kaydırın\n\n3. Kilit simgesi kilitli değilse, kilitlemek için dokunun</string>
+  <string name="dnkm_xiaomi_dialog_body_new">1. Son uygulamalar listesini açın (uygulama değiştirici de deniyor)\n\n2. Briar uygulamasının yanında bir kilit simgesi varsa bir şey yapmanız gerekmez\n\n3. Kilit simgesi yoksa, kilit düğmesi görünene kadar Briar görseline basılı tutun. Ardından kilit düğmesine dokunun</string>
+  <string name="dnkm_xiaomi_lock_apps_text">Güvenlik ayarlarını açmak için aşağıdaki düğmeye dokunun. \"Hızı artır\" üzerine dokunun. Ardından \"Uygulamaları kilitle\" üzerine dokunun ve Briar uygulamasının \"Kilitli\" olarak ayarlandığından emin olun.</string>
+  <string name="dnkm_xiaomi_lock_apps_help">Briar uygulaması \"Uygulamaları kilitle\" ekranında \"Kilitli\" değilse, arka planda çalışamaz.</string>
+  <string name="dnkm_warning_dozed_1">Briar arka planda çalışamadı</string>
+  <!--Login-->
+  <string name="enter_password">Parola</string>
+  <string name="try_again">Parola yanlış, yeniden deneyin</string>
+  <string name="dialog_title_cannot_check_password">Parola denetlenemedi</string>
+  <string name="dialog_message_cannot_check_password">Briar parolanızı denetleyemedi. Sorunu çözmek için lütfen aygıtınızı yeniden başlatın.</string>
+  <string name="sign_in_title">Briar oturumu aç</string>
+  <string name="sign_in_button">Oturum aç</string>
+  <string name="forgotten_password">Parolamı unuttum</string>
+  <string name="dialog_title_lost_password">Parolamı unuttum</string>
+  <string name="dialog_message_lost_password">Briar hesabınız, bulutta değil şifrelenmiş olarak aygıtınızda tutulur. Bu nedenle şifrenizi sıfırlayamıyoruz. Hesabınızı silmek ve baştan başlamak ister misiniz? \n\nUyarı: Kimlikleriniz, kişileriniz ve iletileriniz kaybolur.</string>
+  <string name="startup_failed_activity_title">Briar başlatılamadı</string>
+  <string name="startup_failed_clock_error">Aygıtınızın saati yanlış olduğu için Briar başlatılamadı.\n\nLütfen aygıtınızın saatini doğru zamana ayarlayıp yeniden deneyin.</string>
+  <string name="startup_failed_db_error">Briar, hesabınızın, bağlantılarınızın ve iletilerinizin bulunduğu veri tabanını açamadı.\n\nLütfen uygulamayı güncel sürümüne yükseltip yeniden deneyin ya da parola ekranındaki \"Parolamı unuttum\" seçeneğini kullanarak yeni bir hesap oluşturun.</string>
+  <string name="startup_failed_data_too_old_error">Hesabınız bu uygulamanın daha eski bir sürümüyle oluşturulmuş ve bu sürümle açılamaz.\n\nEski sürümü yeniden kurun ya da parola sorulduğunda \"Parolamı unuttum\" seçeneğini kullanarak yeni bir hesap oluşturun.</string>
+  <string name="startup_failed_data_too_new_error">Hesabınız bu uygulamanın daha yeni bir sürümüyle oluşturulmuş ve bu sürümle açılamaz.\n\nLütfen uygulamayı güncel sürümüne yükseltip yeniden deneyin.</string>
+  <string name="startup_failed_service_error">Briar gerek duyduğu bir bileşeni başlatamadı.\n\nLütfen uygulamayı güncel sürümüne yükseltip yeniden deneyin.</string>
+  <plurals name="expiry_warning">
+    <item quantity="one">Briar deneme sürümünü kullanıyorsunuz. Hesabınız %d gün sonra geçersiz olacak ve yenilenemeyecek.</item>
+    <item quantity="other">Briar deneme sürümünü kullanıyorsunuz. Hesabınız %d gün sonra geçersiz olacak ve yenilenemeyecek.</item>
+  </plurals>
+  <string name="expiry_date_reached">Bu yazılımın geçerlilik süresi geçmiş.\nDenediğiniz için teşekkürler!</string>
+  <string name="download_briar">Briar kullanmayı sürdürmek için lütfen güncel sürümü indirin.</string>
+  <string name="create_new_account">Yeni bir hesap oluşturmanız gerekecek, fakat aynı takma adı kullanabilirsiniz.</string>
+  <string name="download_briar_button">Güncel sürümü indir</string>
+  <string name="old_android_expiry_date_reached">Briar artık Android 4 üzerinde çalışmıyor.\nLütfen Briar uygulamasını daha yeni bir aygıta kurun.</string>
+  <string name="old_android_delete_account">Bu aygıttaki hesabınızı silmek için aşağıdaki düğmeye dokunabilirsiniz.</string>
+  <string name="delete_account_button">Hesabı sil</string>
+  <string name="startup_open_database">Veri tabanının şifresi çözülüyor...</string>
+  <string name="startup_migrate_database">Veri tabanı yükseltiliyor...</string>
+  <string name="startup_compact_database">Veri tabanı sıkıştırılıyor...</string>
+  <!--Navigation Drawer-->
+  <string name="nav_drawer_open_description">Gezinme çekmecesini aç</string>
+  <string name="nav_drawer_close_description">Gezinme çekmecesini kapat</string>
+  <string name="contact_list_button">Kişiler</string>
+  <string name="groups_button">Özel gruplar</string>
+  <string name="forums_button">Forumlar</string>
+  <string name="blogs_button">Günlükler</string>
+  <!--This is part of the main menu. The app will be locked when this is tapped.-->
+  <string name="lock_button">Uygulamayı kilitle</string>
+  <string name="settings_button">Ayarlar</string>
+  <string name="sign_out_button">Oturumu kapat</string>
+  <string name="transports_onboarding_text">Briar uygulamasının kişilerinizle nasıl bağlanacağını belirlemek için buraya dokunun</string>
+  <!--Transports: Tor-->
+  <string name="transport_tor">İnternet</string>
+  <string name="tor_device_status_online_wifi">Telefonunuzun Wi-Fi İnternet erişimi var</string>
+  <string name="tor_device_status_online_mobile">Telefonunuzun mobil veri ile İnternet erişimi var</string>
+  <string name="tor_device_status_offline">Telefonunuzun İnternet erişimi yok</string>
+  <string name="tor_plugin_status_enabling">Briar İnternet bağlantısı kuruyor</string>
+  <string name="tor_plugin_status_active">Briar İnternet bağlantısını kurdu</string>
+  <string name="tor_plugin_status_inactive">Briar İnternet bağlantısı kuramadı</string>
+  <string name="tor_plugin_status_disabled">Briar İnternet kullanmayacak şekilde yapılandırılmış</string>
+  <string name="tor_plugin_status_disabled_mobile_data">Briar mobil veri kullanmayacak şekilde yapılandırılmış</string>
+  <string name="tor_plugin_status_disabled_battery">Briar pil ile çalışırken İnternet kullanmayacak şekilde yapılandırılmış</string>
+  <string name="tor_plugin_status_disabled_country_blocked">Briar bu ülkede İnternet kullanmayacak şekilde yapılandırılmış</string>
+  <!--Transports: Wi-Fi-->
+  <string name="transport_lan">Wi-Fi</string>
+  <string name="transport_lan_long">Aynı Wi-Fi ağı</string>
+  <string name="lan_device_status_on">Telefonunuzun Wi-Fi bağlantısı var</string>
+  <string name="lan_device_status_off">Telefonunuzun Wi-Fi bağlantısı yok</string>
+  <string name="lan_plugin_status_enabling">Briar Wi-Fi ağı ile bağlantı kuruyor</string>
+  <string name="lan_plugin_status_active">Briar Wi-Fi ağı ile bağlantı kurdu</string>
+  <string name="lan_plugin_status_inactive">Briar Wi-Fi ağı ile bağlantı kuramadı</string>
+  <string name="lan_plugin_status_disabled">Briar Wi-Fi ağını kullanmayacak şekilde yapılandırılmış</string>
+  <!--Transports: Bluetooth-->
+  <string name="transport_bt">Bluetooth</string>
+  <string name="bt_device_status_on">Telefonunuzda Bluetooth açık</string>
+  <string name="bt_device_status_off">Telefonunuzda Bluetooth kapalı</string>
+  <string name="bt_plugin_status_enabling">Briar Bluetooth ile bağlantı kuruyor</string>
+  <string name="bt_plugin_status_active">Briar Bluetooth ile bağlantı kurdu</string>
+  <string name="bt_plugin_status_inactive">Briar Bluetooth ile bağlantı kuramadı</string>
+  <string name="bt_plugin_status_disabled">Briar Bluetooth kullanmayacak şekilde yapılandırılmış</string>
+  <!--Notifications-->
+  <string name="reminder_notification_title">Briar oturumu kapatıldı</string>
+  <string name="reminder_notification_text">Yeniden oturum açmak için dokunun.</string>
+  <string name="reminder_notification_channel_title">Briar oturum açma anımsatıcısı</string>
+  <string name="reminder_notification_dismiss">Vazgeç</string>
+  <string name="ongoing_notification_title">Briar oturumu açıldı</string>
+  <string name="ongoing_notification_text">Briar\'ı açmak için dokunun.</string>
+  <plurals name="private_message_notification_text">
+    <item quantity="one">Yeni özel ileti.</item>
+    <item quantity="other">%d yeni özel ileti.</item>
+  </plurals>
+  <plurals name="group_message_notification_text">
+    <item quantity="one">Yeni grup iletisi.</item>
+    <item quantity="other">%d yeni grup iletisi.</item>
+  </plurals>
+  <plurals name="forum_post_notification_text">
+    <item quantity="one">Yeni forum yazısı.</item>
+    <item quantity="other">%d yeni forum yazısı.</item>
+  </plurals>
+  <plurals name="blog_post_notification_text">
+    <item quantity="one">Yeni günlük yazısı.</item>
+    <item quantity="other">%d yeni günlük yazısı.</item>
+  </plurals>
+  <!--Misc-->
+  <string name="now">şimdi</string>
+  <string name="show">Göster</string>
+  <string name="hide">Gizle</string>
+  <string name="ok">Tamam</string>
+  <string name="cancel">İptal</string>
+  <string name="got_it">Anladım</string>
+  <string name="delete">Sil</string>
+  <string name="accept">Onayla</string>
+  <string name="decline">Reddet</string>
+  <string name="online">Çevrim içi</string>
+  <string name="offline">Çevrim dışı</string>
+  <string name="send">Gönder</string>
+  <string name="allow">İzin ver</string>
+  <string name="open">Aç</string>
+  <string name="change">Değiştir</string>
+  <string name="start">Başlat</string>
+  <string name="finish">Bitir</string>
+  <string name="no_data">Herhangi bir veri yok</string>
+  <string name="ellipsis">…</string>
+  <string name="text_too_long">Yazılan metin çok uzun</string>
+  <string name="show_onboarding">Yardım penceresini görüntüle</string>
+  <string name="fix">Düzelt</string>
+  <string name="help">Yardım</string>
+  <string name="sorry">Üzgünüm</string>
+  <string name="error_start_activity">Sisteminizde kullanılamıyor</string>
+  <string name="status_heading">Durum</string>
+  <string name="error">Hata</string>
+  <string name="info">Bilgiler</string>
+  <!--Contacts and Private Conversations-->
+  <string name="no_contacts">Görüntülenebilecek bir kişi yok</string>
+  <string name="no_contacts_action">Bir kişi eklemek için + simgesine dokunun</string>
+  <string name="date_no_private_messages">Herhangi bir ileti yok.</string>
+  <string name="no_private_messages">Görüntülenebilecek bir ileti yok</string>
+  <string name="message_hint">Yeni ileti</string>
+  <string name="message_hint_auto_delete">Yeni kaybolan ileti</string>
+  <string name="message_error">İleti gönderilirken sorun çıktı</string>
+  <string name="image_caption_hint">Bir başlık ekle (isteğe bağlı)</string>
+  <string name="image_attach">Görsel ekle</string>
+  <string name="image_attach_error">Görseller eklenemedi</string>
+  <string name="image_attach_error_too_big">Görsel çok büyük. Sınır %d MB.</string>
+  <string name="image_attach_error_invalid_mime_type">Görsel biçimi desteklenmiyor: %s</string>
+  <string name="set_contact_alias">Kişi adını değiştir</string>
+  <string name="set_contact_alias_hint">Kişi adı</string>
+  <string name="menu_item_disappearing_messages">Kaybolan iletiler</string>
+  <!--The first placeholder will show a duration like "7 days". The second placeholder at the end will add "Tap to learn more."-->
+  <string name="auto_delete_msg_you_enabled">İletileriniz %1$s sonra kaybolacak. %2$s</string>
+  <!--The placeholder at the end will add "Tap to learn more."-->
+  <string name="auto_delete_msg_you_disabled">İletileriniz kaybolmayacak. %1$s</string>
+  <!--The first placeholder will show a contact's name. The second placeholder will show a duration like "7 days". The third placeholder at the end will add "Tap to learn more."-->
+  <string name="auto_delete_msg_contact_enabled">%1$s kişisinin iletileri %2$s sonra kaybolacak. %3$s</string>
+  <plurals name="duration_minutes">
+    <item quantity="one">%d dakika</item>
+    <item quantity="other">%d dakika</item>
+  </plurals>
+  <plurals name="duration_hours">
+    <item quantity="one">%d saat</item>
+    <item quantity="other">%d saat</item>
+  </plurals>
+  <plurals name="duration_days">
+    <item quantity="one">%d gün</item>
+    <item quantity="other">%d gün</item>
+  </plurals>
+  <!--The first placeholder will show a contact's name. The second placeholder at the end will add "Tap to learn more."-->
+  <string name="auto_delete_msg_contact_disabled">%1$s kişisinin iletileri kaybolmayacak. %2$s</string>
+  <string name="tap_to_learn_more">Ayrıntılı bilgi almak için dokunun.</string>
+  <string name="auto_delete_changed_warning_title">Kaybolan iletiler değişti</string>
+  <string name="auto_delete_changed_warning_message_enabled">İletinizi yazmaya başlamanızdan sonra kaybolan iletiler özelliği açıldı.</string>
+  <string name="auto_delete_changed_warning_message_disabled">İletinizi yazmaya başlamanızdan sonra kaybolan iletiler özelliği kapatıldı.</string>
+  <string name="auto_delete_changed_warning_send">Yine de gönder</string>
+  <string name="delete_all_messages">Tüm iletileri sil</string>
+  <string name="dialog_title_delete_all_messages">İleti silmeyi onayla</string>
+  <string name="dialog_message_delete_all_messages">Tüm iletileri silmek istediğinize emin misiniz?</string>
+  <string name="dialog_title_not_all_messages_deleted">Tüm iletiler silinemedi</string>
+  <string name="dialog_message_not_deleted_ongoing_both">Süreci tamamlanmamış davetler ve tanıştırmalarla ilgili iletiler, süreci tamamlanana kadar silinemez.</string>
+  <string name="dialog_message_not_deleted_ongoing_introductions">Süreci tamamlanmamış tanıştırmalarla ilgili iletiler, süreci tamamlanana kadar silinemez.</string>
+  <string name="dialog_message_not_deleted_ongoing_invitations">Süreci tamamlanmamış davetlerle ilgili iletiler, süreci tamamlanana kadar silinemez.</string>
+  <string name="dialog_message_not_deleted_not_all_selected_both">Bir daveti veya tanıştırmayı silmek için isteği ve yanıtı seçmeniz gerekir.</string>
+  <string name="dialog_message_not_deleted_not_all_selected_introductions">Bir tanıştırmayı silmek için isteği ve yanıtı seçmeniz gerekir.</string>
+  <string name="dialog_message_not_deleted_not_all_selected_invitations">Bir daveti silmek için isteği ve yanıtı seçmeniz gerekir.</string>
+  <string name="delete_contact">Kişiyi sil</string>
+  <string name="dialog_title_delete_contact">Kişi silmeyi onayla</string>
+  <string name="dialog_message_delete_contact">Bu kişiyi ve bu kişiyle alışverişi yapılan tüm iletileri silmek istediğinize emin misiniz?</string>
+  <string name="contact_deleted_toast">Kişi silindi</string>
+  <!--This is shown in the action bar when opening an image in fullscreen that the user sent-->
+  <string name="you">Siz</string>
+  <string name="save_image">Görseli kaydet</string>
+  <string name="dialog_title_save_image">Görsel kaydedilsin mi?</string>
+  <string name="dialog_message_save_image">Bu görseli kaydetmek diğer uygulamaların ona erişmesine izin verecek.\n\nKaydetmek istediğinize emin misiniz?</string>
+  <string name="save_image_success">Görsel kaydedildi</string>
+  <string name="save_image_error">Görsel kaydedilemedi</string>
+  <string name="dialog_title_no_image_support">Görseller kullanılamıyor</string>
+  <string name="dialog_message_no_image_support">Kişinizin Briar uygulaması henüz görsel eklerini desteklemiyor. Kişi uygulamasını yükselttiğinde farklı bir simge göreceksiniz.</string>
+  <string name="dialog_title_image_support">Artık bu kişiye görseller gönderebilirsiniz</string>
+  <string name="dialog_message_image_support">Görsel eklemek için bu simgeye dokunun.</string>
+  <string name="messaging_too_many_attachments_toast">Yalnızca ilk %d görsel gönderilecek</string>
+  <string name="menu_contact">Kişi</string>
+  <!--Adding Contacts-->
+  <string name="add_contact_title">Yakındaki kişiyi ekle</string>
+  <string name="add_contact_error_two_way">Birbirinizin kare kodunu taradınız mı?</string>
+  <string name="face_to_face">Kişi olarak eklemek istediğiniz kişiyle fiziksel olarak buluşmanız gerekir.\n\nBöylece gelecekte başkaları sizin kimliğinize bürünemez veya iletilerinizi okuyamaz.</string>
+  <string name="continue_button">İlerle</string>
+  <string name="try_again_button">Yeniden dene</string>
+  <string name="waiting_for_contact_to_scan">Kişinin kodu taraması ve bağlantı kurması bekleniyor\u2026</string>
+  <string name="exchanging_contact_details">Kişi bilgileri takas ediliyor\u2026</string>
+  <string name="contact_added_toast">Kişi eklendi: %s</string>
+  <string name="contact_already_exists"> %s kişisi zaten var</string>
+  <string name="contact_already_exists_general">Kişi zaten var</string>
+  <string name="qr_code_invalid">Kare kod geçersiz</string>
+  <string name="qr_code_too_old_1">Taradığınız kare kod eski bir Briar sürümünden geliyor.\n\nLütfen kişinize uygulamayı güncel sürümüne yükseltip yeniden denemesini söyleyin.</string>
+  <string name="qr_code_too_new_1">Taradığınız kare kod daha yeni bir Briar sürümünden geliyor.\n\nLütfen uygulamayı güncel sürümüne yükseltip yeniden deneyin.</string>
+  <string name="mailbox_qr_code_for_contact">Taradığınız kare kod Briar Mailbox uygulamasından geliyor.\n\nMailbox ile bağlantı kurmak istiyorsanız, Briar menüsünden Ayarlar &gt; Mailbox bölümüne gidin.</string>
+  <string name="qr_code_format_unknown">Taradığınız kare kod bir Briar kişisi eklemek için değil.\n\nLütfen kişi ekranında görüntülenen kare kodu tarayın.</string>
+  <string name="camera_error">Kamera sorunu</string>
+  <string name="connecting_to_device">Aygıt ile bağlantı kuruluyor\u2026</string>
+  <string name="authenticating_with_device">Aygıt üzerinde kimlik doğrulanıyor\u2026</string>
+  <string name="connection_error_title">Kişinizle bağlantı kurulamadı</string>
+  <string name="connection_error_feedback">Sorun sürerse, uygulamayı geliştirmemize yardımcı olmak için <a href="feedback">bize bildirin</a>.</string>
+  <string name="info_both_must_scan">Birbirinizin kare kodlarını taramalısınız.</string>
+  <!--Adding Contacts Remotely-->
+  <string name="add_contact_remotely_title_case">Uzaktaki kişiyi ekle</string>
+  <string name="add_contact_nearby_title">Yakındaki kişiyi ekle</string>
+  <string name="add_contact_remotely_title">Uzaktaki kişiyi ekle</string>
+  <string name="contact_link_intro">Kişinizden gelen bağlantıyı buraya yazın</string>
+  <string name="contact_link_hint">Kişinin bağlantısı</string>
+  <string name="paste_button">Yapıştır</string>
+  <string name="add_contact_button">Kişi ekle</string>
+  <string name="copy_button">Kopyala</string>
+  <string name="share_button">Paylaş</string>
+  <string name="send_link_title">Bağlantı alışverişi yapın</string>
+  <string name="add_contact_choose_nickname">Takma ad seçin</string>
+  <string name="add_contact_choose_a_nickname">Bir takma ad yazın</string>
+  <string name="nickname_intro">Kişinize bir takma ad verin. Bunu yalnızca siz görebilirsiniz.</string>
+  <string name="your_link">Bu bağlantıyı eklemek istediğiniz kişiye verin</string>
+  <string name="link_clip_label">Briar bağlantısı</string>
+  <string name="link_copied_toast">Bağlantı kopyalandı</string>
+  <string name="adding_contact_error">Kişi eklenirken bir sorun çıktı.</string>
+  <string name="pending_contact_requests_snackbar">Bekleyen kişi istekleri var</string>
+  <string name="pending_contact_requests">Bekleyen kişi istekleri</string>
+  <string name="no_pending_contacts">Bekleyen bir kişi yok</string>
+  <string name="waiting_for_contact_to_come_online">Kişinin çevrim içi olması bekleniyor...</string>
+  <string name="connecting">Bağlantı kuruluyor…</string>
+  <string name="adding_contact">Kişi ekleniyor...</string>
+  <string name="adding_contact_failed">Kişi eklenemedi</string>
+  <string name="dialog_title_remove_pending_contact">Silmeyi onayla</string>
+  <string name="dialog_message_remove_pending_contact">Bu kişi hala eklenme sürecinde. Şimdi silerseniz eklenmeyecek.</string>
+  <string name="own_link_error">Kişinizin bağlantısını yazın. Kendi bağlantınızı değil</string>
+  <string name="nickname_missing">Lütfen bir takma ad yazın</string>
+  <string name="invalid_link">Bağlantı geçersiz</string>
+  <string name="unsupported_link">Bu bağlantı daha yeni bir Briar sürümünden geliyor. Lütfen uygulamayı güncel sürüme yükseltip yeniden deneyin.</string>
+  <string name="intent_own_link">Kendi bağlantınızı açtınız. Eklemek istediğiniz kişilerden birinin bağlantısını kullanın!</string>
+  <string name="missing_link">Lütfen bir bağlantı yazın</string>
+  <!--This is a numeral indicating the first step in a series of screens-->
+  <string name="step_1">1</string>
+  <!--This is a numeral indicating the second step in a series of screens-->
+  <string name="step_2">2</string>
+  <plurals name="contact_added_notification_text">
+    <item quantity="one">Yeni kişi eklendi.</item>
+    <item quantity="other">%d yeni kişi eklendi.</item>
+  </plurals>
+  <string name="offline_state">İnternet bağlantısı yok</string>
+  <string name="duplicate_link_dialog_title">Yinelenen bağlantı</string>
+  <string name="duplicate_link_dialog_text_1">Bu bağlantı ile bekleyen bir kişi zaten var: %s</string>
+  <string name="duplicate_link_dialog_text_1_contact">Bu bağlantı ile bir kişi zaten var: %s</string>
+  <!--This is a question asking whether two nicknames refer to the same person-->
+  <string name="duplicate_link_dialog_text_2">%1$s ile %2$s aynı kişi mi?</string>
+  <!--This is a button for answering that two nicknames do indeed refer to the same person. This
+	string will be used in a dialog button, so if the translation of this string is longer than 20
+	characters, please use "Yes" instead, and use "No" for the "Different Person" button-->
+  <string name="same_person_button">Aynı kişi</string>
+  <!--This is a button for answering that two nicknames refer to different people. This string
+	will be used in a dialog button, so if the translation of this string longer than 20 characters,
+	please use "No" instead, and use "Yes" for the "Same Person" button-->
+  <string name="different_person_button">Farklı kişi</string>
+  <string name="duplicate_link_dialog_text_3">%1$s ile %2$s size aynı bağlantıyı gönderdi.\n\nAralarından biri kişilerinizin kim olduğunu öğrenmeye çalışıyor olabilir.\n\nOnlara aynı bağlantıyı başkasından da aldığınızı söylemeyin.</string>
+  <string name="pending_contact_updated_toast">Bekleyen kişi güncellendi</string>
+  <string name="info_both_must_enter_links">Birbirinizin bağlantılarını eklemelisiniz.</string>
+  <!--Peer trust levels-->
+  <string name="peer_trust_level_unverified">Doğrulanmamış kişi</string>
+  <string name="peer_trust_level_verified">Doğrulanmış kişi</string>
+  <string name="peer_trust_level_ourselves">Benim</string>
+  <string name="peer_trust_level_stranger">Yabancı</string>
+  <!--Introductions-->
+  <string name="introduction_onboarding_title">Kişilerinizi tanıştırın</string>
+  <string name="introduction_onboarding_text">Kişilerinizi birbirleriyle tanıştırın Böylece Briar üzerinden bağlantı kurabilirler.</string>
+  <string name="introduction_menu_item">Tanıştır</string>
+  <string name="introduction_activity_title">Kişi seç</string>
+  <string name="introduction_not_possible">Bu kişileri tanıştırma süreciniz henüz tamamlanmamış. Lütfen bu sürecin tamamlanmasını bekleyin. Kişileriniz nadiren çevrim içi oluyorsa, sürecin tamamlanması zaman alabilir. </string>
+  <string name="introduction_message_title">Kişileri tanıştır</string>
+  <string name="introduction_message_hint">Bir ileti ekle (isteğe bağlı)</string>
+  <string name="introduction_button">Tanıştır</string>
+  <string name="introduction_sent">Tanıştırma isteğiniz gönderildi.</string>
+  <string name="introduction_error">Tanıştırma isteği yapılırken bir sorun çıktı.</string>
+  <string name="introduction_request_sent">%1$s ile %2$s kişisini tanıştırmak istediniz.</string>
+  <string name="introduction_request_received"> %1$s sizi %2$s ile tanıştırmak istedi. %2$s kişisini kişi listenize eklemek ister misiniz?</string>
+  <string name="introduction_request_exists_received">%1$s sizi %2$s ile tanıştırmak istiyor ancak %2$s kişisi listenizde zaten ekli. %1$s bunu bilmiyor olabileceğinden yine de yanıt verebilirsiniz:</string>
+  <string name="introduction_request_answered_received">%1$s sizi %2$s ile tanıştırmak istedi.</string>
+  <string name="introduction_response_accepted_sent">%1$s ile tanışmayı kabul ettiniz.</string>
+  <string name="introduction_response_accepted_sent_info">%1$s kişisinin kişilerinize eklenmeden önce tanışmayı da kabul etmesi gerekiyor. Bu biraz zaman alabilir.</string>
+  <string name="introduction_response_declined_sent">%1$s ile tanışmayı reddettiniz.</string>
+  <string name="introduction_response_declined_auto">%1$s ile tanışma otomatik olarak reddedildi.</string>
+  <string name="introduction_response_accepted_received">%1$s, %2$s ile tanışmayı kabul etti.</string>
+  <string name="introduction_response_declined_received">%1$s, %2$s ile tanışmayı reddetti.</string>
+  <string name="introduction_response_declined_received_by_introducee">%1$s, %2$s kişisinin tanışmayı reddettiğini söyledi.</string>
+  <!--Connect via Bluetooth-->
+  <string name="menu_item_connect_via_bluetooth">Bluetooth ile bağlan</string>
+  <string name="connect_via_bluetooth_title">Bluetooth ile bağlan</string>
+  <string name="connect_via_bluetooth_intro">Bluetooth bağlantıları otomatik olarak çalışmadığında, el ile bağlantı kurmak için bu ekranı kullanabilirsiniz.\n\nBunun işe yaraması için kişi yakınınızda olmalıdır.\n\nSizin ve kişinizin aynı anda \"Başlat\" üzerine basması gerekir.</string>
+  <string name="connect_via_bluetooth_already_discovering">Zaten Bluetooth ile bağlantı kurulmaya çalışılıyor. Lütfen bir süre sonra yeniden deneyin.</string>
+  <string name="connect_via_bluetooth_no_location_permission">Konumunuza erişme izni olmadan ilerlenemez</string>
+  <string name="connect_via_bluetooth_no_bluetooth_permission">Yakındaki aygıtlara erişme izni olmadan ilerlenemez</string>
+  <string name="connect_via_bluetooth_start">Bluetooth ile bağlantı kuruluyor…</string>
+  <string name="connect_via_bluetooth_success">Bluetooth ile bağlantı kuruldu</string>
+  <string name="connect_via_bluetooth_error">Bluetooth ile bağlantı kurulamadı.</string>
+  <string name="connect_via_bluetooth_error_not_supported">Aygıtta Bluetooth desteklenmiyor.</string>
+  <!--Private Groups-->
+  <string name="groups_list_empty">Görüntülenebilecek bir grup yok</string>
+  <string name="groups_list_empty_action">Bir grup oluşturmak için + simgesine dokunun ya da kişilerinizden grupları sizinle paylaşmalarını isteyin</string>
+  <string name="groups_created_by">%s tarafından oluşturuldu</string>
+  <plurals name="messages">
+    <item quantity="one">%d ileti</item>
+    <item quantity="other">%d ileti</item>
+  </plurals>
+  <string name="groups_group_is_empty">Bu grup boş</string>
+  <string name="groups_group_is_dissolved">Bu grup dağıtıldı</string>
+  <string name="groups_remove">Sil</string>
+  <string name="groups_create_group_title">Özel grup oluştur</string>
+  <string name="groups_create_group_button">Grup oluştur</string>
+  <string name="groups_create_group_invitation_button">Davet gönder</string>
+  <string name="groups_create_group_hint">Özel grubunuza bir ad verin</string>
+  <string name="groups_invitation_sent">Grup daveti gönderildi</string>
+  <string name="groups_member_list">Üye listesi</string>
+  <string name="groups_invite_members">Üyeleri davet edin</string>
+  <string name="groups_member_created_you">Grubu oluşturdunuz</string>
+  <string name="groups_member_created">Grubu %s oluşturdu</string>
+  <string name="groups_member_joined_you">Gruba katıldınız</string>
+  <string name="groups_member_joined">%s gruba katıldı</string>
+  <string name="groups_leave">Gruptan ayrıl</string>
+  <string name="groups_leave_dialog_title">Gruptan ayrılmayı onayla</string>
+  <string name="groups_leave_dialog_message">Bu gruptan ayrılmak istediğinize emin misiniz?</string>
+  <string name="groups_dissolve">Grubu dağıt</string>
+  <string name="groups_dissolve_dialog_title">Grubu dağıtmayı onayla</string>
+  <string name="groups_dissolve_dialog_message">Bu grubu dağıtmak istediğinize emin misiniz?\n\nDiğer üyeler yazışmayı sürdüremeyecek ve son iletileri alamayacak.</string>
+  <string name="groups_dissolve_button">Dağıt</string>
+  <string name="groups_dissolved_dialog_title">Grup dağıtıldı</string>
+  <string name="groups_dissolved_dialog_message">Bu grubu oluşturan kişi grubu dağıttı.\n\nArtık gruba yeni ileti yazamazsınız ve yazılmış olan tüm iletileri alamayabilirsiniz.</string>
+  <!--Private Group Invitations-->
+  <string name="groups_invitations_title">Grup davetleri</string>
+  <string name="groups_invitations_invitation_sent">%1$s kişisini \"%2$s\" grubuna katılmaya davet ettiniz.</string>
+  <string name="groups_invitations_invitation_received">%1$s sizi \"%2$s\" grubuna katılmaya davet etti.</string>
+  <string name="groups_invitations_joined">Gruba katıldı</string>
+  <string name="groups_invitations_declined">Grup daveti reddedildi</string>
+  <plurals name="groups_invitations_open">
+    <item quantity="one">%d grup daveti açık</item>
+    <item quantity="other">%d grup daveti açık</item>
+  </plurals>
+  <string name="groups_invitations_response_accepted_sent">%s kişisinin grup davetini kabul ettiniz.</string>
+  <string name="groups_invitations_response_declined_sent">%s kişisinin grup davetini reddettiniz.</string>
+  <string name="groups_invitations_response_declined_auto">%s kişisinin grup daveti otomatik olarak reddedildi.</string>
+  <string name="groups_invitations_response_accepted_received">%s grup davetini kabul etti.</string>
+  <string name="groups_invitations_response_declined_received">%s grup davetini reddetti.</string>
+  <string name="sharing_status_groups">Yalnızca grubu oluşturan kişi gruba yeni üyeler davet edebilir. Aşağıda, grubun şimdiki üyelerini görebilirsiniz.</string>
+  <!--Private Groups Revealing Contacts-->
+  <string name="groups_reveal_contacts">Kişileri görüntüle</string>
+  <string name="groups_reveal_dialog_message">Kişilerin bu grubun şimdiki ve gelecekteki üyelerinin tümüne görüntülenip görüntülenmeyeceğini seçebilirsiniz.\n\nKişileri görünür yapmak, grupla olan bağlantınızı daha hızlı ve güvenilir yapar. Böylece grubu oluşturan kişi çevrim dışı olduğunda bile görüntülenen kişilerle iletişim kurabilirsiniz.</string>
+  <string name="groups_reveal_visible">Kişi ilişkisi grup tarafından görülebilir</string>
+  <string name="groups_reveal_visible_revealed_by_us">Kişi ilişkisi grup tarafından görülebilir (siz görünür yaptınız)</string>
+  <string name="groups_reveal_visible_revealed_by_contact">Kişi ilişkileri grup tarafından görülebilir (%s görünür yaptı)</string>
+  <string name="groups_reveal_invisible">Kişi ilişkisi grup tarafından görülemez</string>
+  <!--Forums-->
+  <string name="no_forums">Görüntülenebilecek bir forum yok</string>
+  <string name="no_forums_action">Bir forum oluşturmak için + simgesine dokunun ya da kişilerinizden forumları sizinle paylaşmalarını isteyin</string>
+  <string name="create_forum_title">Forum oluştur</string>
+  <string name="choose_forum_hint">Forumunuza bir ad verin</string>
+  <string name="create_forum_button">Forum oluştur</string>
+  <string name="forum_created_toast">Forum oluşturuldu</string>
+  <string name="no_forum_posts">Görüntülenebilecek bir gönderi yok</string>
+  <string name="no_posts">Herhangi bir yazı yok</string>
+  <plurals name="posts">
+    <item quantity="one">%d yazı</item>
+    <item quantity="other">%d yazı</item>
+  </plurals>
+  <string name="forum_new_message_hint">Yeni yazı</string>
+  <string name="forum_message_reply_hint">Yeni yanıt</string>
+  <string name="btn_reply">Yanıtla</string>
+  <string name="forum_leave">Forumdan ayrıl</string>
+  <string name="dialog_title_leave_forum">Forumdan ayrılmayı onayla</string>
+  <string name="dialog_message_leave_forum">Bu forumdan ayrılmak istediğinize emin misiniz?\n\nBu forumu paylaştığınız kişilerin güncellemeleri alması durabilir.</string>
+  <string name="dialog_button_leave">Ayrıl</string>
+  <string name="forum_left_toast">Forumdan ayrıldı</string>
+  <!--Forum Sharing-->
+  <string name="forum_share_button">Forumu paylaş</string>
+  <string name="contacts_selected">Seçilmiş kişiler</string>
+  <string name="activity_share_toolbar_header">Kişi seçin</string>
+  <string name="no_contacts_selector">Görüntülenebilecek bir kişi yok</string>
+  <string name="no_contacts_selector_action">Bir kişi ekledikten sonra lütfen buraya geri dönün</string>
+  <string name="forum_shared_snackbar">Forum, seçilmiş kişiler ile paylaşıldı</string>
+  <string name="forum_share_message">Bir ileti ekle (isteğe bağlı)</string>
+  <string name="forum_share_error">Forum paylaşılırken bir sorun çıktı.</string>
+  <string name="forum_invitation_received">%1$s sizinle \"%2$s\" forumunu paylaştı.</string>
+  <string name="forum_invitation_sent">\"%1$s\" forumunu %2$s ile paylaştınız.</string>
+  <string name="forum_invitations_title">Forum davetleri</string>
+  <string name="forum_invitation_exists">Bu forum için bir daveti zaten kabul etmişsiniz.\n\nDaha fazla daveti kabul etmeniz, forumla bağlantınızı daha hızlı ve güvenilir yapar.</string>
+  <string name="forum_joined_toast">Foruma katıldı</string>
+  <string name="forum_declined_toast">Davet reddedildi</string>
+  <string name="shared_by_format">%s tarafından paylaşıldı</string>
+  <string name="forum_invitation_already_sharing">Zaten paylaşılıyor</string>
+  <string name="forum_invitation_already_invited">Davet zaten gönderilmiş</string>
+  <string name="forum_invitation_invite_received">Davet zaten alınmış</string>
+  <string name="forum_invitation_not_supported">Bu kişi tarafından desteklenmiyor</string>
+  <string name="forum_invitation_error">Hata. Bu bir hata ama sizden kaynaklanmıyor</string>
+  <string name="forum_invitation_response_accepted_sent">%s kişisinin forum davetini kabul ettiniz.</string>
+  <string name="forum_invitation_response_declined_sent">%s kişisinin forum davetini reddettiniz.</string>
+  <string name="forum_invitation_response_declined_auto">%s kişisinin forum daveti otomatik olarak reddedildi.</string>
+  <string name="forum_invitation_response_accepted_received">%s forum davetini kabul etti.</string>
+  <string name="forum_invitation_response_declined_received">%s forum davetini reddetti.</string>
+  <string name="sharing_status">Paylaşım durumu</string>
+  <string name="sharing_status_forum">Bir forumun herhangi bir üyesi o forumu arkadaşlarıyla paylaşabilir. Bu forumu aşağıdaki kişilerle paylaşıyorsunuz. Göremediğiniz diğer üyeler de olabilir</string>
+  <string name="shared_with">%1$d ile paylaşıldı (%2$d çevrim içi)</string>
+  <plurals name="forums_shared">
+    <item quantity="one">%d forum kişiler tarafından paylaşılmış</item>
+    <item quantity="other">%d forum kişiler tarafından paylaşılmış</item>
+  </plurals>
+  <string name="nobody">Hiç kimse</string>
+  <!--Blogs-->
+  <string name="blogs_other_blog_empty_state">Görüntülenebilecek bir yazı yok</string>
+  <string name="read_more">diğerlerini oku</string>
+  <string name="blogs_write_blog_post">Günlük yazısı yaz</string>
+  <string name="blogs_write_blog_post_body_hint">Günlük yazınızı yazın</string>
+  <string name="blogs_publish_blog_post">Yayınla</string>
+  <string name="blogs_blog_post_created">Günlük yazısı oluşturuldu</string>
+  <string name="blogs_blog_post_received">Yeni günlük yazısı alındı</string>
+  <string name="blogs_blog_post_scroll_to">Şuraya kaydır</string>
+  <string name="blogs_feed_empty_state">Görüntülenebilecek bir yazı yok</string>
+  <string name="blogs_feed_empty_state_action">Kişilerinizden veya abone olduğunuz günlüklerden gelen yazılar burada görüntülenir.\n\nBir yazı yazmak için kalem simgesine dokunun</string>
+  <string name="blogs_remove_blog">Günlüğü sil</string>
+  <string name="blogs_remove_blog_dialog_message">Bu günlüğü silmek istediğinize emin misiniz?\n\nYazılar sizin aygıtınızdan değil, diğer insanların aygıtlarından silinir.\n\nBu günlüğü paylaştığınız kişilerin güncellemeleri alması durabilir.</string>
+  <string name="blogs_remove_blog_ok">Sil</string>
+  <string name="blogs_blog_removed">Günlük kaldırıldı</string>
+  <string name="blogs_reblog_comment_hint">Bir yorum ekle (isteğe bağlı)</string>
+  <string name="blogs_reblog_button">Yeniden yayınla</string>
+  <!--Blog Sharing-->
+  <string name="blogs_sharing_share">Günlüğü paylaş</string>
+  <string name="blogs_sharing_error">Günlük paylaşılırken bir sorun çıktı.</string>
+  <string name="blogs_sharing_button">Günlüğü paylaş</string>
+  <string name="blogs_sharing_snackbar">Günlük seçilmiş kişilerle paylaşıldı</string>
+  <string name="blogs_sharing_response_accepted_sent">%s kişisinin günlük davetini kabul ettiniz.</string>
+  <string name="blogs_sharing_response_declined_sent">%s kişisinin günlük davetini reddettiniz.</string>
+  <string name="blogs_sharing_response_declined_auto">%s kişisinin günlük daveti otomatik olarak reddedildi.</string>
+  <string name="blogs_sharing_response_accepted_received">%s günlük davetini kabul etti.</string>
+  <string name="blogs_sharing_response_declined_received">%s günlük davetini reddetti.</string>
+  <string name="blogs_sharing_invitation_received">%1$s sizinle \"%2$s\" günlüğünü paylaştı.</string>
+  <string name="blogs_sharing_invitation_sent">\"%1$s\" günlüğünü %2$s ile paylaştınız.</string>
+  <string name="blogs_sharing_invitations_title">Günlük davetleri</string>
+  <string name="blogs_sharing_joined_toast">Günlüğe abone olundu</string>
+  <string name="blogs_sharing_declined_toast">Davet reddedildi</string>
+  <string name="sharing_status_blog">Bir günlüğe abone olan herkes, günlüğü kişileriyle paylaşabilir. Bu günlüğü şu kişilerle paylaşıyorsunuz. Göremediğiniz diğer aboneler de olabilir.</string>
+  <!--RSS Feeds-->
+  <string name="blogs_rss_feeds_import">RSS akışını içe aktar</string>
+  <string name="blogs_rss_feeds_import_button">İçe aktar</string>
+  <string name="blogs_rss_feeds_import_hint">RSS akışının adresini yazın</string>
+  <string name="blogs_rss_feeds_import_progress">RSS akışı içe aktarılıyor…</string>
+  <string name="blogs_rss_feeds_import_error">Üzgünüz! RSS akışınız içe aktarılırken bir sorun çıktı.</string>
+  <string name="blogs_rss_feeds_import_title">Akışı dosyadan içe aktar</string>
+  <string name="blogs_rss_feeds">RSS akışları</string>
+  <string name="blogs_rss_feeds_manage_imported">İçe aktarıldı:</string>
+  <string name="blogs_rss_feeds_manage_author">Yazar:</string>
+  <string name="blogs_rss_feeds_manage_updated">Son güncellenme:</string>
+  <string name="blogs_rss_remove_feed">Akışı sil</string>
+  <string name="blogs_rss_remove_feed_dialog_message">Bu akışı silmek istediğinize emin misiniz?\n\nYazılar sizin aygıtınızdan değil, diğer insanların aygıtlarından silinir.\n\nBu akışı paylaştığınız kişilerin güncellemeleri alması durabilir.</string>
+  <string name="blogs_rss_remove_feed_ok">Sil</string>
+  <string name="blogs_rss_feeds_manage_empty_state">Görüntülenebilecek bir RSS akışı yok\n\nBir akışı içe aktarmak için + simgesine dokunun</string>
+  <string name="blogs_rss_feeds_manage_error">Akışlarınız yüklenirken bir sorun çıktı. Lütfen bir süre sonra yeniden deneyin.</string>
+  <!--Settings Profile Picture-->
+  <string name="change_profile_picture">Profil görselinizi değiştirmek için dokunun</string>
+  <string name="dialog_confirm_profile_picture_title">Profil görselinizi değiştirin</string>
+  <string name="dialog_confirm_profile_picture_remark">Bu görseli yalnızca bağlantılarınız görebilir</string>
+  <string name="change_profile_picture_failed_message">Üzgünüz. Profil görseliniz güncellenirken bir sorun çıktı</string>
+  <!--Settings Display-->
+  <string name="pref_language_title">Dil ve bölge</string>
+  <string name="pref_language_changed">Bu ayar Briar yeniden başlatıldığında geçerli olacak. Lütfen oturumunuzu kapatıp Briar uygulamasını yeniden başlatın.</string>
+  <string name="pref_language_default">Sistem varsayılanı</string>
+  <string name="display_settings_title">Görünüm</string>
+  <string name="pref_theme_title">Tema</string>
+  <string name="pref_theme_light">Açık</string>
+  <string name="pref_theme_dark">Koyu</string>
+  <string name="pref_theme_system">Sistem varsayılanı</string>
+  <!--Settings Connections-->
+  <string name="network_settings_title">Bağlantılar</string>
+  <string name="bluetooth_setting">Kişilerle Bluetooth ile bağlantı kur</string>
+  <string name="wifi_setting">Kişilerle aynı Wi-Fi ağı üzerinden bağlantı kur</string>
+  <string name="tor_enable_title">Kişilerle İnternet ile bağlantı kur</string>
+  <string name="tor_enable_summary">Tüm bağlantılar gizlilik sağlamak için Tor ağı üzerinden kurulur</string>
+  <string name="tor_network_setting">Tor ağı ile bağlantı kurma yöntemi</string>
+  <string name="tor_network_setting_automatic">Konuma göre otomatik</string>
+  <string name="tor_network_setting_without_bridges">Tor köprüler olmadan kullanılsın</string>
+  <string name="tor_network_setting_with_bridges">Tor köprüler ile kullanılsın</string>
+  <string name="tor_network_setting_never">İnternet bağlantısı kurulmasın</string>
+  <!--How and when Briar will connect to Tor: E.g. "Don't connect to the Internet (in China)" or "Use Tor network with bridges (in Belarus)"-->
+  <string name="tor_network_setting_summary">Otomatik: %1$s (%2$s içinde)</string>
+  <string name="tor_mobile_data_title">Mobil veri kullanılsın</string>
+  <string name="tor_only_when_charging_title">İnternet bağlantısı yalnızca şarj edilirken kullanılsın</string>
+  <string name="tor_only_when_charging_summary">Aygıt pil ile çalışırken İnternet bağlantısı kullanılmaz</string>
+  <!--Settings Security and Panic-->
+  <string name="security_settings_title">Güvenlik</string>
+  <string name="pref_lock_title">Uygulama kilidi</string>
+  <string name="pref_lock_summary">Oturum açmışken Briar uygulamasını korumak için aygıtın ekran kilidini kullanın</string>
+  <string name="pref_lock_disabled_summary">Bu özelliği kullanabilmek için aygıtınızda bir ekran kilidi ayarlayın</string>
+  <string name="pref_lock_timeout_title">Uygulama kilidi bekleme süresi</string>
+  <!--The %s placeholder is replaced with the following time spans, e.g. 5 Minutes, 1 Hour-->
+  <string name="pref_lock_timeout_summary">Briar uygulaması kullanılmadığında %s sonra otomatik olarak kilitlensin</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_1">1 dakika</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_5">5 dakika</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_15">15 dakika</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_30">30 dakika</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_60">1 saat</string>
+  <string name="pref_lock_timeout_never">Asla</string>
+  <string name="pref_lock_timeout_never_summary">Briar asla otomatik olarak kilitlenmesin</string>
+  <string name="change_password">Parolayı değiştir</string>
+  <string name="current_password">Geçerli parola</string>
+  <string name="choose_new_password">Yeni parola</string>
+  <string name="confirm_new_password">Yeni parola onayı</string>
+  <string name="password_changed">Parola değiştirildi.</string>
+  <string name="panic_setting">Panik düğmesi ayarları</string>
+  <string name="panic_setting_title">Panik düğmesi</string>
+  <string name="panic_setting_hint">Panik düğmesini kullandığınızda verilecek Briar tepkisini yapılandırın</string>
+  <string name="panic_app_setting_title">Panik düğmesi uygulaması</string>
+  <string name="unknown_app">bilinmeyen bir uygulama</string>
+  <string name="panic_app_setting_summary">Herhangi bir uygulama ayarlanmamış</string>
+  <string name="panic_app_setting_none">Yok</string>
+  <string name="dialog_title_connect_panic_app">Panik uygulamasını doğrula</string>
+  <string name="dialog_message_connect_panic_app">%1$s kişisinin yıkıcı panik düğmesi işlemlerini başlatmasına izin vermek istediğinize emin misiniz?</string>
+  <string name="panic_setting_destructive_action">Yıkıcı işlemler</string>
+  <string name="panic_setting_signout_title">Oturum kapatılsın</string>
+  <string name="panic_setting_signout_summary">Panik düğmesine basıldığında Briar oturumu kapatılsın</string>
+  <string name="purge_setting_title">Hesap silinsin</string>
+  <string name="purge_setting_summary">Panik düğmesine basıldığında Briar hesabınızı siler. Dikkat: Bu işlem, kimliklerinizi, kişilerinizi ve iletilerinizi kalıcı olarak siler.</string>
+  <!--Settings Notifications-->
+  <string name="notification_settings_title">Bildirimler</string>
+  <string name="notify_sign_in_title">Oturum açmam anımsatılsın</string>
+  <string name="notify_sign_in_summary">Telefon açıldığında ya da uygulama güncellendiğinde bir anımsatıcı görüntüler</string>
+  <string name="notify_private_messages_setting_title">Özel iletiler</string>
+  <string name="notify_private_messages_setting_summary">Özel ileti uyarıları görüntülensin</string>
+  <string name="notify_private_messages_setting_summary_26">Özel ileti uyarılarını yapılandır</string>
+  <string name="notify_group_messages_setting_title">Grup iletileri</string>
+  <string name="notify_group_messages_setting_summary">Grup iletisi uyarıları görüntülensin</string>
+  <string name="notify_group_messages_setting_summary_26">Grup iletisi uyarılarını yapılandır</string>
+  <string name="notify_forum_posts_setting_title">Forum yazıları</string>
+  <string name="notify_forum_posts_setting_summary">Forum yazısı uyarıları görüntülensin</string>
+  <string name="notify_forum_posts_setting_summary_26">Forum yazısı uyarılarını yapılandır</string>
+  <string name="notify_blog_posts_setting_title">Günlük yazıları</string>
+  <string name="notify_blog_posts_setting_summary">Günlük yazısı uyarıları görüntülensin</string>
+  <string name="notify_blog_posts_setting_summary_26">Günlük yazısı uyarılarını yapılandır</string>
+  <string name="notify_vibration_setting">Titreşim</string>
+  <string name="notify_sound_setting">Ses</string>
+  <string name="notify_sound_setting_default">Varsayılan zil sesi</string>
+  <string name="notify_sound_setting_disabled">Yok</string>
+  <string name="choose_ringtone_title">Zil sesini seçin</string>
+  <string name="cannot_load_ringtone">Zil sesi yüklenemedi</string>
+  <!--Mailbox-->
+  <string name="mailbox_settings_title">Mailbox</string>
+  <string name="mailbox_setup_title">Mailbox kurulumu</string>
+  <string name="mailbox_setup_intro">Mailbox siz çevrim dışıyken kişilerinizin size ileti gönderebilmesini sağlar. İletilerinizi Mailbox alır ve siz çevrim içi olana kadar saklar.\n
+		\nBriar Mailbox uygulamasını yedek bir aygıta kurabilirsiniz. Bu aygıtı şarja ve Wi-Fi ağına bağlı tutarsanız sürekli çevrim içi olur.</string>
+  <string name="mailbox_setup_download">İlk olarak bir başka aygıt üzerinde, Google Play ile ya da Briar uygulamasını indirdiğiniz yerde \"Briar Mailbox\" ifadesini arayın ve Mailbox uygulamasını bularak kurun.\n
+		\nArdından Briar üzerinden Mailbox uygulamasında görüntülenen kare kodu tarayarak Mailbox uygulamasını ilişkilendirin.</string>
+  <string name="mailbox_setup_download_link">İndirme bağlantısını paylaş</string>
+  <string name="mailbox_setup_button_scan">Mailbox kare kodunu tarayın</string>
+  <string name="permission_camera_qr_denied_body">Kameraya erişme izni vermemişsiniz. Ancak Mailbox kare kodunu taramak için kamerayı kullanmanız gerekiyor.\n\nLütfen kameraya erişme iznini vermeyi değerlendirin.</string>
+  <string name="mailbox_setup_connecting">Mailbox ile bağlantı kuruluyor…</string>
+  <!--This string is shown when connecting to a Mailbox for the first time. The placeholder will be replaced with a duration, e.g. "2 minutes".-->
+  <string name="mailbox_setup_connecting_info">Bu işlem %1s kadar sürebilir</string>
+  <string name="mailbox_qr_code_too_old">Taradığınız kare kod daha eski bir Briar Mailbox sürümünden geliyor.\n\nLütfen Briar Mailbox uygulamasının güncel sürümüne yükseltip yeniden deneyin.</string>
+  <string name="mailbox_qr_code_too_new">Taradığınız kare kod daha yeni bir Briar Mailbox sürümünden geliyor.\n\nLütfen Briar uygulamasını güncel sürümüne yükseltip yeniden deneyin.</string>
+  <string name="contact_qr_code_for_mailbox">Taradığınız kare kod bir Briar kişisi eklemek için.\n\nBir kişi eklemek istiyorsanız kişi listesine gidin ve + simgesine dokunun.</string>
+  <string name="mailbox_setup_qr_code_wrong_description">Taradığınız kare kod Briar Mailbox uygulamasından gelmiyor.\n\nLütfen Mailbox aygıtında Briar Mailbox uygulamasını açın ve görüntülenen kare kodu o uygulama ile tarayın.</string>
+  <string name="mailbox_setup_already_paired_title">Mailbox zaten bağlanmış</string>
+  <string name="mailbox_setup_already_paired_description">Diğer aygıttan Mailbox bağlantısını kaldırıp yeniden deneyin</string>
+  <string name="mailbox_setup_io_error_title">Bağlantı kurulamadı</string>
+  <string name="mailbox_setup_io_error_description">İki aygıtın da İnternete bağlı olduğundan emin olduktan sonra yeniden deneyin.</string>
+  <string name="mailbox_setup_assertion_error_title">Mailbox sorunu</string>
+  <string name="mailbox_setup_assertion_error_description">Sorun sürerse lütfen Briar uygulaması üzerinden (anonim olarak) bize bildirin.</string>
+  <string name="mailbox_setup_camera_error_description">Kameraya erişilemedi. Aygıtı yeniden başlatıp yeniden deneyin.</string>
+  <string name="mailbox_setup_paired_title">Bağlantı kuruldu</string>
+  <string name="mailbox_setup_paired_description">Mailbox uygulamanız ile Briar bağlandı.\n
+		\nMailbox çalışan aygıtı şarja ve Wi-Fi ağına bağlı tutun. Böylece sürekli çevrim içi olur.</string>
+  <string name="tor_offline_title">Çevrim dışı</string>
+  <string name="tor_offline_description">Bu aygıtın çevrim içi olduğundan ve İnternet bağlantılarına izin verildiğinden emin olun.\n
+		\nArdından bağlantı ayarları ekranındaki yerküre simgesinin yeşile dönmesini bekleyin.</string>
+  <string name="tor_offline_button_check">Bağlantı ayarlarını denetle</string>
+  <string name="mailbox_status_title">Mailbox durumu</string>
+  <string name="mailbox_status_connected_title">Mailbox çalışıyor</string>
+  <string name="mailbox_status_problem_title">Briar Mailbox ile bağlantı kurmakta sorun yaşıyor.</string>
+  <string name="mailbox_status_failure_title">Mailbox kullanılamıyor</string>
+  <string name="mailbox_status_app_too_old_title">Briar sürümü çok eski</string>
+  <string name="mailbox_status_app_too_old_message">Briar uygulamasını güncel sürümüne yükseltip yeniden deneyin.</string>
+  <string name="mailbox_status_mailbox_too_old_title">Mailbox sürümü çok eski</string>
+  <string name="mailbox_status_mailbox_too_old_message">Mailbox uygulamasını güncel sürümüne yükseltip yeniden deneyin.</string>
+  <string name="mailbox_status_check_button">Bağlantıyı denetle</string>
+  <!--Example for string substitution: Last connection: 3min ago-->
+  <string name="mailbox_status_connected_info">Son bağlantı: %s</string>
+  <!--Indicates that there never was a connection to the mailbox. Last connection: Never-->
+  <string name="mailbox_status_connected_never">Asla</string>
+  <string name="mailbox_status_unlink_button">Bağlantıyı kaldır</string>
+  <string name="mailbox_status_unlink_dialog_title">Mailbox bağlantısı kaldırılsın mı?</string>
+  <string name="mailbox_status_unlink_dialog_question">Mailbox bağlantısını kaldırmak istediğinize emin misiniz?</string>
+  <string name="mailbox_status_unlink_dialog_warning">Mailbox bağlantısını kaldırırsanız, Briar çevrim dışı olduğunda iletileri alamazsınız.</string>
+  <string name="mailbox_status_unlink_no_wipe_title">Mailbox bağlantınız kaldırıldı</string>
+  <string name="mailbox_status_unlink_no_wipe_message">Mailbox aygıtınıza bir sonra erişmenizde lütfen Mailbox uygulamasını açın ve \"Bağlantıyı kaldır\" düğmesine dokunarak işlemi tamamlayın.\n\nMailbox aygıtınıza artık erişemiyorsanız endişelenmeyin. Verileriniz şifrelenmiştir ve bu süreci tamamlamasanız bile güvende kalır.</string>
+  <string name="mailbox_status_unlink_success">Mailbox bağlantınız kaldırıldı</string>
+  <string name="mailbox_error_notification_channel_title">Briar Mailbox sorunu</string>
+  <string name="mailbox_error_notification_title">Briar Mailbox kullanılamıyor</string>
+  <string name="mailbox_error_notification_text">Sorunu çözmek için dokunun.</string>
+  <string name="mailbox_error_wizard_button">Sorunu çöz</string>
+  <string name="mailbox_error_wizard_title">Mailbox sorun çözme yardımcısı</string>
+  <string name="mailbox_error_wizard_question1">Mailbox aygıtınıza erişebiliyor musunuz?</string>
+  <string name="mailbox_error_wizard_answer1">Evet, şu an ona erişebiliyorum.</string>
+  <string name="mailbox_error_wizard_answer2">Şimdi değil ama daha sonra erişebilirim.</string>
+  <string name="mailbox_error_wizard_answer3">Hayır, artık ona erişemiyorum.</string>
+  <string name="mailbox_error_wizard_info1_1">Mailbox aygıtının açık ve İnternet bağlantısı olduğunu denetleyin.</string>
+  <string name="mailbox_error_wizard_question1_1">Mailbox uygulamasını açın. Ne görüyorsunuz?</string>
+  <string name="mailbox_error_wizard_answer1_1">Mailbox kurulum yönergelerini görüyorum</string>
+  <string name="mailbox_error_wizard_answer1_2">Bir kare kod görüyorum</string>
+  <string name="mailbox_error_wizard_answer1_3">\"Mailbox çalışıyor\" ifadesini görüyorum</string>
+  <string name="mailbox_error_wizard_answer1_4">\"Aygıt çevrim dışı\" ifadesini görüyorum</string>
+  <string name="mailbox_error_wizard_info1_1_1">Lütfen aşağıdaki düğmeyi kullanarak Mailbox bağlantınızı kesin. Ardından bağlantıyı yeniden kurmak için Mailbox aygıtındaki yönergeleri izleyin.</string>
+  <string name="mailbox_error_wizard_info_1_1_2">Lütfen aşağıdaki düğmeyi kullanarak Mailbox bağlantınızı kesin. Ardından bağlantıyı yeniden kurmak için kare kodu tarayın.</string>
+  <string name="mailbox_error_wizard_info1_1_3">Briar ve Mailbox arasındaki bağlantıyı denetlemek için aşağıdaki düğmeyi kullanın.\n\n
+		Bağlantı yeniden kurulamazsa:\n
+		\u2022 Mailbox ve Briar uygulamalarının sürümlerinin güncel olduğundan emin olun.\n
+		\u2022 Mailbox ve Briar aygıtlarını yeniden başlatıp yeniden deneyin.</string>
+  <string name="mailbox_error_wizard_info1_1_4">Mailbox aygıtının İnternet bağlantısının düzgün olduğundan emin olun.\n\nMailbox aygıtındaki saatin ve tarihin ve saat diliminin doğru olduğundan emin olun.\n\nMailbox ve Briar uygulamalarının sürümünün güncel olduğundan emin olun.\n\nMailbox ve Briar aygıtlarınızı yeniden başlattıktan sonra yeniden deneyin.</string>
+  <string name="mailbox_error_wizard_info2">Aygıta eriştiğinizde bu ekranı yeniden açın.</string>
+  <string name="mailbox_error_wizard_info3">Lütfen aşağıdaki düğmeyi kullanarak Mailbox bağlantısını kaldırın.\n\nMailbox bağlantısını kaldırdıktan sonra istediğiniz zaman yeni bir Mailbox ayarlayabilirsiniz.</string>
+  <!--About-->
+  <string name="about_title">Hakkında</string>
+  <string name="briar_version">Briar sürümü: %s</string>
+  <string name="tor_version">Tor sürümü: %s</string>
+  <string name="links">Bağlantılar</string>
+  <string name="briar_website">\u2022 <a href="">Site</a></string>
+  <string name="briar_source_code">\u2022 <a href="">Kaynak kodu</a></string>
+  <string name="briar_changelog">\u2022 <a href="">Değişiklik günlüğü</a></string>
+  <string name="briar_privacy_policy">\u2022 <a href="">Gizlilik ilkesi</a></string>
+  <!--Here translators can add their names or Transifex usernames(eg "Thanks to all the contributors at the Localization Lab, especially Tom, Matthew and Jerry")-->
+  <string name="translator_thanks">Tüm Localization Lab katkıları için teşekkürler</string>
+  <!--Conversation Settings-->
+  <string name="disappearing_messages_title">Kaybolan iletiler</string>
+  <string name="disappearing_messages_explanation_long">Bu ayarı açtığınızda
+ 		Bu yazışmadaki yeni iletiler 7\u00A0gün sonra otomatik olarak kaybolur.
+		\n\nGöndericinin ileti kopyası geri sayımı, ileti teslim edildiğinde başlar.
+		Alıcının geri sayımı iletiyi okuduğunda başlar.
+		\n\nKaybolacak olan iletilerde bir bomba simgesi görüntülenir.
+		\n\nAlıcıların gönderdiğiniz iletinin kopyasını oluşturabileceğini unutmayın.
+		\n\nBu ayarı değiştirirseniz, yeni iletilerinize hemen uygulanır ve kişileriniz
+		için sonraki iletinizi aldıklarında etkin olur.
+		Kişileriniz bu ayarı ikiniz için de değiştirebilir.</string>
+  <string name="learn_more">Ayrıntılı bilgi alın</string>
+  <string name="disappearing_messages_summary">Bu yazışmanın gelecekteki iletileri 7\u00A0gün içinde otomatik olarak kaybolsun.</string>
+  <!--Settings Actions-->
+  <string name="pref_category_actions">İşlemler</string>
+  <string name="share_app_link">İndirme bağlantısını paylaş</string>
+  <string name="share_app_link_text">%s adresinden Briar indir</string>
+  <string name="send_feedback">Geri bildirim gönder</string>
+  <!--Link Warning-->
+  <string name="link_warning_title">Bağlantı uyarısı</string>
+  <string name="link_warning_intro">Aşağıdaki bağlantıyı bir dış uygulamayla açmak üzeresiniz.</string>
+  <string name="link_warning_text">Bu kim olduğunuzu belirlemek için kullanılabilir. Size bu bağlantıyı gönderen kişiye güvenip güvenmediğinizi düşünün ve bağlantıyı Tor Browser ile açın.</string>
+  <string name="link_warning_open_link">Bağlantıyı aç</string>
+  <!--Crash Reporter-->
+  <string name="crash_report_title">Briar çökme bildirimi</string>
+  <string name="briar_crashed">Ne yazık ki Briar çöktü</string>
+  <string name="not_your_fault">Bu sizin hatanız değil.</string>
+  <string name="please_send_report">Bize bir çökme bildirimi göndererek Briar uygulamasını iyileştirmemize yardımcı olun.</string>
+  <string name="report_is_encrypted">Bildirim şifreleneceğine ve güvenli bir şekilde gönderileceğine söz veriyoruz.</string>
+  <string name="feedback_title">Geri bildirim</string>
+  <string name="describe_crash">Ne olduğunu anlatın (isteğe bağlı)</string>
+  <string name="enter_feedback">Geri bildiriminizi yazın</string>
+  <string name="optional_contact_email">E-posta adresiniz (isteğe bağlı)</string>
+  <string name="privacy_policy">Bize veri göndererek <a href="">gizlilik ilkemizi</a> kabul etmiş olursunuz</string>
+  <string name="include_debug_report_crash">Çökme ile ilgili anonim veriler eklensin</string>
+  <string name="include_debug_report_feedback">Bu aygıtla ilgili anonim veriler eklensin</string>
+  <string name="dev_report_user_info">Kullanıcı bilgileri</string>
+  <string name="dev_report_basic_info">Temel bilgiler</string>
+  <string name="dev_report_device_info">Aygıt bilgileri</string>
+  <string name="dev_report_stacktrace">Yığın izleme</string>
+  <string name="dev_report_time_info">Zaman bilgisi</string>
+  <string name="dev_report_memory">Bellek</string>
+  <string name="dev_report_storage">Depolama alanı</string>
+  <string name="dev_report_connectivity">Bağlanabilirlik</string>
+  <string name="dev_report_network_usage">Ağ kullanımı</string>
+  <string name="dev_report_build_config">Derleme yapılandırması</string>
+  <string name="dev_report_logcat">Uygulama günlüğü</string>
+  <string name="dev_report_device_features">Aygıt özellikleri</string>
+  <string name="send_report">Bildirimi gönder</string>
+  <string name="close">Kapat</string>
+  <string name="dev_report_sending">Geri bildirim gönderiliyor…</string>
+  <string name="dev_report_sent">Geri bildirim gönderildi</string>
+  <string name="dev_report_saved">Bildirim kaydedildi. Briar oturumunu bir sonraki açışınızda gönderilecek.</string>
+  <string name="dev_report_error">Hata: Bildirim gönderilemedi</string>
+  <!--Sign Out-->
+  <string name="progress_title_logout">Briar oturumu kapatılıyor...</string>
+  <!--Screen Filters & Tapjacking-->
+  <string name="screen_filter_title">Üste açılan uygulama algılandı</string>
+  <string name="screen_filter_body">Briar üzerinde başka bir uygulama görüntüleniyor. Briar üzerinde bir başka uygulama görüntülendiğinde, Briar güvenliğinizi korumak için dokunmalara tepki vermez.\n\nÜstte görüntülenen uygulama şunlardan biri olabilir:\n\n%1$s </string>
+  <string name="screen_filter_body_api_30">Briar üzerinde başka bir uygulama görüntüleniyor. Briar üzerinde başka bir uygulama görüntülendiğinde, Briar güvenliğinizi korumak için dokunmalara tepki vermez.\n\nSorumlu uygulamayı bulmak için aşağıdaki uygulamaları gözden geçirin. </string>
+  <string name="screen_filter_allow">Bu uygulamalar üstte görüntülenebilsin</string>
+  <string name="screen_filter_review_apps">Uygulamaları değerlendirin</string>
+  <!--Permission Requests-->
+  <string name="permission_camera_title">Kameraya erişme izni</string>
+  <string name="permission_camera_request_body">Briar kare kodu tarayabilmek için kameraya erişme iznine gerek duyuyor.</string>
+  <string name="permission_location_title">Konuma erişme izni</string>
+  <string name="permission_nearby_devices_title">Yakındaki aygıtlara erişme izni</string>
+  <string name="permission_location_request_body">Briar Bluetooth aygıtlarını bulabilmek için konumunuza erişme iznine gerek duyuyor.\n\nBriar konum bilginizi kaydetmez ve kimseyle paylaşmaz.</string>
+  <string name="permission_camera_location_title">Kamera ve konuma erişme izni</string>
+  <string name="permission_camera_location_request_body">Briar kare kodu tarayabilmek için kameraya erişme iznine gerek duyuyor.\n\nBriar Bluetooth aygıtlarını bulabilmek için konumunuza erişme iznine gerek duyuyor.\n\nBriar konum bilginizi kaydetmez ve kimseyle paylaşmaz.</string>
+  <string name="permission_camera_bluetooth_title">Kamera ve yakındaki aygıtlara erişme izni</string>
+  <string name="permission_camera_bluetooth_request_body">Briar kare kodu tarayabilmek için kameraya erişme iznine gerek duyuyor.\n\nBriar Bluetooth aygıtlarını bulabilmek için yakındaki aygıtları bulma ve bağlanma iznine gerek duyuyor.</string>
+  <string name="permission_camera_denied_body">Kameraya erişme izni vermemişsiniz. Ancak Briar kişileri ekleyebilmek için kameraya erişme iznine gerek duyuyor.\n\nLütfen kameraya erişme izni vermeyi değerlendirin.</string>
+  <string name="permission_location_denied_body">Konumunuza erişme izni vermemişsiniz. Ancak Briar Bluetooth aygıtlarını bulabilmek için konum bilginize erişme iznine gerek duyuyor.\n\nLütfen konumunuza erişme izni vermeyi değerlendirin.</string>
+  <string name="permission_location_setting_title">Konum ayarı</string>
+  <string name="permission_location_setting_body">Bluetooth ile diğer aygıtları bulabilmek için aygıtınızın konum ayarının açık olması gerekiyor. İlerlemek için lütfen konum ayarını açın. Daha sonra yeniden kapatabilirsiniz. </string>
+  <string name="permission_location_setting_hotspot_body">Wi-Fi bağlantı noktası oluşturabilmek için aygıtınızın konum ayarının açık olması gerekiyor. İlerlemek için lütfen konum ayarını açın. Daha sonra yeniden kapatabilirsiniz. </string>
+  <string name="permission_location_setting_button">Konumu aç</string>
+  <string name="permission_bluetooth_title">Yakındaki aygıtlara erişme izni</string>
+  <string name="permission_bluetooth_body">Briar Bluetooth iletişimini kullanabilmek için yakındaki aygıtları bulma ve bağlanma iznine gerek duyuyor.</string>
+  <string name="permission_bluetooth_denied_body">Yakındaki aygıtlara erişme izni vermemişsiniz. Ancak Briar yakındaki aygıtları bulabilmek için Bluetooth bağlantısını kullanmaya gerek duyuyor.\n\nLütfen yakındaki aygıtlara erişme izni vermeyi değerlendirin.</string>
+  <string name="qr_code">Kare kod</string>
+  <string name="show_qr_code_fullscreen">Kare kod tam ekranda görüntülensin</string>
+  <!--App Locking-->
+  <string name="lock_unlock">Briar kilidini aç</string>
+  <string name="lock_unlock_verbose">Briar kilidini açmak için aygıtınızın PIN kodunu ya da parolasını yazın ya da desenini çizin</string>
+  <string name="lock_unlock_fingerprint_description">İlerlemek için, kayıtlı parmağınızla parmak izi okuyucuya dokunun</string>
+  <string name="lock_unlock_password">Parolayı kullan</string>
+  <string name="lock_is_locked">Briar kilitli</string>
+  <string name="lock_tap_to_unlock">Kilidi açmak için dokunun</string>
+  <!--Connections Screen-->
+  <string name="transports_help_text">Briar kişilerinizle İnternet, Wi-Fi veya Bluetooth üzerinden bağlantı kurabilir.\n\nTüm İnternet bağlantıları gizliliğinizi korumak için Tor ağı üzerinden yapılır.\n\nBir kişiye birden fazla yöntemle erişilebiliyorsa, Briar bu yöntemleri paralel olarak kullanır.</string>
+  <!--Share app offline-->
+  <string name="hotspot_title">Bu uygulamayı çevrim dışı paylaşın</string>
+  <string name="hotspot_intro">Bu uygulamayı, İnternet olmadan, telefonunuzun Wi-Fi ağı ile yakınınızdaki kişilerle paylaşabilirsiniz.
+		\n\nTelefonunuzda mobil erişim noktası açılır ve yakındaki kişiler bu erişim noktasına bağlanarak Briar uygulamasını kendi telefonlarına indirebilir.</string>
+  <string name="hotspot_button_start_sharing">Erişim noktasını aç</string>
+  <string name="hotspot_button_stop_sharing">Erişim noktasını kapat</string>
+  <string name="hotspot_progress_text_start">Erişim noktası ayarlanıyor…</string>
+  <string name="hotspot_notification_channel_title">Wi-Fi erişim noktası</string>
+  <string name="hotspot_notification_title">Briar çevrim dışı paylaşılıyor</string>
+  <string name="hotspot_button_connected">İleri</string>
+  <string name="permission_hotspot_location_request_body">Briar bir Wi-Fi erişim noktası oluşturabilmek için konumunuza erişme iznine gerek duyuyor.\n\nBriar konum bilginizi kaydetmez ve kimseyle paylaşmaz.</string>
+  <string name="permission_hotspot_location_request_precise_body">Briar bir Wi-Fi erişim noktası oluşturabilmek için kesin konumunuza erişme iznine gerek duyuyor.\n\nBriar konum bilginizi kaydetmez ve kimseyle paylaşmaz.</string>
+  <string name="permission_hotspot_location_denied_body">Konumunuza erişme izni vermemişsiniz. Ancak Briar bir Wi-Fi erişim noktası oluşturabilmek için bu izne gerek duyuyor.\n\nLütfen konumunuza erişme izni vermeyi değerlendirin.</string>
+  <string name="permission_hotspot_location_denied_precise_body">Kesin konumunuza erişme izni vermemişsiniz. Ancak Briar bir Wi-Fi erişim noktası oluşturabilmek için bu izne gerek duyuyor.\n\nLütfen konumunuza erişme izni vermeyi değerlendirin.</string>
+  <string name="permission_hotspot_nearby_wifi_request_body">Briar bir Wi-Fi erişim noktası oluşturabilmek için yakınlardaki aygıtlara erişme iznine gerek duyuyor.</string>
+  <string name="permission_hotspot_nearby_wifi_denied_body">Yakınlardaki aygıtlara erişme izni vermemişsiniz. Ancak Briar bir Wi-Fi erişim noktası oluşturabilmek için bu izne gerek duyuyor.\n\nLütfen yakınlardaki aygıtlara erişme izni vermeyi değerlendirin.</string>
+  <string name="wifi_settings_title">Wi-Fi ayarı</string>
+  <string name="wifi_settings_request_enable_body">Briar bir Wi-Fi erişim noktası oluşturabilmek için Wi-Fi kullanmaya gerek duyuyor. Lütfen Wi-Fi özelliğini açın.</string>
+  <string name="hotspot_tab_manual">El ile</string>
+  <!--The placeholder to be inserted into the string 'hotspot_manual_wifi': People can connect by %s-->
+  <string name="hotspot_scanning_a_qr_code">Bir kare kodu tarayarak</string>
+  <!--Wi-Fi setup-->
+  <!--The %s placeholder will be replaced with the translation of 'hotspot_scanning_a_qr_code'-->
+  <string name="hotspot_manual_wifi">Telefonunuz bir Wi-Fi erişim noktası sunuyor. Briar uygulamasını indirmek isteyen kişiler, aşağıdaki bilgileri kendi aygıtlarındaki Wi-Fi ayarlarına ekleyerek ya da %s ile bu erişim noktasına bağlanabilirler. Kişiler erişim noktasına bağlandıklarında \'Sonraki\' üzerine basın.</string>
+  <string name="hotspot_manual_wifi_ssid">Ağ adı</string>
+  <string name="hotspot_qr_wifi">Telefonunuz bir Wi-Fi erişim noktası sunuyor. Briar indirmek isteyen kişiler bu erişim noktasına kare kodu tarayarak bağlanabilir. Kişiler erişim noktasına bağlandıklarında \'İleri\' üzerine basın.</string>
+  <string name="hotspot_no_peers_connected">Bağlı bir aygıt yok</string>
+  <plurals name="hotspot_peers_connected">
+    <item quantity="one">%s aygıt bağlı</item>
+    <item quantity="other">%s aygıt bağlı</item>
+  </plurals>
+  <!--Download link-->
+  <!--The %s placeholder will be replaced with the translation of 'hotspot_scanning_a_qr_code'-->
+  <string name="hotspot_manual_site">Telefonunuz bir Wi-Fi erişim noktası sunuyor. Erişim noktasına bağlı kişiler, şu bağlantıyı tarayıcı adres satırına yazarak ya da %s ile Briar uygulamasını indirebilirler. </string>
+  <string name="hotspot_manual_site_address">Adres (URL)</string>
+  <string name="hotspot_qr_site">Telefonunuz bir Wi-Fi erişim noktası sunuyor. Erişim noktasına bağlı kişiler kare kodu tarayarak Briar uygulamasını indirebilirler. </string>
+  <!--e.g. Download Briar 1.2.20-->
+  <string name="website_download_title_1">Briar indir %s</string>
+  <string name="website_download_intro_1">Yakınlarınızdaki biri sizinle Briar paylaşıyor.</string>
+  <string name="website_download_button">Briar indir</string>
+  <string name="website_download_outro">İndirme tamamlandıktan sonra, indirdiğiniz dosyayı açın ve kurun.</string>
+  <string name="website_troubleshooting_title">Sorun çözme</string>
+  <string name="website_troubleshooting_1">Uygulamayı indiremiyorsanız, başka bir tarayıcı uygulamasıyla deneyin.</string>
+  <string name="website_troubleshooting_2_old">İndirilen uygulamayı kurabilmek için, sistem ayarlarından \"Bilinmeyen kaynaklar\" seçeneğini açmanız gerekebilir. Ardından uygulamayı yeniden indirmeniz gerekebilir. Uygulamayı kurduktan sonra \"Bilinmeyen kaynaklar\" seçeneğini kapatmanızı öneririz.</string>
+  <string name="website_troubleshooting_2_new">İndirilen uygulamayı kurabilmek için, tarayıcınıza bilinmeyen uygulamaları kurmasına izin vermeniz gerekebilir. Uygulamayı kurduktan sonra, tarayıcının bilinmeyen uygulamaları kurma iznini kaldırmanızı öneririz.</string>
+  <string name="hotspot_help_wifi_title">Wi-Fi ile bağlanma sorunları:</string>
+  <string name="hotspot_help_wifi_1">İki telefonda da Wi-Fi özelliğini kapatıp yeniden açın ve yeniden deneyin.</string>
+  <string name="hotspot_help_wifi_2">Telefonunuz Wi-Fi bağlantısında İnternet olmadığını söylüyorsa yine de bağlı kalmasını söyleyin.</string>
+  <string name="hotspot_help_wifi_3">Wi-Fi bağlantı noktasını sunan telefonu yeniden başlatın. Ardından Briar uygulamasını başlatın ve yeniden paylaşmayı deneyin.</string>
+  <string name="hotspot_help_site_title">Yerel siteyi ziyaret etme sorunları:</string>
+  <string name="hotspot_help_site_1">Adresi tam olarak gösterildiği şekilde yazdığınızdan emin olun. Çok küçük bir hata sorun yaratabilir.</string>
+  <string name="hotspot_help_site_2">Siteye erişmeye çalışırken telefonunuzun doğru Wi-Fi ağına bağlı olduğundan emin olun (yukarıya bakın).</string>
+  <string name="hotspot_help_site_3">Bir güvenlik duvarı uygulamanız varsa, erişimi engellemediğinden emin olun.</string>
+  <string name="hotspot_help_site_4">Siteyi ziyaret edebiliyor ama Briar uygulamasını indiremiyorsanız, başka bir tarayıcı deneyin.</string>
+  <string name="hotspot_help_fallback_title">Hiç bir şey işe yaramıyor mu?</string>
+  <string name="hotspot_help_fallback_intro">Uygulamayı, başka bir şekilde paylaşmak için .apk olarak kaydetmeyi deneyebilirsiniz. Dosya diğer aygıta aktarıldığında, Briar uygulamasını kurmak için kullanılabilir.
+		\n\nİpucu: Bluetooth üzerinden paylaşmak için, aktarmadan önce dosya uzantısını .zip olarak değiştirmeniz gerekebilir.</string>
+  <string name="hotspot_help_fallback_button">Uygulamayı kaydet</string>
+  <!--error handling-->
+  <string name="hotspot_error_intro">Uygulama Wi-Fi ile paylaşılmak istenirken bir sorun çıktı:</string>
+  <string name="hotspot_error_no_wifi_direct">Aygıt Wi-Fi Direct desteklemiyor</string>
+  <string name="hotspot_error_start_callback_failed">Erişim noktası başlatılamadı: Hata %s</string>
+  <string name="hotspot_error_start_callback_failed_unknown">Erişim noktası bilinmeyen bir sorunla başlatılamadı. Nedeni %d</string>
+  <string name="hotspot_error_start_callback_no_group_info">Erişim noktası başlatılamadı: Grup bilgisi yok</string>
+  <string name="hotspot_error_web_server_start">Site sunucusu başlatılırken sorun çıktı</string>
+  <string name="hotspot_error_web_server_serve">Site görüntülenirken sorun çıktı.\n\n Sorun sürerse, Briar uygulaması üzerinden (anonim olarak) bize bildirin.</string>
+  <string name="hotspot_flag_test">Uyarı: Bu uygulama Android Studio ile kurulduğu için başka bir aygıta kurulamaz.</string>
+  <string name="hotspot_error_framework_busy">Erişim noktası başlatılamadı.\n\nBaşka bir erişim noktası çalışıyorsa veya İnternet bağlantınızı Wi-Fi üzerinden paylaşıyorsanız, lütfen paylaşımı durdurduktan sonra yeniden deneyin.</string>
+  <!--Transfer Data via Removable Drives-->
+  <string name="removable_drive_menu_title">Çıkarılabilir sürücü ile bağlan</string>
+  <string name="removable_drive_intro">İnternet, Wi-Fi veya Bluetooth ile bağlantı kuramıyorsanız, Briar iletileri USB bellek veya SD kart gibi bir çıkarılabilir bir sürücüyle de aktarabilir.</string>
+  <string name="removable_drive_explanation">İnternet, Wi-Fi veya Bluetooth ile bağlantı kuramıyorsanız, Briar iletileri USB bellek veya SD kart gibi çıkarılabilir bir sürücüyle de aktarabilir.\n\n\"Verileri gönder\" düğmesini kullandığınızda, kişilere gönderilmeyi bekleyen veriler çıkarılabilir sürücüye yazılır. Bu verilerde, özel iletiler, ek dosyalar, günlükler, forumlar ve özel gruplar bulunur.\n\nÇıkarılabilir sürücüye kaydedilmeden önce her şey şifrelenir.\n\nKişiler çıkarılabilir sürücüyü aldığında, \"Verileri al\" düğmesini kullanarak iletileri Briar üzerine aktarabilir.</string>
+  <string name="removable_drive_title_send">Verileri gönder</string>
+  <string name="removable_drive_title_receive">Verileri al</string>
+  <string name="removable_drive_send_intro">Şifrelenmiş iletilerin bulunduğu yeni bir dosya oluşturmak için aşağıdaki düğmeye dokunun. Dosyanın kaydedileceği yeri seçebilirsiniz.\n\nÇıkarılabilir bir sürücü kullanmak istiyorsanız, sürücüyü şimdi takın.</string>
+  <string name="removable_drive_send_no_data">Şu anda bu kişiye gönderilmeyi bekleyen bir ileti yok.</string>
+  <string name="removable_drive_send_not_supported">Bu kişi, bu özelliği desteklemeyen eski bir Briar sürümü veya eski bir aygıt kullanıyor.</string>
+  <string name="removable_drive_send_button">Dışa aktarılacak dosyayı seçin</string>
+  <string name="removable_drive_ongoing">Lütfen sürmekte olan işlemin bitmesini bekleyin</string>
+  <string name="removable_drive_receive_intro">Kişinin size gönderdiği dosyayı seçmek için aşağıdaki düğmeye dokunun.\n\nDosya çıkarılabilir bir sürücüde bulunuyorsa, sürücüyü şimdi takın.</string>
+  <string name="removable_drive_receive_button">İçe aktarılacak dosyayı seçin</string>
+  <string name="removable_drive_success_send_title">Dışa aktarma tamamlandı</string>
+  <string name="removable_drive_success_send_text">Veriler dışa aktarıldı. Bu dosyayı kişinize aktarmak için 28 gününüz var.\n\nDosya çıkarılabilir bir sürücüde bulunuyorsa, bağlantısını ayırmadan önce çıkarmak için durum çubuğundaki bildirimi kullanın.</string>
+  <string name="removable_drive_success_receive_title">İçe aktarma tamamlandı</string>
+  <string name="removable_drive_success_receive_text">Bu dosyada bulunan tüm şifrelenmiş iletiler alındı.</string>
+  <string name="removable_drive_error_send_title">Veriler dışa aktarılırken sorun çıktı</string>
+  <string name="removable_drive_error_send_text">Veriler dosyaya yazılırken bir sorun çıktı.\n\nÇıkarılabilir bir sürücü kullanıyorsanız, doğru şekilde takıldığından emin olun ve yeniden deneyin.\n\nSorun sürerse, bu sorunu Briar ekibine bildirin.</string>
+  <string name="removable_drive_error_receive_title">Veriler içe aktarılırken sorun çıktı</string>
+  <string name="removable_drive_error_receive_text">Seçilmiş olan dosyada Briar tarafından tanınabilecek bir şey bulunamadı.\n\nLütfen doğru dosyayı seçtiğinizden emin olun.\n\nKişiniz dosyayı 28 günden önce oluşturduysa, Briar onu tanıyamayabilir.</string>
+  <!--Screenshots-->
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_alice">Alice</string>
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_bob">Bob</string>
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_carol">Carol</string>
+  <!--This is a message to be used in screenshots. Please use the same translation for Bob!-->
+  <string name="screenshot_message_1">Selam Bob!</string>
+  <!--This is a message to be used in screenshots. Please use the same translation for Alice!-->
+  <string name="screenshot_message_2">Selam Alice! Bana Briar uygulamasını anlattığın için teşekkürler!</string>
+  <!--This is a message to be used in screenshots.-->
+  <string name="screenshot_message_3">Sorun değil, umarım beğenirsin 😀</string>
+</resources>

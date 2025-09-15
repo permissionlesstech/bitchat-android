@@ -1,0 +1,457 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<resources>
+	<!--Setup-->
+	<string name="setup_title">Tervetuloa Briariin</string>
+	<string name="setup_name_explanation">Nimimerkkisi tulee näkymään julkaisemasi sisällön yhteydessä. Et voi muuttaa nimimerkkiä sen jälkeen kun olet luonut tilin.</string>
+	<string name="setup_next">Seuraava</string>
+	<string name="setup_password_intro">Valitse salasana</string>
+	<string name="setup_password_explanation">Sinun Briar tili on tallennettu salattuna sinun laitteelle, ei pilvipalvelimelle. Jos unohdat salasanasi tai poistat Briarin asennuksen, ei ole mitään keinoa jolla tilisi voisi palauttaa.\n\nValitse pitkä salasana, joka on vaikea arvata, esimerkiksi neljä sattumanvaraista sanaa tai kymmenen sattumanvaraista kirjainta, numeroa ja symbolia.</string>
+	<string name="dnkm_doze_title">Taustayhteydet</string>
+	<string name="dnkm_doze_intro">Vastaanottaakseen viestejä, Briarin täytyy pitää yhteyttä yllä taustalla.</string>
+	<string name="dnkm_doze_explanation">Vastaanottaakseen viestejä, Briarin täytyy pitää yhteyttä yllä taustalla. Ole hyvä ja kytke pois akun optimisaatiot, jotta Briar voisi pitää yhteyden yllä.</string>
+	<string name="dnkm_doze_button">Salli yhteydet</string>
+	<string name="choose_nickname">Valitse nimimerkki</string>
+	<string name="choose_password">Valitse salasana</string>
+	<string name="confirm_password">Vahvista salasana</string>
+	<string name="name_too_long">Nimi on liian pitkä</string>
+	<string name="password_too_weak">Salasana on liian heikko</string>
+	<string name="passwords_do_not_match">Salasanat eivät täsmää</string>
+	<string name="create_account_button">Luo tili</string>
+	<string name="more_info">Lisätietoja</string>
+	<string name="don_t_ask_again">Älä kysy uudelleen</string>
+	<string name="dnkm_huawei_protected_text">Napsauta alla olevaa nappia varmistaaksesi, että Briar on suojattu \"Suojatut sovellukset\" -näkymässä.</string>
+	<string name="dnkm_huawei_protected_button">Suojaa Briar</string>
+	<string name="dnkm_huawei_protected_help">Jos Briaria ei lisätä suojattujen sovellusten listalle, se ei voi toimia taustalla.</string>
+	<string name="dnkm_warning_dozed">%s ei voinut toimia taustalla</string>
+	<!--Login-->
+	<string name="enter_password">Salasana</string>
+	<string name="try_again">Väärä salasana, yritä uudelleen</string>
+	<string name="sign_in_button">Kirjaudu sisään</string>
+	<string name="forgotten_password">Olen unohtanut salasanani</string>
+	<string name="dialog_title_lost_password">Unohtunut salasana</string>
+	<string name="dialog_message_lost_password">Sinun Briar tili on tallennettu salattuna sinun laitteelle, ei pilvipalvelimelle, joten emme voi palauttaa salasanaasi. Haluatko poistaa tilisi ja aloittaa alusta?\n\nVaroitus: Tulet menettämään tunnuksesi, yhteystietosi ja viestisi lopullisesti.</string>
+	<string name="startup_failed_notification_title">Briarin käynnistys epäonnistui</string>
+  <string name="startup_failed_notification_text">Napauta nähdäksesi lisätietoja.</string>
+  <string name="startup_failed_activity_title">Briarin käynnistys epäonnistui</string>
+  <string name="startup_failed_db_error">Jostain syystä sinun Briar tietokanta on korruptoitunut korjauskelvottomaksi. Tilisi, tietosi ja kaikki yhteystietosi on menetetty. Valitettavasti, sinun täytyy asentaa Briar uudelleen ja luoda uusi tili valitsemalla \'Olen unohtanut salasanani\' kun sinulta kysytään salasanaa.</string>
+  <string name="startup_failed_data_too_old_error">Sinun tili luotiin vanhalla versiolla eikä sitä voida avata tällä versiolla. Sinun täytyy joko asentaa vanha versio uudelleen tai luoda uusi tili valitsemalla \'Olen unohtanut salasanani\' kun sinulta kysytään salasanaa.</string>
+  <string name="startup_failed_data_too_new_error">Tämän sovelluksen versio on liian vanha. Päivitä viimeisimpään versioon ja yritä uudelleen.</string>
+  <string name="startup_failed_service_error">Briar ei kyennyt käynnistämään vaadittua liitännäistä. Briarin uudelleenasennus yleensä korjaa ongelman. Huomaa kuitenkin, että tulet menettämään tilisi ja kaikki siihen liittyvä data koska Briar ei käytä palvelimia sinun tietojesi säilyttämiseen.</string>
+  <plurals name="expiry_warning">
+    <item quantity="one">Tämä on Briarin testiversio. Sinun tilisi tulee vanhentumaan %d päivän päästä eikä sitä voi uusia.</item>
+    <item quantity="other">Tämä on Briarin testiversio. Sinun tilisi tulee vanhentumaan %d päivän päästä eikä sitä voi uusia.</item>
+  </plurals>
+  <string name="expiry_date_reached">Tämä sovellus on vanhentunut.\nKiitos testaamisesta!</string>
+  <string name="create_new_account">Sinun täytyy luoda uusi tili, mutta voit käyttää samaa tunnusta.</string>
+  <string name="startup_open_database">Puretaan tietokannan salaus...</string>
+  <string name="startup_migrate_database">Päivitetään tietokanta...</string>
+  <!--Navigation Drawer-->
+  <string name="nav_drawer_open_description">Avaa navigointilaatikko</string>
+  <string name="nav_drawer_close_description">Sulje navigointilaatikko</string>
+  <string name="contact_list_button">Yhteystiedot</string>
+  <string name="groups_button">Yksityiset ryhmät</string>
+  <string name="forums_button">Foorumit</string>
+  <string name="blogs_button">Blogit</string>
+  <!--This is part of the main menu. The app will be locked when this is tapped.-->
+  <string name="lock_button">Lukitse sovellus</string>
+  <string name="settings_button">Asetukset</string>
+  <string name="sign_out_button">Kirjaudu ulos</string>
+  <!--Transports-->
+  <string name="transport_tor">Internet</string>
+  <string name="transport_bt">Bluetooth</string>
+  <string name="transport_lan">Wi-Fi</string>
+  <!--Notifications-->
+  <string name="reminder_notification_title">Uloskirjautunut Briarista</string>
+  <string name="reminder_notification_text">Napauta kirjautuaksesi takaisin sisään.</string>
+  <string name="reminder_notification_channel_title">Briarin sisäänkirjautumisen muistutus</string>
+  <string name="reminder_notification_dismiss">Hylkää</string>
+  <string name="ongoing_notification_title">Kirjautunut Briariin</string>
+  <string name="ongoing_notification_text">Napauta avataksesi Briar.</string>
+  <plurals name="private_message_notification_text">
+    <item quantity="one">Uusi yksityisviesti.</item>
+    <item quantity="other">%d uutta yksityisviestiä.</item>
+  </plurals>
+  <plurals name="group_message_notification_text">
+    <item quantity="one">Uusi ryhmäviesti.</item>
+    <item quantity="other">%d uutta ryhmäviestiä.</item>
+  </plurals>
+  <plurals name="forum_post_notification_text">
+    <item quantity="one">Uusi foorumiviesti.</item>
+    <item quantity="other">%d uutta foorumiviestiä.</item>
+  </plurals>
+  <plurals name="blog_post_notification_text">
+    <item quantity="one">Uusi blogikirjoitus.</item>
+    <item quantity="other">%d uutta blogikirjoitusta.</item>
+  </plurals>
+  <!--Misc-->
+  <string name="now">nyt</string>
+  <string name="show">Näytä</string>
+  <string name="hide">Piilota</string>
+  <string name="ok">OK</string>
+  <string name="cancel">Peruuta</string>
+  <string name="got_it">Selvä</string>
+  <string name="delete">Poista</string>
+  <string name="accept">Hyväksy</string>
+  <string name="decline">Kieltäydy</string>
+  <string name="options">Valitsimet</string>
+  <string name="online">Verkossa</string>
+  <string name="offline">Poissa verkosta</string>
+  <string name="send">Lähetä</string>
+  <string name="allow">Salli</string>
+  <string name="open">Avaa</string>
+  <string name="no_data">Ei dataa</string>
+  <string name="ellipsis">…</string>
+  <string name="text_too_long">Kirjoitettu teksti on liian pitkä</string>
+  <string name="show_onboarding">Näytä apudialogi</string>
+  <string name="fix">Korjaa</string>
+  <string name="help">Ohje</string>
+  <string name="sorry">Pahoittelemme</string>
+  <!--Contacts and Private Conversations-->
+  <string name="no_contacts">Ei yhteystietoja</string>
+  <string name="no_contacts_action">Napauta + nappia lisätäksesi yhteystiedon</string>
+  <string name="date_no_private_messages">Ei viestejä.</string>
+  <string name="no_private_messages">Ei viestejä</string>
+  <string name="message_hint">Kirjoita viesti</string>
+  <string name="set_contact_alias_hint">Yhteystiedon nimi</string>
+  <string name="change">Muuta</string>
+  <string name="delete_contact">Poista yhteystieto</string>
+  <string name="dialog_title_delete_contact">Vahvista yhteystiedon poistaminen</string>
+  <string name="dialog_message_delete_contact">Oletko varma, että haluat poistaa tämän yhteyshenkilön ja kaikki hänen kanssa vaihdetut viestit?</string>
+  <string name="contact_deleted_toast">Yhteystieto poistettu</string>
+  <!--This is shown in the action bar when opening an image in fullscreen that the user sent-->
+  <string name="save_image">Tallenna kuva</string>
+  <!--Adding Contacts-->
+  <string name="face_to_face">Sinun täytyy tavata käyttäjä, jonka haluat lisätä yhteystietoihisi.\n\nTämä estää sen, että joku voisi esittää olevansa sinä tai lukea viestejäsi tulevaisuudessa</string>
+  <string name="continue_button">Jatka</string>
+  <string name="try_again_button">Yritä uudelleen</string>
+  <string name="waiting_for_contact_to_scan">Odotetaan, että käyttäjä skannaa ja saa yhteyden\u2026</string>
+  <string name="exchanging_contact_details">Yhteystietoja vaihdetaan\u2026</string>
+  <string name="contact_added_toast">Yhteystieto lisätty: %s</string>
+  <string name="contact_already_exists">Yhteystieto %s on jo olemassa</string>
+  <string name="qr_code_invalid">QR koodi on virheellinen</string>
+  <string name="camera_error">Kameravirhe</string>
+  <string name="connecting_to_device">Yhdistetään laitteeseen\u2026</string>
+  <string name="authenticating_with_device">Tunnistaudutaan laitteen kanssa\u2026</string>
+  <string name="connection_error_title">Yhteydenotto yhteystietoon epäonnistui</string>
+  <string name="connection_error_explanation">Tarkista että olette kumpikin käyttämässä samaa Wi-Fi verkkoa.</string>
+  <string name="connection_error_feedback">Jos tämä ongelma jatkuu, <a href="feedback">lähetä palautetta</a> jotta voimme parantaa sovellusta.</string>
+  <!--Adding Contacts Remotely-->
+  <string name="paste_button">Liitä</string>
+  <string name="copy_button">Kopio</string>
+  <string name="share_button">Jaa</string>
+  <string name="add_contact_remote_connecting">Yhdistetään...</string>
+  <string name="connecting">Yhdistetään...</string>
+  <!--This is a numeral indicating the first step in a series of screens-->
+  <string name="step_1">1</string>
+  <!--This is a numeral indicating the second step in a series of screens-->
+  <string name="step_2">2</string>
+  <!--This is a question asking whether two nicknames refer to the same person-->
+  <!--This is a button for answering that two nicknames do indeed refer to the same person. This
+	string will be used in a dialog button, so if the translation of this string is longer than 20
+	characters, please use "Yes" instead, and use "No" for the "Different Person" button-->
+  <!--This is a button for answering that two nicknames refer to different people. This string
+	will be used in a dialog button, so if the translation of this string longer than 20 characters,
+	please use "No" instead, and use "Yes" for the "Same Person" button-->
+  <!--Introductions-->
+  <string name="introduction_onboarding_title">Esittele yhteyshenkilösi</string>
+  <string name="introduction_onboarding_text">Voit esitellä muita käyttäjiä toisilleen, niin että heidän ei tarvitse tavata kasvokkain ollakseen yhteydessä Briarin kautta.</string>
+  <string name="introduction_menu_item">Tee esittely</string>
+  <string name="introduction_activity_title">Valitse yhteystieto</string>
+  <string name="introduction_not_possible">Sinulla on jo yksi esittely käynnissä näillä yhteystiedoilla. Odota kunnes se tulee valmiiksi. Tämä voi kestää jonkin aikaa jos sinä tai yhteyshenkilösi ovat harvoin netissä.</string>
+  <string name="introduction_message_title">Esittele yhteyshenkilö</string>
+  <string name="introduction_message_hint">Lisää viesti (valinnainen)</string>
+  <string name="introduction_button">Tee esittely</string>
+  <string name="introduction_sent">Esittelysi on lähetetty.</string>
+  <string name="introduction_error">Esittelyssä tapahtui virhe.</string>
+  <string name="introduction_response_error">Esittelyyn vastaamisessa tapahtui virhe</string>
+  <string name="introduction_request_sent">Olet pyytänyt, että %1$s ja %2$s esitellään toisilleen.</string>
+  <string name="introduction_request_received">%1$s on pyytänyt, että sinut esitellään käyttäjälle %2$s. Haluatko lisätä käyttäjän %2$s yhteystietoihisi?</string>
+  <string name="introduction_request_exists_received">%1$s on pyytänyt, että sinut esitellään käyttäjälle %2$s, mutta %2$s on jo yhteystiedoissasi. %1$s ei välttämättä tiedä tätä, joten voit silti vastata:</string>
+  <string name="introduction_request_answered_received">%1$s on pyytänyt, että sinut esitellään käyttäjälle %2$s.</string>
+  <string name="introduction_response_accepted_sent">Olet hyväksynyt esittelyn käyttäjälle %1$s.</string>
+  <string name="introduction_response_accepted_sent_info">Ennen kuin %1$s voidaan lisätä sinun yhteystietoihin, hänen täytyy myös hyväksyä esittely. Tämä voi viedä vähän aikaa.</string>
+  <string name="introduction_response_declined_sent">Olet kieltäytynyt esittelystä käyttäjälle %1$s.</string>
+  <string name="introduction_response_accepted_received">%1$s hyväksyi esittelyn käyttäjälle %2$s.</string>
+  <string name="introduction_response_declined_received">%1$s kieltäytyi esittelystä käyttäjälle %2$s.</string>
+  <string name="introduction_response_declined_received_by_introducee">%1$s sanoo, että %2$s on kieltäytynyt esittelystä.</string>
+  <!--Private Groups-->
+  <string name="groups_list_empty">Ei ryhmiä</string>
+  <string name="groups_list_empty_action">Napauta + nappia luodaksesi ryhmän tai pyydä yhteyshenkilöltä kutsua ryhmään</string>
+  <string name="groups_created_by">Luonut %s</string>
+  <plurals name="messages">
+    <item quantity="one">%d viesti</item>
+    <item quantity="other">%d viestiä</item>
+  </plurals>
+  <string name="groups_group_is_empty">Tämä ryhmä on tyhjä</string>
+  <string name="groups_group_is_dissolved">Tämä ryhmä on hajautettu</string>
+  <string name="groups_remove">Poista</string>
+  <string name="groups_create_group_title">Luo yksityinen ryhmä</string>
+  <string name="groups_create_group_button">Luo ryhmä</string>
+  <string name="groups_create_group_invitation_button">Lähetä kutsu</string>
+  <string name="groups_create_group_hint">Valitse nimi yksityiselle ryhmällesi</string>
+  <string name="groups_invitation_sent">Ryhmäkutsu on lähetetty</string>
+  <string name="groups_member_list">Jäsenluettelo</string>
+  <string name="groups_invite_members">Kutsu jäseniä</string>
+  <string name="groups_member_created_you">Sinä loit ryhmän</string>
+  <string name="groups_member_created">%s loi ryhmän</string>
+  <string name="groups_member_joined_you">Olet liittynyt ryhmään</string>
+  <string name="groups_member_joined">%s liittyi ryhmään</string>
+  <string name="groups_leave">Lähde ryhmästä</string>
+  <string name="groups_leave_dialog_title">Vahvista ryhmästä lähtö</string>
+  <string name="groups_leave_dialog_message">Oletko varma, että haluat lähteä tästä ryhmästä?</string>
+  <string name="groups_dissolve">Hajauta ryhmä</string>
+  <string name="groups_dissolve_dialog_title">Vahvista ryhmän hajauttaminen</string>
+  <string name="groups_dissolve_dialog_message">Oletko varma, että haluat hajauttaa tämän ryhmän?\n\nRyhmän muut jäsenet eivät sen jälkeen voi enää jatkaa ryhmäkeskustelua eivätkä välttämättä tule saamaan viimeisimpiä viestejä.</string>
+  <string name="groups_dissolve_button">Hajauta</string>
+  <string name="groups_dissolved_dialog_title">Ryhmä on nyt hajautettu</string>
+  <string name="groups_dissolved_dialog_message">Tämän ryhmän aloittaja on hajauttanut sen.\n\nEt voi enää kirjoitta uusia viestejä ryhmälle, etkä välttämättä tule saamaan kaikkia tähän mennessä kirjoitettuja viestejä.</string>
+  <!--Private Group Invitations-->
+  <string name="groups_invitations_title">Ryhmäkutsut</string>
+  <string name="groups_invitations_invitation_sent">Olet kutsunut käyttäjän %1$s mukaan ryhmään \"%2$s\".</string>
+  <string name="groups_invitations_invitation_received">%1$s on kutsunut sinut mukaan ryhmään \"%2$s\".</string>
+  <string name="groups_invitations_joined">Liittyi ryhmään</string>
+  <string name="groups_invitations_declined">Kutsu liittyä ryhmään on hylätty</string>
+  <plurals name="groups_invitations_open">
+    <item quantity="one">%d avoin ryhmäkutsu</item>
+    <item quantity="other">%d avointa ryhmäkutsua</item>
+  </plurals>
+  <string name="groups_invitations_response_accepted_sent">Olet hyväksynyt käyttäjän %s lähettämän ryhmäkutsun.</string>
+  <string name="groups_invitations_response_declined_sent">Olet kieltäytynyt käyttäjän %s lähettämästä ryhmäkutsusta.</string>
+  <string name="groups_invitations_response_accepted_received">%s hyväksyi ryhmäkutsun.</string>
+  <string name="groups_invitations_response_declined_received">%s kieltäytyi ryhmäkutsusta.</string>
+  <string name="sharing_status_groups">Vain ryhmäkeskustelun aloittaja voi pyytää uusia jäseniä mukaan ryhmään. Alla ovat kaikki ryhmän nykyiset jäsenet.</string>
+  <!--Private Groups Revealing Contacts-->
+  <string name="groups_reveal_contacts">Näytä yhteystiedot</string>
+  <string name="groups_reveal_dialog_message">Voit valita haluatko paljastaa yhteytesi muihin käyttäjiin tämän ryhmän nykyisille ja tuleville jäsenille.\n\nKäyttäjä yhteyksien paljastaminen tekee yhteydestä nopeamman ja luotettavamman, koska voit pitää yhteyttä muihin käyttäjiin myös silloin kun ryhmän aloittaja on poissa verkosta.</string>
+  <string name="groups_reveal_visible">Yhteys käyttäjään on näkyvissä ryhmän jäsenille</string>
+  <string name="groups_reveal_visible_revealed_by_us">Yhteys käyttäjään on näkyvissä ryhmän jäsenille (sinun paljastamana)</string>
+  <string name="groups_reveal_visible_revealed_by_contact">Yhteys käyttäjään on näkyvissä ryhmän jäsenille (käyttäjän %s paljastamana)</string>
+  <string name="groups_reveal_invisible">Yhteys käyttäjään ei ole näkyvissä ryhmän jäsenille</string>
+  <!--Forums-->
+  <string name="no_forums">Ei foorumeita</string>
+  <string name="no_forums_action">Napauta + nappia luodaksesi foorumin tai pyydä yhteyshenkilöltä kutsua foorumiin</string>
+  <string name="create_forum_title">Luo foorumi</string>
+  <string name="choose_forum_hint">Valitse nimi foorumillesi</string>
+  <string name="create_forum_button">Luo foorumi</string>
+  <string name="forum_created_toast">Foorumi luotu</string>
+  <string name="no_forum_posts">Ei kirjoituksia</string>
+  <string name="no_posts">Ei kirjoituksia</string>
+  <plurals name="posts">
+    <item quantity="one">%d viesti</item>
+    <item quantity="other">%d viestiä</item>
+  </plurals>
+  <string name="forum_new_message_hint">Uusi julkaisu</string>
+  <string name="forum_message_reply_hint">Uusi vastaus</string>
+  <string name="btn_reply">Vastaa</string>
+  <string name="forum_leave">Lähde foorumista</string>
+  <string name="dialog_title_leave_forum">Vahvista foorumista lähteminen</string>
+  <string name="dialog_message_leave_forum">Oletko varma, että haluat lähteä tästä foorumista?\n\nKäyttäjät, jotka olet kutsunut tähän foorumiin, eivät välttämättä tule enää saamaan päivityksiä.</string>
+  <string name="dialog_button_leave">Lähde</string>
+  <string name="forum_left_toast">Lähti foorumista</string>
+  <!--Forum Sharing-->
+  <string name="forum_share_button">Jaa foorumi</string>
+  <string name="contacts_selected">Yhteystiedot valittu</string>
+  <string name="activity_share_toolbar_header">Valitse yhteystiedot</string>
+  <string name="no_contacts_selector">Ei yhteystietoja</string>
+  <string name="no_contacts_selector_action">Tule takaisin kun olet lisännyt yhteystiedon</string>
+  <string name="forum_shared_snackbar">Foorumi jaettu valittujen käyttäjien kanssa</string>
+  <string name="forum_share_message">Lisää viesti (valinnainen)</string>
+  <string name="forum_share_error">Tämän foorumin jakamisessa tapahtui virhe.</string>
+  <string name="forum_invitation_received">%1$s on jakanut \"%2$s\" -nimisen foorumin kanssasi.</string>
+  <string name="forum_invitation_sent">Olet jakanut \"%1$s\" -nimisen foorumin käyttäjälle %2$s.</string>
+  <string name="forum_invitations_title">Kutsut liittyä foorumeihin</string>
+  <string name="forum_invitation_exists">Olet jo hyväksynyt kutsun liittyä tähän foorumiin.\n\nUseamman kutsun hyväksyminen tekee foorumista nopeamman ja luotettavamman.</string>
+  <string name="forum_joined_toast">Liittyi foorumiin</string>
+  <string name="forum_declined_toast">Kutsu hylätty</string>
+  <string name="shared_by_format">Jakanut %s</string>
+  <string name="forum_invitation_already_sharing">On jo jakamassa</string>
+  <string name="forum_invitation_response_accepted_sent">Olet hyväksynyt käyttäjän %s lähettämän foorumikutsun.</string>
+  <string name="forum_invitation_response_declined_sent">Olet kieltäytynyt käyttäjän %s lähettämästä foorumikutsusta.</string>
+  <string name="forum_invitation_response_accepted_received">%s hyväksyi foorumikutsun.</string>
+  <string name="forum_invitation_response_declined_received">%s kieltäytyi foorumikutsusta.</string>
+  <string name="sharing_status">Jaetaan tilaa</string>
+  <string name="sharing_status_forum">Kuka tahansa foorumin jäsen voi jakaa sen tuntemilleen käyttäjille. Olet jakamassa tämän foorumin seuraaville käyttäjille. Voi myös olla muita jäseniä, joita sinä et näe.</string>
+  <string name="shared_with">Jaettu %1$d kanssa (%2$d verkossa)</string>
+  <plurals name="forums_shared">
+    <item quantity="one">%d foorumi jaettu</item>
+    <item quantity="other">%d foorumia jaettu</item>
+  </plurals>
+  <string name="nobody">Ei kukaan</string>
+  <!--Blogs-->
+  <string name="blogs_other_blog_empty_state">Ei kirjoituksia</string>
+  <string name="read_more">lue lisää</string>
+  <string name="blogs_write_blog_post">Julkaise blogikirjoitus</string>
+  <string name="blogs_write_blog_post_body_hint">Kirjoita blogikirjoitus</string>
+  <string name="blogs_publish_blog_post">Julkaise</string>
+  <string name="blogs_blog_post_created">Blogikirjoitus julkaistu</string>
+  <string name="blogs_blog_post_received">Uusi blogikirjoitus vastaanotettu</string>
+  <string name="blogs_blog_post_scroll_to">Vieritä kohtaan</string>
+  <string name="blogs_feed_empty_state">Ei kirjoituksia</string>
+  <string name="blogs_feed_empty_state_action">Yhteyshenkilöitesi ja seuraamiesi blogien kirjoitukset tulevat näkymään tässä\n\nNapauta kynää kirjoittaaksesi jotain</string>
+  <string name="blogs_remove_blog">Poista blogi</string>
+  <string name="blogs_remove_blog_dialog_message">Oletko varma, että haluat poistaa tämän blogin?\n\nKirjoitukset poistuvat sinun laitteelta, mutta ei muiden laitteilta.\n\nKäyttäjät joiden kanssa olet jakanut tämän blogin eivät välttämättä saa uusia päivityksiä.</string>
+  <string name="blogs_remove_blog_ok">Poista</string>
+  <string name="blogs_blog_removed">Blogi poistettu</string>
+  <string name="blogs_reblog_comment_hint">Lisää kommentti (valinnainen)</string>
+  <string name="blogs_reblog_button">Jaa blogikirjoitus</string>
+  <!--Blog Sharing-->
+  <string name="blogs_sharing_share">Jaa blogi</string>
+  <string name="blogs_sharing_error">Tämän blogin jakamisessa tapahtui virhe.</string>
+  <string name="blogs_sharing_button">Jaa blogi</string>
+  <string name="blogs_sharing_snackbar">Blogi jaettu valittujen käyttäjien kanssa</string>
+  <string name="blogs_sharing_response_accepted_sent">Olet hyväksynyt käyttäjän %s lähettämän blogikutsun.</string>
+  <string name="blogs_sharing_response_declined_sent">Olet kieltäytynyt käyttäjän %s lähettämästä blogikutsusta.</string>
+  <string name="blogs_sharing_response_accepted_received">%s hyväksyi blogikutsun.</string>
+  <string name="blogs_sharing_response_declined_received">%s kieltäytyi blogikutsusta.</string>
+  <string name="blogs_sharing_invitation_received">%1$s on jakanut \"%2$s\" -nimisen blogin kanssasi.</string>
+  <string name="blogs_sharing_invitation_sent">Olet jakanut \"%1$s\" -nimisen blogin käyttäjälle %2$s.</string>
+  <string name="blogs_sharing_invitations_title">Blogi kutsut</string>
+  <string name="blogs_sharing_joined_toast">Blogi tilattu</string>
+  <string name="blogs_sharing_declined_toast">Kutsu hylätty</string>
+  <string name="sharing_status_blog">Kuka tahansa joka tilaa blogin voi jakaa sen tuntemilleen käyttäjille. Olet jakamassa tämän blogin seuraaville käyttäjille. Voi myös olla muita blogin tilaajia, joita sinä et näe.</string>
+  <!--RSS Feeds-->
+  <string name="blogs_rss_feeds_import">Tuo RSS syöte</string>
+  <string name="blogs_rss_feeds_import_button">Tuo</string>
+  <string name="blogs_rss_feeds_import_hint">Syötä RSS syötteen URL osoite</string>
+  <string name="blogs_rss_feeds_import_error">Pahoittelemme! Syötteen noutamisessa tapahtui virhe.</string>
+  <string name="blogs_rss_feeds_manage_imported">Tuotu:</string>
+  <string name="blogs_rss_feeds_manage_author">Tekijä:</string>
+  <string name="blogs_rss_feeds_manage_updated">Viimeksi päivitetty:</string>
+  <string name="blogs_rss_remove_feed">Poista syöte</string>
+  <string name="blogs_rss_remove_feed_dialog_message">Oletko varma, että haluat poistaa tämän syötteen?\n\nKirjoitukset poistuvat sinun laitteelta, mutta ei muiden laitteilta.\n\nKäyttäjät joiden kanssa olet jakanut tämän syötteen eivät välttämättä saa uusia päivityksiä.</string>
+  <string name="blogs_rss_remove_feed_ok">Poista</string>
+  <string name="blogs_rss_feeds_manage_empty_state">Ei RSS syötteitä\n\nNapauta + nappia lisätäksesi syötteen</string>
+  <string name="blogs_rss_feeds_manage_error">Syötteiden lataamisessa tapahtui virhe. Yritä myöhemmin uudelleen.</string>
+  <!--Settings Display-->
+  <string name="pref_language_title">Kieli &amp; alue</string>
+  <string name="pref_language_changed">Tämä asetus otetaan käyttöön kun uudelleenkäynnistät Briarin. Kirjaudu ulos ja käynnistä Briar uudelleen.</string>
+  <string name="pref_language_default">Järjestelmäoletus</string>
+  <string name="display_settings_title">Näytä</string>
+  <string name="pref_theme_title">Teema</string>
+  <string name="pref_theme_light">Vaalea</string>
+  <string name="pref_theme_dark">Tumma</string>
+  <string name="pref_theme_auto">Automaattinen (päiväsaika)</string>
+  <string name="pref_theme_system">Järjestelmäoletus</string>
+  <!--Settings Network-->
+  <string name="network_settings_title">Verkot</string>
+  <string name="bluetooth_setting">Yhdistä Bluetoothin kautta</string>
+  <string name="bluetooth_setting_enabled">Silloin kun yhteyshenkilöt ovat lähellä</string>
+  <string name="bluetooth_setting_disabled">Vain kun yhteyshenkilöitä lisätään</string>
+  <string name="tor_network_setting">Yhdistä verkon kautta (Tor)</string>
+  <string name="tor_network_setting_automatic">Automaattinen sijainnin perusteella</string>
+  <string name="tor_network_setting_without_bridges">Käytä Tor:ia ilman siltoja</string>
+  <string name="tor_network_setting_with_bridges">Käytä Tor:ia siltojen kanssa</string>
+  <string name="tor_network_setting_never">Älä yhdistä</string>
+  <!--How and when Tor will connect after Automatic: E.g. Don't connect (in China) or Use Tor with bridges (in Belarus)-->
+  <string name="tor_network_setting_summary">Automaattinen: %1$s (sijainnissa %2$s)</string>
+  <string name="tor_mobile_data_title">Käytä mobiilitiedonsiirtoa</string>
+  <!--Settings Security and Panic-->
+  <string name="security_settings_title">Turvallisuus</string>
+  <string name="pref_lock_summary">Käytä laitteen näytön lukitusta suojataksesi Briar kun olet kirjautunut sisään</string>
+  <string name="pref_lock_disabled_summary">Käyttääksesi tätä ominaisuutta, ota käyttöön laitteesi näytön lukitus</string>
+  <!--The %s placeholder is replaced with the following time spans, e.g. 5 Minutes, 1 Hour-->
+  <string name="pref_lock_timeout_summary">Kun Briar ei ole käytössä, lukitse se automaattisesti %s jälkeen</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_1">1 minuutin</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_5">5 minuutin</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_15">15 minuutin</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_30">30 minuutin</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_60">1 tunnin</string>
+  <string name="pref_lock_timeout_never">Ei koskaan</string>
+  <string name="pref_lock_timeout_never_summary">Älä lukitse Briaria automaattisesti</string>
+  <string name="change_password">Vaihda salasana</string>
+  <string name="current_password">Nykyinen salasana</string>
+  <string name="choose_new_password">Uusi salasana</string>
+  <string name="confirm_new_password">Vahvista uusi salasana</string>
+  <string name="password_changed">Salasana on vaihdettu.</string>
+  <string name="panic_setting">Paniikkinapin asetus</string>
+  <string name="panic_setting_title">Paniikkinappi</string>
+  <string name="panic_setting_hint">Säädä miten Briar tulee käyttäytymään kun käytät paniikkinappisovellusta</string>
+  <string name="panic_app_setting_title">Paniikkinappisovellus</string>
+  <string name="unknown_app">tuntematon sovellus</string>
+  <string name="panic_app_setting_summary">Sovellusta ei ole valittu</string>
+  <string name="panic_app_setting_none">Ei mitään</string>
+  <string name="dialog_title_connect_panic_app">Vahvista paniikkisovellus</string>
+  <string name="dialog_message_connect_panic_app">Oletko varma, että haluat myöntää ohjelmalle %1$s luvan laukaista tuhoa aiheuttavia paniikkinapin toimintoja?</string>
+  <string name="panic_setting_signout_title">Kirjaudu ulos</string>
+  <string name="panic_setting_signout_summary">Kirjaudu ulos Briarista jos paniikkinappia on painettu</string>
+  <string name="purge_setting_title">Poista tili</string>
+  <string name="purge_setting_summary">Poista Briar tilisi jos paniikkinappia on painettu. Varoitus: Tämä tulee pysyvästi poistamaan sinun tunnukset, yhteystiedot ja viestit</string>
+  <string name="uninstall_setting_title">Poista Briarin asennus</string>
+  <string name="uninstall_setting_summary">Tämä tulee vaatimaan manuaalisen varmennuksen paniikkitilanteessa</string>
+  <!--Settings Notifications-->
+  <string name="notification_settings_title">Ilmoitukset</string>
+  <string name="notify_sign_in_title">Muistuta minua kirjautumaan sisään</string>
+  <string name="notify_sign_in_summary">Näytä muistutus kun puhelin käynnistyy tai kun sovellus on päivitetty</string>
+  <string name="notify_private_messages_setting_title">Yksityisviestit</string>
+  <string name="notify_private_messages_setting_summary">Näytä ilmoitukset yksityisviesteistä</string>
+  <string name="notify_private_messages_setting_summary_26">Aseta ilmoitukset yksityisviesteille</string>
+  <string name="notify_group_messages_setting_title">Ryhmäviestit</string>
+  <string name="notify_group_messages_setting_summary">Näytä ilmoitukset ryhmäviesteistä</string>
+  <string name="notify_group_messages_setting_summary_26">Aseta ilmoitukset ryhmäviesteille</string>
+  <string name="notify_forum_posts_setting_title">Foorumikirjoitukset</string>
+  <string name="notify_forum_posts_setting_summary">Näytä ilmoitukset foorumikirjoituksista</string>
+  <string name="notify_forum_posts_setting_summary_26">Aseta ilmoitukset foorumikirjoituksille</string>
+  <string name="notify_blog_posts_setting_title">Blogikirjoitukset</string>
+  <string name="notify_blog_posts_setting_summary">Näytä ilmoitukset blogikirjoituksista</string>
+  <string name="notify_blog_posts_setting_summary_26">Aseta ilmoitukset blogikirjoituksille</string>
+  <string name="notify_vibration_setting">Värinä</string>
+  <string name="notify_sound_setting">Ääni</string>
+  <string name="notify_sound_setting_default">Oletussoittoääni</string>
+  <string name="notify_sound_setting_disabled">Ei mikään</string>
+  <string name="choose_ringtone_title">Valitse soittoääni</string>
+  <string name="cannot_load_ringtone">Soittoäänen lataaminen epäonnistui</string>
+  <!--Settings Feedback-->
+  <string name="feedback_settings_title">Palaute</string>
+  <string name="send_feedback">Lähetä palautetta</string>
+  <!--Link Warning-->
+  <string name="link_warning_title">Linkkivaroitus</string>
+  <string name="link_warning_intro">Olet aikomassa avata seuraavan linkin toisessa sovelluksessa.</string>
+  <string name="link_warning_open_link">Avaa linkki</string>
+  <!--Crash Reporter-->
+  <string name="crash_report_title">Briar kaatumisilmoitus</string>
+  <string name="briar_crashed">Pahoittelemme, Briar on kaatunut.</string>
+  <string name="not_your_fault">Tämä ei ole sinun syysi.</string>
+  <string name="please_send_report">Auta meitä rakentamaan parempi Briar lähettämällä meille kaatumisilmoitus.</string>
+  <string name="report_is_encrypted">Lupaamme, että ilmoitus on salattu ja lähetetty turvallisesti.</string>
+  <string name="feedback_title">Palaute</string>
+  <string name="describe_crash">Kuvaile mitä tapahtui (valinnainen)</string>
+  <string name="enter_feedback">Kirjoita palaute</string>
+  <string name="optional_contact_email">Sähköpostiosoite (valinnainen)</string>
+  <string name="include_debug_report_crash">Liitä anonyymiä dataa kaatumisesta</string>
+  <string name="include_debug_report_feedback">Liitä anonyymiä dataa tästä laitteesta</string>
+  <string name="could_not_load_report_data">Ilmoituksen tietojen lataaminen epäonnistui.</string>
+  <string name="send_report">Lähetä ilmoitus</string>
+  <string name="close">Sulje</string>
+  <string name="dev_report_saved">Ilmoitus tallennettu. Sen lähetys tapahtuu seuraavan kerran kun kirjaudut sisään Briariin.</string>
+  <!--Sign Out-->
+  <string name="progress_title_logout">Kirjaudutaan ulos Briarista...</string>
+  <!--Screen Filters & Tapjacking-->
+  <string name="screen_filter_title">Näyttökerros havaittu</string>
+  <string name="screen_filter_body">Toinen sovellus on piirtämässä Briarin päälle. Suojellakseen sinun turvallisuutta, Briar ei tule vastaamaan kosketuksiin silloin kun toinen sovellus on piirtämässä Briarin päälle.\n\nOn mahdollista, että seuraavat sovellukset piirtävät päälle:\n\n%1$s</string>
+  <string name="screen_filter_allow">Salli näiden sovellusten piirtää päälle</string>
+  <!--Permission Requests-->
+  <string name="permission_camera_title">Kameran käyttöoikeus</string>
+  <string name="permission_camera_request_body">Skannatakseen QR koodin, Briar tarvitsee luvan käyttää kameraa.</string>
+  <string name="permission_camera_denied_body">Olet kieltänyt käyttämästä kameraa, mutta yhteyshenkilöiden lisääminen vaatii kameran käyttöä.\n\nOle hyvä ja harkitse kameraluvan myöntämistä.</string>
+  <string name="qr_code">QR-koodi</string>
+  <string name="show_qr_code_fullscreen">Näytä QR-koodi koko näytöllä</string>
+  <!--App Locking-->
+  <string name="lock_unlock">Avaa Briarin lukitus</string>
+  <string name="lock_unlock_verbose">Syötä laitteesi PIN, kuvio tai salasana avataksesi Briar</string>
+  <string name="lock_unlock_fingerprint_description">Kosketa sormenjälkitunnistinta rekisteröidyllä sormella jatkaaksesi</string>
+  <string name="lock_unlock_password">Käytä salasanaa</string>
+  <string name="lock_is_locked">Briar on lukittu</string>
+  <string name="lock_tap_to_unlock">Napauta avataksesi lukitus</string>
+  <!--Screenshots-->
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <!--This is a message to be used in screenshots. Please use the same translation for Bob!-->
+  <!--This is a message to be used in screenshots. Please use the same translation for Alice!-->
+  <!--This is a message to be used in screenshots.-->
+</resources>

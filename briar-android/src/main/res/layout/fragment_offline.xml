@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:orientation="vertical">
+
+	<ScrollView
+		android:layout_width="match_parent"
+		android:layout_height="0dp"
+		android:layout_weight="1">
+
+		<androidx.constraintlayout.widget.ConstraintLayout
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content">
+
+			<ImageView
+				android:id="@+id/iconView"
+				android:layout_width="@dimen/hero_square"
+				android:layout_height="@dimen/hero_square"
+				android:layout_marginHorizontal="@dimen/margin_xlarge"
+				android:layout_marginTop="@dimen/margin_xlarge"
+				app:layout_constraintBottom_toTopOf="@+id/titleView"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toTopOf="parent"
+				app:layout_constraintVertical_bias="0.25"
+				app:layout_constraintVertical_chainStyle="packed"
+				app:srcCompat="@drawable/transport_tor"
+				app:tint="@color/briar_red_500"
+				tools:ignore="ContentDescription" />
+
+			<TextView
+				android:id="@+id/titleView"
+				android:layout_width="0dp"
+				android:layout_height="wrap_content"
+				android:layout_marginHorizontal="@dimen/margin_xlarge"
+				android:layout_marginTop="@dimen/margin_xlarge"
+				android:gravity="center"
+				android:text="@string/offline"
+				android:textAppearance="@style/TextAppearance.MaterialComponents.Headline5"
+				app:layout_constraintBottom_toTopOf="@+id/textView"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@+id/iconView" />
+
+			<TextView
+				android:id="@+id/textView"
+				android:layout_width="0dp"
+				android:layout_height="wrap_content"
+				android:layout_margin="@dimen/margin_large"
+				android:layout_marginHorizontal="@dimen/margin_xlarge"
+				android:text="@string/tor_offline_description"
+				android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
+				app:layout_constraintBottom_toBottomOf="parent"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@+id/titleView" />
+
+		</androidx.constraintlayout.widget.ConstraintLayout>
+
+	</ScrollView>
+
+	<Button
+		android:id="@+id/checkButton"
+		style="@style/BriarButtonOutline.Neutral"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:layout_marginHorizontal="16dp"
+		android:text="@string/tor_offline_button_check" />
+
+	<Button
+		android:id="@+id/button"
+		style="@style/BriarButton"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:layout_marginHorizontal="16dp"
+		android:layout_marginTop="6dp"
+		android:text="@string/try_again_button" />
+
+</LinearLayout>

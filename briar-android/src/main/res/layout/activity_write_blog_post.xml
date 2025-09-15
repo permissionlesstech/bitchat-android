@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	tools:context=".android.blog.WriteBlogPostActivity">
+
+	<org.briarproject.briar.android.view.LargeTextInputView
+		android:id="@+id/textInput"
+		android:layout_width="match_parent"
+		android:layout_height="match_parent"
+		android:gravity="bottom"
+		app:buttonText="@string/blogs_publish_blog_post"
+		app:fillHeight="true"
+		app:hint="@string/blogs_write_blog_post_body_hint">
+
+		<requestFocus />
+
+	</org.briarproject.briar.android.view.LargeTextInputView>
+
+	<com.google.android.material.progressindicator.CircularProgressIndicator
+		android:id="@+id/progressBar"
+		style="@style/CircularProgress.Large"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:layout_gravity="center"
+		android:visibility="invisible" />
+
+</FrameLayout>

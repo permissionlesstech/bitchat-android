@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+
+	<style name="BriarToolbar" parent="Widget.Material3.Toolbar">
+		<item name="android:background">@color/briar_primary</item>
+		<item name="titleTextColor">@color/briar_text_primary_inverse</item>
+		<item name="subtitleTextColor">@color/briar_text_secondary_inverse</item>
+		<item name="android:theme">@style/BriarToolbarTheme</item>
+		<item name="popupTheme">@style/PopupMenu</item>
+	</style>
+
+	<style name="BriarToolbarTheme">
+		<item name="colorControlNormal">@color/briar_text_primary_inverse</item>
+	</style>
+
+	<style name="PopupMenu" parent="Theme.Material3.DayNight">
+		<item name="android:colorBackground">@color/window_background</item>
+	</style>
+
+	<style name="BriarButton" parent="Widget.Material3.Button">
+		<item name="android:layout_width">match_parent</item>
+		<item name="android:layout_height">wrap_content</item>
+		<item name="android:textSize">@dimen/text_size_medium</item>
+		<item name="android:padding">@dimen/margin_large</item>
+		<item name="android:minHeight">@dimen/button_size</item>
+		<item name="cornerRadius">6dp</item>
+	</style>
+
+	<style name="BriarButtonFlat" parent="Widget.Material3.Button.TextButton">
+		<item name="android:textSize">@dimen/text_size_medium</item>
+	</style>
+
+	<style name="BriarButtonFlat.Negative" parent="BriarButtonFlat">
+		<item name="android:textColor">@color/briar_button_text_negative</item>
+		<item name="iconTint">@color/briar_button_text_negative</item>
+	</style>
+
+	<style name="BriarButtonFlat.Positive" parent="BriarButtonFlat">
+		<item name="android:textColor">@color/briar_button_text_positive</item>
+		<item name="iconTint">@color/briar_button_text_positive</item>
+	</style>
+
+	<style name="BriarButtonFlat.Neutral" parent="BriarButtonFlat">
+		<item name="android:textColor">@color/briar_button_text_neutral</item>
+		<item name="iconTint">@color/briar_button_text_neutral</item>
+	</style>
+
+	<style name="BriarButtonFlat.Positive.Tiny" parent="BriarButtonFlat.Positive">
+		<item name="android:textSize">@dimen/text_size_tiny</item>
+		<item name="android:padding">@dimen/margin_medium</item>
+		<item name="android:minWidth">@dimen/button_size</item>
+	</style>
+
+	<style name="BriarButtonOutline" parent="Widget.Material3.Button.OutlinedButton">
+		<item name="android:layout_width">match_parent</item>
+		<item name="android:layout_height">wrap_content</item>
+		<item name="android:textSize">@dimen/text_size_medium</item>
+		<item name="android:padding">@dimen/margin_large</item>
+		<item name="android:backgroundTint">@color/window_background</item>
+		<item name="android:minHeight">@dimen/button_size</item>
+		<item name="cornerRadius">6dp</item>
+	</style>
+
+	<style name="BriarButtonOutline.Negative" parent="BriarButtonOutline">
+		<item name="android:textColor">@color/briar_button_text_negative</item>
+	</style>
+
+	<style name="BriarButtonOutline.Positive" parent="BriarButtonOutline">
+		<item name="android:textColor">@color/briar_button_text_positive</item>
+	</style>
+
+	<style name="BriarButtonOutline.Neutral" parent="BriarButtonOutline">
+		<item name="android:textColor">@color/briar_button_text_neutral</item>
+	</style>
+
+	<style name="Divider">
+		<item name="android:background">@color/divider</item>
+	</style>
+
+	<style name="Divider.Horizontal" parent="Divider">
+		<item name="android:layout_width">match_parent</item>
+		<item name="android:layout_height">1px</item>
+	</style>
+
+	<style name="Divider.ContactList" parent="Divider">
+		<item name="android:layout_width">match_parent</item>
+		<item name="android:layout_height">1px</item>
+	</style>
+
+	<style name="Divider.ThreadItem" parent="Divider">
+		<item name="android:layout_width">match_parent</item>
+		<item name="android:layout_height">@dimen/forum_nested_line_width</item>
+		<item name="android:background">@color/thread_indicator</item>
+	</style>
+
+	<style name="CircularProgress" parent="Widget.Material3.CircularProgressIndicator">
+		<item name="android:indeterminate">true</item>
+		<item name="indicatorColor">@color/briar_accent</item>
+	</style>
+
+	<style name="CircularProgress.Large" parent="Widget.Material3.CircularProgressIndicator">
+		<item name="android:indeterminate">true</item>
+		<item name="indicatorColor">@color/briar_accent</item>
+		<item name="indicatorSize">76dp</item>
+	</style>
+
+	<style name="BriarAvatar">
+		<item name="civ_border_width">@dimen/avatar_border_width</item>
+		<item name="civ_border_color">?android:attr/textColorSecondary</item>
+	</style>
+
+	<style name="TextMessage">
+		<item name="android:textIsSelectable">true</item>
+		<item name="android:textSize">@dimen/text_size_medium</item>
+		<item name="android:textColor">?android:attr/textColorPrimary</item>
+	</style>
+
+	<style name="TextMessage.Notice">
+		<item name="android:textIsSelectable">true</item>
+		<item name="android:textSize">@dimen/text_size_small</item>
+		<item name="android:textColor">?android:attr/textColorSecondary</item>
+		<item name="android:textStyle">italic</item>
+	</style>
+
+	<style name="TextMessage.Timestamp">
+		<item name="android:textIsSelectable">false</item>
+		<item name="android:textSize">@dimen/text_size_tiny</item>
+		<item name="android:textColor">?android:attr/textColorTertiary</item>
+		<item name="android:maxLines">1</item>
+	</style>
+
+	<style name="DiscussionLevelIndicator">
+		<item name="android:layout_height">match_parent</item>
+		<item name="android:layout_width">@dimen/forum_nested_line_width</item>
+		<item name="android:layout_marginLeft">5dp</item>
+		<item name="android:layout_marginStart">5dp</item>
+		<item name="android:background">@color/thread_indicator</item>
+		<item name="android:visibility">gone</item>
+	</style>
+
+	<style name="BriarCard" parent="CardView">
+		<item name="cardUseCompatPadding">true</item>
+		<item name="cardBackgroundColor">@color/card_background</item>
+		<item name="android:layout_margin">@dimen/margin_small</item>
+	</style>
+
+	<style name="StepBubble">
+		<item name="android:layout_width">28dp</item>
+		<item name="android:layout_height">28dp</item>
+		<item name="android:background">@drawable/bubble_current</item>
+		<item name="android:gravity">center</item>
+		<item name="android:textColor">?colorOnTertiary</item>
+		<item name="android:textSize">18sp</item>
+	</style>
+
+	<style name="StepBubble.Upcoming">
+		<item name="android:background">@drawable/bubble_future</item>
+		<item name="android:textColor">?colorOnSurface</item>
+	</style>
+
+	<style name="StepBubble.Completed">
+		<item name="android:background">@drawable/bubble_completed</item>
+		<item name="android:scaleType">center</item>
+		<item name="tint">?colorOnTertiaryContainer</item>
+		<item name="srcCompat">@drawable/ic_check_white</item>
+	</style>
+
+	<style name="Preference.SwitchPreferenceCompat"
+		parent="@style/Preference.SwitchPreferenceCompat.Material"
+		tools:ignore="ResourceCycle">
+		<item name="widgetLayout">@layout/preference_switch</item>
+	</style>
+
+</resources>

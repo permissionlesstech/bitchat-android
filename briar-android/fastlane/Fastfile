@@ -1,0 +1,47 @@
+# This file contains the fastlane.tools configuration
+# You can find the documentation at https://docs.fastlane.tools
+#
+# For a list of all available actions, check out
+#
+#     https://docs.fastlane.tools/actions
+#
+# For a list of all available plugins, check out
+#
+#     https://docs.fastlane.tools/plugins/available-plugins
+#
+
+# Uncomment the line if you want fastlane to automatically update itself
+# update_fastlane
+
+opt_out_usage
+
+default_platform(:android)
+
+platform :android do
+  desc "Takes screenshots for manual and Google Play"
+  lane :screenshots do
+    gradle(project_dir: "..", task: "assembleScreenshot assembleAndroidTest")
+    system './demo-mode-activate.sh'
+    capture_android_screenshots
+    system './demo-mode-deactivate.sh'
+    system './rename_screenshots.py'
+  end
+
+  desc "Updates Google Play metadata (title, descriptions, video, etc.)"
+  lane :metadata do
+    system './update-metadata.sh'
+    upload_to_play_store(
+      skip_upload_apk: true,
+	  skip_upload_aab: true,
+	  skip_upload_metadata: false,
+	  skip_upload_changelogs: true,
+	  skip_upload_images: true,
+	  skip_upload_screenshots: true,
+	  validate_only: false,
+	)
+  end
+
+end
+
+
+# vi:syntax=ruby

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content"
+	android:background="@drawable/list_item_background_selectable"
+	android:orientation="vertical">
+
+	<!--
+	We need to wrap the actual layout, because we want to
+	* clone the ConstraintLayout's constraints in the ViewHolder
+	* have a selectable frame around the message bubble
+	* insert a top notice with its own independent width
+	-->
+
+	<include layout="@layout/list_item_conversation_top_notice_in" />
+
+	<include layout="@layout/list_item_conversation_msg_in_content" />
+
+</LinearLayout>

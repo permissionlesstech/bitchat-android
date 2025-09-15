@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:orientation="vertical">
+
+	<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:layout_margin="@dimen/margin_large"
+		android:orientation="vertical">
+
+		<TextView
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_margin="@dimen/margin_medium"
+			android:gravity="center"
+			android:text="@string/expiry_date_reached"
+			android:textSize="@dimen/text_size_large" />
+
+		<TextView
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_margin="@dimen/margin_medium"
+			android:gravity="center"
+			android:text="@string/download_briar"
+			android:textSize="@dimen/text_size_large" />
+
+		<TextView
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_margin="@dimen/margin_medium"
+			android:gravity="center"
+			android:text="@string/create_new_account"
+			android:textSize="@dimen/text_size_large" />
+
+		<Button
+			android:id="@+id/download_briar_button"
+			style="@style/BriarButton"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_margin="@dimen/margin_medium"
+			android:text="@string/download_briar_button" />
+	</LinearLayout>
+</ScrollView>

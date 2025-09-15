@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="@dimen/text_input_height"
+	android:layout_height="@dimen/text_input_height"
+	android:layout_gravity="bottom"
+	tools:parentTag="org.briarproject.briar.android.view.CompositeSendButton"
+	tools:showIn="@layout/text_input_view">
+
+	<androidx.appcompat.widget.AppCompatImageButton
+		android:id="@+id/imageButton"
+		android:layout_width="@dimen/text_input_height"
+		android:layout_height="@dimen/text_input_height"
+		android:background="?attr/selectableItemBackground"
+		android:clickable="true"
+		android:contentDescription="@string/image_attach"
+		android:enabled="false"
+		android:focusable="true"
+		android:padding="4dp"
+		android:scaleType="center"
+		android:visibility="invisible"
+		app:srcCompat="@drawable/ic_image_off"
+		app:tint="?attr/colorControlNormal" />
+
+	<androidx.appcompat.widget.AppCompatImageButton
+		android:id="@+id/sendButton"
+		android:layout_width="@dimen/text_input_height"
+		android:layout_height="@dimen/text_input_height"
+		android:background="?attr/selectableItemBackground"
+		android:clickable="true"
+		android:contentDescription="@string/send"
+		android:enabled="false"
+		android:focusable="true"
+		android:padding="4dp"
+		android:scaleType="center"
+		app:srcCompat="@drawable/social_send_now_white"
+		app:tint="?colorPrimary" />
+
+	<ImageView
+		android:id="@+id/bombBadge"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:layout_gravity="end|bottom"
+		android:layout_margin="3dp"
+		android:contentDescription="@string/auto_delete_msg_contact_enabled"
+		android:visibility="invisible"
+		app:srcCompat="@drawable/ic_bomb"
+		app:tint="@color/briar_accent"
+		tools:visibility="visible" />
+
+	<ProgressBar
+		android:id="@+id/progressBar"
+		style="@style/CircularProgress"
+		android:layout_width="@dimen/text_input_height"
+		android:layout_height="@dimen/text_input_height"
+		android:visibility="invisible" />
+
+</merge>

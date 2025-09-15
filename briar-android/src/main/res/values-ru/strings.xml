@@ -1,0 +1,901 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+  <!--Setup-->
+  <string name="setup_title">Добро пожаловать в Briar</string>
+  <string name="setup_name_explanation">Ваш псевдоним будет отображаться рядом с любым размещаемым вами контентом. Его нельзя изменить после создания аккаунта.</string>
+  <string name="setup_next">Вперед</string>
+  <string name="setup_password_intro">Придумайте пароль</string>
+  <string name="setup_password_explanation">Аккаунт Briar хранится в зашифрованном виде только на устройстве. Если вы забудете свой пароль или удалите Briar, восстановить аккаунт будет невозможно.\n\nПридумайте длинный пароль, который трудно угадать, например четыре случайных слова или десять случайных букв, цифр и символов.</string>
+  <string name="dnkm_doze_intro">Для получения сообщений Briar должен работать в фоновом режиме.</string>
+  <string name="dnkm_doze_explanation">Для получения сообщений Briar должен работать в фоновом режиме. Отключите оптимизацию электропитания для Briar.</string>
+  <string name="choose_nickname">Придумайте псевдоним</string>
+  <string name="choose_password">Придумайте пароль</string>
+  <string name="confirm_password">Подтвердите пароль</string>
+  <string name="name_too_long">Слишком длинное имя</string>
+  <string name="password_too_weak">Пароль слишком слабый</string>
+  <string name="password_quite_strong">Пароль в порядке</string>
+  <string name="password_strong">Пароль надежный</string>
+  <string name="passwords_do_not_match">Пароли не совпадают</string>
+  <string name="create_account_button">Создать аккаунт</string>
+  <string name="more_info">Дополнительная информация</string>
+  <string name="don_t_ask_again">Больше не спрашивать</string>
+  <string name="dnkm_huawei_protected_text">Нажмите кнопку ниже и убедитесь, что Briar отображается на экране защищенных приложений.</string>
+  <string name="dnkm_huawei_protected_button">Защитить Briar</string>
+  <string name="dnkm_huawei_protected_help">Если Briar не будет добавлен в список защищенных приложений, он не сможет работать в фоновом режиме.</string>
+  <string name="dnkm_huawei_app_launch_text">Нажмите кнопку ниже, откройте экран \'Запуск приложения\' и убедитесь, что для Briar установлено значение \'Управлять вручную\'.</string>
+  <string name="dnkm_huawei_app_launch_help">Если для Briar не установлено значение \'Управлять вручную\' на экране \'Запуск приложений\', оно не сможет работать в фоновом режиме.</string>
+  <string name="dnkm_xiaomi_text">Для работы в фоновом режиме Briar должен быть закреплен в списке недавних приложений.</string>
+  <string name="dnkm_xiaomi_button">Защитить Briar</string>
+  <string name="dnkm_xiaomi_help">Если Briar не закреплен в списке последних приложений, он не сможет работать в фоновом режиме.</string>
+  <string name="dnkm_xiaomi_dialog_body_old">1. Откройте список недавних приложений (также называемый переключателем приложений)\n\n2. Проведите пальцем вниз по изображению этого приложения, чтобы появился значок замка\n\n3. Если замок не заблокирован, коснитесь его, чтобы заблокировать.</string>
+  <string name="dnkm_xiaomi_dialog_body_new">1. Откройте список недавних приложений (также именуемый переключателем приложений)\n\n2. Если рядом с названием Briar есть маленький значок замка, то ничего делать не нужно\n\n\n3. Если замка нет, нажмите и удерживайте изображение Briar, пока не появится кнопка замка, затем нажмите на нее.</string>
+  <string name="dnkm_xiaomi_lock_apps_text">Нажмите кнопку ниже, чтобы открыть настройки безопасности. Нажмите \"Повышение производительности\", затем нажмите \"Блокировка приложений\" и убедитесь, что для Briar установлено значение \"Заблокировано\".</string>
+  <string name="dnkm_xiaomi_lock_apps_help">Если для Briar не установлено значение \"Заблокировано\" на экране \"Блокировка приложений\", то оно не сможет работать в фоновом режиме.</string>
+  <string name="dnkm_warning_dozed_1">Briar не может работать в фоновом режиме</string>
+  <!--Login-->
+  <string name="enter_password">Пароль</string>
+  <string name="try_again">Неверный пароль, повторите попытку</string>
+  <string name="dialog_title_cannot_check_password">Не удается проверить пароль</string>
+  <string name="dialog_message_cannot_check_password">Briar не может проверить ваш пароль. Пожалуйста, попробуйте перезагрузить устройство, чтобы решить эту проблему.</string>
+  <string name="sign_in_title">Войти в Briar</string>
+  <string name="sign_in_button">Войти</string>
+  <string name="forgotten_password">Забыли пароль?</string>
+  <string name="dialog_title_lost_password">Пароль утерян</string>
+  <string name="dialog_message_lost_password">Ваш аккаунт Briar хранится в зашифрованном виде только на устройстве, поэтому мы не можем сбросить пароль. Удалить аккаунт и начать заново?\n\nВнимание: ваши идентификаторы, контакты и сообщения будут потеряны навсегда.</string>
+  <string name="startup_failed_activity_title">Сбой при запуске Briar</string>
+  <string name="startup_failed_clock_error">Не удалось запустить Briar, поскольку время на вашем устройстве некорректно.\n\nПожалуйста, установите правильное время и повторите попытку.</string>
+  <string name="startup_failed_db_error">Briar не смог открыть базу данных, содержащую ваш аккаунт, контакты и сообщения.\n\nПожалуйста, обновите приложение до последней версии и повторите попытку, или создайте новый аккаунт, выбрав \'Я забыл пароль\' в подсказке пароля.</string>
+  <string name="startup_failed_data_too_old_error">Ваш аккаунт был создан в старой версии Briar, поэтому открыть его в этой версии приложения не удастся.\n\nВам необходимо либо установить старую версию, либо создать новый аккаунт, выбрав \'я забыл свой пароль\' на этапе авторизации в приложении.</string>
+  <string name="startup_failed_data_too_new_error">Ваш аккаунт был создан в более новой версии этого приложения и не может быть открыт в текущей версии.\n\nПожалуйста, обновите приложение до последней версии и повторите попытку.</string>
+  <string name="startup_failed_service_error">Briar не смог запустить необходимый компонент.\n\nПожалуйста, обновите приложение до последней версии и повторите попытку.</string>
+  <plurals name="expiry_warning">
+    <item quantity="one">Это бета-версия Briar. Срок действия вашего аккаунта закончится через %d день и не может быть возобновлен.</item>
+    <item quantity="few">Это бета-версия Briar. Срок действия вашего аккаунта закончится через %d дня и не может быть возобновлен.</item>
+    <item quantity="many">Это бета-версия Briar. Срок действия вашего аккаунта закончится через %d дней и не может быть возобновлен.</item>
+    <item quantity="other">Это бета-версия Briar. Срок действия вашего аккаунта закончится через %d дней и не может быть возобновлен.</item>
+  </plurals>
+  <string name="expiry_date_reached">Срок действия этого программного обеспечения истек.\nСпасибо за тестирование!</string>
+  <string name="download_briar">Для продолжения использования Briar, пожалуйста, скачайте последнюю версию.</string>
+  <string name="create_new_account">Вам необходимо создать новый аккаунт, но вы можете использовать тот же псевдоним.</string>
+  <string name="download_briar_button">Загрузить последнюю версию</string>
+  <string name="old_android_expiry_date_reached">Briar больше не работает на Android 4.\nПожалуйста, установите Briar на более современное устройство.</string>
+  <string name="old_android_delete_account">Вы можете нажать кнопку ниже, чтобы удалить свой аккаунт с этого устройства.</string>
+  <string name="delete_account_button">Удалить аккаунт</string>
+  <string name="startup_open_database">Расшифровка базы данных...</string>
+  <string name="startup_migrate_database">Обновление базы данных...</string>
+  <string name="startup_compact_database">Сжатие базы данных...</string>
+  <!--Navigation Drawer-->
+  <string name="nav_drawer_open_description">Открыть навигационное меню</string>
+  <string name="nav_drawer_close_description">Закрыть навигационное меню</string>
+  <string name="contact_list_button">Контакты</string>
+  <string name="groups_button">Приватные группы</string>
+  <string name="forums_button">Форумы</string>
+  <string name="blogs_button">Блоги</string>
+  <!--This is part of the main menu. The app will be locked when this is tapped.-->
+  <string name="lock_button">Заблокировать приложение</string>
+  <string name="settings_button">Настройки</string>
+  <string name="sign_out_button">Выйти</string>
+  <string name="transports_onboarding_text">Нажмите здесь, чтобы проверить, как Briar подключается к вашим контактам.</string>
+  <!--Transports: Tor-->
+  <string name="transport_tor">Интернет</string>
+  <string name="tor_device_status_online_wifi">Ваш телефон имеет доступ в интернет через Wi-Fi</string>
+  <string name="tor_device_status_online_mobile">Ваш телефон имеет доступ в интернет через мобильную сеть.</string>
+  <string name="tor_device_status_offline">Ваш телефон не имеет доступа в интернет</string>
+  <string name="tor_plugin_status_enabling">Briar подключается к интернету</string>
+  <string name="tor_plugin_status_active">Briar подключен к интернету</string>
+  <string name="tor_plugin_status_inactive">Briar не может подключиться к интернету.</string>
+  <string name="tor_plugin_status_disabled">Briar настроен не использовать интернет</string>
+  <string name="tor_plugin_status_disabled_mobile_data">Briar настроен не использовать мобильную сеть</string>
+  <string name="tor_plugin_status_disabled_battery">Briar настроен так, чтобы не использовать интернет при работе от батареи</string>
+  <string name="tor_plugin_status_disabled_country_blocked">Briar настроен не использовать интернет в этой стране</string>
+  <!--Transports: Wi-Fi-->
+  <string name="transport_lan">Wi-Fi</string>
+  <string name="transport_lan_long">Та же сеть Wi-Fi</string>
+  <string name="lan_device_status_on">Ваш телефон подключен к Wi-Fi</string>
+  <string name="lan_device_status_off">Телефон не подключен к Wi-Fi</string>
+  <string name="lan_plugin_status_enabling">Briar подключается к сети Wi-Fi</string>
+  <string name="lan_plugin_status_active">Briar подключен к сети Wi-Fi</string>
+  <string name="lan_plugin_status_inactive">Briar не может подключиться к сети Wi-Fi.</string>
+  <string name="lan_plugin_status_disabled">Briar настроен не использовать сеть Wi-Fi.</string>
+  <!--Transports: Bluetooth-->
+  <string name="transport_bt">Bluetooth</string>
+  <string name="bt_device_status_on">Bluetooth вашего телефона включен.</string>
+  <string name="bt_device_status_off">Bluetooth вашего телефона отключен.</string>
+  <string name="bt_plugin_status_enabling">Briar подключается к Bluetooth</string>
+  <string name="bt_plugin_status_active">Briar подключен к Bluetooth</string>
+  <string name="bt_plugin_status_inactive">Briar не может подключиться к Bluetooth.</string>
+  <string name="bt_plugin_status_disabled">Briar настроен не использовать Bluetooth</string>
+  <!--Notifications-->
+  <string name="reminder_notification_title">Вы не авторизованы в Briar</string>
+  <string name="reminder_notification_text">Нажмите для входа</string>
+  <string name="reminder_notification_channel_title">Briar Напоминание о входе</string>
+  <string name="reminder_notification_dismiss">Закрыть</string>
+  <string name="ongoing_notification_title">Вы авторизованы в Briar</string>
+  <string name="ongoing_notification_text">Нажмите для открытия</string>
+  <plurals name="private_message_notification_text">
+    <item quantity="one">Новое личное сообщение.</item>
+    <item quantity="few">%d новых личных сообщения.</item>
+    <item quantity="many">%d новых личных сообщений.</item>
+    <item quantity="other">%d новых личных сообщений.</item>
+  </plurals>
+  <plurals name="group_message_notification_text">
+    <item quantity="one">Новое групповое сообщение</item>
+    <item quantity="few">%d новых групповых сообщения.</item>
+    <item quantity="many">%d новых групповых сообщений.</item>
+    <item quantity="other">%d новых групповых сообщений.</item>
+  </plurals>
+  <plurals name="forum_post_notification_text">
+    <item quantity="one">Новый пост на форуме</item>
+    <item quantity="few">%d новых поста на форуме.</item>
+    <item quantity="many">%d новых постов на форуме.</item>
+    <item quantity="other">%d новых постов на форуме.</item>
+  </plurals>
+  <plurals name="blog_post_notification_text">
+    <item quantity="one">Новый пост в блоге.</item>
+    <item quantity="few">%d новых поста в блоге.</item>
+    <item quantity="many">%d новых постов в блоге.</item>
+    <item quantity="other">%d новых постов в блоге.</item>
+  </plurals>
+  <!--Misc-->
+  <string name="now">сейчас</string>
+  <string name="show">Показать</string>
+  <string name="hide">Скрыть</string>
+  <string name="ok">OK</string>
+  <string name="cancel">Отмена</string>
+  <string name="got_it">ОК</string>
+  <string name="delete">Удалить</string>
+  <string name="accept">Принять</string>
+  <string name="decline">Отклонить</string>
+  <string name="online">В сети</string>
+  <string name="offline">Не в сети</string>
+  <string name="send">Отправить</string>
+  <string name="allow">Разрешить</string>
+  <string name="open">Открыть</string>
+  <string name="change">Изменить</string>
+  <string name="start">Начать</string>
+  <string name="finish">Завершить</string>
+  <string name="no_data">Нет данных</string>
+  <string name="ellipsis">…</string>
+  <string name="text_too_long">Введенный текст слишком длинный</string>
+  <string name="show_onboarding">Показать справку</string>
+  <string name="fix">Исправить</string>
+  <string name="help">Помощь</string>
+  <string name="sorry">Сожалеем</string>
+  <string name="error_start_activity">Недоступно для вашей системы</string>
+  <string name="status_heading">Статус:</string>
+  <string name="error">Ошибка</string>
+  <string name="info">Информация</string>
+  <!--Contacts and Private Conversations-->
+  <string name="no_contacts">Нет контактов</string>
+  <string name="no_contacts_action">Для добавления контакта нажмите значок +</string>
+  <string name="date_no_private_messages">Нет сообщений.</string>
+  <string name="no_private_messages">Нет сообщений</string>
+  <string name="message_hint">Новое сообщение</string>
+  <string name="message_hint_auto_delete">Новое исчезающее сообщение</string>
+  <string name="message_error">Ошибка отправки сообщения</string>
+  <string name="image_caption_hint">Добавить подпись (необязательно)</string>
+  <string name="image_attach">Прикрепить изображение</string>
+  <string name="image_attach_error">Не удалось прикрепить изображение(я)</string>
+  <string name="image_attach_error_too_big">Изображение слишком большое. Лимит %d МБ.</string>
+  <string name="image_attach_error_invalid_mime_type">Формат изображения не поддерживается: %s</string>
+  <string name="set_contact_alias">Изменить имя контакта</string>
+  <string name="set_contact_alias_hint">Имя контакта</string>
+  <string name="menu_item_disappearing_messages">Исчезающие сообщения</string>
+  <!--The first placeholder will show a duration like "7 days". The second placeholder at the end will add "Tap to learn more."-->
+  <string name="auto_delete_msg_you_enabled">Ваши сообщения исчезнут спустя %1$s. %2$s</string>
+  <!--The placeholder at the end will add "Tap to learn more."-->
+  <string name="auto_delete_msg_you_disabled">Ваши сообщения исчезать не будут. %1$s</string>
+  <!--The first placeholder will show a contact's name. The second placeholder will show a duration like "7 days". The third placeholder at the end will add "Tap to learn more."-->
+  <string name="auto_delete_msg_contact_enabled">Сообщения от %1$s будут исчезать спустя %2$s. %3$s</string>
+  <plurals name="duration_minutes">
+    <item quantity="one">%d минуту</item>
+    <item quantity="few">%d минуты</item>
+    <item quantity="many">%d минут</item>
+    <item quantity="other">%d минут</item>
+  </plurals>
+  <plurals name="duration_hours">
+    <item quantity="one">%d час</item>
+    <item quantity="few">%d часа</item>
+    <item quantity="many">%d часов</item>
+    <item quantity="other">%d часов</item>
+  </plurals>
+  <plurals name="duration_days">
+    <item quantity="one">%d день</item>
+    <item quantity="few">%d дня</item>
+    <item quantity="many">%d дней</item>
+    <item quantity="other">%d дней</item>
+  </plurals>
+  <!--The first placeholder will show a contact's name. The second placeholder at the end will add "Tap to learn more."-->
+  <string name="auto_delete_msg_contact_disabled">Сообщения от %1$s исчезать не будут. %2$s</string>
+  <string name="tap_to_learn_more">Нажмите, чтобы узнать больше.</string>
+  <string name="auto_delete_changed_warning_title">Исчезающие сообщения изменены</string>
+  <string name="auto_delete_changed_warning_message_enabled">С момента начала создания сообщения были включены исчезающие сообщения.</string>
+  <string name="auto_delete_changed_warning_message_disabled">С момента начала создания сообщения исчезающие сообщения были отключены.</string>
+  <string name="auto_delete_changed_warning_send">Отправить в любом случае</string>
+  <string name="delete_all_messages">Удалить все сообщения</string>
+  <string name="dialog_title_delete_all_messages">Подтверждение удаления сообщений</string>
+  <string name="dialog_message_delete_all_messages">Вы уверены, что хотите удалить все сообщения?</string>
+  <string name="dialog_title_not_all_messages_deleted">Не удалось удалить все сообщения</string>
+  <string name="dialog_message_not_deleted_ongoing_both">Сообщения, связанные с текущими приглашениями и знакомствами, не могут быть удалены до их завершения.</string>
+  <string name="dialog_message_not_deleted_ongoing_introductions">Сообщения, связанные с текущими знакомствами, не могут быть удалены до их завершения.</string>
+  <string name="dialog_message_not_deleted_ongoing_invitations">Сообщения, связанные с текущими приглашениями, не могут быть удалены до их завершения.</string>
+  <string name="dialog_message_not_deleted_not_all_selected_both">Чтобы удалить приглашение или знакомство, вам необходимо выбрать запрос и ответ.</string>
+  <string name="dialog_message_not_deleted_not_all_selected_introductions">Чтобы удалить знакомство, необходимо выбрать запрос и ответ.</string>
+  <string name="dialog_message_not_deleted_not_all_selected_invitations">Чтобы удалить приглашение, необходимо выбрать запрос и ответ.</string>
+  <string name="delete_contact">Удалить контакт</string>
+  <string name="dialog_title_delete_contact">Подтвердите удаление контакта</string>
+  <string name="dialog_message_delete_contact">Вы действительно хотите удалить этот контакт и все связанные с ним сообщения?</string>
+  <string name="contact_deleted_toast">Контакт удален</string>
+  <!--This is shown in the action bar when opening an image in fullscreen that the user sent-->
+  <string name="you">Вы</string>
+  <string name="save_image">Сохранить изображение</string>
+  <string name="dialog_title_save_image">Сохранить изображение?</string>
+  <string name="dialog_message_save_image">После сохранения изображения другие приложения получат к нему доступ.\n\nВы уверены, что хотите сохранить?</string>
+  <string name="save_image_success">Изображение было сохранено</string>
+  <string name="save_image_error">Не удалось сохранить изображение</string>
+  <string name="dialog_title_no_image_support">Изображения недоступны</string>
+  <string name="dialog_message_no_image_support">Briar вашего собеседника не поддерживает вложение изображений. Как только он обновится, вы увидите другую иконку.</string>
+  <string name="dialog_title_image_support">Теперь вы можете отправлять изображения этому контакту</string>
+  <string name="dialog_message_image_support">Нажмите на этот значок, чтобы прикрепить изображения.</string>
+  <string name="messaging_too_many_attachments_toast">Будут отправлены только %d первых изображений</string>
+  <string name="menu_contact">Контакт</string>
+  <!--Adding Contacts-->
+  <string name="add_contact_title">Добавить контакт поблизости</string>
+  <string name="add_contact_error_two_way">Просканировали ли вы QR-коды друг друга?</string>
+  <string name="face_to_face">Вы должны встретиться с человеком, которого хотите добавить в контакты.\n\nЭто не позволит кому-либо выдать себя за вас или читать ваши сообщения.</string>
+  <string name="continue_button">Продолжить</string>
+  <string name="try_again_button">Попробовать снова</string>
+  <string name="waiting_for_contact_to_scan">Ожидание контакта для сканирования и подключения\u2026</string>
+  <string name="exchanging_contact_details">Обмен контактными данными\u2026</string>
+  <string name="contact_added_toast">Контакт добавлен: %s</string>
+  <string name="contact_already_exists">Контакт %s уже существует</string>
+  <string name="contact_already_exists_general">Контакт уже существует</string>
+  <string name="qr_code_invalid">Неверный QR-код</string>
+  <string name="qr_code_too_old_1">QR-код, который вы сосканировали, сгенерирован в старой версии Briar.\n\nПопросите вашего собеседника обновиться до последней версии и повторите попытку.</string>
+  <string name="qr_code_too_new_1">QR-код, который вы сосканировали, сгенерирован в новой версии Briar.\n\nОбновите приложение до последней версии и повторите попытку.</string>
+  <string name="mailbox_qr_code_for_contact">QR-код, который вы сосканировали, получен из Briar Mailbox.\n\nЕсли вы хотите связать Mailbox, пожалуйста, выберите Настройки &gt; Mailbox в меню Briar.</string>
+  <string name="qr_code_format_unknown">QR-код, который вы сосканировали, не предназначен для добавления контакта Briar.\n\nПожалуйста, сосканируйте QR-код, показанный на экране вашего контакта.</string>
+  <string name="camera_error">Ошибка камеры</string>
+  <string name="connecting_to_device">Подключение к устройству\u2026</string>
+  <string name="authenticating_with_device">Аутентификация с устройством\u2026</string>
+  <string name="connection_error_title">Не удалось подключиться к контакту</string>
+  <string name="connection_error_feedback">Если эта проблема сохраняется, пожалуйста <a href="feedback">отправьте отзыв</a>,  чтобы помочь нам улучшить приложение.</string>
+  <string name="info_both_must_scan">Вы должны Просканировать QR-коды друг друга.</string>
+  <!--Adding Contacts Remotely-->
+  <string name="add_contact_remotely_title_case">Добавить контакт удаленно</string>
+  <string name="add_contact_nearby_title">Добавить контакт поблизости</string>
+  <string name="add_contact_remotely_title"> Добавить контакт удаленно</string>
+  <string name="contact_link_intro">Введите ссылку от вашего контакта здесь</string>
+  <string name="contact_link_hint">Ссылка контакта</string>
+  <string name="paste_button">Вставить</string>
+  <string name="add_contact_button">Добавить контакт</string>
+  <string name="copy_button">Скопировать</string>
+  <string name="share_button">Поделиться</string>
+  <string name="send_link_title">Обмен ссылками</string>
+  <string name="add_contact_choose_nickname">Выберите псевдоним</string>
+  <string name="add_contact_choose_a_nickname">Введите псевдоним</string>
+  <string name="nickname_intro">Задайте этому контакту псевдоним. Его сможете видеть только вы.</string>
+  <string name="your_link">Передайте эту ссылку контакту, который вы хотите добавить.</string>
+  <string name="link_clip_label">Ссылка Briar</string>
+  <string name="link_copied_toast">Ссылка скопирована</string>
+  <string name="adding_contact_error">При добавлении контакта произошла ошибка.</string>
+  <string name="pending_contact_requests_snackbar">Есть ожидающие запросы на контакт</string>
+  <string name="pending_contact_requests">Ожидающие запросы на контакт</string>
+  <string name="no_pending_contacts">Нет запросов на контакт</string>
+  <string name="waiting_for_contact_to_come_online">Ожидание появления контакта онлайн...</string>
+  <string name="connecting">Подключение...</string>
+  <string name="adding_contact">Добавление контакта…</string>
+  <string name="adding_contact_failed">Не удалось добавить контакт</string>
+  <string name="dialog_title_remove_pending_contact">Подтвердите удаление</string>
+  <string name="dialog_message_remove_pending_contact">Этот контакт находится в процессе добавления. Если вы удалите его сейчас, он не будет добавлен.</string>
+  <string name="own_link_error">Введите ссылку вашего контакта, а не свою</string>
+  <string name="nickname_missing">Пожалуйста, введите псевдоним</string>
+  <string name="invalid_link">Неправильная ссылка</string>
+  <string name="unsupported_link">Эта ссылка из более новой версии Briar. Пожалуйста, обновитесь до последней версии и попробуйте снова.</string>
+  <string name="intent_own_link">Вы открыли свою собственную ссылку. Используйте контакт, который вы хотите добавить!</string>
+  <string name="missing_link">Пожалуйста, введите ссылку</string>
+  <!--This is a numeral indicating the first step in a series of screens-->
+  <string name="step_1">1</string>
+  <!--This is a numeral indicating the second step in a series of screens-->
+  <string name="step_2">2</string>
+  <plurals name="contact_added_notification_text">
+    <item quantity="one">Добавлен новый контакт.</item>
+    <item quantity="few">Добавлено %d новых контакта.</item>
+    <item quantity="many">Добавлено %d новых контактов.</item>
+    <item quantity="other">Добавлено %d новых контактов.</item>
+  </plurals>
+  <string name="offline_state">Подключение к интернету отсутствует</string>
+  <string name="duplicate_link_dialog_title">Дублировать ссылку</string>
+  <string name="duplicate_link_dialog_text_1">У вас уже есть ожидающий контакт с этой ссылкой: %s</string>
+  <string name="duplicate_link_dialog_text_1_contact"> У вас уже есть контакт с этой ссылкой: %s</string>
+  <!--This is a question asking whether two nicknames refer to the same person-->
+  <string name="duplicate_link_dialog_text_2">%1$s и %2$s тот же человек?</string>
+  <!--This is a button for answering that two nicknames do indeed refer to the same person. This
+	string will be used in a dialog button, so if the translation of this string is longer than 20
+	characters, please use "Yes" instead, and use "No" for the "Different Person" button-->
+  <string name="same_person_button">Тот же человек</string>
+  <!--This is a button for answering that two nicknames refer to different people. This string
+	will be used in a dialog button, so if the translation of this string longer than 20 characters,
+	please use "No" instead, and use "Yes" for the "Same Person" button-->
+  <string name="different_person_button">Другой человек</string>
+  <string name="duplicate_link_dialog_text_3">%1$s и %2$s отправили вам ту же ссылку.\n\nОдин из них, возможно, пытается выяснить, кто ваши контакты.\n\nНе говорите им, что вы получили такую ​​же ссылку от кого-то еще.</string>
+  <string name="pending_contact_updated_toast">Ожидающий контакт обновлен</string>
+  <string name="info_both_must_enter_links">Вы должны добавить ссылки друг друга</string>
+  <!--Peer trust levels-->
+  <string name="peer_trust_level_unverified">Неверифицированный контакт</string>
+  <string name="peer_trust_level_verified">Верифицированный контакт</string>
+  <string name="peer_trust_level_ourselves">Я</string>
+  <string name="peer_trust_level_stranger">Незнакомец</string>
+  <!--Introductions-->
+  <string name="introduction_onboarding_title">Представление ваших контактов</string>
+  <string name="introduction_onboarding_text">Представьте ваши контакты друг другу, чтобы они могли общаться на Briar.</string>
+  <string name="introduction_menu_item">Выполнить знакомство</string>
+  <string name="introduction_activity_title">Выберите контакт</string>
+  <string name="introduction_not_possible">Вы уже познакомили эти контакты. Пожалуйста, подождите пока они ответят на него. Если вы или ваши контакты редко бываете в сети, это может занять некоторое время.</string>
+  <string name="introduction_message_title">Представить контакты</string>
+  <string name="introduction_message_hint">Добавить сообщение (необязательно)</string>
+  <string name="introduction_button">Выполнить знакомство</string>
+  <string name="introduction_sent">Ваше знакомство было отправлено.</string>
+  <string name="introduction_error">Произошла ошибка во время знакомства.</string>
+  <string name="introduction_request_sent">Вы сделали представление %1$s %2$s.</string>
+  <string name="introduction_request_received">%1$s попросил(-а) вас представить %2$s. Вы хотите добавить %2$s в ваш список контактов?</string>
+  <string name="introduction_request_exists_received">%1$s попросил(-а) вас представить %2$s, но %2$s уже находится в вашем списке контактов. Поскольку %1$s может не знать об этом, вы все равно можете ответить:</string>
+  <string name="introduction_request_answered_received">%1$s попросил(-а) вас представить %2$s.</string>
+  <string name="introduction_response_accepted_sent">Вы приняли знакомство с %1$s.</string>
+  <string name="introduction_response_accepted_sent_info">%1$s будет добавлен(-а) в контакты после принятия знакомства. Это может занять некоторое время.</string>
+  <string name="introduction_response_declined_sent">Вы отказались от знакомства с %1$s.</string>
+  <string name="introduction_response_declined_auto">Знакомство с %1$s было отклонено автоматически.</string>
+  <string name="introduction_response_accepted_received">%1$s принял(-а) знакомство с %2$s.</string>
+  <string name="introduction_response_declined_received">%1$s отказался от знакомства с %2$s.</string>
+  <string name="introduction_response_declined_received_by_introducee">%1$s сообщает, что %2$s отказался от знакомства.</string>
+  <!--Connect via Bluetooth-->
+  <string name="menu_item_connect_via_bluetooth">Подключение через Bluetooth</string>
+  <string name="connect_via_bluetooth_title">Подключение через Bluetooth</string>
+  <string name="connect_via_bluetooth_intro">Если соединение Bluetooth не устанавливается автоматически, вы можете использовать этот экран для подключения вручную.\n\nДля этого ваш собеседник должен находиться рядом.\n\nВы и ваш собеседник должны одновременно нажать кнопку \'Начать\'.</string>
+  <string name="connect_via_bluetooth_already_discovering">Пытаемся подключиться через Bluetooth. Пожалуйста, повторите попытку в ближайшее время.</string>
+  <string name="connect_via_bluetooth_no_location_permission">Невозможно продолжить без доступа к местоположению</string>
+  <string name="connect_via_bluetooth_no_bluetooth_permission">Невозможно продолжить без разрешения ближайших устройств</string>
+  <string name="connect_via_bluetooth_start">Подключение через Bluetooth...</string>
+  <string name="connect_via_bluetooth_success">Успешное подключение через Bluetooth</string>
+  <string name="connect_via_bluetooth_error">Не удалось подключиться через Bluetooth.</string>
+  <string name="connect_via_bluetooth_error_not_supported">Bluetooth не поддерживается устройством.</string>
+  <!--Private Groups-->
+  <string name="groups_list_empty">Нет групп</string>
+  <string name="groups_list_empty_action">Для создания группы нажмите значок + или попросите у контактов поделиться с вами группами</string>
+  <string name="groups_created_by">Создано %s</string>
+  <plurals name="messages">
+    <item quantity="one">%d сообщение</item>
+    <item quantity="few">%d сообщения</item>
+    <item quantity="many">%d сообщений</item>
+    <item quantity="other">%d сообщений</item>
+  </plurals>
+  <string name="groups_group_is_empty">Эта группа пуста</string>
+  <string name="groups_group_is_dissolved">Эта группа была распущена</string>
+  <string name="groups_remove">Удалить</string>
+  <string name="groups_create_group_title">Создать приватную группу</string>
+  <string name="groups_create_group_button">Создать группу</string>
+  <string name="groups_create_group_invitation_button">Отправить приглашение</string>
+  <string name="groups_create_group_hint">Придумайте название вашей приватной группы</string>
+  <string name="groups_invitation_sent">Приглашение в группу отправлено</string>
+  <string name="groups_member_list">Список участников</string>
+  <string name="groups_invite_members">Пригласить участников</string>
+  <string name="groups_member_created_you">Вы создали группу</string>
+  <string name="groups_member_created">%s создал группу</string>
+  <string name="groups_member_joined_you">Вы присоединились к группе</string>
+  <string name="groups_member_joined">%s присоединился к группе</string>
+  <string name="groups_leave">Покинуть группу</string>
+  <string name="groups_leave_dialog_title">Подтвердить выход из группы</string>
+  <string name="groups_leave_dialog_message">Вы уверены, что хотите покинуть эту группу?</string>
+  <string name="groups_dissolve">Распустить группу</string>
+  <string name="groups_dissolve_dialog_title">Подтвердить роспуск группы</string>
+  <string name="groups_dissolve_dialog_message">Вы уверены, что хотите распустить эту группу?\n\nДругие участники не смогут продолжить разговор и могут не получить последние сообщения.</string>
+  <string name="groups_dissolve_button">Распустить</string>
+  <string name="groups_dissolved_dialog_title">Группа была распущена</string>
+  <string name="groups_dissolved_dialog_message">Создатель этой группы распустил ее.\n\nВы больше не можете писать сообщения в группу и можете получить не все сообщения, которые были написаны.</string>
+  <!--Private Group Invitations-->
+  <string name="groups_invitations_title">Приглашения в группу</string>
+  <string name="groups_invitations_invitation_sent">Вы пригласили %1$s присоединиться к группе \"%2$s\".</string>
+  <string name="groups_invitations_invitation_received">%1$s пригласил(-а) вас присоединиться к группе \"%2$s\".</string>
+  <string name="groups_invitations_joined">Присоединился(-лась) к группе</string>
+  <string name="groups_invitations_declined">Приглашение в группу отклонено</string>
+  <plurals name="groups_invitations_open">
+    <item quantity="one">%d открытое приглашение в группу</item>
+    <item quantity="few">%d открытых приглашений в группу</item>
+    <item quantity="many">%d открытых приглашений в группу</item>
+    <item quantity="other">%d открытых приглашений в группу</item>
+  </plurals>
+  <string name="groups_invitations_response_accepted_sent">Вы приняли приглашение в группу от %s.</string>
+  <string name="groups_invitations_response_declined_sent">Вы отклонили приглашение в группу от %s.</string>
+  <string name="groups_invitations_response_declined_auto">Приглашение в группу от %s было отклонено автоматически.</string>
+  <string name="groups_invitations_response_accepted_received">%s принял(-а) приглашение в группу.</string>
+  <string name="groups_invitations_response_declined_received">%s отклонил(-а) приглашение в группу.</string>
+  <string name="sharing_status_groups">Только создатель может пригласить новых участников в группу. Ниже перечислены все текущие участники группы.</string>
+  <!--Private Groups Revealing Contacts-->
+  <string name="groups_reveal_contacts">Показать контакты</string>
+  <string name="groups_reveal_dialog_message">Вы можете выбрать, показывать ли контакты всем текущим и будущим членам этой группы.\n\nПри открытии контактов связь с группой становится более быстрой и надежной, поскольку вы можете общаться с открытыми контактами, даже если создатель группы находится в автономном режиме.</string>
+  <string name="groups_reveal_visible">Связь между контактами видна группе</string>
+  <string name="groups_reveal_visible_revealed_by_us">Связь между контактами видна группе (открыта вами)</string>
+  <string name="groups_reveal_visible_revealed_by_contact">Связь между контактами видна группе (открыта %s)</string>
+  <string name="groups_reveal_invisible">Связь между контактами не видна группе</string>
+  <!--Forums-->
+  <string name="no_forums">Нет форумов</string>
+  <string name="no_forums_action">Для создания форума нажмите значок + или попросите у контактов поделиться с вами форумами</string>
+  <string name="create_forum_title">Создать форум</string>
+  <string name="choose_forum_hint">Придумайте название вашего форума</string>
+  <string name="create_forum_button">Создать форум</string>
+  <string name="forum_created_toast">Форум создан</string>
+  <string name="no_forum_posts">Нет постов</string>
+  <string name="no_posts">Нет постов</string>
+  <plurals name="posts">
+    <item quantity="one">%d пост</item>
+    <item quantity="few">%d поста</item>
+    <item quantity="many">%d постов</item>
+    <item quantity="other">%d постов</item>
+  </plurals>
+  <string name="forum_new_message_hint">Новый пост</string>
+  <string name="forum_message_reply_hint">Новый ответ</string>
+  <string name="btn_reply">Ответ</string>
+  <string name="forum_leave">Покинуть форум</string>
+  <string name="dialog_title_leave_forum">Подтвердить выход из форума</string>
+  <string name="dialog_message_leave_forum">Вы уверены, что хотите покинуть этот форум?\n\nВсе контакты, с которыми вы поделились этим форумом, могут перестать получать обновления.</string>
+  <string name="dialog_button_leave">Покинуть</string>
+  <string name="forum_left_toast">Покинул форум</string>
+  <!--Forum Sharing-->
+  <string name="forum_share_button">Поделиться форумом</string>
+  <string name="contacts_selected">Выбранные контакты</string>
+  <string name="activity_share_toolbar_header">Выберите контакты</string>
+  <string name="no_contacts_selector">Нет контактов</string>
+  <string name="no_contacts_selector_action">Пожалуйста, вернитесь сюда после добавления контакта</string>
+  <string name="forum_shared_snackbar">Поделиться форумом совместно с выбранными контактами</string>
+  <string name="forum_share_message">Добавить сообщение (необязательно)</string>
+  <string name="forum_share_error">Произошла ошибка при при попытке поделиться этим форумом.</string>
+  <string name="forum_invitation_received">%1$s поделился форумом \"%2$s\" с вами.</string>
+  <string name="forum_invitation_sent">Вы поделились форумом \"%1$s\" с %2$s.</string>
+  <string name="forum_invitations_title">Приглашения на форум</string>
+  <string name="forum_invitation_exists">Вы уже приняли приглашение на этот форум.\n\nПринятие большего количества приглашений сделает вашу связь с форумом более быстрой и надежной.</string>
+  <string name="forum_joined_toast">Присоединился(-лась) к форуму</string>
+  <string name="forum_declined_toast">Приглашение отклонено</string>
+  <string name="shared_by_format">Совместно %s</string>
+  <string name="forum_invitation_already_sharing">Уже поделился(-лась)</string>
+  <string name="forum_invitation_already_invited">Приглашение уже отправлено</string>
+  <string name="forum_invitation_invite_received">Приглашение уже получено</string>
+  <string name="forum_invitation_not_supported">Не поддерживается этим контактом</string>
+  <string name="forum_invitation_error">Это ошибка программы. Вы тут ни причем.</string>
+  <string name="forum_invitation_response_accepted_sent">Вы приняли приглашение на форум от %s.</string>
+  <string name="forum_invitation_response_declined_sent">Вы отклонили приглашение на форум от %s.</string>
+  <string name="forum_invitation_response_declined_auto">Приглашение на форум от %s было отклонено автоматически.</string>
+  <string name="forum_invitation_response_accepted_received">%s принял(-а) приглашение на форум.</string>
+  <string name="forum_invitation_response_declined_received">%s отклонил(-а) приглашение на форум.</string>
+  <string name="sharing_status">Статус общего доступа</string>
+  <string name="sharing_status_forum">Любой участник форума может поделиться им со своими контактами. Вы делитесь этим форумом со следующими контактами. Могут быть и другие участники, которых вы не видите.</string>
+  <string name="shared_with">Совместно с %1$d (%2$d в сети)</string>
+  <plurals name="forums_shared">
+    <item quantity="one">%d форум, общий для контактов</item>
+    <item quantity="few">%d форума, общих для контактов</item>
+    <item quantity="many">%d форумов, общих для контактов</item>
+    <item quantity="other">%d форумов, общих для контактов</item>
+  </plurals>
+  <string name="nobody">Никого</string>
+  <!--Blogs-->
+  <string name="blogs_other_blog_empty_state">Нет постов</string>
+  <string name="read_more">подробнее</string>
+  <string name="blogs_write_blog_post">Написать в блоге</string>
+  <string name="blogs_write_blog_post_body_hint">Напишите свой пост в блоге</string>
+  <string name="blogs_publish_blog_post">Опубликовать</string>
+  <string name="blogs_blog_post_created">Пост создан</string>
+  <string name="blogs_blog_post_received">Появился новый пост в блоге</string>
+  <string name="blogs_blog_post_scroll_to">Перейти</string>
+  <string name="blogs_feed_empty_state">Нет постов</string>
+  <string name="blogs_feed_empty_state_action">Посты ваших контактов и блогов, на которые вы подписаны, появятся здесь\n\nНажмите значок пера, чтобы написать пост</string>
+  <string name="blogs_remove_blog">Удалить блог</string>
+  <string name="blogs_remove_blog_dialog_message">Вы уверены, что хотите удалить этот блог?\n\nПосты будут удалены только с вашего устройства.\n\nВсе контакты, с которыми вы поделились этим блогом, могут перестать получать обновления.</string>
+  <string name="blogs_remove_blog_ok">Удалить</string>
+  <string name="blogs_blog_removed">Блог удален</string>
+  <string name="blogs_reblog_comment_hint">Добавить комментарий (необязательно)</string>
+  <string name="blogs_reblog_button">Перепостить</string>
+  <!--Blog Sharing-->
+  <string name="blogs_sharing_share">Поделиться блогом</string>
+  <string name="blogs_sharing_error">Произошла ошибка при при попытке поделиться этим блогом.</string>
+  <string name="blogs_sharing_button">Поделиться блогом</string>
+  <string name="blogs_sharing_snackbar">Доступ к блогу предоставлен выбранным контактам</string>
+  <string name="blogs_sharing_response_accepted_sent">Вы приняли приглашение в блог от %s.</string>
+  <string name="blogs_sharing_response_declined_sent">Вы отклонили приглашение в блог от %s.</string>
+  <string name="blogs_sharing_response_declined_auto">Приглашение в блог от %s было отклонено автоматически.</string>
+  <string name="blogs_sharing_response_accepted_received">%s принял(-а) приглашение в блог.</string>
+  <string name="blogs_sharing_response_declined_received">%s отклонил(-а) приглашение в блог.</string>
+  <string name="blogs_sharing_invitation_received">%1$s поделился(-лась) блогом \"%2$s\" с вами.</string>
+  <string name="blogs_sharing_invitation_sent">Вы поделились блогом \"%1$s\" с %2$s.</string>
+  <string name="blogs_sharing_invitations_title">Приглашения в блог</string>
+  <string name="blogs_sharing_joined_toast">Подписка на блог</string>
+  <string name="blogs_sharing_declined_toast">Приглашение отклонено</string>
+  <string name="sharing_status_blog">Любой, кто подписывается на блог, может поделиться им со своими контактами. Вы делитесь этим блогом со следующими контактами. Могут быть и другие подписчики, которых вы не видите.</string>
+  <!--RSS Feeds-->
+  <string name="blogs_rss_feeds_import">Импорт RSS-ленты</string>
+  <string name="blogs_rss_feeds_import_button">Импорт</string>
+  <string name="blogs_rss_feeds_import_hint">Введите URL-адрес RSS-ленты</string>
+  <string name="blogs_rss_feeds_import_progress">Импорт RSS-лент...</string>
+  <string name="blogs_rss_feeds_import_error">Мы сожалеем! Произошла ошибка при импорте ленты.</string>
+  <string name="blogs_rss_feeds_import_title">Импорт ленты из файла</string>
+  <string name="blogs_rss_feeds">RSS-ленты</string>
+  <string name="blogs_rss_feeds_manage_imported">Импортирован:</string>
+  <string name="blogs_rss_feeds_manage_author">Автор:</string>
+  <string name="blogs_rss_feeds_manage_updated">Последнее обновление:</string>
+  <string name="blogs_rss_remove_feed">Удалить RSS-ленту</string>
+  <string name="blogs_rss_remove_feed_dialog_message">Вы уверены, что хотите удалить эту ленту?\n\nПосты будут удалены только с вашего устройства.\n\nВсе контакты, с которыми вы поделились этой лентой, могут перестать получать обновления.</string>
+  <string name="blogs_rss_remove_feed_ok">Удалить</string>
+  <string name="blogs_rss_feeds_manage_empty_state">Нет RSS-лент\n\nКоснитесь значка + для импорта ленты</string>
+  <string name="blogs_rss_feeds_manage_error">Ошибка при загрузке вашей ленты. Повторите попытку позже.</string>
+  <!--Settings Profile Picture-->
+  <string name="change_profile_picture">Нажмите, чтобы изменить изображение вашего профиля </string>
+  <string name="dialog_confirm_profile_picture_title">Изменить изображение профиля</string>
+  <string name="dialog_confirm_profile_picture_remark">Это изображение могут видеть только ваши контакты</string>
+  <string name="change_profile_picture_failed_message">Нам очень жаль, но что-то пошло не так во время обновления изображения вашего профиля.</string>
+  <!--Settings Display-->
+  <string name="pref_language_title">Язык и регион</string>
+  <string name="pref_language_changed">Этот параметр вступит в силу после перезапуска Briar. Пожалуйста, выйдите и перезапустите Briar.</string>
+  <string name="pref_language_default">По умолчанию</string>
+  <string name="display_settings_title">Вид</string>
+  <string name="pref_theme_title">Тема</string>
+  <string name="pref_theme_light">Светлая</string>
+  <string name="pref_theme_dark">Темная</string>
+  <string name="pref_theme_system">По умолчанию</string>
+  <!--Settings Connections-->
+  <string name="network_settings_title">Подключения</string>
+  <string name="bluetooth_setting">Подключение к контактам через Bluetooth</string>
+  <string name="wifi_setting">Подключение к контактам в той же сети Wi-Fi</string>
+  <string name="tor_enable_title">Подключение к контактам через интернет</string>
+  <string name="tor_enable_summary">Для обеспечения конфиденциальности все подключения проходят через сеть Tor</string>
+  <string name="tor_network_setting">Способ подключения для сети Tor</string>
+  <string name="tor_network_setting_automatic">Автоматически на основе местоположения</string>
+  <string name="tor_network_setting_without_bridges">Использовать сеть Tor без мостов</string>
+  <string name="tor_network_setting_with_bridges">Использовать сеть Tor с мостами</string>
+  <string name="tor_network_setting_never">Не подключаться к интернету</string>
+  <!--How and when Briar will connect to Tor: E.g. "Don't connect to the Internet (in China)" or "Use Tor network with bridges (in Belarus)"-->
+  <string name="tor_network_setting_summary">Автоматически: %1$s (%2$s)</string>
+  <string name="tor_mobile_data_title">Использовать мобильные данные</string>
+  <string name="tor_only_when_charging_title">Подключаться к интернету только во время зарядки</string>
+  <string name="tor_only_when_charging_summary">Подключение к интернету будет отключено при работе устройства от батареи</string>
+  <!--Settings Security and Panic-->
+  <string name="security_settings_title">Безопасность</string>
+  <string name="pref_lock_title">Блокировка приложения</string>
+  <string name="pref_lock_summary">Использовать блокировку экрана устройства для защиты Briar при входе</string>
+  <string name="pref_lock_disabled_summary">Чтобы использовать эту функцию, установите блокировку экрана вашего устройства</string>
+  <string name="pref_lock_timeout_title">Блокировка приложения по таймауту неактивности</string>
+  <!--The %s placeholder is replaced with the following time spans, e.g. 5 Minutes, 1 Hour-->
+  <string name="pref_lock_timeout_summary">Автоматически блокировать Briar через %s</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_1">1 минуту</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_5">5 минут</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_15">15 минут</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_30">30 минут</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_60">1 час</string>
+  <string name="pref_lock_timeout_never">Никогда</string>
+  <string name="pref_lock_timeout_never_summary">Никогда не блокировать Briar автоматически</string>
+  <string name="change_password">Изменить пароль</string>
+  <string name="current_password">Текущий пароль</string>
+  <string name="choose_new_password">Новый пароль</string>
+  <string name="confirm_new_password">Подтвердите новый пароль</string>
+  <string name="password_changed">Пароль был изменен.</string>
+  <string name="panic_setting">Настройка тревожной кнопки</string>
+  <string name="panic_setting_title">Тревожная кнопка</string>
+  <string name="panic_setting_hint">Настройте поведение Briar при использовании тревожной кнопки</string>
+  <string name="panic_app_setting_title">Приложение тревожной кнопки</string>
+  <string name="unknown_app">неизвестное приложение</string>
+  <string name="panic_app_setting_summary">Приложение не установлено</string>
+  <string name="panic_app_setting_none">Нет</string>
+  <string name="dialog_title_connect_panic_app">Подтвердить приложение тревожной кнопки</string>
+  <string name="dialog_message_connect_panic_app">Вы уверены, что хотите разрешить %1$s запуск деструктивных действий тревожной кнопки?</string>
+  <string name="panic_setting_destructive_action">Деструктивные действия</string>
+  <string name="panic_setting_signout_title">Выйти</string>
+  <string name="panic_setting_signout_summary">Выйти из Briar, если нажата тревожная кнопка</string>
+  <string name="purge_setting_title">Удалить аккаунт</string>
+  <string name="purge_setting_summary">Удалить ваш аккаунт Briar при нажатии тревожной кнопки. Внимание: это необратимо удалит ваши идентификаторы, контакты и сообщения</string>
+  <!--Settings Notifications-->
+  <string name="notification_settings_title">Уведомления</string>
+  <string name="notify_sign_in_title">Напоминать мне войти</string>
+  <string name="notify_sign_in_summary">Показывать напоминание при запуске телефона или после обновления приложения.</string>
+  <string name="notify_private_messages_setting_title">Личные сообщения</string>
+  <string name="notify_private_messages_setting_summary">Показывать оповещения для личных сообщений</string>
+  <string name="notify_private_messages_setting_summary_26">Настройка оповещений для личных сообщений</string>
+  <string name="notify_group_messages_setting_title">Групповые сообщения</string>
+  <string name="notify_group_messages_setting_summary">Показывать оповещения для групповых сообщений</string>
+  <string name="notify_group_messages_setting_summary_26">Настройка оповещений для групповых сообщений</string>
+  <string name="notify_forum_posts_setting_title">Записи форума</string>
+  <string name="notify_forum_posts_setting_summary">Показывать оповещения для записей форума</string>
+  <string name="notify_forum_posts_setting_summary_26">Настройка оповещений для записей форума</string>
+  <string name="notify_blog_posts_setting_title">Посты блога</string>
+  <string name="notify_blog_posts_setting_summary">Показывать оповещения для постов блога</string>
+  <string name="notify_blog_posts_setting_summary_26">Настройка оповещений для постов блога</string>
+  <string name="notify_vibration_setting">Вибрация</string>
+  <string name="notify_sound_setting">Звук</string>
+  <string name="notify_sound_setting_default">Мелодия по умолчанию</string>
+  <string name="notify_sound_setting_disabled">Нет</string>
+  <string name="choose_ringtone_title">Выберите мелодию звонка</string>
+  <string name="cannot_load_ringtone">Не удается загрузить мелодию звонка</string>
+  <!--Mailbox-->
+  <string name="mailbox_settings_title">Mailbox</string>
+  <string name="mailbox_setup_title">Настройка Mailbox</string>
+  <string name="mailbox_setup_intro">Mailbox дает возможность вашим контактам отправлять вам сообщения, пока вы находитесь в оффлайн. Mailbox будет получать ваши сообщения и хранить их до тех пор, пока вы не подключитесь к сети.\n
+		Вы можете установить приложение Briar Mailbox на запасное устройство. Держите его подключенным к питанию и Wi-Fi, чтобы оно всегда было в сети.</string>
+  <string name="mailbox_setup_download">Во-первых, установите приложение Mailbox на другое устройство, выполнив поиск \"Briar Mailbox\" в Google Play или там, откуда вы загрузили Briar.\n
+		\nЗатем свяжите Mailbox с Briar, сосканировав QR-код, показанный приложением Mailbox.</string>
+  <string name="mailbox_setup_download_link">Поделиться ссылкой на загрузку</string>
+  <string name="mailbox_setup_button_scan">Сканирование QR-кода Mailbox</string>
+  <string name="permission_camera_qr_denied_body">Вы запретили доступ к камере, однако сканирование QR-кода требует использования камеры.\n\nПожалуйста, рассмотрите возможность предоставления доступа.</string>
+  <string name="mailbox_setup_connecting">Подключение к Mailbox…</string>
+  <!--This string is shown when connecting to a Mailbox for the first time. The placeholder will be replaced with a duration, e.g. "2 minutes".-->
+  <string name="mailbox_setup_connecting_info">Это может занять до %1s</string>
+  <string name="mailbox_qr_code_too_old">QR-код, который вы сосканировали, получен из старой версии Briar Mailbox.\n\nПожалуйста, обновите Briar Mailbox до последней версии и повторите попытку.</string>
+  <string name="mailbox_qr_code_too_new">QR-код, который вы сосканировали, получен из более новой версии Briar Mailbox.\n\nПожалуйста, обновите Briar до последней версии и повторите попытку.</string>
+  <string name="contact_qr_code_for_mailbox">QR-код, который вы сосканировали, предназначен для добавления контакта Briar.\n\nЕсли вы хотите добавить контакт, перейдите в список контактов и нажмите на значок +.</string>
+  <string name="mailbox_setup_qr_code_wrong_description">QR-код, который вы сосканировали, получен не от Briar Mailbox.\n\nПожалуйста, откройте приложение Briar Mailbox на вашем устройстве Mailbox и сосканируйте представленный QR-код.</string>
+  <string name="mailbox_setup_already_paired_title">Maibox уже связан</string>
+  <string name="mailbox_setup_already_paired_description">Отвяжите Mailbox на другом устройстве и повторите попытку.</string>
+  <string name="mailbox_setup_io_error_title">Не удалось подключиться</string>
+  <string name="mailbox_setup_io_error_description">Убедитесь, что оба устройства подключены к интернету, и повторите попытку.</string>
+  <string name="mailbox_setup_assertion_error_title">Ошибка Mailbox</string>
+  <string name="mailbox_setup_assertion_error_description">Пожалуйста, отправьте отзыв (с анонимными данными) через приложение Briar, если проблема сохраняется.</string>
+  <string name="mailbox_setup_camera_error_description">Не удалось получить доступ к камере. Попробуйте еще раз. Возможно поможет перезагрузка устройства.</string>
+  <string name="mailbox_setup_paired_title">Подключено</string>
+  <string name="mailbox_setup_paired_description">Ваш Mailbox был успешно связан с Briar.\n
+		\nДержите Mailbox подключенным к электропитанию и Wi-Fi, чтобы он всегда был доступен.</string>
+  <string name="tor_offline_title">Отключен</string>
+  <string name="tor_offline_description">Убедитесь, что данное устройство находится в сети и подключение к интернету разрешено.\n
+		\nПосле этого дождитесь, пока значок глобуса на экране настроек подключения станет зеленым.</string>
+  <string name="tor_offline_button_check">Проверьте настройки подключения</string>
+  <string name="mailbox_status_title">Статус Mailbox</string>
+  <string name="mailbox_status_connected_title">Mailbox запущен</string>
+  <string name="mailbox_status_problem_title">Briar испытывает проблемы с подключением к Mailbox</string>
+  <string name="mailbox_status_failure_title">Mailbox недоступен</string>
+  <string name="mailbox_status_app_too_old_title">Briar устарел</string>
+  <string name="mailbox_status_app_too_old_message">Обновите Briar до последней версии и повторите попытку.</string>
+  <string name="mailbox_status_mailbox_too_old_title">Mailbox устарел</string>
+  <string name="mailbox_status_mailbox_too_old_message">Обновите Mailbox до последней версии и повторите попытку.</string>
+  <string name="mailbox_status_check_button">Проверьте подключение</string>
+  <!--Example for string substitution: Last connection: 3min ago-->
+  <string name="mailbox_status_connected_info">Последнее подключение: %s</string>
+  <!--Indicates that there never was a connection to the mailbox. Last connection: Never-->
+  <string name="mailbox_status_connected_never">Никогда</string>
+  <string name="mailbox_status_unlink_button">Разъединить</string>
+  <string name="mailbox_status_unlink_dialog_title">Отвязать Mailbox?</string>
+  <string name="mailbox_status_unlink_dialog_question">Вы уверены, что хотите отвязать свой Mailbox?</string>
+  <string name="mailbox_status_unlink_dialog_warning">Если вы отвяжете свой Mailbox, вы не сможете получать сообщения, пока Briar находится в оффлайн.</string>
+  <string name="mailbox_status_unlink_no_wipe_title">Ваш Mailbox был отвязан</string>
+  <string name="mailbox_status_unlink_no_wipe_message">В следующий раз, когда у вас будет доступ к устройству Mailbox, откройте приложение Mailbox и нажмите кнопку \"Unlink\", чтобы завершить процесс.\n\nЕсли у вас больше нет доступа к устройству Mailbox, не волнуйтесь. Ваши данные зашифрованы, поэтому они останутся в безопасности, даже если вы не завершите процесс.</string>
+  <string name="mailbox_status_unlink_success">Ваш Mailbox был отвязан</string>
+  <string name="mailbox_error_notification_channel_title">Проблема с Briar Mailbox</string>
+  <string name="mailbox_error_notification_title">Briar Mailbox недоступен</string>
+  <string name="mailbox_error_notification_text">Нажмите, чтобы устранить проблему.</string>
+  <string name="mailbox_error_wizard_button">Исправить проблему</string>
+  <string name="mailbox_error_wizard_title">Мастер устранения неисправностей Mailbox</string>
+  <string name="mailbox_error_wizard_question1">Есть ли у вас доступ к устройству Mailbox?</string>
+  <string name="mailbox_error_wizard_answer1">Да, у меня есть к нему доступ прямо сейчас.</string>
+  <string name="mailbox_error_wizard_answer2">Сейчас нет, но я смогу получить к нему доступ позже.</string>
+  <string name="mailbox_error_wizard_answer3">Нет, у меня больше нет к нему доступа.</string>
+  <string name="mailbox_error_wizard_info1_1">Убедитесь, что устройство Mailbox включено и подключено к интернету.</string>
+  <string name="mailbox_error_wizard_question1_1">Откройте приложение Mailbox. Что вы видите?</string>
+  <string name="mailbox_error_wizard_answer1_1">Я вижу инструкции по настройке Mailbox</string>
+  <string name="mailbox_error_wizard_answer1_2">Я вижу QR-код</string>
+  <string name="mailbox_error_wizard_answer1_3">Я вижу \"Mailbox запущен\"</string>
+  <string name="mailbox_error_wizard_answer1_4">Я вижу \"Устройство не в сети\".</string>
+  <string name="mailbox_error_wizard_info1_1_1">Пожалуйста, отвяжите свой Mailbox с помощью кнопки ниже, после чего повторно привяжите его, следуя инструкциям на устройстве Mailbox.</string>
+  <string name="mailbox_error_wizard_info_1_1_2">Пожалуйста, отвяжите свой Mailbox с помощью кнопки ниже, после чего сосканируйте QR-код, чтобы привязать его снова.</string>
+  <string name="mailbox_error_wizard_info1_1_3">Пожалуйста, используйте кнопку ниже, чтобы проверить связь между Briar и Mailbox.\n\n
+		Если подключение снова не удалось:\n
+		\u2022 Убедитесь, что приложения Mailbox и Briar обновлены до последней версии.\n
+		\u2022 Перезапустите устройства Mailbox и Briar и повторите попытку..</string>
+  <string name="mailbox_error_wizard_info1_1_4">Убедитесь, что устройство Mailbox корректно подключено к интернету.\n\nУбедитесь, что часы на устройстве Mailbox показывают правильное время, дату и часовой пояс.\n\nУбедитесь, что приложения Mailbox и Briar обновлены до последней версии.\n\nПерезагрузите устройства Mailbox и Briar и повторите попытку.</string>
+  <string name="mailbox_error_wizard_info2">Пожалуйста, вернитесь к этому экрану, когда у вас будет доступ к устройству.</string>
+  <string name="mailbox_error_wizard_info3">Пожалуйста, отвяжите свой Mailbox с помощью кнопки ниже.\n\nПосле отсоединения старого Mailbox вы в любое время сможете настроить новый.</string>
+  <!--About-->
+  <string name="about_title">О проекте</string>
+  <string name="briar_version">Версия Briar: %s</string>
+  <string name="tor_version">Версия Tor: %s</string>
+  <string name="links">Ссылки</string>
+  <string name="briar_website">\u2022 <a href="">Сайт</a></string>
+  <string name="briar_source_code">\u2022 <a href="">Исходный код</a></string>
+  <string name="briar_changelog">\u2022 <a href="">Список изменений</a></string>
+  <string name="briar_privacy_policy">\u2022 <a href="">Политика конфиденциальности</a></string>
+  <!--Here translators can add their names or Transifex usernames(eg "Thanks to all the contributors at the Localization Lab, especially Tom, Matthew and Jerry")-->
+  <string name="translator_thanks">Благодарим всех участников проекта Localization Lab</string>
+  <!--Conversation Settings-->
+  <string name="disappearing_messages_title">Исчезающие сообщения</string>
+  <string name="disappearing_messages_explanation_long">Включение этого параметра приведет к созданию нового
+		сообщения в этом разговоре автоматически исчезнут спустя 7\u00A0дней.
+		\n\nОбратный отсчет для копии сообщения отправителя начнется после его доставки.
+		Обратный отсчет для получателя начнется после прочтения сообщения.
+		\n\nСообщения, которые исчезнут, помечены значком бомбы.
+		\n\nИмейте в виду, что получатели по-прежнему могут делать копии отправляемых вами сообщений.
+		\n\nЕсли вы измените эту настройку, то она немедленно будет применена к вашим новым сообщениям и вашим
+		сообщениям для контакта, после получения следующего сообщения.
+		Ваш контакт также может изменить эту настройку для вас обоих.</string>
+  <string name="learn_more">Узнать больше</string>
+  <string name="disappearing_messages_summary">Сделайте так, чтобы будущие сообщения в этом разговоре автоматически исчезали спустя 7\u00A0дней.</string>
+  <!--Settings Actions-->
+  <string name="pref_category_actions">Действия</string>
+  <string name="share_app_link">Поделиться ссылкой на загрузку</string>
+  <string name="share_app_link_text">Загрузить Briar на %s</string>
+  <string name="send_feedback">Отправить отзыв</string>
+  <!--Link Warning-->
+  <string name="link_warning_title">Предупреждение о ссылке</string>
+  <string name="link_warning_intro">Вы собираетесь открыть следующую ссылку в стороннем приложении.</string>
+  <string name="link_warning_text">Это может быть использовано для вашей идентификации. Подумайте, доверяете ли вы тому, кто отправил вам эту ссылку и рассмотрите возможность ее открытия в браузере Tor.</string>
+  <string name="link_warning_open_link">Открыть ссылку</string>
+  <!--Crash Reporter-->
+  <string name="crash_report_title">Отчет о сбое Briar</string>
+  <string name="briar_crashed">К сожалению, Briar неожиданно завершил работу.</string>
+  <string name="not_your_fault">Это не ваша вина.</string>
+  <string name="please_send_report">Пожалуйста, помогите сделать Briar лучше, отправив нам отчет о сбое.</string>
+  <string name="report_is_encrypted">Мы гарантируем, что отчет зашифрован и будет отправлен безопасно.</string>
+  <string name="feedback_title">Обратная связь</string>
+  <string name="describe_crash">Опишите, что произошло (необязательно)</string>
+  <string name="enter_feedback">Введите свой отзыв</string>
+  <string name="optional_contact_email">Ваш адрес email (необязательно)</string>
+  <string name="privacy_policy">Отправляя нам данные, вы соглашаетесь с нашей <a href="">политикой конфиденциальности</a></string>
+  <string name="include_debug_report_crash">Включить анонимные данные о сбое</string>
+  <string name="include_debug_report_feedback">Включить анонимные данные об этом устройстве</string>
+  <string name="dev_report_user_info">Информация о пользователе</string>
+  <string name="dev_report_basic_info">Основная информация</string>
+  <string name="dev_report_device_info">Информация об устройстве</string>
+  <string name="dev_report_stacktrace">Трассировки стека</string>
+  <string name="dev_report_time_info">Информация о времени</string>
+  <string name="dev_report_memory">Память</string>
+  <string name="dev_report_storage">Хранилище</string>
+  <string name="dev_report_connectivity">Подключение</string>
+  <string name="dev_report_network_usage">Использование сети</string>
+  <string name="dev_report_build_config">Конфигурация сборки</string>
+  <string name="dev_report_logcat">Журнал приложения</string>
+  <string name="dev_report_device_features">Характеристики устройства</string>
+  <string name="send_report">Отправить отчет</string>
+  <string name="close">Закрыть</string>
+  <string name="dev_report_sending">Отправка отзыва...</string>
+  <string name="dev_report_sent">Отзыв отправлен</string>
+  <string name="dev_report_saved">Отчет сохранен. Он будет отправлен при следующем входе в Briar.</string>
+  <string name="dev_report_error">Ошибка: не удалось отправить отчет</string>
+  <!--Sign Out-->
+  <string name="progress_title_logout">Выход из Briar…</string>
+  <!--Screen Filters & Tapjacking-->
+  <string name="screen_filter_title">Обнаружено наложение экрана</string>
+  <string name="screen_filter_body">Другое приложение накладывается на Briar. Чтобы защитить вашу безопасность, Briar не будет реагировать на прикосновения, пока есть наложение.\n\nМогут накладываться следующие приложения:\n\n%1$s</string>
+  <string name="screen_filter_body_api_30">Другое приложение накладывается на Briar. Чтобы защитить вашу безопасность, Briar не будет реагировать на прикосновения, пока есть наложение.\n\nПросмотрите приложения, которые могут влиять.</string>
+  <string name="screen_filter_allow">Разрешить этим приложениям наложение?</string>
+  <string name="screen_filter_review_apps">Просмотр приложений</string>
+  <!--Permission Requests-->
+  <string name="permission_camera_title">Доступ к камере</string>
+  <string name="permission_camera_request_body">Для сканирования QR-кода Briar необходим доступ к камере.</string>
+  <string name="permission_location_title">Доступ к местоположению</string>
+  <string name="permission_nearby_devices_title">Разрешение ближайших устройств</string>
+  <string name="permission_location_request_body">Для обнаружения Bluetooth-устройств, Briar требуется разрешение на доступ к вашему местоположению.\n\nBriar не хранит ваше местоположение и не делится им кем-либо еще.</string>
+  <string name="permission_camera_location_title">Камера и местоположение</string>
+  <string name="permission_camera_location_request_body">Для сканирования QR-кода Briar необходим доступ к камере.\n\nДля обнаружения Bluetooth-устройств, Briar требуется разрешение на доступ к вашему местоположению.\n\nBriar не хранит ваше местоположение и не делится им кем-либо еще.</string>
+  <string name="permission_camera_bluetooth_title">Камера и ближайшие устройства</string>
+  <string name="permission_camera_bluetooth_request_body">Чтобы просканировать QR-код, Briar нужен доступ к камере.\n\nДля обнаружения устройств Bluetooth, Briar нужно разрешение на поиск и подключение к ближайшим устройствам.</string>
+  <string name="permission_camera_denied_body">Доступ к камере запрещен, но для добавления контактов необходимо использовать камеру.\n\nРассмотрите возможность предоставления доступа.</string>
+  <string name="permission_location_denied_body">Доступ к местоположению запрещен, но Briar необходимо это разрешение для обнаружения устройств Bluetooth.\n\nРассмотрите возможность предоставления доступа.</string>
+  <string name="permission_location_setting_title">Настройка местоположения</string>
+  <string name="permission_location_setting_body">Для поиска других устройств через Bluetooth необходимо включить настройку местоположения вашего устройства. Пожалуйста, включите местоположение, чтобы продолжить. После этого вы можете отключить ее снова.</string>
+  <string name="permission_location_setting_hotspot_body">Для создания точки доступа Wi-Fi необходимо включить определение местоположения вашего устройства. После этого его можно снова отключить.</string>
+  <string name="permission_location_setting_button">Включить местоположение</string>
+  <string name="permission_bluetooth_title">Разрешение ближайших устройств</string>
+  <string name="permission_bluetooth_body">Чтобы использовать Bluetooth, Briar требуется разрешение на поиск и подключение к ближайшим устройствам.</string>
+  <string name="permission_bluetooth_denied_body">Вы запретили доступ к ближайшим устройствам, но Briar необходимо это разрешение для использования Bluetooth.\n\nРассмотрите возможность предоставления доступа.</string>
+  <string name="qr_code">QR-код</string>
+  <string name="show_qr_code_fullscreen">Показать QR-код во весь экран</string>
+  <!--App Locking-->
+  <string name="lock_unlock">Разблокировать Briar</string>
+  <string name="lock_unlock_verbose">Для разблокировки Briar введите PIN-код устройства, графический ключ или пароль.</string>
+  <string name="lock_unlock_fingerprint_description">Для продолжения, прикоснитесь к датчику пальцем</string>
+  <string name="lock_unlock_password">Использовать пароль</string>
+  <string name="lock_is_locked">Briar заблокирован</string>
+  <string name="lock_tap_to_unlock">Нажмите для разблокировки</string>
+  <!--Connections Screen-->
+  <string name="transports_help_text">Briar может подключаться к контактам через интернет, Wi-Fi или Bluetooth.\n\nДля обеспечения конфиденциальности все интернет-подключения проходят через сеть Tor.\n\nЕсли с контактом можно связаться несколькими способами, Briar использует их параллельно.</string>
+  <!--Share app offline-->
+  <string name="hotspot_title">Поделиться этим приложением офлайн</string>
+  <string name="hotspot_intro">Поделитесь этим приложением с кем-то поблизости без подключения к интернету, используя Wi-Fi вашего телефона.
+		\n\nВаш телефон запустит точку доступа Wi-Fi. Пользователи, находящиеся поблизости, могут подключиться к точке доступа и загрузить приложение Briar с вашего телефона.</string>
+  <string name="hotspot_button_start_sharing">Запустить точку доступа</string>
+  <string name="hotspot_button_stop_sharing">Остановить точку доступа</string>
+  <string name="hotspot_progress_text_start">Настройка точки доступа...</string>
+  <string name="hotspot_notification_channel_title">Точка доступа Wi-Fi</string>
+  <string name="hotspot_notification_title">Поделиться Briar офлайн</string>
+  <string name="hotspot_button_connected">Далее</string>
+  <string name="permission_hotspot_location_request_body">Для создания точки доступа Wi-Fi Briar необходимо разрешение на доступ к вашему местоположению.\n\nBriar не хранит ваше местоположение и не передает его кому-либо.</string>
+  <string name="permission_hotspot_location_request_precise_body">Для создания точки доступа Wi-Fi Briar необходимо разрешение на доступ к вашему точному местоположению.\n\nBriar не хранит ваше местоположение и не передает его кому-либо.</string>
+  <string name="permission_hotspot_location_denied_body">Доступ к местоположению запрещен, но Briar необходимо это разрешение для создания точки доступа Wi-Fi.\n\nРассмотрите возможность предоставления доступа.</string>
+  <string name="permission_hotspot_location_denied_precise_body">Доступ к точному местоположению запрещен, но Briar необходимо это разрешение для создания точки доступа Wi-Fi.\n\nРассмотрите возможность предоставления доступа.</string>
+  <string name="permission_hotspot_nearby_wifi_request_body">Чтобы создать точку доступа Wi-Fi, Briar необходимо получить разрешение на доступ к ближайшим устройствам.</string>
+  <string name="permission_hotspot_nearby_wifi_denied_body">Вы запретили доступ ближайшим устройствам, однако Briar необходимо это разрешение для создания точки доступа Wi-Fi.\n\nПожалуйста, рассмотрите возможность предоставления доступа.</string>
+  <string name="wifi_settings_title">Настройка Wi-Fi</string>
+  <string name="wifi_settings_request_enable_body">Чтобы создать точку доступа Wi-Fi, Briar должен использовать Wi-Fi. Пожалуйста, включите его.</string>
+  <string name="hotspot_tab_manual">Вручную</string>
+  <!--The placeholder to be inserted into the string 'hotspot_manual_wifi': People can connect by %s-->
+  <string name="hotspot_scanning_a_qr_code">сканировать QR-код</string>
+  <!--Wi-Fi setup-->
+  <!--The %s placeholder will be replaced with the translation of 'hotspot_scanning_a_qr_code'-->
+  <string name="hotspot_manual_wifi">Ваш телефон работает в режиме точки доступа Wi-Fi. Пользователи, которые хотят загрузить Briar, могут подключиться к ней, добавив ее в настройках Wi-Fi своего устройства, используя данные ниже или %s. После подключения к точке доступа нажмите \"Далее\".</string>
+  <string name="hotspot_manual_wifi_ssid">Имя сети</string>
+  <string name="hotspot_qr_wifi">Ваш телефон работает в режиме точки доступа Wi-Fi. Пользователи, которые хотят загрузить Briar, могут подключиться к ней, просканировав этот QR-код. Когда они подключатся к точке доступа, нажмите \'Далее\'.</string>
+  <string name="hotspot_no_peers_connected">Нет подключенных устройств</string>
+  <plurals name="hotspot_peers_connected">
+    <item quantity="one">Подключено %s устройство</item>
+    <item quantity="few">Подключено %s устройства</item>
+    <item quantity="many">Подключено %s устройств</item>
+    <item quantity="other">Подключено %s устройств</item>
+  </plurals>
+  <!--Download link-->
+  <!--The %s placeholder will be replaced with the translation of 'hotspot_scanning_a_qr_code'-->
+  <string name="hotspot_manual_site">Ваш телефон работает в режиме точки доступа Wi-Fi. Пользователи, подключенные к ней, могут загрузить Briar, набрав следующую ссылку в веб-браузере или %s.</string>
+  <string name="hotspot_manual_site_address">Адрес (URL)</string>
+  <string name="hotspot_qr_site">Ваш телефон работает в режиме точки доступа Wi-Fi. Пользователи, подключенные к ней, могут загрузить Briar, просканировав этот QR-код.</string>
+  <!--e.g. Download Briar 1.2.20-->
+  <string name="website_download_title_1">Загрузить Briar %s</string>
+  <string name="website_download_intro_1">Кто-то рядом поделился Briar с вами.</string>
+  <string name="website_download_button">Загрузить Briar</string>
+  <string name="website_download_outro">После завершения загрузки откройте загруженный файл и установите его.</string>
+  <string name="website_troubleshooting_title">Устранение неполадок</string>
+  <string name="website_troubleshooting_1">Если вы не можете загрузить приложение, попробуйте сделать это с помощью другого веб-браузера.</string>
+  <string name="website_troubleshooting_2_old">Чтобы установить загруженное приложение, вам может понадобиться разрешить установку приложений из \"Неизвестных источников\" в настройках системы. После этого может потребоваться повторная загрузка приложения. Мы рекомендуем отключить настройку \"Неизвестные источники\" после установки приложения.</string>
+  <string name="website_troubleshooting_2_new">Чтобы установить загруженное приложение, вам может потребоваться разрешить браузеру устанавливать неизвестные приложения. После установки приложения рекомендуется удалить разрешение браузера на установку неизвестных приложений.</string>
+  <string name="hotspot_help_wifi_title">Проблемы с подключением к Wi-Fi:</string>
+  <string name="hotspot_help_wifi_1">Попробуйте отключить и снова включить Wi-Fi на обоих телефонах и повторить попытку.</string>
+  <string name="hotspot_help_wifi_2">Если ваш телефон сообщит, что в сети Wi-Fi нет доступа к интернету, подтвердите, что вы все равно хотите подключиться к этой сети.</string>
+  <string name="hotspot_help_wifi_3">Перезагрузите телефон, на котором работает точка доступа Wi-Fi, затем запустите Briar и повторите попытку обмена.</string>
+  <string name="hotspot_help_site_title">Проблемы с доступом к локальному веб-сайту:</string>
+  <string name="hotspot_help_site_1">Дважды убедитесь, что вы ввели адрес точно так, как показано. Небольшая ошибка может привести к сбою.</string>
+  <string name="hotspot_help_site_2">Убедитесь, что ваш телефон все еще подключен к правильной сети Wi-Fi (см. выше), прежде чем попытаться зайти на этот сайт.</string>
+  <string name="hotspot_help_site_3">Если у вас есть приложение брандмауэра, проверьте, не блокирует ли оно доступ.</string>
+  <string name="hotspot_help_site_4">Если вы можете посетить сайт, но не можете загрузить приложение Briar, попробуйте сделать это с помощью другого веб-браузера.</string>
+  <string name="hotspot_help_fallback_title">Ничего не работает?</string>
+  <string name="hotspot_help_fallback_intro">Вы можете попытаться сохранить приложение в виде файла .apk, чтобы поделиться им другим способом. Как только файл будет передан на другое устройство, его можно будет использовать для установки Briar.
+		\n\nСовет: Для передачи через Bluetooth может потребоваться сначала переименовать файл, чтобы он заканчивался .zip.</string>
+  <string name="hotspot_help_fallback_button">Сохранить приложение</string>
+  <!--error handling-->
+  <string name="hotspot_error_intro">Что-то пошло не так при попытке поделиться приложением через Wi-Fi:</string>
+  <string name="hotspot_error_no_wifi_direct">Устройство не поддерживает Wi-Fi Direct</string>
+  <string name="hotspot_error_start_callback_failed">Не удалось запустить точку доступа: ошибка %s</string>
+  <string name="hotspot_error_start_callback_failed_unknown">Не удалось запустить точку доступа из-за неизвестной ошибки, причина %d</string>
+  <string name="hotspot_error_start_callback_no_group_info">Не удалось запустить точку доступа: нет информации о группе</string>
+  <string name="hotspot_error_web_server_start">Ошибка запуска веб-сервера</string>
+  <string name="hotspot_error_web_server_serve">Ошибка представления сайта.\n\nЕсли проблема сохраняется, пожалуйста, отправьте отзыв (с анонимными данными) через приложение Briar.</string>
+  <string name="hotspot_flag_test">Предупреждение: Это приложение было установлено с помощью Android Studio и НЕ может быть установлено на другое устройство.</string>
+  <string name="hotspot_error_framework_busy">Невозможно запустить точку доступа.\n\nЕсли у вас запущена другая точка доступа или вы используете подключение к интернету через Wi-Fi, попробуйте отключить его, а затем повторить попытку.</string>
+  <!--Transfer Data via Removable Drives-->
+  <string name="removable_drive_menu_title">Подключиться через съемный носитель</string>
+  <string name="removable_drive_intro">Если вы не можете подключиться к контакту через интернет, Wi-Fi или Bluetooth, Briar также может передавать сообщения на съемном носителе, таком как USB-накопитель или SD-карта.</string>
+  <string name="removable_drive_explanation">Если вы не можете подключиться к контакту через интернет, Wi-Fi или Bluetooth, Briar также может передавать сообщения на съемном носителе, таком как USB-накопитель или SD-карта.\n\n\nКогда вы используете кнопку \"Отправить данные\", все данные, которые ожидают отправки контакту, будут записаны на съемный носитель. Сюда входят личные сообщения, вложения, блоги, форумы и личные группы.\n\n\nВсе данные будут зашифрованы перед записью.\n\n\nКогда ваш собеседник получит съемный носитель, он может воспользоваться кнопкой \"Получить данные\", чтобы импортировать сообщения в Briar.</string>
+  <string name="removable_drive_title_send">Отправить данные</string>
+  <string name="removable_drive_title_receive">Принять данные</string>
+  <string name="removable_drive_send_intro">Нажмите кнопку ниже, чтобы создать новый файл, содержащий зашифрованные сообщения. Вы сможете выбрать, где будет сохранен этот файл.\n\nЕсли вы хотите сохранить файл на съемном диске, вставьте диск сейчас.</string>
+  <string name="removable_drive_send_no_data">На данный момент нет сообщений, ожидающих отправки этому контакту.</string>
+  <string name="removable_drive_send_not_supported">Этот контакт использует старую версию Briar или старое устройство, не поддерживающее эту функцию.</string>
+  <string name="removable_drive_send_button">Выберите файл для экспорта</string>
+  <string name="removable_drive_ongoing">Пожалуйста, дождитесь завершения текущей задачи</string>
+  <string name="removable_drive_receive_intro">Нажмите кнопку ниже, чтобы выбрать файл, который прислал ваш собеседник.\n\nЕсли файл находится на съемном диске, вставьте диск сейчас.</string>
+  <string name="removable_drive_receive_button">Выберите файл для импорта</string>
+  <string name="removable_drive_success_send_title">Экспорт успешен</string>
+  <string name="removable_drive_success_send_text">Данные экспортированы успешно. Теперь у вас есть 28 дней для передачи файла вашему контакту.\n\nЕсли файл находится на съемном диске, используйте уведомление в строке состояния, чтобы извлечь диск, прежде чем отсоединять его.</string>
+  <string name="removable_drive_success_receive_title">Импорт успешен</string>
+  <string name="removable_drive_success_receive_text">Все зашифрованные сообщения, содержащиеся в этом файле, были получены.</string>
+  <string name="removable_drive_error_send_title">Ошибка при экспорте данных</string>
+  <string name="removable_drive_error_send_text">Произошла ошибка записи данных в файл.\n\nЕсли вы используете съемный диск, убедитесь, что он правильно вставлен, и повторите попытку.\n\nЕсли ошибка сохраняется, пожалуйста, отправьте отзыв, чтобы сообщить команде Briar о проблеме.</string>
+  <string name="removable_drive_error_receive_title">Ошибка при импорте данных</string>
+  <string name="removable_drive_error_receive_text">Выбранный файл не содержит ничего, что мог бы распознать Briar.\n\nПожалуйста, проверьте правильность выбора файла.\n\nЕсли ваш контакт создал файл более 28 дней назад, Briar не сможет его распознать.</string>
+  <!--Screenshots-->
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_alice">Бузова</string>
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_bob">Джигурда</string>
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_carol">Басков</string>
+  <!--This is a message to be used in screenshots. Please use the same translation for Bob!-->
+  <string name="screenshot_message_1">Привет, Джигурда!</string>
+  <!--This is a message to be used in screenshots. Please use the same translation for Alice!-->
+  <string name="screenshot_message_2">Здорово, Бузова! Спасибки, что рассказала нам о Briar!</string>
+  <!--This is a message to be used in screenshots.-->
+  <string name="screenshot_message_3">Рада помочь, надеюсь, он вам понравится 😀</string>
+</resources>

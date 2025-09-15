@@ -1,0 +1,19 @@
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:tools="http://schemas.android.com/tools"
+	tools:layout_height="wrap_content"
+	tools:layout_width="wrap_content"
+	tools:parentTag="android.widget.FrameLayout">
+
+	<!-- Button gets added programmatically so we can pass on the styles -->
+
+	<com.google.android.material.progressindicator.CircularProgressIndicator
+		android:id="@+id/briar_button_progress_bar"
+		style="@style/CircularProgress"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:layout_gravity="center"
+		android:visibility="invisible"
+		tools:progress="50"
+		tools:visibility="visible" />
+
+</merge>

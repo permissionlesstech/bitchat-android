@@ -1,0 +1,5 @@
+Briar é unha app de mensaxería deseñada para activistas, xornalistas e calquera que precise comunicarse de xeito robusto, simple e seguro. Ao contrario que as apps de mensaxería tradicionais, Briar non depende dun servidor central - as mensaxes sincronízanse directamente entre os dispositivos das persoas usuarias. Se caese internet, Briar pode sincronizar a través de Bluetooth ou Wi-Fi, mantendo o fluxo de información en períodos de crise. Se hai internet, Briar pode sincronizar a través da rede Tor, protexendo ás usuarias e ás súas relacións da vixilancia.
+
+A app proporciona mensaxes privadas, grupos e foros así como blogs. O soporte para a rede Tor está incluído na propia app. Todo o que fas en Briar só se garda no teu dispositivo a non ser que decidas compartilo con outras usuarias.
+
+Non hai publicidade nen rastrexo da túa actividade. O código fonte da app está completamente aberto a calquera que queira revisalo e xa foi auditado profesionalmente. Todas as versións de Briar son reproducibles, facendo posible verificar que o código fonte publicado coincide exactamente coa app publicada aquí. O desenvolvemento realízase por un pequeno equipo de voluntarias.

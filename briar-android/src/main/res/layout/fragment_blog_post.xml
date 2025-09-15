@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent">
+
+	<FrameLayout
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:descendantFocusability="beforeDescendants"
+		android:focusable="true"
+		android:focusableInTouchMode="true">
+		<!-- Above focusability attributes prevent automatic scroll-down,
+		     because body text is selectable -->
+
+		<include
+			android:id="@+id/postLayout"
+			style="@style/BriarCard"
+			layout="@layout/list_item_blog_post"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content" />
+
+		<com.google.android.material.progressindicator.CircularProgressIndicator
+			android:id="@+id/progressBar"
+			style="@style/CircularProgress.Large"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_gravity="center" />
+
+	</FrameLayout>
+
+</ScrollView>

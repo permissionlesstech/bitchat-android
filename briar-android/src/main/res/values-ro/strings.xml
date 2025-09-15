@@ -1,0 +1,887 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+  <!--Setup-->
+  <string name="setup_title">Bun venit la Briar</string>
+  <string name="setup_name_explanation">Pseudonimul dvs. va fi afișat lângă orice conținut postat. Nu îl veți putea modifica după crearea contului.</string>
+  <string name="setup_next">Înainte</string>
+  <string name="setup_password_intro">Alegeți o parolă</string>
+  <string name="setup_password_explanation">Contul dvs. Briar este stocat criptat pe dispozitivul dvs., nu în cloud. Dacă uitați parola sau dezinstalați Briar, nu există nicio modalitate de a recupera contul. Alegeți o parolă lungă și greu de ghicit, cum ar fi patru cuvinte aleatorii sau zece litere, numere și simboluri aleatorii.</string>
+  <string name="dnkm_doze_intro">Pentru a primi mesaje, aplicația Briar trebuie să ruleze în fundal.</string>
+  <string name="dnkm_doze_explanation">Pentru a primi mesaje, Briar trebuie să ruleze în fundal. Pentru ca acest lucru să se întâmple, dezactivați optimizarea bateriei.</string>
+  <string name="choose_nickname">Alegeți pseudonimul dvs.</string>
+  <string name="choose_password">Alegeți parola dvs.</string>
+  <string name="confirm_password">Confirmați parola</string>
+  <string name="name_too_long">Numele este prea lung</string>
+  <string name="password_too_weak">Parola este prea slabă</string>
+  <string name="password_quite_strong">Parola este în regulă  </string>
+  <string name="password_strong">Parola este puternică</string>
+  <string name="passwords_do_not_match">Parolele nu sunt identice</string>
+  <string name="create_account_button">Creați cont</string>
+  <string name="more_info">Informații suplimentare</string>
+  <string name="don_t_ask_again">Nu întreba din nou</string>
+  <string name="dnkm_huawei_protected_text">Atingeți butonul de mai jos și asigurați-vă că aplicația Briar este protejată, verificând acest lucru în fereastra „Aplicații protejate”.</string>
+  <string name="dnkm_huawei_protected_button">Protejați Briar</string>
+  <string name="dnkm_huawei_protected_help">Dacă aplicația Briar nu este adăugată în lista de aplicații protejate, nu va putea rula în fundal.</string>
+  <string name="dnkm_huawei_app_launch_text">Atingeți butonul de mai jos, deschideți ecranul „Lansare aplicație” și asigurați-vă că aplicația Briar este setată pe „Gestionare manuală”.</string>
+  <string name="dnkm_huawei_app_launch_help">Dacă aplicația Briar nu este setată pe „Gestionare manuală” în ecranul „Lansare aplicație”, nu va putea rula în fundal.</string>
+  <string name="dnkm_xiaomi_text">Pentru a rula în fundal, aplicația Briar trebuie să fie blocată în lista de aplicații recente.</string>
+  <string name="dnkm_xiaomi_button">Protejați Briar</string>
+  <string name="dnkm_xiaomi_help">Dacă aplicația Briar nu este blocată în lista de aplicații recente, aceasta nu va putea rula în fundal.</string>
+  <string name="dnkm_xiaomi_dialog_body_old">1. Deschideți lista de aplicații recente (denumită și comutatorul de aplicații)\n\n2. Glisați în jos pe imaginea Briar pentru a afișa pictograma lacăt\n\n3. Dacă lacătul nu este blocat, atingeți-l pentru a-l bloca</string>
+  <string name="dnkm_xiaomi_dialog_body_new">1. Deschideți lista de aplicații recente (denumită și comutatorul de aplicatii)\n\n2. Dacă Briar are o mică imagine cu un lacăt lângă nume atunci nu este nevoie să faceți nimic.\n\n3. Dacă lacătul lipsește, atunci atingeți lung imaginea Briar până când lacătul apare, apoi atingeți-l</string>
+  <string name="dnkm_xiaomi_lock_apps_text">Atingeți butonul de mai jos pentru a deschide setările de securitate. Atingeți „Creșteți viteza”, apoi atingeți „Blocare aplicații” și asigurați-vă că aplicația Briar e setată pe opțiunea „Blocată”.</string>
+  <string name="dnkm_xiaomi_lock_apps_help">Dacă aplicația Briar nu este setată pe opțiunea „Blocată” în ecranul „Blocare aplicații” atunci nu va putea rula în fundal.</string>
+  <string name="dnkm_warning_dozed_1">Briar nu a putut rula în fundal</string>
+  <!--Login-->
+  <string name="enter_password">Parola</string>
+  <string name="try_again">Parolă greșită, încercați din nou</string>
+  <string name="dialog_title_cannot_check_password">Nu se poate verifica parola</string>
+  <string name="dialog_message_cannot_check_password">Briar nu poate verifica parola. Încercați să reporniți dispozitivul pentru a rezolva această problemă.</string>
+  <string name="sign_in_title">Conectați-vă la Briar</string>
+  <string name="sign_in_button">Autentificare</string>
+  <string name="forgotten_password">V-ați uitat parola?</string>
+  <string name="dialog_title_lost_password">Parolă uitată</string>
+  <string name="dialog_message_lost_password">Contul dvs. Briar este stocat criptat pe dispozitivul dvs., nu în cloud, prin urmare nu putem reseta parola dvs. Doriți să vă ștergeți contul și să o luați de la capăt? Atenție: identitățile, contactele și mesajele dvs. vor fi pierdute definitiv.</string>
+  <string name="startup_failed_activity_title">Eroare de pornire Briar</string>
+  <string name="startup_failed_clock_error">Briar nu a putut porni pentru că ceasul dispozitivului dvs. nu indică ora corectă. Vă rugăm să setați ora corectă și să încercați din nou.</string>
+  <string name="startup_failed_db_error">Briar nu a reușit să deschidă baza de date care conține contul, contactele și mesajele dvs.\n\nRealizați un upgrade la cea mai recentă versiune a aplicației și încercați din nou sau configurați un cont nou alegând „Mi-am uitat parola” în momentul solicitării parolei.</string>
+  <string name="startup_failed_data_too_old_error">Contul dvs. a fost creat cu o versiune veche a acestei aplicații și nu poate fi deschis cu această versiune. Trebuie fie să reinstalați versiunea veche, fie să creați un cont nou selectând „Mi-am uitat parola” în momentul solicitării parolei.</string>
+  <string name="startup_failed_data_too_new_error">Contul dvs. a fost creat cu o versiune mai nouă a acestei aplicații și nu poate fi deschis cu această versiune. Vă rugăm să realizați un upgrade la cea mai recentă versiune și să încercați din nou.</string>
+  <string name="startup_failed_service_error">Briar nu a reușit să pornească o componentă necesară. Vă rugăm să faceți un upgrade la cea mai recentă versiune a aplicației și să încercați din nou.</string>
+  <plurals name="expiry_warning">
+    <item quantity="one">Aceasta este o versiune de test Briar. Contul dvs. va expira în decurs de %d zi și nu poate fi reînnoit.</item>
+    <item quantity="few">Aceasta este o versiune de test Briar. Contul dvs. va expira în %d zile și nu poate fi reînnoit.</item>
+    <item quantity="other">Aceasta este o versiune de test Briar. Contul dvs. va expira în %d zile și nu poate fi reînnoit.</item>
+  </plurals>
+  <string name="expiry_date_reached">Acest program software a expirat.\nVă mulțumim că l-ați testat!</string>
+  <string name="download_briar">Pentru a putea să utilizați Briar în continuare, descărcați cea mai recentă versiune.</string>
+  <string name="create_new_account">Va trebui să creați un cont nou, dar puteți să folosiți același pseudonim.</string>
+  <string name="download_briar_button">Descărcați cea mai recentă versiune</string>
+  <string name="old_android_expiry_date_reached">Briar nu mai funcționează pe Android 4.\nInstalați Briar pe un dispozitiv mai nou.</string>
+  <string name="old_android_delete_account">Puteți atinge butonul de mai jos pentru a șterge contul dvs. de pe acest dispozitiv.</string>
+  <string name="delete_account_button">Ștergeți contul</string>
+  <string name="startup_open_database">Se decriptează baza de date...</string>
+  <string name="startup_migrate_database">Se actualizează baza de date...</string>
+  <string name="startup_compact_database">Se compactează baza de date...</string>
+  <!--Navigation Drawer-->
+  <string name="nav_drawer_open_description">Deschideți sertarul de navigare</string>
+  <string name="nav_drawer_close_description">Închideți sertarul de navigare</string>
+  <string name="contact_list_button">Contacte</string>
+  <string name="groups_button">Grupuri private</string>
+  <string name="forums_button">Forumuri</string>
+  <string name="blogs_button">Bloguri</string>
+  <!--This is part of the main menu. The app will be locked when this is tapped.-->
+  <string name="lock_button">Blocați aplicația</string>
+  <string name="settings_button">Setări</string>
+  <string name="sign_out_button">Deconectare</string>
+  <string name="transports_onboarding_text">Atingeți aici pentru a controla modul în care Briar se conectează la contacte.</string>
+  <!--Transports: Tor-->
+  <string name="transport_tor">Internet</string>
+  <string name="tor_device_status_online_wifi">Telefonul dvs. are acces internet prin Wi-Fi</string>
+  <string name="tor_device_status_online_mobile">Telefonul dvs. are acces internet prin date mobile</string>
+  <string name="tor_device_status_offline">Telefonul dvs. nu are acces internet</string>
+  <string name="tor_plugin_status_enabling">Briar se conectează la internet</string>
+  <string name="tor_plugin_status_active">Aplicația Briar este conectată la internet</string>
+  <string name="tor_plugin_status_inactive">Briar nu se poate conecta la internet</string>
+  <string name="tor_plugin_status_disabled">Aplicația Briar este configurată să nu se conecteze la internet</string>
+  <string name="tor_plugin_status_disabled_mobile_data">Aplicația Briar este configurată să nu folosească date mobile</string>
+  <string name="tor_plugin_status_disabled_battery">Aplicația Briar este configurată să nu folosească internetul când funcționează pe baterie</string>
+  <string name="tor_plugin_status_disabled_country_blocked">Aplicația Briar este configurată să nu folosească internetul în această țară</string>
+  <!--Transports: Wi-Fi-->
+  <string name="transport_lan">Wi-Fi</string>
+  <string name="transport_lan_long">Aceeași rețea Wi-Fi</string>
+  <string name="lan_device_status_on">Telefonul dvs. este conectat la Wi-Fi</string>
+  <string name="lan_device_status_off">Telefonul dvs. nu este conectat la Wi-Fi</string>
+  <string name="lan_plugin_status_enabling">Briar se conectează la rețeaua Wi-Fi</string>
+  <string name="lan_plugin_status_active">Aplicația Briar este conectată la rețeaua Wi-Fi</string>
+  <string name="lan_plugin_status_inactive">Briar nu se poate conecta la rețeaua Wi-Fi</string>
+  <string name="lan_plugin_status_disabled">Aplicația Briar este configurată să nu folosească rețeaua Wi-Fi</string>
+  <!--Transports: Bluetooth-->
+  <string name="transport_bt">Bluetooth</string>
+  <string name="bt_device_status_on">Funcția Bluetooth a telefonului dvs. este pornită</string>
+  <string name="bt_device_status_off">Funcția Bluetooth a telefonului dvs. este oprită</string>
+  <string name="bt_plugin_status_enabling">Briar se conectează la Bluetooth</string>
+  <string name="bt_plugin_status_active">Aplicația Briar este conectată la Bluetooth</string>
+  <string name="bt_plugin_status_inactive">Briar nu se poate conecta la Bluetooth</string>
+  <string name="bt_plugin_status_disabled">Aplicația Briar este configurată să nu folosească Bluetooth</string>
+  <!--Notifications-->
+  <string name="reminder_notification_title">V-ați deconectat din Briar</string>
+  <string name="reminder_notification_text">Atingeți pentru a vă reconecta.</string>
+  <string name="reminder_notification_channel_title">Memento de conectare la Briar</string>
+  <string name="reminder_notification_dismiss">Renunțați</string>
+  <string name="ongoing_notification_title">Sunteți conectat la Briar</string>
+  <string name="ongoing_notification_text">Atingeți pentru a deschide Briar</string>
+  <plurals name="private_message_notification_text">
+    <item quantity="one">Mesaj privat nou.</item>
+    <item quantity="few">%d mesaje private noi.</item>
+    <item quantity="other">%d mesaje private noi.</item>
+  </plurals>
+  <plurals name="group_message_notification_text">
+    <item quantity="one">Mesaj nou de grup.</item>
+    <item quantity="few">%d mesaje de grup noi.</item>
+    <item quantity="other">%d mesaje de grup noi.</item>
+  </plurals>
+  <plurals name="forum_post_notification_text">
+    <item quantity="one">Postare nouă pe forum.</item>
+    <item quantity="few">%d postări noi pe forum.</item>
+    <item quantity="other">%d postări noi pe forum.</item>
+  </plurals>
+  <plurals name="blog_post_notification_text">
+    <item quantity="one">Postare nouă pe blog.</item>
+    <item quantity="few">%d postări noi pe blog.</item>
+    <item quantity="other">%d postări noi pe blog.</item>
+  </plurals>
+  <!--Misc-->
+  <string name="now">acum</string>
+  <string name="show">Afișați</string>
+  <string name="hide">Ascundeți</string>
+  <string name="ok">OK</string>
+  <string name="cancel">Anulați</string>
+  <string name="got_it">Am înțeles</string>
+  <string name="delete">Ștergeți</string>
+  <string name="accept">Acceptați</string>
+  <string name="decline">Refuzați</string>
+  <string name="online">Online</string>
+  <string name="offline">Offline</string>
+  <string name="send">Trimiteți</string>
+  <string name="allow">Permiteți</string>
+  <string name="open">Deschideți</string>
+  <string name="change">Modificați</string>
+  <string name="start">Start</string>
+  <string name="finish">Terminați</string>
+  <string name="no_data">Nu sunt date</string>
+  <string name="ellipsis">…</string>
+  <string name="text_too_long">Textul introdus este prea lung</string>
+  <string name="show_onboarding">Afișați caseta de dialog de ajutor</string>
+  <string name="fix">Remediați</string>
+  <string name="help">Ajutor</string>
+  <string name="sorry">Ne pare rău</string>
+  <string name="error_start_activity">Indisponibil pentru sistemul dvs.</string>
+  <string name="status_heading">Stare:</string>
+  <string name="error">Eroare</string>
+  <string name="info">Informații</string>
+  <!--Contacts and Private Conversations-->
+  <string name="no_contacts">Niciun contact de afișat</string>
+  <string name="no_contacts_action">Atingeți iconița + pentru a adăuga un contact</string>
+  <string name="date_no_private_messages">Nu sunt mesaje.</string>
+  <string name="no_private_messages">Nu sunt mesaje de afișat</string>
+  <string name="message_hint">Mesaj nou</string>
+  <string name="message_hint_auto_delete">Mesaj nou care dispare</string>
+  <string name="message_error">Eroare la trimiterea mesajului</string>
+  <string name="image_caption_hint">Adăugați un text (opțional)</string>
+  <string name="image_attach">Atașați imagine</string>
+  <string name="image_attach_error">Atașarea imaginii(imaginilor) nu a reușit</string>
+  <string name="image_attach_error_too_big">Imaginea este prea mare. Limita este de %d MB.</string>
+  <string name="image_attach_error_invalid_mime_type">Formatul imaginii nu este acceptat: %s</string>
+  <string name="set_contact_alias">Modificați numele contactului</string>
+  <string name="set_contact_alias_hint">Nume contact</string>
+  <string name="menu_item_disappearing_messages">Mesaje care dispar</string>
+  <!--The first placeholder will show a duration like "7 days". The second placeholder at the end will add "Tap to learn more."-->
+  <string name="auto_delete_msg_you_enabled">Mesajele dvs. vor dispărea după %1$s. %2$s</string>
+  <!--The placeholder at the end will add "Tap to learn more."-->
+  <string name="auto_delete_msg_you_disabled">Mesajele dvs. nu vor dispărea. %1$s</string>
+  <!--The first placeholder will show a contact's name. The second placeholder will show a duration like "7 days". The third placeholder at the end will add "Tap to learn more."-->
+  <string name="auto_delete_msg_contact_enabled">Mesajele utilizatorului %1$s vor dispărea după %2$s. %3$s</string>
+  <plurals name="duration_minutes">
+    <item quantity="one">%d minut</item>
+    <item quantity="few">%d minute</item>
+    <item quantity="other">%d minute</item>
+  </plurals>
+  <plurals name="duration_hours">
+    <item quantity="one">%d oră</item>
+    <item quantity="few">%d ore</item>
+    <item quantity="other">%d ore</item>
+  </plurals>
+  <plurals name="duration_days">
+    <item quantity="one">%d zi</item>
+    <item quantity="few">%d zile</item>
+    <item quantity="other">%d zile</item>
+  </plurals>
+  <!--The first placeholder will show a contact's name. The second placeholder at the end will add "Tap to learn more."-->
+  <string name="auto_delete_msg_contact_disabled">Mesajele utilizatorulu %1$s nu vor dispărea . %2$s</string>
+  <string name="tap_to_learn_more">Atingeți pentru a afla mai multe.</string>
+  <string name="auto_delete_changed_warning_title">S-a modificat setarea privind dispariția mesajelor</string>
+  <string name="auto_delete_changed_warning_message_enabled">De când ați început să compuneți mesajul, mesajele care dispar au fost activate.</string>
+  <string name="auto_delete_changed_warning_message_disabled">De când ați început să compuneți mesajul, mesajele care dispar au fost dezactivate.</string>
+  <string name="auto_delete_changed_warning_send">Trimiteți oricum</string>
+  <string name="delete_all_messages">Ștergeți toate mesajele</string>
+  <string name="dialog_title_delete_all_messages">Confirmați ștergerea mesajului</string>
+  <string name="dialog_message_delete_all_messages">Sigur doriți să ștergeți toate mesajele?</string>
+  <string name="dialog_title_not_all_messages_deleted">Nu s-au putut șterge toate mesajele</string>
+  <string name="dialog_message_not_deleted_ongoing_both">Mesajele referitoare la invitațiile și prezentările în curs nu pot fi șterse înainte de a se finaliza.</string>
+  <string name="dialog_message_not_deleted_ongoing_introductions">Mesajele referitoare la prezentările în curs nu pot fi șterse înainte de a se finaliza.</string>
+  <string name="dialog_message_not_deleted_ongoing_invitations">Mesajele referitoare la invitațiile în curs nu pot fi șterse înainte de a se finaliza.</string>
+  <string name="dialog_message_not_deleted_not_all_selected_both">Pentru a șterge o invitație sau o prezentare, trebuie să selectați cererea și răspunsul.</string>
+  <string name="dialog_message_not_deleted_not_all_selected_introductions">Pentru a șterge o prezentare, trebuie să selectați cererea și răspunsul.</string>
+  <string name="dialog_message_not_deleted_not_all_selected_invitations">Pentru a șterge o invitație, trebuie să selectați cererea și răspunsul.</string>
+  <string name="delete_contact">Ștergeți contactul</string>
+  <string name="dialog_title_delete_contact">Confirmați ștergerea contactului</string>
+  <string name="dialog_message_delete_contact">Sigur doriți să ștergeți acest contact și toate schimburile de mesaje cu el?</string>
+  <string name="contact_deleted_toast">Contact șters</string>
+  <!--This is shown in the action bar when opening an image in fullscreen that the user sent-->
+  <string name="you">Dvs.</string>
+  <string name="save_image">Salvați imaginea</string>
+  <string name="dialog_title_save_image">Salvați imaginea?</string>
+  <string name="dialog_message_save_image">Salvarea imaginii va permite altor aplicații să o acceseze.\n\nSigur doriți să o salvați?</string>
+  <string name="save_image_success">Imaginea a fost salvată</string>
+  <string name="save_image_error">Nu s-a putut salva imaginea</string>
+  <string name="dialog_title_no_image_support">Imagini indisponibile</string>
+  <string name="dialog_message_no_image_support">Versiunea Briar a contactului dvs. nu acceptă încă imaginile. Odată ce realizează un upgrade, veți vedea o altă pictogramă.</string>
+  <string name="dialog_title_image_support">Acum puteți trimite imagini acestui contact</string>
+  <string name="dialog_message_image_support">Atingeți această pictogramă pentru a atașa imagini.</string>
+  <string name="messaging_too_many_attachments_toast">Doar primele %d imagini vor fi trimise</string>
+  <string name="menu_contact">Contact</string>
+  <!--Adding Contacts-->
+  <string name="add_contact_title">Adăugați un contact din apropiere</string>
+  <string name="add_contact_error_two_way">Ați scanat amândoi codurile QR ale celuilalt?</string>
+  <string name="face_to_face">Trebuie să vă întâlniți cu persoana pe care doriți să o adăugați la contacte.\n\nAcest pas împiedică alte persoane să se substituie dvs. sau să citească mesajele dvs. în viitor.</string>
+  <string name="continue_button">Continuați</string>
+  <string name="try_again_button">Încercați din nou</string>
+  <string name="waiting_for_contact_to_scan">Se așteaptă scanarea de către contact și conectarea acestuia\u2026</string>
+  <string name="exchanging_contact_details">Se face schimbul de date de contact\u2026</string>
+  <string name="contact_added_toast">Contact adăugat: %s</string>
+  <string name="contact_already_exists">Contactul %s există deja</string>
+  <string name="contact_already_exists_general">Contactul există deja</string>
+  <string name="qr_code_invalid">Codul QR este nevalid!</string>
+  <string name="qr_code_too_old_1">Codul QR pe care l-ați scanat provine de la o versiune Briar mai veche.\n\nSolicitați contactului să actualizeze aplicația la cea mai recentă versiune, după care încercați din nou.</string>
+  <string name="qr_code_too_new_1">Codul QR pe care l-ați scanat provine de la o versiune Briar mai nouă.\n\nActualizați aplicația la cea mai recentă versiune, după care încercați din nou.</string>
+  <string name="mailbox_qr_code_for_contact">Codul QR pe care l-ați scanat provine de la o Cutie poștală Briar.\n\nDacă doriți să conectați Cutia poștală, vă rugăm să mergeți în Setări &gt; Cutie Poștală în meniul Briar..</string>
+  <string name="qr_code_format_unknown">Codul QR pe care l-ați scanat nu este menit pentru a adăuga un contact Briar.\n\nVă rugăm să scanați codul QR afișat pe ecranul contactului dumneavoastră.</string>
+  <string name="camera_error">Eroare cameră</string>
+  <string name="connecting_to_device">Se conectează la dispozitiv\u2026</string>
+  <string name="authenticating_with_device">Se realizează autentificarea cu dispozitivul\u2026</string>
+  <string name="connection_error_title">Nu a fost posibilă conectarea cu contactul dvs.</string>
+  <string name="connection_error_feedback">Dacă problema persistă, <a href="feedback">trimiteți feedback</a> pentru a ne ajuta să îmbunătățim aplicația.</string>
+  <string name="info_both_must_scan">Trebuie să scanați amândoi codurile QR ale celuilalt.</string>
+  <!--Adding Contacts Remotely-->
+  <string name="add_contact_remotely_title_case">Adăugați contact de la distanță</string>
+  <string name="add_contact_nearby_title">Adaugă un contact din apropiere</string>
+  <string name="add_contact_remotely_title">Adaugă un contact de la distanță</string>
+  <string name="contact_link_intro">Introduceți linkul de la contactul dvs. aici</string>
+  <string name="contact_link_hint">Linkul contactului</string>
+  <string name="paste_button">Inserați</string>
+  <string name="add_contact_button">Adaugați contact</string>
+  <string name="copy_button">Copiați</string>
+  <string name="share_button">Partajați</string>
+  <string name="send_link_title">Schimbați linkuri</string>
+  <string name="add_contact_choose_nickname">Alegeți pseudonimul</string>
+  <string name="add_contact_choose_a_nickname">Introduceți un pseudonim</string>
+  <string name="nickname_intro">Dați un nume contactului. Doar dvs. îl puteți vedea.</string>
+  <string name="your_link">Trimiteți acest link contactului pe care doriți să-l adăugați</string>
+  <string name="link_clip_label">Link Briar</string>
+  <string name="link_copied_toast">Link copiat</string>
+  <string name="adding_contact_error">A apărut o eroare la adăugarea contactului.</string>
+  <string name="pending_contact_requests_snackbar">Există cereri de contact în așteptare</string>
+  <string name="pending_contact_requests">Cereri de contact în așteptare</string>
+  <string name="no_pending_contacts">Nu sunt contacte în așteptare</string>
+  <string name="waiting_for_contact_to_come_online">Se așteaptă intrarea online a contactului…</string>
+  <string name="connecting">Se conectează...</string>
+  <string name="adding_contact">Se adaugă contactul…</string>
+  <string name="adding_contact_failed">Adăugarea contactului a eșuat</string>
+  <string name="dialog_title_remove_pending_contact">Confirmați eliminarea</string>
+  <string name="dialog_message_remove_pending_contact">Acest contact este în curs de adăugare. Dacă îl eliminați acum, nu va fi adăugat.</string>
+  <string name="own_link_error">Introduceți linkul contactului, nu al dvs.</string>
+  <string name="nickname_missing">Introduceți un pseudonim</string>
+  <string name="invalid_link">Link nevalid</string>
+  <string name="unsupported_link">Linkul provine de la o versiune Briar mai nouă. Actualizați aplicația la cea mai recentă versiune, după care încercați din nou.</string>
+  <string name="intent_own_link">Ați deschis propriul link. Folosiți-l pe cel trimis de contactul pe care doriți să-l adăugați!</string>
+  <string name="missing_link">Introduceți un link</string>
+  <!--This is a numeral indicating the first step in a series of screens-->
+  <string name="step_1">1</string>
+  <!--This is a numeral indicating the second step in a series of screens-->
+  <string name="step_2">2</string>
+  <plurals name="contact_added_notification_text">
+    <item quantity="one">Contact nou adăugat.</item>
+    <item quantity="few">%d contacte noi adăugate.</item>
+    <item quantity="other">%d contacte noi adăugate.</item>
+  </plurals>
+  <string name="offline_state">Nu este conexiune la internet</string>
+  <string name="duplicate_link_dialog_title">Link duplicat</string>
+  <string name="duplicate_link_dialog_text_1">Aveți deja un contact în așteptare cu acest link: %s</string>
+  <string name="duplicate_link_dialog_text_1_contact">Aveți deja un contact cu acest link: %s</string>
+  <!--This is a question asking whether two nicknames refer to the same person-->
+  <string name="duplicate_link_dialog_text_2">%1$s și %2$s sunt aceeași persoană?</string>
+  <!--This is a button for answering that two nicknames do indeed refer to the same person. This
+	string will be used in a dialog button, so if the translation of this string is longer than 20
+	characters, please use "Yes" instead, and use "No" for the "Different Person" button-->
+  <string name="same_person_button">Aceeași persoană</string>
+  <!--This is a button for answering that two nicknames refer to different people. This string
+	will be used in a dialog button, so if the translation of this string longer than 20 characters,
+	please use "No" instead, and use "Yes" for the "Same Person" button-->
+  <string name="different_person_button">Persoană diferită</string>
+  <string name="duplicate_link_dialog_text_3">%1$s și  %2$sv-au trimis același link.\n\nUna dintre aceste persoane ar putea încerca să afle cine sunt contactele dvs.\n\nNu îi spuneți că ați primit același link de la altcineva.</string>
+  <string name="pending_contact_updated_toast">Contact în așteptare actualizat</string>
+  <string name="info_both_must_enter_links">Amândoi trebuie să adăugați linkurile celuilalt</string>
+  <!--Peer trust levels-->
+  <string name="peer_trust_level_unverified">Contact neverificat</string>
+  <string name="peer_trust_level_verified">Contact verificat</string>
+  <string name="peer_trust_level_ourselves">Eu</string>
+  <string name="peer_trust_level_stranger">Necunoscut</string>
+  <!--Introductions-->
+  <string name="introduction_onboarding_title">Prezentați contactele dvs.</string>
+  <string name="introduction_onboarding_text">Prezentați contactele dvs. unele altora pentru a se putea conecta prin Briar.</string>
+  <string name="introduction_menu_item">Realizați prezentarea</string>
+  <string name="introduction_activity_title">Selectați un contact</string>
+  <string name="introduction_not_possible">Aveți deja o prezentare în curs cu aceste contacte. Așteptați întâi finalizarea acesteia. Dacă dvs. sau contactele sunteți rareori online, este posibil ca acest proces să dureze ceva timp.</string>
+  <string name="introduction_message_title">Prezentați contactele</string>
+  <string name="introduction_message_hint">Adăugați un mesaj (opțional)</string>
+  <string name="introduction_button">Realizați prezentarea</string>
+  <string name="introduction_sent">Prezentarea dvs. a fost trimisă.</string>
+  <string name="introduction_error">A apărut o eroare în procesul de prezentare.</string>
+  <string name="introduction_request_sent">Ați cerut să prezentați contactul %1$s utilizatorului %2$s.</string>
+  <string name="introduction_request_received">%1$s a cerut să vă prezinte utilizatorului %2$s. Doriți să adăugați utilizatorul %2$s la lista dvs. de contacte?</string>
+  <string name="introduction_request_exists_received">%1$s a cerut să vă prezinte utilizatorului %2$s, dar %2$s este deja în lista dvs. de contacte. Deoarece s-ar putea ca %1$s să nu știe acest lucru, puteți totuși răspunde:</string>
+  <string name="introduction_request_answered_received">%1$s a cerut să vă prezinte utilizatorului %2$s.</string>
+  <string name="introduction_response_accepted_sent">Ați acceptat prezentarea utilizatorului %1$s.</string>
+  <string name="introduction_response_accepted_sent_info">Înainte de a adăuga utilizatorul %1$s la contactele dvs., acesta trebuie să accepte și prezentarea. Acest lucru ar putea dura ceva timp.</string>
+  <string name="introduction_response_declined_sent">Ați refuzat prezentarea utilizatorului %1$s.</string>
+  <string name="introduction_response_declined_auto">Prezentarea utilizatorului %1$s a fost refuzată automat.</string>
+  <string name="introduction_response_accepted_received">%1$s a acceptat prezentarea utilizatorului %2$s.</string>
+  <string name="introduction_response_declined_received">%1$s a refuzat prezentarea utilizatorului %2$s.</string>
+  <string name="introduction_response_declined_received_by_introducee">%1$s spune că utilizatorul %2$s a refuzat prezentarea.</string>
+  <!--Connect via Bluetooth-->
+  <string name="menu_item_connect_via_bluetooth">Conectare prin Bluetooth</string>
+  <string name="connect_via_bluetooth_title">Conectare prin Bluetooth</string>
+  <string name="connect_via_bluetooth_intro">În cazul în care conexiunile Bluetooth nu funcționează automat, puteți utiliza acest ecran pentru a vă conecta manual.\n\nContactul trebuie să fie în apropiere pentru ca procedura să funcționeze.\n\nDvs. și contactul trebuie să apăsați pe „Start” simultan.</string>
+  <string name="connect_via_bluetooth_already_discovering">Încercați deja să vă conectați prin Bluetooth. Încercați din nou în scurt timp.</string>
+  <string name="connect_via_bluetooth_no_location_permission">Nu se poate continua fără a permite accesul la locație</string>
+  <string name="connect_via_bluetooth_no_bluetooth_permission">Nu se poate continua fără permisiunea dispozitivelor din apropiere</string>
+  <string name="connect_via_bluetooth_start">Se conectează prin Bluetooth...</string>
+  <string name="connect_via_bluetooth_success">Conectare reușită prin Bluetooth</string>
+  <string name="connect_via_bluetooth_error">Nu s-a reușit conectarea prin Bluetooth.</string>
+  <string name="connect_via_bluetooth_error_not_supported">Dispozitivul nu acceptă Bluetooth.</string>
+  <!--Private Groups-->
+  <string name="groups_list_empty">Nu sunt grupuri de afișat</string>
+  <string name="groups_list_empty_action">Atingeți pictograma + pentru a crea un grup sau solicitați-le contactelor dvs. să partajeze grupuri cu dvs.</string>
+  <string name="groups_created_by">Creat de %s</string>
+  <plurals name="messages">
+    <item quantity="one">%d mesaj</item>
+    <item quantity="few">%d mesaje</item>
+    <item quantity="other">%d mesaje</item>
+  </plurals>
+  <string name="groups_group_is_empty">Acest grup este gol</string>
+  <string name="groups_group_is_dissolved">Acest grup a fost dizolvat</string>
+  <string name="groups_remove">Eliminați</string>
+  <string name="groups_create_group_title">Creați grup privat</string>
+  <string name="groups_create_group_button">Creați grup</string>
+  <string name="groups_create_group_invitation_button">Trimiteți invitație</string>
+  <string name="groups_create_group_hint">Alegeți un nume pentru grupul dvs. privat</string>
+  <string name="groups_invitation_sent">Invitația in grup a fost trimisă</string>
+  <string name="groups_member_list">Lista de membrii</string>
+  <string name="groups_invite_members">Invitați membri</string>
+  <string name="groups_member_created_you">Ați creat grupul</string>
+  <string name="groups_member_created">%s a creat grupul</string>
+  <string name="groups_member_joined_you">V-ați alăturat grupului</string>
+  <string name="groups_member_joined">%s s-a alăturat grupului</string>
+  <string name="groups_leave">Părăsiți grupul</string>
+  <string name="groups_leave_dialog_title">Confirmați părăsirea grupului</string>
+  <string name="groups_leave_dialog_message">Sigur doriți să părăsiți acest grup?</string>
+  <string name="groups_dissolve">Dizolvați grupul</string>
+  <string name="groups_dissolve_dialog_title">Confirmați dizolvarea grupului</string>
+  <string name="groups_dissolve_dialog_message">Sigur doriți să dizolvați acest grup?\n\nToți ceilalți membri vor fi în imposibilitatea de a continua conversația și s-ar putea să nu primească cele mai recente mesaje.</string>
+  <string name="groups_dissolve_button">Dizolvați</string>
+  <string name="groups_dissolved_dialog_title">Grupul a fost dizolvat</string>
+  <string name="groups_dissolved_dialog_message">Creatorul acestui grup l-a dizolvat.\n\nNu mai puteți scrie mesaje către grup și nu mai puteți primi mesajele deja scrise.</string>
+  <!--Private Group Invitations-->
+  <string name="groups_invitations_title">Invitații în grup</string>
+  <string name="groups_invitations_invitation_sent">Ați invitat utilizatorul %1$s să se alăture grupului „%2$s”.</string>
+  <string name="groups_invitations_invitation_received">%1$s v-a invitat să vă alăturați grupului „%2$s”.</string>
+  <string name="groups_invitations_joined">S-a alăturat grupului</string>
+  <string name="groups_invitations_declined">Invitația în grup a fost refuzată</string>
+  <plurals name="groups_invitations_open">
+    <item quantity="one">%d invitație în grup deschisă</item>
+    <item quantity="few">%d invitații în grup deschise</item>
+    <item quantity="other">%d invitații în grup deschise</item>
+  </plurals>
+  <string name="groups_invitations_response_accepted_sent">Ați acceptat invitația în grup de la %s.</string>
+  <string name="groups_invitations_response_declined_sent">Ați refuzat invitația în grup de la %s.</string>
+  <string name="groups_invitations_response_declined_auto">Invitația în grup de la %s a fost refuzată automat.</string>
+  <string name="groups_invitations_response_accepted_received">%s a acceptat invitația în grup.</string>
+  <string name="groups_invitations_response_declined_received">%s a refuzat invitația în grup.</string>
+  <string name="sharing_status_groups">Doar persoana care a creat grupul poate invita membri noi. Mai jos vedeți toți membrii actuali ai grupului.</string>
+  <!--Private Groups Revealing Contacts-->
+  <string name="groups_reveal_contacts">Arărați contactele</string>
+  <string name="groups_reveal_dialog_message">Puteți alege să arătați contactele tuturor membrilor actuali și viitori ai acestui grup.\n\nAfișarea contactelor face conexiunea dvs. la grup mai rapidă și mai fiabilă, deoarece puteți comunica cu contactele dezvăluite chiar și atunci când creatorul grupului este offline.</string>
+  <string name="groups_reveal_visible">Relația de contact este vizibilă grupului</string>
+  <string name="groups_reveal_visible_revealed_by_us">Relația de contact este vizibilă grupului (dezvăluită de dvs.)</string>
+  <string name="groups_reveal_visible_revealed_by_contact">Relația de contact este vizibilă grupului (dezvăluită de %s)</string>
+  <string name="groups_reveal_invisible">Relația de contact nu este vizibilă grupului</string>
+  <!--Forums-->
+  <string name="no_forums">Nu sunt forumuri de afișat</string>
+  <string name="no_forums_action">Atingeți pictograma + pentru a crea un forum sau solicitați-le contactelor dvs. să partajeze grupuri cu dvs.</string>
+  <string name="create_forum_title">Creați un forum</string>
+  <string name="choose_forum_hint">Alegeți un nume pentru forumul dvs.</string>
+  <string name="create_forum_button">Creați un forum</string>
+  <string name="forum_created_toast">Forum creat</string>
+  <string name="no_forum_posts">Nu sunt postări de afișat</string>
+  <string name="no_posts">Nu sunt postări</string>
+  <plurals name="posts">
+    <item quantity="one">%d postare</item>
+    <item quantity="few">%d postări</item>
+    <item quantity="other">%d postări</item>
+  </plurals>
+  <string name="forum_new_message_hint">Postare nouă</string>
+  <string name="forum_message_reply_hint">Răspuns nou</string>
+  <string name="btn_reply">Răspundeți</string>
+  <string name="forum_leave">Părăsiți forumul</string>
+  <string name="dialog_title_leave_forum">Confirmați părăsirea forumului</string>
+  <string name="dialog_message_leave_forum">Sigur doriți să părăsiți acest forum?\n\nS-ar putea ca orice contact cu care ați partajat acest forum să nu mai primească actualizări.</string>
+  <string name="dialog_button_leave">Părăsiți</string>
+  <string name="forum_left_toast">Ați părăsit forumul</string>
+  <!--Forum Sharing-->
+  <string name="forum_share_button">Partajați forumul</string>
+  <string name="contacts_selected">Contacte selectate</string>
+  <string name="activity_share_toolbar_header">Alegeți contactele</string>
+  <string name="no_contacts_selector">Nu sunt contacte de afișat</string>
+  <string name="no_contacts_selector_action">Reveniți aici după adăugarea unui contact</string>
+  <string name="forum_shared_snackbar">Forum partajat cu contactele selectate</string>
+  <string name="forum_share_message">Adăugați un mesaj (opțional)</string>
+  <string name="forum_share_error">A apărut o eroare la partajarea acestui forum.</string>
+  <string name="forum_invitation_received">%1$s a partajat forumul „%2$s” cu dvs.</string>
+  <string name="forum_invitation_sent">Ați partajat forumul „%1$s” cu %2$s.</string>
+  <string name="forum_invitations_title">Invitații la forum</string>
+  <string name="forum_invitation_exists">Ați acceptat deja o invitație la acest forum.\n\nAcceptarea mai multor invitații va face conexiunea dvs. la forum mai rapidă și mai fiabilă.</string>
+  <string name="forum_joined_toast">S-a alăturat forumului</string>
+  <string name="forum_declined_toast">Invitația a fost refuzată</string>
+  <string name="shared_by_format">Partajat de %s</string>
+  <string name="forum_invitation_already_sharing">Deja partajat</string>
+  <string name="forum_invitation_already_invited">Invitație deja trimisă</string>
+  <string name="forum_invitation_invite_received">Invitație deja primită</string>
+  <string name="forum_invitation_not_supported">Nu este susținut de acest contact</string>
+  <string name="forum_invitation_error">Eroare. Aceasta este o eroare și nu este vina dumneavoastră</string>
+  <string name="forum_invitation_response_accepted_sent">Ați acceptat invitația la forum de la %s.</string>
+  <string name="forum_invitation_response_declined_sent">Ați refuzat invitația la forum de la %s.</string>
+  <string name="forum_invitation_response_declined_auto">Invitația la forumu de la %s a fost refuzată automat.</string>
+  <string name="forum_invitation_response_accepted_received">%s a acceptat invitația la forum.</string>
+  <string name="forum_invitation_response_declined_received">%s a refuzat invitația la forum.</string>
+  <string name="sharing_status">Starea partajării</string>
+  <string name="sharing_status_forum">Orice membru al unui forum îl poate partaja cu contactele sale. Partajați acest forum cu următoarele contacte. Pot exista și alți membri pe care să nu îi puteți vedea.</string>
+  <string name="shared_with">Partajat cu %1$d (%2$d online)</string>
+  <plurals name="forums_shared">
+    <item quantity="one">%d forum partajat de contacte</item>
+    <item quantity="few">%d forumuri partajate de contacte</item>
+    <item quantity="other">%d forumuri partajate de contacte</item>
+  </plurals>
+  <string name="nobody">Nimeni</string>
+  <!--Blogs-->
+  <string name="blogs_other_blog_empty_state">Nu sunt postări de afișat</string>
+  <string name="read_more">citiți mai multe</string>
+  <string name="blogs_write_blog_post">Scrieți postare pe blog</string>
+  <string name="blogs_write_blog_post_body_hint">Introduceți postarea pe blog</string>
+  <string name="blogs_publish_blog_post">Publicați</string>
+  <string name="blogs_blog_post_created">Postare pe blog creată</string>
+  <string name="blogs_blog_post_received">S-a primit o nouă postare pe blog</string>
+  <string name="blogs_blog_post_scroll_to">Derulați la</string>
+  <string name="blogs_feed_empty_state">Nu sunt postări de afișat</string>
+  <string name="blogs_feed_empty_state_action">Postările de la contactele dvs. și de pe blogurile la care sunteți abonat vor apărea aici\n\nAtingeți pictograma stilou pentru a crea o postare</string>
+  <string name="blogs_remove_blog">Eliminați blog</string>
+  <string name="blogs_remove_blog_dialog_message">Sigur doriți să eliminați acest blog?\n\nPostările vor fi eliminate de pe dispozitivul dvs., dar nu și de pe dispozitivele celorlalți.\n\nS-ar putea ca persoanele de contact cu care ați partajat acest blog să nu mai primească actualizări.</string>
+  <string name="blogs_remove_blog_ok">Eliminați</string>
+  <string name="blogs_blog_removed">Blog eliminat</string>
+  <string name="blogs_reblog_comment_hint">Adăugați un comentariu (opțional)</string>
+  <string name="blogs_reblog_button">Republicați postarea</string>
+  <!--Blog Sharing-->
+  <string name="blogs_sharing_share">Partajați blog</string>
+  <string name="blogs_sharing_error">A apărut o eroare la partajarea acestui blog.</string>
+  <string name="blogs_sharing_button">Partajați blog</string>
+  <string name="blogs_sharing_snackbar">Blog partajat cu contactele selectate</string>
+  <string name="blogs_sharing_response_accepted_sent">Ați acceptat invitația la blog de la %s.</string>
+  <string name="blogs_sharing_response_declined_sent">Ați refuzat invitația la blog de la %s.</string>
+  <string name="blogs_sharing_response_declined_auto">Invitația la blog de la %s a fost refuzată automat.</string>
+  <string name="blogs_sharing_response_accepted_received">%s a acceptat invitația la blog.</string>
+  <string name="blogs_sharing_response_declined_received">%s a refuzat invitația la blog.</string>
+  <string name="blogs_sharing_invitation_received">%1$s a partajat blogul „%2$s” cu dvs.</string>
+  <string name="blogs_sharing_invitation_sent">Ați partajat blogul „%1$s” cu %2$s.</string>
+  <string name="blogs_sharing_invitations_title">Invitații la blog</string>
+  <string name="blogs_sharing_joined_toast">Abonat la blog</string>
+  <string name="blogs_sharing_declined_toast">Invitație refuzată</string>
+  <string name="sharing_status_blog">Orice abonat la un blog îl poate partaja cu persoanele sale de contact. În prezent, partajați acest blog cu contactele prezentate în continuare. Pot exista și alți abonați pe care să nu îi puteți vedea.</string>
+  <!--RSS Feeds-->
+  <string name="blogs_rss_feeds_import">Importați flux RSS</string>
+  <string name="blogs_rss_feeds_import_button">Importați</string>
+  <string name="blogs_rss_feeds_import_hint">Introduceți adresa URL a fluxului RSS</string>
+  <string name="blogs_rss_feeds_import_progress">Importarea RSS Feed…</string>
+  <string name="blogs_rss_feeds_import_error">Ne pare rău, dar a apărut o eroare la importarea fluxului dvs.</string>
+  <string name="blogs_rss_feeds_import_title">Importați feed din fișier</string>
+  <string name="blogs_rss_feeds">Fluxuri RSS</string>
+  <string name="blogs_rss_feeds_manage_imported">Importat:</string>
+  <string name="blogs_rss_feeds_manage_author">Autor:</string>
+  <string name="blogs_rss_feeds_manage_updated">Ultima actualizare:</string>
+  <string name="blogs_rss_remove_feed">Eliminați flux</string>
+  <string name="blogs_rss_remove_feed_dialog_message">Sigur doriți să eliminați acest flux?\n\nPostările vor fi eliminate de pe dispozitivul dvs., dar nu și de pe dispozitivele celorlalți.\n\nS-ar putea ca persoanele de contact cu care ați partajat acest flux să nu mai primească actualizări..</string>
+  <string name="blogs_rss_remove_feed_ok">Eliminați</string>
+  <string name="blogs_rss_feeds_manage_empty_state">Nu sunt fluxuri RSS de afișat\n\nAtingeți pictograma + pentru a importa un flux</string>
+  <string name="blogs_rss_feeds_manage_error">A apărut o eroare la încărcarea fluxurilor dvs. Încercați din nou mai târziu.</string>
+  <!--Settings Profile Picture-->
+  <string name="change_profile_picture">Atingeți pentru a schimba poza dvs. de profil</string>
+  <string name="dialog_confirm_profile_picture_title">Modificați poza de profil</string>
+  <string name="dialog_confirm_profile_picture_remark">Doar contactele dvs. pot vedea această poză</string>
+  <string name="change_profile_picture_failed_message">Ne pare rău, dar ceva nu a funcționat în momentul actualizării pozei de profil</string>
+  <!--Settings Display-->
+  <string name="pref_language_title">Limbă și regiune</string>
+  <string name="pref_language_changed">Această setare se va aplica după repornirea Briar. Deconectați-vă din Briar și reporniți aplicația.</string>
+  <string name="pref_language_default">Setări implicite sistem</string>
+  <string name="display_settings_title">Afișaj</string>
+  <string name="pref_theme_title">Temă</string>
+  <string name="pref_theme_light">Luminoasă</string>
+  <string name="pref_theme_dark">Întunecată</string>
+  <string name="pref_theme_system">Setări implicite sistem</string>
+  <!--Settings Connections-->
+  <string name="network_settings_title">Conexiuni</string>
+  <string name="bluetooth_setting">Conectare la contacte prin Bluetooth</string>
+  <string name="wifi_setting">Conectare la contacte prin aceeași rețea Wi-Fi</string>
+  <string name="tor_enable_title">Conectare la contacte prin internet</string>
+  <string name="tor_enable_summary">Toate conexiunile se fac prin rețeaua Tor pentru protejarea confidențialității</string>
+  <string name="tor_network_setting">Metoda de conectare la rețeaua Tor</string>
+  <string name="tor_network_setting_automatic">Automat, în funcție de locație</string>
+  <string name="tor_network_setting_without_bridges">Folosiți Tor fără punți</string>
+  <string name="tor_network_setting_with_bridges">Folosiți Tor cu punți</string>
+  <string name="tor_network_setting_never">Nu vă conectați la internet</string>
+  <!--How and when Briar will connect to Tor: E.g. "Don't connect to the Internet (in China)" or "Use Tor network with bridges (in Belarus)"-->
+  <string name="tor_network_setting_summary">Automat: %1$s (în %2$s)</string>
+  <string name="tor_mobile_data_title">Utilizați date mobile</string>
+  <string name="tor_only_when_charging_title">Conectați-vă la internet doar când dispozitivul se încarcă</string>
+  <string name="tor_only_when_charging_summary">Se dezactivează conexiunea la internet când dispozitivul funcționează pe baterie</string>
+  <!--Settings Security and Panic-->
+  <string name="security_settings_title">Securitate</string>
+  <string name="pref_lock_title">Blocare aplicație</string>
+  <string name="pref_lock_summary">Folosiți blocarea ecranului dispozitivului pentru protejarea Briar cand sunteți autentificat</string>
+  <string name="pref_lock_disabled_summary">Pentru a utiliza această funcție, setați blocarea ecranului dispozitivului dvs.</string>
+  <string name="pref_lock_timeout_title">Durata de inactivitate până la blocarea ecranului</string>
+  <!--The %s placeholder is replaced with the following time spans, e.g. 5 Minutes, 1 Hour-->
+  <string name="pref_lock_timeout_summary">Când nu utilizați Briar, se va bloca automat după %s</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_1">1 minut</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_5">5 minute</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_15">15 minute</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_30">30 de minute</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_60">1 oră</string>
+  <string name="pref_lock_timeout_never">Niciodată</string>
+  <string name="pref_lock_timeout_never_summary">Nu blocați Briar automat niciodată</string>
+  <string name="change_password">Modificați parola</string>
+  <string name="current_password">Parola curentă</string>
+  <string name="choose_new_password">Parola nouă</string>
+  <string name="confirm_new_password">Confirmați parola nouă</string>
+  <string name="password_changed">Parola a fost modificată.</string>
+  <string name="panic_setting">Setarea butonului de panică</string>
+  <string name="panic_setting_title">Buton de panică</string>
+  <string name="panic_setting_hint">Configurați modul în care va reacționa Briar când folosiți o aplicație de buton de panică</string>
+  <string name="panic_app_setting_title">Aplicație de buton de panică</string>
+  <string name="unknown_app">aplicație necunoscută</string>
+  <string name="panic_app_setting_summary">Nu a fost setată nicio aplicație</string>
+  <string name="panic_app_setting_none">Niciuna</string>
+  <string name="dialog_title_connect_panic_app">Confirmați aplicația de panică</string>
+  <string name="dialog_message_connect_panic_app">Sigur doriți să permiteți ca %1$s să declanșeze acțiuni distructive pentru butonul de panică?</string>
+  <string name="panic_setting_destructive_action">Acțiuni distructive</string>
+  <string name="panic_setting_signout_title">Deconectare</string>
+  <string name="panic_setting_signout_summary">Deconectați-vă din Briar la apăsarea unui buton de panică</string>
+  <string name="purge_setting_title">Ștergerea contului</string>
+  <string name="purge_setting_summary">Ștergeți contul Briar la apăsarea unui buton de panică. Atenție: aceasta acțiune va șterge definitiv identitatea, contactele și mesajele dvs.</string>
+  <!--Settings Notifications-->
+  <string name="notification_settings_title">Notificări</string>
+  <string name="notify_sign_in_title">Reamintește-mi să mă conectez</string>
+  <string name="notify_sign_in_summary">Afișați o notificare când telefonul pornește sau aplicația a fost actualizată</string>
+  <string name="notify_private_messages_setting_title">Mesaje private</string>
+  <string name="notify_private_messages_setting_summary">Afișați alerte pentru mesajele private</string>
+  <string name="notify_private_messages_setting_summary_26">Configurați alerte pentru mesajele private</string>
+  <string name="notify_group_messages_setting_title">Mesaje de grup</string>
+  <string name="notify_group_messages_setting_summary">Afișați alerte pentru mesajele de grup</string>
+  <string name="notify_group_messages_setting_summary_26">Configurați alerte pentru mesajele de grup</string>
+  <string name="notify_forum_posts_setting_title">Postări pe forum</string>
+  <string name="notify_forum_posts_setting_summary">Afișați alerte pentru mesajele de pe forum</string>
+  <string name="notify_forum_posts_setting_summary_26">Configurați alerte pentru mesajele de pe forum</string>
+  <string name="notify_blog_posts_setting_title">Postări pe blog</string>
+  <string name="notify_blog_posts_setting_summary">Afișați alerte pentru mesajele de pe blog</string>
+  <string name="notify_blog_posts_setting_summary_26">Configurați alerte pentru mesajele de pe blog</string>
+  <string name="notify_vibration_setting">Vibrație</string>
+  <string name="notify_sound_setting">Sunet</string>
+  <string name="notify_sound_setting_default">Sunet implicit</string>
+  <string name="notify_sound_setting_disabled">Niciunul</string>
+  <string name="choose_ringtone_title">Alegeți sunetul</string>
+  <string name="cannot_load_ringtone">Nu se poate încărca sunetul</string>
+  <!--Mailbox-->
+  <string name="mailbox_settings_title">Cutia poștală</string>
+  <string name="mailbox_setup_title">Configurarea cutiei poștale</string>
+  <string name="mailbox_setup_intro">Având o cutie poștală, contactele dvs. pot să vă trimită mesaje în timp ce sunteți offline. Cutia poștală va primi mesajele și le va stoca până când intrați online.\n
+		\nPuteți instala aplicația de cutie poștală Briar pe un dispozitiv de rezervă. Țineți-l conectat la o sursă de curent și la Wi-Fi, astfel încât să fie întotdeauna online.</string>
+  <string name="mailbox_setup_download">În primul rând, instalați aplicația de cutie poștală pe un alt dispozitiv căutând „Cutie poștală Briar” în Google Play sau de unde ați descărcat Briar.\n
+		\nApoi conectați cutia poștală la Briar prin scanarea codului QR afișat de aplicația de cutie poștală.</string>
+  <string name="mailbox_setup_download_link">Partajați linkul de descărcare</string>
+  <string name="mailbox_setup_button_scan">Scanați codul QR al cutiei poștale</string>
+  <string name="permission_camera_qr_denied_body">Ați refuzat accesul la cameră, dar scanarea unui cod QR necesită utilizarea camerei.\n\nLuați în considerare acordarea accesului.</string>
+  <string name="mailbox_setup_connecting">Se conectează la Cutia poștală…</string>
+  <!--This string is shown when connecting to a Mailbox for the first time. The placeholder will be replaced with a duration, e.g. "2 minutes".-->
+  <string name="mailbox_setup_connecting_info">Asta ar putea dura până la %1s</string>
+  <string name="mailbox_qr_code_too_old">Codul QR pe care l-ați scanat provine de la o versiune de Cutie poștală Briar mai veche.\n\nActualizați Cutia poștală la cea mai recentă versiune, după care încercați din nou.</string>
+  <string name="mailbox_qr_code_too_new">Codul QR pe care l-ați scanat provine de la o versiune de Cutie poștală Briar mai nouă.\n\nActualizați Briar la cea mai recentă versiune, după care încercați din nou.</string>
+  <string name="contact_qr_code_for_mailbox">Codul QR pe care l-ați scanat este pentru a adăuga un contact Briar.\n\nDacă doriți să adăugați un contact, vă rugăm să mergeți la lista de contacte și să apăsați +.</string>
+  <string name="mailbox_setup_qr_code_wrong_description">Codul QR pe care l-ați scanat nu provine de la o Cutie poștală Briar.\n\nVă rugăm să deschideți aplicația de Cutie poștală Briar pe dispozitivul pe care este instalată și scanați codul QR pe care îl afișează.</string>
+  <string name="mailbox_setup_already_paired_title">Cutia poștală este deja conectată</string>
+  <string name="mailbox_setup_already_paired_description">Anulați conectarea cutiei poștale la celălalt dispozitiv și încercați din nou.</string>
+  <string name="mailbox_setup_io_error_title">Nu s-a reușit conectarea</string>
+  <string name="mailbox_setup_io_error_description">Asigurați-vă că ambele dispozitive sunt conectate la internet și încercați din nou.</string>
+  <string name="mailbox_setup_assertion_error_title">Eroare de cutie poștală</string>
+  <string name="mailbox_setup_assertion_error_description">Trimiteți feedback (cu date anonime) prin intermediul aplicației Briar dacă problema persistă.</string>
+  <string name="mailbox_setup_camera_error_description">Nu s-a putut accesa camera. Încercați din nou, poate după repornirea dispozitivului.</string>
+  <string name="mailbox_setup_paired_title">Conectată</string>
+  <string name="mailbox_setup_paired_description">Cutia dvs. poștală a fost conectată la Briar.\n
+		\nȚineți conectată cutia poștală la o sursă de alimentare și la Wi-Fi, astfel încât să fie întotdeauna online.</string>
+  <string name="tor_offline_title">Offline</string>
+  <string name="tor_offline_description">Asigurați-vă că acest dispozitiv este online și că sunt permise conexiunile la internet.\n
+\nDupă aceea, așteptați ca pictograma cu globul pământesc din ecranul de configurare a conexiunii să devină verde.</string>
+  <string name="tor_offline_button_check">Verificați setările de conectare</string>
+  <string name="mailbox_status_title">Starea cutiei poștale</string>
+  <string name="mailbox_status_connected_title">Cutia poștală este în funcțiune</string>
+  <string name="mailbox_status_problem_title">Briar nu se poate conecta la cutia poștală</string>
+  <string name="mailbox_status_failure_title">Cutia poștală nu este disponibilă</string>
+  <string name="mailbox_status_app_too_old_title">Versiunea Briar este prea veche</string>
+  <string name="mailbox_status_app_too_old_message">Actualizați aplicația Briar la cea mai nouă versiune și încercați din nou.</string>
+  <string name="mailbox_status_mailbox_too_old_title">Versiunea cutiei poștale este prea veche</string>
+  <string name="mailbox_status_mailbox_too_old_message">Actualizați cutia poștală la cea mai nouă versiune și încercați din nou.</string>
+  <string name="mailbox_status_check_button">Verificați conexiunea</string>
+  <!--Example for string substitution: Last connection: 3min ago-->
+  <string name="mailbox_status_connected_info">Ultima conectare: %s</string>
+  <!--Indicates that there never was a connection to the mailbox. Last connection: Never-->
+  <string name="mailbox_status_connected_never">Niciodată</string>
+  <string name="mailbox_status_unlink_button">Deconectați</string>
+  <string name="mailbox_status_unlink_dialog_title">Deconectați cutia poștală?</string>
+  <string name="mailbox_status_unlink_dialog_question">Sigur doriți deconectarea cutiei poștale?</string>
+  <string name="mailbox_status_unlink_dialog_warning">În cazul în care deconectați cutia poștală, nu veți mai putea primii mesaje cât timp Briar este offline.</string>
+  <string name="mailbox_status_unlink_no_wipe_title">Cutia dvs. poștală a fost deconectată.</string>
+  <string name="mailbox_status_unlink_no_wipe_message">Data viitoare când veți avea acces la dispozitivul pe care aveți cutia poștală, deschideți aplicația de cutie poștală și atingeți butonul „Deconectare” pentru a finaliza procesul.\n\nDacă nu mai aveți acces la dispozitivul pe care aveți cutia poștală, nu vă faceți griji. Datele dvs. sunt criptate, astfel încât vor rămâne în siguranță chiar dacă nu finalizați procesul.</string>
+  <string name="mailbox_status_unlink_success">Cutia dvs. poștală a fost deconectată</string>
+  <string name="mailbox_error_notification_channel_title">Problemă cu cutia poștală Briar</string>
+  <string name="mailbox_error_notification_title">Cutia poștală Briar nu este disponibilă</string>
+  <string name="mailbox_error_notification_text">Atingeți pentru a remedia problema.</string>
+  <string name="mailbox_error_wizard_button">Remediați problema</string>
+  <string name="mailbox_error_wizard_title">Expert de depanare a cutiei poștale</string>
+  <string name="mailbox_error_wizard_question1">Aveți acces la dispozitivul pe care aveți cutia poștală?</string>
+  <string name="mailbox_error_wizard_answer1">Da, am acces acum.</string>
+  <string name="mailbox_error_wizard_answer2">Nu acum, dar pot avea acces mai târziu.</string>
+  <string name="mailbox_error_wizard_answer3">Nu, nu mai am acces.</string>
+  <string name="mailbox_error_wizard_info1_1">Verificați dacă dispozitivul pe care aveți cutia poștală este pornit și este conectat la internet.</string>
+  <string name="mailbox_error_wizard_question1_1">Deschideți aplicația de cutie poștală. Ce vedeți?</string>
+  <string name="mailbox_error_wizard_answer1_1">Văd instrucțiuni pentru setarea cutiei poștale</string>
+  <string name="mailbox_error_wizard_answer1_2">Văd un cod QR</string>
+  <string name="mailbox_error_wizard_answer1_3">Văd „Cutia poștală funcționează” (Mailbox is running)</string>
+  <string name="mailbox_error_wizard_answer1_4">Văd „Dispozitiv offline” (Device offlie)</string>
+  <string name="mailbox_error_wizard_info1_1_1">Deconectați cutia poștală folosind butonul de mai jos, apoi urmați instrucțiunile de pe dispozitivul pe care aveți cutia poștală pentru a o conecta din nou.</string>
+  <string name="mailbox_error_wizard_info_1_1_2">Deconectați cutia poștală folosind butonul de mai jos, apoi scanați codul QR pentru a o conecta din nou.</string>
+  <string name="mailbox_error_wizard_info1_1_3">Folosiți butonul de mai jos pentru verificarea conexiunii dintre Briar și cutia poștală.\n\n
+		Dacă apare din nou o eroare de conectare:\n
+		\u2022 Verificați dacă aplicațiile de cutie poștală și Briar sunt actualizate la cea mai recentă versiune.\n
+		\u2022 Reporniți dispozitivele pe care sunt instalate aplicațiile de cutie poștală și Briar și încercați din nou.</string>
+  <string name="mailbox_error_wizard_info1_1_4">Verificați dacă dispozitivul pe care este instalată cutia poștală este conectat corect la internet.\n\nVerificați dacă ceasul de pe dispozitivul pe care este aplcația de cutie poștală indică ora, data și fusul orar corecte.\n\nVerificați dacă aplicațiile de cutie poștală și Briar sunt actualizate la cea mai recentă versiune.\n\nReporniți dispozitivele pe care aveți aplicațiile de cutie poștală și Briar și încercați din nou.</string>
+  <string name="mailbox_error_wizard_info2">Reveniți la acest ecran atunci când aveți acces la dispozitiv.</string>
+  <string name="mailbox_error_wizard_info3">Deconectați cutia poștală folosind butonul de mai jos\n\nDupă ce ați deconectat vechea cutie poștală, puteți configura una nouă în orice moment.</string>
+  <!--About-->
+  <string name="about_title">Despre</string>
+  <string name="briar_version">Versiune Briar: %s</string>
+  <string name="tor_version">Versiune Tor: %s</string>
+  <string name="links">Linkuri</string>
+  <string name="briar_website">\u2022 <a href="">Site</a></string>
+  <string name="briar_source_code">\u2022 <a href="">Cod sursă</a></string>
+  <string name="briar_changelog">\u2022 <a href="">Jurnal de modificări</a></string>
+  <string name="briar_privacy_policy">\u2022 <a href="">Politica de confidențialitate</a></string>
+  <!--Here translators can add their names or Transifex usernames(eg "Thanks to all the contributors at the Localization Lab, especially Tom, Matthew and Jerry")-->
+  <string name="translator_thanks">Mulțumiri tuturor colaboratorilor de la Localization Lab</string>
+  <!--Conversation Settings-->
+  <string name="disappearing_messages_title">Mesaje care dispar</string>
+  <string name="disappearing_messages_explanation_long">Activarea acestei setări va face ca noile
+		mesaje din această conversație să dispară automat după 7 zile.
+		\n\nNumărătoarea inversă pentru copia expeditorului începe după livrare.
+		Numărătoarea inversă începe pentru destinatar după citirea mesajului.
+		\n\nMesajele care vor dispărea sunt marcate cu o pictogramă de bombă.
+		\n\nRețineți că destinatarii pot face în continuare copii ale mesajelor pe care le trimiteți.
+		\n\nDacă modificați această setare, ea se va aplica imediat la mesajele dvs. noi și la
+		mesajele contactelor odată ce primesc următorul mesaj de la dvs.
+		Și contactul dvs. poate modifica această setare pentru ambele părți.</string>
+  <string name="learn_more">Aflați mai multe</string>
+  <string name="disappearing_messages_summary">Faceți ca mesajele viitoare din această conversație să dispară automat după 7 zile.</string>
+  <!--Settings Actions-->
+  <string name="pref_category_actions">Actiuni</string>
+  <string name="share_app_link">Partajează legătură de descărcare</string>
+  <string name="share_app_link_text">Descarcă Briar de la %s</string>
+  <string name="send_feedback">Trimiteți feedback</string>
+  <!--Link Warning-->
+  <string name="link_warning_title">Avertisment privind un link</string>
+  <string name="link_warning_intro">Urmează să deschideți linkul următor cu o aplicație externă.</string>
+  <string name="link_warning_text">Acest lucru poate duce la identificarea dvs. Gândiți-vă dacă aveți încredere în persoana care v-a trimis acest link și luați în considerare deschiderea acestuia cu browserul Tor.</string>
+  <string name="link_warning_open_link">Deschideți link</string>
+  <!--Crash Reporter-->
+  <string name="crash_report_title">Raport de cădere a aplicației Briar</string>
+  <string name="briar_crashed">Ne pare rău, dar aplicația Briar a căzut</string>
+  <string name="not_your_fault">Nu este vina dvs.</string>
+  <string name="please_send_report">Vă rugăm să ne ajutați să îmbunătățim Briar trimițându-ne un raport de cădere a aplicației.</string>
+  <string name="report_is_encrypted">Vă asigurăm că raportul este criptat și trimis securizat.</string>
+  <string name="feedback_title">Feedback</string>
+  <string name="describe_crash">Descrieți ce s-a întâmplat (opțional)</string>
+  <string name="enter_feedback">Introduceți feedbackul dvs.</string>
+  <string name="optional_contact_email">Adresa dvs. e-mail (opțional)</string>
+  <string name="privacy_policy">Prin trimiterea de date, sunteți de acord cu <a href="">politica noastră de confidențialitate</a></string>
+  <string name="include_debug_report_crash">Includeți date anonime despre căderea aplicației</string>
+  <string name="include_debug_report_feedback">Includeți date anonime despre acest dispozitiv</string>
+  <string name="dev_report_user_info">Informații despre utilizator</string>
+  <string name="dev_report_basic_info">Informații de bază</string>
+  <string name="dev_report_device_info">Informații despre dispozitiv</string>
+  <string name="dev_report_stacktrace">Eroare de urmărire stivă</string>
+  <string name="dev_report_time_info">Informații privind ora</string>
+  <string name="dev_report_memory">Memorie</string>
+  <string name="dev_report_storage">Stocare</string>
+  <string name="dev_report_connectivity">Conectivitate</string>
+  <string name="dev_report_network_usage">Utilizarea rețelei</string>
+  <string name="dev_report_build_config">Configurație versiune</string>
+  <string name="dev_report_logcat">Jurnal aplicație</string>
+  <string name="dev_report_device_features">Funcții dispozitiv</string>
+  <string name="send_report">Trimiteți raport</string>
+  <string name="close">Închideți</string>
+  <string name="dev_report_sending">Se trimite feedback…</string>
+  <string name="dev_report_sent">Feedback trimis</string>
+  <string name="dev_report_saved">Raport salvat. Va fi trimis data viitoare când vă conectați la Briar.</string>
+  <string name="dev_report_error">Eroare: trimiterea raportului a eșuat</string>
+  <!--Sign Out-->
+  <string name="progress_title_logout">În curs de deconectare din Briar...</string>
+  <!--Screen Filters & Tapjacking-->
+  <string name="screen_filter_title">S-a detectat o suprapunere de ecran</string>
+  <string name="screen_filter_body">O altă aplicație este suprapusă pe Briar. Pentru a asigura securitatea dvs., Briar nu va reacționa la atingeri în timpul suprapunerii altei aplicații..\n\nAplicațiile următoare ar putea fi suprapuse:\n\n%1$s</string>
+  <string name="screen_filter_body_api_30">O altă aplicație este suprapusă pe Briar. Pentru a asigura securitatea dvs., Briar nu va reacționa la atingeri în timpul suprapunerii altei aplicații.\n\nVerificați aplicațiile de mai jos pentru a o găsi pe cea responsabilă.</string>
+  <string name="screen_filter_allow">Permiteți suprapunerea acestor aplicații</string>
+  <string name="screen_filter_review_apps">Verificați aplicațiile</string>
+  <!--Permission Requests-->
+  <string name="permission_camera_title">Acces la camera foto</string>
+  <string name="permission_camera_request_body">Pentru a scana codul QR, Briar are nevoie de acces la cameră.</string>
+  <string name="permission_location_title">Acces la locație</string>
+  <string name="permission_nearby_devices_title">Permisiunea dispozitivelor apropiate</string>
+  <string name="permission_location_request_body">Pentru a putea descoperi dispozitive Bluetooth, Briar are nevoie de permisiunea de a accesa locația dvs.\n\nBriar nu stochează locația dvs. și nici nu o partajează cu nimeni.  </string>
+  <string name="permission_camera_location_title">Cameră foto și locație</string>
+  <string name="permission_camera_location_request_body">Pentru a scana codul QR, Briar are nevoie de acces la camera foto.\n\nPentru a putea descoperi dispozitive Bluetooth, Briar are nevoie de permisiunea de acces la locația dvs.\n\nBriar nu stochează locația dvs. și nici nu o partajează cu nimeni.</string>
+  <string name="permission_camera_bluetooth_title">Camera și dispozitivele din apropiere</string>
+  <string name="permission_camera_bluetooth_request_body">Pentru a scana codul QR, Briar are nevoie de acces la camera foto.\n\nPentru a descoperi dispozitive Bluetooth, Briar are nevoie de permisiunea de a găsi și de a se conecta la dispozitivele din apropiere.</string>
+  <string name="permission_camera_denied_body">Ați refuzat accesul la camera foto, dar folosirea acesteia este obligatorie pentru a adăuga contacte.\n\nVă rugăm să luați în considerare acordarea accesului.</string>
+  <string name="permission_location_denied_body">Ați refuzat accesul la locație, dar Briar are nevoie de această permisiune pentru a descoperi dispozitive Bluetooth.\n\nVă rugăm să luați în considerare acordarea accesului.</string>
+  <string name="permission_location_setting_title">Setări privind locația</string>
+  <string name="permission_location_setting_body">Funcția de locație a dispozitivului dvs. trebuie să fie activată pentru a găsi alte dispozitive prin Bluetooth. Activați locația pentru a continua. Puteți să o dezactivați din nou ulterior.</string>
+  <string name="permission_location_setting_hotspot_body">Setarea de localizare a dispozitivului dumneavoastră trebuie să fie activată pentru a crea un hotspot Wi-Fi. Vă rugăm să activați localizarea pentru a continua. Puteți să o dezactivați din nou după aceea.</string>
+  <string name="permission_location_setting_button">Activați locația</string>
+  <string name="permission_bluetooth_title">Permisiunea dispozitivelor apropiate</string>
+  <string name="permission_bluetooth_body">Pentru a utiliza comunicarea Bluetooth, Briar are nevoie de permisiunea de a găsi și de a se conecta la dispozitivele din apropiere.</string>
+  <string name="permission_bluetooth_denied_body">Ați refuzat accesul la dispozitivele din apropiere, dar Briar are nevoie de această permisiune pentru a utiliza Bluetooth.\n\nVă rugăm să luați în considerare acordarea accesului.</string>
+  <string name="qr_code">Cod QR</string>
+  <string name="show_qr_code_fullscreen">Afișați codul QR pe tot ecranul</string>
+  <!--App Locking-->
+  <string name="lock_unlock">Deblocarea Briar</string>
+  <string name="lock_unlock_verbose">Introduceți codul PIN, modelul sau parola pentru a debloca aplicația Briar</string>
+  <string name="lock_unlock_fingerprint_description">Pentru a continua, atingeți senzorul de amprentă cu degetul înregistrat</string>
+  <string name="lock_unlock_password">Utilizați parolă</string>
+  <string name="lock_is_locked">Aplicația Briar este blocată</string>
+  <string name="lock_tap_to_unlock">Atingeți pentru deblocare</string>
+  <!--Connections Screen-->
+  <string name="transports_help_text">Briar se poate conecta la contactele dvs. prin Internet, Wi-Fi sau Bluetooth.\n\nToate conexiunile la internet trec prin rețeaua Tor din motive de confidențialitate.\n\nDacă un contact poate fi accesat prin mai multe metode, Briar le va folosi simultan.</string>
+  <!--Share app offline-->
+  <string name="hotspot_title">Partajați această aplicație offline</string>
+  <string name="hotspot_intro">Partajați această aplicație cu o persoană din apropiere fără conexiune la internet, utilizând funcția Wi-Fi a telefonului dvs.
+		\n\nTelefonul dvs. va porni un hotspot Wi-Fi. Persoanele din apropiere se pot conecta la hotspot și pot descărca aplicația Briar de pe telefonul dvs.</string>
+  <string name="hotspot_button_start_sharing">Porniți hotspot</string>
+  <string name="hotspot_button_stop_sharing">Opriți hotspot</string>
+  <string name="hotspot_progress_text_start">Se configurează hotspot...</string>
+  <string name="hotspot_notification_channel_title">Hotspot Wi-Fi</string>
+  <string name="hotspot_notification_title">Se partajează Brian offline</string>
+  <string name="hotspot_button_connected">Înainte</string>
+  <string name="permission_hotspot_location_request_body">Pentru a crea un hotspot Wi-Fi, Briar are nevoie de permisiunea de a accesa locația dvs.\n\nBriar nu stochează locația dvs. și nici nu o partajează cu nimeni.</string>
+  <string name="permission_hotspot_location_request_precise_body">Pentru a crea un hotspot Wi-Fi, Briar are nevoie de permisiunea de a accesa locația dumneavoastră exactă.\n\nBriar nu stochează locația dumneavoastră și nu o împărtășește cu nimeni.</string>
+  <string name="permission_hotspot_location_denied_body">Ați refuzat accesul la locație, dar Briar are nevoie de această permisiune pentru a crea un hotspot Wi-Fi.\n\nVă rugăm să luați în considerare acordarea accesului.</string>
+  <string name="permission_hotspot_location_denied_precise_body">Ați refuzat accesul la locația dumneavoastră exactă, dar Briar are nevoie de această permisiune pentru a crea un hotspot Wi-Fi.Vă rugăm să luați în considerare acordarea accesului.</string>
+  <string name="permission_hotspot_nearby_wifi_request_body">Pentru a putea crea un hotspot Wi-Fi, Briar are nevoie de permisiunea de accesare a dispozitivelor din apropiere.</string>
+  <string name="permission_hotspot_nearby_wifi_denied_body">Ați refuzat accesul la dispozitivele din apropiere, dar Briar are nevoie de această permisiune pentru a crea un hotspot Wi-Fi.\n\nVă rugăm să luați în considerare acordarea accesului.</string>
+  <string name="wifi_settings_title">Se setează Wi-Fi</string>
+  <string name="wifi_settings_request_enable_body">Pentru a crea un hotspot Wi-Fi, Briar trebuie să folosească Wi-Fi. Vă rugăm să activați funcția.</string>
+  <string name="hotspot_tab_manual">Manual</string>
+  <!--The placeholder to be inserted into the string 'hotspot_manual_wifi': People can connect by %s-->
+  <string name="hotspot_scanning_a_qr_code">se scanează un cod QR</string>
+  <!--Wi-Fi setup-->
+  <!--The %s placeholder will be replaced with the translation of 'hotspot_scanning_a_qr_code'-->
+  <string name="hotspot_manual_wifi">Telefonul dvs. oferă un hotspot Wi-Fi. Persoanele care doresc să descarce Briar se pot conecta la hotspot adăugându-l la setările Wi-Fi folosind detaliile de mai jos sau prin %s. După ce s-au conectat la hotspot, atingeți „Înainte”.</string>
+  <string name="hotspot_manual_wifi_ssid">Numele rețelei</string>
+  <string name="hotspot_qr_wifi">Telefonul dvs. oferă un hotspot Wi-Fi. Persoanele care doresc să descarce Briar se pot conecta la hotspot scanând acest cod QR. După ce s-au conectat la hotspot, atingeți „Înainte”.</string>
+  <string name="hotspot_no_peers_connected">Nu este conectat niciun dispozitiv</string>
+  <plurals name="hotspot_peers_connected">
+    <item quantity="one">%s dispozitiv conectat</item>
+    <item quantity="few">%s dispozitive conectate</item>
+    <item quantity="other">%s dispozitive conectate</item>
+  </plurals>
+  <!--Download link-->
+  <!--The %s placeholder will be replaced with the translation of 'hotspot_scanning_a_qr_code'-->
+  <string name="hotspot_manual_site">Telefonul dvs. oferă un hotspot Wi-Fi. Persoanele care sunt conectate la hotspot pot descărca Briar introducând linkul de mai jos într-un browser sau %s.</string>
+  <string name="hotspot_manual_site_address">Adresa (URL)</string>
+  <string name="hotspot_qr_site">Telefonul dvs. oferă un hotspot Wi-Fi. Persoanele care sunt conectate la hotspot pot descărca Briar prin scanarea acestui cod QR.</string>
+  <!--e.g. Download Briar 1.2.20-->
+  <string name="website_download_title_1">Descărcați Briar %s</string>
+  <string name="website_download_intro_1">Cineva din apropiere a partajat Briar cu dvs.</string>
+  <string name="website_download_button">Descărcați Briar</string>
+  <string name="website_download_outro">După finalizare descărcării, deschideți și instalați fișierul descărcat.</string>
+  <string name="website_troubleshooting_title">Depanare</string>
+  <string name="website_troubleshooting_1">Dacă nu puteți descărca aplicația, încercați cu un alt browser.</string>
+  <string name="website_troubleshooting_2_old">Pentru a instala aplicația descărcată, s-ar putea să fie necesar să permiteți instalarea de aplicații din „Surse necunoscute\" în setările de sistem. Apoi, s-ar putea să fie nevoie să descărcați aplicația din nou. Vă recomandăm să dezactivați setarea „Surse necunoscute” după ce ați instalat aplicația.</string>
+  <string name="website_troubleshooting_2_new">Pentru a instala aplicația descărcată, s-ar putea să fie necesar să permiteți browserului să instaleze aplicații necunoscute. După instalare, vă recomandăm să eliminați permisiunea browserului de a instala aplicații necunoscute.</string>
+  <string name="hotspot_help_wifi_title">Probleme cu conectarea la Wi-Fi:</string>
+  <string name="hotspot_help_wifi_1">Dezactivați și reactivați funcția Wi-Fi pe ambele dispozitive și încercați din nou.</string>
+  <string name="hotspot_help_wifi_2">Dacă telefonul vă informează că nu este acces internet prin Wi-Fi, alegeți să rămâneți conectat oricum.</string>
+  <string name="hotspot_help_wifi_3">Reporniți telefonul pe care rulează hotspotul Wi-Fi, apoi porniți Briar și încercați să partajați conexiunea din nou.</string>
+  <string name="hotspot_help_site_title">Probleme cu accesarea site-ului local:</string>
+  <string name="hotspot_help_site_1">Verificați încă o dată dacă ați introdus adresa exact așa cum apare. O mică eroare este suficientă pentru ca aceasta să nu funcționeze.</string>
+  <string name="hotspot_help_site_2">Asigurați-vă că telefonul este conectat în continuare la rețeaua Wi-Fi corectă (vedeți mai sus) când încercați să accesați site-ul.</string>
+  <string name="hotspot_help_site_3">Dacă aveți o aplicație de firewall, asigurați-vă că aceasta nu blochează accesul.</string>
+  <string name="hotspot_help_site_4">Dacă puteți accesa site-ul, dar nu puteți descărca aplicația Briar, încercați cu un alt browser.</string>
+  <string name="hotspot_help_fallback_title">Nimic nu funcționează?</string>
+  <string name="hotspot_help_fallback_intro">Puteți încerca să salvați aplicația ca un fișier .apk pentru a-l partaja în alt mod. Odată fișierul transferat pe celălalt dispozitiv, poate fi folosit pentru instalarea Briar.
+		\n\nNotă: pentru partajarea prin Bluetooth, s-ar putea sa fie nevoie să redenumiți întâi fișierul în așa fel încât să aibă extensia .zip.</string>
+  <string name="hotspot_help_fallback_button">Salvați aplicația</string>
+  <!--error handling-->
+  <string name="hotspot_error_intro">A apărut o problemă când s-a încercat partajarea aplicației prin Wi-Fi.</string>
+  <string name="hotspot_error_no_wifi_direct">Dispozitivul nu acceptă Wi-Fi Direct</string>
+  <string name="hotspot_error_start_callback_failed">Hotspotul nu a pornit: eroare %s</string>
+  <string name="hotspot_error_start_callback_failed_unknown">Hotspotul nu a putut porni din cauza unei erori necunoscute. Motivul: %d</string>
+  <string name="hotspot_error_start_callback_no_group_info">Hotspotul nu a putut porni: nu există informații privind grupul</string>
+  <string name="hotspot_error_web_server_start">Eroare la pornirea serverului web</string>
+  <string name="hotspot_error_web_server_serve">Eroare la prezentarea site-ului.\n\nTrimiteți feedback (cu date anonime) prin intermediul aplicației Briar dacă problema persistă.</string>
+  <string name="hotspot_flag_test">Avertisment: această aplicație a fost instalată din Android Studio și NU poate fi instalată pe alt dispozitiv.</string>
+  <string name="hotspot_error_framework_busy">Nu s-a putut porni hotspotul.\n\nDacă aveți alt hotspot pornit sau dacă partajați conexiunea la internet prin Wi-Fi, încercați să le opriți, după care încercați din nou.</string>
+  <!--Transfer Data via Removable Drives-->
+  <string name="removable_drive_menu_title">Conectarea cu o unitate amovibilă</string>
+  <string name="removable_drive_intro">Dacă nu vă puteți conecta la persoana de contact prin internet, Wi-Fi sau Bluetooth, Briar oferă și opțiunea de a transfera mesaje pe o unitate amovibilă, cum ar fi un stick USB sau un card SD.</string>
+  <string name="removable_drive_explanation">Dacă nu vă puteți conecta la persoana de contact prin internet, Wi-Fi sau Bluetooth, Briar oferă și opțiunea de a transfera mesaje pe o unitate amovibilă, cum ar fi un stick USB sau un card SD.\n\nCând folosiți butonul „Trimitere date”, datele care așteaptă să fie trimise contactului vor fi scrise pe unitatea amovibilă. Aceastea includ mesajele private, fișierele atașate, blogurile, forumurile și grupurile private.\n\nToate vor fi criptate înainte de a fi scrise pe unitatea amovibilă.\n\nCând persoana de contact primește unitatea amovibilă, poate folosi butonul „Primire date\" pentru a importa mesajele în Briar.</string>
+  <string name="removable_drive_title_send">Trimitere date</string>
+  <string name="removable_drive_title_receive">Primire date</string>
+  <string name="removable_drive_send_intro">Atingeți butonul de mai jos pentru a crea un fișier nou cu mesajele criptate. Puteți alege unde să fie salvat fișierul.\n\nDacă doriți să salvați fișierul pe o unitate amovibilă, introduceți unitatea acum.</string>
+  <string name="removable_drive_send_no_data">În prezent, nu sunt mesaje în așteptare de a fi trimise la acest contact.</string>
+  <string name="removable_drive_send_not_supported">Acest contact utilizează o versiune Briar veche sau un dispozitiv vechi care nu acceptă această funcție.</string>
+  <string name="removable_drive_send_button">Alegeți fișierul de exportat</string>
+  <string name="removable_drive_ongoing">Așteptați finalizarea sarcinii în curs</string>
+  <string name="removable_drive_receive_intro">Atingeți butonul de mai jos pentru a alege fișierul pe care l-a trimis contactul dvs.\n\nDacă fișierul se află pe o unitate amovibilă, introduceți unitatea acum.</string>
+  <string name="removable_drive_receive_button">Alegeți fișierul de importat</string>
+  <string name="removable_drive_success_send_title">Exportare reușită</string>
+  <string name="removable_drive_success_send_text">Datele au fost exportate cu succes. Acum aveți la dispoziție 28 de zile pentru a transporta fișierul la contactul dvs.\n\nDacă fișierul este pe o unitate amovibilă, utilizați notificarea din bara de stare pentru a ejecta unitatea înainte de a o deconecta.</string>
+  <string name="removable_drive_success_receive_title">Importare reușită</string>
+  <string name="removable_drive_success_receive_text">Toate mesajele criptate din acest fișier au fost primite.</string>
+  <string name="removable_drive_error_send_title">Eroare la exportarea datelor</string>
+  <string name="removable_drive_error_send_text">A apărut o eroare la scrierea datelor în fișier.\n\nDacă utilizați o unitate amovibilă, asigurați-vă că este introdusă corect și încercați din nou.\n\nDacă eroarea persistă, trimiteți feedback pentru a informa echipa Briar despre problemă.</string>
+  <string name="removable_drive_error_receive_title">Eroare la importarea datelor</string>
+  <string name="removable_drive_error_receive_text">Fișierul selectat nu conține nimic care să poată fi recunoscut de Briar.\n\nVerificați dacă ați ales fișierul corect.\n\nDacă persoana de contact a creat fișierul în urmă cu peste 28 de zile, Briar nu îl va putea recunoaște.</string>
+  <!--Screenshots-->
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_alice">Dana</string>
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_bob">Andrei</string>
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_carol">Cristina</string>
+  <!--This is a message to be used in screenshots. Please use the same translation for Bob!-->
+  <string name="screenshot_message_1">Bună, Andrei!</string>
+  <!--This is a message to be used in screenshots. Please use the same translation for Alice!-->
+  <string name="screenshot_message_2">Bună, Dana! Mulțumesc că mi-ai spus despre Briar!</string>
+  <!--This is a message to be used in screenshots.-->
+  <string name="screenshot_message_3">Cu plăcere. Sper să îți placă. 😀</string>
+</resources>

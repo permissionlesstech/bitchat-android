@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:fillViewport="true">
+
+	<androidx.constraintlayout.widget.ConstraintLayout
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:layout_margin="@dimen/margin_xlarge">
+
+		<com.google.android.material.progressindicator.CircularProgressIndicator
+			android:id="@+id/progress"
+			style="@style/CircularProgress.Large"
+			android:layout_width="@dimen/hero_square"
+			android:layout_height="@dimen/hero_square"
+			android:indeterminate="true"
+			app:layout_constraintBottom_toTopOf="@+id/progressMessage"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toTopOf="parent"
+			app:layout_constraintVertical_bias="0.25"
+			app:layout_constraintVertical_chainStyle="packed"
+			tools:ignore="ContentDescription" />
+
+		<TextView
+			android:id="@+id/progressMessage"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:layout_marginTop="@dimen/margin_xlarge"
+			android:gravity="center"
+			android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
+			app:layout_constraintBottom_toBottomOf="parent"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/progress"
+			tools:text="@string/blogs_rss_feeds_import_progress" />
+
+	</androidx.constraintlayout.widget.ConstraintLayout>
+
+</androidx.core.widget.NestedScrollView>

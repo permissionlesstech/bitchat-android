@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent">
+
+	<androidx.recyclerview.widget.RecyclerView
+		android:id="@+id/recyclerView"
+		android:layout_width="match_parent"
+		android:layout_height="match_parent"
+		android:scrollbars="vertical"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toTopOf="parent"
+		tools:listitem="@layout/list_item_contact"
+		tools:visibility="visible" />
+
+	<com.google.android.material.progressindicator.CircularProgressIndicator
+		android:id="@+id/progressBar"
+		style="@style/CircularProgress.Large"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		app:layout_constraintBottom_toBottomOf="parent"
+		app:layout_constraintLeft_toLeftOf="parent"
+		app:layout_constraintRight_toRightOf="parent"
+		app:layout_constraintTop_toTopOf="parent"
+		tools:visibility="invisible" />
+
+	<androidx.appcompat.widget.AppCompatImageView
+		android:id="@+id/emptyImage"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:layout_marginStart="16dp"
+		android:layout_marginLeft="16dp"
+		android:layout_marginTop="16dp"
+		android:layout_marginEnd="16dp"
+		android:layout_marginRight="16dp"
+		app:layout_constraintBottom_toTopOf="@+id/emptyText"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toTopOf="parent"
+		app:layout_constraintVertical_chainStyle="packed"
+		app:tint="?attr/colorControlNormal"
+		tools:src="@drawable/il_empty_state_group_list" />
+
+	<TextView
+		android:id="@+id/emptyText"
+		android:layout_width="0dp"
+		android:layout_height="wrap_content"
+		android:gravity="center"
+		android:padding="@dimen/margin_large"
+		android:text="@string/no_data"
+		android:textSize="@dimen/text_size_large"
+		app:layout_constraintBottom_toTopOf="@+id/emptyAction"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toBottomOf="@+id/emptyImage"
+		tools:text="@string/no_contacts" />
+
+	<TextView
+		android:id="@+id/emptyAction"
+		android:layout_width="0dp"
+		android:layout_height="wrap_content"
+		android:gravity="center"
+		android:paddingLeft="@dimen/margin_large"
+		android:paddingRight="@dimen/margin_large"
+		android:paddingBottom="@dimen/margin_large"
+		android:textSize="@dimen/text_size_small"
+		app:layout_constraintBottom_toBottomOf="parent"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toBottomOf="@+id/emptyText"
+		tools:text="@string/no_contacts_action" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

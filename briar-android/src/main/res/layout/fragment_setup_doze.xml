@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:fillViewport="true">
+
+	<androidx.constraintlayout.widget.ConstraintLayout
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:padding="@dimen/margin_activity_vertical">
+
+		<ImageView
+			android:id="@+id/logo"
+			android:layout_width="0dp"
+			android:layout_height="@dimen/hero_square"
+			android:layout_marginBottom="@dimen/margin_xlarge"
+			android:importantForAccessibility="no"
+			android:src="@drawable/splash_screen"
+			app:layout_constraintBottom_toTopOf="@+id/dozeView"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintHeight_default="percent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toTopOf="parent"
+			app:layout_constraintVertical_chainStyle="packed" />
+
+		<org.briarproject.briar.android.account.DozeView
+			android:id="@+id/dozeView"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:paddingBottom="@dimen/margin_large"
+			app:layout_constraintBottom_toTopOf="@+id/huaweiProtectedAppsView"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/logo" />
+
+		<org.briarproject.briar.android.account.HuaweiProtectedAppsView
+			android:id="@+id/huaweiProtectedAppsView"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:paddingBottom="@dimen/margin_large"
+			app:layout_constraintBottom_toTopOf="@+id/huaweiAppLaunchView"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/dozeView" />
+
+		<org.briarproject.briar.android.account.HuaweiAppLaunchView
+			android:id="@+id/huaweiAppLaunchView"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:paddingBottom="@dimen/margin_large"
+			app:layout_constraintBottom_toTopOf="@+id/xiaomiRecentAppsView"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/huaweiProtectedAppsView" />
+
+		<org.briarproject.briar.android.account.XiaomiRecentAppsView
+			android:id="@+id/xiaomiRecentAppsView"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:paddingBottom="@dimen/margin_large"
+			app:layout_constraintBottom_toTopOf="@+id/xiaomiLockAppsView"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/huaweiAppLaunchView" />
+
+		<org.briarproject.briar.android.account.XiaomiLockAppsView
+			android:id="@+id/xiaomiLockAppsView"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:paddingBottom="@dimen/margin_large"
+			app:layout_constraintBottom_toTopOf="@+id/next"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/xiaomiRecentAppsView" />
+
+		<Button
+			android:id="@+id/next"
+			style="@style/BriarButton"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:enabled="false"
+			android:text="@string/create_account_button"
+			app:layout_constraintBottom_toBottomOf="parent"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			tools:enabled="true" />
+
+		<com.google.android.material.progressindicator.CircularProgressIndicator
+			android:id="@+id/progress"
+			style="@style/CircularProgress"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:visibility="invisible"
+			app:layout_constraintBottom_toBottomOf="@+id/next"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toTopOf="@+id/next" />
+
+	</androidx.constraintlayout.widget.ConstraintLayout>
+
+</ScrollView>

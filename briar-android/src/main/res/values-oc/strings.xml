@@ -1,0 +1,547 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<resources>
+	<!--Setup-->
+	<string name="setup_title">La benvenguda a Briar</string>
+	<string name="setup_name_explanation">Vòstre escais-nom serà mostrat al costat de cada de vòstra publicacion. Poiretz pas lo cambiar aprèp la creacion del compte.</string>
+	<string name="setup_next">Seguent</string>
+	<string name="setup_password_intro">Causissètz un senhal</string>
+	<string name="setup_password_explanation">Lo compte Briar es gardat d’un biais chifrat dins vòstre periferic, non pas sul cloud. S’oblidetz vòstre senhal o desinstalletz Briar, i a pas cap de manièra per recuperar vòstre compte.\n\nCausissètz un long senhal qu’es pas aisit de trobar, tal coma quatre mots a l’asard, o dètz letras, nombres e simbòls aleatòris.</string>
+	<string name="dnkm_doze_title">Connexions de rèireplan</string>
+	<string name="dnkm_doze_intro">Per recebre los messatges, cal que Bria demòre connectat en rèireplan.</string>
+	<string name="dnkm_doze_explanation">Per recebre los messatge, cal que Briar demòre connectat en rèireplan. Mercés de desactivar l’optimizacion de la batariá perque Bria demòre connectat.</string>
+	<string name="dnkm_doze_button">Autorizar las connexions</string>
+	<string name="choose_nickname">Causir un escais-nom</string>
+	<string name="choose_password">Causir un senhal</string>
+	<string name="confirm_password">Confirmar lo senhal</string>
+	<string name="name_too_long">L’escais es tròp long</string>
+	<string name="password_too_weak">Lo senhal es tròp feble</string>
+	<string name="passwords_do_not_match">Los senhals correspondon pas</string>
+	<string name="create_account_button">Crear un compte</string>
+	<string name="more_info">Mai d’informacions</string>
+	<string name="don_t_ask_again">Demandar pas mai</string>
+	<string name="dnkm_huawei_protected_text">Mercé de tocar lo boton çai-jos per vos assegurar que Briar es protegit dins l’ecran « Aplicacions protegidas ».</string>
+	<string name="dnkm_huawei_protected_button">Projècte Briar</string>
+	<string name="dnkm_huawei_protected_help">Se Briar es pas ajustat a la lista de las aplicacion protegidas poirà pas s’executar en rèire plan.</string>
+	<string name="dnkm_xiaomi_button">Projècte Briar</string>
+	<string name="dnkm_warning_dozed">%s a pas pogut s’executar en rèire plan</string>
+	<!--Login-->
+	<string name="enter_password">Senhal</string>
+	<string name="try_again">Senhal incorècte, tornatz ensajar</string>
+	<string name="dialog_title_cannot_check_password">Verificacion del senhal impossibla</string>
+	<string name="dialog_message_cannot_check_password">Briar pòt pas verificar vòstre senhal. Mercés de reaviar l’aparelh per resòlver aqueste problèma.</string>
+	<string name="sign_in_button">Se connectar</string>
+	<string name="forgotten_password">Senhal oblidat</string>
+  <string name="dialog_title_lost_password">Senhal oblidat</string>
+  <string name="dialog_message_lost_password">Vòstre compte Briar es salvat e chifrat sus vòstre aparelh, non pas sus un servidor alonhat «cloud». En fach podèm pas reïnicializar vòstre senhal.
+Volètz suprimir vòstre compte e ne crear un nòu ?\n
+\nMèfi : vòstra identitat, vòstres contactes e messatges seràn perduts per totjorn.</string>
+  <string name="startup_failed_notification_title">Briar a pas pogut aviar</string>
+  <string name="startup_failed_notification_text">Tocatz per mai d’informacions.</string>
+  <string name="startup_failed_activity_title">Fracàs de l’aviada de Briar.</string>
+  <string name="startup_failed_db_error">Per una rason desconeguda, la basa de donadas de Briar es corrompuda e òm pòt pas la reparar. Vòstre compte, vòstras donadas e totes vòstres contactes son perduts. Malaürosament, avètz de reïnstallar Briar o configurar un nòu compte en causir « Ai oblidat mon senhal » dins la fenèstra per picar lo senhal. </string>
+  <string name="startup_failed_data_too_old_error">Vòstre compte foguèt creat amb una anciana version d’aicesta aplicacion e pòt pas èsser dobrit amb aquesta. Vos cal siá reïnstallar l’anciana version o configurar un nòu compte en causir « Ai oblidat mon senhal » dins la fenèstra per picar lo senhal.</string>
+  <string name="startup_failed_data_too_new_error">Aquesta version de l’aplicacion es tròp anciana. Mercés de la metre al nivèl de la darrièra e de tornar ensajar.</string>
+  <string name="startup_failed_service_error">Briar a pas pogut aviar un modul necessari. Tornar installar Briar pòt resolver aquò. Que aquò siá dich : perdretz vòstre compte e totas las donadas ligadas a aqueste. Briar utiliza pas de servidor centralizat per salvar sas donadas.</string>
+  <plurals name="expiry_warning">
+    <item quantity="one">Aquò es una version de test de Briar. Vòstre compte expirarà d’aquí %d jorn e pòt pas èsser renovat.</item>
+    <item quantity="other">Aquò es una version de test de Briar. Vòstre compte expirarà d’aquí %d jorns e pòt pas èsser renovat.</item>
+  </plurals>
+  <string name="expiry_date_reached">Vòstre logicial s’acabèt.\nMercés d’aver ensajat !</string>
+  <string name="download_briar">Per tenir d’utilizar Briar, mercés de telecargar la darrièra version.</string>
+  <string name="create_new_account">Vos caldrà crear un nòu compte, mas podètz emplegar lo meteis escais-nom.</string>
+  <string name="download_briar_button">Telecargar la darrièra version</string>
+  <string name="startup_open_database">Deschirament de la basa de donadas…</string>
+  <string name="startup_migrate_database">Mesa a nivèl de la basa de donadas…</string>
+  <string name="startup_compact_database">Compression de la basa de donadas…</string>
+  <!--Navigation Drawer-->
+  <string name="nav_drawer_open_description">Dobrir lo panèl de navigacion</string>
+  <string name="nav_drawer_close_description">Tampar lo panèl de navigacion</string>
+  <string name="contact_list_button">Contactes</string>
+  <string name="groups_button">Grops privats</string>
+  <string name="forums_button">Fòrums</string>
+  <string name="blogs_button">Blòges</string>
+  <!--This is part of the main menu. The app will be locked when this is tapped.-->
+  <string name="lock_button">Verrolhar l’aplicacion</string>
+  <string name="settings_button">Paramètres</string>
+  <string name="sign_out_button">Se desconnectar</string>
+  <!--Transports: Tor-->
+  <string name="transport_tor">Internet</string>
+  <!--Transports: Wi-Fi-->
+  <string name="transport_lan">Wifi</string>
+  <!--Transports: Bluetooth-->
+  <string name="transport_bt">Bluetooth</string>
+  <!--Notifications-->
+  <string name="reminder_notification_title">Desconnectat de Briar</string>
+  <string name="reminder_notification_text">Tocatz per vos desconnectar</string>
+  <string name="reminder_notification_channel_title">Recòrd de connexion Briar</string>
+  <string name="reminder_notification_dismiss">Refusar</string>
+  <string name="ongoing_notification_title">Connectat a Briar</string>
+  <string name="ongoing_notification_text">Tocatz per dobrir</string>
+  <plurals name="private_message_notification_text">
+    <item quantity="one">Novèl messatge privat.</item>
+    <item quantity="other">%d novèls messatges privats</item>
+  </plurals>
+  <plurals name="group_message_notification_text">
+    <item quantity="one">Novèl messatge gropat</item>
+    <item quantity="other">%d novèls messatges gropats</item>
+  </plurals>
+  <plurals name="forum_post_notification_text">
+    <item quantity="one">Novèla publicacion al fòrum</item>
+    <item quantity="other">%d novèlas publicacions al fòrum</item>
+  </plurals>
+  <plurals name="blog_post_notification_text">
+    <item quantity="one">Novèl article sul blòg</item>
+    <item quantity="other">%d novèls article sul blòg</item>
+  </plurals>
+  <!--Misc-->
+  <string name="now">Ara</string>
+  <string name="show">Mostrar</string>
+  <string name="hide">Amagar</string>
+  <string name="ok">D’acòrdi</string>
+  <string name="cancel">Anullar</string>
+  <string name="got_it">Comprés</string>
+  <string name="delete">Suprimir</string>
+  <string name="accept">Acceptar</string>
+  <string name="decline">Refusar</string>
+  <string name="online">En linha</string>
+  <string name="offline">Fòra linha</string>
+  <string name="send">Mandar</string>
+  <string name="allow">Autorizar</string>
+  <string name="open">Dobrir</string>
+  <string name="change">Cambiar</string>
+  <string name="no_data">Pas donada</string>
+  <string name="ellipsis">...</string>
+  <string name="text_too_long">Lo tèxte picat es tròp long</string>
+  <string name="show_onboarding">Mostrar l’ajuda</string>
+  <string name="fix">Correccion</string>
+  <string name="help">Ajuda</string>
+  <string name="sorry">O planhèm</string>
+  <string name="error_start_activity">Pas disponibla per vòstre sistèma</string>
+  <!--Contacts and Private Conversations-->
+  <string name="no_contacts">Cap de contacte de mostrar</string>
+  <string name="no_contacts_action">Tocatz l’icòna + per ajustar un contacte</string>
+  <string name="date_no_private_messages">Cap messatge</string>
+  <string name="no_private_messages">Cap de messatge de mostrar</string>
+  <string name="image_caption_hint">Ajustar una legenda (optionala)</string>
+  <string name="image_attach">Juntar un imatge</string>
+  <string name="image_attach_error">Impossible de juntar d’imatges</string>
+  <string name="image_attach_error_too_big">Imatge tròp pesuc. Limit de %d Mo. </string>
+  <string name="image_attach_error_invalid_mime_type">Format d’imatge pas compatible : %s</string>
+  <string name="set_contact_alias">Cambiar lo nom del contacte</string>
+  <string name="set_contact_alias_hint">Nom del contacte</string>
+  <string name="menu_item_connect_via_bluetooth">Se connectar per Bluetooth</string>
+  <string name="connect_via_bluetooth_title">Se connectar per Bluetooth</string>
+  <!--The first placeholder will show a duration like "7 days". The second placeholder at the end will add "Tap to learn more."-->
+  <!--The placeholder at the end will add "Tap to learn more."-->
+  <!--The first placeholder will show a contact's name. The second placeholder will show a duration like "7 days". The third placeholder at the end will add "Tap to learn more."-->
+  <!--The first placeholder will show a contact's name. The second placeholder at the end will add "Tap to learn more."-->
+  <string name="delete_all_messages">Suprimir totes los messatges</string>
+  <string name="dialog_title_delete_all_messages">Confirmatz la supression dels messatges</string>
+  <string name="dialog_message_delete_all_messages">Volètz vertadièrament suprimir totes los messatges ?</string>
+  <string name="dialog_title_not_all_messages_deleted">Supression de totes los messatges impossibla</string>
+  <string name="dialog_message_not_deleted_not_all_selected_both">Per suprimir una invitacion o una presentacion, vos cal seleccionar la demanda e la responsa.</string>
+  <string name="dialog_message_not_deleted_not_all_selected_introductions">Per suprimir una presentacion, vos cal seleccionar la demanda e la responsa.</string>
+  <string name="dialog_message_not_deleted_not_all_selected_invitations">Per suprimir una invitacion, vos cal seleccionar la demanda e la responsa.</string>
+  <string name="delete_contact">Suprimir lo contacte</string>
+  <string name="dialog_title_delete_contact">Confirmatz la supression del contacte</string>
+  <string name="dialog_message_delete_contact">Sètz segur de voler suprimir lo contacte e los messatges ligats a el ?</string>
+  <string name="contact_deleted_toast">Contacte suprimit</string>
+  <!--This is shown in the action bar when opening an image in fullscreen that the user sent-->
+  <string name="you">Vos</string>
+  <string name="save_image">Enregistrar l’imatge</string>
+  <string name="dialog_title_save_image">Volètz enregistrar l’imatge ?</string>
+  <string name="dialog_message_save_image">L’enregistrament de l’imatge permetrà a d’autras aplicacions d’i accedir.\n\nVolètz vertadièrament l’enregistrar ?</string>
+  <string name="save_image_success">L’imatge es enregistrada</string>
+  <string name="save_image_error">Enregistrament de l’imatge impossible</string>
+  <string name="dialog_title_no_image_support">Imatges pas disponibles</string>
+  <string name="dialog_message_no_image_support">Vòstre contacte Briar pòt pas encara recebre d’imatges junts. Un còp qu’aurà mes a jorn sa version veiretz una icòna diferenta.</string>
+  <string name="dialog_title_image_support">Ara podètz enviar d’imatges a aqueste contacte</string>
+  <string name="dialog_message_image_support">Tocatz aquesta icòna per juntar d’imatges.</string>
+  <string name="messaging_too_many_attachments_toast">Solament los %d primièrs imatges seràn enviats</string>
+  <!--Adding Contacts-->
+  <string name="add_contact_title">Ajustar un contacte a proximitat</string>
+  <string name="face_to_face">Vos cal vos amassar amb la persona que volètz apondre als contactes.\n\n Aquò es fach per evitar qu’òm vos raube l’identitat e que vòstres messatges sián legits per d’autres.</string>
+  <string name="continue_button">Contunhar</string>
+  <string name="try_again_button">Tornar ensajar</string>
+  <string name="waiting_for_contact_to_scan">En espèra de la numerizacion e de la connexion al contacte\u2026</string>
+  <string name="exchanging_contact_details">Escambi dels detalhs del contacte\u2026</string>
+  <string name="contact_added_toast">Contacte apondut : %s</string>
+  <string name="contact_already_exists">Lo contacte %s existís ja</string>
+  <string name="qr_code_invalid">Lo QR còdi es invalid</string>
+  <string name="qr_code_too_old">Lo còdi QR qu’avètz numerizat ven d’una version anciana de %s.\n\nMercés de demandar a vòstre contact d’installar la darrièra version puèi tornatz ensajar.</string>
+  <string name="qr_code_too_new">Lo còdi QR qu’avètz numerizat ven d’una version mai recenta de %s.\n\nMercés d’installar la darrièra version puèi tornatz ensajar.</string>
+  <string name="camera_error">Error de camèra</string>
+  <string name="connecting_to_device">Connexion a l’aparelh\u2026</string>
+  <string name="authenticating_with_device">Autentificacion amb l’aparelh\u2026</string>
+  <string name="connection_error_title">Connexion impossibla al contacte</string>
+  <string name="connection_error_feedback">S’aqueste problèma dura, mercés <a href="feedback"> d’enviar un comentari</a> per nos ajudar a melhorar l’aplicacion.</string>
+  <!--Adding Contacts Remotely-->
+  <string name="add_contact_remotely_title_case">Ajustar un contacte a distància</string>
+  <string name="add_contact_nearby_title">Ajustatz un contacte a proximitat</string>
+  <string name="add_contact_remotely_title">Ajustatz un contacte a distància</string>
+  <string name="contact_link_intro">Picatz lo ligam del contacte aquí</string>
+  <string name="contact_link_hint">Ligam del contacte</string>
+  <string name="paste_button">Pegar</string>
+  <string name="add_contact_button">Ajustar un contacte</string>
+  <string name="copy_button">Copiar</string>
+  <string name="share_button">Partejar</string>
+  <string name="send_link_title">Escambiar de ligams</string>
+  <string name="add_contact_choose_nickname">Causir l’escais-nom</string>
+  <string name="add_contact_choose_a_nickname">Picatz l’escais-nom</string>
+  <string name="nickname_intro">Donatz un escais-nom a vòstre contacte. Pas que vosautres poiretz lo veire.</string>
+  <string name="your_link">Donatz aqueste ligam al contacte que volètz ajustar</string>
+  <string name="link_clip_label">Ligam Briar</string>
+  <string name="link_copied_toast">Ligam copiat</string>
+  <string name="adding_contact_error">I a agut una error en ajustar lo contacte.</string>
+  <string name="pending_contact_requests_snackbar">I a de demandas d’apondon en espèra</string>
+  <string name="pending_contact_requests">Demandas d’apondon en espèra</string>
+  <string name="no_pending_contacts">Cap de demanda en espèra</string>
+  <string name="waiting_for_contact_to_come_online">En espèra que lo contacte passe en linha…</string>
+  <string name="connecting">Connexion…</string>
+  <string name="adding_contact">Apondon del contacte…</string>
+  <string name="adding_contact_failed">L’apondon a pas foncionat</string>
+  <string name="dialog_title_remove_pending_contact">Confirmar la supression</string>
+  <string name="dialog_message_remove_pending_contact">Aqueste contacte es a èsser ajustat. Se lo levatz ara, serà pas ajustat.</string>
+  <string name="own_link_error">Picatz lo ligam del contacte, non pas lo vòstre</string>
+  <string name="nickname_missing">Mercés de picar un escais-nom</string>
+  <string name="invalid_link">Ligam invalid</string>
+  <string name="unsupported_link">Aqueste ligam ven d’una version de Briar mai recenta. Passatz a la darrièra version e tornatz ensajar.</string>
+  <string name="intent_own_link">Avètz dubèrt vòstre pròpi ligam. Utilizatz çò d’un contacte que volètz ajustar !</string>
+  <string name="missing_link">Mercés de picar un ligam</string>
+  <!--This is a numeral indicating the first step in a series of screens-->
+  <string name="step_1">1</string>
+  <!--This is a numeral indicating the second step in a series of screens-->
+  <string name="step_2">2</string>
+  <plurals name="contact_added_notification_text">
+    <item quantity="one">Nòu contacte ajustat.</item>
+    <item quantity="other">%d nòus contactes ajustats.</item>
+  </plurals>
+  <string name="offline_state">Cap de connexion Internet</string>
+  <string name="duplicate_link_dialog_title">Duplicar lo ligam</string>
+  <string name="duplicate_link_dialog_text_1">Avètz ja una demanda en espèra amb aqueste ligam : %s</string>
+  <string name="duplicate_link_dialog_text_1_contact">Avètz ja un contacte amb aqueste ligam : %s</string>
+  <!--This is a question asking whether two nicknames refer to the same person-->
+  <string name="duplicate_link_dialog_text_2">Son %s e %s la meteissa persona ?</string>
+  <!--This is a button for answering that two nicknames do indeed refer to the same person. This
+	string will be used in a dialog button, so if the translation of this string is longer than 20
+	characters, please use "Yes" instead, and use "No" for the "Different Person" button-->
+  <string name="same_person_button">Meteissa persona</string>
+  <!--This is a button for answering that two nicknames refer to different people. This string
+	will be used in a dialog button, so if the translation of this string longer than 20 characters,
+	please use "No" instead, and use "Yes" for the "Same Person" button-->
+  <string name="different_person_button">Persona diferenta</string>
+  <string name="duplicate_link_dialog_text_3">%s e %s vos envia lo meteis ligam.\n\nUn d’eles poiriá ensajar de descobrir quines son vòstres contactes.\n\n Digatz-los pas qu’avètz recebut lo meteis ligam de qualqu’un mai.</string>
+  <string name="pending_contact_updated_toast">Contact en espèra actualizat</string>
+  <!--Introductions-->
+  <string name="introduction_onboarding_title">Presentatz vòstres contactes</string>
+  <string name="introduction_onboarding_text">Podètz presentar vòstres contactes, lor caldrà pas se veire per s’apondre e se connectar a Briar.</string>
+  <string name="introduction_menu_item">Escafar l’introduccion</string>
+  <string name="introduction_activity_title">Seleccionar contacte</string>
+  <string name="introduction_not_possible">Avètz encara una presentacion en cors amb aqueles contactes. Mercés d’autorizar d’en primièr per que se termine. Se vos o vòstres contactes sètz pas sovent en linha, aquò pòt tardar una estona.</string>
+  <string name="introduction_message_title">Presentar de contactes</string>
+  <string name="introduction_message_hint">Apondre un messatge (opcional)</string>
+  <string name="introduction_button">Escafar l’introduccion</string>
+  <string name="introduction_sent">Vòstra admission es enviada.</string>
+  <string name="introduction_error">Una error s’es produsida pendent l’admission</string>
+  <string name="introduction_request_sent">Avètz demandat a %2$s d’apondre %1$s</string>
+  <string name="introduction_request_received">%1$s vos prepausa d’apondre %2$s. Volètz apondre %2$s a vòstres contactes ?</string>
+  <string name="introduction_request_exists_received">%1$s vos demandèt d’apondre %2$s mas %2$s es ja dins vòstra tièra de contactes. Del moment que %1$s o sap pas, podètz çaquelà respondre :</string>
+  <string name="introduction_request_answered_received">%1$s a demandat d’apondre %2$s.</string>
+  <string name="introduction_response_accepted_sent">Avètz acceptat d’apondre %1$s.</string>
+  <string name="introduction_response_accepted_sent_info">Abans que %1$s siá ajustat a vòstres contactes, li cal acceptar la presentacion tanben. Aquò pòt tardar una estona.</string>
+  <string name="introduction_response_declined_sent">Avètz refusat d’apondre %1$s.</string>
+  <string name="introduction_response_accepted_received">%1$s a acceptat d’apondre %2$s.</string>
+  <string name="introduction_response_declined_received">%1$s a refusat d’apondre %2$s.</string>
+  <string name="introduction_response_declined_received_by_introducee">%1$s anóncia que %2$s a refusat la convidacion.</string>
+  <!--Private Groups-->
+  <string name="groups_list_empty">Cap de grop de mostrar</string>
+  <string name="groups_list_empty_action">Tocatz l’icòna + per crear un grop, o demandatz a un contacte de patejar un grop amb vos</string>
+  <string name="groups_created_by">Fondat per %s</string>
+  <plurals name="messages">
+    <item quantity="one">1 messatge</item>
+    <item quantity="other">%d messatges</item>
+  </plurals>
+  <string name="groups_group_is_empty">Aqueste grop es void</string>
+  <string name="groups_group_is_dissolved">Aqueste grop es estat suprimit</string>
+  <string name="groups_remove">Suprimir</string>
+  <string name="groups_create_group_title">Crear un grop privat</string>
+  <string name="groups_create_group_button">Crear un grop</string>
+  <string name="groups_create_group_invitation_button">Enviar de convidacions</string>
+  <string name="groups_create_group_hint">Donatz un nom al grop privat</string>
+  <string name="groups_invitation_sent">Convidacion enviada al grop</string>
+  <string name="groups_member_list">Tièra de membres</string>
+  <string name="groups_invite_members">Convidar mai de monde</string>
+  <string name="groups_member_created_you">Avètz creat lo grop</string>
+  <string name="groups_member_created">%s a fondat lo grop</string>
+  <string name="groups_member_joined_you">Sètz marcat dins lo grop</string>
+  <string name="groups_member_joined">%s es marcat dins lo grop</string>
+  <string name="groups_leave">Quitar lo grop</string>
+  <string name="groups_leave_dialog_title">Confirmar que volètz quitar lo grop</string>
+  <string name="groups_leave_dialog_message">Sètz segur de voler quitar lo grop ?</string>
+  <string name="groups_dissolve">Suprimir lo grop</string>
+  <string name="groups_dissolve_dialog_title">Confirmar la supression del grop</string>
+  <string name="groups_dissolve_dialog_message">Sètz segur de voler suprimir lo grop ? \n\nLa rèsta dels participants poiran pas tenir de charrat e poiriá arribar qu’ajan pas los darrièrs messatges.</string>
+  <string name="groups_dissolve_button">Suprimir</string>
+  <string name="groups_dissolved_dialog_title">Lo grop es estat suprimit</string>
+  <string name="groups_dissolved_dialog_message">Lo fondador d’aqueste grop l’a suprimit.\n\nPodètz pas mai escriure de messatges e benlèu qu’avètz pas recebuts totes los messatges.</string>
+  <!--Private Group Invitations-->
+  <string name="groups_invitations_title">Convidacion de grop</string>
+  <string name="groups_invitations_invitation_sent">Avètz convidat %1$s a venir al grop « %2$vs»</string>
+  <string name="groups_invitations_invitation_received">%1$s vos a convidat a anar al grop « %2$s »</string>
+  <string name="groups_invitations_joined">Ajustat al grop</string>
+  <string name="groups_invitations_declined">Convidacion al grop refusada</string>
+  <plurals name="groups_invitations_open">
+    <item quantity="one">%d convidacion de grop en espèra</item>
+    <item quantity="other">%d convidacions de grop en espèra</item>
+  </plurals>
+  <string name="groups_invitations_response_accepted_sent">Avètz acceptat la convidacion del grop a %s.</string>
+  <string name="groups_invitations_response_declined_sent">Avètz refusat la convidacion del grop a %s.</string>
+  <string name="groups_invitations_response_accepted_received">%s a acceptat la convidacion del grop.</string>
+  <string name="groups_invitations_response_declined_received">%s a refusat la convidacion del grop.</string>
+  <string name="sharing_status_groups">Pas que lo fondador del grop pòt convidar mai de monde. Vaquí la tièra dels membres actuals.</string>
+  <!--Private Groups Revealing Contacts-->
+  <string name="groups_reveal_contacts">Revelar los contactes</string>
+  <string name="groups_reveal_dialog_message">Podètz causir de revelar los contactes a totes los membres actuals e venents d’aqueste grop.\n\nEn revelar los contactes auretz una melhora connexion al grop e mai fiabla perque poiretz comunicar amb los contactes revelats quand lo fondator es fòra linha.</string>
+  <string name="groups_reveal_visible">Vòstre ligam amb lo contacte es visible pel grop</string>
+  <string name="groups_reveal_visible_revealed_by_us">Vòstre ligam – revelat per vos – amb lo contacte es visible pel grop </string>
+  <string name="groups_reveal_visible_revealed_by_contact">Vòstre ligam – revelat per %s – amb lo contacte es invisible pel grop</string>
+  <string name="groups_reveal_invisible">Vòstre ligam amb lo contacte es invisible pel grop</string>
+  <!--Forums-->
+  <string name="no_forums">Cap de forum de mostrar</string>
+  <string name="no_forums_action">Tocatz l’icòna + per crear un forum, o demandatz a un contacte de partejar des forums amb vos</string>
+  <string name="create_forum_title">Crear un fòrum</string>
+  <string name="choose_forum_hint">Donar un nom al fòrum</string>
+  <string name="create_forum_button">Crear un fòrum</string>
+  <string name="forum_created_toast">Fòrum creat</string>
+  <string name="no_forum_posts">Cap d’article a mostrar</string>
+  <string name="no_posts">Cap publicacion</string>
+  <plurals name="posts">
+    <item quantity="one">%d publicacion</item>
+    <item quantity="other">%d publicacions</item>
+  </plurals>
+  <string name="forum_new_message_hint">Nòva responsa</string>
+  <string name="forum_message_reply_hint">Nòva responsa</string>
+  <string name="btn_reply">Respondre</string>
+  <string name="forum_leave">Quitar lo fòrum</string>
+  <string name="dialog_title_leave_forum">Confirmar la sortida del fòrum</string>
+  <string name="dialog_message_leave_forum">Volètz vertadièrament quitar aqueste forum ?\n\nTotes los contactes qu’avètz convidats a aqueste forum quitaràn de recebre las mesas a jorn.</string>
+  <string name="dialog_button_leave">Quitar</string>
+  <string name="forum_left_toast">Quitar lo forum</string>
+  <!--Forum Sharing-->
+  <string name="forum_share_button">Partejar lo fòrum</string>
+  <string name="contacts_selected">Contactes seleccionats</string>
+  <string name="activity_share_toolbar_header">Causissètz de contactes</string>
+  <string name="no_contacts_selector">Cap de contacte de mostrar</string>
+  <string name="no_contacts_selector_action">Tornatz aquí aprèp aver ajustat un contacte</string>
+  <string name="forum_shared_snackbar">Fòrom partejat amb los contactes causits</string>
+  <string name="forum_share_message">Apondre un messatge (opcional)</string>
+  <string name="forum_share_error">Error en partejar lo fòrum</string>
+  <string name="forum_invitation_received">%1$s a partejat lo fòrom « %2$s » amb vos.</string>
+  <string name="forum_invitation_sent">Avètz partejat lo fòrom « %1$s » amb %2$s.</string>
+  <string name="forum_invitations_title">Convidacion al fòrum</string>
+  <string name="forum_invitation_exists">Acceptèretz ja una invitacion a aqueste forum.\n\n Acceptar mai d’invitacion farà venir vòstra connexion al forum mai rapida e fisabla.</string>
+  <string name="forum_joined_toast">Arribèt al forum</string>
+  <string name="forum_declined_toast">Invitacion declinada</string>
+  <string name="shared_by_format">Partejat per %s</string>
+  <string name="forum_invitation_already_sharing">Ja a partejar</string>
+  <string name="forum_invitation_response_accepted_sent">Avètz acceptat la convidacion al fòrum de %s.</string>
+  <string name="forum_invitation_response_declined_sent">Avètz refusat la convidacion al fòrum de %s.</string>
+  <string name="forum_invitation_response_accepted_received">%s a acceptat la convidacion al fòrum.</string>
+  <string name="forum_invitation_response_declined_received">%s a refusat la convidacion al fòrum.</string>
+  <string name="sharing_status">Estat del partatge</string>
+  <string name="sharing_status_forum">Totes los participants d’un fòrum pòdon lo partejar amb lors contactes. Partejatz aqueste fòrum amb los contactes seguents. I a benlèu mai de monde que podètz pas veire.</string>
+  <string name="shared_with">Partejat amb %1$d (%2$d en linha)</string>
+  <plurals name="forums_shared">
+    <item quantity="one">%d fòrum partejat amb de contactes</item>
+    <item quantity="other">%d fòrums partejats amb de contactes</item>
+  </plurals>
+  <string name="nobody">Degun</string>
+  <!--Blogs-->
+  <string name="blogs_other_blog_empty_state">Cap d’article a mostrar</string>
+  <string name="read_more">Legir la seguida</string>
+  <string name="blogs_write_blog_post">Escriure un article de blòg</string>
+  <string name="blogs_write_blog_post_body_hint">Escrivètz vòstre article de blòg</string>
+  <string name="blogs_publish_blog_post">Publicar</string>
+  <string name="blogs_blog_post_created">Article salvat</string>
+  <string name="blogs_blog_post_received">Nòu article recebut</string>
+  <string name="blogs_blog_post_scroll_to">Anar a</string>
+  <string name="blogs_feed_empty_state">Cap d’article a mostrar</string>
+  <string name="blogs_feed_empty_state_action">Las publicacions de vòstres contactes e blògues que seguissètz apareisseràn aquí\n\nTocatz lo gredon per escriure una publicacion</string>
+  <string name="blogs_remove_blog">Suprimir lo blòg</string>
+  <string name="blogs_remove_blog_dialog_message">Volètz vertadièrament levar aqueste blòg ?\n\nLas publicacions seràn levadas de vòstre aparelh mas pas dels aparelhs del monde.\n\nTotes los contactes qu’avètz partejat aqueste blòg quitaràn benlèu de recebre las mesas a jorn.</string>
+  <string name="blogs_remove_blog_ok">Suprimir</string>
+  <string name="blogs_blog_removed">Blòg tirat</string>
+  <string name="blogs_reblog_comment_hint">Apondre un comentari (opcional)</string>
+  <string name="blogs_reblog_button">Partejar</string>
+  <!--Blog Sharing-->
+  <string name="blogs_sharing_share">Partejar lo blòg</string>
+  <string name="blogs_sharing_error">Error en partejar lo blòg</string>
+  <string name="blogs_sharing_button">Fai virar</string>
+  <string name="blogs_sharing_snackbar">Blòg partejat amb los contactes seleccionats</string>
+  <string name="blogs_sharing_response_accepted_sent">Avètz acceptat la convidacion al blòg a %s.</string>
+  <string name="blogs_sharing_response_declined_sent">Avètz refusat la convidacion al blòg a %s.</string>
+  <string name="blogs_sharing_response_accepted_received">%s a acceptat la convidacion al blòg.</string>
+  <string name="blogs_sharing_response_declined_received">%s a refusat la convidacion al blòg.</string>
+  <string name="blogs_sharing_invitation_received">%1$s a partejat lo blòg « %2$s » amb vos.</string>
+  <string name="blogs_sharing_invitation_sent">Avètz partejat lo blòg « %1$s » amb %2$s.</string>
+  <string name="blogs_sharing_invitations_title">Convidacion al blòg</string>
+  <string name="blogs_sharing_joined_toast">S’abonar al blòg</string>
+  <string name="blogs_sharing_declined_toast">Invitacion declinada</string>
+  <string name="sharing_status_blog">Qual que siá seguidor d’un blòg pòt lo partejar amb sos contactes. Partejatz lo blòg amb los contactes seguents. I a benlèu mai de monde qu’o seguen que vesètz pas.</string>
+  <!--RSS Feeds-->
+  <string name="blogs_rss_feeds_import">Importar de fluxes RSS</string>
+  <string name="blogs_rss_feeds_import_button">Importar</string>
+  <string name="blogs_rss_feeds_import_hint">Marcar l’URL del flux RSS</string>
+  <string name="blogs_rss_feeds_import_error">Una error s’es produisida en importar lo flux</string>
+  <string name="blogs_rss_feeds_manage_imported">Importat :</string>
+  <string name="blogs_rss_feeds_manage_author">Autor :</string>
+  <string name="blogs_rss_feeds_manage_updated">Darrièra mesa a jorn :</string>
+  <string name="blogs_rss_remove_feed">Suprimir lo flux</string>
+  <string name="blogs_rss_remove_feed_dialog_message">Volètz vertadièrament levar aqueste flux ?\n\nLas publicacions seràn 
+levadas de vòstre aparelh mas pas dels aparelhs del monde.\n\nTotes los 
+contactes qu’avètz partejat aqueste flux quitaràn benlèu de recebre las mesas
+ a jorn.</string>
+  <string name="blogs_rss_remove_feed_ok">Suprimir</string>
+  <string name="blogs_rss_feeds_manage_empty_state">Cap de flux RSS de far veire.\n\nTocatz l’icòna + per n’importar un</string>
+  <string name="blogs_rss_feeds_manage_error">Error en cargar vòstres fluxes. Ensajatz mai tard.</string>
+  <!--Settings Profile Picture-->
+  <!--Settings Display-->
+  <string name="pref_language_title">Lenga &amp; region</string>
+  <string name="pref_language_changed">Aquel paramètre serà pres en compte aprèp una reaviada de Briar. Desconnectatz-vos e reaviatz Briar.</string>
+  <string name="pref_language_default">Sistèma per defaut</string>
+  <string name="display_settings_title">Afichatge</string>
+  <string name="pref_theme_title">Tèma</string>
+  <string name="pref_theme_light">Clar</string>
+  <string name="pref_theme_dark">Escur</string>
+  <string name="pref_theme_auto">Automatic (Segon l’ora)</string>
+  <string name="pref_theme_system">Sistèma per defaut</string>
+  <!--Settings Connections-->
+  <string name="tor_network_setting_automatic">Automaticament basat sus l’emplaçament</string>
+  <!--How and when Briar will connect to Tor: E.g. "Don't connect to the Internet (in China)" or "Use Tor network with bridges (in Belarus)"-->
+  <string name="tor_network_setting_summary">Automatic : %1$s (en %2$s)</string>
+  <string name="tor_mobile_data_title">Utilizar la connexion del mobil</string>
+  <string name="tor_only_when_charging_summary">Desactiva la connexion Internet quand l’aparelh manca de bateriá</string>
+  <!--Settings Security and Panic-->
+  <string name="security_settings_title">Seguretat</string>
+  <string name="pref_lock_title">Verrolatge de l’aplicacion</string>
+  <string name="pref_lock_summary">Utilizar l’ecran de verrolhatge per protegir Briar quand es connectat</string>
+  <string name="pref_lock_disabled_summary">Per utilizar aquesta foncion, configuratz un ecran de verrolatge per l’aparelh</string>
+  <string name="pref_lock_timeout_title">Temps d’inactivitat abans verrolatge</string>
+  <!--The %s placeholder is replaced with the following time spans, e.g. 5 Minutes, 1 Hour-->
+  <string name="pref_lock_timeout_summary">Sens utilizar Briar, lo verrolhar aprèp %s</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_1">1 minuta</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_5">5 minutas</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_15">15 minutas</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_30">30 minutas</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_60">1 ora</string>
+  <string name="pref_lock_timeout_never">Pas jamai</string>
+  <string name="pref_lock_timeout_never_summary">Jamai verrolhar Briar automaticament</string>
+  <string name="change_password">Modificar lo senhal</string>
+  <string name="current_password">Senhal actual</string>
+  <string name="choose_new_password">Nòu senhal</string>
+  <string name="confirm_new_password">Confirmatz lo senhal</string>
+  <string name="password_changed">Lo senhal a cambiat</string>
+  <string name="panic_setting">Paramètres del boton urgéncia</string>
+  <string name="panic_setting_title">Boton urgéncia</string>
+  <string name="panic_setting_hint">Configurar Briat per l’utilizacion de l’aplicacion del boton d’urgéncia</string>
+  <string name="panic_app_setting_title">Aplicacion boton urgéncia</string>
+  <string name="unknown_app">Aplicacion desconeguda</string>
+  <string name="panic_app_setting_summary">Cap aplicacion causida</string>
+  <string name="panic_app_setting_none">Cap</string>
+  <string name="dialog_title_connect_panic_app">Confirmar l’aplicacion Urgéncia</string>
+  <string name="dialog_message_connect_panic_app">Sètz segur de voler autorizar %1$s a aviar las accions de destruccion del boton Urgéncia ?</string>
+  <string name="panic_setting_destructive_action">Accions destructrises</string>
+  <string name="panic_setting_signout_title">Se desconnectar</string>
+  <string name="panic_setting_signout_summary">Se desconnectar de Briar en apiejant lo boton Urgéncia ?</string>
+  <string name="purge_setting_title">Suprimir lo compte</string>
+  <string name="purge_setting_summary">Suprimir vòstre compte en apiejant lo boton Urgéncia. Mèfi, aquò escafarà per totjorn vòstra identitat, vòstres contactes e messatges.</string>
+  <!--Settings Notifications-->
+  <string name="notification_settings_title">Notificacions</string>
+  <string name="notify_sign_in_title">Me rapelar de me connectar</string>
+  <string name="notify_sign_in_summary">Me mostrar un avís quand lo mobil avia o que l’aplicacion foguèt mesa a jorn</string>
+  <string name="notify_private_messages_setting_title">Messatges privats</string>
+  <string name="notify_private_messages_setting_summary">Notificar los messatges privats</string>
+  <string name="notify_private_messages_setting_summary_26">Configuratz las alèrtas pels messatges privats</string>
+  <string name="notify_group_messages_setting_title">Messatges gropats</string>
+  <string name="notify_group_messages_setting_summary">Notificar los messatges gropats</string>
+  <string name="notify_group_messages_setting_summary_26">Configuratz las alèrtas pels messatges de grop</string>
+  <string name="notify_forum_posts_setting_title">Publicacions al fòrum</string>
+  <string name="notify_forum_posts_setting_summary">Notificar las publicacions al fòrum</string>
+  <string name="notify_forum_posts_setting_summary_26">Configurar las alèrtas d’articles de forum</string>
+  <string name="notify_blog_posts_setting_title">Articles de blòg</string>
+  <string name="notify_blog_posts_setting_summary">Notificar los articles de blòg</string>
+  <string name="notify_blog_posts_setting_summary_26">Configurar las alèrtas d’articles de blòg</string>
+  <string name="notify_vibration_setting">Vibracion</string>
+  <string name="notify_sound_setting">Sonariá</string>
+  <string name="notify_sound_setting_default">Sonariá per defaut</string>
+  <string name="notify_sound_setting_disabled">Cap</string>
+  <string name="choose_ringtone_title">Causir la sonariá</string>
+  <string name="cannot_load_ringtone">Cargament impossible de las sonariás</string>
+  <!--Conversation Settings-->
+  <!--Settings Feedback-->
+  <string name="send_feedback">Enviar vòstres comentaris</string>
+  <!--Link Warning-->
+  <string name="link_warning_title">Avertiment de ligam</string>
+  <string name="link_warning_intro">Sètz a man de dobrir lo ligam seguent amb una aplicacion extèrna.</string>
+  <string name="link_warning_text">Aquò pòt servir a vos identificar. Soscatz se vos fisatz de la persona que vos a enviat aqueste ligam e pensatz de lo dobrir amb Tor Browser. </string>
+  <string name="link_warning_open_link">Dobrir lo ligam</string>
+  <!--Crash Reporter-->
+  <string name="crash_report_title">Senhalar lo fracàs de Briar</string>
+  <string name="briar_crashed">Malastre, Briar a arrestat de foncionar.</string>
+  <string name="not_your_fault">Es pas vòstra fauta.</string>
+  <string name="please_send_report">Ajudatz-nos a melhorar Briar en nos enviant un rapòrt de fracàs.</string>
+  <string name="report_is_encrypted">Asseguram que lo rapòrt es chifrat e enviat en tota seguretat.</string>
+  <string name="feedback_title">Comentaris</string>
+  <string name="describe_crash">Describètz çò que s’es passat</string>
+  <string name="enter_feedback">Marcatz vòstres comentaris</string>
+  <string name="optional_contact_email">Vòstre corrièl (opcional)</string>
+  <string name="include_debug_report_crash">Ajustar de donas anonimas tocant lo fracàs</string>
+  <string name="include_debug_report_feedback">Ajustar de donas anonimas tocant aqueste periferic</string>
+  <string name="send_report">Enviar lo rapòrt</string>
+  <string name="close">Tampar</string>
+  <string name="dev_report_saved">Rapòrt salvat. Serà enviat a vòstra connexion venenta a Briar.</string>
+  <!--Sign Out-->
+  <string name="progress_title_logout">Desconnecion de Briar...</string>
+  <!--Screen Filters & Tapjacking-->
+  <string name="screen_filter_title">Superposicion detectada</string>
+  <string name="screen_filter_body">Una autra aplicacion se subrepausa a Briar. Per protegir vòstra seguretat, Briar respondrà pas a las tòcas tant qu’una aplicacion li passa dessús.\n\n Las aplicacions seguentas pòdon subrepausar las autras :\n\n %1$s</string>
+  <string name="screen_filter_allow">Autorizar aquestas aplicacions a se subrepausar</string>
+  <!--Permission Requests-->
+  <string name="permission_camera_title">Permission de la camèra</string>
+  <string name="permission_camera_request_body">Per numerizar lo còdi QR cal que Briar aja l’accès a la camèra.</string>
+  <string name="permission_location_title">Autorizacion de localizacion</string>
+  <string name="permission_location_request_body">Per trobar de periferics Bluetooth, Briar deu aver l’autorizacion 
+d’accedir a vòstra posicion.\n\n Briar garda pas vòstra posicion e la 
+parteja pas amb degun.</string>
+  <string name="permission_camera_location_title">Camèra e localizacion</string>
+  <string name="permission_camera_location_request_body">Per numerizar un còdi QR, Briar deu accedir a la camèra.\n\nPer trobar de periferics Bluetooth, Briar deu aver l’autorizacion d’accedir a vòstra posicion.\n\n Briar garda pas vòstra posicion e la parteja pas amb degun.</string>
+  <string name="permission_camera_denied_body">Avètz regetat l’accès a la camèra, mas per ajustar de contacte cal utilizar la camèra.\n\n Mercés de li donar l’accès</string>
+  <string name="qr_code">Còdi QR</string>
+  <string name="show_qr_code_fullscreen">Mostrar lo còdi QR en ecran complèt</string>
+  <!--App Locking-->
+  <string name="lock_unlock">Desverrolhar Briar</string>
+  <string name="lock_unlock_verbose">Picatz vòstre PIN, esquèma o senhal per desverrollhar Briar</string>
+  <string name="lock_unlock_fingerprint_description">Tocatz lo captaire de detada amb lo det enregistrat per contunhar</string>
+  <string name="lock_unlock_password">Utilizar lo senhal</string>
+  <string name="lock_is_locked">Briar es verrolhat</string>
+  <string name="lock_tap_to_unlock">Tocatz per desverrolhar</string>
+  <!--Connections Screen-->
+  <!--Screenshots-->
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_alice">Alicia</string>
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_bob">Joan</string>
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_carol">Carolina</string>
+  <!--This is a message to be used in screenshots. Please use the same translation for Bob!-->
+  <string name="screenshot_message_1">Adieu lo Joan !</string>
+  <!--This is a message to be used in screenshots. Please use the same translation for Alice!-->
+  <string name="screenshot_message_2">Adieu l’Alicia ! Mercés de m’aver parlat de Briar !</string>
+  <!--This is a message to be used in screenshots.-->
+  <string name="screenshot_message_3">Amb plaser, espri que t\'agradarà !</string>
+</resources>

@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content"
+	tools:parentTag="androidx.constraintlayout.widget.ConstraintLayout">
+
+	<TextView
+		android:id="@+id/textView"
+		android:layout_width="0dp"
+		android:layout_height="wrap_content"
+		android:layout_marginStart="@dimen/margin_large"
+		android:layout_marginLeft="@dimen/margin_large"
+		android:layout_marginTop="@dimen/margin_medium"
+		android:layout_marginEnd="@dimen/margin_large"
+		android:layout_marginRight="@dimen/margin_large"
+		android:textSize="@dimen/text_size_medium"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toTopOf="parent"
+		tools:text="@string/dnkm_huawei_protected_text" />
+
+	<androidx.appcompat.widget.AppCompatImageView
+		android:id="@+id/checkImage"
+		android:layout_width="24dp"
+		android:layout_height="24dp"
+		android:layout_margin="@dimen/margin_medium"
+		android:visibility="invisible"
+		app:layout_constraintBottom_toBottomOf="@+id/button"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toTopOf="@+id/button"
+		app:srcCompat="@drawable/ic_check_white"
+		app:tint="?attr/colorControlNormal"
+		tools:ignore="ContentDescription" />
+
+	<Button
+		android:id="@+id/button"
+		style="@style/BriarButtonOutline"
+		android:layout_width="0dp"
+		android:layout_height="wrap_content"
+		android:layout_margin="@dimen/margin_medium"
+		app:layout_constraintEnd_toStartOf="@+id/helpButton"
+		app:layout_constraintStart_toEndOf="@+id/checkImage"
+		app:layout_constraintTop_toBottomOf="@+id/textView"
+		tools:text="@string/dnkm_huawei_protected_button" />
+
+	<ImageButton
+		android:id="@+id/helpButton"
+		style="@style/BriarButtonFlat.Positive"
+		android:layout_width="24dp"
+		android:layout_height="24dp"
+		android:layout_margin="@dimen/margin_medium"
+		android:contentDescription="@string/help"
+		app:layout_constraintBottom_toBottomOf="@+id/button"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintTop_toTopOf="@+id/button"
+		app:srcCompat="@drawable/ic_info_white"
+		app:tint="@color/briar_button_text_positive" />
+
+</merge>

@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:padding="16dp">
+
+	<TextView
+		android:id="@+id/BriarVersion"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:text="@string/briar_version"
+		android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toTopOf="parent" />
+
+	<TextView
+		android:id="@+id/TorVersion"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:text="@string/tor_version"
+		android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toBottomOf="@+id/BriarVersion" />
+
+	<TextView
+		android:id="@+id/LinksTitle"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:layout_marginTop="16dp"
+		android:text="@string/links"
+		android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toBottomOf="@+id/TorVersion" />
+
+	<TextView
+		android:id="@+id/BriarWebsite"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:text="@string/briar_website"
+		android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toBottomOf="@+id/LinksTitle" />
+
+	<TextView
+		android:id="@+id/BriarSourceCode"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:text="@string/briar_source_code"
+		android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toBottomOf="@+id/BriarWebsite" />
+
+	<TextView
+		android:id="@+id/BriarChangelog"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:text="@string/briar_changelog"
+		android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toBottomOf="@+id/BriarSourceCode" />
+
+	<TextView
+		android:id="@+id/BriarPrivacyPolicy"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:text="@string/briar_privacy_policy"
+		android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toBottomOf="@+id/BriarChangelog" />
+
+	<TextView
+		android:id="@+id/TranslatorThanks"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:layout_marginTop="16dp"
+		android:text="@string/translator_thanks"
+		android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toBottomOf="@+id/BriarPrivacyPolicy" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

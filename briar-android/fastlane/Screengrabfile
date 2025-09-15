@@ -1,0 +1,7 @@
+app_package_name "org.briarproject.briar.android.screenshot.debug"
+locales ['en-US']
+app_apk_path "build/outputs/apk/screenshot/debug/briar-android-screenshot-debug.apk"
+tests_apk_path "build/outputs/apk/androidTest/screenshot/debug/briar-android-screenshot-debug-androidTest.apk"
+test_instrumentation_runner "org.briarproject.briar.android.BriarTestRunner"
+reinstall_app = true
+exit_on_test_failure = true

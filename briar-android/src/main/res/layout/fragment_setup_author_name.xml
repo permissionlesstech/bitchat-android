@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:fillViewport="true">
+
+	<androidx.constraintlayout.widget.ConstraintLayout
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:paddingStart="@dimen/margin_activity_horizontal"
+		android:paddingLeft="@dimen/margin_activity_horizontal"
+		android:paddingTop="@dimen/margin_activity_vertical"
+		android:paddingEnd="@dimen/margin_activity_horizontal"
+		android:paddingRight="@dimen/margin_activity_horizontal"
+		android:paddingBottom="@dimen/margin_activity_vertical">
+
+		<ImageView
+			android:id="@+id/logo"
+			android:layout_width="0dp"
+			android:layout_height="@dimen/hero_square"
+			android:layout_margin="16dp"
+			android:importantForAccessibility="no"
+			android:src="@drawable/splash_screen"
+			app:layout_constraintBottom_toTopOf="@+id/intro"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintHeight_default="percent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toTopOf="parent"
+			app:layout_constraintVertical_chainStyle="packed" />
+
+		<TextView
+			android:id="@+id/intro"
+			style="@style/TextAppearance.AppCompat.Large"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:layout_marginTop="16dp"
+			android:gravity="center"
+			android:text="@string/setup_title"
+			app:layout_constraintBottom_toTopOf="@+id/nickname_entry_wrapper"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/logo" />
+
+		<com.google.android.material.textfield.TextInputLayout
+			android:id="@+id/nickname_entry_wrapper"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_marginTop="16dp"
+			app:errorEnabled="true"
+			app:hintEnabled="false"
+			app:layout_constraintBottom_toTopOf="@+id/info_button"
+			app:layout_constraintLeft_toLeftOf="parent"
+			app:layout_constraintRight_toRightOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/intro">
+
+			<com.google.android.material.textfield.TextInputEditText
+				android:id="@+id/nickname_entry"
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content"
+				android:hint="@string/choose_nickname"
+				android:imeOptions="flagNoPersonalizedLearning|actionNext"
+				android:inputType="text|textCapWords"
+				android:maxLines="1" />
+
+			<requestFocus />
+
+		</com.google.android.material.textfield.TextInputLayout>
+
+		<Button
+			android:id="@+id/info_button"
+			style="@style/BriarButtonFlat.Positive"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:text="@string/more_info"
+			app:icon="@drawable/ic_info_white"
+			app:iconPadding="8dp"
+			app:layout_constraintBottom_toTopOf="@+id/next"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/nickname_entry_wrapper" />
+
+		<Button
+			android:id="@+id/next"
+			style="@style/BriarButton"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:enabled="false"
+			android:text="@string/setup_next"
+			app:layout_constraintBottom_toBottomOf="parent"
+			app:layout_constraintLeft_toLeftOf="parent"
+			app:layout_constraintRight_toRightOf="parent"
+			tools:enabled="true" />
+
+	</androidx.constraintlayout.widget.ConstraintLayout>
+
+</ScrollView>

@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:tools="http://schemas.android.com/tools"
+	style="@style/BriarCard"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content">
+
+	<LinearLayout
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:orientation="vertical"
+		android:padding="16dp">
+
+		<LinearLayout
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_marginBottom="8dp"
+			android:orientation="horizontal"
+			tools:ignore="UseCompoundDrawables">
+
+			<ImageView
+				android:id="@+id/icon"
+				android:layout_width="24dp"
+				android:layout_height="24dp"
+				android:layout_gravity="center"
+				android:layout_marginEnd="16dp"
+				android:layout_marginRight="16dp"
+				tools:background="@drawable/transport_tor"
+				tools:ignore="ContentDescription" />
+
+			<TextView
+				android:id="@+id/title"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:textColor="?android:attr/textColorPrimary"
+				android:textSize="@dimen/text_size_large"
+				tools:text="@string/transport_tor" />
+
+		</LinearLayout>
+
+		<com.google.android.material.materialswitch.MaterialSwitch
+			android:id="@+id/switchCompat"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:textColor="?android:attr/textColorPrimary"
+			android:textSize="@dimen/text_size_medium"
+			tools:checked="true"
+			tools:text="@string/tor_enable_title" />
+
+		<TextView
+			android:id="@+id/summary"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_marginEnd="32dp"
+			android:layout_marginRight="32dp"
+			android:textColor="?android:attr/textColorSecondary"
+			android:visibility="gone"
+			tools:text="@string/tor_enable_summary"
+			tools:visibility="visible" />
+
+		<TextView
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_marginTop="8dp"
+			android:text="@string/status_heading"
+			android:textColor="?android:attr/textColorPrimary" />
+
+		<TextView
+			android:id="@+id/deviceStatus"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_marginStart="4dp"
+			android:layout_marginLeft="4dp"
+			android:textColor="?android:attr/textColorPrimary"
+			tools:text="@string/tor_device_status_online_wifi" />
+
+		<TextView
+			android:id="@+id/appStatus"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_marginStart="4dp"
+			android:layout_marginLeft="4dp"
+			android:textColor="?android:attr/textColorPrimary"
+			tools:text="@string/tor_plugin_status_active" />
+
+	</LinearLayout>
+
+</androidx.cardview.widget.CardView>

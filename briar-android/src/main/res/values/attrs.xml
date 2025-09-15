@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+	<integer name="animationSpeed">@android:integer/config_mediumAnimTime</integer>
+
+	<integer name="splashScreenDuration">500</integer>
+
+	<declare-styleable name="BriarRecyclerView">
+		<attr name="scrollToEnd" format="boolean" />
+		<attr name="emptyImage" format="integer" />
+		<attr name="emptyText" format="string" />
+		<attr name="emptyAction" format="string" />
+	</declare-styleable>
+
+	<declare-styleable name="AuthorView">
+		<attr name="persona" format="enum">
+			<enum name="normal" value="0"/>
+			<enum name="reblogger" value="1"/>
+			<enum name="commenter" value="2"/>
+			<enum name="list" value="3"/>
+			<enum name="rss_feed" value="4"/>
+			<enum name="rss_feed_reblogged" value="5"/>
+		</attr>
+	</declare-styleable>
+
+	<declare-styleable name="EmojiTextInputView">
+		<attr name="textPaddingBottom" format="dimension"/>
+		<attr name="textPaddingEnd" format="dimension"/>
+		<attr name="maxTextLines" format="integer"/>
+	</declare-styleable>
+
+	<declare-styleable name="TextInputView">
+		<attr name="hint" format="string"/>
+		<attr name="allowEmptyText" format="boolean"/>
+	</declare-styleable>
+
+	<declare-styleable name="LargeTextInputView">
+		<attr name="buttonText" format="string"/>
+		<attr name="maxLines" format="integer"/>
+		<attr name="fillHeight" format="boolean" />
+	</declare-styleable>
+
+	<declare-styleable name="UnreadMessageButton">
+		<attr name="direction" format="enum">
+			<enum name="up" value="0" />
+			<enum name="down" value="1" />
+		</attr>
+	</declare-styleable>
+
+	<declare-styleable name="BriarButton">
+		<attr name="text" format="string" />
+		<attr name="buttonStyle" format="reference" />
+	</declare-styleable>
+
+</resources>

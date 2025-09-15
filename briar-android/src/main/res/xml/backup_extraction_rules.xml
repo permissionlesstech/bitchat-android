@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+	<cloud-backup disableIfNoEncryptionCapabilities="true">
+		<!-- docs: https://developer.android.com/guide/topics/data/autobackup#XMLSyntax -->
+		<exclude
+			domain="root"
+			path="." />
+		<!-- the previous entry should exclude things recursively, but we add more just to be sure -->
+		<exclude
+			domain="root"
+			path="app_db" />
+		<exclude
+			domain="root"
+			path="app_key" />
+		<!-- we don't use domain=file (getFilesDir()), but ApplicationInfo#dataDir -->
+		<exclude
+			domain="sharedpref"
+			path="." />
+	</cloud-backup>
+	<device-transfer>
+		<!-- docs: https://developer.android.com/guide/topics/data/autobackup#XMLSyntax -->
+		<exclude
+			domain="root"
+			path="." />
+		<!-- the previous entry should exclude things recursively, but we add more just to be sure -->
+		<exclude
+			domain="root"
+			path="app_db" />
+		<exclude
+			domain="root"
+			path="app_key" />
+		<!-- we don't use domain=file (getFilesDir()), but ApplicationInfo#dataDir -->
+		<exclude
+			domain="sharedpref"
+			path="." />
+	</device-transfer>
+</data-extraction-rules>

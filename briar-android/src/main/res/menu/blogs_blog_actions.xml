@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu
+	xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools">
+
+	<item
+		android:id="@+id/action_write_blog_post"
+		android:icon="@drawable/forum_item_create_white"
+		android:title="@string/blogs_write_blog_post"
+		android:visible="false"
+		app:showAsAction="ifRoom"
+		tools:visible="true"/>
+
+	<item
+		android:id="@+id/action_blog_share"
+		android:icon="@drawable/social_share_white"
+		android:title="@string/blogs_sharing_share"
+		app:showAsAction="ifRoom"/>
+
+	<item
+		android:id="@+id/action_blog_sharing_status"
+		android:title="@string/sharing_status"
+		app:showAsAction="never"/>
+
+	<item
+		android:id="@+id/action_blog_delete"
+		android:icon="@drawable/action_delete_white"
+		android:title="@string/blogs_remove_blog"
+		android:enabled="false"
+		app:showAsAction="never"/>
+
+</menu>

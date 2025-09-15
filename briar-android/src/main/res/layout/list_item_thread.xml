@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content"
+	android:baselineAligned="false"
+	android:orientation="horizontal">
+
+	<androidx.constraintlayout.widget.ConstraintLayout
+		android:layout_width="wrap_content"
+		android:layout_height="match_parent"
+		android:background="@drawable/list_item_thread_background">
+
+		<View
+			android:id="@+id/nested_line_1"
+			style="@style/DiscussionLevelIndicator"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toTopOf="parent"
+			tools:visibility="visible" />
+
+		<View
+			android:id="@+id/nested_line_2"
+			style="@style/DiscussionLevelIndicator"
+			app:layout_constraintStart_toEndOf="@id/nested_line_1"
+			app:layout_constraintTop_toTopOf="parent"
+			tools:visibility="visible" />
+
+		<View
+			android:id="@+id/nested_line_3"
+			style="@style/DiscussionLevelIndicator"
+			app:layout_constraintStart_toEndOf="@id/nested_line_2"
+			app:layout_constraintTop_toTopOf="parent"
+			tools:visibility="visible" />
+
+		<View
+			android:id="@+id/nested_line_4"
+			style="@style/DiscussionLevelIndicator"
+			app:layout_constraintStart_toEndOf="@id/nested_line_3"
+			app:layout_constraintTop_toTopOf="parent" />
+
+		<View
+			android:id="@+id/nested_line_5"
+			style="@style/DiscussionLevelIndicator"
+			app:layout_constraintStart_toEndOf="@id/nested_line_4"
+			app:layout_constraintTop_toTopOf="parent"
+			tools:visibility="visible" />
+
+		<TextView
+			android:id="@+id/nested_line_text"
+			android:layout_width="@dimen/forum_nested_indicator"
+			android:layout_height="@dimen/forum_nested_indicator"
+			android:background="@drawable/level_indicator_circle"
+			android:gravity="center"
+			android:textSize="@dimen/text_size_small"
+			android:visibility="gone"
+			app:layout_constraintBottom_toBottomOf="parent"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toTopOf="parent"
+			tools:text="42"
+			tools:visibility="visible" />
+
+	</androidx.constraintlayout.widget.ConstraintLayout>
+
+	<androidx.constraintlayout.widget.ConstraintLayout
+		android:id="@+id/layout"
+		android:layout_width="0dp"
+		android:layout_height="wrap_content"
+		android:layout_weight="1"
+		android:background="@drawable/list_item_thread_background">
+
+		<View
+			android:id="@+id/divider"
+			style="@style/Divider.ThreadItem"
+			app:layout_constraintLeft_toLeftOf="parent"
+			app:layout_constraintTop_toTopOf="parent" />
+
+		<org.briarproject.briar.android.view.AuthorView
+			android:id="@+id/author"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:paddingStart="@dimen/margin_medium"
+			android:paddingLeft="@dimen/margin_medium"
+			android:paddingTop="@dimen/margin_medium"
+			android:paddingEnd="@dimen/margin_medium"
+			android:paddingRight="@dimen/margin_medium"
+			app:layout_constraintBottom_toBottomOf="@+id/text"
+			app:layout_constraintEnd_toStartOf="@+id/btn_reply"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/divider"
+			app:layout_constraintVertical_bias="0.0"
+			app:persona="commenter" />
+
+		<TextView
+			android:id="@+id/btn_reply"
+			style="@style/BriarButtonFlat.Positive.Tiny"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:paddingStart="@dimen/margin_medium"
+			android:paddingLeft="@dimen/margin_medium"
+			android:paddingEnd="@dimen/margin_medium"
+			android:paddingRight="@dimen/margin_medium"
+			android:text="@string/btn_reply"
+			android:textSize="@dimen/text_size_tiny"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/divider" />
+
+		<com.vanniktech.emoji.EmojiTextView
+			android:id="@+id/text"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:padding="@dimen/margin_medium"
+			android:textColor="?android:attr/textColorPrimary"
+			android:textIsSelectable="true"
+			android:textSize="@dimen/text_size_medium"
+			android:textColorLink="@color/briar_text_link"
+			app:layout_constraintBottom_toBottomOf="parent"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@id/author"
+			tools:text="Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua." />
+
+	</androidx.constraintlayout.widget.ConstraintLayout>
+
+</LinearLayout>

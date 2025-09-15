@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content"
+	android:orientation="horizontal"
+	android:paddingTop="@dimen/margin_medium"
+	android:paddingBottom="@dimen/margin_medium">
+
+	<de.hdodenhof.circleimageview.CircleImageView
+		android:id="@+id/avatarView"
+		style="@style/BriarAvatar"
+		android:layout_width="@dimen/listitem_picture_size_small"
+		android:layout_height="@dimen/listitem_picture_size_small"
+		android:layout_gravity="center_vertical"
+		android:layout_marginStart="@dimen/listitem_horizontal_margin"
+		android:layout_marginLeft="@dimen/listitem_horizontal_margin"
+		tools:src="@mipmap/ic_launcher_round" />
+
+	<com.vanniktech.emoji.EmojiTextView
+		android:id="@+id/nameView"
+		android:layout_width="0dp"
+		android:layout_height="wrap_content"
+		android:layout_gravity="center_vertical"
+		android:layout_marginStart="@dimen/margin_medium"
+		android:layout_marginLeft="@dimen/margin_medium"
+		android:layout_marginEnd="@dimen/margin_medium"
+		android:layout_marginRight="@dimen/margin_medium"
+		android:layout_weight="1"
+		android:maxLines="2"
+		android:textColor="?android:attr/textColorPrimary"
+		android:textSize="@dimen/text_size_medium"
+		tools:text="This is a name of a contact" />
+
+	<ImageView
+		android:id="@+id/bulbView"
+		android:layout_width="@dimen/listitem_horizontal_margin"
+		android:layout_height="@dimen/listitem_horizontal_margin"
+		android:layout_gravity="center_vertical"
+		android:layout_marginEnd="@dimen/listitem_horizontal_margin"
+		android:layout_marginRight="@dimen/listitem_horizontal_margin"
+		tools:ignore="ContentDescription"
+		tools:src="@drawable/contact_connected" />
+
+</LinearLayout>

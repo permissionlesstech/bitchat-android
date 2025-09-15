@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content"
+	android:animateLayoutChanges="true"
+	tools:showIn="@layout/activity_conversation">
+
+	<View
+		style="@style/Divider.Horizontal"
+		android:layout_alignParentTop="true" />
+
+	<LinearLayout
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:background="@color/card_background">
+
+		<org.briarproject.briar.android.view.EmojiTextInputView
+			android:id="@+id/emojiTextInput"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:layout_weight="1"
+			app:maxTextLines="4" />
+
+		<org.briarproject.briar.android.view.CompositeSendButton
+			android:id="@+id/compositeSendButton"
+			android:layout_width="@dimen/text_input_height"
+			android:layout_height="@dimen/text_input_height"
+			android:layout_gravity="bottom" />
+
+	</LinearLayout>
+
+</merge>

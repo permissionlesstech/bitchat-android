@@ -1,0 +1,11 @@
+Briar is a messaging app designed for activists, journalists, and anyone else who needs a safe, easy and robust way to communicate. Unlike traditional messaging apps, Briar doesn't rely on a central server - messages are synchronized directly between the users' devices. If the Internet's down, Briar can sync via Bluetooth, Wi-Fi or memory cards, keeping the information flowing in a crisis. If the Internet's up, Briar can sync via the Tor network, protecting users and their relationships from surveillance.
+
+The app features private messages, groups and forums as well as blogs. Support for the Tor network is built into the app. Everything you do in Briar is only stored on your device unless you decide to share it with other users.
+
+There are no advertisements and no tracking. The source code of the app is completely open for anyone to inspect and has already been professionally audited. All releases of Briar are reproducible, making it possible to verify that the published source code exactly matches the app published here. Development is done by a small non-profit team.
+
+Privacy policy: https://briarproject.org/privacy
+
+User manual: https://briarproject.org/manual
+
+Source code: https://code.briarproject.org/briar/briar

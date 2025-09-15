@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:orientation="vertical"
+	android:padding="@dimen/margin_large">
+
+	<com.google.android.material.textfield.TextInputLayout
+		android:id="@+id/createForumNameLayout"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		app:errorEnabled="true"
+		app:hintEnabled="false">
+
+		<com.google.android.material.textfield.TextInputEditText
+			android:id="@+id/createForumNameEntry"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:hint="@string/choose_forum_hint"
+			android:imeOptions="flagNoPersonalizedLearning"
+			android:importantForAutofill="no"
+			android:inputType="text|textCapSentences"
+			android:maxLines="1" />
+
+		<requestFocus />
+
+	</com.google.android.material.textfield.TextInputLayout>
+
+	<Button
+		android:id="@+id/createForumButton"
+		style="@style/BriarButton"
+		android:enabled="false"
+		android:text="@string/create_forum_button"
+		tools:enabled="true" />
+
+	<com.google.android.material.progressindicator.CircularProgressIndicator
+		android:id="@+id/createForumProgressBar"
+		style="@style/CircularProgress"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:layout_gravity="center"
+		android:indeterminate="true"
+		android:visibility="gone"
+		tools:visibility="visible" />
+
+</LinearLayout>

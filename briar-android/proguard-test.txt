@@ -1,0 +1,18 @@
+-keep,includedescriptorclasses class org.briarproject.bramble.** { *; }
+-keep,includedescriptorclasses class org.briarproject.briar.** { *; }
+
+-dontwarn android.test.**
+-dontwarn android.support.test.**
+-dontnote android.support.test.**
+-dontwarn com.googlecode.eyesfree.compat.CompatUtils
+
+-keep class org.xmlpull.v1.** { *; }
+-dontwarn org.xmlpull.v1.**
+
+-keep class org.junit.** { *; }
+-dontwarn org.junit.**
+
+-keep class junit.** { *; }
+-dontwarn junit.**
+
+-dontwarn org.briarproject.briar.android.**

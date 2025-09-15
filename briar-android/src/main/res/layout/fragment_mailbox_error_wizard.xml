@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:fillViewport="true"
+	tools:context=".android.mailbox.MailboxActivity">
+
+	<LinearLayout
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:orientation="vertical">
+
+		<TextView
+			android:id="@+id/question1"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:padding="16dp"
+			android:text="@string/mailbox_error_wizard_question1"
+			android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1" />
+
+		<RadioGroup
+			android:id="@+id/radioGroup1"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content">
+
+			<RadioButton
+				android:id="@+id/radioButton1"
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content"
+				android:layout_marginHorizontal="16dp"
+				android:text="@string/mailbox_error_wizard_answer1" />
+
+			<RadioButton
+				android:id="@+id/radioButton2"
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content"
+				android:layout_marginHorizontal="16dp"
+				android:text="@string/mailbox_error_wizard_answer2" />
+
+			<RadioButton
+				android:id="@+id/radioButton3"
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content"
+				android:layout_marginHorizontal="16dp"
+				android:text="@string/mailbox_error_wizard_answer3" />
+		</RadioGroup>
+
+		<include
+			android:id="@+id/info1"
+			layout="@layout/fragment_mailbox_error_wizard_access"
+			android:visibility="gone" />
+
+		<TextView
+			android:id="@+id/info2"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:padding="16dp"
+			android:text="@string/mailbox_error_wizard_info2"
+			android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
+			android:visibility="gone"
+			tools:visibility="visible" />
+
+		<LinearLayout
+			android:id="@+id/info3"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:orientation="vertical"
+			android:visibility="gone"
+			tools:visibility="visible">
+
+			<TextView
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content"
+				android:padding="16dp"
+				android:text="@string/mailbox_error_wizard_info3"
+				android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1" />
+
+			<org.briarproject.briar.android.view.BriarButton
+				android:id="@+id/button3"
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content"
+				android:layout_gravity="center"
+				android:layout_marginHorizontal="16dp"
+				app:buttonStyle="@style/BriarButtonOutline.Negative"
+				app:text="@string/mailbox_status_unlink_button" />
+		</LinearLayout>
+
+	</LinearLayout>
+
+</ScrollView>

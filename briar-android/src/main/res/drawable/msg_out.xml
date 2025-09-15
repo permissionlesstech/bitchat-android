@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape
+	xmlns:android="http://schemas.android.com/apk/res/android"
+	android:shape="rectangle">
+	<corners
+		android:bottomLeftRadius="@dimen/message_bubble_radius_big"
+		android:bottomRightRadius="@dimen/message_bubble_radius_big"
+		android:topLeftRadius="@dimen/message_bubble_radius_top_outer"
+		android:topRightRadius="@dimen/message_bubble_radius_top_inner"/>
+	<padding
+		android:bottom="@dimen/message_bubble_border"
+		android:left="@dimen/message_bubble_border"
+		android:right="@dimen/message_bubble_border"
+		android:top="@dimen/message_bubble_border"/>
+	<solid
+		android:color="@color/msg_out"/>
+	<stroke
+		android:width="@dimen/message_bubble_stroke"
+		android:color="@color/msg_stroke_dark"/>
+</shape>

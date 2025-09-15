@@ -1,0 +1,11 @@
+Briar është një aplikacion për shkëmbim mesazhesh, i konceptuar për veprimtarë, gazetarë, dhe cilido tjetër që ka nevojë për një mënyrë të sigurt, të lehtë dhe të fuqishme komunikimi. Ndryshe nga aplikacionet tradicionale, Briar-i nuk bazohet në një shërbyes qendror - mesazhet njëkohësohen drejtpërdrejt mes pajisjeve të përdoruesve. Nëse s’ka Internet, Briar-i mund të bëjë njëkohësimin me Bluetooth, Wi-Fi, ose karta kujtese, duke mbajtur kështu rrjedhën e informacioneve në rast krizash. Nëse ka Internet, Briar-i mund të bëjë njëkohësimet përmes rrjetit Tor, duke i mbrojtur përdoruesit dhe marrëdhëniet e tyre nga survejimi.
+
+Aplikacioni lejon mesazhe, grupe dhe forume private, si edhe blogje. Rrjeti Tor mbulohet së brendshmi nga aplikacioni. Gjithçka që bëni në Briar depozitohet vetëm në pajisjen tuaj, veç në vendosshi ta ndani me përdorues të tjerë.
+
+S’ka reklama dhe as gjurmim. Kodi burim i aplikacionit është plotësisht i lirë që ta inspektojë cilido dhe është shqyrtuar tashmë profesionalisht. Krejt hedhjet në qarkullim të Briar-it janë të riprodhueshme, duke bërë të mundur të verifikohet se kodi burim i bërë publik përputhet saktësisht me aplikacionin e publikuar këtu. Zhvillimi bëhet nga një ekip i vogël jofitimprurës.
+
+Rregulla privatësie: https://briarproject.org/privacy
+
+Doracak përdoruesi: https://briarproject.org/manual
+
+Kod burim: https://code.briarproject.org/briar/briar

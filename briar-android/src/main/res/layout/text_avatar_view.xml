@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:tools="http://schemas.android.com/tools"
+	tools:showIn="@layout/list_item_forum">
+
+	<de.hdodenhof.circleimageview.CircleImageView
+		android:id="@+id/avatarBackground"
+		style="@style/BriarAvatar"
+		android:layout_width="@dimen/avatar_forum_size"
+		android:layout_height="@dimen/avatar_forum_size"
+		android:layout_gravity="bottom|left|start"
+		tools:src="@color/briar_button_text_positive" />
+
+	<androidx.appcompat.widget.AppCompatTextView
+		android:id="@+id/textAvatarView"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:layout_gravity="center"
+		android:layout_marginTop="@dimen/listitem_picture_frame_offset_vertical"
+		android:layout_marginEnd="@dimen/listitem_picture_frame_offset_horizontal"
+		android:layout_marginRight="@dimen/listitem_picture_frame_offset_horizontal"
+		android:maxLength="1"
+		android:shadowColor="@color/forum_avatar_shadow"
+		android:shadowDx="0"
+		android:shadowDy="1.5"
+		android:shadowRadius="1.5"
+		android:textColor="@color/briar_text_primary_inverse"
+		android:textSize="@dimen/avatar_text_size"
+		tools:text="T" />
+
+	<TextView
+		android:id="@+id/unreadCountView"
+		android:layout_width="wrap_content"
+		android:layout_height="@dimen/unread_bubble_size"
+		android:layout_gravity="right|end|top"
+		android:background="@drawable/bubble"
+		android:gravity="center"
+		android:minWidth="@dimen/unread_bubble_size"
+		android:textColor="@color/briar_text_primary_inverse"
+		android:textSize="@dimen/unread_bubble_text_size"
+		android:textStyle="bold"
+		android:visibility="invisible"
+		tools:text="12"
+		tools:visibility="visible" />
+
+</merge>

@@ -1,0 +1,44 @@
+# Android defaults and rules from ../bramble-android/proguard-rules.txt are also applied
+
+-dontobfuscate
+-keepattributes SourceFile, LineNumberTable, *Annotation*, Signature, InnerClasses, EnclosingMethod
+
+-keep,includedescriptorclasses class org.briarproject.briar.android.**,org.briarproject.briar.api.android.** { *; }
+
+# QR codes
+-keep class com.google.zxing.Result
+-keepclassmembers enum * {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}
+
+# RSS libraries
+-keep,includedescriptorclasses class com.rometools.rome.feed.synd.impl.** { *; }
+-keep,includedescriptorclasses class com.rometools.rome.io.impl.** { *; }
+-dontwarn javax.xml.stream.**
+-dontwarn org.jaxen.**
+-dontwarn java.nio.**
+-dontwarn org.codehaus.mojo.animal_sniffer.IgnoreJRERequirement
+-dontwarn org.slf4j.impl.**
+
+# OkHttp does some shenanigans with Android's SSL classes
+-dontnote com.android.org.conscrypt.SSLParametersImpl
+-dontnote org.apache.harmony.xnet.provider.jsse.SSLParametersImpl
+-dontnote sun.security.ssl.SSLContextImpl
+-dontwarn org.conscrypt.OpenSSLProvider
+-dontwarn org.conscrypt.Conscrypt
+
+# HTML sanitiser
+-keep class org.jsoup.safety.Whitelist
+
+# KeyboardAwareLinearLayout uses reflection on android.View
+-dontnote org.thoughtcrime.securesms.components.KeyboardAwareLinearLayout
+
+# Emoji
+-keep class com.vanniktech.emoji.**
+
+# Glide
+-dontwarn com.bumptech.glide.load.engine.cache.DiskLruCacheWrapper
+
+# Dependency injection annotations, needed for UI tests on older API levels
+-keep class javax.inject.**

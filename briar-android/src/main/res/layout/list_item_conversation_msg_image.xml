@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- This layout is only used indirectly by cloning and setting its ConstraintSet -->
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:id="@+id/layout"
+	android:layout_width="wrap_content"
+	android:layout_height="wrap_content"
+	android:layout_marginStart="@dimen/message_bubble_margin_tail"
+	android:layout_marginLeft="@dimen/message_bubble_margin_tail"
+	android:layout_marginTop="@dimen/message_bubble_margin"
+	android:layout_marginEnd="@dimen/message_bubble_margin_non_tail"
+	android:layout_marginRight="@dimen/message_bubble_margin_non_tail"
+	android:layout_marginBottom="@dimen/message_bubble_margin"
+	android:background="@drawable/msg_in"
+	android:elevation="@dimen/message_bubble_elevation">
+
+	<androidx.recyclerview.widget.RecyclerView
+		android:id="@+id/imageList"
+		android:layout_width="@dimen/message_bubble_image_default"
+		android:layout_height="@dimen/message_bubble_image_default"
+		android:orientation="vertical"
+		app:layoutManager="androidx.recyclerview.widget.StaggeredGridLayoutManager"
+		app:layout_constraintBottom_toTopOf="@+id/text"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toTopOf="parent"
+		app:spanCount="2"
+		tools:ignore="ContentDescription"
+		tools:listitem="@layout/list_item_image" />
+
+	<com.vanniktech.emoji.EmojiTextView
+		android:id="@+id/text"
+		style="@style/TextMessage"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:layout_marginLeft="@dimen/message_bubble_padding_sides_inner"
+		android:layout_marginTop="@dimen/message_bubble_padding_top_inner"
+		android:layout_marginRight="@dimen/message_bubble_padding_sides_inner"
+		android:layout_marginBottom="@dimen/message_bubble_padding_bottom_inner"
+		android:textColor="?android:attr/textColorPrimary"
+		android:visibility="gone"
+		app:layout_constrainedWidth="true"
+		app:layout_constraintBottom_toTopOf="@+id/statusLayout"
+		app:layout_constraintEnd_toEndOf="@+id/imageList"
+		app:layout_constraintHorizontal_bias="0.0"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toBottomOf="@+id/imageList"
+		tools:text="The text of a message which can sometimes be a bit longer as well" />
+
+	<LinearLayout
+		android:id="@+id/statusLayout"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:layout_marginLeft="@dimen/message_bubble_padding_sides_inner"
+		android:layout_marginRight="@dimen/message_bubble_padding_sides_inner"
+		android:layout_marginBottom="@dimen/message_bubble_padding_top"
+		android:background="@drawable/msg_status_bubble"
+		android:orientation="horizontal"
+		app:layout_constraintBottom_toBottomOf="@+id/imageList"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintHorizontal_bias="1.0"
+		app:layout_constraintStart_toStartOf="parent">
+
+		<TextView
+			android:id="@+id/time"
+			style="@style/TextMessage.Timestamp"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			tools:text="Dec 24, 13:37" />
+
+		<ImageView
+			android:id="@+id/bomb"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_marginStart="4dp"
+			android:layout_marginEnd="4dp"
+			app:srcCompat="@drawable/ic_bomb"
+			app:tint="?android:attr/textColorSecondary"
+			tools:ignore="ContentDescription" />
+
+	</LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

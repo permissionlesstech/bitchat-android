@@ -1,0 +1,663 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<resources>
+	<!--Setup-->
+	<string name="setup_title">Benvida a Briar</string>
+	<string name="setup_name_explanation">O teu alcume mostrarase xunto a todas as mensaxes que publiques. Podes cambialo tras crear a túa conta.</string>
+	<string name="setup_next">Seguinte</string>
+	<string name="setup_password_intro">Elixe un Contrasinal</string>
+	<string name="setup_password_explanation">A túa conta en Briar gárdase cifrada no teu dispositivo, non na nube. Se esqueces o contrasinal ou desinstalas Briar, non haberá xeito de recuperar a túa conta.\n\nEscolle un contrasinal longo que sexa difícil de adiviñar, algo como catro palabras ao chou, ou dez letras aleatorias, números e símbolos.</string>
+	<string name="dnkm_doze_title">Conexións en segundo plano</string>
+	<string name="dnkm_doze_intro">Para recibir mensaxes, Briar precisa estar conectada en segundo plano.</string>
+	<string name="dnkm_doze_explanation">Para recibir mensaxes, Briar precisa estar conectada en segundo plano. Por favor desactiva as optimizacións de batería para que Briar poida permanecer conectada.</string>
+	<string name="dnkm_doze_button">Permitir conexións</string>
+	<string name="choose_nickname">Escolle o teu alcume</string>
+	<string name="choose_password">Elixe o teu contrasinal</string>
+	<string name="confirm_password">Confirma o teu contrasinal</string>
+	<string name="name_too_long">O nome é demasiado longo</string>
+	<string name="password_too_weak">O contrasinal é demasiado débil</string>
+	<string name="passwords_do_not_match">Os contrasinais non concordan</string>
+	<string name="create_account_button">Crea unha conta</string>
+	<string name="more_info">Máis información</string>
+	<string name="don_t_ask_again">Non preguntar de novo</string>
+	<string name="dnkm_huawei_protected_text">Por favor toca o botón inferior e asegúrate de que Briar está protexida na pantalla \"Apps Protexidas\"</string>
+	<string name="dnkm_huawei_protected_button">Protexer Briar</string>
+	<string name="dnkm_huawei_protected_help">Se Briar non se engade ao listado de apps protexidas, non poderá funcionar en segundo plano.</string>
+	<string name="dnkm_xiaomi_button">Protexer Briar</string>
+	<string name="dnkm_warning_dozed">%s non foi quen de funcionar en segundo plano</string>
+	<!--Login-->
+	<string name="enter_password">Contrasinal</string>
+	<string name="try_again">Contrasinal incorrecto, tenteo de novo</string>
+	<string name="dialog_title_cannot_check_password">Non se comprobou o contrasinal</string>
+	<string name="dialog_message_cannot_check_password">Briar non pode comprobar o contrasinal. Intenta reiniciar o dispositivo para solucionar o problema.</string>
+	<string name="sign_in_button">Iniciar sesión</string>
+	<string name="forgotten_password">Esquecín a miña clave</string>
+  <string name="dialog_title_lost_password">Contrasinal perdido</string>
+  <string name="dialog_message_lost_password">Briar almacena a túa configuración cifrada no dispositivo, non na nube, así que non podemos restabelecer o teu contrasinal. Quererías borrar a túa conta e empezar de novo?\n\nPrecaución: As túas identidades, contactos e mensaxes serán eliminadas de forma permanente.</string>
+  <string name="startup_failed_activity_title">Fallo de Inicio de Briar</string>
+  <plurals name="expiry_warning">
+    <item quantity="one">Esta versión de Briar é para probas. A conta caducará en %d día e non se pode anovar.</item>
+    <item quantity="other">Esta é unha versión de proba de Briar. A conta caducará en %d días e non se pode anovar.</item>
+  </plurals>
+  <string name="expiry_date_reached">Este software caducou.\nGrazas por probalo!</string>
+  <string name="download_briar">Para seguir utilizando Briar, descarga por favor a última versión.</string>
+  <string name="create_new_account">Precisas crear unha nova conta, pero podes utilizar o mesmo alcume.</string>
+  <string name="download_briar_button">Descargar Última Versión</string>
+  <string name="delete_account_button">Eliminar conta</string>
+  <string name="startup_open_database">Descifrando a Base de datos...</string>
+  <string name="startup_migrate_database">Actualizando a Base de datos...</string>
+  <string name="startup_compact_database">Compactando a base de datos...</string>
+  <!--Navigation Drawer-->
+  <string name="nav_drawer_open_description">Abra a gaveta de navegación</string>
+  <string name="nav_drawer_close_description">Peche a gaveta de navegación</string>
+  <string name="contact_list_button">Contactos</string>
+  <string name="groups_button">Grupos Privados</string>
+  <string name="forums_button">Foros</string>
+  <string name="blogs_button">Blogues</string>
+  <!--This is part of the main menu. The app will be locked when this is tapped.-->
+  <string name="lock_button">Bloquear App</string>
+  <string name="settings_button">Axustes</string>
+  <string name="sign_out_button">Finalizar sesión</string>
+  <string name="transports_onboarding_text">Toca aquí para controlar o xeito en que Briar conecta cos teus contactos.</string>
+  <!--Transports: Tor-->
+  <string name="transport_tor">Internet</string>
+  <string name="tor_device_status_online_wifi">O teu móbil ten acceso a internet por Wi-Fi</string>
+  <string name="tor_device_status_online_mobile">O teu móbil ten acceso a internet por datos móbiles</string>
+  <string name="tor_device_status_offline">O teu móbil non ten acceso a internet</string>
+  <string name="tor_plugin_status_enabling">Briar estase conectando a internet</string>
+  <string name="tor_plugin_status_active">Briar está conectada a internet</string>
+  <string name="tor_plugin_status_inactive">Briar non pode conectarse a internet</string>
+  <string name="tor_plugin_status_disabled">Briar está configurada para non usar internet</string>
+  <string name="tor_plugin_status_disabled_mobile_data">Briar está configurada para non usar datos móbilies</string>
+  <string name="tor_plugin_status_disabled_battery">Briar está configurada para non usar internet se está usando batería</string>
+  <string name="tor_plugin_status_disabled_country_blocked">Briar está configurada para non usar internet neste país</string>
+  <!--Transports: Wi-Fi-->
+  <string name="transport_lan">Wi-Fi</string>
+  <string name="transport_lan_long">Mesma rede Wi-Fi</string>
+  <string name="lan_device_status_on">O móbil está conectado á Wi-Fi</string>
+  <string name="lan_device_status_off">O móbil non está conectado á Wi-Fi</string>
+  <string name="lan_plugin_status_enabling">Briar está conectando á rede Wi-Fi</string>
+  <string name="lan_plugin_status_active">Briar está conectada á rede Wi-Fi</string>
+  <string name="lan_plugin_status_inactive">Briar non pode conectar coa rede Wi-Fi</string>
+  <string name="lan_plugin_status_disabled">Briar está configurada para non usar a rede Wi-Fi</string>
+  <!--Transports: Bluetooth-->
+  <string name="transport_bt">Bluetooth</string>
+  <string name="bt_device_status_on">O móbil ten o Bluetooth activado</string>
+  <string name="bt_device_status_off">O móbil ten o Bluetooth desactivado</string>
+  <string name="bt_plugin_status_enabling">Briar está conectando por Bluetooth</string>
+  <string name="bt_plugin_status_active">Briar está conectada ó Bluetooth</string>
+  <string name="bt_plugin_status_inactive">Briar non pode conectar por Bluetooth</string>
+  <string name="bt_plugin_status_disabled">Briar está configurada para non usar Bluetooth</string>
+  <!--Notifications-->
+  <string name="reminder_notification_title">Desconectaches de Briar</string>
+  <string name="reminder_notification_text">Toca para volver a conectar</string>
+  <string name="reminder_notification_channel_title">Recordatorio para conectar a Briar</string>
+  <string name="reminder_notification_dismiss">Desbotar</string>
+  <string name="ongoing_notification_title">Conectada a Briar</string>
+  <string name="ongoing_notification_text">Toca para abrir Briar</string>
+  <plurals name="private_message_notification_text">
+    <item quantity="one">Nova mensaxe privada.</item>
+    <item quantity="other">%d novas mensaxes privadas.</item>
+  </plurals>
+  <plurals name="group_message_notification_text">
+    <item quantity="one">Nova mensaxe de grupo.</item>
+    <item quantity="other">%d novas mensaxes de grupo.</item>
+  </plurals>
+  <plurals name="forum_post_notification_text">
+    <item quantity="one">Nova publicación de foro.</item>
+    <item quantity="other">%d nova publicación de foro.</item>
+  </plurals>
+  <plurals name="blog_post_notification_text">
+    <item quantity="one">Nova publicación de blog.</item>
+    <item quantity="other">%d novas publicacións de blog.</item>
+  </plurals>
+  <!--Misc-->
+  <string name="now">agora</string>
+  <string name="show">Amosar</string>
+  <string name="hide">Agochar</string>
+  <string name="ok">OK</string>
+  <string name="cancel">Cancelar</string>
+  <string name="got_it">Comprendido</string>
+  <string name="delete">Eliminar</string>
+  <string name="accept">Aceptar</string>
+  <string name="decline">Rexeitar</string>
+  <string name="online">Conectado</string>
+  <string name="offline">Desconectado</string>
+  <string name="send">Enviar</string>
+  <string name="allow">Permitir</string>
+  <string name="open">Abrir</string>
+  <string name="change">Cambiar</string>
+  <string name="start">Comezar</string>
+  <string name="finish">Rematar</string>
+  <string name="no_data">Sen datos</string>
+  <string name="ellipsis">...</string>
+  <string name="text_too_long">O texto inserido e demasiado longo</string>
+  <string name="show_onboarding">Amosar xanela de axuda</string>
+  <string name="fix">Arranxar</string>
+  <string name="help">Axuda</string>
+  <string name="sorry">Desculpa</string>
+  <string name="error_start_activity">Non dispoñible para o teu sistema</string>
+  <string name="status_heading">Estado:</string>
+  <string name="error">Erro</string>
+  <!--Contacts and Private Conversations-->
+  <string name="no_contacts">Sen contactos que amosar</string>
+  <string name="no_contacts_action">Toca na icona + para engadir un contacto</string>
+  <string name="date_no_private_messages">Sen mensaxes</string>
+  <string name="no_private_messages">Sen mensaxes que amosar</string>
+  <string name="message_hint">Nova mensaxe</string>
+  <string name="message_hint_auto_delete">Nova mensaxe efémera</string>
+  <string name="message_error">Erro ao enviar a mensaxe</string>
+  <string name="image_caption_hint">Engadir un comentario (optativo)</string>
+  <string name="image_attach">Anexar imaxe</string>
+  <string name="image_attach_error">Non se anexaron imaxe(s)</string>
+  <string name="image_attach_error_too_big">Imaxe demasiado grande. Max %d MB.</string>
+  <string name="image_attach_error_invalid_mime_type">Formato non admitido: %s</string>
+  <string name="set_contact_alias">Cambiar o nome do contacto</string>
+  <string name="set_contact_alias_hint">Nome do contacto</string>
+  <string name="menu_item_disappearing_messages">Mensaxes efémeras</string>
+  <!--The first placeholder will show a duration like "7 days". The second placeholder at the end will add "Tap to learn more."-->
+  <string name="auto_delete_msg_you_enabled">As túas mensaxes desaparecerán após %1$s . %2$s</string>
+  <!--The placeholder at the end will add "Tap to learn more."-->
+  <string name="auto_delete_msg_you_disabled">As túas mensaxes non desaparecerán. %1$s</string>
+  <!--The first placeholder will show a contact's name. The second placeholder will show a duration like "7 days". The third placeholder at the end will add "Tap to learn more."-->
+  <string name="auto_delete_msg_contact_enabled">As mensaxes de %1$s desaparecerán após %2$s . %3$s</string>
+  <plurals name="duration_minutes">
+    <item quantity="one">%d minuto</item>
+    <item quantity="other">%dminutos</item>
+  </plurals>
+  <plurals name="duration_hours">
+    <item quantity="one">%dhora</item>
+    <item quantity="other">%dhoras</item>
+  </plurals>
+  <plurals name="duration_days">
+    <item quantity="one">%ddía</item>
+    <item quantity="other">%ddías</item>
+  </plurals>
+  <!--The first placeholder will show a contact's name. The second placeholder at the end will add "Tap to learn more."-->
+  <string name="auto_delete_msg_contact_disabled">As mensaxes de %1$snon desaparecerán. %2$s</string>
+  <string name="tap_to_learn_more">Toca para saber máis.</string>
+  <string name="auto_delete_changed_warning_title">As mensaxes efémeras cambiaron</string>
+  <string name="auto_delete_changed_warning_message_enabled">Desde que comezaches a escribir a mensaxe, as mensaxes efémeras foron activadas.</string>
+  <string name="auto_delete_changed_warning_message_disabled">Desde que comezaches a escribir a mensaxe, foron desactivadas as mensaxes efémeras.</string>
+  <string name="auto_delete_changed_warning_send">Enviar igualmente</string>
+  <string name="delete_all_messages">Borrar tódalas mensaxes</string>
+  <string name="dialog_title_delete_all_messages">Confirmar borrado de mensaxes</string>
+  <string name="dialog_message_delete_all_messages">Seguro que queres borrar tódalas mensaxes?</string>
+  <string name="dialog_title_not_all_messages_deleted">Non se puideron borrar todalas mensaxes</string>
+  <string name="dialog_message_not_deleted_ongoing_both">As mensaxes relacionadas con convites e presentacións actuais non se poden borrar ata que conclúan.</string>
+  <string name="dialog_message_not_deleted_ongoing_introductions">As mensaxes relacionadas con presentacións en curso non se poden borrar ata que conclúan.</string>
+  <string name="dialog_message_not_deleted_ongoing_invitations">As mensaxes relacionadas con convites en curso non se poden borrar ata que conclúan.</string>
+  <string name="dialog_message_not_deleted_not_all_selected_both">Para borrar un convite ou presentación, debes seleccionar a solicitude e a resposta.</string>
+  <string name="dialog_message_not_deleted_not_all_selected_introductions">Para borrar unha presentación, debes seleccionar a solicitude e a resposta.</string>
+  <string name="dialog_message_not_deleted_not_all_selected_invitations">Para borrar un convite, debes seleccionar a solicitude e a resposta.</string>
+  <string name="delete_contact">Eliminar contacto</string>
+  <string name="dialog_title_delete_contact">Confirma a eliminación do contacto</string>
+  <string name="dialog_message_delete_contact">Segura de querer eliminar este contacto e todas as mensaxes que intercambiaron?</string>
+  <string name="contact_deleted_toast">Contacto eliminado</string>
+  <!--This is shown in the action bar when opening an image in fullscreen that the user sent-->
+  <string name="you">Ti</string>
+  <string name="save_image">Gardar imaxe</string>
+  <string name="dialog_title_save_image">Gardar imaxe?</string>
+  <string name="dialog_message_save_image">Ao gardar esta imaxe permitirás que outras apps teñan acceso a ela.\n\nSeguro que a queres gardar?</string>
+  <string name="save_image_success">Gardouse a imaxe</string>
+  <string name="save_image_error">Non se gardou a imaxe</string>
+  <string name="dialog_title_no_image_support">Imaxes non dispoñibles</string>
+  <string name="dialog_message_no_image_support">O cliente do teu contacto Briar non admite anexos de imaxes. Unha vez actualice verá unha icona diferente.</string>
+  <string name="dialog_title_image_support">Xa podes enviar imaxes a este contacto</string>
+  <string name="dialog_message_image_support">Toque nesta icona para anexar imaxes.</string>
+  <string name="messaging_too_many_attachments_toast">Só se enviarán as primeiras %d imaxes</string>
+  <string name="menu_contact">Contacto</string>
+  <!--Adding Contacts-->
+  <string name="add_contact_title">Engadir contacto próximo</string>
+  <string name="face_to_face">Debes verte coa persoa que queres engadir como contacto.\n\Isto evitará que calquera poida suplantarte ou ler as túas mensaxes no futuro.</string>
+  <string name="continue_button">Continuar</string>
+  <string name="try_again_button">Inténtao de novo</string>
+  <string name="waiting_for_contact_to_scan">Agardando polo contacto para escanear e conectar\u2026</string>
+  <string name="exchanging_contact_details">Intercambiando detalles do contacto\u2026</string>
+  <string name="contact_added_toast">Contacto engadido: %s</string>
+  <string name="contact_already_exists">O contacto %s xa existe</string>
+  <string name="qr_code_invalid">O código QR non é válido</string>
+  <string name="qr_code_too_old">O código QR que escaneaches procede dunha versión anterior de %s.\n\nPor favor, solicite ao teu contacto actualizar a nova versión e inténtao de novo.</string>
+  <string name="qr_code_too_new">O código QR que escaneaches procede dunha nova versión de %s.\n\nPor favor, actualiza a última versión e inténteo de novo.</string>
+  <string name="camera_error">Fallo na cámara</string>
+  <string name="connecting_to_device">Conectando co dispositivo\u2026</string>
+  <string name="authenticating_with_device">Autenticándose co dispositivo\u2026</string>
+  <string name="connection_error_title">Non se puido conectar co contacto</string>
+  <string name="connection_error_feedback">Se persiste o problema,<a href="feedback">envía un informe</a> para axudarnos a mellorar a app.</string>
+  <!--Adding Contacts Remotely-->
+  <string name="add_contact_remotely_title_case">Engadir contacto a distancia</string>
+  <string name="add_contact_nearby_title">Engadir contacto próximo</string>
+  <string name="add_contact_remotely_title">Engadir contacto a distancia</string>
+  <string name="contact_link_intro">Introducir aquí a ligazón do teu contacto</string>
+  <string name="contact_link_hint">Ligazón do contacto</string>
+  <string name="paste_button">Pegar</string>
+  <string name="add_contact_button">Engadir contacto</string>
+  <string name="copy_button">Copiar</string>
+  <string name="share_button">Compartir</string>
+  <string name="send_link_title">Intercambiar ligazóns</string>
+  <string name="add_contact_choose_nickname">Elexir alcume</string>
+  <string name="add_contact_choose_a_nickname">Escribe un alcume</string>
+  <string name="nickname_intro">Dálle un alcume ao contacto. Só ti pode velo.</string>
+  <string name="your_link">Envía esta ligazón ao contacto que queres engadir</string>
+  <string name="link_clip_label">Ligazón Briar</string>
+  <string name="link_copied_toast">Ligazón copiada</string>
+  <string name="adding_contact_error">Algo fallou ao engadir o contacto.</string>
+  <string name="pending_contact_requests_snackbar">Existen solicitudes de contactos pendentes</string>
+  <string name="pending_contact_requests">Solicitudes de Contacto pendentes</string>
+  <string name="no_pending_contacts">Sen contactos pendentes</string>
+  <string name="waiting_for_contact_to_come_online">Agardando a que o contacto se conecte...</string>
+  <string name="connecting">Conectando...</string>
+  <string name="adding_contact">Engadindo contacto...</string>
+  <string name="adding_contact_failed">Fallou engadir contacto</string>
+  <string name="dialog_title_remove_pending_contact">Confirma a eliminación</string>
+  <string name="dialog_message_remove_pending_contact">Este contacto aínda está a ser engadido. Se o eliminas agora, non será engadido.</string>
+  <string name="own_link_error">Introduza a ligazón do contacto, non o propio</string>
+  <string name="nickname_missing">Por favor escribe un alcume</string>
+  <string name="invalid_link">Ligazón non válida</string>
+  <string name="unsupported_link">Esta ligazón chega desde unha versión nova de Briar. Por favor, actualiza a nova versión e inténtao de novo.</string>
+  <string name="intent_own_link">Abreu a súa propia ligazón. Utilice a do contacto que quere engadir!</string>
+  <string name="missing_link">Por favor escribe unha ligazón</string>
+  <!--This is a numeral indicating the first step in a series of screens-->
+  <string name="step_1">1</string>
+  <!--This is a numeral indicating the second step in a series of screens-->
+  <string name="step_2">2</string>
+  <plurals name="contact_added_notification_text">
+    <item quantity="one">Novo contacto engadido.</item>
+    <item quantity="other">%d novos contactos engadidos.</item>
+  </plurals>
+  <string name="offline_state">Sen conexión a internet</string>
+  <string name="duplicate_link_dialog_title">Duplicar Ligazón</string>
+  <string name="duplicate_link_dialog_text_1">Xa tes un contacto pendente con esta ligazón: %s</string>
+  <string name="duplicate_link_dialog_text_1_contact">Xa tes un contacto con esta ligazón: %s</string>
+  <!--This is a question asking whether two nicknames refer to the same person-->
+  <!--This is a button for answering that two nicknames do indeed refer to the same person. This
+	string will be used in a dialog button, so if the translation of this string is longer than 20
+	characters, please use "Yes" instead, and use "No" for the "Different Person" button-->
+  <string name="same_person_button">Mesma Persoa</string>
+  <!--This is a button for answering that two nicknames refer to different people. This string
+	will be used in a dialog button, so if the translation of this string longer than 20 characters,
+	please use "No" instead, and use "Yes" for the "Same Person" button-->
+  <string name="different_person_button">Diferente Persoa</string>
+  <string name="pending_contact_updated_toast">Contacto pendente actualizado</string>
+  <!--Introductions-->
+  <string name="introduction_onboarding_title">Presenta aos seus contactos</string>
+  <string name="introduction_onboarding_text">Podes presentar aos teus contactos, así non precisan encontrarse en persoa para conectar a través de Briar.</string>
+  <string name="introduction_menu_item">Preséntate</string>
+  <string name="introduction_activity_title">Elixe Contacto</string>
+  <string name="introduction_not_possible">Xa tes unha presentación en progreso con estes contactos. Por favor, deixa que remate o proceso. Isto podería levar algún tempo se ti ou os contactos raramente se conectan.</string>
+  <string name="introduction_message_title">Presentar Contactos</string>
+  <string name="introduction_message_hint">Engadir unha mensaxe (opcional)</string>
+  <string name="introduction_button">Preséntate</string>
+  <string name="introduction_sent">Enviouse a túa presentación.</string>
+  <string name="introduction_error">Algo fallou ao enviar a presentación.</string>
+  <string name="introduction_request_sent">Solicitaches presentar %1$s a %2$s.</string>
+  <string name="introduction_request_received">%1$s solicitou presentarche a %2$s. Queres engadir a %2$s á túa lista de contactos?</string>
+  <string name="introduction_request_exists_received">%1$s solicitou presentarte a %2$s, pero %2$s xa estás na súa lista de contactos. Xa que %1$s podería non sabelo, podes responder igualmente:</string>
+  <string name="introduction_request_answered_received">%1$s solicitou presentarte a %2$s.</string>
+  <string name="introduction_response_accepted_sent">Aceptaches a presentación a %1$s.</string>
+  <string name="introduction_response_accepted_sent_info">Antes de engadir a %1$s aos teus contactos, eles precisan aceptar a presentación tamén. Esto podería levar algún tempo.</string>
+  <string name="introduction_response_declined_sent">Rexeitaches a presentación a %1$s.</string>
+  <string name="introduction_response_declined_auto">A presentación a %1$sfoi rexeitada automáticamente. </string>
+  <string name="introduction_response_accepted_received">%1$s aceptou a presentación a %2$s.</string>
+  <string name="introduction_response_declined_received">%1$s rexeitou a presentación a %2$s.</string>
+  <string name="introduction_response_declined_received_by_introducee">%1$s di que %2$srexeitou a presentación.</string>
+  <!--Connect via Bluetooth-->
+  <string name="menu_item_connect_via_bluetooth">Conectar vía Bluetooth</string>
+  <string name="connect_via_bluetooth_title">Conectar vía Bluetooth</string>
+  <string name="connect_via_bluetooth_no_location_permission">Non se pode continuar sen o permiso de localización</string>
+  <string name="connect_via_bluetooth_start">Conectando vía Bluetooth...</string>
+  <string name="connect_via_bluetooth_success">Conectouse correctamente vía Bluetooth</string>
+  <!--Private Groups-->
+  <string name="groups_list_empty">Sen grupos que amosar</string>
+  <string name="groups_list_empty_action">Toca a icona + para crear un grupo, ou solicita aos contactos que compartan grupos contigo</string>
+  <string name="groups_created_by">Creado por %s</string>
+  <plurals name="messages">
+    <item quantity="one">%d mensaxe</item>
+    <item quantity="other">%d mensaxes</item>
+  </plurals>
+  <string name="groups_group_is_empty">Este grupo está baleiro</string>
+  <string name="groups_group_is_dissolved">Este grupo foi disolto</string>
+  <string name="groups_remove">Eliminar</string>
+  <string name="groups_create_group_title">Crear Grupo Privado</string>
+  <string name="groups_create_group_button">Crear Grupo</string>
+  <string name="groups_create_group_invitation_button">Enviar Convite</string>
+  <string name="groups_create_group_hint">Escolle un nome para o teu grupo privado</string>
+  <string name="groups_invitation_sent">Enviouse o convite de grupo</string>
+  <string name="groups_member_list">Lista de Membros</string>
+  <string name="groups_invite_members">Convidar a Membros</string>
+  <string name="groups_member_created_you">Creaches o grupo</string>
+  <string name="groups_member_created">%s creou o grupo</string>
+  <string name="groups_member_joined_you">Entraches no grupo</string>
+  <string name="groups_member_joined">%s uníuse ao grupo</string>
+  <string name="groups_leave">Deixar Grupo</string>
+  <string name="groups_leave_dialog_title">Confirma que deixas o Grupo</string>
+  <string name="groups_leave_dialog_message">Tes a certeza de querer deixar este grupo?</string>
+  <string name="groups_dissolve">Desfacer o grupo</string>
+  <string name="groups_dissolve_dialog_title">Confirma a disolución do grupo</string>
+  <string name="groups_dissolve_dialog_message">Segura de querer desfacer o grupo?\n\nOs restantes membros non poderán continuar as súas conversas e poderían non recibir as últimas mensaxes.</string>
+  <string name="groups_dissolve_button">Desfacer</string>
+  <string name="groups_dissolved_dialog_title">O grupo foi destruído</string>
+  <string name="groups_dissolved_dialog_message">A persoa creadora do grupo desfíxoo.\n\nXa non poderás escribir mensaxes ao grupo e poderías non ter recibido tódalas mensaxes que foran escritas.</string>
+  <!--Private Group Invitations-->
+  <string name="groups_invitations_title">Convites de Grupo</string>
+  <string name="groups_invitations_invitation_sent">Convidaches a %1$s a unirse ao grupo \"%2$s\".</string>
+  <string name="groups_invitations_invitation_received">%1$s convidoute a unirte ao grupo \"%2$s\".</string>
+  <string name="groups_invitations_joined">Xa estás no grupo</string>
+  <string name="groups_invitations_declined">Rexeitou o convite ao grupo</string>
+  <plurals name="groups_invitations_open">
+    <item quantity="one">%d convite de grupo aberto</item>
+    <item quantity="other">%d convites de grupo abertos</item>
+  </plurals>
+  <string name="groups_invitations_response_accepted_sent">Aceptou o convite de grupo de %s.</string>
+  <string name="groups_invitations_response_declined_sent">Rexeitou o convite de grupo de %s.</string>
+  <string name="groups_invitations_response_declined_auto">O convite ao grupo desde %s foi automáticamente rexeitado.</string>
+  <string name="groups_invitations_response_accepted_received">%s aceptou o convite de grupo.</string>
+  <string name="groups_invitations_response_declined_received">%s rexeitou o convite de grupo.</string>
+  <string name="sharing_status_groups">Só a persoa creadora poder convidar a novos membros ao grupo. Abaixo está a membresía do grupo.</string>
+  <!--Private Groups Revealing Contacts-->
+  <string name="groups_reveal_contacts">Revelar contactos</string>
+  <string name="groups_reveal_dialog_message">Podes escoller se revelas os contactos a todos os compoñentes actuais e futuros do grupo.\n\Se revelas os contactos a conexión do grupo será máis rápida e fiable, xa que poderá comunicarse cos contactos revelados incluso se a creadora do grupo non está en liña.</string>
+  <string name="groups_reveal_visible">As relacións dos contactos son visibles para o grupo</string>
+  <string name="groups_reveal_visible_revealed_by_us">A relación co contacto é visible para o grupo (revelada por ti)</string>
+  <string name="groups_reveal_visible_revealed_by_contact">A relación con contacto é visible para o grupo (revelada por %s)</string>
+  <string name="groups_reveal_invisible">A relación co contacto non é visible para o grupo</string>
+  <!--Forums-->
+  <string name="no_forums">Sen foros que mostrar</string>
+  <string name="no_forums_action">Toca na icona + para crear un foro, ou pídelle aos contactos que compartan foros contigo</string>
+  <string name="create_forum_title">Crear Foro</string>
+  <string name="choose_forum_hint">Escolle un nome para o teu foro</string>
+  <string name="create_forum_button">Crear Foro</string>
+  <string name="forum_created_toast">Foro creado</string>
+  <string name="no_forum_posts">Sen publicacións que mostrar</string>
+  <string name="no_posts">Non hai mensaxes</string>
+  <plurals name="posts">
+    <item quantity="one">%d publicación</item>
+    <item quantity="other">%d publicacións</item>
+  </plurals>
+  <string name="forum_new_message_hint">Nova publicación</string>
+  <string name="forum_message_reply_hint">Nova Resposta</string>
+  <string name="btn_reply">Responder</string>
+  <string name="forum_leave">Deixar foro</string>
+  <string name="dialog_title_leave_forum">Confirma a saída do foro</string>
+  <string name="dialog_message_leave_forum">Segura de querer deixar este foro?\n\nTodos os contactos cos que compartiches este foro poderían deixar de recibir actualizacións.</string>
+  <string name="dialog_button_leave">Saír</string>
+  <string name="forum_left_toast">Saír do foro</string>
+  <!--Forum Sharing-->
+  <string name="forum_share_button">Compartir Foro</string>
+  <string name="contacts_selected">Contactos selecionados</string>
+  <string name="activity_share_toolbar_header">Elixe Contactos</string>
+  <string name="no_contacts_selector">Sen contactos que amosar</string>
+  <string name="no_contacts_selector_action">Volve aquí tras engadir un contacto</string>
+  <string name="forum_shared_snackbar">Foro compartido cos contactos escollidos</string>
+  <string name="forum_share_message">Engadir unha mensaxe (opcional)</string>
+  <string name="forum_share_error">Algo fallou ao compartir este foro.</string>
+  <string name="forum_invitation_received">%1$s compartiu este foro \"%2$s\" contigo.</string>
+  <string name="forum_invitation_sent">Compartiu este foro \"%1$s\" con %2$s.</string>
+  <string name="forum_invitations_title">Convites a foros</string>
+  <string name="forum_invitation_exists">Xa aceptaras o convite a este foro\n\nAceptando máis convites farás a túa conexión ao foro máis rápida e fiable.</string>
+  <string name="forum_joined_toast">Unícheste ao foro</string>
+  <string name="forum_declined_toast">Rexeitaches o convite</string>
+  <string name="shared_by_format">Compartido por %s</string>
+  <string name="forum_invitation_already_sharing">Xa compartindo</string>
+  <string name="forum_invitation_response_accepted_sent">Aceptaches o convite de %s ao foro.</string>
+  <string name="forum_invitation_response_declined_sent">Rexeitaches o convite de %s ao foro.</string>
+  <string name="forum_invitation_response_declined_auto">O convite ao foro desde %sfoi automáticamente rexeitado.</string>
+  <string name="forum_invitation_response_accepted_received">%s aceptou o convite ao foro.</string>
+  <string name="forum_invitation_response_declined_received">%s rexeitou o convite ao foro.</string>
+  <string name="sharing_status">Estado do compartido</string>
+  <string name="sharing_status_forum">Calquera compoñente do foro pode compartilo cos seus contactos. Tie pode compartir este foro cos seguintes contactos. Pode haber outras persoas que non podes ver.</string>
+  <string name="shared_with">Compartido con %1$d (%2$d en liña)</string>
+  <plurals name="forums_shared">
+    <item quantity="one">%d foro compartido por contactos</item>
+    <item quantity="other">%d foros compartidos por contactos</item>
+  </plurals>
+  <string name="nobody">Ninguén</string>
+  <!--Blogs-->
+  <string name="blogs_other_blog_empty_state">Sen publicacións que mostrar</string>
+  <string name="read_more">ler mais</string>
+  <string name="blogs_write_blog_post">Escribir entrada de Blog</string>
+  <string name="blogs_write_blog_post_body_hint">Escribe o artigo no blog</string>
+  <string name="blogs_publish_blog_post">Publicar</string>
+  <string name="blogs_blog_post_created">Entrada no blog creada</string>
+  <string name="blogs_blog_post_received">Nova entrada de blog recibida</string>
+  <string name="blogs_blog_post_scroll_to">Desprazarse a</string>
+  <string name="blogs_feed_empty_state">Sen publicacións que mostrar</string>
+  <string name="blogs_feed_empty_state_action">Publicacións dos contactos e blogs aos que te suscribas aparecerán aquí\n\nToca na icona do lapis para encribir unha entrada</string>
+  <string name="blogs_remove_blog">Eliminar Blog</string>
+  <string name="blogs_remove_blog_dialog_message">Tes a certeza de querer eliminar este blog?\n\nAs entradas eliminaranse do teu dispositivo pero non dos dispositivos doutras persoas.\n\nCalquera contacto co que compartira este blog podería deixar de recibir actualizacións.</string>
+  <string name="blogs_remove_blog_ok">Eliminar</string>
+  <string name="blogs_blog_removed">Blog eliminado</string>
+  <string name="blogs_reblog_comment_hint">Engadir un comentario (optativo)</string>
+  <string name="blogs_reblog_button">Compartir</string>
+  <!--Blog Sharing-->
+  <string name="blogs_sharing_share">Compartir blog</string>
+  <string name="blogs_sharing_error">Algo fallou ao compartir o blog</string>
+  <string name="blogs_sharing_button">Compartir blog</string>
+  <string name="blogs_sharing_snackbar">Blog compartido cos contactos escollidos</string>
+  <string name="blogs_sharing_response_accepted_sent">Aceptaches o convite ao blog de %s.</string>
+  <string name="blogs_sharing_response_declined_sent">Rexeitaches o convite ao blog de %s.</string>
+  <string name="blogs_sharing_response_declined_auto">O convite ao blog desde %s foi automáticamente rexeitado.</string>
+  <string name="blogs_sharing_response_accepted_received">%s aceptou o convite ao blog.</string>
+  <string name="blogs_sharing_response_declined_received">%s rexeitou o convite ao blog.</string>
+  <string name="blogs_sharing_invitation_received">%1$s compartiu o blog \"%2$s\" contigo.</string>
+  <string name="blogs_sharing_invitation_sent">Compartiches o blog \"%1$s\" con %2$s.</string>
+  <string name="blogs_sharing_invitations_title">Convites a Blog</string>
+  <string name="blogs_sharing_joined_toast">Subscrita ao blog</string>
+  <string name="blogs_sharing_declined_toast">Rexeitaches o convite</string>
+  <string name="sharing_status_blog">Calquera que se subscribe a un blog pode compartilo cos seus contactos. Podes compartir este blog cos seguintes contactos. Podería haber outras subscritoras que ti non podes ver.</string>
+  <!--RSS Feeds-->
+  <string name="blogs_rss_feeds_import">Importar fonte RSS</string>
+  <string name="blogs_rss_feeds_import_button">Importar</string>
+  <string name="blogs_rss_feeds_import_hint">Escribe o URL da fonte RSS</string>
+  <string name="blogs_rss_feeds_import_error">Lamentámolo! Algo fallou ao importar a fonte.</string>
+  <string name="blogs_rss_feeds">Fontes RSS</string>
+  <string name="blogs_rss_feeds_manage_imported">Importado:</string>
+  <string name="blogs_rss_feeds_manage_author">Autor/a:</string>
+  <string name="blogs_rss_feeds_manage_updated">Última actualización:</string>
+  <string name="blogs_rss_remove_feed">Eliminar fonte</string>
+  <string name="blogs_rss_remove_feed_dialog_message">Tes a certeza de querer eliminar esta fonte?\n\nAs entradas eliminaranse do teu dispositivo pero non dos dispositivos doutras persoas\n\nTodas as persoas coas que compartiches esta fonte poderían deixar de recibir actualizacións.</string>
+  <string name="blogs_rss_remove_feed_ok">Eliminar</string>
+  <string name="blogs_rss_feeds_manage_empty_state">Sen fontes RSS que mostrar\n\nToque na icona + para importar unha fonte</string>
+  <string name="blogs_rss_feeds_manage_error">Aconteceu un problema ao cargar as túas fontes. Por favor, inténtao máis tarde.</string>
+  <!--Settings Profile Picture-->
+  <string name="change_profile_picture">Toca para cambiar a túa imaxe de perfil</string>
+  <string name="dialog_confirm_profile_picture_title">Mudar imaxe de perfil</string>
+  <string name="dialog_confirm_profile_picture_remark">Só os teus contactos poden ver esta foto</string>
+  <string name="change_profile_picture_failed_message">Lamentámolo, pero algo fallou cando intentamos actualizar a túa imaxe de pefil</string>
+  <!--Settings Display-->
+  <string name="pref_language_title">Idioma  &amp; rexión</string>
+  <string name="pref_language_changed">Este axuste terá efecto cando reinicies Briar. Pecha e reinicia Briar.</string>
+  <string name="pref_language_default">Por defecto no sistema</string>
+  <string name="display_settings_title">Pantalla</string>
+  <string name="pref_theme_title">Decorado</string>
+  <string name="pref_theme_light">Claro</string>
+  <string name="pref_theme_dark">Escuro</string>
+  <string name="pref_theme_auto">Automático (no día)</string>
+  <string name="pref_theme_system">Por defecto no sistema</string>
+  <!--Settings Connections-->
+  <string name="network_settings_title">Conexións</string>
+  <string name="bluetooth_setting">Conectar cos contactos vía Bluetooth</string>
+  <string name="wifi_setting">Conectar cos contactos na mesma rede Wi-Fi</string>
+  <string name="tor_enable_title">Conectar cos contactos a través de internet</string>
+  <string name="tor_enable_summary">Todas as conexións a través da rede Tor para ter privacidade</string>
+  <string name="tor_network_setting">Método de conexión á rede Tor</string>
+  <string name="tor_network_setting_automatic">Automática baseada na localización</string>
+  <string name="tor_network_setting_without_bridges">Usar rede Tor sen pontes</string>
+  <string name="tor_network_setting_with_bridges">Usar rede Tor con pontes</string>
+  <string name="tor_network_setting_never">Non conectar a internet</string>
+  <!--How and when Briar will connect to Tor: E.g. "Don't connect to the Internet (in China)" or "Use Tor network with bridges (in Belarus)"-->
+  <string name="tor_network_setting_summary">Automático: %1$s (en %2$s)</string>
+  <string name="tor_mobile_data_title">Utilizar datos móbiles</string>
+  <string name="tor_only_when_charging_title">Conectar a internet só cando carga batería</string>
+  <string name="tor_only_when_charging_summary">Desactiva a conexión a internet cando o dispositivo utiliza a batería</string>
+  <!--Settings Security and Panic-->
+  <string name="security_settings_title">Seguridade</string>
+  <string name="pref_lock_title">Bloquear app</string>
+  <string name="pref_lock_summary">Utilizar o bloqueo de pantalla do dispositio para protexer Briar mentras estás conectada</string>
+  <string name="pref_lock_disabled_summary">Para utilizar esta función, axusta o bloqueo de pantalla do dispositivo</string>
+  <string name="pref_lock_timeout_title">Tempo de espera en inactividade para o bloqueo</string>
+  <!--The %s placeholder is replaced with the following time spans, e.g. 5 Minutes, 1 Hour-->
+  <string name="pref_lock_timeout_summary">Cando non uses Briar, bloquea automáticamente tras %s</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_1">1 minuto</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_5">5 minutos</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_15">15 minutos</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_30">30 minutos</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_60">1 hora</string>
+  <string name="pref_lock_timeout_never">Nunca</string>
+  <string name="pref_lock_timeout_never_summary">Nunca bloquear Briar automáticamente</string>
+  <string name="change_password">Trocar o contrasinal</string>
+  <string name="current_password">Contrasinal actual</string>
+  <string name="choose_new_password">Novo contrasinal</string>
+  <string name="confirm_new_password">Confirma o novo contrasinal</string>
+  <string name="password_changed">Cambiaches o contrasinal</string>
+  <string name="panic_setting">Axustes do botón do pánico</string>
+  <string name="panic_setting_title">Botón do pánico</string>
+  <string name="panic_setting_hint">Axuste como debe reaccionar Briar cando utilices a app botón do pánico</string>
+  <string name="panic_app_setting_title">App Botón do pánico</string>
+  <string name="unknown_app">unha aplicación descoñecida</string>
+  <string name="panic_app_setting_summary">Non se estableceu unha app</string>
+  <string name="panic_app_setting_none">Ningún</string>
+  <string name="dialog_title_connect_panic_app">Confirma a App do pánico</string>
+  <string name="dialog_message_connect_panic_app">Tes a certeza de querer permitir a %1$s activar accións destrutivas do botón do pánico?</string>
+  <string name="panic_setting_destructive_action">Accións destrutivas</string>
+  <string name="panic_setting_signout_title">Pechar sesión</string>
+  <string name="panic_setting_signout_summary">Desconecta de Briar se o botón do pánico se preme</string>
+  <string name="purge_setting_title">Eliminar conta</string>
+  <string name="purge_setting_summary">Elimina a túa conta en Briar se se preme o botón do pánico. Coidado: Isto eliminará permanentemente as túas identidades, contactos e mensaxes</string>
+  <!--Settings Notifications-->
+  <string name="notification_settings_title">Notificacións</string>
+  <string name="notify_sign_in_title">Lembrarme conectar</string>
+  <string name="notify_sign_in_summary">Amosar unha alerta cando o teléfono se inicie ou a app fose actualizada</string>
+  <string name="notify_private_messages_setting_title">Mensaxes privadas</string>
+  <string name="notify_private_messages_setting_summary">Amosar alertas para mensaxes privadas</string>
+  <string name="notify_private_messages_setting_summary_26">Configurar alertas para mensaxes privadas</string>
+  <string name="notify_group_messages_setting_title">Mensaxes de grupo</string>
+  <string name="notify_group_messages_setting_summary">Amosar alertas para mensaxes de grupo</string>
+  <string name="notify_group_messages_setting_summary_26">Configurar alertas para mensaxes de grupo</string>
+  <string name="notify_forum_posts_setting_title">Entradas no foro</string>
+  <string name="notify_forum_posts_setting_summary">Amosar alertas para mensaxes nos foros</string>
+  <string name="notify_forum_posts_setting_summary_26">Configurar alertas para mensaxes nos foros</string>
+  <string name="notify_blog_posts_setting_title">Entradas no Blog</string>
+  <string name="notify_blog_posts_setting_summary">Amosar alertas para entradas no blog</string>
+  <string name="notify_blog_posts_setting_summary_26">Configurar alertas para entradas no blog</string>
+  <string name="notify_vibration_setting">Vibrar</string>
+  <string name="notify_sound_setting">Son</string>
+  <string name="notify_sound_setting_default">Ton por defecto</string>
+  <string name="notify_sound_setting_disabled">Ningún</string>
+  <string name="choose_ringtone_title">Escolle ton</string>
+  <string name="cannot_load_ringtone">Non se cargou o ton</string>
+  <!--Mailbox-->
+  <string name="mailbox_setup_connecting">Conectando...</string>
+  <string name="tor_offline_title">Desconectado</string>
+  <!--Conversation Settings-->
+  <string name="disappearing_messages_title">Mensaxes efémeras</string>
+  <string name="disappearing_messages_explanation_long">Ao activar esta función farás que as novas
+		mensaxes nesta conversa desaparezan automáticamente após 7\u00A0días.
+		\n\nA conta atrás para a copia da remitente da mensaxe comeza xusto cando se entrega.
+		A conta atrás para a correspondente comeza xusto cando le a mensaxe.
+		\n\nAs mensaxes efémeras están marcadas coa icona dunha bomba.
+		\n\nTen en conta que as correspondentes poden facer copias das mensaxes que lles envías.
+		\n\nSe cambias este axuste, aplicarase ás túas novas mensaxes inmediatamente e aos teus contactos
+		cando reciban a túa mensaxe.
+		O teu contacto tamén pode cambiar este axuste para ambas.</string>
+  <string name="learn_more">Aprender máis</string>
+  <string name="disappearing_messages_summary">Facer que as futuras mensaxes da conversa desaparecerán automáticamente após 7\u00A0días.</string>
+  <!--Settings Actions-->
+  <string name="pref_category_actions">Accións</string>
+  <string name="send_feedback">Envía a avaliación</string>
+  <!--Link Warning-->
+  <string name="link_warning_title">Aviso de ligazón</string>
+  <string name="link_warning_intro">Vas abrir a seguinte ligazón nunha aplicación externa.</string>
+  <string name="link_warning_text">Esto pódese utilizar para identificarte. Pensa ben se confías na persoa que che envía a ligazón e considera abrila co Navegador Tor.</string>
+  <string name="link_warning_open_link">Abrir ligazón</string>
+  <!--Crash Reporter-->
+  <string name="crash_report_title">Informe de fallo de Briar</string>
+  <string name="not_your_fault">Non é culpa túa.</string>
+  <string name="please_send_report">Axúdanos por favor a mellorar Briar enviándonos un informe do fallo.</string>
+  <string name="report_is_encrypted">Prometemos que o informe está cifrado e enviado con seguridade.</string>
+  <string name="feedback_title">Avaliación</string>
+  <string name="describe_crash">Describe que aconteceu (optativo)</string>
+  <string name="enter_feedback">Escribe a túa avaliación</string>
+  <string name="optional_contact_email">O teu enderezo e-mail (optativo)</string>
+  <string name="include_debug_report_crash">Incluír datos anónimos sobre o fallo</string>
+  <string name="include_debug_report_feedback">Incluír datos anónimos sobre este dispositivo</string>
+  <string name="dev_report_user_info">Información da usuaria</string>
+  <string name="dev_report_basic_info">Información básica</string>
+  <string name="dev_report_device_info">Información do dispositivo</string>
+  <string name="dev_report_stacktrace">Trazas</string>
+  <string name="dev_report_time_info">Información da hora</string>
+  <string name="dev_report_memory">Memoria</string>
+  <string name="dev_report_storage">Almacenaxe</string>
+  <string name="dev_report_connectivity">Conectividade</string>
+  <string name="dev_report_build_config">Configuración da compilación</string>
+  <string name="dev_report_logcat">Rexistro da app</string>
+  <string name="dev_report_device_features">Características do dispositivo</string>
+  <string name="send_report">Enviar informe</string>
+  <string name="close">Pechar</string>
+  <string name="dev_report_sending">Enviando comentarios...</string>
+  <string name="dev_report_sent">Comentarios enviados</string>
+  <string name="dev_report_saved">Informe gardado. Enviarase a seguinte vez que te conectes con Briar.</string>
+  <string name="dev_report_error">Erro: fallou o envío do informe</string>
+  <!--Sign Out-->
+  <string name="progress_title_logout">Desconectando de Briar...</string>
+  <!--Screen Filters & Tapjacking-->
+  <string name="screen_filter_title">Detectouse unha sobreescrita da pantalla</string>
+  <string name="screen_filter_body">Outra aplicación estase a amosar enriba de Briar. Para protexer a túa seguridade, Briar non responderá a toques cando outra aplicación está debuxando enriba.\n\nAs seguintes aplicacións poderían estar debuxando enriba:\n\n%1$s</string>
+  <string name="screen_filter_body_api_30">Outra app ten acceso a ver a pantalla enriba de Briar. Para protexer a túa seguridade, Briar non vai responder aos toques cando outra app ten acceso a pantalla.\n\nRevisa as app de abaixo para atopara a resposable.</string>
+  <string name="screen_filter_allow">Permitir a estas aplicación amosarse enriba</string>
+  <string name="screen_filter_review_apps">Revisar apps</string>
+  <!--Permission Requests-->
+  <string name="permission_camera_title">Permiso da cámara</string>
+  <string name="permission_camera_request_body">Para escanear códigos QR, Briar precisa acceso a cámara.</string>
+  <string name="permission_location_title">Permiso de localización</string>
+  <string name="permission_location_request_body">Para descubrir dispositivos Bluetooth, Briar precisa permiso para acceder a túa localización.\n\nBriar non garda a túa localización nin a comparte con ninguén.</string>
+  <string name="permission_camera_location_title">Cámara e localización</string>
+  <string name="permission_camera_location_request_body">Para escanear o código QR, Briar precisa acceso a cámara.\n\nPara descubrir dispositivos Bluetooth, Briar precisa permiso a túa localización.\n\nBriar non garda a túa localización nin a comparte con ninguén.</string>
+  <string name="permission_camera_denied_body">Denegaches o permiso de acceso a cámara, pero é necesario para engadir contactos.\n\nPor favor, considera conceder o permiso.</string>
+  <string name="permission_location_denied_body">Denegache o acceso á localización, mais Briar precisa este permiso para descubrir dispositivos Bluetooth.\n\nConsidera conceder o permiso.</string>
+  <string name="permission_location_setting_title">Axuste da localización</string>
+  <string name="permission_location_setting_body">O axuste de localización do teu dispositivo ten que activarse para atopar outros dispositivos vía Bluetooth. Activa este axuste para continuar. Podes desactivala tras finalizar.</string>
+  <string name="permission_location_setting_button">Activar localización</string>
+  <string name="qr_code">Código QR</string>
+  <string name="show_qr_code_fullscreen">Amosar o código QR a pantalla completa</string>
+  <!--App Locking-->
+  <string name="lock_unlock">Desbloquear Briar</string>
+  <string name="lock_unlock_verbose">Escribe o PIN do dispositivo, patrón ou contrasinal para desbloquear Briar</string>
+  <string name="lock_unlock_fingerprint_description">Toca o sensor de impresións dixitais co dedo rexistrado para continuar</string>
+  <string name="lock_unlock_password">Utilizar contrasinal</string>
+  <string name="lock_is_locked">Briar está bloqueada</string>
+  <string name="lock_tap_to_unlock">Toca para desbloquear</string>
+  <!--Connections Screen-->
+  <string name="transports_help_text">Briar pode conectar cos teus contactos a través de Internet, Wi-Fi ou Bluetooth.\n\nTodas as conexións a internet pasan a través da rede Tor para máis privacidade.\n\nSe un contacto é accesible de múltiples xeitos, Briar usaráos en paralelo.</string>
+  <!--Share app offline-->
+  <string name="hotspot_notification_channel_title">Punto de acceso Wi-Fi</string>
+  <string name="hotspot_button_connected">Seguinte</string>
+  <!--The placeholder to be inserted into the string 'hotspot_manual_wifi': People can connect by %s-->
+  <!--Wi-Fi setup-->
+  <!--The %s placeholder will be replaced with the translation of 'hotspot_scanning_a_qr_code'-->
+  <!--Download link-->
+  <!--The %s placeholder will be replaced with the translation of 'hotspot_scanning_a_qr_code'-->
+  <!--e.g. Download Briar 1.2.20-->
+  <string name="website_troubleshooting_title">Solución de problemas</string>
+  <!--error handling-->
+  <!--Transfer Data via Removable Drives-->
+  <string name="removable_drive_menu_title">Conectar vía Disco Extraíble</string>
+  <string name="removable_drive_success_receive_title">Importación exitosa</string>
+  <!--Screenshots-->
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_alice">Alice</string>
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_bob">Bob</string>
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_carol">Carol</string>
+  <!--This is a message to be used in screenshots. Please use the same translation for Bob!-->
+  <string name="screenshot_message_1">Ola Bob!</string>
+  <!--This is a message to be used in screenshots. Please use the same translation for Alice!-->
+  <string name="screenshot_message_2">Ola Alice! Grazas por falarme de Briar!</string>
+  <!--This is a message to be used in screenshots.-->
+  <string name="screenshot_message_3">Sen problema, agardo sexa do teu gusto 😀</string>
+</resources>

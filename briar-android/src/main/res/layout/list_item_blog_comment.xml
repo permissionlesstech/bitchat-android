@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content"
+	tools:showIn="@layout/list_item_blog_post">
+
+	<View
+		android:id="@+id/inputDivider"
+		style="@style/Divider.Horizontal"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toTopOf="parent" />
+
+	<org.briarproject.briar.android.view.AuthorView
+		android:id="@+id/authorView"
+		android:layout_width="0dp"
+		android:layout_height="wrap_content"
+		android:padding="@dimen/listitem_vertical_margin"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toTopOf="parent"
+		app:persona="commenter" />
+
+	<com.vanniktech.emoji.EmojiTextView
+		android:id="@+id/textView"
+		android:layout_width="0dp"
+		android:layout_height="wrap_content"
+		android:paddingStart="@dimen/listitem_vertical_margin"
+		android:paddingLeft="@dimen/listitem_vertical_margin"
+		android:paddingEnd="@dimen/listitem_vertical_margin"
+		android:paddingRight="@dimen/listitem_vertical_margin"
+		android:paddingBottom="@dimen/listitem_vertical_margin"
+		android:textColor="?android:attr/textColorSecondary"
+		android:textSize="@dimen/text_size_small"
+		android:textColorLink="@color/briar_text_link"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toBottomOf="@+id/authorView"
+		tools:text="This is a comment that appears below a blog post. Usually, it is expected to be rather short. Not much longer than this one." />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

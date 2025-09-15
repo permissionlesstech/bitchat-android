@@ -1,0 +1,28 @@
+[main]
+host     = https://www.transifex.com
+lang_map = es_CU: es-rCU, pt_BR: pt-rBR, pt_PT: pt-rPT, nb_NO: nb, zh-Hans: zh-rCN, zh-Hant: zh-rTW
+
+[o:otf:p:briar:r:google-play-full-description]
+file_filter  = fastlane/metadata/android/<lang>/full_description.txt
+source_file  = fastlane/metadata/android/en-US/full_description.txt
+source_lang  = en
+type         = TXT
+minimum_perc = 100
+# https://support.google.com/googleplay/android-developer/answer/9844778?hl=en#zippy=%2Cview-list-of-available-languages
+lang_map     = de: de-DE, is: is-IS, ja: ja-JP, tr: tr-TR, zh-Hans: zh-CN, ru: ru-RU, sv: sv-SE, hu: hu-HU, it: it-IT, my: my-MM, en: en-US, es: es-ES, fr: fr-FR, gl: gl-ES, pl: pl-PL, el: el-GR, ka: ka-GE, pt-rBR: pt-BR
+
+[o:otf:p:briar:r:google-play-short-description]
+file_filter  = fastlane/metadata/android/<lang>/short_description.txt
+source_file  = fastlane/metadata/android/en-US/short_description.txt
+source_lang  = en
+type         = TXT
+minimum_perc = 100
+lang_map     = en: en-US, es: es-ES, is: is-IS, tr: tr-TR, gl: gl-ES, it: it-IT, my: my-MM, sv: sv-SE, zh-Hans: zh-CN, de: de-DE, ja: ja-JP, ru: ru-RU, fr: fr-FR, hu: hu-HU, pl: pl-PL, el: el-GR, ka: ka-GE, pt-rBR: pt-BR
+
+[o:otf:p:briar:r:stringsxml-5]
+file_filter  = src/main/res/values-<lang>/strings.xml
+source_file  = src/main/res/values/strings.xml
+source_lang  = en
+type         = ANDROID
+minimum_perc = 80
+

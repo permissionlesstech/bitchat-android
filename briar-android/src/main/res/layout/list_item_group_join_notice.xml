@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:id="@+id/layout"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content"
+	android:background="@drawable/list_item_thread_background">
+
+	<View
+		android:id="@+id/divider"
+		style="@style/Divider.ThreadItem"
+		app:layout_constraintLeft_toLeftOf="parent"
+		app:layout_constraintTop_toTopOf="parent" />
+
+	<org.briarproject.briar.android.view.AuthorView
+		android:id="@+id/author"
+		android:layout_width="0dp"
+		android:layout_height="wrap_content"
+		android:layout_margin="@dimen/margin_medium"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toBottomOf="@+id/divider"
+		app:persona="commenter" />
+
+	<com.vanniktech.emoji.EmojiTextView
+		android:id="@+id/text"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:padding="@dimen/margin_medium"
+		android:textColor="?android:attr/textColorSecondary"
+		android:textSize="@dimen/text_size_medium"
+		android:textStyle="italic"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toBottomOf="@id/author"
+		tools:text="@string/groups_member_joined" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

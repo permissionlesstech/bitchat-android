@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent">
+
+	<androidx.core.widget.NestedScrollView
+		android:id="@+id/scrollView"
+		android:layout_width="0dp"
+		android:layout_height="0dp"
+		android:fillViewport="true"
+		app:layout_constraintBottom_toTopOf="@+id/tryAgainButton"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toTopOf="parent">
+
+		<androidx.constraintlayout.widget.ConstraintLayout
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_margin="@dimen/margin_large">
+
+			<androidx.appcompat.widget.AppCompatImageView
+				android:id="@+id/errorIcon"
+				android:layout_width="@dimen/hero_rect_width"
+				android:layout_height="@dimen/hero_rect_height"
+				app:layout_constraintBottom_toTopOf="@+id/errorTitle"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toTopOf="parent"
+				app:layout_constraintVertical_bias="0.25"
+				app:layout_constraintVertical_chainStyle="packed"
+				app:srcCompat="@drawable/il_qr_code_error"
+				tools:ignore="ContentDescription" />
+
+			<TextView
+				android:id="@+id/errorTitle"
+				android:layout_width="0dp"
+				android:layout_height="wrap_content"
+				android:layout_marginTop="@dimen/margin_xlarge"
+				android:gravity="center"
+				android:text="@string/connection_error_title"
+				android:textAppearance="@style/TextAppearance.MaterialComponents.Headline5"
+				app:layout_constraintBottom_toTopOf="@+id/errorMessage"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@+id/errorIcon" />
+
+			<TextView
+				android:id="@+id/errorMessage"
+				android:layout_width="0dp"
+				android:layout_height="wrap_content"
+				android:layout_marginTop="@dimen/margin_xlarge"
+				android:text="@string/add_contact_error_two_way"
+				android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
+				app:layout_constraintBottom_toTopOf="@+id/sendFeedback"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@+id/errorTitle" />
+
+			<TextView
+				android:id="@+id/sendFeedback"
+				android:layout_width="0dp"
+				android:layout_height="wrap_content"
+				android:layout_marginTop="@dimen/margin_large"
+				android:text="@string/connection_error_feedback"
+				android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
+				app:layout_constraintBottom_toBottomOf="parent"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@+id/errorMessage" />
+
+		</androidx.constraintlayout.widget.ConstraintLayout>
+
+	</androidx.core.widget.NestedScrollView>
+
+	<Button
+		android:id="@+id/cancelButton"
+		style="@style/BriarButtonFlat.Negative"
+		android:layout_width="0dp"
+		android:layout_height="wrap_content"
+		android:text="@string/cancel"
+		app:layout_constraintBottom_toBottomOf="parent"
+		app:layout_constraintEnd_toStartOf="@+id/tryAgainButton"
+		app:layout_constraintHorizontal_weight="1"
+		app:layout_constraintStart_toStartOf="parent"
+		app:layout_constraintTop_toTopOf="@+id/tryAgainButton" />
+
+	<Button
+		android:id="@+id/tryAgainButton"
+		style="@style/BriarButtonFlat.Positive"
+		android:layout_width="0dp"
+		android:layout_height="wrap_content"
+		android:text="@string/try_again_button"
+		app:layout_constraintBottom_toBottomOf="parent"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintHorizontal_weight="1"
+		app:layout_constraintStart_toEndOf="@+id/cancelButton"
+		app:layout_constraintTop_toBottomOf="@+id/scrollView" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

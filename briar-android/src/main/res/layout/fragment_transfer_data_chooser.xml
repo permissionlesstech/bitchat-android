@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:orientation="vertical">
+
+	<ScrollView
+		android:layout_width="match_parent"
+		android:layout_height="0dp"
+		android:layout_weight="1">
+
+		<androidx.constraintlayout.widget.ConstraintLayout
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content">
+
+			<ImageView
+				android:id="@+id/imageView"
+				android:layout_width="@dimen/hero_square"
+				android:layout_height="@dimen/hero_square"
+				android:layout_marginHorizontal="@dimen/margin_xlarge"
+				android:layout_marginTop="@dimen/margin_xlarge"
+				app:layout_constraintBottom_toTopOf="@+id/introView"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toTopOf="parent"
+				app:layout_constraintVertical_bias="0.25"
+				app:layout_constraintVertical_chainStyle="packed"
+				app:srcCompat="@drawable/il_transfer_data"
+				tools:ignore="ContentDescription" />
+
+			<TextView
+				android:id="@+id/introView"
+				android:layout_width="0dp"
+				android:layout_height="wrap_content"
+				android:layout_marginHorizontal="@dimen/margin_xlarge"
+				android:layout_marginTop="@dimen/margin_xlarge"
+				android:text="@string/removable_drive_intro"
+				android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
+				app:layout_constraintBottom_toTopOf="@+id/buttonLearnMore"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@+id/imageView" />
+
+			<Button
+				android:id="@+id/buttonLearnMore"
+				style="@style/BriarButtonFlat.Positive"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:layout_marginBottom="@dimen/margin_large"
+				android:padding="16dp"
+				android:text="@string/learn_more"
+				android:textAllCaps="false"
+				android:textSize="14sp"
+				app:layout_constraintBottom_toBottomOf="parent"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@+id/introView" />
+
+		</androidx.constraintlayout.widget.ConstraintLayout>
+
+	</ScrollView>
+
+	<Button
+		android:id="@+id/sendButton"
+		style="@style/BriarButton"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:layout_marginHorizontal="@dimen/margin_large"
+		android:layout_marginTop="8dp"
+		android:text="@string/removable_drive_title_send"
+		app:layout_constraintBottom_toBottomOf="parent"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toStartOf="parent" />
+
+	<Button
+		android:id="@+id/receiveButton"
+		style="@style/BriarButton"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:layout_marginHorizontal="@dimen/margin_large"
+		android:text="@string/removable_drive_title_receive"
+		app:layout_constraintBottom_toBottomOf="parent"
+		app:layout_constraintEnd_toEndOf="parent"
+		app:layout_constraintStart_toStartOf="parent" />
+
+</LinearLayout>

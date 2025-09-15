@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu
+	xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto">
+
+	<item
+		android:id="@+id/action_rss_feeds_import"
+		android:icon="@drawable/ic_add_white"
+		android:title="@string/blogs_rss_feeds_import"
+		app:showAsAction="always"/>
+
+</menu>

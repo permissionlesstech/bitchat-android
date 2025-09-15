@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:orientation="vertical">
+
+	<ScrollView
+		android:layout_width="match_parent"
+		android:layout_height="0dp"
+		android:layout_weight="1">
+
+		<androidx.constraintlayout.widget.ConstraintLayout
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:padding="@dimen/margin_large">
+
+			<androidx.constraintlayout.widget.Guideline
+				android:id="@+id/guideline"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:orientation="vertical"
+				app:layout_constraintGuide_percent="0.5" />
+
+			<androidx.appcompat.widget.AppCompatImageView
+				android:id="@+id/stepOne"
+				style="@style/StepBubble.Completed"
+				app:layout_constraintBottom_toTopOf="@+id/stepOneText"
+				app:layout_constraintEnd_toStartOf="@+id/guideline"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toTopOf="parent"
+				app:layout_constraintVertical_bias="0.0"
+				app:layout_constraintVertical_chainStyle="packed" />
+
+			<TextView
+				android:id="@+id/stepOneText"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:layout_margin="8dp"
+				android:text="@string/send_link_title"
+				app:layout_constraintBottom_toTopOf="@+id/imageView"
+				app:layout_constraintEnd_toStartOf="@+id/guideline"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@+id/stepOne" />
+
+			<View
+				android:id="@+id/stepConnector"
+				android:layout_width="0dp"
+				android:layout_height="1dp"
+				android:layout_margin="16dp"
+				android:background="?colorTertiary"
+				app:layout_constraintBottom_toBottomOf="@+id/stepOne"
+				app:layout_constraintEnd_toStartOf="@+id/stepTwo"
+				app:layout_constraintStart_toEndOf="@+id/stepOne"
+				app:layout_constraintTop_toTopOf="@+id/stepOne" />
+
+			<TextView
+				android:id="@+id/stepTwo"
+				style="@style/StepBubble"
+				android:text="@string/step_2"
+				app:layout_constraintBottom_toTopOf="@+id/stepTwoText"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toStartOf="@+id/guideline"
+				app:layout_constraintTop_toTopOf="@+id/stepOne"
+				app:layout_constraintVertical_bias="0.0"
+				app:layout_constraintVertical_chainStyle="packed" />
+
+			<TextView
+				android:id="@+id/stepTwoText"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:layout_margin="8dp"
+				android:text="@string/add_contact_choose_nickname"
+				app:layout_constraintBottom_toTopOf="@+id/imageView"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toEndOf="@+id/guideline"
+				app:layout_constraintTop_toBottomOf="@+id/stepTwo" />
+
+			<ImageView
+				android:id="@+id/imageView"
+				android:layout_width="0dp"
+				android:layout_height="0dp"
+				android:layout_marginTop="32dp"
+				app:layout_constraintBottom_toTopOf="@+id/nicknameIcon"
+				app:layout_constraintDimensionRatio="1:1"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintHeight_max="256dp"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@+id/stepOneText"
+				app:srcCompat="@drawable/il_add_contact_remote_nickname"
+				tools:ignore="ContentDescription" />
+
+			<androidx.appcompat.widget.AppCompatImageView
+				android:id="@+id/nicknameIcon"
+				android:layout_width="38dp"
+				android:layout_height="38dp"
+				android:layout_marginTop="32dp"
+				android:background="@drawable/bubble_current"
+				android:scaleType="center"
+				app:layout_constraintBottom_toTopOf="@+id/contactNameLayout"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@+id/imageView"
+				app:srcCompat="@drawable/ic_person"
+				app:tint="?colorOnTertiary" />
+
+			<TextView
+				android:id="@+id/nicknameIntro"
+				android:layout_width="0dp"
+				android:layout_height="wrap_content"
+				android:layout_marginStart="8dp"
+				android:layout_marginLeft="8dp"
+				android:gravity="left|start"
+				android:text="@string/nickname_intro"
+				android:textSize="16sp"
+				app:layout_constraintBottom_toBottomOf="@+id/nicknameIcon"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toEndOf="@+id/nicknameIcon"
+				app:layout_constraintTop_toTopOf="@+id/nicknameIcon" />
+
+			<com.google.android.material.textfield.TextInputLayout
+				android:id="@+id/contactNameLayout"
+				android:layout_width="0dp"
+				android:layout_height="wrap_content"
+				android:layout_marginTop="16dp"
+				app:errorEnabled="true"
+				app:hintEnabled="false"
+				app:layout_constraintBottom_toTopOf="@+id/space"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintHorizontal_bias="0.5"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@+id/nicknameIcon">
+
+				<com.google.android.material.textfield.TextInputEditText
+					android:id="@+id/contactNameInput"
+					android:layout_width="match_parent"
+					android:layout_height="match_parent"
+					android:hint="@string/add_contact_choose_a_nickname"
+					android:imeOptions="flagNoPersonalizedLearning"
+					android:importantForAutofill="no"
+					android:inputType="text|textCapWords" />
+
+			</com.google.android.material.textfield.TextInputLayout>
+
+			<Space
+				android:id="@+id/space"
+				android:layout_width="0dp"
+				android:layout_height="wrap_content"
+				app:layout_constrainedHeight="true"
+				app:layout_constraintBottom_toBottomOf="parent"
+				app:layout_constraintEnd_toEndOf="parent"
+				app:layout_constraintStart_toStartOf="parent"
+				app:layout_constraintTop_toBottomOf="@+id/contactNameLayout" />
+
+		</androidx.constraintlayout.widget.ConstraintLayout>
+
+	</ScrollView>
+
+	<org.briarproject.briar.android.view.BriarButton
+		android:id="@+id/addButton"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:layout_marginHorizontal="16dp"
+		app:buttonStyle="@style/BriarButton"
+		app:text="@string/add_contact_button" />
+
+</LinearLayout>

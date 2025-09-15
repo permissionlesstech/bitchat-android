@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.appbar.AppBarLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:background="?colorSecondary"
+	android:layout_height="wrap_content"
+	tools:layout_width="800dp"
+	tools:layout_height="75dp">
+
+	<androidx.constraintlayout.widget.ConstraintLayout
+		android:id="@+id/avatarGroup"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		app:layout_scrollFlags="scroll">
+
+		<de.hdodenhof.circleimageview.CircleImageView
+			android:id="@+id/avatarImage"
+			style="@style/BriarAvatar"
+			android:layout_width="@dimen/listitem_picture_size"
+			android:layout_height="@dimen/listitem_picture_size"
+			android:layout_margin="16dp"
+			app:layout_constraintBottom_toBottomOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toTopOf="parent"
+			tools:src="@mipmap/ic_launcher_round" />
+
+		<TextView
+			android:id="@+id/username"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:layout_marginStart="16dp"
+			android:layout_marginLeft="16dp"
+			android:layout_marginTop="16dp"
+			android:layout_marginEnd="16dp"
+			android:layout_marginRight="16dp"
+			android:paddingStart="@dimen/margin_medium"
+			android:paddingEnd="@dimen/margin_medium"
+			android:textColor="@color/briar_text_primary_inverse"
+			android:textSize="@dimen/text_size_medium"
+			app:layout_constraintBottom_toTopOf="@+id/avatarExplanation"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toEndOf="@+id/avatarImage"
+			app:layout_constraintTop_toTopOf="parent"
+			app:layout_constraintVertical_chainStyle="packed"
+			tools:text="username" />
+
+		<TextView
+			android:id="@+id/avatarExplanation"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:layout_marginStart="16dp"
+			android:layout_marginLeft="16dp"
+			android:layout_marginEnd="16dp"
+			android:layout_marginRight="16dp"
+			android:layout_marginBottom="16dp"
+			android:paddingStart="@dimen/margin_medium"
+			android:paddingEnd="@dimen/margin_medium"
+			android:text="@string/change_profile_picture"
+			android:textColor="@color/briar_text_secondary_inverse"
+			android:textSize="@dimen/text_size_small"
+			app:layout_constraintBottom_toBottomOf="parent"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toEndOf="@+id/avatarImage"
+			app:layout_constraintTop_toBottomOf="@+id/username" />
+
+	</androidx.constraintlayout.widget.ConstraintLayout>
+
+</com.google.android.material.appbar.AppBarLayout>

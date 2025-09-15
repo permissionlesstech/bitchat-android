@@ -1,0 +1,582 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<resources>
+	<!--Setup-->
+	<string name="setup_title">Добредојде во Briar</string>
+	<string name="setup_name_explanation">Вашето корисничко име ќе се појави до секоја содржина која ќе ја објавите. Истото не можете да го промените откога ќе ја креирате вашата сметка.</string>
+	<string name="setup_next">Следно</string>
+	<string name="setup_password_intro">Одбери лозинка</string>
+	<string name="setup_password_explanation">Вашата Briar сметка е зачувана енкриптирана на вашиот уред, а не во облак. Ако ја заборавите вашата лозинка или го избришете Briar, не постои начин да ја повратите вашата сметка.\n\nОдберете долга лозинка која е тешка за погодување, на пример четири произволни зборови, или десет произволни букви, бројки или симболи.</string>
+	<string name="dnkm_doze_title">Позадински поврзувања на Интернет</string>
+	<string name="dnkm_doze_intro">За да примате пораки, Briar мора да биде поврзан на Интернет во позадина.</string>
+	<string name="dnkm_doze_explanation">За да примате пораки, Briar мора да биде поврзан на Интернет во позадина. Исклучете ги оптимизациите за батеријата за Briar да може да остане поврзан на Интернет.</string>
+	<string name="dnkm_doze_button">Дозволени поврзувања</string>
+	<string name="choose_nickname">Одберете корисничко име</string>
+	<string name="choose_password">Одберете лозинка</string>
+	<string name="confirm_password">Потврдете ја лозинката</string>
+	<string name="name_too_long">Името е предолго</string>
+	<string name="password_too_weak">Лозинката е многу лесна</string>
+	<string name="passwords_do_not_match">Лозинките не се исти</string>
+	<string name="create_account_button">Создади сметка</string>
+	<string name="more_info">Повеќе информации</string>
+	<string name="don_t_ask_again">Не прашувај повторно</string>
+	<string name="dnkm_huawei_protected_text">Допрете го копчето подолу и осигурајте се дека Briar е заштитен во \"Protected Apps\" / мак. \"Заштитени апликации\" екранот.</string>
+	<string name="dnkm_huawei_protected_button">Заштити го Briar</string>
+	<string name="dnkm_huawei_protected_help">Ако Briar не е додаден на листата со заштитени апликации, ќе биде оневозможен да работи во позадина.</string>
+	<string name="dnkm_xiaomi_button">Заштити го Briar</string>
+	<string name="dnkm_warning_dozed">%s беше оневозможен да работи во позадина</string>
+	<!--Login-->
+	<string name="enter_password">Лозинка</string>
+	<string name="try_again">Погрешна лозинка</string>
+	<string name="dialog_title_cannot_check_password">Не може да се провери лозинката</string>
+	<string name="dialog_message_cannot_check_password">Briar не може да ја провери вашата лозинка. Ве молиме обидетете се со рестартирање на вашиот уред за да го решите овој проблем.</string>
+	<string name="sign_in_button">Најави се</string>
+	<string name="forgotten_password">Ја заборавив лозинката</string>
+  <string name="dialog_title_lost_password">Изгубена лозинка</string>
+  <string name="dialog_message_lost_password">Вашата Briar сметка е зачувана енкриптирана на вашиот уред, а не на облак, со оглед на тоа ние не можеме да ја рестартираме вашата лозинка. Дали сакате да ја избришете вашата сметка и да почнете од почеток?\n\nВнимание: Вашите идентитети, контакти и пораки ќе бидат трајно изгубени.</string>
+  <string name="startup_failed_notification_title">Briar не може да се стартува</string>
+  <string name="startup_failed_notification_text">Допрете за повеќе информации</string>
+  <string name="startup_failed_activity_title">Стартувањето на Briar не успеа</string>
+  <string name="startup_failed_db_error">Поради некоја причина, вашата Briar база на податоци е оштетена повеќе од степенот за можна поправка. Вашата сметка, вашите податоци и сите ваши контакти се изгубени. За жал, ќе треба да го пре-инсталирате Briar или да отворите нова сметка преку \'Ја заборавив лозинката\' во екранот каде истата се бара.</string>
+  <string name="startup_failed_data_too_old_error">Вашата сметка е создадена со стара верзија на оваа апликација и не може да биде отворена со оваа верзија. Морате или да ја пре-инсталирате старата верзија или да отворите нова сметка преку \'Ја заборавив лозинката\' во екранот каде истата се бара.</string>
+  <string name="startup_failed_data_too_new_error">Оваа верзија на апликацијата е многу стара. Ве молиме ажурирајте ја апликацијата до најновата верзија и обидете се повторно.</string>
+  <string name="startup_failed_service_error">Briar не е во можност да го стартува потребниот приклучок / плугин. Пре-инсталирањето на Briar најчесто го решава овој проблем. Сепак, имајте во предвид дека во тој случај ќе ја изгубите вашата сметка и сите податоци поврзани со неа, бидејќи Briar не користи централизирани сервери за складирање на вашите податоци.</string>
+  <plurals name="expiry_warning">
+    <item quantity="one">Ова е тест верзија на Briar. Вашата сметка ќе истече за %d ден и не може да биде обновена.</item>
+    <item quantity="other">Ова е тест верзија на Briar. Вашата сметка ќе истече за %d денови и не може да биде обновена.</item>
+  </plurals>
+  <string name="expiry_date_reached">Софтверот истече.\nВи благодариме за тестирањето!</string>
+  <string name="download_briar">За да продолжите со користење на Briar, ве молиме преземете го најновото издание.</string>
+  <string name="create_new_account">Ќе треба да создадете нова сметка, но можете да го користите истото корисничко име.</string>
+  <string name="download_briar_button">Преземи најново издание</string>
+  <string name="startup_open_database">Декриптирање на базата на податоци...</string>
+  <string name="startup_migrate_database">Ажурирање на базата на податоци...</string>
+  <string name="startup_compact_database">Пакување на базата на податоци</string>
+  <!--Navigation Drawer-->
+  <string name="nav_drawer_open_description">Отвори ја навигационата лента</string>
+  <string name="nav_drawer_close_description">Затвори ја навигационата лента</string>
+  <string name="contact_list_button">Контакти</string>
+  <string name="groups_button">Приватни групи</string>
+  <string name="forums_button">Форуми</string>
+  <string name="blogs_button">Блогови</string>
+  <!--This is part of the main menu. The app will be locked when this is tapped.-->
+  <string name="lock_button">Заклучи ја апликацијата</string>
+  <string name="settings_button">Поставки</string>
+  <string name="sign_out_button">Одјави се</string>
+  <string name="transports_onboarding_text">Допрете овде за да контролирате како Briar се поврзува со вашите контакти.</string>
+  <!--Transports: Tor-->
+  <string name="transport_tor">Интернет</string>
+  <string name="tor_device_status_online_wifi">Вашиот телефон има интернет пристап преку Wi-Fi</string>
+  <string name="tor_device_status_online_mobile">Вашиот телефон има интернет пристап преку мобилни податоци</string>
+  <string name="tor_device_status_offline">Вашиот телефон нема интернет пристап</string>
+  <string name="tor_plugin_status_enabling">Briar се поврзува на Интернет</string>
+  <string name="tor_plugin_status_active">Briar е поврзан на Интернет</string>
+  <string name="tor_plugin_status_inactive">Briar не може да се поврзе на Интернет</string>
+  <string name="tor_plugin_status_disabled">Briar е конфигуриран да не користи Интернет</string>
+  <string name="tor_plugin_status_disabled_mobile_data">Briar е конфигуриран да не користи мобилни податоци</string>
+  <string name="tor_plugin_status_disabled_battery">Briar е конфигуриран да не користи Интернет додека е работи на батерија</string>
+  <string name="tor_plugin_status_disabled_country_blocked">Briar е конфигуриран да не користи Интернет во оваа држава</string>
+  <!--Transports: Wi-Fi-->
+  <string name="transport_lan">Wi-Fi</string>
+  <string name="transport_lan_long">Иста Wi-Fi мрежа </string>
+  <string name="lan_device_status_on">Вашиот телефон е поврзан на Wi-Fi</string>
+  <string name="lan_device_status_off">Вашиот телефон не е поврзан на Wi-Fi</string>
+  <string name="lan_plugin_status_enabling">Briar се поврзува на Wi-Fi мрежа</string>
+  <string name="lan_plugin_status_active">Briar е поврзан на Wi-Fi мрежата</string>
+  <string name="lan_plugin_status_inactive">Briar сне може да се поврзе на Wi-Fi мрежата</string>
+  <string name="lan_plugin_status_disabled">Briar е конфигуриран да не ја користи Wi-Fi мрежата</string>
+  <!--Transports: Bluetooth-->
+  <string name="transport_bt">Bluetooth</string>
+  <string name="bt_device_status_on">Bluetooth-от на вашиот телефон е вклучен</string>
+  <string name="bt_device_status_off">Bluetooth-от на вашиот телефон е исклучен</string>
+  <string name="bt_plugin_status_enabling">Briar се поврзува со Bluetooth</string>
+  <string name="bt_plugin_status_active">Briar е поврзан со Bluetooth</string>
+  <string name="bt_plugin_status_inactive">Briar не може да се поврзе со Bluetooth</string>
+  <string name="bt_plugin_status_disabled">Briar е конфигуриран да не користи Bluetooth</string>
+  <!--Notifications-->
+  <string name="reminder_notification_title">Одјави се од Briar</string>
+  <string name="reminder_notification_text">Допрете за да се најавите.</string>
+  <string name="reminder_notification_channel_title">Briar потсетување за најавување</string>
+  <string name="reminder_notification_dismiss">Отфрли</string>
+  <string name="ongoing_notification_title">Најавен во Briar</string>
+  <string name="ongoing_notification_text">Допрете за да го отворите Briar</string>
+  <plurals name="private_message_notification_text">
+    <item quantity="one">Нова приватна порака.</item>
+    <item quantity="other">%d нови приватни пораки.</item>
+  </plurals>
+  <plurals name="group_message_notification_text">
+    <item quantity="one">Нова порака во група.</item>
+    <item quantity="other">%d нови пораки во група.</item>
+  </plurals>
+  <plurals name="forum_post_notification_text">
+    <item quantity="one">Нова објава на форум.</item>
+    <item quantity="other">%d нови објави на форум.</item>
+  </plurals>
+  <plurals name="blog_post_notification_text">
+    <item quantity="one">Нов пост на блог.</item>
+    <item quantity="other">%d нови објави на блог.</item>
+  </plurals>
+  <!--Misc-->
+  <string name="now">сега</string>
+  <string name="show">Покажи</string>
+  <string name="hide">Сокриј</string>
+  <string name="ok">ОК</string>
+  <string name="cancel">Исклучи</string>
+  <string name="got_it">Разбирам</string>
+  <string name="delete">Избриши</string>
+  <string name="accept">Прифаќам</string>
+  <string name="decline">Одбивам</string>
+  <string name="online">Онлајн/Вклучен</string>
+  <string name="offline">Офлајн/Исклучен</string>
+  <string name="send">Испрати</string>
+  <string name="allow">Дозволи</string>
+  <string name="open">Отвори</string>
+  <string name="change">Промени</string>
+  <string name="start">Започни</string>
+  <string name="no_data">Нема податоци</string>
+  <string name="ellipsis">…</string>
+  <string name="text_too_long">Внесениот текст е предолг</string>
+  <string name="show_onboarding">Покажи го диjалогот за помош</string>
+  <string name="fix">Поправи</string>
+  <string name="help">Помош</string>
+  <string name="sorry">Жал ни е</string>
+  <string name="error_start_activity">Недостапно на вашиот систем</string>
+  <string name="status_heading">Статус:</string>
+  <!--Contacts and Private Conversations-->
+  <string name="no_contacts">Нема контакти за прикажување</string>
+  <string name="no_contacts_action">Допрете ја + иконата за да додадете контакт</string>
+  <string name="date_no_private_messages">Нема пораки.</string>
+  <string name="no_private_messages">Нема пораки за прикажување</string>
+  <string name="image_caption_hint">Додај наслов (опционално)</string>
+  <string name="image_attach">Прикачи слика</string>
+  <string name="image_attach_error">Сликата/те не може да се прикачи(ат)</string>
+  <string name="image_attach_error_too_big">Сликата е преголема. Лимитот е %d MB.</string>
+  <string name="image_attach_error_invalid_mime_type">Форматот на сликата не е поддржан: %s</string>
+  <string name="set_contact_alias">Промена на име на контакт</string>
+  <string name="set_contact_alias_hint">Име на контакт</string>
+  <string name="menu_item_connect_via_bluetooth">Поврзи се преку Bluetooth</string>
+  <string name="connect_via_bluetooth_title">Поврзи се преку Bluetooth</string>
+  <!--The first placeholder will show a duration like "7 days". The second placeholder at the end will add "Tap to learn more."-->
+  <!--The placeholder at the end will add "Tap to learn more."-->
+  <!--The first placeholder will show a contact's name. The second placeholder will show a duration like "7 days". The third placeholder at the end will add "Tap to learn more."-->
+  <!--The first placeholder will show a contact's name. The second placeholder at the end will add "Tap to learn more."-->
+  <string name="delete_all_messages">Избриши ги сите пораки</string>
+  <string name="dialog_title_delete_all_messages">Потврди бришење на порака</string>
+  <string name="dialog_message_delete_all_messages">Дали сте сигурни дека сакате да ги избришете сите пораки?</string>
+  <string name="dialog_title_not_all_messages_deleted">Не можат да бидат избришани сите пораки</string>
+  <string name="dialog_message_not_deleted_ongoing_both">Пораките поврзани со покани и запознавања кои се во тек не можат да бидат избрашини додека не бидат завршени.</string>
+  <string name="dialog_message_not_deleted_ongoing_introductions">Пораките поврзани со запознавања кои се во тек не можат да бидат избрашини додека не бидат завршени.</string>
+  <string name="dialog_message_not_deleted_ongoing_invitations">Пораките поврзани со покани кои се во тек не можат да бидат избрашини додека не бидат завршени.</string>
+  <string name="dialog_message_not_deleted_not_all_selected_both">За да избришете покана или запознавање, треба да изберете барање и одговор.</string>
+  <string name="dialog_message_not_deleted_not_all_selected_introductions">За да избришете запознавање, треба да изберете барање и одговор.</string>
+  <string name="dialog_message_not_deleted_not_all_selected_invitations">За да избришете покана, треба да изберете барање и одговор.</string>
+  <string name="delete_contact">Избриши контакт</string>
+  <string name="dialog_title_delete_contact">Потврди бришење на контакт</string>
+  <string name="dialog_message_delete_contact">Дали сте сигурни дека сакате да го избришете овој контакт и сите пораки поврзани со него?</string>
+  <string name="contact_deleted_toast">Избришан контакт</string>
+  <!--This is shown in the action bar when opening an image in fullscreen that the user sent-->
+  <string name="you">Вие</string>
+  <string name="save_image">Зачувај слика</string>
+  <string name="dialog_title_save_image">Зачувај слика?</string>
+  <string name="dialog_message_save_image">Зачувувањето на сликата ќе им дозволи на други апликации да пристапат до неа.\n\nДали сте сигурни дека сакате да ја зачувате?</string>
+  <string name="save_image_success">Сликата беше зачувана</string>
+  <string name="save_image_error">Сликата не може да се зачува</string>
+  <string name="dialog_title_no_image_support">Недостапни слики</string>
+  <string name="dialog_message_no_image_support">Верзијата на Briar на контактот се уште не поддржува прикачувања на слики. Во моментот кога тој ќе го ажурира Briar, ќе видите различна икона.</string>
+  <string name="dialog_title_image_support">Сега можете да му испраќате слики на овој контакт</string>
+  <string name="dialog_message_image_support">Допрете ја оваа икона за да прикачите слики.</string>
+  <string name="messaging_too_many_attachments_toast">Само првите %d слики ќе бидат испратени</string>
+  <!--Adding Contacts-->
+  <string name="add_contact_title">Додај контакт ВО БЛИЗИНА</string>
+  <string name="face_to_face">Морате да се сретнете со лицето кое сакате да го додадете за контакт.\n\nОва спречува во иднина било кој да се преставува како вас или да ги чита вашите пораки во иднина.</string>
+  <string name="continue_button">Продолжи</string>
+  <string name="try_again_button">Обиди се повторно</string>
+  <string name="waiting_for_contact_to_scan">Почекај за контактот да скенира и да се поврзе\u2026</string>
+  <string name="exchanging_contact_details">Разменување детали за контакт\u2026</string>
+  <string name="contact_added_toast">Додадени контакти: %s</string>
+  <string name="contact_already_exists">Контактот %s веќе постои</string>
+  <string name="qr_code_invalid">QR кодот е невалиден</string>
+  <string name="qr_code_too_old">QR кодот што го скениравте доаѓа од постара верзија на %s.\n\nВе молиме прашајте го вашиот контакт за надградба во последната верзија и обидете се повторно. </string>
+  <string name="qr_code_too_new">QR кодот кој го скениравте доаѓа од понова верзија на %s.\n\nВе молиме надградете во последната верзија и потоа обидете се повторно.</string>
+  <string name="camera_error">Грешка во камерата</string>
+  <string name="connecting_to_device">Поврзување со уред\u2026</string>
+  <string name="authenticating_with_device">Автентикација со уред\u2026</string>
+  <string name="connection_error_title">Не може да се поврзе со твојот контакт</string>
+  <string name="connection_error_feedback">Ако овој проблем останува, ве молиме <a href="feedback">испратете повратна информација</a> за да ни помогнете да ја подобриме апликацијата.</string>
+  <!--Adding Contacts Remotely-->
+  <string name="add_contact_remotely_title_case">Додај контакт НА РАСТОЈАНИЕ</string>
+  <string name="add_contact_nearby_title">Додај контакт во близина</string>
+  <string name="add_contact_remotely_title">Додај контакт на растојание</string>
+  <string name="contact_link_intro">Внеси го линкот од твојот контакт овде</string>
+  <string name="contact_link_hint">Линк на контактот</string>
+  <string name="paste_button">Залепи</string>
+  <string name="add_contact_button">Додај контакт</string>
+  <string name="copy_button">Копирај</string>
+  <string name="share_button">Сподели</string>
+  <string name="send_link_title">Размени линкови</string>
+  <string name="add_contact_choose_nickname">Избери прекар</string>
+  <string name="add_contact_choose_a_nickname">Внеси прекар</string>
+  <string name="nickname_intro">Дај му на твојот контакт прекар. Само ти ќе можеш да го видиш.</string>
+  <string name="your_link">Испрати го овој линк до контактот што сакаш да го додадеш</string>
+  <string name="link_clip_label">Briar линк</string>
+  <string name="link_copied_toast">Линкот е копиран</string>
+  <string name="adding_contact_error">Се случи грешка при додавање на контактот.</string>
+  <string name="pending_contact_requests_snackbar">Има барања за контакт на чекање</string>
+  <string name="pending_contact_requests">Барања за контакт на чекање</string>
+  <string name="no_pending_contacts">Нема контакти на чекање</string>
+  <string name="waiting_for_contact_to_come_online">Чекање на контакт да се вклучи...</string>
+  <string name="connecting">Се поврзува...</string>
+  <string name="adding_contact">Додавање контакт...</string>
+  <string name="adding_contact_failed">Додавањето на контакт беше неуспешно</string>
+  <string name="dialog_title_remove_pending_contact">Потврди отстранување</string>
+  <string name="dialog_message_remove_pending_contact">Овој контакт е сеуште додаден. Ако го отстраните сега, нема да биде додаден.</string>
+  <string name="own_link_error">Внеси го линкот на твојот контакт, а не својот линк</string>
+  <string name="nickname_missing">Ве молиме внесете прекар</string>
+  <string name="invalid_link">Неважечки линк</string>
+  <string name="unsupported_link">Овој линк доаѓа од понова верзија на Briar. Ве молиме надградете во последна верзија и обидете се повторно.</string>
+  <string name="intent_own_link">Го отвори твојот линк. Користи го линкот на контактот што сакаш да го додадеш!</string>
+  <string name="missing_link">Ве молиме внесете линк</string>
+  <!--This is a numeral indicating the first step in a series of screens-->
+  <string name="step_1">1</string>
+  <!--This is a numeral indicating the second step in a series of screens-->
+  <string name="step_2">2</string>
+  <plurals name="contact_added_notification_text">
+    <item quantity="one">Нов контакт е додаден.</item>
+    <item quantity="other">%dнови контакти се додадени.</item>
+  </plurals>
+  <string name="offline_state">Нема Интернет врска</string>
+  <string name="duplicate_link_dialog_title">Дуплицирање на линк</string>
+  <string name="duplicate_link_dialog_text_1">Веќе имате контакт на чекање со овој линк: %s</string>
+  <string name="duplicate_link_dialog_text_1_contact">Веќе имате контакт со овој линк: %s</string>
+  <!--This is a question asking whether two nicknames refer to the same person-->
+  <string name="duplicate_link_dialog_text_2">Дали %s и %s е истата личност?</string>
+  <!--This is a button for answering that two nicknames do indeed refer to the same person. This
+	string will be used in a dialog button, so if the translation of this string is longer than 20
+	characters, please use "Yes" instead, and use "No" for the "Different Person" button-->
+  <string name="same_person_button">Истата личност</string>
+  <!--This is a button for answering that two nicknames refer to different people. This string
+	will be used in a dialog button, so if the translation of this string longer than 20 characters,
+	please use "No" instead, and use "Yes" for the "Same Person" button-->
+  <string name="different_person_button">Различна личност</string>
+  <string name="duplicate_link_dialog_text_3">%sи %s ти го испратија истиот линк.\n\nЕден од нив можеби се обидува да открие кои се твоите контакти.\n\nНе им кажувајте дека сте добиле ист линк од некој друг.</string>
+  <string name="pending_contact_updated_toast">Контактот на чекање е ажуриран</string>
+  <!--Introductions-->
+  <string name="introduction_onboarding_title">Запознај ги твоите контакти</string>
+  <string name="introduction_onboarding_text">Можете да ги запознаете вашите контакти меѓусебно, па тие нема да имаат потреба да се запознаваат лично за да се поврзат на Briar.</string>
+  <string name="introduction_menu_item">Направи запознавање</string>
+  <string name="introduction_activity_title">Избери контакт</string>
+  <string name="introduction_not_possible">Штотуку имате едно запознавање во тек со овие контакти. Ве молиме дозволете прво овој процес да заврши. Ако вие или вашите контакти сте ретко вклучени/онлајн, ова може да потрае некое време.</string>
+  <string name="introduction_message_title">Запознај ги контактите</string>
+  <string name="introduction_message_hint">Додај порака (опционално)</string>
+  <string name="introduction_button">Направи запознавање</string>
+  <string name="introduction_sent">Вашето запознавање беше испратено.</string>
+  <string name="introduction_error">Се појави грешка за време на запознавањето.</string>
+  <string name="introduction_request_sent">Побаравте да се запознаат %1$s и %2$s.</string>
+  <string name="introduction_request_received">%1$s побара да ве запознае со %2$s. Дали сакате да го додадете %2$s на вашата контакт листа?</string>
+  <string name="introduction_request_exists_received">%1$s побара да ве запознае со %2$s, но %2$s е веќе во вашата контакт листа. Додека %1$s можеби не го знае тоа, вие сеуште можете да одговорите:</string>
+  <string name="introduction_request_answered_received">%1$s побара да ве запознае со %2$s.</string>
+  <string name="introduction_response_accepted_sent">Вие го прифативте запознавањето со %1$s.</string>
+  <string name="introduction_response_accepted_sent_info">Пред %1$s да биде додаден во вашите контакти, тие исто така треба да го прифатат запознавањето. Ова може да потрае малку време. </string>
+  <string name="introduction_response_declined_sent">Го одбивте запознавањето со %1$s.</string>
+  <string name="introduction_response_accepted_received">%1$s го прифативте запознавањето со %2$s.</string>
+  <string name="introduction_response_declined_received">%1$s го одбивте запознавањето со %2$s.</string>
+  <string name="introduction_response_declined_received_by_introducee">%1$s вели дека %2$s го одбил запознавањето.</string>
+  <!--Private Groups-->
+  <string name="groups_list_empty">Нема групи за прикажување</string>
+  <string name="groups_list_empty_action">Допрете ја + иконата за да создадете група, или прашајте ги вашите контакти да споделат групи со вас</string>
+  <string name="groups_created_by">Создадено од %s</string>
+  <plurals name="messages">
+    <item quantity="one">%dпорака</item>
+    <item quantity="other">%d пораки</item>
+  </plurals>
+  <string name="groups_group_is_empty">Оваа група е празна</string>
+  <string name="groups_group_is_dissolved">Оваа група е распуштена</string>
+  <string name="groups_remove">Отстрани</string>
+  <string name="groups_create_group_title">Создади приватна група</string>
+  <string name="groups_create_group_button">Создади група</string>
+  <string name="groups_create_group_invitation_button">Испрати покана</string>
+  <string name="groups_create_group_hint">Избери има за твојата приватна група</string>
+  <string name="groups_invitation_sent">Групна покана беше испратена</string>
+  <string name="groups_member_list">Листа на членови</string>
+  <string name="groups_invite_members">Покани членови</string>
+  <string name="groups_member_created_you">Вие ја создадовте групата</string>
+  <string name="groups_member_created">%s ја содаде групата</string>
+  <string name="groups_member_joined_you">Вие се приклучивте на групата</string>
+  <string name="groups_member_joined">%s се приклучи на групата</string>
+  <string name="groups_leave">Напушти група</string>
+  <string name="groups_leave_dialog_title">Потврди напуштање на група</string>
+  <string name="groups_leave_dialog_message">Дали сте сигурни дека сакате да ја напуштите оваа група?</string>
+  <string name="groups_dissolve">Распуштање на група</string>
+  <string name="groups_dissolve_dialog_title">Потврди распуштање на група</string>
+  <string name="groups_dissolve_dialog_message">Дали сте сигурни дека сакате да ја распуштите оваа група?\n\nСите нејзини членови нема да можат да го продолжат разговорот и нема да ги допримат последните пораки.</string>
+  <string name="groups_dissolve_button">Распуштање</string>
+  <string name="groups_dissolved_dialog_title">Групата беше распуштена</string>
+  <string name="groups_dissolved_dialog_message">Создавачот на оваа група ја распушти.\n\nВие повеќе не можете да пишувате пораки во групата и можеби нема да ги примите сите објави кои биле напишани.</string>
+  <!--Private Group Invitations-->
+  <string name="groups_invitations_title">Групни покани</string>
+  <string name="groups_invitations_invitation_sent">Вие го / ја поканивте %1$sда се приклучи на групата \"%2$s\".</string>
+  <string name="groups_invitations_invitation_received">%1$sве покани да се приклучите на групата \"%2$s\".</string>
+  <string name="groups_invitations_joined">Приклучена  група</string>
+  <string name="groups_invitations_declined">Групната покана е одбиена</string>
+  <plurals name="groups_invitations_open">
+    <item quantity="one">%dотвори групна покана</item>
+    <item quantity="other">%d отвори групни покани</item>
+  </plurals>
+  <string name="groups_invitations_response_accepted_sent">Вие ја прифативте групната покана од %s.</string>
+  <string name="groups_invitations_response_declined_sent">Вие ја одбивте групната покана од %s.</string>
+  <string name="groups_invitations_response_accepted_received">%s ја прифати групната покана.</string>
+  <string name="groups_invitations_response_declined_received">%s ја одби групната покана.</string>
+  <string name="sharing_status_groups">Само содавачот може да покани нови членови во групата. Подолу се сите моментални членови на групата.</string>
+  <!--Private Groups Revealing Contacts-->
+  <string name="groups_reveal_contacts">Покажи контакти</string>
+  <string name="groups_reveal_dialog_message">Можете да одберете да ги покажете контактите на сите моментални и идни членови на оваа група.\n\nОткривањето на контактите го прави вашето поврзување со групата побрзо и поверодостојно, затоа што ќе можете да комуницирате со откриените контакти дури и кога создавачот на групата е исклучен.</string>
+  <string name="groups_reveal_visible">Контакт врската е видлива во групата</string>
+  <string name="groups_reveal_visible_revealed_by_us">Контакт врската е видлива во групата (откриена од тебе)</string>
+  <string name="groups_reveal_visible_revealed_by_contact">Контакт врската е видилва во групата (открена од %s)</string>
+  <string name="groups_reveal_invisible">Контакт врската не е видлива во групата</string>
+  <!--Forums-->
+  <string name="no_forums">Нема форуми за прикажување</string>
+  <string name="no_forums_action">Допрете ја + иконата за да создадете форум, или прашајте ги вашите контакти да споделат форуми со вас</string>
+  <string name="create_forum_title">Создадете форум</string>
+  <string name="choose_forum_hint">Одберете име за вашиот форум</string>
+  <string name="create_forum_button">Создадете форум</string>
+  <string name="forum_created_toast">Форумот е содаден</string>
+  <string name="no_forum_posts">Нема објави за прикажување</string>
+  <string name="no_posts">Нема објави</string>
+  <plurals name="posts">
+    <item quantity="one">%dпост</item>
+    <item quantity="other">%dобјави</item>
+  </plurals>
+  <string name="forum_new_message_hint">Нова објава</string>
+  <string name="forum_message_reply_hint">Нов одговор</string>
+  <string name="btn_reply">Одговор</string>
+  <string name="forum_leave">Напушти форум</string>
+  <string name="dialog_title_leave_forum">Потврди напуштање на форум</string>
+  <string name="dialog_message_leave_forum">Дали сте сигурни дека сакате да го напуштите овој форум?\n\nБило кој од контактите со кои го споделивте овој форум може да престане да добива ажурирања.</string>
+  <string name="dialog_button_leave">Напушти</string>
+  <string name="forum_left_toast">Напушти форум</string>
+  <!--Forum Sharing-->
+  <string name="forum_share_button">Сподели форум</string>
+  <string name="contacts_selected">Избрани контакти</string>
+  <string name="activity_share_toolbar_header">Избери контакти</string>
+  <string name="no_contacts_selector">Нема контакти за прикажување</string>
+  <string name="no_contacts_selector_action">Ве молиме вратете се овде после додавање на контакт</string>
+  <string name="forum_shared_snackbar">Форумот е споделен со избраните контакти</string>
+  <string name="forum_share_message">Додај порака (опционално)</string>
+  <string name="forum_share_error">Настана грешка при споделувањето на овој форум.</string>
+  <string name="forum_invitation_received">%1$sго сподели овој форум \"%2$s\" со вас.</string>
+  <string name="forum_invitation_sent">Вие го споделивте овој форум \"%1$s\" со %2$s.</string>
+  <string name="forum_invitations_title">Поакни за форум</string>
+  <string name="forum_invitation_exists">Вие штотуку ја прифативте поканата за овој форум.\n\nПрифаќањето на повеќе покани ќе го направи вашето поврзување со форумот побрзо и поверодостојно.</string>
+  <string name="forum_joined_toast">Приклучен на форум</string>
+  <string name="forum_declined_toast">Поканата е одбиена</string>
+  <string name="shared_by_format">Споделено со %s</string>
+  <string name="forum_invitation_already_sharing">Веќе споделува</string>
+  <string name="forum_invitation_response_accepted_sent">Вие ја прифативте поканата за овој форум од %s.</string>
+  <string name="forum_invitation_response_declined_sent">Вие ја одбивте поканата за овој форум од %s.</string>
+  <string name="forum_invitation_response_accepted_received">%s ја прифати поканата за форумот.</string>
+  <string name="forum_invitation_response_declined_received">%s ја одби поканата за форумот.</string>
+  <string name="sharing_status">Споделување статус</string>
+  <string name="sharing_status_forum">Секој член на форум може да го сподели со неговите контакти. Вие го споделувате овој форум со следниве контакти. Исто така може да има и други членови кој вие не можете да ги видите.</string>
+  <string name="shared_with">Споделено со %1$d (%2$d вклучен/и)</string>
+  <plurals name="forums_shared">
+    <item quantity="one">%dфорум споделен од контакти</item>
+    <item quantity="other">%d форуми споделени од контакти</item>
+  </plurals>
+  <string name="nobody">Никој</string>
+  <!--Blogs-->
+  <string name="blogs_other_blog_empty_state">Нема објави за прикажување</string>
+  <string name="read_more">прочитај повеќе</string>
+  <string name="blogs_write_blog_post">Напиши објава на Блог </string>
+  <string name="blogs_write_blog_post_body_hint">Внесете објава на блог </string>
+  <string name="blogs_publish_blog_post">Објави</string>
+  <string name="blogs_blog_post_created">Создадена е објава на блог</string>
+  <string name="blogs_blog_post_received">Примена е нова објава на блог </string>
+  <string name="blogs_blog_post_scroll_to">Излистај до</string>
+  <string name="blogs_feed_empty_state">Нема објави за прикажување</string>
+  <string name="blogs_feed_empty_state_action">Објавите од вашите контакти и од блоговите на кои сте претплатени ќе се појавуваат овде\n\nДопрете ја пенкало иконата за да напишете објава</string>
+  <string name="blogs_remove_blog">Отстрани блог</string>
+  <string name="blogs_remove_blog_dialog_message">Дали сте сигурни дека сакате да го отстраните овој блог?\n\nОбјавите ќе бидат отстранети од вашиот уред но не и од уредите на другите луѓе.\n\nБило кои од контактите со кои сте го споделиле овој блог може да престанат да добиваат ажурирања.</string>
+  <string name="blogs_remove_blog_ok">Отстрани</string>
+  <string name="blogs_blog_removed">Блогот е отстранет</string>
+  <string name="blogs_reblog_comment_hint">Додај коментар (опционално)</string>
+  <string name="blogs_reblog_button">Реблог</string>
+  <!--Blog Sharing-->
+  <string name="blogs_sharing_share">Сподели блог</string>
+  <string name="blogs_sharing_error">Настана грешка при споделувањето на овој блог.</string>
+  <string name="blogs_sharing_button">Сподели блог</string>
+  <string name="blogs_sharing_snackbar">Блогот е споделен со избраните контакти</string>
+  <string name="blogs_sharing_response_accepted_sent">Вие ја прифативте поканата за блог од %s.</string>
+  <string name="blogs_sharing_response_declined_sent">Вие ја одбивте поканата за блог од %s.</string>
+  <string name="blogs_sharing_response_accepted_received">%s ја прифати поканата за блог.</string>
+  <string name="blogs_sharing_response_declined_received">%s ја одби поканата за блог.</string>
+  <string name="blogs_sharing_invitation_received">%1$s го сподели блогот \"%2$s\" со тебе.</string>
+  <string name="blogs_sharing_invitation_sent">Вие го споделивте блогот \"%1$s\" со %2$s.</string>
+  <string name="blogs_sharing_invitations_title">Покани за блог</string>
+  <string name="blogs_sharing_joined_toast">Претплатен на блог</string>
+  <string name="blogs_sharing_declined_toast">Поканата е одбиена</string>
+  <string name="sharing_status_blog">Било кој што е претплатен на овој блог може да го сподели со неговите контакти. Вие го споделувате овој блог со следниве контакти. Исто така може да има и други претплатници кои ти не можеш да ги видиш.</string>
+  <!--RSS Feeds-->
+  <string name="blogs_rss_feeds_import">Увези RSS тековник</string>
+  <string name="blogs_rss_feeds_import_button">Увези</string>
+  <string name="blogs_rss_feeds_import_hint">Внеси URL на RSS тековник</string>
+  <string name="blogs_rss_feeds_import_error">Жал ни е! Настана гршка при увезувањето на вашиот тековник.</string>
+  <string name="blogs_rss_feeds_manage_imported">Увезени:</string>
+  <string name="blogs_rss_feeds_manage_author">Автор:</string>
+  <string name="blogs_rss_feeds_manage_updated">Последен пат ажуриран:</string>
+  <string name="blogs_rss_remove_feed">Отстрани тековник</string>
+  <string name="blogs_rss_remove_feed_dialog_message">Дали сте сигурни дека сакате да го отстраните овој тековник?\n\nОбјавите ќе бидат отстранети од вашиот уред но не и од уредите на другите луѓе.\n\nБило кои од контактите со кои сте го споделиле овој тековник може да престанат да добиваат ажурирања.</string>
+  <string name="blogs_rss_remove_feed_ok">Отстрани</string>
+  <string name="blogs_rss_feeds_manage_empty_state">Нема RSS тековници за прикажување\n\nДопрете ја + иконата за да увезете тековник</string>
+  <string name="blogs_rss_feeds_manage_error">Настана проблем при вчитувањето на вашите тековници. Ве молиме обидете се повторно подоцна.</string>
+  <!--Settings Profile Picture-->
+  <!--Settings Display-->
+  <string name="pref_language_title">Јазик &amp; регион</string>
+  <string name="pref_language_changed">Оваа поставка ќе биде ефективна после рестартирањето на Briar. Ве молиме одјавете се и рестартирајте го Briar.</string>
+  <string name="pref_language_default">Систем стандардно поставен</string>
+  <string name="display_settings_title">Екран</string>
+  <string name="pref_theme_title">Тема</string>
+  <string name="pref_theme_light">Светло</string>
+  <string name="pref_theme_dark">Темно</string>
+  <string name="pref_theme_auto">Автоматски (Дневно)</string>
+  <string name="pref_theme_system">Систем стандардно поставен</string>
+  <!--Settings Connections-->
+  <string name="network_settings_title">Поврзувања</string>
+  <string name="bluetooth_setting">Поврзете се контактите преку Bluetooth</string>
+  <string name="wifi_setting">Поврзете се со контактите на истата Wi-Fi мрежа</string>
+  <string name="tor_enable_title">Поврзете се контактите преку Интернет</string>
+  <string name="tor_enable_summary">Сите поврзувања одат преку Tor мрежата поради приватност</string>
+  <string name="tor_network_setting">Метод на поврзување на Tor мрежата</string>
+  <string name="tor_network_setting_automatic">Автоматски базирано на локација</string>
+  <string name="tor_network_setting_without_bridges">Користете Tor мрежа без мостови</string>
+  <string name="tor_network_setting_with_bridges">Користете Tor мрежа со мостови</string>
+  <string name="tor_network_setting_never">Не се поврзувај на Интернет</string>
+  <!--How and when Briar will connect to Tor: E.g. "Don't connect to the Internet (in China)" or "Use Tor network with bridges (in Belarus)"-->
+  <string name="tor_network_setting_summary">Автоматски: %1$s (во %2$s)</string>
+  <string name="tor_mobile_data_title">Користи мобилни податоци</string>
+  <string name="tor_only_when_charging_title">Поврзи на Интернет само за време на полнење</string>
+  <string name="tor_only_when_charging_summary">Оневозможи го Интернет поврзувањето кога уредот не е приклучен на полнач</string>
+  <!--Settings Security and Panic-->
+  <string name="security_settings_title">Безбедност</string>
+  <string name="pref_lock_title">Апликацијата е заклучена</string>
+  <string name="pref_lock_summary">Користете го екранот за заклучување на уредот за да го заштитите Briar додека сте најавени</string>
+  <string name="pref_lock_disabled_summary">За да ја користиш оваа карарактеристика, постави екран за заклучување на твојот уред</string>
+  <string name="pref_lock_timeout_title">Неактивноста на заклучената апликација е истечена</string>
+  <!--The %s placeholder is replaced with the following time spans, e.g. 5 Minutes, 1 Hour-->
+  <string name="pref_lock_timeout_summary">Кога не го користите Briar, автоматски се заклучува после %s</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_1">1 минута</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_5">5 минути</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_15">15 минути</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_30">30 минути</string>
+  <!--Will be shown in a list of lock times. Should fit into the %s of "automatically lock it after %s"-->
+  <string name="pref_lock_timeout_60">1 час</string>
+  <string name="pref_lock_timeout_never">Никогаш</string>
+  <string name="pref_lock_timeout_never_summary">Никогаш не го заклучувај Briar автоматски</string>
+  <string name="change_password">Промени лозинка</string>
+  <string name="current_password">Сегашна лозинка</string>
+  <string name="choose_new_password">Нова лозинка</string>
+  <string name="confirm_new_password">Потврди нова лозинка</string>
+  <string name="password_changed">Лозинката е променета.</string>
+  <string name="panic_setting">Поставување на копчето паника</string>
+  <string name="panic_setting_title">Паника копче</string>
+  <string name="panic_setting_hint">Конфигурирај како Briar ќе реагира кога ќе го користиш паника копчето на апликацијата</string>
+  <string name="panic_app_setting_title">Паника копче на апликација</string>
+  <string name="unknown_app">непозната апликација</string>
+  <string name="panic_app_setting_summary">Ниту една апликација не беше поставена</string>
+  <string name="panic_app_setting_none">Ништо</string>
+  <string name="dialog_title_connect_panic_app">Потврди паника апликација</string>
+  <string name="dialog_message_connect_panic_app">Дали сте сигурни дека сакате да дозволите %1$s да поттикне деструктивни акции на паника копчето?</string>
+  <string name="panic_setting_destructive_action">Деструктивни акции</string>
+  <string name="panic_setting_signout_title">Одјави се</string>
+  <string name="panic_setting_signout_summary">Одјави се од Briar ако копчето паника е притиснато</string>
+  <string name="purge_setting_title">Избриши сметка</string>
+  <string name="purge_setting_summary">Избриши ја твојата Briar сметка ако е притиснато копчето паника. Внимание: Ова трајно ќе ги избрише твоите идентитети, контакти и пораки</string>
+  <!--Settings Notifications-->
+  <string name="notification_settings_title">Известувања</string>
+  <string name="notify_sign_in_title">Потсети ме да се најавам</string>
+  <string name="notify_sign_in_summary">Покажи потсетник кога телефонот се вклучува или кога апликацијата е ажурирана</string>
+  <string name="notify_private_messages_setting_title">Приватни пораки</string>
+  <string name="notify_private_messages_setting_summary">Покажи предупредувања за приватни пораки</string>
+  <string name="notify_private_messages_setting_summary_26">Конфигурирај предупредувања за приватни пораки</string>
+  <string name="notify_group_messages_setting_title">Групни пораки</string>
+  <string name="notify_group_messages_setting_summary">Покажи предупредувања за групни пораки</string>
+  <string name="notify_group_messages_setting_summary_26">Конфигурирај предупредувања за групни пораки</string>
+  <string name="notify_forum_posts_setting_title">Форум објави</string>
+  <string name="notify_forum_posts_setting_summary">Покажи предупредувања за оваа форум објава</string>
+  <string name="notify_forum_posts_setting_summary_26">Конфигурирај ги предупредувањата за објавите на форумот</string>
+  <string name="notify_blog_posts_setting_title">Објави на Блог</string>
+  <string name="notify_blog_posts_setting_summary">Покажи ги предупредувањата за објавите на блог</string>
+  <string name="notify_blog_posts_setting_summary_26">Конфигурирај ги предупредувањата за објавите на блог</string>
+  <string name="notify_vibration_setting">Вибрирање</string>
+  <string name="notify_sound_setting">Звук</string>
+  <string name="notify_sound_setting_default">Стандарден рингтон</string>
+  <string name="notify_sound_setting_disabled">Ништо</string>
+  <string name="choose_ringtone_title">Избери рингтон</string>
+  <string name="cannot_load_ringtone">Не може да вчита рингтон</string>
+  <!--Conversation Settings-->
+  <string name="learn_more">Научете повеќе</string>
+  <!--Settings Feedback-->
+  <string name="send_feedback">Испрати повратни информации</string>
+  <!--Link Warning-->
+  <string name="link_warning_title">Линк предупредување</string>
+  <string name="link_warning_intro">Ќе го отворите следниот линк во надворешна апликација.</string>
+  <string name="link_warning_text">Ова може да биде искористено за ваше идентификување. Размислете дали и верувате на оваа личност која ви го испраќа овој линк и размислете истиот да го отворите со Tor прелистувачот.</string>
+  <string name="link_warning_open_link">Отвори линк</string>
+  <!--Crash Reporter-->
+  <string name="crash_report_title">Briar извештај за срушување</string>
+  <string name="briar_crashed">Жал ни е, Briar се сруши.</string>
+  <string name="not_your_fault">Ова не е ваша гршка.</string>
+  <string name="please_send_report">Ве молиме помогнете ни да изградиме подобар Briar со испраќање на извештај за срушување. </string>
+  <string name="report_is_encrypted">Ви ветуваме дека извештајот е енкриптиран и безбедно испратен.</string>
+  <string name="feedback_title">Повратни информации</string>
+  <string name="describe_crash">Опиши што се случи (опционално)</string>
+  <string name="enter_feedback">Внеси ги твоите повратни информации</string>
+  <string name="optional_contact_email">Вашата е-пошта (опционално)</string>
+  <string name="include_debug_report_crash">Вклучи анонимни податоци за ова срушување</string>
+  <string name="include_debug_report_feedback">Вкучи анонимни податоци за овој уред</string>
+  <string name="send_report">Испрати извештај</string>
+  <string name="close">Затвори</string>
+  <string name="dev_report_saved">Извештајот е зачуван. Ќе биде испратен следниот пат кога ќе се вклучите на Briar.</string>
+  <!--Sign Out-->
+  <string name="progress_title_logout">Одјавување од Briar</string>
+  <!--Screen Filters & Tapjacking-->
+  <string name="screen_filter_title">Детектиран е преклопувачки екран</string>
+  <string name="screen_filter_body">Друга апликација е уклучена врз Briar. За да ја зачува вашата безбедност, Briar нема да одговори на допирите кога има друга апликација уклучена врз него.\n\nСледните апликации можат да бидат вклучени врз:\n\n%1$s</string>
+  <string name="screen_filter_allow">Дозволете им на овие апликации да бидат уклучени врз</string>
+  <!--Permission Requests-->
+  <string name="permission_camera_title">Дозвола за камера</string>
+  <string name="permission_camera_request_body">За да скенирате QR код, на Briar му треба пристап до камерата.</string>
+  <string name="permission_location_title">Дозвола за локација</string>
+  <string name="permission_location_request_body">За да открие Bluetooth уреди, на Briar му е потребна дозвола за пристап до вашата локација.\n\nBriar не ја зачувува вашата локација или не ја споделува со никого.</string>
+  <string name="permission_camera_location_title">Камера и локација</string>
+  <string name="permission_camera_location_request_body">За да го скенира QR кодот, на Briar му е потребен пристап до камерата.\n\nЗа да открие Bluetooth уреди, на Briar му е потребна дозвола за вашата локација.\n\nBriar не ја зачувува вашата локација или не ја споделува со никого.</string>
+  <string name="permission_camera_denied_body">Го одбивте пристапот до камерата, но за додавање на контакти потребно е користење на камерата.\n\nВе молиме  размислете за давање пристап.</string>
+  <string name="permission_location_denied_body">Го одбивте пристапот до вашата локација, но на Briar му е потребна оваа дозвола за да ги открие Bluetooth уредите.\n\nВе молиме размислете за давање пристап.</string>
+  <string name="qr_code">QR код</string>
+  <string name="show_qr_code_fullscreen">Покажи го QR кодот на цел екран</string>
+  <!--App Locking-->
+  <string name="lock_unlock">Отклучи го Briar</string>
+  <string name="lock_unlock_verbose">Внесете го ПИН-от, шемата или лозинката на твојот уред за да го отклучите Briar. </string>
+  <string name="lock_unlock_fingerprint_description">Допрете го сензорот за отпечаток со прстот со кој сте се регистрирале за да продложите</string>
+  <string name="lock_unlock_password">Користете лозинка</string>
+  <string name="lock_is_locked">Briar е заклучен</string>
+  <string name="lock_tap_to_unlock">Допрете за отклучување</string>
+  <!--Connections Screen-->
+  <string name="transports_help_text">Briar може да се поврзе со вашите контакти преку Интернет, Wi-Fi или Bluetooth.\n\nСите Интернет поврзувања одат преку Tor Мрежата поради приватност.\n\nАко контактот може да биде достапен преку повеќе начини, Briar ќе ги користи паралелно. </string>
+  <!--Screenshots-->
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_alice">Жарко</string>
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_bob">Лилјана</string>
+  <!--This is a name to be used in screenshots. Feel free to change it to a local name.-->
+  <string name="screenshot_carol">Ана</string>
+  <!--This is a message to be used in screenshots. Please use the same translation for Bob!-->
+  <string name="screenshot_message_1">Здраво Лилјана!</string>
+  <!--This is a message to be used in screenshots. Please use the same translation for Alice!-->
+  <string name="screenshot_message_2">Здраво Жарко! Ти благодарам што ми кажа за Briar!</string>
+  <!--This is a message to be used in screenshots.-->
+  <string name="screenshot_message_3">Нема проблем, се надевам ти се допаѓа 😀</string>
+</resources>

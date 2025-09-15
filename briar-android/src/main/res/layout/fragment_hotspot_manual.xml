@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:scrollbars="vertical"
+	android:fillViewport="true">
+
+	<androidx.constraintlayout.widget.ConstraintLayout
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content">
+
+		<TextView
+			android:id="@+id/manualIntroView"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:layout_margin="16dp"
+			android:text="@string/hotspot_manual_site"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toTopOf="parent" />
+
+		<TextView
+			android:id="@+id/ssidLabelView"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:layout_margin="16dp"
+			android:text="@string/hotspot_manual_wifi_ssid"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/manualIntroView" />
+
+		<TextView
+			android:id="@+id/ssidView"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:layout_marginStart="16dp"
+			android:layout_marginLeft="16dp"
+			android:layout_marginTop="6dp"
+			android:layout_marginEnd="16dp"
+			android:layout_marginRight="16dp"
+			android:background="@android:color/white"
+			android:padding="8dp"
+			android:textColor="@color/briar_primary"
+			android:typeface="monospace"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/ssidLabelView"
+			tools:text="DIRECT-42-dfoln3lncsoij23" />
+
+		<TextView
+			android:id="@+id/passwordLabelView"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:layout_marginStart="16dp"
+			android:layout_marginLeft="16dp"
+			android:layout_marginTop="8dp"
+			android:layout_marginEnd="16dp"
+			android:layout_marginRight="16dp"
+			android:text="@string/enter_password"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/ssidView" />
+
+		<TextView
+			android:id="@+id/passwordView"
+			android:layout_width="0dp"
+			android:layout_height="wrap_content"
+			android:layout_marginStart="16dp"
+			android:layout_marginLeft="16dp"
+			android:layout_marginTop="6dp"
+			android:layout_marginEnd="16dp"
+			android:layout_marginRight="16dp"
+			android:background="@android:color/white"
+			android:padding="8dp"
+			android:textColor="@color/briar_primary"
+			android:typeface="monospace"
+			app:layout_constraintEnd_toEndOf="parent"
+			app:layout_constraintStart_toStartOf="parent"
+			app:layout_constraintTop_toBottomOf="@+id/passwordLabelView"
+			tools:text="sdfsdgt2334rfw" />
+
+	</androidx.constraintlayout.widget.ConstraintLayout>
+
+</androidx.core.widget.NestedScrollView>

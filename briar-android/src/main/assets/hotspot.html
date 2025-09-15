@@ -1,0 +1,103 @@
+<html>
+<head>
+    <meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            background-color: #F2F2F2;
+            font-family: Roboto,Arial,Helvetica,sans-serif;
+            font-size: 14px;
+            margin: 0;
+            height: 100%;
+        }
+        div#top {
+            background-color: #FFFFFF;
+            padding: 16px;
+        }
+        div#bottom {
+            padding: 16px 32px;
+            margin-top: 12px;
+        }
+        a.button {
+            background-color: #82C91E;
+            width: 100%;
+            display: block;
+            box-sizing: border-box;
+            padding: 12px 32px !important;
+            border: 1px solid transparent;
+            border-radius: 2px;
+            color: #000000 !important;
+            cursor: pointer;
+            font-weight: 500;
+            text-decoration: none;
+            text-transform: uppercase;
+            text-align: center;
+            margin: 20px auto 20px auto;
+        }
+        ol {
+            list-style: none;
+            counter-reset: briar-counter;
+            padding-left: 40px;
+        }
+        ol li {
+            counter-increment: briar-counter;
+            margin-bottom: 2em;
+        }
+        ol li::before {
+            content: counter(briar-counter);
+            background-color: #82C91E;
+            color: #000000 !important;
+            font-weight: bold;
+            border-radius: 70px;
+            width: 24px;
+            height: 24px;
+            line-height: 24px;
+            text-align: center;
+            position: absolute;
+            left: 32px;
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="top">
+    <svg style="width:156px;height:47px;" viewBox="0 0 778 235">
+        <path style="fill:#87c214"
+              d="m 64.900391,0 c -9.7,0 -17.701172,7.9992183 -17.701172,17.699219 v 22.5 h 43.601562 v -22.5 C 90.800781,7.9992183 82.899219,0 73.199219,0 Z m 96.999999,0 c -9.7,0 -17.70117,7.9992183 -17.70117,17.699219 V 137.19922 h 43.60156 V 17.699219 C 187.80078,7.9992183 179.89922,0 170.19922,0 Z M 47.199219,97.800781 V 217.30078 c 0,9.7 7.901172,17.69922 17.701172,17.69922 h 8.298828 c 9.7,0 17.701172,-7.99922 17.701172,-17.69922 V 97.800781 Z m 97.000001,96.999999 v 22.5 c 0,9.7 8.00117,17.69922 17.70117,17.69922 h 8.29883 c 9.7,0 17.70117,-7.99922 17.70117,-17.69922 v -22.5 z"/>
+        <path style="fill:#95d220"
+              d="M 17.699219,47.199219 C 7.9992186,47.199219 0,55.100391 0,64.900391 v 8.298828 c 0,9.7 7.8992186,17.701172 17.699219,17.701172 H 137.19922 V 47.199219 Z m 177.101561,0 v 43.701172 h 22.5 c 9.7,0 17.69922,-7.901172 17.69922,-17.701172 v -8.298828 c 0,-9.8 -7.99922,-17.701172 -17.69922,-17.701172 z M 17.699219,144.19922 C 7.9992186,144.19922 0,152.10039 0,161.90039 v 8.29883 c 0,9.7 7.8992186,17.70117 17.699219,17.70117 h 22.5 v -43.70117 z m 80.101562,0 v 43.70117 H 217.30078 c 9.7,0 17.69922,-8.00117 17.69922,-17.70117 v -8.29883 c 0,-9.8 -7.99922,-17.70117 -17.69922,-17.70117 z"/>
+        <path d="M 301,60.564864 V 174.43514 h 53.31362 c 25.13729,0 38.31622,-12.58548 38.31622,-32.27441 0,-12.78766 -5.88,-22.32687 -17.63776,-27.60431 v -0.20217 c 8.91968,-5.48043 12.77339,-12.38249 12.77339,-23.140374 0,-16.238294 -11.14945,-30.648991 -34.66495,-30.648991 z m 110.68683,0 V 174.43514 h 13.37598 v -45.67022 l -1.41529,-1.41926 h 26.95811 c 15.00127,0 23.51842,5.27428 28.99185,17.04704 l 14.1887,30.04244 h 15.00139 l -16.82503,-35.52128 c -3.64896,-7.91617 -9.52848,-12.99064 -14.79921,-15.22341 v -0.20216 c 12.36593,-3.24765 22.70429,-14.41228 22.70429,-29.229734 0,-22.530633 -17.43208,-33.693671 -38.31224,-33.693671 z m 111.08726,0 V 174.43514 h 13.37992 V 60.564864 Z m 78.65821,0 -50.07469,113.870276 h 14.59701 l 12.16287,-27.40213 -0.60656,-1.41926 h 62.2336 l -0.60655,1.41926 12.16286,27.40213 h 14.59701 L 615.62098,60.564864 Z m 79.463,0 V 174.43514 h 13.37994 v -45.67022 l -1.41927,-1.41926 h 26.96209 c 15.00128,0 23.51842,5.27428 28.99185,17.04704 l 14.1887,30.04244 H 778 l -16.82503,-35.52128 c -3.64895,-7.91617 -9.52851,-12.99064 -14.79921,-15.22341 v -0.20216 c 12.36591,-3.24765 22.70427,-14.41228 22.70427,-29.229734 0,-22.530633 -17.43209,-33.693671 -38.31223,-33.693671 z M 312.96068,73.147961 h 38.72057 c 14.59584,0 22.29593,5.887175 22.29593,18.065895 0,10.148944 -6.07834,18.268094 -22.29593,18.268094 h -38.72057 l 1.41927,-1.41927 V 74.571187 Z m 110.68684,0 h 37.90786 c 13.78495,0 24.32519,5.684988 24.52791,20.908395 0,12.178724 -9.52687,20.702244 -25.94718,20.702244 h -36.48859 l 1.41529,-1.41927 V 74.571187 Z m 269.00626,0 h 37.90788 c 13.98769,0 24.53187,5.684988 24.53187,20.908395 0,12.178724 -9.52688,20.702244 -25.94718,20.702244 h -36.49257 l 1.41927,-1.41927 V 74.571187 Z m -83.92693,1.423226 h 0.20615 l 3.44509,11.366019 20.06794,45.670224 1.41924,1.41926 h -50.07071 l 1.41926,-1.41926 20.06793,-45.670224 z M 312.96068,122.06505 h 41.35294 c 16.82575,0 24.53189,7.71398 24.53189,20.09568 0,12.58468 -7.09797,19.69131 -24.53189,19.69131 h -41.35294 l 1.41927,-1.42322 v -36.94055 z"/>
+    </svg>
+
+    <h2 id="download_title">Download Briar 1.2.20</h2>
+
+    <span id="download_intro">Someone nearby shared Briar with you.</span>
+
+    <a href="/app.apk" class="button">
+        <svg aria-hidden="true"
+             style="width:24px;height:24px;margin-right:6px;vertical-align:middle;"
+             viewBox="0 0 24 24">
+            <path fill="currentColor" d="M5,20H19V18H5M19,9H15V3H9V9H5L12,16L19,9Z"/>
+        </svg>
+        <span id="download_button">Download Briar</span>
+    </a>
+
+    <span id="download_outro">After the download is complete, open the downloaded file and install it.</span>
+</div>
+
+<div id="bottom">
+    <h3 id="troubleshooting_title">Troubleshooting</h3>
+    <ol>
+        <li id="troubleshooting_1">If you can't download the app, try it with a different web
+            browser app.
+        </li>
+        <li id="troubleshooting_2">To install the downloaded app,
+            you might need to allow your browser to install unknown apps.
+            We recommend to undo that after successful installation.
+        </li>
+    </ol>
+</div>
+
+</body>
+</html>

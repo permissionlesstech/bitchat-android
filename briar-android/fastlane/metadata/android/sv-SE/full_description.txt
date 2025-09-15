@@ -1,0 +1,5 @@
+Briar är en meddelandeapp designad för aktivister, journalister och andra som behöver ett säkert, lätt och robust sätt att kommunicera. Till skillnad från traditionella meddelandeappar förlitar sig Briar inte på någon central server ­– meddelanden synkroniseras direkt mellan användarnas enheter. Om internet är nere kan Briar synka via Bluetooth eller Wi-Fi, vilket låter informationen flöda under i krissituation. Om internet är tillgängligt kan Briar synkronisera via Tor-nätverket, vilket skyddar användare och deras relationer från övervakning.
+
+Appen erbjuder privata meddelanden, grupper och forum så väl som bloggar. Stöd för Tor-nätverket är inbyggt i appen. Allting du gör i Briar sparas endast på din enhet om du inte väljer att dela det med andra användare.
+
+Det finns ingen reklam och ingen spårning. Källkoden för appen är fullständigt öppen för vem som helst att studera och har redan granskats professionellt. Alla versioner av Briar är reproducerbara vilket gör det möjligt att verifiera att den publicerade källkoden exakt matchar appen som publiceras här. Utvecklingen görs ideellt av en liten grupp.
