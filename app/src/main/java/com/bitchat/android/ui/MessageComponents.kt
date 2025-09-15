@@ -15,6 +15,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -259,6 +262,34 @@ private fun MessageTextWithClickableNicknames(
             else -> null to null
         }
         Column(modifier = modifier.fillMaxWidth()) {
+            // Header: nickname + timestamp line above the audio note, identical styling to text messages
+            val headerText = formatMessageHeaderAnnotatedString(
+                message = message,
+                currentUserNickname = currentUserNickname,
+                meshService = meshService,
+                colorScheme = colorScheme,
+                timeFormatter = timeFormatter
+            )
+            val haptic = LocalHapticFeedback.current
+            var headerLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
+            Text(
+                text = headerText,
+                fontFamily = FontFamily.Monospace,
+                color = colorScheme.onSurface,
+                modifier = Modifier.pointerInput(message.id) {
+                    detectTapGestures(onTap = { pos ->
+                        val layout = headerLayout ?: return@detectTapGestures
+                        val offset = layout.getOffsetForPosition(pos)
+                        val ann = headerText.getStringAnnotations("nickname_click", offset, offset)
+                        if (ann.isNotEmpty() && onNicknameClick != null) {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onNicknameClick.invoke(ann.first().item)
+                        }
+                    }, onLongPress = { onMessageLongPress?.invoke(message) })
+                },
+                onTextLayout = { headerLayout = it }
+            )
+
             VoiceNotePlayer(
                 path = path,
                 progressOverride = overrideProgress,
