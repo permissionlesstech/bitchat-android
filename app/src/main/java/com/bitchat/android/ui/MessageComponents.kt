@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import android.content.Intent
 import android.net.Uri
 import com.bitchat.android.model.BitchatMessage
+import androidx.compose.ui.graphics.asImageBitmap
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.mesh.BluetoothMeshService
 import java.text.SimpleDateFormat
@@ -249,6 +250,71 @@ private fun MessageTextWithClickableNicknames(
     onMessageLongPress: ((BitchatMessage) -> Unit)?,
     modifier: Modifier = Modifier
 ) {
+    // Image special rendering
+    if (message.content.startsWith("[image] ")) {
+        val path = message.content.removePrefix("[image] ").trim()
+        Column(modifier = modifier.fillMaxWidth()) {
+            // Header: nickname + timestamp line above the image, identical styling to text messages
+            val headerText = formatMessageHeaderAnnotatedString(
+                message = message,
+                currentUserNickname = currentUserNickname,
+                meshService = meshService,
+                colorScheme = colorScheme,
+                timeFormatter = timeFormatter
+            )
+            val haptic = LocalHapticFeedback.current
+            var headerLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
+            Text(
+                text = headerText,
+                fontFamily = FontFamily.Monospace,
+                color = colorScheme.onSurface,
+                modifier = Modifier.pointerInput(message.id) {
+                    detectTapGestures(onTap = { pos ->
+                        val layout = headerLayout ?: return@detectTapGestures
+                        val offset = layout.getOffsetForPosition(pos)
+                        val ann = headerText.getStringAnnotations("nickname_click", offset, offset)
+                        if (ann.isNotEmpty() && onNicknameClick != null) {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onNicknameClick.invoke(ann.first().item)
+                        }
+                    }, onLongPress = { onMessageLongPress?.invoke(message) })
+                },
+                onTextLayout = { headerLayout = it }
+            )
+
+            val bmp = remember(path) { try { android.graphics.BitmapFactory.decodeFile(path) } catch (_: Exception) { null } }
+            if (bmp != null) {
+                val img = bmp.asImageBitmap()
+                // Image preview
+                androidx.compose.foundation.Image(
+                    bitmap = img,
+                    contentDescription = "Image",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 300.dp),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                )
+            } else {
+                Text(text = "[image unavailable]", fontFamily = FontFamily.Monospace, color = Color.Gray)
+            }
+
+            // Optional: show transfer progress if partial delivery
+            when (val st = message.deliveryStatus) {
+                is com.bitchat.android.model.DeliveryStatus.PartiallyDelivered -> {
+                    if (st.total > 0) {
+                        LinearProgressIndicator(
+                            progress = (st.reached.toFloat() / st.total.toFloat()).coerceIn(0f, 1f),
+                            modifier = Modifier.fillMaxWidth(),
+                            color = Color(0xFF1E88E5)
+                        )
+                    }
+                }
+                else -> {}
+            }
+        }
+        return
+    }
+
     // Voice note special rendering
     if (message.content.startsWith("[voice] ")) {
         val path = message.content.removePrefix("[voice] ").trim()

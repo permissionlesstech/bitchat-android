@@ -338,13 +338,14 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         }
         
         try {
-            // Try file packet first
+            // Try file packet first (voice, image, etc.)
             val file = com.bitchat.android.model.BitchatFilePacket.decode(packet.payload)
             if (file != null) {
                 val savedPath = saveIncomingFile(file)
+                val prefix = if (file.mimeType.lowercase().startsWith("image/")) "[image] " else "[voice] "
                 val message = BitchatMessage(
                     sender = delegate?.getPeerNickname(peerID) ?: "unknown",
-                    content = "[voice] $savedPath",
+                    content = "$prefix$savedPath",
                     senderPeerID = peerID,
                     timestamp = Date(packet.timestamp.toLong())
                 )
@@ -376,13 +377,14 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 return
             }
 
-            // Try file packet first
+            // Try file packet first (voice, image, etc.)
             val file = com.bitchat.android.model.BitchatFilePacket.decode(packet.payload)
             if (file != null) {
                 val savedPath = saveIncomingFile(file)
+                val prefix = if (file.mimeType.lowercase().startsWith("image/")) "[image] " else "[voice] "
                 val message = BitchatMessage(
                     sender = delegate?.getPeerNickname(peerID) ?: "unknown",
-                    content = "[voice] $savedPath",
+                    content = "$prefix$savedPath",
                     senderPeerID = peerID,
                     timestamp = Date(packet.timestamp.toLong()),
                     isPrivate = true,
@@ -407,24 +409,38 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
     }
 
     private fun saveIncomingFile(file: com.bitchat.android.model.BitchatFilePacket): String {
+        // Route to subfolders and names by MIME type
+        val lowerMime = file.mimeType.lowercase()
+        val isImage = lowerMime.startsWith("image/")
+        val base = appContext.filesDir
+        val subdir = if (isImage) "images/incoming" else "voicenotes/incoming"
+        val dir = java.io.File(base, subdir).apply { mkdirs() }
+
+        fun extFromMime(m: String): String = when (m.lowercase()) {
+            "image/jpeg", "image/jpg" -> ".jpg"
+            "image/png" -> ".png"
+            "image/webp" -> ".webp"
+            "audio/mp4", "audio/m4a", "audio/aac" -> ".m4a"
+            else -> if (isImage) ".jpg" else ".m4a"
+        }
+
+        val defaultName = if (isImage) "img_${System.currentTimeMillis()}${extFromMime(lowerMime)}" else "voice_${System.currentTimeMillis()}${extFromMime(lowerMime)}"
+        val safeName = if (file.fileName.isBlank()) defaultName else file.fileName
+
         return try {
-            val base = appContext.filesDir
-            val dir = java.io.File(base, "voicenotes/incoming").apply { mkdirs() }
-            val safeName = if (file.fileName.isBlank()) "voice_${System.currentTimeMillis()}.m4a" else file.fileName
             val out = java.io.File(dir, safeName)
             out.outputStream().use { it.write(file.content) }
             out.absolutePath
         } catch (_: Exception) {
-            // Last resort: cache dir
+            // Fallback to cache dir
             try {
-                val dir = appContext.cacheDir
-                val out = java.io.File(dir, "voice_${System.currentTimeMillis()}.m4a")
+                val out = java.io.File(appContext.cacheDir, defaultName)
                 out.outputStream().use { it.write(file.content) }
                 out.absolutePath
             } catch (_: Exception) {
-                val temp = java.io.File.createTempFile("voice_", ".m4a")
-                temp.writeBytes(file.content)
-                temp.absolutePath
+                val tmp = java.io.File.createTempFile(if (isImage) "img_" else "voice_", if (isImage) ".jpg" else ".m4a")
+                tmp.writeBytes(file.content)
+                tmp.absolutePath
             }
         }
     }

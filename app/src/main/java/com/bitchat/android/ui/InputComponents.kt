@@ -40,6 +40,8 @@ import androidx.compose.ui.text.withStyle
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import androidx.compose.foundation.isSystemInDarkTheme
 import com.bitchat.android.features.voice.CyberpunkVisualizer
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 
 /**
  * Input components for ChatScreen
@@ -162,6 +164,7 @@ fun MessageInput(
     onValueChange: (TextFieldValue) -> Unit,
     onSend: () -> Unit,
     onSendVoiceNote: (String?, String?, String) -> Unit,
+    onSendImageNote: (String?, String?, String) -> Unit,
     selectedPrivatePeer: String?,
     currentChannel: String?,
     nickname: String,
@@ -247,7 +250,7 @@ fun MessageInput(
         
         Spacer(modifier = Modifier.width(8.dp)) // Reduced spacing
         
-        // Voice record button when no text (always visible for mesh + channels + private)
+        // Voice and image buttons when no text (always visible for mesh + channels + private)
         if (value.text.isEmpty()) {
             // Hold-to-record microphone
             val bg = if (colorScheme.background == Color.Black) Color(0xFF00FF00).copy(alpha = 0.75f) else Color(0xFF008000).copy(alpha = 0.75f)
@@ -256,6 +259,60 @@ fun MessageInput(
             val latestSelectedPeer = rememberUpdatedState(selectedPrivatePeer)
             val latestChannel = rememberUpdatedState(currentChannel)
             val latestOnSendVoiceNote = rememberUpdatedState(onSendVoiceNote)
+
+            // Image picker launcher
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val imagePicker = rememberLauncherForActivityResult(
+                contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+            ) { uri: android.net.Uri? ->
+                if (uri != null) {
+                    try {
+                        // Decode bounds
+                        val resolver = context.contentResolver
+                        val input = resolver.openInputStream(uri)
+                        val original = android.graphics.BitmapFactory.decodeStream(input)
+                        input?.close()
+                        if (original != null) {
+                            val w = original.width
+                            val h = original.height
+                            val maxDim = 512f
+                            val scale = (maxOf(w, h).toFloat() / maxDim).coerceAtLeast(1f)
+                            val newW = (w / scale).toInt().coerceAtLeast(1)
+                            val newH = (h / scale).toInt().coerceAtLeast(1)
+                            val scaled = if (scale > 1f) android.graphics.Bitmap.createScaledBitmap(original, newW, newH, true) else original
+
+                            // Write JPEG to app files dir
+                            val outDir = java.io.File(context.filesDir, "images/outgoing").apply { mkdirs() }
+                            val outFile = java.io.File(outDir, "img_${System.currentTimeMillis()}.jpg")
+                            java.io.FileOutputStream(outFile).use { fos ->
+                                scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, fos)
+                            }
+                            if (scaled !== original) try { original.recycle() } catch (_: Exception) {}
+                            try { if (scaled != original) scaled.recycle() } catch (_: Exception) {}
+
+                            onSendImageNote(latestSelectedPeer.value, latestChannel.value, outFile.absolutePath)
+                        }
+                    } catch (_: Exception) { }
+                }
+            }
+
+            // Plus button (image picker)
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .background(color = Color.Gray.copy(alpha = 0.5f), shape = CircleShape)
+                    .clickable { imagePicker.launch("image/*") },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = "Pick image",
+                    tint = Color.Black,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            
+            Spacer(Modifier.width(8.dp))
 
             VoiceRecordButton(
                 backgroundColor = bg,
