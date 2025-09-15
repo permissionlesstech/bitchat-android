@@ -271,8 +271,10 @@ fun MessageInput(
                 onStart = {
                     isRecording = true
                     elapsedMs = 0L
-                    // Ensure the input keeps focus when recording starts
-                    try { focusRequester.requestFocus() } catch (_: Exception) {}
+                    // Keep existing focus to avoid IME collapse, but do not force-show keyboard
+                    if (isFocused.value) {
+                        try { focusRequester.requestFocus() } catch (_: Exception) {}
+                    }
                 },
                 onAmplitude = { amp, ms ->
                     amplitude = amp
