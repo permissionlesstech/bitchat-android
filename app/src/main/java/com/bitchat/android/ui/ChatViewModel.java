@@ -4,6 +4,7 @@ import android.app.Application;
 import androidx.annotation.NonNull;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
+import com.bitchat.android.favorites.FavoritesPersistenceService;
 import com.bitchat.android.mesh.BluetoothMeshService;
 import com.bitchat.android.mesh.NoiseSessionDelegate;
 import com.bitchat.android.model.BitchatMessage;
@@ -44,7 +45,8 @@ public class ChatViewModel extends AndroidViewModel {
         super(application);
 
         this.meshService = new BluetoothMeshService(application);
-        this.nostrService = new NostrService();
+        FavoritesPersistenceService favoritesService = FavoritesPersistenceService.getInstance();
+        this.nostrService = new NostrService(favoritesService);
 
         this.dataManager = new DataManager(application);
         this.messageManager = new MessageManager(state);

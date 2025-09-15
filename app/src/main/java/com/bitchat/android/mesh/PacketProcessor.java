@@ -79,11 +79,26 @@ public class PacketProcessor {
             case MESSAGE:
                 delegate.handleMessage(routed);
                 break;
-            // etc. for other message types...
-            default:
-                if (packetRelayManager.isPacketAddressedToMe(packet)) {
-                    // handle private types
+            case LEAVE:
+                delegate.handleLeave(routed);
+                break;
+            case NOISE_HANDSHAKE:
+                delegate.handleNoiseHandshake(routed);
+                break;
+            case NOISE_ENCRYPTED:
+                delegate.handleNoiseEncrypted(routed);
+                break;
+            case FRAGMENT:
+                BitchatPacket assembledPacket = delegate.handleFragment(routed);
+                if (assembledPacket != null) {
+                    processPacket(new RoutedPacket(assembledPacket, routed.getRelayAddress()));
                 }
+                break;
+            case REQUEST_SYNC:
+                delegate.handleRequestSync(routed);
+                break;
+            default:
+                Log.w(TAG, "Unhandled message type: " + messageType);
         }
 
         delegate.updatePeerLastSeen(peerID);

@@ -4,9 +4,11 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.util.Log;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
@@ -26,6 +28,7 @@ public class BluetoothConnectionTracker {
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
     private final Map<String, DeviceConnection> connectedDevices = new ConcurrentHashMap<>();
+    private final Set<String> pendingConnections = ConcurrentHashMap.newKeySet();
     public final Map<String, String> addressPeerMap = new ConcurrentHashMap<>();
 
     public static class DeviceConnection {
@@ -33,12 +36,14 @@ public class BluetoothConnectionTracker {
         public final BluetoothGatt gatt;
         public final BluetoothGattCharacteristic characteristic;
         public long lastActivity;
+        public final boolean isClient;
 
         public DeviceConnection(BluetoothDevice device, BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
             this.device = device;
             this.gatt = gatt;
             this.characteristic = characteristic;
             this.lastActivity = System.currentTimeMillis();
+            this.isClient = (gatt != null);
         }
 
         public void updateLastActivity() {
@@ -60,7 +65,16 @@ public class BluetoothConnectionTracker {
     }
 
     public void addDeviceConnection(String deviceAddress, DeviceConnection deviceConn) {
+        pendingConnections.remove(deviceAddress);
         connectedDevices.put(deviceAddress, deviceConn);
+    }
+
+    public void addPendingConnection(String deviceAddress) {
+        pendingConnections.add(deviceAddress);
+    }
+
+    public boolean isConnectionPending(String deviceAddress) {
+        return pendingConnections.contains(deviceAddress);
     }
 
     public DeviceConnection getDeviceConnection(String deviceAddress) {
@@ -69,6 +83,16 @@ public class BluetoothConnectionTracker {
 
     public Map<String, DeviceConnection> getConnectedDevices() {
         return Collections.unmodifiableMap(connectedDevices);
+    }
+
+    public List<BluetoothDevice> getSubscribedDevices() {
+        List<BluetoothDevice> devices = new ArrayList<>();
+        for (DeviceConnection conn : connectedDevices.values()) {
+            if (!conn.isClient) {
+                devices.add(conn.device);
+            }
+        }
+        return devices;
     }
 
     public boolean isDeviceConnected(String deviceAddress) {
@@ -88,6 +112,7 @@ public class BluetoothConnectionTracker {
     }
 
     public void cleanupDeviceConnection(String deviceAddress) {
+        pendingConnections.remove(deviceAddress);
         DeviceConnection conn = connectedDevices.remove(deviceAddress);
         if (conn != null && conn.gatt != null) {
             conn.gatt.close();
@@ -103,6 +128,7 @@ public class BluetoothConnectionTracker {
             }
         }
         connectedDevices.clear();
+        pendingConnections.clear();
         addressPeerMap.clear();
     }
 

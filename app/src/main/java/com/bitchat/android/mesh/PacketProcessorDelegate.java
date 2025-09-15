@@ -24,7 +24,7 @@ public interface PacketProcessorDelegate {
     void handleAnnounce(RoutedPacket routed);
     void handleMessage(RoutedPacket routed);
     void handleLeave(RoutedPacket routed);
-    BitchatPacket handleFragment(BitchatPacket packet);
+    BitchatPacket handleFragment(RoutedPacket routed);
     void handleRequestSync(RoutedPacket routed);
 
     // Communication

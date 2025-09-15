@@ -4,12 +4,13 @@ import android.util.Log;
 import com.bitchat.android.protocol.BitchatPacket;
 import com.bitchat.android.protocol.MessageType;
 import com.bitchat.android.protocol.SpecialRecipients;
+import com.bitchat.android.util.BinaryEncodingUtils;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -58,7 +59,7 @@ public class StoreForwardManager {
             List<StoredMessage> messagesToSend = new ArrayList<>();
             synchronized (messageCache) {
                 messageCache.removeIf(storedMessage -> {
-                    String recipient = new String(storedMessage.packet.getRecipientID()).trim();
+                    String recipient = BinaryEncodingUtils.hexEncodedString(storedMessage.packet.getRecipientID());
                     if (peerID.equals(recipient)) {
                         messagesToSend.add(storedMessage);
                         return true;

@@ -17,6 +17,7 @@ public interface MessageHandlerDelegate {
     String getMyNickname();
     PeerInfo getPeerInfo(String peerID);
     boolean updatePeerInfo(String peerID, String nickname, byte[] noisePublicKey, byte[] signingPublicKey, boolean isVerified);
+    void onPeerLeft(String peerID);
 
     // Opérations sur les paquets
     void sendPacket(BitchatPacket packet);

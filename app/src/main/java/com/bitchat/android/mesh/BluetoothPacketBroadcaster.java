@@ -34,9 +34,9 @@ public class BluetoothPacketBroadcaster {
                 List<BitchatPacket> fragments = fragmentManager.createFragments(packet);
                 if (fragments.size() > 1) {
                     for (BitchatPacket fragment : fragments) {
-                        broadcastSinglePacketInternal(new RoutedPacket(fragment), gattServer, characteristic);
+                        broadcastSinglePacketInternal(new RoutedPacket(fragment, routed.getRelayAddress()), gattServer, characteristic);
                         try {
-                            Thread.sleep(200); // Délai entre les fragments
+                            Thread.sleep(20); // Délai plus court entre les fragments
                         } catch (InterruptedException e) {
                             Thread.currentThread().interrupt();
                         }
@@ -52,17 +52,15 @@ public class BluetoothPacketBroadcaster {
         byte[] data = routed.getPacket().toBinaryData();
         if (data == null) return;
 
-        // Diffuser aux appareils abonnés (connexions serveur)
-        for (BluetoothDevice device : connectionTracker.getSubscribedDevices()) {
-            if (!device.getAddress().equals(routed.getRelayAddress())) {
-                notifyDevice(device, data, gattServer, characteristic);
-            }
-        }
-
-        // Diffuser aux appareils connectés (connexions client)
         for (BluetoothConnectionTracker.DeviceConnection conn : connectionTracker.getConnectedDevices().values()) {
-            if (conn.isClient && !conn.device.getAddress().equals(routed.getRelayAddress())) {
+            if (conn.device.getAddress().equals(routed.getRelayAddress())) {
+                continue; // Ne pas renvoyer au relais
+            }
+
+            if (conn.isClient) {
                 writeToDeviceConn(conn, data);
+            } else {
+                notifyDevice(conn.device, data, gattServer, characteristic);
             }
         }
     }
@@ -82,7 +80,8 @@ public class BluetoothPacketBroadcaster {
         if (conn.gatt == null || conn.characteristic == null) return false;
         try {
             conn.characteristic.setValue(data);
-            return conn.gatt.writeCharacteristic(conn.characteristic);
+            conn.gatt.writeCharacteristic(conn.characteristic);
+            return true;
         } catch (Exception e) {
             Log.w(TAG, "Error writing to device " + conn.device.getAddress(), e);
             return false;

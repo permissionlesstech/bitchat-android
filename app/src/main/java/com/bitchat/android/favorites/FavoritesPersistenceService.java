@@ -7,6 +7,7 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -56,6 +57,10 @@ public final class FavoritesPersistenceService {
     public FavoriteRelationship getFavoriteStatus(byte[] noisePublicKey) {
         String keyHex = com.bitchat.android.util.BinaryEncodingUtils.hexEncodedString(noisePublicKey);
         return favorites.get(keyHex);
+    }
+
+    public Collection<FavoriteRelationship> getAllFavorites() {
+        return Collections.unmodifiableCollection(favorites.values());
     }
 
     public void updateFavoriteStatus(byte[] noisePublicKey, String nickname, boolean isFavorite) {
