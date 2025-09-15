@@ -17,6 +17,7 @@ import android.content.Context;
 import android.os.ParcelUuid;
 import android.util.Log;
 import com.bitchat.android.protocol.BitchatPacket;
+import com.bitchat.android.util.BinaryEncodingUtils;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -64,9 +65,6 @@ public class BluetoothGattServerManager {
         isActive = true;
         executor.execute(() -> {
             setupGattServer();
-            try {
-                Thread.sleep(300);
-            } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
             startAdvertising();
         });
         return true;
@@ -84,6 +82,13 @@ public class BluetoothGattServerManager {
         });
     }
 
+    public void restartAdvertising() {
+        executor.execute(() -> {
+            stopAdvertising();
+            startAdvertising();
+        });
+    }
+
     private void setupGattServer() {
         if (!permissionManager.hasBluetoothPermissions()) return;
         BluetoothManager bluetoothManager = (BluetoothManager) context.getSystemService(Context.BLUETOOTH_SERVICE);
@@ -98,7 +103,7 @@ public class BluetoothGattServerManager {
     }
 
     private void startAdvertising() {
-        if (!isActive || bleAdvertiser == null) return;
+        if (!isActive || bleAdvertiser == null || !permissionManager.hasBluetoothPermissions()) return;
 
         AdvertiseSettings settings = powerManager.getAdvertiseSettings();
         AdvertiseData data = new AdvertiseData.Builder()
@@ -121,7 +126,7 @@ public class BluetoothGattServerManager {
     }
 
     private void stopAdvertising() {
-        if (bleAdvertiser != null && advertiseCallback != null) {
+        if (bleAdvertiser != null && advertiseCallback != null && permissionManager.hasBluetoothPermissions()) {
             bleAdvertiser.stopAdvertising(advertiseCallback);
             advertiseCallback = null;
         }
@@ -132,7 +137,8 @@ public class BluetoothGattServerManager {
         public void onConnectionStateChange(BluetoothDevice device, int status, int newState) {
             if (!isActive) return;
             if (newState == BluetoothProfile.STATE_CONNECTED) {
-                connectionTracker.addDeviceConnection(device.getAddress(), new BluetoothConnectionTracker.DeviceConnection(device, null, null));
+                BluetoothConnectionTracker.DeviceConnection conn = new BluetoothConnectionTracker.DeviceConnection(device, null, null);
+                connectionTracker.addDeviceConnection(device.getAddress(), conn);
                 if (delegate != null) delegate.onDeviceConnected(device);
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 connectionTracker.cleanupDeviceConnection(device.getAddress());
@@ -144,9 +150,14 @@ public class BluetoothGattServerManager {
         public void onCharacteristicWriteRequest(BluetoothDevice device, int requestId, BluetoothGattCharacteristic characteristic, boolean preparedWrite, boolean responseNeeded, int offset, byte[] value) {
             if (!isActive) return;
             if (CHARACTERISTIC_UUID.equals(characteristic.getUuid())) {
+                BluetoothConnectionTracker.DeviceConnection conn = connectionTracker.getDeviceConnection(device.getAddress());
+                if (conn != null) {
+                    conn.updateLastActivity();
+                }
+
                 BitchatPacket packet = BitchatPacket.fromBinaryData(value);
                 if (packet != null) {
-                    String peerID = new String(packet.getSenderID()).trim(); // Simplified
+                    String peerID = BinaryEncodingUtils.hexEncodedString(packet.getSenderID());
                     if (delegate != null) delegate.onPacketReceived(packet, peerID, device);
                 }
                 if (responseNeeded) {

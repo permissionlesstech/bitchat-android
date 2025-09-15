@@ -36,29 +36,56 @@ public class SetupActivity extends AppCompatActivity {
      * Gère la logique de création de compte lorsque l'utilisateur clique sur le bouton.
      */
     private void handleCreateAccount() {
+        binding.buttonCreateAccount.setEnabled(false);
         String nickname = binding.editTextNickname.getText().toString().trim();
         String password = binding.editTextPassword.getText().toString();
 
-        // Validation simple des champs
         if (nickname.isEmpty()) {
             binding.textInputLayoutNickname.setError("Le pseudonyme ne peut pas être vide.");
+            binding.buttonCreateAccount.setEnabled(true);
             return;
         } else {
-            binding.textInputLayoutNickname.setError(null); // Enlève l'erreur précédente
+            binding.textInputLayoutNickname.setError(null);
         }
 
         if (password.isEmpty()) {
             binding.textInputLayoutPassword.setError("Le mot de passe est obligatoire.");
+            binding.buttonCreateAccount.setEnabled(true);
             return;
         } else {
-            binding.textInputLayoutPassword.setError(null); // Enlève l'erreur précédente
+            binding.textInputLayoutPassword.setError(null);
         }
 
-        // TODO: Implémenter la logique de création de compte avec le ViewModel.
-        // - Générer une identité (clés de chiffrement).
-        // - Chiffrer et sauvegarder les informations du compte de manière sécurisée.
-        // - Naviguer vers l'activité principale une fois le compte créé.
+        // Lancer la création du compte en arrière-plan pour ne pas bloquer l'UI
+        new Thread(() -> {
+            try {
+                // 1. Créer et sauvegarder les clés cryptographiques.
+                // L'instanciation de EncryptionService déclenche la génération et la sauvegarde des clés.
+                new com.bitchat.android.crypto.EncryptionService(getApplicationContext());
 
-        Toast.makeText(this, "Logique de création de compte à implémenter.", Toast.LENGTH_SHORT).show();
+                // 2. Sauvegarder le pseudonyme.
+                com.bitchat.android.ui.DataManager dataManager = new com.bitchat.android.ui.DataManager(getApplicationContext());
+                dataManager.saveNickname(nickname);
+
+                // 3. Le mot de passe serait utilisé ici pour chiffrer la base de données ou le keystore,
+                // mais cette logique n'est pas présente dans le code de base de Bitchat.
+                // Nous le gardons pour une future implémentation.
+
+                // 4. Une fois terminé, naviguer vers l'activité principale.
+                runOnUiThread(() -> {
+                    Toast.makeText(SetupActivity.this, "Compte créé avec succès !", Toast.LENGTH_SHORT).show();
+                    android.content.Intent intent = new android.content.Intent(SetupActivity.this, com.bitchat.android.MainActivity.class);
+                    intent.addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP | android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(intent);
+                    finish();
+                });
+
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    Toast.makeText(SetupActivity.this, "Erreur lors de la création du compte.", Toast.LENGTH_LONG).show();
+                    binding.buttonCreateAccount.setEnabled(true);
+                });
+            }
+        }).start();
     }
 }

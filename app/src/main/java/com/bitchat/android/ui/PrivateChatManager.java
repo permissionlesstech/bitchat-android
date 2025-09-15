@@ -6,6 +6,9 @@ import com.bitchat.android.mesh.BluetoothMeshService;
 import com.bitchat.android.mesh.PeerFingerprintManager;
 import com.bitchat.android.model.BitchatMessage;
 import com.bitchat.android.model.DeliveryStatus;
+import com.bitchat.android.services.ConversationAliasResolver;
+import com.bitchat.android.nostr.NostrService;
+
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -13,6 +16,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Gère la fonctionnalité de chat privé, y compris la gestion des pairs et le blocage.
@@ -27,13 +31,15 @@ public class PrivateChatManager {
     private final DataManager dataManager;
     private final NoiseSessionDelegate noiseSessionDelegate;
     private final PeerFingerprintManager fingerprintManager;
+    private final NostrService nostrService;
 
-    public PrivateChatManager(ChatState state, MessageManager messageManager, DataManager dataManager, NoiseSessionDelegate noiseSessionDelegate) {
+    public PrivateChatManager(ChatState state, MessageManager messageManager, DataManager dataManager, NoiseSessionDelegate noiseSessionDelegate, NostrService nostrService) {
         this.state = state;
         this.messageManager = messageManager;
         this.dataManager = dataManager;
         this.noiseSessionDelegate = noiseSessionDelegate;
         this.fingerprintManager = PeerFingerprintManager.getInstance();
+        this.nostrService = nostrService;
     }
 
     public boolean startPrivateChat(String peerID, BluetoothMeshService meshService) {
@@ -107,7 +113,7 @@ public class PrivateChatManager {
             dataManager.addFavorite(fingerprint);
         }
 
-        state.setFavoritePeers(new HashSet<>(dataManager.getFavoritePeers()));
+        state.setFavoritePeers(new java.util.HashSet<>(dataManager.getFavoritePeers()));
     }
 
     public boolean isFavorite(String peerID) {
@@ -133,15 +139,31 @@ public class PrivateChatManager {
     }
 
     private void consolidateNostrTempConversationIfNeeded(String targetPeerID) {
-        // TODO: La logique originale utilisait la réflexion sur des propriétés Kotlin.
-        // Une conversion directe est impossible. Cela nécessite une refonte, par exemple,
-        // en rendant publiques les méthodes nécessaires dans GeohashViewModel.
-        // Pour l'instant, cette méthode est un placeholder.
+        List<String> nostrAliases = state.getPrivateChatsValue().keySet().stream()
+            .filter(key -> key.startsWith("nostr_"))
+            .collect(Collectors.toList());
+
+        String canonicalPeerID = ConversationAliasResolver.resolveCanonicalPeerID(
+            targetPeerID,
+            new ArrayList<>(state.getConnectedPeers().getValue()),
+            peer -> nostrService.getNoiseKeyForPeer(peer),
+            peer -> nostrService.hasPeer(peer),
+            alias -> nostrService.getNostrPubHexForAlias(alias),
+            npub -> nostrService.findNoiseKeyForNostr(npub)
+        );
+
+        if (!canonicalPeerID.equals(targetPeerID)) {
+            List<String> keysToMerge = new ArrayList<>();
+            keysToMerge.add(targetPeerID);
+            keysToMerge.addAll(nostrAliases);
+            ConversationAliasResolver.unifyChatsIntoPeer(state, canonicalPeerID, keysToMerge);
+            state.setSelectedPrivateChatPeer(canonicalPeerID);
+        }
     }
 
     public void clearAllPrivateChats() {
         state.setSelectedPrivateChatPeer(null);
-        state.setUnreadPrivateMessages(new HashSet<>());
+        state.setUnreadPrivateMessages(new java.util.HashSet<>());
         // La logique de nettoyage des messages non lus irait ici.
     }
 

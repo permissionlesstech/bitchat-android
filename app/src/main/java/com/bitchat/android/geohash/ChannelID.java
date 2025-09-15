@@ -3,44 +3,64 @@ package com.bitchat.android.geohash;
 import java.util.Objects;
 
 /**
- * Représente un identifiant de canal, qui peut être soit le réseau maillé global (Mesh),
- * soit un canal de géolocalisation spécifique.
- * Ceci est une simulation d'une "sealed class" Kotlin en Java.
+ * Identifiant pour le canal de discussion public actuel (soit le maillage, soit un geohash de localisation).
+ * Port direct de l'implémentation iOS.
  */
 public abstract class ChannelID {
-    // Constructeur privé pour empêcher d'autres sous-classes en dehors de ce fichier.
     private ChannelID() {}
 
-    /**
-     * Représente le canal de discussion principal sur le réseau maillé (mesh).
-     */
     public static final class Mesh extends ChannelID {
-        // Utilisation d'un singleton car il n'y a qu'une seule instance de Mesh.
         public static final Mesh INSTANCE = new Mesh();
         private Mesh() {}
     }
 
-    /**
-     * Représente un canal de discussion basé sur la géolocalisation (geohash).
-     */
     public static final class Location extends ChannelID {
-        public final String channel;
-
-        public Location(String channel) {
+        public final GeohashChannel channel;
+        public Location(GeohashChannel channel) {
             this.channel = channel;
         }
+    }
 
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-            Location location = (Location) o;
-            return Objects.equals(channel, location.channel);
+    /**
+     * Nom lisible par l'homme pour l'interface utilisateur.
+     */
+    public String getDisplayName() {
+        if (this instanceof Mesh) {
+            return "Mesh";
+        } else if (this instanceof Location) {
+            return ((Location) this).channel.getDisplayName();
         }
+        return "";
+    }
 
-        @Override
-        public int hashCode() {
-            return Objects.hash(channel);
+    /**
+     * Valeur du tag Nostr pour le scoping (geohash), le cas échéant.
+     */
+    public String getNostrGeohashTag() {
+        if (this instanceof Location) {
+            return ((Location) this).channel.getGeohash();
         }
+        return null;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) return true;
+        if (other == null) return false;
+        if (this instanceof Mesh && other instanceof Mesh) return true;
+        if (this instanceof Location && other instanceof Location) {
+            return Objects.equals(((Location) this).channel, ((Location) other).channel);
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        if (this instanceof Mesh) {
+            return "mesh".hashCode();
+        } else if (this instanceof Location) {
+            return ((Location) this).channel.hashCode();
+        }
+        return 0;
     }
 }

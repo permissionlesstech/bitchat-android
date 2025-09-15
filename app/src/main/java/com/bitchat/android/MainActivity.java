@@ -27,17 +27,18 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
 
         // Vérifier si un compte a été configuré en regardant si une identité existe.
-        // C'est la manière la plus fiable de savoir si l'onboarding a été fait.
         com.bitchat.android.identity.SecureIdentityStateManager identityManager = new com.bitchat.android.identity.SecureIdentityStateManager(getApplicationContext());
         if (identityManager.loadStaticKey() == null) {
             // Aucune clé n'existe, lancer l'activité de configuration.
             startActivity(new Intent(this, SetupActivity.class));
-            finish(); // Termine MainActivity pour que l'utilisateur ne puisse pas y revenir.
+            finish();
             return;
         }
 
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
+
+        setSupportActionBar(binding.toolbar);
 
         // Initialiser le ViewModel
         chatViewModel = new ViewModelProvider(this).get(ChatViewModel.class);
@@ -49,6 +50,13 @@ public class MainActivity extends AppCompatActivity {
         chatViewModel.messages.observe(this, messages -> {
             messageAdapter.submitList(new ArrayList<>(messages));
             binding.recyclerViewMessages.scrollToPosition(messageAdapter.getItemCount() - 1);
+        });
+
+        // Observer les changements de pairs connectés
+        chatViewModel.connectedPeers.observe(this, peers -> {
+            if (getSupportActionBar() != null) {
+                getSupportActionBar().setTitle("Bitchat (" + peers.size() + " pairs)");
+            }
         });
 
         // Configurer le bouton d'envoi
@@ -65,7 +73,7 @@ public class MainActivity extends AppCompatActivity {
         messageAdapter = new MessageAdapter();
         binding.recyclerViewMessages.setAdapter(messageAdapter);
         LinearLayoutManager layoutManager = new LinearLayoutManager(this);
-        layoutManager.setStackFromEnd(true); // Fait en sorte que la liste commence par le bas
+        layoutManager.setStackFromEnd(true);
         binding.recyclerViewMessages.setLayoutManager(layoutManager);
     }
 }

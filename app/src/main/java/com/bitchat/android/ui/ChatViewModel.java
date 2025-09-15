@@ -7,6 +7,7 @@ import androidx.lifecycle.LiveData;
 import com.bitchat.android.mesh.BluetoothMeshService;
 import com.bitchat.android.mesh.NoiseSessionDelegate;
 import com.bitchat.android.model.BitchatMessage;
+import com.bitchat.android.nostr.NostrService;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -30,6 +31,9 @@ public class ChatViewModel extends AndroidViewModel {
     // Le service de maillage
     private final BluetoothMeshService meshService;
 
+    // Le service Nostr
+    private final NostrService nostrService;
+
     // LiveData exposé pour l'UI
     public final LiveData<List<BitchatMessage>> messages = state.messages;
     public final LiveData<List<String>> connectedPeers = state.connectedPeers;
@@ -39,9 +43,8 @@ public class ChatViewModel extends AndroidViewModel {
     public ChatViewModel(@NonNull Application application) {
         super(application);
 
-        // Note: L'instanciation du meshService devrait être gérée par un mécanisme
-        // d'injection de dépendances ou un ServiceLocator dans une vraie application.
         this.meshService = new BluetoothMeshService(application);
+        this.nostrService = new NostrService();
 
         this.dataManager = new DataManager(application);
         this.messageManager = new MessageManager(state);
@@ -49,10 +52,10 @@ public class ChatViewModel extends AndroidViewModel {
 
         NoiseSessionDelegate noiseSessionDelegate = new NoiseSessionDelegate() {
             @Override public boolean hasEstablishedSession(String peerID) { return meshService.hasEstablishedSession(peerID); }
-            @Override public void initiateHandshake(String peerID) { /* meshService.initiateNoiseHandshake(peerID); */ }
+            @Override public void initiateHandshake(String peerID) { meshService.initiateNoiseHandshake(peerID); }
             @Override public String getMyPeerID() { return meshService.getMyPeerID(); }
         };
-        this.privateChatManager = new PrivateChatManager(state, messageManager, dataManager, noiseSessionDelegate);
+        this.privateChatManager = new PrivateChatManager(state, messageManager, dataManager, noiseSessionDelegate, nostrService);
 
         loadAndInitialize();
     }
@@ -62,15 +65,27 @@ public class ChatViewModel extends AndroidViewModel {
             String nick = dataManager.loadNickname();
             state.setNickname(nick);
 
-            // ... autre logique d'initialisation ...
-
             meshService.startServices();
         });
     }
 
     public void sendMessage(String content) {
-        // La logique pour traiter la commande ou envoyer le message irait ici,
-        // en utilisant les managers appropriés.
+        executor.execute(() -> {
+            if (content.startsWith("/")) {
+                channelManager.handleCommand(content);
+            } else {
+                String currentChannel = state.getCurrentChannel();
+                if (currentChannel != null) {
+                    if (currentChannel.startsWith("#")) {
+                        // La logique pour envoyer au canal geohash irait ici
+                    } else { // Private message
+                        privateChatManager.sendPrivateMessage(content, currentChannel, null, null, null, (c, p, rn, m) -> {
+                            // La logique pour envoyer le message via le mesh service irait ici.
+                        });
+                    }
+                }
+            }
+        });
     }
 
     @Override

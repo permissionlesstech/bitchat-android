@@ -5,6 +5,7 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
@@ -17,6 +18,7 @@ import android.content.Context;
 import android.os.ParcelUuid;
 import android.util.Log;
 import com.bitchat.android.protocol.BitchatPacket;
+import com.bitchat.android.util.BinaryEncodingUtils;
 import java.util.Collections;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -30,6 +32,8 @@ public class BluetoothGattClientManager {
     private static final String TAG = "BluetoothGattClientManager";
     private static final UUID SERVICE_UUID = UUID.fromString("F47B5E2D-4A9E-4C5A-9B3F-8E1D2C3A4B5C");
     private static final UUID CHARACTERISTIC_UUID = UUID.fromString("A1B2C3D4-E5F6-4A5B-8C9D-0E1F2A3B4C5D");
+    private static final UUID CCCD_UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
+    private static final int RSSI_THRESHOLD = -80;
 
     private final Context context;
     private final BluetoothConnectionTracker connectionTracker;
@@ -72,6 +76,13 @@ public class BluetoothGattClientManager {
         executor.shutdown();
     }
 
+    public void restartScanning() {
+        executor.execute(() -> {
+            stopScanning();
+            startScanning();
+        });
+    }
+
     public void onScanStateChanged(boolean shouldScan) {
         if (shouldScan) {
             startScanning();
@@ -81,7 +92,7 @@ public class BluetoothGattClientManager {
     }
 
     private void startScanning() {
-        if (!isActive || bleScanner == null || scanCallback != null) return;
+        if (!isActive || bleScanner == null || scanCallback != null || !permissionManager.hasBluetoothPermissions()) return;
 
         ScanFilter scanFilter = new ScanFilter.Builder().setServiceUuid(new ParcelUuid(SERVICE_UUID)).build();
         ScanSettings settings = powerManager.getScanSettings();
@@ -96,17 +107,18 @@ public class BluetoothGattClientManager {
     }
 
     private void stopScanning() {
-        if (bleScanner != null && scanCallback != null) {
+        if (bleScanner != null && scanCallback != null && permissionManager.hasBluetoothPermissions()) {
             bleScanner.stopScan(scanCallback);
             scanCallback = null;
         }
     }
 
     private void handleScanResult(ScanResult result) {
-        BluetoothDevice device = result.getDevice();
-        if (device == null || connectionTracker.isDeviceConnected(device.getAddress())) return;
+        if (result.getRssi() < RSSI_THRESHOLD) return;
 
-        // La logique de filtrage RSSI et de limite de connexion irait ici.
+        BluetoothDevice device = result.getDevice();
+        if (device == null || connectionTracker.isDeviceConnected(device.getAddress()) || connectionTracker.isConnectionPending(device.getAddress())) return;
+
         connectToDevice(device, result.getRssi());
     }
 
@@ -136,8 +148,13 @@ public class BluetoothGattClientManager {
                     BluetoothGattCharacteristic characteristic = service.getCharacteristic(CHARACTERISTIC_UUID);
                     if (characteristic != null) {
                         gatt.setCharacteristicNotification(characteristic, true);
-                        // La logique pour écrire sur le descripteur irait ici.
-                        connectionTracker.addDeviceConnection(gatt.getDevice().getAddress(), new BluetoothConnectionTracker.DeviceConnection(gatt.getDevice(), gatt, characteristic));
+                        BluetoothGattDescriptor descriptor = characteristic.getDescriptor(CCCD_UUID);
+                        if(descriptor != null) {
+                            descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+                            gatt.writeDescriptor(descriptor);
+                        }
+                        BluetoothConnectionTracker.DeviceConnection conn = new BluetoothConnectionTracker.DeviceConnection(gatt.getDevice(), gatt, characteristic);
+                        connectionTracker.addDeviceConnection(gatt.getDevice().getAddress(), conn);
                         if(delegate != null) delegate.onDeviceConnected(gatt.getDevice());
                     }
                 }
@@ -147,9 +164,14 @@ public class BluetoothGattClientManager {
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
              if (CHARACTERISTIC_UUID.equals(characteristic.getUuid())) {
+                BluetoothConnectionTracker.DeviceConnection conn = connectionTracker.getDeviceConnection(gatt.getDevice().getAddress());
+                if (conn != null) {
+                    conn.updateLastActivity();
+                }
+
                 BitchatPacket packet = BitchatPacket.fromBinaryData(characteristic.getValue());
                 if (packet != null) {
-                    String peerID = new String(packet.getSenderID()).trim(); // Simplified
+                    String peerID = BinaryEncodingUtils.hexEncodedString(packet.getSenderID());
                     if (delegate != null) delegate.onPacketReceived(packet, peerID, gatt.getDevice());
                 }
             }

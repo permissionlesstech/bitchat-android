@@ -20,6 +20,7 @@ public class BluetoothConnectionTracker {
 
     private static final String TAG = "BluetoothConnectionTracker";
     private static final long CLEANUP_INTERVAL = 30000L; // 30 secondes
+    private static final long CONNECTION_TIMEOUT = 60000L; // 60 secondes
 
     private final PowerManager powerManager;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
@@ -31,11 +32,17 @@ public class BluetoothConnectionTracker {
         public final BluetoothDevice device;
         public final BluetoothGatt gatt;
         public final BluetoothGattCharacteristic characteristic;
-        // ... autres champs
+        public long lastActivity;
+
         public DeviceConnection(BluetoothDevice device, BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
             this.device = device;
             this.gatt = gatt;
             this.characteristic = characteristic;
+            this.lastActivity = System.currentTimeMillis();
+        }
+
+        public void updateLastActivity() {
+            this.lastActivity = System.currentTimeMillis();
         }
     }
 
@@ -101,7 +108,13 @@ public class BluetoothConnectionTracker {
 
     private void startPeriodicCleanup() {
         scheduler.scheduleAtFixedRate(() -> {
-            // La logique de nettoyage des connexions expirées irait ici.
+            long now = System.currentTimeMillis();
+            for (Map.Entry<String, DeviceConnection> entry : connectedDevices.entrySet()) {
+                if (now - entry.getValue().lastActivity > CONNECTION_TIMEOUT) {
+                    Log.i(TAG, "Device " + entry.getKey() + " timed out. Disconnecting.");
+                    disconnectDevice(entry.getKey());
+                }
+            }
         }, CLEANUP_INTERVAL, CLEANUP_INTERVAL, TimeUnit.MILLISECONDS);
     }
 }

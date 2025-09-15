@@ -15,6 +15,7 @@ import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters;
 import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters;
 import org.bouncycastle.crypto.signers.Ed25519Signer;
 
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.function.Consumer;
 
@@ -29,11 +30,13 @@ public class EncryptionService {
     private final NoiseEncryptionService noiseService;
     private final Ed25519PrivateKeyParameters ed25519PrivateKey;
     private final Ed25519PublicKeyParameters ed25519PublicKey;
+    private final SecureIdentityStateManager identityManager;
 
     public Consumer<String> onHandshakeRequired;
 
     public EncryptionService(Context context) {
-        this.noiseService = new NoiseEncryptionService(context);
+        this.identityManager = new SecureIdentityStateManager(context);
+        this.noiseService = new NoiseEncryptionService(context, identityManager);
 
         // Gérer les callbacks
         this.noiseService.onHandshakeRequired = peerID -> {
@@ -43,7 +46,6 @@ public class EncryptionService {
         };
 
         // Charger ou créer la paire de clés de signature Ed25519
-        SecureIdentityStateManager identityManager = new SecureIdentityStateManager(context);
         android.util.Pair<byte[], byte[]> signingKeys = identityManager.loadSigningKey();
         if (signingKeys != null) {
             this.ed25519PrivateKey = new Ed25519PrivateKeyParameters(signingKeys.first, 0);
@@ -70,7 +72,7 @@ public class EncryptionService {
         try {
             Ed25519Signer signer = new Ed25519Signer();
             signer.init(true, ed25519PrivateKey);
-            signer.update(data, 0, data.size());
+            signer.update(data, 0, data.length);
             return signer.generateSignature();
         } catch (Exception e) {
             Log.e(TAG, "Failed to sign data", e);
@@ -83,7 +85,7 @@ public class EncryptionService {
             Ed25519PublicKeyParameters publicKey = new Ed25519PublicKeyParameters(publicKeyBytes, 0);
             Ed25519Signer verifier = new Ed25519Signer();
             verifier.init(false, publicKey);
-            verifier.update(data, 0, data.size);
+            verifier.update(data, 0, data.length);
             return verifier.verifySignature(signature);
         } catch (Exception e) {
             Log.e(TAG, "Failed to verify signature", e);
@@ -116,11 +118,19 @@ public class EncryptionService {
     }
 
     public String getIdentityFingerprint() {
-        // La logique pour générer l'empreinte devrait être ici ou dans le service Noise
-        return ""; // Placeholder
+        try {
+            byte[] publicKey = getStaticPublicKey();
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(publicKey);
+            return Base64.encodeToString(hash, Base64.NO_WRAP);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to generate identity fingerprint", e);
+            return null;
+        }
     }
 
     public void clearPersistentIdentity() {
-        // La logique pour effacer les clés irait ici
+        identityManager.clearAll();
+        noiseService.clearAllSessions();
     }
 }
