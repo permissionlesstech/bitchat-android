@@ -30,7 +30,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material.icons.filled.Close
 import com.bitchat.android.geohash.ChannelID
 import kotlinx.coroutines.launch
 import com.bitchat.android.geohash.GeohashChannel
@@ -552,19 +551,18 @@ fun LocationChannelsSheet(
                         .height(56.dp)
                         .background(MaterialTheme.colorScheme.background.copy(alpha = topBarAlpha))
                 ) {
-                    IconButton(
+                    TextButton(
                         onClick = onDismiss,
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
-                            .padding(horizontal = 16.dp),
-                        content = {
-                            Icon(
-                                imageVector = Icons.Filled.Close,
-                                contentDescription = "Close",
-                                tint = MaterialTheme.colorScheme.onBackground
-                            )
-                        }
-                    )
+                            .padding(horizontal = 16.dp)
+                    ) {
+                        Text(
+                            text = "Close",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                    }
                 }
             }
         }
