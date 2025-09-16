@@ -400,24 +400,39 @@ class WifiDirectConnectionManager(
             try {
                 // Give P2P stack a moment to surface routes
                 delay(800)
-                // Log networks before dialing
+                // Log networks and interfaces before dialing
                 logAllNetworks("dialPrep")
+                logAllInterfaces("dialPrepIfaces")
                 val addr = java.net.InetAddress.getByName(host)
-                // Fallback: if ConnectivityManager network not present yet, try raw interface list
-                val fallbackAddr = getP2pInet4FromInterfaces()
-                val localBind = getP2pLocalAddress(net) ?: fallbackAddr
+
+                // Try to get P2P network and local address; poll briefly if missing
+                var net = findP2pNetwork(addr)
+                var localBind: java.net.InetAddress? = getP2pLocalAddress(net) ?: getP2pInet4FromInterfaces()
+                var polls = 0
+                while (localBind == null && polls < 8) { // up to ~4s
+                    delay(500)
+                    net = findP2pNetwork(addr)
+                    localBind = getP2pLocalAddress(net) ?: getP2pInet4FromInterfaces()
+                    polls++
+                }
+                if (localBind == null) {
+                    Log.w(TAG, "No P2P local address found; proceeding without explicit source bind")
+                } else {
+                    Log.d(TAG, "Using P2P local address ${localBind.hostAddress} for client socket bind")
+                }
+
                 for ((i, port) in ports.withIndex()) {
                     try {
                         val s = withContext(Dispatchers.IO) {
                             val sock = java.net.Socket()
                             try {
-                                // Prefer per-socket binding to the P2P network
-                                if (net != null) {
-                                    net.bindSocket(sock)
-                                    // Bind local source to p2p interface address if available
-                                    getP2pLocalAddress(net)?.let { la ->
-                                        try { sock.bind(java.net.InetSocketAddress(la, 0)) } catch (_: Exception) {}
-                                    }
+                                // Prefer per-socket binding to the P2P network if available
+                                net?.bindSocket(sock)
+                            } catch (_: Exception) {}
+                            try {
+                                // Bind local source to p2p interface address if available
+                                localBind?.let { la ->
+                                    try { sock.bind(java.net.InetSocketAddress(la, 0)) } catch (_: Exception) {}
                                 }
                             } catch (_: Exception) {}
                             try {
