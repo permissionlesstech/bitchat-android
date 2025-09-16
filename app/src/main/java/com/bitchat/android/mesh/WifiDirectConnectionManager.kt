@@ -15,9 +15,14 @@ import android.net.wifi.p2p.WifiP2pManager
 import android.net.wifi.p2p.WifiP2pGroup
 import android.os.Build
 import android.util.Log
+import com.bitchat.android.ui.debug.DebugSettingsManager
+import com.bitchat.android.ui.debug.DebugMessage
+
 import androidx.core.content.ContextCompat
-import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
+
+import com.bitchat.android.model.RoutedPacket
+import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.*
 import java.io.DataInputStream
@@ -97,14 +102,14 @@ class WifiDirectConnectionManager(
         if (!hasWifiDirectPermissions()) {
             Log.w(TAG, "Missing Wi‑Fi Direct permissions; manager will be idle")
             try {
-                com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(
-                    com.bitchat.android.ui.debug.DebugMessage.SystemMessage("[Wi‑Fi Direct] not starting: missing permission (Android 13+: NEARBY_WIFI_DEVICES; pre‑13: ACCESS_FINE_LOCATION)"))
+                DebugSettingsManager.getInstance().addDebugMessage(
+                    DebugMessage.SystemMessage("[Wi‑Fi Direct] not starting: missing permission (Android 13+: NEARBY_WIFI_DEVICES; pre‑13: ACCESS_FINE_LOCATION)"))
             } catch (_: Exception) {}
             return
         }
         try {
-            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(
-                com.bitchat.android.ui.debug.DebugMessage.SystemMessage("[Wi‑Fi Direct] starting…"))
+            DebugSettingsManager.getInstance().addDebugMessage(
+                DebugMessage.SystemMessage("[Wi‑Fi Direct] starting…"))
         } catch (_: Exception) {}
         manager = context.getSystemService(Context.WIFI_P2P_SERVICE) as WifiP2pManager
         channel = manager?.initialize(context, context.mainLooper) {
@@ -117,7 +122,7 @@ class WifiDirectConnectionManager(
         // ensureGroupVisibility()
         startDiscoveryLoop()
 
-        try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().setWifiDirectActive(true) } catch (_: Exception) {}
+        try { DebugSettingsManager.getInstance().setWifiDirectActive(true) } catch (_: Exception) {}
         Log.i(TAG, "Wi‑Fi Direct manager started")
     }
 
@@ -127,7 +132,7 @@ class WifiDirectConnectionManager(
         stopDiscovery()
         disconnect()
         scope.coroutineContext.cancelChildren()
-        try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().setWifiDirectActive(false) } catch (_: Exception) {}
+        try { DebugSettingsManager.getInstance().setWifiDirectActive(false) } catch (_: Exception) {}
         Log.i(TAG, "Wi‑Fi Direct manager stopped")
     }
 
@@ -179,8 +184,8 @@ class WifiDirectConnectionManager(
             manager?.createGroup(channel, object : WifiP2pManager.ActionListener {
                 override fun onSuccess() {
                     try {
-                        com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(
-                            com.bitchat.android.ui.debug.DebugMessage.SystemMessage("[Wi‑Fi Direct] GO group ensured/created"))
+                        DebugSettingsManager.getInstance().addDebugMessage(
+                            DebugMessage.SystemMessage("[Wi‑Fi Direct] GO group ensured/created"))
                     } catch (_: Exception) {}
                 }
                 override fun onFailure(reason: Int) {
@@ -208,7 +213,7 @@ class WifiDirectConnectionManager(
                     val dev = args?.getOrNull(0) as? WifiP2pDevice
                     if (dev != null) {
                         myP2pMac = dev.deviceAddress
-                        try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().setWifiDirectMyMac(myP2pMac) } catch (_: Exception) {}
+                        try { DebugSettingsManager.getInstance().setWifiDirectMyMac(myP2pMac) } catch (_: Exception) {}
                     }
                     null
                 }
@@ -254,8 +259,8 @@ class WifiDirectConnectionManager(
             m.discoverPeers(ch, object : WifiP2pManager.ActionListener {
                 override fun onSuccess() {
                     try {
-                        com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
-                            .addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("📶 [Wi‑Fi Direct] discoverPeers issued"))
+                        DebugSettingsManager.getInstance()
+                            .addDebugMessage(DebugMessage.SystemMessage("📶 [Wi‑Fi Direct] discoverPeers issued"))
                     } catch (_: Exception) {}
                     // Immediately request our own device info so myP2pMac becomes available ASAP
                     requestMyDeviceInfo()
@@ -279,9 +284,9 @@ class WifiDirectConnectionManager(
         val delayMs = base + jitter
         backoffUntil[addr] = System.currentTimeMillis() + delayMs
         try {
-            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
+            DebugSettingsManager.getInstance()
                 .addDebugMessage(
-                    com.bitchat.android.ui.debug.DebugMessage.SystemMessage("[Wi‑Fi Direct] Backoff for $addr = ${delayMs}ms (level=$level)"))
+                    DebugMessage.SystemMessage("[Wi‑Fi Direct] Backoff for $addr = ${delayMs}ms (level=$level)"))
         } catch (_: Exception) {}
         scope.launch { delay(delayMs); requestPeersAndMaybeConnect() }
     }
@@ -301,7 +306,7 @@ class WifiDirectConnectionManager(
 
                 val peers = list.deviceList?.toList().orEmpty()
                 for (d in peers) {
-                    com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
+                    DebugSettingsManager.getInstance()
                         .logWifiScanResult(d.deviceName, d.deviceAddress, deviceStatusToString(d.status))
                 }
                 
@@ -309,10 +314,6 @@ class WifiDirectConnectionManager(
                 if (peers.any { it.status == WifiP2pDevice.CONNECTED }) {
                     try { manager?.requestConnectionInfo(channel) { info -> onConnectionInfo(info) } } catch (_: Exception) {}
                 }
-
-                // Proceed with connection logic regardless of local P2P MAC visibility.
-                // Role override can still be used for testing, but do not gate on myP2pMac.
-                val roleOverride = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().wifiDirectRoleOverride.value } catch (_: Exception) { 0 }
 
                 // Prefer Android_* peers with AVAILABLE/INVITED
                 val sorted = peers.sortedWith(compareBy(
@@ -349,7 +350,7 @@ class WifiDirectConnectionManager(
                         else -> false
                     }
                 } ?: run {
-                    // No eligible candidate; do nothing this cycle
+                    Log.d(TAG, "No eligible candidate: do not connect")
                     null
                 }
 
@@ -370,14 +371,16 @@ class WifiDirectConnectionManager(
             // Some devices still need WPS PBC.
             wps.setup = WpsInfo.PBC
         }
-        com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().logWifiConnectionAttempt(device.deviceAddress, "auto")
+        DebugSettingsManager.getInstance().logWifiConnectionAttempt(device.deviceAddress, "auto")
         try {
             // Some devices require stopping discovery before connecting
             manager?.stopPeerDiscovery(channel, object : WifiP2pManager.ActionListener {
                 override fun onSuccess() { /* no-op */ }
                 override fun onFailure(reason: Int) { /* no-op */ }
             })
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+            Log.w(TAG, "Failed to stop discovery")
+        }
         try {
         // Fallback: enforce a connection timeout so we don’t hang forever without CONNECTION_CHANGED
         scope.launch {
@@ -385,7 +388,7 @@ class WifiDirectConnectionManager(
             if (isConnecting && socket == null && linkId == null) {
                 val count = (failureCount[device.deviceAddress] ?: 0) + 1
                 failureCount[device.deviceAddress] = count
-                com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
+                DebugSettingsManager.getInstance()
                     .logWifiConnectionResult(device.deviceAddress, false, "timeout ${CONNECT_TIMEOUT_MS}ms (failures=$count)")
                 isConnecting = false
                 scheduleRescan()
@@ -426,13 +429,17 @@ class WifiDirectConnectionManager(
                 val act = intent?.action ?: return
                 when (act) {
                     WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION -> {
+                        Log.d(TAG, "WIFI_P2P_STATE_CHANGED_ACTION")
                         val state = intent.getIntExtra(WifiP2pManager.EXTRA_WIFI_STATE, -1)
                         val enabled = (state == WifiP2pManager.WIFI_P2P_STATE_ENABLED)
-                        com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(
-                            com.bitchat.android.ui.debug.DebugMessage.SystemMessage("[Wi‑Fi Direct] state=${if (enabled) "ENABLED" else "DISABLED"}"))
+                        DebugSettingsManager.getInstance().addDebugMessage(
+                            DebugMessage.SystemMessage("[Wi‑Fi Direct] state=${if (enabled) "ENABLED" else "DISABLED"}"))
                         if (enabled) startDiscoveryLoop()
                     }
-                    WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION -> requestPeersAndMaybeConnect()
+                    WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION -> {
+                        Log.d(TAG, "WIFI_P2P_STATE_CHANGED_ACTION")
+                        requestPeersAndMaybeConnect()
+                    }
                     WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION -> {
                         val info = intent.getParcelableExtra<android.net.NetworkInfo>(WifiP2pManager.EXTRA_NETWORK_INFO)
                         handleConnectionChanged(info)
@@ -440,40 +447,7 @@ class WifiDirectConnectionManager(
                     WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION -> {
                         val dev = intent.getParcelableExtra<WifiP2pDevice>(WifiP2pManager.EXTRA_WIFI_P2P_DEVICE)
                         myP2pMac = dev?.deviceAddress
-                        try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().setWifiDirectMyMac(myP2pMac) } catch (_: Exception) {}
-
-                    }
-                    "android.net.wifi.p2p.INVITATION_RECEIVED" -> {
-                        // Always accept invites; break mutual-invite by cancelling our own connect if any
-                        val inviterDev = intent.getParcelableExtra<WifiP2pDevice>(WifiP2pManager.EXTRA_WIFI_P2P_DEVICE)
-                        val grp = try { intent.getParcelableExtra<WifiP2pGroup>("android.net.wifi.p2p.extra.P2P_GROUP") } catch (_: Exception) { null }
-                        val inviterMac = grp?.owner?.deviceAddress ?: inviterDev?.deviceAddress
-                        if (inviterMac == null) return
-
-                        // If we were initiating, cancel our connect to avoid mutual INVITED
-                        try { if (isConnecting) manager?.cancelConnect(channel, null) } catch (_: Exception) {}
-
-                        try {
-                            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(
-                                com.bitchat.android.ui.debug.DebugMessage.SystemMessage("[Wi‑Fi Direct] Accepting invite from $inviterMac"))
-                        } catch (_: Exception) {}
-
-                        // Accept by calling connect with provided config if present; otherwise craft one
-                        val cfg = intent.getParcelableExtra<WifiP2pConfig>("android.net.wifi.p2p.extra.P2P_CONFIG")
-                            ?: WifiP2pConfig().apply {
-                                deviceAddress = inviterMac
-                                wps.setup = WpsInfo.PBC
-                            }
-                        try {
-                            manager?.connect(channel, cfg, object : WifiP2pManager.ActionListener {
-                                override fun onSuccess() {}
-                                override fun onFailure(reason: Int) {
-                                    Log.w(TAG, "accept-invite connect failed: $reason")
-                                }
-                            })
-                        } catch (e: Exception) {
-                            Log.w(TAG, "accept-invite exception: ${e.message}")
-                        }
+                        try { DebugSettingsManager.getInstance().setWifiDirectMyMac(myP2pMac) } catch (_: Exception) {}
                     }
                 }
             }
@@ -566,7 +540,7 @@ class WifiDirectConnectionManager(
                 attachSocket(s, isServer = false)
             } catch (e: Exception) {
                 Log.e(TAG, "Client connect error: ${e.message}")
-                com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().logWifiConnectionResult(host, false, e.message)
+                DebugSettingsManager.getInstance().logWifiConnectionResult(host, false, e.message)
                 scheduleRescan()
             }
         }
@@ -581,7 +555,7 @@ class WifiDirectConnectionManager(
                 val accepted = runOverlapGateHandshake(s)
                 if (!accepted) {
                     try { s.close() } catch (_: Exception) {}
-                    com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().logWifiConnectionResult("handshake", false, "overlap/timeout")
+                    DebugSettingsManager.getInstance().logWifiConnectionResult("handshake", false, "overlap/timeout")
                     scheduleRescan()
                     return@launch
                 }
@@ -591,7 +565,7 @@ class WifiDirectConnectionManager(
                 // Now attach the socket and start reader
                 socket = s
                 linkId = (if (isServer) "WFD:GO:" else "WFD:CL:") + runCatching { s.inetAddress.hostAddress }.getOrNull()
-                com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().logWifiConnectionResult(linkId ?: "?", true)
+                DebugSettingsManager.getInstance().logWifiConnectionResult(linkId ?: "?", true)
                 delegate?.onLinkEstablished(linkId!!)
 
                 readerLoop(s)
@@ -640,7 +614,7 @@ class WifiDirectConnectionManager(
 
             val remoteCount = rem.size
             val overlap = locals.intersect(rem.toSet()).size
-            val threshold = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().wifiDirectOverlapThreshold.value } catch (_: Exception) { 3 }
+            val threshold = try { DebugSettingsManager.getInstance().wifiDirectOverlapThreshold.value } catch (_: Exception) { 3 }
 
             // Optional: fancier metric example (Jaccard similarity)
             // val union = (locals.toSet() + rem.toSet()).size
@@ -648,7 +622,7 @@ class WifiDirectConnectionManager(
             // Decide using threshold as absolute for now; can switch to ratio later.
 
             val action = if (overlap > threshold) "DROP" else "ACCEPT"
-            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().logWifiOverlapDecision(localCount, remoteCount, overlap, threshold, action)
+            DebugSettingsManager.getInstance().logWifiOverlapDecision(localCount, remoteCount, overlap, threshold, action)
 
             action != "DROP"
         } catch (e: Exception) {
@@ -751,8 +725,8 @@ class WifiDirectConnectionManager(
             dout.flush()
             // best-effort relay debug log
             try {
-                val dbg = com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
-                val type = com.bitchat.android.protocol.MessageType.fromValue(routed.packet.type)?.name
+                val dbg = DebugSettingsManager.getInstance()
+                val type = MessageType.fromValue(routed.packet.type)?.name
                 val sender = routed.peerID ?: routed.packet.senderID.toHexString()
                 dbg.logPacketRelayDetailed(type ?: "?", sender, nicknameResolver?.invoke(sender), null, null, routed.relayAddress, null, null, linkId, routed.packet.ttl, true)
             } catch (_: Exception) { }
