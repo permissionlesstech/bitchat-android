@@ -50,7 +50,8 @@ import android.net.Uri
 import android.content.Intent
 import androidx.compose.ui.platform.LocalContext
 import com.bitchat.android.ui.media.RealtimeScrollingWaveform
-import com.bitchat.android.ui.media.MediaPickerOptions
+import com.bitchat.android.ui.media.ImagePickerButton
+import com.bitchat.android.ui.media.FilePickerButton
 import com.bitchat.android.features.file.FileUtils
 
 /**
@@ -273,29 +274,19 @@ fun MessageInput(
 
             // Plus button (image picker) - hide during recording
             if (!isRecording) {
-                val context = LocalContext.current
-                val imagePicker = rememberLauncherForActivityResult(
-                    contract = ActivityResultContracts.GetContent()
-                ) { uri: Uri? ->
-                    if (uri != null) {
-                        val outPath = com.bitchat.android.features.media.ImageUtils.downscaleAndSaveToAppFiles(context, uri)
-                        if (!outPath.isNullOrBlank()) onSendImageNote(latestSelectedPeer.value, latestChannel.value, outPath)
-                    }
+                // Revert to original separate buttons: round File button (left) and the old Image plus button (right)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    FilePickerButton(
+                        onFileReady = { path ->
+                            onSendFileNote(latestSelectedPeer.value, latestChannel.value, path)
+                        }
+                    )
+                    ImagePickerButton(
+                        onImageReady = { outPath ->
+                            onSendImageNote(latestSelectedPeer.value, latestChannel.value, outPath)
+                        }
+                    )
                 }
-                val filePicker = rememberLauncherForActivityResult(
-                    contract = ActivityResultContracts.OpenDocument()
-                ) { uri: Uri? ->
-                    if (uri != null) {
-                        try { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: Exception) {}
-                        val path = FileUtils.copyFileForSending(context, uri)
-                        if (!path.isNullOrBlank()) onSendFileNote(latestSelectedPeer.value, latestChannel.value, path)
-                    }
-                }
-
-                MediaPickerOptions(
-                    onImagePick = { imagePicker.launch("image/*") },
-                    onFilePick = { filePicker.launch(arrayOf("*/*")) }
-                )
             }
 
             Spacer(Modifier.width(4.dp))
