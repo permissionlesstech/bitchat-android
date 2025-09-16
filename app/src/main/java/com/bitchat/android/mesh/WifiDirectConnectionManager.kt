@@ -164,67 +164,6 @@ class WifiDirectConnectionManager(
         return try { prefix.contains(addr) } catch (_: Exception) { false }
     }
 
-
-    // Removed: iAmGoFor() and any MAC-based or override-based election.
-
-    private fun normalizeMac(mac: String?): String? {
-        val m = mac?.lowercase() ?: return null
-        val clean = m.replace(":", "")
-        if (clean.length != 12) return null
-        if (clean == NULL_MAC.replace(":", "")) return null
-        return clean
-    }
-
-    private fun canElect(peer: WifiP2pDevice?): Boolean {
-        return normalizeMac(myP2pMac) != null && normalizeMac(peer?.deviceAddress) != null
-    }
-
-    private fun ensureGroupVisibilityAsGo() {
-        try {
-            manager?.createGroup(channel, object : WifiP2pManager.ActionListener {
-                override fun onSuccess() {
-                    try {
-                        DebugSettingsManager.getInstance().addDebugMessage(
-                            DebugMessage.SystemMessage("[Wi‑Fi Direct] GO group ensured/created"))
-                    } catch (_: Exception) {}
-                }
-                override fun onFailure(reason: Int) {
-                    Log.w(TAG, "createGroup (ensure) failed: $reason")
-                }
-            })
-        } catch (e: Exception) {
-            Log.w(TAG, "ensureGroupVisibilityAsGo error: ${e.message}")
-        }
-    }
-
-    // Proactively request our own DeviceInfo (API29+) to obtain local P2P MAC
-    private fun requestMyDeviceInfo() {
-        val m = manager ?: return
-        val ch = channel ?: return
-        try {
-            val klass = WifiP2pManager::class.java
-            val listenerClass = try { Class.forName("android.net.wifi.p2p.WifiP2pManager\$DeviceInfoListener") } catch (_: Throwable) { null }
-            val method = klass.methods.firstOrNull { it.name == "requestDeviceInfo" && it.parameterTypes.size == 2 }
-            if (listenerClass != null && method != null) {
-                val proxy = java.lang.reflect.Proxy.newProxyInstance(
-                    listenerClass.classLoader,
-                    arrayOf(listenerClass)
-                ) { _, _, args ->
-                    val dev = args?.getOrNull(0) as? WifiP2pDevice
-                    if (dev != null) {
-                        myP2pMac = dev.deviceAddress
-                        try { DebugSettingsManager.getInstance().setWifiDirectMyMac(myP2pMac) } catch (_: Exception) {}
-                    }
-                    null
-                }
-                method.invoke(m, ch, proxy)
-                return
-            }
-        } catch (_: Throwable) { /* ignore and fall through */ }
-        // Fallback: requestPeers; THIS_DEVICE_CHANGED will likely update myP2pMac
-        try { m.requestPeers(ch) { /* no-op */ } } catch (_: Exception) {}
-    }
-
     fun disconnect() {
         try { socket?.close() } catch (_: Exception) {}
         try { server?.close() } catch (_: Exception) {}
@@ -262,8 +201,6 @@ class WifiDirectConnectionManager(
                         DebugSettingsManager.getInstance()
                             .addDebugMessage(DebugMessage.SystemMessage("📶 [Wi‑Fi Direct] discoverPeers issued"))
                     } catch (_: Exception) {}
-                    // Immediately request our own device info so myP2pMac becomes available ASAP
-                    requestMyDeviceInfo()
                 }
                 override fun onFailure(reason: Int) {
                     Log.w(TAG, "discoverPeers failed: $reason")
@@ -295,8 +232,6 @@ class WifiDirectConnectionManager(
         val m = manager ?: return
         val ch = channel ?: return
         try {
-            // Proactively request our device info after discoverPeers to obtain myP2pMac ASAP
-            requestMyDeviceInfo()
 
             m.requestPeers(ch) { list ->
                 val now = System.currentTimeMillis()
@@ -326,7 +261,6 @@ class WifiDirectConnectionManager(
                 // - Otherwise, pick first eligible not on cooldown
                 val candidate = sorted.firstOrNull { dev ->
                     val status = dev.status
-                    val held = invitedHoldUntil[dev.deviceAddress]?.let { now < it } ?: false
                     when (status) {
 
                         WifiP2pDevice.INVITED -> {
@@ -367,9 +301,6 @@ class WifiDirectConnectionManager(
         attempted[device.deviceAddress] = System.currentTimeMillis()
         val cfg = WifiP2pConfig().apply {
             deviceAddress = device.deviceAddress
-            // Let the framework negotiate GO/Client; do not bias via groupOwnerIntent.
-            // Some devices still need WPS PBC.
-            wps.setup = WpsInfo.PBC
         }
         DebugSettingsManager.getInstance().logWifiConnectionAttempt(device.deviceAddress, "auto")
         try {
@@ -382,18 +313,18 @@ class WifiDirectConnectionManager(
             Log.w(TAG, "Failed to stop discovery")
         }
         try {
-        // Fallback: enforce a connection timeout so we don’t hang forever without CONNECTION_CHANGED
-        scope.launch {
-            delay(CONNECT_TIMEOUT_MS)
-            if (isConnecting && socket == null && linkId == null) {
-                val count = (failureCount[device.deviceAddress] ?: 0) + 1
-                failureCount[device.deviceAddress] = count
-                DebugSettingsManager.getInstance()
-                    .logWifiConnectionResult(device.deviceAddress, false, "timeout ${CONNECT_TIMEOUT_MS}ms (failures=$count)")
-                isConnecting = false
-                scheduleRescan()
+            // Fallback: enforce a connection timeout so we don’t hang forever without CONNECTION_CHANGED
+            scope.launch {
+                delay(CONNECT_TIMEOUT_MS)
+                if (isConnecting && socket == null && linkId == null) {
+                    val count = (failureCount[device.deviceAddress] ?: 0) + 1
+                    failureCount[device.deviceAddress] = count
+                    DebugSettingsManager.getInstance()
+                        .logWifiConnectionResult(device.deviceAddress, false, "timeout ${CONNECT_TIMEOUT_MS}ms (failures=$count)")
+                    isConnecting = false
+                    scheduleRescan()
+                }
             }
-        }
 
             manager?.connect(channel, cfg, object : WifiP2pManager.ActionListener {
                 override fun onSuccess() { /* Wait for CONNECTION_CHANGED */ }
