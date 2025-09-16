@@ -314,7 +314,7 @@ class WifiDirectConnectionManager(
         }
         try {
             // Fallback: enforce a connection timeout so we don’t hang forever without CONNECTION_CHANGED
-            scope.launch {
+            val timeout = scope.launch {
                 delay(CONNECT_TIMEOUT_MS)
                 if (isConnecting && socket == null && linkId == null) {
                     val count = (failureCount[device.deviceAddress] ?: 0) + 1
@@ -327,14 +327,23 @@ class WifiDirectConnectionManager(
             }
 
             manager?.connect(channel, cfg, object : WifiP2pManager.ActionListener {
-                override fun onSuccess() { /* Wait for CONNECTION_CHANGED */ }
+                override fun onSuccess() {
+                    Log.d(TAG, "Connection successful")
+                    timeout.cancel()
+                }
                 override fun onFailure(reason: Int) {
+                    Log.w(TAG, "Connection failed with reason=${reason}")
+                    val count = (failureCount[device.deviceAddress] ?: 0) + 1
+                    failureCount[device.deviceAddress] = count
+                    DebugSettingsManager.getInstance()
+                        .logWifiConnectionResult(device.deviceAddress, false, "reason=${reason} (failures=$count)")
                     isConnecting = false
                     if (reason == WifiP2pManager.ERROR || reason == WifiP2pManager.BUSY) {
                         scheduleRetryWithBackoff(device.deviceAddress)
                     } else {
                         scheduleRescan()
                     }
+                    timeout.cancel()
                 }
             })
         } catch (e: Exception) {
@@ -352,8 +361,6 @@ class WifiDirectConnectionManager(
             addAction(WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION)
             addAction(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION)
             addAction(WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION)
-            // Invitation handling for persistent group re-invocation (constant not in SDK on all levels)
-            try { addAction("android.net.wifi.p2p.INVITATION_RECEIVED") } catch (_: Exception) {}
         }
         receiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context?, intent: Intent?) {
