@@ -624,7 +624,7 @@ class BluetoothMeshService(private val context: Context) {
         val payload = file.encode() ?: return
         serviceScope.launch {
             val packet = BitchatPacket(
-                version = 1u,
+                version = 2u,  // FILE_TRANSFER uses v2 for 4-byte payload length to support large files
                 type = MessageType.FILE_TRANSFER.value,
                 senderID = hexStringToByteArray(myPeerID),
                 recipientID = SpecialRecipients.BROADCAST,
@@ -646,7 +646,7 @@ class BluetoothMeshService(private val context: Context) {
         val payload = file.encode() ?: return
         serviceScope.launch {
             val packet = BitchatPacket(
-                version = 1u,
+                version = 2u,  // FILE_TRANSFER uses v2 for 4-byte payload length to support large files
                 type = MessageType.FILE_TRANSFER.value,
                 senderID = hexStringToByteArray(myPeerID),
                 recipientID = hexStringToByteArray(recipientPeerID),
