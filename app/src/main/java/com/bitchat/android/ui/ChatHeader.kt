@@ -550,6 +550,9 @@ private fun MainHeader(
                 onValueChange = onNicknameChange
             )
         }
+
+        // Wi‑Fi Direct quick connect button (opens system WFD settings)
+        WiFiDirectButton(viewModel = viewModel)
         
         // Right section with location channels button and peer counter
         Row(
@@ -673,6 +676,59 @@ private fun LocationChannelsButton(
                     tint = badgeColor
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun WiFiDirectButton(viewModel: ChatViewModel) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val color = MaterialTheme.colorScheme.primary
+    TextButton(onClick = {
+        val intents = listOf(
+            // Known vendor-specific Wi‑Fi Direct settings activities (best effort)
+            android.content.Intent().apply {
+                setClassName("com.android.settings", "com.android.settings.wifi.p2p.WifiP2pSettings")
+            },
+            android.content.Intent().apply {
+                setClassName("com.samsung.android.settings", "com.samsung.android.settings.wifi.p2p.WifiP2pSettings")
+            },
+            android.content.Intent().apply {
+                setClassName("com.huawei.systemmanager", "com.huawei.systemmanager.wifip2p.WifiP2pSettings")
+            },
+            // Stock settings fallbacks
+            android.content.Intent(android.provider.Settings.ACTION_WIFI_IP_SETTINGS),
+            android.content.Intent(android.provider.Settings.ACTION_WIFI_SETTINGS)
+        )
+        var launched = false
+        for (it in intents) {
+            try {
+                it.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(it)
+                launched = true
+                break
+            } catch (_: Exception) {
+                // try next
+            }
+        }
+        if (!launched) {
+            // last resort: general settings
+            try {
+                val general = android.content.Intent(android.provider.Settings.ACTION_SETTINGS)
+                general.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(general)
+            } catch (_: Exception) { }
+        }
+    }) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Outlined.Wifi,
+                contentDescription = "Wi‑Fi Direct",
+                tint = color,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(text = "#wifi", color = color)
         }
     }
 }

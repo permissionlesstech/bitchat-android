@@ -47,7 +47,7 @@ class WifiDirectConnectionManager(
 
     companion object {
         private const val TAG = "WifiDirectConnMgr"
-        private const val PORT = 49537
+        private val PORTS = intArrayOf(49537, 49577, 49613, 49681, 49753)
         private const val RESCAN_BACKOFF_MS = 10_000L
         private const val DISCOVER_INTERVAL_MS = 30_000L
         private const val ATTEMPT_TTL_MS = 60_000L
@@ -118,9 +118,9 @@ class WifiDirectConnectionManager(
         registerReceiver()
         // Try to detect existing P2P group immediately (app may have started after the link formed)
         try { manager?.requestConnectionInfo(channel) { info -> onConnectionInfo(info) } } catch (_: Exception) {}
-        // Removed unconditional group creation; GO will be ensured only when elected via MAC
-        // ensureGroupVisibility()
-        startDiscoveryLoop()
+        // Removed unconditional group creation and automatic discovery loop.
+        // New model: user opens system Wi‑Fi Direct settings to pick a peer.
+        // We only observe connection changes and proceed to socket handshake when group is formed.
 
         try { DebugSettingsManager.getInstance().setWifiDirectActive(true) } catch (_: Exception) {}
         Log.i(TAG, "Wi‑Fi Direct manager started")
@@ -176,40 +176,9 @@ class WifiDirectConnectionManager(
         scheduleRescan()
     }
 
-    // Discovery
-    private fun startDiscoveryLoop() {
-        if (!active.get()) return
-        if (isDiscovering) return
-        isDiscovering = true
-        scope.launch {
-            while (active.get()) {
-                discoverPeersOnce()
-                delay(DISCOVER_INTERVAL_MS)
-            }
-        }
-    }
-
+    private fun startDiscoveryLoop() { /* no-op in manual mode */ }
     private fun stopDiscovery() { isDiscovering = false }
-
-    private fun discoverPeersOnce() {
-        val m = manager ?: return
-        val ch = channel ?: return
-        try {
-            m.discoverPeers(ch, object : WifiP2pManager.ActionListener {
-                override fun onSuccess() {
-                    try {
-                        DebugSettingsManager.getInstance()
-                            .addDebugMessage(DebugMessage.SystemMessage("📶 [Wi‑Fi Direct] discoverPeers issued"))
-                    } catch (_: Exception) {}
-                }
-                override fun onFailure(reason: Int) {
-                    Log.w(TAG, "discoverPeers failed: $reason")
-                }
-            })
-        } catch (e: Exception) {
-            Log.w(TAG, "discoverPeers exception: ${e.message}")
-        }
-    }
+    private fun discoverPeersOnce() { /* no-op in manual mode */ }
 
     // Backoff helper
     private fun scheduleRetryWithBackoff(addr: String) {
@@ -232,125 +201,42 @@ class WifiDirectConnectionManager(
         val m = manager ?: return
         val ch = channel ?: return
         try {
-
-            m.requestPeers(ch) { list ->
-                val now = System.currentTimeMillis()
-                // prune caches
-                attempted.entries.removeIf { now - it.value > ATTEMPT_TTL_MS }
-                invitedHoldUntil.entries.removeIf { now > it.value }
-
-                val peers = list.deviceList?.toList().orEmpty()
-                for (d in peers) {
-                    DebugSettingsManager.getInstance()
-                        .logWifiScanResult(d.deviceName, d.deviceAddress, deviceStatusToString(d.status))
-                }
-                
-                // If any peer is already CONNECTED, proactively query connection info to attach sockets
-                if (peers.any { it.status == WifiP2pDevice.CONNECTED }) {
-                    try { manager?.requestConnectionInfo(channel) { info -> onConnectionInfo(info) } } catch (_: Exception) {}
-                }
-
-                // Prefer Android_* peers with AVAILABLE/INVITED
-                val sorted = peers.sortedWith(compareBy(
-                    { if ((it.deviceName ?: "").startsWith("Android", ignoreCase = true)) 0 else 1 },
-                    { if ((it.deviceName ?: "").contains("TV", ignoreCase = true)) 1 else 0 }
-                ))
-
-                // Strategy:
-                // - If a peer is INVITED, hold for a short grace window to let Android complete negotiation
-                // - Otherwise, pick first eligible not on cooldown
-                val candidate = sorted.firstOrNull { dev ->
-                    val status = dev.status
-                    when (status) {
-
-                        WifiP2pDevice.INVITED -> {
-                            // If invitation persists beyond a short grace window, proactively initiate a fresh GO Negotiation.
-                            val until = invitedHoldUntil[dev.deviceAddress]
-                            if (until == null) {
-                                invitedHoldUntil[dev.deviceAddress] = now + 4_000L
-                                false
-                            } else if (now < until) {
-                                false
-                            } else {
-                                // Grace window expired → try normal connect to break out of unknown persistent‑group invites
-                                val inBackoff = (backoffUntil[dev.deviceAddress] ?: 0L) > now
-                                !attempted.containsKey(dev.deviceAddress) && !inBackoff
-                            }
-                        }
-                        WifiP2pDevice.AVAILABLE -> {
-                            val inBackoff = (backoffUntil[dev.deviceAddress] ?: 0L) > now
-                            !attempted.containsKey(dev.deviceAddress) && !inBackoff
-                        }
-                        else -> false
-                    }
-                } ?: run {
-                    Log.d(TAG, "No eligible candidate: do not connect")
-                    null
-                }
-
-                if (candidate != null) connectToDevice(candidate)
-            }
+            m.requestConnectionInfo(ch) { info -> onConnectionInfo(info) }
         } catch (e: Exception) {
-            Log.w(TAG, "requestPeers error: ${e.message}")
+            Log.w(TAG, "requestConnectionInfo error: ${e.message}")
         }
     }
-    
-    private fun connectToDevice(device: WifiP2pDevice) {
-        if (isConnecting) return
-        isConnecting = true
-        attempted[device.deviceAddress] = System.currentTimeMillis()
-        val cfg = WifiP2pConfig().apply {
-            deviceAddress = device.deviceAddress
-        }
-        DebugSettingsManager.getInstance().logWifiConnectionAttempt(device.deviceAddress, "auto")
-        try {
-            // Some devices require stopping discovery before connecting
-            manager?.stopPeerDiscovery(channel, object : WifiP2pManager.ActionListener {
-                override fun onSuccess() { /* no-op */ }
-                override fun onFailure(reason: Int) { /* no-op */ }
-            })
-        } catch (_: Exception) {
-            Log.w(TAG, "Failed to stop discovery")
-        }
-        try {
-            // Fallback: enforce a connection timeout so we don’t hang forever without CONNECTION_CHANGED
-            val timeout = scope.launch {
-                delay(CONNECT_TIMEOUT_MS)
-                if (isConnecting && socket == null && linkId == null) {
-                    val count = (failureCount[device.deviceAddress] ?: 0) + 1
-                    failureCount[device.deviceAddress] = count
-                    DebugSettingsManager.getInstance()
-                        .logWifiConnectionResult(device.deviceAddress, false, "timeout ${CONNECT_TIMEOUT_MS}ms (failures=$count)")
-                    isConnecting = false
-                    scheduleRescan()
-                }
-            }
 
-            manager?.connect(channel, cfg, object : WifiP2pManager.ActionListener {
-                override fun onSuccess() {
-                    Log.d(TAG, "Connection successful")
-                    timeout.cancel()
-                }
-                override fun onFailure(reason: Int) {
-                    Log.w(TAG, "Connection failed with reason=${reason}")
-                    val count = (failureCount[device.deviceAddress] ?: 0) + 1
-                    failureCount[device.deviceAddress] = count
-                    DebugSettingsManager.getInstance()
-                        .logWifiConnectionResult(device.deviceAddress, false, "reason=${reason} (failures=$count)")
-                    isConnecting = false
-                    if (reason == WifiP2pManager.ERROR || reason == WifiP2pManager.BUSY) {
-                        scheduleRetryWithBackoff(device.deviceAddress)
-                    } else {
-                        scheduleRescan()
-                    }
-                    timeout.cancel()
-                }
-            })
+    private fun logAllNetworks(tag: String) {
+        try {
+            val nets = cm.allNetworks ?: return
+            for (n in nets) {
+                val lp = cm.getLinkProperties(n)
+                val nc = cm.getNetworkCapabilities(n)
+                val ifn = lp?.interfaceName
+                val addrs = lp?.linkAddresses?.joinToString { it.address.hostAddress ?: "?" }
+                val transports = buildList {
+                    if (nc?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) == true) add("WIFI")
+                    if (nc?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) == true) add("CELL")
+                    if (nc?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_BLUETOOTH) == true) add("BT")
+                    if (nc?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) == true) add("ETH")
+                }.joinToString("+")
+                Log.d(TAG, "$tag: net=$n if=$ifn addrs=[$addrs] transports=$transports")
+            }
         } catch (e: Exception) {
-            isConnecting = false
-            Log.w(TAG, "connect error: ${e.message}")
-            scheduleRescan()
+            Log.w(TAG, "logAllNetworks error: ${e.message}")
         }
+    }
+
+    private fun getP2pLocalAddress(net: android.net.Network?): java.net.InetAddress? {
+        return try {
+            val lp = if (net != null) cm.getLinkProperties(net) else null
+            val cand = lp?.linkAddresses?.mapNotNull { it.address }?.firstOrNull { addr ->
+                addr.hostAddress?.startsWith("192.168.49.") == true ||
+                (lp.interfaceName?.contains("p2p", ignoreCase = true) == true)
+            }
+            cand
+        } catch (_: Exception) { null }
     }
 
     // Broadcast receiver
@@ -379,6 +265,7 @@ class WifiDirectConnectionManager(
                         requestPeersAndMaybeConnect()
                     }
                     WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION -> {
+                        Log.d(TAG, "WIFI_P2P_CONNECTION_CHANGED_ACTION")
                         val info = intent.getParcelableExtra<android.net.NetworkInfo>(WifiP2pManager.EXTRA_NETWORK_INFO)
                         handleConnectionChanged(info)
                     }
@@ -418,67 +305,118 @@ class WifiDirectConnectionManager(
         } catch (e: Exception) {
             Log.w(TAG, "requestConnectionInfo error: ${e.message}")
         }
+        logAllNetworks("onBroadcast")
     }
 
     private fun onConnectionInfo(info: WifiP2pInfo?) {
         if (info == null) return
         if (socket != null) return // already attached
-        if (info.groupFormed) {
-            if (info.isGroupOwner) {
-                startServerOnce(PORT)
+        if (!info.groupFormed) {
+            Log.d(TAG, "Connection info: group not formed yet")
+            return
+        }
+        if (info.isGroupOwner) {
+            Log.d(TAG, "Connection info: We are GO; starting server")
+            startServerIfNeeded(PORTS.first())
+        } else {
+            val host = info.groupOwnerAddress?.hostAddress
+            if (host != null) {
+                Log.d(TAG, "Connection info: GO at $host; attempting client dial")
+                connectToHost(host, PORTS)
             } else {
-                val host = info.groupOwnerAddress?.hostAddress ?: return
-                connectToHost(host, PORT)
+                Log.w(TAG, "Connection info: Missing GO hostAddress; cannot dial")
             }
         }
     }
 
-    // GO: Accept exactly one client
-    private fun startServerOnce(port: Int = PORT) {
-        scope.launch {
-            try {
-                server = ServerSocket(port)
-                Log.i(TAG, "[Wi‑Fi Direct] Listening on port $port (single client)")
-                val s = withContext(Dispatchers.IO) { server!!.accept() }
-                if (!active.get()) { s.close(); return@launch }
-                attachSocket(s, isServer = true)
-            } catch (e: Exception) {
-                Log.e(TAG, "Server error: ${e.message}")
-                scheduleRescan()
+    // GO: Accept exactly one client (idempotent)
+    private fun startServerIfNeeded(port: Int = PORTS.first()) {
+        // If already listening and not closed, do nothing
+        try {
+            val s = server
+            if (s != null && !s.isClosed) {
+                Log.d(TAG, "Server already listening")
+                return
             }
+        } catch (_: Exception) {}
+        scope.launch {
+            for (p in PORTS) {
+                try {
+                    try { server?.close() } catch (_: Exception) {}
+                    server = ServerSocket(p)
+                    Log.i(TAG, "[Wi‑Fi Direct] Listening on port $p (single client)")
+                    val s = withContext(Dispatchers.IO) { server!!.accept() }
+                    if (!active.get()) { s.close(); return@launch }
+                    attachSocket(s, isServer = true)
+                    return@launch
+                } catch (e: Exception) {
+                    Log.w(TAG, "Server bind failed on port $p: ${e.message}")
+                    try { server?.close() } catch (_: Exception) {}
+                    server = null
+                    continue
+                }
+            }
+            Log.e(TAG, "Server error: no ports available to bind")
+            scheduleRescan()
         }
     }
 
     // Client: connect to GO
-    private fun connectToHost(host: String, port: Int = PORT) {
+    private fun connectToHost(host: String, ports: IntArray = PORTS, allowRetry: Boolean = true) {
         scope.launch {
             try {
+                // Give P2P stack a moment to surface routes
+                delay(800)
+                // Log networks before dialing
+                logAllNetworks("dialPrep")
                 val addr = java.net.InetAddress.getByName(host)
-                // Try to bind the socket to the P2P network if available (Android 5.0+)
                 val net = findP2pNetwork(addr)
-                val s = withContext(Dispatchers.IO) {
-                    val sock = java.net.Socket()
+                for ((i, port) in ports.withIndex()) {
                     try {
-                        if (net != null) {
-                            // Bind socket to the P2P network before connect
-                            cm.bindProcessToNetwork(net) // scoped to process; alternative is net.bindSocket(sock)
+                        val s = withContext(Dispatchers.IO) {
+                            val sock = java.net.Socket()
+                            try {
+                                // Prefer per-socket binding to the P2P network
+                                if (net != null) {
+                                    net.bindSocket(sock)
+                                    // Bind local source to p2p interface address if available
+                                    getP2pLocalAddress(net)?.let { la ->
+                                        try { sock.bind(java.net.InetSocketAddress(la, 0)) } catch (_: Exception) {}
+                                    }
+                                }
+                            } catch (_: Exception) {}
+                            try {
+                                sock.connect(java.net.InetSocketAddress(addr, port), HANDSHAKE_TIMEOUT_MS.toInt().coerceAtLeast(5000))
+                                sock
+                            } catch (e: Exception) {
+                                try { sock.close() } catch (_: Exception) {}
+                                throw e
+                            }
                         }
-                    } catch (_: Exception) {}
-                    try {
-                        sock.connect(java.net.InetSocketAddress(addr, port), HANDSHAKE_TIMEOUT_MS.toInt().coerceAtLeast(5000))
-                        sock
+                        if (!active.get()) { s.close(); return@launch }
+                        attachSocket(s, isServer = false)
+                        return@launch
                     } catch (e: Exception) {
-                        try { sock.close() } catch (_: Exception) {}
-                        throw e
-                    } finally {
-                        try { if (net != null) cm.bindProcessToNetwork(null) } catch (_: Exception) {}
+                        Log.w(TAG, "Client connect error to $host:$port — ${e.message}")
+                        // Small stagger between attempts
+                        delay(200)
+                        // continue to next port
                     }
                 }
-                if (!active.get()) { s.close(); return@launch }
-                attachSocket(s, isServer = false)
+                // All ports failed on this cycle
+                DebugSettingsManager.getInstance().logWifiConnectionResult(host, false, "all ports failed")
+                if (allowRetry) {
+                    // Retry once after a short wait; re-request connection info to refresh host/route
+                    delay(1500)
+                    try { manager?.requestConnectionInfo(channel) { info ->
+                        val h = info?.groupOwnerAddress?.hostAddress
+                        if (!h.isNullOrEmpty()) connectToHost(h, ports, allowRetry = false)
+                    } } catch (_: Exception) {}
+                } else {
+                    scheduleRescan()
+                }
             } catch (e: Exception) {
-                Log.e(TAG, "Client connect error: ${e.message}")
-                DebugSettingsManager.getInstance().logWifiConnectionResult(host, false, e.message)
+                Log.e(TAG, "Client connect flow error: ${e.message}")
                 scheduleRescan()
             }
         }
@@ -490,8 +428,10 @@ class WifiDirectConnectionManager(
             try {
                 // Apply a read timeout just for the handshake
                 try { s.soTimeout = HANDSHAKE_TIMEOUT_MS.toInt() } catch (_: Exception) {}
+                Log.d(TAG, "Starting handshake (isServer=$isServer)")
                 val accepted = runOverlapGateHandshake(s)
                 if (!accepted) {
+                    Log.w(TAG, "Handshake failed (overlap/timeout)")
                     try { s.close() } catch (_: Exception) {}
                     DebugSettingsManager.getInstance().logWifiConnectionResult("handshake", false, "overlap/timeout")
                     scheduleRescan()
@@ -503,6 +443,7 @@ class WifiDirectConnectionManager(
                 // Now attach the socket and start reader
                 socket = s
                 linkId = (if (isServer) "WFD:GO:" else "WFD:CL:") + runCatching { s.inetAddress.hostAddress }.getOrNull()
+                Log.i(TAG, "Handshake succeeded; linkId=${linkId}")
                 DebugSettingsManager.getInstance().logWifiConnectionResult(linkId ?: "?", true)
                 delegate?.onLinkEstablished(linkId!!)
 
@@ -603,12 +544,12 @@ class WifiDirectConnectionManager(
                                     // Re-open server accept for the next client
                                     try { server?.close() } catch (_: Exception) {}
                                     server = null
-                                    startServerOnce(PORT)
+                                startServerIfNeeded(PORTS.first())
                                 } else {
                                     // Reconnect TCP to existing GO
                                     val host = info.groupOwnerAddress?.hostAddress
                                     if (host != null) {
-                                        connectToHost(host, PORT)
+                                        connectToHost(host, PORTS)
                                     } else {
                                         // No host info; rescan
                                         discoverPeersOnce()
