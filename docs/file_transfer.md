@@ -1,6 +1,16 @@
-# Bitchat Bluetooth File Transfer: Audio + Images
+# Bitchat Bluetooth File Transfer: Audio + Images with Interactive Features
 
-This document is the exhaustive implementation guide for Bitchat’s Bluetooth file transfer for voice notes (audio) and images. It describes the on‑wire packet format, fragmentation/progress/cancellation, sender/receiver behaviors, and the UX we implemented in the Android client so that other implementers can interoperate and match the user experience precisely.
+This document is the exhaustive implementation guide for Bitchat’s Bluetooth file transfer protocol for voice notes (audio) and images, including interactive features like waveform seeking. It describes the on‑wire packet format (both v1 and v2), fragmentation/progress/cancellation, sender/receiver behaviors, and the complete UX we implemented in the Android client so that other implementers can interoperate and match the user experience precisely.
+
+**Protocol Versions:**
+- **v1**: Original protocol with 2‑byte payload length (≤ 64 KiB files)
+- **v2**: Extended protocol with 4-byte payload length (≤ 4 GiB files) - use for all file transfers
+- File transfer packets use v2 format by default for optimal compatibility
+
+**Interactive Features:**
+- **Waveform Seeking**: Tap anywhere on audio waveforms to jump to that playback position
+- **Large File Support**: v2 protocol enables multi-GiB file transfers through fragmentation
+- **Unified Experience**: Identical UX between platforms with enhanced user control
 
 The guide is organized into:
 
@@ -8,6 +18,7 @@ The guide is organized into:
 - Fragmentation, progress reporting, and cancellation
 - Receive path, validation, and persistence
 - Sender path (audio + images)
+- Interactive features (audio waveform seeking)
 - UI/UX behavior (recording, sending, playback, image rendering)
 - File inventory (source files and their roles)
 
@@ -22,7 +33,7 @@ Bitchat BLE transport carries application messages inside the common `BitchatPac
 
 Fields (subset relevant to file transfer):
 
-- `version: UByte` — protocol version (currently `1`).
+- `version: UByte` — protocol version (`1` for v1, `2` for v2 with extended payload length).
 - `type: UByte` — message type. File transfer uses `MessageType.FILE_TRANSFER (0x22)`.
 - `senderID: ByteArray (8)` — 8‑byte binary peer ID.
 - `recipientID: ByteArray (8)` — 8‑byte recipient. For public: `SpecialRecipients.BROADCAST (0xFF…FF)`; for private: the target peer’s 8‑byte ID.
@@ -39,7 +50,48 @@ Envelope creation and broadcast paths are implemented in:
 
 Private sends are additionally encrypted at the higher layer (Noise) for text messages, but file transfers use the `FILE_TRANSFER` message type in the clear at the envelope level with content carried inside a TLV. See code for any deployment‑specific enforcement.
 
-### 1.2 File Transfer TLV payload (BitchatFilePacket)
+### 1.2 Binary Protocol Extensions (v2)
+
+#### v2 Header Format Changes
+
+**v1 Format (original):**
+```
+Header (13 bytes):
+Version: 1 byte
+Type: 1 byte
+TTL: 1 byte
+Timestamp: 8 bytes
+Flags: 1 byte
+PayloadLength: 2 bytes (big-endian, max 64 KiB)
+```
+
+**v2 Format (extended):**
+```
+Header (15 bytes):
+Version: 1 byte (set to 2 for v2 packets)
+Type: 1 byte
+TTL: 1 byte
+Timestamp: 8 bytes
+Flags: 1 byte
+PayloadLength: 4 bytes (big-endian, max ~4 GiB)
+```
+
+- **Header Size**: Increased from 13 to 15 bytes.
+- **Payload Length Field**: Extended from 16 bits (2 bytes) to 32 bits (4 bytes), allowing file transfers up to ~4 GiB.
+- **Backward Compatibility**: Clients must support both v1 and v2 decoding. File transfer packets always use v2.
+- **Implementation**: See `BinaryProtocol.kt` with `getHeaderSize(version)` logic.
+
+#### Use Cases for v2
+- **Large Audio Files**: Professional recordings, podcasts, or music samples.
+- **High-Resolution Images**: Full-resolution photos from modern smartphones.
+- **Future File Types**: PDFs, documents, archives, or other large media.
+
+#### Interoperability Requirements
+- Clients receiving v2 packets must decode 4-byte `PayloadLength` fields.
+- Clients sending file transfers should preferentially use v2 format.
+- Fragmentation still applies: large files are split into fragments that fit within BLE MTU constraints (~128 KiB per fragment).
+
+### 1.3 File Transfer TLV payload (BitchatFilePacket)
 
 The file payload is a compact TLV structure with 2‑byte big‑endian length fields.
 
@@ -56,7 +108,7 @@ Encoding rules:
 
 - Each TLV: 1 byte type + 2 bytes length (big‑endian) + value.
 - For `FILE_SIZE`, length must be `8`. For other TLVs, length can be any value up to `0xFFFF`.
-- The total payload should remain ≤ 64 KiB to stay within fragmentation constraints for BLE.
+- With v2 protocol, payloads can be up to ~4 GiB. However, fragments still need to fit within MTU (~128 KiB), so large files will be split into multiple fragments.
 - Implementations should validate TLV boundaries; decoding returns `null` if malformed.
 
 Decoding rules:
@@ -269,6 +321,35 @@ Files:
 
 ---
 
+## 5.6 Interactive Audio Features
+
+### 5.6.1 Waveform Seeking
+
+- Audio waveforms in chat messages are fully interactive: users can tap anywhere on the waveform to jump to that position in the audio playback.
+- On tap, the seek position is calculated as a fraction of the waveform width (0.0 = beginning, 1.0 = end).
+- This works for both playing and paused audio states.
+- The MediaPlayer is seeked to the calculated position immediately, with visual feedback via progress bar update.
+- Tapping provides precise control - e.g., tap 25% through waveform jumps to 25% through audio.
+- No haptic feedback or visual indicator; the progress bar update serves as immediate feedback.
+
+Waveform Canvas Implementation:
+- `WaveformCanvas` uses `pointerInput` with `detectTapGestures` to capture tap events.
+- Tap position is converted to a fraction: `position.x / size.width.toFloat()`.
+- Clamped to 0.0-1.0 range for safety.
+- `onSeek` callback is invoked with the calculated position fraction.
+- Only enabled when `onSeek` is provided (disabled for sending in progress).
+
+VoiceNotePlayer Seeking:
+- Accepts position fraction (0.0-1.0) and converts to milliseconds: `seekMs = (position * durationMs).toInt()`.
+- Calls `MediaPlayer.seekTo(seekMs)` to jump to the exact position.
+- Updates progress state immediately for UI responsiveness even before playback reaches the new position.
+
+Files:
+- `app/src/main/java/com/bitchat/android/ui/MessageComponents.kt` (/Users/cc/git/bitchat-android/app/src/main/java/com/bitchat/android/ui/MessageComponents.kt) — VoiceNotePlayer with seekTo function
+- `app/src/main/java/com/bitchat/android/ui/media/WaveformViews.kt` (/Users/cc/git/bitchat-android/app/src/main/java/com/bitchat/android/ui/media/WaveformViews.kt) — Interactive WaveformCanvas with tap handling
+
+---
+
 ## 6) Edge Cases and Notes
 
 - Filename collisions on receiver: we always generate a unique filename, ignoring the sender’s name to avoid overwriting if identical names are reused.
@@ -323,16 +404,18 @@ Fullscreen image:
 
 ## 8) Implementation Checklist for Other Clients
 
-1. Implement `BitchatFilePacket` TLV exactly as specified (type bytes, length as 2‑byte big‑endian, size = 8 for FILE_SIZE).
-2. Embed the TLV into a `BitchatPacket` envelope with `type = FILE_TRANSFER (0x22)` and the correct `recipientID` (broadcast vs private).
-3. Fragment, send, and report progress using a transfer ID derived from `sha256(payload)` so the UI can map progress to a message.
-4. Support cancellation at the fragment sender: stop sending remaining fragments and propagate a cancel to the UI (we remove the message).
-5. On receive, decode TLV, persist to an app directory (separate audio/images), and create a chat message with content marker `"[voice] path"` or `"[image] path"` for local rendering.
-6. Audio sender and receiver should use the same waveform extractor so visuals match; a 120‑bin histogram is a good balance.
-7. For images, optionally downscale to keep TLV under ~64 KiB; JPEG 85% at 512 px longest edge is a good baseline.
-8. Mirror the UX:
-   - Recording overlay that does not collapse the IME; hide the caret while recording; add 500 ms end padding.
-   - Voice: waveform fill for send/playback; cancel overlay.
-   - Images: dense block‑reveal with no gaps during sending; cancel overlay; fullscreen viewer with save.
+1. **Implement v2 protocol support**: Support both v1 (2-byte payload length) and v2 (4-byte payload length) packet decoding. Use v2 format for file transfer packets to enable large file transfers.
+2. Implement `BitchatFilePacket` TLV exactly as specified (type bytes, length as 2‑byte big‑endian, size = 8 for FILE_SIZE).
+3. Embed the TLV into a `BitchatPacket` envelope with `type = FILE_TRANSFER (0x22)` and the correct `recipientID` (broadcast vs private).
+4. Fragment, send, and report progress using a transfer ID derived from `sha256(payload)` so the UI can map progress to a message.
+5. Support cancellation at the fragment sender: stop sending remaining fragments and propagate a cancel to the UI (we remove the message).
+6. On receive, decode TLV, persist to an app directory (separate audio/images), and create a chat message with content marker `"[voice] path"` or `"[image] path"` for local rendering.
+7. Audio sender and receiver should use the same waveform extractor so visuals match; a 120‑bin histogram is a good balance.
+8. **Implement interactive waveform seeking**: Tap waveforms to jump to that audio position. Calculate tap position as fraction (0.0-1.0) of waveform width.
+9. For images, optionally downscale to keep TLV under ~64 KiB; JPEG 85% at 512 px longest edge is a good baseline.
+10. Mirror the UX:
+    - Recording overlay that does not collapse the IME; hide the caret while recording; add 500 ms end padding.
+    - Voice: waveform fill for send/playback; cancel overlay; **tap-to-seek support**.
+    - Images: dense block‑reveal with no gaps during sending; cancel overlay; fullscreen viewer with save.
 
 Following the above should produce an interoperable and matching experience across platforms.
