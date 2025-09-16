@@ -41,7 +41,7 @@ fun RealtimeScrollingWaveform(
             samples.add(v)
             val overflow = samples.size - bars
             if (overflow > 0) repeat(overflow) { if (samples.isNotEmpty()) samples.removeAt(0) }
-            kotlinx.coroutines.delay(50) // ~20 FPS
+            kotlinx.coroutines.delay(20)
         }
     }
 
@@ -53,13 +53,16 @@ fun RealtimeScrollingWaveform(
         if (n <= 0) return@Canvas
         val stepX = w / n
         val midY = h / 2f
-        val stroke = 2.dp.toPx()
+        val stroke = .5f.dp.toPx()
 
         // Optional faint base to match chat density
-        // Draw bars
+        // Draw bars with heavy dynamic range compression: quiet sounds almost at zero, loud sounds still prominent
         for (i in 0 until n) {
             val amp = samples[i].coerceIn(0f, 1f)
-            val lineH = (amp * (h * 0.9f)).coerceAtLeast(2f)
+            // Use squared amplitude to heavily compress small values while preserving high amplitudes
+            // This makes quiet sounds almost invisible but loud sounds still show prominently
+            val compressedAmp = amp * amp // amp^2
+            val lineH = (compressedAmp * (h * 0.9f)).coerceAtLeast(1f)
             val x = i * stepX + stepX / 2f
             val yTop = midY - lineH / 2f
             val yBot = midY + lineH / 2f
