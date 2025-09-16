@@ -140,7 +140,8 @@ fun MessagesList(
     onScrolledUpChanged: ((Boolean) -> Unit)? = null,
     onNicknameClick: ((String) -> Unit)? = null,
     onMessageLongPress: ((BitchatMessage) -> Unit)? = null,
-    onCancelTransfer: ((BitchatMessage) -> Unit)? = null
+    onCancelTransfer: ((BitchatMessage) -> Unit)? = null,
+    onImageClick: ((String, List<String>, Int) -> Unit)? = null
 ) {
     val listState = rememberLazyListState()
     
@@ -198,11 +199,13 @@ fun MessagesList(
         ) { message ->
                 MessageItem(
                     message = message,
+                    messages = messages,
                     currentUserNickname = currentUserNickname,
                     meshService = meshService,
                     onNicknameClick = onNicknameClick,
                     onMessageLongPress = onMessageLongPress,
-                    onCancelTransfer = onCancelTransfer
+                    onCancelTransfer = onCancelTransfer,
+                    onImageClick = onImageClick
                 )
         }
     }
@@ -214,9 +217,11 @@ fun MessageItem(
     message: BitchatMessage,
     currentUserNickname: String,
     meshService: BluetoothMeshService,
+    messages: List<BitchatMessage> = emptyList(),
     onNicknameClick: ((String) -> Unit)? = null,
     onMessageLongPress: ((BitchatMessage) -> Unit)? = null,
-    onCancelTransfer: ((BitchatMessage) -> Unit)? = null
+    onCancelTransfer: ((BitchatMessage) -> Unit)? = null,
+    onImageClick: ((String, List<String>, Int) -> Unit)? = null
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val timeFormatter = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
@@ -233,6 +238,7 @@ fun MessageItem(
             // Create a custom layout that combines selectable text with clickable nickname areas
             MessageTextWithClickableNicknames(
                 message = message,
+                messages = messages,
                 currentUserNickname = currentUserNickname,
                 meshService = meshService,
                 colorScheme = colorScheme,
@@ -240,6 +246,7 @@ fun MessageItem(
                 onNicknameClick = onNicknameClick,
                 onMessageLongPress = onMessageLongPress,
                 onCancelTransfer = onCancelTransfer,
+                onImageClick = onImageClick,
                 modifier = Modifier.weight(1f)
             )
             
@@ -259,6 +266,7 @@ fun MessageItem(
 @Composable
     private fun MessageTextWithClickableNicknames(
         message: BitchatMessage,
+        messages: List<BitchatMessage>,
         currentUserNickname: String,
         meshService: BluetoothMeshService,
         colorScheme: ColorScheme,
@@ -266,6 +274,7 @@ fun MessageItem(
         onNicknameClick: ((String) -> Unit)?,
         onMessageLongPress: ((BitchatMessage) -> Unit)?,
         onCancelTransfer: ((BitchatMessage) -> Unit)?,
+        onImageClick: ((String, List<String>, Int) -> Unit)?,
         modifier: Modifier = Modifier
     ) {
     // Image special rendering
@@ -303,6 +312,11 @@ fun MessageItem(
             val context = LocalContext.current
             var showViewer by remember { mutableStateOf(false) }
             val bmp = remember(path) { try { android.graphics.BitmapFactory.decodeFile(path) } catch (_: Exception) { null } }
+
+            // Collect all image paths from messages for swipe navigation
+            val imagePaths = messages.filter { it.content.startsWith("[image] ") }
+                .map { it.content.removePrefix("[image] ").trim() }
+
             if (bmp != null) {
                 val img = bmp.asImageBitmap()
                 val aspect = (bmp.width.toFloat() / bmp.height.toFloat()).takeIf { it.isFinite() && it > 0 } ?: 1f
@@ -323,7 +337,10 @@ fun MessageItem(
                                     .widthIn(max = 300.dp)
                                     .aspectRatio(aspect)
                                     .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
-                                    .clickable { showViewer = true }
+                                    .clickable {
+                                        val currentIndex = imagePaths.indexOf(path)
+                                        onImageClick?.invoke(path, imagePaths, currentIndex)
+                                    }
                             )
                         } else {
                             // Fully revealed image
@@ -334,7 +351,10 @@ fun MessageItem(
                                     .widthIn(max = 300.dp)
                                     .aspectRatio(aspect)
                                     .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
-                                    .clickable { showViewer = true },
+                                    .clickable {
+                                        val currentIndex = imagePaths.indexOf(path)
+                                        onImageClick?.invoke(path, imagePaths, currentIndex)
+                                    },
                                 contentScale = androidx.compose.ui.layout.ContentScale.Fit
                             )
                         }
@@ -357,10 +377,6 @@ fun MessageItem(
                 }
             } else {
                 Text(text = "[image unavailable]", fontFamily = FontFamily.Monospace, color = Color.Gray)
-            }
-
-            if (showViewer) {
-                FullScreenImageViewer(path = path, onClose = { showViewer = false })
             }
 
             // No linear progress for images; block-reveal handles visual progress
@@ -440,12 +456,14 @@ fun MessageItem(
         // Display message with matrix animation for content
         MessageWithMatrixAnimation(
             message = message,
+            messages = messages,
             currentUserNickname = currentUserNickname,
             meshService = meshService,
             colorScheme = colorScheme,
             timeFormatter = timeFormatter,
             onNicknameClick = onNicknameClick,
             onMessageLongPress = onMessageLongPress,
+            onImageClick = onImageClick,
             modifier = modifier
         )
     } else {

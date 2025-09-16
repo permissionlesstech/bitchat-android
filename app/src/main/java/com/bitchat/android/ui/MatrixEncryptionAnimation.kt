@@ -74,12 +74,14 @@ object PoWMiningTracker {
 @Composable
 fun MessageWithMatrixAnimation(
     message: com.bitchat.android.model.BitchatMessage,
+    messages: List<com.bitchat.android.model.BitchatMessage> = emptyList(),
     currentUserNickname: String,
     meshService: com.bitchat.android.mesh.BluetoothMeshService,
     colorScheme: androidx.compose.material3.ColorScheme,
     timeFormatter: java.text.SimpleDateFormat,
     onNicknameClick: ((String) -> Unit)?,
     onMessageLongPress: ((com.bitchat.android.model.BitchatMessage) -> Unit)?,
+    onImageClick: ((String, List<String>, Int) -> Unit)?,
     modifier: Modifier = Modifier
 ) {
     val isAnimating = shouldAnimateMessage(message.id)

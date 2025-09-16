@@ -3,9 +3,12 @@ package com.bitchat.android.ui.media
 import android.content.ContentValues
 import android.os.Build
 import android.provider.MediaStore
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -24,28 +27,80 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import java.io.File
 
+/**
+ * Fullscreen image viewer with swipe navigation between multiple images
+ * @param imagePaths List of all image file paths in the current chat
+ * @param initialIndex Starting index of the current image in the list
+ * @param onClose Callback when the viewer should be dismissed
+ */
+// Backward compatibility for single image (can be removed after updating all callers)
 @Composable
 fun FullScreenImageViewer(path: String, onClose: () -> Unit) {
+    FullScreenImageViewer(listOf(path), 0, onClose)
+}
+
+/**
+ * Fullscreen image viewer with swipe navigation between multiple images
+ * @param imagePaths List of all image file paths in the current chat
+ * @param initialIndex Starting index of the current image in the list
+ * @param onClose Callback when the viewer should be dismissed
+ */
+@Composable
+fun FullScreenImageViewer(imagePaths: List<String>, initialIndex: Int = 0, onClose: () -> Unit) {
     val context = LocalContext.current
-    val bmp = remember(path) { try { android.graphics.BitmapFactory.decodeFile(path) } catch (_: Exception) { null } }
+    val pagerState = rememberPagerState(initialPage = initialIndex, pageCount = imagePaths::size)
+
+    if (imagePaths.isEmpty()) {
+        onClose()
+        return
+    }
+
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(color = Color.Black) {
             Box(modifier = Modifier.fillMaxSize()) {
-                bmp?.let {
-                    Image(
-                        bitmap = it.asImageBitmap(),
-                        contentDescription = "Image",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit
-                    )
-                } ?: run {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(text = "Image unavailable", color = Color.White)
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize()
+                ) { page ->
+                    val currentPath = imagePaths[page]
+                    val bmp = remember(currentPath) { try { android.graphics.BitmapFactory.decodeFile(currentPath) } catch (_: Exception) { null } }
+
+                    bmp?.let {
+                        androidx.compose.foundation.Image(
+                            bitmap = it.asImageBitmap(),
+                            contentDescription = "Image ${page + 1} of ${imagePaths.size}",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
+                    } ?: run {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(text = "Image unavailable", color = Color.White)
+                        }
+                    }
+                }
+
+                // Image counter
+                if (imagePaths.size > 1) {
+                    Box(
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .align(Alignment.TopCenter)
+                            .background(Color(0x66000000), androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "${(pagerState.currentPage ?: 0) + 1} / ${imagePaths.size}",
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                        )
                     }
                 }
 
@@ -60,10 +115,10 @@ fun FullScreenImageViewer(path: String, onClose: () -> Unit) {
                         modifier = Modifier
                             .size(36.dp)
                             .background(Color(0x66000000), CircleShape)
-                            .clickable { saveToDownloads(context, path) },
+                            .clickable { saveToDownloads(context, imagePaths[pagerState.currentPage].toString()) },
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(imageVector = Icons.Filled.Download, contentDescription = "Save", tint = Color.White)
+                        androidx.compose.material3.Icon(Icons.Filled.Download, "Save current image", tint = Color.White)
                     }
                     Spacer(Modifier.width(12.dp))
                     Box(
@@ -73,7 +128,7 @@ fun FullScreenImageViewer(path: String, onClose: () -> Unit) {
                             .clickable { onClose() },
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(imageVector = Icons.Filled.Close, contentDescription = "Close", tint = Color.White)
+                        androidx.compose.material3.Icon(Icons.Filled.Close, "Close", tint = Color.White)
                     }
                 }
             }
@@ -105,6 +160,11 @@ private fun saveToDownloads(context: android.content.Context, path: String) {
                 val v2 = ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }
                 context.contentResolver.update(uri, v2, null, null)
             }
+            // Show toast message indicating the image has been saved
+            Toast.makeText(context, "Image saved to Downloads", Toast.LENGTH_SHORT).show()
         }
+    }.onFailure {
+        // Optionally handle failure case (e.g., show error toast)
+        Toast.makeText(context, "Failed to save image", Toast.LENGTH_SHORT).show()
     }
 }

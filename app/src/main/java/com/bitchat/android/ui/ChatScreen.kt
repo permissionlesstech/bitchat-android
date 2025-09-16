@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.zIndex
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.ui.media.FullScreenImageViewer
 
 /**
  * Main ChatScreen - REFACTORED to use component-based architecture
@@ -60,6 +61,9 @@ fun ChatScreen(viewModel: ChatViewModel) {
     var showUserSheet by remember { mutableStateOf(false) }
     var selectedUserForSheet by remember { mutableStateOf("") }
     var selectedMessageForSheet by remember { mutableStateOf<BitchatMessage?>(null) }
+    var showFullScreenImageViewer by remember { mutableStateOf(false) }
+    var viewerImagePaths by remember { mutableStateOf(emptyList<String>()) }
+    var initialViewerIndex by remember { mutableStateOf(0) }
     var forceScrollToBottom by remember { mutableStateOf(false) }
     var isScrolledUp by remember { mutableStateOf(false) }
 
@@ -157,6 +161,11 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 },
                 onCancelTransfer = { msg ->
                     viewModel.cancelMediaSend(msg.id)
+                },
+                onImageClick = { currentPath, allImagePaths, initialIndex ->
+                    viewerImagePaths = allImagePaths
+                    initialViewerIndex = initialIndex
+                    showFullScreenImageViewer = true
                 }
             )
             // Input area - stays at bottom
@@ -295,6 +304,15 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 modifier = Modifier.fillMaxSize()
             )
         }
+    }
+
+    // Full-screen image viewer - separate from other sheets to allow image browsing without navigation
+    if (showFullScreenImageViewer) {
+        FullScreenImageViewer(
+            imagePaths = viewerImagePaths,
+            initialIndex = initialViewerIndex,
+            onClose = { showFullScreenImageViewer = false }
+        )
     }
 
     // Dialogs and Sheets
