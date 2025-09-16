@@ -227,19 +227,23 @@ fun MessageInput(
 
             // Overlay the real-time scrolling waveform while recording
             if (isRecording) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height(42.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                     RealtimeScrollingWaveform(
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        modifier = Modifier.weight(1f).height(32.dp),
                         amplitudeNorm = normalizeAmplitudeSample(amplitude)
                     )
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(20.dp))
                     val secs = (elapsedMs / 1000).toInt()
                     val mm = secs / 60
                     val ss = secs % 60
+                    val maxSecs = 10 // 10 second max recording time
+                    val maxMm = maxSecs / 60
+                    val maxSs = maxSecs % 60
                     Text(
-                        text = String.format("%02d:%02d", mm, ss),
+                        text = String.format("%02d:%02d / %02d:%02d", mm, ss, maxMm, maxSs),
                         fontFamily = FontFamily.Monospace,
-                        color = colorScheme.primary
+                        color = colorScheme.primary,
+                        fontSize = (BASE_FONT_SIZE - 4).sp
                     )
                 }
             }
@@ -257,12 +261,14 @@ fun MessageInput(
             val latestChannel = rememberUpdatedState(currentChannel)
             val latestOnSendVoiceNote = rememberUpdatedState(onSendVoiceNote)
 
-            // Plus button (image picker)
-            ImagePickerButton(
-                onImageReady = { path ->
-                    onSendImageNote(latestSelectedPeer.value, latestChannel.value, path)
-                }
-            )
+            // Plus button (image picker) - hide during recording
+            if (!isRecording) {
+                ImagePickerButton(
+                    onImageReady = { path ->
+                        onSendImageNote(latestSelectedPeer.value, latestChannel.value, path)
+                    }
+                )
+            }
 
             Spacer(Modifier.width(1.dp))
 
