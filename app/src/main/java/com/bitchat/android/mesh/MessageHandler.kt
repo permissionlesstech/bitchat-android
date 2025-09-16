@@ -435,18 +435,19 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         val lowerMime = file.mimeType.lowercase()
         val isImage = lowerMime.startsWith("image/")
         val base = appContext.filesDir
-        val subdir = if (isImage) "images/incoming" else "voicenotes/incoming"
+        val subdir = if (isImage) "images/incoming" else "files/incoming"
         val dir = java.io.File(base, subdir).apply { mkdirs() }
 
         fun extFromMime(m: String): String = when (m.lowercase()) {
             "image/jpeg", "image/jpg" -> ".jpg"
             "image/png" -> ".png"
             "image/webp" -> ".webp"
-            "audio/mp4", "audio/m4a", "audio/aac" -> ".m4a"
-            else -> if (isImage) ".jpg" else ".m4a"
+            "application/pdf" -> ".pdf"
+            "text/plain" -> ".txt"
+            else -> if (isImage) ".jpg" else ".bin"
         }
 
-        val defaultName = if (isImage) "img_${System.currentTimeMillis()}${extFromMime(lowerMime)}" else "voice_${System.currentTimeMillis()}${extFromMime(lowerMime)}"
+        val defaultName = if (isImage) "img_${'$'}{System.currentTimeMillis()}${'$'}{extFromMime(lowerMime)}" else "file_${'$'}{System.currentTimeMillis()}${'$'}{extFromMime(lowerMime)}"
         // Always generate a unique name on receive to avoid collisions/overwrites
         val safeName = defaultName
 
@@ -461,7 +462,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 out.outputStream().use { it.write(file.content) }
                 out.absolutePath
             } catch (_: Exception) {
-                val tmp = java.io.File.createTempFile(if (isImage) "img_" else "voice_", if (isImage) ".jpg" else ".m4a")
+                val tmp = java.io.File.createTempFile(if (isImage) "img_" else "file_", if (isImage) ".jpg" else ".bin")
                 tmp.writeBytes(file.content)
                 tmp.absolutePath
             }

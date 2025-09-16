@@ -1,4 +1,6 @@
 package com.bitchat.android.ui
+// [Goose] TODO: Replace inline file attachment stub with FilePickerButton abstraction that dispatches via FileShareDispatcher
+
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -8,6 +10,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -268,9 +271,40 @@ fun MessageInput(
                         onSendImageNote(latestSelectedPeer.value, latestChannel.value, path)
                     }
                 )
+
+                Spacer(Modifier.width(4.dp))
+
+                // New file button next to image button
+                IconButton(
+                    onClick = {
+                        // TODO: Implement file picker
+                    },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .background(
+                                color = if (colorScheme.background == Color.Black) {
+                                    Color(0xFF00FF00).copy(alpha = 0.75f) // Bright green for dark theme
+                                } else {
+                                    Color(0xFF008000).copy(alpha = 0.75f) // Dark green for light theme
+                                },
+                                shape = CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Attachment,
+                            contentDescription = "Attach file",
+                            modifier = Modifier.size(20.dp),
+                            tint = if (colorScheme.background == Color.Black) Color.Black else Color.White
+                        )
+                    }
+                }
             }
 
-            Spacer(Modifier.width(1.dp))
+            Spacer(Modifier.width(4.dp))
 
             VoiceRecordButton(
                 backgroundColor = bg,

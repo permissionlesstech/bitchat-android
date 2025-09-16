@@ -111,6 +111,64 @@ class ChatViewModel(
         }
     }
 
+    fun sendFileNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
+        try {
+            val file = java.io.File(filePath)
+            val mimeType = com.bitchat.android.features.file.FileUtils.getMimeTypeFromExtension(file.name)
+            val filePacket = com.bitchat.android.model.BitchatFilePacket(
+                fileName = file.name,
+                fileSize = file.length(),
+                mimeType = mimeType,
+                content = file.readBytes()
+            )
+
+            if (toPeerIDOrNull != null) {
+                // BLE private file
+                val payload = filePacket.encode() ?: return
+                val transferId = sha256Hex(payload)
+                val msg = BitchatMessage(
+                    sender = state.getNicknameValue() ?: "me",
+                    content = "[file] $filePath",
+                    timestamp = java.util.Date(),
+                    isRelay = false,
+                    isPrivate = true,
+                    recipientNickname = try { meshService.getPeerNicknames()[toPeerIDOrNull] } catch (_: Exception) { null },
+                    senderPeerID = meshService.myPeerID
+                )
+                messageManager.addPrivateMessage(toPeerIDOrNull, msg)
+                synchronized(transferMessageMap) {
+                    transferMessageMap[transferId] = msg.id
+                    messageTransferMap[msg.id] = transferId
+                }
+                meshService.sendFilePrivate(toPeerIDOrNull, filePacket)
+            } else {
+                // BLE broadcast (public mesh/channel) file
+                val payload = filePacket.encode() ?: return
+                val transferId = sha256Hex(payload)
+                val message = BitchatMessage(
+                    sender = state.getNicknameValue() ?: meshService.myPeerID,
+                    content = "[file] $filePath",
+                    timestamp = java.util.Date(),
+                    isRelay = false,
+                    senderPeerID = meshService.myPeerID,
+                    channel = channelOrNull
+                )
+                if (!channelOrNull.isNullOrBlank()) {
+                    channelManager.addChannelMessage(channelOrNull, message, meshService.myPeerID)
+                } else {
+                    messageManager.addMessage(message)
+                }
+                synchronized(transferMessageMap) {
+                    transferMessageMap[transferId] = message.id
+                    messageTransferMap[message.id] = transferId
+                }
+                meshService.sendFileBroadcast(filePacket)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to send file note: ${e.message}")
+        }
+    }
+
     fun sendImageNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
         try {
             val file = java.io.File(filePath)

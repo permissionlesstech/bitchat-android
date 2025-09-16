@@ -46,6 +46,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
 import com.bitchat.android.ui.media.FullScreenImageViewer
 import com.bitchat.android.ui.media.WaveformPreview
+import com.bitchat.android.ui.media.FileMessageItem
+import com.bitchat.android.model.FileSharingManager
 
 @Composable
 private fun VoiceNotePlayer(
@@ -460,6 +462,109 @@ fun MessageItem(
         }
         return
     }
+
+    // File special rendering
+    if (message.content.startsWith("[file] ")) {
+        val path = message.content.removePrefix("[file] ").trim()
+        // Derive sending progress if applicable
+        val (overrideProgress, _) = when (val st = message.deliveryStatus) {
+            is com.bitchat.android.model.DeliveryStatus.PartiallyDelivered -> {
+                if (st.total > 0 && st.reached < st.total) {
+                    (st.reached.toFloat() / st.total.toFloat()) to Color(0xFF1E88E5) // blue while sending
+                } else null to null
+            }
+            else -> null to null
+        }
+        Column(modifier = modifier.fillMaxWidth()) {
+            // Header: nickname + timestamp line above the file, identical styling to text messages
+            val headerText = formatMessageHeaderAnnotatedString(
+                message = message,
+                currentUserNickname = currentUserNickname,
+                meshService = meshService,
+                colorScheme = colorScheme,
+                timeFormatter = timeFormatter
+            )
+            val haptic = LocalHapticFeedback.current
+            var headerLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
+            Text(
+                text = headerText,
+                fontFamily = FontFamily.Monospace,
+                color = colorScheme.onSurface,
+                modifier = Modifier.pointerInput(message.id) {
+                    detectTapGestures(onTap = { pos ->
+                        val layout = headerLayout ?: return@detectTapGestures
+                        val offset = layout.getOffsetForPosition(pos)
+                        val ann = headerText.getStringAnnotations("nickname_click", offset, offset)
+                        if (ann.isNotEmpty() && onNicknameClick != null) {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onNicknameClick.invoke(ann.first().item)
+                        }
+                    }, onLongPress = { onMessageLongPress?.invoke(message) })
+                },
+                onTextLayout = { headerLayout = it }
+            )
+
+            // Try to load the file packet from the path
+            val packet = try {
+                val file = java.io.File(path)
+                if (file.exists()) {
+                    // Create a temporary BitchatFilePacket for display
+                    // In a real implementation, this would be stored with the packet metadata
+                    com.bitchat.android.model.BitchatFilePacket(
+                        fileName = file.name,
+                        fileSize = file.length(),
+                        mimeType = com.bitchat.android.features.file.FileUtils.getMimeTypeFromExtension(file.name),
+                        content = file.readBytes()
+                    )
+                } else null
+            } catch (e: Exception) {
+                null
+            }
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+                Box {
+                    if (packet != null) {
+                        if (overrideProgress != null) {
+                            // Show sending animation while in-flight
+                            com.bitchat.android.ui.media.FileSendingAnimation(
+                                fileName = packet.fileName,
+                                progress = overrideProgress,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        } else {
+                            // Static file display with open/save dialog
+                            FileMessageItem(
+                                packet = packet,
+                                onFileClick = {
+                                    // handled inside FileMessageItem via dialog
+                                }
+                            )
+                        }
+
+                        // Cancel button overlay during sending
+                        val showCancel = message.sender == currentUserNickname && (message.deliveryStatus is DeliveryStatus.PartiallyDelivered)
+                        if (showCancel) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(4.dp)
+                                    .size(22.dp)
+                                    .background(Color.Gray.copy(alpha = 0.6f), CircleShape)
+                                    .clickable { onCancelTransfer?.invoke(message) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(imageVector = Icons.Filled.Close, contentDescription = "Cancel", tint = Color.White, modifier = Modifier.size(14.dp))
+                            }
+                        }
+                    } else {
+                        Text(text = "[file unavailable]", fontFamily = FontFamily.Monospace, color = Color.Gray)
+                    }
+                }
+            }
+        }
+        return
+    }
+
     // Check if this message should be animated during PoW mining
     val shouldAnimate = shouldAnimateMessage(message.id)
     

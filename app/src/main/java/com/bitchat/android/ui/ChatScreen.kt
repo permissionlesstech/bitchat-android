@@ -1,4 +1,6 @@
 package com.bitchat.android.ui
+// [Goose] Bridge file share events to ViewModel via dispatcher is installed in ChatScreen composition
+
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
