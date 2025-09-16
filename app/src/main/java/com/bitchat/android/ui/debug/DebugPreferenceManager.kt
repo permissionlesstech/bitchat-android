@@ -21,6 +21,12 @@ object DebugPreferenceManager {
     private const val KEY_GCS_MAX_BYTES = "gcs_max_filter_bytes"
     private const val KEY_GCS_FPR = "gcs_filter_fpr_percent"
 
+    // Wi‑Fi Direct keys
+    private const val KEY_WIFI_DIRECT_ENABLED = "wifi_direct_enabled"
+    private const val KEY_WIFI_DIRECT_OVERLAP = "wifi_direct_overlap_threshold"
+    private const val KEY_WIFI_PREFER_DIRECT = "wifi_prefer_direct_for_unicast"
+    private const val KEY_WIFI_DIRECT_ROLE = "wifi_direct_role_override" // 0=AUTO,1=GO,2=CLIENT
+
     private lateinit var prefs: SharedPreferences
 
     fun init(context: Context) {
@@ -99,5 +105,34 @@ object DebugPreferenceManager {
 
     fun setGcsFprPercent(value: Double) {
         if (ready()) prefs.edit().putLong(KEY_GCS_FPR, java.lang.Double.doubleToRawLongBits(value)).apply()
+    }
+
+    // Wi‑Fi Direct settings
+    fun getWifiDirectEnabled(default: Boolean = true): Boolean =
+        if (ready()) prefs.getBoolean(KEY_WIFI_DIRECT_ENABLED, default) else default
+
+    fun setWifiDirectEnabled(value: Boolean) {
+        if (ready()) prefs.edit().putBoolean(KEY_WIFI_DIRECT_ENABLED, value).apply()
+    }
+
+    fun getWifiDirectOverlapThreshold(default: Int = 3): Int =
+        if (ready()) prefs.getInt(KEY_WIFI_DIRECT_OVERLAP, default) else default
+
+    fun setWifiDirectOverlapThreshold(value: Int) {
+        if (ready()) prefs.edit().putInt(KEY_WIFI_DIRECT_OVERLAP, value).apply()
+    }
+
+    fun getWifiPreferDirectForUnicast(default: Boolean = true): Boolean =
+        if (ready()) prefs.getBoolean(KEY_WIFI_PREFER_DIRECT, default) else default
+
+    fun setWifiPreferDirectForUnicast(value: Boolean) {
+        if (ready()) prefs.edit().putBoolean(KEY_WIFI_PREFER_DIRECT, value).apply()
+    }
+
+    fun getWifiDirectRoleOverride(default: Int = 0): Int =
+        if (ready()) prefs.getInt(KEY_WIFI_DIRECT_ROLE, default) else default
+
+    fun setWifiDirectRoleOverride(value: Int) {
+        if (ready()) prefs.edit().putInt(KEY_WIFI_DIRECT_ROLE, value).apply()
     }
 }

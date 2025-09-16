@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.location.LocationManager
+import androidx.core.content.ContextCompat
 import android.os.Build
 import android.provider.Settings
 import android.util.Log
@@ -92,7 +93,11 @@ class LocationStatusManager(
             addAction(LocationManager.MODE_CHANGED_ACTION)
             addAction(LocationManager.PROVIDERS_CHANGED_ACTION)
         }
-        context.registerReceiver(locationStateReceiver, filter)
+        try {
+            ContextCompat.registerReceiver(context, locationStateReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to register location receiver: ${e.message}")
+        }
     }
 
     /**

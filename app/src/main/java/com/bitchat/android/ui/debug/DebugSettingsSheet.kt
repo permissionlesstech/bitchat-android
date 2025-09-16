@@ -23,8 +23,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.rotate
+import android.Manifest
 import com.bitchat.android.mesh.BluetoothMeshService
 import kotlinx.coroutines.launch
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -117,6 +123,8 @@ fun DebugSettingsSheet(
                             Spacer(Modifier.weight(1f))
                             Switch(checked = verboseLogging, onCheckedChange = { manager.setVerboseLoggingEnabled(it) })
                         }
+                        // Force Group Owner (debug) and Clear Persistent Groups
+
                         Text(
                             "logs peer joins/leaves, connection direction, packet routing and relays",
                             fontFamily = FontFamily.Monospace,
@@ -196,7 +204,109 @@ fun DebugSettingsSheet(
                 }
             }
 
-            // Packet relay controls and stats
+            // Wi‑Fi Direct controls
+            item {
+                val wifiEnabled by manager.wifiDirectEnabled.collectAsState()
+                val wifiOverlap by manager.wifiDirectOverlapThreshold.collectAsState()
+                val roleOverride by manager.wifiDirectRoleOverride.collectAsState()
+                val context = LocalContext.current
+                // Runtime permission launcher for Wi‑Fi Direct
+                val wfdPermissionLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.RequestMultiplePermissions(),
+                    onResult = { grantedMap ->
+                        val allGranted = grantedMap.values.all { it }
+                        if (allGranted) {
+                            DebugSettingsManager.getInstance().addDebugMessage(DebugMessage.SystemMessage("[Wi‑Fi Direct] permissions granted"))
+                        } else {
+                            DebugSettingsManager.getInstance().addDebugMessage(DebugMessage.SystemMessage("[Wi‑Fi Direct] permissions denied by user"))
+                            // Flip toggle off if user denied
+                            manager.setWifiDirectEnabled(false)
+                        }
+                    }
+                )
+
+                fun requestWifiDirectPermissionsIfNeeded(onGranted: () -> Unit) {
+                    val needs = buildList {
+                        if (Build.VERSION.SDK_INT >= 33) {
+                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.NEARBY_WIFI_DEVICES) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                                add(Manifest.permission.NEARBY_WIFI_DEVICES)
+                            }
+                        } else {
+                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                                add(Manifest.permission.ACCESS_FINE_LOCATION)
+                            }
+                        }
+                    }
+                    if (needs.isEmpty()) {
+                        onGranted()
+                    } else {
+                        wfdPermissionLauncher.launch(needs.toTypedArray())
+                    }
+                }
+
+                val wifiPrefer by manager.wifiPreferDirectForUnicast.collectAsState()
+                        // Status row
+                        val wfdStatus by manager.wifiDirectStatus.collectAsState()
+                        Column(Modifier.fillMaxWidth().background(colorScheme.surface.copy(alpha = 0.3f)).padding(8.dp)) {
+                            Text("status: ${if (wfdStatus.active) "active" else "idle"}", fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+                            Text("linkId: ${wfdStatus.linkId ?: "<none>"}", fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+                            Text("myP2pMac: ${wfdStatus.myP2pMac ?: "<unknown>"}", fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+                            Text("last decision: ${wfdStatus.lastDecision ?: "<none>"}", fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+                            Text("last candidate: ${wfdStatus.lastCandidate ?: "<none>"}", fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+                            Text("last error: ${wfdStatus.lastError ?: "<none>"}", fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+                        }
+
+                Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Filled.SettingsEthernet, contentDescription = null, tint = Color(0xFF009688))
+                            Text("wi‑fi direct", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Spacer(Modifier.weight(1f))
+                            Switch(checked = wifiEnabled, onCheckedChange = { enabled ->
+                                if (enabled) {
+                                    requestWifiDirectPermissionsIfNeeded {
+                                        manager.setWifiDirectEnabled(true)
+                                    }
+                                } else {
+                                    manager.setWifiDirectEnabled(false)
+                                }
+                            })
+                        }
+                        Text("prefer wi‑fi for direct unicast", fontFamily = FontFamily.Monospace)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Switch(checked = wifiPrefer, onCheckedChange = { manager.setWifiPreferDirectForUnicast(it) })
+                        }
+                        // Role override chips: AUTO / GO / CLIENT
+                        Text("role override", fontFamily = FontFamily.Monospace)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = roleOverride == 0,
+                                onClick = { manager.setWifiDirectRoleOverride(0) },
+                                label = { Text("AUTO", fontFamily = FontFamily.Monospace) }
+                            )
+                            FilterChip(
+                                selected = roleOverride == 1,
+                                onClick = { manager.setWifiDirectRoleOverride(1) },
+                                label = { Text("GO", fontFamily = FontFamily.Monospace) }
+                            )
+                            FilterChip(
+                                selected = roleOverride == 2,
+                                onClick = { manager.setWifiDirectRoleOverride(2) },
+                                label = { Text("CLIENT", fontFamily = FontFamily.Monospace) }
+                            )
+                        }
+                        Text("overlap threshold: $wifiOverlap (drop link if overlap > threshold)", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        Slider(
+                            value = wifiOverlap.toFloat(),
+                            onValueChange = { manager.setWifiDirectOverlapThreshold(it.toInt()) },
+                            valueRange = 0f..100f,
+                            steps = 99
+                        )
+                        Text("bridge two meshes via wi‑fi direct; holds one link; drops if meshes overlap too much.", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                    }
+                }
+            }
+
             item {
                 Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -286,6 +396,7 @@ fun DebugSettingsSheet(
                     }
                 }
             }
+            // end packet relay card
 
             // Connected devices
             item {
