@@ -228,6 +228,39 @@ class WifiDirectConnectionManager(
         }
     }
 
+    private fun logAllInterfaces(tag: String) {
+        try {
+            val ifs = java.net.NetworkInterface.getNetworkInterfaces()
+            while (ifs.hasMoreElements()) {
+                val ni = ifs.nextElement()
+                val addrs = ni.inetAddresses.toList().joinToString { it.hostAddress ?: "?" }
+                Log.d(TAG, "$tag: if=${ni.name} addrs=[$addrs]")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "logAllInterfaces error: ${e.message}")
+        }
+    }
+
+    private fun getP2pInet4FromInterfaces(): java.net.Inet4Address? {
+        return try {
+            val ifs = java.net.NetworkInterface.getNetworkInterfaces()
+            while (ifs.hasMoreElements()) {
+                val ni = ifs.nextElement()
+                val name = ni.name?.lowercase() ?: ""
+                if (!name.contains("p2p")) continue
+                val addrs = ni.inetAddresses
+                while (addrs.hasMoreElements()) {
+                    val a = addrs.nextElement()
+                    if (a is java.net.Inet4Address) {
+                        val s = a.hostAddress ?: continue
+                        if (s.startsWith("192.168.49.")) return a
+                    }
+                }
+            }
+            null
+        } catch (_: Exception) { null }
+    }
+
     private fun getP2pLocalAddress(net: android.net.Network?): java.net.InetAddress? {
         return try {
             val lp = if (net != null) cm.getLinkProperties(net) else null
@@ -370,7 +403,9 @@ class WifiDirectConnectionManager(
                 // Log networks before dialing
                 logAllNetworks("dialPrep")
                 val addr = java.net.InetAddress.getByName(host)
-                val net = findP2pNetwork(addr)
+                // Fallback: if ConnectivityManager network not present yet, try raw interface list
+                val fallbackAddr = getP2pInet4FromInterfaces()
+                val localBind = getP2pLocalAddress(net) ?: fallbackAddr
                 for ((i, port) in ports.withIndex()) {
                     try {
                         val s = withContext(Dispatchers.IO) {
