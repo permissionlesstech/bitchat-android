@@ -84,9 +84,8 @@ class GossipSyncManager(
         val mt = MessageType.fromValue(packet.type)
         val isBroadcast = (packet.recipientID == null || packet.recipientID.contentEquals(SpecialRecipients.BROADCAST))
         val isBroadcastMessage = (mt == MessageType.MESSAGE && isBroadcast)
-        val isBroadcastFragment = (mt == MessageType.FRAGMENT && isBroadcast)
         val isAnnouncement = (mt == MessageType.ANNOUNCE)
-        if (!isBroadcastMessage && !isAnnouncement && !isBroadcastFragment) return
+        if (!isBroadcastMessage && !isAnnouncement) return
 
         val idBytes = PacketIdUtil.computeIdBytes(packet)
         val id = idBytes.joinToString("") { b -> "%02x".format(b) }
@@ -98,15 +97,6 @@ class GossipSyncManager(
                 val cap = configProvider.seenCapacity().coerceAtLeast(1)
                 while (messages.size > cap) {
                     val it = messages.entries.iterator()
-                    if (it.hasNext()) { it.next(); it.remove() } else break
-                }
-            }
-        } else if (isBroadcastFragment) {
-            synchronized(fragments) {
-                fragments[id] = packet
-                val cap = configProvider.seenCapacity().coerceAtLeast(1)
-                while (fragments.size > cap) {
-                    val it = fragments.entries.iterator()
                     if (it.hasNext()) { it.next(); it.remove() } else break
                 }
             }
