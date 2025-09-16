@@ -44,8 +44,14 @@ import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import androidx.compose.foundation.isSystemInDarkTheme
 import com.bitchat.android.features.voice.normalizeAmplitudeSample
 import com.bitchat.android.features.voice.AudioWaveformExtractor
-import com.bitchat.android.ui.media.ImagePickerButton
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.net.Uri
+import android.content.Intent
+import androidx.compose.ui.platform.LocalContext
 import com.bitchat.android.ui.media.RealtimeScrollingWaveform
+import com.bitchat.android.ui.media.MediaPickerOptions
+import com.bitchat.android.features.file.FileUtils
 
 /**
  * Input components for ChatScreen
@@ -169,6 +175,7 @@ fun MessageInput(
     onSend: () -> Unit,
     onSendVoiceNote: (String?, String?, String) -> Unit,
     onSendImageNote: (String?, String?, String) -> Unit,
+    onSendFileNote: (String?, String?, String) -> Unit,
     selectedPrivatePeer: String?,
     currentChannel: String?,
     nickname: String,
@@ -266,42 +273,29 @@ fun MessageInput(
 
             // Plus button (image picker) - hide during recording
             if (!isRecording) {
-                ImagePickerButton(
-                    onImageReady = { path ->
-                        onSendImageNote(latestSelectedPeer.value, latestChannel.value, path)
-                    }
-                )
-
-                Spacer(Modifier.width(4.dp))
-
-                // New file button next to image button
-                IconButton(
-                    onClick = {
-                        // TODO: Implement file picker
-                    },
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(30.dp)
-                            .background(
-                                color = if (colorScheme.background == Color.Black) {
-                                    Color(0xFF00FF00).copy(alpha = 0.75f) // Bright green for dark theme
-                                } else {
-                                    Color(0xFF008000).copy(alpha = 0.75f) // Dark green for light theme
-                                },
-                                shape = CircleShape
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Attachment,
-                            contentDescription = "Attach file",
-                            modifier = Modifier.size(20.dp),
-                            tint = if (colorScheme.background == Color.Black) Color.Black else Color.White
-                        )
+                val context = LocalContext.current
+                val imagePicker = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.GetContent()
+                ) { uri: Uri? ->
+                    if (uri != null) {
+                        val outPath = com.bitchat.android.features.media.ImageUtils.downscaleAndSaveToAppFiles(context, uri)
+                        if (!outPath.isNullOrBlank()) onSendImageNote(latestSelectedPeer.value, latestChannel.value, outPath)
                     }
                 }
+                val filePicker = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.OpenDocument()
+                ) { uri: Uri? ->
+                    if (uri != null) {
+                        try { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: Exception) {}
+                        val path = FileUtils.copyFileForSending(context, uri)
+                        if (!path.isNullOrBlank()) onSendFileNote(latestSelectedPeer.value, latestChannel.value, path)
+                    }
+                }
+
+                MediaPickerOptions(
+                    onImagePick = { imagePicker.launch("image/*") },
+                    onFilePick = { filePicker.launch(arrayOf("*/*")) }
+                )
             }
 
             Spacer(Modifier.width(4.dp))
