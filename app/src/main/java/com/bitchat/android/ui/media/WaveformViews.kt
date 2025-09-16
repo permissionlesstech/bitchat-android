@@ -10,6 +10,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -48,7 +50,8 @@ fun WaveformPreview(
     path: String,
     sendProgress: Float?,
     playbackProgress: Float?,
-    onLoaded: ((FloatArray) -> Unit)? = null
+    onLoaded: ((FloatArray) -> Unit)? = null,
+    onSeek: ((Float) -> Unit)? = null
 ) {
     val cached = remember(path) { VoiceWaveformCache.get(path) }
     val stateSamples = remember { mutableStateListOf<Float>() }
@@ -75,7 +78,8 @@ fun WaveformPreview(
         fillColor = when {
             sendProgress != null -> Color(0xFF1E88E5) // blue while sending
             else -> Color(0xFF00C851) // green during playback
-        }
+        },
+        onSeek = onSeek
     )
 }
 
@@ -85,9 +89,23 @@ private fun WaveformCanvas(
     samples: List<Float>,
     fillProgress: Float,
     baseColor: Color,
-    fillColor: Color
+    fillColor: Color,
+    onSeek: ((Float) -> Unit)? = null
 ) {
-    Canvas(modifier = modifier.fillMaxWidth()) {
+    val seekModifier = if (onSeek != null) {
+        modifier.pointerInput(onSeek) {
+            detectTapGestures { offset ->
+                // Calculate the seek position as a fraction (0.0 to 1.0)
+                val position = offset.x / size.width.toFloat()
+                val clampedPosition = position.coerceIn(0f, 1f)
+                onSeek(clampedPosition)
+            }
+        }
+    } else {
+        modifier
+    }
+
+    Canvas(modifier = seekModifier.fillMaxWidth()) {
         val w = size.width
         val h = size.height
         if (w <= 0f || h <= 0f) return@Canvas

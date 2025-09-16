@@ -60,6 +60,17 @@ private fun VoiceNotePlayer(
     var durationMs by remember { mutableStateOf(0) }
     val player = remember { MediaPlayer() }
 
+    // Seek function - position is a fraction from 0.0 to 1.0
+    val seekTo: (Float) -> Unit = { position ->
+        if (isPrepared && durationMs > 0) {
+            val seekMs = (position * durationMs).toInt().coerceIn(0, durationMs)
+            try {
+                player.seekTo(seekMs)
+                progress = position  // Update progress immediately for UI responsiveness
+            } catch (_: Exception) {}
+        }
+    }
+
     LaunchedEffect(path) {
         isPrepared = false
         isError = false
@@ -118,7 +129,8 @@ private fun VoiceNotePlayer(
             modifier = Modifier.weight(1f).height(36.dp),
             path = path,
             sendProgress = progressOverride,
-            playbackProgress = if (progressOverride == null) progress else null
+            playbackProgress = if (progressOverride == null) progress else null,
+            onSeek = seekTo
         )
         val durText = if (durationMs > 0) String.format("%02d:%02d", (durationMs / 1000) / 60, (durationMs / 1000) % 60) else "--:--"
         Text(text = durText, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
