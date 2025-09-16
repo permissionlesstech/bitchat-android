@@ -263,8 +263,8 @@ fun MessageInput(
                     onSendImageNote(latestSelectedPeer.value, latestChannel.value, path)
                 }
             )
-            
-            Spacer(Modifier.width(8.dp))
+
+            Spacer(Modifier.width(1.dp))
 
             VoiceRecordButton(
                 backgroundColor = bg,

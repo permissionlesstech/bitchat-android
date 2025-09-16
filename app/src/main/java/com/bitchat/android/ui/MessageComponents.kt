@@ -108,7 +108,7 @@ private fun VoiceNotePlayer(
     ) {
         // Disable play/pause while showing send progress override (optional UX choice)
         val controlsEnabled = isPrepared && !isError && progressOverride == null
-        FilledTonalIconButton(onClick = { if (controlsEnabled) isPlaying = !isPlaying }, enabled = controlsEnabled) {
+        FilledTonalIconButton(onClick = { if (controlsEnabled) isPlaying = !isPlaying }, enabled = controlsEnabled, modifier = Modifier.size(28.dp)) {
             Icon(
                 imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                 contentDescription = if (isPlaying) "Pause" else "Play"
