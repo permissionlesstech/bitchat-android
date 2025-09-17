@@ -114,9 +114,18 @@ class ChatViewModel(
     fun sendFileNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
         try {
             val file = java.io.File(filePath)
-            val mimeType = com.bitchat.android.features.file.FileUtils.getMimeTypeFromExtension(file.name)
+            // Use the real MIME type based on extension; fallback to octet-stream
+            val mimeType = try { com.bitchat.android.features.file.FileUtils.getMimeTypeFromExtension(file.name) } catch (_: Exception) { "application/octet-stream" }
+            // Try to preserve the original file name if our copier prefixed it earlier
+            val originalName = run {
+                val name = file.name
+                val base = name.substringBeforeLast('.')
+                val ext = name.substringAfterLast('.', "").let { if (it.isNotBlank()) ".${it}" else "" }
+                val stripped = Regex("^send_\\d+_(.+)$").matchEntire(base)?.groupValues?.getOrNull(1) ?: base
+                stripped + ext
+            }
             val filePacket = com.bitchat.android.model.BitchatFilePacket(
-                fileName = file.name,
+                fileName = originalName,
                 fileSize = file.length(),
                 mimeType = mimeType,
                 content = file.readBytes()
@@ -140,6 +149,11 @@ class ChatViewModel(
                     transferMessageMap[transferId] = msg.id
                     messageTransferMap[msg.id] = transferId
                 }
+                // Ensure UI shows in-flight animation immediately for all file types
+                messageManager.updateMessageDeliveryStatus(
+                    msg.id,
+                    com.bitchat.android.model.DeliveryStatus.PartiallyDelivered(0, 100)
+                )
                 meshService.sendFilePrivate(toPeerIDOrNull, filePacket)
             } else {
                 // BLE broadcast (public mesh/channel) file
@@ -162,6 +176,11 @@ class ChatViewModel(
                     transferMessageMap[transferId] = message.id
                     messageTransferMap[message.id] = transferId
                 }
+                // Ensure UI shows in-flight animation immediately for all file types
+                messageManager.updateMessageDeliveryStatus(
+                    message.id,
+                    com.bitchat.android.model.DeliveryStatus.PartiallyDelivered(0, 100)
+                )
                 meshService.sendFileBroadcast(filePacket)
             }
         } catch (e: Exception) {

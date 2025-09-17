@@ -74,26 +74,36 @@ object FileUtils {
                     val mime = try { context.contentResolver.getType(uri) } catch (_: Exception) { null }
                     android.webkit.MimeTypeMap.getSingleton().getExtensionFromMimeType(mime) ?: "bin"
                 }
-            // Generate unique filename preserving extension
-            val timestamp = System.currentTimeMillis()
-            val safeBase = displayName?.substringBeforeLast('.')?.take(24)?.replace(Regex("[^A-Za-z0-9._-]"), "_")
-            val fileName = if (!safeBase.isNullOrBlank()) "send_${timestamp}_${safeBase}.${extension}" else "send_${timestamp}.${extension}"
+            // Preserve original filename (without artificial prefixes), ensure uniqueness
+            val baseName = displayName?.substringBeforeLast('.')?.take(64)?.replace(Regex("[^A-Za-z0-9._-]"), "_")
+                ?: "file"
+            var fileName = if (extension.isNotBlank()) "$baseName.$extension" else baseName
 
             // Create outgoing dir if needed
             val outgoingDir = File(context.filesDir, "files/outgoing").apply {
                 if (!exists()) mkdirs()
             }
 
-            val file = File(outgoingDir, fileName)
+            var target = File(outgoingDir, fileName)
+            if (target.exists()) {
+                var idx = 1
+                val pureBase = baseName
+                val dotExt = if (extension.isNotBlank()) ".${extension}" else ""
+                while (target.exists() && idx < 1000) {
+                    fileName = "$pureBase ($idx)$dotExt"
+                    target = File(outgoingDir, fileName)
+                    idx++
+                }
+            }
 
             inputStream.use { input ->
-                FileOutputStream(file).use { output ->
+                FileOutputStream(target).use { output ->
                     input.copyTo(output)
                 }
             }
 
-            Log.d(TAG, "Copied file for sending: ${file.absolutePath}")
-            file.absolutePath
+            Log.d(TAG, "Copied file for sending: ${target.absolutePath}")
+            target.absolutePath
 
         } catch (e: Exception) {
             Log.e(TAG, "Failed to copy file for sending", e)
