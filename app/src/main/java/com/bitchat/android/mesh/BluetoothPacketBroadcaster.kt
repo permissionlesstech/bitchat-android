@@ -126,11 +126,25 @@ class BluetoothPacketBroadcaster(
     ) {
         val packet = routed.packet
         val isFile = packet.type == MessageType.FILE_TRANSFER.value
+        if (isFile) {
+            Log.d(TAG, "📤 Broadcasting FILE_TRANSFER: ${packet.payload.size} bytes")
+        }
         val transferId = if (isFile) sha256Hex(packet.payload) else null
         // Check if we need to fragment
         if (fragmentManager != null) {
-            val fragments = fragmentManager.createFragments(packet)
+            val fragments = try {
+                fragmentManager.createFragments(packet)
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Fragment creation failed: ${e.message}", e)
+                if (isFile) {
+                    Log.e(TAG, "❌ File fragmentation failed for ${packet.payload.size} byte file")
+                }
+                return
+            }
             if (fragments.size > 1) {
+                if (isFile) {
+                    Log.d(TAG, "🔀 File needs ${fragments.size} fragments")
+                }
                 Log.d(TAG, "Fragmenting packet into ${fragments.size} fragments")
                 if (transferId != null) {
                     TransferProgressManager.start(transferId, fragments.size)
@@ -189,6 +203,9 @@ class BluetoothPacketBroadcaster(
         val packet = routed.packet
         val data = packet.toBinaryData() ?: return false
         val isFile = packet.type == MessageType.FILE_TRANSFER.value
+        if (isFile) {
+            Log.d(TAG, "📤 Broadcasting FILE_TRANSFER: ${packet.payload.size} bytes")
+        }
         val transferId = if (isFile) sha256Hex(packet.payload) else null
         if (transferId != null) {
             TransferProgressManager.start(transferId, 1)

@@ -621,7 +621,14 @@ class BluetoothMeshService(private val context: Context) {
      * Send a file over mesh as a broadcast MESSAGE (public mesh timeline/channels).
      */
     fun sendFileBroadcast(file: com.bitchat.android.model.BitchatFilePacket) {
-        val payload = file.encode() ?: return
+        try {
+            Log.d(TAG, "📤 sendFileBroadcast: name=${file.fileName}, size=${file.fileSize}")
+            val payload = file.encode()
+            if (payload == null) {
+                Log.e(TAG, "❌ Failed to encode file packet in sendFileBroadcast")
+                return
+            }
+            Log.d(TAG, "📦 Encoded payload: ${payload.size} bytes")
         serviceScope.launch {
             val packet = BitchatPacket(
                 version = 2u,  // FILE_TRANSFER uses v2 for 4-byte payload length to support large files
@@ -637,13 +644,24 @@ class BluetoothMeshService(private val context: Context) {
             connectionManager.broadcastPacket(RoutedPacket(signed))
             try { gossipSyncManager.onPublicPacketSeen(signed) } catch (_: Exception) { }
         }
+            } catch (e: Exception) {
+            Log.e(TAG, "❌ sendFileBroadcast failed: ${e.message}", e)
+            Log.e(TAG, "❌ File: name=${file.fileName}, size=${file.fileSize}")
+        }
     }
 
     /**
      * Send a file as a private MESSAGE to a peer (unencrypted envelope; file bytes inside TLV).
      */
     fun sendFilePrivate(recipientPeerID: String, file: com.bitchat.android.model.BitchatFilePacket) {
-        val payload = file.encode() ?: return
+        try {
+            Log.d(TAG, "📤 sendFilePrivate: to=$recipientPeerID, name=${file.fileName}, size=${file.fileSize}")
+            val payload = file.encode()
+            if (payload == null) {
+                Log.e(TAG, "❌ Failed to encode file packet in sendFilePrivate")
+                return
+            }
+            Log.d(TAG, "📦 Encoded payload: ${payload.size} bytes")
         serviceScope.launch {
             val packet = BitchatPacket(
                 version = 2u,  // FILE_TRANSFER uses v2 for 4-byte payload length to support large files
@@ -661,6 +679,10 @@ class BluetoothMeshService(private val context: Context) {
             // (If a direct path exists, broadcaster sends directly; otherwise it floods the mesh
             // with a private-recipient packet, which non-recipients will ignore.)
             connectionManager.broadcastPacket(RoutedPacket(signed))
+        }
+            } catch (e: Exception) {
+            Log.e(TAG, "❌ sendFilePrivate failed: ${e.message}", e)
+            Log.e(TAG, "❌ File: to=$recipientPeerID, name=${file.fileName}, size=${file.fileSize}")
         }
     }
 

@@ -25,10 +25,16 @@ data class BitchatFilePacket(
     }
 
     fun encode(): ByteArray? {
+        try {
+            android.util.Log.d("BitchatFilePacket", "🔄 Encoding: name=$fileName, size=$fileSize, mime=$mimeType")
         val nameBytes = fileName.toByteArray(Charsets.UTF_8)
         val mimeBytes = mimeType.toByteArray(Charsets.UTF_8)
         // Validate bounds for 2-byte TLV lengths
-        if (nameBytes.size > 0xFFFF || mimeBytes.size > 0xFFFF || content.size > 0xFFFF) return null
+        if (nameBytes.size > 0xFFFF || mimeBytes.size > 0xFFFF || content.size > 0xFFFF) {
+                android.util.Log.e("BitchatFilePacket", "❌ TLV field too large: name=${nameBytes.size}, mime=${mimeBytes.size}, content=${content.size} (max: 65535)")
+                return null
+            }
+            android.util.Log.d("BitchatFilePacket", "📏 TLV sizes OK: name=${nameBytes.size}, mime=${mimeBytes.size}, content=${content.size}")
         val sizeFieldLen = 8 // UInt64
         val capacity = 1 + 2 + nameBytes.size + 1 + 2 + sizeFieldLen + 1 + 2 + mimeBytes.size + 1 + 2 + content.size
         val buf = ByteBuffer.allocate(capacity).order(ByteOrder.BIG_ENDIAN)
@@ -53,11 +59,18 @@ data class BitchatFilePacket(
         buf.putShort(content.size.toShort())
         buf.put(content)
 
-        return buf.array()
+        val result = buf.array()
+            android.util.Log.d("BitchatFilePacket", "✅ Encoded successfully: ${result.size} bytes total")
+            return result
+        } catch (e: Exception) {
+            android.util.Log.e("BitchatFilePacket", "❌ Encoding failed: ${e.message}", e)
+            return null
+        }
     }
 
     companion object {
         fun decode(data: ByteArray): BitchatFilePacket? {
+            android.util.Log.d("BitchatFilePacket", "🔄 Decoding ${data.size} bytes")
             try {
                 var off = 0
                 var name: String? = null
@@ -87,8 +100,11 @@ data class BitchatFilePacket(
                 val s = size ?: content?.size?.toLong() ?: return null
                 val m = mime ?: "application/octet-stream"
                 val c = content ?: return null
-                return BitchatFilePacket(n, s, m, c)
-            } catch (_: Exception) {
+                val result = BitchatFilePacket(n, s, m, c)
+                android.util.Log.d("BitchatFilePacket", "✅ Decoded: name=$n, size=$s, mime=$m, content=${c.size} bytes")
+                return result
+            } catch (e: Exception) {
+                android.util.Log.e("BitchatFilePacket", "❌ Decoding failed: ${e.message}", e)
                 return null
             }
         }

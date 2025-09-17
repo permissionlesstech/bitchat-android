@@ -40,6 +40,18 @@ class ChatViewModel(
     fun sendVoiceNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
         try {
             val file = java.io.File(filePath)
+            if (!file.exists()) {
+                Log.e(TAG, "❌ File does not exist: $filePath")
+                return
+            }
+            Log.d(TAG, "📁 File exists: size=${file.length()} bytes, name=${file.name}")
+            
+            // Check reasonable file size limits
+            val maxFileSize = 50 * 1024 * 1024 // 50MB limit
+            if (file.length() > maxFileSize) {
+                Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: $maxFileSize)")
+                return
+            }
             if (toPeerIDOrNull != null) {
                 // BLE private
                 val filePacket = com.bitchat.android.model.BitchatFilePacket(
@@ -48,7 +60,12 @@ class ChatViewModel(
                     mimeType = "audio/mp4",
                     content = file.readBytes()
                 )
-                val payload = filePacket.encode() ?: return
+                val payload = filePacket.encode()
+                if (payload == null) {
+                    Log.e(TAG, "❌ Failed to encode file packet for private send")
+                    return
+                }
+                Log.d(TAG, "🔒 Encoded private packet: ${payload.size} bytes")
                 val transferId = sha256Hex(payload)
                 val contentHash = sha256Hex(filePacket.content)
                 if (toPeerIDOrNull != null) {
@@ -73,7 +90,9 @@ class ChatViewModel(
                     messageTransferMap[msg.id] = transferId
                 }
                 // Kick off send
+                Log.d(TAG, "📤 Calling meshService.sendFilePrivate to $toPeerIDOrNull")
                 meshService.sendFilePrivate(toPeerIDOrNull, filePacket)
+                Log.d(TAG, "✅ File send completed successfully")
             } else {
                 // BLE broadcast (public mesh/channel)
                 val filePacket = com.bitchat.android.model.BitchatFilePacket(
@@ -82,7 +101,12 @@ class ChatViewModel(
                     mimeType = "audio/mp4",
                     content = file.readBytes()
                 )
-                val payload = filePacket.encode() ?: return
+                val payload = filePacket.encode()
+                if (payload == null) {
+                    Log.e(TAG, "❌ Failed to encode file packet for private send")
+                    return
+                }
+                Log.d(TAG, "🔒 Encoded private packet: ${payload.size} bytes")
                 val transferId = sha256Hex(payload)
                 val contentHash = sha256Hex(filePacket.content)
                 Log.d(TAG, "📤 FILE_TRANSFER send (broadcast): name='${file.name}', size=${file.length()}, mime='audio/mp4', sha256=$contentHash, transferId=${transferId.take(16)}…")
@@ -104,7 +128,9 @@ class ChatViewModel(
                     transferMessageMap[transferId] = message.id
                     messageTransferMap[message.id] = transferId
                 }
+                Log.d(TAG, "📤 Calling meshService.sendFileBroadcast")
                 meshService.sendFileBroadcast(filePacket)
+                Log.d(TAG, "✅ File broadcast completed successfully")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to send voice note: ${e.message}")
@@ -113,9 +139,23 @@ class ChatViewModel(
 
     fun sendFileNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
         try {
+            Log.d(TAG, "🔄 Starting file send: $filePath")
             val file = java.io.File(filePath)
+            if (!file.exists()) {
+                Log.e(TAG, "❌ File does not exist: $filePath")
+                return
+            }
+            Log.d(TAG, "📁 File exists: size=${file.length()} bytes, name=${file.name}")
+            
+            // Check reasonable file size limits
+            val maxFileSize = 50 * 1024 * 1024 // 50MB limit
+            if (file.length() > maxFileSize) {
+                Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: $maxFileSize)")
+                return
+            }
             // Use the real MIME type based on extension; fallback to octet-stream
             val mimeType = try { com.bitchat.android.features.file.FileUtils.getMimeTypeFromExtension(file.name) } catch (_: Exception) { "application/octet-stream" }
+            Log.d(TAG, "🏷️ MIME type: $mimeType")
             // Try to preserve the original file name if our copier prefixed it earlier
             val originalName = run {
                 val name = file.name
@@ -124,16 +164,23 @@ class ChatViewModel(
                 val stripped = Regex("^send_\\d+_(.+)$").matchEntire(base)?.groupValues?.getOrNull(1) ?: base
                 stripped + ext
             }
+            Log.d(TAG, "📝 Original filename: $originalName")
             val filePacket = com.bitchat.android.model.BitchatFilePacket(
                 fileName = originalName,
                 fileSize = file.length(),
                 mimeType = mimeType,
                 content = file.readBytes()
             )
+            Log.d(TAG, "📦 Created file packet successfully")
 
             if (toPeerIDOrNull != null) {
                 // BLE private file
-                val payload = filePacket.encode() ?: return
+                val payload = filePacket.encode()
+                if (payload == null) {
+                    Log.e(TAG, "❌ Failed to encode file packet for private send")
+                    return
+                }
+                Log.d(TAG, "🔒 Encoded private packet: ${payload.size} bytes")
                 val transferId = sha256Hex(payload)
                 val msg = BitchatMessage(
                     sender = state.getNicknameValue() ?: "me",
@@ -154,10 +201,17 @@ class ChatViewModel(
                     msg.id,
                     com.bitchat.android.model.DeliveryStatus.PartiallyDelivered(0, 100)
                 )
+                Log.d(TAG, "📤 Calling meshService.sendFilePrivate to $toPeerIDOrNull")
                 meshService.sendFilePrivate(toPeerIDOrNull, filePacket)
+                Log.d(TAG, "✅ File send completed successfully")
             } else {
                 // BLE broadcast (public mesh/channel) file
-                val payload = filePacket.encode() ?: return
+                val payload = filePacket.encode()
+                if (payload == null) {
+                    Log.e(TAG, "❌ Failed to encode file packet for private send")
+                    return
+                }
+                Log.d(TAG, "🔒 Encoded private packet: ${payload.size} bytes")
                 val transferId = sha256Hex(payload)
                 val message = BitchatMessage(
                     sender = state.getNicknameValue() ?: meshService.myPeerID,
@@ -181,16 +235,34 @@ class ChatViewModel(
                     message.id,
                     com.bitchat.android.model.DeliveryStatus.PartiallyDelivered(0, 100)
                 )
+                Log.d(TAG, "📤 Calling meshService.sendFileBroadcast")
                 meshService.sendFileBroadcast(filePacket)
+                Log.d(TAG, "✅ File broadcast completed successfully")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to send file note: ${e.message}")
+            Log.e(TAG, "❌ CRITICAL: File send failed completely", e)
+            Log.e(TAG, "❌ File path: $filePath")
+            Log.e(TAG, "❌ Error details: ${e.message}")
+            Log.e(TAG, "❌ Error type: ${e.javaClass.simpleName}")
         }
     }
 
     fun sendImageNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
         try {
+            Log.d(TAG, "🔄 Starting image send: $filePath")
             val file = java.io.File(filePath)
+            if (!file.exists()) {
+                Log.e(TAG, "❌ File does not exist: $filePath")
+                return
+            }
+            Log.d(TAG, "📁 File exists: size=${file.length()} bytes, name=${file.name}")
+            
+            // Check reasonable file size limits
+            val maxFileSize = 50 * 1024 * 1024 // 50MB limit
+            if (file.length() > maxFileSize) {
+                Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: $maxFileSize)")
+                return
+            }
             val mime = "image/jpeg"
             if (toPeerIDOrNull != null) {
                 // BLE private image
@@ -200,7 +272,12 @@ class ChatViewModel(
                     mimeType = mime,
                     content = file.readBytes()
                 )
-                val payload = filePacket.encode() ?: return
+                val payload = filePacket.encode()
+                if (payload == null) {
+                    Log.e(TAG, "❌ Failed to encode file packet for private send")
+                    return
+                }
+                Log.d(TAG, "🔒 Encoded private packet: ${payload.size} bytes")
                 val transferId = sha256Hex(payload)
                 val msg = BitchatMessage(
                     sender = state.getNicknameValue() ?: "me",
@@ -216,7 +293,9 @@ class ChatViewModel(
                     transferMessageMap[transferId] = msg.id
                     messageTransferMap[msg.id] = transferId
                 }
+                Log.d(TAG, "📤 Calling meshService.sendFilePrivate to $toPeerIDOrNull")
                 meshService.sendFilePrivate(toPeerIDOrNull, filePacket)
+                Log.d(TAG, "✅ File send completed successfully")
             } else {
                 // BLE broadcast (public mesh/channel) image
                 val filePacket = com.bitchat.android.model.BitchatFilePacket(
@@ -225,7 +304,12 @@ class ChatViewModel(
                     mimeType = mime,
                     content = file.readBytes()
                 )
-                val payload = filePacket.encode() ?: return
+                val payload = filePacket.encode()
+                if (payload == null) {
+                    Log.e(TAG, "❌ Failed to encode file packet for private send")
+                    return
+                }
+                Log.d(TAG, "🔒 Encoded private packet: ${payload.size} bytes")
                 val transferId = sha256Hex(payload)
                 val message = BitchatMessage(
                     sender = state.getNicknameValue() ?: meshService.myPeerID,
@@ -244,10 +328,15 @@ class ChatViewModel(
                     transferMessageMap[transferId] = message.id
                     messageTransferMap[message.id] = transferId
                 }
+                Log.d(TAG, "📤 Calling meshService.sendFileBroadcast")
                 meshService.sendFileBroadcast(filePacket)
+                Log.d(TAG, "✅ File broadcast completed successfully")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to send image note: ${e.message}")
+            Log.e(TAG, "❌ CRITICAL: Image send failed completely", e)
+            Log.e(TAG, "❌ Image path: $filePath")
+            Log.e(TAG, "❌ Error details: ${e.message}")
+            Log.e(TAG, "❌ Error type: ${e.javaClass.simpleName}")
         }
     }
 

@@ -24,7 +24,12 @@ object FileUtils {
         originalName: String? = null
     ): String? {
         return try {
-            val inputStream = context.contentResolver.openInputStream(uri) ?: return null
+            val inputStream = context.contentResolver.openInputStream(uri)
+            if (inputStream == null) {
+                Log.e(TAG, "❌ Failed to open input stream for URI: $uri")
+                return null
+            }
+            Log.d(TAG, "📂 Opened input stream successfully")
 
             // Determine file extension
             val extension = originalName?.substringAfterLast(".") ?: "bin"
@@ -56,8 +61,14 @@ object FileUtils {
      * Copy file to app's outgoing directory for sending
      */
     fun copyFileForSending(context: Context, uri: Uri, originalName: String? = null): String? {
+        Log.d(TAG, "🔄 Starting file copy from URI: $uri")
         return try {
-            val inputStream = context.contentResolver.openInputStream(uri) ?: return null
+            val inputStream = context.contentResolver.openInputStream(uri)
+            if (inputStream == null) {
+                Log.e(TAG, "❌ Failed to open input stream for URI: $uri")
+                return null
+            }
+            Log.d(TAG, "📂 Opened input stream successfully")
 
             // Determine original filename and extension if available
             val displayName = originalName ?: run {
@@ -102,11 +113,15 @@ object FileUtils {
                 }
             }
 
-            Log.d(TAG, "Copied file for sending: ${target.absolutePath}")
+            Log.d(TAG, "✅ Successfully copied file for sending: ${target.absolutePath}")
+            Log.d(TAG, "📊 Final file size: ${target.length()} bytes")
             target.absolutePath
 
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to copy file for sending", e)
+            Log.e(TAG, "❌ CRITICAL: Failed to copy file for sending", e)
+            Log.e(TAG, "❌ Source URI: $uri")
+            Log.e(TAG, "❌ Original name: $originalName")
+            Log.e(TAG, "❌ Error type: ${e.javaClass.simpleName}")
             null
         }
     }
