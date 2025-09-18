@@ -111,11 +111,11 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 }
                 
                 com.bitchat.android.model.NoisePayloadType.FILE_TRANSFER -> {
-                    // Handle encrypted file transfer exactly like iOS
+                    // Handle encrypted file transfer; derive deterministic message ID from content hash
                     val file = com.bitchat.android.model.BitchatFilePacket.decode(noisePayload.data)
                     if (file != null) {
                         Log.d(TAG, "🔓 Decrypted encrypted file from $peerID: name='${file.fileName}', size=${file.fileSize}, mime='${file.mimeType}'")
-                        
+                        val msgId = "file_" + sha256Hex(file.content)
                         val savedPath = saveIncomingFile(file)
                         val lower = file.mimeType.lowercase()
                         val prefix = when {
@@ -125,6 +125,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                         }
                         
                         val message = BitchatMessage(
+                            id = msgId,
                             sender = delegate?.getPeerNickname(peerID) ?: "Unknown",
                             content = prefix + savedPath,
                             timestamp = java.util.Date(packet.timestamp.toLong()),
@@ -134,11 +135,11 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                             senderPeerID = peerID
                         )
                         
-                        Log.d(TAG, "📄 Saved encrypted incoming file to $savedPath")
+                        Log.d(TAG, "📄 Saved encrypted incoming file to $savedPath (msgId=$msgId)")
                         delegate?.onMessageReceived(message)
                         
-                        // Send delivery ACK for file transfers too
-                        sendDeliveryAck(java.util.UUID.randomUUID().toString(), peerID)
+                        // Send delivery ACK with deterministic message ID so sender can correlate
+                        sendDeliveryAck(msgId, peerID)
                     } else {
                         Log.w(TAG, "⚠️ Failed to decode encrypted file transfer from $peerID")
                     }
@@ -151,40 +152,6 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     
                     // Simplified: Call delegate with messageID and peerID directly
                     delegate?.onDeliveryAckReceived(messageID, peerID)
-                }
-                
-                com.bitchat.android.model.NoisePayloadType.FILE_TRANSFER -> {
-                    // Handle encrypted file transfer exactly like iOS
-                    val file = com.bitchat.android.model.BitchatFilePacket.decode(noisePayload.data)
-                    if (file != null) {
-                        Log.d(TAG, "🔓 Decrypted encrypted file from $peerID: name='${file.fileName}', size=${file.fileSize}, mime='${file.mimeType}'")
-                        
-                        val savedPath = saveIncomingFile(file)
-                        val lower = file.mimeType.lowercase()
-                        val prefix = when {
-                            lower.startsWith("image/") -> "[image] "
-                            lower.startsWith("audio/") -> "[voice] "
-                            else -> "[file] "
-                        }
-                        
-                        val message = BitchatMessage(
-                            sender = delegate?.getPeerNickname(peerID) ?: "Unknown",
-                            content = prefix + savedPath,
-                            timestamp = java.util.Date(packet.timestamp.toLong()),
-                            isRelay = false,
-                            isPrivate = true,
-                            recipientNickname = delegate?.getMyNickname(),
-                            senderPeerID = peerID
-                        )
-                        
-                        Log.d(TAG, "📄 Saved encrypted incoming file to $savedPath")
-                        delegate?.onMessageReceived(message)
-                        
-                        // Send delivery ACK for file transfers too
-                        sendDeliveryAck(java.util.UUID.randomUUID().toString(), peerID)
-                    } else {
-                        Log.w(TAG, "⚠️ Failed to decode encrypted file transfer from $peerID")
-                    }
                 }
                 
                 com.bitchat.android.model.NoisePayloadType.READ_RECEIPT -> {
@@ -623,6 +590,12 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         
         return result
     }
+
+    private fun sha256Hex(bytes: ByteArray): String = try {
+        val md = java.security.MessageDigest.getInstance("SHA-256")
+        md.update(bytes)
+        md.digest().joinToString("") { "%02x".format(it) }
+    } catch (_: Exception) { bytes.size.toString(16) }
 
     /**
      * Shutdown the handler

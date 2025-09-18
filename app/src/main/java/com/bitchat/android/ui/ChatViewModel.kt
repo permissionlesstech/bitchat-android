@@ -74,8 +74,10 @@ class ChatViewModel(
                     Log.d(TAG, "📤 FILE_TRANSFER send (broadcast): name='${file.name}', size=${file.length()}, mime='image/jpeg', sha256=$contentHash, transferId=${transferId.take(16)}…")
                 }
 
-                // Pre-insert message and map transferId
+                // Pre-insert message and map transferId (deterministic ID for ACK/receipts)
+                val deterministicId = "file_" + contentHash
                 val msg = BitchatMessage(
+                    id = deterministicId,
                     sender = state.getNicknameValue() ?: "me",
                     content = "[voice] $filePath",
                     timestamp = Date(),
@@ -89,6 +91,11 @@ class ChatViewModel(
                     transferMessageMap[transferId] = msg.id
                     messageTransferMap[msg.id] = transferId
                 }
+                // Seed progress so delivery icons render for media
+                messageManager.updateMessageDeliveryStatus(
+                    msg.id,
+                    com.bitchat.android.model.DeliveryStatus.PartiallyDelivered(0, 100)
+                )
                 // Kick off send
                 Log.d(TAG, "📤 Calling meshService.sendFilePrivate to $toPeerIDOrNull")
                 meshService.sendFilePrivate(toPeerIDOrNull, filePacket)
@@ -187,8 +194,8 @@ class ChatViewModel(
                     mimeType.lowercase().startsWith("audio/") -> "[voice] "
                     else -> "[file] "
                 }
-                // Generate deterministic message ID for tracking delivery/read receipts
-                val fileMessageID = "outgoing_file_${originalName.hashCode()}_${file.length()}_${System.currentTimeMillis()}"
+                // Deterministic message ID shared with receiver (content hash)
+                val fileMessageID = "file_" + sha256Hex(filePacket.content)
                 
                 val msg = BitchatMessage(
                     id = fileMessageID,
@@ -293,7 +300,9 @@ class ChatViewModel(
                 }
                 Log.d(TAG, "🔒 Encoded private packet: ${payload.size} bytes")
                 val transferId = sha256Hex(payload)
+                val deterministicId = "file_" + sha256Hex(filePacket.content)
                 val msg = BitchatMessage(
+                    id = deterministicId,
                     sender = state.getNicknameValue() ?: "me",
                     content = "[image] $filePath",
                     timestamp = Date(),
@@ -307,6 +316,11 @@ class ChatViewModel(
                     transferMessageMap[transferId] = msg.id
                     messageTransferMap[msg.id] = transferId
                 }
+                // Seed progress so delivery icons render for media
+                messageManager.updateMessageDeliveryStatus(
+                    msg.id,
+                    com.bitchat.android.model.DeliveryStatus.PartiallyDelivered(0, 100)
+                )
                 Log.d(TAG, "📤 Calling meshService.sendFilePrivate to $toPeerIDOrNull")
                 meshService.sendFilePrivate(toPeerIDOrNull, filePacket)
                 Log.d(TAG, "✅ File send completed successfully")
