@@ -361,6 +361,11 @@ class ChatViewModel(
                     transferMessageMap[transferId] = message.id
                     messageTransferMap[message.id] = transferId
                 }
+                // Seed progress so the block‑reveal animation starts immediately
+                messageManager.updateMessageDeliveryStatus(
+                    message.id,
+                    com.bitchat.android.model.DeliveryStatus.PartiallyDelivered(0, 100)
+                )
                 Log.d(TAG, "📤 Calling meshService.sendFileBroadcast")
                 meshService.sendFileBroadcast(filePacket)
                 Log.d(TAG, "✅ File broadcast completed successfully")

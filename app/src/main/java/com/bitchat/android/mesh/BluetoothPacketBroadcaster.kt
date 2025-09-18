@@ -129,7 +129,8 @@ class BluetoothPacketBroadcaster(
         if (isFile) {
             Log.d(TAG, "📤 Broadcasting FILE_TRANSFER: ${packet.payload.size} bytes")
         }
-        val transferId = if (isFile) sha256Hex(packet.payload) else null
+        // Prefer caller-provided transferId (e.g., for encrypted media), else derive for FILE_TRANSFER
+        val transferId = routed.transferId ?: (if (isFile) sha256Hex(packet.payload) else null)
         // Check if we need to fragment
         if (fragmentManager != null) {
             val fragments = try {
@@ -155,7 +156,7 @@ class BluetoothPacketBroadcaster(
                         if (!isActive) return@launch
                         // If cancelled, stop sending remaining fragments
                         if (transferId != null && transferJobs[transferId]?.isCancelled == true) return@launch
-                        broadcastSinglePacket(RoutedPacket(fragment), gattServer, characteristic)
+                        broadcastSinglePacket(RoutedPacket(fragment, transferId = transferId), gattServer, characteristic)
                         // 20ms delay between fragments
                         delay(20)
                         if (transferId != null) {
@@ -206,7 +207,8 @@ class BluetoothPacketBroadcaster(
         if (isFile) {
             Log.d(TAG, "📤 Broadcasting FILE_TRANSFER: ${packet.payload.size} bytes")
         }
-        val transferId = if (isFile) sha256Hex(packet.payload) else null
+        // Prefer caller-provided transferId (e.g., for encrypted media), else derive for FILE_TRANSFER
+        val transferId = routed.transferId ?: (if (isFile) sha256Hex(packet.payload) else null)
         if (transferId != null) {
             TransferProgressManager.start(transferId, 1)
         }

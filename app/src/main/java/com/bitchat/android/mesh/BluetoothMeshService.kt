@@ -641,7 +641,9 @@ class BluetoothMeshService(private val context: Context) {
                 ttl = MAX_TTL
             )
             val signed = signPacketBeforeBroadcast(packet)
-            connectionManager.broadcastPacket(RoutedPacket(signed))
+            // Use a stable transferId based on the file TLV payload for progress tracking
+            val transferId = sha256Hex(payload)
+            connectionManager.broadcastPacket(RoutedPacket(signed, transferId = transferId))
             try { gossipSyncManager.onPublicPacketSeen(signed) } catch (_: Exception) { }
         }
             } catch (e: Exception) {
@@ -697,7 +699,9 @@ class BluetoothMeshService(private val context: Context) {
                         
                         // Sign and send the encrypted packet
                         val signed = signPacketBeforeBroadcast(packet)
-                        connectionManager.broadcastPacket(RoutedPacket(signed))
+                        // Use a stable transferId based on the unencrypted file TLV payload for progress tracking
+                        val transferId = sha256Hex(filePayload)
+                        connectionManager.broadcastPacket(RoutedPacket(signed, transferId = transferId))
                         Log.d(TAG, "✅ Sent encrypted file to $recipientPeerID")
                         
                     } catch (e: Exception) {
@@ -718,6 +722,13 @@ class BluetoothMeshService(private val context: Context) {
     fun cancelFileTransfer(transferId: String): Boolean {
         return connectionManager.cancelTransfer(transferId)
     }
+
+    // Local helper to hash payloads to a stable hex ID for progress mapping
+    private fun sha256Hex(bytes: ByteArray): String = try {
+        val md = java.security.MessageDigest.getInstance("SHA-256")
+        md.update(bytes)
+        md.digest().joinToString("") { "%02x".format(it) }
+    } catch (_: Exception) { bytes.size.toString(16) }
     
     /**
      * Send private message - SIMPLIFIED iOS-compatible version 
