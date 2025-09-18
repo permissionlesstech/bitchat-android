@@ -15,6 +15,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.dp
 import com.bitchat.android.features.voice.VoiceRecorder
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -35,6 +37,7 @@ fun VoiceRecordButton(
     onFinish: (filePath: String) -> Unit
 ) {
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
     val micPermission = rememberPermissionState(Manifest.permission.RECORD_AUDIO)
 
     var isRecording by remember { mutableStateOf(false) }
@@ -70,6 +73,8 @@ fun VoiceRecordButton(
                             recordingStart = System.currentTimeMillis()
                             if (isRecording) {
                                 latestOnStart.value()
+                                // Haptic "knock" when recording starts
+                                try { haptic.performHapticFeedback(HapticFeedbackType.LongPress) } catch (_: Exception) {}
                                 // Start amplitude polling loop
                                 ampJob?.cancel()
                                 ampJob = scope.launch {
@@ -84,6 +89,8 @@ fun VoiceRecordButton(
                                             recorder = null
                                             val path = file?.absolutePath
                                             if (!path.isNullOrBlank()) {
+                                                // Haptic "knock" on auto stop
+                                                try { haptic.performHapticFeedback(HapticFeedbackType.LongPress) } catch (_: Exception) {}
                                                 latestOnFinish.value(path)
                                             }
                                             break
@@ -107,6 +114,8 @@ fun VoiceRecordButton(
                                 val path = (file?.absolutePath ?: recordedFilePath)
                                 recordedFilePath = null
                                 if (!path.isNullOrBlank()) {
+                                    // Haptic "knock" when recording stops
+                                    try { haptic.performHapticFeedback(HapticFeedbackType.LongPress) } catch (_: Exception) {}
                                     latestOnFinish.value(path)
                                 }
                             }
