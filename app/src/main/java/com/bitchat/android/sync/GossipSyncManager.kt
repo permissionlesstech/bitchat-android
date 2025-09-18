@@ -42,8 +42,6 @@ class GossipSyncManager(
     // Stored packets for sync:
     // - broadcast messages: keep up to seenCapacity() most recent, keyed by packetId
     private val messages = LinkedHashMap<String, BitchatPacket>()
-    // - broadcast fragment packets: keep up to seenCapacity() most recent as well (file transfer fragments)
-    private val fragments = LinkedHashMap<String, BitchatPacket>()
     // - announcements: only keep latest per sender peerID
     private val latestAnnouncementByPeer = ConcurrentHashMap<String, Pair<String, BitchatPacket>>()
 
@@ -80,10 +78,9 @@ class GossipSyncManager(
     }
 
     fun onPublicPacketSeen(packet: BitchatPacket) {
-        // Track ANNOUNCE, broadcast MESSAGE, and broadcast FRAGMENT packets
+        // Only ANNOUNCE or broadcast MESSAGE
         val mt = MessageType.fromValue(packet.type)
-        val isBroadcast = (packet.recipientID == null || packet.recipientID.contentEquals(SpecialRecipients.BROADCAST))
-        val isBroadcastMessage = (mt == MessageType.MESSAGE && isBroadcast)
+        val isBroadcastMessage = (mt == MessageType.MESSAGE && (packet.recipientID == null || packet.recipientID.contentEquals(SpecialRecipients.BROADCAST)))
         val isAnnouncement = (mt == MessageType.ANNOUNCE)
         if (!isBroadcastMessage && !isAnnouncement) return
 
@@ -181,17 +178,6 @@ class GossipSyncManager(
                 Log.d(TAG, "Sent sync message: Type ${toSend.type} to $fromPeerID packet id ${idBytes.toHexString()}")
             }
         }
-
-        // 3) Broadcast fragments: send all they lack
-        val toSendFrags = synchronized(fragments) { fragments.values.toList() }
-        for (pkt in toSendFrags) {
-            val idBytes = PacketIdUtil.computeIdBytes(pkt)
-            if (!mightContain(idBytes)) {
-                val toSend = pkt.copy(ttl = 0u)
-                delegate?.sendPacketToPeer(fromPeerID, toSend)
-                Log.d(TAG, "Sent sync fragment: Type ${toSend.type} to $fromPeerID packet id ${idBytes.toHexString()}")
-            }
-        }
     }
 
     private fun hexStringToByteArray(hexString: String): ByteArray {
@@ -229,10 +215,6 @@ class GossipSyncManager(
         // messages
         synchronized(messages) {
             list.addAll(messages.values)
-        }
-        // fragments
-        synchronized(fragments) {
-            list.addAll(fragments.values)
         }
         // sort by timestamp desc, then take up to min(seenCapacity, fit capacity)
         list.sortByDescending { it.timestamp.toLong() }
