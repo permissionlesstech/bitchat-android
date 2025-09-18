@@ -651,36 +651,65 @@ class BluetoothMeshService(private val context: Context) {
     }
 
     /**
-     * Send a file as a private MESSAGE to a peer (unencrypted envelope; file bytes inside TLV).
+     * Send a file as an encrypted private message using Noise protocol
      */
     fun sendFilePrivate(recipientPeerID: String, file: com.bitchat.android.model.BitchatFilePacket) {
         try {
-            Log.d(TAG, "📤 sendFilePrivate: to=$recipientPeerID, name=${file.fileName}, size=${file.fileSize}")
-            val payload = file.encode()
-            if (payload == null) {
-                Log.e(TAG, "❌ Failed to encode file packet in sendFilePrivate")
-                return
+            Log.d(TAG, "📤 sendFilePrivate (ENCRYPTED): to=$recipientPeerID, name=${file.fileName}, size=${file.fileSize}")
+            
+            serviceScope.launch {
+                // Check if we have an established Noise session
+                if (encryptionService.hasEstablishedSession(recipientPeerID)) {
+                    try {
+                        // Encode the file packet as TLV
+                        val filePayload = file.encode()
+                        if (filePayload == null) {
+                            Log.e(TAG, "❌ Failed to encode file packet for private send")
+                            return@launch
+                        }
+                        Log.d(TAG, "📦 Encoded file TLV: ${filePayload.size} bytes")
+                        
+                        // Create NoisePayload wrapper (type byte + file TLV data) - same as iOS
+                        val noisePayload = com.bitchat.android.model.NoisePayload(
+                            type = com.bitchat.android.model.NoisePayloadType.FILE_TRANSFER,
+                            data = filePayload
+                        )
+                        
+                        // Encrypt the payload using Noise
+                        val encrypted = encryptionService.encrypt(noisePayload.encode(), recipientPeerID)
+                        if (encrypted == null) {
+                            Log.e(TAG, "❌ Failed to encrypt file for $recipientPeerID")
+                            return@launch
+                        }
+                        Log.d(TAG, "🔐 Encrypted file payload: ${encrypted.size} bytes")
+                        
+                        // Create NOISE_ENCRYPTED packet (not FILE_TRANSFER!)
+                        val packet = BitchatPacket(
+                            version = 1u,
+                            type = MessageType.NOISE_ENCRYPTED.value,
+                            senderID = hexStringToByteArray(myPeerID),
+                            recipientID = hexStringToByteArray(recipientPeerID),
+                            timestamp = System.currentTimeMillis().toULong(),
+                            payload = encrypted,
+                            signature = null,
+                            ttl = 7u
+                        )
+                        
+                        // Sign and send the encrypted packet
+                        val signed = signPacketBeforeBroadcast(packet)
+                        connectionManager.broadcastPacket(RoutedPacket(signed))
+                        Log.d(TAG, "✅ Sent encrypted file to $recipientPeerID")
+                        
+                    } catch (e: Exception) {
+                        Log.e(TAG, "❌ Failed to encrypt file for $recipientPeerID: ${e.message}", e)
+                    }
+                } else {
+                    // No session - initiate handshake but don't queue file
+                    Log.w(TAG, "⚠️ No Noise session with $recipientPeerID for file transfer, initiating handshake")
+                    messageHandler.delegate?.initiateNoiseHandshake(recipientPeerID)
+                }
             }
-            Log.d(TAG, "📦 Encoded payload: ${payload.size} bytes")
-        serviceScope.launch {
-            val packet = BitchatPacket(
-                version = 2u,  // FILE_TRANSFER uses v2 for 4-byte payload length to support large files
-                type = MessageType.FILE_TRANSFER.value,
-                senderID = hexStringToByteArray(myPeerID),
-                recipientID = hexStringToByteArray(recipientPeerID),
-                timestamp = System.currentTimeMillis().toULong(),
-                payload = payload,
-                signature = null,
-                ttl = 7u
-            )
-            // For private MESSAGE, also sign before send for integrity
-            val signed = signPacketBeforeBroadcast(packet)
-            // Reuse broadcast path which handles fragmentation and also targets the recipient first
-            // (If a direct path exists, broadcaster sends directly; otherwise it floods the mesh
-            // with a private-recipient packet, which non-recipients will ignore.)
-            connectionManager.broadcastPacket(RoutedPacket(signed))
-        }
-            } catch (e: Exception) {
+        } catch (e: Exception) {
             Log.e(TAG, "❌ sendFilePrivate failed: ${e.message}", e)
             Log.e(TAG, "❌ File: to=$recipientPeerID, name=${file.fileName}, size=${file.fileSize}")
         }

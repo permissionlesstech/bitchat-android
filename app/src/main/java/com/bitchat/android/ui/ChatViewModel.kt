@@ -187,7 +187,11 @@ class ChatViewModel(
                     mimeType.lowercase().startsWith("audio/") -> "[voice] "
                     else -> "[file] "
                 }
+                // Generate deterministic message ID for tracking delivery/read receipts
+                val fileMessageID = "outgoing_file_${originalName.hashCode()}_${file.length()}_${System.currentTimeMillis()}"
+                
                 val msg = BitchatMessage(
+                    id = fileMessageID,
                     sender = state.getNicknameValue() ?: "me",
                     content = prefix + filePath,
                     timestamp = java.util.Date(),

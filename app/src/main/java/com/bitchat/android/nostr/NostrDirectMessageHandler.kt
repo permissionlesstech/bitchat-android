@@ -160,6 +160,12 @@ class NostrDirectMessageHandler(
                     meshDelegateHandler.didReceiveReadReceipt(messageId, convKey)
                 }
             }
+            com.bitchat.android.model.NoisePayloadType.FILE_TRANSFER -> {
+                val messageId = String(payload.data, Charsets.UTF_8)
+                withContext(Dispatchers.Main) {
+                    meshDelegateHandler.didReceiveReadReceipt(messageId, convKey)
+                }
+            }
         }
     }
 
