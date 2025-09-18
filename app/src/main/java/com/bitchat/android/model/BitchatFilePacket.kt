@@ -44,20 +44,11 @@ data class BitchatFilePacket(
             } else {
                 android.util.Log.d("BitchatFilePacket", "📏 TLV sizes OK: name=${nameBytes.size}, mime=${mimeBytes.size}, content=${content.size}")
             }
-        val sizeFieldLen = 8 // UInt64
+        val sizeFieldLen = 8 // UInt64 for FILE_SIZE
+        val contentLenFieldLen = 4 // UInt32 for CONTENT TLV as requested
 
-        // Split content into 0xFFFF-sized chunks
-        val maxChunk = 0xFFFF
-        val contentChunks = mutableListOf<ByteArray>()
-        var offset = 0
-        while (offset < content.size) {
-            val end = kotlin.math.min(offset + maxChunk, content.size)
-            contentChunks.add(content.copyOfRange(offset, end))
-            offset = end
-        }
-
-        // Compute capacity: header TLVs + sum of all content TLVs
-        val contentTLVBytes = contentChunks.sumOf { 1 + 2 + it.size }
+        // Compute capacity: header TLVs + single CONTENT TLV with 4-byte length
+        val contentTLVBytes = 1 + contentLenFieldLen + content.size
         val capacity = (1 + 2 + nameBytes.size) + (1 + 2 + sizeFieldLen) + (1 + 2 + mimeBytes.size) + contentTLVBytes
         val buf = ByteBuffer.allocate(capacity).order(ByteOrder.BIG_ENDIAN)
 
@@ -76,12 +67,10 @@ data class BitchatFilePacket(
         buf.putShort(mimeBytes.size.toShort())
         buf.put(mimeBytes)
 
-        // CONTENT (possibly multiple TLVs)
-        for (chunk in contentChunks) {
-            buf.put(TLVType.CONTENT.v.toByte())
-            buf.putShort(chunk.size.toShort())
-            buf.put(chunk)
-        }
+        // CONTENT (single TLV with 4-byte length)
+        buf.put(TLVType.CONTENT.v.toByte())
+        buf.putInt(content.size)
+        buf.put(content)
 
         val result = buf.array()
             android.util.Log.d("BitchatFilePacket", "✅ Encoded successfully: ${result.size} bytes total")
@@ -100,13 +89,22 @@ data class BitchatFilePacket(
                 var name: String? = null
                 var size: Long? = null
                 var mime: String? = null
-                val contentParts = mutableListOf<ByteArray>()
-                while (off + 3 <= data.size) {
+                var contentBytes: ByteArray? = null
+                while (off + 3 <= data.size) { // minimum TLV header size (type + 2 bytes length)
                     val t = TLVType.from(data[off].toUByte()) ?: return null
                     off += 1
-                    val len = ((data[off].toInt() and 0xFF) shl 8) or (data[off + 1].toInt() and 0xFF)
-                    off += 2
-                    if (off + len > data.size) return null
+                    // CONTENT uses 4-byte length; others use 2-byte length
+                    val len: Int
+                    if (t == TLVType.CONTENT) {
+                        if (off + 4 > data.size) return null
+                        len = ((data[off].toInt() and 0xFF) shl 24) or ((data[off + 1].toInt() and 0xFF) shl 16) or ((data[off + 2].toInt() and 0xFF) shl 8) or (data[off + 3].toInt() and 0xFF)
+                        off += 4
+                    } else {
+                        if (off + 2 > data.size) return null
+                        len = ((data[off].toInt() and 0xFF) shl 8) or (data[off + 1].toInt() and 0xFF)
+                        off += 2
+                    }
+                    if (len < 0 || off + len > data.size) return null
                     val value = data.copyOfRange(off, off + len)
                     off += len
                     when (t) {
@@ -117,20 +115,17 @@ data class BitchatFilePacket(
                             size = bb.long
                         }
                         TLVType.MIME_TYPE -> mime = String(value, Charsets.UTF_8)
-                        TLVType.CONTENT -> contentParts.add(value)
+                        TLVType.CONTENT -> {
+                            // Expect a single CONTENT TLV
+                            if (contentBytes == null) contentBytes = value else {
+                                // If multiple CONTENT TLVs appear, concatenate for tolerance
+                                contentBytes = (contentBytes!! + value)
+                            }
+                        }
                     }
                 }
                 val n = name ?: return null
-                val c = if (contentParts.isNotEmpty()) {
-                    val total = contentParts.sumOf { it.size }
-                    val out = ByteArray(total)
-                    var p = 0
-                    for (part in contentParts) {
-                        System.arraycopy(part, 0, out, p, part.size)
-                        p += part.size
-                    }
-                    out
-                } else return null
+                val c = contentBytes ?: return null
                 val s = size ?: c.size.toLong()
                 val m = mime ?: "application/octet-stream"
                 val result = BitchatFilePacket(n, s, m, c)

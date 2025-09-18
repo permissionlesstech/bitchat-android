@@ -182,9 +182,14 @@ class ChatViewModel(
                 }
                 Log.d(TAG, "🔒 Encoded private packet: ${payload.size} bytes")
                 val transferId = sha256Hex(payload)
+                val prefix = when {
+                    mimeType.lowercase().startsWith("image/") -> "[image] "
+                    mimeType.lowercase().startsWith("audio/") -> "[voice] "
+                    else -> "[file] "
+                }
                 val msg = BitchatMessage(
                     sender = state.getNicknameValue() ?: "me",
-                    content = "[file] $filePath",
+                    content = prefix + filePath,
                     timestamp = java.util.Date(),
                     isRelay = false,
                     isPrivate = true,
@@ -213,13 +218,18 @@ class ChatViewModel(
                 }
                 Log.d(TAG, "🔒 Encoded private packet: ${payload.size} bytes")
                 val transferId = sha256Hex(payload)
+                val prefix = when {
+                    mimeType.lowercase().startsWith("image/") -> "[image] "
+                    mimeType.lowercase().startsWith("audio/") -> "[voice] "
+                    else -> "[file] "
+                }
                 val message = BitchatMessage(
                     sender = state.getNicknameValue() ?: meshService.myPeerID,
-                    content = "[file] $filePath",
+                    content = prefix + filePath,
                     timestamp = java.util.Date(),
                     isRelay = false,
-                    senderPeerID = meshService.myPeerID,
-                    channel = channelOrNull
+                    isPrivate = false,
+                    senderPeerID = meshService.myPeerID
                 )
                 if (!channelOrNull.isNullOrBlank()) {
                     channelManager.addChannelMessage(channelOrNull, message, meshService.myPeerID)

@@ -350,10 +350,15 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     Log.d(TAG, "📥 FILE_TRANSFER decode success (broadcast): name='${file.fileName}', size=${file.fileSize}, mime='${file.mimeType}', sha256=$hash, from=${peerID.take(8)}")
                 }
                 val savedPath = saveIncomingFile(file)
-                val prefix = if (file.mimeType.lowercase().startsWith("image/")) "[image] " else "[file] "
+                val lower = file.mimeType.lowercase()
+                val prefix = when {
+                    lower.startsWith("image/") -> "[image] "
+                    lower.startsWith("audio/") -> "[voice] "
+                    else -> "[file] "
+                }
                 val message = BitchatMessage(
                     sender = delegate?.getPeerNickname(peerID) ?: "unknown",
-                    content = "$prefix$savedPath",
+                    content = prefix + savedPath,
                     senderPeerID = peerID,
                     timestamp = Date(packet.timestamp.toLong())
                 )
@@ -400,10 +405,15 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     Log.d(TAG, "📥 FILE_TRANSFER decode success (private): name='${file.fileName}', size=${file.fileSize}, mime='${file.mimeType}', sha256=$hash, from=${peerID.take(8)}")
                 }
                 val savedPath = saveIncomingFile(file)
-                val prefix = if (file.mimeType.lowercase().startsWith("image/")) "[image] " else "[file] "
+                val lower = file.mimeType.lowercase()
+                val prefix = when {
+                    lower.startsWith("image/") -> "[image] "
+                    lower.startsWith("audio/") -> "[voice] "
+                    else -> "[file] "
+                }
                 val message = BitchatMessage(
                     sender = delegate?.getPeerNickname(peerID) ?: "unknown",
-                    content = "$prefix$savedPath",
+                    content = prefix + savedPath,
                     senderPeerID = peerID,
                     timestamp = Date(packet.timestamp.toLong()),
                     isPrivate = true,
