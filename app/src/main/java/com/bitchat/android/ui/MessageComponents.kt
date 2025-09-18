@@ -48,6 +48,7 @@ import com.bitchat.android.ui.media.FullScreenImageViewer
 import com.bitchat.android.ui.media.WaveformPreview
 import com.bitchat.android.ui.media.FileMessageItem
 import com.bitchat.android.model.FileSharingManager
+import com.bitchat.android.model.BitchatMessageType
 
 @Composable
 private fun VoiceNotePlayer(
@@ -292,8 +293,8 @@ fun MessageItem(
         modifier: Modifier = Modifier
     ) {
     // Image special rendering
-    if (message.content.startsWith("[image] ")) {
-        val path = message.content.removePrefix("[image] ").trim()
+    if (message.type == BitchatMessageType.Image) {
+        val path = message.content.trim()
         Column(modifier = modifier.fillMaxWidth()) {
             // Header: nickname + timestamp line above the image, identical styling to text messages
             val headerText = formatMessageHeaderAnnotatedString(
@@ -328,8 +329,8 @@ fun MessageItem(
             val bmp = remember(path) { try { android.graphics.BitmapFactory.decodeFile(path) } catch (_: Exception) { null } }
 
             // Collect all image paths from messages for swipe navigation
-            val imagePaths = messages.filter { it.content.startsWith("[image] ") }
-                .map { it.content.removePrefix("[image] ").trim() }
+            val imagePaths = messages.filter { it.type == BitchatMessageType.Image }
+                .map { it.content.trim() }
 
             if (bmp != null) {
                 val img = bmp.asImageBitmap()
@@ -399,8 +400,8 @@ fun MessageItem(
     }
 
     // Voice note special rendering
-    if (message.content.startsWith("[voice] ")) {
-        val path = message.content.removePrefix("[voice] ").trim()
+    if (message.type == BitchatMessageType.Audio) {
+        val path = message.content.trim()
         // Derive sending progress if applicable
         val (overrideProgress, overrideColor) = when (val st = message.deliveryStatus) {
             is com.bitchat.android.model.DeliveryStatus.PartiallyDelivered -> {
@@ -464,8 +465,8 @@ fun MessageItem(
     }
 
     // File special rendering
-    if (message.content.startsWith("[file] ")) {
-        val path = message.content.removePrefix("[file] ").trim()
+    if (message.type == BitchatMessageType.File) {
+        val path = message.content.trim()
         // Derive sending progress if applicable
         val (overrideProgress, _) = when (val st = message.deliveryStatus) {
             is com.bitchat.android.model.DeliveryStatus.PartiallyDelivered -> {

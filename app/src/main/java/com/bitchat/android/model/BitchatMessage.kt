@@ -7,6 +7,14 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.*
 
+@Parcelize
+enum class BitchatMessageType : Parcelable {
+    Message,
+    Audio,
+    Image,
+    File
+}
+
 /**
  * Delivery status for messages - exact same as iOS version
  */
@@ -49,6 +57,7 @@ data class BitchatMessage(
     val id: String = UUID.randomUUID().toString().uppercase(),
     val sender: String,
     val content: String,
+    val type: BitchatMessageType = BitchatMessageType.Message,
     val timestamp: Date,
     val isRelay: Boolean = false,
     val originalSender: String? = null,
@@ -279,6 +288,7 @@ data class BitchatMessage(
                     id = id,
                     sender = sender,
                     content = content,
+                    type = BitchatMessageType.Message,
                     timestamp = timestamp,
                     isRelay = isRelay,
                     originalSender = originalSender,
@@ -306,6 +316,7 @@ data class BitchatMessage(
         if (id != other.id) return false
         if (sender != other.sender) return false
         if (content != other.content) return false
+        if (type != other.type) return false
         if (timestamp != other.timestamp) return false
         if (isRelay != other.isRelay) return false
         if (originalSender != other.originalSender) return false
@@ -328,6 +339,7 @@ data class BitchatMessage(
         var result = id.hashCode()
         result = 31 * result + sender.hashCode()
         result = 31 * result + content.hashCode()
+        result = 31 * result + type.hashCode()
         result = 31 * result + timestamp.hashCode()
         result = 31 * result + isRelay.hashCode()
         result = 31 * result + (originalSender?.hashCode() ?: 0)

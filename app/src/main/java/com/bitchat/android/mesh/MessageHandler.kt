@@ -2,6 +2,7 @@ package com.bitchat.android.mesh
 
 import android.util.Log
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.model.IdentityAnnouncement
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
@@ -117,17 +118,15 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                         Log.d(TAG, "🔓 Decrypted encrypted file from $peerID: name='${file.fileName}', size=${file.fileSize}, mime='${file.mimeType}'")
                         val msgId = "file_" + sha256Hex(file.content)
                         val savedPath = saveIncomingFile(file)
-                        val lower = file.mimeType.lowercase()
-                        val prefix = when {
-                            lower.startsWith("image/") -> "[image] "
-                            lower.startsWith("audio/") -> "[voice] "
-                            else -> "[file] "
-                        }
-                        
                         val message = BitchatMessage(
                             id = msgId,
                             sender = delegate?.getPeerNickname(peerID) ?: "Unknown",
-                            content = prefix + savedPath,
+                            content = savedPath,
+                            type = when {
+                                file.mimeType.lowercase().startsWith("image/") -> BitchatMessageType.Image
+                                file.mimeType.lowercase().startsWith("audio/") -> BitchatMessageType.Audio
+                                else -> BitchatMessageType.File
+                            },
                             timestamp = java.util.Date(packet.timestamp.toLong()),
                             isRelay = false,
                             isPrivate = true,
@@ -385,15 +384,14 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     Log.d(TAG, "📥 FILE_TRANSFER decode success (broadcast): name='${file.fileName}', size=${file.fileSize}, mime='${file.mimeType}', sha256=$hash, from=${peerID.take(8)}")
                 }
                 val savedPath = saveIncomingFile(file)
-                val lower = file.mimeType.lowercase()
-                val prefix = when {
-                    lower.startsWith("image/") -> "[image] "
-                    lower.startsWith("audio/") -> "[voice] "
-                    else -> "[file] "
-                }
                 val message = BitchatMessage(
                     sender = delegate?.getPeerNickname(peerID) ?: "unknown",
-                    content = prefix + savedPath,
+                    content = savedPath,
+                    type = when {
+                        file.mimeType.lowercase().startsWith("image/") -> BitchatMessageType.Image
+                        file.mimeType.lowercase().startsWith("audio/") -> BitchatMessageType.Audio
+                        else -> BitchatMessageType.File
+                    },
                     senderPeerID = peerID,
                     timestamp = Date(packet.timestamp.toLong())
                 )
@@ -440,15 +438,14 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     Log.d(TAG, "📥 FILE_TRANSFER decode success (private): name='${file.fileName}', size=${file.fileSize}, mime='${file.mimeType}', sha256=$hash, from=${peerID.take(8)}")
                 }
                 val savedPath = saveIncomingFile(file)
-                val lower = file.mimeType.lowercase()
-                val prefix = when {
-                    lower.startsWith("image/") -> "[image] "
-                    lower.startsWith("audio/") -> "[voice] "
-                    else -> "[file] "
-                }
                 val message = BitchatMessage(
                     sender = delegate?.getPeerNickname(peerID) ?: "unknown",
-                    content = prefix + savedPath,
+                    content = savedPath,
+                    type = when {
+                        file.mimeType.lowercase().startsWith("image/") -> BitchatMessageType.Image
+                        file.mimeType.lowercase().startsWith("audio/") -> BitchatMessageType.Audio
+                        else -> BitchatMessageType.File
+                    },
                     senderPeerID = peerID,
                     timestamp = Date(packet.timestamp.toLong()),
                     isPrivate = true,

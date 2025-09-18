@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.protocol.BitchatPacket
 
 
@@ -79,7 +80,8 @@ class ChatViewModel(
                 val msg = BitchatMessage(
                     id = deterministicId,
                     sender = state.getNicknameValue() ?: "me",
-                    content = "[voice] $filePath",
+                    content = filePath,
+                    type = BitchatMessageType.Audio,
                     timestamp = Date(),
                     isRelay = false,
                     isPrivate = true,
@@ -119,7 +121,8 @@ class ChatViewModel(
                 Log.d(TAG, "📤 FILE_TRANSFER send (broadcast): name='${file.name}', size=${file.length()}, mime='audio/mp4', sha256=$contentHash, transferId=${transferId.take(16)}…")
                 val message = BitchatMessage(
                     sender = state.getNicknameValue() ?: meshService.myPeerID,
-                    content = "[voice] $filePath",
+                    content = filePath,
+                    type = BitchatMessageType.Audio,
                     timestamp = Date(),
                     isRelay = false,
                     senderPeerID = meshService.myPeerID,
@@ -189,18 +192,18 @@ class ChatViewModel(
                 }
                 Log.d(TAG, "🔒 Encoded private packet: ${payload.size} bytes")
                 val transferId = sha256Hex(payload)
-                val prefix = when {
-                    mimeType.lowercase().startsWith("image/") -> "[image] "
-                    mimeType.lowercase().startsWith("audio/") -> "[voice] "
-                    else -> "[file] "
-                }
                 // Deterministic message ID shared with receiver (content hash)
                 val fileMessageID = "file_" + sha256Hex(filePacket.content)
                 
                 val msg = BitchatMessage(
                     id = fileMessageID,
                     sender = state.getNicknameValue() ?: "me",
-                    content = prefix + filePath,
+                    content = filePath,
+                    type = when {
+                        mimeType.lowercase().startsWith("image/") -> BitchatMessageType.Image
+                        mimeType.lowercase().startsWith("audio/") -> BitchatMessageType.Audio
+                        else -> BitchatMessageType.File
+                    },
                     timestamp = java.util.Date(),
                     isRelay = false,
                     isPrivate = true,
@@ -229,14 +232,14 @@ class ChatViewModel(
                 }
                 Log.d(TAG, "🔒 Encoded private packet: ${payload.size} bytes")
                 val transferId = sha256Hex(payload)
-                val prefix = when {
-                    mimeType.lowercase().startsWith("image/") -> "[image] "
-                    mimeType.lowercase().startsWith("audio/") -> "[voice] "
-                    else -> "[file] "
-                }
                 val message = BitchatMessage(
                     sender = state.getNicknameValue() ?: meshService.myPeerID,
-                    content = prefix + filePath,
+                    content = filePath,
+                    type = when {
+                        mimeType.lowercase().startsWith("image/") -> BitchatMessageType.Image
+                        mimeType.lowercase().startsWith("audio/") -> BitchatMessageType.Audio
+                        else -> BitchatMessageType.File
+                    },
                     timestamp = java.util.Date(),
                     isRelay = false,
                     isPrivate = false,
@@ -304,7 +307,8 @@ class ChatViewModel(
                 val msg = BitchatMessage(
                     id = deterministicId,
                     sender = state.getNicknameValue() ?: "me",
-                    content = "[image] $filePath",
+                    content = filePath,
+                    type = BitchatMessageType.Image,
                     timestamp = Date(),
                     isRelay = false,
                     isPrivate = true,
@@ -341,7 +345,8 @@ class ChatViewModel(
                 val transferId = sha256Hex(payload)
                 val message = BitchatMessage(
                     sender = state.getNicknameValue() ?: meshService.myPeerID,
-                    content = "[image] $filePath",
+                    content = filePath,
+                    type = BitchatMessageType.Image,
                     timestamp = Date(),
                     isRelay = false,
                     senderPeerID = meshService.myPeerID,
