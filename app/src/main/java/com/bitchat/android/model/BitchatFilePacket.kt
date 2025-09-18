@@ -9,9 +9,14 @@ import java.nio.ByteOrder
  *  - 0x01: filename (UTF-8)
  *  - 0x02: file size (8 bytes, UInt64)
  *  - 0x03: mime type (UTF-8)
- *  - 0x04: content (bytes)
- * Length field for TLV is 2 bytes (UInt16, big-endian).
- * Keep total payload <= 64 KiB to satisfy base protocol header (will be fragmented automatically afterwards).
+ *  - 0x04: content (bytes) — may appear multiple times for large files
+ *
+ * Length field for TLV is 2 bytes (UInt16, big-endian) for all TLVs.
+ * For large files, CONTENT is chunked into multiple TLVs of up to 65535 bytes each.
+ *
+ * Note: The outer BitchatPacket uses version 2 (4-byte payload length), so this
+ * TLV payload can exceed 64 KiB even though each TLV value is limited to 65535 bytes.
+ * Transport-level fragmentation then splits the final packet for BLE MTU.
  */
 data class BitchatFilePacket(
     val fileName: String,
@@ -29,14 +34,31 @@ data class BitchatFilePacket(
             android.util.Log.d("BitchatFilePacket", "🔄 Encoding: name=$fileName, size=$fileSize, mime=$mimeType")
         val nameBytes = fileName.toByteArray(Charsets.UTF_8)
         val mimeBytes = mimeType.toByteArray(Charsets.UTF_8)
-        // Validate bounds for 2-byte TLV lengths
-        if (nameBytes.size > 0xFFFF || mimeBytes.size > 0xFFFF || content.size > 0xFFFF) {
-                android.util.Log.e("BitchatFilePacket", "❌ TLV field too large: name=${nameBytes.size}, mime=${mimeBytes.size}, content=${content.size} (max: 65535)")
+        // Validate bounds for 2-byte TLV lengths (per-TLV). CONTENT may exceed 65535 and will be chunked.
+        if (nameBytes.size > 0xFFFF || mimeBytes.size > 0xFFFF) {
+                android.util.Log.e("BitchatFilePacket", "❌ TLV field too large: name=${nameBytes.size}, mime=${mimeBytes.size} (max: 65535)")
                 return null
             }
-            android.util.Log.d("BitchatFilePacket", "📏 TLV sizes OK: name=${nameBytes.size}, mime=${mimeBytes.size}, content=${content.size}")
+            if (content.size > 0xFFFF) {
+                android.util.Log.d("BitchatFilePacket", "📦 Content exceeds 65535 bytes (${content.size}); will be split into multiple CONTENT TLVs")
+            } else {
+                android.util.Log.d("BitchatFilePacket", "📏 TLV sizes OK: name=${nameBytes.size}, mime=${mimeBytes.size}, content=${content.size}")
+            }
         val sizeFieldLen = 8 // UInt64
-        val capacity = 1 + 2 + nameBytes.size + 1 + 2 + sizeFieldLen + 1 + 2 + mimeBytes.size + 1 + 2 + content.size
+
+        // Split content into 0xFFFF-sized chunks
+        val maxChunk = 0xFFFF
+        val contentChunks = mutableListOf<ByteArray>()
+        var offset = 0
+        while (offset < content.size) {
+            val end = kotlin.math.min(offset + maxChunk, content.size)
+            contentChunks.add(content.copyOfRange(offset, end))
+            offset = end
+        }
+
+        // Compute capacity: header TLVs + sum of all content TLVs
+        val contentTLVBytes = contentChunks.sumOf { 1 + 2 + it.size }
+        val capacity = (1 + 2 + nameBytes.size) + (1 + 2 + sizeFieldLen) + (1 + 2 + mimeBytes.size) + contentTLVBytes
         val buf = ByteBuffer.allocate(capacity).order(ByteOrder.BIG_ENDIAN)
 
         // FILE_NAME
@@ -54,10 +76,12 @@ data class BitchatFilePacket(
         buf.putShort(mimeBytes.size.toShort())
         buf.put(mimeBytes)
 
-        // CONTENT
-        buf.put(TLVType.CONTENT.v.toByte())
-        buf.putShort(content.size.toShort())
-        buf.put(content)
+        // CONTENT (possibly multiple TLVs)
+        for (chunk in contentChunks) {
+            buf.put(TLVType.CONTENT.v.toByte())
+            buf.putShort(chunk.size.toShort())
+            buf.put(chunk)
+        }
 
         val result = buf.array()
             android.util.Log.d("BitchatFilePacket", "✅ Encoded successfully: ${result.size} bytes total")
@@ -76,7 +100,7 @@ data class BitchatFilePacket(
                 var name: String? = null
                 var size: Long? = null
                 var mime: String? = null
-                var content: ByteArray? = null
+                val contentParts = mutableListOf<ByteArray>()
                 while (off + 3 <= data.size) {
                     val t = TLVType.from(data[off].toUByte()) ?: return null
                     off += 1
@@ -93,13 +117,22 @@ data class BitchatFilePacket(
                             size = bb.long
                         }
                         TLVType.MIME_TYPE -> mime = String(value, Charsets.UTF_8)
-                        TLVType.CONTENT -> content = value
+                        TLVType.CONTENT -> contentParts.add(value)
                     }
                 }
                 val n = name ?: return null
-                val s = size ?: content?.size?.toLong() ?: return null
+                val c = if (contentParts.isNotEmpty()) {
+                    val total = contentParts.sumOf { it.size }
+                    val out = ByteArray(total)
+                    var p = 0
+                    for (part in contentParts) {
+                        System.arraycopy(part, 0, out, p, part.size)
+                        p += part.size
+                    }
+                    out
+                } else return null
+                val s = size ?: c.size.toLong()
                 val m = mime ?: "application/octet-stream"
-                val c = content ?: return null
                 val result = BitchatFilePacket(n, s, m, c)
                 android.util.Log.d("BitchatFilePacket", "✅ Decoded: name=$n, size=$s, mime=$m, content=${c.size} bytes")
                 return result
