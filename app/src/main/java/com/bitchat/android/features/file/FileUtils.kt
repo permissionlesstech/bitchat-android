@@ -186,4 +186,89 @@ object FileUtils {
             "jpg", "jpeg", "png", "gif", "bmp", "webp", "svg"
         )
     }
+
+    /**
+     * Save an incoming file packet to app storage and return absolute path.
+     * Mirrors existing behavior used in MessageHandler (preserves names and folders).
+     */
+    fun saveIncomingFile(
+        context: Context,
+        file: com.bitchat.android.model.BitchatFilePacket
+    ): String {
+        val lowerMime = file.mimeType.lowercase()
+        val isImage = lowerMime.startsWith("image/")
+        val baseDir = context.filesDir
+        val subdir = if (isImage) "images/incoming" else "files/incoming"
+        val dir = java.io.File(baseDir, subdir).apply { mkdirs() }
+
+        fun extFromMime(m: String): String = when (m.lowercase()) {
+            "image/jpeg", "image/jpg" -> ".jpg"
+            "image/png" -> ".png"
+            "image/webp" -> ".webp"
+            "application/pdf" -> ".pdf"
+            "text/plain" -> ".txt"
+            else -> if (isImage) ".jpg" else ".bin"
+        }
+
+        // Prefer transmitted original name; ensure uniqueness to avoid overwrites
+        val baseName = (file.fileName.takeIf { it.isNotBlank() }
+            ?: (if (isImage) "img" else "file"))
+            .replace(Regex("[^A-Za-z0-9._-]"), "_")
+        val ext = extFromMime(lowerMime)
+        var safeName = if (baseName.contains('.')) baseName else baseName + ext
+        var idx = 1
+        while (java.io.File(dir, safeName).exists() && idx < 1000) {
+            val dot = safeName.lastIndexOf('.')
+            safeName = if (dot > 0) {
+                val b = safeName.substring(0, dot)
+                val e = safeName.substring(dot)
+                "$b ($idx)$e"
+            } else {
+                "$safeName ($idx)"
+            }
+            idx++
+        }
+
+        return try {
+            val out = java.io.File(dir, safeName)
+            out.outputStream().use { it.write(file.content) }
+            out.absolutePath
+        } catch (_: Exception) {
+            // Fallback to cache dir with uniqueness
+            try {
+                var fallback = safeName
+                var idx2 = 1
+                while (java.io.File(context.cacheDir, fallback).exists() && idx2 < 1000) {
+                    val dot = fallback.lastIndexOf('.')
+                    fallback = if (dot > 0) {
+                        val b = fallback.substring(0, dot)
+                        val e = fallback.substring(dot)
+                        "$b ($idx2)$e"
+                    } else {
+                        "$fallback ($idx2)"
+                    }
+                    idx2++
+                }
+                val out = java.io.File(context.cacheDir, fallback)
+                out.outputStream().use { it.write(file.content) }
+                out.absolutePath
+            } catch (_: Exception) {
+                val tmp = java.io.File.createTempFile(if (isImage) "img_" else "file_", if (isImage) ".jpg" else ".bin")
+                tmp.writeBytes(file.content)
+                tmp.absolutePath
+            }
+        }
+    }
+
+    /**
+     * Classify BitchatMessageType from MIME string used in file messages.
+     */
+    fun messageTypeForMime(mime: String): com.bitchat.android.model.BitchatMessageType {
+        val lower = mime.lowercase()
+        return when {
+            lower.startsWith("image/") -> com.bitchat.android.model.BitchatMessageType.Image
+            lower.startsWith("audio/") -> com.bitchat.android.model.BitchatMessageType.Audio
+            else -> com.bitchat.android.model.BitchatMessageType.File
+        }
+    }
 }

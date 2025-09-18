@@ -30,115 +30,21 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import android.content.Intent
 import android.net.Uri
 import com.bitchat.android.model.BitchatMessage
-import androidx.compose.ui.graphics.asImageBitmap
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.mesh.BluetoothMeshService
 import java.text.SimpleDateFormat
 import java.util.*
-import android.media.MediaPlayer
+import com.bitchat.android.ui.media.VoiceNotePlayer
 import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
-import com.bitchat.android.ui.media.FullScreenImageViewer
-import com.bitchat.android.ui.media.WaveformPreview
 import com.bitchat.android.ui.media.FileMessageItem
-import com.bitchat.android.model.FileSharingManager
 import com.bitchat.android.model.BitchatMessageType
 
-@Composable
-private fun VoiceNotePlayer(
-    path: String,
-    progressOverride: Float? = null,
-    progressColor: Color? = null
-) {
-    var isPlaying by remember { mutableStateOf(false) }
-    var isPrepared by remember { mutableStateOf(false) }
-    var isError by remember { mutableStateOf(false) }
-    var progress by remember { mutableStateOf(0f) }
-    var durationMs by remember { mutableStateOf(0) }
-    val player = remember { MediaPlayer() }
-
-    // Seek function - position is a fraction from 0.0 to 1.0
-    val seekTo: (Float) -> Unit = { position ->
-        if (isPrepared && durationMs > 0) {
-            val seekMs = (position * durationMs).toInt().coerceIn(0, durationMs)
-            try {
-                player.seekTo(seekMs)
-                progress = position  // Update progress immediately for UI responsiveness
-            } catch (_: Exception) {}
-        }
-    }
-
-    LaunchedEffect(path) {
-        isPrepared = false
-        isError = false
-        progress = 0f
-        durationMs = 0
-        isPlaying = false
-        try {
-            player.reset()
-            player.setOnPreparedListener {
-                isPrepared = true
-                durationMs = try { player.duration } catch (_: Exception) { 0 }
-            }
-            player.setOnCompletionListener {
-                isPlaying = false
-                progress = 1f
-            }
-            player.setOnErrorListener { _, _, _ ->
-                isError = true
-                isPlaying = false
-                true
-            }
-            player.setDataSource(path)
-            player.prepareAsync()
-        } catch (_: Exception) {
-            isError = true
-        }
-    }
-
-    LaunchedEffect(isPlaying, isPrepared) {
-        try {
-            if (isPlaying && isPrepared) player.start() else if (isPrepared && player.isPlaying) player.pause()
-        } catch (_: Exception) {}
-    }
-    LaunchedEffect(isPlaying, isPrepared) {
-        while (isPlaying && isPrepared) {
-            progress = try { player.currentPosition.toFloat() / (player.duration.toFloat().coerceAtLeast(1f)) } catch (_: Exception) { 0f }
-            kotlinx.coroutines.delay(100)
-        }
-    }
-    DisposableEffect(Unit) { onDispose { try { player.release() } catch (_: Exception) {} } }
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        // Disable play/pause while showing send progress override (optional UX choice)
-        val controlsEnabled = isPrepared && !isError && progressOverride == null
-        FilledTonalIconButton(onClick = { if (controlsEnabled) isPlaying = !isPlaying }, enabled = controlsEnabled, modifier = Modifier.size(28.dp)) {
-            Icon(
-                imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                contentDescription = if (isPlaying) "Pause" else "Play"
-            )
-        }
-        WaveformPreview(
-            modifier = Modifier.weight(1f).height(36.dp),
-            path = path,
-            sendProgress = progressOverride,
-            playbackProgress = if (progressOverride == null) progress else null,
-            onSeek = seekTo
-        )
-        val durText = if (durationMs > 0) String.format("%02d:%02d", (durationMs / 1000) / 60, (durationMs / 1000) % 60) else "--:--"
-        Text(text = durText, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
-    }
-}
+// VoiceNotePlayer moved to com.bitchat.android.ui.media.VoiceNotePlayer
 
 /**
  * Message display components for ChatScreen
@@ -306,173 +212,35 @@ fun MessageItem(
     ) {
     // Image special rendering
     if (message.type == BitchatMessageType.Image) {
-        val path = message.content.trim()
-        Column(modifier = modifier.fillMaxWidth()) {
-            // Header: nickname + timestamp line above the image, identical styling to text messages
-            val headerText = formatMessageHeaderAnnotatedString(
-                message = message,
-                currentUserNickname = currentUserNickname,
-                meshService = meshService,
-                colorScheme = colorScheme,
-                timeFormatter = timeFormatter
-            )
-            val haptic = LocalHapticFeedback.current
-            var headerLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
-            Text(
-                text = headerText,
-                fontFamily = FontFamily.Monospace,
-                color = colorScheme.onSurface,
-                modifier = Modifier.pointerInput(message.id) {
-                    detectTapGestures(onTap = { pos ->
-                        val layout = headerLayout ?: return@detectTapGestures
-                        val offset = layout.getOffsetForPosition(pos)
-                        val ann = headerText.getStringAnnotations("nickname_click", offset, offset)
-                        if (ann.isNotEmpty() && onNicknameClick != null) {
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            onNicknameClick.invoke(ann.first().item)
-                        }
-                    }, onLongPress = { onMessageLongPress?.invoke(message) })
-                },
-                onTextLayout = { headerLayout = it }
-            )
-
-            val context = LocalContext.current
-            var showViewer by remember { mutableStateOf(false) }
-            val bmp = remember(path) { try { android.graphics.BitmapFactory.decodeFile(path) } catch (_: Exception) { null } }
-
-            // Collect all image paths from messages for swipe navigation
-            val imagePaths = messages.filter { it.type == BitchatMessageType.Image }
-                .map { it.content.trim() }
-
-            if (bmp != null) {
-                val img = bmp.asImageBitmap()
-                val aspect = (bmp.width.toFloat() / bmp.height.toFloat()).takeIf { it.isFinite() && it > 0 } ?: 1f
-                val progressFraction: Float? = when (val st = message.deliveryStatus) {
-                    is com.bitchat.android.model.DeliveryStatus.PartiallyDelivered -> if (st.total > 0) st.reached.toFloat() / st.total.toFloat() else 0f
-                    else -> null
-                }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
-                    Box {
-                        if (progressFraction != null && progressFraction < 1f && message.sender == currentUserNickname) {
-                            // Cyberpunk block-reveal while sending
-                            com.bitchat.android.ui.media.BlockRevealImage(
-                                bitmap = img,
-                                progress = progressFraction,
-                                blocksX = 24,
-                                blocksY = 16,
-                                modifier = Modifier
-                                    .widthIn(max = 300.dp)
-                                    .aspectRatio(aspect)
-                                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
-                                    .clickable {
-                                        val currentIndex = imagePaths.indexOf(path)
-                                        onImageClick?.invoke(path, imagePaths, currentIndex)
-                                    }
-                            )
-                        } else {
-                            // Fully revealed image
-                            androidx.compose.foundation.Image(
-                                bitmap = img,
-                                contentDescription = "Image",
-                                modifier = Modifier
-                                    .widthIn(max = 300.dp)
-                                    .aspectRatio(aspect)
-                                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
-                                    .clickable {
-                                        val currentIndex = imagePaths.indexOf(path)
-                                        onImageClick?.invoke(path, imagePaths, currentIndex)
-                                    },
-                                contentScale = androidx.compose.ui.layout.ContentScale.Fit
-                            )
-                        }
-                        // Cancel button overlay during sending
-                        val showCancel = message.sender == currentUserNickname && (message.deliveryStatus is DeliveryStatus.PartiallyDelivered)
-                        if (showCancel) {
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .padding(4.dp)
-                                    .size(22.dp)
-                                    .background(Color.Gray.copy(alpha = 0.6f), CircleShape)
-                                    .clickable { onCancelTransfer?.invoke(message) },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(imageVector = Icons.Filled.Close, contentDescription = "Cancel", tint = Color.White, modifier = Modifier.size(14.dp))
-                            }
-                        }
-                    }
-                }
-            } else {
-                Text(text = "[image unavailable]", fontFamily = FontFamily.Monospace, color = Color.Gray)
-            }
-
-            // No linear progress for images; block-reveal handles visual progress
-        }
+        com.bitchat.android.ui.media.ImageMessageItem(
+            message = message,
+            messages = messages,
+            currentUserNickname = currentUserNickname,
+            meshService = meshService,
+            colorScheme = colorScheme,
+            timeFormatter = timeFormatter,
+            onNicknameClick = onNicknameClick,
+            onMessageLongPress = onMessageLongPress,
+            onCancelTransfer = onCancelTransfer,
+            onImageClick = onImageClick,
+            modifier = modifier
+        )
         return
     }
 
     // Voice note special rendering
     if (message.type == BitchatMessageType.Audio) {
-        val path = message.content.trim()
-        // Derive sending progress if applicable
-        val (overrideProgress, overrideColor) = when (val st = message.deliveryStatus) {
-            is com.bitchat.android.model.DeliveryStatus.PartiallyDelivered -> {
-                if (st.total > 0 && st.reached < st.total) {
-                    (st.reached.toFloat() / st.total.toFloat()) to Color(0xFF1E88E5) // blue while sending
-                } else null to null
-            }
-            else -> null to null
-        }
-        Column(modifier = modifier.fillMaxWidth()) {
-            // Header: nickname + timestamp line above the audio note, identical styling to text messages
-            val headerText = formatMessageHeaderAnnotatedString(
-                message = message,
-                currentUserNickname = currentUserNickname,
-                meshService = meshService,
-                colorScheme = colorScheme,
-                timeFormatter = timeFormatter
-            )
-            val haptic = LocalHapticFeedback.current
-            var headerLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
-            Text(
-                text = headerText,
-                fontFamily = FontFamily.Monospace,
-                color = colorScheme.onSurface,
-                modifier = Modifier.pointerInput(message.id) {
-                    detectTapGestures(onTap = { pos ->
-                        val layout = headerLayout ?: return@detectTapGestures
-                        val offset = layout.getOffsetForPosition(pos)
-                        val ann = headerText.getStringAnnotations("nickname_click", offset, offset)
-                        if (ann.isNotEmpty() && onNicknameClick != null) {
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            onNicknameClick.invoke(ann.first().item)
-                        }
-                    }, onLongPress = { onMessageLongPress?.invoke(message) })
-                },
-                onTextLayout = { headerLayout = it }
-            )
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                VoiceNotePlayer(
-                    path = path,
-                    progressOverride = overrideProgress,
-                    progressColor = overrideColor
-                )
-                val showCancel = message.sender == currentUserNickname && (message.deliveryStatus is DeliveryStatus.PartiallyDelivered)
-                if (showCancel) {
-                    Spacer(Modifier.width(8.dp))
-                    Box(
-                        modifier = Modifier
-                            .size(26.dp)
-                            .background(Color.Gray.copy(alpha = 0.6f), CircleShape)
-                            .clickable { onCancelTransfer?.invoke(message) },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(imageVector = Icons.Filled.Close, contentDescription = "Cancel", tint = Color.White, modifier = Modifier.size(16.dp))
-                    }
-                }
-            }
-        }
+        com.bitchat.android.ui.media.AudioMessageItem(
+            message = message,
+            currentUserNickname = currentUserNickname,
+            meshService = meshService,
+            colorScheme = colorScheme,
+            timeFormatter = timeFormatter,
+            onNicknameClick = onNicknameClick,
+            onMessageLongPress = onMessageLongPress,
+            onCancelTransfer = onCancelTransfer,
+            modifier = modifier
+        )
         return
     }
 

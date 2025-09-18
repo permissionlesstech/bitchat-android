@@ -117,16 +117,12 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     if (file != null) {
                         Log.d(TAG, "🔓 Decrypted encrypted file from $peerID: name='${file.fileName}', size=${file.fileSize}, mime='${file.mimeType}'")
                         val msgId = "file_" + sha256Hex(file.content)
-                        val savedPath = saveIncomingFile(file)
+                        val savedPath = com.bitchat.android.features.file.FileUtils.saveIncomingFile(appContext, file)
                         val message = BitchatMessage(
                             id = msgId,
                             sender = delegate?.getPeerNickname(peerID) ?: "Unknown",
                             content = savedPath,
-                            type = when {
-                                file.mimeType.lowercase().startsWith("image/") -> BitchatMessageType.Image
-                                file.mimeType.lowercase().startsWith("audio/") -> BitchatMessageType.Audio
-                                else -> BitchatMessageType.File
-                            },
+                            type = com.bitchat.android.features.file.FileUtils.messageTypeForMime(file.mimeType),
                             timestamp = java.util.Date(packet.timestamp.toLong()),
                             isRelay = false,
                             isPrivate = true,
@@ -383,15 +379,11 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     } catch (_: Exception) { "?" }
                     Log.d(TAG, "📥 FILE_TRANSFER decode success (broadcast): name='${file.fileName}', size=${file.fileSize}, mime='${file.mimeType}', sha256=$hash, from=${peerID.take(8)}")
                 }
-                val savedPath = saveIncomingFile(file)
+                val savedPath = com.bitchat.android.features.file.FileUtils.saveIncomingFile(appContext, file)
                 val message = BitchatMessage(
                     sender = delegate?.getPeerNickname(peerID) ?: "unknown",
                     content = savedPath,
-                    type = when {
-                        file.mimeType.lowercase().startsWith("image/") -> BitchatMessageType.Image
-                        file.mimeType.lowercase().startsWith("audio/") -> BitchatMessageType.Audio
-                        else -> BitchatMessageType.File
-                    },
+                    type = com.bitchat.android.features.file.FileUtils.messageTypeForMime(file.mimeType),
                     senderPeerID = peerID,
                     timestamp = Date(packet.timestamp.toLong())
                 )
@@ -437,15 +429,11 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     } catch (_: Exception) { "?" }
                     Log.d(TAG, "📥 FILE_TRANSFER decode success (private): name='${file.fileName}', size=${file.fileSize}, mime='${file.mimeType}', sha256=$hash, from=${peerID.take(8)}")
                 }
-                val savedPath = saveIncomingFile(file)
+                val savedPath = com.bitchat.android.features.file.FileUtils.saveIncomingFile(appContext, file)
                 val message = BitchatMessage(
                     sender = delegate?.getPeerNickname(peerID) ?: "unknown",
                     content = savedPath,
-                    type = when {
-                        file.mimeType.lowercase().startsWith("image/") -> BitchatMessageType.Image
-                        file.mimeType.lowercase().startsWith("audio/") -> BitchatMessageType.Audio
-                        else -> BitchatMessageType.File
-                    },
+                    type = com.bitchat.android.features.file.FileUtils.messageTypeForMime(file.mimeType),
                     senderPeerID = peerID,
                     timestamp = Date(packet.timestamp.toLong()),
                     isPrivate = true,
@@ -472,70 +460,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         }
     }
 
-    private fun saveIncomingFile(file: com.bitchat.android.model.BitchatFilePacket): String {
-        // Route to subfolders and names by MIME type
-        val lowerMime = file.mimeType.lowercase()
-        val isImage = lowerMime.startsWith("image/")
-        val base = appContext.filesDir
-        val subdir = if (isImage) "images/incoming" else "files/incoming"
-        val dir = java.io.File(base, subdir).apply { mkdirs() }
-
-        fun extFromMime(m: String): String = when (m.lowercase()) {
-            "image/jpeg", "image/jpg" -> ".jpg"
-            "image/png" -> ".png"
-            "image/webp" -> ".webp"
-            "application/pdf" -> ".pdf"
-            "text/plain" -> ".txt"
-            else -> if (isImage) ".jpg" else ".bin"
-        }
-
-        // Prefer transmitted original name; ensure uniqueness to avoid overwrites
-        val baseName = (file.fileName.takeIf { it.isNotBlank() } ?: (if (isImage) "img" else "file")).replace(Regex("[^A-Za-z0-9._-]"), "_")
-        val ext = extFromMime(lowerMime)
-        var safeName = if (baseName.contains('.')) baseName else baseName + ext
-        var idx = 1
-        while (java.io.File(dir, safeName).exists() && idx < 1000) {
-            val dot = safeName.lastIndexOf('.')
-            safeName = if (dot > 0) {
-                val b = safeName.substring(0, dot)
-                val e = safeName.substring(dot)
-                "$b ($idx)$e"
-            } else {
-                "$safeName ($idx)"
-            }
-            idx++
-        }
-
-        return try {
-            val out = java.io.File(dir, safeName)
-            out.outputStream().use { it.write(file.content) }
-            out.absolutePath
-        } catch (_: Exception) {
-            // Fallback to cache dir with uniqueness
-            try {
-                var fallback = safeName
-                var idx2 = 1
-                while (java.io.File(appContext.cacheDir, fallback).exists() && idx2 < 1000) {
-                    val dot = fallback.lastIndexOf('.')
-                    fallback = if (dot > 0) {
-                        val b = fallback.substring(0, dot)
-                        val e = fallback.substring(dot)
-                        "$b ($idx2)$e"
-                    } else {
-                        "$fallback ($idx2)"
-                    }
-                    idx2++
-                }
-                val out = java.io.File(appContext.cacheDir, fallback)
-                out.outputStream().use { it.write(file.content) }
-                out.absolutePath
-            } catch (_: Exception) {
-                val tmp = java.io.File.createTempFile(if (isImage) "img_" else "file_", if (isImage) ".jpg" else ".bin")
-                tmp.writeBytes(file.content)
-                tmp.absolutePath
-            }
-        }
-    }
+    
     
     /**
      * Handle leave message

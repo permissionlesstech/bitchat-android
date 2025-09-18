@@ -74,7 +74,7 @@ fun WaveformPreview(
         modifier = modifier,
         samples = stateSamples,
         fillProgress = if (stateSamples.isEmpty()) 0f else progress,
-        baseColor = Color(0xFF444444),
+        baseColor = Color(0x2200FF7F),
         fillColor = when {
             sendProgress != null -> Color(0xFF1E88E5) // blue while sending
             else -> Color(0xFF00C851) // green during playback
