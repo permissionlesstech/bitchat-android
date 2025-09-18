@@ -44,7 +44,7 @@ data class BitchatFilePacket(
             } else {
                 android.util.Log.d("BitchatFilePacket", "📏 TLV sizes OK: name=${nameBytes.size}, mime=${mimeBytes.size}, content=${content.size}")
             }
-        val sizeFieldLen = 8 // UInt64 for FILE_SIZE
+        val sizeFieldLen = 4 // UInt32 for FILE_SIZE (changed from 8 bytes)
         val contentLenFieldLen = 4 // UInt32 for CONTENT TLV as requested
 
         // Compute capacity: header TLVs + single CONTENT TLV with 4-byte length
@@ -57,10 +57,10 @@ data class BitchatFilePacket(
         buf.putShort(nameBytes.size.toShort())
         buf.put(nameBytes)
 
-        // FILE_SIZE (8 bytes)
+        // FILE_SIZE (4 bytes)
         buf.put(TLVType.FILE_SIZE.v.toByte())
         buf.putShort(sizeFieldLen.toShort())
-        buf.putLong(fileSize)
+        buf.putInt(fileSize.toInt())
 
         // MIME_TYPE
         buf.put(TLVType.MIME_TYPE.v.toByte())
@@ -110,9 +110,9 @@ data class BitchatFilePacket(
                     when (t) {
                         TLVType.FILE_NAME -> name = String(value, Charsets.UTF_8)
                         TLVType.FILE_SIZE -> {
-                            if (len != 8) return null
+                            if (len != 4) return null
                             val bb = ByteBuffer.wrap(value).order(ByteOrder.BIG_ENDIAN)
-                            size = bb.long
+                            size = bb.int.toLong()
                         }
                         TLVType.MIME_TYPE -> mime = String(value, Charsets.UTF_8)
                         TLVType.CONTENT -> {

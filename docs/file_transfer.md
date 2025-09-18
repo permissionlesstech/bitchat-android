@@ -1,4 +1,4 @@
-# Bitchat Bluetooth File Transfer: Audio + Images with Interactive Features
+# Bitchat Bluetooth File Transfer: Images, Audio, and Generic Files (with Interactive Features)
 
 This document is the exhaustive implementation guide for Bitchat’s Bluetooth file transfer protocol for voice notes (audio) and images, including interactive features like waveform seeking. It describes the on‑wire packet format (both v1 and v2), fragmentation/progress/cancellation, sender/receiver behaviors, and the complete UX we implemented in the Android client so that other implementers can interoperate and match the user experience precisely.
 
@@ -93,30 +93,42 @@ PayloadLength: 4 bytes (big-endian, max ~4 GiB)
 
 ### 1.3 File Transfer TLV payload (BitchatFilePacket)
 
-The file payload is a compact TLV structure with 2‑byte big‑endian length fields.
+The file payload is a TLV structure with mixed length field sizes to support large contents efficiently.
 
 - Defined in `app/src/main/java/com/bitchat/android/model/BitchatFilePacket.kt` (/Users/cc/git/bitchat-android/app/src/main/java/com/bitchat/android/model/BitchatFilePacket.kt)
 
-TLVs:
+Canonical TLVs (v2 spec):
 
-- `0x01 FILE_NAME` — UTF‑8 bytes (≤ 65535 bytes)
-- `0x02 FILE_SIZE` — 8 bytes (UInt64, big‑endian)
-- `0x03 MIME_TYPE` — UTF‑8 bytes (≤ 65535 bytes). Examples: `audio/mp4`, `image/jpeg`.
-- `0x04 CONTENT` — raw file bytes (≤ 65535 bytes)
+- `0x01 FILE_NAME` — UTF‑8 bytes
+  - Encoding: `type(1) + len(2) + value`
+- `0x02 FILE_SIZE` — 4 bytes (UInt32, big‑endian)
+  - Encoding: `type(1) + len(2=4) + value(4)`
+  - Note: v1 used 8 bytes (UInt64). v2 standardizes to 4 bytes. See Legacy Compatibility below.
+- `0x03 MIME_TYPE` — UTF‑8 bytes (e.g., `image/jpeg`, `audio/mp4`, `application/pdf`)
+  - Encoding: `type(1) + len(2) + value`
+- `0x04 CONTENT` — raw file bytes
+  - Encoding: `type(1) + len(4) + value(len)`
+  - Exactly one CONTENT TLV per file payload in v2 (no TLV‑level chunking); overall packet fragmentation happens at the transport layer.
 
 Encoding rules:
 
-- Each TLV: 1 byte type + 2 bytes length (big‑endian) + value.
-- For `FILE_SIZE`, length must be `8`. For other TLVs, length can be any value up to `0xFFFF`.
-- With v2 protocol, payloads can be up to ~4 GiB. However, fragments still need to fit within MTU (~128 KiB), so large files will be split into multiple fragments.
-- Implementations should validate TLV boundaries; decoding returns `null` if malformed.
+- Standard TLVs use `1 byte type + 2 bytes big‑endian length + value`.
+- CONTENT uses a 4‑byte big‑endian length to allow payloads well beyond 64 KiB.
+- With the v2 envelope (4‑byte payload length), CONTENT can be large; transport still fragments oversize packets to fit BLE MTU.
+- Implementations should validate TLV boundaries; decoding should fail fast on malformed structures.
 
-Decoding rules:
+Decoding rules (v2):
 
-- Accumulate TLVs in a loop. Unknown types should cause fail‑fast (current code only accepts the 4 types above).
-- `fileSize` falls back to `content.size` on decode if missing.
-- `mimeType` defaults to `application/octet-stream` if missing.
-- The result is `(fileName, fileSize, mimeType, content)`.
+- Accept the canonical TLVs above. Unknown TLVs should be ignored or cause failure per implementation policy (current Android rejects unknown types).
+- FILE_SIZE expects `len=4` and is parsed as UInt32; receivers may upcast to 64‑bit internally.
+- CONTENT expects a 4‑byte length field and a single occurrence; if multiple CONTENT TLVs are present, concatenate in order (defensive tolerance).
+- If FILE_SIZE is missing, receivers may fall back to `content.size`.
+- If MIME_TYPE is missing, default to `application/octet-stream`.
+
+Legacy Compatibility (optional, for mixed‑version meshes):
+
+- FILE_SIZE (0x02): Some legacy senders used 8‑byte UInt64. Decoders MAY accept `len=8` and clamp to 32‑bit if needed.
+- CONTENT (0x04): Legacy payloads might have used a 2‑byte TLV length with multiple CONTENT chunks. Decoders MAY support concatenating multiple CONTENT TLVs with 2‑byte lengths if encountered.
 
 
 ---
@@ -174,11 +186,16 @@ Receiver dispatch is in `MessageHandler`:
   - The file is persisted under app files with type‑specific subfolders:
     - Audio: `files/voicenotes/incoming/`
     - Image: `files/images/incoming/`
-  - We always generate a unique filename on receive (timestamp‑based) to avoid collisions.
-  - MIME determines extension (`.m4a`, `.jpg`, `.png`, `.webp`, etc.).
+    - Other files: `files/files/incoming/`
+  - Filename strategy:
+    - Prefer the transmitted `fileName` when present; sanitize path separators.
+    - Ensure uniqueness by appending `" (n)"` before the extension when a name exists already.
+    - If `fileName` is absent, derive from MIME with a sensible default extension.
+  - MIME determines extension hints (`.m4a`, `.mp3`, `.wav`, `.ogg` for audio; `.jpg`, `.png`, `.webp` for images; otherwise based on MIME or `.bin`).
 - A synthetic chat message is created with content markers pointing to the local path:
   - Audio: `"[voice] /abs/path/to/file"`
   - Image: `"[image] /abs/path/to/file"`
+  - Other: `"[file] /abs/path/to/file"`
   - `senderPeerID` is set to the origin, `isPrivate` set appropriately.
 
 Files:
@@ -352,9 +369,9 @@ Files:
 
 ## 6) Edge Cases and Notes
 
-- Filename collisions on receiver: we always generate a unique filename, ignoring the sender’s name to avoid overwriting if identical names are reused.
+- Filename collisions on receiver: prefer the sender‑supplied name if present; always uniquify with a ` (n)` suffix before the extension to prevent overwrites.
 - Path markers in messages
-  - We use simple content markers: `"[voice] <abs path>"` and `"[image] <abs path>"` for local rendering. These are not sent on the wire; the actual file bytes are inside the TLV payload.
+  - We use simple content markers: `"[voice] <abs path>", "[image] <abs path>", "[file] <abs path>"` for local rendering. These are not sent on the wire; the actual file bytes are inside the TLV payload.
 - Progress math for images relies on `(sent / total)` from `TransferProgressManager` (fragment‑level granularity). The block grid density can be tuned; currently 24×16.
 - Private vs public: both use the same file TLV; only the envelope `recipientID` differs. Private may have signatures; code shows a signing step consistent with iOS behavior prior to broadcast to ensure integrity.
 - BLE timing: there is a 200 ms inter‑fragment delay for stability. Adjust as needed for your radio stack while maintaining compatibility.
@@ -405,17 +422,21 @@ Fullscreen image:
 ## 8) Implementation Checklist for Other Clients
 
 1. **Implement v2 protocol support**: Support both v1 (2-byte payload length) and v2 (4-byte payload length) packet decoding. Use v2 format for file transfer packets to enable large file transfers.
-2. Implement `BitchatFilePacket` TLV exactly as specified (type bytes, length as 2‑byte big‑endian, size = 8 for FILE_SIZE).
+2. Implement `BitchatFilePacket` TLV exactly as specified:
+   - FILE_NAME and MIME_TYPE: `type(1) + len(2) + value`
+   - FILE_SIZE: `type(1) + len(2=4) + value(4, UInt32 BE)`
+   - CONTENT: `type(1) + len(4) + value`
 3. Embed the TLV into a `BitchatPacket` envelope with `type = FILE_TRANSFER (0x22)` and the correct `recipientID` (broadcast vs private).
 4. Fragment, send, and report progress using a transfer ID derived from `sha256(payload)` so the UI can map progress to a message.
 5. Support cancellation at the fragment sender: stop sending remaining fragments and propagate a cancel to the UI (we remove the message).
-6. On receive, decode TLV, persist to an app directory (separate audio/images), and create a chat message with content marker `"[voice] path"` or `"[image] path"` for local rendering.
+6. On receive, decode TLV, persist to an app directory (separate audio/images/other), and create a chat message with content marker `"[voice] path"`, `"[image] path"`, or `"[file] path"` for local rendering.
 7. Audio sender and receiver should use the same waveform extractor so visuals match; a 120‑bin histogram is a good balance.
 8. **Implement interactive waveform seeking**: Tap waveforms to jump to that audio position. Calculate tap position as fraction (0.0-1.0) of waveform width.
-9. For images, optionally downscale to keep TLV under ~64 KiB; JPEG 85% at 512 px longest edge is a good baseline.
+9. For images, optionally downscale to keep TLV small; JPEG 85% at 512 px longest edge is a good baseline.
 10. Mirror the UX:
     - Recording overlay that does not collapse the IME; hide the caret while recording; add 500 ms end padding.
     - Voice: waveform fill for send/playback; cancel overlay; **tap-to-seek support**.
     - Images: dense block‑reveal with no gaps during sending; cancel overlay; fullscreen viewer with save.
+    - Generic files: render as a file pill with icon + filename; support open/save via the host OS.
 
 Following the above should produce an interoperable and matching experience across platforms.
