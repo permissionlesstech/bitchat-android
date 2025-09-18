@@ -245,30 +245,42 @@ fun MessageItem(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top
-        ) {
-            // Create a custom layout that combines selectable text with clickable nickname areas
-            MessageTextWithClickableNicknames(
-                message = message,
-                messages = messages,
-                currentUserNickname = currentUserNickname,
-                meshService = meshService,
-                colorScheme = colorScheme,
-                timeFormatter = timeFormatter,
-                onNicknameClick = onNicknameClick,
-                onMessageLongPress = onMessageLongPress,
-                onCancelTransfer = onCancelTransfer,
-                onImageClick = onImageClick,
-                modifier = Modifier.weight(1f)
-            )
-            
-            // Delivery status for private messages
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Start,
+                verticalAlignment = Alignment.Top
+            ) {
+                // Provide a small end padding for own private messages so overlay doesn't cover text
+                val endPad = if (message.isPrivate && message.sender == currentUserNickname) 16.dp else 0.dp
+                // Create a custom layout that combines selectable text with clickable nickname areas
+                MessageTextWithClickableNicknames(
+                    message = message,
+                    messages = messages,
+                    currentUserNickname = currentUserNickname,
+                    meshService = meshService,
+                    colorScheme = colorScheme,
+                    timeFormatter = timeFormatter,
+                    onNicknameClick = onNicknameClick,
+                    onMessageLongPress = onMessageLongPress,
+                    onCancelTransfer = onCancelTransfer,
+                    onImageClick = onImageClick,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = endPad)
+                )
+            }
+
+            // Delivery status for private messages (overlay, non-displacing)
             if (message.isPrivate && message.sender == currentUserNickname) {
                 message.deliveryStatus?.let { status ->
-                    DeliveryStatusIcon(status = status)
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 2.dp)
+                    ) {
+                        DeliveryStatusIcon(status = status)
+                    }
                 }
             }
         }
