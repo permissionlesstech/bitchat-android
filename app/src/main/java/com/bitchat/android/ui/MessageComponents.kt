@@ -740,8 +740,9 @@ fun DeliveryStatusIcon(status: DeliveryStatus) {
             )
         }
         is DeliveryStatus.PartiallyDelivered -> {
+            // Show a single subdued check without numeric label
             Text(
-                text = "✓${status.reached}/${status.total}",
+                text = "✓",
                 fontSize = 10.sp,
                 color = colorScheme.primary.copy(alpha = 0.6f)
             )
