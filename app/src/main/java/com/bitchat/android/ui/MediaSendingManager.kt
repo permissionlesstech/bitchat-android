@@ -177,15 +177,14 @@ class MediaSendingManager(
             return
         }
         Log.d(TAG, "🔒 Encoded private packet: ${payload.size} bytes")
-        
+
         val transferId = sha256Hex(payload)
         val contentHash = sha256Hex(filePacket.content)
-        val deterministicId = "file_" + contentHash
-        
+
         Log.d(TAG, "📤 FILE_TRANSFER send (private): name='${filePacket.fileName}', size=${filePacket.fileSize}, mime='${filePacket.mimeType}', sha256=$contentHash, to=${toPeerID.take(8)} transferId=${transferId.take(16)}…")
 
         val msg = BitchatMessage(
-            id = deterministicId,
+            id = java.util.UUID.randomUUID().toString().uppercase(), // Generate unique ID for each message
             sender = state.getNicknameValue() ?: "me",
             content = filePath,
             type = messageType,
@@ -236,6 +235,7 @@ class MediaSendingManager(
         Log.d(TAG, "📤 FILE_TRANSFER send (broadcast): name='${filePacket.fileName}', size=${filePacket.fileSize}, mime='${filePacket.mimeType}', sha256=$contentHash, transferId=${transferId.take(16)}…")
 
         val message = BitchatMessage(
+            id = java.util.UUID.randomUUID().toString().uppercase(), // Generate unique ID for each message
             sender = state.getNicknameValue() ?: meshService.myPeerID,
             content = filePath,
             type = messageType,
@@ -323,7 +323,7 @@ class MediaSendingManager(
         val md = MessageDigest.getInstance("SHA-256")
         md.update(bytes)
         md.digest().joinToString("") { "%02x".format(it) }
-    } catch (_: Exception) { 
-        bytes.size.toString(16) 
+    } catch (_: Exception) {
+        bytes.size.toString(16)
     }
 }

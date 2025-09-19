@@ -161,9 +161,28 @@ class NostrDirectMessageHandler(
                 }
             }
             com.bitchat.android.model.NoisePayloadType.FILE_TRANSFER -> {
-                val messageId = String(payload.data, Charsets.UTF_8)
-                withContext(Dispatchers.Main) {
-                    meshDelegateHandler.didReceiveReadReceipt(messageId, convKey)
+                // Properly handle encrypted file transfer
+                val file = com.bitchat.android.model.BitchatFilePacket.decode(payload.data)
+                if (file != null) {
+                    val uniqueMsgId = java.util.UUID.randomUUID().toString().uppercase()
+                    val savedPath = com.bitchat.android.features.file.FileUtils.saveIncomingFile(application, file)
+                    val message = BitchatMessage(
+                        id = uniqueMsgId,
+                        sender = senderNickname,
+                        content = savedPath,
+                        type = com.bitchat.android.features.file.FileUtils.messageTypeForMime(file.mimeType),
+                        timestamp = timestamp,
+                        isRelay = false,
+                        isPrivate = true,
+                        recipientNickname = state.getNicknameValue(),
+                        senderPeerID = convKey
+                    )
+                    Log.d(TAG, "📄 Saved Nostr encrypted incoming file to $savedPath (msgId=$uniqueMsgId)")
+                    withContext(Dispatchers.Main) {
+                        privateChatManager.handleIncomingPrivateMessage(message, suppressUnread = false)
+                    }
+                } else {
+                    Log.w(TAG, "⚠️ Failed to decode Nostr file transfer from $convKey")
                 }
             }
         }
