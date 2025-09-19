@@ -267,11 +267,11 @@ fun MessageInput(
                 // Revert to original separate buttons: round File button (left) and the old Image plus button (right)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                     // DISABLE FILE PICKER
-//                    FilePickerButton(
-//                        onFileReady = { path ->
-//                            onSendFileNote(latestSelectedPeer.value, latestChannel.value, path)
-//                        }
-//                    )
+                    //FilePickerButton(
+                    //    onFileReady = { path ->
+                    //        onSendFileNote(latestSelectedPeer.value, latestChannel.value, path)
+                    //    }
+                    //)
                     ImagePickerButton(
                         onImageReady = { outPath ->
                             onSendImageNote(latestSelectedPeer.value, latestChannel.value, outPath)
