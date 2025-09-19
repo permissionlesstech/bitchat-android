@@ -40,11 +40,13 @@ Unknown flags are ignored by older implementations (they will simply not see a r
 When receiving a packet that is not addressed to you:
 
 1) If `HAS_ROUTE` is not set, or the route is empty, relay using your normal broadcast logic (subject to TTL/probability policies).
-2) If `HAS_ROUTE` is set and your peer ID appears at index `i` in the hop list:
-   - If there is a next hop at `i+1`, attempt a targeted unicast to that next hop if you have a direct connection to it.
-     - If successful, do NOT broadcast this packet further.
-     - If not directly connected (or the send fails), fall back to broadcast relaying.
-   - If you are the last hop (no `i+1`), proceed with standard handling (e.g., if not addressed to you, do not relay further).
+2) If `HAS_ROUTE` is set:
+   - **Route Sanity Check**: Before processing, the relay **MUST** validate the route. If the route contains duplicate hops (i.e., the same peer ID appears more than once), the packet **MUST** be dropped to prevent loops.
+   - If your peer ID appears at index `i` in the hop list:
+     - If there is a next hop at `i+1`, attempt a targeted unicast to that next hop if you have a direct connection to it.
+       - If successful, do NOT broadcast this packet further.
+       - If not directly connected (or the send fails), fall back to broadcast relaying.
+     - If you are the last hop (no `i+1`), the packet has reached the end of its explicit route. The relay should then attempt to deliver it to the final `recipientID` if directly connected, but SHOULD NOT relay it further as a broadcast.
 
 TTL handling remains unchanged: relays decrement TTL by 1 before forwarding (whether targeted or broadcast). If TTL reaches 0, do not relay.
 
