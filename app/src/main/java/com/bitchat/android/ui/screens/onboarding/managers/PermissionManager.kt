@@ -1,4 +1,4 @@
-package com.bitchat.android.onboarding
+package com.bitchat.android.ui.screens.onboarding.managers
 
 import android.Manifest
 import android.content.Context

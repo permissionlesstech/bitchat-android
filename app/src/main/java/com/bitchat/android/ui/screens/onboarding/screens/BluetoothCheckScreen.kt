@@ -1,4 +1,4 @@
-package com.bitchat.android.onboarding
+package com.bitchat.android.ui.screens.onboarding.screens
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
@@ -14,6 +14,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.bitchat.android.ui.screens.onboarding.managers.BluetoothStatus
 
 /**
  * Screen shown when checking Bluetooth status or requesting Bluetooth enable

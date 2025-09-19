@@ -1,4 +1,4 @@
-package com.bitchat.android.onboarding
+package com.bitchat.android.ui.screens.onboarding.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -20,9 +20,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bitchat.android.ui.screens.onboarding.managers.PermissionCategory
+import com.bitchat.android.ui.screens.onboarding.managers.PermissionType
 
 /**
  * Permission explanation screen shown before requesting permissions

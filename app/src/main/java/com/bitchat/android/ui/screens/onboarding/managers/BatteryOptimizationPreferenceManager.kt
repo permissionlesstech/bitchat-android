@@ -1,4 +1,4 @@
-package com.bitchat.android.onboarding
+package com.bitchat.android.ui.screens.onboarding.managers
 
 import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow

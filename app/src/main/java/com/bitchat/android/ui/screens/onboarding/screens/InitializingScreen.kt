@@ -1,4 +1,4 @@
-package com.bitchat.android.onboarding
+package com.bitchat.android.ui.screens.onboarding.screens
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*

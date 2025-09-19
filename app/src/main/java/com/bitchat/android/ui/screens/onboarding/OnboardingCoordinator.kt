@@ -1,14 +1,15 @@
-package com.bitchat.android.onboarding
+package com.bitchat.android.ui.screens.onboarding
 
-import android.app.Activity
-import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
+import com.bitchat.android.ui.screens.onboarding.managers.PermissionManager
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -158,7 +159,7 @@ class OnboardingCoordinator(
                 }
                 append("\nPlease grant these permissions in Settings to use bitchat.")
             }
-            
+
             Log.e(TAG, "Critical permissions denied: $deniedCritical")
             onOnboardingFailed(message)
         } else {
@@ -181,7 +182,7 @@ class OnboardingCoordinator(
         
         // Notify completion with a small delay to ensure everything is ready
         activity.lifecycleScope.launch {
-            kotlinx.coroutines.delay(100) // Small delay for UI state to settle
+            delay(100) // Small delay for UI state to settle
             onOnboardingComplete()
         }
     }
