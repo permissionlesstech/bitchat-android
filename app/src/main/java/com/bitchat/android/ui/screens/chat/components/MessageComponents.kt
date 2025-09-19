@@ -1,4 +1,4 @@
-package com.bitchat.android.ui
+package com.bitchat.android.ui.screens.chat.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -25,9 +25,17 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.ui.text.TextStyle
+import com.bitchat.android.geohash.ChannelID
+import com.bitchat.android.geohash.GeohashChannel
+import com.bitchat.android.geohash.GeohashChannelLevel
+import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.mesh.BluetoothMeshService
+import com.bitchat.android.ui.shared.components.MessageWithMatrixAnimation
+import com.bitchat.android.ui.screens.chat.utils.formatMessageAsAnnotatedString
+import com.bitchat.android.ui.shared.components.shouldAnimateMessage
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -230,19 +238,19 @@ private fun MessageTextWithClickableNicknames(
                         if (geohashAnnotations.isNotEmpty()) {
                             val geohash = geohashAnnotations.first().item
                             try {
-                                val locationManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(
+                                val locationManager = LocationChannelManager.getInstance(
                                     context
                                 )
                                 val level = when (geohash.length) {
-                                    in 0..2 -> com.bitchat.android.geohash.GeohashChannelLevel.REGION
-                                    in 3..4 -> com.bitchat.android.geohash.GeohashChannelLevel.PROVINCE
-                                    5 -> com.bitchat.android.geohash.GeohashChannelLevel.CITY
-                                    6 -> com.bitchat.android.geohash.GeohashChannelLevel.NEIGHBORHOOD
-                                    else -> com.bitchat.android.geohash.GeohashChannelLevel.BLOCK
+                                    in 0..2 -> GeohashChannelLevel.REGION
+                                    in 3..4 -> GeohashChannelLevel.PROVINCE
+                                    5 -> GeohashChannelLevel.CITY
+                                    6 -> GeohashChannelLevel.NEIGHBORHOOD
+                                    else -> GeohashChannelLevel.BLOCK
                                 }
-                                val channel = com.bitchat.android.geohash.GeohashChannel(level, geohash.lowercase())
+                                val channel = GeohashChannel(level, geohash.lowercase())
                                 locationManager.setTeleported(true)
-                                locationManager.select(com.bitchat.android.geohash.ChannelID.Location(channel))
+                                locationManager.select(ChannelID.Location(channel))
                             } catch (_: Exception) { }
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             return@detectTapGestures
@@ -274,7 +282,7 @@ private fun MessageTextWithClickableNicknames(
             fontFamily = FontFamily.Monospace,
             softWrap = true,
             overflow = TextOverflow.Visible,
-            style = androidx.compose.ui.text.TextStyle(
+            style = TextStyle(
                 color = colorScheme.onSurface
             ),
             onTextLayout = { result -> textLayoutResult = result }

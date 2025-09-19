@@ -1,4 +1,4 @@
-package com.bitchat.android.ui
+package com.bitchat.android.ui.screens.chat.components
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -35,7 +35,7 @@ import com.bitchat.android.R
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.withStyle
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.bitchat.android.ui.screens.chat.CommandSuggestion
 
 /**
  * Input components for ChatScreen

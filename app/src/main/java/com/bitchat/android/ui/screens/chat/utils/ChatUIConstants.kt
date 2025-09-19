@@ -1,4 +1,4 @@
-package com.bitchat.android.ui
+package com.bitchat.android.ui.screens.chat.utils
 
 /**
  * UI constants/utilities for nickname rendering.

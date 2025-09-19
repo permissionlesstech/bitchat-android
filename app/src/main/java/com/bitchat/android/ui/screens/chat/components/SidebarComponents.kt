@@ -1,4 +1,4 @@
-package com.bitchat.android.ui
+package com.bitchat.android.ui.screens.chat.components
 
 import com.bitchat.android.R
 import android.util.Log
@@ -22,7 +22,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextOverflow
+import com.bitchat.android.favorites.FavoritesPersistenceService
+import com.bitchat.android.geohash.ChannelID
+import com.bitchat.android.nostr.Bech32
+import com.bitchat.android.ui.screens.geohash.components.GeohashPeopleList
+import com.bitchat.android.ui.screens.chat.ChatViewModel
+import com.bitchat.android.ui.screens.chat.utils.splitSuffix
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
+import com.bitchat.android.ui.screens.chat.utils.truncateNickname
 
 
 /**
@@ -113,7 +120,7 @@ fun SidebarOverlay(
                         val selectedLocationChannel by viewModel.selectedLocationChannel.observeAsState()
                         
                         when (selectedLocationChannel) {
-                            is com.bitchat.android.geohash.ChannelID.Location -> {
+                            is ChannelID.Location -> {
                                 // Show geohash people list when in location channel
                                 GeohashPeopleList(
                                     viewModel = viewModel,
@@ -335,18 +342,18 @@ fun PeopleSection(
         // Connected peers
         sortedPeers.forEach { pid ->
             val dn = computeDisplayNameForPeerId(pid)
-            val (b, _) = com.bitchat.android.ui.splitSuffix(dn)
+            val (b, _) = splitSuffix(dn)
             if (b != "You") baseNameCounts[b] = (baseNameCounts[b] ?: 0) + 1
         }
 
         // Offline favorites (exclude ones mapped to connected)
-        val offlineFavorites = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getOurFavorites()
+        val offlineFavorites = FavoritesPersistenceService.shared.getOurFavorites()
         offlineFavorites.forEach { fav ->
             val favPeerID = fav.peerNoisePublicKey.joinToString("") { b -> "%02x".format(b) }
             val isMappedToConnected = noiseHexByPeerID.values.any { it.equals(favPeerID, ignoreCase = true) }
             if (!isMappedToConnected) {
                 val dn = peerNicknames[favPeerID] ?: fav.peerNickname
-                val (b, _) = com.bitchat.android.ui.splitSuffix(dn)
+                val (b, _) = splitSuffix(dn)
                 if (b != "You") baseNameCounts[b] = (baseNameCounts[b] ?: 0) + 1
             }
         }
@@ -362,7 +369,7 @@ fun PeopleSection(
             }
             .forEach { convKey ->
                 val dn = peerNicknames[convKey] ?: (privateChats[convKey]?.lastOrNull()?.sender ?: convKey.take(12))
-                val (b, _) = com.bitchat.android.ui.splitSuffix(dn)
+                val (b, _) = splitSuffix(dn)
                 if (b != "You") baseNameCounts[b] = (baseNameCounts[b] ?: 0) + 1
             }
 
@@ -381,7 +388,7 @@ fun PeopleSection(
             )
 
             val displayName = if (peerID == nickname) "You" else (peerNicknames[peerID] ?: (privateChats[peerID]?.lastOrNull()?.sender ?: peerID.take(12)))
-            val (bName, _) = com.bitchat.android.ui.splitSuffix(displayName)
+            val (bName, _) = splitSuffix(displayName)
             val showHash = (baseNameCounts[bName] ?: 0) > 1
 
             val directMap by viewModel.peerDirect.observeAsState(emptyMap())
@@ -415,10 +422,10 @@ fun PeopleSection(
 
             // Resolve potential Nostr conversation key for this favorite (for unread detection)
             val nostrConvKey: String? = try {
-                val npubOrHex = com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNostrPubkey(fav.peerNoisePublicKey)
+                val npubOrHex = FavoritesPersistenceService.shared.findNostrPubkey(fav.peerNoisePublicKey)
                 if (npubOrHex != null) {
                     val hex = if (npubOrHex.startsWith("npub")) {
-                        val (hrp, data) = com.bitchat.android.nostr.Bech32.decode(npubOrHex)
+                        val (hrp, data) = Bech32.decode(npubOrHex)
                         if (hrp == "npub") data.joinToString("") { "%02x".format(it) } else null
                     } else {
                         npubOrHex.lowercase()
@@ -433,7 +440,7 @@ fun PeopleSection(
             // open chat with the connected peerID instead of the noise hex for a seamless window
             val mappedConnectedPeerID = noiseHexByPeerID.entries.firstOrNull { it.value.equals(favPeerID, ignoreCase = true) }?.key
             val dn = peerNicknames[favPeerID] ?: fav.peerNickname
-            val (bName, _) = com.bitchat.android.ui.splitSuffix(dn)
+            val (bName, _) = splitSuffix(dn)
             val showHash = (baseNameCounts[bName] ?: 0) > 1
 
             // Compute unreadCount from either noise conversation or Nostr conversation
@@ -482,7 +489,7 @@ fun PeopleSection(
             .forEach { convKey ->
                 val lastSender = privateChats[convKey]?.lastOrNull()?.sender
                 val dn = peerNicknames[convKey] ?: (lastSender ?: convKey.take(12))
-                val (bName, _) = com.bitchat.android.ui.splitSuffix(dn)
+                val (bName, _) = com.bitchat.android.ui.screens.chat.utils.splitSuffix(dn)
                 val showHash = (baseNameCounts[bName] ?: 0) > 1
 
                 PeerItem(
@@ -526,7 +533,7 @@ private fun PeerItem(
     showHashSuffix: Boolean = true
 ) {
     // Split display name for hashtag suffix support (iOS-compatible)
-    val (baseNameRaw, suffixRaw) = com.bitchat.android.ui.splitSuffix(displayName)
+    val (baseNameRaw, suffixRaw) = splitSuffix(displayName)
     val baseName = truncateNickname(baseNameRaw)
     val suffix = if (showHashSuffix) suffixRaw else ""
     val isMe = displayName == "You" || peerID == viewModel.nickname.value

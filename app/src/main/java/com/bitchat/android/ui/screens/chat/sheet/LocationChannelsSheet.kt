@@ -1,5 +1,6 @@
-package com.bitchat.android.ui
+package com.bitchat.android.ui.screens.chat.sheet
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -30,12 +31,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.text.TextStyle
 import com.bitchat.android.geohash.ChannelID
 import kotlinx.coroutines.launch
 import com.bitchat.android.geohash.GeohashChannel
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.geohash.GeohashBookmarksStore
+import com.bitchat.android.ui.screens.geohash.GeohashPickerActivity
+import com.bitchat.android.ui.screens.chat.ChatViewModel
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 
 /**
@@ -94,8 +98,8 @@ fun LocationChannelsSheet(
     val mapPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode == android.app.Activity.RESULT_OK) {
-            val gh = result.data?.getStringExtra(GeohashPickerActivity.EXTRA_RESULT_GEOHASH)
+        if (result.resultCode == Activity.RESULT_OK) {
+            val gh = result.data?.getStringExtra(GeohashPickerActivity.Companion.EXTRA_RESULT_GEOHASH)
             if (!gh.isNullOrBlank()) {
                 customGeohash = gh
                 customError = null
@@ -386,7 +390,7 @@ fun LocationChannelsSheet(
                                         customGeohash = filtered
                                         customError = null
                                     },
-                                    textStyle = androidx.compose.ui.text.TextStyle(
+                                    textStyle = TextStyle(
                                         fontSize = BASE_FONT_SIZE.sp,
                                         fontFamily = FontFamily.Monospace,
                                         color = MaterialTheme.colorScheme.onSurface
@@ -429,7 +433,7 @@ fun LocationChannelsSheet(
                                         else -> ""
                                     }
                                     val intent = Intent(context, GeohashPickerActivity::class.java).apply {
-                                        putExtra(GeohashPickerActivity.EXTRA_INITIAL_GEOHASH, initial)
+                                        putExtra(GeohashPickerActivity.Companion.EXTRA_INITIAL_GEOHASH, initial)
                                     }
                                     mapPickerLauncher.launch(intent)
                                 }) {

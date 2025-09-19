@@ -1,4 +1,4 @@
-package com.bitchat.android.ui
+package com.bitchat.android.ui.screens.chat.utils
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
@@ -7,15 +7,14 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.sp
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Shield
-import androidx.compose.ui.graphics.vector.ImageVector
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.mesh.BluetoothMeshService
 import androidx.compose.material3.ColorScheme
+import com.bitchat.android.ui.shared.utils.MessageSpecialParser
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.math.abs
 
 /**
  * Utility functions for ChatScreen UI components
@@ -139,7 +138,7 @@ fun formatMessageAsAnnotatedString(
         builder.pushStyle(SpanStyle(
             color = Color.Gray,
             fontSize = (BASE_FONT_SIZE - 2).sp,
-            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+            fontStyle = FontStyle.Italic
         ))
         builder.append("* ${message.content} *")
         builder.pop()
@@ -198,7 +197,7 @@ fun colorForPeerSeed(seed: String, isDark: Boolean): Color {
     
     // Avoid orange (~30°) reserved for self (matches iOS logic)
     val orange = 30.0 / 360.0
-    if (kotlin.math.abs(hue - orange) < 0.05) {
+    if (abs(hue - orange) < 0.05) {
         hue = (hue + 0.12) % 1.0
     }
     

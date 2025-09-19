@@ -1,4 +1,4 @@
-package com.bitchat.android.ui
+package com.bitchat.android.ui.screens.chat
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -20,7 +20,21 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.zIndex
+import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.ui.screens.chat.sheet.AboutSheet
+import com.bitchat.android.ui.screens.chat.components.ChatHeaderContent
+import com.bitchat.android.ui.screens.chat.sheet.ChatUserSheet
+import com.bitchat.android.ui.screens.chat.components.CommandSuggestionsBox
+import com.bitchat.android.ui.screens.chat.sheet.LocationChannelsSheet
+import com.bitchat.android.ui.screens.chat.components.MentionSuggestionsBox
+import com.bitchat.android.ui.screens.chat.components.MessageInput
+import com.bitchat.android.ui.screens.chat.components.MessagesList
+import com.bitchat.android.ui.screens.chat.sheet.PasswordPromptDialog
+import com.bitchat.android.ui.screens.chat.components.SidebarOverlay
+import com.bitchat.android.ui.screens.debug.DebugSettingsSheet
+import com.bitchat.android.ui.screens.chat.utils.splitSuffix
+import kotlin.collections.get
 
 /**
  * Main ChatScreen - REFACTORED to use component-based architecture
@@ -80,7 +94,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
         currentChannel != null -> channelMessages[currentChannel] ?: emptyList()
         else -> {
             val locationChannel = selectedLocationChannel
-            if (locationChannel is com.bitchat.android.geohash.ChannelID.Location) {
+            if (locationChannel is ChannelID.Location) {
                 val geokey = "geo:${locationChannel.channel.geohash}"
                 channelMessages[geokey] ?: emptyList()
             } else {
@@ -122,26 +136,27 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 onNicknameClick = { fullSenderName ->
                     // Single click - mention user in text input
                     val currentText = messageText.text
-                    
+
                     // Extract base nickname and hash suffix from full sender name
                     val (baseName, hashSuffix) = splitSuffix(fullSenderName)
-                    
+
                     // Check if we're in a geohash channel to include hash suffix
                     val selectedLocationChannel = viewModel.selectedLocationChannel.value
-                    val mentionText = if (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location && hashSuffix.isNotEmpty()) {
-                        // In geohash chat - include the hash suffix from the full display name
-                        "@$baseName$hashSuffix"
-                    } else {
-                        // Regular chat - just the base nickname
-                        "@$baseName"
-                    }
-                    
+                    val mentionText =
+                        if (selectedLocationChannel is ChannelID.Location && hashSuffix.isNotEmpty()) {
+                            // In geohash chat - include the hash suffix from the full display name
+                            "@$baseName$hashSuffix"
+                        } else {
+                            // Regular chat - just the base nickname
+                            "@$baseName"
+                        }
+
                     val newText = when {
                         currentText.isEmpty() -> "$mentionText "
                         currentText.endsWith(" ") -> "$currentText$mentionText "
                         else -> "$currentText $mentionText "
                     }
-                    
+
                     messageText = TextFieldValue(
                         text = newText,
                         selection = TextRange(newText.length)
@@ -463,7 +478,7 @@ private fun ChatDialogs(
         onShowDebug = { showDebugSheet = true }
     )
     if (showDebugSheet) {
-        com.bitchat.android.ui.debug.DebugSettingsSheet(
+        DebugSettingsSheet(
             isPresented = showDebugSheet,
             onDismiss = { showDebugSheet = false },
             meshService = viewModel.meshService

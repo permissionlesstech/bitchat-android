@@ -1,4 +1,4 @@
-package com.bitchat.android.ui
+package com.bitchat.android.ui.screens.chat.sheet
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
@@ -11,14 +11,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Public
-import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -26,9 +24,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bitchat.android.net.TorManager
+import com.bitchat.android.net.TorMode
+import com.bitchat.android.net.TorPreferenceManager
 import com.bitchat.android.nostr.NostrProofOfWork
 import com.bitchat.android.nostr.PoWPreferenceManager
-import com.bitchat.android.ui.debug.DebugSettingsSheet
+import com.bitchat.android.ui.theme.ThemePreference
+import com.bitchat.android.ui.theme.ThemePreferenceManager
 
 /**
  * About Sheet for bitchat app information
@@ -239,24 +241,24 @@ fun AboutSheet(
                                 .padding(horizontal = 24.dp)
                                 .padding(top = 24.dp, bottom = 8.dp)
                         )
-                        val themePref by com.bitchat.android.ui.theme.ThemePreferenceManager.themeFlow.collectAsState()
+                        val themePref by ThemePreferenceManager.themeFlow.collectAsState()
                         Row(
                             modifier = Modifier.padding(horizontal = 24.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             FilterChip(
                                 selected = themePref.isSystem,
-                                onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.System) },
+                                onClick = { ThemePreferenceManager.set(context, ThemePreference.System) },
                                 label = { Text("system", fontFamily = FontFamily.Monospace) }
                             )
                             FilterChip(
                                 selected = themePref.isLight,
-                                onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Light) },
+                                onClick = { ThemePreferenceManager.set(context, ThemePreference.Light) },
                                 label = { Text("light", fontFamily = FontFamily.Monospace) }
                             )
                             FilterChip(
                                 selected = themePref.isDark,
-                                onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Dark) },
+                                onClick = { ThemePreferenceManager.set(context, ThemePreference.Dark) },
                                 label = { Text("dark", fontFamily = FontFamily.Monospace) }
                             )
                         }
@@ -381,8 +383,8 @@ fun AboutSheet(
 
                     // Network (Tor) section
                     item(key = "network_section") {
-                        val torMode = remember { mutableStateOf(com.bitchat.android.net.TorPreferenceManager.get(context)) }
-                        val torStatus by com.bitchat.android.net.TorManager.statusFlow.collectAsState()
+                        val torMode = remember { mutableStateOf(TorPreferenceManager.get(context)) }
+                        val torStatus by TorManager.statusFlow.collectAsState()
                         Text(
                             text = "network",
                             style = MaterialTheme.typography.labelLarge,
@@ -397,18 +399,18 @@ fun AboutSheet(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 FilterChip(
-                                    selected = torMode.value == com.bitchat.android.net.TorMode.OFF,
+                                    selected = torMode.value == TorMode.OFF,
                                     onClick = {
-                                        torMode.value = com.bitchat.android.net.TorMode.OFF
-                                        com.bitchat.android.net.TorPreferenceManager.set(context, torMode.value)
+                                        torMode.value = TorMode.OFF
+                                        TorPreferenceManager.set(context, torMode.value)
                                     },
                                     label = { Text("tor off", fontFamily = FontFamily.Monospace) }
                                 )
                                 FilterChip(
-                                    selected = torMode.value == com.bitchat.android.net.TorMode.ON,
+                                    selected = torMode.value == TorMode.ON,
                                     onClick = {
-                                        torMode.value = com.bitchat.android.net.TorMode.ON
-                                        com.bitchat.android.net.TorPreferenceManager.set(context, torMode.value)
+                                        torMode.value = TorMode.ON
+                                        TorPreferenceManager.set(context, torMode.value)
                                     },
                                     label = {
                                         Row(
@@ -433,7 +435,7 @@ fun AboutSheet(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                             )
-                            if (torMode.value == com.bitchat.android.net.TorMode.ON) {
+                            if (torMode.value == TorMode.ON) {
                                 val statusText = if (torStatus.running) "Running" else "Stopped"
                                 // Debug status (temporary)
                                 Surface(
