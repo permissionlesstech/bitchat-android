@@ -1,9 +1,17 @@
-package com.bitchat.android.ui
+package com.bitchat.android.ui.shared.managers
 
+import android.util.Log
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.mesh.BluetoothMeshService
+import com.bitchat.android.mesh.PeerInfo
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
+import com.bitchat.android.nostr.Bech32
+import com.bitchat.android.nostr.GeohashAliasRegistry
+import com.bitchat.android.services.ConversationAliasResolver
+import com.bitchat.android.services.MessageRouter
+import com.bitchat.android.ui.screens.chat.ChatState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.util.Date
@@ -87,7 +95,7 @@ class MeshDelegateHandler(
             state.setIsConnected(peers.isNotEmpty())
             notificationManager.showActiveUserNotification(peers)
             // Flush router outbox for any peers that just connected (and their noiseHex aliases)
-            runCatching { com.bitchat.android.services.MessageRouter.tryGetInstance()?.onPeersUpdated(peers) }
+            runCatching { MessageRouter.tryGetInstance()?.onPeersUpdated(peers) }
 
             // Clean up channel members who disconnected
             channelManager.cleanupDisconnectedMembers(peers, getMyPeerID())
@@ -101,33 +109,33 @@ class MeshDelegateHandler(
                 if (isNostrAlias || isNoiseHex) {
                     // Reverse case: Nostr/offline chat is open, and peer may have come online on mesh.
                     // Resolve canonical target (prefer connected mesh peer if available)
-                    val canonical = com.bitchat.android.services.ConversationAliasResolver.resolveCanonicalPeerID(
+                    val canonical = ConversationAliasResolver.resolveCanonicalPeerID(
                         selectedPeerID = currentPeer,
                         connectedPeers = peers,
                         meshNoiseKeyForPeer = { pid -> getPeerInfo(pid)?.noisePublicKey },
                         meshHasPeer = { pid -> peers.contains(pid) },
                         nostrPubHexForAlias = { alias ->
                             // Use GeohashAliasRegistry for geohash aliases, but for mesh favorites, derive from favorites mapping
-                            if (com.bitchat.android.nostr.GeohashAliasRegistry.contains(alias)) {
-                                com.bitchat.android.nostr.GeohashAliasRegistry.get(alias)
+                            if (GeohashAliasRegistry.contains(alias)) {
+                                GeohashAliasRegistry.get(alias)
                             } else {
                                 // Best-effort: derive pub hex from favorites mapping for mesh nostr_ aliases
                                 val prefix = alias.removePrefix("nostr_")
-                                val favs = try { com.bitchat.android.favorites.FavoritesPersistenceService.shared.getOurFavorites() } catch (_: Exception) { emptyList() }
+                                val favs = try { FavoritesPersistenceService.shared.getOurFavorites() } catch (_: Exception) { emptyList() }
                                 favs.firstNotNullOfOrNull { rel ->
                                     rel.peerNostrPublicKey?.let { s ->
-                                        runCatching { com.bitchat.android.nostr.Bech32.decode(s) }.getOrNull()?.let { dec ->
+                                        runCatching { Bech32.decode(s) }.getOrNull()?.let { dec ->
                                             if (dec.first == "npub") dec.second.joinToString("") { b -> "%02x".format(b) } else null
                                         }
                                     }
                                 }?.takeIf { it.startsWith(prefix, ignoreCase = true) }
                             }
                         },
-                        findNoiseKeyForNostr = { key -> com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNoiseKey(key) }
+                        findNoiseKeyForNostr = { key -> FavoritesPersistenceService.shared.findNoiseKey(key) }
                     )
                     if (canonical != currentPeer) {
                         // Merge conversations and switch selection to the live mesh peer (or noiseHex)
-                        com.bitchat.android.services.ConversationAliasResolver.unifyChatsIntoPeer(state, canonical, listOf(currentPeer))
+                        ConversationAliasResolver.unifyChatsIntoPeer(state, canonical, listOf(currentPeer))
                         state.setSelectedPrivateChatPeer(canonical)
                     }
                 } else if (isMeshEphemeral && !peers.contains(currentPeer)) {
@@ -136,14 +144,14 @@ class MeshDelegateHandler(
                         val info = getPeerInfo(currentPeer)
                         val noiseKey = info?.noisePublicKey
                         if (noiseKey != null) {
-                            com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)
+                            FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)
                         } else null
                     } catch (_: Exception) { null }
 
                     if (favoriteRel?.isMutual == true) {
                         val noiseHex = favoriteRel.peerNoisePublicKey.joinToString("") { b -> "%02x".format(b) }
                         if (noiseHex != currentPeer) {
-                            com.bitchat.android.services.ConversationAliasResolver.unifyChatsIntoPeer(
+                            ConversationAliasResolver.unifyChatsIntoPeer(
                                 state = state,
                                 targetPeerID = noiseHex,
                                 keysToMerge = listOf(currentPeer)
@@ -165,10 +173,10 @@ class MeshDelegateHandler(
                     val noiseHex = noiseKey.joinToString("") { b -> "%02x".format(b) }
 
                     // Derive temp nostr key from favorites npub
-                    val npub = com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNostrPubkey(noiseKey)
+                    val npub = FavoritesPersistenceService.shared.findNostrPubkey(noiseKey)
                     val tempNostrKey: String? = try {
                         if (npub != null) {
-                            val (hrp, data) = com.bitchat.android.nostr.Bech32.decode(npub)
+                            val (hrp, data) = Bech32.decode(npub)
                             if (hrp == "npub") "nostr_${data.joinToString("") { b -> "%02x".format(b) }.take(16)}" else null
                         } else null
                     } catch (_: Exception) { null }
@@ -183,7 +191,7 @@ class MeshDelegateHandler(
      * Merge any chats stored under the given keys into the connected peer's chat entry.
      */
     private fun unifyChatsIntoPeer(targetPeerID: String, keysToMerge: List<String>) {
-        com.bitchat.android.services.ConversationAliasResolver.unifyChatsIntoPeer(state, targetPeerID, keysToMerge)
+        ConversationAliasResolver.unifyChatsIntoPeer(state, targetPeerID, keysToMerge)
     }
 
     override fun didReceiveChannelLeave(channel: String, fromPeer: String) {
@@ -229,7 +237,7 @@ class MeshDelegateHandler(
             val isMention = checkForMeshMention(message.content, currentNickname)
 
             if (isMention) {
-                android.util.Log.d("MeshDelegateHandler", "🔔 Triggering mesh mention notification from ${message.sender}")
+                Log.d("MeshDelegateHandler", "🔔 Triggering mesh mention notification from ${message.sender}")
 
                 notificationManager.showMeshMentionNotification(
                     senderNickname = message.sender,
@@ -238,7 +246,7 @@ class MeshDelegateHandler(
                 )
             }
         } catch (e: Exception) {
-            android.util.Log.e("MeshDelegateHandler", "Error checking mesh mentions: ${e.message}")
+            Log.e("MeshDelegateHandler", "Error checking mesh mentions: ${e.message}")
         }
     }
 
@@ -270,10 +278,10 @@ class MeshDelegateHandler(
         val shouldSendReadReceipt = !isAppInBackground && currentPrivateChatPeer == senderPeerID
         
         if (shouldSendReadReceipt) {
-            android.util.Log.d("MeshDelegateHandler", "Sending reactive read receipt for focused chat with $senderPeerID")
+            Log.d("MeshDelegateHandler", "Sending reactive read receipt for focused chat with $senderPeerID")
             privateChatManager.sendReadReceiptsForPeer(senderPeerID, getMeshService())
         } else {
-            android.util.Log.d("MeshDelegateHandler", "Skipping read receipt - chat not focused (background: $isAppInBackground, current peer: $currentPrivateChatPeer, sender: $senderPeerID)")
+            Log.d("MeshDelegateHandler", "Skipping read receipt - chat not focused (background: $isAppInBackground, current peer: $currentPrivateChatPeer, sender: $senderPeerID)")
         }
     }
     
@@ -282,7 +290,7 @@ class MeshDelegateHandler(
     /**
      * Expose mesh peer info for components that need to resolve identities (e.g., Nostr mapping)
      */
-    fun getPeerInfo(peerID: String): com.bitchat.android.mesh.PeerInfo? {
+    fun getPeerInfo(peerID: String): PeerInfo? {
         return getMeshService().getPeerInfo(peerID)
     }
 }

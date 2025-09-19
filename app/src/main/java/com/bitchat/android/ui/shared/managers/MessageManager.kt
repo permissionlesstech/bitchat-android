@@ -1,7 +1,9 @@
-package com.bitchat.android.ui
+package com.bitchat.android.ui.shared.managers
 
+import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
+import com.bitchat.android.ui.screens.chat.ChatState
 import java.util.*
 import java.util.Collections
 
@@ -59,7 +61,7 @@ class MessageManager(private val state: ChatState) {
             if (channel.startsWith("geo:")) {
                 val geo = channel.removePrefix("geo:")
                 val selected = state.selectedLocationChannel.value
-                selected is com.bitchat.android.geohash.ChannelID.Location && selected.channel.geohash.equals(geo, ignoreCase = true)
+                selected is ChannelID.Location && selected.channel.geohash.equals(geo, ignoreCase = true)
             } else false
         } catch (_: Exception) { false }
 

@@ -1,15 +1,22 @@
-package com.bitchat.android.ui
+package com.bitchat.android.ui.shared.components
 
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
+import com.bitchat.android.mesh.BluetoothMeshService
+import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.ui.screens.chat.utils.formatMessageAsAnnotatedString
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Locale
 import kotlin.random.Random
 
 /**
@@ -73,13 +80,13 @@ object PoWMiningTracker {
  */
 @Composable
 fun MessageWithMatrixAnimation(
-    message: com.bitchat.android.model.BitchatMessage,
+    message: BitchatMessage,
     currentUserNickname: String,
-    meshService: com.bitchat.android.mesh.BluetoothMeshService,
-    colorScheme: androidx.compose.material3.ColorScheme,
-    timeFormatter: java.text.SimpleDateFormat,
+    meshService: BluetoothMeshService,
+    colorScheme: ColorScheme,
+    timeFormatter: SimpleDateFormat,
     onNicknameClick: ((String) -> Unit)?,
-    onMessageLongPress: ((com.bitchat.android.model.BitchatMessage) -> Unit)?,
+    onMessageLongPress: ((BitchatMessage) -> Unit)?,
     modifier: Modifier = Modifier
 ) {
     val isAnimating = shouldAnimateMessage(message.id)
@@ -119,11 +126,11 @@ fun MessageWithMatrixAnimation(
  */
 @Composable
 private fun AnimatedMessageDisplay(
-    message: com.bitchat.android.model.BitchatMessage,
+    message: BitchatMessage,
     currentUserNickname: String,
-    meshService: com.bitchat.android.mesh.BluetoothMeshService,
-    colorScheme: androidx.compose.material3.ColorScheme,
-    timeFormatter: java.text.SimpleDateFormat,
+    meshService: BluetoothMeshService,
+    colorScheme: ColorScheme,
+    timeFormatter: SimpleDateFormat,
     modifier: Modifier = Modifier
 ) {
     // Get the animated content text
@@ -223,8 +230,8 @@ private fun AnimatedMessageDisplay(
         modifier = modifier,
         fontFamily = FontFamily.Monospace,
         softWrap = true,
-        overflow = androidx.compose.ui.text.style.TextOverflow.Visible,
-        style = androidx.compose.ui.text.TextStyle(
+        overflow = TextOverflow.Visible,
+        style = TextStyle(
             color = colorScheme.onSurface
         )
     )
@@ -236,13 +243,13 @@ private fun AnimatedMessageDisplay(
  * Identical to formatMessageAsAnnotatedString but excludes timestamp and PoW badge
  */
 private fun formatMessageAsAnnotatedStringWithoutTimestamp(
-    message: com.bitchat.android.model.BitchatMessage,
+    message: BitchatMessage,
     currentUserNickname: String,
-    meshService: com.bitchat.android.mesh.BluetoothMeshService,
-    colorScheme: androidx.compose.material3.ColorScheme
+    meshService: BluetoothMeshService,
+    colorScheme: ColorScheme
 ): AnnotatedString {
     // Get the full formatted text first
-    val timeFormatter = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
+    val timeFormatter = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
     val fullText = formatMessageAsAnnotatedString(
         message = message,
         currentUserNickname = currentUserNickname,

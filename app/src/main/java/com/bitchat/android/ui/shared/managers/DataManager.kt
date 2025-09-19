@@ -1,4 +1,4 @@
-package com.bitchat.android.ui
+package com.bitchat.android.ui.shared.managers
 
 import android.content.Context
 import android.content.SharedPreferences

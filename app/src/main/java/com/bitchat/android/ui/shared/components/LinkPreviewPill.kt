@@ -1,4 +1,4 @@
-package com.bitchat.android.ui
+package com.bitchat.android.ui.shared.components
 
 import android.content.Intent
 import android.net.Uri

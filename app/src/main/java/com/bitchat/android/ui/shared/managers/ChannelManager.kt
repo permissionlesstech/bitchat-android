@@ -1,13 +1,13 @@
-package com.bitchat.android.ui
+package com.bitchat.android.ui.shared.managers
 
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
-import java.security.MessageDigest
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 import com.bitchat.android.model.BitchatMessage
-import java.util.*
+import com.bitchat.android.ui.screens.chat.ChatState
+import javax.crypto.SecretKeyFactory
+import javax.crypto.spec.PBEKeySpec
 
 /**
  * Handles channel management including creation, joining, leaving, and encryption
@@ -125,8 +125,8 @@ class ChannelManager(
     
     private fun deriveChannelKey(password: String, channelName: String): SecretKeySpec {
         // PBKDF2 key derivation (same as iOS version)
-        val factory = javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
-        val spec = javax.crypto.spec.PBEKeySpec(
+        val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
+        val spec = PBEKeySpec(
             password.toCharArray(),
             channelName.toByteArray(),
             100000, // 100,000 iterations (same as iOS)

@@ -1,6 +1,5 @@
-package com.bitchat.android.ui
+package com.bitchat.android.ui.shared.utils
 
-import androidx.compose.ui.text.AnnotatedString
 import android.util.Patterns
 
 /**

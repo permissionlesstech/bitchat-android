@@ -1,7 +1,14 @@
-package com.bitchat.android.ui
+package com.bitchat.android.ui.shared.utils
 
+import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.ui.screens.chat.ChatState
+import com.bitchat.android.ui.screens.chat.ChatViewModel
+import com.bitchat.android.ui.screens.chat.CommandSuggestion
+import com.bitchat.android.ui.shared.managers.ChannelManager
+import com.bitchat.android.ui.shared.managers.MessageManager
+import com.bitchat.android.ui.shared.managers.PrivateChatManager
 import java.util.Date
 
 /**
@@ -133,7 +140,7 @@ class CommandProcessor(
         // Channel-aware who command (matches iOS behavior)
         val (peerList, contextDescription) = if (viewModel != null) {
             when (val selectedChannel = viewModel.selectedLocationChannel.value) {
-                is com.bitchat.android.geohash.ChannelID.Mesh,
+                is ChannelID.Mesh,
                 null -> {
                     // Mesh channel: show Bluetooth-connected peers
                     val connectedPeers = state.getConnectedPeersValue()
@@ -143,7 +150,7 @@ class CommandProcessor(
                     Pair(peerList, "online users")
                 }
                 
-                is com.bitchat.android.geohash.ChannelID.Location -> {
+                is ChannelID.Location -> {
                     // Location channel: show geohash participants
                     val geohashPeople = viewModel.geohashPeople.value ?: emptyList()
                     val currentNickname = state.getNicknameValue()
@@ -294,7 +301,7 @@ class CommandProcessor(
 
             // If we're in a geohash location channel, don't add a local echo here.
             // GeohashViewModel.sendGeohashMessage() will add the local echo with proper metadata.
-            val isInLocationChannel = state.selectedLocationChannel.value is com.bitchat.android.geohash.ChannelID.Location
+            val isInLocationChannel = state.selectedLocationChannel.value is ChannelID.Location
 
             // Send as regular message
             if (state.getSelectedPrivateChatPeerValue() != null) {
@@ -397,7 +404,12 @@ class CommandProcessor(
             listOf(
                 CommandSuggestion("/pass", emptyList(), "[password]", "change channel password"),
                 CommandSuggestion("/save", emptyList(), null, "save channel messages locally"),
-                CommandSuggestion("/transfer", emptyList(), "<nickname>", "transfer channel ownership")
+                CommandSuggestion(
+                    "/transfer",
+                    emptyList(),
+                    "<nickname>",
+                    "transfer channel ownership"
+                )
             )
         } else {
             emptyList()
@@ -445,13 +457,13 @@ class CommandProcessor(
         // Get peer candidates based on active channel (matches iOS logic exactly)
         val peerCandidates: List<String> = if (viewModel != null) {
             when (val selectedChannel = viewModel.selectedLocationChannel.value) {
-                is com.bitchat.android.geohash.ChannelID.Mesh,
+                is ChannelID.Mesh,
                 null -> {
                     // Mesh channel: use Bluetooth mesh peer nicknames
                     meshService.getPeerNicknames().values.filter { it != meshService.getPeerNicknames()[meshService.myPeerID] }
                 }
                 
-                is com.bitchat.android.geohash.ChannelID.Location -> {
+                is ChannelID.Location -> {
                     // Location channel: use geohash participants with collision-resistant suffixes
                     val geohashPeople = viewModel.geohashPeople.value ?: emptyList()
                     val currentNickname = state.getNicknameValue()
