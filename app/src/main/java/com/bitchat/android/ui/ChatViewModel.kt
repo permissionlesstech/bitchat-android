@@ -34,371 +34,37 @@ class ChatViewModel(
         private const val TAG = "ChatViewModel"
     }
 
-    // Track in-flight transfer progress: transferId -> messageId and reverse
-    private val transferMessageMap = mutableMapOf<String, String>()
-    private val messageTransferMap = mutableMapOf<String, String>()
-
     fun sendVoiceNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
-        try {
-            val file = java.io.File(filePath)
-            if (!file.exists()) {
-                Log.e(TAG, "❌ File does not exist: $filePath")
-                return
-            }
-            Log.d(TAG, "📁 File exists: size=${file.length()} bytes, name=${file.name}")
-            
-            // Check reasonable file size limits
-            val maxFileSize = 50 * 1024 * 1024 // 50MB limit
-            if (file.length() > maxFileSize) {
-                Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: $maxFileSize)")
-                return
-            }
-            if (toPeerIDOrNull != null) {
-                // BLE private
-                val filePacket = com.bitchat.android.model.BitchatFilePacket(
-                    fileName = file.name,
-                    fileSize = file.length(),
-                    mimeType = "audio/mp4",
-                    content = file.readBytes()
-                )
-                val payload = filePacket.encode()
-                if (payload == null) {
-                    Log.e(TAG, "❌ Failed to encode file packet for private send")
-                    return
-                }
-                Log.d(TAG, "🔒 Encoded private packet: ${payload.size} bytes")
-                val transferId = sha256Hex(payload)
-                val contentHash = sha256Hex(filePacket.content)
-                if (toPeerIDOrNull != null) {
-                    Log.d(TAG, "📤 FILE_TRANSFER send (private): name='${file.name}', size=${file.length()}, mime='image/jpeg', sha256=$contentHash, to=${toPeerIDOrNull.take(8)} transferId=${transferId.take(16)}…")
-                } else {
-                    Log.d(TAG, "📤 FILE_TRANSFER send (broadcast): name='${file.name}', size=${file.length()}, mime='image/jpeg', sha256=$contentHash, transferId=${transferId.take(16)}…")
-                }
-
-                // Pre-insert message and map transferId (deterministic ID for ACK/receipts)
-                val deterministicId = "file_" + contentHash
-                val msg = BitchatMessage(
-                    id = deterministicId,
-                    sender = state.getNicknameValue() ?: "me",
-                    content = filePath,
-                    type = BitchatMessageType.Audio,
-                    timestamp = Date(),
-                    isRelay = false,
-                    isPrivate = true,
-                    recipientNickname = try { meshService.getPeerNicknames()[toPeerIDOrNull] } catch (_: Exception) { null },
-                    senderPeerID = meshService.myPeerID
-                )
-                messageManager.addPrivateMessage(toPeerIDOrNull, msg)
-                synchronized(transferMessageMap) {
-                    transferMessageMap[transferId] = msg.id
-                    messageTransferMap[msg.id] = transferId
-                }
-                // Seed progress so delivery icons render for media
-                messageManager.updateMessageDeliveryStatus(
-                    msg.id,
-                    com.bitchat.android.model.DeliveryStatus.PartiallyDelivered(0, 100)
-                )
-                // Kick off send
-                Log.d(TAG, "📤 Calling meshService.sendFilePrivate to $toPeerIDOrNull")
-                meshService.sendFilePrivate(toPeerIDOrNull, filePacket)
-                Log.d(TAG, "✅ File send completed successfully")
-            } else {
-                // BLE broadcast (public mesh/channel)
-                val filePacket = com.bitchat.android.model.BitchatFilePacket(
-                    fileName = file.name,
-                    fileSize = file.length(),
-                    mimeType = "audio/mp4",
-                    content = file.readBytes()
-                )
-                val payload = filePacket.encode()
-                if (payload == null) {
-                    Log.e(TAG, "❌ Failed to encode file packet for private send")
-                    return
-                }
-                Log.d(TAG, "🔒 Encoded private packet: ${payload.size} bytes")
-                val transferId = sha256Hex(payload)
-                val contentHash = sha256Hex(filePacket.content)
-                Log.d(TAG, "📤 FILE_TRANSFER send (broadcast): name='${file.name}', size=${file.length()}, mime='audio/mp4', sha256=$contentHash, transferId=${transferId.take(16)}…")
-                val message = BitchatMessage(
-                    sender = state.getNicknameValue() ?: meshService.myPeerID,
-                    content = filePath,
-                    type = BitchatMessageType.Audio,
-                    timestamp = Date(),
-                    isRelay = false,
-                    senderPeerID = meshService.myPeerID,
-                    channel = channelOrNull
-                )
-                if (!channelOrNull.isNullOrBlank()) {
-                    // Note: Channel association is local-only in current design
-                    channelManager.addChannelMessage(channelOrNull, message, meshService.myPeerID)
-                } else {
-                    messageManager.addMessage(message)
-                }
-                synchronized(transferMessageMap) {
-                    transferMessageMap[transferId] = message.id
-                    messageTransferMap[message.id] = transferId
-                }
-                Log.d(TAG, "📤 Calling meshService.sendFileBroadcast")
-                meshService.sendFileBroadcast(filePacket)
-                Log.d(TAG, "✅ File broadcast completed successfully")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to send voice note: ${e.message}")
-        }
+        mediaSendingManager.sendVoiceNote(toPeerIDOrNull, channelOrNull, filePath)
     }
 
     fun sendFileNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
-        try {
-            Log.d(TAG, "🔄 Starting file send: $filePath")
-            val file = java.io.File(filePath)
-            if (!file.exists()) {
-                Log.e(TAG, "❌ File does not exist: $filePath")
-                return
-            }
-            Log.d(TAG, "📁 File exists: size=${file.length()} bytes, name=${file.name}")
-            
-            // Check reasonable file size limits
-            val maxFileSize = 50 * 1024 * 1024 // 50MB limit
-            if (file.length() > maxFileSize) {
-                Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: $maxFileSize)")
-                return
-            }
-            // Use the real MIME type based on extension; fallback to octet-stream
-            val mimeType = try { com.bitchat.android.features.file.FileUtils.getMimeTypeFromExtension(file.name) } catch (_: Exception) { "application/octet-stream" }
-            Log.d(TAG, "🏷️ MIME type: $mimeType")
-            // Try to preserve the original file name if our copier prefixed it earlier
-            val originalName = run {
-                val name = file.name
-                val base = name.substringBeforeLast('.')
-                val ext = name.substringAfterLast('.', "").let { if (it.isNotBlank()) ".${it}" else "" }
-                val stripped = Regex("^send_\\d+_(.+)$").matchEntire(base)?.groupValues?.getOrNull(1) ?: base
-                stripped + ext
-            }
-            Log.d(TAG, "📝 Original filename: $originalName")
-            val filePacket = com.bitchat.android.model.BitchatFilePacket(
-                fileName = originalName,
-                fileSize = file.length(),
-                mimeType = mimeType,
-                content = file.readBytes()
-            )
-            Log.d(TAG, "📦 Created file packet successfully")
-
-            if (toPeerIDOrNull != null) {
-                // BLE private file
-                val payload = filePacket.encode()
-                if (payload == null) {
-                    Log.e(TAG, "❌ Failed to encode file packet for private send")
-                    return
-                }
-                Log.d(TAG, "🔒 Encoded private packet: ${payload.size} bytes")
-                val transferId = sha256Hex(payload)
-                // Deterministic message ID shared with receiver (content hash)
-                val fileMessageID = "file_" + sha256Hex(filePacket.content)
-                
-                val msg = BitchatMessage(
-                    id = fileMessageID,
-                    sender = state.getNicknameValue() ?: "me",
-                    content = filePath,
-                    type = when {
-                        mimeType.lowercase().startsWith("image/") -> BitchatMessageType.Image
-                        mimeType.lowercase().startsWith("audio/") -> BitchatMessageType.Audio
-                        else -> BitchatMessageType.File
-                    },
-                    timestamp = java.util.Date(),
-                    isRelay = false,
-                    isPrivate = true,
-                    recipientNickname = try { meshService.getPeerNicknames()[toPeerIDOrNull] } catch (_: Exception) { null },
-                    senderPeerID = meshService.myPeerID
-                )
-                messageManager.addPrivateMessage(toPeerIDOrNull, msg)
-                synchronized(transferMessageMap) {
-                    transferMessageMap[transferId] = msg.id
-                    messageTransferMap[msg.id] = transferId
-                }
-                // Ensure UI shows in-flight animation immediately for all file types
-                messageManager.updateMessageDeliveryStatus(
-                    msg.id,
-                    com.bitchat.android.model.DeliveryStatus.PartiallyDelivered(0, 100)
-                )
-                Log.d(TAG, "📤 Calling meshService.sendFilePrivate to $toPeerIDOrNull")
-                meshService.sendFilePrivate(toPeerIDOrNull, filePacket)
-                Log.d(TAG, "✅ File send completed successfully")
-            } else {
-                // BLE broadcast (public mesh/channel) file
-                val payload = filePacket.encode()
-                if (payload == null) {
-                    Log.e(TAG, "❌ Failed to encode file packet for private send")
-                    return
-                }
-                Log.d(TAG, "🔒 Encoded private packet: ${payload.size} bytes")
-                val transferId = sha256Hex(payload)
-                val message = BitchatMessage(
-                    sender = state.getNicknameValue() ?: meshService.myPeerID,
-                    content = filePath,
-                    type = when {
-                        mimeType.lowercase().startsWith("image/") -> BitchatMessageType.Image
-                        mimeType.lowercase().startsWith("audio/") -> BitchatMessageType.Audio
-                        else -> BitchatMessageType.File
-                    },
-                    timestamp = java.util.Date(),
-                    isRelay = false,
-                    isPrivate = false,
-                    senderPeerID = meshService.myPeerID
-                )
-                if (!channelOrNull.isNullOrBlank()) {
-                    channelManager.addChannelMessage(channelOrNull, message, meshService.myPeerID)
-                } else {
-                    messageManager.addMessage(message)
-                }
-                synchronized(transferMessageMap) {
-                    transferMessageMap[transferId] = message.id
-                    messageTransferMap[message.id] = transferId
-                }
-                // Ensure UI shows in-flight animation immediately for all file types
-                messageManager.updateMessageDeliveryStatus(
-                    message.id,
-                    com.bitchat.android.model.DeliveryStatus.PartiallyDelivered(0, 100)
-                )
-                Log.d(TAG, "📤 Calling meshService.sendFileBroadcast")
-                meshService.sendFileBroadcast(filePacket)
-                Log.d(TAG, "✅ File broadcast completed successfully")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ CRITICAL: File send failed completely", e)
-            Log.e(TAG, "❌ File path: $filePath")
-            Log.e(TAG, "❌ Error details: ${e.message}")
-            Log.e(TAG, "❌ Error type: ${e.javaClass.simpleName}")
-        }
+        mediaSendingManager.sendFileNote(toPeerIDOrNull, channelOrNull, filePath)
     }
 
     fun sendImageNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
-        try {
-            Log.d(TAG, "🔄 Starting image send: $filePath")
-            val file = java.io.File(filePath)
-            if (!file.exists()) {
-                Log.e(TAG, "❌ File does not exist: $filePath")
-                return
-            }
-            Log.d(TAG, "📁 File exists: size=${file.length()} bytes, name=${file.name}")
-            
-            // Check reasonable file size limits
-            val maxFileSize = 50 * 1024 * 1024 // 50MB limit
-            if (file.length() > maxFileSize) {
-                Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: $maxFileSize)")
-                return
-            }
-            val mime = "image/jpeg"
-            if (toPeerIDOrNull != null) {
-                // BLE private image
-                val filePacket = com.bitchat.android.model.BitchatFilePacket(
-                    fileName = file.name,
-                    fileSize = file.length(),
-                    mimeType = mime,
-                    content = file.readBytes()
-                )
-                val payload = filePacket.encode()
-                if (payload == null) {
-                    Log.e(TAG, "❌ Failed to encode file packet for private send")
-                    return
-                }
-                Log.d(TAG, "🔒 Encoded private packet: ${payload.size} bytes")
-                val transferId = sha256Hex(payload)
-                val deterministicId = "file_" + sha256Hex(filePacket.content)
-                val msg = BitchatMessage(
-                    id = deterministicId,
-                    sender = state.getNicknameValue() ?: "me",
-                    content = filePath,
-                    type = BitchatMessageType.Image,
-                    timestamp = Date(),
-                    isRelay = false,
-                    isPrivate = true,
-                    recipientNickname = try { meshService.getPeerNicknames()[toPeerIDOrNull] } catch (_: Exception) { null },
-                    senderPeerID = meshService.myPeerID
-                )
-                messageManager.addPrivateMessage(toPeerIDOrNull, msg)
-                synchronized(transferMessageMap) {
-                    transferMessageMap[transferId] = msg.id
-                    messageTransferMap[msg.id] = transferId
-                }
-                // Seed progress so delivery icons render for media
-                messageManager.updateMessageDeliveryStatus(
-                    msg.id,
-                    com.bitchat.android.model.DeliveryStatus.PartiallyDelivered(0, 100)
-                )
-                Log.d(TAG, "📤 Calling meshService.sendFilePrivate to $toPeerIDOrNull")
-                meshService.sendFilePrivate(toPeerIDOrNull, filePacket)
-                Log.d(TAG, "✅ File send completed successfully")
-            } else {
-                // BLE broadcast (public mesh/channel) image
-                val filePacket = com.bitchat.android.model.BitchatFilePacket(
-                    fileName = file.name,
-                    fileSize = file.length(),
-                    mimeType = mime,
-                    content = file.readBytes()
-                )
-                val payload = filePacket.encode()
-                if (payload == null) {
-                    Log.e(TAG, "❌ Failed to encode file packet for private send")
-                    return
-                }
-                Log.d(TAG, "🔒 Encoded private packet: ${payload.size} bytes")
-                val transferId = sha256Hex(payload)
-                val message = BitchatMessage(
-                    sender = state.getNicknameValue() ?: meshService.myPeerID,
-                    content = filePath,
-                    type = BitchatMessageType.Image,
-                    timestamp = Date(),
-                    isRelay = false,
-                    senderPeerID = meshService.myPeerID,
-                    channel = channelOrNull
-                )
-                if (!channelOrNull.isNullOrBlank()) {
-                    channelManager.addChannelMessage(channelOrNull, message, meshService.myPeerID)
-                } else {
-                    messageManager.addMessage(message)
-                }
-                synchronized(transferMessageMap) {
-                    transferMessageMap[transferId] = message.id
-                    messageTransferMap[message.id] = transferId
-                }
-                // Seed progress so the block‑reveal animation starts immediately
-                messageManager.updateMessageDeliveryStatus(
-                    message.id,
-                    com.bitchat.android.model.DeliveryStatus.PartiallyDelivered(0, 100)
-                )
-                Log.d(TAG, "📤 Calling meshService.sendFileBroadcast")
-                meshService.sendFileBroadcast(filePacket)
-                Log.d(TAG, "✅ File broadcast completed successfully")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ CRITICAL: Image send failed completely", e)
-            Log.e(TAG, "❌ Image path: $filePath")
-            Log.e(TAG, "❌ Error details: ${e.message}")
-            Log.e(TAG, "❌ Error type: ${e.javaClass.simpleName}")
-        }
+        mediaSendingManager.sendImageNote(toPeerIDOrNull, channelOrNull, filePath)
     }
 
-    private fun sha256Hex(bytes: ByteArray): String = try {
-        val md = java.security.MessageDigest.getInstance("SHA-256")
-        md.update(bytes)
-        md.digest().joinToString("") { "%02x".format(it) }
-    } catch (_: Exception) { bytes.size.toString(16) }
-
-    // State management
+    // MARK: - State management
     private val state = ChatState()
-    
+
+    // Transfer progress tracking
+    private val transferMessageMap = mutableMapOf<String, String>()
+    private val messageTransferMap = mutableMapOf<String, String>()
+
     // Specialized managers
     private val dataManager = DataManager(application.applicationContext)
     private val messageManager = MessageManager(state)
     private val channelManager = ChannelManager(state, messageManager, dataManager, viewModelScope)
-    
+
     // Create Noise session delegate for clean dependency injection
     private val noiseSessionDelegate = object : NoiseSessionDelegate {
         override fun hasEstablishedSession(peerID: String): Boolean = meshService.hasEstablishedSession(peerID)
-        override fun initiateHandshake(peerID: String) = meshService.initiateNoiseHandshake(peerID) 
+        override fun initiateHandshake(peerID: String) = meshService.initiateNoiseHandshake(peerID)
         override fun getMyPeerID(): String = meshService.myPeerID
     }
-    
+
     val privateChatManager = PrivateChatManager(state, messageManager, dataManager, noiseSessionDelegate)
     private val commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager)
     private val notificationManager = NotificationManager(
@@ -406,6 +72,9 @@ class ChatViewModel(
       NotificationManagerCompat.from(application.applicationContext),
       NotificationIntervalManager()
     )
+
+    // Media file sending manager
+    private val mediaSendingManager = MediaSendingManager(state, messageManager, channelManager, meshService)
     
     // Delegate handler for mesh callbacks
     private val meshDelegateHandler = MeshDelegateHandler(
@@ -475,24 +144,7 @@ class ChatViewModel(
         // Subscribe to BLE transfer progress and reflect in message deliveryStatus
         viewModelScope.launch {
             com.bitchat.android.mesh.TransferProgressManager.events.collect { evt ->
-                val msgId = synchronized(transferMessageMap) { transferMessageMap[evt.transferId] }
-                if (msgId != null) {
-                    if (evt.completed) {
-                        messageManager.updateMessageDeliveryStatus(
-                            msgId,
-                            com.bitchat.android.model.DeliveryStatus.Delivered(to = "mesh", at = java.util.Date())
-                        )
-                        synchronized(transferMessageMap) {
-                            val msgIdRemoved = transferMessageMap.remove(evt.transferId)
-                            if (msgIdRemoved != null) messageTransferMap.remove(msgIdRemoved)
-                        }
-                    } else {
-                        messageManager.updateMessageDeliveryStatus(
-                            msgId,
-                            com.bitchat.android.model.DeliveryStatus.PartiallyDelivered(evt.sent, evt.total)
-                        )
-                    }
-                }
+                mediaSendingManager.handleTransferProgressEvent(evt)
             }
         }
     }
@@ -1288,31 +940,6 @@ class ChatViewModel(
 
     /**
      * Get consistent color for a mesh peer by ID (iOS-compatible)
-    // Track transfer progress: transferId -> messageId
-    private val transferMessageMap = mutableMapOf<String, String>()
-
-    init {
-        // Subscribe to BLE transfer progress and update message delivery status
-        viewModelScope.launch {
-            com.bitchat.android.mesh.TransferProgressManager.events.collect { evt ->
-                val msgId = synchronized(transferMessageMap) { transferMessageMap[evt.transferId] }
-                if (msgId != null) {
-                    if (evt.completed) {
-                        messageManager.updateMessageDeliveryStatus(
-                            msgId,
-                            com.bitchat.android.model.DeliveryStatus.Delivered(to = "mesh", at = java.util.Date())
-                        )
-                        synchronized(transferMessageMap) { transferMessageMap.remove(evt.transferId) }
-                    } else {
-                        messageManager.updateMessageDeliveryStatus(
-                            msgId,
-                            com.bitchat.android.model.DeliveryStatus.PartiallyDelivered(evt.sent, evt.total)
-                        )
-                    }
-                }
-            }
-        }
-    }
      */
     fun colorForMeshPeer(peerID: String, isDark: Boolean): androidx.compose.ui.graphics.Color {
         // Try to get stable Noise key, fallback to peer ID
