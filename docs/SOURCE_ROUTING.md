@@ -30,7 +30,7 @@ Unknown flags are ignored by older implementations (they will simply not see a r
 ## Sender Behavior
 
 - Applicability: Intended for addressed packets (i.e., where `recipientID` is set and is not the broadcast ID). For broadcast packets, omit the route.
-- Path computation: Use Dijkstra’s shortest path (unit weights) on your internal mesh topology to find a route from `src` (your peerID) to `dst` (recipient peerID). The hop list SHOULD include the full path `[src, ..., dst]`.
+- Path computation: Use Dijkstra’s shortest path (unit weights) on your internal mesh topology to find a route from the sender (your peerID) to the recipient (the destination peerID). The `BitchatPacket` already contains dedicated `senderID` and `recipientID` fields. The `Route` field's `hops` list **SHOULD** contain the sequence of intermediate peer IDs that the packet should traverse. It **SHOULD NOT** duplicate the `senderID` or `recipientID` if they are already present in the `BitchatPacket`'s dedicated fields. Instead, the `hops` list represents the explicit path *between* the sender and recipient, starting from the first relay and ending with the last relay before the recipient.
 - Encoding: Set `HAS_ROUTE`, write `count = path.length`, then the 8‑byte hop IDs in order. Keep `count <= 255`.
 - Signing: The route is covered by the Ed25519 signature (recommended):
   - Signature input is the canonical encoding with `signature` omitted and `ttl = 0` (TTL excluded to allow relay decrement) — same rule as base protocol.
@@ -64,11 +64,11 @@ TTL handling remains unchanged: relays decrement TTL by 1 before forwarding (whe
 - Variable sections (ordered):
   - `SenderID(8)`
   - `RecipientID(8)` (if present)
-  - `HAS_ROUTE` set → `count=3`, `hops = [H0 H1 H2]` where each `Hk` is 8 bytes
+  - `HAS_ROUTE` set → `count=1`, `hops = [H1]` where `H1` is 8 bytes
   - Payload (optionally compressed)
   - Signature (64)
 
-Where `H0` is the sender’s peer ID, `H2` is the recipient’s peer ID, and `H1` is an intermediate relay. The receiver verifies the signature over the packet encoding (with `ttl = 0` and `signature` omitted), which includes the `hops` when `HAS_ROUTE` is set.
+In this example, `SENDER_ID` is the sender, `RECIPIENT_ID` is the final recipient, and `H1` is the single intermediate relay. The `hops` list explicitly defines the path *between* the sender and recipient. The receiver verifies the signature over the packet encoding (with `ttl = 0` and `signature` omitted), which includes the `hops` when `HAS_ROUTE` is set.
 
 ## Operational Notes
 
