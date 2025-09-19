@@ -262,15 +262,16 @@ fun MessageInput(
             val latestChannel = rememberUpdatedState(currentChannel)
             val latestOnSendVoiceNote = rememberUpdatedState(onSendVoiceNote)
 
-            // Plus button (image picker) - hide during recording
+            // Image button (image picker) - hide during recording
             if (!isRecording) {
                 // Revert to original separate buttons: round File button (left) and the old Image plus button (right)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    FilePickerButton(
-                        onFileReady = { path ->
-                            onSendFileNote(latestSelectedPeer.value, latestChannel.value, path)
-                        }
-                    )
+                    // DISABLE FILE PICKER
+//                    FilePickerButton(
+//                        onFileReady = { path ->
+//                            onSendFileNote(latestSelectedPeer.value, latestChannel.value, path)
+//                        }
+//                    )
                     ImagePickerButton(
                         onImageReady = { outPath ->
                             onSendImageNote(latestSelectedPeer.value, latestChannel.value, outPath)
@@ -279,7 +280,7 @@ fun MessageInput(
                 }
             }
 
-            Spacer(Modifier.width(4.dp))
+            Spacer(Modifier.width(1.dp))
 
             VoiceRecordButton(
                 backgroundColor = bg,
