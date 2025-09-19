@@ -1,4 +1,4 @@
-package com.bitchat.android.ui
+package com.bitchat.android.ui.screens.geohash.components
 
 import android.util.Log
 import androidx.compose.foundation.*
@@ -20,6 +20,11 @@ import androidx.compose.ui.unit.sp
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import java.util.*
 import androidx.compose.ui.text.style.TextOverflow
+import com.bitchat.android.geohash.ChannelID
+import com.bitchat.android.nostr.NostrIdentityBridge
+import com.bitchat.android.ui.screens.chat.ChatViewModel
+import com.bitchat.android.ui.screens.chat.utils.splitSuffix
+import com.bitchat.android.ui.screens.chat.utils.truncateNickname
 
 /**
  * GeohashPeopleList - iOS-compatible component for displaying geohash participants
@@ -90,9 +95,9 @@ fun GeohashPeopleList(
             // Get current geohash identity for "me" detection
             val myHex = remember(selectedLocationChannel) {
                 when (val channel = selectedLocationChannel) {
-                    is com.bitchat.android.geohash.ChannelID.Location -> {
+                    is ChannelID.Location -> {
                         try {
-                            val identity = com.bitchat.android.nostr.NostrIdentityBridge.deriveIdentity(
+                            val identity = NostrIdentityBridge.deriveIdentity(
                                 forGeohash = channel.channel.geohash,
                                 context = viewModel.getApplication()
                             )
@@ -121,7 +126,7 @@ fun GeohashPeopleList(
             val baseNameCounts = remember(geohashPeople) {
                 val counts = mutableMapOf<String, Int>()
                 geohashPeople.forEach { person ->
-                    val (b, _) = com.bitchat.android.ui.splitSuffix(person.displayName)
+                    val (b, _) = splitSuffix(person.displayName)
                     counts[b] = (counts[b] ?: 0) + 1
                 }
                 counts
@@ -140,7 +145,7 @@ fun GeohashPeopleList(
                     nickname = nickname,
                     colorScheme = colorScheme,
                     viewModel = viewModel,
-                    showHashSuffix = (baseNameCounts[com.bitchat.android.ui.splitSuffix(person.displayName).first] ?: 0) > 1,
+                    showHashSuffix = (baseNameCounts[splitSuffix(person.displayName).first] ?: 0) > 1,
                     onTap = {
                         if (person.id != myHex) {
                             // TODO: Re-enable when NIP-17 geohash DM issues are fixed
@@ -212,7 +217,7 @@ private fun GeohashPersonItem(
         Spacer(modifier = Modifier.width(8.dp))
         
         // Display name with suffix handling
-        val (baseNameRaw, suffixRaw) = com.bitchat.android.ui.splitSuffix(person.displayName)
+        val (baseNameRaw, suffixRaw) = splitSuffix(person.displayName)
         val baseName = truncateNickname(baseNameRaw)
         val suffix = if (showHashSuffix) suffixRaw else ""
         

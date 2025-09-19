@@ -1,4 +1,4 @@
-package com.bitchat.android.ui.debug
+package com.bitchat.android.ui.screens.debug
 
 import android.content.Context
 import android.content.SharedPreferences

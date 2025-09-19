@@ -1,15 +1,14 @@
-package com.bitchat.android.ui.debug
+package com.bitchat.android.ui.screens.debug
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.SettingsEthernet
@@ -23,7 +22,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import com.bitchat.android.mesh.BluetoothMeshService
+import com.bitchat.android.sync.GCSFilter
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -64,7 +67,7 @@ fun DebugSettingsSheet(
                 val directMap = peers.associateWith { pid -> meshService.getPeerInfo(pid)?.isDirectConnection == true }
                 val devices = entries.map { (address, isClient, rssi) ->
                     val pid = mapping[address]
-                    com.bitchat.android.ui.debug.ConnectedDevice(
+                    ConnectedDevice(
                         deviceAddress = address,
                         peerID = pid,
                         nickname = pid?.let { nicknames[it] },
@@ -74,7 +77,7 @@ fun DebugSettingsSheet(
                     )
                 }
                 manager.updateConnectedDevices(devices)
-                kotlinx.coroutines.delay(1000)
+                delay(1000)
             }
         }
     }
@@ -217,7 +220,7 @@ fun DebugSettingsSheet(
                                 // Faster decay and smoothing
                                 val v = last * 0.5f + s * 0.5f
                                 series = (series + v).takeLast(60)
-                                kotlinx.coroutines.delay(400)
+                                delay(400)
                             }
                         }
                         val maxValRaw = series.maxOrNull() ?: 0f
@@ -225,7 +228,7 @@ fun DebugSettingsSheet(
                         val leftGutter = 40.dp
                         Box(Modifier.fillMaxWidth().height(56.dp)) {
                             // Graph canvas
-                            androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                            Canvas(Modifier.fillMaxSize()) {
                                 val axisPx = leftGutter.toPx() // reserved left gutter for labels
                                 val barCount = series.size
                                 val availW = (size.width - axisPx).coerceAtLeast(1f)
@@ -234,8 +237,8 @@ fun DebugSettingsSheet(
                                 // Baseline at bottom (y = 0)
                                 drawLine(
                                     color = Color(0x33888888),
-                                    start = androidx.compose.ui.geometry.Offset(axisPx, h - 1f),
-                                    end = androidx.compose.ui.geometry.Offset(size.width, h - 1f),
+                                    start = Offset(axisPx, h - 1f),
+                                    end = Offset(size.width, h - 1f),
                                     strokeWidth = 1f
                                 )
                                 // Bars from bottom-up; skip zeros entirely
@@ -246,8 +249,8 @@ fun DebugSettingsSheet(
                                         if (barHeight > 0.5f) {
                                             drawRect(
                                                 color = Color(0xFF00C851),
-                                                topLeft = androidx.compose.ui.geometry.Offset(x = axisPx + i * w, y = h - barHeight),
-                                                size = androidx.compose.ui.geometry.Size(w, barHeight)
+                                                topLeft = Offset(x = axisPx + i * w, y = h - barHeight),
+                                                size = Size(w, barHeight)
                                             )
                                         }
                                     }
@@ -301,8 +304,8 @@ fun DebugSettingsSheet(
                         Slider(value = gcsMaxBytes.toFloat(), onValueChange = { manager.setGcsMaxBytes(it.toInt()) }, valueRange = 128f..1024f, steps = 0)
                         Text("target FPR: ${String.format("%.2f", gcsFpr)}%", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         Slider(value = gcsFpr.toFloat(), onValueChange = { manager.setGcsFprPercent(it.toDouble()) }, valueRange = 0.1f..5.0f, steps = 49)
-                        val p = remember(gcsFpr) { com.bitchat.android.sync.GCSFilter.deriveP(gcsFpr / 100.0) }
-                        val nmax = remember(gcsFpr, gcsMaxBytes) { com.bitchat.android.sync.GCSFilter.estimateMaxElementsForSize(gcsMaxBytes, p) }
+                        val p = remember(gcsFpr) { GCSFilter.deriveP(gcsFpr / 100.0) }
+                        val nmax = remember(gcsFpr, gcsMaxBytes) { GCSFilter.estimateMaxElementsForSize(gcsMaxBytes, p) }
                         Text("derived P: $p • est. max elements: $nmax", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                     }
                 }

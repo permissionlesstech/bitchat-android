@@ -1,4 +1,4 @@
-package com.bitchat.android.ui.debug
+package com.bitchat.android.ui.screens.debug
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

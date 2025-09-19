@@ -1,7 +1,6 @@
-package com.bitchat.android.ui
+package com.bitchat.android.ui.screens.geohash
 
 import android.annotation.SuppressLint
-import android.app.Activity
 import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
@@ -13,7 +12,15 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -27,7 +34,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -67,7 +77,7 @@ class GeohashPickerActivity : ComponentActivity() {
             } catch (_: Throwable) {}
         } else {
             // If no initial geohash, try to use the user's coarsest location
-            val locationManager = LocationChannelManager.getInstance(applicationContext)
+            val locationManager = LocationChannelManager.Companion.getInstance(applicationContext)
             val channels = locationManager.availableChannels.value
             if (!channels.isNullOrEmpty()) {
                 val coarsestChannel = channels.minByOrNull { it.geohash.length }
@@ -92,11 +102,12 @@ class GeohashPickerActivity : ComponentActivity() {
 
                 // iOS system-like colors used across app
                 val colorScheme = MaterialTheme.colorScheme
-                val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
+                val isDark =
+                    colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
                 val standardGreen = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
 
                 Scaffold { padding ->
-                    Box(Modifier.fillMaxSize()) {
+                    Box(Modifier.Companion.fillMaxSize()) {
                         AndroidView(
                             factory = { context ->
                                 WebView(context).apply {
@@ -123,9 +134,14 @@ class GeohashPickerActivity : ComponentActivity() {
                                             }
 
                                             // Apply theme to map tiles
-                                            val nightModeFlags = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
-                                            val theme = if (nightModeFlags == Configuration.UI_MODE_NIGHT_YES) "dark" else "light"
-                                            evaluateJavascript("window.setMapTheme('" + theme + "')", null)
+                                            val nightModeFlags =
+                                                resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+                                            val theme =
+                                                if (nightModeFlags == Configuration.UI_MODE_NIGHT_YES) "dark" else "light"
+                                            evaluateJavascript(
+                                                "window.setMapTheme('" + theme + "')",
+                                                null
+                                            )
                                         }
                                     }
                                     addJavascriptInterface(object {
@@ -140,7 +156,7 @@ class GeohashPickerActivity : ComponentActivity() {
                                     loadUrl("file:///android_asset/geohash_picker.html")
                                 }
                             },
-                            modifier = Modifier
+                            modifier = Modifier.Companion
                                 .fillMaxSize()
                                 .padding(padding),
                             update = { webView ->
@@ -153,20 +169,44 @@ class GeohashPickerActivity : ComponentActivity() {
                             },
                             onRelease = { webView ->
                                 // Best-effort cleanup to avoid leaks and timers
-                                try { webView.evaluateJavascript("window.cleanup && window.cleanup()", null) } catch (_: Throwable) {}
-                                try { webView.stopLoading() } catch (_: Throwable) {}
-                                try { webView.clearHistory() } catch (_: Throwable) {}
-                                try { webView.clearCache(true) } catch (_: Throwable) {}
-                                try { webView.loadUrl("about:blank") } catch (_: Throwable) {}
-                                try { webView.removeAllViews() } catch (_: Throwable) {}
-                                try { webView.destroy() } catch (_: Throwable) {}
+                                try {
+                                    webView.evaluateJavascript(
+                                        "window.cleanup && window.cleanup()",
+                                        null
+                                    )
+                                } catch (_: Throwable) {
+                                }
+                                try {
+                                    webView.stopLoading()
+                                } catch (_: Throwable) {
+                                }
+                                try {
+                                    webView.clearHistory()
+                                } catch (_: Throwable) {
+                                }
+                                try {
+                                    webView.clearCache(true)
+                                } catch (_: Throwable) {
+                                }
+                                try {
+                                    webView.loadUrl("about:blank")
+                                } catch (_: Throwable) {
+                                }
+                                try {
+                                    webView.removeAllViews()
+                                } catch (_: Throwable) {
+                                }
+                                try {
+                                    webView.destroy()
+                                } catch (_: Throwable) {
+                                }
                             }
                         )
 
                         // Floating info pill
                         Surface(
-                            modifier = Modifier
-                                .align(Alignment.TopCenter)
+                            modifier = Modifier.Companion
+                                .align(Alignment.Companion.TopCenter)
                                 .padding(top = 20.dp)
                                 .fillMaxWidth(0.75f),
                             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
@@ -177,36 +217,36 @@ class GeohashPickerActivity : ComponentActivity() {
                             Text(
                                 text = "pan and zoom to select a geohash",
                                 fontSize = 12.sp,
-                                textAlign = TextAlign.Center,
-                                fontFamily = FontFamily.Monospace,
+                                textAlign = TextAlign.Companion.Center,
+                                fontFamily = FontFamily.Companion.Monospace,
                                 color = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier
+                                modifier = Modifier.Companion
                                     .padding(horizontal = 14.dp, vertical = 10.dp)
                             )
                         }
 
                         // Floating bottom controls
                         Column(
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
+                            modifier = Modifier.Companion
+                                .align(Alignment.Companion.BottomCenter)
                                 .padding(bottom = 20.dp, start = 16.dp, end = 16.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                            horizontalAlignment = Alignment.Companion.CenterHorizontally
                         ) {
                             // Geohash label (monospace, app style)
                             Surface(
                                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-                                shape = RoundedCornerShape(12.dp),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                                 tonalElevation = 3.dp,
                                 shadowElevation = 6.dp
                             ) {
                                 Text(
                                     text = if (currentGeohash.isNotEmpty()) "#${currentGeohash}" else "select location",
                                     fontSize = BASE_FONT_SIZE.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.Medium,
+                                    fontFamily = FontFamily.Companion.Monospace,
+                                    fontWeight = FontWeight.Companion.Medium,
                                     color = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier
+                                    modifier = Modifier.Companion
                                         .padding(horizontal = 14.dp, vertical = 10.dp)
                                 )
                             }
@@ -214,21 +254,27 @@ class GeohashPickerActivity : ComponentActivity() {
                             // Button row
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.Companion.CenterVertically
                             ) {
                                 // Decrease precision
                                 Button(
                                     onClick = {
                                         precision = (precision - 1).coerceAtLeast(1)
-                                        webViewRef?.evaluateJavascript("window.setPrecision($precision)", null)
+                                        webViewRef?.evaluateJavascript(
+                                            "window.setPrecision($precision)",
+                                            null
+                                        )
                                     },
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = standardGreen.copy(alpha = 0.12f),
                                         contentColor = standardGreen
                                     )
                                 ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Filled.Remove, contentDescription = "Decrease precision")
+                                    Row(verticalAlignment = Alignment.Companion.CenterVertically) {
+                                        Icon(
+                                            Icons.Filled.Remove,
+                                            contentDescription = "Decrease precision"
+                                        )
                                     }
                                 }
 
@@ -236,15 +282,21 @@ class GeohashPickerActivity : ComponentActivity() {
                                 Button(
                                     onClick = {
                                         precision = (precision + 1).coerceAtMost(12)
-                                        webViewRef?.evaluateJavascript("window.setPrecision($precision)", null)
+                                        webViewRef?.evaluateJavascript(
+                                            "window.setPrecision($precision)",
+                                            null
+                                        )
                                     },
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = standardGreen.copy(alpha = 0.12f),
                                         contentColor = standardGreen
                                     )
                                 ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Filled.Add, contentDescription = "Increase precision")
+                                    Row(verticalAlignment = Alignment.Companion.CenterVertically) {
+                                        Icon(
+                                            Icons.Filled.Add,
+                                            contentDescription = "Increase precision"
+                                        )
                                     }
                                 }
 
@@ -253,23 +305,33 @@ class GeohashPickerActivity : ComponentActivity() {
                                     onClick = {
                                         webViewRef?.evaluateJavascript("window.getGeohash()") { value ->
                                             val gh = value?.trim('"') ?: currentGeohash
-                                            val result = Intent().apply { putExtra(EXTRA_RESULT_GEOHASH, gh) }
-                                            setResult(Activity.RESULT_OK, result)
+                                            val result = Intent().apply {
+                                                putExtra(
+                                                    EXTRA_RESULT_GEOHASH,
+                                                    gh
+                                                )
+                                            }
+                                            setResult(RESULT_OK, result)
                                             finish()
                                         }
                                     },
                                     colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
+                                        containerColor = MaterialTheme.colorScheme.secondary.copy(
+                                            alpha = 0.12f
+                                        ),
                                         contentColor = MaterialTheme.colorScheme.onSurface
                                     )
                                 ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Filled.Check, contentDescription = "Select geohash")
-                                        Spacer(Modifier.width(6.dp))
+                                    Row(verticalAlignment = Alignment.Companion.CenterVertically) {
+                                        Icon(
+                                            Icons.Filled.Check,
+                                            contentDescription = "Select geohash"
+                                        )
+                                        Spacer(Modifier.Companion.width(6.dp))
                                         Text(
                                             text = "select",
                                             fontSize = (BASE_FONT_SIZE - 2).sp,
-                                            fontFamily = FontFamily.Monospace
+                                            fontFamily = FontFamily.Companion.Monospace
                                         )
                                     }
                                 }
