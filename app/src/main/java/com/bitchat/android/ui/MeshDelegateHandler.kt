@@ -1,6 +1,7 @@
 package com.bitchat.android.ui
 
 import com.bitchat.android.mesh.BluetoothMeshDelegate
+import com.bitchat.android.ui.NotificationTextUtils
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
@@ -55,7 +56,7 @@ class MeshDelegateHandler(
                 message.senderPeerID?.let { senderPeerID ->
                     // Use nickname if available, fall back to sender or senderPeerID
                     val senderNickname = message.sender.takeIf { it != senderPeerID } ?: senderPeerID
-                    val preview = buildPrivateNotificationPreview(message)
+                    val preview = NotificationTextUtils.buildPrivateMessagePreview(message)
                     notificationManager.showPrivateMessageNotification(
                         senderPeerID = senderPeerID,
                         senderNickname = senderNickname,
@@ -287,42 +288,4 @@ class MeshDelegateHandler(
         return getMeshService().getPeerInfo(peerID)
     }
 
-    /**
-     * Build a user-friendly notification preview for private messages, especially attachments.
-     * Examples:
-     * - Image: "📷 sent an image"
-     * - Audio: "🎤 sent a voice message"
-     * - File (pdf): "📄 file.pdf"
-     * - Text: original message content
-     */
-    private fun buildPrivateNotificationPreview(message: BitchatMessage): String {
-        return try {
-            when (message.type) {
-                com.bitchat.android.model.BitchatMessageType.Image -> "📷 sent an image"
-                com.bitchat.android.model.BitchatMessageType.Audio -> "🎤 sent a voice message"
-                com.bitchat.android.model.BitchatMessageType.File -> {
-                    // Show just the filename (not the full path)
-                    val name = try { java.io.File(message.content).name } catch (_: Exception) { null }
-                    if (!name.isNullOrBlank()) {
-                        val lower = name.lowercase()
-                        val icon = when {
-                            lower.endsWith(".pdf") -> "📄"
-                            lower.endsWith(".zip") || lower.endsWith(".rar") || lower.endsWith(".7z") -> "🗜️"
-                            lower.endsWith(".doc") || lower.endsWith(".docx") -> "📄"
-                            lower.endsWith(".xls") || lower.endsWith(".xlsx") -> "📊"
-                            lower.endsWith(".ppt") || lower.endsWith(".pptx") -> "📈"
-                            else -> "📎"
-                        }
-                        "$icon $name"
-                    } else {
-                        "📎 sent a file"
-                    }
-                }
-                else -> message.content
-            }
-        } catch (_: Exception) {
-            // Fallback to original content on any error
-            message.content
-        }
-    }
 }
