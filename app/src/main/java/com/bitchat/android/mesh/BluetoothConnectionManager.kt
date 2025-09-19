@@ -29,7 +29,7 @@ class BluetoothConnectionManager(
     private val bluetoothAdapter: BluetoothAdapter? = bluetoothManager.adapter
     
     // Power management
-    private val powerManager = PowerManager(context)
+    private val powerManager = PowerManager(context.applicationContext)
     
     // Coroutines
     private val connectionScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -42,7 +42,7 @@ class BluetoothConnectionManager(
     // Delegate for component managers to call back to main manager
     private val componentDelegate = object : BluetoothConnectionManagerDelegate {
         override fun onPacketReceived(packet: BitchatPacket, peerID: String, device: BluetoothDevice?) {
-            Log.d(TAG, "onPacketReceived: Packet received from ${device?.address} ($peerID)")
+            Log.d(TAG, "onPacketReceived: Packet received from ${'$'}{device?.address} ($peerID)")
             device?.let { bluetoothDevice ->
                 // Get current RSSI for this device and update if available
                 val currentRSSI = connectionTracker.getBestRSSI(bluetoothDevice.address)
@@ -195,7 +195,7 @@ class BluetoothConnectionManager(
             return true
             
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to start Bluetooth services: ${e.message}")
+            Log.e(TAG, "Failed to start Bluetooth services: ${'$'}{e.message}")
             isActive = false
             return false
         }
@@ -248,11 +248,31 @@ class BluetoothConnectionManager(
         )
     }
 
-    fun sendToPeer(peerID: String, routed: RoutedPacket): Boolean {
+    fun cancelTransfer(transferId: String): Boolean {
+        return packetBroadcaster.cancelTransfer(transferId)
+    }
+
+    /**
+     * Send a packet directly to a specific peer, without broadcasting to others.
+     */
+    fun sendPacketToPeer(peerID: String, packet: BitchatPacket): Boolean {
         if (!isActive) return false
-        return packetBroadcaster.sendToPeer(
+        return packetBroadcaster.sendPacketToPeer(
+            RoutedPacket(packet),
             peerID,
+            serverManager.getGattServer(),
+            serverManager.getCharacteristic()
+        )
+    }
+
+    /**
+     * Overload that preserves routing metadata when available.
+     */
+    fun sendPacketToPeer(peerID: String, routed: RoutedPacket): Boolean {
+        if (!isActive) return false
+        return packetBroadcaster.sendPacketToPeer(
             routed,
+            peerID,
             serverManager.getGattServer(),
             serverManager.getCharacteristic()
         )
@@ -321,11 +341,11 @@ class BluetoothConnectionManager(
     fun getDebugInfo(): String {
         return buildString {
             appendLine("=== Bluetooth Connection Manager ===")
-            appendLine("Bluetooth MAC Address: ${bluetoothAdapter?.address}")
-            appendLine("Active: $isActive")
-            appendLine("Bluetooth Enabled: ${bluetoothAdapter?.isEnabled}")
-            appendLine("Has Permissions: ${permissionManager.hasBluetoothPermissions()}")
-            appendLine("GATT Server Active: ${serverManager.getGattServer() != null}")
+            appendLine("Bluetooth MAC Address: ${'$'}{bluetoothAdapter?.address}")
+            appendLine("Active: ${'$'}isActive")
+            appendLine("Bluetooth Enabled: ${'$'}{bluetoothAdapter?.isEnabled}")
+            appendLine("Has Permissions: ${'$'}{permissionManager.hasBluetoothPermissions()}")
+            appendLine("GATT Server Active: ${'$'}{serverManager.getGattServer() != null}")
             appendLine()
             appendLine(powerManager.getPowerInfo())
             appendLine()
@@ -336,7 +356,7 @@ class BluetoothConnectionManager(
     // MARK: - PowerManagerDelegate Implementation
     
     override fun onPowerModeChanged(newMode: PowerManager.PowerMode) {
-        Log.i(TAG, "Power mode changed to: $newMode")
+        Log.i(TAG, "Power mode changed to: ${'$'}newMode")
         
         connectionScope.launch {
             // Avoid rapid scan restarts by checking if we need to change scan behavior
@@ -353,7 +373,7 @@ class BluetoothConnectionManager(
             // Only restart scanning if the duty cycle behavior changed
             val nowUsingDutyCycle = powerManager.shouldUseDutyCycle()
             if (wasUsingDutyCycle != nowUsingDutyCycle) {
-                Log.d(TAG, "Duty cycle behavior changed (${wasUsingDutyCycle} -> ${nowUsingDutyCycle}), restarting scan")
+                Log.d(TAG, "Duty cycle behavior changed (${'$'}wasUsingDutyCycle -> ${'$'}nowUsingDutyCycle), restarting scan")
                 val clientEnabled = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattClientEnabled.value } catch (_: Exception) { true }
                 if (clientEnabled) {
                     clientManager.restartScanning()

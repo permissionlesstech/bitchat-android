@@ -1,3 +1,4 @@
+
 package com.bitchat.android.mesh
 
 import android.bluetooth.BluetoothDevice
@@ -17,6 +18,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.Job
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.channels.actor
 
 /**
@@ -70,6 +73,7 @@ class BluetoothPacketBroadcaster(
         try {
             val fromNick = incomingPeer?.let { nicknameResolver?.invoke(it) }
             val toNick = toPeer?.let { nicknameResolver?.invoke(it) }
+            val isRelay = (incomingAddr != null || incomingPeer != null)
             
             com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().logPacketRelayDetailed(
                 packetType = typeName,
@@ -81,7 +85,8 @@ class BluetoothPacketBroadcaster(
                 toPeerID = toPeer,
                 toNickname = toNick,
                 toDeviceAddress = toDeviceAddress,
-                ttl = ttl
+                ttl = ttl,
+                isRelay = isRelay
             )
         } catch (_: Exception) { 
             // Silently ignore debug logging failures
@@ -97,6 +102,7 @@ class BluetoothPacketBroadcaster(
     
     // Actor scope for the broadcaster
     private val broadcasterScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val transferJobs = ConcurrentHashMap<String, Job>()
     
     // SERIALIZATION: Actor to serialize all broadcast operations
     @OptIn(kotlinx.coroutines.ObsoleteCoroutinesApi::class)
@@ -119,25 +125,135 @@ class BluetoothPacketBroadcaster(
         characteristic: BluetoothGattCharacteristic?
     ) {
         val packet = routed.packet
+        val isFile = packet.type == MessageType.FILE_TRANSFER.value
+        if (isFile) {
+            Log.d(TAG, "📤 Broadcasting FILE_TRANSFER: ${packet.payload.size} bytes")
+        }
+        // Prefer caller-provided transferId (e.g., for encrypted media), else derive for FILE_TRANSFER
+        val transferId = routed.transferId ?: (if (isFile) sha256Hex(packet.payload) else null)
         // Check if we need to fragment
         if (fragmentManager != null) {
-            val fragments = fragmentManager.createFragments(packet)
+            val fragments = try {
+                fragmentManager.createFragments(packet)
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Fragment creation failed: ${e.message}", e)
+                if (isFile) {
+                    Log.e(TAG, "❌ File fragmentation failed for ${packet.payload.size} byte file")
+                }
+                return
+            }
             if (fragments.size > 1) {
+                if (isFile) {
+                    Log.d(TAG, "🔀 File needs ${fragments.size} fragments")
+                }
                 Log.d(TAG, "Fragmenting packet into ${fragments.size} fragments")
-                connectionScope.launch {
+                if (transferId != null) {
+                    TransferProgressManager.start(transferId, fragments.size)
+                }
+                val job = connectionScope.launch {
+                    var sent = 0
                     fragments.forEach { fragment ->
-                        broadcastSinglePacket(RoutedPacket(fragment), gattServer, characteristic)
-                        // 20ms delay between fragments (matching iOS/Rust)
-                        delay(200)
+                        if (!isActive) return@launch
+                        // If cancelled, stop sending remaining fragments
+                        if (transferId != null && transferJobs[transferId]?.isCancelled == true) return@launch
+                        broadcastSinglePacket(RoutedPacket(fragment, transferId = transferId), gattServer, characteristic)
+                        // 20ms delay between fragments
+                        delay(20)
+                        if (transferId != null) {
+                            sent += 1
+                            TransferProgressManager.progress(transferId, sent, fragments.size)
+                            if (sent == fragments.size) TransferProgressManager.complete(transferId, fragments.size)
+                        }
                     }
+                }
+                if (transferId != null) {
+                    transferJobs[transferId] = job
+                    job.invokeOnCompletion { transferJobs.remove(transferId) }
                 }
                 return
             }
         }
         
         // Send single packet if no fragmentation needed
+        if (transferId != null) {
+            TransferProgressManager.start(transferId, 1)
+        }
         broadcastSinglePacket(routed, gattServer, characteristic)
+        if (transferId != null) {
+            TransferProgressManager.progress(transferId, 1, 1)
+            TransferProgressManager.complete(transferId, 1)
+        }
     }
+
+    fun cancelTransfer(transferId: String): Boolean {
+        val job = transferJobs.remove(transferId) ?: return false
+        job.cancel()
+        return true
+    }
+
+    /**
+     * Send a packet to a specific peer only, without broadcasting.
+     * Returns true if a direct path was found and used.
+     */
+    fun sendPacketToPeer(
+        routed: RoutedPacket,
+        targetPeerID: String,
+        gattServer: BluetoothGattServer?,
+        characteristic: BluetoothGattCharacteristic?
+    ): Boolean {
+        val packet = routed.packet
+        val data = packet.toBinaryData() ?: return false
+        val isFile = packet.type == MessageType.FILE_TRANSFER.value
+        if (isFile) {
+            Log.d(TAG, "📤 Broadcasting FILE_TRANSFER: ${packet.payload.size} bytes")
+        }
+        // Prefer caller-provided transferId (e.g., for encrypted media), else derive for FILE_TRANSFER
+        val transferId = routed.transferId ?: (if (isFile) sha256Hex(packet.payload) else null)
+        if (transferId != null) {
+            TransferProgressManager.start(transferId, 1)
+        }
+        val typeName = MessageType.fromValue(packet.type)?.name ?: packet.type.toString()
+        val incomingAddr = routed.relayAddress
+        val incomingPeer = incomingAddr?.let { connectionTracker.addressPeerMap[it] }
+        val senderPeerID = routed.peerID ?: packet.senderID.toHexString()
+        val senderNick = senderPeerID.let { pid -> nicknameResolver?.invoke(pid) }
+
+        // Prefer server-side subscriptions
+        val serverTarget = connectionTracker.getSubscribedDevices()
+            .firstOrNull { connectionTracker.addressPeerMap[it.address] == targetPeerID }
+        if (serverTarget != null) {
+            if (notifyDevice(serverTarget, data, gattServer, characteristic)) {
+                logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, targetPeerID, serverTarget.address, packet.ttl)
+                if (transferId != null) {
+                    TransferProgressManager.progress(transferId, 1, 1)
+                    TransferProgressManager.complete(transferId, 1)
+                }
+                return true
+            }
+        }
+
+        // Then client connections
+        val clientTarget = connectionTracker.getConnectedDevices().values
+            .firstOrNull { connectionTracker.addressPeerMap[it.device.address] == targetPeerID }
+        if (clientTarget != null) {
+            if (writeToDeviceConn(clientTarget, data)) {
+                logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, targetPeerID, clientTarget.device.address, packet.ttl)
+                if (transferId != null) {
+                    TransferProgressManager.progress(transferId, 1, 1)
+                    TransferProgressManager.complete(transferId, 1)
+                }
+                return true
+            }
+        }
+
+        return false
+    }
+
+    private fun sha256Hex(bytes: ByteArray): String = try {
+        val md = java.security.MessageDigest.getInstance("SHA-256")
+        md.update(bytes)
+        md.digest().joinToString("") { "%02x".format(it) }
+    } catch (_: Exception) { bytes.size.toString(16) }
 
     
     /**

@@ -138,6 +138,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
         Log.d(TAG, "Updated Nostr pubkey association for ${keyHex.take(16)}...")
     }
 
+
     /** NEW: Update Nostr pubkey for specific mesh peerID (16-hex). */
     fun updateNostrPublicKeyForPeerID(peerID: String, nostrPubkey: String) {
         val pid = peerID.lowercase()
@@ -149,6 +150,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
             Log.w(TAG, "updateNostrPublicKeyForPeerID called with non-16hex peerID: $peerID")
         }
     }
+
 
     /** NEW: Resolve Nostr pubkey via current peerID mapping (fast path). */
     fun findNostrPubkeyForPeerID(peerID: String): String? {

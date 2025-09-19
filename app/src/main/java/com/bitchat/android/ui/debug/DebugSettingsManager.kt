@@ -201,6 +201,37 @@ class DebugSettingsManager private constructor() {
     fun updateRelayStats(stats: PacketRelayStats) {
         _relayStats.value = stats
     }
+
+    // Sync/GCS settings (UI-configurable)
+    private val _seenPacketCapacity = MutableStateFlow(DebugPreferenceManager.getSeenPacketCapacity(500))
+    val seenPacketCapacity: StateFlow<Int> = _seenPacketCapacity.asStateFlow()
+
+    private val _gcsMaxBytes = MutableStateFlow(DebugPreferenceManager.getGcsMaxFilterBytes(400))
+    val gcsMaxBytes: StateFlow<Int> = _gcsMaxBytes.asStateFlow()
+
+    private val _gcsFprPercent = MutableStateFlow(DebugPreferenceManager.getGcsFprPercent(1.0))
+    val gcsFprPercent: StateFlow<Double> = _gcsFprPercent.asStateFlow()
+
+    fun setSeenPacketCapacity(value: Int) {
+        val clamped = value.coerceIn(10, 1000)
+        DebugPreferenceManager.setSeenPacketCapacity(clamped)
+        _seenPacketCapacity.value = clamped
+        addDebugMessage(DebugMessage.SystemMessage("🧩 max packets per sync set to $clamped"))
+    }
+
+    fun setGcsMaxBytes(value: Int) {
+        val clamped = value.coerceIn(128, 1024)
+        DebugPreferenceManager.setGcsMaxFilterBytes(clamped)
+        _gcsMaxBytes.value = clamped
+        addDebugMessage(DebugMessage.SystemMessage("🌸 max GCS filter size set to $clamped bytes"))
+    }
+
+    fun setGcsFprPercent(value: Double) {
+        val clamped = value.coerceIn(0.1, 5.0)
+        DebugPreferenceManager.setGcsFprPercent(clamped)
+        _gcsFprPercent.value = clamped
+        addDebugMessage(DebugMessage.SystemMessage("🎯 GCS FPR set to ${String.format("%.2f", clamped)}%"))
+    }
     
     // MARK: - Debug Message Creation Helpers
     
@@ -226,11 +257,10 @@ class DebugSettingsManager private constructor() {
             val who = if (!senderNickname.isNullOrBlank()) "$senderNickname ($senderPeerID)" else senderPeerID
             val routeInfo = if (!viaDeviceId.isNullOrBlank()) " via $viaDeviceId" else " (direct)"
             addDebugMessage(DebugMessage.PacketEvent(
-                "📥 Received $messageType from $who$routeInfo"
+                "📦 Received $messageType from $who$routeInfo"
             ))
         }
     }
-    
     fun logPacketRelay(
         packetType: String,
         originalPeerID: String,
@@ -248,9 +278,11 @@ class DebugSettingsManager private constructor() {
             toPeerID = null,
             toNickname = null,
             toDeviceAddress = null,
-            ttl = null
+            ttl = null,
+            isRelay = true
         )
     }
+    
 
     // New, more detailed relay logger used by the mesh/broadcaster
     fun logPacketRelayDetailed(
@@ -263,7 +295,8 @@ class DebugSettingsManager private constructor() {
         toPeerID: String?,
         toNickname: String?,
         toDeviceAddress: String?,
-        ttl: UByte?
+        ttl: UByte?,
+        isRelay: Boolean = true
     ) {
         // Build message only if verbose logging is enabled, but always update stats
         val senderLabel = when {
@@ -288,16 +321,26 @@ class DebugSettingsManager private constructor() {
         val ttlStr = ttl?.toString() ?: "?"
 
         if (verboseLoggingEnabled.value) {
-            addDebugMessage(
-                DebugMessage.RelayEvent(
-                    "♻️ Relayed $packetType by $senderLabel from $fromName (${fromPeerID ?: "?"}, $fromAddr) to $toName (${toPeerID ?: "?"}, $toAddr) with TTL $ttlStr"
+            if (isRelay) {
+                addDebugMessage(
+                    DebugMessage.RelayEvent(
+                        "♻️ Relayed $packetType by $senderLabel from $fromName (${fromPeerID ?: "?"}, $fromAddr) to $toName (${toPeerID ?: "?"}, $toAddr) with TTL $ttlStr"
+                    )
                 )
-            )
+            } else {
+                addDebugMessage(
+                    DebugMessage.PacketEvent(
+                        "📤 Sent $packetType by $senderLabel to $toName (${toPeerID ?: "?"}, $toAddr) with TTL $ttlStr"
+                    )
+                )
+            }
         }
 
-        // Update rolling statistics
-        relayTimestamps.offer(System.currentTimeMillis())
-        updateRelayStatsFromTimestamps()
+        // Update rolling statistics only for relays
+        if (isRelay) {
+            relayTimestamps.offer(System.currentTimeMillis())
+            updateRelayStatsFromTimestamps()
+        }
     }
     
     // MARK: - Clear Data

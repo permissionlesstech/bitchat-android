@@ -78,6 +78,7 @@ class PermissionManager(private val context: Context) {
      */
     fun getOptionalPermissions(): List<String> {
         val optional = mutableListOf<String>()
+        // Notifications on Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             optional.add(Manifest.permission.POST_NOTIFICATIONS)
         }
@@ -189,6 +190,8 @@ class PermissionManager(private val context: Context) {
             )
         }
 
+        // Microphone category removed from onboarding
+
         // Battery optimization category (if applicable)
         if (isBatteryOptimizationSupported()) {
             categories.add(
@@ -257,6 +260,7 @@ data class PermissionCategory(
 enum class PermissionType(val nameValue: String) {
     NEARBY_DEVICES("Nearby Devices"),
     PRECISE_LOCATION("Precise Location"),
+    MICROPHONE("Microphone"),
     NOTIFICATIONS("Notifications"),
     BATTERY_OPTIMIZATION("Battery Optimization"),
     OTHER("Other")

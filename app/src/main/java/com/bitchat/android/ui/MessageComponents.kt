@@ -1,6 +1,7 @@
 package com.bitchat.android.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,6 +16,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,6 +34,17 @@ import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.mesh.BluetoothMeshService
 import java.text.SimpleDateFormat
 import java.util.*
+import com.bitchat.android.ui.media.VoiceNotePlayer
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import com.bitchat.android.ui.media.FileMessageItem
+import com.bitchat.android.model.BitchatMessageType
+
+// VoiceNotePlayer moved to com.bitchat.android.ui.media.VoiceNotePlayer
 
 /**
  * Message display components for ChatScreen
@@ -45,7 +60,9 @@ fun MessagesList(
     forceScrollToBottom: Boolean = false,
     onScrolledUpChanged: ((Boolean) -> Unit)? = null,
     onNicknameClick: ((String) -> Unit)? = null,
-    onMessageLongPress: ((BitchatMessage) -> Unit)? = null
+    onMessageLongPress: ((BitchatMessage) -> Unit)? = null,
+    onCancelTransfer: ((BitchatMessage) -> Unit)? = null,
+    onImageClick: ((String, List<String>, Int) -> Unit)? = null
 ) {
     val listState = rememberLazyListState()
     
@@ -97,13 +114,19 @@ fun MessagesList(
         modifier = modifier,
         reverseLayout = true
     ) {
-                    items(messages.asReversed()) { message ->
+        items(
+            items = messages.asReversed(),
+            key = { it.id }
+        ) { message ->
                 MessageItem(
                     message = message,
+                    messages = messages,
                     currentUserNickname = currentUserNickname,
                     meshService = meshService,
                     onNicknameClick = onNicknameClick,
-                    onMessageLongPress = onMessageLongPress
+                    onMessageLongPress = onMessageLongPress,
+                    onCancelTransfer = onCancelTransfer,
+                    onImageClick = onImageClick
                 )
         }
     }
@@ -115,8 +138,11 @@ fun MessageItem(
     message: BitchatMessage,
     currentUserNickname: String,
     meshService: BluetoothMeshService,
+    messages: List<BitchatMessage> = emptyList(),
     onNicknameClick: ((String) -> Unit)? = null,
-    onMessageLongPress: ((BitchatMessage) -> Unit)? = null
+    onMessageLongPress: ((BitchatMessage) -> Unit)? = null,
+    onCancelTransfer: ((BitchatMessage) -> Unit)? = null,
+    onImageClick: ((String, List<String>, Int) -> Unit)? = null
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val timeFormatter = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
@@ -125,27 +151,42 @@ fun MessageItem(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top
-        ) {
-            // Create a custom layout that combines selectable text with clickable nickname areas
-            MessageTextWithClickableNicknames(
-                message = message,
-                currentUserNickname = currentUserNickname,
-                meshService = meshService,
-                colorScheme = colorScheme,
-                timeFormatter = timeFormatter,
-                onNicknameClick = onNicknameClick,
-                onMessageLongPress = onMessageLongPress,
-                modifier = Modifier.weight(1f)
-            )
-            
-            // Delivery status for private messages
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Start,
+                verticalAlignment = Alignment.Top
+            ) {
+                // Provide a small end padding for own private messages so overlay doesn't cover text
+                val endPad = if (message.isPrivate && message.sender == currentUserNickname) 16.dp else 0.dp
+                // Create a custom layout that combines selectable text with clickable nickname areas
+                MessageTextWithClickableNicknames(
+                    message = message,
+                    messages = messages,
+                    currentUserNickname = currentUserNickname,
+                    meshService = meshService,
+                    colorScheme = colorScheme,
+                    timeFormatter = timeFormatter,
+                    onNicknameClick = onNicknameClick,
+                    onMessageLongPress = onMessageLongPress,
+                    onCancelTransfer = onCancelTransfer,
+                    onImageClick = onImageClick,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = endPad)
+                )
+            }
+
+            // Delivery status for private messages (overlay, non-displacing)
             if (message.isPrivate && message.sender == currentUserNickname) {
                 message.deliveryStatus?.let { status ->
-                    DeliveryStatusIcon(status = status)
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 2.dp)
+                    ) {
+                        DeliveryStatusIcon(status = status)
+                    }
                 }
             }
         }
@@ -156,16 +197,155 @@ fun MessageItem(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun MessageTextWithClickableNicknames(
-    message: BitchatMessage,
-    currentUserNickname: String,
-    meshService: BluetoothMeshService,
-    colorScheme: ColorScheme,
-    timeFormatter: SimpleDateFormat,
-    onNicknameClick: ((String) -> Unit)?,
-    onMessageLongPress: ((BitchatMessage) -> Unit)?,
-    modifier: Modifier = Modifier
-) {
+    private fun MessageTextWithClickableNicknames(
+        message: BitchatMessage,
+        messages: List<BitchatMessage>,
+        currentUserNickname: String,
+        meshService: BluetoothMeshService,
+        colorScheme: ColorScheme,
+        timeFormatter: SimpleDateFormat,
+        onNicknameClick: ((String) -> Unit)?,
+        onMessageLongPress: ((BitchatMessage) -> Unit)?,
+        onCancelTransfer: ((BitchatMessage) -> Unit)?,
+        onImageClick: ((String, List<String>, Int) -> Unit)?,
+        modifier: Modifier = Modifier
+    ) {
+    // Image special rendering
+    if (message.type == BitchatMessageType.Image) {
+        com.bitchat.android.ui.media.ImageMessageItem(
+            message = message,
+            messages = messages,
+            currentUserNickname = currentUserNickname,
+            meshService = meshService,
+            colorScheme = colorScheme,
+            timeFormatter = timeFormatter,
+            onNicknameClick = onNicknameClick,
+            onMessageLongPress = onMessageLongPress,
+            onCancelTransfer = onCancelTransfer,
+            onImageClick = onImageClick,
+            modifier = modifier
+        )
+        return
+    }
+
+    // Voice note special rendering
+    if (message.type == BitchatMessageType.Audio) {
+        com.bitchat.android.ui.media.AudioMessageItem(
+            message = message,
+            currentUserNickname = currentUserNickname,
+            meshService = meshService,
+            colorScheme = colorScheme,
+            timeFormatter = timeFormatter,
+            onNicknameClick = onNicknameClick,
+            onMessageLongPress = onMessageLongPress,
+            onCancelTransfer = onCancelTransfer,
+            modifier = modifier
+        )
+        return
+    }
+
+    // File special rendering
+    if (message.type == BitchatMessageType.File) {
+        val path = message.content.trim()
+        // Derive sending progress if applicable
+        val (overrideProgress, _) = when (val st = message.deliveryStatus) {
+            is com.bitchat.android.model.DeliveryStatus.PartiallyDelivered -> {
+                if (st.total > 0 && st.reached < st.total) {
+                    (st.reached.toFloat() / st.total.toFloat()) to Color(0xFF1E88E5) // blue while sending
+                } else null to null
+            }
+            else -> null to null
+        }
+        Column(modifier = modifier.fillMaxWidth()) {
+            // Header: nickname + timestamp line above the file, identical styling to text messages
+            val headerText = formatMessageHeaderAnnotatedString(
+                message = message,
+                currentUserNickname = currentUserNickname,
+                meshService = meshService,
+                colorScheme = colorScheme,
+                timeFormatter = timeFormatter
+            )
+            val haptic = LocalHapticFeedback.current
+            var headerLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
+            Text(
+                text = headerText,
+                fontFamily = FontFamily.Monospace,
+                color = colorScheme.onSurface,
+                modifier = Modifier.pointerInput(message.id) {
+                    detectTapGestures(onTap = { pos ->
+                        val layout = headerLayout ?: return@detectTapGestures
+                        val offset = layout.getOffsetForPosition(pos)
+                        val ann = headerText.getStringAnnotations("nickname_click", offset, offset)
+                        if (ann.isNotEmpty() && onNicknameClick != null) {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onNicknameClick.invoke(ann.first().item)
+                        }
+                    }, onLongPress = { onMessageLongPress?.invoke(message) })
+                },
+                onTextLayout = { headerLayout = it }
+            )
+
+            // Try to load the file packet from the path
+            val packet = try {
+                val file = java.io.File(path)
+                if (file.exists()) {
+                    // Create a temporary BitchatFilePacket for display
+                    // In a real implementation, this would be stored with the packet metadata
+                    com.bitchat.android.model.BitchatFilePacket(
+                        fileName = file.name,
+                        fileSize = file.length(),
+                        mimeType = com.bitchat.android.features.file.FileUtils.getMimeTypeFromExtension(file.name),
+                        content = file.readBytes()
+                    )
+                } else null
+            } catch (e: Exception) {
+                null
+            }
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+                Box {
+                    if (packet != null) {
+                        if (overrideProgress != null) {
+                            // Show sending animation while in-flight
+                            com.bitchat.android.ui.media.FileSendingAnimation(
+                                fileName = packet.fileName,
+                                progress = overrideProgress,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        } else {
+                            // Static file display with open/save dialog
+                            FileMessageItem(
+                                packet = packet,
+                                onFileClick = {
+                                    // handled inside FileMessageItem via dialog
+                                }
+                            )
+                        }
+
+                        // Cancel button overlay during sending
+                        val showCancel = message.sender == currentUserNickname && (message.deliveryStatus is DeliveryStatus.PartiallyDelivered)
+                        if (showCancel) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(4.dp)
+                                    .size(22.dp)
+                                    .background(Color.Gray.copy(alpha = 0.6f), CircleShape)
+                                    .clickable { onCancelTransfer?.invoke(message) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(imageVector = Icons.Filled.Close, contentDescription = "Cancel", tint = Color.White, modifier = Modifier.size(14.dp))
+                            }
+                        }
+                    } else {
+                        Text(text = "[file unavailable]", fontFamily = FontFamily.Monospace, color = Color.Gray)
+                    }
+                }
+            }
+        }
+        return
+    }
+
     // Check if this message should be animated during PoW mining
     val shouldAnimate = shouldAnimateMessage(message.id)
     
@@ -174,12 +354,14 @@ private fun MessageTextWithClickableNicknames(
         // Display message with matrix animation for content
         MessageWithMatrixAnimation(
             message = message,
+            messages = messages,
             currentUserNickname = currentUserNickname,
             meshService = meshService,
             colorScheme = colorScheme,
             timeFormatter = timeFormatter,
             onNicknameClick = onNicknameClick,
             onMessageLongPress = onMessageLongPress,
+            onImageClick = onImageClick,
             modifier = modifier
         )
     } else {
@@ -326,8 +508,9 @@ fun DeliveryStatusIcon(status: DeliveryStatus) {
             )
         }
         is DeliveryStatus.PartiallyDelivered -> {
+            // Show a single subdued check without numeric label
             Text(
-                text = "✓${status.reached}/${status.total}",
+                text = "✓",
                 fontSize = 10.sp,
                 color = colorScheme.primary.copy(alpha = 0.6f)
             )

@@ -165,7 +165,7 @@ class StoreForwardManager {
             
             // Send with delays to avoid overwhelming the connection
             messagesToSend.forEachIndexed { index, storedMessage ->
-                delay(index * 100L) // 100ms between messages
+                delay(index * 10L) // 10ms between messages
                 delegate?.sendPacket(storedMessage.packet)
             }
             

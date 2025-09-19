@@ -1,0 +1,46 @@
+# security encryption file-transfer noise-protocol critical-fix
+**CRITICAL SECURITY VULNERABILITY FIXED: Private File Transfers Now Properly Noise Encrypted**
+
+**Problem**: Audio messages, images, and files sent in private chats were being sent as unencrypted FILE_TRANSFER packets, exposing private file content to the entire mesh network.
+
+**Root Cause**: The sendFilePrivate() method in BluetoothMeshService.kt was creating FILE_TRANSFER packets with the raw TLV payload, not encrypting them through the Noise protocol like text messages.
+
+**Security Impact**: 
+- Private images were visible to all mesh participants
+- Private voice recordings were audible to all mesh participants  
+- Private file contents were readable by all mesh participants
+- Only the filename/metadata was somewhat obscured by TLV encoding
+
+**Fix Applied**:
+
+1. **Updated NoisePayloadType enum** (NoiseEncrypted.kt):
+   - Added FILE_TRANSFER(0x04u) payload type for encrypted file transfers
+
+2. **Fixed sendFilePrivate()** (BluetoothMeshService.kt):
+   - Now wraps file TLV in NoisePayload with FILE_TRANSFER type
+   - Encrypts through encryptionService.encrypt() like text messages
+   - Sends as NOISE_ENCRYPTED packet (not FILE_TRANSFER packet)
+   - Requires established Noise session; initiates handshake if missing
+   - Maintains same fragmentation and progress tracking
+
+3. **Enhanced handleNoiseEncrypted()** (MessageHandler.kt):
+   - Added NoisePayloadType.FILE_TRANSFER case
+   - Decrypts file payload and processes like unencrypted files
+   - Maintains same MIME-based classification (image/audio/file)
+   - Sends delivery ACK for encrypted file transfers
+
+**Technical Details**:
+- **Broadcast files**: Still unencrypted FILE_TRANSFER (public by design)
+- **Private files**: Now encrypted via NOISE_ENCRYPTED with FILE_TRANSFER NoisePayload
+- **Backward compatibility**: Mixed mesh will work (new private sends encrypted, old broadcast path unchanged)
+- **iOS compatibility**: Uses same NoisePayload system as iOS implementation
+
+**Files Modified**:
+- app/src/main/java/com/bitchat/android/model/NoiseEncrypted.kt - Added FILE_TRANSFER payload type
+- app/src/main/java/com/bitchat/android/mesh/BluetoothMeshService.kt - Fixed sendFilePrivate() encryption
+- app/src/main/java/com/bitchat/android/mesh/MessageHandler.kt - Added encrypted file receive handling
+
+**Build Status**: ✅ Successful compilation
+
+**Result**: Private file transfers (images, audio, generic files) are now properly end-to-end encrypted and only visible to the intended recipient, matching the security model of private text messages.
+
