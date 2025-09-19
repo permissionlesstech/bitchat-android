@@ -68,6 +68,11 @@ class PacketRelayManager(private val myPeerID: String) {
         // Source-based routing: if route is set and includes us, try targeted next-hop forwarding
         val route = relayPacket.route
         if (!route.isNullOrEmpty()) {
+            // Check for duplicate hops to prevent routing loops
+            if (route.map { it.toHexString() }.toSet().size < route.size) {
+                Log.w(TAG, "Packet with duplicate hops dropped")
+                return
+            }
             val myIdBytes = hexStringToPeerBytes(myPeerID)
             val index = route.indexOfFirst { it.contentEquals(myIdBytes) }
             if (index >= 0) {
