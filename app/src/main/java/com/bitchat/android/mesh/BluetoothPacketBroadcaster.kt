@@ -2,13 +2,13 @@
 package com.bitchat.android.mesh
 
 import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattServer
 import android.util.Log
 import com.bitchat.android.protocol.SpecialRecipients
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.MessageType
+import com.bitchat.android.ui.screens.debug.DebugSettingsManager
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -73,7 +73,7 @@ class BluetoothPacketBroadcaster(
             val toNick = toPeer?.let { nicknameResolver?.invoke(it) }
             val isRelay = (incomingAddr != null || incomingPeer != null)
             
-            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().logPacketRelayDetailed(
+            DebugSettingsManager.getInstance().logPacketRelayDetailed(
                 packetType = typeName,
                 senderPeerID = senderPeerID,
                 senderNickname = senderNick,

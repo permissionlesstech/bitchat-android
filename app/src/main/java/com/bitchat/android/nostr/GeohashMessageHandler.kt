@@ -3,8 +3,9 @@ package com.bitchat.android.nostr
 import android.app.Application
 import android.util.Log
 import com.bitchat.android.model.BitchatMessage
-import com.bitchat.android.ui.ChatState
-import com.bitchat.android.ui.MessageManager
+import com.bitchat.android.ui.screens.chat.ChatState
+import com.bitchat.android.ui.shared.managers.MessageManager
+import com.bitchat.android.ui.shared.managers.DataManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -23,7 +24,7 @@ class GeohashMessageHandler(
     private val messageManager: MessageManager,
     private val repo: GeohashRepository,
     private val scope: CoroutineScope,
-    private val dataManager: com.bitchat.android.ui.DataManager
+    private val dataManager: DataManager
 ) {
     companion object { private const val TAG = "GeohashMessageHandler" }
 

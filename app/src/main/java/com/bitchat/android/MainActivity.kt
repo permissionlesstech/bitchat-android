@@ -15,32 +15,32 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.Lifecycle
 import com.bitchat.android.mesh.BluetoothMeshService
-import com.bitchat.android.onboarding.BluetoothCheckScreen
-import com.bitchat.android.onboarding.BluetoothStatus
-import com.bitchat.android.onboarding.BluetoothStatusManager
-import com.bitchat.android.onboarding.BatteryOptimizationManager
-import com.bitchat.android.onboarding.BatteryOptimizationPreferenceManager
-import com.bitchat.android.onboarding.BatteryOptimizationScreen
-import com.bitchat.android.onboarding.BatteryOptimizationStatus
-import com.bitchat.android.onboarding.InitializationErrorScreen
-import com.bitchat.android.onboarding.InitializingScreen
-import com.bitchat.android.onboarding.LocationCheckScreen
-import com.bitchat.android.onboarding.LocationStatus
-import com.bitchat.android.onboarding.LocationStatusManager
-import com.bitchat.android.onboarding.OnboardingCoordinator
-import com.bitchat.android.onboarding.OnboardingState
-import com.bitchat.android.onboarding.PermissionExplanationScreen
-import com.bitchat.android.onboarding.PermissionManager
-import com.bitchat.android.ui.ChatScreen
-import com.bitchat.android.ui.ChatViewModel
+import com.bitchat.android.ui.screens.onboarding.screens.BluetoothCheckScreen
+import com.bitchat.android.ui.screens.onboarding.managers.BluetoothStatus
+import com.bitchat.android.ui.screens.onboarding.managers.BluetoothStatusManager
+import com.bitchat.android.ui.screens.onboarding.managers.BatteryOptimizationManager
+import com.bitchat.android.ui.screens.onboarding.managers.BatteryOptimizationPreferenceManager
+import com.bitchat.android.ui.screens.onboarding.screens.BatteryOptimizationScreen
+import com.bitchat.android.ui.screens.onboarding.managers.BatteryOptimizationStatus
+import com.bitchat.android.ui.screens.onboarding.screens.InitializationErrorScreen
+import com.bitchat.android.ui.screens.onboarding.screens.InitializingScreen
+import com.bitchat.android.ui.screens.onboarding.screens.LocationCheckScreen
+import com.bitchat.android.ui.screens.onboarding.managers.LocationStatus
+import com.bitchat.android.ui.screens.onboarding.managers.LocationStatusManager
+import com.bitchat.android.ui.screens.onboarding.OnboardingCoordinator
+import com.bitchat.android.ui.screens.onboarding.OnboardingState
+import com.bitchat.android.ui.screens.onboarding.screens.PermissionExplanationScreen
+import com.bitchat.android.ui.screens.onboarding.managers.PermissionManager
+import com.bitchat.android.ui.screens.chat.ChatScreen
+import com.bitchat.android.ui.screens.chat.ChatViewModel
 import com.bitchat.android.ui.theme.BitchatTheme
 import com.bitchat.android.nostr.PoWPreferenceManager
+import com.bitchat.android.ui.shared.managers.NotificationManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -678,19 +678,19 @@ class MainActivity : ComponentActivity() {
      */
     private fun handleNotificationIntent(intent: Intent) {
         val shouldOpenPrivateChat = intent.getBooleanExtra(
-            com.bitchat.android.ui.NotificationManager.EXTRA_OPEN_PRIVATE_CHAT, 
+            NotificationManager.EXTRA_OPEN_PRIVATE_CHAT,
             false
         )
         
         val shouldOpenGeohashChat = intent.getBooleanExtra(
-            com.bitchat.android.ui.NotificationManager.EXTRA_OPEN_GEOHASH_CHAT,
+            NotificationManager.EXTRA_OPEN_GEOHASH_CHAT,
             false
         )
         
         when {
             shouldOpenPrivateChat -> {
-                val peerID = intent.getStringExtra(com.bitchat.android.ui.NotificationManager.EXTRA_PEER_ID)
-                val senderNickname = intent.getStringExtra(com.bitchat.android.ui.NotificationManager.EXTRA_SENDER_NICKNAME)
+                val peerID = intent.getStringExtra(NotificationManager.EXTRA_PEER_ID)
+                val senderNickname = intent.getStringExtra(NotificationManager.EXTRA_SENDER_NICKNAME)
                 
                 if (peerID != null) {
                     Log.d("MainActivity", "Opening private chat with $senderNickname (peerID: $peerID) from notification")
@@ -704,7 +704,7 @@ class MainActivity : ComponentActivity() {
             }
             
             shouldOpenGeohashChat -> {
-                val geohash = intent.getStringExtra(com.bitchat.android.ui.NotificationManager.EXTRA_GEOHASH)
+                val geohash = intent.getStringExtra(NotificationManager.EXTRA_GEOHASH)
                 
                 if (geohash != null) {
                     Log.d("MainActivity", "Opening geohash chat #$geohash from notification")

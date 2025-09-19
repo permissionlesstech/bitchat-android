@@ -4,6 +4,7 @@ import android.app.Application
 import com.bitchat.android.nostr.RelayDirectory
 import com.bitchat.android.ui.theme.ThemePreferenceManager
 import com.bitchat.android.net.TorManager
+import com.bitchat.android.ui.screens.debug.DebugPreferenceManager
 
 /**
  * Main application class for bitchat Android
@@ -33,7 +34,7 @@ class BitchatApplication : Application() {
         ThemePreferenceManager.init(this)
 
         // Initialize debug preference manager (persists debug toggles)
-        try { com.bitchat.android.ui.debug.DebugPreferenceManager.init(this) } catch (_: Exception) { }
+        try { DebugPreferenceManager.init(this) } catch (_: Exception) { }
 
         // TorManager already initialized above
     }

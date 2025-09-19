@@ -1,6 +1,6 @@
 package com.bitchat.android.services
 
-import com.bitchat.android.ui.ChatState
+import com.bitchat.android.ui.screens.chat.ChatState
 
 object ConversationAliasResolver {
 

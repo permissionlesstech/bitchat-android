@@ -6,9 +6,10 @@ import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.services.SeenMessageStore
-import com.bitchat.android.ui.ChatState
-import com.bitchat.android.ui.MeshDelegateHandler
-import com.bitchat.android.ui.PrivateChatManager
+import com.bitchat.android.ui.screens.chat.ChatState
+import com.bitchat.android.ui.shared.managers.MeshDelegateHandler
+import com.bitchat.android.ui.shared.managers.PrivateChatManager
+import com.bitchat.android.ui.shared.managers.DataManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -22,7 +23,7 @@ class NostrDirectMessageHandler(
     private val meshDelegateHandler: MeshDelegateHandler,
     private val scope: CoroutineScope,
     private val repo: GeohashRepository,
-    private val dataManager: com.bitchat.android.ui.DataManager
+    private val dataManager: DataManager
 ) {
     companion object { private const val TAG = "NostrDirectMessageHandler" }
 

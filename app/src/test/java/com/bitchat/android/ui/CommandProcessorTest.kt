@@ -4,6 +4,13 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.ui.screens.chat.ChatState
+import com.bitchat.android.ui.shared.managers.ChannelManager
+import com.bitchat.android.ui.shared.managers.DataManager
+import com.bitchat.android.ui.shared.managers.MessageManager
+import com.bitchat.android.ui.shared.managers.NoiseSessionDelegate
+import com.bitchat.android.ui.shared.managers.PrivateChatManager
+import com.bitchat.android.ui.shared.utils.CommandProcessor
 import junit.framework.TestCase.assertEquals
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.StandardTestDispatcher

@@ -7,11 +7,11 @@ import android.location.Geocoder
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
-import android.os.Bundle
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import com.bitchat.android.ui.shared.managers.DataManager
 import kotlinx.coroutines.*
 import java.util.*
 import com.google.gson.Gson
@@ -50,7 +50,7 @@ class LocationChannelManager private constructor(private val context: Context) {
     private var refreshTimer: Job? = null
     private var isGeocoding: Boolean = false
     private val gson = Gson()
-    private var dataManager: com.bitchat.android.ui.DataManager? = null
+    private var dataManager: DataManager? = null
 
     // Published state for UI bindings (matching iOS @Published properties)
     private val _permissionState = MutableLiveData(PermissionState.NOT_DETERMINED)
@@ -79,7 +79,7 @@ class LocationChannelManager private constructor(private val context: Context) {
     init {
         updatePermissionState()
         // Initialize DataManager and load persisted settings
-        dataManager = com.bitchat.android.ui.DataManager(context)
+        dataManager = DataManager(context)
         loadPersistedChannelSelection()
         loadLocationServicesState()
     }

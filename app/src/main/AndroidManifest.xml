@@ -42,7 +42,7 @@
         android:theme="@style/Theme.BitchatAndroid"
         tools:targetApi="31">
         <activity
-            android:name=".ui.GeohashPickerActivity"
+            android:name=".ui.screens.geohash.GeohashPickerActivity"
             android:exported="false"
             android:theme="@style/Theme.BitchatAndroid"
             android:screenOrientation="portrait"

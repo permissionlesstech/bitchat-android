@@ -1,10 +1,9 @@
 package com.bitchat.android.nostr
 
 import android.app.Application
-import android.util.Log
-import androidx.lifecycle.LiveData
-import com.bitchat.android.ui.ChatState
-import com.bitchat.android.ui.GeoPerson
+import com.bitchat.android.ui.screens.chat.ChatState
+import com.bitchat.android.ui.screens.geohash.components.GeoPerson
+import com.bitchat.android.ui.shared.managers.DataManager
 import java.util.Date
 
 /**
@@ -15,7 +14,7 @@ import java.util.Date
 class GeohashRepository(
     private val application: Application,
     private val state: ChatState,
-    private val dataManager: com.bitchat.android.ui.DataManager
+    private val dataManager: DataManager
 ) {
     companion object { private const val TAG = "GeohashRepository" }
 

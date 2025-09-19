@@ -1,10 +1,10 @@
 package com.bitchat.android
 
 import androidx.lifecycle.ViewModel
-import com.bitchat.android.onboarding.BluetoothStatus
-import com.bitchat.android.onboarding.LocationStatus
-import com.bitchat.android.onboarding.OnboardingState
-import com.bitchat.android.onboarding.BatteryOptimizationStatus
+import com.bitchat.android.ui.screens.onboarding.managers.BluetoothStatus
+import com.bitchat.android.ui.screens.onboarding.managers.LocationStatus
+import com.bitchat.android.ui.screens.onboarding.OnboardingState
+import com.bitchat.android.ui.screens.onboarding.managers.BatteryOptimizationStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
