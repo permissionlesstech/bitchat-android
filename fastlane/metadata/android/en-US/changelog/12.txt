@@ -1,0 +1,14 @@
+new release with stability improvements and bitchat protocol updates. compatible with bitchat iOS 1.3.1.
+
+What's Changed
+
+* Mock Android Log to fix PeerManager tests by @shubertm in #239
+* Fix favorite icon not updating on first Sidebar open by @tairrzayev in #237
+* add sendPeriodicBroadcastAnnounce to startServices by @lollerfirst in #243
+* gradle: disable baseline profile for f-droid reproducable builds by @mwarning in #260
+* Changes bitchat protocol by @callebtc in #265
+* fix fragmentation baby by @callebtc in #266
+* Sign announcements by @callebtc in #267
+* bump to 0.9 by @callebtc in #269
+* change app ID to com.bitchat.droid by @callebtc in #270
+* bump vc to 12 by @callebtc in #274
