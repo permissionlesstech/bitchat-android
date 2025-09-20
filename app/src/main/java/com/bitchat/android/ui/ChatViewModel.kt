@@ -2,6 +2,7 @@ package com.bitchat.android.ui
 
 import android.app.Application
 import android.util.Log
+import android.webkit.MimeTypeMap
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
@@ -44,6 +45,50 @@ class ChatViewModel(
 
     fun sendImageNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
         mediaSendingManager.sendImageNote(toPeerIDOrNull, channelOrNull, filePath)
+    }
+
+
+
+    fun stageImageAttachment(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
+        // Defer payload encryption until confirmation so NoiseEncryptionService reads the file once.
+        val pending = PendingAttachment(
+            path = filePath,
+            type = PendingAttachmentType.IMAGE,
+            mimeType = resolveMimeType(filePath, "image/jpeg"),
+            targetPeerId = toPeerIDOrNull,
+            targetChannel = channelOrNull
+        )
+        state.setPendingAttachment(pending)
+    }
+
+    fun clearPendingAttachment() {
+        state.setPendingAttachment(null)
+    }
+
+    fun confirmPendingAttachment(): Boolean {
+        val pending = state.getPendingAttachmentValue() ?: return false
+        when (pending.type) {
+            PendingAttachmentType.IMAGE -> sendImageNote(pending.targetPeerId, pending.targetChannel, pending.path)
+            PendingAttachmentType.AUDIO -> sendVoiceNote(pending.targetPeerId, pending.targetChannel, pending.path)
+            PendingAttachmentType.FILE -> sendFileNote(pending.targetPeerId, pending.targetChannel, pending.path)
+        }
+        state.setPendingAttachment(null)
+        return true
+    }
+
+    private fun resolveMimeType(path: String, fallback: String): String {
+        return try {
+            val extension = path.substringAfterLast('.', "").lowercase()
+            if (extension.isNotEmpty()) {
+                MimeTypeMap.getSingleton()?.getMimeTypeFromExtension(extension) ?: fallback
+            } else {
+                fallback
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to resolve mime type for $path: ${e.message}")
+            fallback
+        }
+
     }
 
     // MARK: - State management
@@ -125,6 +170,7 @@ class ChatViewModel(
     val commandSuggestions: LiveData<List<CommandSuggestion>> = state.commandSuggestions
     val showMentionSuggestions: LiveData<Boolean> = state.showMentionSuggestions
     val mentionSuggestions: LiveData<List<String>> = state.mentionSuggestions
+    val pendingAttachment: LiveData<PendingAttachment?> = state.pendingAttachment
     val favoritePeers: LiveData<Set<String>> = state.favoritePeers
     val peerSessionStates: LiveData<Map<String, String>> = state.peerSessionStates
     val peerFingerprints: LiveData<Map<String, String>> = state.peerFingerprints
