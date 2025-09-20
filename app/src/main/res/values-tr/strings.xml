@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+    <string name="permission_bluetooth_rationale">Bluetooth, internet bağlantısı olmadan eşler arası mesajlaşma için izin gerektirir.
+</string>
+    <string name="permission_location_rationale">Bluetooth aracılığıyla yakındaki cihazları keşfetmek için konum izni gereklidir.
+</string>
+    <string name="permission_notification_rationale">Yeni mesajlardan haberdar olabilmeniz için bildirim izni gereklidir.
+</string>
+    <string name="nickname_hint">kullanıcı adı</string>
+    <string name="message_hint">bir mesaj yazın…</string>
+    <string name="channel_password_hint">Parola</string>
+    <string name="join_channel">Kanala Katıl</string>
+    <string name="leave_channel">Ayrıl</string>
+    <string name="send_message">Gönder</string>
+    <string name="back">Geri</string>
+    <string name="people">İnsanlar</string>
+    <string name="channels">Kanallar</string>
+    <string name="online_users">Çevrimiçi Kullanıcılar</string>
+    <string name="no_one_connected">Bağlı kimse yok</string>
+    <string name="emergency_clear_hint">Üç kez dokunarak tüm verileri temizleyin</string>
+    <string name="your_network">Ağ</string>
+    
+    <!-- Battery Optimization Strings -->
+    <string name="battery_optimization_detected">Pil Optimizasyonu Tespit Edildi</string>
+    <string name="battery_optimization_disabled">Pil Optimizasyonu Devre Dışı Bırakıldı</string>
+    <string name="battery_optimization_not_required">Pil Optimizasyonu Gerekli Değil</string>
+    <string name="battery_optimization_checking">Pil Optimizasyonu Kontrol Ediliyor</string>
+    <string name="battery_optimization_why_disable">Pil optimizasyonunu neden devre dışı bırakmalısın?</string>
+    <string name="battery_optimization_explanation">bitchat, yakındaki cihazlarla ağ bağlantılarını sürdürmek için arka planda çalışır. Pil optimizasyonu bu bağlantıları kesintiye uğratarak mesajların gecikmesine veya kaçırılmasına neden olabilir.\n\nPil optimizasyonunu devre dışı bırakmak, kesintisiz eşler arası mesajlaşma sağlar.</string>
+    <string name="battery_optimization_disable_button">Pil Optimizasyonunu Devre Dışı Bırak</string>
+    <string name="battery_optimization_note">Not: Bu ayarı daha sonra Android Ayarları > Uygulamalar > bitchat > Pil bölümünden değiştirebilirsiniz.</string>
+    <string name="battery_optimization_not_supported_explanation">Cihazınız pil optimizasyonu ayarı gerektirmiyor. bitchat normal şekilde çalışacaktır.</string>
+    <string name="battery_optimization_not_supported_message">Cihazınız pil optimizasyonu ayarı gerektirmiyor. bitchat normal şekilde çalışacaktır.</string>
+    <string name="battery_optimization_success_message">bitchat arka planda güvenilir bir şekilde çalışabilir.
+</string>
+    <string name="battery_optimization_benefits">• Güvenilir mesaj teslimi sağlar\n• Ağ bağlantılarını sürdürür\n• Arka planda mesaj iletimine olanak tanır\n• Bağlantı kopmalarını önler</string>
+    <string name="battery_optimization_check_again">Tekrar Kontrol Et</string>
+    <string name="battery_optimization_skip">Şimdilik Atla
+</string>
+    <string name="battery_optimization_continue">Devam et</string>
+    <string name="retry">Yeniden dene</string>
+    <string name="skip">Atla</string>
+</resources>
