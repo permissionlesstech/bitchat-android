@@ -13,8 +13,11 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
@@ -31,7 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
  */
 data class GeoPerson(
     val id: String,           // pubkey hex (lowercased) - matches iOS
-    val displayName: String,  // nickname with #suffix - matches iOS  
+    val displayName: String,  // nickname with #suffix - matches iOS
     val lastSeen: Date        // activity timestamp - matches iOS
 )
 
@@ -42,14 +45,14 @@ fun GeohashPeopleList(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    
+
     // Observe geohash people from ChatViewModel
     val geohashPeople by viewModel.geohashPeople.observeAsState(emptyList())
     val selectedLocationChannel by viewModel.selectedLocationChannel.observeAsState()
     val isTeleported by viewModel.isTeleported.observeAsState(false)
     val nickname by viewModel.nickname.observeAsState("")
     val unreadPrivateMessages by viewModel.unreadPrivateMessages.observeAsState(emptySet())
-    
+
     Column {
         // Header matching iOS style
         Row(
@@ -74,7 +77,7 @@ fun GeohashPeopleList(
                 color = colorScheme.onSurface.copy(alpha = 0.6f)
             )
         }
-        
+
         if (geohashPeople.isEmpty()) {
             // Empty state - matches iOS "nobody around..."
             Text(
@@ -105,7 +108,7 @@ fun GeohashPeopleList(
                     else -> null
                 }
             }
-            
+
             // Sort people: me first, then by lastSeen (matches iOS exactly)
             val orderedPeople = remember(geohashPeople, myHex) {
                 geohashPeople.sortedWith { a, b ->
@@ -126,9 +129,9 @@ fun GeohashPeopleList(
                 }
                 counts
             }
-            
+
             val firstID = orderedPeople.firstOrNull()?.id
-            
+
             orderedPeople.forEach { person ->
                 GeohashPersonItem(
                     person = person,
@@ -194,13 +197,13 @@ private fun GeohashPersonItem(
                 isMe -> "face.smiling" to Color(0xFFFF9500) // Orange for me
                 else -> "face.smiling" to colorScheme.onSurface // Regular color for others
             }
-            
+
             // Use appropriate Material icon (closest match to iOS SF Symbols)
             val icon = when (iconName) {
                 "face.dashed" -> Icons.Outlined.Explore
                 else -> Icons.Outlined.LocationOn
             }
-            
+
             Icon(
                 imageVector = icon,
                 contentDescription = if (isTeleported || isMyTeleported) "Teleported user" else "User",
@@ -208,63 +211,48 @@ private fun GeohashPersonItem(
                 tint = iconColor.copy(alpha = if (iconName == "face.dashed") 0.6f else 1.0f) // Make dashed faces slightly transparent
             )
         }
-        
+
         Spacer(modifier = Modifier.width(8.dp))
-        
+
         // Display name with suffix handling
         val (baseNameRaw, suffixRaw) = com.bitchat.android.ui.splitSuffix(person.displayName)
         val baseName = truncateNickname(baseNameRaw)
         val suffix = if (showHashSuffix) suffixRaw else ""
-        
+
         // Get consistent peer color (matches iOS color assignment exactly)
         val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
         val assignedColor = viewModel.colorForNostrPubkey(person.id, isDark)
         val baseColor = if (isMe) Color(0xFFFF9500) else assignedColor
-        
-        Row(
-            modifier = Modifier.weight(1f),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Base name with peer-specific color
-            Text(
-                text = baseName,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = BASE_FONT_SIZE.sp,
+
+        // Single Text with AnnotatedString (keeps layout simple, preserves upstream comments)
+        val annotated = buildAnnotatedString {
+            withStyle(
+                SpanStyle(
+                    color = baseColor,
                     fontWeight = if (isMe) FontWeight.Bold else FontWeight.Normal
-                ),
-                color = baseColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            
-            // Suffix (collision-resistant #abcd) in lighter shade
+                )
+            ) { append(baseName) }
             if (suffix.isNotEmpty()) {
-                Text(
-                    text = suffix,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = BASE_FONT_SIZE.sp
-                    ),
-                    color = baseColor.copy(alpha = 0.6f)
-                )
+                withStyle(SpanStyle(color = baseColor.copy(alpha = 0.6f))) {
+                    append(suffix)
+                }
             }
-            
-            // "You" indicator for current user
             if (isMe) {
-                Text(
-                    text = " (you)",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = BASE_FONT_SIZE.sp
-                    ),
-                    color = baseColor
-                )
+                withStyle(SpanStyle(color = baseColor)) { append(" (you)") }
             }
         }
-        
+
+        Text(
+            text = annotated,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontFamily = FontFamily.Monospace,
+                fontSize = BASE_FONT_SIZE.sp
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+
         Spacer(modifier = Modifier.width(8.dp))
     }
 }
-
-
