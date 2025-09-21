@@ -80,6 +80,8 @@ class PermissionManager(private val context: Context) {
         val optional = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             optional.add(Manifest.permission.POST_NOTIFICATIONS)
+            // Wi‑Fi Direct permission (Android 13+)
+            optional.add(Manifest.permission.NEARBY_WIFI_DEVICES)
         }
         return optional
     }
@@ -118,6 +120,10 @@ class PermissionManager(private val context: Context) {
 
     /**
      * Check if battery optimization is supported on this device
+        // Wi‑Fi Direct: proactively request NEARBY_WIFI_DEVICES on Android 13+
+        // Treat it as optional (requested but not blocking) to avoid breaking BLE‑only usage.
+        // It will be added in getOptionalPermissions().
+
      */
     fun isBatteryOptimizationSupported(): Boolean {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
@@ -136,7 +142,7 @@ class PermissionManager(private val context: Context) {
     fun getCategorizedPermissions(): List<PermissionCategory> {
         val categories = mutableListOf<PermissionCategory>()
 
-        // Bluetooth/Nearby Devices category
+        // Nearby devices permissions (Bluetooth + Wi‑Fi Direct on 13+)
         val bluetoothPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             listOf(
                 Manifest.permission.BLUETOOTH_ADVERTISE,
@@ -149,14 +155,18 @@ class PermissionManager(private val context: Context) {
                 Manifest.permission.BLUETOOTH_ADMIN
             )
         }
+        val wifiDirectPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            listOf(Manifest.permission.NEARBY_WIFI_DEVICES)
+        } else emptyList()
+        val proximityPermissions = bluetoothPermissions + wifiDirectPermissions
 
         categories.add(
             PermissionCategory(
                 type = PermissionType.NEARBY_DEVICES,
-                description = "Required to discover bitchat users via Bluetooth",
-                permissions = bluetoothPermissions,
-                isGranted = bluetoothPermissions.all { isPermissionGranted(it) },
-                systemDescription = "Allow bitchat to connect to nearby devices"
+                description = "Required to discover bitchat users via Bluetooth and Wi‑Fi Direct",
+                permissions = proximityPermissions,
+                isGranted = proximityPermissions.all { isPermissionGranted(it) },
+                systemDescription = "Allow bitchat to connect to nearby devices (Bluetooth/Wi‑Fi Direct)"
             )
         )
 

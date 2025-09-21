@@ -47,7 +47,18 @@ class WifiDirectConnectionManager(
 
     companion object {
         private const val TAG = "WifiDirectConnMgr"
-        private val PORTS = intArrayOf(49537, 49577, 49613, 49681, 49753)
+        // Use a set of common, unprivileged ports to avoid platform quirks and reserved ports.
+        // Note: Ports <1024 require elevated privileges on Android and will fail to bind.
+        private val PORTS = intArrayOf(
+            //8988, // common Wi‑Fi Direct demo port
+            8888, // often used for testing
+            8080, // common alternative HTTP
+            8443, // common alternative HTTPS
+            8000, // dev servers
+            5000, // dev/test
+            12345, // test
+            20000 // test
+        )
         private const val RESCAN_BACKOFF_MS = 10_000L
         private const val DISCOVER_INTERVAL_MS = 30_000L
         private const val ATTEMPT_TTL_MS = 60_000L
@@ -145,15 +156,14 @@ class WifiDirectConnectionManager(
     private fun findP2pNetwork(goAddr: java.net.InetAddress?): android.net.Network? {
         return try {
             val nets = cm.allNetworks ?: return null
-            val ga = goAddr
             nets.firstOrNull { net ->
                 val lp = cm.getLinkProperties(net) ?: return@firstOrNull false
                 val ifn = lp.interfaceName ?: ""
-                // Heuristics: interface name contains "p2p" OR the routes/addresses mention 192.168.49.x OR match GO address
+                // Strict detection: only treat as P2P if interface name looks like p2p
+                // or if the assigned IPv4 is in the 192.168.49.x range.
                 val hasP2pIf = ifn.contains("p2p", ignoreCase = true)
                 val has49 = lp.linkAddresses.any { it.address.hostAddress?.startsWith("192.168.49.") == true }
-                val routesGo = if (ga != null) lp.routes.any { r -> containsAddress(r.destination, ga) } else false
-                hasP2pIf || has49 || routesGo
+                hasP2pIf || has49
             }
         } catch (_: Exception) { null }
     }
@@ -299,8 +309,41 @@ class WifiDirectConnectionManager(
                     }
                     WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION -> {
                         Log.d(TAG, "WIFI_P2P_CONNECTION_CHANGED_ACTION")
-                        val info = intent.getParcelableExtra<android.net.NetworkInfo>(WifiP2pManager.EXTRA_NETWORK_INFO)
-                        handleConnectionChanged(info)
+                        try {
+                            if (Build.VERSION.SDK_INT >= 33) {
+                                // Prefer modern extra when available
+                                val p2pInfo = intent.getParcelableExtra(
+                                    WifiP2pManager.EXTRA_WIFI_P2P_INFO,
+                                    WifiP2pInfo::class.java
+                                )
+                                if (p2pInfo != null) {
+                                    onConnectionInfo(p2pInfo)
+                                } else {
+                                    manager?.requestConnectionInfo(channel) { info -> onConnectionInfo(info) }
+                                }
+                            } else {
+                                // Legacy path; request info regardless to avoid race conditions
+                                val ninfo = intent.getParcelableExtra<NetworkInfo>(WifiP2pManager.EXTRA_NETWORK_INFO)
+                                // Keep legacy disconnect handling for cleanup
+                                handleConnectionChanged(ninfo)
+                                // Also proactively request connection info
+                                manager?.requestConnectionInfo(channel) { info -> onConnectionInfo(info) }
+                            }
+
+                            // Belt-and-suspenders: ensure server is started if we are GO
+                            manager?.requestGroupInfo(channel) { group ->
+                                try {
+                                    if (group?.isGroupOwner == true) {
+                                        Log.d(TAG, "Group info indicates we are GO; ensuring server is started")
+                                        startServerIfNeeded(PORTS.first())
+                                    }
+                                } catch (_: Exception) {}
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "WIFI_P2P_CONNECTION_CHANGED handling error: ${e.message}")
+                            try { manager?.requestConnectionInfo(channel) { info -> onConnectionInfo(info) } } catch (_: Exception) {}
+                        }
+                        logAllNetworks("onBroadcast")
                     }
                     WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION -> {
                         val dev = intent.getParcelableExtra<WifiP2pDevice>(WifiP2pManager.EXTRA_WIFI_P2P_DEVICE)
@@ -362,8 +405,12 @@ class WifiDirectConnectionManager(
         }
     }
 
-    // GO: Accept exactly one client (idempotent)
+    // PATCH B applied: bind server to P2P address and log host:port
+    // Previous implementation retained below (commented) for quick rollback.
     private fun startServerIfNeeded(port: Int = PORTS.first()) {
+        /*
+        // ORIGINAL IMPLEMENTATION (commented out)
+        // GO: Accept exactly one client (idempotent)
         // If already listening and not closed, do nothing
         try {
             val s = server
@@ -392,8 +439,168 @@ class WifiDirectConnectionManager(
             Log.e(TAG, "Server error: no ports available to bind")
             scheduleRescan()
         }
+        */
+
+        // NEW IMPLEMENTATION (bind to P2P IPv4 if available; log host:port)
+        try {
+            val s = server
+            if (s != null && !s.isClosed) {
+                Log.d(TAG, "Server already listening")
+                return
+            }
+        } catch (_: Exception) {}
+
+        scope.launch {
+            // Brief delay to allow P2P interface to be ready after group formation
+            delay(300)
+
+            // Resolve the P2P IPv4 address for binding (e.g., 192.168.49.1 on GO)
+            val localBind: java.net.Inet4Address? =
+                getP2pInet4FromInterfaces()
+                    ?: (findP2pNetwork(null)?.let { getP2pLocalAddress(it) } as? java.net.Inet4Address)
+
+            for (p in PORTS) {
+                try {
+                    try { server?.close() } catch (_: Exception) {}
+
+                    // Try wildcard bind on all interfaces first; fallback to P2P-only bind
+                    server = try {
+                        ServerSocket().apply {
+                            try { reuseAddress = true } catch (_: Exception) {}
+                            // Force IPv4 wildcard to avoid IPv6-only (::) bind that can break IPv4 connects
+                            val any4 = java.net.InetAddress.getByName("0.0.0.0")
+                            bind(java.net.InetSocketAddress(any4, p), 50)
+                        }
+                    } catch (e: Exception) {
+                        // Fallback: bind explicitly to P2P address if available, else legacy by port
+                        if (localBind != null) {
+                            ServerSocket().apply {
+                                try { reuseAddress = true } catch (_: Exception) {}
+                                bind(java.net.InetSocketAddress(localBind, p), 50)
+                            }
+                        } else {
+                            ServerSocket(p)
+                        }
+                    }
+
+                    val bound = (server?.localSocketAddress as? java.net.InetSocketAddress)
+                    val hostShown = bound?.address?.hostAddress ?: "0.0.0.0"
+                    Log.i(TAG, "[Wi‑Fi Direct] Listening on $hostShown:$p (single client)")
+
+                    val s = withContext(Dispatchers.IO) { server!!.accept() }
+                    if (!active.get()) { s.close(); return@launch }
+                    attachSocket(s, isServer = true)
+                    return@launch
+                } catch (e: Exception) {
+                    Log.w(TAG, "Server bind failed on port $p: ${e.message}")
+                    try { server?.close() } catch (_: Exception) {}
+                    server = null
+                    continue
+                }
+            }
+            Log.e(TAG, "Server error: no ports available to bind")
+            scheduleRescan()
+        }
     }
 
+    // Client: connect to GO with diagnostics and 2-phase attempts
+    private fun connectToHost(host: String, ports: IntArray = PORTS, allowRetry: Boolean = true) {
+        scope.launch {
+            try {
+                // Give P2P stack a moment to surface routes
+                delay(900)
+
+                // Log networks and interfaces before dialing
+                logAllNetworks("dialPrep")
+                logAllInterfaces("dialPrepIfaces")
+
+                val addr = java.net.InetAddress.getByName(host)
+
+                // Try to get P2P network and local address; poll briefly if missing
+                var net = findP2pNetwork(addr)
+                var localBind: java.net.InetAddress? = getP2pLocalAddress(net) ?: getP2pInet4FromInterfaces()
+                var polls = 0
+                while (localBind == null && polls < 8) { // up to ~4s
+                    delay(500)
+                    net = findP2pNetwork(addr)
+                    localBind = getP2pLocalAddress(net) ?: getP2pInet4FromInterfaces()
+                    polls++
+                }
+                Log.d(TAG, "Dial target=$host ports=${ports.joinToString()} localP2P=${localBind?.hostAddress ?: "null"} netFound=${net != null}")
+
+                suspend fun tryConnectPhase(bindSource: Boolean, useNetBind: Boolean): Socket? {
+                    for (port in ports) {
+                        try {
+                            val s = withContext(Dispatchers.IO) {
+                                val sock = java.net.Socket()
+                                try {
+                                    if (useNetBind) net?.bindSocket(sock)
+                                } catch (_: Exception) {}
+                                try {
+                                    if (bindSource) localBind?.let { la ->
+                                        try { sock.bind(java.net.InetSocketAddress(la, 0)) } catch (_: Exception) {}
+                                    }
+                                } catch (_: Exception) {}
+                                try {
+                                    sock.connect(
+                                        java.net.InetSocketAddress(addr, port),
+                                        HANDSHAKE_TIMEOUT_MS.toInt().coerceAtLeast(5000)
+                                    )
+                                    sock
+                                } catch (e: Exception) {
+                                    try { sock.close() } catch (_: Exception) {}
+                                    throw e
+                                }
+                            }
+                            Log.i(TAG, "Client connected to $host:$port (bindSource=$bindSource useNetBind=$useNetBind)")
+                            return s
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Client connect error to $host:$port — ${e::class.java.simpleName}: ${e.message}")
+                            delay(150)
+                        }
+                    }
+                    return null
+                }
+
+                // Phase 1: bind to P2P source (and try net.bindSocket if we found a Network)
+                val s1 = tryConnectPhase(bindSource = (localBind != null), useNetBind = (net != null))
+                if (s1 != null) {
+                    if (!active.get()) { s1.close(); return@launch }
+                    attachSocket(s1, isServer = false)
+                    return@launch
+                }
+
+                // Phase 2: raw connects (no explicit binds). Let kernel choose route.
+                Log.d(TAG, "Phase 1 failed; trying raw connects without explicit binds")
+                val s2 = tryConnectPhase(bindSource = false, useNetBind = false)
+                if (s2 != null) {
+                    if (!active.get()) { s2.close(); return@launch }
+                    attachSocket(s2, isServer = false)
+                    return@launch
+                }
+
+                // All attempts failed on this cycle
+                DebugSettingsManager.getInstance().logWifiConnectionResult(host, false, "all ports failed")
+                if (allowRetry) {
+                    delay(1500)
+                    try {
+                        manager?.requestConnectionInfo(channel) { info ->
+                            val h = info?.groupOwnerAddress?.hostAddress
+                            if (!h.isNullOrEmpty()) connectToHost(h, ports, allowRetry = false)
+                        }
+                    } catch (_: Exception) {}
+                } else {
+                    scheduleRescan()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Client connect flow error: ${e.message}")
+                scheduleRescan()
+            }
+        }
+    }
+
+
+    /*
     // Client: connect to GO
     private fun connectToHost(host: String, ports: IntArray = PORTS, allowRetry: Boolean = true) {
         scope.launch {
@@ -471,6 +678,7 @@ class WifiDirectConnectionManager(
             }
         }
     }
+    */
 
     private fun attachSocket(s: Socket, isServer: Boolean) {
         // Run handshake first, then only attach and start reader if accepted.
