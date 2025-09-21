@@ -15,9 +15,7 @@ enum class MessageType(val value: UByte) {
     LEAVE(0x03u),
     NOISE_HANDSHAKE(0x10u),  // Noise handshake
     NOISE_ENCRYPTED(0x11u),  // Noise encrypted transport message
-    FRAGMENT(0x20u), // Fragmentation for large packets
-    REQUEST_SYNC(0x21u), // GCS-based sync request
-    FILE_TRANSFER(0x22u); // New: File transfer packet (BLE voice notes, etc.)
+    FRAGMENT(0x20u); // Fragmentation for large packets
 
     companion object {
         fun fromValue(value: UByte): MessageType? {
@@ -34,15 +32,15 @@ object SpecialRecipients {
 }
 
 /**
- * Binary packet format - 100% backward compatible with iOS version
- *
- * Header (13 bytes for v1, 15 bytes for v2):
+ * Binary packet format - 100% compatible with iOS version
+ * 
+ * Header (Fixed 13 bytes):
  * - Version: 1 byte
- * - Type: 1 byte
+ * - Type: 1 byte  
  * - TTL: 1 byte
  * - Timestamp: 8 bytes (UInt64, big-endian)
  * - Flags: 1 byte (bit 0: hasRecipient, bit 1: hasSignature, bit 2: isCompressed)
- * - PayloadLength: 2 bytes (v1) / 4 bytes (v2) (big-endian)
+ * - PayloadLength: 2 bytes (UInt16, big-endian)
  *
  * Variable sections:
  * - SenderID: 8 bytes (fixed)
@@ -175,27 +173,19 @@ data class BitchatPacket(
 }
 
 /**
- * Binary Protocol implementation - supports v1 and v2, backward compatible
+ * Binary Protocol implementation - exact same format as iOS version
  */
 object BinaryProtocol {
-    private const val HEADER_SIZE_V1 = 13
-    private const val HEADER_SIZE_V2 = 15
+    private const val HEADER_SIZE = 13
     private const val SENDER_ID_SIZE = 8
     private const val RECIPIENT_ID_SIZE = 8
     private const val SIGNATURE_SIZE = 64
-
+    
     object Flags {
         const val HAS_RECIPIENT: UByte = 0x01u
         const val HAS_SIGNATURE: UByte = 0x02u
         const val IS_COMPRESSED: UByte = 0x04u
         const val HAS_ROUTE: UByte = 0x08u
-    }
-
-    private fun getHeaderSize(version: UByte): Int {
-        return when (version) {
-            1u.toUByte() -> HEADER_SIZE_V1
-            else -> HEADER_SIZE_V2  // v2+ will use 4-byte payload length
-        }
     }
     
     fun encode(packet: BitchatPacket): ByteArray? {
@@ -213,13 +203,7 @@ object BinaryProtocol {
                 }
             }
             
-            // Compute a safe capacity for the unpadded frame
-            val headerSize = getHeaderSize(packet.version)
-            val recipientBytes = if (packet.recipientID != null) RECIPIENT_ID_SIZE else 0
-            val signatureBytes = if (packet.signature != null) SIGNATURE_SIZE else 0
-            val payloadBytes = payload.size + if (isCompressed) 2 else 0
-            val capacity = headerSize + SENDER_ID_SIZE + recipientBytes + payloadBytes + signatureBytes + 16 // small slack
-            val buffer = ByteBuffer.allocate(capacity.coerceAtLeast(512)).apply { order(ByteOrder.BIG_ENDIAN) }
+            val buffer = ByteBuffer.allocate(4096).apply { order(ByteOrder.BIG_ENDIAN) }
             
             // Header
             buffer.put(packet.version.toByte())
@@ -245,13 +229,9 @@ object BinaryProtocol {
             }
             buffer.put(flags.toByte())
             
-            // Payload length (2 or 4 bytes, big-endian) - includes original size if compressed
+            // Payload length (2 bytes, big-endian) - includes original size if compressed
             val payloadDataSize = payload.size + if (isCompressed) 2 else 0
-            if (packet.version >= 2u.toUByte()) {
-                buffer.putInt(payloadDataSize)  // 4 bytes for v2+
-            } else {
-                buffer.putShort(payloadDataSize.toShort())  // 2 bytes for v1
-            }
+            buffer.putShort(payloadDataSize.toShort())
             
             // SenderID (exactly 8 bytes)
             val senderBytes = packet.senderID.take(SENDER_ID_SIZE).toByteArray()
@@ -302,7 +282,7 @@ object BinaryProtocol {
             return paddedData
             
         } catch (e: Exception) {
-            Log.e("BinaryProtocol", "Error encoding packet type ${'$'}{packet.type}: ${'$'}{e.message}")
+            Log.e("BinaryProtocol", "Error encoding packet type ${packet.type}: ${e.message}")
             return null
         }
     }
@@ -323,22 +303,20 @@ object BinaryProtocol {
      */
     private fun decodeCore(raw: ByteArray): BitchatPacket? {
         try {
-            if (raw.size < HEADER_SIZE_V1 + SENDER_ID_SIZE) return null
-
+            if (raw.size < HEADER_SIZE + SENDER_ID_SIZE) return null
+            
             val buffer = ByteBuffer.wrap(raw).apply { order(ByteOrder.BIG_ENDIAN) }
-
+            
             // Header
             val version = buffer.get().toUByte()
-            if (version.toUInt() != 1u && version.toUInt() != 2u) return null  // Support v1 and v2
-
-            val headerSize = getHeaderSize(version)
-
+            if (version != 1u.toUByte()) return null
+            
             val type = buffer.get().toUByte()
             val ttl = buffer.get().toUByte()
-
+            
             // Timestamp
             val timestamp = buffer.getLong().toULong()
-
+            
             // Flags
             val flags = buffer.get().toUByte()
             val hasRecipient = (flags and Flags.HAS_RECIPIENT) != 0u.toUByte()
@@ -346,15 +324,11 @@ object BinaryProtocol {
             val isCompressed = (flags and Flags.IS_COMPRESSED) != 0u.toUByte()
             val hasRoute = (flags and Flags.HAS_ROUTE) != 0u.toUByte()
             
-            // Payload length - version-dependent (2 or 4 bytes)
-            val payloadLength = if (version >= 2u.toUByte()) {
-                buffer.getInt().toUInt()  // 4 bytes for v2+
-            } else {
-                buffer.getShort().toUShort().toUInt()  // 2 bytes for v1, convert to UInt
-            }
-
+            // Payload length
+            val payloadLength = buffer.getShort().toUShort()
+            
             // Calculate expected total size
-            var expectedSize = headerSize + SENDER_ID_SIZE + payloadLength.toInt()
+            var expectedSize = HEADER_SIZE + SENDER_ID_SIZE + payloadLength.toInt()
             if (hasRecipient) expectedSize += RECIPIENT_ID_SIZE
             var routeCount = 0
             if (hasRoute) {
@@ -366,7 +340,7 @@ object BinaryProtocol {
                 expectedSize += 1 + (routeCount * SENDER_ID_SIZE)
             }
             if (hasSignature) expectedSize += SIGNATURE_SIZE
-
+            
             if (raw.size < expectedSize) return null
             
             // SenderID
@@ -430,7 +404,7 @@ object BinaryProtocol {
             )
             
         } catch (e: Exception) {
-            Log.e("BinaryProtocol", "Error decoding packet: ${'$'}{e.message}")
+            Log.e("BinaryProtocol", "Error decoding packet: ${e.message}")
             return null
         }
     }

@@ -9,7 +9,6 @@ import androidx.lifecycle.viewModelScope
 import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
-import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.protocol.BitchatPacket
 
 
@@ -34,37 +33,21 @@ class ChatViewModel(
         private const val TAG = "ChatViewModel"
     }
 
-    fun sendVoiceNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
-        mediaSendingManager.sendVoiceNote(toPeerIDOrNull, channelOrNull, filePath)
-    }
-
-    fun sendFileNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
-        mediaSendingManager.sendFileNote(toPeerIDOrNull, channelOrNull, filePath)
-    }
-
-    fun sendImageNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
-        mediaSendingManager.sendImageNote(toPeerIDOrNull, channelOrNull, filePath)
-    }
-
-    // MARK: - State management
+    // State management
     private val state = ChatState()
-
-    // Transfer progress tracking
-    private val transferMessageMap = mutableMapOf<String, String>()
-    private val messageTransferMap = mutableMapOf<String, String>()
-
+    
     // Specialized managers
     private val dataManager = DataManager(application.applicationContext)
     private val messageManager = MessageManager(state)
     private val channelManager = ChannelManager(state, messageManager, dataManager, viewModelScope)
-
+    
     // Create Noise session delegate for clean dependency injection
     private val noiseSessionDelegate = object : NoiseSessionDelegate {
         override fun hasEstablishedSession(peerID: String): Boolean = meshService.hasEstablishedSession(peerID)
-        override fun initiateHandshake(peerID: String) = meshService.initiateNoiseHandshake(peerID)
+        override fun initiateHandshake(peerID: String) = meshService.initiateNoiseHandshake(peerID) 
         override fun getMyPeerID(): String = meshService.myPeerID
     }
-
+    
     val privateChatManager = PrivateChatManager(state, messageManager, dataManager, noiseSessionDelegate)
     private val commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager)
     private val notificationManager = NotificationManager(
@@ -72,9 +55,6 @@ class ChatViewModel(
       NotificationManagerCompat.from(application.applicationContext),
       NotificationIntervalManager()
     )
-
-    // Media file sending manager
-    private val mediaSendingManager = MediaSendingManager(state, messageManager, channelManager, meshService)
     
     // Delegate handler for mesh callbacks
     private val meshDelegateHandler = MeshDelegateHandler(
@@ -141,27 +121,6 @@ class ChatViewModel(
     init {
         // Note: Mesh service delegate is now set by MainActivity
         loadAndInitialize()
-        // Subscribe to BLE transfer progress and reflect in message deliveryStatus
-        viewModelScope.launch {
-            com.bitchat.android.mesh.TransferProgressManager.events.collect { evt ->
-                mediaSendingManager.handleTransferProgressEvent(evt)
-            }
-        }
-    }
-
-    fun cancelMediaSend(messageId: String) {
-        val transferId = synchronized(transferMessageMap) { messageTransferMap[messageId] }
-        if (transferId != null) {
-            val cancelled = meshService.cancelFileTransfer(transferId)
-            if (cancelled) {
-                // Remove the message from chat upon explicit cancel
-                messageManager.removeMessageById(messageId)
-                synchronized(transferMessageMap) {
-                    transferMessageMap.remove(transferId)
-                    messageTransferMap.remove(messageId)
-                }
-            }
-        }
     }
     
     private fun loadAndInitialize() {
@@ -240,8 +199,6 @@ class ChatViewModel(
                 messageManager.addMessage(welcomeMessage)
             }
         }
-
-        // BLE receives are inserted by MessageHandler path; no VoiceNoteBus for Tor in this branch.
     }
     
     override fun onCleared() {
@@ -762,14 +719,8 @@ class ChatViewModel(
         // Clear all notifications
         notificationManager.clearAllNotifications()
         
-        // Clear Nostr/geohash state, keys, connections, bookmarks, and reinitialize from scratch
+        // Clear Nostr/geohash state, keys, connections, and reinitialize from scratch
         try {
-            // Clear geohash bookmarks too (panic should remove everything)
-            try {
-                val store = com.bitchat.android.geohash.GeohashBookmarksStore.getInstance(getApplication())
-                store.clearAll()
-            } catch (_: Exception) { }
-
             geohashViewModel.panicReset()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to reset Nostr/geohash: ${e.message}")

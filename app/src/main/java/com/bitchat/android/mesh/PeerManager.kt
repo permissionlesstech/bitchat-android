@@ -262,8 +262,6 @@ class PeerManager {
         fingerprintManager.removePeer(peerID)
         
         if (notifyDelegate && removed != null) {
-            // Notify specific removal event then list update
-            try { delegate?.onPeerRemoved(peerID) } catch (_: Exception) {}
             notifyPeerListUpdate()
         }
     }
@@ -531,5 +529,4 @@ class PeerManager {
  */
 interface PeerManagerDelegate {
     fun onPeerListUpdated(peerIDs: List<String>)
-    fun onPeerRemoved(peerID: String)
 }

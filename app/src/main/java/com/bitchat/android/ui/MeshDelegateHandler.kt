@@ -1,7 +1,6 @@
 package com.bitchat.android.ui
 
 import com.bitchat.android.mesh.BluetoothMeshDelegate
-import com.bitchat.android.ui.NotificationTextUtils
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
@@ -56,11 +55,10 @@ class MeshDelegateHandler(
                 message.senderPeerID?.let { senderPeerID ->
                     // Use nickname if available, fall back to sender or senderPeerID
                     val senderNickname = message.sender.takeIf { it != senderPeerID } ?: senderPeerID
-                    val preview = NotificationTextUtils.buildPrivateMessagePreview(message)
                     notificationManager.showPrivateMessageNotification(
-                        senderPeerID = senderPeerID,
-                        senderNickname = senderNickname,
-                        messageContent = preview
+                        senderPeerID = senderPeerID, 
+                        senderNickname = senderNickname, 
+                        messageContent = message.content
                     )
                 }
             } else if (message.channel != null) {
@@ -287,5 +285,4 @@ class MeshDelegateHandler(
     fun getPeerInfo(peerID: String): com.bitchat.android.mesh.PeerInfo? {
         return getMeshService().getPeerInfo(peerID)
     }
-
 }

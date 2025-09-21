@@ -12,7 +12,6 @@ captures/
 debug_keystore/
 *.keystore
 debug.keystore
-app/release
 
 # Gradle
 /build/

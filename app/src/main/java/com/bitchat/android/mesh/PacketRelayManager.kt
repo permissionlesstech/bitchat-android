@@ -41,7 +41,7 @@ class PacketRelayManager(private val myPeerID: String) {
         val packet = routed.packet
         val peerID = routed.peerID ?: "unknown"
         
-        Log.d(TAG, "Evaluating relay for packet type ${'$'}{packet.type} from ${'$'}{peerID} (TTL: ${'$'}{packet.ttl})")
+        Log.d(TAG, "Evaluating relay for packet type ${'$'}{packet.type} from ${'$'}peerID (TTL: ${'$'}{packet.ttl})")
         
         // Double-check this packet isn't addressed to us
         if (isPacketAddressedToMe(packet)) {
@@ -86,12 +86,12 @@ class PacketRelayManager(private val myPeerID: String) {
                     }
                 }
                 if (nextHopIdHex != null) {
-                    val success = try { delegate?.sendPacketToPeer(nextHopIdHex, RoutedPacket(relayPacket, peerID, routed.relayAddress)) } catch (_: Exception) { false } ?: false
+                    val success = try { delegate?.sendToPeer(nextHopIdHex, RoutedPacket(relayPacket, peerID, routed.relayAddress)) } catch (_: Exception) { false } ?: false
                     if (success) {
-                        Log.i(TAG, "📦 Source-route relay: ${'$'}{myPeerID.take(8)} -> ${'$'}{nextHopIdHex.take(8)} (type ${'$'}{packet.type}, TTL ${'$'}{relayPacket.ttl})")
+                        Log.i(TAG, "📦 Source-route relay: ${myPeerID.take(8)} -> ${nextHopIdHex.take(8)} (type ${'$'}{packet.type}, TTL ${'$'}{relayPacket.ttl})")
                         return
                     } else {
-                        Log.w(TAG, "Source-route next hop ${'$'}{nextHopIdHex.take(8)} not directly connected; falling back to broadcast")
+                        Log.w(TAG, "Source-route next hop ${nextHopIdHex.take(8)} not directly connected; falling back to broadcast")
                     }
                 }
             }
@@ -143,7 +143,7 @@ class PacketRelayManager(private val myPeerID: String) {
         
         // Small networks always relay to ensure connectivity
         if (networkSize <= 3) {
-            Log.d(TAG, "Small network (${ '$' }{networkSize} peers), relaying")
+            Log.d(TAG, "Small network (${ '$' }networkSize peers), relaying")
             return true
         }
         
@@ -157,9 +157,45 @@ class PacketRelayManager(private val myPeerID: String) {
         }
         
         val shouldRelay = Random.nextDouble() < relayProb
-        Log.d(TAG, "Network size: ${'$'}{networkSize}, Relay probability: ${'$'}{relayProb}, Decision: ${'$'}{shouldRelay}")
+        Log.d(TAG, "Network size: ${'$'}networkSize, Relay probability: ${'$'}relayProb, Decision: ${'$'}shouldRelay")
         
         return shouldRelay
+    }
+    
+    /**
+     * Relay message with adaptive probability and timing (same as iOS)
+     * Moved from MessageHandler.kt
+     */
+    suspend fun relayMessage(routed: RoutedPacket) {
+        val packet = routed.packet
+        
+        if (packet.ttl == 0u.toUByte()) {
+            Log.d(TAG, "TTL expired, not relaying message")
+            return
+        }
+        
+        val relayPacket = packet.copy(ttl = (packet.ttl - 1u).toUByte())
+        
+        // Check network size and apply adaptive relay probability
+        val networkSize = delegate?.getNetworkSize() ?: 1
+        val relayProb = when {
+            networkSize <= 10 -> 1.0
+            networkSize <= 30 -> 0.85
+            networkSize <= 50 -> 0.7
+            networkSize <= 100 -> 0.55
+            else -> 0.4
+        }
+        
+        val shouldRelay = relayPacket.ttl >= 4u || networkSize <= 3 || Random.nextDouble() < relayProb
+        
+        if (shouldRelay) {
+            val delay = Random.nextLong(50, 500) // Random delay like iOS
+            Log.d(TAG, "Relaying message after ${'$'}delay ms delay")
+            delay(delay)
+            relayPacket(routed.copy(packet = relayPacket))
+        } else {
+            Log.d(TAG, "Relay decision: NOT relaying message (network size: ${'$'}networkSize, prob: ${'$'}relayProb)")
+        }
     }
     
     /**
@@ -177,8 +213,8 @@ class PacketRelayManager(private val myPeerID: String) {
         return buildString {
             appendLine("=== Packet Relay Manager Debug Info ===")
             appendLine("Relay Scope Active: ${'$'}{relayScope.isActive}")
-            appendLine("My Peer ID: ${'$'}{myPeerID}")
-            appendLine("Network Size: ${'$'}{delegate?.getNetworkSize() ?: "unknown"}")
+            appendLine("My Peer ID: ${'$'}myPeerID")
+            appendLine("Network Size: ${'$'}{delegate?.getNetworkSize() ?: \"unknown\"}")
         }
     }
     
@@ -201,7 +237,7 @@ interface PacketRelayManagerDelegate {
     
     // Packet operations
     fun broadcastPacket(routed: RoutedPacket)
-    fun sendPacketToPeer(peerID: String, routed: RoutedPacket): Boolean
+    fun sendToPeer(peerID: String, routed: RoutedPacket): Boolean
 }
 
 private fun hexStringToPeerBytes(hex: String): ByteArray {

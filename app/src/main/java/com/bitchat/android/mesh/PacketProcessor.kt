@@ -46,15 +46,15 @@ class PacketProcessor(private val myPeerID: String) {
     private fun getOrCreateActorForPeer(peerID: String) = processorScope.actor<RoutedPacket>(
         capacity = Channel.UNLIMITED
     ) {
-        Log.d(TAG, "🎭 Created packet actor for peer: ${'$'}{formatPeerForLog(peerID)}")
+        Log.d(TAG, "🎭 Created packet actor for peer: ${formatPeerForLog(peerID)}")
         try {
             for (packet in channel) {
-                Log.d(TAG, "📦 Processing packet type ${'$'}{packet.packet.type} from ${'$'}{formatPeerForLog(peerID)} (serialized)")
+                Log.d(TAG, "📦 Processing packet type ${packet.packet.type} from ${formatPeerForLog(peerID)} (serialized)")
                 handleReceivedPacket(packet)
-                Log.d(TAG, "Completed packet type ${'$'}{packet.packet.type} from ${'$'}{formatPeerForLog(peerID)}")
+                Log.d(TAG, "Completed packet type ${packet.packet.type} from ${formatPeerForLog(peerID)}")
             }
         } finally {
-            Log.d(TAG, "🎭 Packet actor for ${'$'}{formatPeerForLog(peerID)} terminated")
+            Log.d(TAG, "🎭 Packet actor for ${formatPeerForLog(peerID)} terminated")
         }
     }
     
@@ -71,7 +71,7 @@ class PacketProcessor(private val myPeerID: String) {
      * SURGICAL FIX: Route to per-peer actor for serialized processing
      */
     fun processPacket(routed: RoutedPacket) {
-        Log.d(TAG, "processPacket ${'$'}{routed.packet.type}")
+        Log.d(TAG, "processPacket ${routed.packet.type}")
         val peerID = routed.peerID
 
         if (peerID == null) {
@@ -89,7 +89,7 @@ class PacketProcessor(private val myPeerID: String) {
             try {
                 actor.send(routed)
             } catch (e: Exception) {
-                Log.w(TAG, "Failed to send packet to actor for ${'$'}{formatPeerForLog(peerID)}: ${'$'}{e.message}")
+                Log.w(TAG, "Failed to send packet to actor for ${formatPeerForLog(peerID)}: ${e.message}")
                 // Fallback to direct processing if actor fails
                 handleReceivedPacket(routed)
             }
@@ -112,8 +112,8 @@ class PacketProcessor(private val myPeerID: String) {
             override fun broadcastPacket(routed: RoutedPacket) {
                 delegate?.relayPacket(routed)
             }
-            override fun sendPacketToPeer(peerID: String, routed: RoutedPacket): Boolean {
-                return delegate?.sendPacketToPeer(peerID, routed) ?: false
+            override fun sendToPeer(peerID: String, routed: RoutedPacket): Boolean {
+                return delegate?.sendToPeer(peerID, routed) ?: false
             }
         }
     }
@@ -127,13 +127,13 @@ class PacketProcessor(private val myPeerID: String) {
 
         // Basic validation and security checks
         if (!delegate?.validatePacketSecurity(packet, peerID)!!) {
-            Log.d(TAG, "Packet failed security validation from ${'$'}{formatPeerForLog(peerID)}")
+            Log.d(TAG, "Packet failed security validation from ${formatPeerForLog(peerID)}")
             return
         }
 
         var validPacket = true
         val messageType = MessageType.fromValue(packet.type)
-        Log.d(TAG, "Processing packet type ${'$'}{messageType} from ${'$'}{formatPeerForLog(peerID)}")
+        Log.d(TAG, "Processing packet type ${messageType} from ${formatPeerForLog(peerID)}")
         // Verbose logging to debug manager (and chat via ChatViewModel observer)
         try {
             val mt = messageType?.name ?: packet.type.toString()
@@ -147,24 +147,21 @@ class PacketProcessor(private val myPeerID: String) {
         when (messageType) {
             MessageType.ANNOUNCE -> handleAnnounce(routed)
             MessageType.MESSAGE -> handleMessage(routed)
-            MessageType.FILE_TRANSFER -> handleMessage(routed) // treat same routing path; parsing happens in handler
             MessageType.LEAVE -> handleLeave(routed)
             MessageType.FRAGMENT -> handleFragment(routed)
-            MessageType.REQUEST_SYNC -> handleRequestSync(routed)
             else -> {
                 // Handle private packet types (address check required)
                 if (packetRelayManager.isPacketAddressedToMe(packet)) {
                     when (messageType) {
                         MessageType.NOISE_HANDSHAKE -> handleNoiseHandshake(routed)
                         MessageType.NOISE_ENCRYPTED -> handleNoiseEncrypted(routed)
-                        MessageType.FILE_TRANSFER -> handleMessage(routed)
                         else -> {
                             validPacket = false
-                            Log.w(TAG, "Unknown message type: ${'$'}{packet.type}")
+                            Log.w(TAG, "Unknown message type: ${packet.type}")
                         }
                     }
                 } else {
-                    Log.d(TAG, "Private packet type ${'$'}{messageType} not addressed to us (from: ${'$'}{formatPeerForLog(peerID)} to ${'$'}{packet.recipientID?.let { it.joinToString("") { b -> "%02x".format(b) } }}), skipping")
+                    Log.d(TAG, "Private packet type ${messageType} not addressed to us (from: ${formatPeerForLog(peerID)} to ${packet.recipientID?.let { it.joinToString("") { b -> "%02x".format(b) } }}), skipping")
                 }
             }
         }
@@ -183,7 +180,7 @@ class PacketProcessor(private val myPeerID: String) {
      */
     private suspend fun handleNoiseHandshake(routed: RoutedPacket) {
         val peerID = routed.peerID ?: "unknown"
-        Log.d(TAG, "Processing Noise handshake from ${'$'}{formatPeerForLog(peerID)}")
+        Log.d(TAG, "Processing Noise handshake from ${formatPeerForLog(peerID)}")
         delegate?.handleNoiseHandshake(routed)
     }
     
@@ -192,7 +189,7 @@ class PacketProcessor(private val myPeerID: String) {
      */
     private suspend fun handleNoiseEncrypted(routed: RoutedPacket) {
         val peerID = routed.peerID ?: "unknown"
-        Log.d(TAG, "Processing Noise encrypted message from ${'$'}{formatPeerForLog(peerID)}")
+        Log.d(TAG, "Processing Noise encrypted message from ${formatPeerForLog(peerID)}")
         delegate?.handleNoiseEncrypted(routed)
     }
     
@@ -201,7 +198,7 @@ class PacketProcessor(private val myPeerID: String) {
      */
     private suspend fun handleAnnounce(routed: RoutedPacket) {
         val peerID = routed.peerID ?: "unknown"
-        Log.d(TAG, "Processing announce from ${'$'}{formatPeerForLog(peerID)}")
+        Log.d(TAG, "Processing announce from ${formatPeerForLog(peerID)}")
         delegate?.handleAnnounce(routed)
     }
     
@@ -210,7 +207,7 @@ class PacketProcessor(private val myPeerID: String) {
      */
     private suspend fun handleMessage(routed: RoutedPacket) {
         val peerID = routed.peerID ?: "unknown"
-        Log.d(TAG, "Processing message from ${'$'}{formatPeerForLog(peerID)}")
+        Log.d(TAG, "Processing message from ${formatPeerForLog(peerID)}")
         delegate?.handleMessage(routed)
     }
     
@@ -219,7 +216,7 @@ class PacketProcessor(private val myPeerID: String) {
      */
     private suspend fun handleLeave(routed: RoutedPacket) {
         val peerID = routed.peerID ?: "unknown"
-        Log.d(TAG, "Processing leave from ${'$'}{formatPeerForLog(peerID)}")
+        Log.d(TAG, "Processing leave from ${formatPeerForLog(peerID)}")
         delegate?.handleLeave(routed)
     }
     
@@ -228,7 +225,7 @@ class PacketProcessor(private val myPeerID: String) {
      */
     private suspend fun handleFragment(routed: RoutedPacket) {
         val peerID = routed.peerID ?: "unknown"
-        Log.d(TAG, "Processing fragment from ${'$'}{formatPeerForLog(peerID)}")
+        Log.d(TAG, "Processing fragment from ${formatPeerForLog(peerID)}")
         
         val reassembledPacket = delegate?.handleFragment(routed.packet)
         if (reassembledPacket != null) {
@@ -237,15 +234,6 @@ class PacketProcessor(private val myPeerID: String) {
         }
         
         // Fragment relay is now handled by centralized PacketRelayManager
-    }
-
-    /**
-     * Handle REQUEST_SYNC packets (public, TTL=1)
-     */
-    private suspend fun handleRequestSync(routed: RoutedPacket) {
-        val peerID = routed.peerID ?: "unknown"
-        Log.d(TAG, "Processing REQUEST_SYNC from ${'$'}{formatPeerForLog(peerID)}")
-        delegate?.handleRequestSync(routed)
     }
     
     /**
@@ -263,14 +251,14 @@ class PacketProcessor(private val myPeerID: String) {
     fun getDebugInfo(): String {
         return buildString {
             appendLine("=== Packet Processor Debug Info ===")
-            appendLine("Processor Scope Active: ${'$'}{processorScope.isActive}")
-            appendLine("Active Peer Actors: ${'$'}{actors.size}")
-            appendLine("My Peer ID: ${'$'}{myPeerID}")
+            appendLine("Processor Scope Active: ${processorScope.isActive}")
+            appendLine("Active Peer Actors: ${actors.size}")
+            appendLine("My Peer ID: $myPeerID")
             
             if (actors.isNotEmpty()) {
                 appendLine("Peer Actors:")
                 actors.keys.forEach { peerID ->
-                    appendLine("  - ${'$'}{peerID}")
+                    appendLine("  - $peerID")
                 }
             }
         }
@@ -280,7 +268,7 @@ class PacketProcessor(private val myPeerID: String) {
      * Shutdown the processor and all peer actors
      */
     fun shutdown() {
-        Log.d(TAG, "Shutting down PacketProcessor and ${'$'}{actors.size} peer actors")
+        Log.d(TAG, "Shutting down PacketProcessor and ${actors.size} peer actors")
         
         // Close all peer actors gracefully
         actors.values.forEach { actor ->
@@ -320,11 +308,10 @@ interface PacketProcessorDelegate {
     fun handleMessage(routed: RoutedPacket)
     fun handleLeave(routed: RoutedPacket)
     fun handleFragment(packet: BitchatPacket): BitchatPacket?
-    fun handleRequestSync(routed: RoutedPacket)
     
     // Communication
     fun sendAnnouncementToPeer(peerID: String)
     fun sendCachedMessages(peerID: String)
     fun relayPacket(routed: RoutedPacket)
-    fun sendPacketToPeer(peerID: String, routed: RoutedPacket): Boolean
+    fun sendToPeer(peerID: String, routed: RoutedPacket): Boolean
 }

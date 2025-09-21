@@ -57,7 +57,7 @@ class PacketRelayManagerTest {
 
         packetRelayManager.handlePacketRelay(routedPacket)
 
-        verify(delegate, never()).sendPacketToPeer(any(), any())
+        verify(delegate, never()).sendToPeer(any(), any())
         verify(delegate, never()).broadcastPacket(any())
     }
 
@@ -69,11 +69,11 @@ class PacketRelayManagerTest {
         )
         val packet = createPacket(route, finalRecipientID)
         val routedPacket = RoutedPacket(packet, otherPeerID)
-        whenever(delegate.sendPacketToPeer(any(), any())).thenReturn(true)
+        whenever(delegate.sendToPeer(any(), any())).thenReturn(true)
 
         packetRelayManager.handlePacketRelay(routedPacket)
 
-        verify(delegate).sendPacketToPeer(org.mockito.kotlin.eq(nextHopPeerID), any())
+        verify(delegate).sendToPeer(org.mockito.kotlin.eq(nextHopPeerID), any())
         verify(delegate, never()).broadcastPacket(any())
     }
 
@@ -84,11 +84,11 @@ class PacketRelayManagerTest {
         )
         val packet = createPacket(route, finalRecipientID)
         val routedPacket = RoutedPacket(packet, otherPeerID)
-        whenever(delegate.sendPacketToPeer(any(), any())).thenReturn(true)
+        whenever(delegate.sendToPeer(any(), any())).thenReturn(true)
 
         packetRelayManager.handlePacketRelay(routedPacket)
 
-        verify(delegate).sendPacketToPeer(org.mockito.kotlin.eq(finalRecipientID), any())
+        verify(delegate).sendToPeer(org.mockito.kotlin.eq(finalRecipientID), any())
         verify(delegate, never()).broadcastPacket(any())
     }
     
@@ -99,7 +99,7 @@ class PacketRelayManagerTest {
 
         packetRelayManager.handlePacketRelay(routedPacket)
 
-        verify(delegate, never()).sendPacketToPeer(any(), any())
+        verify(delegate, never()).sendToPeer(any(), any())
         verify(delegate).broadcastPacket(any())
     }
 

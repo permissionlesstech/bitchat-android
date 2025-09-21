@@ -22,8 +22,7 @@ class GeohashMessageHandler(
     private val state: ChatState,
     private val messageManager: MessageManager,
     private val repo: GeohashRepository,
-    private val scope: CoroutineScope,
-    private val dataManager: com.bitchat.android.ui.DataManager
+    private val scope: CoroutineScope
 ) {
     companion object { private const val TAG = "GeohashMessageHandler" }
 
@@ -57,8 +56,8 @@ class GeohashMessageHandler(
                     if (!NostrProofOfWork.validateDifficulty(event, pow.difficulty)) return@launch
                 }
 
-                // Blocked users check (use injected DataManager which has loaded state)
-                if (dataManager.isGeohashUserBlocked(event.pubkey)) return@launch
+                // Blocked users check
+                if (com.bitchat.android.ui.DataManager(application).isGeohashUserBlocked(event.pubkey)) return@launch
 
                 // Update repository (participants, nickname, teleport)
                 // Update repository on a background-safe path; repository will post updates to LiveData
@@ -79,7 +78,6 @@ class GeohashMessageHandler(
                 if (isTeleportPresence) return@launch
 
                 val senderName = repo.displayNameForNostrPubkeyUI(event.pubkey)
-                val hasNonce = try { NostrProofOfWork.hasNonce(event) } catch (_: Exception) { false }
                 val msg = BitchatMessage(
                     id = event.id,
                     sender = senderName,
@@ -90,9 +88,7 @@ class GeohashMessageHandler(
                     senderPeerID = "nostr:${event.pubkey.take(8)}",
                     mentions = null,
                     channel = "#$subscribedGeohash",
-                    powDifficulty = try {
-                        if (hasNonce) NostrProofOfWork.calculateDifficulty(event.id).takeIf { it > 0 } else null
-                    } catch (_: Exception) { null }
+                    powDifficulty = try { NostrProofOfWork.calculateDifficulty(event.id).takeIf { it > 0 } } catch (_: Exception) { null }
                 )
                 withContext(Dispatchers.Main) { messageManager.addChannelMessage("geo:$subscribedGeohash", msg) }
             } catch (e: Exception) {

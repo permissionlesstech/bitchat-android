@@ -82,18 +82,9 @@ object TorManager {
             currentApplication = application
             TorPreferenceManager.init(application)
 
-            // Apply saved mode at startup. If ON, set planned SOCKS immediately to avoid any leak.
-            val savedMode = TorPreferenceManager.get(application)
-            if (savedMode == TorMode.ON) {
-                if (currentSocksPort < DEFAULT_SOCKS_PORT) {
-                    currentSocksPort = DEFAULT_SOCKS_PORT
-                }
-                desiredMode = savedMode
-                socksAddr = InetSocketAddress("127.0.0.1", currentSocksPort)
-                try { OkHttpProvider.reset() } catch (_: Throwable) { }
-            }
+            // Apply saved mode at startup
             appScope.launch {
-                applyMode(application, savedMode)
+                applyMode(application, TorPreferenceManager.get(application))
             }
 
             // Observe changes
@@ -145,11 +136,6 @@ object TorManager {
                         bindRetryAttempts = 0
                         lifecycleState = LifecycleState.STARTING
                         _status.value = _status.value.copy(mode = TorMode.ON, running = false, bootstrapPercent = 0, state = TorState.STARTING)
-                        // Immediately set the planned SOCKS address so all traffic is forced through it,
-                        // even before Tor is fully bootstrapped. This prevents any direct connections.
-                        socksAddr = InetSocketAddress("127.0.0.1", currentSocksPort)
-                        try { OkHttpProvider.reset() } catch (_: Throwable) { }
-                        try { com.bitchat.android.nostr.NostrRelayManager.shared.resetAllConnections() } catch (_: Throwable) { }
                         startArti(application, useDelay = false)
                         // Defer enabling proxy until bootstrap completes
                         appScope.launch {
@@ -202,8 +188,6 @@ object TorManager {
             lifecycleState = LifecycleState.RUNNING
             startInactivityMonitoring()
 
-            // Removed onion service startup (BLE-only file transfer in this branch)
-
         } catch (e: Exception) {
             Log.e(TAG, "Error starting Arti on port $currentSocksPort: ${e.message}")
             _status.value = _status.value.copy(state = TorState.ERROR)
@@ -214,10 +198,6 @@ object TorManager {
                 bindRetryAttempts++
                 currentSocksPort++
                 Log.w(TAG, "Port bind failed (attempt $bindRetryAttempts/$MAX_RETRY_ATTEMPTS), retrying with port $currentSocksPort")
-                // Update planned SOCKS address immediately so all new connections target the new port
-                socksAddr = InetSocketAddress("127.0.0.1", currentSocksPort)
-                try { OkHttpProvider.reset() } catch (_: Throwable) { }
-                try { com.bitchat.android.nostr.NostrRelayManager.shared.resetAllConnections() } catch (_: Throwable) { }
                 // Immediate retry with incremented port, no exponential backoff for bind errors
                 startArti(application, useDelay = false)
             } else if (isBindError) {
@@ -359,7 +339,7 @@ object TorManager {
                 completeWaitersIf(TorState.STARTING)
             }
             s.contains("Sufficiently bootstrapped; system SOCKS now functional", ignoreCase = true) -> {
-                _status.value = _status.value.copy(bootstrapPercent = 75, state = TorState.BOOTSTRAPPING)
+                _status.value = _status.value.copy(bootstrapPercent = 100, state = TorState.BOOTSTRAPPING)
                 retryAttempts = 0
                 bindRetryAttempts = 0
                 startInactivityMonitoring()
