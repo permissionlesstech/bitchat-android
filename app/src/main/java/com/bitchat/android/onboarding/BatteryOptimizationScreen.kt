@@ -3,6 +3,7 @@ package com.bitchat.android.onboarding
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -12,11 +13,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.bitchat.android.R
 
 /**
@@ -32,10 +35,16 @@ fun BatteryOptimizationScreen(
     onSkip: () -> Unit,
     isLoading: Boolean = false
 ) {
+    val context = LocalContext.current
     val colorScheme = MaterialTheme.colorScheme
+    
+    // Initialize preference manager
+    LaunchedEffect(Unit) {
+        BatteryOptimizationPreferenceManager.init(context)
+    }
 
     Box(
-        modifier = modifier.padding(32.dp),
+        modifier = modifier.padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
         when (status) {
@@ -73,6 +82,8 @@ private fun BatteryOptimizationEnabledContent(
     colorScheme: ColorScheme,
     isLoading: Boolean
 ) {
+    val context = LocalContext.current
+    
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -82,78 +93,112 @@ private fun BatteryOptimizationEnabledContent(
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = "bitchat",
-                style = MaterialTheme.typography.headlineLarge.copy(
+            // Header Section - matching AboutSheet style
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "bitchat",
+                    style = MaterialTheme.typography.headlineLarge.copy(
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 32.sp
+                    ),
+                    color = colorScheme.onBackground
+                )
+
+                Text(
+                    text = "battery optimization detected",
+                    fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    color = colorScheme.primary
+                    color = colorScheme.onBackground.copy(alpha = 0.7f)
                 )
-            )
+            }
             
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Icon(
-                imageVector = Icons.Outlined.BatteryAlert,
-                contentDescription = "Battery Optimization",
-                modifier = Modifier.size(64.dp),
-                tint = colorScheme.error
-            )
-            
-            Text(
-                text = stringResource(R.string.battery_optimization_detected),
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = colorScheme.onSurface
-                ),
-                textAlign = TextAlign.Center
-            )
-            
-            Text(
-                text = stringResource(R.string.battery_optimization_explanation),
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    color = colorScheme.onSurfaceVariant
-                ),
-                textAlign = TextAlign.Center
-            )
-            
-            Card(
+            // Battery optimization info section
+            Surface(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                )
+                color = colorScheme.surfaceVariant.copy(alpha = 0.25f),
+                shape = RoundedCornerShape(12.dp)
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = stringResource(R.string.battery_optimization_why_disable),
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = colorScheme.onSurface
+                    Row(
+                        verticalAlignment = Alignment.Top,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Power,
+                            contentDescription = "Battery Optimization",
+                            tint = colorScheme.primary,
+                            modifier = Modifier
+                                .padding(top = 2.dp)
+                                .size(20.dp)
                         )
-                    )
-                    
-                    Text(
-                        text = stringResource(R.string.battery_optimization_benefits),
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = colorScheme.onSurfaceVariant
-                        )
-                    )
+                        Column {
+                            Text(
+                                text = "Battery Optimization Enabled",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = colorScheme.onBackground
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "bitchat needs to run in the background to maintain mesh connections. battery optimization can interrupt these connections.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onBackground.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
                 }
             }
             
-            Text(
-                text = stringResource(R.string.battery_optimization_note),
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = colorScheme.onSurfaceVariant
-                ),
-                textAlign = TextAlign.Center
-            )
+            // Benefits section
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = colorScheme.surfaceVariant.copy(alpha = 0.25f),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.Top,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.CheckCircle,
+                            contentDescription = "Benefits",
+                            tint = colorScheme.primary,
+                            modifier = Modifier
+                                .padding(top = 2.dp)
+                                .size(20.dp)
+                        )
+                        Column {
+                            Text(
+                                text = "Benefits of Disabling",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = colorScheme.onBackground
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "• reliable message delivery\n• maintains mesh connectivity\n• prevents connection drops",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onBackground.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                }
+            }
         }
         
         // Fixed buttons at the bottom
@@ -164,7 +209,10 @@ private fun BatteryOptimizationEnabledContent(
             Button(
                 onClick = onDisableBatteryOptimization,
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !isLoading
+                enabled = !isLoading,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colorScheme.primary
+                )
             ) {
                 if (isLoading) {
                     CircularProgressIndicator(
@@ -174,7 +222,13 @@ private fun BatteryOptimizationEnabledContent(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                 }
-                Text(stringResource(R.string.battery_optimization_disable_button))
+                Text(
+                    text = "Disable Battery Optimization",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
             }
             
             Row(
@@ -186,15 +240,28 @@ private fun BatteryOptimizationEnabledContent(
                     modifier = Modifier.weight(1f),
                     enabled = !isLoading
                 ) {
-                    Text(stringResource(R.string.battery_optimization_check_again))
+                    Text(
+                        text = "Check Again",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = FontFamily.Monospace
+                        )
+                    )
                 }
                 
                 TextButton(
-                    onClick = onSkip,
+                    onClick = {
+                        BatteryOptimizationPreferenceManager.setSkipped(context, true)
+                        onSkip()
+                    },
                     modifier = Modifier.weight(1f),
                     enabled = !isLoading
                 ) {
-                    Text(stringResource(R.string.battery_optimization_skip))
+                    Text(
+                        text = "Skip for Now",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = FontFamily.Monospace
+                        )
+                    )
                 }
             }
         }
@@ -206,17 +273,31 @@ private fun BatteryOptimizationCheckingContent(
     colorScheme: ColorScheme
 ) {
     Column(
-        verticalArrangement = Arrangement.spacedBy(32.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = "bitchat",
-            style = MaterialTheme.typography.headlineLarge.copy(
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                color = colorScheme.primary
+        // Header Section - matching AboutSheet style
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "bitchat",
+                style = MaterialTheme.typography.headlineLarge.copy(
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 32.sp
+                ),
+                color = colorScheme.onBackground
             )
-        )
+
+            Text(
+                text = "battery optimization disabled",
+                fontSize = 12.sp,
+                fontFamily = FontFamily.Monospace,
+                color = colorScheme.onBackground.copy(alpha = 0.7f)
+            )
+        }
         
         val infiniteTransition = rememberInfiniteTransition(label = "rotation")
         val rotation by infiniteTransition.animateFloat(
@@ -239,18 +320,10 @@ private fun BatteryOptimizationCheckingContent(
         )
         
         Text(
-            text = stringResource(R.string.battery_optimization_disabled),
-            style = MaterialTheme.typography.headlineSmall.copy(
-                fontWeight = FontWeight.SemiBold,
-                color = colorScheme.onSurface
-            ),
-            textAlign = TextAlign.Center
-        )
-        
-        Text(
-            text = stringResource(R.string.battery_optimization_success_message),
-            style = MaterialTheme.typography.bodyLarge.copy(
-                color = colorScheme.onSurfaceVariant
+            text = "bitchat can run reliably in the background",
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontFamily = FontFamily.Monospace,
+                color = colorScheme.onBackground.copy(alpha = 0.8f)
             ),
             textAlign = TextAlign.Center
         )
@@ -266,14 +339,28 @@ private fun BatteryOptimizationNotSupportedContent(
         verticalArrangement = Arrangement.spacedBy(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = "bitchat",
-            style = MaterialTheme.typography.headlineLarge.copy(
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                color = colorScheme.primary
+        // Header Section - matching AboutSheet style
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "bitchat",
+                style = MaterialTheme.typography.headlineLarge.copy(
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 32.sp
+                ),
+                color = colorScheme.onBackground
             )
-        )
+
+            Text(
+                text = "battery optimization not required",
+                fontSize = 12.sp,
+                fontFamily = FontFamily.Monospace,
+                color = colorScheme.onBackground.copy(alpha = 0.7f)
+            )
+        }
         
         Icon(
             imageVector = Icons.Filled.CheckCircle,
@@ -283,27 +370,28 @@ private fun BatteryOptimizationNotSupportedContent(
         )
         
         Text(
-            text = stringResource(R.string.battery_optimization_not_required),
-            style = MaterialTheme.typography.headlineSmall.copy(
-                fontWeight = FontWeight.SemiBold,
-                color = colorScheme.onSurface
-            ),
-            textAlign = TextAlign.Center
-        )
-        
-        Text(
-            text = stringResource(R.string.battery_optimization_not_supported_message),
-            style = MaterialTheme.typography.bodyLarge.copy(
-                color = colorScheme.onSurfaceVariant
+            text = "your device doesn't require battery optimization settings. bitchat will run normally.",
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontFamily = FontFamily.Monospace,
+                color = colorScheme.onBackground.copy(alpha = 0.8f)
             ),
             textAlign = TextAlign.Center
         )
         
         Button(
             onClick = onRetry,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = colorScheme.primary
+            )
         ) {
-            Text(stringResource(R.string.battery_optimization_continue))
+            Text(
+                text = "Continue",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold
+                )
+            )
         }
     }
 }

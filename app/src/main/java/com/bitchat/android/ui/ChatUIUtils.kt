@@ -157,6 +157,105 @@ fun formatMessageAsAnnotatedString(
 }
 
 /**
+ * Build only the nickname + timestamp header line for a message, matching styles of normal messages.
+ */
+fun formatMessageHeaderAnnotatedString(
+    message: BitchatMessage,
+    currentUserNickname: String,
+    meshService: BluetoothMeshService,
+    colorScheme: ColorScheme,
+    timeFormatter: SimpleDateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+): AnnotatedString {
+    val builder = AnnotatedString.Builder()
+    val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
+
+    val isSelf = message.senderPeerID == meshService.myPeerID ||
+            message.sender == currentUserNickname ||
+            message.sender.startsWith("$currentUserNickname#")
+
+    if (message.sender != "system") {
+        val baseColor = if (isSelf) Color(0xFFFF9500) else getPeerColor(message, isDark)
+        val (baseName, suffix) = splitSuffix(message.sender)
+
+        // "<@"
+        builder.pushStyle(SpanStyle(
+            color = baseColor,
+            fontSize = BASE_FONT_SIZE.sp,
+            fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
+        ))
+        builder.append("<@")
+        builder.pop()
+
+        // Base name (clickable when not self)
+        builder.pushStyle(SpanStyle(
+            color = baseColor,
+            fontSize = BASE_FONT_SIZE.sp,
+            fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
+        ))
+        val nicknameStart = builder.length
+        builder.append(truncateNickname(baseName))
+        val nicknameEnd = builder.length
+        if (!isSelf) {
+            builder.addStringAnnotation(
+                tag = "nickname_click",
+                annotation = (message.originalSender ?: message.sender),
+                start = nicknameStart,
+                end = nicknameEnd
+            )
+        }
+        builder.pop()
+
+        // Hashtag suffix
+        if (suffix.isNotEmpty()) {
+            builder.pushStyle(SpanStyle(
+                color = baseColor.copy(alpha = 0.6f),
+                fontSize = BASE_FONT_SIZE.sp,
+                fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
+            ))
+            builder.append(suffix)
+            builder.pop()
+        }
+
+        // Sender suffix ">"
+        builder.pushStyle(SpanStyle(
+            color = baseColor,
+            fontSize = BASE_FONT_SIZE.sp,
+            fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
+        ))
+        builder.append(">")
+        builder.pop()
+
+        // Timestamp and optional PoW bits, matching normal message appearance
+        builder.pushStyle(SpanStyle(
+            color = Color.Gray.copy(alpha = 0.7f),
+            fontSize = (BASE_FONT_SIZE - 4).sp
+        ))
+        builder.append("  [${timeFormatter.format(message.timestamp)}]")
+        message.powDifficulty?.let { bits ->
+            if (bits > 0) builder.append(" ⛨${bits}b")
+        }
+        builder.pop()
+    } else {
+        // System message header (should rarely apply to voice)
+        builder.pushStyle(SpanStyle(
+            color = Color.Gray,
+            fontSize = (BASE_FONT_SIZE - 2).sp,
+            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+        ))
+        builder.append("* ${message.content} *")
+        builder.pop()
+        builder.pushStyle(SpanStyle(
+            color = Color.Gray.copy(alpha = 0.5f),
+            fontSize = (BASE_FONT_SIZE - 4).sp
+        ))
+        builder.append(" [${timeFormatter.format(message.timestamp)}]")
+        builder.pop()
+    }
+
+    return builder.toAnnotatedString()
+}
+
+/**
  * iOS-style peer color assignment using djb2 hash algorithm
  * Avoids orange (~30°) reserved for self messages
  */

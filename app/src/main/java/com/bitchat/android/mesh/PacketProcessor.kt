@@ -147,14 +147,17 @@ class PacketProcessor(private val myPeerID: String) {
         when (messageType) {
             MessageType.ANNOUNCE -> handleAnnounce(routed)
             MessageType.MESSAGE -> handleMessage(routed)
+            MessageType.FILE_TRANSFER -> handleMessage(routed) // treat same routing path; parsing happens in handler
             MessageType.LEAVE -> handleLeave(routed)
             MessageType.FRAGMENT -> handleFragment(routed)
+            MessageType.REQUEST_SYNC -> handleRequestSync(routed)
             else -> {
                 // Handle private packet types (address check required)
                 if (packetRelayManager.isPacketAddressedToMe(packet)) {
                     when (messageType) {
                         MessageType.NOISE_HANDSHAKE -> handleNoiseHandshake(routed)
                         MessageType.NOISE_ENCRYPTED -> handleNoiseEncrypted(routed)
+                        MessageType.FILE_TRANSFER -> handleMessage(routed)
                         else -> {
                             validPacket = false
                             Log.w(TAG, "Unknown message type: ${packet.type}")
@@ -235,6 +238,15 @@ class PacketProcessor(private val myPeerID: String) {
         
         // Fragment relay is now handled by centralized PacketRelayManager
     }
+
+    /**
+     * Handle REQUEST_SYNC packets (public, TTL=1)
+     */
+    private suspend fun handleRequestSync(routed: RoutedPacket) {
+        val peerID = routed.peerID ?: "unknown"
+        Log.d(TAG, "Processing REQUEST_SYNC from ${formatPeerForLog(peerID)}")
+        delegate?.handleRequestSync(routed)
+    }
     
     /**
      * Handle delivery acknowledgment
@@ -308,6 +320,7 @@ interface PacketProcessorDelegate {
     fun handleMessage(routed: RoutedPacket)
     fun handleLeave(routed: RoutedPacket)
     fun handleFragment(packet: BitchatPacket): BitchatPacket?
+    fun handleRequestSync(routed: RoutedPacket)
     
     // Communication
     fun sendAnnouncementToPeer(peerID: String)

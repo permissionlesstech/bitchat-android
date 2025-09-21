@@ -240,11 +240,7 @@ class NostrTransport(
                     return@launch
                 }
                 
-                val content = if (isFavorite) {
-                    "[FAVORITED]:${senderIdentity.npub}"
-                } else {
-                    "[UNFAVORITED]:${senderIdentity.npub}"
-                }
+                val content = if (isFavorite) "[FAVORITED]:${senderIdentity.npub}" else "[UNFAVORITED]:${senderIdentity.npub}"
                 
                 Log.d(TAG, "NostrTransport: preparing FAVORITE($isFavorite) to ${recipientNostrPubkey.take(16)}...")
                 

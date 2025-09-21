@@ -1,4 +1,8 @@
 package com.bitchat.android.ui
+// [Goose] Bridge file share events to ViewModel via dispatcher is installed in ChatScreen composition
+
+// [Goose] Installing FileShareDispatcher handler in ChatScreen to forward file sends to ViewModel
+
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -21,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.zIndex
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.ui.media.FullScreenImageViewer
 
 /**
  * Main ChatScreen - REFACTORED to use component-based architecture
@@ -60,6 +65,9 @@ fun ChatScreen(viewModel: ChatViewModel) {
     var showUserSheet by remember { mutableStateOf(false) }
     var selectedUserForSheet by remember { mutableStateOf("") }
     var selectedMessageForSheet by remember { mutableStateOf<BitchatMessage?>(null) }
+    var showFullScreenImageViewer by remember { mutableStateOf(false) }
+    var viewerImagePaths by remember { mutableStateOf(emptyList<String>()) }
+    var initialViewerIndex by remember { mutableStateOf(0) }
     var forceScrollToBottom by remember { mutableStateOf(false) }
     var isScrolledUp by remember { mutableStateOf(false) }
 
@@ -154,28 +162,53 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     selectedUserForSheet = baseName
                     selectedMessageForSheet = message
                     showUserSheet = true
+                },
+                onCancelTransfer = { msg ->
+                    viewModel.cancelMediaSend(msg.id)
+                },
+                onImageClick = { currentPath, allImagePaths, initialIndex ->
+                    viewerImagePaths = allImagePaths
+                    initialViewerIndex = initialIndex
+                    showFullScreenImageViewer = true
                 }
             )
             // Input area - stays at bottom
-            ChatInputSection(
-                messageText = messageText,
-                onMessageTextChange = { newText: TextFieldValue ->
-                    messageText = newText
-                    viewModel.updateCommandSuggestions(newText.text)
-                    viewModel.updateMentionSuggestions(newText.text)
-                },
-                onSend = {
-                    if (messageText.text.trim().isNotEmpty()) {
-                        viewModel.sendMessage(messageText.text.trim())
-                        messageText = TextFieldValue("")
-                        forceScrollToBottom = !forceScrollToBottom // Toggle to trigger scroll
-                    }
-                },
-                showCommandSuggestions = showCommandSuggestions,
-                commandSuggestions = commandSuggestions,
-                showMentionSuggestions = showMentionSuggestions,
-                mentionSuggestions = mentionSuggestions,
-                onCommandSuggestionClick = { suggestion: CommandSuggestion ->
+        // Bridge file share from lower-level input to ViewModel
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        com.bitchat.android.ui.events.FileShareDispatcher.setHandler { peer, channel, path ->
+            viewModel.sendFileNote(peer, channel, path)
+        }
+    }
+
+    ChatInputSection(
+        messageText = messageText,
+        onMessageTextChange = { newText: TextFieldValue ->
+            messageText = newText
+            viewModel.updateCommandSuggestions(newText.text)
+            viewModel.updateMentionSuggestions(newText.text)
+        },
+        onSend = {
+            if (messageText.text.trim().isNotEmpty()) {
+                viewModel.sendMessage(messageText.text.trim())
+                messageText = TextFieldValue("")
+                forceScrollToBottom = !forceScrollToBottom // Toggle to trigger scroll
+            }
+        },
+        onSendVoiceNote = { peer, onionOrChannel, path ->
+            viewModel.sendVoiceNote(peer, onionOrChannel, path)
+        },
+        onSendImageNote = { peer, onionOrChannel, path ->
+            viewModel.sendImageNote(peer, onionOrChannel, path)
+        },
+        onSendFileNote = { peer, onionOrChannel, path ->
+            viewModel.sendFileNote(peer, onionOrChannel, path)
+        },
+        
+        showCommandSuggestions = showCommandSuggestions,
+        commandSuggestions = commandSuggestions,
+        showMentionSuggestions = showMentionSuggestions,
+        mentionSuggestions = mentionSuggestions,
+        onCommandSuggestionClick = { suggestion: CommandSuggestion ->
                     val commandText = viewModel.selectCommandSuggestion(suggestion)
                     messageText = TextFieldValue(
                         text = commandText,
@@ -288,6 +321,15 @@ fun ChatScreen(viewModel: ChatViewModel) {
         }
     }
 
+    // Full-screen image viewer - separate from other sheets to allow image browsing without navigation
+    if (showFullScreenImageViewer) {
+        FullScreenImageViewer(
+            imagePaths = viewerImagePaths,
+            initialIndex = initialViewerIndex,
+            onClose = { showFullScreenImageViewer = false }
+        )
+    }
+
     // Dialogs and Sheets
     ChatDialogs(
         showPasswordDialog = showPasswordDialog,
@@ -327,6 +369,9 @@ private fun ChatInputSection(
     messageText: TextFieldValue,
     onMessageTextChange: (TextFieldValue) -> Unit,
     onSend: () -> Unit,
+    onSendVoiceNote: (String?, String?, String) -> Unit,
+    onSendImageNote: (String?, String?, String) -> Unit,
+    onSendFileNote: (String?, String?, String) -> Unit,
     showCommandSuggestions: Boolean,
     commandSuggestions: List<CommandSuggestion>,
     showMentionSuggestions: Boolean,
@@ -351,10 +396,8 @@ private fun ChatInputSection(
                     onSuggestionClick = onCommandSuggestionClick,
                     modifier = Modifier.fillMaxWidth()
                 )
-
                 HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.2f))
             }
-            
             // Mention suggestions box
             if (showMentionSuggestions && mentionSuggestions.isNotEmpty()) {
                 MentionSuggestionsBox(
@@ -362,14 +405,15 @@ private fun ChatInputSection(
                     onSuggestionClick = onMentionSuggestionClick,
                     modifier = Modifier.fillMaxWidth()
                 )
-
                 HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.2f))
             }
-
             MessageInput(
                 value = messageText,
                 onValueChange = onMessageTextChange,
                 onSend = onSend,
+                onSendVoiceNote = onSendVoiceNote,
+                onSendImageNote = onSendImageNote,
+                onSendFileNote = onSendFileNote,
                 selectedPrivatePeer = selectedPrivatePeer,
                 currentChannel = currentChannel,
                 nickname = nickname,
@@ -378,7 +422,6 @@ private fun ChatInputSection(
         }
     }
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChatFloatingHeader(

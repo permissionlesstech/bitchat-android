@@ -30,10 +30,25 @@ class GeohashViewModel(
 
     companion object { private const val TAG = "GeohashViewModel" }
 
-    private val repo = GeohashRepository(application, state)
+    private val repo = GeohashRepository(application, state, dataManager)
     private val subscriptionManager = NostrSubscriptionManager(application, viewModelScope)
-    private val geohashMessageHandler = GeohashMessageHandler(application, state, messageManager, repo, viewModelScope)
-    private val dmHandler = NostrDirectMessageHandler(application, state, privateChatManager, meshDelegateHandler, viewModelScope, repo)
+    private val geohashMessageHandler = GeohashMessageHandler(
+        application = application,
+        state = state,
+        messageManager = messageManager,
+        repo = repo,
+        scope = viewModelScope,
+        dataManager = dataManager
+    )
+    private val dmHandler = NostrDirectMessageHandler(
+        application = application,
+        state = state,
+        privateChatManager = privateChatManager,
+        meshDelegateHandler = meshDelegateHandler,
+        scope = viewModelScope,
+        repo = repo,
+        dataManager = dataManager
+    )
 
     private var currentGeohashSubId: String? = null
     private var currentDmSubId: String? = null
@@ -99,14 +114,22 @@ class GeohashViewModel(
                     powDifficulty = if (pow.enabled) pow.difficulty else null
                 )
                 messageManager.addChannelMessage("geo:${channel.geohash}", localMsg)
-                if (pow.enabled && pow.difficulty > 0) {
+                val startedMining = pow.enabled && pow.difficulty > 0
+                if (startedMining) {
                     com.bitchat.android.ui.PoWMiningTracker.startMiningMessage(tempId)
                 }
-                val identity = NostrIdentityBridge.deriveIdentity(forGeohash = channel.geohash, context = getApplication())
-                val teleported = state.isTeleported.value ?: false
-                val event = NostrProtocol.createEphemeralGeohashEvent(content, channel.geohash, identity, nickname, teleported)
-                val relayManager = NostrRelayManager.getInstance(getApplication())
-                relayManager.sendEventToGeohash(event, channel.geohash, includeDefaults = false, nRelays = 5)
+                try {
+                    val identity = NostrIdentityBridge.deriveIdentity(forGeohash = channel.geohash, context = getApplication())
+                    val teleported = state.isTeleported.value ?: false
+                    val event = NostrProtocol.createEphemeralGeohashEvent(content, channel.geohash, identity, nickname, teleported)
+                    val relayManager = NostrRelayManager.getInstance(getApplication())
+                    relayManager.sendEventToGeohash(event, channel.geohash, includeDefaults = false, nRelays = 5)
+                } finally {
+                    // Ensure we stop the per-message mining animation regardless of success/failure
+                    if (startedMining) {
+                        com.bitchat.android.ui.PoWMiningTracker.stopMiningMessage(tempId)
+                    }
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send geohash message: ${e.message}")
             }
@@ -136,25 +159,6 @@ class GeohashViewModel(
     fun startGeohashDM(pubkeyHex: String, onStartPrivateChat: (String) -> Unit) {
         val convKey = "nostr_${pubkeyHex.take(16)}"
         repo.putNostrKeyMapping(convKey, pubkeyHex)
-        onStartPrivateChat(convKey)
-        Log.d(TAG, "🗨️ Started geohash DM with $pubkeyHex -> $convKey")
-    }
-
-    fun getNostrKeyMapping(): Map<String, String> = repo.getNostrKeyMapping()
-
-    fun blockUserInGeohash(targetNickname: String) {
-        val pubkey = repo.findPubkeyByNickname(targetNickname)
-        if (pubkey != null) {
-            dataManager.addGeohashBlockedUser(pubkey)
-            val sysMsg = com.bitchat.android.model.BitchatMessage(
-                sender = "system",
-                content = "blocked $targetNickname in geohash channels",
-                timestamp = Date(),
-                isRelay = false
-            )
-    fun startGeohashDM(pubkeyHex: String, onStartPrivateChat: (String) -> Unit) {
-        val convKey = "nostr_${'$'}{pubkeyHex.take(16)}"
-        repo.putNostrKeyMapping(convKey, pubkeyHex)
         // Record the conversation's geohash using the currently selected location channel (if any)
         val current = state.selectedLocationChannel.value
         val gh = (current as? com.bitchat.android.geohash.ChannelID.Location)?.channel?.geohash
@@ -163,9 +167,24 @@ class GeohashViewModel(
             com.bitchat.android.nostr.GeohashConversationRegistry.set(convKey, gh)
         }
         onStartPrivateChat(convKey)
-        Log.d(TAG, "🗨️ Started geohash DM with ${'$'}pubkeyHex -> ${'$'}convKey (geohash=${'$'}gh)")
+        Log.d(TAG, "🗨️ Started geohash DM with ${pubkeyHex} -> ${convKey} (geohash=${gh})")
     }
 
+    fun getNostrKeyMapping(): Map<String, String> = repo.getNostrKeyMapping()
+
+    fun blockUserInGeohash(targetNickname: String) {
+        val pubkey = repo.findPubkeyByNickname(targetNickname)
+        if (pubkey != null) {
+            dataManager.addGeohashBlockedUser(pubkey)
+            // Refresh people list and counts to remove blocked entry immediately
+            repo.refreshGeohashPeople()
+            repo.updateReactiveParticipantCounts()
+            val sysMsg = com.bitchat.android.model.BitchatMessage(
+                sender = "system",
+                content = "blocked $targetNickname in geohash channels",
+                timestamp = Date(),
+                isRelay = false
+            )
             messageManager.addMessage(sysMsg)
         } else {
             val sysMsg = com.bitchat.android.model.BitchatMessage(
