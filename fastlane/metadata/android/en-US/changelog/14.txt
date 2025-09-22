@@ -1,0 +1,9 @@
+bitchat geohash
+
+What's Changed
+
+* Nostr geohash by @callebtc in #276
+* bump version by @callebtc in #277
+* fix minify errors by @callebtc in #280
+* Scroll fix by @callebtc in #281
+* UI fixes 2 by @callebtc in #282
