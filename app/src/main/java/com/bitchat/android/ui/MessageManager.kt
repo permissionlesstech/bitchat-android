@@ -37,6 +37,7 @@ class MessageManager(private val state: ChatState) {
     
     fun clearMessages() {
         state.setMessages(emptyList())
+        state.setChannelMessages(emptyMap())
     }
     
     // MARK: - Channel Message Management
