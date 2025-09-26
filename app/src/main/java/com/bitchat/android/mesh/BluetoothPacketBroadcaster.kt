@@ -158,7 +158,7 @@ class BluetoothPacketBroadcaster(
                         if (transferId != null && transferJobs[transferId]?.isCancelled == true) return@launch
                         broadcastSinglePacket(RoutedPacket(fragment, transferId = transferId), gattServer, characteristic)
                         // 20ms delay between fragments
-                        delay(20)
+                        delay(50)
                         if (transferId != null) {
                             sent += 1
                             TransferProgressManager.progress(transferId, sent, fragments.size)
