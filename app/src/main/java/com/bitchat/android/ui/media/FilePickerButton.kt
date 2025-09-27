@@ -1,6 +1,7 @@
 package com.bitchat.android.ui.media
 
 import android.net.Uri
+import com.bitchat.android.features.media.MediaSizeLimiter
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.size
@@ -28,10 +29,12 @@ fun FilePickerButton(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri != null) {
+            // Pre-check size via resolver metadata
+            if (!MediaSizeLimiter.enforceUriPrecheck(context, uri, "File")) return@rememberLauncherForActivityResult
             // Persist temporary read permission so we can copy
             try { context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: Exception) {}
             val path = FileUtils.copyFileForSending(context, uri)
-            if (!path.isNullOrBlank()) onFileReady(path)
+            if (!path.isNullOrBlank() && MediaSizeLimiter.enforcePathPostCheck(context, path, label = "File", deleteIfTooLarge = true)) onFileReady(path)
         }
     }
 
