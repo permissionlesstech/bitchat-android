@@ -20,6 +20,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.dp
 import com.bitchat.android.features.voice.VoiceRecorder
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.bitchat.android.features.media.MediaConstraints
 import com.google.accompanist.permissions.PermissionStatus
 import com.google.accompanist.permissions.rememberPermissionState
 import kotlinx.coroutines.Job
@@ -82,8 +83,8 @@ fun VoiceRecordButton(
                                         val amp = recorder?.pollAmplitude() ?: 0
                                         val elapsedMs = (System.currentTimeMillis() - recordingStart).coerceAtLeast(0L)
                                         latestOnAmplitude.value(amp, elapsedMs)
-                                        // Auto-stop after 10 seconds
-                                        if (elapsedMs >= 10_000 && isRecording) {
+                                        // Auto-stop after configured max duration
+                                        if (elapsedMs >= MediaConstraints.MAX_RECORDING_MS && isRecording) {
                                             val file = recorder?.stop()
                                             isRecording = false
                                             recorder = null

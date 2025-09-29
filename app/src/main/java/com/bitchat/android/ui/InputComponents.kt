@@ -241,7 +241,7 @@ fun MessageInput(
                     val secs = (elapsedMs / 1000).toInt()
                     val mm = secs / 60
                     val ss = secs % 60
-                    val maxSecs = 10 // 10 second max recording time
+                    val maxSecs = com.bitchat.android.features.media.MediaConstraints.MAX_RECORDING_SECONDS
                     val maxMm = maxSecs / 60
                     val maxSs = maxSecs % 60
                     Text(
