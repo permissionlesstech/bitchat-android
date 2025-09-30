@@ -1,6 +1,7 @@
 package com.bitchat.android.model
 
 import kotlinx.serialization.Serializable
+import com.bitchat.android.util.ByteArraySerializer
 
 /**
  * Identity announcement structure with TLV encoding
@@ -9,8 +10,8 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class IdentityAnnouncement(
     val nickname: String,
-    val noisePublicKey: ByteArray,    // Noise static public key (Curve25519.KeyAgreement)
-    val signingPublicKey: ByteArray   // Ed25519 public key for signing
+    @Serializable(with = ByteArraySerializer::class) val noisePublicKey: ByteArray,    // Noise static public key (Curve25519.KeyAgreement)
+    @Serializable(with = ByteArraySerializer::class) val signingPublicKey: ByteArray   // Ed25519 public key for signing
 ) {
 
     /**

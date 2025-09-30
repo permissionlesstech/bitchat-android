@@ -1,18 +1,19 @@
 package com.bitchat.android.nostr
 
-import com.google.gson.Gson
-import com.google.gson.GsonBuilder
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+import com.bitchat.android.util.JsonUtil
 import java.security.MessageDigest
 
 /**
  * Nostr Event structure following NIP-01
  * Compatible with iOS implementation
  */
+@Serializable
 data class NostrEvent(
     var id: String = "",
     val pubkey: String,
-    @SerializedName("created_at") val createdAt: Int,
+    @SerialName("created_at") val createdAt: Int,
     val kind: Int,
     val tags: List<List<String>>,
     val content: String,
@@ -43,12 +44,7 @@ data class NostrEvent(
          * Create from JSON string
          */
         fun fromJsonString(jsonString: String): NostrEvent? {
-            return try {
-                val gson = Gson()
-                gson.fromJson(jsonString, NostrEvent::class.java)
-            } catch (e: Exception) {
-                null
-            }
+            return JsonUtil.fromJsonOrNull<NostrEvent>(jsonString)
         }
         
         /**
@@ -131,8 +127,7 @@ data class NostrEvent(
         )
         
         // Convert to JSON without escaping slashes (compact format)
-        val gson = GsonBuilder().disableHtmlEscaping().create()
-        val jsonString = gson.toJson(serialized)
+        val jsonString = JsonUtil.toJson(serialized)
         
         // SHA256 hash of the JSON string
         val digest = MessageDigest.getInstance("SHA-256")
@@ -161,8 +156,7 @@ data class NostrEvent(
      * Convert to JSON string
      */
     fun toJsonString(): String {
-        val gson = Gson()
-        return gson.toJson(this)
+        return JsonUtil.toJson(this)
     }
     
     /**

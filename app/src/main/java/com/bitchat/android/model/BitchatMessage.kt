@@ -59,7 +59,7 @@ data class BitchatMessage(
     val sender: String,
     val content: String,
     val type: BitchatMessageType = BitchatMessageType.Message,
-    @kotlinx.serialization.Serializable(with = DateSerializer::class) val timestamp: Date,
+    @Serializable(with = DateSerializer::class) val timestamp: Date,
     val isRelay: Boolean = false,
     val originalSender: String? = null,
     val isPrivate: Boolean = false,

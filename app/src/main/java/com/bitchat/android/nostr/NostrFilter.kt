@@ -1,13 +1,13 @@
 package com.bitchat.android.nostr
 
-import com.google.gson.*
-import com.google.gson.annotations.SerializedName
-import java.lang.reflect.Type
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.*
 
 /**
  * Nostr event filter for subscriptions
  * Compatible with iOS implementation
  */
+@Serializable
 data class NostrFilter(
     val ids: List<String>? = null,
     val authors: List<String>? = null,
@@ -17,6 +17,102 @@ data class NostrFilter(
     val limit: Int? = null,
     private val tagFilters: Map<String, List<String>>? = null
 ) {
+    /**
+     * Convert NostrFilter to JsonElement for serialization
+     */
+    fun toJsonElement(filter: NostrFilter): JsonElement {
+        return filter.toJsonElement()
+    }
+
+    /**
+     * Convert this filter to JsonElement for serialization
+     */
+    fun toJsonElement(): JsonElement {
+        return buildJsonObject {
+            // Standard fields
+            ids?.let { put("ids", JsonArray(it.map { JsonPrimitive(it) })) }
+            authors?.let { put("authors", JsonArray(it.map { JsonPrimitive(it) })) }
+            kinds?.let { put("kinds", JsonArray(it.map { JsonPrimitive(it) })) }
+            since?.let { put("since", JsonPrimitive(it)) }
+            until?.let { put("until", JsonPrimitive(it)) }
+            limit?.let { put("limit", JsonPrimitive(it)) }
+
+            // Tag filters with # prefix
+            tagFilters?.forEach { (tag, values) ->
+                put("#$tag", JsonArray(values.map { JsonPrimitive(it) }))
+            }
+        }
+    }
+
+    /**
+     * Check if this filter matches an event
+     */
+    fun matches(event: NostrEvent): Boolean {
+        // Check IDs
+        if (ids != null && !ids.contains(event.id)) {
+            return false
+        }
+
+        // Check authors
+        if (authors != null && !authors.contains(event.pubkey)) {
+            return false
+        }
+
+        // Check kinds
+        if (kinds != null && !kinds.contains(event.kind)) {
+            return false
+        }
+
+        // Check time bounds
+        if (since != null && event.createdAt < since) {
+            return false
+        }
+
+        if (until != null && event.createdAt > until) {
+            return false
+        }
+
+        // Check tag filters
+        if (tagFilters != null) {
+            for ((tagName, requiredValues) in tagFilters) {
+                val eventTags = event.tags.filter { it.isNotEmpty() && it[0] == tagName }
+                val eventValues = eventTags.mapNotNull { tag ->
+                    if (tag.size > 1) tag[1] else null
+                }
+
+                val hasMatch = requiredValues.any { requiredValue ->
+                    eventValues.contains(requiredValue)
+                }
+
+                if (!hasMatch) {
+                    return false
+                }
+            }
+        }
+
+        return true
+    }
+
+    /**
+     * Get debug description
+     */
+    fun getDebugDescription(): String {
+        val parts = mutableListOf<String>()
+
+        ids?.let { parts.add("ids=${it.size}") }
+        authors?.let { parts.add("authors=${it.size}") }
+        kinds?.let { parts.add("kinds=$it") }
+        since?.let { parts.add("since=$it") }
+        until?.let { parts.add("until=$it") }
+        limit?.let { parts.add("limit=$it") }
+        tagFilters?.let { filters ->
+            filters.forEach { (tag, values) ->
+                parts.add("#$tag=${values.size}")
+            }
+        }
+
+        return "NostrFilter(${parts.joinToString(", ")})"
+    }
     
     companion object {
         /**
@@ -54,19 +150,12 @@ data class NostrFilter(
                 limit = limit
             )
         }
-        
+
         /**
          * Create filter for specific event IDs
          */
         fun forEvents(ids: List<String>): NostrFilter {
             return NostrFilter(ids = ids)
-        }
-
-        /**
-         * Convert NostrFilter to JsonElement for serialization
-         */
-        fun toJsonElement(filter: NostrFilter): JsonElement {
-            return filter.toJsonElement()
         }
 
         /**
@@ -105,96 +194,6 @@ data class NostrFilter(
                     tagFilters = tagFilters.toMap()
                 )
             }
-        }
-
-        /**
-         * Convert this filter to JsonElement for serialization
-         */
-        fun toJsonElement(): JsonElement {
-            return buildJsonObject {
-                // Standard fields
-                ids?.let { put("ids", JsonArray(it.map { JsonPrimitive(it) })) }
-                authors?.let { put("authors", JsonArray(it.map { JsonPrimitive(it) })) }
-                kinds?.let { put("kinds", JsonArray(it.map { JsonPrimitive(it) })) }
-                since?.let { put("since", JsonPrimitive(it)) }
-                until?.let { put("until", JsonPrimitive(it)) }
-                limit?.let { put("limit", JsonPrimitive(it)) }
-
-                // Tag filters with # prefix
-                tagFilters?.forEach { (tag, values) ->
-                    put("#$tag", JsonArray(values.map { JsonPrimitive(it) }))
-                }
-            }
-        }
-
-        /**
-         * Check if this filter matches an event
-         */
-        fun matches(event: NostrEvent): Boolean {
-            // Check IDs
-            if (ids != null && !ids.contains(event.id)) {
-                return false
-            }
-
-            // Check authors
-            if (authors != null && !authors.contains(event.pubkey)) {
-                return false
-            }
-
-            // Check kinds
-            if (kinds != null && !kinds.contains(event.kind)) {
-                return false
-            }
-
-            // Check time bounds
-            if (since != null && event.createdAt < since) {
-                return false
-            }
-
-            if (until != null && event.createdAt > until) {
-                return false
-            }
-
-            // Check tag filters
-            if (tagFilters != null) {
-                for ((tagName, requiredValues) in tagFilters) {
-                    val eventTags = event.tags.filter { it.isNotEmpty() && it[0] == tagName }
-                    val eventValues = eventTags.mapNotNull { tag ->
-                        if (tag.size > 1) tag[1] else null
-                    }
-
-                    val hasMatch = requiredValues.any { requiredValue ->
-                        eventValues.contains(requiredValue)
-                    }
-
-                    if (!hasMatch) {
-                        return false
-                    }
-                }
-            }
-
-            return true
-        }
-
-        /**
-         * Get debug description
-         */
-        fun getDebugDescription(): String {
-            val parts = mutableListOf<String>()
-
-            ids?.let { parts.add("ids=${it.size}") }
-            authors?.let { parts.add("authors=${it.size}") }
-            kinds?.let { parts.add("kinds=$it") }
-            since?.let { parts.add("since=$it") }
-            until?.let { parts.add("until=$it") }
-            limit?.let { parts.add("limit=$it") }
-            tagFilters?.let { filters ->
-                filters.forEach { (tag, values) ->
-                    parts.add("#$tag=${values.size}")
-                }
-            }
-
-            return "NostrFilter(${parts.joinToString(", ")})"
         }
     }
 }

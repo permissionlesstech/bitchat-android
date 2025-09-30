@@ -4,6 +4,9 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import android.util.Log
 import kotlinx.serialization.Serializable
+import com.bitchat.android.util.ByteArraySerializer
+import com.bitchat.android.util.UByteSerializer
+import com.bitchat.android.util.ULongSerializer
 
 /**
  * Message types - exact same as iOS version with Noise Protocol support
@@ -51,14 +54,14 @@ object SpecialRecipients {
  */
 @Serializable
 data class BitchatPacket(
-    val version: UByte = 1u,
-    val type: UByte,
-    val senderID: ByteArray,
-    val recipientID: ByteArray? = null,
-    val timestamp: ULong,
-    val payload: ByteArray,
-    var signature: ByteArray? = null,  // Changed from val to var for packet signing
-    var ttl: UByte
+    @Serializable(with = UByteSerializer::class) val version: UByte = 1u,
+    @Serializable(with = UByteSerializer::class) val type: UByte,
+    @Serializable(with = ByteArraySerializer::class) val senderID: ByteArray,
+    @Serializable(with = ByteArraySerializer::class) val recipientID: ByteArray? = null,
+    @Serializable(with = ULongSerializer::class) val timestamp: ULong,
+    @Serializable(with = ByteArraySerializer::class) val payload: ByteArray,
+    @Serializable(with = ByteArraySerializer::class) var signature: ByteArray? = null,  // Changed from val to var for packet signing
+    @Serializable(with = UByteSerializer::class) var ttl: UByte
 ) {
 
     constructor(
