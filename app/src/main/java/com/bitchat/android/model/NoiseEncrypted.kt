@@ -1,6 +1,7 @@
 package com.bitchat.android.model
 
 import kotlinx.serialization.Serializable
+import com.bitchat.android.util.ByteArraySerializer
 
 
 /**
@@ -38,7 +39,7 @@ enum class NoisePayloadType(val value: UByte) {
 @Serializable
 data class NoisePayload(
     val type: NoisePayloadType,
-    val data: ByteArray
+    @Serializable(with = ByteArraySerializer::class) val data: ByteArray
 ) {
 
     /**
