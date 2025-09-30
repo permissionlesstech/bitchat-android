@@ -82,10 +82,7 @@ dependencies {
     
     // Cryptography
     implementation(libs.bundles.cryptography)
-    
-    // JSON
-    implementation(libs.gson)
-    
+
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
     

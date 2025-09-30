@@ -25,8 +25,7 @@ accompanist-permissions = "0.37.3"
 bouncycastle = "1.70"
 tink-android = "1.10.0"
 
-# JSON
-gson = "2.13.1"
+
 
 # Coroutines
 kotlinx-coroutines = "1.10.2"
@@ -88,8 +87,6 @@ accompanist-permissions = { module = "com.google.accompanist:accompanist-permiss
 bouncycastle-bcprov = { module = "org.bouncycastle:bcprov-jdk15on", version.ref = "bouncycastle" }
 google-tink-android = { module = "com.google.crypto.tink:tink-android", version.ref = "tink-android" }
 
-# JSON
-gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 
 # Coroutines
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
