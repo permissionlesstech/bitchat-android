@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+    <string name="permission_bluetooth_rationale">インターネットに接続せずにピアツーピアメッセージングを行うには、Bluetooth の許可が必要です。</string>
+    <string name="permission_location_rationale">Bluetooth 経由で近くのデバイスを検出するには、位置情報の許可が必要です。</string>
+    <string name="permission_notification_rationale">新着メッセージを通知するには、通知の許可が必要です。</string>
+    <string name="nickname_hint">ニックネーム</string>
+    <string name="message_hint">メッセージを入力…</string>
+    <string name="channel_password_hint">パスワード</string>
+    <string name="join_channel">チャンネルに参加</string>
+    <string name="leave_channel">退出</string>
+    <string name="send_message">送信</string>
+    <string name="back">戻る</string>
+    <string name="people">ユーザー</string>
+    <string name="channels">チャンネル</string>
+    <string name="online_users">オンラインユーザー</string>
+    <string name="no_one_connected">誰も接続していません</string>
+    <string name="emergency_clear_hint">トリプルタップですべてのデータを消去</string>
+    <string name="your_network">あなたのネットワーク</string>
+</resources>

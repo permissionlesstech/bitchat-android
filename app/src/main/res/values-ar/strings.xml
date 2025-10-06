@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">بيتشات</string>
+    <string name="permission_bluetooth_rationale">يعد إذن البلوتوث ضروريًا للمراسلة عبر الإنترنت.</string>
+    <string name="permission_location_rationale">تحتاج إلى إذن بالترجمة لاكتشاف الأجهزة التالية عبر Bluetooth.</string>
+    <string name="permission_notification_rationale">يلزم الحصول على إذن الإشعارات لتنبيه الرسائل الجديدة.</string>
+    <string name="nickname_hint">اسم العائلة</string>
+    <string name="message_hint">رقمي رسالة...</string>
+    <string name="channel_password_hint">كلمة المرور</string>
+    <string name="join_channel">انضمام إلى قناة</string>
+    <string name="leave_channel">مغادرة</string>
+    <string name="send_message">إرسال</string>
+    <string name="back">رجوع</string>
+    <string name="people">أشخاص</string>
+    <string name="channels">قنوات</string>
+    <string name="online_users">مستخدمون متصلون</string>
+    <string name="no_one_connected">لا أحد متصل</string>
+    <string name="emergency_clear_hint">انقر ثلاث مرات لمسح جميع البيانات</string>
+    <string name="your_network">شبكتك</string>
+</resources>

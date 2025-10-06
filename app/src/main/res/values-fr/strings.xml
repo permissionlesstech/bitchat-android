@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+    <string name="permission_bluetooth_rationale">L&apos;autorisation Bluetooth est requise pour la messagerie peer-à-peer sans Internet.</string>
+    <string name="permission_location_rationale">L&apos;autorisation de localisation est requise pour détecter les appareils à proximité via Bluetooth.</string>
+    <string name="permission_notification_rationale">L&apos;autorisation de notification est requise pour vous avertir de l&apos;arrivée de nouveaux messages.</string>
+    <string name="nickname_hint">pseudo</string>
+    <string name="message_hint">Saisir un message…</string>
+    <string name="channel_password_hint">Mot de passe</string>
+    <string name="join_channel">Rejoindre le canal</string>
+    <string name="leave_channel">Quitter</string>
+    <string name="send_message">Envoyer</string>
+    <string name="back">Retour</string>
+    <string name="people">Personnes</string>
+    <string name="channels">Canaux</string>
+    <string name="online_users">Utilisateurs en ligne</string>
+    <string name="no_one_connected">Personne connecté</string>
+    <string name="emergency_clear_hint">Appuyer trois fois pour effacer toutes les données</string>
+    <string name="your_network">Votre réseau</string>
+</resources>

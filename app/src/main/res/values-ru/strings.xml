@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+    <string name="permission_bluetooth_rationale">Для обмена сообщениями по одноранговой сети без подключения к Интернету требуется разрешение на Bluetooth.</string>
+    <string name="permission_location_rationale">Для обнаружения устройств поблизости через Bluetooth требуется разрешение на определение местоположения.</string>
+    <string name="permission_notification_rationale">Разрешение на уведомления требуется для оповещения о новых сообщениях.</string>
+    <string name="nickname_hint">Псевдоним</string>
+    <string name="message_hint">Введите сообщение…</string>
+    <string name="channel_password_hint">Пароль</string>
+    <string name="join_channel">Присоединиться к каналу</string>
+    <string name="leave_channel">Покинуть</string>
+    <string name="send_message">Отправить</string>
+    <string name="back">Назад</string>
+    <string name="people">Люди</string>
+    <string name="channels">Каналы</string>
+    <string name="online_users">Пользователи онлайн</string>
+    <string name="no_one_connected">Никто не подключен</string>
+    <string name="emergency_clear_hint">Трижды нажмите, чтобы очистить все данные</string>
+    <string name="your_network">Ваша сеть</string>
+</resources>
