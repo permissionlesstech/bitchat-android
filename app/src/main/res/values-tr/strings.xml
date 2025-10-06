@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+    <string name="permission_bluetooth_rationale">İnternetsiz eşler arası mesajlaşma için Bluetooth izni gereklidir.</string>
+    <string name="permission_location_rationale">Bluetooth ile yakındaki cihazları keşfetmek için konum izni gereklidir.</string>
+    <string name="permission_notification_rationale">Yeni mesajlardan haberdar olmak için bildirim izni gereklidir.</string>
+    <string name="nickname_hint">takma ad</string>
+    <string name="message_hint">bir mesaj yaz…</string>
+    <string name="channel_password_hint">Şifre</string>
+    <string name="join_channel">Kanala Katıl</string>
+    <string name="leave_channel">Ayrıl</string>
+    <string name="send_message">Gönder</string>
+    <string name="back">Geri</string>
+    <string name="people">Kişiler</string>
+    <string name="channels">Kanallar</string>
+    <string name="online_users">Çevrimiçi Kullanıcılar</string>
+    <string name="no_one_connected">Bağlı kimse yok</string>
+    <string name="emergency_clear_hint">Tüm verileri temizlemek için üç kez dokunun</string>
+</resources>
+
