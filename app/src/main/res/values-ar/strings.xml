@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+    <string name="permission_bluetooth_rationale">مطلوب إذن البلوتوث للمراسلة من نظير إلى نظير بدون
+        اتصال بالإنترنت.</string>
+    <string name="permission_location_rationale">مطلوب إذن الموقع لاكتشاف الأجهزة القريبة عبر
+        البلوتوث.</string>
+    <string name="permission_notification_rationale">مطلوب إذن الإشعارات لتنبيهك بالرسائل الجديدة.</string>
+    <string name="nickname_hint">اسم مستعار</string>
+    <string name="message_hint">اكتب رسالة…</string>
+    <string name="channel_password_hint">كلمة المرور</string>
+    <string name="join_channel">الانضمام إلى القناة</string>
+    <string name="leave_channel">مغادرة</string>
+    <string name="send_message">إرسال</string>
+    <string name="back">رجوع</string>
+    <string name="people">الأشخاص</string>
+    <string name="channels">القنوات</string>
+    <string name="online_users">المستخدمون المتصلون</string>
+    <string name="no_one_connected">لا أحد متصل</string>
+    <string name="emergency_clear_hint">انقر ثلاث مرات لمسح جميع البيانات</string>
+</resources>
