@@ -44,10 +44,16 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
      * Validate packet security (timestamp, replay attacks, duplicates, signatures)
      */
     fun validatePacket(packet: BitchatPacket, peerID: String): Boolean {
-        // Skip validation for our own packets
+        // Allow our own packets only when they are local-only (TTL=0) — used by SYNC responses
         if (peerID == myPeerID) {
-            Log.d(TAG, "Skipping validation for our own packet")
-            return false
+            val isLocalOnly = packet.ttl == 0u.toUByte()
+            if (isLocalOnly) {
+                Log.d(TAG, "Accepting self packet due to TTL=0 (SYNC/local-only)")
+                // Intentionally continue to duplicate detection to avoid showing duplicates
+            } else {
+                Log.d(TAG, "Dropping non-local self packet during validation")
+                return false
+            }
         }
         
         // Validate packet payload
