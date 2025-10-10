@@ -195,6 +195,11 @@ class CommandProcessor(
                 val channel = state.getCurrentChannelValue()!!
                 messageManager.clearChannelMessages(channel)
             }
+            state.selectedLocationChannel.value is com.bitchat.android.geohash.ChannelID.Location -> {
+                // Clear geohash channel messages
+                val geohashChannel = (state.selectedLocationChannel.value as com.bitchat.android.geohash.ChannelID.Location).channel
+                messageManager.clearChannelMessages("geo:${geohashChannel.geohash}")
+            }
             else -> {
                 // Clear main messages
                 messageManager.clearMessages()
