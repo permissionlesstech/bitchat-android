@@ -2,6 +2,7 @@ package com.bitchat.android.ui
 
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.ui.ChatViewModel
 import java.util.Date
 
 /**
@@ -35,12 +36,12 @@ class CommandProcessor(
         val parts = command.split(" ")
         val cmd = parts.first().lowercase()
         when (cmd) {
-            "/j", "/join" -> handleJoinCommand(parts, myPeerID)
-            "/m", "/msg" -> handleMessageCommand(parts, meshService)
+            "/j", "/join" -> handleJoinCommand(parts, myPeerID, viewModel)
+            "/m", "/msg" -> handleMessageCommand(parts, meshService, viewModel)
             "/w" -> handleWhoCommand(meshService, viewModel)
             "/clear" -> handleClearCommand()
             "/pass" -> handlePassCommand(parts, myPeerID)
-            "/block" -> handleBlockCommand(parts, meshService)
+            "/block" -> handleBlockCommand(parts, meshService, viewModel)
             "/unblock" -> handleUnblockCommand(parts, meshService)
             "/hug" -> handleActionCommand(parts, "gives", "a warm hug 🫂", meshService, myPeerID, onSendMessage)
             "/slap" -> handleActionCommand(parts, "slaps", "around a bit with a large trout 🐟", meshService, myPeerID, onSendMessage)
@@ -51,7 +52,22 @@ class CommandProcessor(
         return true
     }
     
-    private fun handleJoinCommand(parts: List<String>, myPeerID: String) {
+    private fun handleJoinCommand(parts: List<String>, myPeerID: String, viewModel: ChatViewModel? = null) {
+        // Check if we're in a geohash chat
+        val isInGeohash = state.selectedLocationChannel.value is com.bitchat.android.geohash.ChannelID.Location
+        
+        if (isInGeohash) {
+            // Cannot join channels from geohash chat
+            val systemMessage = BitchatMessage(
+                sender = "system",
+                content = "cannot join channels from geohash chat. switch to mesh chat first.",
+                timestamp = Date(),
+                isRelay = false
+            )
+            messageManager.addMessage(systemMessage)
+            return
+        }
+        
         if (parts.size > 1) {
             val channelName = parts[1]
             val channel = if (channelName.startsWith("#")) channelName else "#$channelName"
@@ -77,10 +93,32 @@ class CommandProcessor(
         }
     }
     
-    private fun handleMessageCommand(parts: List<String>, meshService: BluetoothMeshService) {
+    private fun handleMessageCommand(parts: List<String>, meshService: BluetoothMeshService, viewModel: ChatViewModel? = null) {
         if (parts.size > 1) {
             val targetName = parts[1].removePrefix("@")
-            val peerID = getPeerIDForNickname(targetName, meshService)
+            
+            // Check if we're in a geohash chat
+            val isInGeohash = state.selectedLocationChannel.value is com.bitchat.android.geohash.ChannelID.Location
+            
+            // Try to find the peer ID based on the context
+            val peerID = if (isInGeohash && viewModel != null) {
+                // In geohash chat, look for the user in geohash participants
+                val geohashPeople = viewModel.geohashPeople.value ?: emptyList()
+                val matchingPerson = geohashPeople.find { person ->
+                    val (baseName, _) = com.bitchat.android.ui.splitSuffix(person.displayName)
+                    baseName.equals(targetName, ignoreCase = true)
+                }
+                
+                if (matchingPerson != null) {
+                    // Use the Nostr conversation key format
+                    "nostr_${matchingPerson.id.take(16)}"
+                } else {
+                    null
+                }
+            } else {
+                // In mesh chat, use the regular peer ID lookup
+                getPeerIDForNickname(targetName, meshService)
+            }
             
             if (peerID != null) {
                 val success = privateChatManager.startPrivateChat(peerID, meshService)
@@ -88,7 +126,21 @@ class CommandProcessor(
                 if (success) {
                     if (parts.size > 2) {
                         val messageContent = parts.drop(2).joinToString(" ")
-                        val recipientNickname = getPeerNickname(peerID, meshService)
+                        val recipientNickname = if (peerID.startsWith("nostr_")) {
+                            // For Nostr conversations, use the display name from geohash people
+                            if (viewModel != null) {
+                                val geohashPeople = viewModel.geohashPeople.value ?: emptyList()
+                                val pubkeyHex = peerID.removePrefix("nostr_")
+                                val matchingPerson = geohashPeople.find { it.id.startsWith(pubkeyHex) }
+                                matchingPerson?.displayName ?: targetName
+                            } else {
+                                targetName
+                            }
+                        } else {
+                            // For mesh peers, use the regular nickname lookup
+                            getPeerNickname(peerID, meshService)
+                        }
+                        
                         privateChatManager.sendPrivateMessage(
                             messageContent, 
                             peerID, 
@@ -253,10 +305,20 @@ class CommandProcessor(
         }
     }
     
-    private fun handleBlockCommand(parts: List<String>, meshService: BluetoothMeshService) {
+    private fun handleBlockCommand(parts: List<String>, meshService: BluetoothMeshService, viewModel: ChatViewModel? = null) {
+        // Check if we're in a geohash chat
+        val isInGeohash = state.selectedLocationChannel.value is com.bitchat.android.geohash.ChannelID.Location
+        
         if (parts.size > 1) {
             val targetName = parts[1].removePrefix("@")
-            privateChatManager.blockPeerByNickname(targetName, meshService)
+            
+            if (isInGeohash && viewModel != null) {
+                // In geohash chat, use the geohash blocking mechanism
+                viewModel.blockUserInGeohash(targetName)
+            } else {
+                // In mesh chat, use the regular blocking mechanism
+                privateChatManager.blockPeerByNickname(targetName, meshService)
+            }
         } else {
             // List blocked users
             val blockedInfo = privateChatManager.listBlockedUsers()
