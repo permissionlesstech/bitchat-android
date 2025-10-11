@@ -27,6 +27,8 @@ tink-android = "1.10.0"
 
 # JSON
 gson = "2.13.1"
+kotlinxSerializationJson = "1.6.0"
+
 
 # Coroutines
 kotlinx-coroutines = "1.10.2"
@@ -44,6 +46,9 @@ gms-location = "21.3.0"
 
 # Security
 security-crypto = "1.1.0-beta01"
+
+datastorePreferences = "1.1.7"
+
 
 # Testing
 junit = "4.13.2"
@@ -117,12 +122,22 @@ mockito-inline = { module = "org.mockito:mockito-inline", version.ref = "mockito
 roboelectric = { module = "org.robolectric:robolectric", version.ref = "roboelectric"}
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines-test"}
 
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
+
+
+# Data store
+androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastorePreferences" }
+androidx-datastore-preferences-rxjava2 = { module = "androidx.datastore:datastore-preferences-rxjava2", version.ref = "datastorePreferences" }
+androidx-datastore-preferences-rxjava3 = { module = "androidx.datastore:datastore-preferences-rxjava3", version.ref = "datastorePreferences" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-parcelize = { id = "kotlin-parcelize" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+# Serialization
+serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 
 [bundles]
 compose = [

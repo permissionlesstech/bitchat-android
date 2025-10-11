@@ -1,11 +1,10 @@
 package com.bitchat.android.ui
 
-import com.bitchat.android.mesh.BluetoothMeshDelegate
-import com.bitchat.android.ui.NotificationTextUtils
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.Date
 
@@ -22,9 +21,9 @@ class MeshDelegateHandler(
     private val onHapticFeedback: () -> Unit,
     private val getMyPeerID: () -> String,
     private val getMeshService: () -> BluetoothMeshService
-) : BluetoothMeshDelegate {
+)  {
 
-    override fun didReceiveMessage(message: BitchatMessage) {
+    fun didReceiveMessage(message: BitchatMessage) {
         coroutineScope.launch {
             // FIXED: Deduplicate messages from dual connection paths
             val messageKey = messageManager.generateMessageKey(message)
@@ -83,8 +82,8 @@ class MeshDelegateHandler(
         }
     }
     
-    override fun didUpdatePeerList(peers: List<String>) {
-        coroutineScope.launch {
+    fun didUpdatePeerList(peers: List<String>) {
+        coroutineScope.launch(Dispatchers.Main.immediate) {
             state.setConnectedPeers(peers)
             state.setIsConnected(peers.isNotEmpty())
             notificationManager.showActiveUserNotification(peers)
@@ -187,32 +186,31 @@ class MeshDelegateHandler(
     private fun unifyChatsIntoPeer(targetPeerID: String, keysToMerge: List<String>) {
         com.bitchat.android.services.ConversationAliasResolver.unifyChatsIntoPeer(state, targetPeerID, keysToMerge)
     }
-
-    override fun didReceiveChannelLeave(channel: String, fromPeer: String) {
+    fun didReceiveChannelLeave(channel: String, fromPeer: String) {
         coroutineScope.launch {
             channelManager.removeChannelMember(channel, fromPeer)
         }
     }
     
-    override fun didReceiveDeliveryAck(messageID: String, recipientPeerID: String) {
+   fun didReceiveDeliveryAck(messageID: String, recipientPeerID: String) {
         coroutineScope.launch {
             messageManager.updateMessageDeliveryStatus(messageID, DeliveryStatus.Delivered(recipientPeerID, Date()))
         }
     }
     
-    override fun didReceiveReadReceipt(messageID: String, recipientPeerID: String) {
+   fun didReceiveReadReceipt(messageID: String, recipientPeerID: String) {
         coroutineScope.launch {
             messageManager.updateMessageDeliveryStatus(messageID, DeliveryStatus.Read(recipientPeerID, Date()))
         }
     }
     
-    override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {
+   fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {
         return channelManager.decryptChannelMessage(encryptedContent, channel)
     }
     
-    override fun getNickname(): String? = state.getNicknameValue()
+   fun getNickname(): String? = state.getNicknameValue()
     
-    override fun isFavorite(peerID: String): Boolean {
+    fun isFavorite(peerID: String): Boolean {
         return privateChatManager.isFavorite(peerID)
     }
     

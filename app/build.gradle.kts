@@ -3,6 +3,8 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.parcelize)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.serialization)
+
 }
 
 android {
@@ -62,6 +64,12 @@ android {
 }
 
 dependencies {
+    implementation(libs.androidx.datastore.preferences)
+    // optional - RxJava2 support
+    implementation(libs.androidx.datastore.preferences.rxjava2)
+    // optional - RxJava3 support
+    implementation(libs.androidx.datastore.preferences.rxjava3)
+    implementation(libs.kotlinx.serialization.json)
     // Core Android dependencies
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

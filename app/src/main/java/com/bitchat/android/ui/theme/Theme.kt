@@ -45,11 +45,10 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun BitchatTheme(
-    darkTheme: Boolean? = null,
+    darkTheme: Boolean? = null, themePref: ThemePreference,
     content: @Composable () -> Unit
 ) {
     // App-level override from ThemePreferenceManager
-    val themePref by ThemePreferenceManager.themeFlow.collectAsState(initial = ThemePreference.System)
     val shouldUseDark = when (darkTheme) {
         true -> true
         false -> false

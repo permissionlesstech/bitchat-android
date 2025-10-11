@@ -67,4 +67,6 @@ class MainViewModel : ViewModel() {
     fun updateBatteryOptimizationLoading(loading: Boolean) {
         _isBatteryOptimizationLoading.value = loading
     }
+
+
 }

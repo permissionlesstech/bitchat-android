@@ -40,7 +40,7 @@
     <uses-feature android:name="android.hardware.bluetooth" android:required="true" />
 
     <application
-        android:name=".BitchatApplication"
+        android:name=".application.BitchatApplication"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
