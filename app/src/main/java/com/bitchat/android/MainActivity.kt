@@ -660,7 +660,9 @@ class MainActivity : ComponentActivity() {
                 }
 
                 // Set up mesh service delegate and start services
+
                 chatViewModel.startMeshServices()
+                chatViewModel.setUpDelegate()
 
                 Log.d("MainActivity", "Mesh service started successfully")
 

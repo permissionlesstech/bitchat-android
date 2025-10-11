@@ -24,7 +24,7 @@ class MeshDelegateHandler(
 )  {
 
     fun didReceiveMessage(message: BitchatMessage) {
-        coroutineScope.launch {
+        coroutineScope.launch(Dispatchers.Main) {
             // FIXED: Deduplicate messages from dual connection paths
             val messageKey = messageManager.generateMessageKey(message)
             if (messageManager.isMessageProcessed(messageKey)) {
@@ -83,7 +83,7 @@ class MeshDelegateHandler(
     }
     
     fun didUpdatePeerList(peers: List<String>) {
-        coroutineScope.launch(Dispatchers.Main.immediate) {
+        coroutineScope.launch(Dispatchers.Main) {
             state.setConnectedPeers(peers)
             state.setIsConnected(peers.isNotEmpty())
             notificationManager.showActiveUserNotification(peers)
@@ -187,19 +187,19 @@ class MeshDelegateHandler(
         com.bitchat.android.services.ConversationAliasResolver.unifyChatsIntoPeer(state, targetPeerID, keysToMerge)
     }
     fun didReceiveChannelLeave(channel: String, fromPeer: String) {
-        coroutineScope.launch {
+        coroutineScope.launch(Dispatchers.Main)  {
             channelManager.removeChannelMember(channel, fromPeer)
         }
     }
     
    fun didReceiveDeliveryAck(messageID: String, recipientPeerID: String) {
-        coroutineScope.launch {
+        coroutineScope.launch(Dispatchers.Main)  {
             messageManager.updateMessageDeliveryStatus(messageID, DeliveryStatus.Delivered(recipientPeerID, Date()))
         }
     }
     
    fun didReceiveReadReceipt(messageID: String, recipientPeerID: String) {
-        coroutineScope.launch {
+        coroutineScope.launch(Dispatchers.Main)  {
             messageManager.updateMessageDeliveryStatus(messageID, DeliveryStatus.Read(recipientPeerID, Date()))
         }
     }

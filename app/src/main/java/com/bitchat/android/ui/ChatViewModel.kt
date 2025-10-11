@@ -260,6 +260,7 @@ class ChatViewModel(
 
     fun changeMeshServiceBGState(b: Boolean) = bmd.changeMeshServiceBGState(b)
     fun startMeshServices() = bmd.startMeshServices()
+    fun setUpDelegate() { meshService.delegate = bmd }
     fun stopMeshServices() = bmd.startMeshServices()
 
     fun setCurrentPrivateChatPeer(peerID: String?) = bmd.setCurrentPrivateChatPeer(peerID)

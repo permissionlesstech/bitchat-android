@@ -29,7 +29,6 @@ import kotlinx.coroutines.launch
 import java.util.Date
 import kotlin.collections.forEach
 import kotlin.random.Random
-import kotlin.text.get
 
 
 class BluetoothMeshDelegateImpl(
@@ -42,7 +41,6 @@ class BluetoothMeshDelegateImpl(
         private const val TAG = "BluetoothMeshDelegate"
 
     }
-
     override val dataManager = DataManager(context)
     override val state = ChatState()
     override val messageManager = MessageManager(state)
@@ -164,7 +162,6 @@ class BluetoothMeshDelegateImpl(
             }
 
             startPrivateChat(openPeer) { onEnsureGeohashDMSubscription(openPeer) }
-
             // If sidebar visible, hide it to focus on the private chat
             if (state.getShowSidebarValue()) {
                 state.setShowSidebar(false)
