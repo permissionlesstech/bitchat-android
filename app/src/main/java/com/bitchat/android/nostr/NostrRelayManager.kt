@@ -3,9 +3,8 @@ package com.bitchat.android.nostr
 import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import com.google.gson.Gson
-import com.google.gson.JsonArray
-import com.google.gson.JsonParser
+import kotlinx.serialization.json.*
+import com.bitchat.android.util.JsonUtil
 import kotlinx.coroutines.*
 import okhttp3.*
 import java.util.concurrent.ConcurrentHashMap
@@ -117,7 +116,7 @@ class NostrRelayManager private constructor() {
     private val httpClient: OkHttpClient
         get() = com.bitchat.android.net.OkHttpProvider.webSocketClient()
     
-    private val gson by lazy { NostrRequest.createGson() }
+
     
     // Per-geohash relay selection
     private val geohashToRelays = ConcurrentHashMap<String, Set<String>>() // geohash -> relay URLs
@@ -331,7 +330,7 @@ class NostrRelayManager private constructor() {
      */
     private fun sendSubscriptionToRelays(subscriptionInfo: SubscriptionInfo) {
         val request = NostrRequest.Subscribe(subscriptionInfo.id, listOf(subscriptionInfo.filter))
-        val message = gson.toJson(request, NostrRequest::class.java)
+        val message = NostrRequest.toJson(request)
         
         // DEBUG: Log the actual serialized message format
         Log.v(TAG, "🔍 DEBUG: Serialized subscription message: $message")
@@ -383,7 +382,7 @@ class NostrRelayManager private constructor() {
         Log.d(TAG, "🚫 Unsubscribing from subscription: $id")
         
         val request = NostrRequest.Close(id)
-        val message = gson.toJson(request, NostrRequest::class.java)
+        val message = NostrRequest.toJson(request)
         
         scope.launch {
             connections.forEach { (relayUrl, webSocket) ->
@@ -631,7 +630,7 @@ class NostrRelayManager private constructor() {
     private fun sendToRelay(event: NostrEvent, webSocket: WebSocket, relayUrl: String) {
         try {
             val request = NostrRequest.Event(event)
-            val message = gson.toJson(request, NostrRequest::class.java)
+            val message = NostrRequest.toJson(request)
             
             Log.v(TAG, "📤 Sending Nostr event (kind: ${event.kind}) to relay: $relayUrl")
             
@@ -651,13 +650,13 @@ class NostrRelayManager private constructor() {
     
     private fun handleMessage(message: String, relayUrl: String) {
         try {
-            val jsonElement = JsonParser.parseString(message)
-            if (!jsonElement.isJsonArray) {
+            val jsonElement = JsonUtil.json.parseToJsonElement(message)
+            if (jsonElement !is JsonArray) {
                 Log.w(TAG, "Received non-array message from $relayUrl")
                 return
             }
             
-            val response = NostrResponse.fromJsonArray(jsonElement.asJsonArray)
+            val response = NostrResponse.fromJsonArray(jsonElement)
             
             when (response) {
                 is NostrResponse.Event -> {
@@ -828,7 +827,7 @@ class NostrRelayManager private constructor() {
         subscriptionsToRestore.forEach { subscriptionInfo ->
             try {
                 val request = NostrRequest.Subscribe(subscriptionInfo.id, listOf(subscriptionInfo.filter))
-                val message = gson.toJson(request, NostrRequest::class.java)
+                val message = NostrRequest.toJson(request)
                 
                 val success = webSocket.send(message)
                 if (success) {

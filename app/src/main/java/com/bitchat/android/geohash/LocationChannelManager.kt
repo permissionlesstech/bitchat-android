@@ -14,7 +14,8 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import kotlinx.coroutines.*
 import java.util.*
-import com.google.gson.Gson
+import kotlinx.serialization.json.*
+import com.bitchat.android.util.JsonUtil
 import com.google.gson.JsonSyntaxException
 
 /**
@@ -49,7 +50,7 @@ class LocationChannelManager private constructor(private val context: Context) {
     private var lastLocation: Location? = null
     private var refreshTimer: Job? = null
     private var isGeocoding: Boolean = false
-    private val gson = Gson()
+
     private var dataManager: com.bitchat.android.ui.DataManager? = null
 
     // Published state for UI bindings (matching iOS @Published properties)
@@ -537,10 +538,10 @@ class LocationChannelManager private constructor(private val context: Context) {
         try {
             val channelData = when (channel) {
                 is ChannelID.Mesh -> {
-                    gson.toJson(mapOf("type" to "mesh"))
+                    JsonUtil.toJson(mapOf("type" to "mesh"))
                 }
                 is ChannelID.Location -> {
-                    gson.toJson(mapOf(
+                    JsonUtil.toJson(mapOf(
                         "type" to "location",
                         "level" to channel.channel.level.name,
                         "precision" to channel.channel.level.precision,
@@ -563,7 +564,14 @@ class LocationChannelManager private constructor(private val context: Context) {
         try {
             val channelData = dataManager?.loadLastGeohashChannel()
             if (channelData != null) {
-                val channelMap = gson.fromJson(channelData, Map::class.java) as? Map<String, Any>
+                val channelMap = try {
+                    JsonUtil.json.parseToJsonElement(channelData).jsonObject.mapValues { 
+                        when (val value = it.value) {
+                            is JsonPrimitive -> if (value.isString) value.content else value.toString()
+                            else -> value.toString()
+                        }
+                    }
+                } catch (e: Exception) { null }
                 if (channelMap != null) {
                     val channel = when (channelMap["type"] as? String) {
                         "mesh" -> ChannelID.Mesh
