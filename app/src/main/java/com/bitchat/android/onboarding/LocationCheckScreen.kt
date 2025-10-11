@@ -9,7 +9,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -70,7 +72,7 @@ private fun LocationDisabledContent(
         // Location icon - using LocationOn outlined icon in app's green color
         Icon(
             imageVector = Icons.Outlined.LocationOn,
-            contentDescription = "Location Services",
+            contentDescription = stringResource(com.bitchat.android.R.string.cd_location_services),
             modifier = Modifier.size(64.dp),
             tint = Color(0xFF00C851) // App's main green color
         )

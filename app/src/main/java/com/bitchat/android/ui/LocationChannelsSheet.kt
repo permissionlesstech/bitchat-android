@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -328,7 +329,7 @@ fun LocationChannelsSheet(
                                     IconButton(onClick = { bookmarksStore.toggle(gh) }) {
                                         Icon(
                                             imageVector = Icons.Filled.Bookmark,
-                                            contentDescription = "Remove bookmark",
+                                            contentDescription = stringResource(com.bitchat.android.R.string.cd_remove_bookmark),
                                             tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                                         )
                                     }
@@ -435,7 +436,7 @@ fun LocationChannelsSheet(
                                 }) {
                                     Icon(
                                         imageVector = Icons.Filled.Map,
-                                        contentDescription = "Open map",
+                                        contentDescription = stringResource(com.bitchat.android.R.string.cd_open_map),
                                         tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                                     )
                                 }
@@ -474,7 +475,7 @@ fun LocationChannelsSheet(
                                         // iOS has a face.dashed icon, use closest Material equivalent
                                         Icon(
                                             imageVector = Icons.Filled.PinDrop,
-                                            contentDescription = "Teleport",
+                                            contentDescription = stringResource(com.bitchat.android.R.string.cd_teleport),
                                             modifier = Modifier.size(14.dp),
                                             tint = MaterialTheme.colorScheme.onSurface
                                         )
@@ -668,7 +669,7 @@ private fun ChannelRow(
                 if (isSelected) {
                     Icon(
                         imageVector = Icons.Filled.Check,
-                        contentDescription = "Selected",
+                        contentDescription = stringResource(com.bitchat.android.R.string.cd_selected),
                         tint = Color(0xFF32D74B), // iOS green for checkmark
                         modifier = Modifier.size(20.dp)
                     )

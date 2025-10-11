@@ -21,6 +21,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -99,7 +101,7 @@ fun PermissionExplanationScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Security,
-                            contentDescription = "Privacy Protected",
+                            contentDescription = stringResource(com.bitchat.android.R.string.cd_privacy),
                             tint = colorScheme.primary,
                             modifier = Modifier
                                 .padding(top = 2.dp)
@@ -218,7 +220,7 @@ private fun PermissionCategoryCard(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Warning,
-                        contentDescription = "Warning",
+                        contentDescription = stringResource(com.bitchat.android.R.string.cd_warning),
                         tint = Color(0xFFFF9800),
                         modifier = Modifier.size(16.dp)
                     )

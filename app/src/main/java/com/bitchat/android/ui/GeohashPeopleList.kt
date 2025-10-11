@@ -15,6 +15,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
@@ -182,7 +184,7 @@ private fun GeohashPersonItem(
             // Unread DM indicator (orange envelope)
             Icon(
                 imageVector = Icons.Filled.Email,
-                contentDescription = "Unread message",
+                contentDescription = stringResource(com.bitchat.android.R.string.cd_unread_message),
                 modifier = Modifier.size(12.dp),
                 tint = Color(0xFFFF9500) // iOS orange
             )

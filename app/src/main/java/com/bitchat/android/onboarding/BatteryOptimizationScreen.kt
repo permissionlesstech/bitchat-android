@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -136,7 +137,7 @@ private fun BatteryOptimizationEnabledContent(
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Power,
-                            contentDescription = "Battery Optimization",
+                            contentDescription = stringResource(com.bitchat.android.R.string.cd_battery_optimization),
                             tint = colorScheme.primary,
                             modifier = Modifier
                                 .padding(top = 2.dp)
@@ -176,7 +177,7 @@ private fun BatteryOptimizationEnabledContent(
                     ) {
                         Icon(
                             imageVector = Icons.Filled.CheckCircle,
-                            contentDescription = "Benefits",
+                            contentDescription = stringResource(com.bitchat.android.R.string.cd_benefits),
                             tint = colorScheme.primary,
                             modifier = Modifier
                                 .padding(top = 2.dp)
@@ -312,7 +313,7 @@ private fun BatteryOptimizationCheckingContent(
         
         Icon(
             imageVector = Icons.Filled.BatteryStd,
-            contentDescription = "Checking Battery Optimization",
+            contentDescription = stringResource(com.bitchat.android.R.string.cd_checking_battery_optimization),
             modifier = Modifier
                 .size(64.dp)
                 .rotate(rotation),
@@ -364,7 +365,7 @@ private fun BatteryOptimizationNotSupportedContent(
         
         Icon(
             imageVector = Icons.Filled.CheckCircle,
-            contentDescription = "Battery Optimization Not Supported",
+            contentDescription = stringResource(com.bitchat.android.R.string.cd_not_supported_battery_optimization),
             modifier = Modifier.size(64.dp),
             tint = colorScheme.primary
         )

@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.IconButton
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
@@ -294,7 +295,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 IconButton(onClick = { forceScrollToBottom = !forceScrollToBottom }) {
                     Icon(
                         imageVector = Icons.Filled.ArrowDownward,
-                        contentDescription = "Scroll to bottom",
+                        contentDescription = stringResource(com.bitchat.android.R.string.cd_scroll_to_bottom),
                         tint = Color(0xFF00C851)
                     )
                 }
