@@ -183,16 +183,16 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
             }
             
             // Create NOISE_ENCRYPTED packet exactly like iOS
-            val packet = BitchatPacket(
-                version = 1u,
-                type = MessageType.NOISE_ENCRYPTED.value,
-                senderID = hexStringToByteArray(myPeerID),
-                recipientID = hexStringToByteArray(senderPeerID),
-                timestamp = System.currentTimeMillis().toULong(),
-                payload = encryptedPayload,
-                signature = null,
-                ttl = 7u // Same TTL as iOS messageTTL
-            )
+                val packet = BitchatPacket(
+                    version = 1u,
+                    type = MessageType.NOISE_ENCRYPTED.value,
+                    senderID = hexStringToByteArray(myPeerID),
+                    recipientID = hexStringToByteArray(senderPeerID),
+                    timestamp = System.currentTimeMillis().toULong(),
+                    payload = encryptedPayload,
+                    signature = null,
+                    ttl = com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS // Same TTL as iOS messageTTL
+                )
             
             delegate?.sendPacket(packet)
             Log.d(TAG, "📤 Sent delivery ACK to $senderPeerID for message $messageID")
@@ -318,7 +318,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     timestamp = System.currentTimeMillis().toULong(),
                     payload = response,
                     signature = null,
-                    ttl = 7u // Same TTL as iOS
+                    ttl = com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS // Same TTL as iOS
                 )
                 
                 delegate?.sendPacket(responsePacket)

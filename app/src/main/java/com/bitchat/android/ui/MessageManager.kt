@@ -13,8 +13,8 @@ class MessageManager(private val state: ChatState) {
     // Message deduplication - FIXED: Prevent duplicate messages from dual connection paths
     private val processedUIMessages = Collections.synchronizedSet(mutableSetOf<String>())
     private val recentSystemEvents = Collections.synchronizedMap(mutableMapOf<String, Long>())
-    private val MESSAGE_DEDUP_TIMEOUT = 30000L // 30 seconds
-    private val SYSTEM_EVENT_DEDUP_TIMEOUT = 5000L // 5 seconds
+    private val MESSAGE_DEDUP_TIMEOUT = com.bitchat.android.util.AppConstants.UI.MESSAGE_DEDUP_TIMEOUT_MS // 30 seconds
+    private val SYSTEM_EVENT_DEDUP_TIMEOUT = com.bitchat.android.util.AppConstants.UI.SYSTEM_EVENT_DEDUP_TIMEOUT_MS // 5 seconds
     
     // MARK: - Public Message Management
     
