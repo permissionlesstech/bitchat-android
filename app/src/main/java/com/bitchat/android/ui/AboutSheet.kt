@@ -19,10 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.stringResource
-import com.bitchat.android.R
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -105,7 +102,7 @@ fun AboutSheet(
                                 verticalAlignment = Alignment.Bottom
                             ) {
                                 Text(
-                                    text = stringResource(R.string.app_name),
+                                    text = "bitchat",
                                     style = TextStyle(
                                         fontFamily = FontFamily.Monospace,
                                         fontWeight = FontWeight.Bold,
@@ -126,7 +123,7 @@ fun AboutSheet(
                             }
 
                             Text(
-                                text = stringResource(R.string.about_tagline),
+                                text = "decentralized mesh messaging with end-to-end encryption",
                                 fontSize = 12.sp,
                                 fontFamily = FontFamily.Monospace,
                                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
@@ -144,7 +141,7 @@ fun AboutSheet(
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.Bluetooth,
-                                contentDescription = stringResource(com.bitchat.android.R.string.cd_offline_mesh_chat),
+                                contentDescription = "Offline Mesh Chat",
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier
                                     .padding(top = 2.dp)
@@ -153,14 +150,14 @@ fun AboutSheet(
                             Spacer(modifier = Modifier.width(16.dp))
                             Column {
                                 Text(
-                                    text = stringResource(R.string.about_offline_mesh_title),
+                                    text = "Offline Mesh Chat",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Medium,
                                     color = MaterialTheme.colorScheme.onBackground
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = stringResource(R.string.about_offline_mesh_desc),
+                                    text = "Communicate directly via Bluetooth LE without internet or servers. Messages relay through nearby devices to extend range.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
                                 )
@@ -176,7 +173,7 @@ fun AboutSheet(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Public,
-                                contentDescription = stringResource(com.bitchat.android.R.string.cd_online_geohash_channels),
+                                contentDescription = "Online Geohash Channels",
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier
                                     .padding(top = 2.dp)
@@ -185,14 +182,14 @@ fun AboutSheet(
                             Spacer(modifier = Modifier.width(16.dp))
                             Column {
                                 Text(
-                                    text = stringResource(R.string.about_online_geohash_title),
+                                    text = "Online Geohash Channels",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Medium,
                                     color = MaterialTheme.colorScheme.onBackground
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = stringResource(R.string.about_online_geohash_desc),
+                                    text = "Connect with people in your area using geohash-based channels. Extend the mesh using public internet relays.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
                                 )
@@ -208,7 +205,7 @@ fun AboutSheet(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Lock,
-                                contentDescription = stringResource(com.bitchat.android.R.string.cd_end_to_end_encryption),
+                                contentDescription = "End-to-End Encryption",
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier
                                     .padding(top = 2.dp)
@@ -217,14 +214,14 @@ fun AboutSheet(
                             Spacer(modifier = Modifier.width(16.dp))
                             Column {
                                 Text(
-                                    text = stringResource(R.string.about_e2e_title),
+                                    text = "End-to-End Encryption",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Medium,
                                     color = MaterialTheme.colorScheme.onBackground
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = stringResource(R.string.about_e2e_desc),
+                                    text = "Private messages are encrypted. Channel messages are public.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
                                 )
@@ -235,7 +232,7 @@ fun AboutSheet(
                     // Appearance Section
                     item(key = "appearance_section") {
                         Text(
-                            text = stringResource(R.string.about_appearance),
+                            text = "appearance",
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                             modifier = Modifier
@@ -250,24 +247,24 @@ fun AboutSheet(
                             FilterChip(
                                 selected = themePref.isSystem,
                                 onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.System) },
-                                label = { Text(stringResource(R.string.about_system), fontFamily = FontFamily.Monospace) }
+                                label = { Text("system", fontFamily = FontFamily.Monospace) }
                             )
                             FilterChip(
                                 selected = themePref.isLight,
                                 onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Light) },
-                                label = { Text(stringResource(R.string.about_light), fontFamily = FontFamily.Monospace) }
+                                label = { Text("light", fontFamily = FontFamily.Monospace) }
                             )
                             FilterChip(
                                 selected = themePref.isDark,
                                 onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Dark) },
-                                label = { Text(stringResource(R.string.about_dark), fontFamily = FontFamily.Monospace) }
+                                label = { Text("dark", fontFamily = FontFamily.Monospace) }
                             )
                         }
                     }
                     // Proof of Work Section
                     item(key = "pow_section") {
                         Text(
-                            text = stringResource(R.string.about_pow),
+                            text = "proof of work",
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                             modifier = Modifier
@@ -292,7 +289,7 @@ fun AboutSheet(
                                 FilterChip(
                                     selected = !powEnabled,
                                     onClick = { PoWPreferenceManager.setPowEnabled(false) },
-                                    label = { Text(stringResource(R.string.about_pow_off), fontFamily = FontFamily.Monospace) }
+                                    label = { Text("pow off", fontFamily = FontFamily.Monospace) }
                                 )
                                 FilterChip(
                                     selected = powEnabled,
@@ -302,7 +299,7 @@ fun AboutSheet(
                                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Text(stringResource(R.string.about_pow_on), fontFamily = FontFamily.Monospace)
+                                            Text("pow on", fontFamily = FontFamily.Monospace)
                                             // Show current difficulty
                                             if (powEnabled) {
                                                 Surface(
@@ -316,7 +313,7 @@ fun AboutSheet(
                             }
 
                             Text(
-                                text = stringResource(R.string.about_pow_tip),
+                                text = "add proof of work to geohash messages for spam deterrence.",
                                 fontSize = 10.sp,
                                 fontFamily = FontFamily.Monospace,
                                 color = colorScheme.onSurface.copy(alpha = 0.6f)
@@ -329,7 +326,7 @@ fun AboutSheet(
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Text(
-                                        text = stringResource(R.string.about_pow_difficulty, powDifficulty, NostrProofOfWork.estimateMiningTime(powDifficulty)),
+                                        text = "difficulty: $powDifficulty bits (~${NostrProofOfWork.estimateMiningTime(powDifficulty)})",
                                         fontSize = 11.sp,
                                         fontFamily = FontFamily.Monospace,
                                     )
@@ -356,20 +353,20 @@ fun AboutSheet(
                                             verticalArrangement = Arrangement.spacedBy(4.dp)
                                         ) {
                                             Text(
-                                                text = stringResource(R.string.about_pow_difficulty_attempts, powDifficulty, NostrProofOfWork.estimateWork(powDifficulty)),
+                                                text = "difficulty $powDifficulty requires ~${NostrProofOfWork.estimateWork(powDifficulty)} hash attempts",
                                                 fontSize = 10.sp,
                                                 fontFamily = FontFamily.Monospace,
                                                 color = colorScheme.onSurface.copy(alpha = 0.7f)
                                             )
                                             Text(
                                                 text = when {
-                                                    powDifficulty == 0 -> stringResource(R.string.about_pow_desc_none)
-                                                    powDifficulty <= 8 -> stringResource(R.string.about_pow_desc_very_low)
-                                                    powDifficulty <= 12 -> stringResource(R.string.about_pow_desc_low)
-                                                    powDifficulty <= 16 -> stringResource(R.string.about_pow_desc_medium)
-                                                    powDifficulty <= 20 -> stringResource(R.string.about_pow_desc_high)
-                                                    powDifficulty <= 24 -> stringResource(R.string.about_pow_desc_very_high)
-                                                    else -> stringResource(R.string.about_pow_desc_extreme)
+                                                    powDifficulty == 0 -> "no proof of work required"
+                                                    powDifficulty <= 8 -> "very low - minimal spam protection"
+                                                    powDifficulty <= 12 -> "low - basic spam protection"
+                                                    powDifficulty <= 16 -> "medium - good spam protection"
+                                                    powDifficulty <= 20 -> "high - strong spam protection"
+                                                    powDifficulty <= 24 -> "very high - may cause delays"
+                                                    else -> "extreme - significant computation required"
                                                 },
                                                 fontSize = 10.sp,
                                                 fontFamily = FontFamily.Monospace,
@@ -387,7 +384,7 @@ fun AboutSheet(
                         val torMode = remember { mutableStateOf(com.bitchat.android.net.TorPreferenceManager.get(context)) }
                         val torStatus by com.bitchat.android.net.TorManager.statusFlow.collectAsState()
                         Text(
-                            text = stringResource(R.string.about_network),
+                            text = "network",
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                             modifier = Modifier
@@ -405,7 +402,7 @@ fun AboutSheet(
                                         torMode.value = com.bitchat.android.net.TorMode.OFF
                                         com.bitchat.android.net.TorPreferenceManager.set(context, torMode.value)
                                     },
-                                    label = { Text(stringResource(R.string.about_tor_off), fontFamily = FontFamily.Monospace) }
+                                    label = { Text("tor off", fontFamily = FontFamily.Monospace) }
                                 )
                                 FilterChip(
                                     selected = torMode.value == com.bitchat.android.net.TorMode.ON,
@@ -418,7 +415,7 @@ fun AboutSheet(
                                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Text(stringResource(R.string.about_tor_on), fontFamily = FontFamily.Monospace)
+                                            Text("tor on", fontFamily = FontFamily.Monospace)
                                             val statusColor = when {
                                                 torStatus.running && torStatus.bootstrapPercent < 100 -> Color(0xFFFF9500)
                                                 torStatus.running && torStatus.bootstrapPercent >= 100 -> if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
@@ -432,7 +429,7 @@ fun AboutSheet(
                                 )
                             }
                             Text(
-                                text = stringResource(R.string.about_tor_route),
+                                text = "route internet over tor for enhanced privacy.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                             )
@@ -449,14 +446,14 @@ fun AboutSheet(
                                         verticalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
                                         Text(
-                                            text = stringResource(R.string.about_tor_status, statusText, torStatus.bootstrapPercent),
+                                            text = "tor Status: $statusText, bootstrap ${torStatus.bootstrapPercent}%",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = colorScheme.onSurface.copy(alpha = 0.75f)
                                         )
                                         val lastLog = torStatus.lastLogLine
                                         if (lastLog.isNotEmpty()) {
                                             Text(
-                                                text = stringResource(R.string.about_last, lastLog.take(160)),
+                                                text = "Last: ${lastLog.take(160)}",
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = colorScheme.onSurface.copy(alpha = 0.6f)
                                             )
@@ -486,20 +483,20 @@ fun AboutSheet(
                             ) {
                                 Icon(
                                     imageVector = Icons.Filled.Warning,
-                                    contentDescription = stringResource(R.string.cd_warning),
+                                    contentDescription = "Warning",
                                     tint = errorColor,
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Text(
-                                        text = stringResource(R.string.about_emergency_title),
+                                        text = "Emergency Data Deletion",
                                         fontSize = 12.sp,
                                         fontFamily = FontFamily.Monospace,
                                         fontWeight = FontWeight.Bold,
                                         color = errorColor
                                     )
                                     Text(
-                                        text = stringResource(R.string.about_emergency_tip),
+                                        text = "Tip: Triple-click the app title to emergency delete all stored data including messages, keys, and settings.",
                                         fontSize = 11.sp,
                                         fontFamily = FontFamily.Monospace,
                                         color = colorScheme.onSurface.copy(alpha = 0.8f)
@@ -526,14 +523,14 @@ fun AboutSheet(
                                     )
                                 ) {
                                     Text(
-                                        text = stringResource(R.string.about_debug_settings),
+                                        text = "Debug Settings",
                                         fontSize = 11.sp,
                                         fontFamily = FontFamily.Monospace
                                     )
                                 }
                             }
                             Text(
-                                text = stringResource(R.string.about_footer),
+                                text = "Open Source • Privacy First • Decentralized",
                                 fontSize = 11.sp,
                                 fontFamily = FontFamily.Monospace,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
@@ -560,7 +557,7 @@ fun AboutSheet(
                             .padding(horizontal = 16.dp)
                     ) {
                         Text(
-                            text = stringResource(R.string.close_plain),
+                            text = "Close",
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onBackground
                         )
@@ -591,7 +588,7 @@ fun PasswordPromptDialog(
             onDismissRequest = onDismiss,
             title = {
                 Text(
-                    text = stringResource(R.string.pwd_prompt_title),
+                    text = "Enter Channel Password",
                     style = MaterialTheme.typography.titleMedium,
                     color = colorScheme.onSurface
                 )
@@ -599,7 +596,7 @@ fun PasswordPromptDialog(
             text = {
                 Column {
                     Text(
-                        text = stringResource(R.string.pwd_prompt_message, channelName),
+                        text = "Channel $channelName is password protected. Enter the password to join.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = colorScheme.onSurface
                     )
@@ -608,7 +605,7 @@ fun PasswordPromptDialog(
                     OutlinedTextField(
                         value = passwordInput,
                         onValueChange = onPasswordChange,
-                        label = { Text(stringResource(R.string.pwd_label), style = MaterialTheme.typography.bodyMedium) },
+                        label = { Text("Password", style = MaterialTheme.typography.bodyMedium) },
                         textStyle = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = FontFamily.Monospace
                         ),
@@ -622,7 +619,7 @@ fun PasswordPromptDialog(
             confirmButton = {
                 TextButton(onClick = onConfirm) {
                     Text(
-                        text = stringResource(R.string.join),
+                        text = "Join",
                         style = MaterialTheme.typography.bodyMedium,
                         color = colorScheme.primary
                     )
@@ -631,7 +628,7 @@ fun PasswordPromptDialog(
             dismissButton = {
                 TextButton(onClick = onDismiss) {
                     Text(
-                        text = stringResource(R.string.cancel),
+                        text = "Cancel",
                         style = MaterialTheme.typography.bodyMedium,
                         color = colorScheme.onSurface
                     )

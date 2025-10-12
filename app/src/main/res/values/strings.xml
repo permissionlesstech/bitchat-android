@@ -154,6 +154,7 @@
   <string name="cd_cancel">Cancel</string>
   <string name="cd_link">Link</string>
   <string name="cd_record_voice">Record voice note</string>
+  <string name="cd_pick_media">Pick media</string>
   <string name="cd_offline_mesh_chat">Offline Mesh Chat</string>
   <string name="cd_online_geohash_channels">Online Geohash Channels</string>
   <string name="cd_end_to_end_encryption">End-to-End Encryption</string>
@@ -184,7 +185,7 @@
   <string name="location_channels_desc">chat with people near you using geohash channels. only a coarse geohash is shared, never exact gps. do not screenshot or share this screen to protect your privacy.</string>
   <string name="grant_location_permission">grant location permission</string>
   <string name="location_permission_denied">location permission denied. enable in settings to use location channels.</string>
-  <string name="open_settings">open settings</string>
+
   <string name="location_permission_granted">\u2713 location permission granted</string>
   <string name="checking_permissions">checking permissions...</string>
   <string name="finding_nearby_channels">finding nearby channels…</string>
@@ -222,6 +223,113 @@
   <string name="debug_clear">clear</string>
   <string name="debug_relays_window_fmt">last 10s: %1$d • 1m: %2$d • 15m: %3$d</string>
   <string name="debug_derived_p_fmt">derived P: %1$s • est. max elements: %2$s</string>
+  <string name="debug_direct_suffix"> • direct</string>
+  <string name="debug_rssi_fmt">%1$s • RSSI: %2$s</string>
+  <string name="debug_question_mark">?</string>
+
+  <!-- Onboarding screens -->
+  <string name="location_services_required">Location Services Required</string>
+  <string name="privacy_first">Privacy First</string>
+  <string name="location_explanation">bitchat does NOT track your location.\n\nLocation services are required for Bluetooth scanning and for the Geohash chat feature.</string>
+  <string name="location_needs_for">bitchat needs location services for:</string>
+  <string name="location_needs_bullets">• Bluetooth device scanning\n• Discovering nearby users on mesh network\n• Geohash chat feature\n• No tracking or location collection</string>
+  <string name="open_location_settings">Open Location Settings</string>
+  <string name="check_again">Check Again</string>
+  <string name="location_services_unavailable">Location Services Unavailable</string>
+  <string name="location_unavailable_explanation">Location services are not available on this device. This is unusual as location services are standard on Android devices.\n\nbitchat needs location services for Bluetooth scanning to work properly (Android requirement). Without this, the app cannot discover nearby users.</string>
+  <string name="checking_location_services">Checking location services...</string>
+  <string name="bluetooth_required">Bluetooth Required</string>
+  <string name="bluetooth_needs_for">bitchat needs Bluetooth to:</string>
+  <string name="bluetooth_needs_bullets">• Discover nearby users\n• Create mesh network connections\n• Send and receive messages\n• Work without internet or servers</string>
+  <string name="enable_bluetooth">Enable Bluetooth</string>
+  <string name="bluetooth_not_supported">Bluetooth Not Supported</string>
+  <string name="bluetooth_unsupported_explanation">This device doesn\'t support Bluetooth Low Energy (BLE), which is required for bitchat to function.\n\nbitchat needs BLE to create mesh networks and communicate with nearby devices without internet.</string>
+  <string name="checking_bluetooth_status">Checking Bluetooth status...</string>
+  <string name="battery_optimization_detected_title">battery optimization detected</string>
+  <string name="battery_optimization_enabled_title">Battery Optimization Enabled</string>
+  <string name="battery_optimization_explanation_short">bitchat needs to run in the background to maintain mesh connections. battery optimization can interrupt these connections.</string>
+  <string name="benefits_of_disabling">Benefits of Disabling</string>
+  <string name="battery_benefits_short">• reliable message delivery\n• maintains mesh connectivity\n• prevents connection drops</string>
+  <string name="disable_battery_optimization">Disable Battery Optimization</string>
+  <string name="battery_optimization_disabled_title">battery optimization disabled</string>
+  <string name="continue_btn">Continue</string>
+  <string name="initializing_mesh_network">Initializing mesh network</string>
+  <string name="dot">.</string>
+  <string name="setting_up_bluetooth">Setting up Bluetooth mesh networking...</string>
+  <string name="should_take_seconds">This should only take a few seconds</string>
+  <string name="warning_emoji">⚠️</string>
+  <string name="setup_not_complete">Setup Not Complete</string>
+  <string name="try_again">Try Again</string>
+  <string name="open_settings">Open Settings</string>
+  <string name="privacy_protected">Your Privacy is Protected</string>
+  <string name="privacy_bullets">• no tracking or data collection\n• Bluetooth mesh chats are fully offline\n• Geohash chats use the internet</string>
+  <string name="permissions_header">permissions</string>
+  <string name="grant_permissions">Grant Permissions</string>
+  <string name="location_tracking_warning">bitchat does NOT track your location</string>
+  <string name="at_symbol">@</string>
+  <string name="app_brand">bitchat/</string>
+  <string name="channel_count_prefix"> · ⧉ </string>
+  <string name="geohash_people_header">PEOPLE</string>
+  <string name="nobody_around">nobody around...</string>
+  <string name="you_suffix"> (you)</string>
+  <string name="pan_zoom_instruction">pan and zoom to select a geohash</string>
+  <string name="select">select</string>
+  <string name="type_a_message_placeholder">type a message...</string>
+  <string name="mention_suggestion_at">@%1$s</string>
+  <string name="mention">mention</string>
+  <string name="image_counter">%1$d / %2$d</string>
+  <string name="pow_time_estimate">(~%1$s)</string>
+  <string name="at_nickname">@%1$s</string>
+  <string name="version_prefix">v%1$s</string>
+  <string name="hash_symbol">#</string>
+  <string name="underscore">_</string>
+  <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
+  <string name="progress_filled">█</string>
+  <string name="progress_empty">░</string>
+  <string name="image_star">image/*</string>
+  <string name="media_type_image">Image</string>
+  <string name="media_type_file">File</string>
+
+  <!-- Message status icons -->
+  <string name="status_sending">○</string>
+  <string name="status_pending">○</string>
+  <string name="status_sent">✓</string>
+  <string name="status_delivered">✓✓</string>
+  <string name="status_failed">⚠</string>
+  <string name="status_read">✓</string>
+
+  <!-- Notification text helpers -->
+  <string name="notification_sent_image">📷 sent an image</string>
+  <string name="notification_sent_voice">🎤 sent a voice message</string>
+  <string name="notification_sent_file">📎 sent a file</string>
+  <string name="notification_file_pdf">📄</string>
+  <string name="notification_file_zip">🗜️</string>
+  <string name="notification_file_doc">📄</string>
+  <string name="notification_file_xls">📊</string>
+  <string name="notification_file_ppt">📈</string>
+  <string name="notification_file_generic">📎</string>
+
+  <!-- Voice player accessibility -->
+  <string name="cd_play_voice">Play</string>
+  <string name="cd_pause_voice">Pause</string>
+
+  <!-- Permission descriptions -->
+  <string name="perm_nearby_devices_desc">Required to discover bitchat users via Bluetooth</string>
+  <string name="perm_nearby_devices_system">Allow bitchat to connect to nearby devices</string>
+  <string name="perm_location_desc">Required by Android to discover nearby bitchat users via Bluetooth</string>
+  <string name="perm_location_system">bitchat needs this to scan for nearby devices</string>
+  <string name="perm_notifications_desc">Receive notifications when you receive private messages</string>
+  <string name="perm_notifications_system">Allow bitchat to send you notifications</string>
+  <string name="perm_battery_desc">Disable battery optimization to ensure bitchat runs reliably in the background and maintains mesh network connections</string>
+  <string name="perm_battery_system">Allow bitchat to run without battery restrictions</string>
+
+  <!-- Permission types -->
+  <string name="perm_type_nearby_devices">Nearby Devices</string>
+  <string name="perm_type_precise_location">Precise Location</string>
+  <string name="perm_type_microphone">Microphone</string>
+  <string name="perm_type_notifications">Notifications</string>
+  <string name="perm_type_battery_optimization">Battery Optimization</string>
+  <string name="perm_type_other">Other</string>
 
   <!-- Password prompt dialog -->
   <string name="pwd_prompt_title">Enter Channel Password</string>
@@ -229,5 +337,16 @@
   <string name="pwd_label">Password</string>
   <string name="join">Join</string>
   <string name="cancel">Cancel</string>
+
+  <!-- Plurals -->
+  <plurals name="notification_and_more">
+    <item quantity="one">and %d more</item>
+    <item quantity="other">and %d more</item>
+  </plurals>
+
+  <plurals name="people_count">
+    <item quantity="one">1 person</item>
+    <item quantity="other">%d people</item>
+  </plurals>
 
 </resources>

@@ -334,11 +334,11 @@ fun MessageItem(
                                     .clickable { onCancelTransfer?.invoke(message) },
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(imageVector = Icons.Filled.Close, contentDescription = stringResource(com.bitchat.android.R.string.cd_cancel), tint = Color.White, modifier = Modifier.size(14.dp))
+                                Icon(imageVector = Icons.Filled.Close, contentDescription = "Cancel", tint = Color.White, modifier = Modifier.size(14.dp))
                             }
                         }
                     } else {
-                        Text(text = stringResource(com.bitchat.android.R.string.file_unavailable), fontFamily = FontFamily.Monospace, color = Color.Gray)
+                        Text(text = "[file unavailable]", fontFamily = FontFamily.Monospace, color = Color.Gray)
                     }
                 }
             }

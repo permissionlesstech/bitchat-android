@@ -44,7 +44,7 @@ fun FilePickerButton(
     ) {
         Icon(
             imageVector = Icons.Filled.Attachment,
-            contentDescription = stringResource(com.bitchat.android.R.string.pick_file),
+            contentDescription = "Pick file",
             tint = Color.Gray,
             modifier = Modifier.size(20.dp).rotate(90f)
         )

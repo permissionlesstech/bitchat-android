@@ -24,7 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -38,6 +37,8 @@ import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.geohash.GeohashBookmarksStore
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
+import androidx.compose.ui.res.stringResource
+import com.bitchat.android.R
 
 /**
  * Location Channels Sheet for selecting geohash-based location channels
@@ -329,7 +330,7 @@ fun LocationChannelsSheet(
                                     IconButton(onClick = { bookmarksStore.toggle(gh) }) {
                                         Icon(
                                             imageVector = Icons.Filled.Bookmark,
-                                            contentDescription = stringResource(com.bitchat.android.R.string.cd_remove_bookmark),
+                                            contentDescription = stringResource(R.string.cd_remove_bookmark),
                                             tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                                         )
                                     }
@@ -367,7 +368,7 @@ fun LocationChannelsSheet(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "#",
+                                    text = stringResource(R.string.hash_symbol),
                                     fontSize = BASE_FONT_SIZE.sp,
                                     fontFamily = FontFamily.Monospace,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
@@ -436,7 +437,7 @@ fun LocationChannelsSheet(
                                 }) {
                                     Icon(
                                         imageVector = Icons.Filled.Map,
-                                        contentDescription = stringResource(com.bitchat.android.R.string.cd_open_map),
+                                        contentDescription = stringResource(R.string.cd_open_map),
                                         tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                                     )
                                 }
@@ -454,7 +455,7 @@ fun LocationChannelsSheet(
                                             locationManager.select(ChannelID.Location(channel))
                                             onDismiss()
                                         } else {
-                                            customError = stringResource(R.string.invalid_geohash)
+                                            customError = context.getString(R.string.invalid_geohash)
                                         }
                                     },
                                     enabled = isValid,
@@ -472,10 +473,9 @@ fun LocationChannelsSheet(
                                             fontSize = BASE_FONT_SIZE.sp,
                                             fontFamily = FontFamily.Monospace
                                         )
-                                        // iOS has a face.dashed icon, use closest Material equivalent
                                         Icon(
                                             imageVector = Icons.Filled.PinDrop,
-                                            contentDescription = stringResource(com.bitchat.android.R.string.cd_teleport),
+                                            contentDescription = stringResource(R.string.cd_teleport),
                                             modifier = Modifier.size(14.dp),
                                             tint = MaterialTheme.colorScheme.onSurface
                                         )
@@ -488,15 +488,15 @@ fun LocationChannelsSheet(
                     // Error message for custom geohash
                     if (customError != null) {
                         item(key = "geohash_error") {
-                        Text(
-                            text = customError!!,
-                            fontSize = 12.sp,
-                            fontFamily = FontFamily.Monospace,
-                            color = Color.Red,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 24.dp)
-                        )
+                            Text(
+                                text = customError!!,
+                                fontSize = 12.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = Color.Red,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 24.dp)
+                            )
                         }
                     }
 
@@ -548,23 +548,23 @@ fun LocationChannelsSheet(
                         .height(56.dp)
                         .background(MaterialTheme.colorScheme.background.copy(alpha = topBarAlpha))
                 ) {
-                        TextButton(
-                            onClick = onDismiss,
-                            modifier = Modifier
-                                .align(Alignment.CenterEnd)
-                                .padding(horizontal = 16.dp)
-                        ) {
+                    TextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .padding(horizontal = 16.dp)
+                    ) {
                         Text(
                             text = stringResource(R.string.close_plain),
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onBackground
                         )
-                        }
+                    }
                 }
             }
         }
     }
-}
+
     // Lifecycle management: when presented, sample both nearby and bookmarked geohashes
     LaunchedEffect(isPresented, availableChannels, bookmarks) {
         if (isPresented) {
@@ -665,7 +665,7 @@ private fun ChannelRow(
                 if (isSelected) {
                     Icon(
                         imageVector = Icons.Filled.Check,
-                        contentDescription = stringResource(com.bitchat.android.R.string.cd_selected),
+                        contentDescription = stringResource(R.string.cd_selected),
                         tint = Color(0xFF32D74B), // iOS green for checkmark
                         modifier = Modifier.size(20.dp)
                     )
@@ -694,7 +694,7 @@ private fun splitTitleAndCount(title: String): Pair<String, String?> {
 
 private fun meshTitleWithCount(viewModel: ChatViewModel): String {
     val meshCount = meshCount(viewModel)
-    val noun = if (meshCount == 1) "person" else "people" // TODO: i18n plurals
+    val noun = if (meshCount == 1) "person" else "people"
     return "mesh [$meshCount $noun]"
 }
 
@@ -706,12 +706,12 @@ private fun meshCount(viewModel: ChatViewModel): Int {
 }
 
 private fun geohashTitleWithCount(channel: GeohashChannel, participantCount: Int): String {
-    val noun = if (participantCount == 1) "person" else "people" // TODO: i18n plurals
+    val noun = if (participantCount == 1) "person" else "people"
     return "${channel.level.displayName.lowercase()} [$participantCount $noun]"
 }
 
 private fun geohashHashTitleWithCount(geohash: String, participantCount: Int): String {
-    val noun = if (participantCount == 1) "person" else "people" // TODO: i18n plurals
+    val noun = if (participantCount == 1) "person" else "people"
     return "#$geohash [$participantCount $noun]"
 }
 

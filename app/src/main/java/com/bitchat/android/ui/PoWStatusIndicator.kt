@@ -11,8 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.nostr.NostrProofOfWork
@@ -55,7 +54,7 @@ fun PoWStatusIndicator(
                     
                     Icon(
                         imageVector = Icons.Filled.Security,
-                        contentDescription = stringResource(com.bitchat.android.R.string.about_pow),
+                        contentDescription = "Mining PoW",
                         tint = Color(0xFFFF9500), // Orange for mining
                         modifier = Modifier
                             .size(12.dp)
@@ -64,7 +63,7 @@ fun PoWStatusIndicator(
                 } else {
                     Icon(
                         imageVector = Icons.Filled.Security,
-                        contentDescription = stringResource(com.bitchat.android.R.string.about_pow_on),
+                        contentDescription = "PoW Enabled",
                         tint = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D), // Green when ready
                         modifier = Modifier.size(12.dp)
                     )
@@ -86,7 +85,7 @@ fun PoWStatusIndicator(
                     // PoW icon
                     Icon(
                         imageVector = Icons.Filled.Security,
-                        contentDescription = stringResource(com.bitchat.android.R.string.about_pow),
+                        contentDescription = "Proof of Work",
                         tint = if (isMining) Color(0xFFFF9500) else {
                             if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
                         },

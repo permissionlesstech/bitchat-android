@@ -91,7 +91,7 @@ fun AudioMessageItem(
                         .clickable { onCancelTransfer?.invoke(message) },
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(imageVector = Icons.Filled.Close, contentDescription = stringResource(com.bitchat.android.R.string.cd_cancel), tint = Color.White, modifier = Modifier.size(16.dp))
+                    Icon(imageVector = Icons.Filled.Close, contentDescription = "Cancel", tint = Color.White, modifier = Modifier.size(16.dp))
                 }
             }
         }

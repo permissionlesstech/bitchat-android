@@ -12,6 +12,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
+import androidx.compose.ui.res.stringResource
+import com.bitchat.android.R
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import kotlinx.coroutines.launch
@@ -61,7 +63,7 @@ fun ChatUserSheet(
             ) {
                 // Header
                 Text(
-                    text = "@$targetNickname",
+                    text = stringResource(R.string.at_nickname, targetNickname),
                     fontSize = 18.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,

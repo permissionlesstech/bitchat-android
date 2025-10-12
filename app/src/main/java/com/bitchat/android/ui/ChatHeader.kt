@@ -131,7 +131,7 @@ fun NicknameEditor(
         modifier = modifier
     ) {
         Text(
-            text = "@",
+            text = stringResource(R.string.at_symbol),
             style = MaterialTheme.typography.bodyMedium,
             color = colorScheme.primary.copy(alpha = 0.8f)
         )
@@ -213,7 +213,7 @@ fun PeerCounter(
         
         if (joinedChannels.isNotEmpty()) {
             Text(
-                text = " · ⧉ ${joinedChannels.size}",
+                text = stringResource(R.string.channel_count_prefix) + "${joinedChannels.size}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = if (isConnected) Color(0xFF00C851) else Color.Red,
                 fontSize = 16.sp,
@@ -407,7 +407,7 @@ private fun PrivateChatHeader(
             if (showGlobe) {
                 Icon(
                     imageVector = Icons.Outlined.Public,
-                    contentDescription = stringResource(R.string.cd_nostr_reachable),
+                contentDescription = stringResource(R.string.cd_nostr_reachable),
                     modifier = Modifier.size(14.dp),
                     tint = Color(0xFF9B59B6) // Purple like iOS
                 )
@@ -536,7 +536,7 @@ private fun MainHeader(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "bitchat/",
+                text = stringResource(R.string.app_brand),
                 style = MaterialTheme.typography.headlineSmall,
                 color = colorScheme.primary,
                 modifier = Modifier.singleOrTripleClickable(

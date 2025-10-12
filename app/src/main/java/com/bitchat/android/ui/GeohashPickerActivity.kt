@@ -29,19 +29,16 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.material3.Text
-import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.res.stringResource
+import com.bitchat.android.R
 import androidx.core.view.updateLayoutParams
 import com.bitchat.android.geohash.Geohash
 import com.bitchat.android.geohash.LocationChannelManager
@@ -180,7 +177,7 @@ class GeohashPickerActivity : ComponentActivity() {
                             shadowElevation = 6.dp
                         ) {
                             Text(
-                                text = "pan and zoom to select a geohash",
+                                text = stringResource(R.string.pan_zoom_instruction),
                                 fontSize = 12.sp,
                                 textAlign = TextAlign.Center,
                                 fontFamily = FontFamily.Monospace,
@@ -233,7 +230,7 @@ class GeohashPickerActivity : ComponentActivity() {
                                     )
                                 ) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Filled.Remove, contentDescription = stringResource(com.bitchat.android.R.string.cd_decrease_precision))
+                                        Icon(Icons.Filled.Remove, contentDescription = stringResource(R.string.cd_decrease_precision))
                                     }
                                 }
 
@@ -249,7 +246,7 @@ class GeohashPickerActivity : ComponentActivity() {
                                     )
                                 ) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Filled.Add, contentDescription = stringResource(com.bitchat.android.R.string.cd_increase_precision))
+                                        Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.cd_increase_precision))
                                     }
                                 }
 
@@ -269,10 +266,10 @@ class GeohashPickerActivity : ComponentActivity() {
                                     )
                                 ) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Filled.Check, contentDescription = stringResource(com.bitchat.android.R.string.cd_select_geohash))
+                                        Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.cd_select_geohash))
                                         Spacer(Modifier.width(6.dp))
                                         Text(
-                                            text = "select",
+                                            text = stringResource(R.string.select),
                                             fontSize = (BASE_FONT_SIZE - 2).sp,
                                             fontFamily = FontFamily.Monospace
                                         )

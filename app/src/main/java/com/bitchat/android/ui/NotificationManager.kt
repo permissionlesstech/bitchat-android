@@ -258,7 +258,10 @@ class NotificationManager(
             }
             
             if (messageCount > 5) {
-                style.setSummaryText("and ${messageCount - 5} more")
+                val extra = messageCount - 5
+                style.setSummaryText(context.resources.getQuantityString(
+                    R.plurals.notification_and_more, extra, extra
+                ))
             }
             
             builder.setStyle(style)
