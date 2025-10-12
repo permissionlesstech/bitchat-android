@@ -50,8 +50,10 @@
     <string name="notification_active_peers_one">1 Person in der Nähe</string>
     <string name="notification_active_peers_many">%1$d Personen in der Nähe</string>
     <string name="notification_new_messages">Neue Nachrichten</string>
+    <string name="notification_new_location_messages">Neue Standort‑Nachrichten</string>
     <string name="notification_mentions_in">Erwähnt in %1$s</string>
     <string name="notification_mentions_in_more">Erwähnt in %1$s (+%2$d weitere)</string>
+    <string name="notification_mentions_in_plural">%1$d Erwähnungen in %2$s</string>
     <string name="notification_new_activity_in">Neue Aktivität in %1$s</string>
     <string name="notification_messages_in">Nachrichten in %1$s</string>
     <string name="notification_joined_conversation">%1$s ist der Unterhaltung beigetreten</string>
@@ -158,6 +160,11 @@
     <string name="cd_cancel">Abbrechen</string>
     <string name="cd_link">Link</string>
     <string name="cd_pick_media">Medien auswählen</string>
+    <string name="cd_pick_file">Datei auswählen</string>
+    <string name="cd_save_current_image">Aktuelles Bild speichern</string>
+    <string name="cd_close">Schließen</string>
+    <string name="cd_image_index_of">Bild %1$d von %2$d</string>
+    <string name="cd_privacy_protected">Privatsphäre geschützt</string>
     <string name="cd_record_voice">Sprachnotiz aufnehmen</string>
     <string name="cd_offline_mesh_chat">Offline‑Mesh‑Chat</string>
     <string name="cd_online_geohash_channels">Online‑Geohash‑Kanäle</string>
@@ -168,6 +175,8 @@
     <string name="image_unavailable">Bild nicht verfügbar</string>
     <string name="image_saved_to_downloads">Bild in "Downloads" gespeichert</string>
     <string name="image_save_failed">Bild konnte nicht gespeichert werden</string>
+    <string name="toast_image_saved">Bild in "Downloads" gespeichert</string>
+    <string name="toast_failed_to_save_image">Bild konnte nicht gespeichert werden</string>
     <string name="pick_file">Datei auswählen</string>
     <string name="file_unavailable">[Datei nicht verfügbar]</string>
     <string name="unknown">unbekannt</string>
@@ -199,11 +208,19 @@
     <string name="teleport">teleportieren</string>
     <string name="disable_location_services">Standortdienste deaktivieren</string>
     <string name="enable_location_services">Standortdienste aktivieren</string>
+    <string name="mesh_label">mesh</string>
+    <string name="location_level_block">Block</string>
+    <string name="location_level_neighborhood">Nachbarschaft</string>
+    <string name="location_level_city">Stadt</string>
+    <string name="location_level_province">Provinz</string>
+    <string name="location_level_region">Region</string>
     <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
 
     <!-- Debug / Diagnostik -->
     <string name="debug_tools">Debug‑Werkzeuge</string>
+    <string name="debug_tools_desc">Entwickler‑Werkzeuge für Diagnose und Steuerung</string>
     <string name="debug_verbose_logging">ausführliches Logging</string>
+    <string name="debug_verbose_hint">Protokolliert Peer‑Beitritte/‑Austritte, Verbindungsrichtung, Paketweiterleitung und Relays</string>
     <string name="debug_bluetooth_roles">Bluetooth‑Rollen</string>
     <string name="debug_gatt_server">GATT‑Server</string>
     <string name="debug_connections_fmt">Verbindungen: %1$d / %2$d</string>
@@ -214,6 +231,7 @@
     <string name="debug_max_overall">max. gesamt</string>
     <string name="debug_packet_relay">Paket‑Relay</string>
     <string name="debug_since_start_fmt">seit Start: %1$d</string>
+    <string name="debug_roles_hint">Rollen ein/aus schalten und beim Deaktivieren alle Verbindungen schließen</string>
     <string name="debug_sync_settings">Sync‑Einstellungen</string>
     <string name="debug_max_packets_per_sync_fmt">max. Pakete pro Sync: %1$d</string>
     <string name="debug_max_gcs_filter_size_fmt">max. GCS‑Filtergröße: %1$d Bytes (128–1024)</string>
@@ -231,6 +249,8 @@
     <string name="debug_direct_suffix"> • direkt</string>
     <string name="debug_rssi_fmt">%1$s • RSSI: %2$s</string>
     <string name="debug_question_mark">?</string>
+    <string name="debug_role_server">als Server (wir hosten)</string>
+    <string name="debug_role_client">als Client (wir verbinden)</string>
 
     <!-- Onboarding‑Bildschirme -->
     <string name="location_services_required">Standortdienste erforderlich</string>
@@ -316,6 +336,11 @@
     <!-- Sprachplayer Barrierefreiheit -->
     <string name="cd_play_voice">Abspielen</string>
     <string name="cd_pause_voice">Pause</string>
+    <string name="cd_mining_pow">Mining‑PoW</string>
+    <string name="cd_pow_enabled">PoW aktiviert</string>
+    <string name="cd_proof_of_work">Proof of Work</string>
+    <string name="pow_mining_ellipsis">Mining …</string>
+    <string name="pow_label_format">pow: %1$dbit</string>
 
     <!-- Berechtigungsbeschreibungen -->
     <string name="perm_nearby_devices_desc">Erforderlich, um bitchat‑Benutzer über Bluetooth zu entdecken</string>

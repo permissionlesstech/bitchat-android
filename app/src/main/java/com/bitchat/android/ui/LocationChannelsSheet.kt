@@ -692,10 +692,13 @@ private fun splitTitleAndCount(title: String): Pair<String, String?> {
     }
 }
 
+@Composable
 private fun meshTitleWithCount(viewModel: ChatViewModel): String {
     val meshCount = meshCount(viewModel)
-    val noun = if (meshCount == 1) "person" else "people"
-    return "mesh [$meshCount $noun]"
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val peopleText = ctx.resources.getQuantityString(com.bitchat.android.R.plurals.people_count, meshCount, meshCount)
+    val meshLabel = stringResource(com.bitchat.android.R.string.mesh_label)
+    return "$meshLabel [$peopleText]"
 }
 
 private fun meshCount(viewModel: ChatViewModel): Int {
@@ -705,14 +708,25 @@ private fun meshCount(viewModel: ChatViewModel): Int {
     } ?: 0
 }
 
+@Composable
 private fun geohashTitleWithCount(channel: GeohashChannel, participantCount: Int): String {
-    val noun = if (participantCount == 1) "person" else "people"
-    return "${channel.level.displayName.lowercase()} [$participantCount $noun]"
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val peopleText = ctx.resources.getQuantityString(com.bitchat.android.R.plurals.people_count, participantCount, participantCount)
+    val levelName = when (channel.level) {
+        com.bitchat.android.geohash.GeohashChannelLevel.BLOCK -> stringResource(com.bitchat.android.R.string.location_level_block)
+        com.bitchat.android.geohash.GeohashChannelLevel.NEIGHBORHOOD -> stringResource(com.bitchat.android.R.string.location_level_neighborhood)
+        com.bitchat.android.geohash.GeohashChannelLevel.CITY -> stringResource(com.bitchat.android.R.string.location_level_city)
+        com.bitchat.android.geohash.GeohashChannelLevel.PROVINCE -> stringResource(com.bitchat.android.R.string.location_level_province)
+        com.bitchat.android.geohash.GeohashChannelLevel.REGION -> stringResource(com.bitchat.android.R.string.location_level_region)
+    }
+    return "$levelName [$peopleText]"
 }
 
+@Composable
 private fun geohashHashTitleWithCount(geohash: String, participantCount: Int): String {
-    val noun = if (participantCount == 1) "person" else "people"
-    return "#$geohash [$participantCount $noun]"
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val peopleText = ctx.resources.getQuantityString(com.bitchat.android.R.plurals.people_count, participantCount, participantCount)
+    return "#$geohash [$peopleText]"
 }
 
 private fun isChannelSelected(channel: GeohashChannel, selectedChannel: ChannelID?): Boolean {

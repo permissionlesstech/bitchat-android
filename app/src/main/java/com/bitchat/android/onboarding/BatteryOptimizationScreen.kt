@@ -282,7 +282,7 @@ private fun BatteryOptimizationCheckingContent(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "bitchat",
+                text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.headlineLarge.copy(
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
@@ -345,7 +345,7 @@ private fun BatteryOptimizationNotSupportedContent(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "bitchat",
+                text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.headlineLarge.copy(
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
@@ -355,7 +355,7 @@ private fun BatteryOptimizationNotSupportedContent(
             )
 
             Text(
-                text = "battery optimization not required",
+                text = stringResource(R.string.battery_optimization_not_required),
                 fontSize = 12.sp,
                 fontFamily = FontFamily.Monospace,
                 color = colorScheme.onBackground.copy(alpha = 0.7f)
@@ -370,7 +370,7 @@ private fun BatteryOptimizationNotSupportedContent(
         )
         
         Text(
-            text = "your device doesn't require battery optimization settings. bitchat will run normally.",
+            text = stringResource(R.string.battery_optimization_not_supported_message),
             style = MaterialTheme.typography.bodyMedium.copy(
                 fontFamily = FontFamily.Monospace,
                 color = colorScheme.onBackground.copy(alpha = 0.8f)

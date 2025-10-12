@@ -145,7 +145,7 @@ fun ImageMessageItem(
                 }
             }
         } else {
-            Text(text = "[image unavailable]", fontFamily = FontFamily.Monospace, color = Color.Gray)
+            Text(text = stringResource(com.bitchat.android.R.string.image_unavailable), fontFamily = FontFamily.Monospace, color = Color.Gray)
         }
     }
 }

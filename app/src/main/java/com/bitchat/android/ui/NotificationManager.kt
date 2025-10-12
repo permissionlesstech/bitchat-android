@@ -345,7 +345,7 @@ class NotificationManager(
 
         // Add inbox style showing recent senders
         val style = NotificationCompat.InboxStyle()
-            .setBigContentTitle(context.getString(R.string.notification_new_messages))
+            .setBigContentTitle(context.getString(R.string.notification_new_location_messages))
             
         pendingNotifications.entries.take(5).forEach { (peerID, notifications) ->
             val latestNotif = notifications.last()
@@ -463,7 +463,7 @@ class NotificationManager(
         val geohashDisplay = latestNotification.locationName?.let { "$it (#$geohash)" } ?: "#$geohash"
         val contentTitle = when {
             mentionCount > 0 && firstMessageCount > 0 && messageCount > 1 -> context.getString(R.string.notification_mentions_in_more, geohashDisplay, messageCount - 1)
-            mentionCount > 0 -> if (mentionCount == 1) context.getString(R.string.notification_mentions_in, geohashDisplay) else context.getString(R.string.notification_mesh_mention_title_plural, mentionCount)
+            mentionCount > 0 -> if (mentionCount == 1) context.getString(R.string.notification_mentions_in, geohashDisplay) else context.getString(R.string.notification_mentions_in_plural, mentionCount, geohashDisplay)
             firstMessageCount > 0 -> context.getString(R.string.notification_new_activity_in, geohashDisplay)
             else -> context.getString(R.string.notification_messages_in, geohashDisplay)
         }
@@ -506,7 +506,8 @@ class NotificationManager(
             }
 
             if (messageCount > 5) {
-                style.setSummaryText("and ${messageCount - 5} more")
+                val extra = messageCount - 5
+                style.setSummaryText(context.resources.getQuantityString(R.plurals.notification_and_more, extra, extra))
             }
 
             builder.setStyle(style)
@@ -713,7 +714,8 @@ class NotificationManager(
             }
 
             if (messageCount > 5) {
-                style.setSummaryText("and ${messageCount - 5} more")
+                val extra = messageCount - 5
+                style.setSummaryText(context.resources.getQuantityString(R.plurals.notification_and_more, extra, extra))
             }
 
             builder.setStyle(style)

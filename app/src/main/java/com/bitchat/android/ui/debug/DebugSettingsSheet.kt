@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.rotate
 import com.bitchat.android.mesh.BluetoothMeshService
 import kotlinx.coroutines.launch
+import androidx.compose.ui.res.stringResource
+import com.bitchat.android.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -97,10 +99,10 @@ fun DebugSettingsSheet(
             item {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.Filled.BugReport, contentDescription = null, tint = Color(0xFFFF9500))
-                    Text("debug tools", fontFamily = FontFamily.Monospace, fontSize = 18.sp, fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.debug_tools), fontFamily = FontFamily.Monospace, fontSize = 18.sp, fontWeight = FontWeight.Medium)
                 }
                 Text(
-                    text = "developer utilities for diagnostics and control",
+                    text = stringResource(R.string.debug_tools_desc),
                     fontFamily = FontFamily.Monospace,
                     fontSize = 12.sp,
                     color = colorScheme.onSurface.copy(alpha = 0.7f)
@@ -113,12 +115,12 @@ fun DebugSettingsSheet(
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(Icons.Filled.SettingsEthernet, contentDescription = null, tint = Color(0xFF00C851))
-                            Text("verbose logging", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Text(stringResource(R.string.debug_verbose_logging), fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                             Spacer(Modifier.weight(1f))
                             Switch(checked = verboseLogging, onCheckedChange = { manager.setVerboseLoggingEnabled(it) })
                         }
                         Text(
-                            "logs peer joins/leaves, connection direction, packet routing and relays",
+                            stringResource(R.string.debug_verbose_hint),
                             fontFamily = FontFamily.Monospace,
                             fontSize = 11.sp,
                             color = colorScheme.onSurface.copy(alpha = 0.7f)
@@ -133,10 +135,10 @@ fun DebugSettingsSheet(
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(Icons.Filled.Bluetooth, contentDescription = null, tint = Color(0xFF007AFF))
-                            Text("bluetooth roles", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Text(stringResource(R.string.debug_bluetooth_roles), fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("gatt server", fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
+                            Text(stringResource(R.string.debug_gatt_server), fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
                             Switch(checked = gattServerEnabled, onCheckedChange = {
                                 manager.setGattServerEnabled(it)
                                 scope.launch {
@@ -145,9 +147,9 @@ fun DebugSettingsSheet(
                             })
                         }
                         val serverCount = connectedDevices.count { it.connectionType == ConnectionType.GATT_SERVER }
-                        Text("connections: $serverCount / $maxServer", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        Text(stringResource(R.string.debug_connections_fmt, serverCount, maxServer), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("max server", fontFamily = FontFamily.Monospace, modifier = Modifier.width(90.dp))
+                            Text(stringResource(R.string.debug_max_server), fontFamily = FontFamily.Monospace, modifier = Modifier.width(90.dp))
                             Slider(
                                 value = maxServer.toFloat(),
                                 onValueChange = { manager.setMaxServerConnections(it.toInt().coerceAtLeast(1)) },
@@ -156,7 +158,7 @@ fun DebugSettingsSheet(
                             )
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("gatt client", fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
+                            Text(stringResource(R.string.debug_gatt_client), fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
                             Switch(checked = gattClientEnabled, onCheckedChange = {
                                 manager.setGattClientEnabled(it)
                                 scope.launch {
@@ -165,9 +167,9 @@ fun DebugSettingsSheet(
                             })
                         }
                         val clientCount = connectedDevices.count { it.connectionType == ConnectionType.GATT_CLIENT }
-                        Text("connections: $clientCount / $maxClient", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        Text(stringResource(R.string.debug_connections_fmt, clientCount, maxClient), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("max client", fontFamily = FontFamily.Monospace, modifier = Modifier.width(90.dp))
+                            Text(stringResource(R.string.debug_max_client), fontFamily = FontFamily.Monospace, modifier = Modifier.width(90.dp))
                             Slider(
                                 value = maxClient.toFloat(),
                                 onValueChange = { manager.setMaxClientConnections(it.toInt().coerceAtLeast(1)) },
@@ -176,9 +178,9 @@ fun DebugSettingsSheet(
                             )
                         }
                         val overallCount = connectedDevices.size
-                        Text("connections: $overallCount / $maxOverall", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        Text(stringResource(R.string.debug_overall_connections_fmt, overallCount, maxOverall), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("max overall", fontFamily = FontFamily.Monospace, modifier = Modifier.width(90.dp))
+                            Text(stringResource(R.string.debug_max_overall), fontFamily = FontFamily.Monospace, modifier = Modifier.width(90.dp))
                             Slider(
                                 value = maxOverall.toFloat(),
                                 onValueChange = { manager.setMaxConnectionsOverall(it.toInt().coerceAtLeast(1)) },
@@ -187,7 +189,7 @@ fun DebugSettingsSheet(
                             )
                         }
                         Text(
-                            "turn roles on/off and close all connections when disabled",
+                            stringResource(R.string.debug_roles_hint),
                             fontFamily = FontFamily.Monospace,
                             fontSize = 11.sp,
                             color = colorScheme.onSurface.copy(alpha = 0.7f)
@@ -202,12 +204,12 @@ fun DebugSettingsSheet(
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(Icons.Filled.PowerSettingsNew, contentDescription = null, tint = Color(0xFFFF9500))
-                            Text("packet relay", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Text(stringResource(R.string.debug_packet_relay), fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                             Spacer(Modifier.weight(1f))
                             Switch(checked = packetRelayEnabled, onCheckedChange = { manager.setPacketRelayEnabled(it) })
                         }
-                        Text("since start: ${relayStats.totalRelaysCount}", fontFamily = FontFamily.Monospace, fontSize = 11.sp)
-                        Text("last 10s: ${relayStats.last10SecondRelays} • 1m: ${relayStats.lastMinuteRelays} • 15m: ${relayStats.last15MinuteRelays}", fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+                        Text(stringResource(R.string.debug_since_start_fmt, relayStats.totalRelaysCount), fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+                        Text(stringResource(R.string.debug_relays_window_fmt, relayStats.last10SecondRelays, relayStats.lastMinuteRelays, relayStats.last15MinuteRelays), fontFamily = FontFamily.Monospace, fontSize = 11.sp)
                         // Realtime graph: per-second relays, full-width canvas, bottom-up bars, fast decay
                         var series by remember { mutableStateOf(List(60) { 0f }) }
                         LaunchedEffect(isPresented) {
@@ -295,15 +297,15 @@ fun DebugSettingsSheet(
                             Icon(Icons.Filled.SettingsEthernet, contentDescription = null, tint = Color(0xFF9C27B0))
                             Text("sync settings", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         }
-                        Text("max packets per sync: $seenCapacity", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        Text(stringResource(R.string.debug_max_packets_per_sync_fmt, seenCapacity), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         Slider(value = seenCapacity.toFloat(), onValueChange = { manager.setSeenPacketCapacity(it.toInt()) }, valueRange = 10f..1000f, steps = 99)
-                        Text("max GCS filter size: $gcsMaxBytes bytes (128–1024)", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        Text(stringResource(R.string.debug_max_gcs_filter_size_fmt, gcsMaxBytes), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         Slider(value = gcsMaxBytes.toFloat(), onValueChange = { manager.setGcsMaxBytes(it.toInt()) }, valueRange = 128f..1024f, steps = 0)
-                        Text("target FPR: ${String.format("%.2f", gcsFpr)}%", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        Text(stringResource(R.string.debug_target_fpr_fmt, String.format("%.2f", gcsFpr)), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         Slider(value = gcsFpr.toFloat(), onValueChange = { manager.setGcsFprPercent(it.toDouble()) }, valueRange = 0.1f..5.0f, steps = 49)
                         val p = remember(gcsFpr) { com.bitchat.android.sync.GCSFilter.deriveP(gcsFpr / 100.0) }
                         val nmax = remember(gcsFpr, gcsMaxBytes) { com.bitchat.android.sync.GCSFilter.estimateMaxElementsForSize(gcsMaxBytes, p) }
-                        Text("derived P: $p • est. max elements: $nmax", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        Text(stringResource(R.string.debug_derived_p_fmt, p, nmax), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                     }
                 }
             }
@@ -314,10 +316,10 @@ fun DebugSettingsSheet(
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(Icons.Filled.Devices, contentDescription = null, tint = Color(0xFF4CAF50))
-                            Text("connected devices", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Text(stringResource(R.string.debug_connected_devices), fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         }
                         val localAddr = remember { meshService.connectionManager.getLocalAdapterAddress() }
-                        Text("our device id: ${localAddr ?: "unknown"}", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        Text(stringResource(R.string.debug_our_device_id_fmt, localAddr ?: stringResource(R.string.unknown)), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         if (connectedDevices.isEmpty()) {
                             Text("none", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
                         } else {
@@ -325,11 +327,11 @@ fun DebugSettingsSheet(
                                 Surface(shape = RoundedCornerShape(8.dp), color = colorScheme.surface.copy(alpha = 0.6f)) {
                                     Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                                         Column(Modifier.weight(1f)) {
-                                            Text("${dev.peerID ?: "unknown"} • ${dev.deviceAddress}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
-                                            val roleLabel = if (dev.connectionType == ConnectionType.GATT_SERVER) "as server (we host)" else "as client (we connect)"
-                                            Text("${dev.nickname ?: ""} • RSSI: ${dev.rssi ?: "?"} • $roleLabel${if (dev.isDirectConnection) " • direct" else ""}", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                                            Text((dev.peerID ?: stringResource(R.string.unknown)) + " • ${dev.deviceAddress}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                                            val roleLabel = if (dev.connectionType == ConnectionType.GATT_SERVER) stringResource(R.string.debug_role_server) else stringResource(R.string.debug_role_client)
+                                            Text("${dev.nickname ?: ""} • " + stringResource(R.string.debug_rssi_fmt, dev.rssi ?: stringResource(R.string.debug_question_mark)) + " • $roleLabel" + (if (dev.isDirectConnection) stringResource(R.string.debug_direct_suffix) else ""), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                                         }
-                                        Text("disconnect", color = Color(0xFFBF1A1A), fontFamily = FontFamily.Monospace, modifier = Modifier.clickable {
+                                        Text(stringResource(R.string.debug_disconnect), color = Color(0xFFBF1A1A), fontFamily = FontFamily.Monospace, modifier = Modifier.clickable {
                                             meshService.connectionManager.disconnectAddress(dev.deviceAddress)
                                         })
                                     }
@@ -346,19 +348,19 @@ fun DebugSettingsSheet(
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(Icons.Filled.Bluetooth, contentDescription = null, tint = Color(0xFF007AFF))
-                            Text("recent scan results", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Text(stringResource(R.string.debug_recent_scan_results), fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         }
                         if (scanResults.isEmpty()) {
-                            Text("none", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
+                            Text(stringResource(R.string.debug_none), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
                         } else {
                             scanResults.forEach { res ->
                                 Surface(shape = RoundedCornerShape(8.dp), color = colorScheme.surface.copy(alpha = 0.6f)) {
                                     Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                                         Column(Modifier.weight(1f)) {
-                                            Text("${res.peerID ?: "unknown"} • ${res.deviceAddress}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
-                                            Text("${res.deviceName ?: ""} • RSSI: ${res.rssi}", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                                            Text((res.peerID ?: stringResource(R.string.unknown)) + " • ${res.deviceAddress}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                                            Text(stringResource(R.string.debug_rssi_fmt, res.rssi.toString()), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                                         }
-                                        Text("connect", color = Color(0xFF00C851), fontFamily = FontFamily.Monospace, modifier = Modifier.clickable {
+                                        Text(stringResource(R.string.debug_connect), color = Color(0xFF00C851), fontFamily = FontFamily.Monospace, modifier = Modifier.clickable {
                                             meshService.connectionManager.connectToAddress(res.deviceAddress)
                                         })
                                     }
@@ -375,9 +377,9 @@ fun DebugSettingsSheet(
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(Icons.Filled.BugReport, contentDescription = null, tint = Color(0xFFFF9500))
-                            Text("debug console", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Text(stringResource(R.string.debug_debug_console), fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                             Spacer(Modifier.weight(1f))
-                            Text("clear", color = Color(0xFFBF1A1A), fontFamily = FontFamily.Monospace, modifier = Modifier.clickable {
+                            Text(stringResource(R.string.debug_clear), color = Color(0xFFBF1A1A), fontFamily = FontFamily.Monospace, modifier = Modifier.clickable {
                                 manager.clearDebugMessages()
                             })
                         }

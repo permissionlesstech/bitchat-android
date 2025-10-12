@@ -43,6 +43,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
 import com.bitchat.android.ui.media.FileMessageItem
 import com.bitchat.android.model.BitchatMessageType
+import com.bitchat.android.R
+import androidx.compose.ui.res.stringResource
+
 
 // VoiceNotePlayer moved to com.bitchat.android.ui.media.VoiceNotePlayer
 
@@ -334,11 +337,11 @@ fun MessageItem(
                                     .clickable { onCancelTransfer?.invoke(message) },
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(imageVector = Icons.Filled.Close, contentDescription = "Cancel", tint = Color.White, modifier = Modifier.size(14.dp))
+                                Icon(imageVector = Icons.Filled.Close, contentDescription = stringResource(R.string.cd_cancel), tint = Color.White, modifier = Modifier.size(14.dp))
                             }
                         }
                     } else {
-                        Text(text = "[file unavailable]", fontFamily = FontFamily.Monospace, color = Color.Gray)
+                        Text(text = stringResource(R.string.file_unavailable), fontFamily = FontFamily.Monospace, color = Color.Gray)
                     }
                 }
             }
@@ -471,7 +474,7 @@ fun DeliveryStatusIcon(status: DeliveryStatus) {
     when (status) {
         is DeliveryStatus.Sending -> {
             Text(
-                text = "○",
+                text = stringResource(R.string.status_sending),
                 fontSize = 10.sp,
                 color = colorScheme.primary.copy(alpha = 0.6f)
             )
@@ -479,7 +482,7 @@ fun DeliveryStatusIcon(status: DeliveryStatus) {
         is DeliveryStatus.Sent -> {
             // Use a subtle hollow marker for Sent; single check is reserved for Delivered (iOS parity)
             Text(
-                text = "○",
+                text = stringResource(R.string.status_pending),
                 fontSize = 10.sp,
                 color = colorScheme.primary.copy(alpha = 0.6f)
             )
@@ -487,14 +490,14 @@ fun DeliveryStatusIcon(status: DeliveryStatus) {
         is DeliveryStatus.Delivered -> {
             // Single check for Delivered (matches iOS expectations)
             Text(
-                text = "✓",
+                text = stringResource(R.string.status_sent),
                 fontSize = 10.sp,
                 color = colorScheme.primary.copy(alpha = 0.8f)
             )
         }
         is DeliveryStatus.Read -> {
             Text(
-                text = "✓✓",
+                text = stringResource(R.string.status_delivered),
                 fontSize = 10.sp,
                 color = Color(0xFF007AFF), // Blue
                 fontWeight = FontWeight.Bold
@@ -502,7 +505,7 @@ fun DeliveryStatusIcon(status: DeliveryStatus) {
         }
         is DeliveryStatus.Failed -> {
             Text(
-                text = "⚠",
+                text = stringResource(R.string.status_failed),
                 fontSize = 10.sp,
                 color = Color.Red.copy(alpha = 0.8f)
             )
@@ -510,7 +513,7 @@ fun DeliveryStatusIcon(status: DeliveryStatus) {
         is DeliveryStatus.PartiallyDelivered -> {
             // Show a single subdued check without numeric label
             Text(
-                text = "✓",
+                text = stringResource(R.string.status_sent),
                 fontSize = 10.sp,
                 color = colorScheme.primary.copy(alpha = 0.6f)
             )

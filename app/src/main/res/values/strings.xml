@@ -46,8 +46,10 @@
   <string name="notification_active_peers_one">1 person around</string>
   <string name="notification_active_peers_many">%1$d people around</string>
   <string name="notification_new_messages">New Messages</string>
+  <string name="notification_new_location_messages">New Location Messages</string>
   <string name="notification_mentions_in">Mentioned in %1$s</string>
   <string name="notification_mentions_in_more">Mentioned in %1$s (+%2$d more)</string>
+  <string name="notification_mentions_in_plural">%1$d mentions in %2$s</string>
   <string name="notification_new_activity_in">New activity in %1$s</string>
   <string name="notification_messages_in">Messages in %1$s</string>
   <string name="notification_joined_conversation">%1$s joined the conversation</string>
@@ -88,6 +90,12 @@
   <string name="file_viewer_open_save">📂 Open / Save</string>
   <string name="close_with_emoji">❌ Close</string>
   <string name="pick_image">Pick image</string>
+  <string name="cd_save_current_image">Save current image</string>
+  <string name="cd_close">Close</string>
+  <string name="toast_image_saved">Image saved to Downloads</string>
+  <string name="toast_failed_to_save_image">Failed to save image</string>
+  <string name="cd_image_index_of">Image %1$d of %2$d</string>
+  <string name="cd_pick_file">Pick file</string>
 
   <!-- About sheet -->
   <string name="about_tagline">decentralized mesh messaging with end-to-end encryption</string>
@@ -125,6 +133,7 @@
   <string name="about_debug_settings">Debug Settings</string>
   <string name="about_footer">Open Source • Privacy First • Decentralized</string>
   <string name="close_plain">Close</string>
+  <string name="cd_privacy_protected">Privacy Protected</string>
   <string name="cancel_lower">cancel</string>
 
   <!-- Generic content descriptions -->
@@ -155,6 +164,11 @@
   <string name="cd_link">Link</string>
   <string name="cd_record_voice">Record voice note</string>
   <string name="cd_pick_media">Pick media</string>
+  <string name="cd_mining_pow">Mining PoW</string>
+  <string name="cd_pow_enabled">PoW Enabled</string>
+  <string name="cd_proof_of_work">Proof of Work</string>
+  <string name="pow_mining_ellipsis">mining...</string>
+  <string name="pow_label_format">pow: %1$dbit</string>
   <string name="cd_offline_mesh_chat">Offline Mesh Chat</string>
   <string name="cd_online_geohash_channels">Online Geohash Channels</string>
   <string name="cd_end_to_end_encryption">End-to-End Encryption</string>
@@ -195,10 +209,18 @@
   <string name="teleport">teleport</string>
   <string name="disable_location_services">disable location services</string>
   <string name="enable_location_services">enable location services</string>
+  <string name="mesh_label">mesh</string>
+  <string name="location_level_block">block</string>
+  <string name="location_level_neighborhood">neighborhood</string>
+  <string name="location_level_city">city</string>
+  <string name="location_level_province">province</string>
+  <string name="location_level_region">region</string>
 
   <!-- Debug / Diagnostics -->
   <string name="debug_tools">debug tools</string>
+  <string name="debug_tools_desc">developer utilities for diagnostics and control</string>
   <string name="debug_verbose_logging">verbose logging</string>
+  <string name="debug_verbose_hint">logs peer joins/leaves, connection direction, packet routing and relays</string>
   <string name="debug_bluetooth_roles">bluetooth roles</string>
   <string name="debug_gatt_server">gatt server</string>
   <string name="debug_connections_fmt">connections: %1$d / %2$d</string>
@@ -209,6 +231,7 @@
   <string name="debug_max_overall">max overall</string>
   <string name="debug_packet_relay">packet relay</string>
   <string name="debug_since_start_fmt">since start: %1$d</string>
+  <string name="debug_roles_hint">turn roles on/off and close all connections when disabled</string>
   <string name="debug_sync_settings">sync settings</string>
   <string name="debug_max_packets_per_sync_fmt">max packets per sync: %1$d</string>
   <string name="debug_max_gcs_filter_size_fmt">max GCS filter size: %1$d bytes (128–1024)</string>
@@ -226,6 +249,8 @@
   <string name="debug_direct_suffix"> • direct</string>
   <string name="debug_rssi_fmt">%1$s • RSSI: %2$s</string>
   <string name="debug_question_mark">?</string>
+  <string name="debug_role_server">as server (we host)</string>
+  <string name="debug_role_client">as client (we connect)</string>
 
   <!-- Onboarding screens -->
   <string name="location_services_required">Location Services Required</string>
