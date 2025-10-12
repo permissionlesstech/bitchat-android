@@ -248,7 +248,6 @@
     <string name="debug_derived_p_fmt">abgeleitetes P: %1$s • geschätzte max. Elemente: %2$s</string>
     <string name="debug_direct_suffix"> • direkt</string>
     <string name="debug_rssi_fmt">%1$s • RSSI: %2$s</string>
-    <string name="debug_question_mark">?</string>
     <string name="debug_role_server">als Server (wir hosten)</string>
     <string name="debug_role_client">als Client (wir verbinden)</string>
 
@@ -279,10 +278,8 @@
     <string name="battery_optimization_disabled_title">Akku‑Optimierung deaktiviert</string>
     <string name="continue_btn">Fortfahren</string>
     <string name="initializing_mesh_network">Mesh‑Netzwerk wird initialisiert</string>
-    <string name="dot">.</string>
     <string name="setting_up_bluetooth">Bluetooth‑Mesh‑Netzwerk wird eingerichtet …</string>
     <string name="should_take_seconds">Das sollte nur wenige Sekunden dauern</string>
-    <string name="warning_emoji">⚠️</string>
     <string name="setup_not_complete">Setup nicht abgeschlossen</string>
     <string name="try_again">Erneut versuchen</string>
     <string name="privacy_protected">Deine Privatsphäre ist geschützt</string>
@@ -290,48 +287,23 @@
     <string name="permissions_header">Berechtigungen</string>
     <string name="grant_permissions">Berechtigungen erteilen</string>
     <string name="location_tracking_warning">bitchat verfolgt NICHT deinen Standort</string>
-    <string name="at_symbol">@</string>
-    <string name="app_brand">bitchat/</string>
-    <string name="channel_count_prefix"> · ⧉ </string>
     <string name="geohash_people_header">PERSONEN</string>
     <string name="nobody_around">niemand da …</string>
     <string name="you_suffix"> (du)</string>
     <string name="pan_zoom_instruction">schwenken und zoomen, um einen Geohash auszuwählen</string>
     <string name="select">auswählen</string>
     <string name="type_a_message_placeholder">Nachricht eingeben …</string>
-    <string name="mention_suggestion_at">@%1$s</string>
     <string name="mention">erwähnen</string>
-    <string name="image_counter">%1$d / %2$d</string>
     <string name="pow_time_estimate">(~%1$s)</string>
-    <string name="at_nickname">@%1$s</string>
     <string name="version_prefix">v%1$s</string>
-    <string name="hash_symbol">#</string>
-    <string name="underscore">_</string>
-    <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
-    <string name="progress_filled">█</string>
-    <string name="progress_empty">░</string>
     <string name="image_star">image/*</string>
     <string name="media_type_image">Bild</string>
     <string name="media_type_file">Datei</string>
-
-    <!-- Nachrichten‑Status‑Icons -->
-    <string name="status_sending">○</string>
-    <string name="status_pending">○</string>
-    <string name="status_sent">✓</string>
-    <string name="status_delivered">✓✓</string>
-    <string name="status_failed">⚠</string>
-    <string name="status_read">✓</string>
 
     <!-- Benachrichtigungs‑Text‑Helfer -->
     <string name="notification_sent_image">📷 hat ein Bild gesendet</string>
     <string name="notification_sent_voice">🎤 hat eine Sprachnachricht gesendet</string>
     <string name="notification_sent_file">📎 hat eine Datei gesendet</string>
-    <string name="notification_file_pdf">📄</string>
-    <string name="notification_file_zip">🗜️</string>
-    <string name="notification_file_doc">📄</string>
-    <string name="notification_file_xls">📊</string>
-    <string name="notification_file_ppt">📈</string>
-    <string name="notification_file_generic">📎</string>
 
     <!-- Sprachplayer Barrierefreiheit -->
     <string name="cd_play_voice">Abspielen</string>
