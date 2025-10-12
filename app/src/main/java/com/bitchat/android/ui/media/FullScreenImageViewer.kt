@@ -75,13 +75,13 @@ fun FullScreenImageViewer(imagePaths: List<String>, initialIndex: Int = 0, onClo
                     bmp?.let {
                         androidx.compose.foundation.Image(
                             bitmap = it.asImageBitmap(),
-                            contentDescription = "Image ${page + 1} of ${imagePaths.size}",
+                            contentDescription = stringResource(com.bitchat.android.R.string.image_page_of, page + 1, imagePaths.size),
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Fit
                         )
                     } ?: run {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(text = "Image unavailable", color = Color.White)
+                            Text(text = stringResource(com.bitchat.android.R.string.image_unavailable), color = Color.White)
                         }
                     }
                 }
@@ -161,10 +161,10 @@ private fun saveToDownloads(context: android.content.Context, path: String) {
                 context.contentResolver.update(uri, v2, null, null)
             }
             // Show toast message indicating the image has been saved
-            Toast.makeText(context, "Image saved to Downloads", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(com.bitchat.android.R.string.image_saved_to_downloads), Toast.LENGTH_SHORT).show()
         }
     }.onFailure {
         // Optionally handle failure case (e.g., show error toast)
-        Toast.makeText(context, "Failed to save image", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(com.bitchat.android.R.string.image_save_failed), Toast.LENGTH_SHORT).show()
     }
 }

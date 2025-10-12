@@ -134,7 +134,7 @@ fun LocationChannelsSheet(
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Text(
-                                text = "#location channels",
+                                text = stringResource(R.string.location_channels_title),
                                 style = MaterialTheme.typography.headlineSmall,
                                 fontFamily = FontFamily.Monospace,
                                 fontWeight = FontWeight.Bold,
@@ -142,7 +142,7 @@ fun LocationChannelsSheet(
                             )
 
                             Text(
-                                text = "chat with people near you using geohash channels. only a coarse geohash is shared, never exact gps. do not screenshot or share this screen to protect your privacy.",
+                                text = stringResource(R.string.location_channels_desc),
                                 fontSize = 12.sp,
                                 fontFamily = FontFamily.Monospace,
                                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
@@ -171,7 +171,7 @@ fun LocationChannelsSheet(
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
                                             Text(
-                                                text = "grant location permission",
+                                                text = stringResource(R.string.grant_location_permission),
                                                 fontSize = 12.sp,
                                                 fontFamily = FontFamily.Monospace
                                             )
@@ -181,7 +181,7 @@ fun LocationChannelsSheet(
                                     LocationChannelManager.PermissionState.RESTRICTED -> {
                                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                             Text(
-                                                text = "location permission denied. enable in settings to use location channels.",
+                                                text = stringResource(R.string.location_permission_denied),
                                                 fontSize = 11.sp,
                                                 fontFamily = FontFamily.Monospace,
                                                 color = Color.Red.copy(alpha = 0.8f)
@@ -195,7 +195,7 @@ fun LocationChannelsSheet(
                                                 }
                                             ) {
                                                 Text(
-                                                    text = "open settings",
+                                                    text = stringResource(R.string.open_settings),
                                                     fontSize = 11.sp,
                                                     fontFamily = FontFamily.Monospace
                                                 )
@@ -204,7 +204,7 @@ fun LocationChannelsSheet(
                                     }
                                     LocationChannelManager.PermissionState.AUTHORIZED -> {
                                         Text(
-                                            text = "✓ location permission granted",
+                                            text = stringResource(R.string.location_permission_granted),
                                             fontSize = 11.sp,
                                             fontFamily = FontFamily.Monospace,
                                             color = standardGreen
@@ -217,7 +217,7 @@ fun LocationChannelsSheet(
                                         ) {
                                             CircularProgressIndicator(modifier = Modifier.size(12.dp))
                                             Text(
-                                                text = "checking permissions...",
+                                                text = stringResource(R.string.checking_permissions),
                                                 fontSize = 11.sp,
                                                 fontFamily = FontFamily.Monospace,
                                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
@@ -233,7 +233,7 @@ fun LocationChannelsSheet(
                     item(key = "mesh") {
                         ChannelRow(
                             title = meshTitleWithCount(viewModel),
-                            subtitle = "#bluetooth • ${bluetoothRangeString()}",
+                            subtitle = stringResource(R.string.location_bluetooth_subtitle, bluetoothRangeString()),
                             isSelected = selectedChannel is ChannelID.Mesh,
                             titleColor = standardBlue,
                             titleBold = meshCount(viewModel) > 0,
@@ -263,13 +263,13 @@ fun LocationChannelsSheet(
                                 titleColor = standardGreen,
                                 titleBold = highlight,
                                 trailingContent = {
-                                    IconButton(onClick = { bookmarksStore.toggle(channel.geohash) }) {
-                                        Icon(
-                                            imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                                            contentDescription = if (isBookmarked) "Unbookmark" else "Bookmark",
-                                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-                                        )
-                                    }
+                                IconButton(onClick = { bookmarksStore.toggle(channel.geohash) }) {
+                                    Icon(
+                                        imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                                        contentDescription = if (isBookmarked) stringResource(R.string.cd_remove_bookmark) else stringResource(R.string.cd_add_bookmark),
+                                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                                    )
+                                }
                                 },
                                 onClick = {
                                     // Selecting a suggested nearby channel is not a teleport
@@ -287,7 +287,7 @@ fun LocationChannelsSheet(
                             ) {
                                 CircularProgressIndicator(modifier = Modifier.size(16.dp))
                                 Text(
-                                    text = "finding nearby channels…",
+                                    text = stringResource(R.string.finding_nearby_channels),
                                     fontSize = 12.sp,
                                     fontFamily = FontFamily.Monospace
                                 )
@@ -299,7 +299,7 @@ fun LocationChannelsSheet(
                     if (bookmarks.isNotEmpty()) {
                         item(key = "bookmarked_header") {
                             Text(
-                                text = "bookmarked",
+                                text = stringResource(R.string.bookmarked),
                                 style = MaterialTheme.typography.labelLarge,
                                 fontFamily = FontFamily.Monospace,
                                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
@@ -410,7 +410,7 @@ fun LocationChannelsSheet(
                                     decorationBox = { innerTextField ->
                                         if (customGeohash.isEmpty()) {
                                             Text(
-                                                text = "geohash",
+                                                text = stringResource(R.string.geohash_placeholder),
                                                 fontSize = BASE_FONT_SIZE.sp,
                                                 fontFamily = FontFamily.Monospace,
                                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
@@ -454,7 +454,7 @@ fun LocationChannelsSheet(
                                             locationManager.select(ChannelID.Location(channel))
                                             onDismiss()
                                         } else {
-                                            customError = "invalid geohash"
+                                            customError = stringResource(R.string.invalid_geohash)
                                         }
                                     },
                                     enabled = isValid,
@@ -468,7 +468,7 @@ fun LocationChannelsSheet(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Text(
-                                            text = "teleport",
+                                            text = stringResource(R.string.teleport),
                                             fontSize = BASE_FONT_SIZE.sp,
                                             fontFamily = FontFamily.Monospace
                                         )
@@ -488,15 +488,15 @@ fun LocationChannelsSheet(
                     // Error message for custom geohash
                     if (customError != null) {
                         item(key = "geohash_error") {
-                            Text(
-                                text = customError!!,
-                                fontSize = 12.sp,
-                                fontFamily = FontFamily.Monospace,
-                                color = Color.Red,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 24.dp)
-                            )
+                        Text(
+                            text = customError!!,
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = Color.Red,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 24.dp)
+                        )
                         }
                     }
 
@@ -531,11 +531,7 @@ fun LocationChannelsSheet(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
-                                    text = if (locationServicesEnabled) {
-                                        "disable location services"
-                                    } else {
-                                        "enable location services"
-                                    },
+                                    text = if (locationServicesEnabled) stringResource(R.string.disable_location_services) else stringResource(R.string.enable_location_services),
                                     fontSize = 12.sp,
                                     fontFamily = FontFamily.Monospace
                                 )
@@ -552,23 +548,23 @@ fun LocationChannelsSheet(
                         .height(56.dp)
                         .background(MaterialTheme.colorScheme.background.copy(alpha = topBarAlpha))
                 ) {
-                    TextButton(
-                        onClick = onDismiss,
-                        modifier = Modifier
-                            .align(Alignment.CenterEnd)
-                            .padding(horizontal = 16.dp)
-                    ) {
+                        TextButton(
+                            onClick = onDismiss,
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .padding(horizontal = 16.dp)
+                        ) {
                         Text(
-                            text = "Close",
+                            text = stringResource(R.string.close_plain),
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onBackground
                         )
-                    }
+                        }
                 }
             }
         }
     }
-
+}
     // Lifecycle management: when presented, sample both nearby and bookmarked geohashes
     LaunchedEffect(isPresented, availableChannels, bookmarks) {
         if (isPresented) {
@@ -698,7 +694,7 @@ private fun splitTitleAndCount(title: String): Pair<String, String?> {
 
 private fun meshTitleWithCount(viewModel: ChatViewModel): String {
     val meshCount = meshCount(viewModel)
-    val noun = if (meshCount == 1) "person" else "people"
+    val noun = if (meshCount == 1) "person" else "people" // TODO: i18n plurals
     return "mesh [$meshCount $noun]"
 }
 
@@ -710,12 +706,12 @@ private fun meshCount(viewModel: ChatViewModel): Int {
 }
 
 private fun geohashTitleWithCount(channel: GeohashChannel, participantCount: Int): String {
-    val noun = if (participantCount == 1) "person" else "people"
+    val noun = if (participantCount == 1) "person" else "people" // TODO: i18n plurals
     return "${channel.level.displayName.lowercase()} [$participantCount $noun]"
 }
 
 private fun geohashHashTitleWithCount(geohash: String, participantCount: Int): String {
-    val noun = if (participantCount == 1) "person" else "people"
+    val noun = if (participantCount == 1) "person" else "people" // TODO: i18n plurals
     return "#$geohash [$participantCount $noun]"
 }
 

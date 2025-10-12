@@ -430,7 +430,7 @@ private fun PrivateChatHeader(
         ) {
             Icon(
                 imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
-                contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
+                contentDescription = if (isFavorite) stringResource(R.string.cd_remove_favorite) else stringResource(R.string.cd_add_favorite),
                 modifier = Modifier.size(18.dp), // Slightly larger than sidebar icon
                 tint = if (isFavorite) Color(0xFFFFD700) else Color(0x87878700) // Yellow or grey
             )

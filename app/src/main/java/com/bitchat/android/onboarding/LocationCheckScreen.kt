@@ -105,7 +105,7 @@ private fun LocationDisabledContent(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Security,
-                        contentDescription = "Privacy",
+                        contentDescription = stringResource(com.bitchat.android.R.string.cd_privacy),
                         tint = Color(0xFF4CAF50),
                         modifier = Modifier.size(20.dp)
                     )
@@ -204,7 +204,7 @@ private fun LocationNotAvailableContent(
         // Error icon
         Icon(
             imageVector = Icons.Filled.ErrorOutline,
-            contentDescription = "Error",
+            contentDescription = stringResource(com.bitchat.android.R.string.cd_error),
             modifier = Modifier.size(64.dp),
             tint = colorScheme.error
         )

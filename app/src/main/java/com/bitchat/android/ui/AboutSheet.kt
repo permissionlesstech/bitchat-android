@@ -144,7 +144,7 @@ fun AboutSheet(
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.Bluetooth,
-                                contentDescription = "Offline Mesh Chat",
+                                contentDescription = stringResource(com.bitchat.android.R.string.cd_offline_mesh_chat),
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier
                                     .padding(top = 2.dp)
@@ -176,7 +176,7 @@ fun AboutSheet(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Public,
-                                contentDescription = "Online Geohash Channels",
+                                contentDescription = stringResource(com.bitchat.android.R.string.cd_online_geohash_channels),
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier
                                     .padding(top = 2.dp)
@@ -208,7 +208,7 @@ fun AboutSheet(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Lock,
-                                contentDescription = "End-to-End Encryption",
+                                contentDescription = stringResource(com.bitchat.android.R.string.cd_end_to_end_encryption),
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier
                                     .padding(top = 2.dp)

@@ -60,7 +60,13 @@
     <string name="notification_geohash_summary_text">%1$d Nachrichten aus %2$d Orten</string>
     <string name="notification_mesh_mention_title_singular">In Mesh‑Chat erwähnt</string>
     <string name="notification_mesh_mention_title_plural">%1$d Erwähnungen im Mesh‑Chat</string>
-    <string name="notification_more_locations">und %1$d weitere Orte</string>
+  <string name="notification_more_locations">und %1$d weitere Orte</string>
+  <string name="notification_and_more">und %1$d weitere</string>
+
+  <!-- Favoriten Zugänglichkeit -->
+  <string name="cd_add_favorite">Zu Favoriten hinzufügen</string>
+  <string name="cd_remove_favorite">Aus Favoriten entfernen</string>
+  <string name="cd_add_bookmark">Lesezeichen hinzufügen</string>
 
     <!-- Chat‑Kopf & Barrierefreiheit -->
     <string name="chat_back">zurück</string>
@@ -122,7 +128,8 @@
     <string name="about_emergency_tip">Tipp: Dreifach auf den App‑Titel tippen, um alle gespeicherten Daten – einschließlich Nachrichten, Schlüssel und Einstellungen – zu löschen.</string>
     <string name="about_debug_settings">Debug‑Einstellungen</string>
     <string name="about_footer">Open Source • Privacy First • Dezentral</string>
-    <string name="close_plain">Schließen</string>
+  <string name="close_plain">Schließen</string>
+  <string name="cancel_lower">abbrechen</string>
 
     <!-- Allgemeine Content‑Descriptions -->
     <string name="cd_warning">Warnung</string>
@@ -152,6 +159,73 @@
     <string name="cd_link">Link</string>
     <string name="cd_pick_media">Medien auswählen</string>
     <string name="cd_record_voice">Sprachnotiz aufnehmen</string>
+    <string name="cd_offline_mesh_chat">Offline‑Mesh‑Chat</string>
+    <string name="cd_online_geohash_channels">Online‑Geohash‑Kanäle</string>
+  <string name="cd_end_to_end_encryption">Ende‑zu‑Ende‑Verschlüsselung</string>
+  <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+    <string name="image_page_of">Bild %1$d von %2$d</string>
+    <string name="image_unavailable">Bild nicht verfügbar</string>
+    <string name="image_saved_to_downloads">Bild in "Downloads" gespeichert</string>
+    <string name="image_save_failed">Bild konnte nicht gespeichert werden</string>
+    <string name="pick_file">Datei auswählen</string>
+    <string name="file_unavailable">[Datei nicht verfügbar]</string>
+  <string name="unknown">unbekannt</string>
+
+  <!-- Nutzer‑Aktions‑Sheet -->
+  <string name="choose_action_message_or_user">Aktion für diese Nachricht oder diesen Benutzer wählen</string>
+  <string name="choose_action_user">Aktion für diesen Benutzer wählen</string>
+  <string name="action_copy_message_title">Nachricht kopieren</string>
+  <string name="action_copy_message_subtitle">Diese Nachricht in die Zwischenablage kopieren</string>
+  <string name="action_slap_title">%1$s ohrfeigen</string>
+  <string name="action_slap_subtitle">Eine spielerische Ohrfeige senden</string>
+  <string name="action_hug_title">%1$s umarmen</string>
+  <string name="action_hug_subtitle">Eine freundliche Umarmung senden</string>
+  <string name="action_block_title">%1$s blockieren</string>
+  <string name="action_block_subtitle">Alle Nachrichten dieses Benutzers blockieren</string>
+
+  <!-- Geohash‑Kanäle Sheet -->
+  <string name="location_channels_title">#Standort‑Kanäle</string>
+  <string name="location_channels_desc">Chatte mit Menschen in deiner Nähe über Geohash‑Kanäle. Es wird nur ein grober Geohash geteilt, niemals exakte GPS‑Daten. Mache zur Wahrung deiner Privatsphäre keine Screenshots und teile diesen Bildschirm nicht.</string>
+  <string name="grant_location_permission">Standortberechtigung erteilen</string>
+  <string name="location_permission_denied">Standortberechtigung verweigert. In den Einstellungen aktivieren, um Standort‑Kanäle zu nutzen.</string>
+  <string name="open_settings">Einstellungen öffnen</string>
+  <string name="location_permission_granted">\u2713 Standortberechtigung erteilt</string>
+  <string name="checking_permissions">Berechtigungen werden geprüft …</string>
+  <string name="finding_nearby_channels">Nahe Kanäle werden gesucht …</string>
+  <string name="bookmarked">Lesezeichen</string>
+  <string name="geohash_placeholder">Geohash</string>
+  <string name="invalid_geohash">Ungültiger Geohash</string>
+  <string name="teleport">teleportieren</string>
+  <string name="disable_location_services">Standortdienste deaktivieren</string>
+  <string name="enable_location_services">Standortdienste aktivieren</string>
+
+    <!-- Debug / Diagnostik -->
+    <string name="debug_tools">Debug‑Werkzeuge</string>
+    <string name="debug_verbose_logging">ausführliches Logging</string>
+    <string name="debug_bluetooth_roles">Bluetooth‑Rollen</string>
+    <string name="debug_gatt_server">GATT‑Server</string>
+    <string name="debug_connections_fmt">Verbindungen: %1$d / %2$d</string>
+    <string name="debug_max_server">max. Server</string>
+    <string name="debug_gatt_client">GATT‑Client</string>
+    <string name="debug_max_client">max. Client</string>
+    <string name="debug_overall_connections_fmt">Verbindungen: %1$d / %2$d</string>
+    <string name="debug_max_overall">max. gesamt</string>
+    <string name="debug_packet_relay">Paket‑Relay</string>
+    <string name="debug_since_start_fmt">seit Start: %1$d</string>
+    <string name="debug_sync_settings">Sync‑Einstellungen</string>
+    <string name="debug_max_packets_per_sync_fmt">max. Pakete pro Sync: %1$d</string>
+    <string name="debug_max_gcs_filter_size_fmt">max. GCS‑Filtergröße: %1$d Bytes (128–1024)</string>
+    <string name="debug_target_fpr_fmt">Ziel‑FPR: %1$.2f%%</string>
+    <string name="debug_connected_devices">verbundene Geräte</string>
+    <string name="debug_our_device_id_fmt">unsere Geräte‑ID: %1$s</string>
+    <string name="debug_none">keine</string>
+    <string name="debug_disconnect">trennen</string>
+    <string name="debug_recent_scan_results">zuletzt gescannte Geräte</string>
+    <string name="debug_connect">verbinden</string>
+    <string name="debug_debug_console">Debug‑Konsole</string>
+  <string name="debug_clear">leeren</string>
+  <string name="debug_relays_window_fmt">letzte 10s: %1$d • 1m: %2$d • 15m: %3$d</string>
+  <string name="debug_derived_p_fmt">abgeleitetes P: %1$s • geschätzte max. Elemente: %2$s</string>
 
     <!-- Passwort‑Dialog -->
     <string name="pwd_prompt_title">Kanalpasswort eingeben</string>
