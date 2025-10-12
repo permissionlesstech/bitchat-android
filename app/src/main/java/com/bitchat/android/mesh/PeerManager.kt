@@ -67,9 +67,11 @@ class PeerManager {
     
     companion object {
         private const val TAG = "PeerManager"
-        private const val STALE_PEER_TIMEOUT = 180000L // 3 minutes (same as iOS)
         private const val CLEANUP_INTERVAL = 60000L // 1 minute
     }
+
+    // Centralized timeout from AppConstants
+    private val stalePeerTimeoutMs: Long = com.bitchat.android.util.AppConstants.STALE_PEER_TIMEOUT_MS
     
     // Peer tracking data - enhanced with verification status
     private val peers = ConcurrentHashMap<String, PeerInfo>() // peerID -> PeerInfo
@@ -299,7 +301,7 @@ class PeerManager {
     fun isPeerActive(peerID: String): Boolean {
         val info = peers[peerID] ?: return false
         val now = System.currentTimeMillis()
-        return (now - info.lastSeen) <= STALE_PEER_TIMEOUT && info.isConnected
+        return (now - info.lastSeen) <= stalePeerTimeoutMs && info.isConnected
     }
     
     /**
@@ -328,7 +330,7 @@ class PeerManager {
      */
     fun getActivePeerIDs(): List<String> {
         val now = System.currentTimeMillis()
-        return peers.filterValues { (now - it.lastSeen) <= STALE_PEER_TIMEOUT && it.isConnected }
+        return peers.filterValues { (now - it.lastSeen) <= stalePeerTimeoutMs && it.isConnected }
             .keys
             .toList()
             .sorted()
@@ -426,7 +428,7 @@ class PeerManager {
     private fun cleanupStalePeers() {
         val now = System.currentTimeMillis()
         
-        val peersToRemove = peers.filterValues { (now - it.lastSeen) > STALE_PEER_TIMEOUT }
+        val peersToRemove = peers.filterValues { (now - it.lastSeen) > stalePeerTimeoutMs }
             .keys
             .toList()
         
