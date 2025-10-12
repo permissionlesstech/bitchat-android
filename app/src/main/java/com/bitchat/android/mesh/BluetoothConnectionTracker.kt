@@ -20,10 +20,10 @@ class BluetoothConnectionTracker(
     
     companion object {
         private const val TAG = "BluetoothConnectionTracker"
-        private val CONNECTION_RETRY_DELAY = com.bitchat.android.util.AppConstants.Mesh.CONNECTION_RETRY_DELAY_MS
-        private val MAX_CONNECTION_ATTEMPTS = com.bitchat.android.util.AppConstants.Mesh.MAX_CONNECTION_ATTEMPTS
-        private val CLEANUP_DELAY = com.bitchat.android.util.AppConstants.Mesh.CONNECTION_CLEANUP_DELAY_MS
-        private val CLEANUP_INTERVAL = com.bitchat.android.util.AppConstants.Mesh.CONNECTION_CLEANUP_INTERVAL_MS // 30 seconds
+        private const val CONNECTION_RETRY_DELAY = com.bitchat.android.util.AppConstants.Mesh.CONNECTION_RETRY_DELAY_MS
+        private const val MAX_CONNECTION_ATTEMPTS = com.bitchat.android.util.AppConstants.Mesh.MAX_CONNECTION_ATTEMPTS
+        private const val CLEANUP_DELAY = com.bitchat.android.util.AppConstants.Mesh.CONNECTION_CLEANUP_DELAY_MS
+        private const val CLEANUP_INTERVAL = com.bitchat.android.util.AppConstants.Mesh.CONNECTION_CLEANUP_INTERVAL_MS // 30 seconds
     }
     
     // Connection tracking - reduced memory footprint

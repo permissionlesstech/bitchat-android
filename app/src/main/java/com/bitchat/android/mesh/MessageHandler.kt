@@ -214,8 +214,8 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         // Ignore stale announcements older than STALE_PEER_TIMEOUT
         val now = System.currentTimeMillis()
         val age = now - packet.timestamp.toLong()
-        if (age > com.bitchat.android.util.AppConstants.STALE_PEER_TIMEOUT_MS) {
-            Log.w(TAG, "Ignoring stale ANNOUNCE from ${peerID.take(8)} (age=${age}ms > ${com.bitchat.android.util.AppConstants.STALE_PEER_TIMEOUT_MS}ms)")
+        if (age > com.bitchat.android.util.AppConstants.Mesh.STALE_PEER_TIMEOUT_MS) {
+            Log.w(TAG, "Ignoring stale ANNOUNCE from ${peerID.take(8)} (age=${age}ms > ${com.bitchat.android.util.AppConstants.Mesh.STALE_PEER_TIMEOUT_MS}ms)")
             return false
         }
         

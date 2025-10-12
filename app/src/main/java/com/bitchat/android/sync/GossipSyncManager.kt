@@ -117,8 +117,8 @@ class GossipSyncManager(
             // Ignore stale announcements older than STALE_PEER_TIMEOUT
             val now = System.currentTimeMillis()
             val age = now - packet.timestamp.toLong()
-            if (age > com.bitchat.android.util.AppConstants.STALE_PEER_TIMEOUT_MS) {
-                Log.d(TAG, "Ignoring stale ANNOUNCE (age=${age}ms > ${com.bitchat.android.util.AppConstants.STALE_PEER_TIMEOUT_MS}ms)")
+            if (age > com.bitchat.android.util.AppConstants.Mesh.STALE_PEER_TIMEOUT_MS) {
+                Log.d(TAG, "Ignoring stale ANNOUNCE (age=${age}ms > ${com.bitchat.android.util.AppConstants.Mesh.STALE_PEER_TIMEOUT_MS}ms)")
                 return
             }
             // senderID is fixed-size 8 bytes; map to hex string for key
@@ -267,7 +267,7 @@ class GossipSyncManager(
         for ((peerID, pair) in latestAnnouncementByPeer.entries) {
             val pkt = pair.second
             val age = now - pkt.timestamp.toLong()
-            if (age > com.bitchat.android.util.AppConstants.STALE_PEER_TIMEOUT_MS) {
+            if (age > com.bitchat.android.util.AppConstants.Mesh.STALE_PEER_TIMEOUT_MS) {
                 stalePeers.add(peerID)
             }
         }

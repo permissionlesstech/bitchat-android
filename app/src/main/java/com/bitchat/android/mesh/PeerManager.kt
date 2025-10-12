@@ -70,7 +70,7 @@ class PeerManager {
     }
 
     // Centralized timeout from AppConstants
-    private val stalePeerTimeoutMs: Long = com.bitchat.android.util.AppConstants.STALE_PEER_TIMEOUT_MS
+    private val stalePeerTimeoutMs: Long = com.bitchat.android.util.AppConstants.Mesh.STALE_PEER_TIMEOUT_MS
     
     // Peer tracking data - enhanced with verification status
     private val peers = ConcurrentHashMap<String, PeerInfo>() // peerID -> PeerInfo
