@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import com.bitchat.android.nostr.NostrProofOfWork
 import com.bitchat.android.nostr.PoWPreferenceManager
 import com.bitchat.android.ui.debug.DebugSettingsSheet
+import com.bitchat.android.ui.theme.ThemePreference
 
 /**
  * About Sheet for bitchat app information
@@ -38,8 +39,8 @@ import com.bitchat.android.ui.debug.DebugSettingsSheet
 @Composable
 fun AboutSheet(
     isPresented: Boolean,
-    onDismiss: () -> Unit,
-    onShowDebug: (() -> Unit)? = null,
+    onDismiss: () -> Unit, onShowDebug: (() -> Unit)? = null,
+    themePref: ThemePreference, onChangeTheme: (ThemePreference) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -69,6 +70,7 @@ fun AboutSheet(
         targetValue = if (isScrolled) 0.95f else 0f,
         label = "topBarAlpha"
     )
+
 
     // Color scheme matching LocationChannelsSheet
     val colorScheme = MaterialTheme.colorScheme
@@ -239,24 +241,23 @@ fun AboutSheet(
                                 .padding(horizontal = 24.dp)
                                 .padding(top = 24.dp, bottom = 8.dp)
                         )
-                        val themePref by com.bitchat.android.ui.theme.ThemePreferenceManager.themeFlow.collectAsState()
                         Row(
                             modifier = Modifier.padding(horizontal = 24.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             FilterChip(
                                 selected = themePref.isSystem,
-                                onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.System) },
+                                onClick = { onChangeTheme(ThemePreference.System) },
                                 label = { Text("system", fontFamily = FontFamily.Monospace) }
                             )
                             FilterChip(
                                 selected = themePref.isLight,
-                                onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Light) },
+                                onClick = { onChangeTheme(ThemePreference.Light) },
                                 label = { Text("light", fontFamily = FontFamily.Monospace) }
                             )
                             FilterChip(
                                 selected = themePref.isDark,
-                                onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Dark) },
+                                onClick = { onChangeTheme(ThemePreference.Dark) },
                                 label = { Text("dark", fontFamily = FontFamily.Monospace) }
                             )
                         }
