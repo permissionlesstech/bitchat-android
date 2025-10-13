@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.dp
@@ -129,7 +130,7 @@ fun VoiceRecordButton(
     ) {
         Icon(
             imageVector = Icons.Filled.Mic,
-            contentDescription = "Record voice note",
+            contentDescription = stringResource(com.bitchat.android.R.string.cd_record_voice),
             tint = Color.Black,
             modifier = Modifier.size(20.dp)
         )

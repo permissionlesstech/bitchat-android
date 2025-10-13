@@ -25,8 +25,8 @@ class NoiseSession(
         private const val PROTOCOL_NAME = "Noise_XX_25519_ChaChaPoly_SHA256"
         
         // Rekey thresholds (same as iOS)
-        private const val REKEY_TIME_LIMIT = 3600000L // 1 hour
-        private const val REKEY_MESSAGE_LIMIT = 10000L // 10k messages
+        private const val REKEY_TIME_LIMIT = com.bitchat.android.util.AppConstants.Noise.REKEY_TIME_LIMIT_MS // 1 hour
+        private const val REKEY_MESSAGE_LIMIT = com.bitchat.android.util.AppConstants.Noise.REKEY_MESSAGE_LIMIT_SESSION // 10k messages
         
         // XX Pattern Message Sizes (exactly matching iOS implementation)
         private const val XX_MESSAGE_1_SIZE = 32      // -> e (ephemeral key only)
@@ -34,13 +34,13 @@ class NoiseSession(
         private const val XX_MESSAGE_3_SIZE = 48      // -> s, se (encrypted static key)
         
         // Maximum payload size for safety
-        private const val MAX_PAYLOAD_SIZE = 256
+        private const val MAX_PAYLOAD_SIZE = com.bitchat.android.util.AppConstants.Noise.MAX_PAYLOAD_SIZE_BYTES
         
         // Constants for replay protection (matching iOS implementation)
         private const val NONCE_SIZE_BYTES = 4
         private const val REPLAY_WINDOW_SIZE = 1024
         private const val REPLAY_WINDOW_BYTES = REPLAY_WINDOW_SIZE / 8 // 128 bytes
-        private const val HIGH_NONCE_WARNING_THRESHOLD = 1_000_000_000L
+        private const val HIGH_NONCE_WARNING_THRESHOLD = com.bitchat.android.util.AppConstants.Noise.HIGH_NONCE_WARNING_THRESHOLD
         
         // MARK: - Sliding Window Replay Protection
         

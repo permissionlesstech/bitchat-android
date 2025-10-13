@@ -37,7 +37,7 @@ class BluetoothGattClientManager(
         private val DESCRIPTOR_UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
         
         // RSSI monitoring constants
-        private const val RSSI_UPDATE_INTERVAL = 5000L // 5 seconds
+        private const val RSSI_UPDATE_INTERVAL = com.bitchat.android.util.AppConstants.Mesh.RSSI_UPDATE_INTERVAL_MS // 5 seconds
     }
     
     // Core Bluetooth components
