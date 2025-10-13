@@ -46,7 +46,7 @@ object NostrEmbeddedBitChat {
                 timestamp = System.currentTimeMillis().toULong(),
                 payload = payload,
                 signature = null,
-                ttl = 7u
+                ttl = com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
             )
             
             val data = packet.toBinaryData() ?: return null
@@ -86,7 +86,7 @@ object NostrEmbeddedBitChat {
                 timestamp = System.currentTimeMillis().toULong(),
                 payload = payload,
                 signature = null,
-                ttl = 7u
+                ttl = com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
             )
             
             val data = packet.toBinaryData() ?: return null
@@ -123,7 +123,7 @@ object NostrEmbeddedBitChat {
                 timestamp = System.currentTimeMillis().toULong(),
                 payload = payload,
                 signature = null,
-                ttl = 7u
+                ttl = com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
             )
             
             val data = packet.toBinaryData() ?: return null
@@ -158,7 +158,7 @@ object NostrEmbeddedBitChat {
                 timestamp = System.currentTimeMillis().toULong(),
                 payload = payload,
                 signature = null,
-                ttl = 7u
+                ttl = com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
             )
             
             val data = packet.toBinaryData() ?: return null

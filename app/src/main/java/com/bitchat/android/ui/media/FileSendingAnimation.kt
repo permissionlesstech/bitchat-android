@@ -28,6 +28,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import com.bitchat.android.R
 import kotlinx.coroutines.delay
 
 /**
@@ -77,7 +80,7 @@ fun FileSendingAnimation(
         // File icon
         Icon(
             imageVector = Icons.Filled.Description,
-            contentDescription = "File",
+            contentDescription = stringResource(R.string.cd_file),
             tint = Color(0xFF00C851), // Green like app theme
             modifier = Modifier.size(32.dp)
         )
@@ -102,7 +105,7 @@ fun FileSendingAnimation(
                 // Blinking cursor (only if not fully revealed)
                 if (animatedChars < fileName.length && showCursor) {
                     androidx.compose.material3.Text(
-                        text = "_",
+                        text = stringResource(R.string.underscore),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                             color = Color.White
@@ -132,10 +135,12 @@ private fun FileProgressBars(
     val filledBars = (progress * bars).toInt()
 
     // Create a matrix-style progress bar string
+    val ctx = LocalContext.current
     val progressString = buildString {
+        val brackets = ctx.getString(R.string.progress_bar_brackets, "", 0)
         append("[")
         for (i in 0 until bars) {
-            append(if (i < filledBars) "█" else "░")
+            append(if (i < filledBars) ctx.getString(R.string.progress_filled) else ctx.getString(R.string.progress_empty))
         }
         append("] ")
         append("${(progress * 100).toInt()}%")

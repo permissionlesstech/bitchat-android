@@ -19,6 +19,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -28,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.bitchat.android.features.file.FileUtils
 import com.bitchat.android.model.BitchatFilePacket
@@ -60,7 +63,7 @@ fun FileMessageItem(
             // File icon
             Icon(
                 imageVector = Icons.Filled.Description,
-                contentDescription = "File",
+                contentDescription = stringResource(com.bitchat.android.R.string.cd_file),
                 tint = getFileIconColor(packet.fileName),
                 modifier = Modifier.size(32.dp)
             )
@@ -70,13 +73,13 @@ fun FileMessageItem(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 // File name
-                Text(
-                    text = packet.fileName,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                    Text(
+                        text = packet.fileName,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
 
                 // File details
                 Row(

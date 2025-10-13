@@ -21,6 +21,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.res.stringResource
+import com.bitchat.android.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -64,7 +66,7 @@ fun TorStatusIcon(
         }
         Icon(
             imageVector = Icons.Outlined.Cable,
-            contentDescription = "Tor status",
+            contentDescription = stringResource(R.string.cd_tor_status),
             modifier = modifier,
             tint = cableColor
         )
@@ -80,23 +82,23 @@ fun NoiseSessionIcon(
         "uninitialized" -> Triple(
             Icons.Outlined.NoEncryption,
             Color(0x87878700), // Grey - ready to establish
-            "Ready for handshake"
+            stringResource(R.string.cd_ready_for_handshake)
         )
         "handshaking" -> Triple(
             Icons.Outlined.Sync,
             Color(0x87878700), // Grey - in progress
-            "Handshake in progress"
+            stringResource(R.string.cd_handshake_in_progress)
         )
         "established" -> Triple(
             Icons.Filled.Lock,
             Color(0xFFFF9500), // Orange - secure
-            "End-to-end encrypted"
+            stringResource(R.string.cd_encrypted)
         )
         else -> { // "failed" or any other state
             Triple(
                 Icons.Outlined.Warning,
                 Color(0xFFFF4444), // Red - error
-                "Handshake failed"
+                stringResource(R.string.cd_handshake_failed)
             )
         }
     }
@@ -129,7 +131,7 @@ fun NicknameEditor(
         modifier = modifier
     ) {
         Text(
-            text = "@",
+            text = stringResource(R.string.at_symbol),
             style = MaterialTheme.typography.bodyMedium,
             color = colorScheme.primary.copy(alpha = 0.8f)
         )
@@ -193,8 +195,8 @@ fun PeerCounter(
         Icon(
             imageVector = Icons.Default.Group,
             contentDescription = when (selectedLocationChannel) {
-                is com.bitchat.android.geohash.ChannelID.Location -> "Geohash participants"
-                else -> "Connected peers"
+                is com.bitchat.android.geohash.ChannelID.Location -> stringResource(R.string.cd_geohash_participants)
+                else -> stringResource(R.string.cd_connected_peers)
             },
             modifier = Modifier.size(16.dp),
             tint = countColor
@@ -211,7 +213,7 @@ fun PeerCounter(
         
         if (joinedChannels.isNotEmpty()) {
             Text(
-                text = " · ⧉ ${joinedChannels.size}",
+                text = stringResource(R.string.channel_count_prefix) + "${joinedChannels.size}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = if (isConnected) Color(0xFF00C851) else Color.Red,
                 fontSize = 16.sp,
@@ -373,13 +375,13 @@ private fun PrivateChatHeader(
             ) {
                 Icon(
                     imageVector = Icons.Filled.ArrowBack,
-                    contentDescription = "Back",
+                    contentDescription = stringResource(R.string.back),
                     modifier = Modifier.size(16.dp),
                     tint = colorScheme.primary
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "back",
+                    text = stringResource(R.string.chat_back),
                     style = MaterialTheme.typography.bodyMedium,
                     color = colorScheme.primary
                 )
@@ -405,7 +407,7 @@ private fun PrivateChatHeader(
             if (showGlobe) {
                 Icon(
                     imageVector = Icons.Outlined.Public,
-                    contentDescription = "Nostr reachable",
+                contentDescription = stringResource(R.string.cd_nostr_reachable),
                     modifier = Modifier.size(14.dp),
                     tint = Color(0xFF9B59B6) // Purple like iOS
                 )
@@ -428,7 +430,7 @@ private fun PrivateChatHeader(
         ) {
             Icon(
                 imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
-                contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
+                contentDescription = if (isFavorite) stringResource(R.string.cd_remove_favorite) else stringResource(R.string.cd_add_favorite),
                 modifier = Modifier.size(18.dp), // Slightly larger than sidebar icon
                 tint = if (isFavorite) Color(0xFFFFD700) else Color(0x87878700) // Yellow or grey
             )
@@ -463,13 +465,13 @@ private fun ChannelHeader(
             ) {
                 Icon(
                     imageVector = Icons.Filled.ArrowBack,
-                    contentDescription = "Back",
+                    contentDescription = stringResource(R.string.back),
                     modifier = Modifier.size(16.dp),
                     tint = colorScheme.primary
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "back",
+                    text = stringResource(R.string.chat_back),
                     style = MaterialTheme.typography.bodyMedium,
                     color = colorScheme.primary
                 )
@@ -478,7 +480,7 @@ private fun ChannelHeader(
         
         // Title - perfectly centered regardless of other elements
         Text(
-            text = "channel: $channel",
+            text = stringResource(R.string.chat_channel_prefix, channel),
             style = MaterialTheme.typography.titleMedium,
             color = Color(0xFFFF9500), // Orange to match input field
             modifier = Modifier
@@ -492,7 +494,7 @@ private fun ChannelHeader(
             modifier = Modifier.align(Alignment.CenterEnd)
         ) {
             Text(
-                text = "leave",
+                text = stringResource(R.string.chat_leave),
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.Red
             )
@@ -534,7 +536,7 @@ private fun MainHeader(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "bitchat/",
+                text = stringResource(R.string.app_brand),
                 style = MaterialTheme.typography.headlineSmall,
                 color = colorScheme.primary,
                 modifier = Modifier.singleOrTripleClickable(
@@ -562,7 +564,7 @@ private fun MainHeader(
                 // Render icon directly to avoid symbol resolution issues
                 Icon(
                     imageVector = Icons.Filled.Email,
-                    contentDescription = "Unread private messages",
+                    contentDescription = stringResource(R.string.cd_unread_private_messages),
                     modifier = Modifier
                         .size(16.dp)
                         .clickable { viewModel.openLatestUnreadPrivateChat() },
@@ -593,7 +595,7 @@ private fun MainHeader(
                     ) {
                         Icon(
                             imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                            contentDescription = "Toggle bookmark",
+                            contentDescription = stringResource(R.string.cd_toggle_bookmark),
                             tint = if (isBookmarked) Color(0xFF00C851) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
                             modifier = Modifier.size(16.dp)
                         )
@@ -668,7 +670,7 @@ private fun LocationChannelsButton(
                 Spacer(modifier = Modifier.width(2.dp))
                 Icon(
                     imageVector = Icons.Default.PinDrop,
-                    contentDescription = "Teleported",
+                    contentDescription = stringResource(R.string.cd_teleported),
                     modifier = Modifier.size(12.dp),
                     tint = badgeColor
                 )

@@ -20,7 +20,7 @@ class MediaSendingManager(
 ) {
     companion object {
         private const val TAG = "MediaSendingManager"
-        private const val MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB limit
+        private const val MAX_FILE_SIZE = com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES // 50MB limit
     }
 
     // Track in-flight transfer progress: transferId -> messageId and reverse

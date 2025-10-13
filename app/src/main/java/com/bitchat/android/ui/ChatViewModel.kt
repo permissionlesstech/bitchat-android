@@ -226,20 +226,6 @@ class ChatViewModel(
         } catch (_: Exception) { }
 
         // Note: Mesh service is now started by MainActivity
-        
-        // Show welcome message if no peers after delay
-        viewModelScope.launch {
-            delay(10000)
-            if (state.getConnectedPeersValue().isEmpty() && state.getMessagesValue().isEmpty()) {
-                val welcomeMessage = BitchatMessage(
-                    sender = "system",
-                    content = "get people around you to download bitchat and chat with them here!",
-                    timestamp = Date(),
-                    isRelay = false
-                )
-                messageManager.addMessage(welcomeMessage)
-            }
-        }
 
         // BLE receives are inserted by MessageHandler path; no VoiceNoteBus for Tor in this branch.
     }

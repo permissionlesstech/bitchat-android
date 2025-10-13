@@ -21,22 +21,22 @@ class PowerManager(private val context: Context) {
         private const val TAG = "PowerManager"
         
         // Battery thresholds
-        private const val CRITICAL_BATTERY = 10
-        private const val LOW_BATTERY = 20
-        private const val MEDIUM_BATTERY = 50
+        private const val CRITICAL_BATTERY = com.bitchat.android.util.AppConstants.Power.CRITICAL_BATTERY_PERCENT
+        private const val LOW_BATTERY = com.bitchat.android.util.AppConstants.Power.LOW_BATTERY_PERCENT
+        private const val MEDIUM_BATTERY = com.bitchat.android.util.AppConstants.Power.MEDIUM_BATTERY_PERCENT
         
         // Scan duty cycle periods (ms)
-        private const val SCAN_ON_DURATION_NORMAL = 8000L    // 8 seconds on
-        private const val SCAN_OFF_DURATION_NORMAL = 2000L   // 2 seconds off
-        private const val SCAN_ON_DURATION_POWER_SAVE = 2000L    // 2 seconds on
-        private const val SCAN_OFF_DURATION_POWER_SAVE = 8000L  // 8 seconds off
-        private const val SCAN_ON_DURATION_ULTRA_LOW = 1000L      // 1 second on
-        private const val SCAN_OFF_DURATION_ULTRA_LOW = 10000L   // 10 seconds off
+        private const val SCAN_ON_DURATION_NORMAL = com.bitchat.android.util.AppConstants.Power.SCAN_ON_DURATION_NORMAL_MS    // 8 seconds on
+        private const val SCAN_OFF_DURATION_NORMAL = com.bitchat.android.util.AppConstants.Power.SCAN_OFF_DURATION_NORMAL_MS   // 2 seconds off
+        private const val SCAN_ON_DURATION_POWER_SAVE = com.bitchat.android.util.AppConstants.Power.SCAN_ON_DURATION_POWER_SAVE_MS    // 2 seconds on
+        private const val SCAN_OFF_DURATION_POWER_SAVE = com.bitchat.android.util.AppConstants.Power.SCAN_OFF_DURATION_POWER_SAVE_MS  // 8 seconds off
+        private const val SCAN_ON_DURATION_ULTRA_LOW = com.bitchat.android.util.AppConstants.Power.SCAN_ON_DURATION_ULTRA_LOW_MS      // 1 second on
+        private const val SCAN_OFF_DURATION_ULTRA_LOW = com.bitchat.android.util.AppConstants.Power.SCAN_OFF_DURATION_ULTRA_LOW_MS   // 10 seconds off
         
         // Connection limits
-        private const val MAX_CONNECTIONS_NORMAL = 8
-        private const val MAX_CONNECTIONS_POWER_SAVE = 4
-        private const val MAX_CONNECTIONS_ULTRA_LOW = 2
+        private const val MAX_CONNECTIONS_NORMAL = com.bitchat.android.util.AppConstants.Power.MAX_CONNECTIONS_NORMAL
+        private const val MAX_CONNECTIONS_POWER_SAVE = com.bitchat.android.util.AppConstants.Power.MAX_CONNECTIONS_POWER_SAVE
+        private const val MAX_CONNECTIONS_ULTRA_LOW = com.bitchat.android.util.AppConstants.Power.MAX_CONNECTIONS_ULTRA_LOW
     }
     
     enum class PowerMode {

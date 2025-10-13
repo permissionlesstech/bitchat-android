@@ -36,7 +36,7 @@ class BluetoothMeshService(private val context: Context) {
     
     companion object {
         private const val TAG = "BluetoothMeshService"
-        private const val MAX_TTL: UByte = 7u
+        private val MAX_TTL: UByte = com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
     }
     
     // Core components - each handling specific responsibilities
@@ -694,7 +694,7 @@ class BluetoothMeshService(private val context: Context) {
                             timestamp = System.currentTimeMillis().toULong(),
                             payload = encrypted,
                             signature = null,
-                            ttl = 7u
+                            ttl = com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
                         )
                         
                         // Sign and send the encrypted packet
@@ -840,7 +840,7 @@ class BluetoothMeshService(private val context: Context) {
                     timestamp = System.currentTimeMillis().toULong(),
                     payload = encrypted,
                     signature = null,
-                    ttl = 7u // Same TTL as iOS messageTTL
+                    ttl = com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS // Same TTL as iOS messageTTL
                 )
                 
                 // Sign the packet before broadcasting

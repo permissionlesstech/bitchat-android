@@ -26,6 +26,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.res.stringResource
+import com.bitchat.android.R
 
 /**
  * Media picker that offers image and file options
@@ -53,7 +55,7 @@ fun MediaPickerOptions(
         ) {
             Icon(
                 imageVector = Icons.Filled.Add,
-                contentDescription = "Pick media",
+                contentDescription = stringResource(R.string.cd_pick_media),
                 tint = Color.Black,
                 modifier = Modifier.size(20.dp)
             )
@@ -98,7 +100,7 @@ fun MediaPickerOptions(
                             modifier = Modifier.size(16.dp)
                         )
                         androidx.compose.material3.Text(
-                            text = "Image",
+                            text = stringResource(R.string.media_type_image),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
@@ -126,7 +128,7 @@ fun MediaPickerOptions(
                             modifier = Modifier.size(16.dp)
                         )
                         androidx.compose.material3.Text(
-                            text = "File",
+                            text = stringResource(R.string.media_type_file),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
