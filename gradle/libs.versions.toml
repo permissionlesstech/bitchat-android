@@ -2,6 +2,9 @@
 # Android and Kotlin
 agp = "8.10.1"
 kotlin = "2.2.0"
+compileSdk = "36"
+minSdk = "26" # API 26 for proper BLE support
+targetSdk = "36"
 
 # AndroidX Core
 core-ktx = "1.16.0"
