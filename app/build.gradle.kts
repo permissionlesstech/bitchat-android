@@ -7,12 +7,12 @@ plugins {
 
 android {
     namespace = "com.bitchat.android"
-    compileSdk = 36
+    compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
         applicationId = "com.bitchat.droid"
-        minSdk = 26
-        targetSdk = 36
+        minSdk = libs.versions.minSdk.get().toInt()
+        targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = 22
         versionName = "1.3.1"
 
