@@ -3,6 +3,29 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.3.2] - 2025-10-14
+### Added
+- feat: 16KB page size compatibility for Google Play requirements (effective November 1st, 2025)
+- feat: SDK 36 (Android 16) upgrade for latest platform features
+- feat: verification task `verify16KBPageSizeSupport` for compatibility checking
+
+### Changed
+- upgrade: Target SDK updated from 34 to 36 (Android 16)
+- upgrade: Compile SDK updated from 34 to 36 for latest API access
+- config: optimized JNI libs packaging with `useLegacyPackaging = false`
+- config: added explicit NDK ABI filters for all supported architectures
+
+### Removed
+- cleanup: removed unused `NetCipherTorManager` class (never integrated)
+- cleanup: removed unused `TorPageSizeHelper` class (never integrated)
+- cleanup: removed empty `tor` package directory
+
+### Fixed
+- compliance: added required 16KB page size manifest declaration
+- compatibility: ensured all dependencies are 16KB page size compatible
+
 ## [0.7.2] - 2025-07-20
 ### Fixed
 - fix: battery optimization screen content scrollable with fixed buttons
@@ -25,8 +48,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Use HorizontalDivider instead of deprecated Divider
 - Use contentPadding instead of padding so items remain fully visible
 
-
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.7]
 

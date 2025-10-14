@@ -50,6 +50,12 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.BitchatAndroid"
         tools:targetApi="31">
+
+        <!-- 16KB page size support declaration -->
+        <property
+            android:name="android.memoryKiB.pageSize"
+            android:value="16" />
+
         <!-- FileProvider for sharing temp/cache files with external viewers -->
         <provider
             android:name="androidx.core.content.FileProvider"
