@@ -17,11 +17,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - config: optimized JNI libs packaging with `useLegacyPackaging = false`
 - config: added explicit NDK ABI filters for all supported architectures
 
-### Removed
-- cleanup: removed unused `NetCipherTorManager` class (never integrated)
-- cleanup: removed unused `TorPageSizeHelper` class (never integrated)
-- cleanup: removed empty `tor` package directory
-
 ### Fixed
 - compliance: added required 16KB page size manifest declaration
 - compatibility: ensured all dependencies are 16KB page size compatible
