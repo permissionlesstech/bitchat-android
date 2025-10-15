@@ -20,6 +20,7 @@ class MediaSendingManager(
 ) {
     companion object {
         private const val TAG = "MediaSendingManager"
+        private const val MAX_FILE_SIZE = com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES // 50MB limit
     }
 
     // Track in-flight transfer progress: transferId -> messageId and reverse
@@ -38,8 +39,8 @@ class MediaSendingManager(
             }
             Log.d(TAG, "📁 File exists: size=${file.length()} bytes, name=${file.name}")
             
-            if (file.length() > com.bitchat.android.features.media.MediaConstraints.MAX_MEDIA_BYTES) {
-                Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: ${com.bitchat.android.features.media.MediaConstraints.MAX_MEDIA_BYTES})")
+            if (file.length() > com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES) {
+                Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: ${com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES})")
                 return
             }
 
@@ -73,8 +74,8 @@ class MediaSendingManager(
             }
             Log.d(TAG, "📁 File exists: size=${file.length()} bytes, name=${file.name}")
             
-            if (file.length() > com.bitchat.android.features.media.MediaConstraints.MAX_MEDIA_BYTES) {
-                Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: ${com.bitchat.android.features.media.MediaConstraints.MAX_MEDIA_BYTES})")
+            if (file.length() > com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES) {
+                Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: ${com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES})")
                 return
             }
 
@@ -111,8 +112,8 @@ class MediaSendingManager(
             }
             Log.d(TAG, "📁 File exists: size=${file.length()} bytes, name=${file.name}")
             
-            if (file.length() > com.bitchat.android.features.media.MediaConstraints.MAX_MEDIA_BYTES) {
-                Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: ${com.bitchat.android.features.media.MediaConstraints.MAX_MEDIA_BYTES})")
+            if (file.length() > com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES) {
+                Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: ${com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES})")
                 return
             }
 

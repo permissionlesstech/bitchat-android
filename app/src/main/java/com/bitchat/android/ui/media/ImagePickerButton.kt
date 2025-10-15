@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.bitchat.android.features.media.ImageUtils
 import com.bitchat.android.features.media.MediaSizeLimiter
@@ -36,7 +37,7 @@ fun ImagePickerButton(
     ) {
         Icon(
             imageVector = Icons.Filled.Photo,
-            contentDescription = "Pick image",
+            contentDescription = stringResource(com.bitchat.android.R.string.pick_image),
             tint = Color.Gray,
             modifier = Modifier.size(20.dp)
         )

@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -94,7 +95,7 @@ fun LinkPreviewPill(
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.Link,
-                        contentDescription = "Link",
+                        contentDescription = stringResource(com.bitchat.android.R.string.cd_link),
                         modifier = Modifier.size(24.dp),
                         tint = Color.Blue
                     )

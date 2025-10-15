@@ -221,7 +221,7 @@ fun MessageInput(
             // Show placeholder when there's no text and not recording
             if (value.text.isEmpty() && !isRecording) {
                 Text(
-                    text = "type a message...",
+                    text = stringResource(R.string.type_a_message_placeholder),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontFamily = FontFamily.Monospace
                     ),
@@ -241,7 +241,7 @@ fun MessageInput(
                     val secs = (elapsedMs / 1000).toInt()
                     val mm = secs / 60
                     val ss = secs % 60
-                    val maxSecs = com.bitchat.android.features.media.MediaConstraints.MAX_RECORDING_SECONDS
+                    val maxSecs = com.bitchat.android.util.AppConstants.Media.MAX_RECORDING_SECONDS
                     val maxMm = maxSecs / 60
                     val maxSs = maxSecs % 60
                     Text(
@@ -523,7 +523,7 @@ fun MentionSuggestionItem(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = "@$suggestion",
+            text = stringResource(R.string.mention_suggestion_at, suggestion),
             style = MaterialTheme.typography.bodySmall.copy(
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.SemiBold
@@ -535,7 +535,7 @@ fun MentionSuggestionItem(
         Spacer(modifier = Modifier.weight(1f))
         
         Text(
-            text = "mention",
+            text = stringResource(R.string.mention),
             style = MaterialTheme.typography.bodySmall.copy(
                 fontFamily = FontFamily.Monospace
             ),

@@ -19,7 +19,7 @@ object MediaSizeLimiter {
     }
 
     private fun toastTooLarge(context: Context, label: String) {
-        val maxLabel = formatBytes(MediaConstraints.MAX_MEDIA_BYTES)
+        val maxLabel = formatBytes(com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES)
         Toast.makeText(context, "$label is too large to send (max $maxLabel)", Toast.LENGTH_SHORT).show()
     }
 
@@ -45,7 +45,7 @@ object MediaSizeLimiter {
     // Returns false if too large and shows a toast
     fun enforceUriPrecheck(context: Context, uri: Uri, label: String): Boolean {
         val len = queryContentLength(context, uri)
-        if (len != null && len > MediaConstraints.MAX_MEDIA_BYTES) {
+        if (len != null && len > com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES) {
             toastTooLarge(context, label)
             return false
         }
@@ -57,7 +57,7 @@ object MediaSizeLimiter {
         return try {
             val file = File(path)
             val len = file.length()
-            if (len > MediaConstraints.MAX_MEDIA_BYTES) {
+            if (len > com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES) {
                 if (deleteIfTooLarge) runCatching { file.delete() }
                 toastTooLarge(context, label)
                 false

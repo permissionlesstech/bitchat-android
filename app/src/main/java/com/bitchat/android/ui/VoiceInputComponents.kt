@@ -15,12 +15,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.dp
 import com.bitchat.android.features.voice.VoiceRecorder
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.bitchat.android.features.media.MediaConstraints
 import com.google.accompanist.permissions.PermissionStatus
 import com.google.accompanist.permissions.rememberPermissionState
 import kotlinx.coroutines.Job
@@ -84,7 +84,7 @@ fun VoiceRecordButton(
                                         val elapsedMs = (System.currentTimeMillis() - recordingStart).coerceAtLeast(0L)
                                         latestOnAmplitude.value(amp, elapsedMs)
                                         // Auto-stop after configured max duration
-                                        if (elapsedMs >= MediaConstraints.MAX_RECORDING_MS && isRecording) {
+                                        if (elapsedMs >= com.bitchat.android.util.AppConstants.Media.MAX_RECORDING_MS && isRecording) {
                                             val file = recorder?.stop()
                                             isRecording = false
                                             recorder = null
@@ -130,7 +130,7 @@ fun VoiceRecordButton(
     ) {
         Icon(
             imageVector = Icons.Filled.Mic,
-            contentDescription = "Record voice note",
+            contentDescription = stringResource(com.bitchat.android.R.string.cd_record_voice),
             tint = Color.Black,
             modifier = Modifier.size(20.dp)
         )

@@ -22,10 +22,10 @@ class FragmentManager {
     companion object {
         private const val TAG = "FragmentManager"
         // iOS values: 512 MTU threshold, 469 max fragment size (512 MTU - headers)
-        private const val FRAGMENT_SIZE_THRESHOLD = 512 // Matches iOS: if data.count > 512
-        private const val MAX_FRAGMENT_SIZE = 469        // Matches iOS: maxFragmentSize = 469 
-        private const val FRAGMENT_TIMEOUT = 30000L     // Matches iOS: 30 seconds cleanup
-        private const val CLEANUP_INTERVAL = 10000L     // 10 seconds cleanup check
+        private const val FRAGMENT_SIZE_THRESHOLD = com.bitchat.android.util.AppConstants.Fragmentation.FRAGMENT_SIZE_THRESHOLD // Matches iOS: if data.count > 512
+        private const val MAX_FRAGMENT_SIZE = com.bitchat.android.util.AppConstants.Fragmentation.MAX_FRAGMENT_SIZE        // Matches iOS: maxFragmentSize = 469 
+        private const val FRAGMENT_TIMEOUT = com.bitchat.android.util.AppConstants.Fragmentation.FRAGMENT_TIMEOUT_MS     // Matches iOS: 30 seconds cleanup
+        private const val CLEANUP_INTERVAL = com.bitchat.android.util.AppConstants.Fragmentation.CLEANUP_INTERVAL_MS     // 10 seconds cleanup check
     }
     
     // Fragment storage - iOS equivalent: incomingFragments: [String: [Int: Data]]
