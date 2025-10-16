@@ -181,6 +181,9 @@ fun ChatScreen(viewModel: ChatViewModel) {
         }
     }
 
+    // Determine whether to show media capture/pick buttons
+    val isGeohashTimeline = selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location
+
     ChatInputSection(
         messageText = messageText,
         onMessageTextChange = { newText: TextFieldValue ->
@@ -226,7 +229,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 selectedPrivatePeer = selectedPrivatePeer,
                 currentChannel = currentChannel,
                 nickname = nickname,
-                colorScheme = colorScheme
+                colorScheme = colorScheme,
+                showMediaButtons = !isGeohashTimeline
             )
         }
 
@@ -382,7 +386,8 @@ private fun ChatInputSection(
     selectedPrivatePeer: String?,
     currentChannel: String?,
     nickname: String,
-    colorScheme: ColorScheme
+    colorScheme: ColorScheme,
+    showMediaButtons: Boolean
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -418,7 +423,8 @@ private fun ChatInputSection(
                 selectedPrivatePeer = selectedPrivatePeer,
                 currentChannel = currentChannel,
                 nickname = nickname,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                showMediaButtons = showMediaButtons
             )
         }
     }

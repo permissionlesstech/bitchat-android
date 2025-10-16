@@ -43,6 +43,9 @@ import com.bitchat.android.features.voice.AudioWaveformExtractor
 import com.bitchat.android.ui.media.RealtimeScrollingWaveform
 import com.bitchat.android.ui.media.ImagePickerButton
 import com.bitchat.android.ui.media.FilePickerButton
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Surface
+import androidx.compose.ui.text.style.TextAlign
 
 /**
  * Input components for ChatScreen
@@ -170,7 +173,8 @@ fun MessageInput(
     selectedPrivatePeer: String?,
     currentChannel: String?,
     nickname: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showMediaButtons: Boolean = true
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val isFocused = remember { mutableStateOf(false) }
@@ -237,7 +241,7 @@ fun MessageInput(
                     val secs = (elapsedMs / 1000).toInt()
                     val mm = secs / 60
                     val ss = secs % 60
-                    val maxSecs = 10 // 10 second max recording time
+                    val maxSecs = com.bitchat.android.util.AppConstants.Media.MAX_RECORDING_SECONDS
                     val maxMm = maxSecs / 60
                     val maxSs = maxSecs % 60
                     Text(
@@ -263,15 +267,14 @@ fun MessageInput(
             val latestOnSendVoiceNote = rememberUpdatedState(onSendVoiceNote)
 
             // Image button (image picker) - hide during recording
-            if (!isRecording) {
+            if (!isRecording && showMediaButtons) {
                 // Revert to original separate buttons: round File button (left) and the old Image plus button (right)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    // DISABLE FILE PICKER
-                    //FilePickerButton(
-                    //    onFileReady = { path ->
-                    //        onSendFileNote(latestSelectedPeer.value, latestChannel.value, path)
-                    //    }
-                    //)
+                    FilePickerButton(
+                        onFileReady = { path ->
+                            onSendFileNote(latestSelectedPeer.value, latestChannel.value, path)
+                        }
+                    )
                     ImagePickerButton(
                         onImageReady = { outPath ->
                             onSendImageNote(latestSelectedPeer.value, latestChannel.value, outPath)
@@ -282,7 +285,7 @@ fun MessageInput(
 
             Spacer(Modifier.width(1.dp))
 
-            VoiceRecordButton(
+            if (showMediaButtons) VoiceRecordButton(
                 backgroundColor = bg,
                 onStart = {
                     isRecording = true
@@ -310,6 +313,17 @@ fun MessageInput(
                         latestChannel.value,
                         path
                     )
+                }
+            ) else SlashCommandButton(
+                onClick = {
+                    val newText = "/"
+                    onValueChange(
+                        TextFieldValue(
+                            text = newText,
+                            selection = androidx.compose.ui.text.TextRange(newText.length)
+                        )
+                    )
+                    try { focusRequester.requestFocus() } catch (_: Exception) {}
                 }
             )
             
@@ -362,6 +376,29 @@ fun MessageInput(
     }
 
     // Auto-stop handled inside VoiceRecordButton
+}
+
+@Composable
+private fun SlashCommandButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val colorScheme = MaterialTheme.colorScheme
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = colorScheme.background,
+        tonalElevation = 3.dp,
+        shadowElevation = 6.dp,
+        border = BorderStroke(1.dp, colorScheme.outline.copy(alpha = 0.4f)),
+        modifier = modifier.size(32.dp)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = "/",
+                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                color = colorScheme.primary,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
 }
 
 @Composable

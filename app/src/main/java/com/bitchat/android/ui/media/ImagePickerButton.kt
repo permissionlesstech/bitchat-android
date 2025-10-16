@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.bitchat.android.features.media.ImageUtils
+import com.bitchat.android.features.media.MediaSizeLimiter
 
 @Composable
 fun ImagePickerButton(
@@ -26,7 +27,7 @@ fun ImagePickerButton(
     ) { uri: android.net.Uri? ->
         if (uri != null) {
             val outPath = ImageUtils.downscaleAndSaveToAppFiles(context, uri)
-            if (!outPath.isNullOrBlank()) onImageReady(outPath)
+            if (!outPath.isNullOrBlank() && MediaSizeLimiter.enforcePathPostCheck(context, outPath, label = "Image", deleteIfTooLarge = true)) onImageReady(outPath)
         }
     }
 
@@ -42,4 +43,3 @@ fun ImagePickerButton(
         )
     }
 }
-

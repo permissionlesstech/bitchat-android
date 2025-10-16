@@ -39,8 +39,8 @@ class MediaSendingManager(
             }
             Log.d(TAG, "📁 File exists: size=${file.length()} bytes, name=${file.name}")
             
-            if (file.length() > MAX_FILE_SIZE) {
-                Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: $MAX_FILE_SIZE)")
+            if (file.length() > com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES) {
+                Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: ${com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES})")
                 return
             }
 
@@ -74,8 +74,8 @@ class MediaSendingManager(
             }
             Log.d(TAG, "📁 File exists: size=${file.length()} bytes, name=${file.name}")
             
-            if (file.length() > MAX_FILE_SIZE) {
-                Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: $MAX_FILE_SIZE)")
+            if (file.length() > com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES) {
+                Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: ${com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES})")
                 return
             }
 
@@ -112,8 +112,8 @@ class MediaSendingManager(
             }
             Log.d(TAG, "📁 File exists: size=${file.length()} bytes, name=${file.name}")
             
-            if (file.length() > MAX_FILE_SIZE) {
-                Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: $MAX_FILE_SIZE)")
+            if (file.length() > com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES) {
+                Log.e(TAG, "❌ File too large: ${file.length()} bytes (max: ${com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES})")
                 return
             }
 
@@ -276,6 +276,11 @@ class MediaSendingManager(
             val cancelled = meshService.cancelFileTransfer(transferId)
             if (cancelled) {
                 // Remove the message from chat upon explicit cancel
+                // Also attempt to delete the associated outgoing file
+                runCatching { findMessagePathById(messageId) }.
+                    getOrNull()?.let { path ->
+                        try { java.io.File(path).takeIf { it.exists() }?.delete() } catch (_: Exception) {}
+                    }
                 messageManager.removeMessageById(messageId)
                 synchronized(transferMessageMap) {
                     transferMessageMap.remove(transferId)
@@ -283,6 +288,20 @@ class MediaSendingManager(
                 }
             }
         }
+    }
+
+    private fun findMessagePathById(messageId: String): String? {
+        // Check main messages
+        state.getMessagesValue().firstOrNull { it.id == messageId }?.content?.let { return it }
+        // Check private chats
+        state.getPrivateChatsValue().values.forEach { list ->
+            list.firstOrNull { it.id == messageId }?.content?.let { return it }
+        }
+        // Check channels
+        state.getChannelMessagesValue().values.forEach { list ->
+            list.firstOrNull { it.id == messageId }?.content?.let { return it }
+        }
+        return null
     }
 
     /**

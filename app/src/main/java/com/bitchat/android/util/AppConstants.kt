@@ -110,7 +110,9 @@ object AppConstants {
     }
 
     object Media {
-        const val MAX_FILE_SIZE_BYTES: Long = 50L * 1024 * 1024
+        const val MAX_FILE_SIZE_BYTES: Long = 1L * 1024 * 1024
+        const val MAX_RECORDING_SECONDS: Int = 30
+        const val MAX_RECORDING_MS: Long = MAX_RECORDING_SECONDS * 1000L
     }
 
     object Services {
