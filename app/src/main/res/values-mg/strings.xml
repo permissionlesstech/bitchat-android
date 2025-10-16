@@ -247,7 +247,6 @@
     <string name="debug_relays_window_fmt">10s farany: %1$d • 1m: %2$d • 15m: %3$d</string>
     <string name="debug_derived_p_fmt">P azo: %1$s • tombana singa max: %2$s</string>
     <string name="debug_direct_suffix"> • mivantana</string>
-    <string name="debug_rssi_fmt">%1$s • RSSI: %2$s</string>
     <string name="debug_role_server">ho mpizara (isika mampiantrano)</string>
     <string name="debug_role_client">ho mpanjifa (isika mifandray)</string>
 

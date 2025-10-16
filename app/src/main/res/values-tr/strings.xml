@@ -222,7 +222,6 @@
     <string name="debug_relays_window_fmt">son 10 sn: %1$d • 1 dk: %2$d • 15 dk: %3$d</string>
     <string name="debug_derived_p_fmt">türetilen P: %1$s • tahm. maks öge: %2$s</string>
     <string name="debug_direct_suffix"> • doğrudan</string>
-    <string name="debug_rssi_fmt">%1$s • RSSI: %2$s</string>
     <string name="debug_question_mark">?</string>
     <string name="debug_role_server">sunucu olarak (barındırıyoruz)</string>
     <string name="debug_role_client">istemci olarak (bağlanıyoruz)</string>

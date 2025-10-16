@@ -247,7 +247,6 @@
     <string name="debug_relays_window_fmt">마지막 10초: %1$d • 1분: %2$d • 15분: %3$d</string>
     <string name="debug_derived_p_fmt">유도 P: %1$s • 예상 최대 요소: %2$s</string>
     <string name="debug_direct_suffix"> • 직접</string>
-    <string name="debug_rssi_fmt">%1$s • RSSI: %2$s</string>
     <string name="debug_role_server">서버로서 (우리가 호스트)</string>
     <string name="debug_role_client">클라이언트로서 (우리가 연결)</string>
 

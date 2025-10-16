@@ -247,7 +247,6 @@
     <string name="debug_relays_window_fmt">آخر 10 ثوان: %1$d • 1 دقيقة: %2$d • 15 دقيقة: %3$d</string>
     <string name="debug_derived_p_fmt">قيمة P المشتقة: %1$s • الحد الأقصى للعناصر المقدّر: %2$s</string>
     <string name="debug_direct_suffix"> • مباشر</string>
-    <string name="debug_rssi_fmt">%1$s • RSSI: %2$s</string>
     <string name="debug_role_server">كخادم (نحن نستضيف)</string>
     <string name="debug_role_client">كعميل (نحن نتصل)</string>
 

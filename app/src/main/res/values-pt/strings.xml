@@ -247,7 +247,6 @@
     <string name="debug_relays_window_fmt">últimos 10s: %1$d • 1m: %2$d • 15m: %3$d</string>
     <string name="debug_derived_p_fmt">P derivado: %1$s • máx. itens estimados: %2$s</string>
     <string name="debug_direct_suffix"> • direto</string>
-    <string name="debug_rssi_fmt">%1$s • RSSI: %2$s</string>
     <string name="debug_role_server">como servidor (nós hospedamos)</string>
     <string name="debug_role_client">como cliente (nós ligamos)</string>
 

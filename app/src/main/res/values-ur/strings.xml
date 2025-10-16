@@ -247,7 +247,6 @@
     <string name="debug_relays_window_fmt">آخری 10 سیکنڈ: %1$d • 1 منٹ: %2$d • 15 منٹ: %3$d</string>
     <string name="debug_derived_p_fmt">ماخوذ P: %1$s • تخمینی زیادہ سے زیادہ آئٹمز: %2$s</string>
     <string name="debug_direct_suffix"> • براہ راست</string>
-    <string name="debug_rssi_fmt">%1$s • RSSI: %2$s</string>
     <string name="debug_role_server">سرور کے طور پر (ہم ہوسٹ کرتے ہیں)</string>
     <string name="debug_role_client">کلائنٹ کے طور پر (ہم کنیکٹ کرتے ہیں)</string>
 

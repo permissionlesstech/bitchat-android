@@ -247,7 +247,6 @@
     <string name="debug_relays_window_fmt">10 detik terakhir: %1$d • 1m: %2$d • 15m: %3$d</string>
     <string name="debug_derived_p_fmt">P turunan: %1$s • elemen maks perkiraan: %2$s</string>
     <string name="debug_direct_suffix"> • langsung</string>
-    <string name="debug_rssi_fmt">%1$s • RSSI: %2$s</string>
     <string name="debug_role_server">sebagai server (kami host)</string>
     <string name="debug_role_client">sebagai client (kami hubungkan)</string>
 

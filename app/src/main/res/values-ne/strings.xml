@@ -237,7 +237,6 @@
     <string name="debug_relays_window_fmt">अन्तिम 10s: %1$d • 1m: %2$d • 15m: %3$d</string>
     <string name="debug_derived_p_fmt">व्युत्पन्न P: %1$s • अनुमानित अधिकतम तत्व: %2$s</string>
     <string name="debug_direct_suffix"> • प्रत्यक्ष</string>
-    <string name="debug_rssi_fmt">%1$s • RSSI: %2$s</string>
     <string name="debug_question_mark">?</string>
     <string name="debug_role_server">सर्भरको रूपमा (हामी होस्ट गर्छौं)</string>
     <string name="debug_role_client">क्लाइन्टको रूपमा (हामी जडान गर्छौं)</string>

@@ -247,7 +247,6 @@
     <string name="debug_relays_window_fmt">۱۰ث اخیر: %1$d • ۱د: %2$d • ۱۵د: %3$d</string>
     <string name="debug_derived_p_fmt">P مشتق: %1$s • عناصر حداکثر تخمینی: %2$s</string>
     <string name="debug_direct_suffix"> • مستقیم</string>
-    <string name="debug_rssi_fmt">%1$s • RSSI: %2$s</string>
     <string name="debug_role_server">به عنوان سرور (ما میزبانیم)</string>
     <string name="debug_role_client">به عنوان کلاینت (ما متصل می‌شویم)</string>
 

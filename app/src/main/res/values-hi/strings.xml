@@ -247,7 +247,6 @@
     <string name="debug_relays_window_fmt">पिछले 10 से.: %1$d • 1 मि.: %2$d • 15 मि.: %3$d</string>
     <string name="debug_derived_p_fmt">व्युत्पन्न P: %1$s • अनुमानित अधिकतम आइटम: %2$s</string>
     <string name="debug_direct_suffix"> • डायरेक्ट</string>
-    <string name="debug_rssi_fmt">%1$s • RSSI: %2$s</string>
     <string name="debug_role_server">सर्वर के रूप में (हम होस्ट करते हैं)</string>
     <string name="debug_role_client">क्लाइंट के रूप में (हम कनेक्ट करते हैं)</string>
 

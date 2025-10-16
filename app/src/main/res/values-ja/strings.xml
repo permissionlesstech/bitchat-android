@@ -247,7 +247,6 @@
     <string name="debug_relays_window_fmt">直近 10 秒: %1$d • 1 分: %2$d • 15 分: %3$d</string>
     <string name="debug_derived_p_fmt">導出 P: %1$s • 推定最大アイテム: %2$s</string>
     <string name="debug_direct_suffix"> • 直接</string>
-    <string name="debug_rssi_fmt">%1$s • RSSI: %2$s</string>
     <string name="debug_role_server">サーバーとして (自分がホスト)</string>
     <string name="debug_role_client">クライアントとして (自分が接続)</string>
 

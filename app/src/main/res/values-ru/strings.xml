@@ -222,7 +222,6 @@
     <string name="debug_relays_window_fmt">посл. 10с: %1$d • 1м: %2$d • 15м: %3$d</string>
     <string name="debug_derived_p_fmt">выведенный P: %1$s • оцен. макс. элементов: %2$s</string>
     <string name="debug_direct_suffix"> • напрямую</string>
-    <string name="debug_rssi_fmt">%1$s • RSSI: %2$s</string>
     <string name="debug_question_mark">?</string>
     <string name="debug_role_server">как сервер (мы хостим)</string>
     <string name="debug_role_client">как клиент (мы подключаемся)</string>

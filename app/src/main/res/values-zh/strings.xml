@@ -237,7 +237,6 @@
     <string name="debug_relays_window_fmt">最近 10 秒：%1$d • 1 分钟：%2$d • 15 分钟：%3$d</string>
     <string name="debug_derived_p_fmt">导出 P：%1$s • 估算最大元素：%2$s</string>
     <string name="debug_direct_suffix"> • 直连</string>
-    <string name="debug_rssi_fmt">%1$s • RSSI：%2$s</string>
     <string name="debug_question_mark">?</string>
     <string name="debug_role_server">作为服务器（我们托管）</string>
     <string name="debug_role_client">作为客户端（我们连接）</string>
