@@ -548,9 +548,9 @@ fun LocationChannelsSheet(
                         .height(56.dp)
                         .background(MaterialTheme.colorScheme.background.copy(alpha = topBarAlpha))
                 ) {
-                    TextButton(
+                    CloseButton(
                         onClick = onDismiss,
-                        modifier = Modifier
+                        modifier = modifier
                             .align(Alignment.CenterEnd)
                             .padding(horizontal = 16.dp)
                     ) {
