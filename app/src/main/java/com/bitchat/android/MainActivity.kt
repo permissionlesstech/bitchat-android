@@ -598,6 +598,64 @@ class MainActivity : ComponentActivity() {
                 PoWPreferenceManager.init(this@MainActivity)
                 Log.d("MainActivity", "PoW preferences initialized")
                 
+                // Initialize Location Notes Counter (iOS parity)
+                com.bitchat.android.nostr.LocationNotesCounter.initialize(
+                    relayManager = { com.bitchat.android.nostr.NostrRelayManager.getInstance(this@MainActivity) },
+                    subscribe = { filter, id, handler ->
+                        // Use subscribeForGeohash for location notes (finds geo-local relays)
+                        val geohashFromFilter = filter.getDebugDescription().substringAfter("#g=").substringBefore(")").substringBefore(",")
+                        com.bitchat.android.nostr.NostrRelayManager.getInstance(this@MainActivity).subscribeForGeohash(
+                            geohash = geohashFromFilter,
+                            filter = filter,
+                            id = id,
+                            handler = handler,
+                            includeDefaults = true,
+                            nRelays = 5
+                        )
+                    },
+                    unsubscribe = { id ->
+                        com.bitchat.android.nostr.NostrRelayManager.getInstance(this@MainActivity).unsubscribe(id)
+                    }
+                )
+                Log.d("MainActivity", "Location Notes Counter initialized")
+                
+                // CRITICAL FIX: Initialize Location Notes Manager (iOS parity)
+                com.bitchat.android.nostr.LocationNotesManager.getInstance().initialize(
+                    relayManager = { com.bitchat.android.nostr.NostrRelayManager.getInstance(this@MainActivity) },
+                    subscribe = { filter, id, handler ->
+                        // Extract geohash from filter for geo-routing
+                        val geohashFromFilter = filter.getDebugDescription()
+                            .substringAfter("#g=")
+                            .substringBefore(")")
+                            .substringBefore(",")
+                        
+                        Log.d("MainActivity", "Location Notes subscribing to geohash: $geohashFromFilter")
+                        
+                        com.bitchat.android.nostr.NostrRelayManager.getInstance(this@MainActivity).subscribeForGeohash(
+                            geohash = geohashFromFilter,
+                            filter = filter,
+                            id = id,
+                            handler = handler,
+                            includeDefaults = true,
+                            nRelays = 5
+                        )
+                    },
+                    unsubscribe = { id ->
+                        com.bitchat.android.nostr.NostrRelayManager.getInstance(this@MainActivity).unsubscribe(id)
+                    },
+                    sendEvent = { event, relayUrls ->
+                        if (relayUrls != null) {
+                            com.bitchat.android.nostr.NostrRelayManager.getInstance(this@MainActivity).sendEvent(event, relayUrls)
+                        } else {
+                            com.bitchat.android.nostr.NostrRelayManager.getInstance(this@MainActivity).sendEvent(event)
+                        }
+                    },
+                    deriveIdentity = { geohash ->
+                        com.bitchat.android.nostr.NostrIdentityBridge.deriveIdentity(geohash, this@MainActivity)
+                    }
+                )
+                Log.d("MainActivity", "✅ Location Notes Manager initialized")
+                
                 // Ensure all permissions are still granted (user might have revoked in settings)
                 if (!permissionManager.areAllPermissionsGranted()) {
                     val missing = permissionManager.getMissingPermissions()

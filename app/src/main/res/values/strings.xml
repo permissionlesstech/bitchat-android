@@ -73,6 +73,7 @@
   <string name="cd_nostr_reachable">Nostr reachable</string>
   <string name="cd_unread_private_messages">Unread private messages</string>
   <string name="cd_toggle_bookmark">Toggle bookmark</string>
+  <string name="cd_location_notes">Location notes</string>
   <string name="cd_teleported">Teleported</string>
   <string name="cd_tor_status">Tor status</string>
   <string name="cd_connected_peers">Connected peers</string>

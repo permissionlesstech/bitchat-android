@@ -63,6 +63,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
     var showPasswordDialog by remember { mutableStateOf(false) }
     var passwordInput by remember { mutableStateOf("") }
     var showLocationChannelsSheet by remember { mutableStateOf(false) }
+    var showLocationNotesSheet by remember { mutableStateOf(false) }
     var showUserSheet by remember { mutableStateOf(false) }
     var selectedUserForSheet by remember { mutableStateOf("") }
     var selectedMessageForSheet by remember { mutableStateOf<BitchatMessage?>(null) }
@@ -241,7 +242,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
             onSidebarToggle = { viewModel.showSidebar() },
             onShowAppInfo = { viewModel.showAppInfo() },
             onPanicClear = { viewModel.panicClearAllData() },
-            onLocationChannelsClick = { showLocationChannelsSheet = true }
+            onLocationChannelsClick = { showLocationChannelsSheet = true },
+            onLocationNotesClick = { showLocationNotesSheet = true }
         )
 
         // Divider under header - positioned after status bar + header height
@@ -354,6 +356,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
         onAppInfoDismiss = { viewModel.hideAppInfo() },
         showLocationChannelsSheet = showLocationChannelsSheet,
         onLocationChannelsSheetDismiss = { showLocationChannelsSheet = false },
+        showLocationNotesSheet = showLocationNotesSheet,
+        onLocationNotesSheetDismiss = { showLocationNotesSheet = false },
         showUserSheet = showUserSheet,
         onUserSheetDismiss = { 
             showUserSheet = false
@@ -435,7 +439,8 @@ private fun ChatFloatingHeader(
     onSidebarToggle: () -> Unit,
     onShowAppInfo: () -> Unit,
     onPanicClear: () -> Unit,
-    onLocationChannelsClick: () -> Unit
+    onLocationChannelsClick: () -> Unit,
+    onLocationNotesClick: () -> Unit
 ) {
     Surface(
         modifier = Modifier
@@ -460,7 +465,8 @@ private fun ChatFloatingHeader(
                     onSidebarClick = onSidebarToggle,
                     onTripleClick = onPanicClear,
                     onShowAppInfo = onShowAppInfo,
-                    onLocationChannelsClick = onLocationChannelsClick
+                    onLocationChannelsClick = onLocationChannelsClick,
+                    onLocationNotesClick = onLocationNotesClick
                 )
             },
             colors = TopAppBarDefaults.topAppBarColors(
@@ -471,6 +477,7 @@ private fun ChatFloatingHeader(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChatDialogs(
     showPasswordDialog: Boolean,
@@ -483,6 +490,8 @@ private fun ChatDialogs(
     onAppInfoDismiss: () -> Unit,
     showLocationChannelsSheet: Boolean,
     onLocationChannelsSheetDismiss: () -> Unit,
+    showLocationNotesSheet: Boolean,
+    onLocationNotesSheetDismiss: () -> Unit,
     showUserSheet: Boolean,
     onUserSheetDismiss: () -> Unit,
     selectedUserForSheet: String,
@@ -521,6 +530,68 @@ private fun ChatDialogs(
             onDismiss = onLocationChannelsSheetDismiss,
             viewModel = viewModel
         )
+    }
+    
+    // Location notes sheet
+    if (showLocationNotesSheet) {
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val locationManager = remember { com.bitchat.android.geohash.LocationChannelManager.getInstance(context) }
+        val availableChannels by locationManager.availableChannels.observeAsState(emptyList())
+        val nickname by viewModel.nickname.observeAsState("")
+        
+        // Get building-level geohash (precision 8 for iOS compatibility)
+        val buildingGeohash = availableChannels.firstOrNull { it.level == com.bitchat.android.geohash.GeohashChannelLevel.BUILDING }?.geohash
+        
+        if (buildingGeohash != null) {
+            // Get location name from locationManager
+            val locationNames by locationManager.locationNames.observeAsState(emptyMap())
+            val locationName = locationNames[com.bitchat.android.geohash.GeohashChannelLevel.BUILDING]
+                ?: locationNames[com.bitchat.android.geohash.GeohashChannelLevel.BLOCK]
+            
+            LocationNotesSheet(
+                geohash = buildingGeohash,
+                locationName = locationName,
+                nickname = nickname,
+                onDismiss = onLocationNotesSheetDismiss
+            )
+            
+            // Subscribe to notes counter when sheet is shown
+            LaunchedEffect(buildingGeohash) {
+                com.bitchat.android.nostr.LocationNotesCounter.subscribe(buildingGeohash)
+            }
+        } else {
+            // No block geohash available - show error state
+            ModalBottomSheet(
+                onDismissRequest = onLocationNotesSheetDismiss,
+                containerColor = MaterialTheme.colorScheme.surface
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Location Unavailable",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Location permission is required for notes",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Button(onClick = {
+                        locationManager.enableLocationChannels()
+                        locationManager.refreshChannels()
+                    }) {
+                        Text("Enable Location")
+                    }
+                }
+            }
+        }
     }
     
     // User action sheet

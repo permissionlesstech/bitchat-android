@@ -713,6 +713,7 @@ private fun geohashTitleWithCount(channel: GeohashChannel, participantCount: Int
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val peopleText = ctx.resources.getQuantityString(com.bitchat.android.R.plurals.people_count, participantCount, participantCount)
     val levelName = when (channel.level) {
+        com.bitchat.android.geohash.GeohashChannelLevel.BUILDING -> "Building" // iOS: precision 8 for location notes
         com.bitchat.android.geohash.GeohashChannelLevel.BLOCK -> stringResource(com.bitchat.android.R.string.location_level_block)
         com.bitchat.android.geohash.GeohashChannelLevel.NEIGHBORHOOD -> stringResource(com.bitchat.android.R.string.location_level_neighborhood)
         com.bitchat.android.geohash.GeohashChannelLevel.CITY -> stringResource(com.bitchat.android.R.string.location_level_city)
@@ -749,7 +750,8 @@ private fun levelForLength(length: Int): GeohashChannelLevel {
         5 -> GeohashChannelLevel.CITY
         6 -> GeohashChannelLevel.NEIGHBORHOOD
         7 -> GeohashChannelLevel.BLOCK
-        else -> GeohashChannelLevel.BLOCK
+        8 -> GeohashChannelLevel.BUILDING // iOS: precision 8 for building-level
+        else -> if (length > 8) GeohashChannelLevel.BUILDING else GeohashChannelLevel.BLOCK
     }
 }
 

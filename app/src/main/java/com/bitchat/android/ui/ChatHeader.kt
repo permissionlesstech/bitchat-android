@@ -28,6 +28,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.core.ui.utils.singleOrTripleClickable
+import com.bitchat.android.geohash.LocationChannelManager.PermissionState
 
 /**
  * Header components for ChatScreen
@@ -233,7 +234,8 @@ fun ChatHeaderContent(
     onSidebarClick: () -> Unit,
     onTripleClick: () -> Unit,
     onShowAppInfo: () -> Unit,
-    onLocationChannelsClick: () -> Unit
+    onLocationChannelsClick: () -> Unit,
+    onLocationNotesClick: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
@@ -289,6 +291,7 @@ fun ChatHeaderContent(
                 onTripleTitleClick = onTripleClick,
                 onSidebarClick = onSidebarClick,
                 onLocationChannelsClick = onLocationChannelsClick,
+                onLocationNotesClick = onLocationNotesClick,
                 viewModel = viewModel
             )
         }
@@ -510,6 +513,7 @@ private fun MainHeader(
     onTripleTitleClick: () -> Unit,
     onSidebarClick: () -> Unit,
     onLocationChannelsClick: () -> Unit,
+    onLocationNotesClick: () -> Unit,
     viewModel: ChatViewModel
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -525,6 +529,15 @@ private fun MainHeader(
     val context = androidx.compose.ui.platform.LocalContext.current
     val bookmarksStore = remember { com.bitchat.android.geohash.GeohashBookmarksStore.getInstance(context) }
     val bookmarks by bookmarksStore.bookmarks.observeAsState(emptyList())
+    
+    // Location notes counter (iOS parity)
+    val notesCounter = remember { com.bitchat.android.nostr.LocationNotesCounter }
+    val notesCount by notesCounter.count.observeAsState(0)
+    
+    // Location channel manager for permission state
+    val locationManager = remember { com.bitchat.android.geohash.LocationChannelManager.getInstance(context) }
+    val permissionState by locationManager.permissionState.observeAsState()
+    val locationPermissionGranted = permissionState == PermissionState.AUTHORIZED
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -570,6 +583,23 @@ private fun MainHeader(
                         .clickable { viewModel.openLatestUnreadPrivateChat() },
                     tint = Color(0xFFFF9500)
                 )
+            }
+            
+            // Location Notes button (mesh only, when location is authorized)
+            // iOS: Shows to the left of #mesh badge when in mesh mode and location permitted
+            if (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Mesh && locationPermissionGranted) {
+                val hasNotes = (notesCount ?: 0) > 0
+                IconButton(
+                    onClick = onLocationNotesClick,
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Description, // "long.text.page.and.pencil" equivalent
+                        contentDescription = stringResource(R.string.cd_location_notes),
+                        modifier = Modifier.size(16.dp),
+                        tint = if (hasNotes) colorScheme.primary else Color.Gray
+                    )
+                }
             }
 
             // Location channels button (matching iOS implementation) and bookmark grouped tightly
