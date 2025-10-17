@@ -85,6 +85,9 @@ private fun LocationNotesErrorSheet(
             )
             Spacer(modifier = Modifier.height(24.dp))
             Button(onClick = {
+                // UNIFIED FIX: Enable location services first (user toggle)
+                locationManager.enableLocationServices()
+                // Then request location channels (which will also request permission if needed)
                 locationManager.enableLocationChannels()
                 locationManager.refreshChannels()
             }) {
