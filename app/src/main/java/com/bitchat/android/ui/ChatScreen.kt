@@ -539,61 +539,12 @@ private fun ChatDialogs(
         )
     }
     
-    // Location notes sheet - matches iOS pattern exactly
+    // Location notes sheet (extracted to separate presenter)
     if (showLocationNotesSheet) {
-        val context = androidx.compose.ui.platform.LocalContext.current
-        val locationManager = remember { com.bitchat.android.geohash.LocationChannelManager.getInstance(context) }
-        val availableChannels by locationManager.availableChannels.observeAsState(emptyList())
-        val nickname by viewModel.nickname.observeAsState("")
-        
-        // iOS pattern: notesGeohash ?? LocationChannelManager.shared.availableChannels.first(where: { $0.level == .building })?.geohash
-        val buildingGeohash = availableChannels.firstOrNull { it.level == com.bitchat.android.geohash.GeohashChannelLevel.BUILDING }?.geohash
-        
-        if (buildingGeohash != null) {
-            // Get location name from locationManager
-            val locationNames by locationManager.locationNames.observeAsState(emptyMap())
-            val locationName = locationNames[com.bitchat.android.geohash.GeohashChannelLevel.BUILDING]
-                ?: locationNames[com.bitchat.android.geohash.GeohashChannelLevel.BLOCK]
-            
-            LocationNotesSheet(
-                geohash = buildingGeohash,
-                locationName = locationName,
-                nickname = nickname,
-                onDismiss = onLocationNotesSheetDismiss
-            )
-        } else {
-            // No building geohash available - show error state (matches iOS)
-            ModalBottomSheet(
-                onDismissRequest = onLocationNotesSheetDismiss,
-                containerColor = MaterialTheme.colorScheme.surface
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "Location Unavailable",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Location permission is required for notes",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Button(onClick = {
-                        locationManager.enableLocationChannels()
-                        locationManager.refreshChannels()
-                    }) {
-                        Text("Enable Location")
-                    }
-                }
-            }
-        }
+        LocationNotesSheetPresenter(
+            viewModel = viewModel,
+            onDismiss = onLocationNotesSheetDismiss
+        )
     }
     
     // User action sheet

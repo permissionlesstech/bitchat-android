@@ -535,16 +535,6 @@ private fun MainHeader(
     val context = androidx.compose.ui.platform.LocalContext.current
     val bookmarksStore = remember { com.bitchat.android.geohash.GeohashBookmarksStore.getInstance(context) }
     val bookmarks by bookmarksStore.bookmarks.observeAsState(emptyList())
-    
-    // SIMPLIFIED: Get notes count directly from LocationNotesManager (no separate counter)
-    val notesManager = remember { com.bitchat.android.nostr.LocationNotesManager.getInstance() }
-    val notes by notesManager.notes.observeAsState(emptyList())
-    val notesCount = notes.size
-    
-    // Location channel manager for permission state
-    val locationManager = remember { com.bitchat.android.geohash.LocationChannelManager.getInstance(context) }
-    val permissionState by locationManager.permissionState.observeAsState()
-    val locationPermissionGranted = permissionState == PermissionState.AUTHORIZED
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -623,22 +613,11 @@ private fun MainHeader(
                 }
             }
 
-            // Location Notes button (mesh only, when location is authorized)
-            // iOS: Shows to the left of #mesh badge when in mesh mode and location permitted
-            if (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Mesh && locationPermissionGranted) {
-                val hasNotes = (notesCount ?: 0) > 0
-                IconButton(
-                    onClick = onLocationNotesClick,
-                    modifier = Modifier.size(24.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Description, // "long.text.page.and.pencil" equivalent
-                        contentDescription = stringResource(R.string.cd_location_notes),
-                        modifier = Modifier.size(16.dp),
-                        tint = if (hasNotes) colorScheme.primary else Color.Gray
-                    )
-                }
-            }
+            // Location Notes button (extracted to separate component)
+            LocationNotesButton(
+                viewModel = viewModel,
+                onClick = onLocationNotesClick
+            )
 
             // Tor status dot when Tor is enabled
             TorStatusDot(

@@ -594,69 +594,7 @@ class ChatViewModel(
         }
     }
     
-    /**
-     * SIMPLIFIED: Initialize location notes manager subscription (no separate counter)
-     * Subscribes/unsubscribes based on channel selection and location permission
-     */
-    private fun initializeLocationNotesManagerSubscription() {
-        viewModelScope.launch {
-            // Observe channel changes
-            selectedLocationChannel.observeForever { channel ->
-                updateLocationNotesSubscription(channel)
-            }
-        }
-    }
-    
-    /**
-     * SIMPLIFIED: Update location notes subscription based on current channel and location permission
-     * iOS pattern: Subscribe when in mesh mode and location is authorized
-     */
-    private fun updateLocationNotesSubscription(channel: com.bitchat.android.geohash.ChannelID?) {
-        try {
-            val locationManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(getApplication())
-            val permissionState = locationManager.permissionState.value
-            val locationPermissionGranted = permissionState == com.bitchat.android.geohash.LocationChannelManager.PermissionState.AUTHORIZED
-            
-            when (channel) {
-                is com.bitchat.android.geohash.ChannelID.Mesh -> {
-                    // Mesh mode: subscribe to building-level geohash notes if location authorized
-                    if (locationPermissionGranted) {
-                        // Refresh location to get current building geohash
-                        locationManager.refreshChannels()
-                        
-                        // Get building-level geohash (precision 8, same as iOS)
-                        val buildingGeohash = locationManager.availableChannels.value
-                            ?.firstOrNull { it.level == com.bitchat.android.geohash.GeohashChannelLevel.BUILDING }
-                            ?.geohash
-                        
-                        if (buildingGeohash != null) {
-                            Log.d(TAG, "📍 Subscribing to location notes for building geohash: $buildingGeohash")
-                            com.bitchat.android.nostr.LocationNotesManager.getInstance().setGeohash(buildingGeohash)
-                        } else {
-                            // Cancel if no building geohash available
-                            if (com.bitchat.android.nostr.LocationNotesManager.getInstance().geohash.value == null) {
-                                com.bitchat.android.nostr.LocationNotesManager.getInstance().cancel()
-                            }
-                        }
-                    } else {
-                        com.bitchat.android.nostr.LocationNotesManager.getInstance().cancel()
-                    }
-                }
-                is com.bitchat.android.geohash.ChannelID.Location -> {
-                    // Location channel mode: cancel (only show in mesh mode)
-                    com.bitchat.android.nostr.LocationNotesManager.getInstance().cancel()
-                }
-                null -> {
-                    // Default to mesh behavior
-                    if (locationPermissionGranted) {
-                        locationManager.refreshChannels()
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "updateLocationNotesSubscription failed: ${e.message}")
-        }
-    }
+    // Location notes subscription management moved to LocationNotesViewModelExtensions.kt
     
     /**
      * Update reactive states for all connected peers (session states, fingerprints, nicknames, RSSI)
