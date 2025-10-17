@@ -157,6 +157,28 @@ class LocationNotesManager private constructor() {
             return
         }
         
+        val trimmed = content.trim()
+        if (trimmed.isEmpty()) {
+            return
+        }
+        
+        // CRITICAL FIX: Get geo-specific relays for sending (matching iOS pattern)
+        // iOS: let relays = dependencies.relayLookup(geohash, TransportConfig.nostrGeoRelayCount)
+        val relays = try {
+            com.bitchat.android.nostr.RelayDirectory.closestRelaysForGeohash(currentGeohash, 5)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to lookup relays for geohash $currentGeohash: ${e.message}")
+            emptyList()
+        }
+        
+        // Check if we have relays (iOS pattern: guard !relays.isEmpty())
+        if (relays.isEmpty()) {
+            Log.w(TAG, "Send blocked - no geo relays for geohash: $currentGeohash")
+            _state.value = State.NO_RELAYS
+            _errorMessage.value = "No relays available"
+            return
+        }
+        
         val deriveIdentity = deriveIdentityFunc
         if (deriveIdentity == null) {
             Log.e(TAG, "Cannot send note - deriveIdentity not initialized")
@@ -164,7 +186,7 @@ class LocationNotesManager private constructor() {
             return
         }
         
-        Log.d(TAG, "Sending note to geohash: $currentGeohash")
+        Log.d(TAG, "Sending note to geohash: $currentGeohash via ${relays.size} geo relays")
         
         scope.launch {
             try {
@@ -174,7 +196,7 @@ class LocationNotesManager private constructor() {
                 
                 val event = withContext(Dispatchers.IO) {
                     NostrProtocol.createGeohashTextNote(
-                        content = content,
+                        content = trimmed,
                         geohash = currentGeohash,
                         senderIdentity = identity,
                         nickname = nickname
@@ -185,7 +207,7 @@ class LocationNotesManager private constructor() {
                 val localNote = Note(
                     id = event.id,
                     pubkey = event.pubkey,
-                    content = content,
+                    content = trimmed,
                     createdAt = event.createdAt,
                     nickname = nickname
                 )
@@ -201,12 +223,17 @@ class LocationNotesManager private constructor() {
                     }
                 }
                 
-                // Send to relays
+                // CRITICAL FIX: Send to geo-specific relays (matching iOS pattern)
+                // iOS: dependencies.sendEvent(event, relays)
                 withContext(Dispatchers.IO) {
-                    sendEventFunc?.invoke(event, null)
+                    sendEventFunc?.invoke(event, relays)
                 }
                 
-                Log.d(TAG, "✅ Note sent successfully: ${event.id.take(16)}...")
+                Log.d(TAG, "✅ Note sent successfully to ${relays.size} geo relays: ${event.id.take(16)}...")
+                
+                // Clear any error messages on successful send
+                _errorMessage.value = null
+                _state.value = State.READY
                 
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send note: ${e.message}")

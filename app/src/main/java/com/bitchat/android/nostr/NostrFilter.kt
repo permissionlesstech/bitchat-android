@@ -205,4 +205,12 @@ data class NostrFilter(
         
         return "NostrFilter(${parts.joinToString(", ")})"
     }
+    
+    /**
+     * Get geohash value from g tag filter (if present)
+     * Returns the first geohash in the filter or null if none
+     */
+    fun getGeohash(): String? {
+        return tagFilters?.get("g")?.firstOrNull()
+    }
 }

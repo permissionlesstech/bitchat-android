@@ -602,16 +602,24 @@ class MainActivity : ComponentActivity() {
                 com.bitchat.android.nostr.LocationNotesCounter.initialize(
                     relayManager = { com.bitchat.android.nostr.NostrRelayManager.getInstance(this@MainActivity) },
                     subscribe = { filter, id, handler ->
-                        // Use subscribeForGeohash for location notes (finds geo-local relays)
-                        val geohashFromFilter = filter.getDebugDescription().substringAfter("#g=").substringBefore(")").substringBefore(",")
-                        com.bitchat.android.nostr.NostrRelayManager.getInstance(this@MainActivity).subscribeForGeohash(
-                            geohash = geohashFromFilter,
-                            filter = filter,
-                            id = id,
-                            handler = handler,
-                            includeDefaults = true,
-                            nRelays = 5
-                        )
+                        // CRITICAL FIX: Extract geohash properly from filter (not from debug string!)
+                        val geohashFromFilter = filter.getGeohash() ?: run {
+                            Log.e("MainActivity", "Cannot extract geohash from filter for location notes counter")
+                            ""
+                        }
+                        
+                        if (geohashFromFilter.isNotEmpty()) {
+                            com.bitchat.android.nostr.NostrRelayManager.getInstance(this@MainActivity).subscribeForGeohash(
+                                geohash = geohashFromFilter,
+                                filter = filter,
+                                id = id,
+                                handler = handler,
+                                includeDefaults = true,
+                                nRelays = 5
+                            )
+                        } else {
+                            id
+                        }
                     },
                     unsubscribe = { id ->
                         com.bitchat.android.nostr.NostrRelayManager.getInstance(this@MainActivity).unsubscribe(id)
@@ -623,13 +631,13 @@ class MainActivity : ComponentActivity() {
                 com.bitchat.android.nostr.LocationNotesManager.getInstance().initialize(
                     relayManager = { com.bitchat.android.nostr.NostrRelayManager.getInstance(this@MainActivity) },
                     subscribe = { filter, id, handler ->
-                        // Extract geohash from filter for geo-routing
-                        val geohashFromFilter = filter.getDebugDescription()
-                            .substringAfter("#g=")
-                            .substringBefore(")")
-                            .substringBefore(",")
+                        // CRITICAL FIX: Extract geohash properly from filter using getGeohash() method
+                        val geohashFromFilter = filter.getGeohash() ?: run {
+                            Log.e("MainActivity", "❌ Cannot extract geohash from filter for location notes")
+                            return@initialize id // Return subscription ID even on error
+                        }
                         
-                        Log.d("MainActivity", "Location Notes subscribing to geohash: $geohashFromFilter")
+                        Log.d("MainActivity", "📍 Location Notes subscribing to geohash: $geohashFromFilter")
                         
                         com.bitchat.android.nostr.NostrRelayManager.getInstance(this@MainActivity).subscribeForGeohash(
                             geohash = geohashFromFilter,
