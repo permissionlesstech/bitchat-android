@@ -162,10 +162,6 @@ fun NicknameEditor(
                 .widthIn(max = 120.dp)
                 .horizontalScroll(scrollState)
         )
-        
-        // Tor status dot - constant distance from nickname end
-        Spacer(modifier = Modifier.width(6.dp))
-        TorStatusDot(modifier = Modifier.size(6.dp))
     }
 }
 
@@ -595,7 +591,38 @@ private fun MainHeader(
                     tint = Color(0xFFFF9500)
                 )
             }
-            
+
+            // Location channels button (matching iOS implementation) and bookmark grouped tightly
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 4.dp)) {
+                LocationChannelsButton(
+                    viewModel = viewModel,
+                    onClick = onLocationChannelsClick
+                )
+
+                // Bookmark toggle for current geohash (not shown for mesh)
+                val currentGeohash: String? = when (val sc = selectedLocationChannel) {
+                    is com.bitchat.android.geohash.ChannelID.Location -> sc.channel.geohash
+                    else -> null
+                }
+                if (currentGeohash != null) {
+                    val isBookmarked = bookmarks.contains(currentGeohash)
+                    Box(
+                        modifier = Modifier
+                            .padding(start = 2.dp) // minimal gap between geohash and bookmark
+                            .size(20.dp)
+                            .clickable { bookmarksStore.toggle(currentGeohash) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                            contentDescription = stringResource(R.string.cd_toggle_bookmark),
+                            tint = if (isBookmarked) Color(0xFF00C851) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+
             // Location Notes button (mesh only, when location is authorized)
             // iOS: Shows to the left of #mesh badge when in mesh mode and location permitted
             if (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Mesh && locationPermissionGranted) {
@@ -613,43 +640,19 @@ private fun MainHeader(
                 }
             }
 
-            // Location channels button (matching iOS implementation) and bookmark grouped tightly
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 14.dp)) {
-                LocationChannelsButton(
-                    viewModel = viewModel,
-                    onClick = onLocationChannelsClick
-                )
-
-                // Bookmark toggle for current geohash (not shown for mesh)
-                val currentGeohash: String? = when (val sc = selectedLocationChannel) {
-                    is com.bitchat.android.geohash.ChannelID.Location -> sc.channel.geohash
-                    else -> null
-                }
-                if (currentGeohash != null) {
-                    val isBookmarked = bookmarks.contains(currentGeohash)
-                    Box(
-                        modifier = Modifier
-                            .padding(start = 1.dp) // minimal gap between geohash and bookmark
-                            .size(20.dp)
-                            .clickable { bookmarksStore.toggle(currentGeohash) },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                            contentDescription = stringResource(R.string.cd_toggle_bookmark),
-                            tint = if (isBookmarked) Color(0xFF00C851) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-            }
+            // Tor status dot when Tor is enabled
+            TorStatusDot(
+                modifier = Modifier
+                    .size(8.dp)
+                    .padding(start = 0.dp, end = 2.dp)
+            )
             
             // PoW status indicator
             PoWStatusIndicator(
                 modifier = Modifier,
                 style = PoWIndicatorStyle.COMPACT
             )
-
+            Spacer(modifier = Modifier.width(2.dp))
             PeerCounter(
                 connectedPeers = connectedPeers.filter { it != viewModel.meshService.myPeerID },
                 joinedChannels = joinedChannels,
