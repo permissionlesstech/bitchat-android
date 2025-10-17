@@ -247,8 +247,11 @@ fun LocationChannelsSheet(
                     }
 
                     // Nearby options (only show if location services are enabled)
+                    // CRITICAL: Filter out .building level (precision 8) - iOS pattern
+                    // iOS: let nearby = manager.availableChannels.filter { $0.level != .building }
                     if (availableChannels.isNotEmpty() && locationServicesEnabled) {
-                        items(availableChannels) { channel ->
+                        val nearbyChannels = availableChannels.filter { it.level != GeohashChannelLevel.BUILDING }
+                        items(nearbyChannels) { channel ->
                             val coverage = coverageString(channel.geohash.length)
                             val nameBase = locationNames[channel.level]
                             val namePart = nameBase?.let { formattedNamePrefix(channel.level) + it }
