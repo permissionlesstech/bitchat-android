@@ -22,7 +22,7 @@ import com.bitchat.android.nostr.LocationNotesManager
 
 /**
  * Location Notes button component for MainHeader
- * Displays when in mesh mode and location permission is granted
+ * Shows in mesh mode when location permission granted AND services enabled
  * Icon turns primary color when notes exist, gray otherwise
  */
 @Composable
@@ -38,15 +38,19 @@ fun LocationNotesButton(
     val selectedLocationChannel by viewModel.selectedLocationChannel.observeAsState()
     val locationManager = remember { LocationChannelManager.getInstance(context) }
     val permissionState by locationManager.permissionState.observeAsState()
+    val locationServicesEnabled by locationManager.locationServicesEnabled.observeAsState(false)
+
+    // Check both permission AND location services enabled
     val locationPermissionGranted = permissionState == LocationChannelManager.PermissionState.AUTHORIZED
+    val locationEnabled = locationPermissionGranted && locationServicesEnabled
     
     // Get notes count from LocationNotesManager
     val notesManager = remember { LocationNotesManager.getInstance() }
     val notes by notesManager.notes.observeAsState(emptyList())
     val notesCount = notes.size
-    
+
     // Only show in mesh mode when location is authorized (iOS pattern)
-    if (selectedLocationChannel is ChannelID.Mesh && locationPermissionGranted) {
+    if (selectedLocationChannel is ChannelID.Mesh && locationEnabled) {
         val hasNotes = (notesCount ?: 0) > 0
         IconButton(
             onClick = onClick,
