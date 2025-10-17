@@ -1,0 +1,3 @@
+Fixed
+
+- fix: battery optimization screen content scrollable with fixed buttons
