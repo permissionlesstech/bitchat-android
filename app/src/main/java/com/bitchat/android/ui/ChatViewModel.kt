@@ -610,6 +610,7 @@ class ChatViewModel(
     /**
      * Update notes counter subscription based on current channel and location permission
      * iOS pattern: Subscribe when in mesh mode and location is authorized
+     * ENHANCEMENT: Also subscribe LocationNotesManager to load actual notes in background
      */
     private fun updateNotesCounterSubscription(channel: com.bitchat.android.geohash.ChannelID?) {
         try {
@@ -631,20 +632,26 @@ class ChatViewModel(
                         
                         if (buildingGeohash != null) {
                             Log.d(TAG, "📍 Subscribing to location notes for building geohash: $buildingGeohash")
+                            // Subscribe counter for badge
                             com.bitchat.android.nostr.LocationNotesCounter.subscribe(buildingGeohash)
+                            // ALSO subscribe manager to load actual notes in background
+                            com.bitchat.android.nostr.LocationNotesManager.getInstance().setGeohash(buildingGeohash)
                         } else {
                             // Keep existing subscription if we had one (avoid flicker)
                             if (com.bitchat.android.nostr.LocationNotesCounter.geohash.value == null) {
                                 com.bitchat.android.nostr.LocationNotesCounter.cancel()
+                                com.bitchat.android.nostr.LocationNotesManager.getInstance().cancel()
                             }
                         }
                     } else {
                         com.bitchat.android.nostr.LocationNotesCounter.cancel()
+                        com.bitchat.android.nostr.LocationNotesManager.getInstance().cancel()
                     }
                 }
                 is com.bitchat.android.geohash.ChannelID.Location -> {
                     // Location channel mode: cancel counter (only show in mesh mode)
                     com.bitchat.android.nostr.LocationNotesCounter.cancel()
+                    com.bitchat.android.nostr.LocationNotesManager.getInstance().cancel()
                 }
                 null -> {
                     // Default to mesh behavior

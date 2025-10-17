@@ -532,14 +532,14 @@ private fun ChatDialogs(
         )
     }
     
-    // Location notes sheet
+    // Location notes sheet - matches iOS pattern exactly
     if (showLocationNotesSheet) {
         val context = androidx.compose.ui.platform.LocalContext.current
         val locationManager = remember { com.bitchat.android.geohash.LocationChannelManager.getInstance(context) }
         val availableChannels by locationManager.availableChannels.observeAsState(emptyList())
         val nickname by viewModel.nickname.observeAsState("")
         
-        // Get building-level geohash (precision 8 for iOS compatibility)
+        // iOS pattern: notesGeohash ?? LocationChannelManager.shared.availableChannels.first(where: { $0.level == .building })?.geohash
         val buildingGeohash = availableChannels.firstOrNull { it.level == com.bitchat.android.geohash.GeohashChannelLevel.BUILDING }?.geohash
         
         if (buildingGeohash != null) {
@@ -554,13 +554,8 @@ private fun ChatDialogs(
                 nickname = nickname,
                 onDismiss = onLocationNotesSheetDismiss
             )
-            
-            // Subscribe to notes counter when sheet is shown
-            LaunchedEffect(buildingGeohash) {
-                com.bitchat.android.nostr.LocationNotesCounter.subscribe(buildingGeohash)
-            }
         } else {
-            // No block geohash available - show error state
+            // No building geohash available - show error state (matches iOS)
             ModalBottomSheet(
                 onDismissRequest = onLocationNotesSheetDismiss,
                 containerColor = MaterialTheme.colorScheme.surface
