@@ -386,6 +386,13 @@ class LocationNotesManager private constructor() {
     }
     
     /**
+     * Clear error message - matches iOS clearError()
+     */
+    fun clearError() {
+        _errorMessage.value = null
+    }
+    
+    /**
      * Cancel subscription and clear state
      */
     fun cancel() {
