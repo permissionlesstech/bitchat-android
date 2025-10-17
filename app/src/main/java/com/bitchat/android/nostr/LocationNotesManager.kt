@@ -38,10 +38,19 @@ class LocationNotesManager private constructor() {
         val nickname: String?
     ) {
         /**
-         * Display name for the note (nickname or truncated pubkey)
+         * Display name for the note - matches iOS exactly
+         * Format: "nickname#abcd" or "anon#abcd" where abcd is last 4 chars of pubkey
          */
         val displayName: String
-            get() = nickname ?: "@${pubkey.take(8)}"
+            get() {
+                val suffix = pubkey.takeLast(4)
+                val nick = nickname?.trim()
+                return if (!nick.isNullOrEmpty()) {
+                    "$nick#$suffix"
+                } else {
+                    "anon#$suffix"
+                }
+            }
     }
     
     /**
@@ -103,27 +112,48 @@ class LocationNotesManager private constructor() {
     
     /**
      * Set geohash and start subscription
+     * iOS: Validates building-level precision (8 characters)
      */
     fun setGeohash(newGeohash: String) {
-        if (_geohash.value == newGeohash) {
-            Log.d(TAG, "Geohash unchanged, skipping: $newGeohash")
+        val normalized = newGeohash.lowercase()
+        
+        if (_geohash.value == normalized) {
+            Log.d(TAG, "Geohash unchanged, skipping: $normalized")
             return
         }
         
-        Log.d(TAG, "Setting geohash: $newGeohash")
+        // Validate geohash (building-level precision: 8 chars) - matches iOS
+        if (!isValidBuildingGeohash(normalized)) {
+            Log.w(TAG, "LocationNotesManager: rejecting invalid geohash '$normalized' (expected 8 valid base32 chars)")
+            return
+        }
+        
+        Log.d(TAG, "Setting geohash: $normalized")
         
         // Cancel existing subscription
         cancel()
         
-        // Clear state
-        _notes.value = emptyList()
-        noteIDs.clear()
+        // Set loading state before clearing to prevent empty state flicker (iOS pattern)
+        _state.value = State.LOADING
         _initialLoadComplete.value = false
         _errorMessage.value = null
-        _geohash.value = newGeohash
+        
+        // Clear notes
+        _notes.value = emptyList()
+        noteIDs.clear()
+        _geohash.value = normalized
         
         // Start new subscription
         subscribe()
+    }
+    
+    /**
+     * Validate building-level geohash (precision 8) - matches iOS Geohash.isValidBuildingGeohash
+     */
+    private fun isValidBuildingGeohash(geohash: String): Boolean {
+        if (geohash.length != 8) return false
+        val base32Chars = "0123456789bcdefghjkmnpqrstuvwxyz"
+        return geohash.all { it in base32Chars }
     }
     
     /**

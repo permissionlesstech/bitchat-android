@@ -454,7 +454,7 @@ private fun ErrorRow(message: String, onDismiss: () -> Unit) {
 }
 
 /**
- * Input section - matches iOS inputSection exactly
+ * Input section - matches main chat input exactly
  */
 @Composable
 private fun LocationNotesInputSection(
@@ -466,61 +466,82 @@ private fun LocationNotesInputSection(
     onSend: () -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
+    val colorScheme = MaterialTheme.colorScheme
     
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(backgroundColor)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Top
+            .padding(horizontal = 12.dp, vertical = 8.dp), // Match main chat padding
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp) // Match main chat spacing
     ) {
-        // Text field
-        TextField(
-            value = draft,
-            onValueChange = onDraftChange,
-            modifier = Modifier.weight(1f),
-            placeholder = {
+        // Text input with placeholder overlay (matches main chat exactly)
+        Box(
+            modifier = Modifier.weight(1f)
+        ) {
+            androidx.compose.foundation.text.BasicTextField(
+                value = draft,
+                onValueChange = onDraftChange,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                    color = colorScheme.primary,
+                    fontFamily = FontFamily.Monospace
+                ),
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(colorScheme.primary),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    imeAction = androidx.compose.ui.text.input.ImeAction.Send
+                ),
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                    onSend = { if (sendButtonEnabled) onSend() }
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+            
+            // Placeholder when empty (matches main chat)
+            if (draft.isEmpty()) {
                 Text(
                     text = "add a note for this place",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = FontFamily.Monospace
+                    ),
+                    color = colorScheme.onSurface.copy(alpha = 0.5f),
+                    modifier = Modifier.fillMaxWidth()
                 )
-            },
-            textStyle = androidx.compose.ui.text.TextStyle(
-                fontFamily = FontFamily.Monospace,
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurface
-            ),
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color.Transparent,
-                unfocusedContainerColor = Color.Transparent,
-                disabledContainerColor = Color.Transparent,
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-                disabledIndicatorColor = Color.Transparent,
-                cursorColor = MaterialTheme.colorScheme.primary
-            ),
-            maxLines = 3
-        )
+            }
+        }
         
-        Spacer(modifier = Modifier.width(10.dp))
-        
-        // Send button - iOS arrow.up.circle.fill icon
-        Box(
-            modifier = Modifier
-                .padding(top = 2.dp)
-                .size(20.dp)
-                .clickable(enabled = sendButtonEnabled, onClick = onSend),
-            contentAlignment = Alignment.Center
+        // Send button - circular with icon (matches main chat exactly)
+        IconButton(
+            onClick = { if (sendButtonEnabled) onSend() },
+            enabled = sendButtonEnabled,
+            modifier = Modifier.size(32.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.ArrowUpward,
-                contentDescription = "Send",
-                tint = if (sendButtonEnabled) accentGreen else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                modifier = Modifier.size(20.dp)
-            )
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .background(
+                        color = if (!sendButtonEnabled) {
+                            colorScheme.onSurface.copy(alpha = 0.3f)
+                        } else {
+                            accentGreen.copy(alpha = 0.75f)
+                        },
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.ArrowUpward,
+                    contentDescription = "Send",
+                    modifier = Modifier.size(20.dp),
+                    tint = if (!sendButtonEnabled) {
+                        colorScheme.onSurface.copy(alpha = 0.5f)
+                    } else if (isDark) {
+                        Color.Black // Black arrow on green in dark theme
+                    } else {
+                        Color.White // White arrow on green in light theme
+                    }
+                )
+            }
         }
     }
 }

@@ -51,31 +51,51 @@ object LocationNotesCounter {
     
     /**
      * Subscribe to count notes for a specific geohash
+     * iOS: Validates building-level precision (8 chars) and checks for relay availability
      */
     fun subscribe(geohash: String) {
-        if (_geohash.value == geohash && subscriptionID != null) {
-            Log.d(TAG, "Already subscribed to geohash: $geohash")
+        val normalized = geohash.lowercase()
+        
+        // Skip if already subscribed to this geohash
+        if (_geohash.value == normalized && subscriptionID != null) {
+            Log.d(TAG, "Already subscribed to geohash: $normalized")
             return
         }
         
-        Log.d(TAG, "Subscribing to count notes for geohash: $geohash")
+        // Validate geohash (building-level precision: 8 chars) - matches iOS
+        if (!isValidBuildingGeohash(normalized)) {
+            Log.w(TAG, "LocationNotesCounter: rejecting invalid geohash '$normalized' (expected 8 valid base32 chars)")
+            return
+        }
         
-        // Cancel existing subscription
-        cancel()
+        Log.d(TAG, "Subscribing to count notes for geohash: $normalized")
+        
+        // Unsubscribe previous without clearing count to avoid flicker (iOS pattern)
+        subscriptionID?.let { subId ->
+            unsubscribeFunc?.invoke(subId)
+        }
+        subscriptionID = null
         
         // Reset state
-        _geohash.value = geohash
-        _count.value = 0
+        _geohash.value = normalized
         eventIDs.clear()
         _initialLoadComplete.value = false
+        _relayAvailable.value = true
         
-        // Check relay availability
-        val relayManager = relayLookup?.invoke()
-        val hasRelays = relayManager?.getRelayStatuses()?.any { it.isConnected } == true
-        _relayAvailable.value = hasRelays
+        // Get geo-specific relays (iOS pattern: dependencies.relayLookup(norm, TransportConfig.nostrGeoRelayCount))
+        val relays = try {
+            com.bitchat.android.nostr.RelayDirectory.closestRelaysForGeohash(normalized, 5)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to lookup relays for geohash $normalized: ${e.message}")
+            emptyList()
+        }
         
-        if (!hasRelays) {
-            Log.w(TAG, "No relays available for counter subscription")
+        // Check if we have relays (iOS pattern: guard !relays.isEmpty())
+        if (relays.isEmpty()) {
+            Log.w(TAG, "LocationNotesCounter: no geo relays for geohash=$normalized")
+            _relayAvailable.value = false
+            _initialLoadComplete.value = true
+            _count.value = 0
             return
         }
         
@@ -86,15 +106,16 @@ object LocationNotesCounter {
         }
         
         val filter = NostrFilter.geohashNotes(
-            geohash = geohash,
+            geohash = normalized,
             since = null,
             limit = 200 // Count up to 200 recent notes
         )
         
-        val subId = "location-notes-count-$geohash"
+        // iOS format: "locnotes-count-\(norm)-\(UUID().uuidString.prefix(6))"
+        val subId = "locnotes-count-$normalized-${java.util.UUID.randomUUID().toString().take(6)}"
         
         subscriptionID = subscribe(filter, subId) { event ->
-            handleEvent(event, geohash)
+            handleEvent(event, normalized)
         }
         
         // Mark initial load complete after brief delay
@@ -105,6 +126,15 @@ object LocationNotesCounter {
                 Log.d(TAG, "Initial count load complete: ${_count.value} notes")
             }
         }
+    }
+    
+    /**
+     * Validate building-level geohash (precision 8) - matches iOS Geohash.isValidBuildingGeohash
+     */
+    private fun isValidBuildingGeohash(geohash: String): Boolean {
+        if (geohash.length != 8) return false
+        val base32Chars = "0123456789bcdefghjkmnpqrstuvwxyz"
+        return geohash.all { it in base32Chars }
     }
     
     /**
