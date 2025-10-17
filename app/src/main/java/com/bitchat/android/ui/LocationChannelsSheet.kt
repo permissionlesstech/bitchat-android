@@ -573,8 +573,6 @@ fun LocationChannelsSheet(
         if (isPresented) {
             if (permissionState == LocationChannelManager.PermissionState.AUTHORIZED && locationServicesEnabled) {
                 locationManager.refreshChannels()
-            }
-            if (locationServicesEnabled) {
                 locationManager.beginLiveRefresh()
             }
             val geohashes = (availableChannels.map { it.geohash } + bookmarks).toSet().toList()

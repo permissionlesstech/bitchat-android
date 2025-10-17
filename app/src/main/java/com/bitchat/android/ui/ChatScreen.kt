@@ -442,6 +442,9 @@ private fun ChatFloatingHeader(
     onLocationChannelsClick: () -> Unit,
     onLocationNotesClick: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val locationManager = remember { com.bitchat.android.geohash.LocationChannelManager.getInstance(context) }
+    
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -466,7 +469,11 @@ private fun ChatFloatingHeader(
                     onTripleClick = onPanicClear,
                     onShowAppInfo = onShowAppInfo,
                     onLocationChannelsClick = onLocationChannelsClick,
-                    onLocationNotesClick = onLocationNotesClick
+                    onLocationNotesClick = {
+                        // Ensure location is loaded before showing sheet
+                        locationManager.refreshChannels()
+                        onLocationNotesClick()
+                    }
                 )
             },
             colors = TopAppBarDefaults.topAppBarColors(
