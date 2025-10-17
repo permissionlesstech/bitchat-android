@@ -24,7 +24,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
-import com.bitchat.android.nostr.LocationNotesCounter
 import com.bitchat.android.nostr.LocationNotesManager
 import java.text.SimpleDateFormat
 import java.util.*
@@ -52,15 +51,16 @@ fun LocationNotesSheet(
     
     // Managers
     val notesManager = remember { LocationNotesManager.getInstance() }
-    val counter = remember { LocationNotesCounter }
     val locationManager = remember { LocationChannelManager.getInstance(context) }
     
     // State
     val notes by notesManager.notes.observeAsState(emptyList())
     val state by notesManager.state.observeAsState(LocationNotesManager.State.IDLE)
     val errorMessage by notesManager.errorMessage.observeAsState()
-    val count by counter.count.observeAsState(0)
     val initialLoadComplete by notesManager.initialLoadComplete.observeAsState(false)
+    
+    // SIMPLIFIED: Get count directly from notes list (no separate counter needed)
+    val count = notes.size
     
     // Get location name (building or block) - matches iOS locationNames lookup
     val locationNames by locationManager.locationNames.observeAsState(emptyMap())
@@ -77,7 +77,6 @@ fun LocationNotesSheet(
     // Effect to set geohash when sheet opens
     LaunchedEffect(geohash) {
         notesManager.setGeohash(geohash)
-        counter.subscribe(geohash)
     }
     
     // Cleanup when sheet closes

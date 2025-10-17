@@ -29,6 +29,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.core.ui.utils.singleOrTripleClickable
 import com.bitchat.android.geohash.LocationChannelManager.PermissionState
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
 
 /**
  * Header components for ChatScreen
@@ -54,23 +56,27 @@ fun isFavoriteReactive(
 }
 
 @Composable
-fun TorStatusIcon(
+fun TorStatusDot(
     modifier: Modifier = Modifier
 ) {
     val torStatus by com.bitchat.android.net.TorManager.statusFlow.collectAsState()
     
     if (torStatus.mode != com.bitchat.android.net.TorMode.OFF) {
-        val cableColor = when {
-            torStatus.running && torStatus.bootstrapPercent < 100 -> Color(0xFFFF9500)
-            torStatus.running && torStatus.bootstrapPercent >= 100 -> Color(0xFF00C851)
-            else -> Color.Red
+        val dotColor = when {
+            torStatus.running && torStatus.bootstrapPercent < 100 -> Color(0xFFFF9500) // Orange - bootstrapping
+            torStatus.running && torStatus.bootstrapPercent >= 100 -> Color(0xFF00C851) // Green - connected
+            else -> Color.Red // Red - error/disconnected
         }
-        Icon(
-            imageVector = Icons.Outlined.Cable,
-            contentDescription = stringResource(R.string.cd_tor_status),
-            modifier = modifier,
-            tint = cableColor
-        )
+        Canvas(
+            modifier = modifier
+        ) {
+            val radius = size.minDimension / 2
+            drawCircle(
+                color = dotColor,
+                radius = radius,
+                center = Offset(size.width / 2, size.height / 2)
+            )
+        }
     }
 }
 
@@ -156,6 +162,10 @@ fun NicknameEditor(
                 .widthIn(max = 120.dp)
                 .horizontalScroll(scrollState)
         )
+        
+        // Tor status dot - constant distance from nickname end
+        Spacer(modifier = Modifier.width(6.dp))
+        TorStatusDot(modifier = Modifier.size(6.dp))
     }
 }
 
@@ -530,9 +540,10 @@ private fun MainHeader(
     val bookmarksStore = remember { com.bitchat.android.geohash.GeohashBookmarksStore.getInstance(context) }
     val bookmarks by bookmarksStore.bookmarks.observeAsState(emptyList())
     
-    // Location notes counter (iOS parity)
-    val notesCounter = remember { com.bitchat.android.nostr.LocationNotesCounter }
-    val notesCount by notesCounter.count.observeAsState(0)
+    // SIMPLIFIED: Get notes count directly from LocationNotesManager (no separate counter)
+    val notesManager = remember { com.bitchat.android.nostr.LocationNotesManager.getInstance() }
+    val notes by notesManager.notes.observeAsState(emptyList())
+    val notesCount = notes.size
     
     // Location channel manager for permission state
     val locationManager = remember { com.bitchat.android.geohash.LocationChannelManager.getInstance(context) }
@@ -632,9 +643,6 @@ private fun MainHeader(
                     }
                 }
             }
-
-            // Tor status cable icon when Tor is enabled
-            TorStatusIcon(modifier = Modifier.size(14.dp))
             
             // PoW status indicator
             PoWStatusIndicator(

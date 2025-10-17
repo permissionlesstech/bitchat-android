@@ -598,36 +598,7 @@ class MainActivity : ComponentActivity() {
                 PoWPreferenceManager.init(this@MainActivity)
                 Log.d("MainActivity", "PoW preferences initialized")
                 
-                // Initialize Location Notes Counter (iOS parity)
-                com.bitchat.android.nostr.LocationNotesCounter.initialize(
-                    relayManager = { com.bitchat.android.nostr.NostrRelayManager.getInstance(this@MainActivity) },
-                    subscribe = { filter, id, handler ->
-                        // CRITICAL FIX: Extract geohash properly from filter (not from debug string!)
-                        val geohashFromFilter = filter.getGeohash() ?: run {
-                            Log.e("MainActivity", "Cannot extract geohash from filter for location notes counter")
-                            ""
-                        }
-                        
-                        if (geohashFromFilter.isNotEmpty()) {
-                            com.bitchat.android.nostr.NostrRelayManager.getInstance(this@MainActivity).subscribeForGeohash(
-                                geohash = geohashFromFilter,
-                                filter = filter,
-                                id = id,
-                                handler = handler,
-                                includeDefaults = true,
-                                nRelays = 5
-                            )
-                        } else {
-                            id
-                        }
-                    },
-                    unsubscribe = { id ->
-                        com.bitchat.android.nostr.NostrRelayManager.getInstance(this@MainActivity).unsubscribe(id)
-                    }
-                )
-                Log.d("MainActivity", "Location Notes Counter initialized")
-                
-                // CRITICAL FIX: Initialize Location Notes Manager (iOS parity)
+                // SIMPLIFIED: Initialize Location Notes Manager only (no separate counter)
                 com.bitchat.android.nostr.LocationNotesManager.getInstance().initialize(
                     relayManager = { com.bitchat.android.nostr.NostrRelayManager.getInstance(this@MainActivity) },
                     subscribe = { filter, id, handler ->
