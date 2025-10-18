@@ -19,6 +19,9 @@ class BitchatApplication : Application() {
         // Initialize relay directory (loads assets/nostr_relays.csv)
         RelayDirectory.initialize(this)
 
+        // Initialize LocationNotesManager dependencies early so sheet subscriptions can start immediately
+        try { com.bitchat.android.nostr.LocationNotesInitializer.initialize(this) } catch (_: Exception) { }
+
         // Initialize favorites persistence early so MessageRouter/NostrTransport can use it on startup
         try {
             com.bitchat.android.favorites.FavoritesPersistenceService.initialize(this)

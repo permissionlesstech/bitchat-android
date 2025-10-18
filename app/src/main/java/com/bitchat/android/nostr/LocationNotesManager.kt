@@ -297,8 +297,27 @@ class LocationNotesManager private constructor() {
         
         val subscribe = subscribeFunc
         if (subscribe == null) {
-            Log.e(TAG, "Cannot subscribe - subscribe function not initialized")
+            Log.e(TAG, "Cannot subscribe - subscribe function not initialized; will retry shortly")
             _state.value = State.LOADING
+            // Retry a few times in case initialization is racing the sheet open
+            scope.launch {
+                var attempts = 0
+                while (attempts < 10 && subscribeFunc == null) {
+                    delay(300)
+                    attempts++
+                }
+                val subNow = subscribeFunc
+                if (subNow != null) {
+                    // Try again now that dependencies are ready
+                    subscribeAll()
+                } else {
+                    // Give UI a chance to show empty state rather than spinner forever
+                    if (!_initialLoadComplete.value!!) {
+                        _initialLoadComplete.value = true
+                        _state.value = State.READY
+                    }
+                }
+            }
             return
         }
 
