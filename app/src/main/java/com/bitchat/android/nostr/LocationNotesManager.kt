@@ -286,30 +286,10 @@ class LocationNotesManager private constructor() {
         val subscribe = subscribeFunc
         if (subscribe == null) {
             Log.e(TAG, "Cannot subscribe - subscribe function not initialized")
-            _state.value = State.NO_RELAYS
+            _state.value = State.LOADING
             return
         }
-        
-        // CRITICAL FIX: Get geo-specific relays for this geohash (matching iOS pattern)
-        // iOS: let relays = dependencies.relayLookup(geohash, TransportConfig.nostrGeoRelayCount)
-        val relays = try {
-            com.bitchat.android.nostr.RelayDirectory.closestRelaysForGeohash(currentGeohash, 5)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to lookup relays for geohash $currentGeohash: ${e.message}")
-            emptyList()
-        }
-        
-        // Check if we have any relays (iOS pattern: guard !relays.isEmpty())
-        if (relays.isEmpty()) {
-            Log.w(TAG, "No geo relays available for geohash: $currentGeohash")
-            _state.value = State.NO_RELAYS
-            _initialLoadComplete.value = true
-            _errorMessage.value = "No relays available"
-            return
-        }
-        
-        Log.d(TAG, "📡 Found ${relays.size} geo relays for geohash $currentGeohash: ${relays.joinToString()}")
-        
+
         _state.value = State.LOADING
         
         val filter = NostrFilter.geohashNotes(

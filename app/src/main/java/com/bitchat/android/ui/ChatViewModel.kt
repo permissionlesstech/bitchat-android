@@ -148,8 +148,7 @@ class ChatViewModel(
             }
         }
         
-        // SIMPLIFIED: Initialize location notes manager subscription (no separate counter)
-        initializeLocationNotesManagerSubscription()
+        // Removed background location notes subscription. Notes now load only when sheet opens.
     }
 
     fun cancelMediaSend(messageId: String) {
