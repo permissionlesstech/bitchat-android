@@ -215,9 +215,9 @@ private fun LocationNotesHeader(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // iOS format: "#geohash • X notes"
+            // "#geohash ± 1 • X notes" to indicate neighboring cells are included
             Text(
-                text = "#$geohash • $count ${if (count == 1) "note" else "notes"}",
+                text = "#$geohash ± 1 • $count ${if (count == 1) "note" else "notes"}",
                 fontFamily = FontFamily.Monospace,
                 fontSize = 18.sp,
                 color = MaterialTheme.colorScheme.onSurface

@@ -80,8 +80,9 @@ class LocationNotesManager private constructor() {
     val errorMessage: LiveData<String?> = _errorMessage
     
     // Private state
-    private var subscriptionID: String? = null
+    private var subscriptionIDs: MutableMap<String, String> = mutableMapOf()
     private val noteIDs = mutableSetOf<String>() // For deduplication
+    private var subscribedGeohashes: Set<String> = emptySet()
     
     // Dependencies (injected via setters for flexibility)
     private var relayLookup: (() -> NostrRelayManager)? = null
@@ -143,8 +144,14 @@ class LocationNotesManager private constructor() {
         noteIDs.clear()
         _geohash.value = normalized
         
-        // Start new subscription
-        subscribe()
+        // Compute target geohashes: center + neighbors (±1)
+        val neighbors = try {
+            com.bitchat.android.geohash.Geohash.neighborsSamePrecision(normalized)
+        } catch (_: Exception) { emptySet() }
+        subscribedGeohashes = (neighbors + normalized).toSet()
+
+        // Start new subscriptions for all cells
+        subscribeAll()
     }
     
     /**
@@ -168,12 +175,17 @@ class LocationNotesManager private constructor() {
         
         Log.d(TAG, "Refreshing notes for geohash: $currentGeohash")
         
-        // Cancel and restart subscription
+        // Cancel and restart subscriptions for current ±1 set
         cancel()
         _notes.value = emptyList()
         noteIDs.clear()
         _initialLoadComplete.value = false
-        subscribe()
+        // Rebuild subscribedGeohashes and resubscribe
+        val neighbors = try {
+            com.bitchat.android.geohash.Geohash.neighborsSamePrecision(currentGeohash)
+        } catch (_: Exception) { emptySet() }
+        subscribedGeohashes = (neighbors + currentGeohash).toSet()
+        subscribeAll()
     }
     
     /**
@@ -275,7 +287,7 @@ class LocationNotesManager private constructor() {
     /**
      * Subscribe to location notes for current geohash
      */
-    private fun subscribe() {
+    private fun subscribeAll() {
         val currentGeohash = _geohash.value
         if (currentGeohash == null) {
             Log.w(TAG, "Cannot subscribe - no geohash set")
@@ -292,18 +304,21 @@ class LocationNotesManager private constructor() {
 
         _state.value = State.LOADING
         
-        val filter = NostrFilter.geohashNotes(
-            geohash = currentGeohash,
-            since = null, // Get all notes (relays will limit)
-            limit = 200
-        )
-        
-        val subId = "location-notes-$currentGeohash"
-        
-        Log.d(TAG, "📡 Subscribing to location notes: $subId")
-        
-        subscriptionID = subscribe(filter, subId) { event ->
-            handleEvent(event)
+        // Subscribe for each geohash in the ±1 set
+        subscribedGeohashes.forEach { gh ->
+            val filter = NostrFilter.geohashNotes(
+                geohash = gh,
+                since = null,
+                limit = 200
+            )
+            val subId = "location-notes-$gh"
+            Log.d(TAG, "📡 Subscribing to location notes: $subId")
+            try {
+                val id = subscribe(filter, subId) { event -> handleEvent(event) }
+                subscriptionIDs[gh] = id
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to subscribe for $gh: ${e.message}")
+            }
         }
         
         // Mark initial load complete after brief delay to allow relay responses
@@ -336,8 +351,8 @@ class LocationNotesManager private constructor() {
         
         // Check if matches current geohash
         val eventGeohash = geohashTag[1]
-        if (eventGeohash != _geohash.value) {
-            Log.v(TAG, "Ignoring event for different geohash: $eventGeohash")
+        if (!subscribedGeohashes.contains(eventGeohash)) {
+            Log.v(TAG, "Ignoring event for non-subscribed geohash: $eventGeohash")
             return
         }
         
@@ -406,12 +421,16 @@ class LocationNotesManager private constructor() {
      * Cancel subscription and clear state
      */
     fun cancel() {
-        subscriptionID?.let { subId ->
-            Log.d(TAG, "🚫 Canceling subscription: $subId")
-            unsubscribeFunc?.invoke(subId)
-            subscriptionID = null
+        if (subscriptionIDs.isNotEmpty()) {
+            subscriptionIDs.values.forEach { subId ->
+                try {
+                    Log.d(TAG, "🚫 Canceling subscription: $subId")
+                    unsubscribeFunc?.invoke(subId)
+                } catch (_: Exception) { }
+            }
+            subscriptionIDs.clear()
         }
-        
+        subscribedGeohashes = emptySet()
         _state.value = State.IDLE
     }
     
