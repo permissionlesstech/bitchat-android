@@ -30,9 +30,7 @@ fun ImagePickerButton(
     onImageReady: (String) -> Unit
 ) {
     val context = LocalContext.current
-    var showCameraPreview by remember { mutableStateOf(false) }
     var capturedImagePath by remember { mutableStateOf<String?>(null) }
-    var pendingCaptureUri by remember { mutableStateOf<Uri?>(null) }
     
     val imagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -48,13 +46,17 @@ fun ImagePickerButton(
     ) { success ->
         val path = capturedImagePath
         if (success && !path.isNullOrBlank()) {
-            showCameraPreview = true
+            // Downscale + correct orientation, then send; delete original
+            val outPath = com.bitchat.android.features.media.ImageUtils.downscalePathAndSaveToAppFiles(context, path)
+            if (!outPath.isNullOrBlank()) {
+                onImageReady(outPath)
+            }
+            runCatching { File(path).delete() }
         } else {
             // Cleanup on cancel/failure
             path?.let { runCatching { File(it).delete() } }
-            capturedImagePath = null
-            pendingCaptureUri = null
         }
+        capturedImagePath = null
     }
 
     fun startCameraCapture() {
@@ -67,7 +69,6 @@ fun ImagePickerButton(
                 file
             )
             capturedImagePath = file.absolutePath
-            pendingCaptureUri = uri
             takePictureLauncher.launch(uri)
         } catch (_: Exception) {
             // Ignore errors; no-op
@@ -91,36 +92,5 @@ fun ImagePickerButton(
         )
     }
 
-    // Preview dialog for camera capture
-    val previewPath = capturedImagePath
-    if (showCameraPreview && !previewPath.isNullOrBlank()) {
-        CameraCapturePreview(
-            imagePath = previewPath,
-            onUse = {
-                showCameraPreview = false
-                // Downscale + correct orientation before sending, then delete original
-                val outPath = com.bitchat.android.features.media.ImageUtils.downscalePathAndSaveToAppFiles(context, previewPath)
-                if (!outPath.isNullOrBlank()) {
-                    onImageReady(outPath)
-                }
-                runCatching { java.io.File(previewPath).delete() }
-                capturedImagePath = null
-                pendingCaptureUri = null
-            },
-            onRetry = {
-                // Delete existing and relaunch camera
-                runCatching { File(previewPath).delete() }
-                showCameraPreview = false
-                capturedImagePath = null
-                pendingCaptureUri = null
-                startCameraCapture()
-            },
-            onCancel = {
-                runCatching { File(previewPath).delete() }
-                showCameraPreview = false
-                capturedImagePath = null
-                pendingCaptureUri = null
-            }
-        )
-    }
+    // No custom preview: native camera UI handles confirmation
 }
