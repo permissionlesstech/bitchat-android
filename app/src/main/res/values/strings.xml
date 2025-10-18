@@ -217,6 +217,21 @@
   <string name="location_level_province">province</string>
   <string name="location_level_region">region</string>
 
+  <!-- Location notes sheet -->
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d note</item>
+    <item quantity="other">#%1$s ± 1 • %2$d notes</item>
+  </plurals>
+  <string name="location_notes_description">add short permanent notes to this location for other visitors to find.</string>
+  <string name="location_notes_relays_unavailable">geo relays unavailable; notes paused</string>
+  <string name="location_notes_no_relays_title">no geo relays nearby</string>
+  <string name="location_notes_no_relays_desc">notes rely on geo relays. check connection and try again.</string>
+  <string name="loading_location_notes">loading notes…</string>
+  <string name="location_notes_empty_title">no notes yet</string>
+  <string name="location_notes_empty_desc">be the first to add one for this spot.</string>
+  <string name="dismiss">dismiss</string>
+  <string name="location_notes_input_placeholder">add a note for this place</string>
+
   <!-- Debug / Diagnostics -->
   <string name="debug_tools">debug tools</string>
   <string name="debug_tools_desc">developer utilities for diagnostics and control</string>

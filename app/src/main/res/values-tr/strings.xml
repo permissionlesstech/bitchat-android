@@ -337,4 +337,17 @@
         <item quantity="one">1 kişi</item>
         <item quantity="other">%d kişi</item>
     </plurals>
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d not</item>
+    <item quantity="other">#%1$s ± 1 • %2$d not</item>
+  </plurals>
+  <string name="location_notes_description">Diğer ziyaretçilerin bulabilmesi için bu konuma kısa kalıcı notlar ekleyin.</string>
+  <string name="location_notes_relays_unavailable">coğrafi röleler kullanılamıyor; notlar duraklatıldı</string>
+  <string name="location_notes_no_relays_title">yakınlarda coğrafi röle yok</string>
+  <string name="location_notes_no_relays_desc">notlar coğrafi rölelere bağlıdır. bağlantıyı kontrol edip tekrar deneyin.</string>
+  <string name="loading_location_notes">notlar yükleniyor…</string>
+  <string name="location_notes_empty_title">henüz not yok</string>
+  <string name="location_notes_empty_desc">bu yer için ilk notu ekleyen siz olun.</string>
+  <string name="dismiss">kapat</string>
+  <string name="location_notes_input_placeholder">bu yer için bir not ekleyin</string>
 </resources>

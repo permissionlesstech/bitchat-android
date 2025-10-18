@@ -339,4 +339,17 @@
         <item quantity="other">%d человек</item>
     </plurals>
 
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d заметка</item>
+    <item quantity="other">#%1$s ± 1 • %2$d заметок</item>
+  </plurals>
+  <string name="location_notes_description">добавьте короткие постоянные заметки к этому месту, чтобы другие посетители могли их найти.</string>
+  <string name="location_notes_relays_unavailable">гео-релей недоступны; заметки приостановлены</string>
+  <string name="location_notes_no_relays_title">рядом нет гео-релеев</string>
+  <string name="location_notes_no_relays_desc">заметки зависят от гео-релеев. проверьте подключение и повторите попытку.</string>
+  <string name="loading_location_notes">загрузка заметок…</string>
+  <string name="location_notes_empty_title">заметок пока нет</string>
+  <string name="location_notes_empty_desc">станьте первым, кто добавит заметку для этого места.</string>
+  <string name="dismiss">закрыть</string>
+  <string name="location_notes_input_placeholder">добавьте заметку для этого места</string>
 </resources>

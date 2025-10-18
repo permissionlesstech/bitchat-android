@@ -349,4 +349,17 @@
         <item quantity="other">%d pessoas</item>
     </plurals>
 
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d nota</item>
+    <item quantity="other">#%1$s ± 1 • %2$d notas</item>
+  </plurals>
+  <string name="location_notes_description">adicione notas curtas e permanentes a este local para que outros visitantes as encontrem.</string>
+  <string name="location_notes_relays_unavailable">relés geográficos indisponíveis; notas em pausa</string>
+  <string name="location_notes_no_relays_title">nenhum relé geográfico nas proximidades</string>
+  <string name="location_notes_no_relays_desc">as notas dependem de relés geográficos. verifique a conexão e tente novamente.</string>
+  <string name="loading_location_notes">carregando notas…</string>
+  <string name="location_notes_empty_title">ainda não há notas</string>
+  <string name="location_notes_empty_desc">seja o primeiro a adicionar uma para este local.</string>
+  <string name="dismiss">fechar</string>
+  <string name="location_notes_input_placeholder">adicione uma nota para este local</string>
 </resources>

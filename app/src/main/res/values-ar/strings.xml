@@ -349,4 +349,17 @@
         <item quantity="other">%d أشخاص</item>
     </plurals>
 
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d ملاحظة</item>
+    <item quantity="other">#%1$s ± 1 • %2$d ملاحظات</item>
+  </plurals>
+  <string name="location_notes_description">أضف ملاحظات قصيرة ودائمة إلى هذا المكان ليتمكن الزوار الآخرون من العثور عليها.</string>
+  <string name="location_notes_relays_unavailable">قنوات الترحيل الجغرافية غير متاحة؛ تم إيقاف الملاحظات</string>
+  <string name="location_notes_no_relays_title">لا توجد قنوات ترحيل جغرافية قريبة</string>
+  <string name="location_notes_no_relays_desc">تعتمد الملاحظات على قنوات الترحيل الجغرافية. تحقق من الاتصال ثم أعد المحاولة.</string>
+  <string name="loading_location_notes">جارٍ تحميل الملاحظات…</string>
+  <string name="location_notes_empty_title">لا توجد ملاحظات بعد</string>
+  <string name="location_notes_empty_desc">كن أول من يضيف ملاحظة لهذا المكان.</string>
+  <string name="dismiss">إغلاق</string>
+  <string name="location_notes_input_placeholder">أضف ملاحظة لهذا المكان</string>
 </resources>

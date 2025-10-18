@@ -349,4 +349,17 @@
         <item quantity="other">%d 人</item>
     </plurals>
 
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d 件のメモ</item>
+    <item quantity="other">#%1$s ± 1 • %2$d 件のメモ</item>
+  </plurals>
+  <string name="location_notes_description">他の訪問者が見つけられるよう、この場所に短いメモを追加しましょう。</string>
+  <string name="location_notes_relays_unavailable">ジオリレーが利用できません。メモを一時停止中</string>
+  <string name="location_notes_no_relays_title">近くにジオリレーがありません</string>
+  <string name="location_notes_no_relays_desc">メモはジオリレーに依存します。接続を確認して再試行してください。</string>
+  <string name="loading_location_notes">メモを読み込み中…</string>
+  <string name="location_notes_empty_title">まだメモはありません</string>
+  <string name="location_notes_empty_desc">この場所の最初のメモを追加しましょう。</string>
+  <string name="dismiss">閉じる</string>
+  <string name="location_notes_input_placeholder">この場所へのメモを追加</string>
 </resources>

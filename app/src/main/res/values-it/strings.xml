@@ -383,4 +383,17 @@
         <item quantity="other">%d persone</item>
     </plurals>
 
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d nota</item>
+    <item quantity="other">#%1$s ± 1 • %2$d note</item>
+  </plurals>
+  <string name="location_notes_description">aggiungi brevi note permanenti a questo luogo per altri visitatori.</string>
+  <string name="location_notes_relays_unavailable">relay geolocalizzati non disponibili; note in pausa</string>
+  <string name="location_notes_no_relays_title">nessun relay geolocalizzato nelle vicinanze</string>
+  <string name="location_notes_no_relays_desc">le note dipendono dai relay geo. controlla la connessione e riprova.</string>
+  <string name="loading_location_notes">caricamento note…</string>
+  <string name="location_notes_empty_title">nessuna nota ancora</string>
+  <string name="location_notes_empty_desc">sii il primo ad aggiungerne una per questo posto.</string>
+  <string name="dismiss">chiudi</string>
+  <string name="location_notes_input_placeholder">aggiungi una nota per questo luogo</string>
 </resources>

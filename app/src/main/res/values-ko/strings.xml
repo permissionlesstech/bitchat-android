@@ -349,4 +349,17 @@
         <item quantity="other">%d명</item>
     </plurals>
 
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d개의 노트</item>
+    <item quantity="other">#%1$s ± 1 • %2$d개의 노트</item>
+  </plurals>
+  <string name="location_notes_description">다른 방문자들이 볼 수 있도록 이 위치에 짧은 영구 노트를 추가하세요.</string>
+  <string name="location_notes_relays_unavailable">지오 릴레이를 사용할 수 없음; 노트 일시 중지됨</string>
+  <string name="location_notes_no_relays_title">주변에 지오 릴레이가 없음</string>
+  <string name="location_notes_no_relays_desc">노트는 지오 릴레이에 의존합니다. 연결을 확인하고 다시 시도하세요.</string>
+  <string name="loading_location_notes">노트 불러오는 중…</string>
+  <string name="location_notes_empty_title">아직 노트가 없습니다</string>
+  <string name="location_notes_empty_desc">이 장소에 첫 번째 노트를 추가해 보세요.</string>
+  <string name="dismiss">닫기</string>
+  <string name="location_notes_input_placeholder">이 장소에 노트 추가</string>
 </resources>

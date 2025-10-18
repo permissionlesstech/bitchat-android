@@ -349,4 +349,18 @@
         <item quantity="other">%d Personen</item>
     </plurals>
 
+
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d Notiz</item>
+    <item quantity="other">#%1$s ± 1 • %2$d Notizen</item>
+  </plurals>
+  <string name="location_notes_description">füge kurze dauerhafte Notizen zu diesem Ort hinzu, damit andere Besucher sie finden.</string>
+  <string name="location_notes_relays_unavailable">Geo-Relays nicht verfügbar; Notizen pausiert</string>
+  <string name="location_notes_no_relays_title">keine Geo-Relays in der Nähe</string>
+  <string name="location_notes_no_relays_desc">Notizen basieren auf Geo-Relays. Verbindung prüfen und erneut versuchen.</string>
+  <string name="loading_location_notes">Notizen werden geladen…</string>
+  <string name="location_notes_empty_title">noch keine Notizen</string>
+  <string name="location_notes_empty_desc">sei der Erste, der hier eine Notiz hinterlässt.</string>
+  <string name="dismiss">schließen</string>
+  <string name="location_notes_input_placeholder">füge eine Notiz zu diesem Ort hinzu</string>
 </resources>

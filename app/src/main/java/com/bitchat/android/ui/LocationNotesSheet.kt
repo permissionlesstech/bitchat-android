@@ -215,9 +215,14 @@ private fun LocationNotesHeader(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // "#geohash ± 1 • X notes" to indicate neighboring cells are included
+            // Localized title with ±1 and note count
             Text(
-                text = "#$geohash ± 1 • $count ${if (count == 1) "note" else "notes"}",
+                text = pluralStringResource(
+                    id = R.plurals.location_notes_title,
+                    count = count,
+                    geohash,
+                    count
+                ),
                 fontFamily = FontFamily.Monospace,
                 fontSize = 18.sp,
                 color = MaterialTheme.colorScheme.onSurface
@@ -255,9 +260,9 @@ private fun LocationNotesHeader(
             }
         }
         
-        // Description - iOS exact text
+        // Description
         Text(
-            text = "add short permanent notes to this location for other visitors to find.",
+            text = stringResource(R.string.location_notes_description),
             fontFamily = FontFamily.Monospace,
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
@@ -267,7 +272,7 @@ private fun LocationNotesHeader(
         if (state == LocationNotesManager.State.NO_RELAYS) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "geo relays unavailable; notes paused",
+                text = stringResource(R.string.location_notes_relays_unavailable),
                 fontFamily = FontFamily.Monospace,
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
@@ -338,7 +343,7 @@ private fun NoRelaysRow(onRetry: () -> Unit) {
             .padding(vertical = 6.dp)
     ) {
         Text(
-            text = "no geo relays nearby",
+            text = stringResource(R.string.location_notes_no_relays_title),
             fontFamily = FontFamily.Monospace,
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
@@ -346,14 +351,14 @@ private fun NoRelaysRow(onRetry: () -> Unit) {
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "notes rely on geo relays. check connection and try again.",
+            text = stringResource(R.string.location_notes_no_relays_desc),
             fontFamily = FontFamily.Monospace,
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "retry",
+            text = stringResource(R.string.retry),
             fontFamily = FontFamily.Monospace,
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.primary,
@@ -380,7 +385,7 @@ private fun LoadingRow() {
         )
         Spacer(modifier = Modifier.width(10.dp))
         Text(
-            text = "loading notes…",
+            text = stringResource(R.string.loading_location_notes),
             fontFamily = FontFamily.Monospace,
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
@@ -399,7 +404,7 @@ private fun EmptyRow() {
             .padding(vertical = 6.dp)
     ) {
         Text(
-            text = "no notes yet",
+            text = stringResource(R.string.location_notes_empty_title),
             fontFamily = FontFamily.Monospace,
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
@@ -407,7 +412,7 @@ private fun EmptyRow() {
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "be the first to add one for this spot.",
+            text = stringResource(R.string.location_notes_empty_desc),
             fontFamily = FontFamily.Monospace,
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
@@ -443,7 +448,7 @@ private fun ErrorRow(message: String, onDismiss: () -> Unit) {
         }
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "dismiss",
+            text = stringResource(R.string.dismiss),
             fontFamily = FontFamily.Monospace,
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.primary,
@@ -499,7 +504,7 @@ private fun LocationNotesInputSection(
             // Placeholder when empty (matches main chat)
             if (draft.isEmpty()) {
                 Text(
-                    text = "add a note for this place",
+                    text = stringResource(R.string.location_notes_input_placeholder),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontFamily = FontFamily.Monospace
                     ),
@@ -530,7 +535,7 @@ private fun LocationNotesInputSection(
             ) {
                 Icon(
                     imageVector = Icons.Filled.ArrowUpward,
-                    contentDescription = "Send",
+                    contentDescription = stringResource(R.string.send_message),
                     modifier = Modifier.size(20.dp),
                     tint = if (!sendButtonEnabled) {
                         colorScheme.onSurface.copy(alpha = 0.5f)

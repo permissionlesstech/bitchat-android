@@ -381,4 +381,17 @@
         <item quantity="other">%d personen</item>
     </plurals>
 
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d notitie</item>
+    <item quantity="other">#%1$s ± 1 • %2$d notities</item>
+  </plurals>
+  <string name="location_notes_description">voeg korte permanente notities toe aan deze locatie zodat andere bezoekers ze kunnen vinden.</string>
+  <string name="location_notes_relays_unavailable">geo-relays niet beschikbaar; notities gepauzeerd</string>
+  <string name="location_notes_no_relays_title">geen geo-relays in de buurt</string>
+  <string name="location_notes_no_relays_desc">notities zijn afhankelijk van geo-relays. controleer de verbinding en probeer opnieuw.</string>
+  <string name="loading_location_notes">notities laden…</string>
+  <string name="location_notes_empty_title">nog geen notities</string>
+  <string name="location_notes_empty_desc">wees de eerste die een notitie voor deze plek toevoegt.</string>
+  <string name="dismiss">sluiten</string>
+  <string name="location_notes_input_placeholder">voeg een notitie toe voor deze plek</string>
 </resources>

@@ -349,4 +349,17 @@
         <item quantity="other">%d orang</item>
     </plurals>
 
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d catatan</item>
+    <item quantity="other">#%1$s ± 1 • %2$d catatan</item>
+  </plurals>
+  <string name="location_notes_description">tambahkan catatan singkat permanen ke lokasi ini agar pengunjung lain dapat menemukannya.</string>
+  <string name="location_notes_relays_unavailable">relay geo tidak tersedia; catatan dijeda</string>
+  <string name="location_notes_no_relays_title">tidak ada relay geo di sekitar</string>
+  <string name="location_notes_no_relays_desc">catatan bergantung pada relay geo. periksa koneksi lalu coba lagi.</string>
+  <string name="loading_location_notes">memuat catatan…</string>
+  <string name="location_notes_empty_title">belum ada catatan</string>
+  <string name="location_notes_empty_desc">jadilah yang pertama menambahkan catatan untuk tempat ini.</string>
+  <string name="dismiss">tutup</string>
+  <string name="location_notes_input_placeholder">tambahkan catatan untuk tempat ini</string>
 </resources>

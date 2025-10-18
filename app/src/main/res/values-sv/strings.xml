@@ -337,4 +337,17 @@
         <item quantity="one">1 person</item>
         <item quantity="other">%d personer</item>
     </plurals>
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d anteckning</item>
+    <item quantity="other">#%1$s ± 1 • %2$d anteckningar</item>
+  </plurals>
+  <string name="location_notes_description">lägg till korta permanenta anteckningar för den här platsen så att andra besökare kan hitta dem.</string>
+  <string name="location_notes_relays_unavailable">geo-reläer är inte tillgängliga; anteckningar pausade</string>
+  <string name="location_notes_no_relays_title">inga geo-reläer i närheten</string>
+  <string name="location_notes_no_relays_desc">anteckningar är beroende av geo-reläer. kontrollera anslutningen och försök igen.</string>
+  <string name="loading_location_notes">laddar anteckningar…</string>
+  <string name="location_notes_empty_title">inga anteckningar ännu</string>
+  <string name="location_notes_empty_desc">var först med att lägga till en anteckning för den här platsen.</string>
+  <string name="dismiss">stäng</string>
+  <string name="location_notes_input_placeholder">lägg till en anteckning för den här platsen</string>
 </resources>

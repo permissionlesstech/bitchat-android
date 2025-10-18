@@ -349,4 +349,17 @@
         <item quantity="other">%d لوگ</item>
     </plurals>
 
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d نوٹ</item>
+    <item quantity="other">#%1$s ± 1 • %2$d نوٹس</item>
+  </plurals>
+  <string name="location_notes_description">دیگر زائرین کے لیے اس جگہ پر مختصر مستقل نوٹس شامل کریں۔</string>
+  <string name="location_notes_relays_unavailable">جغرافیائی ریلے دستیاب نہیں؛ نوٹس معطل</string>
+  <string name="location_notes_no_relays_title">قریب کوئی جغرافیائی ریلے نہیں</string>
+  <string name="location_notes_no_relays_desc">نوٹس جغرافیائی ریلے پر منحصر ہیں۔ کنکشن چیک کریں اور دوبارہ کوشش کریں۔</string>
+  <string name="loading_location_notes">نوٹس لوڈ ہو رہے ہیں…</string>
+  <string name="location_notes_empty_title">ابھی تک کوئی نوٹس نہیں</string>
+  <string name="location_notes_empty_desc">اس جگہ کے لیے پہلا نوٹ شامل کریں۔</string>
+  <string name="dismiss">بند کریں</string>
+  <string name="location_notes_input_placeholder">اس جگہ کے لیے ایک نوٹ شامل کریں</string>
 </resources>
