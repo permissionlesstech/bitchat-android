@@ -62,8 +62,10 @@ private fun LocationNotesErrorSheet(
     onDismiss: () -> Unit,
     locationManager: LocationChannelManager
 ) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface
     ) {
         Column(

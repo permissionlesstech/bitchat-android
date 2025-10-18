@@ -51,7 +51,7 @@ fun LocationNotesButton(
 
     // Only show in mesh mode when location is authorized (iOS pattern)
     if (selectedLocationChannel is ChannelID.Mesh && locationEnabled) {
-        val hasNotes = (notesCount ?: 0) > 0
+        val hasNotes = notesCount > 0
         IconButton(
             onClick = onClick,
             modifier = modifier.size(24.dp)
