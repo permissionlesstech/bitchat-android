@@ -182,6 +182,7 @@
   <string name="pick_file">Pick file</string>
   <string name="file_unavailable">[file unavailable]</string>
   <string name="unknown">unknown</string>
+  <string name="use_photo">Use photo</string>
 
   <!-- Chat user sheet actions -->
   <string name="choose_action_message_or_user">choose an action for this message or user</string>

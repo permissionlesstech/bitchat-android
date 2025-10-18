@@ -152,18 +152,8 @@ class ChatViewModel(
     }
 
     fun cancelMediaSend(messageId: String) {
-        val transferId = synchronized(transferMessageMap) { messageTransferMap[messageId] }
-        if (transferId != null) {
-            val cancelled = meshService.cancelFileTransfer(transferId)
-            if (cancelled) {
-                // Remove the message from chat upon explicit cancel
-                messageManager.removeMessageById(messageId)
-                synchronized(transferMessageMap) {
-                    transferMessageMap.remove(transferId)
-                    messageTransferMap.remove(messageId)
-                }
-            }
-        }
+        // Delegate to MediaSendingManager which tracks transfer IDs and cleans up UI state
+        mediaSendingManager.cancelMediaSend(messageId)
     }
     
     private fun loadAndInitialize() {
