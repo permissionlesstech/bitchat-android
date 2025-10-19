@@ -170,6 +170,7 @@ fun MessageInput(
     selectedPrivatePeer: String?,
     currentChannel: String?,
     nickname: String,
+    showMediaButtons: Boolean,
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -252,8 +253,8 @@ fun MessageInput(
         
         Spacer(modifier = Modifier.width(8.dp)) // Reduced spacing
         
-        // Voice and image buttons when no text (always visible for mesh + channels + private)
-        if (value.text.isEmpty()) {
+        // Voice and image buttons when no text (only visible in Mesh chat)
+        if (value.text.isEmpty() && showMediaButtons) {
             // Hold-to-record microphone
             val bg = if (colorScheme.background == Color.Black) Color(0xFF00FF00).copy(alpha = 0.75f) else Color(0xFF008000).copy(alpha = 0.75f)
 

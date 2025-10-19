@@ -99,6 +99,13 @@ fun ChatScreen(viewModel: ChatViewModel) {
         }
     }
 
+    // Determine whether to show media buttons (only hide in geohash location chats)
+    val showMediaButtons = when {
+        selectedPrivatePeer != null -> true
+        currentChannel != null -> true
+        else -> selectedLocationChannel !is com.bitchat.android.geohash.ChannelID.Location
+    }
+
     // Use WindowInsets to handle keyboard properly
     Box(
         modifier = Modifier
@@ -227,7 +234,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 selectedPrivatePeer = selectedPrivatePeer,
                 currentChannel = currentChannel,
                 nickname = nickname,
-                colorScheme = colorScheme
+                colorScheme = colorScheme,
+                showMediaButtons = showMediaButtons
             )
         }
 
@@ -386,7 +394,8 @@ private fun ChatInputSection(
     selectedPrivatePeer: String?,
     currentChannel: String?,
     nickname: String,
-    colorScheme: ColorScheme
+    colorScheme: ColorScheme,
+    showMediaButtons: Boolean
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -422,6 +431,7 @@ private fun ChatInputSection(
                 selectedPrivatePeer = selectedPrivatePeer,
                 currentChannel = currentChannel,
                 nickname = nickname,
+                showMediaButtons = showMediaButtons,
                 modifier = Modifier.fillMaxWidth()
             )
         }
