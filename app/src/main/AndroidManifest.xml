@@ -64,14 +64,12 @@
             android:name=".ui.GeohashPickerActivity"
             android:exported="false"
             android:theme="@style/Theme.BitchatAndroid"
-            android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.BitchatAndroid"
-            android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize"
             android:launchMode="singleTop">
             <intent-filter>
