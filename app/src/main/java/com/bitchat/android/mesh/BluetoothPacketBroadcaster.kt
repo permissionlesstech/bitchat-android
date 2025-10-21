@@ -114,47 +114,85 @@ class BluetoothPacketBroadcaster(
     private val transferJobs = ConcurrentHashMap<String, Job>()
     
     // Replace simple actor FIFO with a priority-aware channel + processor
-    private val broadcasterChannel = Channel<BroadcastRequest>(capacity = Channel.UNLIMITED)
+    @Volatile
+    private var broadcasterChannel = Channel<BroadcastRequest>(capacity = Channel.UNLIMITED)
     private val sequenceCounter = AtomicLong(0)
+    
+    // Track processor state for recovery
+    @Volatile
+    private var processorJob: Job? = null
+    private val processorLock = Any()
 
     init {
         startPriorityProcessor()
     }
 
     private fun startPriorityProcessor() {
-        broadcasterScope.launch {
-            Log.d(TAG, "🎭 Created priority packet broadcaster processor")
-            // Min-heap by (primaryPriority, secondaryPriority, sequence)
-            val queue = PriorityQueue<QueuedBroadcast>(11) { a, b ->
-                when {
-                    a.primaryPriority != b.primaryPriority -> a.primaryPriority - b.primaryPriority
-                    a.secondaryPriority != b.secondaryPriority -> a.secondaryPriority - b.secondaryPriority
-                    else -> (a.sequence - b.sequence).coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt()
-                }
-            }
-
-            try {
-                while (isActive) {
-                    // If queue is empty, suspend to receive at least one item
-                    if (queue.isEmpty()) {
-                        val first = broadcasterChannel.receiveCatching().getOrNull() ?: break
-                        queue.offer(computeQueuedBroadcast(first))
+        synchronized(processorLock) {
+            // Cancel existing processor if running
+            processorJob?.cancel()
+            
+            // Create new channel for fresh start
+            broadcasterChannel = Channel(capacity = Channel.UNLIMITED)
+            
+            processorJob = broadcasterScope.launch {
+                var processorException: Exception? = null
+                Log.d(TAG, "🎭 Priority packet broadcaster processor started")
+                
+                // Min-heap by (primaryPriority, secondaryPriority, sequence)
+                val priorityQueue = PriorityQueue<QueuedBroadcast>(11) { a, b ->
+                    when {
+                        a.primaryPriority != b.primaryPriority -> a.primaryPriority - b.primaryPriority
+                        a.secondaryPriority != b.secondaryPriority -> a.secondaryPriority - b.secondaryPriority
+                        else -> (a.sequence - b.sequence).coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt()
                     }
-
-                    // Drain any immediately available items without suspending
-                    while (true) {
-                        val received = broadcasterChannel.tryReceive().getOrNull() ?: break
-                        queue.offer(computeQueuedBroadcast(received))
-                    }
-
-                    // Process one highest-priority item
-                    val next = queue.poll() ?: continue
-                    broadcastSinglePacketInternal(next.request.routed, next.request.gattServer, next.request.characteristic)
                 }
-            } catch (e: Exception) {
-                Log.w(TAG, "Priority processor loop ended: ${'$'}{e.message}")
-            } finally {
-                Log.d(TAG, "🎭 Priority packet broadcaster processor terminated")
+
+                try {
+                    while (isActive) {
+                        // If priority queue is empty, suspend to receive at least one item
+                        if (priorityQueue.isEmpty()) {
+                            val first = broadcasterChannel.receiveCatching().getOrNull() ?: break
+                            priorityQueue.offer(computeQueuedBroadcast(first))
+                        }
+
+                        // Drain any immediately available items without suspending
+                        while (true) {
+                            val received = broadcasterChannel.tryReceive().getOrNull() ?: break
+                            priorityQueue.offer(computeQueuedBroadcast(received))
+                        }
+
+                        // Process one highest-priority item
+                        val next = priorityQueue.poll() ?: continue
+                        try {
+                            broadcastSinglePacketInternal(next.request.routed, next.request.gattServer, next.request.characteristic)
+                        } catch (e: Exception) {
+                            // Log the broadcast failure - this is likely a transient BLE error
+                            Log.e(TAG, "❌ Broadcast failed, will attempt recovery: ${e.message}", e)
+                            processorException = e
+                            // Don't throw - instead break and trigger recovery
+                            break
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ Priority processor loop terminated due to exception: ${e.message}", e)
+                    processorException = e
+                } finally {
+                    // Close the current channel
+                    broadcasterChannel.close(processorException)
+                    Log.w(TAG, "🎭 Priority packet broadcaster processor terminated, attempting recovery...")
+                    
+                    // Schedule automatic recovery after a short delay
+                    if (processorException != null && broadcasterScope.isActive) {
+                        broadcasterScope.launch {
+                            delay(1000) // Wait 1 second before recovery
+                            Log.d(TAG, "🔄 Attempting to restart priority processor...")
+                            startPriorityProcessor()
+                        }
+                    } else {
+                        Log.d(TAG, "🎭 Priority packet broadcaster processor shut down (no recovery scheduled)")
+                    }
+                }
             }
         }
     }
