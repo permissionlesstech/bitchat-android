@@ -180,8 +180,12 @@ class FragmentManager {
                     incomingFragments.remove(fragmentIDString)
                     fragmentMetadata.remove(fragmentIDString)
                     
-                    Log.d(TAG, "Successfully reassembled and decoded original packet of ${reassembledData.size} bytes")
-                    return originalPacket
+                    // Suppress re-broadcast of the reassembled packet by zeroing TTL.
+                    // We already relayed the incoming fragments; setting TTL=0 ensures
+                    // PacketRelayManager will skip relaying this reconstructed packet.
+                    val suppressedTtlPacket = originalPacket.copy(ttl = 0u.toUByte())
+                    Log.d(TAG, "Successfully reassembled original (${reassembledData.size} bytes); set TTL=0 to suppress relay")
+                    return suppressedTtlPacket
                 } else {
                     val metadata = fragmentMetadata[fragmentIDString]
                     Log.e(TAG, "Failed to decode reassembled packet (type=${metadata?.first}, total=${metadata?.second})")
