@@ -1,0 +1,365 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+
+    <!-- اجازات کی وضاحت -->
+    <string name="permission_bluetooth_rationale">بلوٹوتھ کی اجازت انٹرنیٹ کے بغیر دوسروں سے براہ راست چیٹ کرنے کے لیے ضروری ہے۔</string>
+    <string name="permission_location_rationale">مقام کی اجازت بلوٹوتھ کے ذریعے قریبی آلات تلاش کرنے کے لیے ضروری ہے۔</string>
+    <string name="permission_notification_rationale">نوٹیفیکیشن کی اجازت آپ کو نئے پیغامات کے بارے میں بتانے کے لیے ضروری ہے۔</string>
+
+    <!-- پلیس ہولڈرز / بنیادی UI -->
+    <string name="nickname_hint">عرفی نام</string>
+    <string name="message_hint">پیغام لکھیں…</string>
+    <string name="channel_password_hint">پاس ورڈ</string>
+    <string name="join_channel">چینل میں شامل ہوں</string>
+    <string name="leave_channel">چھوڑیں</string>
+    <string name="send_message">بھیجیں</string>
+    <string name="show_commands">کمانڈز دکھائیں</string>
+    <string name="back">واپس</string>
+    <string name="people">لوگ</string>
+    <string name="channels">چینلز</string>
+    <string name="online_users">آن لائن صارفین</string>
+    <string name="no_one_connected">کوئی منسلک نہیں</string>
+    <string name="emergency_clear_hint">تمام ڈیٹا صاف کرنے کے لیے تین بار ٹیپ کریں</string>
+    <string name="your_network">آپ کا نیٹ ورک</string>
+
+    <!-- بیٹری کی اصلاح -->
+    <string name="battery_optimization_detected">بیٹری کی اصلاح کا پتہ چلا</string>
+    <string name="battery_optimization_disabled">بیٹری کی اصلاح بند ہے</string>
+    <string name="battery_optimization_not_required">بیٹری کی اصلاح ضروری نہیں</string>
+    <string name="battery_optimization_checking">بیٹری کی اصلاح چیک کر رہے ہیں</string>
+    <string name="battery_optimization_why_disable">بیٹری کی اصلاح کیوں بند کریں؟</string>
+    <string name="battery_optimization_explanation">bitchat قریبی آلات کے ساتھ میش کنیکشن برقرار رکھنے کے لیے پس منظر میں چلتا ہے۔ بیٹری کی اصلاح ان کنیکشنز کو خراب کر سکتی ہے، جس سے پیغامات دیر سے پہنچیں یا کھو جائیں۔\n\nبیٹری کی اصلاح بند کرنا قابل اعتماد پیئر‑ٹو‑پیئر کمیونیکیشن کو یقینی بناتا ہے۔</string>
+    <string name="battery_optimization_disable_button">بیٹری کی اصلاح بند کریں</string>
+    <string name="battery_optimization_note">نوٹ: آپ بعد میں Android سیٹنگز &gt; ایپس &gt; bitchat &gt; بیٹری میں اسے تبدیل کر سکتے ہیں۔</string>
+    <string name="battery_optimization_not_supported_explanation">آپ کے آلے کو بیٹری کی اصلاح کی سیٹنگز کی ضرورت نہیں۔ bitchat عام طور پر چلے گا۔</string>
+    <string name="battery_optimization_not_supported_message">آپ کے آلے کو بیٹری کی اصلاح کی سیٹنگز کی ضرورت نہیں۔ bitchat عام طور پر چلے گا۔</string>
+    <string name="battery_optimization_success_message">bitchat پس منظر میں قابل اعتماد طور پر چل سکتا ہے</string>
+    <string name="battery_optimization_benefits">• پیغامات کی قابل اعتماد ڈیلیوری\n• میش کنیکشن برقرار رکھنا\n• پس منظری پیغام فارورڈنگ\n• منطقی کنیکشن سے بچاؤ</string>
+    <string name="battery_optimization_check_again">دوبارہ چیک کریں</string>
+    <string name="battery_optimization_skip">ابھی چھوڑیں</string>
+    <string name="battery_optimization_continue">جاری رکھیں</string>
+    <string name="retry">دوبارہ کوشش کریں</string>
+    <string name="skip">چھوڑیں</string>
+
+    <!-- نوٹیفیکیشنز -->
+    <string name="notification_summary_more">اور %1$d مزید</string>
+    <string name="notification_messages_from_people">%2$d لوگوں سے %1$d پیغامات</string>
+    <string name="notification_more_conversations">اور %1$d مزید گفتگو</string>
+    <string name="notification_active_peers_title">👥 قریب میں bitchatter!</string>
+    <string name="notification_active_peers_one">قریب میں 1 شخص</string>
+    <string name="notification_active_peers_many">قریب میں %1$d لوگ</string>
+    <string name="notification_new_messages">نئے پیغامات</string>
+    <string name="notification_new_location_messages">نئے مقام کے پیغامات</string>
+    <string name="notification_mentions_in">%1$s میں ذکر</string>
+    <string name="notification_mentions_in_more">%1$s میں ذکر (+%2$d)</string>
+    <string name="notification_mentions_in_plural">%2$s میں %1$d ذکر</string>
+    <string name="notification_new_activity_in">%1$s میں نئی سرگرمی</string>
+    <string name="notification_messages_in">%1$s میں پیغامات</string>
+    <string name="notification_joined_conversation">%1$s گفتگو میں شامل ہوا</string>
+    <string name="notification_geohash_summary_title_mentions">bitchat – %1$d ذکر</string>
+    <string name="notification_geohash_summary_title">bitchat – مقام چیٹس</string>
+    <string name="notification_geohash_summary_text">%2$d مقامات سے %1$d پیغامات</string>
+    <string name="notification_mesh_mention_title_singular">میش چیٹ میں ذکر</string>
+    <string name="notification_mesh_mention_title_plural">میش چیٹ میں %1$d ذکر</string>
+    <string name="notification_more_locations">اور %1$d مزید مقامات</string>
+    <string name="notification_and_more">اور %1$d مزید</string>
+
+    <!-- پسندیدہ رسائی -->
+    <string name="cd_add_favorite">پسندیدہ میں شامل کریں</string>
+    <string name="cd_remove_favorite">پسندیدہ سے ہٹائیں</string>
+    <string name="cd_add_bookmark">بک مارک شامل کریں</string>
+
+    <!-- چیٹ ہیڈر اور رسائی -->
+    <string name="chat_back">واپس</string>
+    <string name="chat_channel_prefix">چینل: %1$s</string>
+    <string name="chat_leave">چھوڑیں</string>
+    <string name="cd_nostr_reachable">Nostr کے ذریعے رسائی</string>
+    <string name="cd_unread_private_messages">غیر پڑھے ہوئے نجی پیغامات</string>
+    <string name="cd_toggle_bookmark">بک مارک تبدیل کریں</string>
+    <string name="cd_teleported">ٹیلی پورٹ</string>
+    <string name="cd_tor_status">Tor کی کیفیت</string>
+    <string name="cd_connected_peers">منسلک پیئرز</string>
+    <string name="cd_geohash_participants">geohash شرکاء</string>
+    <string name="cd_ready_for_handshake">ہینڈ شیک کے لیے تیار</string>
+    <string name="cd_handshake_in_progress">ہینڈ شیک جاری ہے</string>
+    <string name="cd_encrypted">اینڈ‑ٹو‑اینڈ انکرپٹڈ</string>
+    <string name="cd_handshake_failed">ہینڈ شیک ناکام</string>
+
+    <!-- فائل ویور ڈائیلاگ -->
+    <string name="file_viewer_title">📎 فائل موصولہ</string>
+    <string name="file_viewer_name">📄 %1$s</string>
+    <string name="file_viewer_size">📏 سائز: %1$s</string>
+    <string name="file_viewer_type">🏷️ قسم: %1$s</string>
+    <string name="file_viewer_open_save">📂 کھولیں / محفوظ کریں</string>
+    <string name="close_with_emoji">❌ بند کریں</string>
+    <string name="pick_image">تصویر منتخب کریں</string>
+
+    <!-- تفصیلات شیٹ -->
+    <string name="about_tagline">غیر مرکزی میش چیٹ • اینڈ‑ٹو‑اینڈ انکرپشن</string>
+    <string name="about_offline_mesh_title">آف لائن میش چیٹ</string>
+    <string name="about_offline_mesh_desc">انٹرنیٹ یا سرورز کے بغیر Bluetooth LE کے ذریعے براہ راست بات چیت کریں۔ پیغامات قریبی آلات کے ذریعے ریلے ہوتے ہیں تاکہ رسائی بڑھے۔</string>
+    <string name="about_online_geohash_title">آن لائن geohash چینلز</string>
+    <string name="about_online_geohash_desc">geohash پر مبنی چینلز کے ذریعے اپنے قریب کے لوگوں سے جڑیں۔ عوامی انٹرنیٹ ریلے کے ذریعے میش کو پھیلائیں۔</string>
+    <string name="about_e2e_title">اینڈ‑ٹو‑اینڈ انکرپشن</string>
+    <string name="about_e2e_desc">نجی پیغامات انکرپٹڈ ہیں۔ چینل پیغامات عوامی ہیں۔</string>
+    <string name="about_appearance">ظاہری شکل</string>
+    <string name="about_system">سسٹم</string>
+    <string name="about_light">ہلکا</string>
+    <string name="about_dark">گہرا</string>
+    <string name="about_pow">پروف آف ورک</string>
+    <string name="about_pow_off">PoW بند</string>
+    <string name="about_pow_on">PoW چالو</string>
+    <string name="about_pow_tip">اسپام کو مشکل بنانے کے لیے geohash پیغامات میں Proof of Work شامل کریں۔</string>
+    <string name="about_pow_difficulty">مشکل: %1$d بٹ (~%2$s)</string>
+    <string name="about_pow_difficulty_attempts">مشکل %1$d کے لیے ~%2$s ہیش کوششیں</string>
+    <string name="about_pow_desc_none">Proof of Work ضروری نہیں</string>
+    <string name="about_pow_desc_very_low">بہت کم – کم سے کم اسپام تحفظ</string>
+    <string name="about_pow_desc_low">کم – بنیادی اسپام تحفظ</string>
+    <string name="about_pow_desc_medium">درمیانہ – اچھا اسپام تحفظ</string>
+    <string name="about_pow_desc_high">اعلیٰ – مضبوط اسپام تحفظ</string>
+    <string name="about_pow_desc_very_high">بہت اعلیٰ – تاخیر ہو سکتی ہے</string>
+    <string name="about_pow_desc_extreme">انتہائی – اہم کمپیوٹیشنل طاقت درکار</string>
+    <string name="about_network">نیٹ ورک</string>
+    <string name="about_tor_off">Tor بند</string>
+    <string name="about_tor_on">Tor چالو</string>
+    <string name="about_tor_route">زیادہ پرائیویسی کے لیے انٹرنیٹ ٹریفک کو Tor کے ذریعے بھیجیں۔</string>
+    <string name="about_tor_status">Tor کی کیفیت: %1$s، بوٹ اسٹریپ %2$d%%</string>
+    <string name="about_last">آخری: %1$s</string>
+    <string name="about_emergency_title">ہنگامی ڈیٹا صافی</string>
+    <string name="about_emergency_tip">تجویز: تمام محفوظ شدہ ڈیٹا – پیغامات، کلیدیں اور سیٹنگز سمیت – صاف کرنے کے لیے ایپ کے ٹائٹل پر تین بار ٹیپ کریں۔</string>
+    <string name="about_debug_settings">ڈیبگ سیٹنگز</string>
+    <string name="about_footer">اوپن سورس • پرائیویسی پہلے • غیر مرکزی</string>
+    <string name="close_plain">بند کریں</string>
+    <string name="cancel_lower">منسوخ کریں</string>
+
+    <!-- عمومی کنٹینٹ تفصیل -->
+    <string name="cd_warning">خبردار</string>
+    <string name="cd_location_services">مقام کی خدمات</string>
+    <string name="cd_privacy">پرائیویسی</string>
+    <string name="cd_error">خرابی</string>
+    <string name="cd_battery_optimization">بیٹری کی اصلاح</string>
+    <string name="cd_benefits">فوائد</string>
+    <string name="cd_checking_battery_optimization">بیٹری کی اصلاح چیک کر رہے ہیں</string>
+    <string name="cd_not_supported_battery_optimization">بیٹری کی اصلاح تعاون یافتہ نہیں</string>
+    <string name="cd_bluetooth">Bluetooth</string>
+    <string name="cd_unread_message">غیر پڑھا پیغام</string>
+    <string name="cd_open_map">نقشہ کھولیں</string>
+    <string name="cd_remove_bookmark">بک مارک ہٹائیں</string>
+    <string name="cd_teleport">ٹیلی پورٹ</string>
+    <string name="cd_selected">منتخب</string>
+    <string name="cd_leave_channel">چینل چھوڑیں</string>
+    <string name="cd_reachable_via_nostr">Nostr کے ذریعے رسائی</string>
+    <string name="cd_offline_favorite">پسندیدہ (آف لائن)</string>
+    <string name="cd_decrease_precision">درستگی کم کریں</string>
+    <string name="cd_increase_precision">درستگی بڑھائیں</string>
+    <string name="cd_select_geohash">geohash منتخب کریں</string>
+    <string name="cd_scroll_to_bottom">نیچے اسکرول کریں</string>
+    <string name="cd_file">فائل</string>
+    <string name="cd_image">تصویر</string>
+    <string name="cd_cancel">منسوخ کریں</string>
+    <string name="cd_link">لنک</string>
+    <string name="cd_pick_media">میڈیا منتخب کریں</string>
+    <string name="cd_pick_file">فائل منتخب کریں</string>
+    <string name="cd_save_current_image">موجودہ تصویر محفوظ کریں</string>
+    <string name="cd_close">بند کریں</string>
+    <string name="cd_image_index_of">تصویر %1$d / %2$d</string>
+    <string name="cd_privacy_protected">پرائیویسی محفوظ</string>
+    <string name="cd_record_voice">وائس نوٹ ریکارڈ کریں</string>
+    <string name="cd_offline_mesh_chat">آف لائن میش چیٹ</string>
+    <string name="cd_online_geohash_channels">آن لائن geohash چینلز</string>
+    <string name="cd_end_to_end_encryption">اینڈ‑ٹو‑اینڈ انکرپشن</string>
+
+    <!-- تصاویر اور فائلیں -->
+    <string name="image_page_of">تصویر %1$d / %2$d</string>
+    <string name="image_unavailable">تصویر دستیاب نہیں</string>
+    <string name="image_saved_to_downloads">تصویر "Downloads" میں محفوظ ہوئی</string>
+    <string name="image_save_failed">تصویر محفوظ نہیں ہو سکی</string>
+    <string name="toast_image_saved">تصویر "Downloads" میں محفوظ ہوئی</string>
+    <string name="toast_failed_to_save_image">تصویر محفوظ نہیں ہو سکی</string>
+    <string name="pick_file">فائل منتخب کریں</string>
+    <string name="file_unavailable">[فائل دستیاب نہیں]</string>
+    <string name="unknown">نامعلوم</string>
+
+    <!-- صارف ایکشن شیٹ -->
+    <string name="choose_action_message_or_user">اس پیغام یا صارف کے لیے ایکشن منتخب کریں</string>
+    <string name="choose_action_user">اس صارف کے لیے ایکشن منتخب کریں</string>
+    <string name="action_copy_message_title">پیغام کاپی کریں</string>
+    <string name="action_copy_message_subtitle">اس پیغام کو کلپ بورڈ میں کاپی کریں</string>
+    <string name="action_slap_title">%1$s کو تھپڑ</string>
+    <string name="action_slap_subtitle">مزاحیہ تھپڑ بھیجیں</string>
+    <string name="action_hug_title">%1$s کو گلے لگائیں</string>
+    <string name="action_hug_subtitle">دوستانہ آلنگن بھیجیں</string>
+    <string name="action_block_title">%1$s کو بلاک کریں</string>
+    <string name="action_block_subtitle">اس صارف کے تمام پیغامات بلاک کریں</string>
+
+    <!-- geohash چینلز شیٹ -->
+    <string name="location_channels_title">#مقام چینلز</string>
+    <string name="location_channels_desc">geohash چینلز کے ذریعے اپنے قریب کے لوگوں سے چیٹ کریں۔ صرف ایک مبہم geohash شیئر کیا جاتا ہے، کبھی درست GPS ڈیٹا نہیں۔ اپنی پرائیویسی کے لیے، اس اسکرین کا اسکرین شاٹ نہ لیں اور اسے شیئر نہ کریں۔</string>
+    <string name="grant_location_permission">مقام کی اجازت دیں</string>
+    <string name="location_permission_denied">مقام کی اجازت منع کی گئی۔ مقام چینلز استعمال کرنے کے لیے سیٹنگز میں فعال کریں۔</string>
+    <string name="open_settings">سیٹنگز کھولیں</string>
+    <string name="location_permission_granted">\u2713 مقام کی اجازت دی گئی</string>
+    <string name="checking_permissions">اجازات چیک کر رہے ہیں…</string>
+    <string name="finding_nearby_channels">قریبی چینلز تلاش کر رہے ہیں…</string>
+    <string name="bookmarked">بک مارکڈ</string>
+    <string name="geohash_placeholder">Geohash</string>
+    <string name="invalid_geohash">غلط geohash</string>
+    <string name="teleport">ٹیلی پورٹ</string>
+    <string name="disable_location_services">مقام کی خدمات بند کریں</string>
+    <string name="enable_location_services">مقام کی خدمات چالو کریں</string>
+    <string name="mesh_label">mesh</string>
+    <string name="location_level_block">بلاک</string>
+    <string name="location_level_neighborhood">محلہ</string>
+    <string name="location_level_city">شہر</string>
+    <string name="location_level_province">صوبہ</string>
+    <string name="location_level_region">علاقہ</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+
+    <!-- ڈیبگ / تشخیص -->
+    <string name="debug_tools">ڈیبگ ٹولز</string>
+    <string name="debug_tools_desc">تشخیص اور کنٹرول کے لیے ڈیولپر ٹولز</string>
+    <string name="debug_verbose_logging">تفصیلی لاگنگ</string>
+    <string name="debug_verbose_hint">پیئر جوائن/لیو، کنیکشن ڈائریکشن، پیکٹ ریلے اور ریلے لاگ کرتا ہے</string>
+    <string name="debug_bluetooth_roles">Bluetooth کردار</string>
+    <string name="debug_gatt_server">GATT سرور</string>
+    <string name="debug_connections_fmt">کنیکشنز: %1$d / %2$d</string>
+    <string name="debug_max_server">زیادہ سے زیادہ سرور</string>
+    <string name="debug_gatt_client">GATT کلائنٹ</string>
+    <string name="debug_max_client">زیادہ سے زیادہ کلائنٹ</string>
+    <string name="debug_overall_connections_fmt">کنیکشنز: %1$d / %2$d</string>
+    <string name="debug_max_overall">زیادہ سے زیادہ کل</string>
+    <string name="debug_packet_relay">پیکٹ ریلے</string>
+    <string name="debug_since_start_fmt">شروع سے: %1$d</string>
+    <string name="debug_roles_hint">کردار آن/آف ٹوگل کریں اور بند کرتے وقت تمام کنیکشنز بند کریں</string>
+    <string name="debug_sync_settings">سنک سیٹنگز</string>
+    <string name="debug_max_packets_per_sync_fmt">فی سنک زیادہ سے زیادہ پیکٹس: %1$d</string>
+    <string name="debug_max_gcs_filter_size_fmt">زیادہ سے زیادہ GCS فلٹر سائز: %1$d بائٹس (128–1024)</string>
+    <string name="debug_target_fpr_fmt">ہدف FPR: %1$.2f%%</string>
+    <string name="debug_connected_devices">منسلک آلات</string>
+    <string name="debug_our_device_id_fmt">ہمارا آلہ ID: %1$s</string>
+    <string name="debug_none">کوئی نہیں</string>
+    <string name="debug_disconnect">منقطع کریں</string>
+    <string name="debug_recent_scan_results">حال ہی میں اسکین شدہ آلات</string>
+    <string name="debug_connect">کنیکٹ</string>
+    <string name="debug_debug_console">ڈیبگ کنسول</string>
+    <string name="debug_clear">صاف کریں</string>
+    <string name="debug_relays_window_fmt">آخری 10 سیکنڈ: %1$d • 1 منٹ: %2$d • 15 منٹ: %3$d</string>
+    <string name="debug_derived_p_fmt">ماخوذ P: %1$s • تخمینی زیادہ سے زیادہ آئٹمز: %2$s</string>
+    <string name="debug_direct_suffix"> • براہ راست</string>
+    <string name="debug_role_server">سرور کے طور پر (ہم ہوسٹ کرتے ہیں)</string>
+    <string name="debug_role_client">کلائنٹ کے طور پر (ہم کنیکٹ کرتے ہیں)</string>
+
+    <!-- آن بورڈنگ اسکرینز -->
+    <string name="location_services_required">مقام کی خدمات ضروری</string>
+    <string name="privacy_first">پرائیویسی پہلے</string>
+    <string name="location_explanation">bitchat آپ کا مقام ٹریک نہیں کرتا۔\n\nBluetooth اسکیننگ اور geohash چیٹ فیچر کے لیے مقام کی خدمات ضروری ہیں۔</string>
+    <string name="location_needs_for">bitchat کو مقام کی خدمات کی ضرورت:</string>
+    <string name="location_needs_bullets">• Bluetooth آلات اسکیننگ\n• میش نیٹ ورک میں قریبی صارفین کی دریافت\n• geohash چیٹ فیچر\n• کوئی ٹریکنگ یا مقام کا اجماع نہیں</string>
+    <string name="open_location_settings">مقام سیٹنگز کھولیں</string>
+    <string name="check_again">دوبارہ چیک کریں</string>
+    <string name="location_services_unavailable">مقام کی خدمات دستیاب نہیں</string>
+    <string name="location_unavailable_explanation">اس آلے پر مقام کی خدمات دستیاب نہیں ہیں۔ یہ غیر معمولی ہے کیونکہ مقام کی خدمات Android آلات پر معیاری ہیں۔\n\nBluetooth اسکیننگ (Android کی ضرورت) کے ٹھیک سے کام کرنے کے لیے مقام کی خدمات ضروری ہیں۔ اس کے بغیر ایپ قریبی صارفین کو دریافت نہیں کر سکتی۔</string>
+    <string name="checking_location_services">مقام کی خدمات چیک کر رہے ہیں…</string>
+    <string name="bluetooth_required">Bluetooth ضروری</string>
+    <string name="bluetooth_needs_for">bitchat کو Bluetooth کی ضرورت:</string>
+    <string name="bluetooth_needs_bullets">• قریبی صارفین کی دریافت\n• میش نیٹ ورک کنیکشنز بنانا\n• پیغامات بھیجنا اور وصول کرنا\n• انٹرنیٹ یا سرورز کے بغیر کام کرنا</string>
+    <string name="enable_bluetooth">Bluetooth فعال کریں</string>
+    <string name="bluetooth_not_supported">Bluetooth تعاون یافتہ نہیں</string>
+    <string name="bluetooth_unsupported_explanation">یہ آلہ Bluetooth Low Energy (BLE) کو سپورٹ نہیں کرتا، جو bitchat کے کام کے لیے ضروری ہے۔\n\nBLE میش نیٹ ورکس بنانے اور انٹرنیٹ کے بغیر قریبی آلات کے ساتھ بات چیت کرنے کے لیے ضروری ہے۔</string>
+    <string name="checking_bluetooth_status">Bluetooth کی کیفیت چیک کر رہے ہیں…</string>
+    <string name="battery_optimization_detected_title">بیٹری کی اصلاح کا پتہ چلا</string>
+    <string name="battery_optimization_enabled_title">بیٹری کی اصلاح فعال</string>
+    <string name="battery_optimization_explanation_short">میش کنیکشنز برقرار رکھنے کے لیے bitchat کو پس منظر میں چلنا ضروری ہے۔ بیٹری کی اصلاح ان کنیکشنز کو خراب کر سکتی ہے۔</string>
+    <string name="benefits_of_disabling">بند کرنے کے فوائد</string>
+    <string name="battery_benefits_short">• قابل اعتماد پیغام کی ڈیلیوری\n• میش کنیکٹویٹی برقرار رکھنا\n• کنیکشن منقطع ہونے سے بچنا</string>
+    <string name="disable_battery_optimization">بیٹری کی اصلاح بند کریں</string>
+    <string name="battery_optimization_disabled_title">بیٹری کی اصلاح بند</string>
+    <string name="continue_btn">جاری رکھیں</string>
+    <string name="initializing_mesh_network">میش نیٹ ورک شروع کر رہے ہیں</string>
+    <string name="setting_up_bluetooth">Bluetooth میش نیٹ ورک سیٹ کر رہے ہیں…</string>
+    <string name="should_take_seconds">اس میں صرف چند سیکنڈ لگنے چاہیے</string>
+    <string name="setup_not_complete">سیٹ اپ مکمل نہیں</string>
+    <string name="try_again">دوبارہ کوشش کریں</string>
+    <string name="privacy_protected">آپ کی پرائیویسی محفوظ ہے</string>
+    <string name="privacy_bullets">• کوئی ٹریکنگ یا ڈیٹا اجماع نہیں\n• Bluetooth میش چیٹس مکمل آف لائن\n• geohash چیٹس انٹرنیٹ استعمال کرتے ہیں</string>
+    <string name="permissions_header">اجازات</string>
+    <string name="grant_permissions">اجازات دیں</string>
+    <string name="location_tracking_warning">bitchat آپ کا مقام ٹریک نہیں کرتا</string>
+    <string name="geohash_people_header">لوگ</string>
+    <string name="nobody_around">یہاں کوئی نہیں…</string>
+    <string name="you_suffix"> (آپ)</string>
+    <string name="pan_zoom_instruction">geohash منتخب کرنے کے لیے پین/زوم کریں</string>
+    <string name="select">منتخب کریں</string>
+    <string name="type_a_message_placeholder">پیغام لکھیں…</string>
+    <string name="mention">ذکر</string>
+    <string name="pow_time_estimate">(~%1$s)</string>
+    <string name="version_prefix">v%1$s</string>
+    <string name="image_star">image/*</string>
+    <string name="media_type_image">تصویر</string>
+    <string name="media_type_file">فائل</string>
+
+    <!-- نوٹیفیکیشن ٹیکسٹ ہیلپرز -->
+    <string name="notification_sent_image">📷 تصویر بھیجی</string>
+    <string name="notification_sent_voice">🎤 وائس نوٹ بھیجا</string>
+    <string name="notification_sent_file">📎 فائل بھیجی</string>
+
+    <!-- وائس پلیئر رسائی -->
+    <string name="cd_play_voice">چلائیں</string>
+    <string name="cd_pause_voice">روکیں</string>
+    <string name="cd_mining_pow">PoW مائننگ</string>
+    <string name="cd_pow_enabled">PoW فعال</string>
+    <string name="cd_proof_of_work">پروف آف ورک</string>
+    <string name="pow_mining_ellipsis">مائننگ…</string>
+    <string name="pow_label_format">pow: %1$dbit</string>
+
+    <!-- اجازات کی تفصیل -->
+    <string name="perm_nearby_devices_desc">بلوٹوتھ کے ذریعے bitchat صارفین کی دریافت کے لیے ضروری</string>
+    <string name="perm_nearby_devices_system">bitchat کو قریبی آلات سے جڑنے کی اجازت دیں</string>
+    <string name="perm_location_desc">Android کی ضرورت: بلوٹوتھ کے ذریعے قریبی bitchat صارفین کی دریافت</string>
+    <string name="perm_location_system">قریبی آلات اسکین کرنے کے لیے bitchat کو یہ چاہیے</string>
+    <string name="perm_notifications_desc">نجی پیغامات ملنے پر نوٹیفیکیشن حاصل کریں</string>
+    <string name="perm_notifications_system">bitchat کو آپ کو نوٹیفیکیشن بھیجنے کی اجازت دیں</string>
+    <string name="perm_battery_desc">یقینی بنانے کے لیے کہ bitchat پس منظر میں قابل اعتماد طور پر چلے اور میش کنیکشنز برقرار رکھے، بیٹری کی اصلاح بند کریں</string>
+    <string name="perm_battery_system">bitchat کو بیٹری کی پابندیوں کے بغیر چلنے کی اجازت دیں</string>
+
+    <!-- اجازات کی اقسام -->
+    <string name="perm_type_nearby_devices">قریبی آلات</string>
+    <string name="perm_type_precise_location">درست مقام</string>
+    <string name="perm_type_microphone">مائیکروفون</string>
+    <string name="perm_type_notifications">نوٹیفیکیشنز</string>
+    <string name="perm_type_battery_optimization">بیٹری کی اصلاح</string>
+    <string name="perm_type_other">دوسرے</string>
+
+    <!-- پاس ورڈ ڈائیلاگ -->
+    <string name="pwd_prompt_title">چینل پاس ورڈ داخل کریں</string>
+    <string name="pwd_prompt_message">چینل %1$s پاس ورڈ سے محفوظ ہے۔ شامل ہونے کے لیے پاس ورڈ داخل کریں۔</string>
+    <string name="pwd_label">پاس ورڈ</string>
+    <string name="join">شامل ہوں</string>
+    <string name="cancel">منسوخ کریں</string>
+
+    <!-- جمع -->
+    <plurals name="notification_and_more">
+        <item quantity="one">اور %d مزید</item>
+        <item quantity="other">اور %d مزید</item>
+    </plurals>
+
+    <plurals name="people_count">
+        <item quantity="one">1 شخص</item>
+        <item quantity="other">%d لوگ</item>
+    </plurals>
+
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d نوٹ</item>
+    <item quantity="other">#%1$s ± 1 • %2$d نوٹس</item>
+  </plurals>
+  <string name="location_notes_description">دیگر زائرین کے لیے اس جگہ پر مختصر مستقل نوٹس شامل کریں۔</string>
+  <string name="location_notes_relays_unavailable">جغرافیائی ریلے دستیاب نہیں؛ نوٹس معطل</string>
+  <string name="location_notes_no_relays_title">قریب کوئی جغرافیائی ریلے نہیں</string>
+  <string name="location_notes_no_relays_desc">نوٹس جغرافیائی ریلے پر منحصر ہیں۔ کنکشن چیک کریں اور دوبارہ کوشش کریں۔</string>
+  <string name="loading_location_notes">نوٹس لوڈ ہو رہے ہیں…</string>
+  <string name="location_notes_empty_title">ابھی تک کوئی نوٹس نہیں</string>
+  <string name="location_notes_empty_desc">اس جگہ کے لیے پہلا نوٹ شامل کریں۔</string>
+  <string name="dismiss">بند کریں</string>
+  <string name="location_notes_input_placeholder">اس جگہ کے لیے ایک نوٹ شامل کریں</string>
+</resources>

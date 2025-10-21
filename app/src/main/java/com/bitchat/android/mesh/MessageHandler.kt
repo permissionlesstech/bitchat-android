@@ -183,16 +183,16 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
             }
             
             // Create NOISE_ENCRYPTED packet exactly like iOS
-            val packet = BitchatPacket(
-                version = 1u,
-                type = MessageType.NOISE_ENCRYPTED.value,
-                senderID = hexStringToByteArray(myPeerID),
-                recipientID = hexStringToByteArray(senderPeerID),
-                timestamp = System.currentTimeMillis().toULong(),
-                payload = encryptedPayload,
-                signature = null,
-                ttl = 7u // Same TTL as iOS messageTTL
-            )
+                val packet = BitchatPacket(
+                    version = 1u,
+                    type = MessageType.NOISE_ENCRYPTED.value,
+                    senderID = hexStringToByteArray(myPeerID),
+                    recipientID = hexStringToByteArray(senderPeerID),
+                    timestamp = System.currentTimeMillis().toULong(),
+                    payload = encryptedPayload,
+                    signature = null,
+                    ttl = com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS // Same TTL as iOS messageTTL
+                )
             
             delegate?.sendPacket(packet)
             Log.d(TAG, "📤 Sent delivery ACK to $senderPeerID for message $messageID")
@@ -210,6 +210,14 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         val peerID = routed.peerID ?: "unknown"
 
         if (peerID == myPeerID) return false
+
+        // Ignore stale announcements older than STALE_PEER_TIMEOUT
+        val now = System.currentTimeMillis()
+        val age = now - packet.timestamp.toLong()
+        if (age > com.bitchat.android.util.AppConstants.Mesh.STALE_PEER_TIMEOUT_MS) {
+            Log.w(TAG, "Ignoring stale ANNOUNCE from ${peerID.take(8)} (age=${age}ms > ${com.bitchat.android.util.AppConstants.Mesh.STALE_PEER_TIMEOUT_MS}ms)")
+            return false
+        }
         
         // Try to decode as iOS-compatible IdentityAnnouncement with TLV format
         val announcement = IdentityAnnouncement.decode(packet.payload)
@@ -310,7 +318,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     timestamp = System.currentTimeMillis().toULong(),
                     payload = response,
                     signature = null,
-                    ttl = 7u // Same TTL as iOS
+                    ttl = com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS // Same TTL as iOS
                 )
                 
                 delegate?.sendPacket(responsePacket)

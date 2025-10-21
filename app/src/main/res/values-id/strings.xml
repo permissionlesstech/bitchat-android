@@ -1,0 +1,365 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+
+    <!-- Alasan izin -->
+    <string name="permission_bluetooth_rationale">Izin Bluetooth diperlukan untuk chatting langsung dengan orang lain tanpa Internet.</string>
+    <string name="permission_location_rationale">Izin lokasi diperlukan untuk menemukan perangkat terdekat melalui Bluetooth.</string>
+    <string name="permission_notification_rationale">Izin notifikasi diperlukan untuk memberitahu Anda tentang pesan baru.</string>
+
+    <!-- Placeholder / UI dasar -->
+    <string name="nickname_hint">Nama panggilan</string>
+    <string name="message_hint">Ketik pesan…</string>
+    <string name="channel_password_hint">Kata sandi</string>
+    <string name="join_channel">Bergabung ke channel</string>
+    <string name="leave_channel">Keluar</string>
+    <string name="send_message">Kirim</string>
+    <string name="show_commands">Tampilkan perintah</string>
+    <string name="back">Kembali</string>
+    <string name="people">Orang</string>
+    <string name="channels">Channel</string>
+    <string name="online_users">Pengguna online</string>
+    <string name="no_one_connected">Tidak ada yang terhubung</string>
+    <string name="emergency_clear_hint">Ketuk tiga kali untuk menghapus semua data</string>
+    <string name="your_network">Jaringan</string>
+
+    <!-- Optimalisasi baterai -->
+    <string name="battery_optimization_detected">Optimalisasi baterai terdeteksi</string>
+    <string name="battery_optimization_disabled">Optimalisasi baterai dinonaktifkan</string>
+    <string name="battery_optimization_not_required">Optimalisasi baterai tidak diperlukan</string>
+    <string name="battery_optimization_checking">Memeriksa optimalisasi baterai</string>
+    <string name="battery_optimization_why_disable">Mengapa menonaktifkan optimalisasi baterai?</string>
+    <string name="battery_optimization_explanation">bitchat berjalan di latar belakang untuk mempertahankan koneksi mesh dengan perangkat terdekat. Optimalisasi baterai dapat mengganggu koneksi ini, menyebabkan pesan tertunda atau hilang.\n\nMenonaktifkan optimalisasi baterai memastikan komunikasi peer-to-peer yang andal.</string>
+    <string name="battery_optimization_disable_button">Nonaktifkan optimalisasi baterai</string>
+    <string name="battery_optimization_note">Catatan: Anda dapat mengubahnya nanti di Pengaturan Android &gt; Aplikasi &gt; bitchat &gt; Baterai.</string>
+    <string name="battery_optimization_not_supported_explanation">Perangkat Anda tidak memerlukan pengaturan optimalisasi baterai. bitchat akan berjalan normal.</string>
+    <string name="battery_optimization_not_supported_message">Perangkat Anda tidak memerlukan pengaturan optimalisasi baterai. bitchat akan berjalan normal.</string>
+    <string name="battery_optimization_success_message">bitchat dapat berjalan andal di latar belakang</string>
+    <string name="battery_optimization_benefits">• Pengiriman pesan yang andal\n• Mempertahankan koneksi mesh\n• Relay pesan latar belakang\n• Mencegah putusnya koneksi</string>
+    <string name="battery_optimization_check_again">Periksa lagi</string>
+    <string name="battery_optimization_skip">Lewati sekarang</string>
+    <string name="battery_optimization_continue">Lanjut</string>
+    <string name="retry">Coba lagi</string>
+    <string name="skip">Lewati</string>
+
+    <!-- Notifikasi -->
+    <string name="notification_summary_more">dan %1$d lagi</string>
+    <string name="notification_messages_from_people">%1$d pesan dari %2$d orang</string>
+    <string name="notification_more_conversations">dan %1$d percakapan lagi</string>
+    <string name="notification_active_peers_title">👥 bitchatter terdekat!</string>
+    <string name="notification_active_peers_one">1 orang terdekat</string>
+    <string name="notification_active_peers_many">%1$d orang terdekat</string>
+    <string name="notification_new_messages">Pesan baru</string>
+    <string name="notification_new_location_messages">Pesan lokasi baru</string>
+    <string name="notification_mentions_in">Disebut di %1$s</string>
+    <string name="notification_mentions_in_more">Disebut di %1$s (+%2$d lagi)</string>
+    <string name="notification_mentions_in_plural">%1$d penyebutan di %2$s</string>
+    <string name="notification_new_activity_in">Aktivitas baru di %1$s</string>
+    <string name="notification_messages_in">Pesan di %1$s</string>
+    <string name="notification_joined_conversation">%1$s bergabung dengan percakapan</string>
+    <string name="notification_geohash_summary_title_mentions">bitchat – %1$d penyebutan</string>
+    <string name="notification_geohash_summary_title">bitchat – Chat lokasi</string>
+    <string name="notification_geohash_summary_text">%1$d pesan dari %2$d lokasi</string>
+    <string name="notification_mesh_mention_title_singular">Disebut di Mesh Chat</string>
+    <string name="notification_mesh_mention_title_plural">%1$d penyebutan di Mesh Chat</string>
+    <string name="notification_more_locations">dan %1$d lokasi lagi</string>
+    <string name="notification_and_more">dan %1$d lagi</string>
+
+    <!-- Aksesibilitas favorit -->
+    <string name="cd_add_favorite">Tambah ke favorit</string>
+    <string name="cd_remove_favorite">Hapus dari favorit</string>
+    <string name="cd_add_bookmark">Tambah bookmark</string>
+
+    <!-- Header chat & aksesibilitas -->
+    <string name="chat_back">kembali</string>
+    <string name="chat_channel_prefix">Channel: %1$s</string>
+    <string name="chat_leave">keluar</string>
+    <string name="cd_nostr_reachable">Dapat dijangkau melalui Nostr</string>
+    <string name="cd_unread_private_messages">Pesan pribadi yang belum dibaca</string>
+    <string name="cd_toggle_bookmark">Alihkan bookmark</string>
+    <string name="cd_teleported">Diteleportasi</string>
+    <string name="cd_tor_status">Status Tor</string>
+    <string name="cd_connected_peers">Peer yang terhubung</string>
+    <string name="cd_geohash_participants">Peserta geohash</string>
+    <string name="cd_ready_for_handshake">Siap untuk handshake</string>
+    <string name="cd_handshake_in_progress">Handshake sedang berlangsung</string>
+    <string name="cd_encrypted">Terenkripsi end-to-end</string>
+    <string name="cd_handshake_failed">Handshake gagal</string>
+
+    <!-- Dialog penampil file -->
+    <string name="file_viewer_title">📎 File diterima</string>
+    <string name="file_viewer_name">📄 %1$s</string>
+    <string name="file_viewer_size">📏 Ukuran: %1$s</string>
+    <string name="file_viewer_type">🏷️ Jenis: %1$s</string>
+    <string name="file_viewer_open_save">📂 Buka / Simpan</string>
+    <string name="close_with_emoji">❌ Tutup</string>
+    <string name="pick_image">Pilih gambar</string>
+
+    <!-- Sheet tentang -->
+    <string name="about_tagline">chat mesh terdesentralisasi dengan enkripsi end-to-end</string>
+    <string name="about_offline_mesh_title">Chat Mesh Offline</string>
+    <string name="about_offline_mesh_desc">Berkomunikasi langsung melalui Bluetooth LE tanpa Internet atau server. Pesan diteruskan melalui perangkat terdekat untuk memperluas jangkauan.</string>
+    <string name="about_online_geohash_title">Channel Geohash Online</string>
+    <string name="about_online_geohash_desc">Terhubung dengan orang-orang di area Anda melalui channel berbasis geohash. Perluas mesh melalui relay Internet publik.</string>
+    <string name="about_e2e_title">Enkripsi end-to-end</string>
+    <string name="about_e2e_desc">Pesan pribadi dienkripsi. Pesan channel bersifat publik.</string>
+    <string name="about_appearance">Tampilan</string>
+    <string name="about_system">Sistem</string>
+    <string name="about_light">Terang</string>
+    <string name="about_dark">Gelap</string>
+    <string name="about_pow">Proof of Work</string>
+    <string name="about_pow_off">PoW mati</string>
+    <string name="about_pow_on">PoW hidup</string>
+    <string name="about_pow_tip">Tambahkan proof of work ke pesan geohash untuk mempersulit spam.</string>
+    <string name="about_pow_difficulty">Kesulitan: %1$d bit (~%2$s)</string>
+    <string name="about_pow_difficulty_attempts">Kesulitan %1$d memerlukan ~%2$s percobaan hash</string>
+    <string name="about_pow_desc_none">tidak ada proof of work yang diperlukan</string>
+    <string name="about_pow_desc_very_low">sangat rendah – perlindungan spam minimal</string>
+    <string name="about_pow_desc_low">rendah – perlindungan spam dasar</string>
+    <string name="about_pow_desc_medium">sedang – perlindungan spam yang baik</string>
+    <string name="about_pow_desc_high">tinggi – perlindungan spam yang kuat</string>
+    <string name="about_pow_desc_very_high">sangat tinggi – dapat menyebabkan keterlambatan</string>
+    <string name="about_pow_desc_extreme">ekstrem – memerlukan daya komputasi yang signifikan</string>
+    <string name="about_network">Jaringan</string>
+    <string name="about_tor_off">Tor mati</string>
+    <string name="about_tor_on">Tor hidup</string>
+    <string name="about_tor_route">Rutekan lalu lintas Internet melalui Tor untuk privasi ekstra.</string>
+    <string name="about_tor_status">Status Tor: %1$s, Bootstrap %2$d%%</string>
+    <string name="about_last">Terakhir: %1$s</string>
+    <string name="about_emergency_title">Hapus data darurat</string>
+    <string name="about_emergency_tip">Tips: Ketuk tiga kali pada judul aplikasi untuk menghapus semua data tersimpan – termasuk pesan, kunci, dan pengaturan.</string>
+    <string name="about_debug_settings">Pengaturan debug</string>
+    <string name="about_footer">Sumber Terbuka • Privasi Pertama • Terdesentralisasi</string>
+    <string name="close_plain">Tutup</string>
+    <string name="cancel_lower">batal</string>
+
+    <!-- Deskripsi konten umum -->
+    <string name="cd_warning">Peringatan</string>
+    <string name="cd_location_services">Layanan lokasi</string>
+    <string name="cd_privacy">Privasi</string>
+    <string name="cd_error">Kesalahan</string>
+    <string name="cd_battery_optimization">Optimalisasi baterai</string>
+    <string name="cd_benefits">Manfaat</string>
+    <string name="cd_checking_battery_optimization">Memeriksa optimalisasi baterai</string>
+    <string name="cd_not_supported_battery_optimization">Optimalisasi baterai tidak didukung</string>
+    <string name="cd_bluetooth">Bluetooth</string>
+    <string name="cd_unread_message">Pesan yang belum dibaca</string>
+    <string name="cd_open_map">Buka peta</string>
+    <string name="cd_remove_bookmark">Hapus bookmark</string>
+    <string name="cd_teleport">Teleportasi</string>
+    <string name="cd_selected">Dipilih</string>
+    <string name="cd_leave_channel">Keluar dari channel</string>
+    <string name="cd_reachable_via_nostr">Dapat dijangkau melalui Nostr</string>
+    <string name="cd_offline_favorite">Favorit (offline)</string>
+    <string name="cd_decrease_precision">Kurangi presisi</string>
+    <string name="cd_increase_precision">Tingkatkan presisi</string>
+    <string name="cd_select_geohash">Pilih geohash</string>
+    <string name="cd_scroll_to_bottom">Gulir ke bawah</string>
+    <string name="cd_file">File</string>
+    <string name="cd_image">Gambar</string>
+    <string name="cd_cancel">Batal</string>
+    <string name="cd_link">Tautan</string>
+    <string name="cd_pick_media">Pilih media</string>
+    <string name="cd_pick_file">Pilih file</string>
+    <string name="cd_save_current_image">Simpan gambar saat ini</string>
+    <string name="cd_close">Tutup</string>
+    <string name="cd_image_index_of">Gambar %1$d dari %2$d</string>
+    <string name="cd_privacy_protected">Privasi terlindungi</string>
+    <string name="cd_record_voice">Rekam pesan suara</string>
+    <string name="cd_offline_mesh_chat">Chat Mesh Offline</string>
+    <string name="cd_online_geohash_channels">Channel Geohash Online</string>
+    <string name="cd_end_to_end_encryption">Enkripsi end-to-end</string>
+
+    <!-- Gambar & file -->
+    <string name="image_page_of">Gambar %1$d dari %2$d</string>
+    <string name="image_unavailable">Gambar tidak tersedia</string>
+    <string name="image_saved_to_downloads">Gambar disimpan ke \"Downloads\"</string>
+    <string name="image_save_failed">Gagal menyimpan gambar</string>
+    <string name="toast_image_saved">Gambar disimpan ke \"Downloads\"</string>
+    <string name="toast_failed_to_save_image">Gagal menyimpan gambar</string>
+    <string name="pick_file">Pilih file</string>
+    <string name="file_unavailable">[File tidak tersedia]</string>
+    <string name="unknown">tidak diketahui</string>
+
+    <!-- Sheet aksi pengguna -->
+    <string name="choose_action_message_or_user">Pilih aksi untuk pesan atau pengguna ini</string>
+    <string name="choose_action_user">Pilih aksi untuk pengguna ini</string>
+    <string name="action_copy_message_title">Salin pesan</string>
+    <string name="action_copy_message_subtitle">Salin pesan ini ke clipboard</string>
+    <string name="action_slap_title">Tampar %1$s</string>
+    <string name="action_slap_subtitle">Kirim tamparan main-main</string>
+    <string name="action_hug_title">Peluk %1$s</string>
+    <string name="action_hug_subtitle">Kirim pelukan yang ramah</string>
+    <string name="action_block_title">Blokir %1$s</string>
+    <string name="action_block_subtitle">Blokir semua pesan dari pengguna ini</string>
+
+    <!-- Sheet channel geohash -->
+    <string name="location_channels_title">#Channel lokasi</string>
+    <string name="location_channels_desc">Chat dengan orang-orang di dekat Anda melalui channel geohash. Hanya geohash kasar yang dibagikan, bukan data GPS yang tepat. Harap jangan tangkap layar atau bagikan tampilan ini untuk privasi.</string>
+    <string name="grant_location_permission">Berikan izin lokasi</string>
+    <string name="location_permission_denied">Izin lokasi ditolak. Aktifkan di Pengaturan untuk menggunakan channel lokasi.</string>
+    <string name="open_settings">Buka Pengaturan</string>
+    <string name="location_permission_granted">\u2713 Izin lokasi diberikan</string>
+    <string name="checking_permissions">Memeriksa izin …</string>
+    <string name="finding_nearby_channels">Mencari channel terdekat …</string>
+    <string name="bookmarked">Dibookmark</string>
+    <string name="geohash_placeholder">Geohash</string>
+    <string name="invalid_geohash">Geohash tidak valid</string>
+    <string name="teleport">teleportasi</string>
+    <string name="disable_location_services">Nonaktifkan layanan lokasi</string>
+    <string name="enable_location_services">Aktifkan layanan lokasi</string>
+    <string name="mesh_label">mesh</string>
+    <string name="location_level_block">Blok</string>
+    <string name="location_level_neighborhood">Lingkungan</string>
+    <string name="location_level_city">Kota</string>
+    <string name="location_level_province">Provinsi</string>
+    <string name="location_level_region">Wilayah</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+
+    <!-- Debug / Diagnostik -->
+    <string name="debug_tools">Alat debug</string>
+    <string name="debug_tools_desc">Alat pengembang untuk diagnostik dan kontrol</string>
+    <string name="debug_verbose_logging">logging verbose</string>
+    <string name="debug_verbose_hint">Log bergabung/keluar peer, arah koneksi, penerusan paket dan relay</string>
+    <string name="debug_bluetooth_roles">Peran Bluetooth</string>
+    <string name="debug_gatt_server">GATT Server</string>
+    <string name="debug_connections_fmt">Koneksi: %1$d / %2$d</string>
+    <string name="debug_max_server">server maks</string>
+    <string name="debug_gatt_client">GATT Client</string>
+    <string name="debug_max_client">client maks</string>
+    <string name="debug_overall_connections_fmt">Koneksi: %1$d / %2$d</string>
+    <string name="debug_max_overall">maks keseluruhan</string>
+    <string name="debug_packet_relay">Packet Relay</string>
+    <string name="debug_since_start_fmt">sejak mulai: %1$d</string>
+    <string name="debug_roles_hint">Aktifkan/nonaktifkan peran dan tutup semua koneksi saat menonaktifkan</string>
+    <string name="debug_sync_settings">Pengaturan sinkronisasi</string>
+    <string name="debug_max_packets_per_sync_fmt">paket maks per sinkronisasi: %1$d</string>
+    <string name="debug_max_gcs_filter_size_fmt">ukuran filter GCS maks: %1$d Byte (128–1024)</string>
+    <string name="debug_target_fpr_fmt">FPR target: %1$.2f%%</string>
+    <string name="debug_connected_devices">perangkat terhubung</string>
+    <string name="debug_our_device_id_fmt">ID perangkat kami: %1$s</string>
+    <string name="debug_none">tidak ada</string>
+    <string name="debug_disconnect">putuskan koneksi</string>
+    <string name="debug_recent_scan_results">perangkat yang baru dipindai</string>
+    <string name="debug_connect">hubungkan</string>
+    <string name="debug_debug_console">Konsol debug</string>
+    <string name="debug_clear">hapus</string>
+    <string name="debug_relays_window_fmt">10 detik terakhir: %1$d • 1m: %2$d • 15m: %3$d</string>
+    <string name="debug_derived_p_fmt">P turunan: %1$s • elemen maks perkiraan: %2$s</string>
+    <string name="debug_direct_suffix"> • langsung</string>
+    <string name="debug_role_server">sebagai server (kami host)</string>
+    <string name="debug_role_client">sebagai client (kami hubungkan)</string>
+
+    <!-- Layar onboarding -->
+    <string name="location_services_required">Layanan lokasi diperlukan</string>
+    <string name="privacy_first">Privasi pertama</string>
+    <string name="location_explanation">bitchat TIDAK melacak lokasi Anda.\n\nLayanan lokasi diperlukan untuk pemindaian Bluetooth dan fitur geohash chat.</string>
+    <string name="location_needs_for">bitchat memerlukan layanan lokasi untuk:</string>
+    <string name="location_needs_bullets">• Pemindaian perangkat Bluetooth\n• Menemukan pengguna terdekat di jaringan mesh\n• Fitur geohash chat\n• Tidak ada pelacakan atau pengumpulan lokasi</string>
+    <string name="open_location_settings">Buka pengaturan lokasi</string>
+    <string name="check_again">Periksa lagi</string>
+    <string name="location_services_unavailable">Layanan lokasi tidak tersedia</string>
+    <string name="location_unavailable_explanation">Layanan lokasi tidak tersedia di perangkat ini. Ini tidak biasa karena layanan lokasi standar di perangkat Android.\n\nbitchat memerlukan layanan lokasi agar pemindaian Bluetooth berfungsi dengan benar (persyaratan Android). Tanpanya, aplikasi tidak dapat menemukan pengguna terdekat.</string>
+    <string name="checking_location_services">Memeriksa layanan lokasi …</string>
+    <string name="bluetooth_required">Bluetooth diperlukan</string>
+    <string name="bluetooth_needs_for">bitchat memerlukan Bluetooth untuk:</string>
+    <string name="bluetooth_needs_bullets">• Menemukan pengguna terdekat\n• Membuat koneksi jaringan mesh\n• Mengirim dan menerima pesan\n• Berfungsi tanpa Internet atau server</string>
+    <string name="enable_bluetooth">Aktifkan Bluetooth</string>
+    <string name="bluetooth_not_supported">Bluetooth tidak didukung</string>
+    <string name="bluetooth_unsupported_explanation">Perangkat ini tidak mendukung Bluetooth Low Energy (BLE), yang diperlukan agar bitchat berfungsi.\n\nbitchat memerlukan BLE untuk membuat jaringan mesh dan berkomunikasi dengan perangkat terdekat tanpa Internet.</string>
+    <string name="checking_bluetooth_status">Memeriksa status Bluetooth …</string>
+    <string name="battery_optimization_detected_title">Optimalisasi baterai terdeteksi</string>
+    <string name="battery_optimization_enabled_title">Optimalisasi baterai diaktifkan</string>
+    <string name="battery_optimization_explanation_short">bitchat harus berjalan di latar belakang untuk mempertahankan koneksi mesh. Optimalisasi baterai dapat mengganggu koneksi ini.</string>
+    <string name="benefits_of_disabling">Manfaat menonaktifkan</string>
+    <string name="battery_benefits_short">• pengiriman pesan yang andal\n• mempertahankan koneksi mesh\n• mencegah putusnya koneksi</string>
+    <string name="disable_battery_optimization">Nonaktifkan optimalisasi baterai</string>
+    <string name="battery_optimization_disabled_title">Optimalisasi baterai dinonaktifkan</string>
+    <string name="continue_btn">Lanjut</string>
+    <string name="initializing_mesh_network">Menginisialisasi jaringan mesh</string>
+    <string name="setting_up_bluetooth">Menyiapkan jaringan Bluetooth mesh …</string>
+    <string name="should_take_seconds">Ini seharusnya hanya memakan waktu beberapa detik</string>
+    <string name="setup_not_complete">Penyiapan tidak lengkap</string>
+    <string name="try_again">Coba lagi</string>
+    <string name="privacy_protected">Privasi Anda terlindungi</string>
+    <string name="privacy_bullets">• tidak ada pelacakan atau pengumpulan data\n• Bluetooth mesh chat sepenuhnya offline\n• Geohash chat menggunakan Internet</string>
+    <string name="permissions_header">Izin</string>
+    <string name="grant_permissions">Berikan izin</string>
+    <string name="location_tracking_warning">bitchat TIDAK melacak lokasi Anda</string>
+    <string name="geohash_people_header">ORANG</string>
+    <string name="nobody_around">tidak ada orang di sekitar …</string>
+    <string name="you_suffix"> (Anda)</string>
+    <string name="pan_zoom_instruction">geser dan zoom untuk memilih geohash</string>
+    <string name="select">pilih</string>
+    <string name="type_a_message_placeholder">Ketik pesan …</string>
+    <string name="mention">sebut</string>
+    <string name="pow_time_estimate">(~%1$s)</string>
+    <string name="version_prefix">v%1$s</string>
+    <string name="image_star">image/*</string>
+    <string name="media_type_image">Gambar</string>
+    <string name="media_type_file">File</string>
+
+    <!-- Pembantu teks notifikasi -->
+    <string name="notification_sent_image">📷 mengirim gambar</string>
+    <string name="notification_sent_voice">🎤 mengirim pesan suara</string>
+    <string name="notification_sent_file">📎 mengirim file</string>
+
+    <!-- Aksesibilitas pemutar suara -->
+    <string name="cd_play_voice">Putar</string>
+    <string name="cd_pause_voice">Jeda</string>
+    <string name="cd_mining_pow">Mining PoW</string>
+    <string name="cd_pow_enabled">PoW diaktifkan</string>
+    <string name="cd_proof_of_work">Proof of Work</string>
+    <string name="pow_mining_ellipsis">Mining …</string>
+    <string name="pow_label_format">pow: %1$dbit</string>
+
+    <!-- Deskripsi izin -->
+    <string name="perm_nearby_devices_desc">Diperlukan untuk menemukan pengguna bitchat melalui Bluetooth</string>
+    <string name="perm_nearby_devices_system">Izinkan bitchat terhubung dengan perangkat terdekat</string>
+    <string name="perm_location_desc">Diperlukan oleh Android untuk menemukan pengguna bitchat terdekat melalui Bluetooth</string>
+    <string name="perm_location_system">bitchat memerlukan ini untuk memindai perangkat terdekat</string>
+    <string name="perm_notifications_desc">Terima notifikasi saat Anda menerima pesan pribadi</string>
+    <string name="perm_notifications_system">Izinkan bitchat mengirim notifikasi kepada Anda</string>
+    <string name="perm_battery_desc">Nonaktifkan optimalisasi baterai untuk memastikan bitchat berjalan andal di latar belakang dan mempertahankan koneksi jaringan mesh</string>
+    <string name="perm_battery_system">Izinkan bitchat berjalan tanpa pembatasan baterai</string>
+
+    <!-- Jenis izin -->
+    <string name="perm_type_nearby_devices">Perangkat terdekat</string>
+    <string name="perm_type_precise_location">Lokasi yang tepat</string>
+    <string name="perm_type_microphone">Mikrofon</string>
+    <string name="perm_type_notifications">Notifikasi</string>
+    <string name="perm_type_battery_optimization">Optimalisasi baterai</string>
+    <string name="perm_type_other">Lainnya</string>
+
+    <!-- Dialog kata sandi -->
+    <string name="pwd_prompt_title">Masukkan kata sandi channel</string>
+    <string name="pwd_prompt_message">Channel %1$s dilindungi kata sandi. Masukkan kata sandi untuk bergabung.</string>
+    <string name="pwd_label">Kata sandi</string>
+    <string name="join">Bergabung</string>
+    <string name="cancel">Batal</string>
+
+    <!-- Jamak -->
+    <plurals name="notification_and_more">
+        <item quantity="one">dan %d lagi</item>
+        <item quantity="other">dan %d lagi</item>
+    </plurals>
+
+    <plurals name="people_count">
+        <item quantity="one">1 orang</item>
+        <item quantity="other">%d orang</item>
+    </plurals>
+
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d catatan</item>
+    <item quantity="other">#%1$s ± 1 • %2$d catatan</item>
+  </plurals>
+  <string name="location_notes_description">tambahkan catatan singkat permanen ke lokasi ini agar pengunjung lain dapat menemukannya.</string>
+  <string name="location_notes_relays_unavailable">relay geo tidak tersedia; catatan dijeda</string>
+  <string name="location_notes_no_relays_title">tidak ada relay geo di sekitar</string>
+  <string name="location_notes_no_relays_desc">catatan bergantung pada relay geo. periksa koneksi lalu coba lagi.</string>
+  <string name="loading_location_notes">memuat catatan…</string>
+  <string name="location_notes_empty_title">belum ada catatan</string>
+  <string name="location_notes_empty_desc">jadilah yang pertama menambahkan catatan untuk tempat ini.</string>
+  <string name="dismiss">tutup</string>
+  <string name="location_notes_input_placeholder">tambahkan catatan untuk tempat ini</string>
+</resources>

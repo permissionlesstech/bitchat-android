@@ -1,0 +1,378 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+
+    <!-- 权限说明 -->
+    <string name="permission_bluetooth_rationale">需要蓝牙权限以在无网络时进行点对点聊天。</string>
+    <string name="permission_location_rationale">需要位置信息权限以通过蓝牙发现附近设备。</string>
+    <string name="permission_notification_rationale">需要通知权限以提醒你有新消息。</string>
+
+    <!-- 占位/基础 UI -->
+    <string name="nickname_hint">昵称</string>
+    <string name="message_hint">输入消息…</string>
+    <string name="channel_password_hint">密码</string>
+    <string name="join_channel">加入频道</string>
+    <string name="leave_channel">离开</string>
+    <string name="send_message">发送</string>
+    <string name="show_commands">显示命令</string>
+    <string name="back">返回</string>
+    <string name="people">成员</string>
+    <string name="channels">频道</string>
+    <string name="online_users">在线用户</string>
+    <string name="no_one_connected">无人连接</string>
+    <string name="emergency_clear_hint">三击以清除所有数据</string>
+    <string name="your_network">网络</string>
+
+    <!-- 电池优化 -->
+    <string name="battery_optimization_detected">检测到电池优化</string>
+    <string name="battery_optimization_disabled">电池优化已禁用</string>
+    <string name="battery_optimization_not_required">无需电池优化</string>
+    <string name="battery_optimization_checking">正在检查电池优化</string>
+    <string name="battery_optimization_why_disable">为何禁用电池优化？</string>
+    <string name="battery_optimization_explanation">bitchat 在后台运行以保持与附近设备的 mesh 连接。电池优化可能中断连接，导致消息延迟或丢失。\n\n禁用可确保可靠的点对点消息。</string>
+    <string name="battery_optimization_disable_button">禁用电池优化</string>
+    <string name="battery_optimization_note">备注：稍后可在 设置 &gt; 应用 &gt; bitchat &gt; 电池 中更改。</string>
+    <string name="battery_optimization_not_supported_explanation">你的设备不需要电池优化设置。bitchat 将正常运行。</string>
+    <string name="battery_optimization_not_supported_message">你的设备不需要电池优化设置。bitchat 将正常运行。</string>
+    <string name="battery_optimization_success_message">bitchat 可在后台可靠运行</string>
+    <string name="battery_optimization_benefits">• 可靠投递消息\n• 维持 mesh 连接\n• 后台转发\n• 避免断连</string>
+    <string name="battery_optimization_check_again">重新检查</string>
+    <string name="battery_optimization_skip">暂时跳过</string>
+    <string name="battery_optimization_continue">继续</string>
+    <string name="retry">重试</string>
+    <string name="skip">跳过</string>
+
+    <!-- 通知 -->
+    <string name="notification_summary_more">以及另外 %1$d 条</string>
+    <string name="notification_messages_from_people">来自 %2$d 位的 %1$d 条消息</string>
+    <string name="notification_more_conversations">以及另外 %1$d 个会话</string>
+    <string name="notification_active_peers_title">👥 附近的 bitchatter！</string>
+    <string name="notification_active_peers_one">附近 1 人</string>
+    <string name="notification_active_peers_many">附近 %1$d 人</string>
+    <string name="notification_new_messages">新消息</string>
+    <string name="notification_new_location_messages">新的地点消息</string>
+    <string name="notification_mentions_in">在 %1$s 中被提及</string>
+    <string name="notification_mentions_in_more">在 %1$s 中被提及（另有 %2$d 条）</string>
+    <string name="notification_mentions_in_plural">在 %2$s 中有 %1$d 次提及</string>
+    <string name="notification_new_activity_in">%1$s 中有新动态</string>
+    <string name="notification_messages_in">%1$s 中的消息</string>
+    <string name="notification_joined_conversation">%1$s 加入了会话</string>
+    <string name="notification_geohash_summary_title_mentions">bitchat – %1$d 次提及</string>
+    <string name="notification_geohash_summary_title">bitchat – 地点聊天</string>
+    <string name="notification_geohash_summary_text">来自 %2$d 个地点的 %1$d 条消息</string>
+    <string name="notification_mesh_mention_title_singular">在 Mesh 聊天中被提及</string>
+    <string name="notification_mesh_mention_title_plural">在 Mesh 聊天中有 %1$d 次提及</string>
+    <string name="notification_more_locations">以及另外 %1$d 个地点</string>
+    <string name="notification_and_more">以及另外 %1$d 条</string>
+
+    <!-- 收藏 / 可访问性 -->
+    <string name="cd_add_favorite">加入收藏</string>
+    <string name="cd_remove_favorite">移出收藏</string>
+    <string name="cd_add_bookmark">添加书签</string>
+
+    <!-- 聊天头部 / 可访问性 -->
+    <string name="chat_back">返回</string>
+    <string name="chat_channel_prefix">频道：%1$s</string>
+    <string name="chat_leave">离开</string>
+    <string name="cd_nostr_reachable">可通过 Nostr 联系</string>
+    <string name="cd_unread_private_messages">未读私信</string>
+    <string name="cd_toggle_bookmark">切换书签</string>
+    <string name="cd_teleported">已传送</string>
+    <string name="cd_tor_status">Tor 状态</string>
+    <string name="cd_connected_peers">已连接节点</string>
+    <string name="cd_geohash_participants">Geohash 参与者</string>
+    <string name="cd_ready_for_handshake">准备握手</string>
+    <string name="cd_handshake_in_progress">握手中</string>
+    <string name="cd_encrypted">端到端加密</string>
+    <string name="cd_handshake_failed">握手失败</string>
+
+    <!-- 文件查看对话框 -->
+    <string name="file_viewer_title">📎 收到文件</string>
+    <string name="file_viewer_name">📄 %1$s</string>
+    <string name="file_viewer_size">📏 大小：%1$s</string>
+    <string name="file_viewer_type">🏷️ 类型：%1$s</string>
+    <string name="file_viewer_open_save">📂 打开 / 保存</string>
+    <string name="close_with_emoji">❌ 关闭</string>
+    <string name="pick_image">选择图片</string>
+
+    <!-- 关于 -->
+    <string name="about_tagline">去中心化 mesh 消息，端到端加密</string>
+    <string name="about_offline_mesh_title">离线 Mesh 聊天</string>
+    <string name="about_offline_mesh_desc">无需网络或服务器，通过 Bluetooth LE 直接通信。利用附近设备中继消息以扩展范围。</string>
+    <string name="about_online_geohash_title">在线 Geohash 频道</string>
+    <string name="about_online_geohash_desc">使用基于 geohash 的频道与附近的人交流。通过公共互联网中继扩展 mesh。</string>
+    <string name="about_e2e_title">端到端加密</string>
+    <string name="about_e2e_desc">私信加密；频道消息为公开。</string>
+    <string name="about_appearance">外观</string>
+    <string name="about_system">系统</string>
+    <string name="about_light">浅色</string>
+    <string name="about_dark">深色</string>
+    <string name="about_pow">工作量证明</string>
+    <string name="about_pow_off">pow 关</string>
+    <string name="about_pow_on">pow 开</string>
+    <string name="about_pow_tip">为 geohash 消息添加工作量证明以抑制垃圾信息。</string>
+    <string name="about_pow_difficulty">难度：%1$d 位 (~%2$s)</string>
+    <string name="about_pow_difficulty_attempts">难度 %1$d 约需 ~%2$s 次哈希尝试</string>
+    <string name="about_pow_desc_none">无需工作量证明</string>
+    <string name="about_pow_desc_very_low">很低——最低防护</string>
+    <string name="about_pow_desc_low">较低——基础防护</string>
+    <string name="about_pow_desc_medium">中等——良好防护</string>
+    <string name="about_pow_desc_high">高——强防护</string>
+    <string name="about_pow_desc_very_high">很高——可能延迟</string>
+    <string name="about_pow_desc_extreme">极高——需要大量计算</string>
+    <string name="about_network">网络</string>
+    <string name="about_tor_off">tor 关</string>
+    <string name="about_tor_on">tor 开</string>
+    <string name="about_tor_route">通过 Tor 路由互联网以提升隐私。</string>
+    <string name="about_tor_status">Tor 状态：%1$s，引导 %2$d%%</string>
+    <string name="about_last">最近：%1$s</string>
+    <string name="about_emergency_title">紧急数据删除</string>
+    <string name="about_emergency_tip">提示：三击应用标题以删除所有数据，包括消息、密钥和设置。</string>
+    <string name="about_debug_settings">调试设置</string>
+    <string name="about_footer">Open Source • Privacy First • 去中心化</string>
+    <string name="close_plain">关闭</string>
+    <string name="cancel_lower">取消</string>
+
+    <!-- 通用 CD -->
+    <string name="cd_warning">警告</string>
+    <string name="cd_location_services">定位服务</string>
+    <string name="cd_privacy">隐私</string>
+    <string name="cd_error">错误</string>
+    <string name="cd_battery_optimization">电池优化</string>
+    <string name="cd_benefits">好处</string>
+    <string name="cd_checking_battery_optimization">检查电池优化</string>
+    <string name="cd_not_supported_battery_optimization">不支持</string>
+    <string name="cd_bluetooth">Bluetooth</string>
+    <string name="cd_unread_message">未读消息</string>
+    <string name="cd_open_map">打开地图</string>
+    <string name="cd_remove_bookmark">移除书签</string>
+    <string name="cd_teleport">传送</string>
+    <string name="cd_selected">已选择</string>
+    <string name="cd_leave_channel">离开频道</string>
+    <string name="cd_reachable_via_nostr">可通过 Nostr 联系</string>
+    <string name="cd_offline_favorite">收藏（离线）</string>
+    <string name="cd_decrease_precision">降低精度</string>
+    <string name="cd_increase_precision">提高精度</string>
+    <string name="cd_select_geohash">选择 geohash</string>
+    <string name="cd_scroll_to_bottom">滚动到底部</string>
+    <string name="cd_file">文件</string>
+    <string name="cd_image">图片</string>
+    <string name="cd_cancel">取消</string>
+    <string name="cd_link">链接</string>
+    <string name="cd_pick_media">选择媒体</string>
+    <string name="cd_record_voice">录制语音</string>
+    <string name="cd_offline_mesh_chat">离线 Mesh 聊天</string>
+    <string name="cd_online_geohash_channels">在线 Geohash 频道</string>
+    <string name="cd_end_to_end_encryption">端到端加密</string>
+
+    <!-- 图片/文件 -->
+    <string name="image_page_of">图片 %1$d / %2$d</string>
+    <string name="image_unavailable">图片不可用</string>
+    <string name="image_saved_to_downloads">图片已保存到“下载”</string>
+    <string name="image_save_failed">图片保存失败</string>
+    <string name="pick_file">选择文件</string>
+    <string name="file_unavailable">[文件不可用]</string>
+    <string name="unknown">未知</string>
+
+    <!-- 用户操作面板 -->
+    <string name="choose_action_message_or_user">为此消息或用户选择操作</string>
+    <string name="choose_action_user">为此用户选择操作</string>
+    <string name="action_copy_message_title">复制消息</string>
+    <string name="action_copy_message_subtitle">将此消息复制到剪贴板</string>
+    <string name="action_slap_title">扇 %1$s 一下</string>
+    <string name="action_slap_subtitle">发送一个打趣的“扇巴掌”</string>
+    <string name="action_hug_title">拥抱 %1$s</string>
+    <string name="action_hug_subtitle">发送一个友好的拥抱</string>
+    <string name="action_block_title">屏蔽 %1$s</string>
+    <string name="action_block_subtitle">屏蔽该用户的所有消息</string>
+
+    <!-- 地点频道面板 -->
+    <string name="location_channels_title">#地点频道</string>
+    <string name="location_channels_desc">使用 geohash 频道与附近的人聊天。仅共享粗略的 geohash，从不共享精确 GPS。为保护隐私，请勿截图或分享此页面。</string>
+    <string name="grant_location_permission">授予定位权限</string>
+    <string name="location_permission_denied">定位权限被拒。请在设置中启用以使用地点频道。</string>
+    <string name="open_settings">打开设置</string>
+    <string name="location_permission_granted">\u2713 已授予定位权限</string>
+    <string name="checking_permissions">正在检查权限…</string>
+    <string name="finding_nearby_channels">正在查找附近频道…</string>
+    <string name="bookmarked">已收藏</string>
+    <string name="geohash_placeholder">geohash</string>
+    <string name="invalid_geohash">无效的 geohash</string>
+    <string name="teleport">传送</string>
+    <string name="disable_location_services">禁用定位服务</string>
+    <string name="enable_location_services">启用定位服务</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+    <string name="mesh_label">mesh</string>
+    <string name="location_level_block">街区</string>
+    <string name="location_level_neighborhood">社区</string>
+    <string name="location_level_city">城市</string>
+    <string name="location_level_province">省/州</string>
+    <string name="location_level_region">地区</string>
+
+    <!-- 调试/诊断 -->
+    <string name="debug_tools">调试工具</string>
+    <string name="debug_verbose_logging">详细日志</string>
+    <string name="debug_bluetooth_roles">Bluetooth 角色</string>
+    <string name="debug_gatt_server">GATT 服务器</string>
+    <string name="debug_connections_fmt">连接：%1$d / %2$d</string>
+    <string name="debug_max_server">最大服务器</string>
+    <string name="debug_gatt_client">GATT 客户端</string>
+    <string name="debug_max_client">最大客户端</string>
+    <string name="debug_overall_connections_fmt">连接：%1$d / %2$d</string>
+    <string name="debug_max_overall">最大总计</string>
+    <string name="debug_packet_relay">数据包中继</string>
+    <string name="debug_since_start_fmt">自启动以来：%1$d</string>
+    <string name="debug_sync_settings">同步设置</string>
+    <string name="debug_max_packets_per_sync_fmt">每次同步的最大包数：%1$d</string>
+    <string name="debug_max_gcs_filter_size_fmt">GCS 过滤器最大大小：%1$d 字节（128–1024）</string>
+    <string name="debug_target_fpr_fmt">目标 FPR：%1$.2f%%</string>
+    <string name="debug_connected_devices">已连接设备</string>
+    <string name="debug_our_device_id_fmt">我们的设备 ID：%1$s</string>
+    <string name="debug_none">无</string>
+    <string name="debug_disconnect">断开</string>
+    <string name="debug_recent_scan_results">最近扫描结果</string>
+    <string name="debug_connect">连接</string>
+    <string name="debug_debug_console">调试控制台</string>
+    <string name="debug_clear">清除</string>
+    <string name="debug_relays_window_fmt">最近 10 秒：%1$d • 1 分钟：%2$d • 15 分钟：%3$d</string>
+    <string name="debug_derived_p_fmt">导出 P：%1$s • 估算最大元素：%2$s</string>
+    <string name="debug_direct_suffix"> • 直连</string>
+    <string name="debug_question_mark">?</string>
+    <string name="debug_role_server">作为服务器（我们托管）</string>
+    <string name="debug_role_client">作为客户端（我们连接）</string>
+
+    <!-- 入门屏幕 -->
+    <string name="location_services_required">需要定位服务</string>
+    <string name="privacy_first">隐私优先</string>
+    <string name="location_explanation">bitchat 不会跟踪你的位置。\n\n蓝牙扫描和 geohash 聊天功能需要定位服务。</string>
+    <string name="location_needs_for">bitchat 需要定位服务用于：</string>
+    <string name="location_needs_bullets">• 蓝牙设备扫描\n• 在 mesh 网络发现附近用户\n• Geohash 聊天\n• 不跟踪或收集位置</string>
+    <string name="open_location_settings">打开定位设置</string>
+    <string name="check_again">再次检查</string>
+    <string name="location_services_unavailable">定位服务不可用</string>
+    <string name="location_unavailable_explanation">此设备上定位服务不可用。这不常见，因为 Android 设备通常具备此功能。\n\n为使蓝牙扫描正常工作（Android 要求），需要定位服务。否则无法发现附近用户。</string>
+    <string name="checking_location_services">正在检查定位服务…</string>
+    <string name="bluetooth_required">需要 Bluetooth</string>
+    <string name="bluetooth_needs_for">bitchat 需要 Bluetooth 以：</string>
+    <string name="bluetooth_needs_bullets">• 发现附近用户\n• 建立 mesh 连接\n• 发送和接收消息\n• 在无网络和服务器时工作</string>
+    <string name="enable_bluetooth">启用 Bluetooth</string>
+    <string name="bluetooth_not_supported">不支持 Bluetooth</string>
+    <string name="bluetooth_unsupported_explanation">此设备不支持 Bluetooth Low Energy (BLE)，而 bitchat 需要它。\n\nbitchat 需要 BLE 以建立 mesh 并在无网络时与附近设备通信。</string>
+    <string name="checking_bluetooth_status">正在检查 Bluetooth 状态…</string>
+    <string name="battery_optimization_detected_title">检测到电池优化</string>
+    <string name="battery_optimization_enabled_title">电池优化已启用</string>
+    <string name="battery_optimization_explanation_short">bitchat 需要在后台运行以维持连接；电池优化可能会中断。</string>
+    <string name="benefits_of_disabling">禁用的好处</string>
+    <string name="battery_benefits_short">• 可靠投递\n• 维持连接\n• 避免中断</string>
+    <string name="disable_battery_optimization">禁用优化</string>
+    <string name="battery_optimization_disabled_title">已禁用优化</string>
+    <string name="continue_btn">继续</string>
+    <string name="initializing_mesh_network">正在初始化 mesh 网络</string>
+    <string name="dot">.</string>
+    <string name="setting_up_bluetooth">正在设置 Bluetooth mesh…</string>
+    <string name="should_take_seconds">只需几秒钟</string>
+    <string name="warning_emoji">⚠️</string>
+    <string name="setup_not_complete">设置未完成</string>
+    <string name="try_again">重试</string>
+    <string name="privacy_protected">你的隐私已受保护</string>
+    <string name="privacy_bullets">• 不跟踪不收集\n• 蓝牙 mesh 聊天完全离线\n• geohash 聊天使用互联网</string>
+    <string name="permissions_header">权限</string>
+    <string name="grant_permissions">授予权限</string>
+    <string name="location_tracking_warning">bitchat 不会跟踪你的位置</string>
+    <string name="at_symbol">@</string>
+    <string name="app_brand">bitchat/</string>
+    <string name="channel_count_prefix"> · ⧉ </string>
+    <string name="geohash_people_header">成员</string>
+    <string name="nobody_around">附近无人…</string>
+    <string name="you_suffix"> (你)</string>
+    <string name="pan_zoom_instruction">拖动/缩放以选择 geohash</string>
+    <string name="select">选择</string>
+    <string name="type_a_message_placeholder">输入消息…</string>
+    <string name="mention_suggestion_at">@%1$s</string>
+    <string name="mention">提及</string>
+    <string name="image_counter">%1$d / %2$d</string>
+    <string name="pow_time_estimate">(~%1$s)</string>
+    <string name="at_nickname">@%1$s</string>
+    <string name="version_prefix">v%1$s</string>
+    <string name="hash_symbol">#</string>
+    <string name="underscore">_</string>
+    <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
+    <string name="progress_filled">█</string>
+    <string name="progress_empty">░</string>
+    <string name="image_star">image/*</string>
+    <string name="media_type_image">图片</string>
+    <string name="media_type_file">文件</string>
+
+    <!-- 消息状态 -->
+    <string name="status_sending">○</string>
+    <string name="status_pending">○</string>
+    <string name="status_sent">✓</string>
+    <string name="status_delivered">✓✓</string>
+    <string name="status_failed">⚠</string>
+    <string name="status_read">✓</string>
+
+    <!-- 通知文本辅助 -->
+    <string name="notification_sent_image">📷 发送了图片</string>
+    <string name="notification_sent_voice">🎤 发送了语音消息</string>
+    <string name="notification_sent_file">📎 发送了文件</string>
+    <string name="notification_file_pdf">📄</string>
+    <string name="notification_file_zip">🗜️</string>
+    <string name="notification_file_doc">📄</string>
+    <string name="notification_file_xls">📊</string>
+    <string name="notification_file_ppt">📈</string>
+    <string name="notification_file_generic">📎</string>
+
+    <!-- 语音播放器无障碍 -->
+    <string name="cd_play_voice">播放</string>
+    <string name="cd_pause_voice">暂停</string>
+
+    <!-- 权限描述 -->
+    <string name="perm_nearby_devices_desc">需要通过 Bluetooth 发现 bitchat 用户</string>
+    <string name="perm_nearby_devices_system">允许 bitchat 连接附近设备</string>
+    <string name="perm_location_desc">Android 要求以通过 Bluetooth 发现附近用户</string>
+    <string name="perm_location_system">bitchat 需要此权限以扫描附近设备</string>
+    <string name="perm_notifications_desc">在收到私信时接收通知</string>
+    <string name="perm_notifications_system">允许 bitchat 向你发送通知</string>
+    <string name="perm_battery_desc">禁用电池优化以确保后台可靠运行并维持连接</string>
+    <string name="perm_battery_system">允许 bitchat 在无电池限制下运行</string>
+
+    <!-- 权限类型 -->
+    <string name="perm_type_nearby_devices">附近设备</string>
+    <string name="perm_type_precise_location">精确位置</string>
+    <string name="perm_type_microphone">麦克风</string>
+    <string name="perm_type_notifications">通知</string>
+    <string name="perm_type_battery_optimization">电池优化</string>
+    <string name="perm_type_other">其他</string>
+
+    <!-- 密码提示对话框 -->
+    <string name="pwd_prompt_title">输入频道密码</string>
+    <string name="pwd_prompt_message">频道 %1$s 已受密码保护。请输入密码以加入。</string>
+    <string name="pwd_label">密码</string>
+    <string name="join">加入</string>
+    <string name="cancel">取消</string>
+
+    <!-- 复数 -->
+    <plurals name="notification_and_more">
+        <item quantity="one">以及另外 %d 条</item>
+        <item quantity="other">以及另外 %d 条</item>
+    </plurals>
+
+    <plurals name="people_count">
+        <item quantity="one">1 人</item>
+        <item quantity="other">%d 人</item>
+    </plurals>
+
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d 条笔记</item>
+    <item quantity="other">#%1$s ± 1 • %2$d 条笔记</item>
+  </plurals>
+  <string name="location_notes_description">为此位置添加简短的永久备注，方便其他访客查看。</string>
+  <string name="location_notes_relays_unavailable">地理中继不可用；笔记已暂停</string>
+  <string name="location_notes_no_relays_title">附近没有地理中继</string>
+  <string name="location_notes_no_relays_desc">笔记依赖地理中继。请检查连接后重试。</string>
+  <string name="loading_location_notes">正在加载笔记…</string>
+  <string name="location_notes_empty_title">还没有笔记</string>
+  <string name="location_notes_empty_desc">成为第一个为此地点添加笔记的人。</string>
+  <string name="dismiss">关闭</string>
+  <string name="location_notes_input_placeholder">为此地点添加一条笔记</string>
+</resources>

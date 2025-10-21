@@ -1,0 +1,365 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+
+    <!-- 권한 안내 -->
+    <string name="permission_bluetooth_rationale">인터넷 없이 다른 사람과 직접 채팅하려면 블루투스 권한이 필요합니다.</string>
+    <string name="permission_location_rationale">블루투스로 주변 기기를 찾으려면 위치 권한이 필요합니다.</string>
+    <string name="permission_notification_rationale">새 메시지를 알려면 알림 권한이 필요합니다.</string>
+
+    <!-- 플레이스홀더 / 기본 UI -->
+    <string name="nickname_hint">닉네임</string>
+    <string name="message_hint">메시지 입력…</string>
+    <string name="channel_password_hint">비밀번호</string>
+    <string name="join_channel">채널 참가</string>
+    <string name="leave_channel">나가기</string>
+    <string name="send_message">보내기</string>
+    <string name="show_commands">명령 보기</string>
+    <string name="back">뒤로</string>
+    <string name="people">사람들</string>
+    <string name="channels">채널</string>
+    <string name="online_users">온라인 사용자</string>
+    <string name="no_one_connected">연결된 사람이 없음</string>
+    <string name="emergency_clear_hint">모든 데이터를 지우려면 세 번 탭하세요</string>
+    <string name="your_network">네트워크</string>
+
+    <!-- 배터리 최적화 -->
+    <string name="battery_optimization_detected">배터리 최적화 감지됨</string>
+    <string name="battery_optimization_disabled">배터리 최적화 비활성화됨</string>
+    <string name="battery_optimization_not_required">배터리 최적화 필요 없음</string>
+    <string name="battery_optimization_checking">배터리 최적화 확인 중</string>
+    <string name="battery_optimization_why_disable">왜 배터리 최적화를 끄나요?</string>
+    <string name="battery_optimization_explanation">bitchat은 근처 기기와의 메쉬 연결을 유지하기 위해 백그라운드에서 동작합니다. 배터리 최적화는 이러한 연결을 중단시켜 메시지가 지연되거나 손실될 수 있습니다.\n\n배터리 최적화를 끄면 신뢰할 수 있는 P2P 통신이 보장됩니다.</string>
+    <string name="battery_optimization_disable_button">배터리 최적화 끄기</string>
+    <string name="battery_optimization_note">참고: 이후 Android 설정 &gt; 앱 &gt; bitchat &gt; 배터리에서 변경할 수 있습니다.</string>
+    <string name="battery_optimization_not_supported_explanation">이 기기는 배터리 최적화 설정이 필요하지 않습니다. bitchat은 정상적으로 동작합니다.</string>
+    <string name="battery_optimization_not_supported_message">이 기기는 배터리 최적화 설정이 필요하지 않습니다. bitchat은 정상적으로 동작합니다.</string>
+    <string name="battery_optimization_success_message">bitchat이 백그라운드에서 안정적으로 실행됩니다</string>
+    <string name="battery_optimization_benefits">• 신뢰할 수 있는 메시지 전달\n• 메쉬 연결 유지\n• 백그라운드 메시지 릴레이\n• 연결 끊김 방지</string>
+    <string name="battery_optimization_check_again">다시 확인</string>
+    <string name="battery_optimization_skip">지금 건너뛰기</string>
+    <string name="battery_optimization_continue">계속</string>
+    <string name="retry">다시 시도</string>
+    <string name="skip">건너뛰기</string>
+
+    <!-- 알림 -->
+    <string name="notification_summary_more">그리고 %1$d개 더</string>
+    <string name="notification_messages_from_people">%2$d명에게서 %1$d개의 메시지</string>
+    <string name="notification_more_conversations">그리고 %1$d개의 대화 더</string>
+    <string name="notification_active_peers_title">👥 근처 bitchatter!</string>
+    <string name="notification_active_peers_one">근처 1명</string>
+    <string name="notification_active_peers_many">근처 %1$d명</string>
+    <string name="notification_new_messages">새 메시지</string>
+    <string name="notification_new_location_messages">새 위치 메시지</string>
+    <string name="notification_mentions_in">%1$s에서 언급됨</string>
+    <string name="notification_mentions_in_more">%1$s에서 언급됨 (+%2$d)</string>
+    <string name="notification_mentions_in_plural">%2$s에서 %1$d회 언급</string>
+    <string name="notification_new_activity_in">%1$s의 새 활동</string>
+    <string name="notification_messages_in">%1$s의 메시지</string>
+    <string name="notification_joined_conversation">%1$s님이 대화에 참여했습니다</string>
+    <string name="notification_geohash_summary_title_mentions">bitchat – %1$d회 언급</string>
+    <string name="notification_geohash_summary_title">bitchat – 위치 채팅</string>
+    <string name="notification_geohash_summary_text">%2$d개의 장소에서 온 %1$d개의 메시지</string>
+    <string name="notification_mesh_mention_title_singular">메쉬 채팅에서 언급됨</string>
+    <string name="notification_mesh_mention_title_plural">메쉬 채팅에서 %1$d회 언급</string>
+    <string name="notification_more_locations">그리고 %1$d개의 장소 더</string>
+    <string name="notification_and_more">그리고 %1$d개 더</string>
+
+    <!-- 즐겨찾기 접근성 -->
+    <string name="cd_add_favorite">즐겨찾기에 추가</string>
+    <string name="cd_remove_favorite">즐겨찾기에서 제거</string>
+    <string name="cd_add_bookmark">북마크 추가</string>
+
+    <!-- 채팅 헤더 & 접근성 -->
+    <string name="chat_back">뒤로</string>
+    <string name="chat_channel_prefix">채널: %1$s</string>
+    <string name="chat_leave">나가기</string>
+    <string name="cd_nostr_reachable">Nostr로 연결 가능</string>
+    <string name="cd_unread_private_messages">읽지 않은 개인 메시지</string>
+    <string name="cd_toggle_bookmark">북마크 전환</string>
+    <string name="cd_teleported">텔레포트됨</string>
+    <string name="cd_tor_status">Tor 상태</string>
+    <string name="cd_connected_peers">연결된 피어</string>
+    <string name="cd_geohash_participants">geohash 참여자</string>
+    <string name="cd_ready_for_handshake">핸드셰이크 준비됨</string>
+    <string name="cd_handshake_in_progress">핸드셰이크 진행 중</string>
+    <string name="cd_encrypted">종단간 암호화</string>
+    <string name="cd_handshake_failed">핸드셰이크 실패</string>
+
+    <!-- 파일 뷰어 대화상자 -->
+    <string name="file_viewer_title">📎 파일 수신</string>
+    <string name="file_viewer_name">📄 %1$s</string>
+    <string name="file_viewer_size">📏 크기: %1$s</string>
+    <string name="file_viewer_type">🏷️ 유형: %1$s</string>
+    <string name="file_viewer_open_save">📂 열기 / 저장</string>
+    <string name="close_with_emoji">❌ 닫기</string>
+    <string name="pick_image">이미지 선택</string>
+
+    <!-- 정보 시트 -->
+    <string name="about_tagline">종단간 암호화를 갖춘 탈중앙 메쉬 채팅</string>
+    <string name="about_offline_mesh_title">오프라인 메쉬 채팅</string>
+    <string name="about_offline_mesh_desc">인터넷이나 서버 없이 Bluetooth LE로 직접 소통합니다. 범위를 확장하기 위해 근처 기기를 통해 메시지가 중계됩니다.</string>
+    <string name="about_online_geohash_title">온라인 geohash 채널</string>
+    <string name="about_online_geohash_desc">geohash 기반 채널을 통해 주변 사람들과 연결하세요. 공용 인터넷 릴레이로 메쉬를 확장합니다.</string>
+    <string name="about_e2e_title">종단간 암호화</string>
+    <string name="about_e2e_desc">개인 메시지는 암호화됩니다. 채널 메시지는 공개입니다.</string>
+    <string name="about_appearance">모양</string>
+    <string name="about_system">시스템</string>
+    <string name="about_light">라이트</string>
+    <string name="about_dark">다크</string>
+    <string name="about_pow">작업증명</string>
+    <string name="about_pow_off">PoW 끔</string>
+    <string name="about_pow_on">PoW 켬</string>
+    <string name="about_pow_tip">스팸을 어렵게 만들기 위해 geohash 메시지에 작업증명을 추가하세요.</string>
+    <string name="about_pow_difficulty">난이도: %1$d 비트 (~%2$s)</string>
+    <string name="about_pow_difficulty_attempts">난이도 %1$d는 ~%2$s 해시 시도가 필요합니다</string>
+    <string name="about_pow_desc_none">작업증명 필요 없음</string>
+    <string name="about_pow_desc_very_low">매우 낮음 – 최소 스팸 보호</string>
+    <string name="about_pow_desc_low">낮음 – 기본 스팸 보호</string>
+    <string name="about_pow_desc_medium">중간 – 좋은 스팸 보호</string>
+    <string name="about_pow_desc_high">높음 – 강한 스팸 보호</string>
+    <string name="about_pow_desc_very_high">매우 높음 – 지연이 발생할 수 있음</string>
+    <string name="about_pow_desc_extreme">매우 극단 – 상당한 연산 능력 필요</string>
+    <string name="about_network">네트워크</string>
+    <string name="about_tor_off">Tor 끔</string>
+    <string name="about_tor_on">Tor 켬</string>
+    <string name="about_tor_route">개인정보 보호를 위해 인터넷 트래픽을 Tor를 통해 라우팅합니다.</string>
+    <string name="about_tor_status">Tor 상태: %1$s, 부트스트랩 %2$d%%</string>
+    <string name="about_last">마지막: %1$s</string>
+    <string name="about_emergency_title">긴급 데이터 삭제</string>
+    <string name="about_emergency_tip">팁: 저장된 모든 데이터(메시지, 키, 설정 포함)를 삭제하려면 앱 제목을 세 번 탭하세요.</string>
+    <string name="about_debug_settings">디버그 설정</string>
+    <string name="about_footer">오픈 소스 • 프라이버시 우선 • 탈중앙</string>
+    <string name="close_plain">닫기</string>
+    <string name="cancel_lower">취소</string>
+
+    <!-- 일반 콘텐츠 설명 -->
+    <string name="cd_warning">경고</string>
+    <string name="cd_location_services">위치 서비스</string>
+    <string name="cd_privacy">개인정보</string>
+    <string name="cd_error">오류</string>
+    <string name="cd_battery_optimization">배터리 최적화</string>
+    <string name="cd_benefits">이점</string>
+    <string name="cd_checking_battery_optimization">배터리 최적화 확인 중</string>
+    <string name="cd_not_supported_battery_optimization">배터리 최적화 미지원</string>
+    <string name="cd_bluetooth">블루투스</string>
+    <string name="cd_unread_message">읽지 않은 메시지</string>
+    <string name="cd_open_map">지도 열기</string>
+    <string name="cd_remove_bookmark">북마크 제거</string>
+    <string name="cd_teleport">텔레포트</string>
+    <string name="cd_selected">선택됨</string>
+    <string name="cd_leave_channel">채널 나가기</string>
+    <string name="cd_reachable_via_nostr">Nostr로 연결 가능</string>
+    <string name="cd_offline_favorite">즐겨찾기 (오프라인)</string>
+    <string name="cd_decrease_precision">정밀도 낮추기</string>
+    <string name="cd_increase_precision">정밀도 높이기</string>
+    <string name="cd_select_geohash">geohash 선택</string>
+    <string name="cd_scroll_to_bottom">아래로 스크롤</string>
+    <string name="cd_file">파일</string>
+    <string name="cd_image">이미지</string>
+    <string name="cd_cancel">취소</string>
+    <string name="cd_link">링크</string>
+    <string name="cd_pick_media">미디어 선택</string>
+    <string name="cd_pick_file">파일 선택</string>
+    <string name="cd_save_current_image">현재 이미지 저장</string>
+    <string name="cd_close">닫기</string>
+    <string name="cd_image_index_of">이미지 %1$d / %2$d</string>
+    <string name="cd_privacy_protected">개인정보 보호됨</string>
+    <string name="cd_record_voice">음성 메시지 녹음</string>
+    <string name="cd_offline_mesh_chat">오프라인 메쉬 채팅</string>
+    <string name="cd_online_geohash_channels">온라인 geohash 채널</string>
+    <string name="cd_end_to_end_encryption">종단간 암호화</string>
+
+    <!-- 이미지 & 파일 -->
+    <string name="image_page_of">이미지 %1$d / %2$d</string>
+    <string name="image_unavailable">이미지를 사용할 수 없음</string>
+    <string name="image_saved_to_downloads">이미지가 \"Downloads\"에 저장됨</string>
+    <string name="image_save_failed">이미지를 저장하지 못했습니다</string>
+    <string name="toast_image_saved">이미지가 \"Downloads\"에 저장됨</string>
+    <string name="toast_failed_to_save_image">이미지를 저장하지 못했습니다</string>
+    <string name="pick_file">파일 선택</string>
+    <string name="file_unavailable">[파일을 사용할 수 없음]</string>
+    <string name="unknown">알 수 없음</string>
+
+    <!-- 사용자 작업 시트 -->
+    <string name="choose_action_message_or_user">이 메시지 또는 사용자에 대한 동작 선택</string>
+    <string name="choose_action_user">이 사용자에 대한 동작 선택</string>
+    <string name="action_copy_message_title">메시지 복사</string>
+    <string name="action_copy_message_subtitle">이 메시지를 클립보드에 복사</string>
+    <string name="action_slap_title">%1$s를 때리기</string>
+    <string name="action_slap_subtitle">장난스러운 따귀 보내기</string>
+    <string name="action_hug_title">%1$s를 안기</string>
+    <string name="action_hug_subtitle">친근한 포옹 보내기</string>
+    <string name="action_block_title">%1$s 차단</string>
+    <string name="action_block_subtitle">이 사용자의 모든 메시지 차단</string>
+
+    <!-- geohash 채널 시트 -->
+    <string name="location_channels_title">#위치 채널</string>
+    <string name="location_channels_desc">geohash 채널을 통해 주변 사람들과 채팅하세요. 정확한 GPS 데이터가 아닌 대략적인 geohash만 공유됩니다. 개인 정보 보호를 위해 이 화면을 스크린샷하거나 공유하지 마세요.</string>
+    <string name="grant_location_permission">위치 권한 허용</string>
+    <string name="location_permission_denied">위치 권한이 거부되었습니다. 위치 채널을 사용하려면 설정에서 활성화하세요.</string>
+    <string name="open_settings">설정 열기</string>
+    <string name="location_permission_granted">\u2713 위치 권한 허용됨</string>
+    <string name="checking_permissions">권한 확인 중 …</string>
+    <string name="finding_nearby_channels">주변 채널 찾는 중 …</string>
+    <string name="bookmarked">북마크됨</string>
+    <string name="geohash_placeholder">Geohash</string>
+    <string name="invalid_geohash">유효하지 않은 geohash</string>
+    <string name="teleport">텔레포트</string>
+    <string name="disable_location_services">위치 서비스 비활성화</string>
+    <string name="enable_location_services">위치 서비스 활성화</string>
+    <string name="mesh_label">mesh</string>
+    <string name="location_level_block">블록</string>
+    <string name="location_level_neighborhood">이웃</string>
+    <string name="location_level_city">도시</string>
+    <string name="location_level_province">주/도</string>
+    <string name="location_level_region">지역</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+
+    <!-- 디버그 / 진단 -->
+    <string name="debug_tools">디버그 도구</string>
+    <string name="debug_tools_desc">진단 및 제어를 위한 개발자 도구</string>
+    <string name="debug_verbose_logging">상세 로깅</string>
+    <string name="debug_verbose_hint">피어 참여/이탈, 연결 방향, 패킷 전달 및 릴레이를 기록합니다</string>
+    <string name="debug_bluetooth_roles">블루투스 역할</string>
+    <string name="debug_gatt_server">GATT 서버</string>
+    <string name="debug_connections_fmt">연결: %1$d / %2$d</string>
+    <string name="debug_max_server">최대 서버</string>
+    <string name="debug_gatt_client">GATT 클라이언트</string>
+    <string name="debug_max_client">최대 클라이언트</string>
+    <string name="debug_overall_connections_fmt">연결: %1$d / %2$d</string>
+    <string name="debug_max_overall">총 최대</string>
+    <string name="debug_packet_relay">패킷 릴레이</string>
+    <string name="debug_since_start_fmt">시작 이후: %1$d</string>
+    <string name="debug_roles_hint">역할을 켜고/끄고 비활성화 시 모든 연결 닫기</string>
+    <string name="debug_sync_settings">동기화 설정</string>
+    <string name="debug_max_packets_per_sync_fmt">동기화당 최대 패킷: %1$d</string>
+    <string name="debug_max_gcs_filter_size_fmt">최대 GCS 필터 크기: %1$d Byte (128–1024)</string>
+    <string name="debug_target_fpr_fmt">목표 FPR: %1$.2f%%</string>
+    <string name="debug_connected_devices">연결된 장치</string>
+    <string name="debug_our_device_id_fmt">우리 장치 ID: %1$s</string>
+    <string name="debug_none">없음</string>
+    <string name="debug_disconnect">연결 해제</string>
+    <string name="debug_recent_scan_results">최근 스캔된 장치</string>
+    <string name="debug_connect">연결</string>
+    <string name="debug_debug_console">디버그 콘솔</string>
+    <string name="debug_clear">지우기</string>
+    <string name="debug_relays_window_fmt">마지막 10초: %1$d • 1분: %2$d • 15분: %3$d</string>
+    <string name="debug_derived_p_fmt">유도 P: %1$s • 예상 최대 요소: %2$s</string>
+    <string name="debug_direct_suffix"> • 직접</string>
+    <string name="debug_role_server">서버로서 (우리가 호스트)</string>
+    <string name="debug_role_client">클라이언트로서 (우리가 연결)</string>
+
+    <!-- 온보딩 화면 -->
+    <string name="location_services_required">위치 서비스 필요</string>
+    <string name="privacy_first">개인정보 우선</string>
+    <string name="location_explanation">bitchat은 사용자의 위치를 추적하지 않습니다.\n\n블루투스 스캔 및 geohash 채팅 기능에 위치 서비스가 필요합니다.</string>
+    <string name="location_needs_for">bitchat은 다음을 위해 위치 서비스가 필요합니다:</string>
+    <string name="location_needs_bullets">• 블루투스 기기 스캔\n• 메쉬 네트워크에서 근처 사용자 발견\n• geohash 채팅 기능\n• 추적 또는 위치 수집 없음</string>
+    <string name="open_location_settings">위치 설정 열기</string>
+    <string name="check_again">다시 확인</string>
+    <string name="location_services_unavailable">위치 서비스를 사용할 수 없음</string>
+    <string name="location_unavailable_explanation">이 기기에서는 위치 서비스를 사용할 수 없습니다. Android 기기에서 위치 서비스는 표준이므로 이는 드문 경우입니다.\n\n블루투스 스캔이 제대로 작동하려면 bitchat에 위치 서비스가 필요합니다(Android 요구 사항). 그렇지 않으면 앱이 주변 사용자를 찾지 못합니다.</string>
+    <string name="checking_location_services">위치 서비스 확인 중 …</string>
+    <string name="bluetooth_required">블루투스 필요</string>
+    <string name="bluetooth_needs_for">bitchat은 다음을 위해 블루투스가 필요합니다:</string>
+    <string name="bluetooth_needs_bullets">• 근처 사용자 찾기\n• 메쉬 네트워크 연결 생성\n• 메시지 보내고 받기\n• 인터넷이나 서버 없이 작동</string>
+    <string name="enable_bluetooth">블루투스 켜기</string>
+    <string name="bluetooth_not_supported">블루투스 미지원</string>
+    <string name="bluetooth_unsupported_explanation">이 기기는 bitchat이 동작하는 데 필요한 Bluetooth Low Energy (BLE)를 지원하지 않습니다.\n\nbitchat은 인터넷 없이 근처 장치와 통신하고 메쉬 네트워크를 생성하기 위해 BLE가 필요합니다.</string>
+    <string name="checking_bluetooth_status">블루투스 상태 확인 중 …</string>
+    <string name="battery_optimization_detected_title">배터리 최적화 감지됨</string>
+    <string name="battery_optimization_enabled_title">배터리 최적화 활성화됨</string>
+    <string name="battery_optimization_explanation_short">메쉬 연결을 유지하려면 bitchat이 백그라운드에서 실행되어야 합니다. 배터리 최적화는 이러한 연결을 방해할 수 있습니다.</string>
+    <string name="benefits_of_disabling">비활성화의 이점</string>
+    <string name="battery_benefits_short">• 신뢰할 수 있는 메시지 전달\n• 메쉬 연결 유지\n• 연결 끊김 방지</string>
+    <string name="disable_battery_optimization">배터리 최적화 끄기</string>
+    <string name="battery_optimization_disabled_title">배터리 최적화 비활성화됨</string>
+    <string name="continue_btn">계속</string>
+    <string name="initializing_mesh_network">메쉬 네트워크 초기화 중</string>
+    <string name="setting_up_bluetooth">블루투스 메쉬 네트워크 설정 중 …</string>
+    <string name="should_take_seconds">몇 초 정도 소요됩니다</string>
+    <string name="setup_not_complete">설정이 완료되지 않았습니다</string>
+    <string name="try_again">다시 시도</string>
+    <string name="privacy_protected">개인정보가 보호됩니다</string>
+    <string name="privacy_bullets">• 추적 또는 데이터 수집 없음\n• 블루투스 메쉬 채팅은 완전 오프라인\n• geohash 채팅은 인터넷 사용</string>
+    <string name="permissions_header">권한</string>
+    <string name="grant_permissions">권한 허용</string>
+    <string name="location_tracking_warning">bitchat은 사용자의 위치를 추적하지 않습니다</string>
+    <string name="geohash_people_header">사람들</string>
+    <string name="nobody_around">주변에 아무도 없음 …</string>
+    <string name="you_suffix"> (나)</string>
+    <string name="pan_zoom_instruction">geohash를 선택하려면 이동하고 확대/축소하세요</string>
+    <string name="select">선택</string>
+    <string name="type_a_message_placeholder">메시지 입력 …</string>
+    <string name="mention">멘션</string>
+    <string name="pow_time_estimate">(~%1$s)</string>
+    <string name="version_prefix">v%1$s</string>
+    <string name="image_star">image/*</string>
+    <string name="media_type_image">이미지</string>
+    <string name="media_type_file">파일</string>
+
+    <!-- 알림 텍스트 도우미 -->
+    <string name="notification_sent_image">📷 이미지 보냄</string>
+    <string name="notification_sent_voice">🎤 음성 메시지 보냄</string>
+    <string name="notification_sent_file">📎 파일 보냄</string>
+
+    <!-- 음성 플레이어 접근성 -->
+    <string name="cd_play_voice">재생</string>
+    <string name="cd_pause_voice">일시정지</string>
+    <string name="cd_mining_pow">PoW 채굴</string>
+    <string name="cd_pow_enabled">PoW 사용</string>
+    <string name="cd_proof_of_work">작업증명</string>
+    <string name="pow_mining_ellipsis">채굴 중 …</string>
+    <string name="pow_label_format">pow: %1$dbit</string>
+
+    <!-- 권한 설명 -->
+    <string name="perm_nearby_devices_desc">블루투스를 통해 bitchat 사용자를 발견하는 데 필요</string>
+    <string name="perm_nearby_devices_system">근처 기기와 연결하도록 bitchat을 허용</string>
+    <string name="perm_location_desc">블루투스를 통해 근처 bitchat 사용자를 찾기 위해 Android에 필요</string>
+    <string name="perm_location_system">근처 기기를 스캔하려면 bitchat에 필요</string>
+    <string name="perm_notifications_desc">개인 메시지를 받으면 알림 받기</string>
+    <string name="perm_notifications_system">bitchat이 알림을 보내도록 허용</string>
+    <string name="perm_battery_desc">bitchat이 백그라운드에서 안정적으로 실행되고 메쉬 연결을 유지하도록 배터리 최적화를 끄세요</string>
+    <string name="perm_battery_system">배터리 제한 없이 실행하도록 bitchat을 허용</string>
+
+    <!-- 권한 유형 -->
+    <string name="perm_type_nearby_devices">근처 기기</string>
+    <string name="perm_type_precise_location">정확한 위치</string>
+    <string name="perm_type_microphone">마이크</string>
+    <string name="perm_type_notifications">알림</string>
+    <string name="perm_type_battery_optimization">배터리 최적화</string>
+    <string name="perm_type_other">기타</string>
+
+    <!-- 비밀번호 대화상자 -->
+    <string name="pwd_prompt_title">채널 비밀번호 입력</string>
+    <string name="pwd_prompt_message">채널 %1$s은 비밀번호로 보호됩니다. 참여하려면 비밀번호를 입력하세요.</string>
+    <string name="pwd_label">비밀번호</string>
+    <string name="join">참가</string>
+    <string name="cancel">취소</string>
+
+    <!-- 복수형 -->
+    <plurals name="notification_and_more">
+        <item quantity="one">그리고 %d개 더</item>
+        <item quantity="other">그리고 %d개 더</item>
+    </plurals>
+
+    <plurals name="people_count">
+        <item quantity="one">1명</item>
+        <item quantity="other">%d명</item>
+    </plurals>
+
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d개의 노트</item>
+    <item quantity="other">#%1$s ± 1 • %2$d개의 노트</item>
+  </plurals>
+  <string name="location_notes_description">다른 방문자들이 볼 수 있도록 이 위치에 짧은 영구 노트를 추가하세요.</string>
+  <string name="location_notes_relays_unavailable">지오 릴레이를 사용할 수 없음; 노트 일시 중지됨</string>
+  <string name="location_notes_no_relays_title">주변에 지오 릴레이가 없음</string>
+  <string name="location_notes_no_relays_desc">노트는 지오 릴레이에 의존합니다. 연결을 확인하고 다시 시도하세요.</string>
+  <string name="loading_location_notes">노트 불러오는 중…</string>
+  <string name="location_notes_empty_title">아직 노트가 없습니다</string>
+  <string name="location_notes_empty_desc">이 장소에 첫 번째 노트를 추가해 보세요.</string>
+  <string name="dismiss">닫기</string>
+  <string name="location_notes_input_placeholder">이 장소에 노트 추가</string>
+</resources>

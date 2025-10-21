@@ -24,6 +24,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
+import com.bitchat.android.R
 
 /**
  * Permission explanation screen shown before requesting permissions
@@ -65,7 +67,7 @@ fun PermissionExplanationScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "bitchat",
+                        text = stringResource(R.string.app_name),
                         style = MaterialTheme.typography.headlineLarge.copy(
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold,
@@ -76,7 +78,7 @@ fun PermissionExplanationScreen(
                 }
 
                 Text(
-                    text = "decentralized mesh messaging with end-to-end encryption",
+                    text = stringResource(R.string.about_tagline),
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     color = colorScheme.onBackground.copy(alpha = 0.7f)
@@ -99,7 +101,7 @@ fun PermissionExplanationScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Security,
-                            contentDescription = "Privacy Protected",
+                            contentDescription = stringResource(R.string.cd_privacy_protected),
                             tint = colorScheme.primary,
                             modifier = Modifier
                                 .padding(top = 2.dp)
@@ -107,16 +109,14 @@ fun PermissionExplanationScreen(
                         )
                         Column {
                             Text(
-                                text = "Your Privacy is Protected",
+                                text = stringResource(R.string.privacy_protected),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Medium,
                                 color = colorScheme.onBackground
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "• no tracking or data collection\n" +
-                                        "• Bluetooth mesh chats are fully offline\n" +
-                                        "• Geohash chats use the internet",
+                                text = stringResource(R.string.privacy_bullets),
                                 style = MaterialTheme.typography.bodySmall,
                                 fontFamily = FontFamily.Monospace,
                                 color = colorScheme.onBackground.copy(alpha = 0.8f)
@@ -128,7 +128,7 @@ fun PermissionExplanationScreen(
 
             // Section header
             Text(
-                text = "permissions",
+                text = stringResource(R.string.permissions_header),
                 style = MaterialTheme.typography.labelLarge,
                 color = colorScheme.onBackground.copy(alpha = 0.7f),
                 modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
@@ -163,7 +163,7 @@ fun PermissionExplanationScreen(
                 )
             ) {
                 Text(
-                    text = "Grant Permissions",
+                    text = stringResource(R.string.grant_permissions),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold
@@ -218,12 +218,12 @@ private fun PermissionCategoryCard(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Warning,
-                        contentDescription = "Warning",
+                        contentDescription = stringResource(R.string.cd_warning),
                         tint = Color(0xFFFF9800),
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
-                        text = "bitchat does NOT track your location",
+                        text = stringResource(R.string.location_tracking_warning),
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Medium,

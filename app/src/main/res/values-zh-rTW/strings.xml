@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- TODO: Chinese (Traditional) translations -->
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d 則筆記</item>
+    <item quantity="other">#%1$s ± 1 • %2$d 則筆記</item>
+  </plurals>
+  <string name="location_notes_description">為此位置新增簡短永久備註，供其他訪客查看。</string>
+  <string name="location_notes_relays_unavailable">地理中繼無法使用；筆記已暫停</string>
+  <string name="location_notes_no_relays_title">附近沒有地理中繼</string>
+  <string name="location_notes_no_relays_desc">筆記依賴地理中繼。請檢查連線後重試。</string>
+  <string name="loading_location_notes">正在載入筆記…</string>
+  <string name="location_notes_empty_title">尚無筆記</string>
+  <string name="location_notes_empty_desc">成為第一個為此地點新增筆記的人。</string>
+  <string name="dismiss">關閉</string>
+  <string name="location_notes_input_placeholder">為此地點新增一則筆記</string>
+</resources>
+

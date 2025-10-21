@@ -1,0 +1,365 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+
+    <!-- 権限の説明 -->
+    <string name="permission_bluetooth_rationale">Bluetooth の許可は、インターネットなしで他の人と直接チャットするために必要です。</string>
+    <string name="permission_location_rationale">位置情報の許可は、Bluetooth で近くのデバイスを見つけるために必要です。</string>
+    <string name="permission_notification_rationale">通知の許可は、新しいメッセージをお知らせするために必要です。</string>
+
+    <!-- プレースホルダー / 基本 UI -->
+    <string name="nickname_hint">ニックネーム</string>
+    <string name="message_hint">メッセージを入力…</string>
+    <string name="channel_password_hint">パスワード</string>
+    <string name="join_channel">チャンネルに参加</string>
+    <string name="leave_channel">退出</string>
+    <string name="send_message">送信</string>
+    <string name="show_commands">コマンドを表示</string>
+    <string name="back">戻る</string>
+    <string name="people">人</string>
+    <string name="channels">チャンネル</string>
+    <string name="online_users">オンラインユーザー</string>
+    <string name="no_one_connected">接続中のユーザーはいません</string>
+    <string name="emergency_clear_hint">3 回タップで全データを消去</string>
+    <string name="your_network">あなたのネットワーク</string>
+
+    <!-- バッテリー最適化 -->
+    <string name="battery_optimization_detected">バッテリー最適化を検出</string>
+    <string name="battery_optimization_disabled">バッテリー最適化は無効です</string>
+    <string name="battery_optimization_not_required">バッテリー最適化は不要です</string>
+    <string name="battery_optimization_checking">バッテリー最適化を確認中</string>
+    <string name="battery_optimization_why_disable">なぜバッテリー最適化を無効にするのか</string>
+    <string name="battery_optimization_explanation">bitchat はバックグラウンドで動作して、近くのデバイスとのメッシュ接続を維持します。バッテリー最適化はこれらの接続を中断し、メッセージの遅延や欠落を引き起こす可能性があります。\n\nバッテリー最適化を無効にすると、信頼できるピアツーピア通信が可能になります。</string>
+    <string name="battery_optimization_disable_button">バッテリー最適化を無効にする</string>
+    <string name="battery_optimization_note">注: 後で Android の設定 &gt; アプリ &gt; bitchat &gt; バッテリー で変更できます。</string>
+    <string name="battery_optimization_not_supported_explanation">この端末ではバッテリー最適化の設定は不要です。bitchat は通常通り動作します。</string>
+    <string name="battery_optimization_not_supported_message">この端末ではバッテリー最適化の設定は不要です。bitchat は通常通り動作します。</string>
+    <string name="battery_optimization_success_message">bitchat はバックグラウンドで信頼して動作できます</string>
+    <string name="battery_optimization_benefits">• メッセージの確実な配信\n• メッシュ接続の維持\n• バックグラウンド転送\n• 切断の防止</string>
+    <string name="battery_optimization_check_again">再確認</string>
+    <string name="battery_optimization_skip">今はスキップ</string>
+    <string name="battery_optimization_continue">続行</string>
+    <string name="retry">再試行</string>
+    <string name="skip">スキップ</string>
+
+    <!-- 通知 -->
+    <string name="notification_summary_more">ほか %1$d 件</string>
+    <string name="notification_messages_from_people">%2$d 人からの %1$d 件のメッセージ</string>
+    <string name="notification_more_conversations">ほか %1$d 会話</string>
+    <string name="notification_active_peers_title">👥 近くに bitchatter ！</string>
+    <string name="notification_active_peers_one">近くに 1 人</string>
+    <string name="notification_active_peers_many">近くに %1$d 人</string>
+    <string name="notification_new_messages">新着メッセージ</string>
+    <string name="notification_new_location_messages">新しい位置情報メッセージ</string>
+    <string name="notification_mentions_in">%1$s でのメンション</string>
+    <string name="notification_mentions_in_more">%1$s でのメンション (+%2$d)</string>
+    <string name="notification_mentions_in_plural">%2$s で %1$d 件のメンション</string>
+    <string name="notification_new_activity_in">%1$s の新しいアクティビティ</string>
+    <string name="notification_messages_in">%1$s のメッセージ</string>
+    <string name="notification_joined_conversation">%1$s が会話に参加しました</string>
+    <string name="notification_geohash_summary_title_mentions">bitchat – %1$d 件のメンション</string>
+    <string name="notification_geohash_summary_title">bitchat – ロケーションチャット</string>
+    <string name="notification_geohash_summary_text">%2$d 箇所からの %1$d 件のメッセージ</string>
+    <string name="notification_mesh_mention_title_singular">メッシュチャットでメンション</string>
+    <string name="notification_mesh_mention_title_plural">メッシュチャットで %1$d 件のメンション</string>
+    <string name="notification_more_locations">ほか %1$d 箇所</string>
+    <string name="notification_and_more">ほか %1$d</string>
+
+    <!-- お気に入り アクセシビリティ -->
+    <string name="cd_add_favorite">お気に入りに追加</string>
+    <string name="cd_remove_favorite">お気に入りから削除</string>
+    <string name="cd_add_bookmark">ブックマークに追加</string>
+
+    <!-- チャットヘッダー & アクセシビリティ -->
+    <string name="chat_back">戻る</string>
+    <string name="chat_channel_prefix">チャンネル: %1$s</string>
+    <string name="chat_leave">退出</string>
+    <string name="cd_nostr_reachable">Nostr 経由で到達可能</string>
+    <string name="cd_unread_private_messages">未読のプライベートメッセージ</string>
+    <string name="cd_toggle_bookmark">ブックマークを切り替え</string>
+    <string name="cd_teleported">テレポート済み</string>
+    <string name="cd_tor_status">Tor ステータス</string>
+    <string name="cd_connected_peers">接続中のピア</string>
+    <string name="cd_geohash_participants">Geohash 参加者</string>
+    <string name="cd_ready_for_handshake">ハンドシェイク準備完了</string>
+    <string name="cd_handshake_in_progress">ハンドシェイク中</string>
+    <string name="cd_encrypted">エンドツーエンド暗号化</string>
+    <string name="cd_handshake_failed">ハンドシェイク失敗</string>
+
+    <!-- ファイルビューア ダイアログ -->
+    <string name="file_viewer_title">📎 ファイルを受信</string>
+    <string name="file_viewer_name">📄 %1$s</string>
+    <string name="file_viewer_size">📏 サイズ: %1$s</string>
+    <string name="file_viewer_type">🏷️ 種類: %1$s</string>
+    <string name="file_viewer_open_save">📂 開く / 保存</string>
+    <string name="close_with_emoji">❌ 閉じる</string>
+    <string name="pick_image">画像を選択</string>
+
+    <!-- 概要シート -->
+    <string name="about_tagline">分散型メッシュチャット・エンドツーエンド暗号化</string>
+    <string name="about_offline_mesh_title">オフライン・メッシュチャット</string>
+    <string name="about_offline_mesh_desc">インターネットやサーバーなしで、Bluetooth LE 経由で直接通信します。近隣のデバイスを経由してメッセージを中継し、到達範囲を広げます。</string>
+    <string name="about_online_geohash_title">オンライン Geohash チャンネル</string>
+    <string name="about_online_geohash_desc">Geohash ベースのチャンネルで近くの人々とつながります。公開インターネットのリレーを介してメッシュを拡張します。</string>
+    <string name="about_e2e_title">エンドツーエンド暗号化</string>
+    <string name="about_e2e_desc">プライベートメッセージは暗号化されます。チャンネルメッセージは公開です。</string>
+    <string name="about_appearance">表示</string>
+    <string name="about_system">システム</string>
+    <string name="about_light">ライト</string>
+    <string name="about_dark">ダーク</string>
+    <string name="about_pow">Proof of Work</string>
+    <string name="about_pow_off">PoW オフ</string>
+    <string name="about_pow_on">PoW オン</string>
+    <string name="about_pow_tip">スパム対策として Geohash メッセージに Proof of Work を追加します。</string>
+    <string name="about_pow_difficulty">難易度: %1$d ビット (~%2$s)</string>
+    <string name="about_pow_difficulty_attempts">難易度 %1$d は約 %2$s 回のハッシュ試行が必要</string>
+    <string name="about_pow_desc_none">Proof of Work は不要</string>
+    <string name="about_pow_desc_very_low">非常に低い – 最小限のスパム対策</string>
+    <string name="about_pow_desc_low">低い – 基本的なスパム対策</string>
+    <string name="about_pow_desc_medium">中 – 良好なスパム対策</string>
+    <string name="about_pow_desc_high">高い – 強力なスパム対策</string>
+    <string name="about_pow_desc_very_high">非常に高い – 遅延が発生する可能性</string>
+    <string name="about_pow_desc_extreme">極めて高い – 相当な計算資源が必要</string>
+    <string name="about_network">ネットワーク</string>
+    <string name="about_tor_off">Tor オフ</string>
+    <string name="about_tor_on">Tor オン</string>
+    <string name="about_tor_route">プライバシー向上のため、インターネット通信を Tor 経由にします。</string>
+    <string name="about_tor_status">Tor ステータス: %1$s、ブートストラップ %2$d%%</string>
+    <string name="about_last">最終: %1$s</string>
+    <string name="about_emergency_title">緊急データ消去</string>
+    <string name="about_emergency_tip">ヒント: アプリタイトルを 3 回タップすると、メッセージ・鍵・設定を含む保存データをすべて消去します。</string>
+    <string name="about_debug_settings">デバッグ設定</string>
+    <string name="about_footer">オープンソース • プライバシーファースト • 分散型</string>
+    <string name="close_plain">閉じる</string>
+    <string name="cancel_lower">キャンセル</string>
+
+    <!-- 一般のコンテンツ記述 -->
+    <string name="cd_warning">警告</string>
+    <string name="cd_location_services">位置情報サービス</string>
+    <string name="cd_privacy">プライバシー</string>
+    <string name="cd_error">エラー</string>
+    <string name="cd_battery_optimization">バッテリー最適化</string>
+    <string name="cd_benefits">利点</string>
+    <string name="cd_checking_battery_optimization">バッテリー最適化を確認中</string>
+    <string name="cd_not_supported_battery_optimization">バッテリー最適化は非対応</string>
+    <string name="cd_bluetooth">Bluetooth</string>
+    <string name="cd_unread_message">未読メッセージ</string>
+    <string name="cd_open_map">地図を開く</string>
+    <string name="cd_remove_bookmark">ブックマークを削除</string>
+    <string name="cd_teleport">テレポート</string>
+    <string name="cd_selected">選択済み</string>
+    <string name="cd_leave_channel">チャンネルから退出</string>
+    <string name="cd_reachable_via_nostr">Nostr 経由で到達可能</string>
+    <string name="cd_offline_favorite">お気に入り (オフライン)</string>
+    <string name="cd_decrease_precision">精度を下げる</string>
+    <string name="cd_increase_precision">精度を上げる</string>
+    <string name="cd_select_geohash">Geohash を選択</string>
+    <string name="cd_scroll_to_bottom">一番下へスクロール</string>
+    <string name="cd_file">ファイル</string>
+    <string name="cd_image">画像</string>
+    <string name="cd_cancel">キャンセル</string>
+    <string name="cd_link">リンク</string>
+    <string name="cd_pick_media">メディアを選択</string>
+    <string name="cd_pick_file">ファイルを選択</string>
+    <string name="cd_save_current_image">現在の画像を保存</string>
+    <string name="cd_close">閉じる</string>
+    <string name="cd_image_index_of">画像 %1$d / %2$d</string>
+    <string name="cd_privacy_protected">プライバシー保護</string>
+    <string name="cd_record_voice">ボイスメモを録音</string>
+    <string name="cd_offline_mesh_chat">オフライン・メッシュチャット</string>
+    <string name="cd_online_geohash_channels">オンライン Geohash チャンネル</string>
+    <string name="cd_end_to_end_encryption">エンドツーエンド暗号化</string>
+
+    <!-- 画像 & ファイル -->
+    <string name="image_page_of">画像 %1$d / %2$d</string>
+    <string name="image_unavailable">画像は利用できません</string>
+    <string name="image_saved_to_downloads">画像を「ダウンロード」に保存しました</string>
+    <string name="image_save_failed">画像を保存できませんでした</string>
+    <string name="toast_image_saved">画像を「ダウンロード」に保存しました</string>
+    <string name="toast_failed_to_save_image">画像を保存できませんでした</string>
+    <string name="pick_file">ファイルを選択</string>
+    <string name="file_unavailable">[ファイルは利用できません]</string>
+    <string name="unknown">不明</string>
+
+    <!-- ユーザーアクション シート -->
+    <string name="choose_action_message_or_user">このメッセージまたはユーザーの操作を選択</string>
+    <string name="choose_action_user">このユーザーの操作を選択</string>
+    <string name="action_copy_message_title">メッセージをコピー</string>
+    <string name="action_copy_message_subtitle">このメッセージをクリップボードにコピー</string>
+    <string name="action_slap_title">%1$s を平手打ち</string>
+    <string name="action_slap_subtitle">冗談の平手打ちを送る</string>
+    <string name="action_hug_title">%1$s をハグ</string>
+    <string name="action_hug_subtitle">フレンドリーなハグを送る</string>
+    <string name="action_block_title">%1$s をブロック</string>
+    <string name="action_block_subtitle">このユーザーからのすべてのメッセージをブロック</string>
+
+    <!-- Geohash チャンネル シート -->
+    <string name="location_channels_title">#ロケーション・チャンネル</string>
+    <string name="location_channels_desc">Geohash チャンネルで近くの人とチャットしましょう。共有されるのは大まかな geohash のみで、正確な GPS データは共有されません。プライバシー保護のため、この画面のスクリーンショットや共有は行わないでください。</string>
+    <string name="grant_location_permission">位置情報の許可を与える</string>
+    <string name="location_permission_denied">位置情報の許可が拒否されました。ロケーション・チャンネルを使用するには設定で有効にしてください。</string>
+    <string name="open_settings">設定を開く</string>
+    <string name="location_permission_granted">\u2713 位置情報の許可が付与されました</string>
+    <string name="checking_permissions">権限を確認中…</string>
+    <string name="finding_nearby_channels">近くのチャンネルを検索中…</string>
+    <string name="bookmarked">ブックマーク</string>
+    <string name="geohash_placeholder">Geohash</string>
+    <string name="invalid_geohash">無効な geohash</string>
+    <string name="teleport">テレポート</string>
+    <string name="disable_location_services">位置情報サービスを無効にする</string>
+    <string name="enable_location_services">位置情報サービスを有効にする</string>
+    <string name="mesh_label">mesh</string>
+    <string name="location_level_block">ブロック</string>
+    <string name="location_level_neighborhood">近隣</string>
+    <string name="location_level_city">市</string>
+    <string name="location_level_province">州 / 県</string>
+    <string name="location_level_region">地域</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+
+    <!-- デバッグ / 診断 -->
+    <string name="debug_tools">デバッグツール</string>
+    <string name="debug_tools_desc">診断と制御のための開発者ツール</string>
+    <string name="debug_verbose_logging">詳細ログ</string>
+    <string name="debug_verbose_hint">ピアの参加/離脱、接続方向、パケット転送、リレーを記録</string>
+    <string name="debug_bluetooth_roles">Bluetooth ロール</string>
+    <string name="debug_gatt_server">GATT サーバー</string>
+    <string name="debug_connections_fmt">接続: %1$d / %2$d</string>
+    <string name="debug_max_server">最大サーバー</string>
+    <string name="debug_gatt_client">GATT クライアント</string>
+    <string name="debug_max_client">最大クライアント</string>
+    <string name="debug_overall_connections_fmt">接続: %1$d / %2$d</string>
+    <string name="debug_max_overall">合計最大</string>
+    <string name="debug_packet_relay">パケットリレー</string>
+    <string name="debug_since_start_fmt">開始以降: %1$d</string>
+    <string name="debug_roles_hint">ロールのオン/オフを切り替え、オフ時にすべての接続を閉じる</string>
+    <string name="debug_sync_settings">同期設定</string>
+    <string name="debug_max_packets_per_sync_fmt">同期あたりの最大パケット: %1$d</string>
+    <string name="debug_max_gcs_filter_size_fmt">GCS フィルター最大サイズ: %1$d バイト (128–1024)</string>
+    <string name="debug_target_fpr_fmt">目標 FPR: %1$.2f%%</string>
+    <string name="debug_connected_devices">接続済みデバイス</string>
+    <string name="debug_our_device_id_fmt">自分のデバイス ID: %1$s</string>
+    <string name="debug_none">なし</string>
+    <string name="debug_disconnect">切断</string>
+    <string name="debug_recent_scan_results">最近スキャンしたデバイス</string>
+    <string name="debug_connect">接続</string>
+    <string name="debug_debug_console">デバッグコンソール</string>
+    <string name="debug_clear">クリア</string>
+    <string name="debug_relays_window_fmt">直近 10 秒: %1$d • 1 分: %2$d • 15 分: %3$d</string>
+    <string name="debug_derived_p_fmt">導出 P: %1$s • 推定最大アイテム: %2$s</string>
+    <string name="debug_direct_suffix"> • 直接</string>
+    <string name="debug_role_server">サーバーとして (自分がホスト)</string>
+    <string name="debug_role_client">クライアントとして (自分が接続)</string>
+
+    <!-- オンボーディング画面 -->
+    <string name="location_services_required">位置情報サービスが必要です</string>
+    <string name="privacy_first">プライバシー第一</string>
+    <string name="location_explanation">bitchat はあなたの位置情報を追跡しません。\n\n位置情報サービスは、Bluetooth スキャンと geohash チャット機能に必要です。</string>
+    <string name="location_needs_for">bitchat が位置情報サービスを必要とする理由:</string>
+    <string name="location_needs_bullets">• Bluetooth デバイスのスキャン\n• メッシュネットワークで近くのユーザーを発見\n• geohash チャット機能\n• 位置情報の追跡や収集は行いません</string>
+    <string name="open_location_settings">位置情報の設定を開く</string>
+    <string name="check_again">再確認</string>
+    <string name="location_services_unavailable">位置情報サービスが利用できません</string>
+    <string name="location_unavailable_explanation">この端末では位置情報サービスが利用できません。Android 端末では通常標準機能のため、これは珍しい状況です。\n\nBluetooth スキャン (Android の要件) を正しく動作させるために位置情報サービスが必要です。これがないと、近くのユーザーを検出できません。</string>
+    <string name="checking_location_services">位置情報サービスを確認中…</string>
+    <string name="bluetooth_required">Bluetooth が必要です</string>
+    <string name="bluetooth_needs_for">bitchat が Bluetooth を必要とする理由:</string>
+    <string name="bluetooth_needs_bullets">• 近くのユーザーを発見\n• メッシュネットワーク接続を作成\n• メッセージの送受信\n• インターネットやサーバーなしで動作</string>
+    <string name="enable_bluetooth">Bluetooth を有効にする</string>
+    <string name="bluetooth_not_supported">Bluetooth はサポートされていません</string>
+    <string name="bluetooth_unsupported_explanation">この端末は Bluetooth Low Energy (BLE) をサポートしていません。bitchat の動作に必要です。\n\nBLE は、インターネットなしで近くのデバイスとメッシュネットワークを作るために必要です。</string>
+    <string name="checking_bluetooth_status">Bluetooth ステータスを確認中…</string>
+    <string name="battery_optimization_detected_title">バッテリー最適化を検出</string>
+    <string name="battery_optimization_enabled_title">バッテリー最適化が有効</string>
+    <string name="battery_optimization_explanation_short">メッシュ接続を維持するため、bitchat はバックグラウンドで動作する必要があります。バッテリー最適化は接続を中断する可能性があります。</string>
+    <string name="benefits_of_disabling">無効化の利点</string>
+    <string name="battery_benefits_short">• 信頼できるメッセージ配信\n• メッシュ接続の維持\n• 切断の防止</string>
+    <string name="disable_battery_optimization">バッテリー最適化を無効化</string>
+    <string name="battery_optimization_disabled_title">バッテリー最適化は無効</string>
+    <string name="continue_btn">続行</string>
+    <string name="initializing_mesh_network">メッシュネットワークを初期化中</string>
+    <string name="setting_up_bluetooth">Bluetooth メッシュネットワークを設定中…</string>
+    <string name="should_take_seconds">数秒で完了するはずです</string>
+    <string name="setup_not_complete">設定が完了していません</string>
+    <string name="try_again">再試行</string>
+    <string name="privacy_protected">あなたのプライバシーは保護されています</string>
+    <string name="privacy_bullets">• 追跡やデータ収集はありません\n• Bluetooth メッシュチャットは完全にオフライン\n• geohash チャットはインターネットを使用</string>
+    <string name="permissions_header">権限</string>
+    <string name="grant_permissions">権限を付与</string>
+    <string name="location_tracking_warning">bitchat はあなたの位置情報を追跡しません</string>
+    <string name="geohash_people_header">人々</string>
+    <string name="nobody_around">誰もいません…</string>
+    <string name="you_suffix"> (あなた)</string>
+    <string name="pan_zoom_instruction">パン/ズームして geohash を選択</string>
+    <string name="select">選択</string>
+    <string name="type_a_message_placeholder">メッセージを入力…</string>
+    <string name="mention">メンション</string>
+    <string name="pow_time_estimate">(~%1$s)</string>
+    <string name="version_prefix">v%1$s</string>
+    <string name="image_star">image/*</string>
+    <string name="media_type_image">画像</string>
+    <string name="media_type_file">ファイル</string>
+
+    <!-- 通知テキストヘルパー -->
+    <string name="notification_sent_image">📷 画像を送信しました</string>
+    <string name="notification_sent_voice">🎤 ボイスメモを送信しました</string>
+    <string name="notification_sent_file">📎 ファイルを送信しました</string>
+
+    <!-- ボイスプレイヤー アクセシビリティ -->
+    <string name="cd_play_voice">再生</string>
+    <string name="cd_pause_voice">一時停止</string>
+    <string name="cd_mining_pow">PoW をマイニング中</string>
+    <string name="cd_pow_enabled">PoW 有効</string>
+    <string name="cd_proof_of_work">Proof of Work</string>
+    <string name="pow_mining_ellipsis">マイニング中…</string>
+    <string name="pow_label_format">pow: %1$dbit</string>
+
+    <!-- 権限の説明 -->
+    <string name="perm_nearby_devices_desc">Bluetooth で bitchat ユーザーを検出するために必要です</string>
+    <string name="perm_nearby_devices_system">bitchat が近くのデバイスに接続することを許可</string>
+    <string name="perm_location_desc">Android の要件: Bluetooth 経由で近くの bitchat ユーザーを検出</string>
+    <string name="perm_location_system">bitchat が近くのデバイスをスキャンするために必要です</string>
+    <string name="perm_notifications_desc">プライベートメッセージを受信したときに通知を受け取る</string>
+    <string name="perm_notifications_system">bitchat から通知を送信することを許可</string>
+    <string name="perm_battery_desc">bitchat がバックグラウンドで安定して動作し、メッシュ接続を維持できるように、バッテリー最適化を無効にします</string>
+    <string name="perm_battery_system">bitchat がバッテリー制限なしで動作することを許可</string>
+
+    <!-- 権限タイプ -->
+    <string name="perm_type_nearby_devices">近くのデバイス</string>
+    <string name="perm_type_precise_location">正確な位置情報</string>
+    <string name="perm_type_microphone">マイク</string>
+    <string name="perm_type_notifications">通知</string>
+    <string name="perm_type_battery_optimization">バッテリー最適化</string>
+    <string name="perm_type_other">その他</string>
+
+    <!-- パスワード ダイアログ -->
+    <string name="pwd_prompt_title">チャンネルのパスワードを入力</string>
+    <string name="pwd_prompt_message">チャンネル %1$s はパスワードで保護されています。参加するにはパスワードを入力してください。</string>
+    <string name="pwd_label">パスワード</string>
+    <string name="join">参加</string>
+    <string name="cancel">キャンセル</string>
+
+    <!-- 複数形 -->
+    <plurals name="notification_and_more">
+        <item quantity="one">ほか %d</item>
+        <item quantity="other">ほか %d</item>
+    </plurals>
+
+    <plurals name="people_count">
+        <item quantity="one">1 人</item>
+        <item quantity="other">%d 人</item>
+    </plurals>
+
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d 件のメモ</item>
+    <item quantity="other">#%1$s ± 1 • %2$d 件のメモ</item>
+  </plurals>
+  <string name="location_notes_description">他の訪問者が見つけられるよう、この場所に短いメモを追加しましょう。</string>
+  <string name="location_notes_relays_unavailable">ジオリレーが利用できません。メモを一時停止中</string>
+  <string name="location_notes_no_relays_title">近くにジオリレーがありません</string>
+  <string name="location_notes_no_relays_desc">メモはジオリレーに依存します。接続を確認して再試行してください。</string>
+  <string name="loading_location_notes">メモを読み込み中…</string>
+  <string name="location_notes_empty_title">まだメモはありません</string>
+  <string name="location_notes_empty_desc">この場所の最初のメモを追加しましょう。</string>
+  <string name="dismiss">閉じる</string>
+  <string name="location_notes_input_placeholder">この場所へのメモを追加</string>
+</resources>

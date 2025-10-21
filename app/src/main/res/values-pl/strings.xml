@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- TODO: Polish translations -->
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d notatka</item>
+    <item quantity="other">#%1$s ± 1 • %2$d notatek</item>
+  </plurals>
+  <string name="location_notes_description">dodaj krótkie stałe notatki do tej lokalizacji, aby inni odwiedzający mogli je znaleźć.</string>
+  <string name="location_notes_relays_unavailable">przekaźniki geo niedostępne; notatki wstrzymane</string>
+  <string name="location_notes_no_relays_title">brak przekaźników geo w pobliżu</string>
+  <string name="location_notes_no_relays_desc">notatki zależą od przekaźników geo. sprawdź połączenie i spróbuj ponownie.</string>
+  <string name="loading_location_notes">ładowanie notatek…</string>
+  <string name="location_notes_empty_title">brak notatek</string>
+  <string name="location_notes_empty_desc">bądź pierwszy, który doda notatkę dla tego miejsca.</string>
+  <string name="dismiss">zamknij</string>
+  <string name="location_notes_input_placeholder">dodaj notatkę dla tego miejsca</string>
+</resources>
+

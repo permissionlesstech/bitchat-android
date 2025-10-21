@@ -36,5 +36,358 @@
     <string name="battery_optimization_skip">Skip for Now</string>
     <string name="battery_optimization_continue">Continue</string>
     <string name="retry">Retry</string>
-    <string name="skip">Skip</string>
+  <string name="skip">Skip</string>
+  
+  <!-- Notifications -->
+  <string name="notification_summary_more">and %1$d more</string>
+  <string name="notification_messages_from_people">%1$d messages from %2$d people</string>
+  <string name="notification_more_conversations">and %1$d more conversations</string>
+  <string name="notification_active_peers_title">👥 bitchatters nearby!</string>
+  <string name="notification_active_peers_one">1 person around</string>
+  <string name="notification_active_peers_many">%1$d people around</string>
+  <string name="notification_new_messages">New Messages</string>
+  <string name="notification_new_location_messages">New Location Messages</string>
+  <string name="notification_mentions_in">Mentioned in %1$s</string>
+  <string name="notification_mentions_in_more">Mentioned in %1$s (+%2$d more)</string>
+  <string name="notification_mentions_in_plural">%1$d mentions in %2$s</string>
+  <string name="notification_new_activity_in">New activity in %1$s</string>
+  <string name="notification_messages_in">Messages in %1$s</string>
+  <string name="notification_joined_conversation">%1$s joined the conversation</string>
+  <string name="notification_geohash_summary_title_mentions">bitchat - %1$d mentions</string>
+  <string name="notification_geohash_summary_title">bitchat - location chats</string>
+  <string name="notification_geohash_summary_text">%1$d messages from %2$d locations</string>
+  <string name="notification_mesh_mention_title_singular">Mentioned in Mesh Chat</string>
+  <string name="notification_mesh_mention_title_plural">%1$d mentions in Mesh Chat</string>
+  <string name="notification_more_locations">and %1$d more locations</string>
+  <string name="notification_and_more">and %1$d more</string>
+
+  <!-- Favorites accessibility -->
+  <string name="cd_add_favorite">Add to favorites</string>
+  <string name="cd_remove_favorite">Remove from favorites</string>
+  <string name="cd_add_bookmark">Add bookmark</string>
+
+  <!-- Chat header & accessibility -->
+  <string name="chat_back">back</string>
+  <string name="chat_channel_prefix">channel: %1$s</string>
+  <string name="chat_leave">leave</string>
+  <string name="cd_nostr_reachable">Nostr reachable</string>
+  <string name="cd_unread_private_messages">Unread private messages</string>
+  <string name="cd_toggle_bookmark">Toggle bookmark</string>
+  <string name="cd_location_notes">Location notes</string>
+  <string name="cd_teleported">Teleported</string>
+  <string name="cd_tor_status">Tor status</string>
+  <string name="cd_connected_peers">Connected peers</string>
+  <string name="cd_geohash_participants">Geohash participants</string>
+  <string name="cd_ready_for_handshake">Ready for handshake</string>
+  <string name="cd_handshake_in_progress">Handshake in progress</string>
+  <string name="cd_encrypted">End-to-end encrypted</string>
+  <string name="cd_handshake_failed">Handshake failed</string>
+
+  <!-- File viewer dialog -->
+  <string name="file_viewer_title">📎 File Received</string>
+  <string name="file_viewer_name">📄 %1$s</string>
+  <string name="file_viewer_size">📏 Size: %1$s</string>
+  <string name="file_viewer_type">🏷️ Type: %1$s</string>
+  <string name="file_viewer_open_save">📂 Open / Save</string>
+  <string name="close_with_emoji">❌ Close</string>
+  <string name="pick_image">Pick image</string>
+  <string name="cd_save_current_image">Save current image</string>
+  <string name="cd_close">Close</string>
+  <string name="toast_image_saved">Image saved to Downloads</string>
+  <string name="toast_failed_to_save_image">Failed to save image</string>
+  <string name="cd_image_index_of">Image %1$d of %2$d</string>
+  <string name="cd_pick_file">Pick file</string>
+
+  <!-- About sheet -->
+  <string name="about_tagline">decentralized mesh messaging with end-to-end encryption</string>
+  <string name="about_offline_mesh_title">Offline Mesh Chat</string>
+  <string name="about_offline_mesh_desc">Communicate directly via Bluetooth LE without internet or servers. Messages relay through nearby devices to extend range.</string>
+  <string name="about_online_geohash_title">Online Geohash Channels</string>
+  <string name="about_online_geohash_desc">Connect with people in your area using geohash-based channels. Extend the mesh using public internet relays.</string>
+  <string name="about_e2e_title">End-to-End Encryption</string>
+  <string name="about_e2e_desc">Private messages are encrypted. Channel messages are public.</string>
+  <string name="about_appearance">appearance</string>
+  <string name="about_system">system</string>
+  <string name="about_light">light</string>
+  <string name="about_dark">dark</string>
+  <string name="about_pow">proof of work</string>
+  <string name="about_pow_off">pow off</string>
+  <string name="about_pow_on">pow on</string>
+  <string name="about_pow_tip">add proof of work to geohash messages for spam deterrence.</string>
+  <string name="about_pow_difficulty">difficulty: %1$d bits (~%2$s)</string>
+  <string name="about_pow_difficulty_attempts">difficulty %1$d requires ~%2$s hash attempts</string>
+  <string name="about_pow_desc_none">no proof of work required</string>
+  <string name="about_pow_desc_very_low">very low - minimal spam protection</string>
+  <string name="about_pow_desc_low">low - basic spam protection</string>
+  <string name="about_pow_desc_medium">medium - good spam protection</string>
+  <string name="about_pow_desc_high">high - strong spam protection</string>
+  <string name="about_pow_desc_very_high">very high - may cause delays</string>
+  <string name="about_pow_desc_extreme">extreme - significant computation required</string>
+  <string name="about_network">network</string>
+  <string name="about_tor_off">tor off</string>
+  <string name="about_tor_on">tor on</string>
+  <string name="about_tor_route">route internet over tor for enhanced privacy.</string>
+  <string name="about_tor_status">tor Status: %1$s, bootstrap %2$d%%</string>
+  <string name="about_last">Last: %1$s</string>
+  <string name="about_emergency_title">Emergency Data Deletion</string>
+  <string name="about_emergency_tip">Tip: Triple-click the app title to emergency delete all stored data including messages, keys, and settings.</string>
+  <string name="about_debug_settings">Debug Settings</string>
+  <string name="about_footer">Open Source • Privacy First • Decentralized</string>
+  <string name="close_plain">Close</string>
+  <string name="cd_privacy_protected">Privacy Protected</string>
+  <string name="cancel_lower">cancel</string>
+
+  <!-- Generic content descriptions -->
+  <string name="cd_warning">Warning</string>
+  <string name="cd_location_services">Location Services</string>
+  <string name="cd_privacy">Privacy</string>
+  <string name="cd_error">Error</string>
+  <string name="cd_battery_optimization">Battery Optimization</string>
+  <string name="cd_benefits">Benefits</string>
+  <string name="cd_checking_battery_optimization">Checking Battery Optimization</string>
+  <string name="cd_not_supported_battery_optimization">Battery Optimization Not Supported</string>
+  <string name="cd_bluetooth">Bluetooth</string>
+  <string name="cd_unread_message">Unread message</string>
+  <string name="cd_open_map">Open map</string>
+  <string name="cd_remove_bookmark">Remove bookmark</string>
+  <string name="cd_teleport">Teleport</string>
+  <string name="cd_selected">Selected</string>
+  <string name="cd_leave_channel">Leave channel</string>
+  <string name="cd_reachable_via_nostr">Reachable via Nostr</string>
+  <string name="cd_offline_favorite">Offline favorite</string>
+  <string name="cd_decrease_precision">Decrease precision</string>
+  <string name="cd_increase_precision">Increase precision</string>
+  <string name="cd_select_geohash">Select geohash</string>
+  <string name="cd_scroll_to_bottom">Scroll to bottom</string>
+  <string name="cd_file">File</string>
+  <string name="cd_image">Image</string>
+  <string name="cd_cancel">Cancel</string>
+  <string name="cd_link">Link</string>
+  <string name="cd_record_voice">Record voice note</string>
+  <string name="cd_pick_media">Pick media</string>
+  <string name="cd_mining_pow">Mining PoW</string>
+  <string name="cd_pow_enabled">PoW Enabled</string>
+  <string name="cd_proof_of_work">Proof of Work</string>
+  <string name="pow_mining_ellipsis">mining...</string>
+  <string name="pow_label_format">pow: %1$dbit</string>
+  <string name="cd_offline_mesh_chat">Offline Mesh Chat</string>
+  <string name="cd_online_geohash_channels">Online Geohash Channels</string>
+  <string name="cd_end_to_end_encryption">End-to-End Encryption</string>
+  <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+
+  <string name="image_page_of">Image %1$d of %2$d</string>
+  <string name="image_unavailable">Image unavailable</string>
+  <string name="image_saved_to_downloads">Image saved to Downloads</string>
+  <string name="image_save_failed">Failed to save image</string>
+  <string name="pick_file">Pick file</string>
+  <string name="file_unavailable">[file unavailable]</string>
+  <string name="unknown">unknown</string>
+
+  <!-- Chat user sheet actions -->
+  <string name="choose_action_message_or_user">choose an action for this message or user</string>
+  <string name="choose_action_user">choose an action for this user</string>
+  <string name="action_copy_message_title">copy message</string>
+  <string name="action_copy_message_subtitle">copy this message to clipboard</string>
+  <string name="action_slap_title">slap %1$s</string>
+  <string name="action_slap_subtitle">send a playful slap message</string>
+  <string name="action_hug_title">hug %1$s</string>
+  <string name="action_hug_subtitle">send a friendly hug message</string>
+  <string name="action_block_title">block %1$s</string>
+  <string name="action_block_subtitle">block all messages from this user</string>
+
+  <!-- Location channels sheet -->
+  <string name="location_channels_title">#location channels</string>
+  <string name="location_channels_desc">chat with people near you using geohash channels. only a coarse geohash is shared, never exact gps. do not screenshot or share this screen to protect your privacy.</string>
+  <string name="grant_location_permission">grant location permission</string>
+  <string name="location_permission_denied">location permission denied. enable in settings to use location channels.</string>
+
+  <string name="location_permission_granted">\u2713 location permission granted</string>
+  <string name="checking_permissions">checking permissions...</string>
+  <string name="finding_nearby_channels">finding nearby channels…</string>
+  <string name="bookmarked">bookmarked</string>
+  <string name="geohash_placeholder">geohash</string>
+  <string name="invalid_geohash">invalid geohash</string>
+  <string name="teleport">teleport</string>
+  <string name="disable_location_services">disable location services</string>
+  <string name="enable_location_services">enable location services</string>
+  <string name="mesh_label">mesh</string>
+  <string name="location_level_block">block</string>
+  <string name="location_level_neighborhood">neighborhood</string>
+  <string name="location_level_city">city</string>
+  <string name="location_level_province">province</string>
+  <string name="location_level_region">region</string>
+
+  <!-- Location notes sheet -->
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d note</item>
+    <item quantity="other">#%1$s ± 1 • %2$d notes</item>
+  </plurals>
+  <string name="location_notes_description">add short permanent notes to this location for other visitors to find.</string>
+  <string name="location_notes_relays_unavailable">geo relays unavailable; notes paused</string>
+  <string name="location_notes_no_relays_title">no geo relays nearby</string>
+  <string name="location_notes_no_relays_desc">notes rely on geo relays. check connection and try again.</string>
+  <string name="loading_location_notes">loading notes…</string>
+  <string name="location_notes_empty_title">no notes yet</string>
+  <string name="location_notes_empty_desc">be the first to add one for this spot.</string>
+  <string name="dismiss">dismiss</string>
+  <string name="location_notes_input_placeholder">add a note for this place</string>
+
+  <!-- Debug / Diagnostics -->
+  <string name="debug_tools">debug tools</string>
+  <string name="debug_tools_desc">developer utilities for diagnostics and control</string>
+  <string name="debug_verbose_logging">verbose logging</string>
+  <string name="debug_verbose_hint">logs peer joins/leaves, connection direction, packet routing and relays</string>
+  <string name="debug_bluetooth_roles">bluetooth roles</string>
+  <string name="debug_gatt_server">gatt server</string>
+  <string name="debug_connections_fmt">connections: %1$d / %2$d</string>
+  <string name="debug_max_server">max server</string>
+  <string name="debug_gatt_client">gatt client</string>
+  <string name="debug_max_client">max client</string>
+  <string name="debug_overall_connections_fmt">connections: %1$d / %2$d</string>
+  <string name="debug_max_overall">max overall</string>
+  <string name="debug_packet_relay">packet relay</string>
+  <string name="debug_since_start_fmt">since start: %1$d</string>
+  <string name="debug_roles_hint">turn roles on/off and close all connections when disabled</string>
+  <string name="debug_sync_settings">sync settings</string>
+  <string name="debug_max_packets_per_sync_fmt">max packets per sync: %1$d</string>
+  <string name="debug_max_gcs_filter_size_fmt">max GCS filter size: %1$d bytes (128–1024)</string>
+  <string name="debug_target_fpr_fmt">target FPR: %1$.2f%%</string>
+  <string name="debug_connected_devices">connected devices</string>
+  <string name="debug_our_device_id_fmt">our device id: %1$s</string>
+  <string name="debug_none">none</string>
+  <string name="debug_disconnect">disconnect</string>
+  <string name="debug_recent_scan_results">recent scan results</string>
+  <string name="debug_connect">connect</string>
+  <string name="debug_debug_console">debug console</string>
+  <string name="debug_clear">clear</string>
+  <string name="debug_relays_window_fmt">last 10s: %1$d • 1m: %2$d • 15m: %3$d</string>
+  <string name="debug_derived_p_fmt">derived P: %1$s • est. max elements: %2$s</string>
+  <string name="debug_direct_suffix"> • direct</string>
+  <string name="debug_rssi_fmt">RSSI: %1$s</string>
+  <string name="debug_question_mark">?</string>
+  <string name="debug_role_server">as server (we host)</string>
+  <string name="debug_role_client">as client (we connect)</string>
+
+  <!-- Onboarding screens -->
+  <string name="location_services_required">Location Services Required</string>
+  <string name="privacy_first">Privacy First</string>
+  <string name="location_explanation">bitchat does NOT track your location.\n\nLocation services are required for Bluetooth scanning and for the Geohash chat feature.</string>
+  <string name="location_needs_for">bitchat needs location services for:</string>
+  <string name="location_needs_bullets">• Bluetooth device scanning\n• Discovering nearby users on mesh network\n• Geohash chat feature\n• No tracking or location collection</string>
+  <string name="open_location_settings">Open Location Settings</string>
+  <string name="check_again">Check Again</string>
+  <string name="location_services_unavailable">Location Services Unavailable</string>
+  <string name="location_unavailable_explanation">Location services are not available on this device. This is unusual as location services are standard on Android devices.\n\nbitchat needs location services for Bluetooth scanning to work properly (Android requirement). Without this, the app cannot discover nearby users.</string>
+  <string name="checking_location_services">Checking location services...</string>
+  <string name="bluetooth_required">Bluetooth Required</string>
+  <string name="bluetooth_needs_for">bitchat needs Bluetooth to:</string>
+  <string name="bluetooth_needs_bullets">• Discover nearby users\n• Create mesh network connections\n• Send and receive messages\n• Work without internet or servers</string>
+  <string name="enable_bluetooth">Enable Bluetooth</string>
+  <string name="bluetooth_not_supported">Bluetooth Not Supported</string>
+  <string name="bluetooth_unsupported_explanation">This device doesn\'t support Bluetooth Low Energy (BLE), which is required for bitchat to function.\n\nbitchat needs BLE to create mesh networks and communicate with nearby devices without internet.</string>
+  <string name="checking_bluetooth_status">Checking Bluetooth status...</string>
+  <string name="battery_optimization_detected_title">battery optimization detected</string>
+  <string name="battery_optimization_enabled_title">Battery Optimization Enabled</string>
+  <string name="battery_optimization_explanation_short">bitchat needs to run in the background to maintain mesh connections. battery optimization can interrupt these connections.</string>
+  <string name="benefits_of_disabling">Benefits of Disabling</string>
+  <string name="battery_benefits_short">• reliable message delivery\n• maintains mesh connectivity\n• prevents connection drops</string>
+  <string name="disable_battery_optimization">Disable Battery Optimization</string>
+  <string name="battery_optimization_disabled_title">battery optimization disabled</string>
+  <string name="continue_btn">Continue</string>
+  <string name="initializing_mesh_network">Initializing mesh network</string>
+  <string name="dot">.</string>
+  <string name="setting_up_bluetooth">Setting up Bluetooth mesh networking...</string>
+  <string name="should_take_seconds">This should only take a few seconds</string>
+  <string name="warning_emoji">⚠️</string>
+  <string name="setup_not_complete">Setup Not Complete</string>
+  <string name="try_again">Try Again</string>
+  <string name="open_settings">Open Settings</string>
+  <string name="privacy_protected">Your Privacy is Protected</string>
+  <string name="privacy_bullets">• no tracking or data collection\n• Bluetooth mesh chats are fully offline\n• Geohash chats use the internet</string>
+  <string name="permissions_header">permissions</string>
+  <string name="grant_permissions">Grant Permissions</string>
+  <string name="location_tracking_warning">bitchat does NOT track your location</string>
+  <string name="at_symbol">@</string>
+  <string name="app_brand">bitchat/</string>
+  <string name="channel_count_prefix"> · ⧉ </string>
+  <string name="geohash_people_header">PEOPLE</string>
+  <string name="nobody_around">nobody around...</string>
+  <string name="you_suffix"> (you)</string>
+  <string name="pan_zoom_instruction">pan and zoom to select a geohash</string>
+  <string name="select">select</string>
+  <string name="type_a_message_placeholder">type a message...</string>
+  <string name="mention_suggestion_at">@%1$s</string>
+  <string name="mention">mention</string>
+  <string name="image_counter">%1$d / %2$d</string>
+  <string name="pow_time_estimate">(~%1$s)</string>
+  <string name="at_nickname">@%1$s</string>
+  <string name="version_prefix">v%1$s</string>
+  <string name="hash_symbol">#</string>
+  <string name="underscore">_</string>
+  <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
+  <string name="progress_filled">█</string>
+  <string name="progress_empty">░</string>
+  <string name="image_star">image/*</string>
+  <string name="media_type_image">Image</string>
+  <string name="media_type_file">File</string>
+
+  <!-- Message status icons -->
+  <string name="status_sending">○</string>
+  <string name="status_pending">○</string>
+  <string name="status_sent">✓</string>
+  <string name="status_delivered">✓✓</string>
+  <string name="status_failed">⚠</string>
+  <string name="status_read">✓</string>
+
+  <!-- Notification text helpers -->
+  <string name="notification_sent_image">📷 sent an image</string>
+  <string name="notification_sent_voice">🎤 sent a voice message</string>
+  <string name="notification_sent_file">📎 sent a file</string>
+  <string name="notification_file_pdf">📄</string>
+  <string name="notification_file_zip">🗜️</string>
+  <string name="notification_file_doc">📄</string>
+  <string name="notification_file_xls">📊</string>
+  <string name="notification_file_ppt">📈</string>
+  <string name="notification_file_generic">📎</string>
+
+  <!-- Voice player accessibility -->
+  <string name="cd_play_voice">Play</string>
+  <string name="cd_pause_voice">Pause</string>
+
+  <!-- Permission descriptions -->
+  <string name="perm_nearby_devices_desc">Required to discover bitchat users via Bluetooth</string>
+  <string name="perm_nearby_devices_system">Allow bitchat to connect to nearby devices</string>
+  <string name="perm_location_desc">Required by Android to discover nearby bitchat users via Bluetooth</string>
+  <string name="perm_location_system">bitchat needs this to scan for nearby devices</string>
+  <string name="perm_notifications_desc">Receive notifications when you receive private messages</string>
+  <string name="perm_notifications_system">Allow bitchat to send you notifications</string>
+  <string name="perm_battery_desc">Disable battery optimization to ensure bitchat runs reliably in the background and maintains mesh network connections</string>
+  <string name="perm_battery_system">Allow bitchat to run without battery restrictions</string>
+
+  <!-- Permission types -->
+  <string name="perm_type_nearby_devices">Nearby Devices</string>
+  <string name="perm_type_precise_location">Precise Location</string>
+  <string name="perm_type_microphone">Microphone</string>
+  <string name="perm_type_notifications">Notifications</string>
+  <string name="perm_type_battery_optimization">Battery Optimization</string>
+  <string name="perm_type_other">Other</string>
+
+  <!-- Password prompt dialog -->
+  <string name="pwd_prompt_title">Enter Channel Password</string>
+  <string name="pwd_prompt_message">Channel %1$s is password protected. Enter the password to join.</string>
+  <string name="pwd_label">Password</string>
+  <string name="join">Join</string>
+  <string name="cancel">Cancel</string>
+
+  <!-- Plurals -->
+  <plurals name="notification_and_more">
+    <item quantity="one">and %d more</item>
+    <item quantity="other">and %d more</item>
+  </plurals>
+
+  <plurals name="people_count">
+    <item quantity="one">1 person</item>
+    <item quantity="other">%d people</item>
+  </plurals>
+
 </resources>

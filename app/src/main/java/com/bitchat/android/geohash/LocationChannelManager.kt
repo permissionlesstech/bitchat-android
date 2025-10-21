@@ -88,9 +88,16 @@ class LocationChannelManager private constructor(private val context: Context) {
 
     /**
      * Enable location channels (request permission if needed)
+     * UNIFIED: Only requests location if location services are enabled by user
      */
     fun enableLocationChannels() {
         Log.d(TAG, "enableLocationChannels() called")
+        
+        // UNIFIED FIX: Check if location services are enabled by user
+        if (!isLocationServicesEnabled()) {
+            Log.w(TAG, "Location services disabled by user - not requesting location")
+            return
+        }
         
         when (getCurrentPermissionStatus()) {
             PermissionState.NOT_DETERMINED -> {

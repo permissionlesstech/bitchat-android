@@ -91,6 +91,34 @@ object NostrProtocol {
     }
     
     /**
+     * Create a geohash-scoped text note (kind 1) with optional nickname
+     * This creates a persistent text note that can be retrieved later
+     */
+    suspend fun createGeohashTextNote(
+        content: String,
+        geohash: String,
+        senderIdentity: NostrIdentity,
+        nickname: String? = null
+    ): NostrEvent = withContext(Dispatchers.Default) {
+        val tags = mutableListOf<List<String>>()
+        tags.add(listOf("g", geohash))
+        
+        if (!nickname.isNullOrEmpty()) {
+            tags.add(listOf("n", nickname))
+        }
+        
+        val event = NostrEvent(
+            pubkey = senderIdentity.publicKeyHex,
+            createdAt = (System.currentTimeMillis() / 1000).toInt(),
+            kind = NostrKind.TEXT_NOTE,
+            tags = tags,
+            content = content
+        )
+        
+        return@withContext senderIdentity.signEvent(event)
+    }
+    
+    /**
      * Create a geohash-scoped ephemeral public message (kind 20000)
      * Includes Proof of Work mining if enabled in settings
      */

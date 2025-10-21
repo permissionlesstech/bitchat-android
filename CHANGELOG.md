@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+## [1.4.0] - 2025-10-15
+### Fixed
+- fix: Resolve debug settings bottom sheet crash on some devices (Issue #472)
+  - Fixed IllegalFormatConversionException in DebugSettingsSheet.kt when scrolling through debug settings
+  - Corrected string formatting for debug_target_fpr_fmt and debug_derived_p_fmt string resources
+  - Improved string resource parameter handling for numeric values
+
 ## [0.7.2] - 2025-07-20
 ### Fixed
 - fix: battery optimization screen content scrollable with fixed buttons
