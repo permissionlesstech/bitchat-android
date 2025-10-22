@@ -72,9 +72,15 @@ class MessageRouter private constructor(
 
         val hasMesh = mesh.getPeerInfo(toPeerID)?.isConnected == true
         val hasEstablished = mesh.hasEstablishedSession(toPeerID)
+        // Check Wi‑Fi Aware availability as a secondary transport
+        val aware = try { com.bitchat.android.wifiaware.WifiAwareController.getService() } catch (_: Exception) { null }
+        val hasAware = try { aware?.getPeerInfo(toPeerID)?.isConnected == true && aware.hasEstablishedSession(toPeerID) } catch (_: Exception) { false }
         if (hasMesh && hasEstablished) {
             Log.d(TAG, "Routing PM via mesh to ${toPeerID} msg_id=${messageID.take(8)}…")
             mesh.sendPrivateMessage(content, toPeerID, recipientNickname, messageID)
+        } else if (hasAware) {
+            Log.d(TAG, "Routing PM via Wi‑Fi Aware to ${toPeerID} msg_id=${messageID.take(8)}…")
+            aware?.sendPrivateMessage(content, toPeerID, recipientNickname, messageID)
         } else if (canSendViaNostr(toPeerID)) {
             Log.d(TAG, "Routing PM via Nostr to ${toPeerID.take(32)}… msg_id=${messageID.take(8)}…")
             nostr.sendPrivateMessage(content, toPeerID, recipientNickname, messageID)
@@ -83,14 +89,21 @@ class MessageRouter private constructor(
             val q = outbox.getOrPut(toPeerID) { mutableListOf() }
             q.add(Triple(content, recipientNickname, messageID))
             Log.d(TAG, "Initiating noise handshake after queueing PM for ${toPeerID.take(8)}…")
-            mesh.initiateNoiseHandshake(toPeerID)
+            if (hasMesh) mesh.initiateNoiseHandshake(toPeerID) else aware?.initiateNoiseHandshake(toPeerID)
         }
     }
 
     fun sendReadReceipt(receipt: ReadReceipt, toPeerID: String) {
-        if ((mesh.getPeerInfo(toPeerID)?.isConnected == true) && mesh.hasEstablishedSession(toPeerID)) {
+        val aware = try { com.bitchat.android.wifiaware.WifiAwareController.getService() } catch (_: Exception) { null }
+        val viaMesh = (mesh.getPeerInfo(toPeerID)?.isConnected == true) && mesh.hasEstablishedSession(toPeerID)
+        val viaAware = try { aware?.getPeerInfo(toPeerID)?.isConnected == true && aware.hasEstablishedSession(toPeerID) } catch (_: Exception) { false }
+        if (viaMesh) {
             Log.d(TAG, "Routing READ via mesh to ${toPeerID.take(8)}… id=${receipt.originalMessageID.take(8)}…")
             mesh.sendReadReceipt(receipt.originalMessageID, toPeerID, mesh.getPeerNicknames()[toPeerID] ?: mesh.myPeerID)
+        } else if (viaAware) {
+            Log.d(TAG, "Routing READ via Wi‑Fi Aware to ${toPeerID.take(8)}… id=${receipt.originalMessageID.take(8)}…")
+            val me = try { aware?.myPeerID } catch (_: Exception) { null }
+            aware?.sendReadReceipt(receipt.originalMessageID, toPeerID, me ?: "")
         } else {
             Log.d(TAG, "Routing READ via Nostr to ${toPeerID.take(8)}… id=${receipt.originalMessageID.take(8)}…")
             nostr.sendReadReceipt(receipt, toPeerID)

@@ -120,6 +120,45 @@ class MainActivity : OrientationAwareActivity() {
                 }
             }
         }
+
+        // Bridge Wi‑Fi Aware callbacks into ChatViewModel (reusing BLE delegate methods)
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                com.bitchat.android.wifiaware.WifiAwareController.running.collect { running ->
+                    val svc = com.bitchat.android.wifiaware.WifiAwareController.getService()
+                    if (running && svc != null) {
+                        svc.delegate = object : com.bitchat.android.wifiaware.WifiAwareMeshDelegate {
+                            override fun didReceiveMessage(message: com.bitchat.android.model.BitchatMessage) {
+                                chatViewModel.didReceiveMessage(message)
+                            }
+                            override fun didUpdatePeerList(peers: List<String>) {
+                                chatViewModel.didUpdatePeerList(peers)
+                            }
+                            override fun didReceiveChannelLeave(channel: String, fromPeer: String) {
+                                chatViewModel.didReceiveChannelLeave(channel, fromPeer)
+                            }
+                            override fun didReceiveDeliveryAck(messageID: String, recipientPeerID: String) {
+                                chatViewModel.didReceiveDeliveryAck(messageID, recipientPeerID)
+                            }
+                            override fun didReceiveReadReceipt(messageID: String, recipientPeerID: String) {
+                                chatViewModel.didReceiveReadReceipt(messageID, recipientPeerID)
+                            }
+                            override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {
+                                return chatViewModel.decryptChannelMessage(encryptedContent, channel)
+                            }
+                            override fun getNickname(): String? {
+                                return chatViewModel.getNickname()
+                            }
+                            override fun isFavorite(peerID: String): Boolean {
+                                return try {
+                                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(peerID)?.isMutual == true
+                                } catch (_: Exception) { false }
+                            }
+                        }
+                    }
+                }
+            }
+        }
         
         // Only start onboarding process if we're in the initial CHECKING state
         // This prevents restarting onboarding on configuration changes

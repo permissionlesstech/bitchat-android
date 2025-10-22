@@ -671,7 +671,7 @@ class WifiAwareMeshService(private val context: Context) {
 
         val cb = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                cm.bindProcessToNetwork(network)
+                // Do not bind process for Aware; use per-socket binding instead
             }
             override fun onCapabilitiesChanged(network: Network, nc: NetworkCapabilities) {
                 if (peerSockets.containsKey(peerId)) return
@@ -679,9 +679,11 @@ class WifiAwareMeshService(private val context: Context) {
                 val addr = info.peerIpv6Addr as Inet6Address
 
                 try {
-                    val sock = network.socketFactory
-                        .createSocket(addr, port)
-                        .apply { keepAlive = true }
+                    // Some devices deny bindSocket() (EPERM). Rely on scoped IPv6 to route correctly.
+                    val sock = Socket()
+                    sock.tcpNoDelay = true
+                    sock.keepAlive = true
+                    sock.connect(java.net.InetSocketAddress(addr, port), 7000)
 
                     Log.d(TAG, "CLIENT: TCP connected to ${peerId.take(8)}… addr=$addr:$port")
                     peerSockets[peerId] = sock
@@ -696,7 +698,6 @@ class WifiAwareMeshService(private val context: Context) {
                 }
             }
             override fun onLost(network: Network) {
-                cm.bindProcessToNetwork(null)
                 networkCallbacks.remove(peerId)
                 Log.d(TAG, "CLIENT: network lost for ${peerId.take(8)}…")
             }
