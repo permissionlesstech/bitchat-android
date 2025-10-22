@@ -173,15 +173,9 @@ class WifiAwareMeshService(private val context: Context) {
      */
     private fun broadcastPacket(routed: RoutedPacket) {
         Log.d(TAG, "TX: packet type=${routed.packet.type} broadcast (ttl=${routed.packet.ttl})")
-        // Generalized fragmentation support (parity with BLE)
-        val frags = try { fragmentManager.createFragments(routed.packet) } catch (_: Exception) { listOf(routed.packet) }
-        serviceScope.launch {
-            if (frags.size > 1) Log.d(TAG, "TX: fragmenting into ${frags.size} parts for broadcast")
-            for ((idx, frag) in frags.withIndex()) {
-                frag.toBinaryData()?.let { broadcastRaw(it) }
-                if (frags.size > 1) delay(20)
-            }
-        }
+        // Wi‑Fi Aware uses full packets; no fragmentation
+        val data = routed.packet.toBinaryData() ?: return
+        serviceScope.launch { broadcastRaw(data) }
     }
 
     // Expose a public method so BLE can forward relays to Wi‑Fi Aware
@@ -193,23 +187,19 @@ class WifiAwareMeshService(private val context: Context) {
      * Send packet to connected peer.
      */
     private fun sendPacketToPeer(peerID: String, packet: BitchatPacket) {
-        val frags = try { fragmentManager.createFragments(packet) } catch (_: Exception) { listOf(packet) }
+        // Wi‑Fi Aware uses full packets; no fragmentation
+        val data = packet.toBinaryData() ?: return
         serviceScope.launch {
             val sock = peerSockets[peerID]
             if (sock == null) {
                 Log.w(TAG, "TX: no socket for ${peerID.take(8)}…")
                 return@launch
             }
-            if (frags.size > 1) Log.d(TAG, "TX: fragmenting into ${frags.size} parts → ${peerID.take(8)}…")
-            for (frag in frags) {
-                val data = frag.toBinaryData() ?: continue
-                try {
-                    sock.getOutputStream().write(data)
-                } catch (e: IOException) {
-                    Log.e(TAG, "TX: write to ${peerID.take(8)}… failed: ${e.message}")
-                    break
-                }
-                if (frags.size > 1) delay(20)
+            try {
+                sock.getOutputStream().write(data)
+                Log.d(TAG, "TX: packet type=${packet.type} → ${peerID.take(8)}… (bytes=${data.size})")
+            } catch (e: IOException) {
+                Log.e(TAG, "TX: write to ${peerID.take(8)}… failed: ${e.message}")
             }
         }
     }
