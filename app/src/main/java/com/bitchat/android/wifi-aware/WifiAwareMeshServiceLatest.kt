@@ -172,24 +172,39 @@ class WifiAwareMeshService(private val context: Context) {
      * Broadcasts routed packet to currently connected peers.
      */
     private fun broadcastPacket(routed: RoutedPacket) {
-        routed.packet.toBinaryData()?.let {
+        routed.packet.toBinaryData()?.let { data ->
             Log.d(TAG, "TX: packet type=${routed.packet.type} broadcast (ttl=${routed.packet.ttl})")
-            broadcastRaw(it)
+            serviceScope.launch { broadcastRaw(data) }
+            // Cross-transport relay (optional): also broadcast via BLE if available
+            try { com.bitchat.android.wifiaware.WifiAwareController.getBleMeshService()?.connectionManager?.broadcastPacket(routed) } catch (_: Exception) { }
         }
+    }
+
+    // Expose a public method so BLE can forward relays to Wi‑Fi Aware
+    fun broadcastRoutedPacket(routed: RoutedPacket) {
+        broadcastPacket(routed)
     }
 
     /**
      * Send packet to connected peer.
      */
     private fun sendPacketToPeer(peerID: String, packet: BitchatPacket) {
-        val sock = peerSockets[peerID] ?: return
-        try {
-            val data = packet.toBinaryData() ?: return
-            sock.getOutputStream().write(data)
-            Log.d(TAG, "TX: packet type=${packet.type} → ${peerID.take(8)}… (bytes=${data.size})")
-        } catch (e: IOException) {
-            Log.e(TAG, "TX: write to ${peerID.take(8)}… failed: ${e.message}")
+        val data = packet.toBinaryData() ?: return
+        serviceScope.launch {
+            val sock = peerSockets[peerID]
+            if (sock == null) {
+                Log.w(TAG, "TX: no socket for ${peerID.take(8)}…")
+                return@launch
+            }
+            try {
+                sock.getOutputStream().write(data)
+                Log.d(TAG, "TX: packet type=${packet.type} → ${peerID.take(8)}… (bytes=${data.size})")
+            } catch (e: IOException) {
+                Log.e(TAG, "TX: write to ${peerID.take(8)}… failed: ${e.message}")
+            }
         }
+        // Cross-transport relay to BLE when unicast target is connected there too
+        try { com.bitchat.android.wifiaware.WifiAwareController.getBleMeshService()?.connectionManager?.sendPacketToPeer(peerID, packet) } catch (_: Exception) { }
     }
 
     /**
@@ -279,17 +294,19 @@ class WifiAwareMeshService(private val context: Context) {
             override fun hasNoiseSession(peerID: String) =
                 encryptionService.hasEstablishedSession(peerID)
             override fun initiateNoiseHandshake(peerID: String) {
-                val hs = encryptionService.initiateHandshake(peerID) ?: return
-                val packet = BitchatPacket(
-                    version = 1u,
-                    type = MessageType.NOISE_HANDSHAKE.value,
-                    senderID = hexStringToByteArray(myPeerID),
-                    recipientID = hexStringToByteArray(peerID),
-                    timestamp = System.currentTimeMillis().toULong(),
-                    payload = hs,
-                    ttl = MAX_TTL
-                )
-                broadcastPacket(RoutedPacket(signPacketBeforeBroadcast(packet)))
+                serviceScope.launch {
+                    val hs = encryptionService.initiateHandshake(peerID) ?: return@launch
+                    val packet = BitchatPacket(
+                        version = 1u,
+                        type = MessageType.NOISE_HANDSHAKE.value,
+                        senderID = hexStringToByteArray(myPeerID),
+                        recipientID = hexStringToByteArray(peerID),
+                        timestamp = System.currentTimeMillis().toULong(),
+                        payload = hs,
+                        ttl = MAX_TTL
+                    )
+                    broadcastPacket(RoutedPacket(signPacketBeforeBroadcast(packet)))
+                }
             }
             override fun processNoiseHandshakeMessage(payload: ByteArray, peerID: String): ByteArray? =
                 try { encryptionService.processHandshakeMessage(payload, peerID) } catch (_: Exception) { null }
@@ -593,8 +610,10 @@ class WifiAwareMeshService(private val context: Context) {
                     // Kick off Noise handshake for this logical peer
                     if (myPeerID < peerId) {
                         messageHandler.delegate?.initiateNoiseHandshake(peerId)
-                        Log.d(TAG, "SERVER: initiating Noise handshake to ${peerId.take(8)}…")
+                        Log.d(TAG, "SERVER: initiating Noise handshake to ${peerId.take(8)}… (lower ID)")
                     }
+                    // Ensure fast presence even before handshake settles
+                    serviceScope.launch { delay(150); sendBroadcastAnnounce() }
                 } catch (ioe: IOException) {
                     Log.e(TAG, "SERVER: accept failed for ${peerId.take(8)}…", ioe)
                 }
@@ -707,10 +726,12 @@ class WifiAwareMeshService(private val context: Context) {
                     listenerExec.execute { listenToPeer(sock, peerId) }
                     handleServerKeepAlive(sock, peerId, peerHandle)
                     // Kick off Noise handshake for this logical peer
-                    if (myPeerID > peerId) {
+                    if (myPeerID < peerId) {
                         messageHandler.delegate?.initiateNoiseHandshake(peerId)
-                        Log.d(TAG, "CLIENT: initiating Noise handshake to ${peerId.take(8)}…")
+                        Log.d(TAG, "CLIENT: initiating Noise handshake to ${peerId.take(8)}… (lower ID)")
                     }
+                    // Ensure fast presence even before handshake settles
+                    serviceScope.launch { delay(150); sendBroadcastAnnounce() }
                 } catch (ioe: IOException) {
                     Log.e(TAG, "CLIENT: socket connect failed to ${peerId.take(8)}…", ioe)
                 }

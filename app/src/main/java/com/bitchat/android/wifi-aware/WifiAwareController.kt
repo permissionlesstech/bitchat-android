@@ -51,7 +51,7 @@ object WifiAwareController {
                 try {
                     val s = service
                     if (s != null) {
-                        _connectedPeers.value = s.getDeviceAddressToPeerMapping().entries.associate { (ip, peer) -> peer to ip }
+                        _connectedPeers.value = s.getDeviceAddressToPeerMapping() // peerID -> ip
                         _knownPeers.value = s.getPeerNicknames()
                         _discoveredPeers.value = s.getDiscoveredPeerIds()
                     } else {
@@ -108,4 +108,9 @@ object WifiAwareController {
     }
 
     fun getService(): WifiAwareMeshService? = service
+
+    // Optional bridge to BLE mesh for cross-transport relaying
+    @Volatile private var bleMesh: com.bitchat.android.mesh.BluetoothMeshService? = null
+    fun setBleMeshService(svc: com.bitchat.android.mesh.BluetoothMeshService) { bleMesh = svc }
+    fun getBleMeshService(): com.bitchat.android.mesh.BluetoothMeshService? = bleMesh
 }

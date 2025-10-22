@@ -73,6 +73,8 @@ class MainActivity : OrientationAwareActivity() {
         permissionManager = PermissionManager(this)
         // Initialize core mesh service first
         meshService = BluetoothMeshService(this)
+        // Expose BLE mesh to Wi‑Fi Aware controller for cross-transport relays
+        try { com.bitchat.android.wifiaware.WifiAwareController.setBleMeshService(meshService) } catch (_: Exception) { }
         bluetoothStatusManager = BluetoothStatusManager(
             activity = this,
             context = this,
@@ -347,6 +349,12 @@ class MainActivity : OrientationAwareActivity() {
         bluetoothStatusManager.logBluetoothStatus()
         mainViewModel.updateBluetoothStatus(bluetoothStatusManager.checkBluetoothStatus())
         
+        val bleRequired = try { com.bitchat.android.ui.debug.DebugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true }
+        if (!bleRequired) {
+            // Skip BLE checks entirely when BLE is disabled in debug settings
+            checkLocationAndProceed()
+            return
+        }
         when (mainViewModel.bluetoothStatus.value) {
             BluetoothStatus.ENABLED -> {
                 // Bluetooth is enabled, check location services next
@@ -513,8 +521,9 @@ class MainActivity : OrientationAwareActivity() {
             else -> BatteryOptimizationStatus.ENABLED
         }
         
+        val bleRequired2 = try { com.bitchat.android.ui.debug.DebugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true }
         when {
-            currentBluetoothStatus != BluetoothStatus.ENABLED -> {
+            bleRequired2 && currentBluetoothStatus != BluetoothStatus.ENABLED -> {
                 // Bluetooth still disabled, but now we have permissions to enable it
                 Log.d("MainActivity", "Permissions granted, but Bluetooth still disabled. Showing Bluetooth enable screen.")
                 mainViewModel.updateBluetoothStatus(currentBluetoothStatus)

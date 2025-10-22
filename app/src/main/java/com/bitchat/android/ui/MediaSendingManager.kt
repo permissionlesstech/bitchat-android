@@ -210,6 +210,7 @@ class MediaSendingManager(
         
         Log.d(TAG, "📤 Calling meshService.sendFilePrivate to $toPeerID")
         meshService.sendFilePrivate(toPeerID, filePacket)
+        try { com.bitchat.android.wifiaware.WifiAwareController.getService()?.sendFilePrivate(toPeerID, filePacket) } catch (_: Exception) {}
         Log.d(TAG, "✅ File send completed successfully")
     }
 
@@ -264,6 +265,7 @@ class MediaSendingManager(
         
         Log.d(TAG, "📤 Calling meshService.sendFileBroadcast")
         meshService.sendFileBroadcast(filePacket)
+        try { com.bitchat.android.wifiaware.WifiAwareController.getService()?.sendFileBroadcast(filePacket) } catch (_: Exception) {}
         Log.d(TAG, "✅ File broadcast completed successfully")
     }
 
