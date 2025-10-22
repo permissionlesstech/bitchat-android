@@ -156,16 +156,26 @@ class WifiAwareMeshService(private val context: Context) {
      * Broadcasts raw bytes to currently connected peer.
      */
     private fun broadcastRaw(bytes: ByteArray) {
-        peerSockets.values.forEach { sock ->
-            try { sock.getOutputStream().write(bytes) } catch (_: IOException) {}
+        var sent = 0
+        peerSockets.forEach { (pid, sock) ->
+            try {
+                sock.getOutputStream().write(bytes)
+                sent++
+            } catch (e: IOException) {
+                Log.e(TAG, "TX: write failed to ${pid.take(8)}…: ${e.message}")
+            }
         }
+        Log.i(TAG, "TX: broadcast via Wi‑Fi Aware to $sent peers (bytes=${bytes.size})")
     }
 
     /**
      * Broadcasts routed packet to currently connected peers.
      */
     private fun broadcastPacket(routed: RoutedPacket) {
-        routed.packet.toBinaryData()?.let { broadcastRaw(it) }
+        routed.packet.toBinaryData()?.let {
+            Log.d(TAG, "TX: packet type=${routed.packet.type} broadcast (ttl=${routed.packet.ttl})")
+            broadcastRaw(it)
+        }
     }
 
     /**
@@ -173,7 +183,13 @@ class WifiAwareMeshService(private val context: Context) {
      */
     private fun sendPacketToPeer(peerID: String, packet: BitchatPacket) {
         val sock = peerSockets[peerID] ?: return
-        try { sock.getOutputStream().write(packet.toBinaryData() ?: return) } catch (_: IOException) {}
+        try {
+            val data = packet.toBinaryData() ?: return
+            sock.getOutputStream().write(data)
+            Log.d(TAG, "TX: packet type=${packet.type} → ${peerID.take(8)}… (bytes=${data.size})")
+        } catch (e: IOException) {
+            Log.e(TAG, "TX: write to ${peerID.take(8)}… failed: ${e.message}")
+        }
     }
 
     /**
@@ -577,6 +593,7 @@ class WifiAwareMeshService(private val context: Context) {
                     // Kick off Noise handshake for this logical peer
                     if (myPeerID < peerId) {
                         messageHandler.delegate?.initiateNoiseHandshake(peerId)
+                        Log.d(TAG, "SERVER: initiating Noise handshake to ${peerId.take(8)}…")
                     }
                 } catch (ioe: IOException) {
                     Log.e(TAG, "SERVER: accept failed for ${peerId.take(8)}…", ioe)
@@ -690,8 +707,9 @@ class WifiAwareMeshService(private val context: Context) {
                     listenerExec.execute { listenToPeer(sock, peerId) }
                     handleServerKeepAlive(sock, peerId, peerHandle)
                     // Kick off Noise handshake for this logical peer
-                    if (myPeerID < peerId) {
+                    if (myPeerID > peerId) {
                         messageHandler.delegate?.initiateNoiseHandshake(peerId)
+                        Log.d(TAG, "CLIENT: initiating Noise handshake to ${peerId.take(8)}…")
                     }
                 } catch (ioe: IOException) {
                     Log.e(TAG, "CLIENT: socket connect failed to ${peerId.take(8)}…", ioe)
@@ -771,6 +789,7 @@ class WifiAwareMeshService(private val context: Context) {
                 peerSockets[routedPeerId] = socket
             }
 
+            Log.d(TAG, "RX: packet type=${pkt.type} from ${senderPeerHex.take(8)}… (bytes=${raw.size})")
             packetProcessor.processPacket(RoutedPacket(pkt, routedPeerId))
         }
 
