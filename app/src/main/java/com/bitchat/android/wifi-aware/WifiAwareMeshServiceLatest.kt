@@ -172,11 +172,15 @@ class WifiAwareMeshService(private val context: Context) {
      * Broadcasts routed packet to currently connected peers.
      */
     private fun broadcastPacket(routed: RoutedPacket) {
-        routed.packet.toBinaryData()?.let { data ->
-            Log.d(TAG, "TX: packet type=${routed.packet.type} broadcast (ttl=${routed.packet.ttl})")
-            serviceScope.launch { broadcastRaw(data) }
-            // Cross-transport relay (optional): also broadcast via BLE if available
-            try { com.bitchat.android.wifiaware.WifiAwareController.getBleMeshService()?.connectionManager?.broadcastPacket(routed) } catch (_: Exception) { }
+        Log.d(TAG, "TX: packet type=${routed.packet.type} broadcast (ttl=${routed.packet.ttl})")
+        // Generalized fragmentation support (parity with BLE)
+        val frags = try { fragmentManager.createFragments(routed.packet) } catch (_: Exception) { listOf(routed.packet) }
+        serviceScope.launch {
+            if (frags.size > 1) Log.d(TAG, "TX: fragmenting into ${frags.size} parts for broadcast")
+            for ((idx, frag) in frags.withIndex()) {
+                frag.toBinaryData()?.let { broadcastRaw(it) }
+                if (frags.size > 1) delay(20)
+            }
         }
     }
 
@@ -189,22 +193,25 @@ class WifiAwareMeshService(private val context: Context) {
      * Send packet to connected peer.
      */
     private fun sendPacketToPeer(peerID: String, packet: BitchatPacket) {
-        val data = packet.toBinaryData() ?: return
+        val frags = try { fragmentManager.createFragments(packet) } catch (_: Exception) { listOf(packet) }
         serviceScope.launch {
             val sock = peerSockets[peerID]
             if (sock == null) {
                 Log.w(TAG, "TX: no socket for ${peerID.take(8)}…")
                 return@launch
             }
-            try {
-                sock.getOutputStream().write(data)
-                Log.d(TAG, "TX: packet type=${packet.type} → ${peerID.take(8)}… (bytes=${data.size})")
-            } catch (e: IOException) {
-                Log.e(TAG, "TX: write to ${peerID.take(8)}… failed: ${e.message}")
+            if (frags.size > 1) Log.d(TAG, "TX: fragmenting into ${frags.size} parts → ${peerID.take(8)}…")
+            for (frag in frags) {
+                val data = frag.toBinaryData() ?: continue
+                try {
+                    sock.getOutputStream().write(data)
+                } catch (e: IOException) {
+                    Log.e(TAG, "TX: write to ${peerID.take(8)}… failed: ${e.message}")
+                    break
+                }
+                if (frags.size > 1) delay(20)
             }
         }
-        // Cross-transport relay to BLE when unicast target is connected there too
-        try { com.bitchat.android.wifiaware.WifiAwareController.getBleMeshService()?.connectionManager?.sendPacketToPeer(peerID, packet) } catch (_: Exception) { }
     }
 
     /**
@@ -605,6 +612,8 @@ class WifiAwareMeshService(private val context: Context) {
                     val client = ss.accept().apply { keepAlive = true }
                     Log.d(TAG, "SERVER: accepted TCP from ${peerId.take(8)}… addr=${client.inetAddress?.hostAddress}")
                     peerSockets[peerId] = client
+                    try { peerManager.setDirectConnection(peerId, true) } catch (_: Exception) {}
+                    try { peerManager.addOrUpdatePeer(peerId, peerId) } catch (_: Exception) {}
                     listenerExec.execute { listenToPeer(client, peerId) }
                     handleSubscriberKeepAlive(client, peerId, pubSession, peerHandle)
                     // Kick off Noise handshake for this logical peer
@@ -723,6 +732,8 @@ class WifiAwareMeshService(private val context: Context) {
 
                     Log.d(TAG, "CLIENT: TCP connected to ${peerId.take(8)}… addr=$addr:$port")
                     peerSockets[peerId] = sock
+                    try { peerManager.setDirectConnection(peerId, true) } catch (_: Exception) {}
+                    try { peerManager.addOrUpdatePeer(peerId, peerId) } catch (_: Exception) {}
                     listenerExec.execute { listenToPeer(sock, peerId) }
                     handleServerKeepAlive(sock, peerId, peerHandle)
                     // Kick off Noise handshake for this logical peer
@@ -858,7 +869,6 @@ class WifiAwareMeshService(private val context: Context) {
      */
     fun sendPrivateMessage(content: String, recipientPeerID: String, recipientNickname: String, messageID: String? = null) {
         if (content.isEmpty() || recipientPeerID.isEmpty()) return
-        if (recipientNickname.isEmpty()) return
 
         serviceScope.launch {
             val finalId = messageID ?: UUID.randomUUID().toString()

@@ -251,14 +251,10 @@ class BluetoothMeshService(private val context: Context) {
                 val signedPacket = signPacketBeforeBroadcast(packet)
                 val routed = RoutedPacket(signedPacket)
                 connectionManager.broadcastPacket(routed)
-                // Cross-transport relay to Wi‑Fi Aware if available
-                try { com.bitchat.android.wifiaware.WifiAwareController.getService()?.broadcastRoutedPacket(routed) } catch (_: Exception) { }
             }
             
             override fun relayPacket(routed: RoutedPacket) {
                 connectionManager.broadcastPacket(routed)
-                // Cross-transport relay to Wi‑Fi Aware if available
-                try { com.bitchat.android.wifiaware.WifiAwareController.getService()?.broadcastRoutedPacket(routed) } catch (_: Exception) { }
             }
             
             override fun getBroadcastRecipient(): ByteArray {
