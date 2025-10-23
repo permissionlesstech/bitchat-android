@@ -37,7 +37,8 @@ class NostrRelayManager private constructor() {
             "wss://relay.damus.io",
             "wss://relay.primal.net",
             "wss://offchain.pub",
-            "wss://nostr21.com"
+            "wss://nostr21.com",
+            "wss://sendit.nosflare.com"
         )
         
         // Exponential backoff configuration (same as iOS)
@@ -223,7 +224,8 @@ class NostrRelayManager private constructor() {
                 "wss://relay.damus.io",
                 "wss://relay.primal.net",
                 "wss://offchain.pub",
-                "wss://nostr21.com"
+                "wss://nostr21.com",
+                "wss://sendit.nosflare.com"
             )
             relaysList.addAll(defaultRelayUrls.map { Relay(it) })
             _relays.postValue(relaysList.toList())
