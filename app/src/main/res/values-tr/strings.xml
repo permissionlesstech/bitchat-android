@@ -222,7 +222,6 @@
     <string name="debug_relays_window_fmt">son 10 sn: %1$d • 1 dk: %2$d • 15 dk: %3$d</string>
     <string name="debug_derived_p_fmt">türetilen P: %1$s • tahm. maks öge: %2$s</string>
     <string name="debug_direct_suffix"> • doğrudan</string>
-    <string name="debug_rssi_fmt">%1$s • RSSI: %2$s</string>
     <string name="debug_question_mark">?</string>
     <string name="debug_role_server">sunucu olarak (barındırıyoruz)</string>
     <string name="debug_role_client">istemci olarak (bağlanıyoruz)</string>
@@ -338,4 +337,17 @@
         <item quantity="one">1 kişi</item>
         <item quantity="other">%d kişi</item>
     </plurals>
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d not</item>
+    <item quantity="other">#%1$s ± 1 • %2$d not</item>
+  </plurals>
+  <string name="location_notes_description">Diğer ziyaretçilerin bulabilmesi için bu konuma kısa kalıcı notlar ekleyin.</string>
+  <string name="location_notes_relays_unavailable">coğrafi röleler kullanılamıyor; notlar duraklatıldı</string>
+  <string name="location_notes_no_relays_title">yakınlarda coğrafi röle yok</string>
+  <string name="location_notes_no_relays_desc">notlar coğrafi rölelere bağlıdır. bağlantıyı kontrol edip tekrar deneyin.</string>
+  <string name="loading_location_notes">notlar yükleniyor…</string>
+  <string name="location_notes_empty_title">henüz not yok</string>
+  <string name="location_notes_empty_desc">bu yer için ilk notu ekleyen siz olun.</string>
+  <string name="dismiss">kapat</string>
+  <string name="location_notes_input_placeholder">bu yer için bir not ekleyin</string>
 </resources>

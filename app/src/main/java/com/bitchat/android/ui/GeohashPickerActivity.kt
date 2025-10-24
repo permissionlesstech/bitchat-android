@@ -11,7 +11,6 @@ import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,7 +44,7 @@ import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 
 @OptIn(ExperimentalMaterial3Api::class)
-class GeohashPickerActivity : ComponentActivity() {
+class GeohashPickerActivity : OrientationAwareActivity() {
 
     companion object {
         const val EXTRA_INITIAL_GEOHASH = "initial_geohash"

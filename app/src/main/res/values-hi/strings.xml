@@ -247,7 +247,6 @@
     <string name="debug_relays_window_fmt">पिछले 10 से.: %1$d • 1 मि.: %2$d • 15 मि.: %3$d</string>
     <string name="debug_derived_p_fmt">व्युत्पन्न P: %1$s • अनुमानित अधिकतम आइटम: %2$s</string>
     <string name="debug_direct_suffix"> • डायरेक्ट</string>
-    <string name="debug_rssi_fmt">%1$s • RSSI: %2$s</string>
     <string name="debug_role_server">सर्वर के रूप में (हम होस्ट करते हैं)</string>
     <string name="debug_role_client">क्लाइंट के रूप में (हम कनेक्ट करते हैं)</string>
 
@@ -350,4 +349,17 @@
         <item quantity="other">%d लोग</item>
     </plurals>
 
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d नोट</item>
+    <item quantity="other">#%1$s ± 1 • %2$d नोट्स</item>
+  </plurals>
+  <string name="location_notes_description">अन्य आगंतुकों के लिए इस स्थान पर छोटी स्थायी नोट्स जोड़ें।</string>
+  <string name="location_notes_relays_unavailable">जियो रिले उपलब्ध नहीं; नोट्स विरामित</string>
+  <string name="location_notes_no_relays_title">आसपास कोई जियो रिले नहीं</string>
+  <string name="location_notes_no_relays_desc">नोट्स जियो रिले पर निर्भर हैं। कनेक्शन जांचें और फिर से प्रयास करें।</string>
+  <string name="loading_location_notes">नोट्स लोड हो रहे हैं…</string>
+  <string name="location_notes_empty_title">अभी कोई नोट नहीं</string>
+  <string name="location_notes_empty_desc">इस स्थान के लिए पहला नोट जोड़ें।</string>
+  <string name="dismiss">बंद करें</string>
+  <string name="location_notes_input_placeholder">इस स्थान के लिए एक नोट जोड़ें</string>
 </resources>

@@ -238,7 +238,6 @@
     <string name="debug_relays_window_fmt">dernières 10s : %1$d • 1m : %2$d • 15m : %3$d</string>
     <string name="debug_derived_p_fmt">P dérivé : %1$s • nb max estimé : %2$s</string>
     <string name="debug_direct_suffix"> • direct</string>
-    <string name="debug_rssi_fmt">%1$s • RSSI : %2$s</string>
     <string name="debug_question_mark">?</string>
     <string name="debug_role_server">en tant que serveur (nous hébergeons)</string>
     <string name="debug_role_client">en tant que client (nous nous connectons)</string>
@@ -364,4 +363,17 @@
         <item quantity="other">%d personnes</item>
     </plurals>
 
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d note</item>
+    <item quantity="other">#%1$s ± 1 • %2$d notes</item>
+  </plurals>
+  <string name="location_notes_description">ajoutez de courtes notes permanentes à cet endroit pour que d\'autres visiteurs les trouvent.</string>
+  <string name="location_notes_relays_unavailable">relais géo indisponibles ; notes en pause</string>
+  <string name="location_notes_no_relays_title">aucun relais géo à proximité</string>
+  <string name="location_notes_no_relays_desc">les notes dépendent des relais géo. vérifiez la connexion et réessayez.</string>
+  <string name="loading_location_notes">chargement des notes…</string>
+  <string name="location_notes_empty_title">aucune note pour le moment</string>
+  <string name="location_notes_empty_desc">soyez le premier à en ajouter pour cet endroit.</string>
+  <string name="dismiss">fermer</string>
+  <string name="location_notes_input_placeholder">ajoutez une note pour cet endroit</string>
 </resources>

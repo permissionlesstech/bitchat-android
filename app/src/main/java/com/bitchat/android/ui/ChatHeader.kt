@@ -28,6 +28,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.core.ui.utils.singleOrTripleClickable
+import com.bitchat.android.geohash.LocationChannelManager.PermissionState
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
 
 /**
  * Header components for ChatScreen
@@ -53,23 +56,27 @@ fun isFavoriteReactive(
 }
 
 @Composable
-fun TorStatusIcon(
+fun TorStatusDot(
     modifier: Modifier = Modifier
 ) {
     val torStatus by com.bitchat.android.net.TorManager.statusFlow.collectAsState()
     
     if (torStatus.mode != com.bitchat.android.net.TorMode.OFF) {
-        val cableColor = when {
-            torStatus.running && torStatus.bootstrapPercent < 100 -> Color(0xFFFF9500)
-            torStatus.running && torStatus.bootstrapPercent >= 100 -> Color(0xFF00C851)
-            else -> Color.Red
+        val dotColor = when {
+            torStatus.running && torStatus.bootstrapPercent < 100 -> Color(0xFFFF9500) // Orange - bootstrapping
+            torStatus.running && torStatus.bootstrapPercent >= 100 -> Color(0xFF00C851) // Green - connected
+            else -> Color.Red // Red - error/disconnected
         }
-        Icon(
-            imageVector = Icons.Outlined.Cable,
-            contentDescription = stringResource(R.string.cd_tor_status),
-            modifier = modifier,
-            tint = cableColor
-        )
+        Canvas(
+            modifier = modifier
+        ) {
+            val radius = size.minDimension / 2
+            drawCircle(
+                color = dotColor,
+                radius = radius,
+                center = Offset(size.width / 2, size.height / 2)
+            )
+        }
     }
 }
 
@@ -233,7 +240,8 @@ fun ChatHeaderContent(
     onSidebarClick: () -> Unit,
     onTripleClick: () -> Unit,
     onShowAppInfo: () -> Unit,
-    onLocationChannelsClick: () -> Unit
+    onLocationChannelsClick: () -> Unit,
+    onLocationNotesClick: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
@@ -289,6 +297,7 @@ fun ChatHeaderContent(
                 onTripleTitleClick = onTripleClick,
                 onSidebarClick = onSidebarClick,
                 onLocationChannelsClick = onLocationChannelsClick,
+                onLocationNotesClick = onLocationNotesClick,
                 viewModel = viewModel
             )
         }
@@ -510,6 +519,7 @@ private fun MainHeader(
     onTripleTitleClick: () -> Unit,
     onSidebarClick: () -> Unit,
     onLocationChannelsClick: () -> Unit,
+    onLocationNotesClick: () -> Unit,
     viewModel: ChatViewModel
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -573,7 +583,7 @@ private fun MainHeader(
             }
 
             // Location channels button (matching iOS implementation) and bookmark grouped tightly
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 4.dp)) {
                 LocationChannelsButton(
                     viewModel = viewModel,
                     onClick = onLocationChannelsClick
@@ -588,7 +598,7 @@ private fun MainHeader(
                     val isBookmarked = bookmarks.contains(currentGeohash)
                     Box(
                         modifier = Modifier
-                            .padding(start = 1.dp) // minimal gap between geohash and bookmark
+                            .padding(start = 2.dp) // minimal gap between geohash and bookmark
                             .size(20.dp)
                             .clickable { bookmarksStore.toggle(currentGeohash) },
                         contentAlignment = Alignment.Center
@@ -603,15 +613,25 @@ private fun MainHeader(
                 }
             }
 
-            // Tor status cable icon when Tor is enabled
-            TorStatusIcon(modifier = Modifier.size(14.dp))
+            // Location Notes button (extracted to separate component)
+            LocationNotesButton(
+                viewModel = viewModel,
+                onClick = onLocationNotesClick
+            )
+
+            // Tor status dot when Tor is enabled
+            TorStatusDot(
+                modifier = Modifier
+                    .size(8.dp)
+                    .padding(start = 0.dp, end = 2.dp)
+            )
             
             // PoW status indicator
             PoWStatusIndicator(
                 modifier = Modifier,
                 style = PoWIndicatorStyle.COMPACT
             )
-
+            Spacer(modifier = Modifier.width(2.dp))
             PeerCounter(
                 connectedPeers = connectedPeers.filter { it != viewModel.meshService.myPeerID },
                 joinedChannels = joinedChannels,

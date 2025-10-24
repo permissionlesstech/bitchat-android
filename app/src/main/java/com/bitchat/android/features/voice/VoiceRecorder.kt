@@ -1,3 +1,4 @@
+
 package com.bitchat.android.features.voice
 
 import android.content.Context
@@ -37,12 +38,13 @@ class VoiceRecorder(private val context: Context) {
             rec.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
             rec.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
             rec.setAudioChannels(1)
-            rec.setAudioSamplingRate(44100)
-            // Lower bitrate to keep BLE payloads <= 32KiB for fragmentation
-            rec.setAudioEncodingBitRate(32_000)
+            // Target: 16 kHz AAC @ 20 kbps ≈ 2.5 KB/sec
+            // Lower sample rate and bitrate for compact, speech-optimized recordings
+            rec.setAudioSamplingRate(16000)
+            rec.setAudioEncodingBitRate(20_000)
             rec.setOutputFile(file.absolutePath)
             rec.prepare()
-            rec.start()
+            rec.start() 
             recorder = rec
             outFile = file
             file

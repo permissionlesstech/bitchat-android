@@ -147,21 +147,13 @@ class ChatViewModel(
                 mediaSendingManager.handleTransferProgressEvent(evt)
             }
         }
+        
+        // Removed background location notes subscription. Notes now load only when sheet opens.
     }
 
     fun cancelMediaSend(messageId: String) {
-        val transferId = synchronized(transferMessageMap) { messageTransferMap[messageId] }
-        if (transferId != null) {
-            val cancelled = meshService.cancelFileTransfer(transferId)
-            if (cancelled) {
-                // Remove the message from chat upon explicit cancel
-                messageManager.removeMessageById(messageId)
-                synchronized(transferMessageMap) {
-                    transferMessageMap.remove(transferId)
-                    messageTransferMap.remove(messageId)
-                }
-            }
-        }
+        // Delegate to MediaSendingManager which tracks transfer IDs and cleans up UI state
+        mediaSendingManager.cancelMediaSend(messageId)
     }
     
     private fun loadAndInitialize() {
@@ -590,6 +582,8 @@ class ChatViewModel(
             }
         }
     }
+    
+    // Location notes subscription management moved to LocationNotesViewModelExtensions.kt
     
     /**
      * Update reactive states for all connected peers (session states, fingerprints, nicknames, RSSI)

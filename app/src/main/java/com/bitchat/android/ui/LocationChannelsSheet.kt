@@ -247,8 +247,11 @@ fun LocationChannelsSheet(
                     }
 
                     // Nearby options (only show if location services are enabled)
+                    // CRITICAL: Filter out .building level (precision 8) - iOS pattern
+                    // iOS: let nearby = manager.availableChannels.filter { $0.level != .building }
                     if (availableChannels.isNotEmpty() && locationServicesEnabled) {
-                        items(availableChannels) { channel ->
+                        val nearbyChannels = availableChannels.filter { it.level != GeohashChannelLevel.BUILDING }
+                        items(nearbyChannels) { channel ->
                             val coverage = coverageString(channel.geohash.length)
                             val nameBase = locationNames[channel.level]
                             val namePart = nameBase?.let { formattedNamePrefix(channel.level) + it }
@@ -570,8 +573,6 @@ fun LocationChannelsSheet(
         if (isPresented) {
             if (permissionState == LocationChannelManager.PermissionState.AUTHORIZED && locationServicesEnabled) {
                 locationManager.refreshChannels()
-            }
-            if (locationServicesEnabled) {
                 locationManager.beginLiveRefresh()
             }
             val geohashes = (availableChannels.map { it.geohash } + bookmarks).toSet().toList()
@@ -713,6 +714,7 @@ private fun geohashTitleWithCount(channel: GeohashChannel, participantCount: Int
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val peopleText = ctx.resources.getQuantityString(com.bitchat.android.R.plurals.people_count, participantCount, participantCount)
     val levelName = when (channel.level) {
+        com.bitchat.android.geohash.GeohashChannelLevel.BUILDING -> "Building" // iOS: precision 8 for location notes
         com.bitchat.android.geohash.GeohashChannelLevel.BLOCK -> stringResource(com.bitchat.android.R.string.location_level_block)
         com.bitchat.android.geohash.GeohashChannelLevel.NEIGHBORHOOD -> stringResource(com.bitchat.android.R.string.location_level_neighborhood)
         com.bitchat.android.geohash.GeohashChannelLevel.CITY -> stringResource(com.bitchat.android.R.string.location_level_city)
@@ -749,7 +751,8 @@ private fun levelForLength(length: Int): GeohashChannelLevel {
         5 -> GeohashChannelLevel.CITY
         6 -> GeohashChannelLevel.NEIGHBORHOOD
         7 -> GeohashChannelLevel.BLOCK
-        else -> GeohashChannelLevel.BLOCK
+        8 -> GeohashChannelLevel.BUILDING // iOS: precision 8 for building-level
+        else -> if (length > 8) GeohashChannelLevel.BUILDING else GeohashChannelLevel.BLOCK
     }
 }
 

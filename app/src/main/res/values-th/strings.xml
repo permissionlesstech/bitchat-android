@@ -247,7 +247,6 @@
     <string name="debug_relays_window_fmt">10 วิ ล่าสุด: %1$d • 1 นาที: %2$d • 15 นาที: %3$d</string>
     <string name="debug_derived_p_fmt">P ที่ได้มา: %1$s • จำนวนรายการสูงสุดโดยประมาณ: %2$s</string>
     <string name="debug_direct_suffix"> • โดยตรง</string>
-    <string name="debug_rssi_fmt">%1$s • RSSI: %2$s</string>
     <string name="debug_role_server">ในบทบาทเซิร์ฟเวอร์ (เราเป็นโฮสต์)</string>
     <string name="debug_role_client">ในบทบาทไคลเอนต์ (เราเชื่อมต่อ)</string>
 

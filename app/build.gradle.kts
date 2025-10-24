@@ -13,8 +13,8 @@ android {
         applicationId = "com.bitchat.droid"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 22
-        versionName = "1.3.1"
+        versionCode = 26
+        versionName = "1.5.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -103,6 +103,9 @@ dependencies {
 
     // Security preferences
     implementation(libs.androidx.security.crypto)
+    
+    // EXIF orientation handling for images
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
     
     // Testing
     testImplementation(libs.bundles.testing)

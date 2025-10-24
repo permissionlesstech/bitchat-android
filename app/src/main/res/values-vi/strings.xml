@@ -247,7 +247,6 @@
     <string name="debug_relays_window_fmt">10s cuối: %1$d • 1m: %2$d • 15m: %3$d</string>
     <string name="debug_derived_p_fmt">P dẫn xuất: %1$s • phần tử tối đa ước tính: %2$s</string>
     <string name="debug_direct_suffix"> • trực tiếp</string>
-    <string name="debug_rssi_fmt">%1$s • RSSI: %2$s</string>
     <string name="debug_role_server">làm server (chúng tôi host)</string>
     <string name="debug_role_client">làm client (chúng tôi kết nối)</string>
 
