@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Security
@@ -551,24 +552,39 @@ fun AboutSheet(
                         .height(64.dp)
                         .background(MaterialTheme.colorScheme.background.copy(alpha = topBarAlpha))
                 ) {
-                    TextButton(
+                    CloseButton(
                         onClick = onDismiss,
-                        modifier = Modifier
+                        modifier = modifier
                             .align(Alignment.CenterEnd)
-                            .padding(horizontal = 16.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.close_plain),
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                    }
+                            .padding(horizontal = 16.dp),
+                    )
                 }
             }
         }
     }
 }
 
+@Composable
+fun CloseButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    IconButton(
+        onClick = onClick,
+        modifier = modifier
+            .size(32.dp),
+        colors = IconButtonDefaults.iconButtonColors(
+            contentColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+            containerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f)
+        )
+    ) {
+        Icon(
+            imageVector = Icons.Default.Close,
+            contentDescription = "Close",
+            modifier = Modifier.size(18.dp)
+        )
+    }
+}
 /**
  * Password prompt dialog for password-protected channels
  * Kept as dialog since it requires user input
