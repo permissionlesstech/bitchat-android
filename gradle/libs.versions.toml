@@ -25,11 +25,13 @@ accompanist-permissions = "0.37.3"
 bouncycastle = "1.70"
 tink-android = "1.10.0"
 
-# JSON
-gson = "2.13.1"
+
 
 # Coroutines
 kotlinx-coroutines = "1.10.2"
+
+# Serialization
+kotlinx-serialization = "1.9.0"
 
 # Bluetooth
 nordic-ble = "2.6.1"
@@ -85,11 +87,12 @@ accompanist-permissions = { module = "com.google.accompanist:accompanist-permiss
 bouncycastle-bcprov = { module = "org.bouncycastle:bcprov-jdk15on", version.ref = "bouncycastle" }
 google-tink-android = { module = "com.google.crypto.tink:tink-android", version.ref = "tink-android" }
 
-# JSON
-gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 
 # Coroutines
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
+
+# Serialization
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 
 # Bluetooth
 nordic-ble = { module = "no.nordicsemi.android:ble", version.ref = "nordic-ble" }
@@ -121,7 +124,7 @@ kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-t
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
-kotlin-parcelize = { id = "kotlin-parcelize" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 
 [bundles]

@@ -1,7 +1,8 @@
 package com.bitchat.android.model
 
-import android.os.Parcelable
-import kotlinx.parcelize.Parcelize
+import kotlinx.serialization.Serializable
+import com.bitchat.android.util.ByteArraySerializer
+
 
 /**
  * Noise encrypted payload types and handling - 100% compatible with iOS SimplifiedBluetoothService
@@ -35,11 +36,11 @@ enum class NoisePayloadType(val value: UByte) {
  * Helper class for creating and parsing Noise payloads
  * Matches iOS NoisePayload helper exactly
  */
-@Parcelize
+@Serializable
 data class NoisePayload(
     val type: NoisePayloadType,
-    val data: ByteArray
-) : Parcelable {
+    @Serializable(with = ByteArraySerializer::class) val data: ByteArray
+) {
 
     /**
      * Encode payload with type prefix - exactly like iOS
@@ -97,11 +98,11 @@ data class NoisePayload(
 /**
  * Private message packet with TLV encoding - matches iOS PrivateMessagePacket exactly
  */
-@Parcelize
+@Serializable
 data class PrivateMessagePacket(
     val messageID: String,
     val content: String
-) : Parcelable {
+) {
 
     /**
      * TLV types matching iOS implementation exactly
@@ -197,8 +198,8 @@ data class PrivateMessagePacket(
 /**
  * Read receipt data class for transport compatibility
  */
-@Parcelize
+@Serializable
 data class ReadReceipt(
     val originalMessageID: String,
     val readerPeerID: String? = null
-) : Parcelable
+)
