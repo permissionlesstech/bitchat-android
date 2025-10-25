@@ -5,7 +5,6 @@ package com.bitchat.android.ui
 
 
 import androidx.compose.animation.*
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -51,7 +50,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.observeAsState(emptySet())
     val privateChats by viewModel.privateChats.observeAsState(emptyMap())
     val channelMessages by viewModel.channelMessages.observeAsState(emptyMap())
-    val showSidebar by viewModel.showSidebar.observeAsState(false)
     val showCommandSuggestions by viewModel.showCommandSuggestions.observeAsState(false)
     val commandSuggestions by viewModel.commandSuggestions.observeAsState(emptyList())
     val showMentionSuggestions by viewModel.showMentionSuggestions.observeAsState(false)
@@ -64,6 +62,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
     var passwordInput by remember { mutableStateOf("") }
     var showLocationChannelsSheet by remember { mutableStateOf(false) }
     var showLocationNotesSheet by remember { mutableStateOf(false) }
+    var showMeshPeerListSheet by remember { mutableStateOf(false) }
     var showUserSheet by remember { mutableStateOf(false) }
     var selectedUserForSheet by remember { mutableStateOf("") }
     var selectedMessageForSheet by remember { mutableStateOf<BitchatMessage?>(null) }
@@ -247,7 +246,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             nickname = nickname,
             viewModel = viewModel,
             colorScheme = colorScheme,
-            onSidebarToggle = { viewModel.showSidebar() },
+            onSidebarToggle = { showMeshPeerListSheet = true },
             onShowAppInfo = { viewModel.showAppInfo() },
             onPanicClear = { viewModel.panicClearAllData() },
             onLocationChannelsClick = { showLocationChannelsSheet = true },
@@ -264,28 +263,9 @@ fun ChatScreen(viewModel: ChatViewModel) {
             color = colorScheme.outline.copy(alpha = 0.3f)
         )
 
-        val alpha by animateFloatAsState(
-            targetValue = if (showSidebar) 0.5f else 0f,
-            animationSpec = tween(
-                durationMillis = 300,
-                easing = EaseOutCubic
-            ), label = "overlayAlpha"
-        )
-
-        // Only render the background if it's visible
-        if (alpha > 0f) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = alpha))
-                    .clickable { viewModel.hideSidebar() }
-                    .zIndex(1f)
-            )
-        }
-
         // Scroll-to-bottom floating button
         AnimatedVisibility(
-            visible = isScrolledUp && !showSidebar,
+            visible = isScrolledUp,
             enter = slideInVertically(initialOffsetY = { it / 2 }) + fadeIn(),
             exit = slideOutVertically(targetOffsetY = { it / 2 }) + fadeOut(),
             modifier = Modifier
@@ -310,25 +290,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     )
                 }
             }
-        }
-
-        AnimatedVisibility(
-            visible = showSidebar,
-            enter = slideInHorizontally(
-                initialOffsetX = { it },
-                animationSpec = tween(300, easing = EaseOutCubic)
-            ) + fadeIn(animationSpec = tween(300)),
-            exit = slideOutHorizontally(
-                targetOffsetX = { it },
-                animationSpec = tween(250, easing = EaseInCubic)
-            ) + fadeOut(animationSpec = tween(250)),
-            modifier = Modifier.zIndex(2f)
-        ) {
-            SidebarOverlay(
-                viewModel = viewModel,
-                onDismiss = { viewModel.hideSidebar() },
-                modifier = Modifier.fillMaxSize()
-            )
         }
     }
 
@@ -373,6 +334,10 @@ fun ChatScreen(viewModel: ChatViewModel) {
         },
         selectedUserForSheet = selectedUserForSheet,
         selectedMessageForSheet = selectedMessageForSheet,
+        showMeshPeerListSheet = showMeshPeerListSheet,
+        onMeshPeerListDismiss = {
+            showMeshPeerListSheet = false
+        },
         viewModel = viewModel
     )
 }
@@ -513,6 +478,8 @@ private fun ChatDialogs(
     onUserSheetDismiss: () -> Unit,
     selectedUserForSheet: String,
     selectedMessageForSheet: BitchatMessage?,
+    showMeshPeerListSheet: Boolean,
+    onMeshPeerListDismiss: () -> Unit,
     viewModel: ChatViewModel
 ) {
     // Password dialog
@@ -565,6 +532,15 @@ private fun ChatDialogs(
             targetNickname = selectedUserForSheet,
             selectedMessage = selectedMessageForSheet,
             viewModel = viewModel
+        )
+    }
+
+    // MeshPeerList sheet (network view)
+    if (showMeshPeerListSheet){
+        MeshPeerListSheet(
+            isPresented = showMeshPeerListSheet,
+            viewModel = viewModel,
+            onDismiss = onMeshPeerListDismiss
         )
     }
 }
