@@ -98,7 +98,7 @@ data class BitchatPacket(
             timestamp = timestamp,
             payload = payload,
             signature = null, // Remove signature for signing
-            route = route
+            route = route,
             ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS // Use fixed TTL=0 for signing to ensure relay compatibility
         )
         return BinaryProtocol.encode(unsignedPacket)
