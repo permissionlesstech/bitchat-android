@@ -19,7 +19,7 @@ class NostrTransport(
     
     companion object {
         private const val TAG = "NostrTransport"
-        private const val READ_ACK_INTERVAL = 350L // ~3 per second (0.35s interval like iOS)
+        private const val READ_ACK_INTERVAL = com.bitchat.android.util.AppConstants.Nostr.READ_ACK_INTERVAL_MS // ~3 per second (0.35s interval like iOS)
         
         @Volatile
         private var INSTANCE: NostrTransport? = null

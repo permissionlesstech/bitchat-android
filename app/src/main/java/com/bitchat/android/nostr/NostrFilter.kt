@@ -56,6 +56,18 @@ data class NostrFilter(
         }
         
         /**
+         * Create filter for geohash-scoped text notes (kind=1 with g tag)
+         */
+        fun geohashNotes(geohash: String, since: Long? = null, limit: Int = 200): NostrFilter {
+            return NostrFilter(
+                kinds = listOf(NostrKind.TEXT_NOTE),
+                since = since?.let { (it / 1000).toInt() },
+                tagFilters = mapOf("g" to listOf(geohash)),
+                limit = limit
+            )
+        }
+        
+        /**
          * Create filter for specific event IDs
          */
         fun forEvents(ids: List<String>): NostrFilter {
@@ -192,5 +204,13 @@ data class NostrFilter(
         }
         
         return "NostrFilter(${parts.joinToString(", ")})"
+    }
+    
+    /**
+     * Get geohash value from g tag filter (if present)
+     * Returns the first geohash in the filter or null if none
+     */
+    fun getGeohash(): String? {
+        return tagFilters?.get("g")?.firstOrNull()
     }
 }

@@ -147,21 +147,13 @@ class ChatViewModel(
                 mediaSendingManager.handleTransferProgressEvent(evt)
             }
         }
+        
+        // Removed background location notes subscription. Notes now load only when sheet opens.
     }
 
     fun cancelMediaSend(messageId: String) {
-        val transferId = synchronized(transferMessageMap) { messageTransferMap[messageId] }
-        if (transferId != null) {
-            val cancelled = meshService.cancelFileTransfer(transferId)
-            if (cancelled) {
-                // Remove the message from chat upon explicit cancel
-                messageManager.removeMessageById(messageId)
-                synchronized(transferMessageMap) {
-                    transferMessageMap.remove(transferId)
-                    messageTransferMap.remove(messageId)
-                }
-            }
-        }
+        // Delegate to MediaSendingManager which tracks transfer IDs and cleans up UI state
+        mediaSendingManager.cancelMediaSend(messageId)
     }
     
     private fun loadAndInitialize() {
@@ -226,20 +218,6 @@ class ChatViewModel(
         } catch (_: Exception) { }
 
         // Note: Mesh service is now started by MainActivity
-        
-        // Show welcome message if no peers after delay
-        viewModelScope.launch {
-            delay(10000)
-            if (state.getConnectedPeersValue().isEmpty() && state.getMessagesValue().isEmpty()) {
-                val welcomeMessage = BitchatMessage(
-                    sender = "system",
-                    content = "get people around you to download bitchat and chat with them here!",
-                    timestamp = Date(),
-                    isRelay = false
-                )
-                messageManager.addMessage(welcomeMessage)
-            }
-        }
 
         // BLE receives are inserted by MessageHandler path; no VoiceNoteBus for Tor in this branch.
     }
@@ -604,6 +582,8 @@ class ChatViewModel(
             }
         }
     }
+    
+    // Location notes subscription management moved to LocationNotesViewModelExtensions.kt
     
     /**
      * Update reactive states for all connected peers (session states, fingerprints, nicknames, RSSI)

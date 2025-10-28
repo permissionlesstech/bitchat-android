@@ -20,6 +20,8 @@ import androidx.compose.ui.unit.sp
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import java.util.*
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.stringResource
+import com.bitchat.android.R
 
 /**
  * GeohashPeopleList - iOS-compatible component for displaying geohash participants
@@ -66,7 +68,7 @@ fun GeohashPeopleList(
             )
             Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = "PEOPLE",
+                text = stringResource(R.string.geohash_people_header),
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold
@@ -78,7 +80,7 @@ fun GeohashPeopleList(
         if (geohashPeople.isEmpty()) {
             // Empty state - matches iOS "nobody around..."
             Text(
-                text = "nobody around...",
+                text = stringResource(R.string.nobody_around),
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontFamily = FontFamily.Monospace,
                     fontSize = BASE_FONT_SIZE.sp
@@ -182,7 +184,7 @@ private fun GeohashPersonItem(
             // Unread DM indicator (orange envelope)
             Icon(
                 imageVector = Icons.Filled.Email,
-                contentDescription = "Unread message",
+                contentDescription = stringResource(R.string.cd_unread_message),
                 modifier = Modifier.size(12.dp),
                 tint = Color(0xFFFF9500) // iOS orange
             )
@@ -253,7 +255,7 @@ private fun GeohashPersonItem(
             // "You" indicator for current user
             if (isMe) {
                 Text(
-                    text = " (you)",
+                    text = stringResource(R.string.you_suffix),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontFamily = FontFamily.Monospace,
                         fontSize = BASE_FONT_SIZE.sp

@@ -1,0 +1,397 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">bitchat</string>
+
+    <!-- Toestemmingsredenen -->
+    <string name="permission_bluetooth_rationale">Bluetooth-toestemming is vereist voor peer-to-peer berichten zonder internet.</string>
+    <string name="permission_location_rationale">Locatietoestemming is vereist om apparaten in de buurt via Bluetooth te ontdekken.</string>
+    <string name="permission_notification_rationale">Meldingstoestemming is vereist om u te waarschuwen voor nieuwe berichten.</string>
+
+    <!-- Tijdelijke aanduidingen / basis UI -->
+    <string name="nickname_hint">bijnaam</string>
+    <string name="message_hint">typ een bericht…</string>
+    <string name="channel_password_hint">Wachtwoord</string>
+    <string name="join_channel">Kanaal deelnemen</string>
+    <string name="leave_channel">Verlaten</string>
+    <string name="send_message">Verzenden</string>
+    <string name="show_commands">Commando\'s weergeven</string>
+    <string name="back">Terug</string>
+    <string name="people">Personen</string>
+    <string name="channels">Kanalen</string>
+    <string name="online_users">Online gebruikers</string>
+    <string name="no_one_connected">Niemand verbonden</string>
+    <string name="emergency_clear_hint">Tik drie keer om alle gegevens te wissen</string>
+    <string name="your_network">Netwerk</string>
+
+    <!-- Batterijoptimalisatie -->
+    <string name="battery_optimization_detected">Batterijoptimalisatie gedetecteerd</string>
+    <string name="battery_optimization_disabled">Batterijoptimalisatie uitgeschakeld</string>
+    <string name="battery_optimization_not_required">Batterijoptimalisatie niet vereist</string>
+    <string name="battery_optimization_checking">Batterijoptimalisatie controleren</string>
+    <string name="battery_optimization_why_disable">Waarom batterijoptimalisatie uitschakelen?</string>
+    <string name="battery_optimization_explanation">bitchat draait op de achtergrond om meshnetwerkverbindingen met apparaten in de buurt te onderhouden. Batterijoptimalisatie kan deze verbindingen onderbreken, waardoor berichten vertraagd of gemist worden.\n\nHet uitschakelen van batterijoptimalisatie zorgt voor betrouwbare peer-to-peer communicatie.</string>
+    <string name="battery_optimization_disable_button">Batterijoptimalisatie uitschakelen</string>
+    <string name="battery_optimization_note">Opmerking: U kunt deze instelling later wijzigen in Android-instellingen &gt; Apps &gt; bitchat &gt; Batterij</string>
+    <string name="battery_optimization_not_supported_explanation">Uw apparaat vereist geen batterijoptimalisatie-instellingen. bitchat zal normaal draaien.</string>
+    <string name="battery_optimization_not_supported_message">Uw apparaat vereist geen batterijoptimalisatie-instellingen. bitchat zal normaal draaien.</string>
+    <string name="battery_optimization_success_message">bitchat kan betrouwbaar op de achtergrond draaien</string>
+    <string name="battery_optimization_benefits">• Zorgt voor betrouwbare berichtbezorging\n• Onderhoudt meshnetwerkconnectiviteit\n• Staat berichtrelay op achtergrond toe\n• Voorkomt verbindingsonderbrekingen</string>
+    <string name="battery_optimization_check_again">Opnieuw controleren</string>
+    <string name="battery_optimization_skip">Nu overslaan</string>
+    <string name="battery_optimization_continue">Doorgaan</string>
+    <string name="retry">Opnieuw proberen</string>
+    <string name="skip">Overslaan</string>
+
+    <!-- Meldingen -->
+    <string name="notification_summary_more">en %1$d meer</string>
+    <string name="notification_messages_from_people">%1$d berichten van %2$d personen</string>
+    <string name="notification_more_conversations">en %1$d meer conversaties</string>
+    <string name="notification_active_peers_title">👥 bitchatters in de buurt!</string>
+    <string name="notification_active_peers_one">1 persoon in de buurt</string>
+    <string name="notification_active_peers_many">%1$d personen in de buurt</string>
+    <string name="notification_new_messages">Nieuwe berichten</string>
+    <string name="notification_new_location_messages">Nieuwe locatieberichten</string>
+    <string name="notification_mentions_in">Vermeld in %1$s</string>
+    <string name="notification_mentions_in_more">Vermeld in %1$s (+%2$d meer)</string>
+    <string name="notification_mentions_in_plural">%1$d vermeldingen in %2$s</string>
+    <string name="notification_new_activity_in">Nieuwe activiteit in %1$s</string>
+    <string name="notification_messages_in">Berichten in %1$s</string>
+    <string name="notification_joined_conversation">%1$s is toegetreden tot het gesprek</string>
+    <string name="notification_geohash_summary_title_mentions">bitchat - %1$d vermeldingen</string>
+    <string name="notification_geohash_summary_title">bitchat - locatiechats</string>
+    <string name="notification_geohash_summary_text">%1$d berichten van %2$d locaties</string>
+    <string name="notification_mesh_mention_title_singular">Vermeld in meshchat</string>
+    <string name="notification_mesh_mention_title_plural">%1$d vermeldingen in meshchat</string>
+    <string name="notification_more_locations">en %1$d meer locaties</string>
+    <string name="notification_and_more">en %1$d meer</string>
+
+    <!-- Favorieten toegankelijkheid -->
+    <string name="cd_add_favorite">Toevoegen aan favorieten</string>
+    <string name="cd_remove_favorite">Verwijderen uit favorieten</string>
+    <string name="cd_add_bookmark">Bladwijzer toevoegen</string>
+
+    <!-- Chatkop & toegankelijkheid -->
+    <string name="chat_back">terug</string>
+    <string name="chat_channel_prefix">kanaal: %1$s</string>
+    <string name="chat_leave">verlaten</string>
+    <string name="cd_nostr_reachable">Bereikbaar via Nostr</string>
+    <string name="cd_unread_private_messages">Ongelezen privéberichten</string>
+    <string name="cd_toggle_bookmark">Bladwijzer omschakelen</string>
+    <string name="cd_teleported">Geteleporteerd</string>
+    <string name="cd_tor_status">Tor-status</string>
+    <string name="cd_connected_peers">Verbonden peers</string>
+    <string name="cd_geohash_participants">Geohash-deelnemers</string>
+    <string name="cd_ready_for_handshake">Klaar voor handshake</string>
+    <string name="cd_handshake_in_progress">Handshake bezig</string>
+    <string name="cd_encrypted">End-to-end versleuteld</string>
+    <string name="cd_handshake_failed">Handshake mislukt</string>
+
+    <!-- Bestandsweergave dialoog -->
+    <string name="file_viewer_title">📎 Bestand ontvangen</string>
+    <string name="file_viewer_name">📄 %1$s</string>
+    <string name="file_viewer_size">📏 Grootte: %1$s</string>
+    <string name="file_viewer_type">🏷️ Type: %1$s</string>
+    <string name="file_viewer_open_save">📂 Openen / Opslaan</string>
+    <string name="close_with_emoji">❌ Sluiten</string>
+    <string name="pick_image">Afbeelding kiezen</string>
+
+    <!-- Info-sheet -->
+    <string name="about_tagline">gedecentraliseerde meshcommunicatie met end-to-end-versleuteling</string>
+    <string name="about_offline_mesh_title">Offline meshchat</string>
+    <string name="about_offline_mesh_desc">Communiceer rechtstreeks via Bluetooth LE zonder internet of servers. Berichten worden doorgestuurd via apparaten in de buurt om het bereik te vergroten.</string>
+    <string name="about_online_geohash_title">Online geohash-kanalen</string>
+    <string name="about_online_geohash_desc">Maak contact met mensen in uw omgeving met geohash-gebaseerde kanalen. Breid het mesh uit met openbare internetrelays.</string>
+    <string name="about_e2e_title">End-to-end-versleuteling</string>
+    <string name="about_e2e_desc">Privéberichten zijn versleuteld. Kanaalberichten zijn openbaar.</string>
+    <string name="about_appearance">uiterlijk</string>
+    <string name="about_system">systeem</string>
+    <string name="about_light">licht</string>
+    <string name="about_dark">donker</string>
+    <string name="about_pow">proof of work</string>
+    <string name="about_pow_off">PoW uit</string>
+    <string name="about_pow_on">PoW aan</string>
+    <string name="about_pow_tip">voeg proof of work toe aan geohash-berichten voor spamafschrikking.</string>
+    <string name="about_pow_difficulty">moeilijkheidsgraad: %1$d bits (~%2$s)</string>
+    <string name="about_pow_difficulty_attempts">moeilijkheidsgraad %1$d vereist ~%2$s hash-pogingen</string>
+    <string name="about_pow_desc_none">geen proof of work vereist</string>
+    <string name="about_pow_desc_very_low">zeer laag - minimale spambescherming</string>
+    <string name="about_pow_desc_low">laag - basis spambescherming</string>
+    <string name="about_pow_desc_medium">gemiddeld - goede spambescherming</string>
+    <string name="about_pow_desc_high">hoog - sterke spambescherming</string>
+    <string name="about_pow_desc_very_high">zeer hoog - kan vertragingen veroorzaken</string>
+    <string name="about_pow_desc_extreme">extreem - aanzienlijke berekening vereist</string>
+    <string name="about_network">netwerk</string>
+    <string name="about_tor_off">Tor uit</string>
+    <string name="about_tor_on">Tor aan</string>
+    <string name="about_tor_route">route internet via Tor voor verbeterde privacy.</string>
+    <string name="about_tor_status">Tor-status: %1$s, bootstrap %2$d%%</string>
+    <string name="about_last">Laatste: %1$s</string>
+    <string name="about_emergency_title">Noodgegevensverwijdering</string>
+    <string name="about_emergency_tip">Tip: Driedubbel klik op de app-titel om alle opgeslagen gegevens inclusief berichten, sleutels en instellingen noodmatig te verwijderen.</string>
+    <string name="about_debug_settings">Debug-instellingen</string>
+    <string name="about_footer">Open Source • Privacy First • Gedecentraliseerd</string>
+    <string name="close_plain">Sluiten</string>
+    <string name="cancel_lower">annuleren</string>
+
+    <!-- Algemene content-beschrijvingen -->
+    <string name="cd_warning">Waarschuwing</string>
+    <string name="cd_location_services">Locatiediensten</string>
+    <string name="cd_privacy">Privacy</string>
+    <string name="cd_error">Fout</string>
+    <string name="cd_battery_optimization">Batterijoptimalisatie</string>
+    <string name="cd_benefits">Voordelen</string>
+    <string name="cd_checking_battery_optimization">Batterijoptimalisatie controleren</string>
+    <string name="cd_not_supported_battery_optimization">Batterijoptimalisatie niet ondersteund</string>
+    <string name="cd_bluetooth">Bluetooth</string>
+    <string name="cd_unread_message">Ongelezen bericht</string>
+    <string name="cd_open_map">Kaart openen</string>
+    <string name="cd_remove_bookmark">Bladwijzer verwijderen</string>
+    <string name="cd_teleport">Teleporteren</string>
+    <string name="cd_selected">Geselecteerd</string>
+    <string name="cd_leave_channel">Kanaal verlaten</string>
+    <string name="cd_reachable_via_nostr">Bereikbaar via Nostr</string>
+    <string name="cd_offline_favorite">Offline favoriet</string>
+    <string name="cd_decrease_precision">Precisie verlagen</string>
+    <string name="cd_increase_precision">Precisie verhogen</string>
+    <string name="cd_select_geohash">Geohash selecteren</string>
+    <string name="cd_scroll_to_bottom">Naar beneden scrollen</string>
+    <string name="cd_file">Bestand</string>
+    <string name="cd_image">Afbeelding</string>
+    <string name="cd_cancel">Annuleren</string>
+    <string name="cd_link">Link</string>
+    <string name="cd_pick_media">Media kiezen</string>
+    <string name="cd_pick_file">Bestand kiezen</string>
+    <string name="cd_save_current_image">Huidige afbeelding opslaan</string>
+    <string name="cd_close">Sluiten</string>
+    <string name="cd_image_index_of">Afbeelding %1$d van %2$d</string>
+    <string name="cd_privacy_protected">Privacy beschermd</string>
+    <string name="cd_record_voice">Spraaknotitie opnemen</string>
+    <string name="cd_offline_mesh_chat">Offline meshchat</string>
+    <string name="cd_online_geohash_channels">Online geohash-kanalen</string>
+    <string name="cd_end_to_end_encryption">End-to-end-versleuteling</string>
+
+    <!-- Afbeeldingen & bestanden -->
+    <string name="image_page_of">Afbeelding %1$d van %2$d</string>
+    <string name="image_unavailable">Afbeelding niet beschikbaar</string>
+    <string name="image_saved_to_downloads">Afbeelding opgeslagen in Downloads</string>
+    <string name="image_save_failed">Opslaan afbeelding mislukt</string>
+    <string name="toast_image_saved">Afbeelding opgeslagen in Downloads</string>
+    <string name="toast_failed_to_save_image">Opslaan afbeelding mislukt</string>
+    <string name="pick_file">Bestand kiezen</string>
+    <string name="file_unavailable">[bestand niet beschikbaar]</string>
+    <string name="unknown">onbekend</string>
+
+    <!-- Gebruikersactie-sheet -->
+    <string name="choose_action_message_or_user">kies een actie voor dit bericht of deze gebruiker</string>
+    <string name="choose_action_user">kies een actie voor deze gebruiker</string>
+    <string name="action_copy_message_title">bericht kopiëren</string>
+    <string name="action_copy_message_subtitle">kopieer dit bericht naar klembord</string>
+    <string name="action_slap_title">%1$s een tik geven</string>
+    <string name="action_slap_subtitle">stuur een speelse tik</string>
+    <string name="action_hug_title">%1$s knuffelen</string>
+    <string name="action_hug_subtitle">stuur een vriendelijke knuffel</string>
+    <string name="action_block_title">%1$s blokkeren</string>
+    <string name="action_block_subtitle">blokkeer alle berichten van deze gebruiker</string>
+
+    <!-- Locatiekanalen sheet -->
+    <string name="location_channels_title">#locatiekanalen</string>
+    <string name="location_channels_desc">chat met mensen in uw buurt via geohash-kanalen. alleen een grove geohash wordt gedeeld, nooit exacte GPS. maak geen screenshot of deel dit scherm niet om uw privacy te beschermen.</string>
+    <string name="grant_location_permission">locatietoestemming verlenen</string>
+    <string name="location_permission_denied">locatietoestemming geweigerd. schakel in instellingen in om locatiekanalen te gebruiken.</string>
+    <string name="open_settings">Instellingen openen</string>
+    <string name="location_permission_granted">\u2713 locatietoestemming verleend</string>
+    <string name="checking_permissions">toestemmingen controleren…</string>
+    <string name="finding_nearby_channels">nabije kanalen zoeken…</string>
+    <string name="bookmarked">bladwijzer toegevoegd</string>
+    <string name="geohash_placeholder">geohash</string>
+    <string name="invalid_geohash">ongeldige geohash</string>
+    <string name="teleport">teleporteren</string>
+    <string name="disable_location_services">locatiediensten uitschakelen</string>
+    <string name="enable_location_services">locatiediensten inschakelen</string>
+    <string name="mesh_label">mesh</string>
+    <string name="location_level_block">blok</string>
+    <string name="location_level_neighborhood">buurt</string>
+    <string name="location_level_city">stad</string>
+    <string name="location_level_province">provincie</string>
+    <string name="location_level_region">regio</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+
+    <!-- Debug / Diagnostiek -->
+    <string name="debug_tools">debug-tools</string>
+    <string name="debug_tools_desc">ontwikkelaarsgereedschap voor diagnostiek en controle</string>
+    <string name="debug_verbose_logging">uitgebreide logging</string>
+    <string name="debug_verbose_hint">logt peer deelnames/vertrek, verbindingsrichting, pakketrouting en relays</string>
+    <string name="debug_bluetooth_roles">Bluetooth-rollen</string>
+    <string name="debug_gatt_server">GATT-server</string>
+    <string name="debug_connections_fmt">verbindingen: %1$d / %2$d</string>
+    <string name="debug_max_server">max server</string>
+    <string name="debug_gatt_client">GATT-client</string>
+    <string name="debug_max_client">max client</string>
+    <string name="debug_overall_connections_fmt">verbindingen: %1$d / %2$d</string>
+    <string name="debug_max_overall">max totaal</string>
+    <string name="debug_packet_relay">pakketrelay</string>
+    <string name="debug_since_start_fmt">sinds start: %1$d</string>
+    <string name="debug_roles_hint">schakel rollen in/uit en sluit alle verbindingen bij uitschakelen</string>
+    <string name="debug_sync_settings">sync-instellingen</string>
+    <string name="debug_max_packets_per_sync_fmt">max pakketten per sync: %1$d</string>
+    <string name="debug_max_gcs_filter_size_fmt">max GCS-filtergrootte: %1$d bytes (128–1024)</string>
+    <string name="debug_target_fpr_fmt">doel-FPR: %1$.2f%%</string>
+    <string name="debug_connected_devices">verbonden apparaten</string>
+    <string name="debug_our_device_id_fmt">ons apparaat-ID: %1$s</string>
+    <string name="debug_none">geen</string>
+    <string name="debug_disconnect">verbreken</string>
+    <string name="debug_recent_scan_results">recente scanresultaten</string>
+    <string name="debug_connect">verbinden</string>
+    <string name="debug_debug_console">debug-console</string>
+    <string name="debug_clear">wissen</string>
+    <string name="debug_relays_window_fmt">laatste 10s: %1$d • 1m: %2$d • 15m: %3$d</string>
+    <string name="debug_derived_p_fmt">afgeleide P: %1$s • gesch. max elementen: %2$s</string>
+    <string name="debug_direct_suffix"> • direct</string>
+    <string name="debug_role_server">als server (wij hosten)</string>
+    <string name="debug_role_client">als client (wij verbinden)</string>
+
+    <!-- Onboarding-schermen -->
+    <string name="location_services_required">Locatiediensten vereist</string>
+    <string name="privacy_first">Privacy eerst</string>
+    <string name="location_explanation">bitchat volgt NIET uw locatie.\n\nLocatiediensten zijn vereist voor Bluetooth-scanning en voor de geohash-chatfunctie.</string>
+    <string name="location_needs_for">bitchat heeft locatiediensten nodig voor:</string>
+    <string name="location_needs_bullets">• Bluetooth-apparaat scanning\n• Ontdekken van gebruikers in de buurt op meshnetwerk\n• Geohash-chatfunctie\n• Geen tracking of locatieverzameling</string>
+    <string name="open_location_settings">Locatie-instellingen openen</string>
+    <string name="check_again">Opnieuw controleren</string>
+    <string name="location_services_unavailable">Locatiediensten niet beschikbaar</string>
+    <string name="location_unavailable_explanation">Locatiediensten zijn niet beschikbaar op dit apparaat. Dit is ongebruikelijk omdat locatiediensten standaard zijn op Android-apparaten.\n\nbitchat heeft locatiediensten nodig om Bluetooth-scanning goed te laten werken (Android-vereiste). Zonder dit kan de app geen gebruikers in de buurt ontdekken.</string>
+    <string name="checking_location_services">Locatiediensten controleren…</string>
+    <string name="bluetooth_required">Bluetooth vereist</string>
+    <string name="bluetooth_needs_for">bitchat heeft Bluetooth nodig om:</string>
+    <string name="bluetooth_needs_bullets">• Gebruikers in de buurt te ontdekken\n• Meshnetwerkverbindingen te maken\n• Berichten te verzenden en ontvangen\n• Te werken zonder internet of servers</string>
+    <string name="enable_bluetooth">Bluetooth inschakelen</string>
+    <string name="bluetooth_not_supported">Bluetooth niet ondersteund</string>
+    <string name="bluetooth_unsupported_explanation">Dit apparaat ondersteunt geen Bluetooth Low Energy (BLE), wat vereist is om bitchat te laten functioneren.\n\nbitchat heeft BLE nodig om meshnetwerken te maken en te communiceren met apparaten in de buurt zonder internet.</string>
+    <string name="checking_bluetooth_status">Bluetooth-status controleren…</string>
+    <string name="battery_optimization_detected_title">batterijoptimalisatie gedetecteerd</string>
+    <string name="battery_optimization_enabled_title">Batterijoptimalisatie ingeschakeld</string>
+    <string name="battery_optimization_explanation_short">bitchat moet op de achtergrond draaien om meshverbindingen te onderhouden. batterijoptimalisatie kan deze verbindingen onderbreken.</string>
+    <string name="benefits_of_disabling">Voordelen van uitschakelen</string>
+    <string name="battery_benefits_short">• betrouwbare berichtbezorging\n• onderhoudt meshconnectiviteit\n• voorkomt verbindingsonderbrekingen</string>
+    <string name="disable_battery_optimization">Batterijoptimalisatie uitschakelen</string>
+    <string name="battery_optimization_disabled_title">batterijoptimalisatie uitgeschakeld</string>
+    <string name="continue_btn">Doorgaan</string>
+    <string name="initializing_mesh_network">Meshnetwerk initialiseren</string>
+    <string name="setting_up_bluetooth">Bluetooth-meshnetwerk instellen…</string>
+    <string name="should_take_seconds">Dit zou slechts enkele seconden moeten duren</string>
+    <string name="setup_not_complete">Installatie niet voltooid</string>
+    <string name="try_again">Opnieuw proberen</string>
+    <string name="privacy_protected">Uw privacy is beschermd</string>
+    <string name="privacy_bullets">• geen tracking of gegevensverzameling\n• Bluetooth-meshchats zijn volledig offline\n• Geohash-chats gebruiken internet</string>
+    <string name="permissions_header">toestemmingen</string>
+    <string name="grant_permissions">Toestemmingen verlenen</string>
+    <string name="location_tracking_warning">bitchat volgt NIET uw locatie</string>
+    <string name="geohash_people_header">PERSONEN</string>
+    <string name="nobody_around">niemand in de buurt…</string>
+    <string name="you_suffix"> (jij)</string>
+    <string name="pan_zoom_instruction">pan en zoom om een geohash te selecteren</string>
+    <string name="select">selecteren</string>
+    <string name="type_a_message_placeholder">typ een bericht…</string>
+    <string name="mention">vermelden</string>
+    <string name="pow_time_estimate">(~%1$s)</string>
+    <string name="version_prefix">v%1$s</string>
+    <string name="image_star">image/*</string>
+    <string name="media_type_image">Afbeelding</string>
+    <string name="media_type_file">Bestand</string>
+
+    <!-- Berichtstatus-tekst helpers -->
+    <string name="notification_sent_image">📷 heeft een afbeelding verstuurd</string>
+    <string name="notification_sent_voice">🎤 heeft een spraakbericht verstuurd</string>
+    <string name="notification_sent_file">📎 heeft een bestand verstuurd</string>
+
+    <!-- Spraakspeler toegankelijkheid -->
+    <string name="cd_play_voice">Afspelen</string>
+    <string name="cd_pause_voice">Pauzeren</string>
+    <string name="cd_mining_pow">Mining-PoW</string>
+    <string name="cd_pow_enabled">PoW ingeschakeld</string>
+    <string name="cd_proof_of_work">Proof of Work</string>
+    <string name="pow_mining_ellipsis">minen…</string>
+    <string name="pow_label_format">pow: %1$dbit</string>
+
+    <!-- Toestemmingsbeschrijvingen -->
+    <string name="perm_nearby_devices_desc">Vereist om bitchat-gebruikers via Bluetooth te ontdekken</string>
+    <string name="perm_nearby_devices_system">bitchat toestaan om verbinding te maken met apparaten in de buurt</string>
+    <string name="perm_location_desc">Vereist door Android om bitchat-gebruikers in de buurt via Bluetooth te ontdekken</string>
+    <string name="perm_location_system">bitchat heeft dit nodig om te scannen naar apparaten in de buurt</string>
+    <string name="perm_notifications_desc">Ontvang meldingen wanneer u privéberichten ontvangt</string>
+    <string name="perm_notifications_system">bitchat toestaan om u meldingen te sturen</string>
+    <string name="perm_battery_desc">Schakel batterijoptimalisatie uit om ervoor te zorgen dat bitchat betrouwbaar op de achtergrond draait en meshnetwerkverbindingen onderhoudt</string>
+    <string name="perm_battery_system">bitchat toestaan om zonder batterijbeperkingen te draaien</string>
+
+    <!-- Toestemmingstypen -->
+    <string name="perm_type_nearby_devices">Apparaten in de buurt</string>
+    <string name="perm_type_precise_location">Precieze locatie</string>
+    <string name="perm_type_microphone">Microfoon</string>
+    <string name="perm_type_notifications">Meldingen</string>
+    <string name="perm_type_battery_optimization">Batterijoptimalisatie</string>
+    <string name="perm_type_other">Overig</string>
+
+    <!-- Wachtwoord-dialoog -->
+    <string name="pwd_prompt_title">Kanaalwachtwoord invoeren</string>
+    <string name="pwd_prompt_message">Kanaal %1$s is met een wachtwoord beveiligd. Voer het wachtwoord in om deel te nemen.</string>
+    <string name="pwd_label">Wachtwoord</string>
+    <string name="join">Deelnemen</string>
+    <string name="cancel">Annuleren</string>
+
+    <!-- Symbolen & speciale strings -->
+    <string name="at_symbol">@</string>
+    <string name="app_brand">bitchat/</string>
+    <string name="channel_count_prefix"> · ⧉ </string>
+    <string name="mention_suggestion_at">@%1$s</string>
+    <string name="image_counter">%1$d / %2$d</string>
+    <string name="at_nickname">@%1$s</string>
+    <string name="hash_symbol">#</string>
+    <string name="underscore">_</string>
+    <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
+    <string name="progress_filled">█</string>
+    <string name="progress_empty">░</string>
+    <string name="dot">.</string>
+    <string name="warning_emoji">⚠️</string>
+    <string name="debug_question_mark">?</string>
+
+    <!-- Berichtstatus-pictogrammen -->
+    <string name="status_sending">○</string>
+    <string name="status_pending">○</string>
+    <string name="status_sent">✓</string>
+    <string name="status_delivered">✓✓</string>
+    <string name="status_failed">⚠</string>
+    <string name="status_read">✓</string>
+
+    <!-- Meldingsbestand-emojis -->
+    <string name="notification_file_pdf">📄</string>
+    <string name="notification_file_zip">🗜️</string>
+    <string name="notification_file_doc">📄</string>
+    <string name="notification_file_xls">📊</string>
+    <string name="notification_file_ppt">📈</string>
+    <string name="notification_file_generic">📎</string>
+
+    <!-- Meervouden -->
+    <plurals name="notification_and_more">
+        <item quantity="one">en %d meer</item>
+        <item quantity="other">en %d meer</item>
+    </plurals>
+
+    <plurals name="people_count">
+        <item quantity="one">1 persoon</item>
+        <item quantity="other">%d personen</item>
+    </plurals>
+
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d notitie</item>
+    <item quantity="other">#%1$s ± 1 • %2$d notities</item>
+  </plurals>
+  <string name="location_notes_description">voeg korte permanente notities toe aan deze locatie zodat andere bezoekers ze kunnen vinden.</string>
+  <string name="location_notes_relays_unavailable">geo-relays niet beschikbaar; notities gepauzeerd</string>
+  <string name="location_notes_no_relays_title">geen geo-relays in de buurt</string>
+  <string name="location_notes_no_relays_desc">notities zijn afhankelijk van geo-relays. controleer de verbinding en probeer opnieuw.</string>
+  <string name="loading_location_notes">notities laden…</string>
+  <string name="location_notes_empty_title">nog geen notities</string>
+  <string name="location_notes_empty_desc">wees de eerste die een notitie voor deze plek toevoegt.</string>
+  <string name="dismiss">sluiten</string>
+  <string name="location_notes_input_placeholder">voeg een notitie toe voor deze plek</string>
+</resources>

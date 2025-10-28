@@ -16,15 +16,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextLayoutResult
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.text.font.FontFamily
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
@@ -113,7 +115,7 @@ fun ImageMessageItem(
                         // Fully revealed image
                         Image(
                             bitmap = img,
-                            contentDescription = "Image",
+                            contentDescription = stringResource(com.bitchat.android.R.string.cd_image),
                             modifier = Modifier
                                 .widthIn(max = 300.dp)
                                 .aspectRatio(aspect)
@@ -137,13 +139,13 @@ fun ImageMessageItem(
                                 .clickable { onCancelTransfer?.invoke(message) },
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(imageVector = Icons.Filled.Close, contentDescription = "Cancel", tint = Color.White, modifier = Modifier.size(14.dp))
+                            Icon(imageVector = Icons.Filled.Close, contentDescription = stringResource(com.bitchat.android.R.string.cd_cancel), tint = Color.White, modifier = Modifier.size(14.dp))
                         }
                     }
                 }
             }
         } else {
-            Text(text = "[image unavailable]", fontFamily = FontFamily.Monospace, color = Color.Gray)
+            Text(text = stringResource(com.bitchat.android.R.string.image_unavailable), fontFamily = FontFamily.Monospace, color = Color.Gray)
         }
     }
 }

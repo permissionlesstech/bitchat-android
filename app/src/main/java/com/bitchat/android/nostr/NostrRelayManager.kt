@@ -41,10 +41,10 @@ class NostrRelayManager private constructor() {
         )
         
         // Exponential backoff configuration (same as iOS)
-        private const val INITIAL_BACKOFF_INTERVAL = 1000L  // 1 second
-        private const val MAX_BACKOFF_INTERVAL = 300000L    // 5 minutes
-        private const val BACKOFF_MULTIPLIER = 2.0
-        private const val MAX_RECONNECT_ATTEMPTS = 10
+        private const val INITIAL_BACKOFF_INTERVAL = com.bitchat.android.util.AppConstants.Nostr.INITIAL_BACKOFF_INTERVAL_MS  // 1 second
+        private const val MAX_BACKOFF_INTERVAL = com.bitchat.android.util.AppConstants.Nostr.MAX_BACKOFF_INTERVAL_MS    // 5 minutes
+        private const val BACKOFF_MULTIPLIER = com.bitchat.android.util.AppConstants.Nostr.BACKOFF_MULTIPLIER
+        private const val MAX_RECONNECT_ATTEMPTS = com.bitchat.android.util.AppConstants.Nostr.MAX_RECONNECT_ATTEMPTS
         
         // Track gift-wraps we initiated for logging
         private val pendingGiftWrapIDs = ConcurrentHashMap.newKeySet<String>()
@@ -111,7 +111,7 @@ class NostrRelayManager private constructor() {
     
     // Subscription validation timer
     private var subscriptionValidationJob: Job? = null
-    private val SUBSCRIPTION_VALIDATION_INTERVAL = 30000L // 30 seconds
+    private val SUBSCRIPTION_VALIDATION_INTERVAL = com.bitchat.android.util.AppConstants.Nostr.SUBSCRIPTION_VALIDATION_INTERVAL_MS // 30 seconds
     
     // OkHttp client for WebSocket connections (via provider to honor Tor)
     private val httpClient: OkHttpClient

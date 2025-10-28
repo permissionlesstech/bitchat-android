@@ -7,7 +7,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 // Base font size for consistent scaling across the app
-const val BASE_FONT_SIZE = 15 // sp - increased from 14sp for better readability
+internal const val BASE_FONT_SIZE = com.bitchat.android.util.AppConstants.UI.BASE_FONT_SIZE_SP // sp - increased from 14sp for better readability
 
 // Typography matching the iOS monospace design - using BASE_FONT_SIZE for consistency
 val Typography = Typography(

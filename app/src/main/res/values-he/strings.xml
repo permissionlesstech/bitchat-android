@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- TODO: Hebrew translations -->
+  <plurals name="location_notes_title">
+    <item quantity="one">#%1$s ± 1 • %2$d הערה</item>
+    <item quantity="other">#%1$s ± 1 • %2$d הערות</item>
+  </plurals>
+  <string name="location_notes_description">הוסף הערות קצרות וקבועות למיקום זה כדי שמבקרים אחרים ימצאו אותן.</string>
+  <string name="location_notes_relays_unavailable">ממסרי מיקום אינם זמינים; ההערות הושהו</string>
+  <string name="location_notes_no_relays_title">אין ממסרי מיקום בקרבת מקום</string>
+  <string name="location_notes_no_relays_desc">ההערות תלויות בממסרי מיקום. בדוק חיבור ונסה שוב.</string>
+  <string name="loading_location_notes">טוען הערות…</string>
+  <string name="location_notes_empty_title">אין עדיין הערות</string>
+  <string name="location_notes_empty_desc">היה הראשון להוסיף הערה למקום זה.</string>
+  <string name="dismiss">סגור</string>
+  <string name="location_notes_input_placeholder">הוסף הערה למקום זה</string>
+</resources>
+

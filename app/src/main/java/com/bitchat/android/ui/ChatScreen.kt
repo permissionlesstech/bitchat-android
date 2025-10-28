@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.IconButton
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
@@ -62,6 +63,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
     var showPasswordDialog by remember { mutableStateOf(false) }
     var passwordInput by remember { mutableStateOf("") }
     var showLocationChannelsSheet by remember { mutableStateOf(false) }
+    var showLocationNotesSheet by remember { mutableStateOf(false) }
     var showUserSheet by remember { mutableStateOf(false) }
     var selectedUserForSheet by remember { mutableStateOf("") }
     var selectedMessageForSheet by remember { mutableStateOf<BitchatMessage?>(null) }
@@ -95,6 +97,13 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 messages // Mesh timeline
             }
         }
+    }
+
+    // Determine whether to show media buttons (only hide in geohash location chats)
+    val showMediaButtons = when {
+        selectedPrivatePeer != null -> true
+        currentChannel != null -> true
+        else -> selectedLocationChannel !is com.bitchat.android.geohash.ChannelID.Location
     }
 
     // Use WindowInsets to handle keyboard properly
@@ -225,7 +234,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 selectedPrivatePeer = selectedPrivatePeer,
                 currentChannel = currentChannel,
                 nickname = nickname,
-                colorScheme = colorScheme
+                colorScheme = colorScheme,
+                showMediaButtons = showMediaButtons
             )
         }
 
@@ -240,7 +250,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
             onSidebarToggle = { viewModel.showSidebar() },
             onShowAppInfo = { viewModel.showAppInfo() },
             onPanicClear = { viewModel.panicClearAllData() },
-            onLocationChannelsClick = { showLocationChannelsSheet = true }
+            onLocationChannelsClick = { showLocationChannelsSheet = true },
+            onLocationNotesClick = { showLocationNotesSheet = true }
         )
 
         // Divider under header - positioned after status bar + header height
@@ -294,7 +305,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 IconButton(onClick = { forceScrollToBottom = !forceScrollToBottom }) {
                     Icon(
                         imageVector = Icons.Filled.ArrowDownward,
-                        contentDescription = "Scroll to bottom",
+                        contentDescription = stringResource(com.bitchat.android.R.string.cd_scroll_to_bottom),
                         tint = Color(0xFF00C851)
                     )
                 }
@@ -353,6 +364,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
         onAppInfoDismiss = { viewModel.hideAppInfo() },
         showLocationChannelsSheet = showLocationChannelsSheet,
         onLocationChannelsSheetDismiss = { showLocationChannelsSheet = false },
+        showLocationNotesSheet = showLocationNotesSheet,
+        onLocationNotesSheetDismiss = { showLocationNotesSheet = false },
         showUserSheet = showUserSheet,
         onUserSheetDismiss = { 
             showUserSheet = false
@@ -381,7 +394,8 @@ private fun ChatInputSection(
     selectedPrivatePeer: String?,
     currentChannel: String?,
     nickname: String,
-    colorScheme: ColorScheme
+    colorScheme: ColorScheme,
+    showMediaButtons: Boolean
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -417,6 +431,7 @@ private fun ChatInputSection(
                 selectedPrivatePeer = selectedPrivatePeer,
                 currentChannel = currentChannel,
                 nickname = nickname,
+                showMediaButtons = showMediaButtons,
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -434,8 +449,12 @@ private fun ChatFloatingHeader(
     onSidebarToggle: () -> Unit,
     onShowAppInfo: () -> Unit,
     onPanicClear: () -> Unit,
-    onLocationChannelsClick: () -> Unit
+    onLocationChannelsClick: () -> Unit,
+    onLocationNotesClick: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val locationManager = remember { com.bitchat.android.geohash.LocationChannelManager.getInstance(context) }
+    
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -459,7 +478,12 @@ private fun ChatFloatingHeader(
                     onSidebarClick = onSidebarToggle,
                     onTripleClick = onPanicClear,
                     onShowAppInfo = onShowAppInfo,
-                    onLocationChannelsClick = onLocationChannelsClick
+                    onLocationChannelsClick = onLocationChannelsClick,
+                    onLocationNotesClick = {
+                        // Ensure location is loaded before showing sheet
+                        locationManager.refreshChannels()
+                        onLocationNotesClick()
+                    }
                 )
             },
             colors = TopAppBarDefaults.topAppBarColors(
@@ -470,6 +494,7 @@ private fun ChatFloatingHeader(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChatDialogs(
     showPasswordDialog: Boolean,
@@ -482,6 +507,8 @@ private fun ChatDialogs(
     onAppInfoDismiss: () -> Unit,
     showLocationChannelsSheet: Boolean,
     onLocationChannelsSheetDismiss: () -> Unit,
+    showLocationNotesSheet: Boolean,
+    onLocationNotesSheetDismiss: () -> Unit,
     showUserSheet: Boolean,
     onUserSheetDismiss: () -> Unit,
     selectedUserForSheet: String,
@@ -519,6 +546,14 @@ private fun ChatDialogs(
             isPresented = showLocationChannelsSheet,
             onDismiss = onLocationChannelsSheetDismiss,
             viewModel = viewModel
+        )
+    }
+    
+    // Location notes sheet (extracted to separate presenter)
+    if (showLocationNotesSheet) {
+        LocationNotesSheetPresenter(
+            viewModel = viewModel,
+            onDismiss = onLocationNotesSheetDismiss
         )
     }
     

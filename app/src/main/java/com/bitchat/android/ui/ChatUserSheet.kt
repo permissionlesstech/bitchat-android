@@ -12,6 +12,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
+import androidx.compose.ui.res.stringResource
+import com.bitchat.android.R
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import kotlinx.coroutines.launch
@@ -61,7 +63,7 @@ fun ChatUserSheet(
             ) {
                 // Header
                 Text(
-                    text = "@$targetNickname",
+                    text = stringResource(R.string.at_nickname, targetNickname),
                     fontSize = 18.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
@@ -69,7 +71,7 @@ fun ChatUserSheet(
                 )
                 
                 Text(
-                    text = if (selectedMessage != null) "choose an action for this message or user" else "choose an action for this user",
+                    text = if (selectedMessage != null) stringResource(R.string.choose_action_message_or_user) else stringResource(R.string.choose_action_user),
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
@@ -83,8 +85,8 @@ fun ChatUserSheet(
                     selectedMessage?.let { message ->
                         item {
                             UserActionRow(
-                                title = "copy message",
-                                subtitle = "copy this message to clipboard",
+                                title = stringResource(R.string.action_copy_message_title),
+                                subtitle = stringResource(R.string.action_copy_message_subtitle),
                                 titleColor = standardGrey,
                                 onClick = {
                                     // Copy the message content to clipboard
@@ -100,8 +102,8 @@ fun ChatUserSheet(
                         // Slap action
                         item {
                             UserActionRow(
-                                title = "slap $targetNickname",
-                                subtitle = "send a playful slap message",
+                                title = stringResource(R.string.action_slap_title, targetNickname),
+                                subtitle = stringResource(R.string.action_slap_subtitle),
                                 titleColor = standardBlue,
                                 onClick = {
                                     // Send slap command
@@ -114,8 +116,8 @@ fun ChatUserSheet(
                         // Hug action  
                         item {
                             UserActionRow(
-                                title = "hug $targetNickname",
-                                subtitle = "send a friendly hug message",
+                                title = stringResource(R.string.action_hug_title, targetNickname),
+                                subtitle = stringResource(R.string.action_hug_subtitle),
                                 titleColor = standardGreen,
                                 onClick = {
                                     // Send hug command
@@ -128,8 +130,8 @@ fun ChatUserSheet(
                         // Block action
                         item {
                             UserActionRow(
-                                title = "block $targetNickname",
-                                subtitle = "block all messages from this user",
+                                title = stringResource(R.string.action_block_title, targetNickname),
+                                subtitle = stringResource(R.string.action_block_subtitle),
                                 titleColor = standardRed,
                                 onClick = {
                                     // Check if we're in a geohash channel
@@ -158,7 +160,7 @@ fun ChatUserSheet(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "cancel",
+                        text = stringResource(R.string.cancel_lower),
                         fontSize = BASE_FONT_SIZE.sp,
                         fontFamily = FontFamily.Monospace
                     )

@@ -115,4 +115,36 @@ object Geohash {
             lonMax = maxOf(lonInterval.first, lonInterval.second)
         )
     }
+
+    /**
+     * Returns the 8 neighboring geohash cells at the same precision as the input.
+     * Neighbors include N, NE, E, SE, S, SW, W, NW, even when crossing parent cell boundaries.
+     */
+    fun neighborsSamePrecision(geohash: String): Set<String> {
+        if (geohash.isEmpty()) return emptySet()
+        val p = geohash.length
+        val b = decodeToBounds(geohash)
+        val dLat = b.latMax - b.latMin
+        val dLon = b.lonMax - b.lonMin
+
+        fun wrapLon(lon: Double): Double {
+            var x = lon
+            while (x > 180.0) x -= 360.0
+            while (x < -180.0) x += 360.0
+            return x
+        }
+
+        val neighbors = mutableSetOf<String>()
+        for (dy in -1..1) {
+            for (dx in -1..1) {
+                if (dx == 0 && dy == 0) continue // skip center
+                val centerLat = (b.latMin + b.latMax) / 2 + dy * dLat
+                val rawLonCenter = (b.lonMin + b.lonMax) / 2 + dx * dLon
+                val centerLon = wrapLon(rawLonCenter)
+                val enc = encode(centerLat.coerceIn(-90.0, 90.0), centerLon, p)
+                if (enc.isNotEmpty() && enc != geohash) neighbors.add(enc)
+            }
+        }
+        return neighbors
+    }
 }
