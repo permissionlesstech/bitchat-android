@@ -408,25 +408,17 @@ class BluetoothMeshService(private val context: Context) {
                     val deviceAddress = routed.relayAddress
                     val pid = routed.peerID
                     if (deviceAddress != null && pid != null) {
-                        // Only set mapping if not already mapped
-                        if (!connectionManager.addressPeerMap.containsKey(deviceAddress)) {
+                        // First ANNOUNCE over a device connection defines a direct neighbor.
+                        if (!connectionManager.hasSeenFirstAnnounce(deviceAddress)) {
+                            // Bind or rebind this device address to the announcing peer
                             connectionManager.addressPeerMap[deviceAddress] = pid
-                            Log.d(TAG, "Mapped device $deviceAddress to peer $pid on ANNOUNCE")
+                            connectionManager.noteAnnounceReceived(deviceAddress)
+                            Log.d(TAG, "Mapped device $deviceAddress to peer $pid on FIRST-ANNOUNCE for this connection")
 
-                            // Mark this peer as directly connected for UI
-                            try {
-                                peerManager.getPeerInfo(pid)?.let {
-                                    // Set direct connection flag
-                                    // (This will also trigger a peer list update)
-                                    peerManager.setDirectConnection(pid, true)
-                                    // Also push reactive directness state to UI (best-effort)
-                                    try {
-                                        // Note: UI observes via didUpdatePeerList, but we can also update ChatState on a timer
-                                    } catch (_: Exception) { }
-                                }
-                            } catch (_: Exception) { }
+                            // Mark as directly connected (upgrades from routed if needed)
+                            try { peerManager.setDirectConnection(pid, true) } catch (_: Exception) { }
 
-                            // Schedule initial sync for this new directly connected peer only
+                            // Initial sync for this newly direct peer
                             try { gossipSyncManager.scheduleInitialSyncToPeer(pid, 1_000) } catch (_: Exception) { }
                         }
                     }
