@@ -67,15 +67,20 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
 //        }
 
         // Duplicate detection
+        val messageType = MessageType.fromValue(packet.type)
         val messageID = generateMessageID(packet, peerID)
-        if (processedMessages.contains(messageID)) {
-            Log.d(TAG, "Dropping duplicate packet: $messageID")
-            return false
+        if (messageType != MessageType.ANNOUNCE) {
+            if (processedMessages.contains(messageID)) {
+                Log.d(TAG, "Dropping duplicate packet: $messageID")
+                return false
+            }
+            // Add to processed messages
+            processedMessages.add(messageID)
+            messageTimestamps[messageID] = currentTime
+        } else {
+            // Do not deduplicate ANNOUNCE at the security layer.
+            // They are signed/idempotent and we need to ensure first-announce per-connection can bind.
         }
-        
-        // Add to processed messages
-        processedMessages.add(messageID)
-        messageTimestamps[messageID] = currentTime
         
         // NEW: Signature verification logging (not rejecting yet)
         verifyPacketSignatureWithLogging(packet, peerID)

@@ -84,6 +84,10 @@ class BluetoothConnectionManager(
     
     // Public property for address-peer mapping
     val addressPeerMap get() = connectionTracker.addressPeerMap
+
+    // Expose first-announce helpers to higher layers
+    fun noteAnnounceReceived(address: String) { connectionTracker.noteAnnounceReceived(address) }
+    fun hasSeenFirstAnnounce(address: String): Boolean = connectionTracker.hasSeenFirstAnnounce(address)
     
     init {
         powerManager.delegate = this
