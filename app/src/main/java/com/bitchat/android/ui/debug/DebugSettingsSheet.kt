@@ -27,6 +27,9 @@ import com.bitchat.android.mesh.BluetoothMeshService
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
 import com.bitchat.android.R
+import androidx.compose.ui.platform.LocalContext
+import com.bitchat.android.service.MeshServicePreferences
+import com.bitchat.android.service.MeshForegroundService
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,6 +56,10 @@ fun DebugSettingsSheet(
     val seenCapacity by manager.seenPacketCapacity.collectAsState()
     val gcsMaxBytes by manager.gcsMaxBytes.collectAsState()
     val gcsFpr by manager.gcsFprPercent.collectAsState()
+    val context = LocalContext.current
+    var persistentNotificationEnabled by remember { mutableStateOf(
+        DebugPreferenceManager.getPersistentNotificationEnabled(true)
+    ) }
 
     // Push live connected devices from mesh service whenever sheet is visible
     LaunchedEffect(isPresented) {
@@ -202,6 +209,25 @@ fun DebugSettingsSheet(
             item {
                 Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        // Persistent notification toggle (foreground service)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Filled.Devices, contentDescription = null, tint = Color(0xFF3F51B5))
+                            Text("Persistent Mesh Notification", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Spacer(Modifier.weight(1f))
+                            Switch(
+                                checked = persistentNotificationEnabled,
+                                onCheckedChange = {
+                                    persistentNotificationEnabled = it
+                                    DebugPreferenceManager.setPersistentNotificationEnabled(it)
+                                    MeshServicePreferences.setPersistentNotificationEnabled(it)
+                                    // Nudge service to update its foreground state
+                                    val intent = android.content.Intent(context, MeshForegroundService::class.java)
+                                    intent.action = MeshForegroundService.ACTION_UPDATE_NOTIFICATION
+                                    context.startService(intent)
+                                }
+                            )
+                        }
+
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(Icons.Filled.PowerSettingsNew, contentDescription = null, tint = Color(0xFFFF9500))
                             Text(stringResource(R.string.debug_packet_relay), fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)

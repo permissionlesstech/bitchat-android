@@ -51,7 +51,7 @@ class MainActivity : OrientationAwareActivity() {
     private lateinit var locationStatusManager: LocationStatusManager
     private lateinit var batteryOptimizationManager: BatteryOptimizationManager
     
-    // Core mesh service - managed at app level
+    // Core mesh service - provided by the foreground service holder
     private lateinit var meshService: BluetoothMeshService
     private val mainViewModel: MainViewModel by viewModels()
     private val chatViewModel: ChatViewModel by viewModels { 
@@ -71,8 +71,9 @@ class MainActivity : OrientationAwareActivity() {
 
         // Initialize permission management
         permissionManager = PermissionManager(this)
-        // Initialize core mesh service first
-        meshService = BluetoothMeshService(this)
+        // Ensure foreground service is running and get mesh instance from holder
+        try { com.bitchat.android.service.MeshForegroundService.start(applicationContext) } catch (_: Exception) { }
+        meshService = com.bitchat.android.service.MeshServiceHolder.getOrCreate(applicationContext)
         bluetoothStatusManager = BluetoothStatusManager(
             activity = this,
             context = this,
@@ -746,14 +747,6 @@ class MainActivity : OrientationAwareActivity() {
             Log.w("MainActivity", "Error cleaning up location status manager: ${e.message}")
         }
         
-        // Stop mesh services if app was fully initialized
-        if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
-            try {
-                meshService.stopServices()
-                Log.d("MainActivity", "Mesh services stopped successfully")
-            } catch (e: Exception) {
-                Log.w("MainActivity", "Error stopping mesh services in onDestroy: ${e.message}")
-            }
-        }
+        // Do not stop mesh here; ForegroundService owns lifecycle for background reliability
     }
 }

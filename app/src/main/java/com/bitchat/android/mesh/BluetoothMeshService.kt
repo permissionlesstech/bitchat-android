@@ -1010,6 +1010,13 @@ class BluetoothMeshService(private val context: Context) {
     }
 
     /**
+     * Get current active peer count (for status/notifications)
+     */
+    fun getActivePeerCount(): Int {
+        return try { peerManager.getActivePeerCount() } catch (_: Exception) { 0 }
+    }
+
+    /**
      * Get peer info for verification purposes
      */
     fun getPeerInfo(peerID: String): PeerInfo? {
