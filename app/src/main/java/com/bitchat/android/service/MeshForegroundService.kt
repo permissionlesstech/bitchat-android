@@ -32,12 +32,12 @@ class MeshForegroundService : Service() {
         const val ACTION_UPDATE_NOTIFICATION = "com.bitchat.android.service.UPDATE_NOTIFICATION"
 
         fun start(context: Context) {
-            val intent = Intent(context, MeshForegroundService::class.java).apply {
-                action = ACTION_START
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val intent = Intent(context, MeshForegroundService::class.java).apply { action = ACTION_START }
+            val shouldStartAsFg = shouldStartAsForeground(context)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && shouldStartAsFg) {
                 context.startForegroundService(intent)
             } else {
+                // Start as a regular service to avoid OS crash if we cannot immediately promote
                 context.startService(intent)
             }
         }
@@ -45,6 +45,30 @@ class MeshForegroundService : Service() {
         fun stop(context: Context) {
             val intent = Intent(context, MeshForegroundService::class.java).apply { action = ACTION_STOP }
             context.startService(intent)
+        }
+
+        private fun shouldStartAsForeground(context: Context): Boolean {
+            return MeshServicePreferences.isPersistentNotificationEnabled(true) &&
+                    hasBluetoothPermissionsStatic(context) &&
+                    hasNotificationPermissionStatic(context)
+        }
+
+        private fun hasBluetoothPermissionsStatic(ctx: Context): Boolean {
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.BLUETOOTH_ADVERTISE) == android.content.pm.PackageManager.PERMISSION_GRANTED &&
+                androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.BLUETOOTH_CONNECT) == android.content.pm.PackageManager.PERMISSION_GRANTED &&
+                androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.BLUETOOTH_SCAN) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            } else {
+                val fine = androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                val coarse = androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                fine || coarse
+            }
+        }
+
+        private fun hasNotificationPermissionStatic(ctx: Context): Boolean {
+            return if (Build.VERSION.SDK_INT >= 33) {
+                androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            } else true
         }
     }
 
@@ -135,8 +159,7 @@ class MeshForegroundService : Service() {
     }
 
     private fun hasBluetoothPermissions(): Boolean {
-        val pm = androidx.core.content.ContextCompat::class
-        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_ADVERTISE) == android.content.pm.PackageManager.PERMISSION_GRANTED &&
             androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_CONNECT) == android.content.pm.PackageManager.PERMISSION_GRANTED &&
             androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_SCAN) == android.content.pm.PackageManager.PERMISSION_GRANTED
@@ -149,7 +172,7 @@ class MeshForegroundService : Service() {
     }
 
     private fun hasNotificationPermission(): Boolean {
-        return if (android.os.Build.VERSION.SDK_INT >= 33) {
+        return if (Build.VERSION.SDK_INT >= 33) {
             androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
         } else true
     }
