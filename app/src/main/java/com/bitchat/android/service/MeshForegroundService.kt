@@ -83,7 +83,13 @@ class MeshForegroundService : Service() {
         createChannel()
 
         // Adopt or create the mesh service
-        meshService = MeshServiceHolder.meshService ?: MeshServiceHolder.getOrCreate(applicationContext)
+        val existing = MeshServiceHolder.meshService
+        meshService = existing ?: MeshServiceHolder.getOrCreate(applicationContext)
+        if (existing != null) {
+            android.util.Log.d("MeshForegroundService", "Adopted existing BluetoothMeshService from holder")
+        } else {
+            android.util.Log.i("MeshForegroundService", "Created/adopted new BluetoothMeshService via holder")
+        }
         MeshServiceHolder.attach(meshService!!)
     }
 
@@ -135,7 +141,12 @@ class MeshForegroundService : Service() {
 
     private fun ensureMeshStarted() {
         if (!hasBluetoothPermissions()) return
-        try { meshService?.startServices() } catch (_: Exception) { }
+        try {
+            android.util.Log.d("MeshForegroundService", "Ensuring mesh service is started")
+            meshService?.startServices()
+        } catch (e: Exception) {
+            android.util.Log.e("MeshForegroundService", "Failed to start mesh service: ${e.message}")
+        }
     }
 
     private fun updateNotification(force: Boolean) {

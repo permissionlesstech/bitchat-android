@@ -71,6 +71,7 @@ class BluetoothMeshService(private val context: Context) {
     private var terminated = false
     
     init {
+        Log.i(TAG, "Initializing BluetoothMeshService for peer=$myPeerID")
         setupDelegates()
         messageHandler.packetProcessor = packetProcessor
         //startPeriodicDebugLogging()
@@ -106,6 +107,7 @@ class BluetoothMeshService(private val context: Context) {
                 return signPacketBeforeBroadcast(packet)
             }
         }
+        Log.d(TAG, "Delegates set up; GossipSyncManager initialized")
     }
     
     /**
@@ -113,6 +115,7 @@ class BluetoothMeshService(private val context: Context) {
      */
     private fun startPeriodicDebugLogging() {
         serviceScope.launch {
+            Log.d(TAG, "Starting periodic debug logging loop")
             while (isActive) {
                 try {
                     delay(10000) // 10 seconds
@@ -124,6 +127,7 @@ class BluetoothMeshService(private val context: Context) {
                     Log.e(TAG, "Error in periodic debug logging: ${e.message}")
                 }
             }
+            Log.d(TAG, "Periodic debug logging loop ended (isActive=$isActive)")
         }
     }
 
@@ -132,6 +136,7 @@ class BluetoothMeshService(private val context: Context) {
      */
     private fun sendPeriodicBroadcastAnnounce() {
         serviceScope.launch {
+            Log.d(TAG, "Starting periodic announce loop")
             while (isActive) {
                 try {
                     delay(30000) // 30 seconds
@@ -140,6 +145,7 @@ class BluetoothMeshService(private val context: Context) {
                     Log.e(TAG, "Error in periodic broadcast announce: ${e.message}")
                 }
             }
+            Log.d(TAG, "Periodic announce loop ended (isActive=$isActive)")
         }
     }
     
@@ -147,6 +153,7 @@ class BluetoothMeshService(private val context: Context) {
      * Setup delegate connections between components
      */
     private fun setupDelegates() {
+        Log.d(TAG, "Setting up component delegates")
         // Provide nickname resolver to BLE broadcaster for detailed logs
         try {
             connectionManager.setNicknameResolver { pid -> peerManager.getPeerNickname(pid) }
@@ -176,6 +183,7 @@ class BluetoothMeshService(private val context: Context) {
             override fun onKeyExchangeCompleted(peerID: String, peerPublicKeyData: ByteArray) {
                 // Send announcement and cached messages after key exchange
                 serviceScope.launch {
+                    Log.d(TAG, "Key exchange completed with $peerID; sending follow-ups")
                     delay(100)
                     sendAnnouncementToPeer(peerID)
                     
@@ -523,6 +531,7 @@ class BluetoothMeshService(private val context: Context) {
             override fun onDeviceConnected(device: android.bluetooth.BluetoothDevice) {
                 // Send initial announcements after services are ready
                 serviceScope.launch {
+                    Log.d(TAG, "Device connected: ${device.address}; scheduling announce")
                     delay(200)
                     sendBroadcastAnnounce()
                 }
@@ -537,6 +546,7 @@ class BluetoothMeshService(private val context: Context) {
             }
 
             override fun onDeviceDisconnected(device: android.bluetooth.BluetoothDevice) {
+                Log.d(TAG, "Device disconnected: ${device.address}")
                 val addr = device.address
                 // Remove mapping and, if that was the last direct path for the peer, clear direct flag
                 val peer = connectionManager.addressPeerMap[addr]
@@ -591,6 +601,7 @@ class BluetoothMeshService(private val context: Context) {
             Log.d(TAG, "Started periodic broadcast announcements (every 30 seconds)")
             // Start periodic syncs
             gossipSyncManager.start()
+            Log.d(TAG, "GossipSyncManager started")
         } else {
             Log.e(TAG, "Failed to start Bluetooth services")
         }
@@ -612,11 +623,14 @@ class BluetoothMeshService(private val context: Context) {
         sendLeaveAnnouncement()
         
         serviceScope.launch {
+            Log.d(TAG, "Stopping subcomponents and cancelling scope...")
             delay(200) // Give leave message time to send
             
             // Stop all components
             gossipSyncManager.stop()
+            Log.d(TAG, "GossipSyncManager stopped")
             connectionManager.stopServices()
+            Log.d(TAG, "BluetoothConnectionManager stop requested")
             peerManager.shutdown()
             fragmentManager.shutdown()
             securityManager.shutdown()
@@ -627,6 +641,7 @@ class BluetoothMeshService(private val context: Context) {
             // Mark this instance as terminated and cancel its scope so it won't be reused
             terminated = true
             serviceScope.cancel()
+            Log.i(TAG, "BluetoothMeshService terminated and scope cancelled")
         }
     }
 
@@ -635,7 +650,11 @@ class BluetoothMeshService(private val context: Context) {
      * any critical internal scope has been cancelled.
      */
     fun isReusable(): Boolean {
-        return !terminated && serviceScope.isActive && connectionManager.isReusable()
+        val reusable = !terminated && serviceScope.isActive && connectionManager.isReusable()
+        if (!reusable) {
+            Log.d(TAG, "isReusable=false (terminated=$terminated, scopeActive=${serviceScope.isActive}, connReusable=${connectionManager.isReusable()})")
+        }
+        return reusable
     }
     
     /**
