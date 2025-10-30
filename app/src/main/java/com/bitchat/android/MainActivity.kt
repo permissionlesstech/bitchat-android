@@ -668,13 +668,15 @@ class MainActivity : OrientationAwareActivity() {
         }
     }
     
-     override fun onPause() {
+    override fun onPause() {
         super.onPause()
         // Only set background state if app is fully initialized
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
             // Set app background state
             meshService.connectionManager.setAppBackgroundState(true)
             chatViewModel.setAppBackgroundState(true)
+            // Detach UI delegate so the foreground service can own DM notifications while UI is closed
+            try { meshService.delegate = null } catch (_: Exception) { }
         }
     }
     
