@@ -61,6 +61,11 @@
   <string name="notification_more_locations">and %1$d more locations</string>
   <string name="notification_and_more">and %1$d more</string>
 
+  <!-- Mesh Service Foreground Notification -->
+  <string name="mesh_service_channel_name">Mesh Background Service</string>
+  <string name="mesh_service_channel_desc">Keeps the Bluetooth mesh running in the background</string>
+  <string name="mesh_service_notification_content">Mesh running — %1$d users connected</string>
+
   <!-- Favorites accessibility -->
   <string name="cd_add_favorite">Add to favorites</string>
   <string name="cd_remove_favorite">Remove from favorites</string>

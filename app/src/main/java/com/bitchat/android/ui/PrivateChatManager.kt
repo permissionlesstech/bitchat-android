@@ -292,28 +292,30 @@ class PrivateChatManager(
     }
 
     fun handleIncomingPrivateMessage(message: BitchatMessage, suppressUnread: Boolean) {
-        message.senderPeerID?.let { senderPeerID ->
+        val senderPeerID = message.senderPeerID
+        if (senderPeerID != null) {
+            // Mesh-origin private message: AppStateStore updates the list; avoid double-add here.
             if (!isPeerBlocked(senderPeerID)) {
-                // Add to private messages
-                if (suppressUnread) {
-                    messageManager.addPrivateMessageNoUnread(senderPeerID, message)
-                } else {
-                    messageManager.addPrivateMessage(senderPeerID, message)
-                }
-
-                // Track as unread for read receipt purposes
-                var unreadCount = 0
-                if (!suppressUnread) {
+                // Ensure chat exists
+                messageManager.initializePrivateChat(senderPeerID)
+                // Track as unread for read receipt purposes if not focused
+                if (!suppressUnread && state.getSelectedPrivateChatPeerValue() != senderPeerID) {
                     val unreadList = unreadReceivedMessages.getOrPut(senderPeerID) { mutableListOf() }
                     unreadList.add(message)
-                    unreadCount = unreadList.size
+                    Log.d(TAG, "Queued unread from $senderPeerID (count=${unreadList.size})")
+                    val currentUnread = state.getUnreadPrivateMessagesValue().toMutableSet()
+                    currentUnread.add(senderPeerID)
+                    state.setUnreadPrivateMessages(currentUnread)
                 }
-
-                Log.d(
-                    TAG,
-                    "Added received message ${message.id} from $senderPeerID to unread list (${unreadCount} unread)"
-                )
             }
+            return
+        }
+        // Non-mesh path (e.g., Nostr): add to UI state using existing logic
+        val inferredPeer = state.getSelectedPrivateChatPeerValue() ?: return
+        if (suppressUnread) {
+            messageManager.addPrivateMessageNoUnread(inferredPeer, message)
+        } else {
+            messageManager.addPrivateMessage(inferredPeer, message)
         }
     }
 
