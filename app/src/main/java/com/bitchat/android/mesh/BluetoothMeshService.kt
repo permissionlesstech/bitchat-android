@@ -146,6 +146,9 @@ class BluetoothMeshService(private val context: Context) {
         // PeerManager delegates to main mesh service delegate
         peerManager.delegate = object : PeerManagerDelegate {
             override fun onPeerListUpdated(peerIDs: List<String>) {
+                // Update process-wide state first
+                try { com.bitchat.android.services.AppStateStore.setPeers(peerIDs) } catch (_: Exception) { }
+                // Then notify UI delegate if attached
                 delegate?.didUpdatePeerList(peerIDs)
             }
             override fun onPeerRemoved(peerID: String) {
@@ -352,6 +355,22 @@ class BluetoothMeshService(private val context: Context) {
             
             // Callbacks
             override fun onMessageReceived(message: BitchatMessage) {
+                // Always reflect into process-wide store so UI can hydrate after recreation
+                try {
+                    when {
+                        message.isPrivate -> {
+                            val peer = message.senderPeerID ?: ""
+                            if (peer.isNotEmpty()) com.bitchat.android.services.AppStateStore.addPrivateMessage(peer, message)
+                        }
+                        message.channel != null -> {
+                            com.bitchat.android.services.AppStateStore.addChannelMessage(message.channel!!, message)
+                        }
+                        else -> {
+                            com.bitchat.android.services.AppStateStore.addPublicMessage(message)
+                        }
+                    }
+                } catch (_: Exception) { }
+                // And forward to UI delegate if attached
                 delegate?.didReceiveMessage(message)
             }
             

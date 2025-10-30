@@ -141,6 +141,31 @@ class ChatViewModel(
     init {
         // Note: Mesh service delegate is now set by MainActivity
         loadAndInitialize()
+        // Hydrate UI state from process-wide AppStateStore to survive Activity recreation
+        viewModelScope.launch {
+            try { com.bitchat.android.services.AppStateStore.peers.collect { peers ->
+                state.setConnectedPeers(peers)
+                state.setIsConnected(peers.isNotEmpty())
+            } } catch (_: Exception) { }
+        }
+        viewModelScope.launch {
+            try { com.bitchat.android.services.AppStateStore.publicMessages.collect { msgs ->
+                // Source of truth is AppStateStore; replace to avoid duplicate keys in LazyColumn
+                state.setMessages(msgs)
+            } } catch (_: Exception) { }
+        }
+        viewModelScope.launch {
+            try { com.bitchat.android.services.AppStateStore.privateMessages.collect { byPeer ->
+                // Replace with store snapshot
+                state.setPrivateChats(byPeer)
+            } } catch (_: Exception) { }
+        }
+        viewModelScope.launch {
+            try { com.bitchat.android.services.AppStateStore.channelMessages.collect { byChannel ->
+                // Replace with store snapshot
+                state.setChannelMessages(byChannel)
+            } } catch (_: Exception) { }
+        }
         // Subscribe to BLE transfer progress and reflect in message deliveryStatus
         viewModelScope.launch {
             com.bitchat.android.mesh.TransferProgressManager.events.collect { evt ->

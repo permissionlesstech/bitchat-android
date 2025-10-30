@@ -641,6 +641,8 @@ class MainActivity : OrientationAwareActivity() {
         super.onResume()
         // Check Bluetooth and Location status on resume and handle accordingly
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
+            // Reattach mesh delegate to new ChatViewModel instance after Activity recreation
+            try { meshService.delegate = chatViewModel } catch (_: Exception) { }
             // Set app foreground state
             meshService.connectionManager.setAppBackgroundState(false)
             chatViewModel.setAppBackgroundState(false)

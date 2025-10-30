@@ -64,15 +64,26 @@ class MeshDelegateHandler(
                     )
                 }
             } else if (message.channel != null) {
-                // Channel message
+                // Channel message: AppStateStore is the source of truth for list; only manage unread
                 if (state.getJoinedChannelsValue().contains(message.channel)) {
-                    channelManager.addChannelMessage(message.channel, message, message.senderPeerID)
+                    val channel = message.channel
+                    val viewingClassic = state.getCurrentChannelValue() == channel
+                    val viewingGeohash = try {
+                        if (channel.startsWith("geo:")) {
+                            val geo = channel.removePrefix("geo:")
+                            val selected = state.selectedLocationChannel.value
+                            selected is com.bitchat.android.geohash.ChannelID.Location && selected.channel.geohash.equals(geo, ignoreCase = true)
+                        } else false
+                    } catch (_: Exception) { false }
+                    if (!viewingClassic && !viewingGeohash) {
+                        val currentUnread = state.getUnreadChannelMessagesValue().toMutableMap()
+                        currentUnread[channel] = (currentUnread[channel] ?: 0) + 1
+                        state.setUnreadChannelMessages(currentUnread)
+                    }
                 }
             } else {
-                // Public mesh message - always store to preserve message history
-                messageManager.addMessage(message)
-
-                // Check for mentions in mesh chat
+                // Public mesh message: AppStateStore is the source of truth; avoid double-adding to UI state
+                // Still run mention detection/notifications
                 checkAndTriggerMeshMentionNotification(message)
             }
             
