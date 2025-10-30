@@ -22,6 +22,8 @@ class MessageManager(private val state: ChatState) {
         val currentMessages = state.getMessagesValue().toMutableList()
         currentMessages.add(message)
         state.setMessages(currentMessages)
+        // Reflect into process-wide store so snapshot replacements don't drop local outgoing messages
+        try { com.bitchat.android.services.AppStateStore.addPublicMessage(message) } catch (_: Exception) { }
     }
 
     // Log a system message into the main chat (visible to user)
@@ -52,6 +54,8 @@ class MessageManager(private val state: ChatState) {
         channelMessageList.add(message)
         currentChannelMessages[channel] = channelMessageList
         state.setChannelMessages(currentChannelMessages)
+        // Reflect into process-wide store
+        try { com.bitchat.android.services.AppStateStore.addChannelMessage(channel, message) } catch (_: Exception) { }
         
         // Update unread count if not currently viewing this channel
         // Consider both classic channels (state.currentChannel) and geohash location channel selection
@@ -105,6 +109,8 @@ class MessageManager(private val state: ChatState) {
         chatMessages.add(message)
         currentPrivateChats[peerID] = chatMessages
         state.setPrivateChats(currentPrivateChats)
+        // Reflect into process-wide store
+        try { com.bitchat.android.services.AppStateStore.addPrivateMessage(peerID, message) } catch (_: Exception) { }
         
         // Mark as unread if not currently viewing this chat
         if (state.getSelectedPrivateChatPeerValue() != peerID && message.sender != state.getNicknameValue()) {
@@ -124,6 +130,8 @@ class MessageManager(private val state: ChatState) {
         chatMessages.add(message)
         currentPrivateChats[peerID] = chatMessages
         state.setPrivateChats(currentPrivateChats)
+        // Reflect into process-wide store
+        try { com.bitchat.android.services.AppStateStore.addPrivateMessage(peerID, message) } catch (_: Exception) { }
     }
     
     fun clearPrivateMessages(peerID: String) {
