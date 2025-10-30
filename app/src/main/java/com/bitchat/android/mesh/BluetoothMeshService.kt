@@ -52,6 +52,12 @@ class BluetoothMeshService(private val context: Context) {
     internal val connectionManager = BluetoothConnectionManager(context, myPeerID, fragmentManager) // Made internal for access
     private val packetProcessor = PacketProcessor(myPeerID)
     private lateinit var gossipSyncManager: GossipSyncManager
+    // Service-level notification manager for background (no-UI) DMs
+    private val serviceNotificationManager = com.bitchat.android.ui.NotificationManager(
+        context.applicationContext,
+        androidx.core.app.NotificationManagerCompat.from(context.applicationContext),
+        com.bitchat.android.util.NotificationIntervalManager()
+    )
     
     // Service state management
     private var isActive = false
@@ -372,6 +378,19 @@ class BluetoothMeshService(private val context: Context) {
                 } catch (_: Exception) { }
                 // And forward to UI delegate if attached
                 delegate?.didReceiveMessage(message)
+
+                // If no UI delegate attached (app closed), show DM notification via service manager
+                if (delegate == null && message.isPrivate) {
+                    try {
+                        val senderPeerID = message.senderPeerID
+                        if (senderPeerID != null) {
+                            val nick = try { peerManager.getPeerNickname(senderPeerID) } catch (_: Exception) { null } ?: senderPeerID
+                            val preview = com.bitchat.android.ui.NotificationTextUtils.buildPrivateMessagePreview(message)
+                            serviceNotificationManager.setAppBackgroundState(true)
+                            serviceNotificationManager.showPrivateMessageNotification(senderPeerID, nick, preview)
+                        }
+                    } catch (_: Exception) { }
+                }
             }
             
             override fun onChannelLeave(channel: String, fromPeer: String) {

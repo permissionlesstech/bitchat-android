@@ -158,6 +158,16 @@ class ChatViewModel(
             try { com.bitchat.android.services.AppStateStore.privateMessages.collect { byPeer ->
                 // Replace with store snapshot
                 state.setPrivateChats(byPeer)
+                // Recompute unread set using SeenMessageStore for robustness across Activity recreation
+                try {
+                    val seen = com.bitchat.android.services.SeenMessageStore.getInstance(getApplication())
+                    val myNick = state.getNicknameValue() ?: meshService.myPeerID
+                    val unread = mutableSetOf<String>()
+                    byPeer.forEach { (peer, list) ->
+                        if (list.any { msg -> msg.sender != myNick && !seen.hasRead(msg.id) }) unread.add(peer)
+                    }
+                    state.setUnreadPrivateMessages(unread)
+                } catch (_: Exception) { }
             } } catch (_: Exception) { }
         }
         viewModelScope.launch {
