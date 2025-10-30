@@ -118,8 +118,8 @@ data class PrivateMessagePacket(
     }
 
     /**
-     * Encode to TLV binary data - exactly like iOS
-     * Format: [type][length][value] for each field
+     * Encode to TLV binary data (legacy 1-byte TLV)
+     * Format: [type:u8][length:u8][value] for each field
      */
     fun encode(): ByteArray? {
         val messageIDData = messageID.toByteArray(Charsets.UTF_8)
@@ -144,12 +144,47 @@ data class PrivateMessagePacket(
         
         return result.toByteArray()
     }
+
+    /**
+     * Encode to TLV binary data with 2-byte fields
+     * Format: [type:u16][length:u16][value]
+     */
+    fun encode2B(): ByteArray? {
+        val messageIDData = messageID.toByteArray(Charsets.UTF_8)
+        val contentData = content.toByteArray(Charsets.UTF_8)
+
+        // 2-byte length supports up to 65535
+        if (messageIDData.size > 0xFFFF || contentData.size > 0xFFFF) return null
+
+        val out = mutableListOf<Byte>()
+
+        fun put(type: UShort, value: ByteArray) {
+            // type u16
+            out.add(((type.toInt() ushr 8) and 0xFF).toByte())
+            out.add((type.toInt() and 0xFF).toByte())
+            // length u16
+            out.add(((value.size ushr 8) and 0xFF).toByte())
+            out.add((value.size and 0xFF).toByte())
+            out.addAll(value.toList())
+        }
+
+        put(0u, messageIDData)
+        put(1u, contentData)
+
+        return out.toByteArray()
+    }
     
     companion object {
         /**
          * Decode from TLV binary data - exactly like iOS
          */
         fun decode(data: ByteArray): PrivateMessagePacket? {
+            // Try 2-byte TLV first, then fallback to legacy 1-byte TLV
+            decode2B(data)?.let { return it }
+            return decode1B(data)
+        }
+
+        private fun decode1B(data: ByteArray): PrivateMessagePacket? {
             var offset = 0
             var messageID: String? = null
             var content: String? = null
@@ -186,6 +221,43 @@ data class PrivateMessagePacket(
             } else {
                 null
             }
+        }
+
+        private fun decode2B(data: ByteArray): PrivateMessagePacket? {
+            var offset = 0
+            var messageID: String? = null
+            var content: String? = null
+
+            while (offset + 4 <= data.size) {
+                // Read type u16
+                val tHigh = data[offset].toInt() and 0xFF
+                val tLow = data[offset + 1].toInt() and 0xFF
+                val type = (tHigh shl 8) or tLow
+                offset += 2
+
+                // Read length u16
+                if (offset + 2 > data.size) return null
+                val lHigh = data[offset].toInt() and 0xFF
+                val lLow = data[offset + 1].toInt() and 0xFF
+                val length = (lHigh shl 8) or lLow
+                offset += 2
+
+                if (length < 0 || offset + length > data.size) return null
+                val value = data.copyOfRange(offset, offset + length)
+                offset += length
+
+                when (type) {
+                    0 -> messageID = String(value, Charsets.UTF_8)
+                    1 -> content = String(value, Charsets.UTF_8)
+                    else -> {
+                        // Unknown type, ignore for forward compatibility
+                    }
+                }
+            }
+
+            return if (messageID != null && content != null) {
+                PrivateMessagePacket(messageID, content)
+            } else null
         }
     }
     
