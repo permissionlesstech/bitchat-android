@@ -198,7 +198,8 @@ class BluetoothConnectionTracker(
             }
             
             // Update connection attempt atomically
-            val attempts = (currentAttempt?.attempts ?: 0) + 1
+            // If the previous attempt window expired, reset backoff to 1; otherwise increment
+            val attempts = if (currentAttempt?.isExpired() == true) 1 else (currentAttempt?.attempts ?: 0) + 1
             pendingConnections[deviceAddress] = ConnectionAttempt(attempts)
             Log.d(TAG, "Tracker: Added pending connection for $deviceAddress (attempts: $attempts)")
             return true
@@ -283,7 +284,6 @@ class BluetoothConnectionTracker(
             subscribedDevices.removeAll { it.address == deviceAddress }
             addressPeerMap.remove(deviceAddress)
         }
-        pendingConnections.remove(deviceAddress)
         firstAnnounceSeen.remove(deviceAddress)
         Log.d(TAG, "Cleaned up device connection for $deviceAddress")
     }
