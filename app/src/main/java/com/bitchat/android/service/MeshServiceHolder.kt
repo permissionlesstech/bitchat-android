@@ -15,7 +15,22 @@ object MeshServiceHolder {
     @Synchronized
     fun getOrCreate(context: Context): BluetoothMeshService {
         val existing = meshService
-        if (existing != null) return existing
+        if (existing != null) {
+            // If the existing instance is healthy, reuse it; otherwise, replace it.
+            return try {
+                if (existing.isReusable()) existing else {
+                    // Best-effort stop before replacing
+                    try { existing.stopServices() } catch (_: Exception) {}
+                    val created = BluetoothMeshService(context.applicationContext)
+                    meshService = created
+                    created
+                }
+            } catch (_: Exception) {
+                val created = BluetoothMeshService(context.applicationContext)
+                meshService = created
+                created
+            }
+        }
         val created = BluetoothMeshService(context.applicationContext)
         meshService = created
         return created
@@ -26,4 +41,3 @@ object MeshServiceHolder {
         meshService = service
     }
 }
-

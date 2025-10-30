@@ -67,6 +67,8 @@ class BluetoothMeshService(private val context: Context) {
     
     // Coroutines
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    // Tracks whether this instance has been terminated via stopServices()
+    private var terminated = false
     
     init {
         setupDelegates()
@@ -573,6 +575,11 @@ class BluetoothMeshService(private val context: Context) {
             Log.w(TAG, "Mesh service already active, ignoring duplicate start request")
             return
         }
+        if (terminated) {
+            // This instance's scope was cancelled previously; refuse to start to avoid using dead scopes.
+            Log.e(TAG, "Mesh service instance was terminated; create a new instance instead of restarting")
+            return
+        }
         
         Log.i(TAG, "Starting Bluetooth mesh service with peer ID: $myPeerID")
         
@@ -617,8 +624,18 @@ class BluetoothMeshService(private val context: Context) {
             messageHandler.shutdown()
             packetProcessor.shutdown()
             
+            // Mark this instance as terminated and cancel its scope so it won't be reused
+            terminated = true
             serviceScope.cancel()
         }
+    }
+
+    /**
+     * Whether this instance can be safely reused. Returns false after stopServices() or if
+     * any critical internal scope has been cancelled.
+     */
+    fun isReusable(): Boolean {
+        return !terminated && serviceScope.isActive && connectionManager.isReusable()
     }
     
     /**

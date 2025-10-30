@@ -230,6 +230,14 @@ class BluetoothConnectionManager(
             Log.i(TAG, "All Bluetooth services stopped")
         }
     }
+
+    /**
+     * Indicates whether this instance can be safely reused for a future start.
+     * Returns false if its coroutine scope has been cancelled.
+     */
+    fun isReusable(): Boolean {
+        return connectionScope.isActive
+    }
     
     /**
      * Set app background state for power optimization
