@@ -926,7 +926,7 @@ class BluetoothMeshService(private val context: Context) {
     fun sendBroadcastAnnounce() {
         Log.d(TAG, "Sending broadcast announce")
         serviceScope.launch {
-            val nickname = delegate?.getNickname() ?: myPeerID
+            val nickname = try { com.bitchat.android.services.NicknameProvider.getNickname(context, myPeerID) } catch (_: Exception) { myPeerID }
             
             // Get the static public key for the announcement
             val staticKey = encryptionService.getStaticPublicKey()
@@ -975,7 +975,7 @@ class BluetoothMeshService(private val context: Context) {
     fun sendAnnouncementToPeer(peerID: String) {
         if (peerManager.hasAnnouncedToPeer(peerID)) return
         
-        val nickname = delegate?.getNickname() ?: myPeerID
+        val nickname = try { com.bitchat.android.services.NicknameProvider.getNickname(context, myPeerID) } catch (_: Exception) { myPeerID }
         
         // Get the static public key for the announcement
         val staticKey = encryptionService.getStaticPublicKey()
@@ -1023,7 +1023,7 @@ class BluetoothMeshService(private val context: Context) {
      * Send leave announcement
      */
     private fun sendLeaveAnnouncement() {
-        val nickname = delegate?.getNickname() ?: myPeerID
+        val nickname = try { com.bitchat.android.services.NicknameProvider.getNickname(context, myPeerID) } catch (_: Exception) { myPeerID }
         val packet = BitchatPacket(
             type = MessageType.LEAVE.value,
             ttl = MAX_TTL,
