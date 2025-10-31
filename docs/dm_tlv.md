@@ -2,6 +2,8 @@
 
 This change enables sending and receiving Cashu ecash tokens over Direct Messages by introducing a 2-byte TLV format for DMs while keeping backward compatibility.
 
+**Cashu Integration**: This change enables [bitpoints.me](https://github.com/bitpoints-cashu/bitpoints.me), a Cashu ecash wallet that integrates bitchat protocol for offline peer-to-peer Bitcoin payments over Bluetooth mesh.
+
 Key points:
 - Receive path accepts both 1-byte and 2-byte TLV without negotiation (adaptive parser).
 - Send path uses 2-byte TLV only when the peer advertises feature bit `DM_TLV_2BYTE` in announcements.
@@ -20,5 +22,3 @@ Security:
 
 Interop:
 - Older peers ignore unknown `FEATURES` TLV and continue receiving DMs in legacy format.
-
-

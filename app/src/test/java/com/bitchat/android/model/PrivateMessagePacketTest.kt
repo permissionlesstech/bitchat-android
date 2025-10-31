@@ -29,5 +29,3 @@ class PrivateMessagePacketTest {
         assertEquals(pm.content, decoded.content)
     }
 }
-
-
