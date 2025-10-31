@@ -118,7 +118,6 @@ class ChatViewModel(
     val passwordProtectedChannels: LiveData<Set<String>> = state.passwordProtectedChannels
     val showPasswordPrompt: LiveData<Boolean> = state.showPasswordPrompt
     val passwordPromptChannel: LiveData<String?> = state.passwordPromptChannel
-    val showSidebar: LiveData<Boolean> = state.showSidebar
     val hasUnreadChannels = state.hasUnreadChannels
     val hasUnreadPrivateMessages = state.hasUnreadPrivateMessages
     val showCommandSuggestions: LiveData<Boolean> = state.showCommandSuggestions
@@ -373,11 +372,6 @@ class ChatViewModel(
             }
 
             startPrivateChat(openPeer)
-
-            // If sidebar visible, hide it to focus on the private chat
-            if (state.getShowSidebarValue()) {
-                state.setShowSidebar(false)
-            }
         } catch (e: Exception) {
             Log.w(TAG, "openLatestUnreadPrivateChat failed: ${e.message}")
         }
@@ -871,14 +865,6 @@ class ChatViewModel(
         state.setShowAppInfo(false)
     }
     
-    fun showSidebar() {
-        state.setShowSidebar(true)
-    }
-    
-    fun hideSidebar() {
-        state.setShowSidebar(false)
-    }
-    
     /**
      * Handle Android back navigation
      * Returns true if the back press was handled, false if it should be passed to the system
@@ -888,11 +874,6 @@ class ChatViewModel(
             // Close app info dialog
             state.getShowAppInfoValue() -> {
                 hideAppInfo()
-                true
-            }
-            // Close sidebar
-            state.getShowSidebarValue() -> {
-                hideSidebar()
                 true
             }
             // Close password dialog

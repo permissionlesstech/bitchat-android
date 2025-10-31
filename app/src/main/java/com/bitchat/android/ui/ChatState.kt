@@ -68,10 +68,6 @@ class ChatState {
     private val _passwordPromptChannel = MutableLiveData<String?>(null)
     val passwordPromptChannel: LiveData<String?> = _passwordPromptChannel
     
-    // Sidebar state
-    private val _showSidebar = MutableLiveData(false)
-    val showSidebar: LiveData<Boolean> = _showSidebar
-    
     // Command autocomplete
     private val _showCommandSuggestions = MutableLiveData(false)
     val showCommandSuggestions: LiveData<Boolean> = _showCommandSuggestions
@@ -174,7 +170,6 @@ class ChatState {
     fun getPasswordProtectedChannelsValue() = _passwordProtectedChannels.value ?: emptySet()
     fun getShowPasswordPromptValue() = _showPasswordPrompt.value ?: false
     fun getPasswordPromptChannelValue() = _passwordPromptChannel.value
-    fun getShowSidebarValue() = _showSidebar.value ?: false
     fun getShowCommandSuggestionsValue() = _showCommandSuggestions.value ?: false
     fun getCommandSuggestionsValue() = _commandSuggestions.value ?: emptyList()
     fun getShowMentionSuggestionsValue() = _showMentionSuggestions.value ?: false
@@ -246,10 +241,6 @@ class ChatState {
     
     fun setPasswordPromptChannel(channel: String?) {
         _passwordPromptChannel.value = channel
-    }
-    
-    fun setShowSidebar(show: Boolean) {
-        _showSidebar.value = show
     }
     
     fun setShowCommandSuggestions(show: Boolean) {
