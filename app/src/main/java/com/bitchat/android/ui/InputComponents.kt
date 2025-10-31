@@ -165,8 +165,9 @@ fun MessageInput(
     onValueChange: (TextFieldValue) -> Unit,
     onSend: () -> Unit,
     onSendVoiceNote: (String?, String?, String) -> Unit,
-    onSendImageNote: (String?, String?, String) -> Unit,
+    onImageSelected: (String?, String?, String) -> Unit,
     onSendFileNote: (String?, String?, String) -> Unit,
+    pendingAttachment: PendingAttachment?,
     selectedPrivatePeer: String?,
     currentChannel: String?,
     nickname: String,
@@ -176,6 +177,8 @@ fun MessageInput(
     val colorScheme = MaterialTheme.colorScheme
     val isFocused = remember { mutableStateOf(false) }
     val hasText = value.text.isNotBlank() // Check if there's text for send button state
+    val hasAttachment = pendingAttachment != null
+    val canSend = hasText || hasAttachment
     val keyboard = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
     var isRecording by remember { mutableStateOf(false) }
@@ -202,7 +205,7 @@ fun MessageInput(
                 cursorBrush = SolidColor(if (isRecording) Color.Transparent else colorScheme.primary),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                 keyboardActions = KeyboardActions(onSend = { 
-                    if (hasText) onSend() // Only send if there's text
+                    if (canSend) onSend() // Only send when there is content
                 }),
                 visualTransformation = CombinedVisualTransformation(
                     listOf(SlashCommandVisualTransformation(), MentionVisualTransformation())
@@ -275,7 +278,7 @@ fun MessageInput(
                     //)
                     ImagePickerButton(
                         onImageReady = { outPath ->
-                            onSendImageNote(latestSelectedPeer.value, latestChannel.value, outPath)
+                            onImageSelected(latestSelectedPeer.value, latestChannel.value, outPath)
                         }
                     )
                 }
@@ -314,28 +317,27 @@ fun MessageInput(
                 }
             )
             
-        } else {
+        }
+
+        if (canSend) {
             // Send button with enabled/disabled state
             IconButton(
-                onClick = { if (hasText) onSend() }, // Only execute if there's text
-                enabled = hasText, // Enable only when there's text
+                onClick = { if (canSend) onSend() },
+                enabled = canSend,
                 modifier = Modifier.size(32.dp)
             ) {
-                // Update send button to match input field colors
                 Box(
                     modifier = Modifier
                         .size(30.dp)
                         .background(
-                            color = if (!hasText) {
-                                // Disabled state - muted grey
+                            color = if (!canSend) {
                                 colorScheme.onSurface.copy(alpha = 0.3f)
                             } else if (selectedPrivatePeer != null || currentChannel != null) {
-                                // Orange for both private messages and channels when enabled
                                 Color(0xFFFF9500).copy(alpha = 0.75f)
                             } else if (colorScheme.background == Color.Black) {
-                                Color(0xFF00FF00).copy(alpha = 0.75f) // Bright green for dark theme
+                                Color(0xFF00FF00).copy(alpha = 0.75f)
                             } else {
-                                Color(0xFF008000).copy(alpha = 0.75f) // Dark green for light theme
+                                Color(0xFF008000).copy(alpha = 0.75f)
                             },
                             shape = CircleShape
                         ),
@@ -345,16 +347,14 @@ fun MessageInput(
                         imageVector = Icons.Filled.ArrowUpward,
                         contentDescription = stringResource(id = R.string.send_message),
                         modifier = Modifier.size(20.dp),
-                        tint = if (!hasText) {
-                            // Disabled state - muted grey icon
+                        tint = if (!canSend) {
                             colorScheme.onSurface.copy(alpha = 0.5f)
                         } else if (selectedPrivatePeer != null || currentChannel != null) {
-                            // Black arrow on orange for both private and channel modes
                             Color.Black
                         } else if (colorScheme.background == Color.Black) {
-                            Color.Black // Black arrow on bright green in dark theme
+                            Color.Black
                         } else {
-                            Color.White // White arrow on dark green in light theme
+                            Color.White
                         }
                     )
                 }
@@ -508,3 +508,4 @@ fun MentionSuggestionItem(
         )
     }
 }
+
