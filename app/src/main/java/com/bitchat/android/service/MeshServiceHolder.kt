@@ -51,4 +51,10 @@ object MeshServiceHolder {
         android.util.Log.d(TAG, "Attaching BluetoothMeshService to holder")
         meshService = service
     }
+
+    @Synchronized
+    fun clear() {
+        android.util.Log.d(TAG, "Clearing BluetoothMeshService from holder")
+        meshService = null
+    }
 }

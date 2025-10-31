@@ -29,6 +29,7 @@ class MeshForegroundService : Service() {
 
         const val ACTION_START = "com.bitchat.android.service.START"
         const val ACTION_STOP = "com.bitchat.android.service.STOP"
+        const val ACTION_QUIT = "com.bitchat.android.service.QUIT"
         const val ACTION_UPDATE_NOTIFICATION = "com.bitchat.android.service.UPDATE_NOTIFICATION"
 
         fun start(context: Context) {
@@ -97,6 +98,15 @@ class MeshForegroundService : Service() {
         when (intent?.action) {
             ACTION_STOP -> {
                 stopForeground(true)
+                stopSelf()
+                return START_NOT_STICKY
+            }
+            ACTION_QUIT -> {
+                // User explicitly requested to quit via notification action
+                try { meshService?.stopServices() } catch (_: Exception) { }
+                try { MeshServiceHolder.clear() } catch (_: Exception) { }
+                stopForeground(true)
+                notificationManager.cancel(NOTIFICATION_ID)
                 stopSelf()
                 return START_NOT_STICKY
             }
@@ -195,6 +205,13 @@ class MeshForegroundService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0)
         )
 
+        // Action: Quit Bitchat
+        val quitIntent = Intent(this, MeshForegroundService::class.java).apply { action = ACTION_QUIT }
+        val quitPendingIntent = PendingIntent.getService(
+            this, 1, quitIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0)
+        )
+
         val title = getString(R.string.app_name)
         val content = getString(R.string.mesh_service_notification_content, activeUsers)
 
@@ -207,6 +224,12 @@ class MeshForegroundService : Service() {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setContentIntent(pendingIntent)
+            // Add an action button that appears when notification is expanded
+            .addAction(
+                android.R.drawable.ic_menu_close_clear_cancel,
+                getString(R.string.notification_action_quit_bitchat),
+                quitPendingIntent
+            )
             .build()
     }
 
