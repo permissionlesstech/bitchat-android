@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -51,6 +52,10 @@ fun MeshPeerListSheet(
     val peerNicknames by viewModel.peerNicknames.observeAsState(emptyMap())
     val peerRSSI by viewModel.peerRSSI.observeAsState(emptyMap())
 
+    // Track nested private chat sheet state
+    var showPrivateChatSheet by remember { mutableStateOf(false) }
+    var privateChatPeerID by remember { mutableStateOf<String?>(null) }
+
     // Bottom sheet state
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
@@ -76,111 +81,140 @@ fun MeshPeerListSheet(
             containerColor = MaterialTheme.colorScheme.background,
             dragHandle = null
         ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(top = 64.dp, bottom = 20.dp)
-            ) {
-                // Channels section
-                if (joinedChannels.isNotEmpty()) {
-                    item(key = "channels_header") {
-                        Text(
-                            text = stringResource(id = R.string.channels).uppercase(),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = colorScheme.onSurface.copy(alpha = 0.7f),
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 24.dp)
-                                .padding(top = 8.dp, bottom = 4.dp)
-                        )
-                    }
-                    
-                    items(
-                        items = joinedChannels.toList(),
-                        key = { "channel_$it" }
-                    ) { channel ->
-                        val isSelected = channel == currentChannel
-                        val unreadCount = unreadChannelMessages[channel] ?: 0
-                        
-                        ChannelRow(
-                            channel = channel,
-                            isSelected = isSelected,
-                            unreadCount = unreadCount,
-                            colorScheme = colorScheme,
-                            onChannelClick = {
-                                viewModel.switchToChannel(channel)
-                                onDismiss()
-                            },
-                            onLeaveChannel = {
-                                viewModel.leaveChannel(channel)
-                            }
-                        )
-                    }
-                }
-                
-                // People section - switch between mesh and geohash lists (iOS-compatible)
-                item(key = "people_section") {
-                    val selectedLocationChannel by viewModel.selectedLocationChannel.observeAsState()
-                    
-                    when (selectedLocationChannel) {
-                        is com.bitchat.android.geohash.ChannelID.Location -> {
-                            // Show geohash people list when in location channel
-                            GeohashPeopleList(
-                                viewModel = viewModel,
-                                onTapPerson = onDismiss
+            Box(modifier = Modifier.fillMaxWidth()) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(top = 64.dp, bottom = 20.dp)
+                ) {
+                    // Channels section
+                    if (joinedChannels.isNotEmpty()) {
+                        item(key = "channels_header") {
+                            Text(
+                                text = stringResource(id = R.string.channels).uppercase(),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = colorScheme.onSurface.copy(alpha = 0.7f),
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 24.dp)
+                                    .padding(top = 8.dp, bottom = 4.dp)
                             )
                         }
-                        else -> {
-                            // Show mesh peer list when in mesh channel (default)
-                            PeopleSection(
-                                modifier = Modifier.padding(top = if (joinedChannels.isNotEmpty()) 16.dp else 0.dp),
-                                connectedPeers = connectedPeers,
-                                peerNicknames = peerNicknames,
-                                peerRSSI = peerRSSI,
-                                nickname = nickname,
+
+                        items(
+                            items = joinedChannels.toList(),
+                            key = { "channel_$it" }
+                        ) { channel ->
+                            val isSelected = channel == currentChannel
+                            val unreadCount = unreadChannelMessages[channel] ?: 0
+
+                            ChannelRow(
+                                channel = channel,
+                                isSelected = isSelected,
+                                unreadCount = unreadCount,
                                 colorScheme = colorScheme,
-                                selectedPrivatePeer = selectedPrivatePeer,
-                                viewModel = viewModel,
-                                onPrivateChatStart = { peerID ->
-                                    viewModel.startPrivateChat(peerID)
-                                    onDismiss()
+                                onChannelClick = {
+                                    // Check if this is a DM channel (starts with @)
+                                    if (channel.startsWith("@")) {
+                                        // Extract peer name and find the peer ID
+                                        val peerName = channel.removePrefix("@")
+                                        val peerID =
+                                            peerNicknames.entries.firstOrNull { it.value == peerName }?.key
+                                        if (peerID != null) {
+                                            privateChatPeerID = peerID
+                                            showPrivateChatSheet = true
+                                        }
+                                    } else {
+                                        // Regular channel switch
+                                        viewModel.switchToChannel(channel)
+                                        onDismiss()
+                                    }
+                                },
+                                onLeaveChannel = {
+                                    viewModel.leaveChannel(channel)
                                 }
                             )
                         }
                     }
+
+                    // People section - switch between mesh and geohash lists (iOS-compatible)
+                    item(key = "people_section") {
+                        val selectedLocationChannel by viewModel.selectedLocationChannel.observeAsState()
+
+                        when (selectedLocationChannel) {
+                            is com.bitchat.android.geohash.ChannelID.Location -> {
+                                // Show geohash people list when in location channel
+                                GeohashPeopleList(
+                                    viewModel = viewModel,
+                                    onTapPerson = onDismiss
+                                )
+                            }
+
+                            else -> {
+                                // Show mesh peer list when in mesh channel (default)
+                                PeopleSection(
+                                    modifier = Modifier.padding(top = if (joinedChannels.isNotEmpty()) 16.dp else 0.dp),
+                                    connectedPeers = connectedPeers,
+                                    peerNicknames = peerNicknames,
+                                    peerRSSI = peerRSSI,
+                                    nickname = nickname,
+                                    colorScheme = colorScheme,
+                                    selectedPrivatePeer = selectedPrivatePeer,
+                                    viewModel = viewModel,
+                                    onPrivateChatStart = { peerID ->
+                                        viewModel.startPrivateChat(peerID)
+                                        privateChatPeerID = peerID
+                                        showPrivateChatSheet = true
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // TopBar (animated)
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .height(64.dp)
+                        .background(colorScheme.background.copy(alpha = topBarAlpha))
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.your_network).uppercase(),
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        ),
+                        color = colorScheme.onSurface,
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .padding(horizontal = 24.dp)
+                    )
+
+                    CloseButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .padding(horizontal = 16.dp)
+                    )
                 }
             }
-
-            // TopBar (animated)
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth()
-                    .height(64.dp)
-                    .background(MaterialTheme.colorScheme.background.copy(alpha = topBarAlpha))
-            ) {
-                Text(
-                    text = stringResource(id = R.string.your_network).uppercase(),
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
-                    ),
-                    color = colorScheme.onSurface,
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .padding(horizontal = 24.dp)
-                )
-                
-                CloseButton(
-                    onClick = onDismiss,
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .padding(horizontal = 16.dp)
-                )
-            }
         }
+
+        // Nested Private Chat Sheet (iOS-style)
+        if (showPrivateChatSheet && privateChatPeerID != null) {
+            PrivateChatSheet(
+                isPresented = showPrivateChatSheet,
+                peerID = privateChatPeerID!!,
+                viewModel = viewModel,
+                onDismiss = {
+                    showPrivateChatSheet = false
+                    privateChatPeerID = null
+                    viewModel.endPrivateChat()
+                }
+            )
         }
     }
 }
@@ -236,7 +270,7 @@ private fun ChannelRow(
                     fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal
                 )
             }
-            
+
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -250,7 +284,7 @@ private fun ChannelRow(
                         modifier = Modifier.size(20.dp)
                     )
                 }
-                
+
                 // Leave channel button
                 IconButton(
                     onClick = onLeaveChannel,
@@ -293,7 +327,7 @@ fun PeopleSection(
                 .padding(horizontal = 24.dp)
                 .padding(top = 8.dp, bottom = 4.dp)
         )
-        
+
         if (connectedPeers.isEmpty()) {
             Text(
                 text = stringResource(id = R.string.no_one_connected),
@@ -313,7 +347,7 @@ fun PeopleSection(
         val privateChats by viewModel.privateChats.observeAsState(emptyMap())
         val favoritePeers by viewModel.favoritePeers.observeAsState(emptySet())
         val peerFingerprints by viewModel.peerFingerprints.observeAsState(emptyMap())
-        
+
         // Reactive favorite computation for all peers
         val peerFavoriteStates = remember(favoritePeers, peerFingerprints, connectedPeers) {
             connectedPeers.associateWith { peerID ->
@@ -322,7 +356,7 @@ fun PeopleSection(
                 fingerprint != null && favoritePeers.contains(fingerprint)
             }
         }
-        
+
         // Build mapping of connected peerID -> noise key hex to unify with offline favorites
         val noiseHexByPeerID: Map<String, String> = connectedPeers.associateWith { pid ->
             try {
@@ -375,8 +409,8 @@ fun PeopleSection(
         privateChats.keys
             .filter { key ->
                 (key.startsWith("nostr_") || hex64Regex.matches(key)) &&
-                !connectedIds.contains(key) &&
-                !noiseHexByPeerID.values.any { it.equals(key, ignoreCase = true) }
+                        !connectedIds.contains(key) &&
+                        !noiseHexByPeerID.values.any { it.equals(key, ignoreCase = true) }
             }
             .forEach { convKey ->
                 val dn = peerNicknames[convKey] ?: (privateChats[convKey]?.lastOrNull()?.sender ?: convKey.take(12))
@@ -387,7 +421,7 @@ fun PeopleSection(
         sortedPeers.forEach { peerID ->
             val isFavorite = peerFavoriteStates[peerID] ?: false
             // fingerprint and favorite relationship resolution not needed here; UI will show Nostr globe for appended offline favorites below
-            
+
             val noiseHex = noiseHexByPeerID[peerID]
             val meshUnread = hasUnreadPrivateMessages.contains(peerID)
             val nostrUnread = if (noiseHex != null) hasUnreadPrivateMessages.contains(noiseHex) else false
@@ -548,12 +582,12 @@ private fun PeerItem(
     val baseName = truncateNickname(baseNameRaw)
     val suffix = if (showHashSuffix) suffixRaw else ""
     val isMe = displayName == "You" || peerID == viewModel.nickname.value
-    
+
     // Get consistent peer color (iOS-compatible)
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
     val assignedColor = viewModel.colorForMeshPeer(peerID, isDark)
     val baseColor = if (isMe) Color(0xFFFF9500) else assignedColor
-    
+
     Surface(
         onClick = onItemClick,
         color = if (isSelected) {
@@ -611,7 +645,7 @@ private fun PeerItem(
                         tint = colorScheme.onSurface.copy(alpha = 0.6f)
                     )
                 }
-                
+
                 // Display name with iOS-style color and hashtag suffix support
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     // Base name with peer-specific color
@@ -626,7 +660,7 @@ private fun PeerItem(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    
+
                     // Hashtag suffix in lighter shade (iOS-style)
                     if (suffix.isNotEmpty()) {
                         Text(
@@ -640,7 +674,7 @@ private fun PeerItem(
                     }
                 }
             }
-            
+
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -654,7 +688,7 @@ private fun PeerItem(
                         modifier = Modifier.size(20.dp)
                     )
                 }
-                
+
                 // Favorite star with proper filled/outlined states
                 IconButton(
                     onClick = onToggleFavorite,
@@ -724,5 +758,225 @@ private fun convertRSSIToSignalStrength(rssi: Int?): Int {
         rssi >= -85 -> 50   // Fair signal
         rssi >= -100 -> 25  // Poor signal
         else -> 0           // Very poor or no signal
+    }
+}
+
+/**
+ * Nested Private Chat Sheet - iOS-style nested bottom sheet
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PrivateChatSheet(
+    isPresented: Boolean,
+    peerID: String,
+    viewModel: ChatViewModel,
+    onDismiss: () -> Unit
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val privateChats by viewModel.privateChats.observeAsState(emptyMap())
+    val peerNicknames by viewModel.peerNicknames.observeAsState(emptyMap())
+    val nickname by viewModel.nickname.observeAsState("")
+    val connectedPeers by viewModel.connectedPeers.observeAsState(emptyList())
+    val peerDirectMap by viewModel.peerDirect.observeAsState(emptyMap())
+    val peerSessionStates by viewModel.peerSessionStates.observeAsState(emptyMap())
+    val favoritePeers by viewModel.favoritePeers.observeAsState(emptySet())
+    val peerFingerprints by viewModel.peerFingerprints.observeAsState(emptyMap())
+
+    // Start private chat when screen opens
+    LaunchedEffect(peerID) {
+        viewModel.startPrivateChat(peerID)
+    }
+
+    val displayName = peerNicknames[peerID] ?: peerID.take(12)
+    val messages = privateChats[peerID] ?: emptyList()
+    val isDirect = peerDirectMap[peerID] == true
+    val isConnected = connectedPeers.contains(peerID) || isDirect
+    val isNostrPeer = peerID.startsWith("nostr_") || peerID.startsWith("nostr:")
+    val sessionState = peerSessionStates[peerID]
+    val fingerprint = peerFingerprints[peerID]
+    val isFavorite = remember(favoritePeers, fingerprint) {
+        if (fingerprint != null) favoritePeers.contains(fingerprint) else viewModel.isFavorite(peerID)
+    }
+
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true
+    )
+
+    if (isPresented) {
+        ModalBottomSheet(
+            modifier = Modifier.statusBarsPadding(),
+            onDismissRequest = onDismiss,
+            sheetState = sheetState,
+            containerColor = colorScheme.background,
+            dragHandle = null
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                Column(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Spacer(modifier = Modifier.height(64.dp))
+
+                    HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
+
+                    // Messages list
+                    var forceScrollToBottom by remember { mutableStateOf(false) }
+                    var isScrolledUp by remember { mutableStateOf(false) }
+
+                    MessagesList(
+                        messages = messages,
+                        currentUserNickname = nickname,
+                        meshService = viewModel.meshService,
+                        modifier = Modifier.weight(1f),
+                        forceScrollToBottom = forceScrollToBottom,
+                        onScrolledUpChanged = { isUp -> isScrolledUp = isUp },
+                        onNicknameClick = { /* handle mention */ },
+                        onMessageLongPress = { /* handle long press */ },
+                        onCancelTransfer = { msg -> viewModel.cancelMediaSend(msg.id) },
+                        onImageClick = { _, _, _ -> /* handle image click */ }
+                    )
+
+                    HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
+
+                    // Input section
+                    var messageText by remember {
+                        mutableStateOf(
+                            androidx.compose.ui.text.input.TextFieldValue(
+                                ""
+                            )
+                        )
+                    }
+
+                    ChatInputSection(
+                        messageText = messageText,
+                        onMessageTextChange = { newText ->
+                            messageText = newText
+                            viewModel.updateMentionSuggestions(newText.text)
+                        },
+                        onSend = {
+                            if (messageText.text.trim().isNotEmpty()) {
+                                viewModel.sendMessage(messageText.text.trim())
+                                messageText = androidx.compose.ui.text.input.TextFieldValue("")
+                                forceScrollToBottom = !forceScrollToBottom
+                            }
+                        },
+                        onSendVoiceNote = { peer, channel, path ->
+                            viewModel.sendVoiceNote(peer, channel, path)
+                        },
+                        onSendImageNote = { peer, channel, path ->
+                            viewModel.sendImageNote(peer, channel, path)
+                        },
+                        onSendFileNote = { peer, channel, path ->
+                            viewModel.sendFileNote(peer, channel, path)
+                        },
+                        showCommandSuggestions = false,
+                        commandSuggestions = emptyList(),
+                        showMentionSuggestions = false,
+                        mentionSuggestions = emptyList(),
+                        onCommandSuggestionClick = { },
+                        onMentionSuggestionClick = { },
+                        selectedPrivatePeer = peerID,
+                        currentChannel = null,
+                        nickname = nickname,
+                        colorScheme = colorScheme,
+                        showMediaButtons = true
+                    )
+                }
+
+                // TopBar (fixed at top, iOS-style)
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .height(64.dp)
+                        .background(colorScheme.background),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Back button
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .padding(start = 16.dp)
+                            .size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.chat_back),
+                            tint = colorScheme.onSurface
+                        )
+                    }
+
+                    // Center content: connection status + name + encryption
+                    Row(
+                        modifier = Modifier.align(Alignment.Center),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        when {
+                            isDirect -> {
+                                Icon(
+                                    imageVector = Icons.Outlined.SettingsInputAntenna,
+                                    contentDescription = stringResource(R.string.cd_connected_peers),
+                                    modifier = Modifier.size(14.dp),
+                                    tint = colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
+                            }
+                            isConnected -> {
+                                Icon(
+                                    imageVector = Icons.Filled.Route,
+                                    contentDescription = stringResource(R.string.cd_ready_for_handshake),
+                                    modifier = Modifier.size(14.dp),
+                                    tint = colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
+                            }
+                            isNostrPeer -> {
+                                Icon(
+                                    imageVector = Icons.Filled.Public,
+                                    contentDescription = stringResource(R.string.cd_nostr_reachable),
+                                    modifier = Modifier.size(14.dp),
+                                    tint = Color(0xFF9C27B0)
+                                )
+                            }
+                        }
+
+                        Text(
+                            text = displayName,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            ),
+                            color = colorScheme.onSurface
+                        )
+
+                        if (!isNostrPeer) {
+                            NoiseSessionIcon(
+                                sessionState = sessionState,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+
+                        IconButton(
+                            onClick = { viewModel.toggleFavorite(peerID) },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
+                                contentDescription = if (isFavorite) stringResource(R.string.cd_remove_favorite) else stringResource(R.string.cd_add_favorite),
+                                modifier = Modifier.size(16.dp),
+                                tint = if (isFavorite) Color(0xFFFFD700) else colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                        }
+                    }
+
+                    CloseButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .padding(horizontal = 16.dp)
+                    )
+
+                }
+            }
+        }
     }
 }

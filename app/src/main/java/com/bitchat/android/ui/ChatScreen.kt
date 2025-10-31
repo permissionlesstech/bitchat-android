@@ -343,7 +343,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
 }
 
 @Composable
-private fun ChatInputSection(
+fun ChatInputSection(
     messageText: TextFieldValue,
     onMessageTextChange: (TextFieldValue) -> Unit,
     onSend: () -> Unit,
