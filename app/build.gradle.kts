@@ -59,6 +59,25 @@ android {
         abortOnError = false
         checkReleaseBuilds = false
     }
+
+    flavorDimensions += "torSupport"
+
+    productFlavors {
+        create("standard") {
+            dimension = "torSupport"
+            // Default lightweight build
+            proguardFiles("proguard-standard.pro")
+        }
+
+        create("tor") {
+            dimension = "torSupport"
+            applicationIdSuffix = ".tor"
+            versionNameSuffix = "-tor"
+            // Tor-enabled build with full privacy features
+            proguardFiles("proguard-tor.pro")
+        }
+    }
+
 }
 
 dependencies {
@@ -96,7 +115,8 @@ dependencies {
     implementation(libs.okhttp)
 
     // Arti (Tor in Rust) Android bridge - use published AAR with native libs
-    implementation("info.guardianproject:arti-mobile-ex:1.2.3")
+    // Only included in tor flavor to reduce APK size for standard builds
+    "torImplementation"("info.guardianproject:arti-mobile-ex:1.2.3")
 
     // Google Play Services Location
     implementation(libs.gms.location)
