@@ -66,6 +66,13 @@ class MainActivity : OrientationAwareActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        // Check if this is a quit request from the notification
+        if (intent.getBooleanExtra("ACTION_QUIT_APP", false)) {
+            android.util.Log.d("MainActivity", "Quit request received in onCreate, finishing activity")
+            finish()
+            return
+        }
+        
         // Enable edge-to-edge display for modern Android look
         enableEdgeToEdge()
 
@@ -631,6 +638,15 @@ class MainActivity : OrientationAwareActivity() {
     
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
+        
+        // Check if this is a quit request from the notification
+        if (intent.getBooleanExtra("ACTION_QUIT_APP", false)) {
+            android.util.Log.d("MainActivity", "Quit request received, finishing activity")
+            finish()
+            return
+        }
+        
         // Handle notification intents when app is already running
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
             handleNotificationIntent(intent)

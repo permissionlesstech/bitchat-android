@@ -103,10 +103,19 @@ class MeshForegroundService : Service() {
             }
             ACTION_QUIT -> {
                 // User explicitly requested to quit via notification action
+                // Stop mesh services and foreground service, but do NOT disable the background setting
                 try { meshService?.stopServices() } catch (_: Exception) { }
                 try { MeshServiceHolder.clear() } catch (_: Exception) { }
                 stopForeground(true)
                 notificationManager.cancel(NOTIFICATION_ID)
+                
+                // Tell MainActivity to finish and close the app
+                val quitAppIntent = Intent(this, MainActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    putExtra("ACTION_QUIT_APP", true)
+                }
+                startActivity(quitAppIntent)
+                
                 stopSelf()
                 return START_NOT_STICKY
             }
