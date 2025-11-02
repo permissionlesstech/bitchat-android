@@ -7,9 +7,10 @@ on:
     branches: [ "main", "develop" ]
 
 jobs:
-  test:
+  verify:
+    name: Test & Lint
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -36,13 +37,32 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-gradle-
 
-    - name: Run unit tests (standard flavor)
-      run: ./gradlew testStandardDebugUnitTest
+    - name: Check for tor-specific changes in PR
+      id: check_tor
+      if: github.event_name == 'pull_request'
+      run: |
+        BASE_SHA="${{ github.event.pull_request.base.sha }}"
+        HEAD_SHA="${{ github.event.pull_request.head.sha }}"
 
-    - name: Run unit tests (tor flavor)
-      run: ./gradlew testTorDebugUnitTest
+        if git diff --name-only $BASE_SHA...$HEAD_SHA | grep -q "^app/src/tor/"; then
+          echo "tor_changed=true" >> $GITHUB_OUTPUT
+          echo "✅ Tor-specific files changed in PR"
+        else
+          echo "tor_changed=false" >> $GITHUB_OUTPUT
+          echo "⏭️  No tor changes in PR, skipping tor lint"
+        fi
 
-    - name: Upload Test Reports (xml+html)
+    - name: Run unit tests (all flavors)
+      run: ./gradlew testStandardDebugUnitTest testTorDebugUnitTest
+
+    - name: Run lint (standard flavor covers shared code)
+      run: ./gradlew lintStandardDebug
+
+    - name: Run lint (tor flavor - only if changed in PR)
+      if: steps.check_tor.outputs.tor_changed == 'true'
+      run: ./gradlew lintTorDebug
+
+    - name: Upload test reports
       if: always()
       uses: actions/upload-artifact@v4
       with:
@@ -50,50 +70,6 @@ jobs:
         path: |
           **/build/test-results/
           **/build/reports/tests/
-
-    - name: Upload test results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: test-results
-        path: |
-          **/build/test-results/
-          **/build/reports/tests/
-
-  lint:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-
-    - name: Setup Gradle
-      uses: gradle/gradle-build-action@v3
-
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
-
-    - name: Cache Gradle packages
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.gradle/caches
-          ~/.gradle/wrapper
-        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-        restore-keys: |
-          ${{ runner.os }}-gradle-
-
-    - name: Run lint (standard flavor)
-      run: ./gradlew lintStandardDebug
-
-    - name: Run lint (tor flavor)
-      run: ./gradlew lintTorDebug
 
     - name: Upload lint results
       uses: actions/upload-artifact@v4
@@ -103,9 +79,13 @@ jobs:
         path: '**/build/reports/lint-results-*.html'
 
   build:
+    name: Build ${{ matrix.variant }}
     runs-on: ubuntu-latest
-    needs: [test, lint]
-    
+    needs: verify
+    strategy:
+      matrix:
+        variant: [StandardDebug, TorDebug, StandardRelease, TorRelease]
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -132,38 +112,11 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-gradle-
 
-    - name: Build standard debug APK
-      run: ./gradlew assembleStandardDebug
+    - name: Build ${{ matrix.variant }} APK
+      run: ./gradlew assemble${{ matrix.variant }}
 
-    - name: Build tor debug APK
-      run: ./gradlew assembleTorDebug
-
-    - name: Build standard release APK
-      run: ./gradlew assembleStandardRelease
-
-    - name: Build tor release APK
-      run: ./gradlew assembleTorRelease
-
-    - name: Upload standard debug APK
+    - name: Upload ${{ matrix.variant }} APK
       uses: actions/upload-artifact@v4
       with:
-        name: standard-debug-apk
-        path: app/build/outputs/apk/standard/debug/*.apk
-
-    - name: Upload tor debug APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: tor-debug-apk
-        path: app/build/outputs/apk/tor/debug/*.apk
-
-    - name: Upload standard release APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: standard-release-apk
-        path: app/build/outputs/apk/standard/release/*.apk
-
-    - name: Upload tor release APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: tor-release-apk
-        path: app/build/outputs/apk/tor/release/*.apk
+        name: ${{ matrix.variant }}-apk
+        path: app/build/outputs/apk/**/*.apk
