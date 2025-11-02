@@ -31,14 +31,50 @@ class MeshForegroundService : Service() {
         const val ACTION_STOP = "com.bitchat.android.service.STOP"
         const val ACTION_QUIT = "com.bitchat.android.service.QUIT"
         const val ACTION_UPDATE_NOTIFICATION = "com.bitchat.android.service.UPDATE_NOTIFICATION"
+        const val ACTION_NOTIFICATION_PERMISSION_GRANTED = "com.bitchat.android.action.NOTIFICATION_PERMISSION_GRANTED"
 
         fun start(context: Context) {
             val intent = Intent(context, MeshForegroundService::class.java).apply { action = ACTION_START }
-            val shouldStartAsFg = shouldStartAsForeground(context)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && shouldStartAsFg) {
+
+            // On API >= 26, avoid background-service start restrictions by using startForegroundService
+            // only when we can actually post a notification (Android 13+ requires runtime notif permission)
+            val bgEnabled = MeshServicePreferences.isBackgroundEnabled(true)
+            val hasNotifPerm = hasNotificationPermissionStatic(context)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                if (bgEnabled && hasNotifPerm) {
+                    context.startForegroundService(intent)
+                } else {
+                    // Do not attempt to start a background service from headless context without notif permission
+                    // or when background is disabled, to avoid BackgroundServiceStartNotAllowedException.
+                    android.util.Log.i(
+                        "MeshForegroundService",
+                        "Not starting service on API>=26 (bgEnabled=$bgEnabled, hasNotifPerm=$hasNotifPerm)"
+                    )
+                }
+            } else {
+                if (bgEnabled) {
+                    context.startService(intent)
+                } else {
+                    android.util.Log.i("MeshForegroundService", "Background disabled; not starting service (pre-O)")
+                }
+            }
+        }
+
+        /**
+         * Helper to be invoked right after POST_NOTIFICATIONS is granted to try
+         * promoting/starting the foreground service immediately without polling.
+         */
+        fun onNotificationPermissionGranted(context: Context) {
+            // If background is enabled and permission now granted, start/promo service
+            val hasNotifPerm = hasNotificationPermissionStatic(context)
+            if (!MeshServicePreferences.isBackgroundEnabled(true) || !hasNotifPerm) return
+
+            val intent = Intent(context, MeshForegroundService::class.java).apply { action = ACTION_UPDATE_NOTIFICATION }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                // Safe now that we can show a notification
                 context.startForegroundService(intent)
             } else {
-                // Start as a regular service to avoid OS crash if we cannot immediately promote
                 context.startService(intent)
             }
         }
@@ -76,7 +112,8 @@ class MeshForegroundService : Service() {
     private lateinit var notificationManager: NotificationManagerCompat
     private var updateJob: Job? = null
     private var meshService: BluetoothMeshService? = null
-    private val scope = CoroutineScope(Dispatchers.Default + Job())
+    private val serviceJob = Job()
+    private val scope = CoroutineScope(Dispatchers.Default + serviceJob)
 
     override fun onCreate() {
         super.onCreate()
@@ -260,6 +297,8 @@ class MeshForegroundService : Service() {
     override fun onDestroy() {
         updateJob?.cancel()
         updateJob = null
+        // Cancel the service coroutine scope to prevent leaks
+        try { serviceJob.cancel() } catch (_: Exception) { }
         super.onDestroy()
     }
 

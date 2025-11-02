@@ -93,6 +93,16 @@
             tools:ignore="DataExtractionRules">
         </service>
 
+        <!-- Listen for in-app broadcast when POST_NOTIFICATIONS is granted -->
+        <receiver
+            android:name=".service.NotificationPermissionChangedReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.bitchat.android.action.NOTIFICATION_PERMISSION_GRANTED" />
+            </intent-filter>
+        </receiver>
+
         <!-- Auto-start mesh service after boot if enabled -->
         <receiver
             android:name=".service.BootCompletedReceiver"
