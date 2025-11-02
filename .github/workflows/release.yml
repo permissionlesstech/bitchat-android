@@ -38,17 +38,21 @@ jobs:
       - name: Grant execute permission for Gradlew
         run: chmod +x ./gradlew
 
-      - name: Build APK
-        run: ./gradlew assembleRelease --no-daemon --stacktrace
-      
+      - name: Build Standard Flavor (lightweight, no Tor)
+        run: ./gradlew assembleStandardRelease --no-daemon --stacktrace
+
+      - name: Build Tor Flavor (full privacy features)
+        run: ./gradlew assembleTorRelease --no-daemon --stacktrace
+
       - name: List APK files
         run: |
           echo "APK files built:"
-          find app/build/outputs/apk/release -name "*.apk" -type f
+          find app/build/outputs/apk -name "*.apk" -type f
 
-      - name: Rename APK
+      - name: Rename APKs
         run: |
-          mv app/build/outputs/apk/release/app-release-unsigned.apk app/build/outputs/apk/release/bitchat.apk
+          mv app/build/outputs/apk/standard/release/app-standard-release-unsigned.apk app/build/outputs/apk/standard/release/bitchat-standard.apk
+          mv app/build/outputs/apk/tor/release/app-tor-release-unsigned.apk app/build/outputs/apk/tor/release/bitchat-tor.apk
       
       - name: DEBUG
         run: |
@@ -72,11 +76,19 @@ jobs:
       #     keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
       #     keyPassword: ${{ secrets.KEY_PASSWORD }}
 
-      - name: Upload APK as artifact
+      - name: Upload Standard APK as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: bitchat-release-apk-${{ github.ref_name }}
-          path: app/build/outputs/apk/release/*.apk
+          name: bitchat-standard-apk-${{ github.ref_name }}
+          path: app/build/outputs/apk/standard/release/*.apk
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Upload Tor APK as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bitchat-tor-apk-${{ github.ref_name }}
+          path: app/build/outputs/apk/tor/release/*.apk
           retention-days: 30
           if-no-files-found: error
 
@@ -85,16 +97,38 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download APK artifact
+      - name: Download Standard APK artifact
         uses: actions/download-artifact@v4
         with:
-          name: bitchat-release-apk-${{ github.ref_name }}
-          path: .
+          name: bitchat-standard-apk-${{ github.ref_name }}
+          path: standard
+
+      - name: Download Tor APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: bitchat-tor-apk-${{ github.ref_name }}
+          path: tor
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: bitchat.apk
+          files: |
+            standard/bitchat-standard.apk
+            tor/bitchat-tor.apk
           name: Release ${{ github.ref_name }}
+          body: |
+            ## bitchat Android Release
+
+            ### Two builds available:
+
+            **bitchat-standard.apk** (~4-5MB)
+            - Lightweight build without Tor
+            - Direct internet connections
+            - Recommended for most users
+
+            **bitchat-tor.apk** (~140MB)
+            - Full privacy features with Tor integration
+            - All traffic routed through Tor network
+            - Recommended for maximum anonymity
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
