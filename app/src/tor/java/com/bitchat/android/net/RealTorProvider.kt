@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.launch
@@ -99,7 +100,7 @@ class RealTorProvider : TorProvider {
                 }
                 desiredMode = savedMode
                 socksAddr = InetSocketAddress("127.0.0.1", currentSocksPort)
-                try { OkHttpProvider.reset() } catch (_: Throwable) { }
+                try { OkHttpProvider.reset() } catch (_: Throwable) { }  // Only reset OkHttp during init
             }
             appScope.launch {
                 applyMode(application, savedMode)
@@ -149,11 +150,7 @@ class RealTorProvider : TorProvider {
                         currentSocksPort = DEFAULT_SOCKS_PORT
                         bindRetryAttempts = 0
                         lifecycleState = LifecycleState.STOPPED
-                        // Rebuild clients WITHOUT proxy and reconnect relays
-                        try {
-                            OkHttpProvider.reset()
-                            com.bitchat.android.nostr.NostrRelayManager.shared.resetAllConnections()
-                        } catch (_: Throwable) { }
+                        resetNetworkConnections()
                     }
                     TorMode.ON -> {
                         Log.i(TAG, "applyMode: ON -> starting arti")
@@ -169,16 +166,14 @@ class RealTorProvider : TorProvider {
                             state = TorProvider.TorState.STARTING
                         )
                         socksAddr = InetSocketAddress("127.0.0.1", currentSocksPort)
-                        try { OkHttpProvider.reset() } catch (_: Throwable) { }
-                        try { com.bitchat.android.nostr.NostrRelayManager.shared.resetAllConnections() } catch (_: Throwable) { }
+                        resetNetworkConnections()
                         startArti(application, useDelay = false)
                         appScope.launch {
                             waitUntilBootstrapped()
                             if (_statusFlow.value.running && desiredMode == TorMode.ON) {
                                 socksAddr = InetSocketAddress("127.0.0.1", currentSocksPort)
                                 Log.i(TAG, "Tor ON: proxy set to ${socksAddr}")
-                                OkHttpProvider.reset()
-                                try { com.bitchat.android.nostr.NostrRelayManager.shared.resetAllConnections() } catch (_: Throwable) { }
+                                resetNetworkConnections()
                             }
                         }
                     }
@@ -202,7 +197,7 @@ class RealTorProvider : TorProvider {
                 val s = text.toString()
                 Log.i(TAG, "arti: $s")
                 lastLogTime.set(System.currentTimeMillis())
-                _statusFlow.value = _statusFlow.value.copy(lastLogLine = s)
+                _statusFlow.update { it.copy(lastLogLine = s) }
                 handleArtiLogLine(s)
             }
 
@@ -216,17 +211,17 @@ class RealTorProvider : TorProvider {
             proxy.start()
             lastLogTime.set(System.currentTimeMillis())
 
-            _statusFlow.value = _statusFlow.value.copy(
+            _statusFlow.update { it.copy(
                 running = true,
                 bootstrapPercent = 0,
                 state = TorProvider.TorState.STARTING
-            )
+            ) }
             lifecycleState = LifecycleState.RUNNING
             startInactivityMonitoring()
 
         } catch (e: Exception) {
             Log.e(TAG, "Error starting Arti on port $currentSocksPort: ${e.message}")
-            _statusFlow.value = _statusFlow.value.copy(state = TorProvider.TorState.ERROR)
+            _statusFlow.update { it.copy(state = TorProvider.TorState.ERROR) }
 
             val isBindError = isBindError(e)
             if (isBindError && bindRetryAttempts < MAX_RETRY_ATTEMPTS) {
@@ -234,17 +229,16 @@ class RealTorProvider : TorProvider {
                 currentSocksPort++
                 Log.w(TAG, "Port bind failed (attempt $bindRetryAttempts/$MAX_RETRY_ATTEMPTS), retrying with port $currentSocksPort")
                 socksAddr = InetSocketAddress("127.0.0.1", currentSocksPort)
-                try { OkHttpProvider.reset() } catch (_: Throwable) { }
-                try { com.bitchat.android.nostr.NostrRelayManager.shared.resetAllConnections() } catch (_: Throwable) { }
+                resetNetworkConnections()
                 startArti(application, useDelay = false)
             } else if (isBindError) {
                 Log.e(TAG, "Max bind retry attempts reached ($MAX_RETRY_ATTEMPTS), giving up")
                 lifecycleState = LifecycleState.STOPPED
-                _statusFlow.value = _statusFlow.value.copy(
+                _statusFlow.update { it.copy(
                     running = false,
                     bootstrapPercent = 0,
                     state = TorProvider.TorState.ERROR
-                )
+                ) }
             } else {
                 scheduleRetry(application)
             }
@@ -258,6 +252,15 @@ class RealTorProvider : TorProvider {
                message.contains("port") && message.contains("use") ||
                message.contains("permission denied") && message.contains("port") ||
                message.contains("could not bind")
+    }
+
+    /**
+     * Reset network connections after Tor state changes.
+     * Rebuilds OkHttp clients and reconnects Nostr relays.
+     */
+    private fun resetNetworkConnections() {
+        try { OkHttpProvider.reset() } catch (_: Throwable) { }
+        try { com.bitchat.android.nostr.NostrRelayManager.shared.resetAllConnections() } catch (_: Throwable) { }
     }
 
     private fun stopArtiInternal() {
@@ -372,47 +375,46 @@ class RealTorProvider : TorProvider {
     private fun handleArtiLogLine(s: String) {
         when {
             s.contains("AMEx: state changed to Initialized", ignoreCase = true) -> {
-                _statusFlow.value = _statusFlow.value.copy(state = TorProvider.TorState.STARTING)
+                _statusFlow.update { it.copy(state = TorProvider.TorState.STARTING) }
                 completeWaitersIf(TorProvider.TorState.STARTING)
             }
             s.contains("AMEx: state changed to Starting", ignoreCase = true) -> {
-                _statusFlow.value = _statusFlow.value.copy(state = TorProvider.TorState.STARTING)
+                _statusFlow.update { it.copy(state = TorProvider.TorState.STARTING) }
                 completeWaitersIf(TorProvider.TorState.STARTING)
             }
             s.contains("Sufficiently bootstrapped; system SOCKS now functional", ignoreCase = true) -> {
-                _statusFlow.value = _statusFlow.value.copy(
+                _statusFlow.update { it.copy(
                     bootstrapPercent = 75,
                     state = TorProvider.TorState.BOOTSTRAPPING
-                )
+                ) }
                 retryAttempts = 0
                 bindRetryAttempts = 0
                 startInactivityMonitoring()
             }
             s.contains("We have found that guard [scrubbed] is usable.", ignoreCase = true) -> {
-                val bp = if (_statusFlow.value.bootstrapPercent >= 100) 100 else 100
-                _statusFlow.value = _statusFlow.value.copy(
+                _statusFlow.update { it.copy(
                     state = TorProvider.TorState.RUNNING,
-                    bootstrapPercent = bp,
+                    bootstrapPercent = 100,
                     running = true
-                )
+                ) }
                 completeWaitersIf(TorProvider.TorState.RUNNING)
             }
             s.contains("AMEx: state changed to Stopping", ignoreCase = true) -> {
-                _statusFlow.value = _statusFlow.value.copy(
+                _statusFlow.update { it.copy(
                     state = TorProvider.TorState.STOPPING,
                     running = false
-                )
+                ) }
             }
             s.contains("AMEx: state changed to Stopped", ignoreCase = true) -> {
-                _statusFlow.value = _statusFlow.value.copy(
+                _statusFlow.update { it.copy(
                     state = TorProvider.TorState.OFF,
                     running = false,
                     bootstrapPercent = 0
-                )
+                ) }
                 completeWaitersIf(TorProvider.TorState.OFF)
             }
             s.contains("Another process has the lock on our state files", ignoreCase = true) -> {
-                _statusFlow.value = _statusFlow.value.copy(state = TorProvider.TorState.ERROR)
+                _statusFlow.update { it.copy(state = TorProvider.TorState.ERROR) }
             }
         }
     }
