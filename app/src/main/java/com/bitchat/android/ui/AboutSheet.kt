@@ -31,6 +31,8 @@ import com.bitchat.android.nostr.PoWPreferenceManager
 import com.bitchat.android.ui.debug.DebugSettingsSheet
 import androidx.compose.ui.res.stringResource
 import com.bitchat.android.R
+import com.bitchat.android.net.TorProviderFactory
+
 /**
  * About Sheet for bitchat app information
  * Matches the design language of LocationChannelsSheet
@@ -383,7 +385,8 @@ fun AboutSheet(
                     // Network (Tor) section
                     item(key = "network_section") {
                         val torMode = remember { mutableStateOf(com.bitchat.android.net.TorPreferenceManager.get(context)) }
-                        val torStatus by com.bitchat.android.net.TorManager.statusFlow.collectAsState()
+                        val torProvider = remember { TorProviderFactory.getInstance() }
+                        val torStatus by torProvider.statusFlow.collectAsState()
                         Text(
                             text = stringResource(R.string.about_network),
                             style = MaterialTheme.typography.labelLarge,
