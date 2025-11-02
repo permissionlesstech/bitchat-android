@@ -1,7 +1,9 @@
 package com.bitchat.android.net
 
+import android.app.Activity
 import android.app.Application
 import android.util.Log
+import com.bitchat.android.util.AppConstants
 import info.guardianproject.arti.ArtiLogListener
 import info.guardianproject.arti.ArtiProxy
 import kotlinx.coroutines.CoroutineScope
@@ -24,16 +26,22 @@ import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Manages embedded Tor lifecycle & provides SOCKS proxy address.
- * Uses Arti (Tor in Rust) for improved security and reliability.
+ * Real Tor provider implementation using Guardian Project Arti.
+ *
+ * This implementation is used in the tor flavor, which includes the full Arti library
+ * and provides complete Tor anonymity features.
+ *
+ * Based on the original TorManager implementation.
  */
-object TorManager {
-    private const val TAG = "TorManager"
-    private const val DEFAULT_SOCKS_PORT = com.bitchat.android.util.AppConstants.Tor.DEFAULT_SOCKS_PORT
-    private const val RESTART_DELAY_MS = com.bitchat.android.util.AppConstants.Tor.RESTART_DELAY_MS // 2 seconds between stop/start
-    private const val INACTIVITY_TIMEOUT_MS = com.bitchat.android.util.AppConstants.Tor.INACTIVITY_TIMEOUT_MS // 5 seconds of no activity before restart
-    private const val MAX_RETRY_ATTEMPTS = com.bitchat.android.util.AppConstants.Tor.MAX_RETRY_ATTEMPTS
-    private const val STOP_TIMEOUT_MS = com.bitchat.android.util.AppConstants.Tor.STOP_TIMEOUT_MS
+class RealTorProvider : TorProvider {
+    companion object {
+        private const val TAG = "RealTorProvider"
+        private const val DEFAULT_SOCKS_PORT = AppConstants.Tor.DEFAULT_SOCKS_PORT
+        private const val RESTART_DELAY_MS = AppConstants.Tor.RESTART_DELAY_MS
+        private const val INACTIVITY_TIMEOUT_MS = AppConstants.Tor.INACTIVITY_TIMEOUT_MS
+        private const val MAX_RETRY_ATTEMPTS = AppConstants.Tor.MAX_RETRY_ATTEMPTS
+        private const val STOP_TIMEOUT_MS = AppConstants.Tor.STOP_TIMEOUT_MS
+    }
 
     private val appScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -54,27 +62,28 @@ object TorManager {
     private enum class LifecycleState { STOPPED, STARTING, RUNNING, STOPPING }
     @Volatile private var lifecycleState: LifecycleState = LifecycleState.STOPPED
 
-    enum class TorState { OFF, STARTING, BOOTSTRAPPING, RUNNING, STOPPING, ERROR }
-
-    data class TorStatus(
-        val mode: TorMode = TorMode.OFF,
-        val running: Boolean = false,
-        val bootstrapPercent: Int = 0, // kept for backwards compatibility with UI; 0 or 100 only
-        val lastLogLine: String = "",
-        val state: TorState = TorState.OFF
+    private val _statusFlow = MutableStateFlow(
+        TorProvider.TorStatus(
+            mode = TorMode.OFF,
+            running = false,
+            bootstrapPercent = 0,
+            lastLogLine = "",
+            state = TorProvider.TorState.OFF,
+            isAvailable = true
+        )
     )
 
-    private val _status = MutableStateFlow(TorStatus())
-    val statusFlow: StateFlow<TorStatus> = _status.asStateFlow()
+    override val statusFlow: StateFlow<TorProvider.TorStatus> = _statusFlow.asStateFlow()
 
-    private val stateChangeDeferred = AtomicReference<CompletableDeferred<TorState>?>(null)
+    private val stateChangeDeferred = AtomicReference<CompletableDeferred<TorProvider.TorState>?>(null)
 
-    fun isProxyEnabled(): Boolean {
-        val s = _status.value
-        return s.mode != TorMode.OFF && s.running && s.bootstrapPercent >= 100 && socksAddr != null && s.state == TorState.RUNNING
+    override fun isProxyEnabled(): Boolean {
+        val s = _statusFlow.value
+        return s.mode != TorMode.OFF && s.running && s.bootstrapPercent >= 100 &&
+               socksAddr != null && s.state == TorProvider.TorState.RUNNING
     }
 
-    fun init(application: Application) {
+    override fun init(application: Application) {
         if (initialized) return
         synchronized(this) {
             if (initialized) return
@@ -105,15 +114,16 @@ object TorManager {
         }
     }
 
-    fun currentSocksAddress(): InetSocketAddress? = socksAddr
+    override fun currentSocksAddress(): InetSocketAddress? = socksAddr
 
-    suspend fun applyMode(application: Application, mode: TorMode) {
+    override suspend fun applyMode(application: Application, mode: TorMode) {
         applyMutex.withLock {
             try {
                 desiredMode = mode
                 lastMode = mode
-                val s = _status.value
-                if (mode == s.mode && mode != TorMode.OFF && (lifecycleState == LifecycleState.STARTING || lifecycleState == LifecycleState.RUNNING)) {
+                val s = _statusFlow.value
+                if (mode == s.mode && mode != TorMode.OFF &&
+                    (lifecycleState == LifecycleState.STARTING || lifecycleState == LifecycleState.RUNNING)) {
                     Log.i(TAG, "applyMode: already in progress/running mode=$mode, state=$lifecycleState; skip")
                     return
                 }
@@ -121,12 +131,21 @@ object TorManager {
                     TorMode.OFF -> {
                         Log.i(TAG, "applyMode: OFF -> stopping tor")
                         lifecycleState = LifecycleState.STOPPING
-                        _status.value = _status.value.copy(mode = TorMode.OFF, running = false, bootstrapPercent = 0, state = TorState.STOPPING)
-                        stopArti() // non-suspending immediate request
-                        // Best-effort wait for STOPPED before we declare OFF
-                        waitForStateTransition(target = TorState.OFF, timeoutMs = STOP_TIMEOUT_MS)
+                        _statusFlow.value = _statusFlow.value.copy(
+                            mode = TorMode.OFF,
+                            running = false,
+                            bootstrapPercent = 0,
+                            state = TorProvider.TorState.STOPPING
+                        )
+                        stopArti()
+                        waitForStateTransition(target = TorProvider.TorState.OFF, timeoutMs = STOP_TIMEOUT_MS)
                         socksAddr = null
-                        _status.value = _status.value.copy(mode = TorMode.OFF, running = false, bootstrapPercent = 0, state = TorState.OFF)
+                        _statusFlow.value = _statusFlow.value.copy(
+                            mode = TorMode.OFF,
+                            running = false,
+                            bootstrapPercent = 0,
+                            state = TorProvider.TorState.OFF
+                        )
                         currentSocksPort = DEFAULT_SOCKS_PORT
                         bindRetryAttempts = 0
                         lifecycleState = LifecycleState.STOPPED
@@ -138,23 +157,24 @@ object TorManager {
                     }
                     TorMode.ON -> {
                         Log.i(TAG, "applyMode: ON -> starting arti")
-                        // Reset port to default unless we're already using a higher port
                         if (currentSocksPort < DEFAULT_SOCKS_PORT) {
                             currentSocksPort = DEFAULT_SOCKS_PORT
                         }
                         bindRetryAttempts = 0
                         lifecycleState = LifecycleState.STARTING
-                        _status.value = _status.value.copy(mode = TorMode.ON, running = false, bootstrapPercent = 0, state = TorState.STARTING)
-                        // Immediately set the planned SOCKS address so all traffic is forced through it,
-                        // even before Tor is fully bootstrapped. This prevents any direct connections.
+                        _statusFlow.value = _statusFlow.value.copy(
+                            mode = TorMode.ON,
+                            running = false,
+                            bootstrapPercent = 0,
+                            state = TorProvider.TorState.STARTING
+                        )
                         socksAddr = InetSocketAddress("127.0.0.1", currentSocksPort)
                         try { OkHttpProvider.reset() } catch (_: Throwable) { }
                         try { com.bitchat.android.nostr.NostrRelayManager.shared.resetAllConnections() } catch (_: Throwable) { }
                         startArti(application, useDelay = false)
-                        // Defer enabling proxy until bootstrap completes
                         appScope.launch {
                             waitUntilBootstrapped()
-                            if (_status.value.running && desiredMode == TorMode.ON) {
+                            if (_statusFlow.value.running && desiredMode == TorMode.ON) {
                                 socksAddr = InetSocketAddress("127.0.0.1", currentSocksPort)
                                 Log.i(TAG, "Tor ON: proxy set to ${socksAddr}")
                                 OkHttpProvider.reset()
@@ -171,9 +191,7 @@ object TorManager {
 
     private suspend fun startArti(application: Application, useDelay: Boolean = false) {
         try {
-            // Ensure any previous instance is fully stopped before starting a new one
             stopArtiAndWait()
-
             Log.i(TAG, "Starting Arti on port $currentSocksPort…")
             if (useDelay) {
                 delay(RESTART_DELAY_MS)
@@ -184,7 +202,7 @@ object TorManager {
                 val s = text.toString()
                 Log.i(TAG, "arti: $s")
                 lastLogTime.set(System.currentTimeMillis())
-                _status.value = _status.value.copy(lastLogLine = s)
+                _statusFlow.value = _statusFlow.value.copy(lastLogLine = s)
                 handleArtiLogLine(s)
             }
 
@@ -198,42 +216,41 @@ object TorManager {
             proxy.start()
             lastLogTime.set(System.currentTimeMillis())
 
-            _status.value = _status.value.copy(running = true, bootstrapPercent = 0, state = TorState.STARTING)
+            _statusFlow.value = _statusFlow.value.copy(
+                running = true,
+                bootstrapPercent = 0,
+                state = TorProvider.TorState.STARTING
+            )
             lifecycleState = LifecycleState.RUNNING
             startInactivityMonitoring()
 
-            // Removed onion service startup (BLE-only file transfer in this branch)
-
         } catch (e: Exception) {
             Log.e(TAG, "Error starting Arti on port $currentSocksPort: ${e.message}")
-            _status.value = _status.value.copy(state = TorState.ERROR)
-            
-            // Check if this is a bind error
+            _statusFlow.value = _statusFlow.value.copy(state = TorProvider.TorState.ERROR)
+
             val isBindError = isBindError(e)
             if (isBindError && bindRetryAttempts < MAX_RETRY_ATTEMPTS) {
                 bindRetryAttempts++
                 currentSocksPort++
                 Log.w(TAG, "Port bind failed (attempt $bindRetryAttempts/$MAX_RETRY_ATTEMPTS), retrying with port $currentSocksPort")
-                // Update planned SOCKS address immediately so all new connections target the new port
                 socksAddr = InetSocketAddress("127.0.0.1", currentSocksPort)
                 try { OkHttpProvider.reset() } catch (_: Throwable) { }
                 try { com.bitchat.android.nostr.NostrRelayManager.shared.resetAllConnections() } catch (_: Throwable) { }
-                // Immediate retry with incremented port, no exponential backoff for bind errors
                 startArti(application, useDelay = false)
             } else if (isBindError) {
                 Log.e(TAG, "Max bind retry attempts reached ($MAX_RETRY_ATTEMPTS), giving up")
                 lifecycleState = LifecycleState.STOPPED
-                _status.value = _status.value.copy(running = false, bootstrapPercent = 0, state = TorState.ERROR)
+                _statusFlow.value = _statusFlow.value.copy(
+                    running = false,
+                    bootstrapPercent = 0,
+                    state = TorProvider.TorState.ERROR
+                )
             } else {
-                // For non-bind errors, use the existing retry mechanism
                 scheduleRetry(application)
             }
         }
     }
-    
-    /**
-     * Checks if the exception indicates a port binding failure
-     */
+
     private fun isBindError(exception: Exception): Boolean {
         val message = exception.message?.lowercase() ?: ""
         return message.contains("bind") ||
@@ -260,15 +277,16 @@ object TorManager {
     private fun stopArti() {
         stopArtiInternal()
         socksAddr = null
-        _status.value = _status.value.copy(running = false, bootstrapPercent = 0, state = TorState.STOPPING)
+        _statusFlow.value = _statusFlow.value.copy(
+            running = false,
+            bootstrapPercent = 0,
+            state = TorProvider.TorState.STOPPING
+        )
     }
 
     private suspend fun stopArtiAndWait(timeoutMs: Long = STOP_TIMEOUT_MS) {
-        // Request stop
         stopArtiInternal()
-        // Wait for confirmation via logs (Stopped) or timeout
-        waitForStateTransition(target = TorState.OFF, timeoutMs = timeoutMs)
-        // Small grace period before relaunch to let file locks clear
+        waitForStateTransition(target = TorProvider.TorState.OFF, timeoutMs = timeoutMs)
         delay(200)
     }
 
@@ -276,7 +294,7 @@ object TorManager {
         Log.i(TAG, "Restarting Arti (keeping SOCKS proxy enabled)...")
         stopArtiAndWait()
         delay(RESTART_DELAY_MS)
-        startArti(application, useDelay = false) // Already delayed above
+        startArti(application, useDelay = false)
     }
 
     private fun startInactivityMonitoring() {
@@ -287,11 +305,11 @@ object TorManager {
                 val currentTime = System.currentTimeMillis()
                 val lastActivity = lastLogTime.get()
                 val timeSinceLastActivity = currentTime - lastActivity
-                
+
                 if (timeSinceLastActivity > INACTIVITY_TIMEOUT_MS) {
-                    val currentMode = _status.value.mode
+                    val currentMode = _statusFlow.value.mode
                     if (currentMode == TorMode.ON) {
-                        val bootstrapPercent = _status.value.bootstrapPercent
+                        val bootstrapPercent = _statusFlow.value.bootstrapPercent
                         if (bootstrapPercent < 100) {
                             Log.w(TAG, "Inactivity detected (${timeSinceLastActivity}ms), restarting Arti")
                             currentApplication?.let { app ->
@@ -316,11 +334,11 @@ object TorManager {
         retryJob?.cancel()
         if (retryAttempts < MAX_RETRY_ATTEMPTS) {
             retryAttempts++
-            val delayMs = (1000L * (1 shl retryAttempts)).coerceAtMost(30000L) // Exponential backoff, max 30s
+            val delayMs = (1000L * (1 shl retryAttempts)).coerceAtMost(30000L)
             Log.w(TAG, "Scheduling Arti retry attempt $retryAttempts in ${delayMs}ms")
             retryJob = appScope.launch {
                 delay(delayMs)
-                val currentMode = _status.value.mode
+                val currentMode = _statusFlow.value.mode
                 if (currentMode == TorMode.ON) {
                     Log.i(TAG, "Retrying Arti start (attempt $retryAttempts)")
                     restartArti(application)
@@ -337,71 +355,91 @@ object TorManager {
     }
 
     private suspend fun waitUntilBootstrapped() {
-        val current = _status.value
+        val current = _statusFlow.value
         if (!current.running) return
-        if (current.bootstrapPercent >= 100 && current.state == TorState.RUNNING) return
-        // Suspend until we observe RUNNING at least once
+        if (current.bootstrapPercent >= 100 && current.state == TorProvider.TorState.RUNNING) return
         while (true) {
-            val s = statusFlow.first { (it.bootstrapPercent >= 100 && it.state == TorState.RUNNING) || !it.running || it.state == TorState.ERROR }
-            if (!s.running || s.state == TorState.ERROR) return
-            if (s.bootstrapPercent >= 100 && s.state == TorState.RUNNING) return
+            val s = statusFlow.first {
+                (it.bootstrapPercent >= 100 && it.state == TorProvider.TorState.RUNNING) ||
+                !it.running ||
+                it.state == TorProvider.TorState.ERROR
+            }
+            if (!s.running || s.state == TorProvider.TorState.ERROR) return
+            if (s.bootstrapPercent >= 100 && s.state == TorProvider.TorState.RUNNING) return
         }
     }
 
     private fun handleArtiLogLine(s: String) {
         when {
             s.contains("AMEx: state changed to Initialized", ignoreCase = true) -> {
-                _status.value = _status.value.copy(state = TorState.STARTING)
-                completeWaitersIf(TorState.STARTING)
+                _statusFlow.value = _statusFlow.value.copy(state = TorProvider.TorState.STARTING)
+                completeWaitersIf(TorProvider.TorState.STARTING)
             }
             s.contains("AMEx: state changed to Starting", ignoreCase = true) -> {
-                _status.value = _status.value.copy(state = TorState.STARTING)
-                completeWaitersIf(TorState.STARTING)
+                _statusFlow.value = _statusFlow.value.copy(state = TorProvider.TorState.STARTING)
+                completeWaitersIf(TorProvider.TorState.STARTING)
             }
             s.contains("Sufficiently bootstrapped; system SOCKS now functional", ignoreCase = true) -> {
-                _status.value = _status.value.copy(bootstrapPercent = 75, state = TorState.BOOTSTRAPPING)
+                _statusFlow.value = _statusFlow.value.copy(
+                    bootstrapPercent = 75,
+                    state = TorProvider.TorState.BOOTSTRAPPING
+                )
                 retryAttempts = 0
                 bindRetryAttempts = 0
                 startInactivityMonitoring()
             }
-            //s.contains("AMEx: state changed to Running", ignoreCase = true) -> {
             s.contains("We have found that guard [scrubbed] is usable.", ignoreCase = true) -> {
-                // If we already saw Sufficiently bootstrapped, mark as RUNNING and ready.
-                val bp = if (_status.value.bootstrapPercent >= 100) 100 else 100 // treat Running as ready
-                _status.value = _status.value.copy(state = TorState.RUNNING, bootstrapPercent = bp, running = true)
-                completeWaitersIf(TorState.RUNNING)
+                val bp = if (_statusFlow.value.bootstrapPercent >= 100) 100 else 100
+                _statusFlow.value = _statusFlow.value.copy(
+                    state = TorProvider.TorState.RUNNING,
+                    bootstrapPercent = bp,
+                    running = true
+                )
+                completeWaitersIf(TorProvider.TorState.RUNNING)
             }
             s.contains("AMEx: state changed to Stopping", ignoreCase = true) -> {
-                _status.value = _status.value.copy(state = TorState.STOPPING, running = false)
+                _statusFlow.value = _statusFlow.value.copy(
+                    state = TorProvider.TorState.STOPPING,
+                    running = false
+                )
             }
             s.contains("AMEx: state changed to Stopped", ignoreCase = true) -> {
-                _status.value = _status.value.copy(state = TorState.OFF, running = false, bootstrapPercent = 0)
-                completeWaitersIf(TorState.OFF)
+                _statusFlow.value = _statusFlow.value.copy(
+                    state = TorProvider.TorState.OFF,
+                    running = false,
+                    bootstrapPercent = 0
+                )
+                completeWaitersIf(TorProvider.TorState.OFF)
             }
             s.contains("Another process has the lock on our state files", ignoreCase = true) -> {
-                // Signal error; we'll likely need to wait longer before restart
-                _status.value = _status.value.copy(state = TorState.ERROR)
+                _statusFlow.value = _statusFlow.value.copy(state = TorProvider.TorState.ERROR)
             }
         }
     }
 
-    private fun completeWaitersIf(state: TorState) {
+    private fun completeWaitersIf(state: TorProvider.TorState) {
         stateChangeDeferred.getAndSet(null)?.let { def ->
             def.complete(state)
         }
     }
 
-    private suspend fun waitForStateTransition(target: TorState, timeoutMs: Long): TorState? {
-        val def = CompletableDeferred<TorState>()
+    private suspend fun waitForStateTransition(target: TorProvider.TorState, timeoutMs: Long): TorProvider.TorState? {
+        val def = CompletableDeferred<TorProvider.TorState>()
         stateChangeDeferred.getAndSet(def)?.cancel()
         return withTimeoutOrNull(timeoutMs) {
-            // Fast-path: if we're already there
-            val cur = _status.value.state
+            val cur = _statusFlow.value.state
             if (cur == target) return@withTimeoutOrNull cur
             def.await()
         }
     }
 
-    // Visible for instrumentation tests to validate installation
-    fun installResourcesForTest(application: Application): Boolean { return true }
+    override fun isTorAvailable(): Boolean = true
+
+    override fun isModuleInstalled(): Boolean = true // Always bundled in tor flavor
+
+    override fun requestModuleInstall(activity: Activity, listener: TorProvider.InstallStatusListener) {
+        // No-op: Tor is already bundled in this flavor
+        Log.i(TAG, "Tor module already bundled - no installation needed")
+        listener.onInstallCompleted()
+    }
 }
