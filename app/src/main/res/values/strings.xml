@@ -378,8 +378,9 @@
   <string name="pwd_label">Password</string>
   <string name="join">Join</string>
   <string name="cancel">Cancel</string>
+    <string name="tor_not_available_in_this_build">Tor not available in this build</string>
 
-  <!-- Plurals -->
+    <!-- Plurals -->
   <plurals name="notification_and_more">
     <item quantity="one">and %d more</item>
     <item quantity="other">and %d more</item>
