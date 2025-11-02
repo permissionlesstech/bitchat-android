@@ -36,8 +36,11 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-gradle-
 
-    - name: Run unit tests
-      run: ./gradlew testDebugUnitTest
+    - name: Run unit tests (standard flavor)
+      run: ./gradlew testStandardDebugUnitTest
+
+    - name: Run unit tests (tor flavor)
+      run: ./gradlew testTorDebugUnitTest
 
     - name: Upload Test Reports (xml+html)
       if: always()
@@ -86,8 +89,11 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-gradle-
 
-    - name: Run lint
-      run: ./gradlew lintDebug
+    - name: Run lint (standard flavor)
+      run: ./gradlew lintStandardDebug
+
+    - name: Run lint (tor flavor)
+      run: ./gradlew lintTorDebug
 
     - name: Upload lint results
       uses: actions/upload-artifact@v4
@@ -126,20 +132,38 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-gradle-
 
-    - name: Build debug APK
-      run: ./gradlew assembleDebug
+    - name: Build standard debug APK
+      run: ./gradlew assembleStandardDebug
 
-    - name: Build release APK
-      run: ./gradlew assembleRelease
+    - name: Build tor debug APK
+      run: ./gradlew assembleTorDebug
 
-    - name: Upload debug APK
+    - name: Build standard release APK
+      run: ./gradlew assembleStandardRelease
+
+    - name: Build tor release APK
+      run: ./gradlew assembleTorRelease
+
+    - name: Upload standard debug APK
       uses: actions/upload-artifact@v4
       with:
-        name: debug-apk
-        path: app/build/outputs/apk/debug/*.apk
+        name: standard-debug-apk
+        path: app/build/outputs/apk/standard/debug/*.apk
 
-    - name: Upload release APK
+    - name: Upload tor debug APK
       uses: actions/upload-artifact@v4
       with:
-        name: release-apk
-        path: app/build/outputs/apk/release/*.apk
+        name: tor-debug-apk
+        path: app/build/outputs/apk/tor/debug/*.apk
+
+    - name: Upload standard release APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: standard-release-apk
+        path: app/build/outputs/apk/standard/release/*.apk
+
+    - name: Upload tor release APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: tor-release-apk
+        path: app/build/outputs/apk/tor/release/*.apk
