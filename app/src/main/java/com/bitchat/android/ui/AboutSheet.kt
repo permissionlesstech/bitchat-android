@@ -393,6 +393,38 @@ fun AboutSheet(
                                 .padding(top = 24.dp, bottom = 8.dp)
                         )
                         Column(modifier = Modifier.padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            // Background run toggle
+                            var backgroundEnabled by remember { mutableStateOf(com.bitchat.android.service.MeshServicePreferences.isBackgroundEnabled(true)) }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        text = stringResource(R.string.about_background_title),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.about_background_desc),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                    )
+                                }
+                                Switch(
+                                    checked = backgroundEnabled,
+                                    onCheckedChange = { enabled ->
+                                        backgroundEnabled = enabled
+                                        com.bitchat.android.service.MeshServicePreferences.setBackgroundEnabled(enabled)
+                                        if (!enabled) {
+                                            com.bitchat.android.service.MeshForegroundService.stop(context)
+                                        } else {
+                                            com.bitchat.android.service.MeshForegroundService.start(context)
+                                        }
+                                    }
+                                )
+                            }
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically

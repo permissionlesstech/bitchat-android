@@ -20,7 +20,7 @@ object DebugPreferenceManager {
     // GCS keys (no migration/back-compat)
     private const val KEY_GCS_MAX_BYTES = "gcs_max_filter_bytes"
     private const val KEY_GCS_FPR = "gcs_filter_fpr_percent"
-    private const val KEY_PERSISTENT_NOTIFICATION = "persistent_notification"
+    // Removed: persistent notification toggle is now governed by MeshServicePreferences.isBackgroundEnabled
 
     private lateinit var prefs: SharedPreferences
 
@@ -102,12 +102,5 @@ object DebugPreferenceManager {
         if (ready()) prefs.edit().putLong(KEY_GCS_FPR, java.lang.Double.doubleToRawLongBits(value)).apply()
     }
 
-    // Persistent notification toggle (mirrored to service prefs)
-    fun getPersistentNotificationEnabled(default: Boolean = true): Boolean =
-        if (ready()) prefs.getBoolean(KEY_PERSISTENT_NOTIFICATION, default) else default
-
-    fun setPersistentNotificationEnabled(enabled: Boolean) {
-        if (ready()) prefs.edit().putBoolean(KEY_PERSISTENT_NOTIFICATION, enabled).apply()
-        try { com.bitchat.android.service.MeshServicePreferences.setPersistentNotificationEnabled(enabled) } catch (_: Exception) { }
-    }
+    // No longer storing persistent notification in debug prefs.
 }

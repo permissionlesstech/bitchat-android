@@ -49,7 +49,7 @@ class MeshForegroundService : Service() {
         }
 
         private fun shouldStartAsForeground(context: Context): Boolean {
-            return MeshServicePreferences.isPersistentNotificationEnabled(true) &&
+            return MeshServicePreferences.isBackgroundEnabled(true) &&
                     hasBluetoothPermissionsStatic(context) &&
                     hasNotificationPermissionStatic(context)
         }
@@ -120,7 +120,7 @@ class MeshForegroundService : Service() {
         ensureMeshStarted()
 
         // Start as foreground only if user enabled it AND we have required permissions
-        if (MeshServicePreferences.isPersistentNotificationEnabled(true) && hasAllRequiredPermissions()) {
+        if (MeshServicePreferences.isBackgroundEnabled(true) && hasAllRequiredPermissions()) {
             val notification = buildNotification(meshService?.getActivePeerCount() ?: 0)
             startForeground(NOTIFICATION_ID, notification)
         }
@@ -131,7 +131,7 @@ class MeshForegroundService : Service() {
                 while (isActive) {
                     // Retry enabling mesh/foreground once permissions become available
                     ensureMeshStarted()
-                    if (MeshServicePreferences.isPersistentNotificationEnabled(true) && hasAllRequiredPermissions()) {
+                    if (MeshServicePreferences.isBackgroundEnabled(true) && hasAllRequiredPermissions()) {
                         updateNotification(force = false)
                         // If not yet in foreground (e.g., permission just granted), promote now
                         try {
@@ -162,7 +162,7 @@ class MeshForegroundService : Service() {
     private fun updateNotification(force: Boolean) {
         val count = meshService?.getActivePeerCount() ?: 0
         val notification = buildNotification(count)
-        if (MeshServicePreferences.isPersistentNotificationEnabled(true) && hasAllRequiredPermissions()) {
+        if (MeshServicePreferences.isBackgroundEnabled(true) && hasAllRequiredPermissions()) {
             notificationManager.notify(NOTIFICATION_ID, notification)
         } else if (force) {
             // If disabled and forced, make sure to remove any prior foreground state
