@@ -348,6 +348,8 @@ class PrivateChatManager(
 
         // Clear any locally tracked unread queue for this peer
         unreadReceivedMessages.remove(peerID)
+        // Also clear UI unread marker for this peer now that chat is focused/read
+        try { messageManager.clearPrivateUnreadMessages(peerID) } catch (_: Exception) { }
         Log.d(TAG, "Sent $sentCount read receipts for peer $peerID (from conversation messages)")
     }
 

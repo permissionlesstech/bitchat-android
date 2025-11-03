@@ -283,15 +283,22 @@ class MeshDelegateHandler(
         val senderPeerID = message.senderPeerID
         val shouldSendReadReceipt = !isAppInBackground && senderPeerID != null && currentPrivateChatPeer == senderPeerID
         
-        if (shouldSendReadReceipt) {
-            android.util.Log.d("MeshDelegateHandler", "Sending reactive read receipt for focused chat with $senderPeerID (message=${message.id})")
-            val nickname = state.getNicknameValue() ?: "unknown"
-            // Send directly for this message to avoid relying on unread queues
-            getMeshService().sendReadReceipt(message.id, senderPeerID!!, nickname)
-        } else {
-            android.util.Log.d("MeshDelegateHandler", "Skipping read receipt - chat not focused (background: $isAppInBackground, current peer: $currentPrivateChatPeer, sender: $senderPeerID)")
+            if (shouldSendReadReceipt) {
+                android.util.Log.d("MeshDelegateHandler", "Sending reactive read receipt for focused chat with $senderPeerID (message=${message.id})")
+                val nickname = state.getNicknameValue() ?: "unknown"
+                // Send directly for this message to avoid relying on unread queues
+                getMeshService().sendReadReceipt(message.id, senderPeerID!!, nickname)
+                // Ensure unread badge is cleared for this peer immediately
+                try {
+                    val current = state.getUnreadPrivateMessagesValue().toMutableSet()
+                    if (current.remove(senderPeerID)) {
+                        state.setUnreadPrivateMessages(current)
+                    }
+                } catch (_: Exception) { }
+            } else {
+                android.util.Log.d("MeshDelegateHandler", "Skipping read receipt - chat not focused (background: $isAppInBackground, current peer: $currentPrivateChatPeer, sender: $senderPeerID)")
+            }
         }
-    }
     
     // registerPeerPublicKey REMOVED - fingerprints now handled centrally in PeerManager
 
