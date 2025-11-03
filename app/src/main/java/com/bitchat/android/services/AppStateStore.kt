@@ -95,4 +95,15 @@ object AppStateStore {
             _channelMessages.value = map
         }
     }
+
+    // Clear all in-memory state (used for full app shutdown)
+    fun clear() {
+        synchronized(this) {
+            seenMessageIds.clear()
+            _peers.value = emptyList()
+            _publicMessages.value = emptyList()
+            _privateMessages.value = emptyMap()
+            _channelMessages.value = emptyMap()
+        }
+    }
 }
