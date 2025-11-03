@@ -36,6 +36,11 @@ class DebugSettingsManager private constructor() {
     private val _packetRelayEnabled = MutableStateFlow(true)
     val packetRelayEnabled: StateFlow<Boolean> = _packetRelayEnabled.asStateFlow()
 
+    // Visibility of the debug sheet; gates heavy work
+    private val _debugSheetVisible = MutableStateFlow(false)
+    val debugSheetVisible: StateFlow<Boolean> = _debugSheetVisible.asStateFlow()
+    fun setDebugSheetVisible(visible: Boolean) { _debugSheetVisible.value = visible }
+
     // Connection limit overrides (debug)
     private val _maxConnectionsOverall = MutableStateFlow(8)
     val maxConnectionsOverall: StateFlow<Int> = _maxConnectionsOverall.asStateFlow()
@@ -131,6 +136,7 @@ class DebugSettingsManager private constructor() {
     private val scanResultsQueue = ConcurrentLinkedQueue<DebugScanResult>()
     
     private fun updateRelayStatsFromTimestamps() {
+        if (!_debugSheetVisible.value) return
         val now = System.currentTimeMillis()
         // prune older than 15m
         while (true) {
@@ -462,7 +468,8 @@ class DebugSettingsManager private constructor() {
             addDebugMessage(DebugMessage.PacketEvent("📥 Incoming $packetType from $who (${fromPeerID ?: "?"}, ${fromDeviceAddress ?: "?"})"))
         }
         val now = System.currentTimeMillis()
-        incomingTimestamps.offer(now)
+        val visible = _debugSheetVisible.value
+        if (visible) incomingTimestamps.offer(now)
         fromDeviceAddress?.let {
             perDeviceIncoming.getOrPut(it) { ConcurrentLinkedQueue() }.offer(now)
             deviceIncomingTotalsMap[it] = (deviceIncomingTotalsMap[it] ?: 0L) + 1L
@@ -479,7 +486,7 @@ class DebugSettingsManager private constructor() {
             totalIncomingCount = cur.totalIncomingCount + 1,
             totalRelaysCount = cur.totalRelaysCount + 1
         )
-        updateRelayStatsFromTimestamps()
+        if (visible) updateRelayStatsFromTimestamps()
     }
 
     fun logOutgoing(packetType: String, toPeerID: String?, toNickname: String?, toDeviceAddress: String?, previousHopPeerID: String? = null) {
@@ -488,7 +495,8 @@ class DebugSettingsManager private constructor() {
             addDebugMessage(DebugMessage.PacketEvent("📤 Outgoing $packetType to $who (${toPeerID ?: "?"}, ${toDeviceAddress ?: "?"})"))
         }
         val now = System.currentTimeMillis()
-        outgoingTimestamps.offer(now)
+        val visible = _debugSheetVisible.value
+        if (visible) outgoingTimestamps.offer(now)
         toDeviceAddress?.let {
             perDeviceOutgoing.getOrPut(it) { ConcurrentLinkedQueue() }.offer(now)
             deviceOutgoingTotalsMap[it] = (deviceOutgoingTotalsMap[it] ?: 0L) + 1L
@@ -504,7 +512,7 @@ class DebugSettingsManager private constructor() {
             totalOutgoingCount = cur.totalOutgoingCount + 1,
             totalRelaysCount = cur.totalRelaysCount + 1
         )
-        updateRelayStatsFromTimestamps()
+        if (visible) updateRelayStatsFromTimestamps()
     }
     
     // MARK: - Clear Data

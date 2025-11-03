@@ -99,6 +99,11 @@ fun DebugSettingsSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState
     ) {
+        // Mark debug sheet visible/invisible to gate heavy work
+        LaunchedEffect(Unit) { DebugSettingsManager.getInstance().setDebugSheetVisible(true) }
+        DisposableEffect(Unit) {
+            onDispose { DebugSettingsManager.getInstance().setDebugSheetVisible(false) }
+        }
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
