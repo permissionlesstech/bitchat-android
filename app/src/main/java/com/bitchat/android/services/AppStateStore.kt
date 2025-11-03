@@ -1,6 +1,7 @@
 package com.bitchat.android.services
 
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.model.DeliveryStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -48,6 +49,39 @@ object AppStateStore {
             val list = (map[peerID] ?: emptyList()) + msg
             map[peerID] = list
             _privateMessages.value = map
+        }
+    }
+
+    private fun statusPriority(status: DeliveryStatus?): Int = when (status) {
+        null -> 0
+        is DeliveryStatus.Sending -> 1
+        is DeliveryStatus.Sent -> 2
+        is DeliveryStatus.PartiallyDelivered -> 3
+        is DeliveryStatus.Delivered -> 4
+        is DeliveryStatus.Read -> 5
+        is DeliveryStatus.Failed -> 0
+    }
+
+    fun updatePrivateMessageStatus(messageID: String, status: DeliveryStatus) {
+        synchronized(this) {
+            val map = _privateMessages.value.toMutableMap()
+            var changed = false
+            map.keys.toList().forEach { peer ->
+                val list = map[peer]?.toMutableList() ?: mutableListOf()
+                val idx = list.indexOfFirst { it.id == messageID }
+                if (idx >= 0) {
+                    val current = list[idx].deliveryStatus
+                    // Do not downgrade (e.g., Read -> Delivered)
+                    if (statusPriority(status) >= statusPriority(current)) {
+                        list[idx] = list[idx].copy(deliveryStatus = status)
+                        map[peer] = list
+                        changed = true
+                    }
+                }
+            }
+            if (changed) {
+                _privateMessages.value = map
+            }
         }
     }
 

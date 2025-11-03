@@ -214,6 +214,21 @@ class MessageManager(private val state: ChatState) {
     
     // MARK: - Delivery Status Updates
     
+    private fun statusPriority(status: DeliveryStatus?): Int = when (status) {
+        null -> 0
+        is DeliveryStatus.Sending -> 1
+        is DeliveryStatus.Sent -> 2
+        is DeliveryStatus.PartiallyDelivered -> 3
+        is DeliveryStatus.Delivered -> 4
+        is DeliveryStatus.Read -> 5
+        is DeliveryStatus.Failed -> 0 // treat as lowest for UI check marks ordering
+    }
+
+    private fun chooseStatus(old: DeliveryStatus?, new: DeliveryStatus): DeliveryStatus? {
+        // Never downgrade (e.g., Read -> Delivered). Keep the higher priority.
+        return if (statusPriority(new) >= statusPriority(old)) new else old
+    }
+
     fun updateMessageDeliveryStatus(messageID: String, status: DeliveryStatus) {
         // Update in private chats
         val updatedPrivateChats = state.getPrivateChatsValue().toMutableMap()
@@ -223,22 +238,32 @@ class MessageManager(private val state: ChatState) {
             val updatedMessages = messages.toMutableList()
             val messageIndex = updatedMessages.indexOfFirst { it.id == messageID }
             if (messageIndex >= 0) {
-                updatedMessages[messageIndex] = updatedMessages[messageIndex].copy(deliveryStatus = status)
-                updatedPrivateChats[peerID] = updatedMessages
-                updated = true
+                val current = updatedMessages[messageIndex].deliveryStatus
+                val finalStatus = chooseStatus(current, status)
+                if (finalStatus !== current) {
+                    updatedMessages[messageIndex] = updatedMessages[messageIndex].copy(deliveryStatus = finalStatus)
+                    updatedPrivateChats[peerID] = updatedMessages
+                    updated = true
+                }
             }
         }
         
         if (updated) {
             state.setPrivateChats(updatedPrivateChats)
+            // Keep process-wide store in sync to prevent snapshot overwrites resetting status
+            try { com.bitchat.android.services.AppStateStore.updatePrivateMessageStatus(messageID, status) } catch (_: Exception) { }
         }
         
         // Update in main messages
         val updatedMessages = state.getMessagesValue().toMutableList()
         val messageIndex = updatedMessages.indexOfFirst { it.id == messageID }
         if (messageIndex >= 0) {
-            updatedMessages[messageIndex] = updatedMessages[messageIndex].copy(deliveryStatus = status)
-            state.setMessages(updatedMessages)
+            val current = updatedMessages[messageIndex].deliveryStatus
+            val finalStatus = chooseStatus(current, status)
+            if (finalStatus !== current) {
+                updatedMessages[messageIndex] = updatedMessages[messageIndex].copy(deliveryStatus = finalStatus)
+                state.setMessages(updatedMessages)
+            }
         }
         
         // Update in channel messages
@@ -247,8 +272,12 @@ class MessageManager(private val state: ChatState) {
             val channelMessagesList = messages.toMutableList()
             val channelMessageIndex = channelMessagesList.indexOfFirst { it.id == messageID }
             if (channelMessageIndex >= 0) {
-                channelMessagesList[channelMessageIndex] = channelMessagesList[channelMessageIndex].copy(deliveryStatus = status)
-                updatedChannelMessages[channel] = channelMessagesList
+                val current = channelMessagesList[channelMessageIndex].deliveryStatus
+                val finalStatus = chooseStatus(current, status)
+                if (finalStatus !== current) {
+                    channelMessagesList[channelMessageIndex] = channelMessagesList[channelMessageIndex].copy(deliveryStatus = finalStatus)
+                    updatedChannelMessages[channel] = channelMessagesList
+                }
             }
         }
         state.setChannelMessages(updatedChannelMessages)
