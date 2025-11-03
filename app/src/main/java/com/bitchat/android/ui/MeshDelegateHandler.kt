@@ -46,10 +46,10 @@ class MeshDelegateHandler(
             if (message.isPrivate) {
                 // Private message
                 privateChatManager.handleIncomingPrivateMessage(message)
-                
-                // Reactive read receipts: Send immediately if user is currently viewing this chat
+
+                // Reactive read receipts: if chat is focused, send immediately for this message
                 message.senderPeerID?.let { senderPeerID ->
-                    sendReadReceiptIfFocused(senderPeerID)
+                    sendReadReceiptIfFocused(message)
                 }
                 
                 // Show notification with enhanced information - now includes senderPeerID 
@@ -274,17 +274,20 @@ class MeshDelegateHandler(
      * Uses same logic as notification system - send read receipt if user is currently
      * viewing the private chat with this sender AND app is in foreground.
      */
-    private fun sendReadReceiptIfFocused(senderPeerID: String) {
+    private fun sendReadReceiptIfFocused(message: BitchatMessage) {
         // Get notification manager's focus state (mirror the notification logic)
         val isAppInBackground = notificationManager.getAppBackgroundState()
         val currentPrivateChatPeer = notificationManager.getCurrentPrivateChatPeer()
         
         // Send read receipt if user is currently focused on this specific chat
-        val shouldSendReadReceipt = !isAppInBackground && currentPrivateChatPeer == senderPeerID
+        val senderPeerID = message.senderPeerID
+        val shouldSendReadReceipt = !isAppInBackground && senderPeerID != null && currentPrivateChatPeer == senderPeerID
         
         if (shouldSendReadReceipt) {
-            android.util.Log.d("MeshDelegateHandler", "Sending reactive read receipt for focused chat with $senderPeerID")
-            privateChatManager.sendReadReceiptsForPeer(senderPeerID, getMeshService())
+            android.util.Log.d("MeshDelegateHandler", "Sending reactive read receipt for focused chat with $senderPeerID (message=${message.id})")
+            val nickname = state.getNicknameValue() ?: "unknown"
+            // Send directly for this message to avoid relying on unread queues
+            getMeshService().sendReadReceipt(message.id, senderPeerID!!, nickname)
         } else {
             android.util.Log.d("MeshDelegateHandler", "Skipping read receipt - chat not focused (background: $isAppInBackground, current peer: $currentPrivateChatPeer, sender: $senderPeerID)")
         }

@@ -324,27 +324,31 @@ class PrivateChatManager(
      * Called when the user focuses on a private chat
      */
     fun sendReadReceiptsForPeer(peerID: String, meshService: BluetoothMeshService) {
-        val unreadList = unreadReceivedMessages[peerID]
-        if (unreadList.isNullOrEmpty()) {
-            Log.d(TAG, "No unread messages to send read receipts for peer $peerID")
-            return
+        // Collect candidate messages: all incoming messages from this peer in the conversation
+        val chats = try { state.getPrivateChatsValue() } catch (_: Exception) { emptyMap<String, List<BitchatMessage>>() }
+        val messages = chats[peerID].orEmpty()
+
+        if (messages.isEmpty()) {
+            Log.d(TAG, "No messages found for peer $peerID to send read receipts")
         }
 
-        Log.d(TAG, "Sending read receipts for ${unreadList.size} unread messages from $peerID")
-
-        // Send read receipt for each unread message - now using direct method call
-        unreadList.forEach { message ->
-            try {
-                val myNickname = state.getNicknameValue() ?: "unknown"
-                meshService.sendReadReceipt(message.id, peerID, myNickname)
-                Log.d(TAG, "Sent read receipt for message ${message.id} to $peerID")
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to send read receipt for message ${message.id}: ${e.message}")
+        val myNickname = state.getNicknameValue() ?: "unknown"
+        var sentCount = 0
+        messages.forEach { msg ->
+            // Only for incoming messages from this peer
+            if (msg.senderPeerID == peerID) {
+                try {
+                    meshService.sendReadReceipt(msg.id, peerID, myNickname)
+                    sentCount += 1
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to send read receipt for message ${msg.id}: ${e.message}")
+                }
             }
         }
 
-        // Clear the unread list since we've sent read receipts
+        // Clear any locally tracked unread queue for this peer
         unreadReceivedMessages.remove(peerID)
+        Log.d(TAG, "Sent $sentCount read receipts for peer $peerID (from conversation messages)")
     }
 
     fun cleanupDisconnectedPeer(peerID: String) {
