@@ -310,8 +310,6 @@ fun DebugSettingsSheet(
                                             // Synchronize keys and colors
                                             val keysIn = snapshotIn.keys.sorted()
                                             val keysOut = snapshotOut.keys.sorted()
-                                            stackedKeysIncoming = keysIn
-                                            stackedKeysOutgoing = keysOut
                                             ensureColors(keysIn)
                                             ensureColors(keysOut)
                                             // advance series per key
@@ -334,14 +332,15 @@ fun DebugSettingsSheet(
                                             }
                                             stackedSeriesIncoming = advance(stackedSeriesIncoming, snapshotIn, keysIn)
                                             stackedSeriesOutgoing = advance(stackedSeriesOutgoing, snapshotOut, keysOut)
+                                            // Keep keys aligned with current series map to avoid vanishing stacks when snapshot empties
+                                            stackedKeysIncoming = stackedSeriesIncoming.keys.sorted()
+                                            stackedKeysOutgoing = stackedSeriesOutgoing.keys.sorted()
                                         }
                                         GraphMode.PER_PEER -> {
                                             val snapshotIn = perPeerIncoming
                                             val snapshotOut = perPeerOutgoing
                                             val keysIn = snapshotIn.keys.sorted()
                                             val keysOut = snapshotOut.keys.sorted()
-                                            stackedKeysIncoming = keysIn
-                                            stackedKeysOutgoing = keysOut
                                             ensureColors(keysIn)
                                             ensureColors(keysOut)
                                             fun advance(base: Map<String, List<Float>>, snap: Map<String, Int>, keys: List<String>): Map<String, List<Float>> {
@@ -363,6 +362,8 @@ fun DebugSettingsSheet(
                                             }
                                             stackedSeriesIncoming = advance(stackedSeriesIncoming, snapshotIn, keysIn)
                                             stackedSeriesOutgoing = advance(stackedSeriesOutgoing, snapshotOut, keysOut)
+                                            stackedKeysIncoming = stackedSeriesIncoming.keys.sorted()
+                                            stackedKeysOutgoing = stackedSeriesOutgoing.keys.sorted()
                                         }
                                     }
                                     kotlinx.coroutines.delay(400)
@@ -609,11 +610,12 @@ private fun DrawGraphBlock(
                         stackedSeries.values.sumOf { it.getOrNull(idx)?.toDouble() ?: 0.0 }.toFloat()
                     }
                     val maxTotal = (totals.maxOrNull() ?: 0f)
+                    val drawKeysBars = if (stackedKeys.isNotEmpty()) stackedKeys else stackedSeries.keys.sorted()
                     indices.forEach { i ->
                         var yTop = h
                         if (maxTotal > 0f) {
-                            ensureColors(stackedKeys)
-                            stackedKeys.forEach { k ->
+                            ensureColors(drawKeysBars)
+                            drawKeysBars.forEach { k ->
                                 val v = stackedSeries[k]?.getOrNull(i) ?: 0f
                                 if (v > 0f) {
                                     val ratio = (v / maxTotal).coerceIn(0f, 1f)
@@ -672,10 +674,11 @@ private fun DrawGraphBlock(
         }
     }
 
-    if (graphMode != GraphMode.OVERALL && stackedKeys.isNotEmpty()) {
+    val drawKeys = if (stackedKeys.isNotEmpty()) stackedKeys else stackedSeries.keys.sorted()
+    if (graphMode != GraphMode.OVERALL && drawKeys.isNotEmpty()) {
         Column(Modifier.fillMaxWidth()) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                stackedKeys.forEach { key ->
+                drawKeys.forEach { key ->
                     val baseColor = colorForKey(key)
                     val dimmed = highlightedKey != null && highlightedKey != key
                     val swatchColor = if (dimmed) baseColor.copy(alpha = 0.35f) else baseColor
