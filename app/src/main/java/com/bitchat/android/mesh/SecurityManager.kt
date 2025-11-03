@@ -50,24 +50,26 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
             return false
         }
         
-        // Validate packet payload
-        if (packet.payload.isEmpty()) {
-            Log.d(TAG, "Dropping packet with empty payload")
-            return false
-        }
-        
         // Replay attack protection (same 5-minute window as iOS)
         val currentTime = System.currentTimeMillis()
-        val packetTime = packet.timestamp.toLong()
-        val timeDiff = kotlin.math.abs(currentTime - packetTime)
+//        val packetTime = packet.timestamp.toLong()
+//        val timeDiff = kotlin.math.abs(currentTime - packetTime)
         
 //        if (timeDiff > MESSAGE_TIMEOUT) {
 //            Log.d(TAG, "Dropping old packet from $peerID, time diff: ${timeDiff/1000}s")
 //            return false
 //        }
 
-        // Duplicate detection
+
         val messageType = MessageType.fromValue(packet.type)
+
+        // Validate packet payload
+        if (messageType == MessageType.MESSAGE && packet.payload.isEmpty()) {
+            Log.d(TAG, "Dropping MESSAGE packet with empty payload")
+            return false
+        }
+
+        // Duplicate detection
         val messageID = generateMessageID(packet, peerID)
         if (messageType != MessageType.ANNOUNCE) {
             if (processedMessages.contains(messageID)) {
