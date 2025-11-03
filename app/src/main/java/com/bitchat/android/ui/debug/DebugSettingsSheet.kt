@@ -227,6 +227,14 @@ fun DebugSettingsSheet(
                         val perPeerIncoming by manager.perPeerIncomingLastSecond.collectAsState()
                         val perDeviceOutgoing by manager.perDeviceOutgoingLastSecond.collectAsState()
                         val perPeerOutgoing by manager.perPeerOutgoingLastSecond.collectAsState()
+                        val perDeviceIncoming1m by manager.perDeviceIncomingLastMinute.collectAsState()
+                        val perDeviceOutgoing1m by manager.perDeviceOutgoingLastMinute.collectAsState()
+                        val perPeerIncoming1m by manager.perPeerIncomingLastMinute.collectAsState()
+                        val perPeerOutgoing1m by manager.perPeerOutgoingLastMinute.collectAsState()
+                        val perDeviceIncomingTotal by manager.perDeviceIncomingTotal.collectAsState()
+                        val perDeviceOutgoingTotal by manager.perDeviceOutgoingTotal.collectAsState()
+                        val perPeerIncomingTotal by manager.perPeerIncomingTotal.collectAsState()
+                        val perPeerOutgoingTotal by manager.perPeerOutgoingTotal.collectAsState()
                         val nicknameMap = remember { mutableStateOf<Map<String, String?>>(emptyMap()) }
                         val devicePeerMap = remember { mutableStateOf<Map<String, String>>(emptyMap()) }
                         LaunchedEffect(Unit) {
@@ -346,7 +354,7 @@ fun DebugSettingsSheet(
                             // Render two blocks: Incoming and Outgoing
                             Text("Incoming", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                             Text(
-                                "${relayStats.last10SecondIncoming}s • ${relayStats.lastMinuteIncoming}m • ${relayStats.last15MinuteIncoming} (15m) • total ${relayStats.totalIncomingCount}",
+                                "${relayStats.lastSecondIncoming}/s • ${relayStats.lastMinuteIncoming}/m • ${relayStats.last15MinuteIncoming}/15m",
                                 fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = colorScheme.onSurface.copy(alpha = 0.6f)
                             )
                             DrawGraphBlock(
@@ -359,7 +367,7 @@ fun DebugSettingsSheet(
                                 onToggleHighlight = { key -> highlightedKey = if (highlightedKey == key) null else key },
                                 ensureColors = { keys -> ensureColors(keys) },
                                 colorForKey = { k -> colorForKey[k] ?: stableColorFor(k) },
-                                legendLabelFor = { key ->
+                                legendTitleFor = { key ->
                                     when (graphMode) {
                                         GraphMode.PER_PEER -> {
                                             val nick = nicknameMap.value[key]
@@ -378,6 +386,23 @@ fun DebugSettingsSheet(
                                         }
                                         else -> key
                                     }
+                                },
+                                legendMetricsFor = { key ->
+                                    when (graphMode) {
+                                        GraphMode.PER_PEER -> {
+                                            val s = perPeerIncoming[key] ?: 0
+                                            val m = perPeerIncoming1m[key] ?: 0
+                                            val t = (perPeerIncomingTotal[key] ?: 0L)
+                                            "${s}/s • ${m}/m • total ${t}"
+                                        }
+                                        GraphMode.PER_DEVICE -> {
+                                            val s = perDeviceIncoming[key] ?: 0
+                                            val m = perDeviceIncoming1m[key] ?: 0
+                                            val t = (perDeviceIncomingTotal[key] ?: 0L)
+                                            "${s}/s • ${m}/m • total ${t}"
+                                        }
+                                        else -> ""
+                                    }
                                 }
                             )
                             if (graphMode != GraphMode.OVERALL && stackedKeysIncoming.isNotEmpty()) { /* legend printed inside DrawGraphBlock */ }
@@ -385,7 +410,7 @@ fun DebugSettingsSheet(
                             Spacer(Modifier.height(8.dp))
                             Text("Outgoing", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                             Text(
-                                "${relayStats.last10SecondOutgoing}s • ${relayStats.lastMinuteOutgoing}m • ${relayStats.last15MinuteOutgoing} (15m) • total ${relayStats.totalOutgoingCount}",
+                                "${relayStats.lastSecondOutgoing}/s • ${relayStats.lastMinuteOutgoing}/m • ${relayStats.last15MinuteOutgoing}/15m",
                                 fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = colorScheme.onSurface.copy(alpha = 0.6f)
                             )
                             DrawGraphBlock(
@@ -398,7 +423,7 @@ fun DebugSettingsSheet(
                                 onToggleHighlight = { key -> highlightedKey = if (highlightedKey == key) null else key },
                                 ensureColors = { keys -> ensureColors(keys) },
                                 colorForKey = { k -> colorForKey[k] ?: stableColorFor(k) },
-                                legendLabelFor = { key ->
+                                legendTitleFor = { key ->
                                     when (graphMode) {
                                         GraphMode.PER_PEER -> {
                                             val nick = nicknameMap.value[key]
@@ -416,6 +441,23 @@ fun DebugSettingsSheet(
                                             } else device
                                         }
                                         else -> key
+                                    }
+                                },
+                                legendMetricsFor = { key ->
+                                    when (graphMode) {
+                                        GraphMode.PER_PEER -> {
+                                            val s = perPeerOutgoing[key] ?: 0
+                                            val m = perPeerOutgoing1m[key] ?: 0
+                                            val t = (perPeerOutgoingTotal[key] ?: 0L)
+                                            "${s}/s • ${m}/m • total ${t}"
+                                        }
+                                        GraphMode.PER_DEVICE -> {
+                                            val s = perDeviceOutgoing[key] ?: 0
+                                            val m = perDeviceOutgoing1m[key] ?: 0
+                                            val t = (perDeviceOutgoingTotal[key] ?: 0L)
+                                            "${s}/s • ${m}/m • total ${t}"
+                                        }
+                                        else -> ""
                                     }
                                 }
                             )
@@ -547,7 +589,8 @@ private fun DrawGraphBlock(
     onToggleHighlight: (String) -> Unit,
     ensureColors: (List<String>) -> Unit,
     colorForKey: (String) -> Color,
-    legendLabelFor: (String) -> String
+    legendTitleFor: (String) -> String,
+    legendMetricsFor: (String) -> String
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val leftGutter = 40.dp
@@ -667,7 +710,10 @@ private fun DrawGraphBlock(
                         modifier = Modifier.clickable { onToggleHighlight(key) }
                     ) {
                         Box(Modifier.size(10.dp).background(swatchColor, RoundedCornerShape(2.dp)))
-                        Text(legendLabelFor(key), fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (dimmed) 0.5f else 0.9f))
+                        Column {
+                            Text(legendTitleFor(key), fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (dimmed) 0.6f else 0.95f))
+                            Text(legendMetricsFor(key), fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (dimmed) 0.45f else 0.75f))
+                        }
                     }
                 }
             }

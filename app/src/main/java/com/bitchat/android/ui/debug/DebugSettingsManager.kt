@@ -101,6 +101,30 @@ class DebugSettingsManager private constructor() {
     val perPeerIncomingLastSecond: StateFlow<Map<String, Int>> = _perPeerIncomingLastSecond.asStateFlow()
     private val _perPeerOutgoingLastSecond: MutableStateFlow<Map<String, Int>> = MutableStateFlow(emptyMap())
     val perPeerOutgoingLastSecond: StateFlow<Map<String, Int>> = _perPeerOutgoingLastSecond.asStateFlow()
+
+    // Per-minute counts per key
+    private val _perDeviceIncomingLastMinute: MutableStateFlow<Map<String, Int>> = MutableStateFlow(emptyMap())
+    val perDeviceIncomingLastMinute: StateFlow<Map<String, Int>> = _perDeviceIncomingLastMinute.asStateFlow()
+    private val _perDeviceOutgoingLastMinute: MutableStateFlow<Map<String, Int>> = MutableStateFlow(emptyMap())
+    val perDeviceOutgoingLastMinute: StateFlow<Map<String, Int>> = _perDeviceOutgoingLastMinute.asStateFlow()
+    private val _perPeerIncomingLastMinute: MutableStateFlow<Map<String, Int>> = MutableStateFlow(emptyMap())
+    val perPeerIncomingLastMinute: StateFlow<Map<String, Int>> = _perPeerIncomingLastMinute.asStateFlow()
+    private val _perPeerOutgoingLastMinute: MutableStateFlow<Map<String, Int>> = MutableStateFlow(emptyMap())
+    val perPeerOutgoingLastMinute: StateFlow<Map<String, Int>> = _perPeerOutgoingLastMinute.asStateFlow()
+
+    // Totals per key (since app start)
+    private val deviceIncomingTotalsMap = mutableMapOf<String, Long>()
+    private val deviceOutgoingTotalsMap = mutableMapOf<String, Long>()
+    private val peerIncomingTotalsMap = mutableMapOf<String, Long>()
+    private val peerOutgoingTotalsMap = mutableMapOf<String, Long>()
+    private val _perDeviceIncomingTotalsFlow: MutableStateFlow<Map<String, Long>> = MutableStateFlow(emptyMap())
+    val perDeviceIncomingTotal: StateFlow<Map<String, Long>> = _perDeviceIncomingTotalsFlow.asStateFlow()
+    private val _perDeviceOutgoingTotalsFlow: MutableStateFlow<Map<String, Long>> = MutableStateFlow(emptyMap())
+    val perDeviceOutgoingTotal: StateFlow<Map<String, Long>> = _perDeviceOutgoingTotalsFlow.asStateFlow()
+    private val _perPeerIncomingTotalsFlow: MutableStateFlow<Map<String, Long>> = MutableStateFlow(emptyMap())
+    val perPeerIncomingTotal: StateFlow<Map<String, Long>> = _perPeerIncomingTotalsFlow.asStateFlow()
+    private val _perPeerOutgoingTotalsFlow: MutableStateFlow<Map<String, Long>> = MutableStateFlow(emptyMap())
+    val perPeerOutgoingTotal: StateFlow<Map<String, Long>> = _perPeerOutgoingTotalsFlow.asStateFlow()
     
     // Internal data storage for managing debug data
     private val debugMessageQueue = ConcurrentLinkedQueue<DebugMessage>()
@@ -115,7 +139,7 @@ class DebugSettingsManager private constructor() {
                 relayTimestamps.poll()
             } else break
         }
-        // prune per-device and per-peer and compute 1s rates
+        // prune per-device and per-peer and compute 1s/60s rates
         fun pruneAndCount1s(map: MutableMap<String, ConcurrentLinkedQueue<Long>>): Map<String, Int> {
             val result = mutableMapOf<String, Int>()
             val iterator = map.entries.iterator()
@@ -138,6 +162,14 @@ class DebugSettingsManager private constructor() {
             }
             return result
         }
+        fun pruneAndCount60s(map: MutableMap<String, ConcurrentLinkedQueue<Long>>): Map<String, Int> {
+            val result = mutableMapOf<String, Int>()
+            map.forEach { (key, q) ->
+                val count60 = q.count { now - it <= 60_000L }
+                if (count60 > 0) result[key] = count60
+            }
+            return result
+        }
 
         val perDevice1s = pruneAndCount1s(perDeviceRelayTimestamps)
         val perPeer1s = pruneAndCount1s(perPeerRelayTimestamps)
@@ -149,6 +181,10 @@ class DebugSettingsManager private constructor() {
         _perDeviceOutgoingLastSecond.value = pruneAndCount1s(perDeviceOutgoing)
         _perPeerIncomingLastSecond.value = pruneAndCount1s(perPeerIncoming)
         _perPeerOutgoingLastSecond.value = pruneAndCount1s(perPeerOutgoing)
+        _perDeviceIncomingLastMinute.value = pruneAndCount60s(perDeviceIncoming)
+        _perDeviceOutgoingLastMinute.value = pruneAndCount60s(perDeviceOutgoing)
+        _perPeerIncomingLastMinute.value = pruneAndCount60s(perPeerIncoming)
+        _perPeerOutgoingLastMinute.value = pruneAndCount60s(perPeerOutgoing)
         val last1s = relayTimestamps.count { now - it <= 1_000L }
         val last10s = relayTimestamps.count { now - it <= 10_000L }
         val last1m = relayTimestamps.count { now - it <= 60_000L }
@@ -427,8 +463,16 @@ class DebugSettingsManager private constructor() {
         }
         val now = System.currentTimeMillis()
         incomingTimestamps.offer(now)
-        fromDeviceAddress?.let { perDeviceIncoming.getOrPut(it) { ConcurrentLinkedQueue() }.offer(now) }
-        fromPeerID?.let { perPeerIncoming.getOrPut(it) { ConcurrentLinkedQueue() }.offer(now) }
+        fromDeviceAddress?.let {
+            perDeviceIncoming.getOrPut(it) { ConcurrentLinkedQueue() }.offer(now)
+            deviceIncomingTotalsMap[it] = (deviceIncomingTotalsMap[it] ?: 0L) + 1L
+            _perDeviceIncomingTotalsFlow.value = deviceIncomingTotalsMap.toMap()
+        }
+        fromPeerID?.let {
+            perPeerIncoming.getOrPut(it) { ConcurrentLinkedQueue() }.offer(now)
+            peerIncomingTotalsMap[it] = (peerIncomingTotalsMap[it] ?: 0L) + 1L
+            _perPeerIncomingTotalsFlow.value = peerIncomingTotalsMap.toMap()
+        }
         // bump totals
         val cur = _relayStats.value
         _relayStats.value = cur.copy(
@@ -445,8 +489,16 @@ class DebugSettingsManager private constructor() {
         }
         val now = System.currentTimeMillis()
         outgoingTimestamps.offer(now)
-        toDeviceAddress?.let { perDeviceOutgoing.getOrPut(it) { ConcurrentLinkedQueue() }.offer(now) }
-        (toPeerID ?: previousHopPeerID)?.let { perPeerOutgoing.getOrPut(it) { ConcurrentLinkedQueue() }.offer(now) }
+        toDeviceAddress?.let {
+            perDeviceOutgoing.getOrPut(it) { ConcurrentLinkedQueue() }.offer(now)
+            deviceOutgoingTotalsMap[it] = (deviceOutgoingTotalsMap[it] ?: 0L) + 1L
+            _perDeviceOutgoingTotalsFlow.value = deviceOutgoingTotalsMap.toMap()
+        }
+        (toPeerID ?: previousHopPeerID)?.let {
+            perPeerOutgoing.getOrPut(it) { ConcurrentLinkedQueue() }.offer(now)
+            peerOutgoingTotalsMap[it] = (peerOutgoingTotalsMap[it] ?: 0L) + 1L
+            _perPeerOutgoingTotalsFlow.value = peerOutgoingTotalsMap.toMap()
+        }
         val cur = _relayStats.value
         _relayStats.value = cur.copy(
             totalOutgoingCount = cur.totalOutgoingCount + 1,
