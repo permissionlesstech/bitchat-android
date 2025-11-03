@@ -156,16 +156,31 @@ class DebugSettingsManager private constructor() {
         // And incoming/outgoing per-second counters
         val last1sIncoming = incomingTimestamps.count { now - it <= 1_000L }
         val last1sOutgoing = outgoingTimestamps.count { now - it <= 1_000L }
-        val total = _relayStats.value.totalRelaysCount + 1
+        val last10sIncoming = incomingTimestamps.count { now - it <= 10_000L }
+        val last10sOutgoing = outgoingTimestamps.count { now - it <= 10_000L }
+        val last1mIncoming = incomingTimestamps.count { now - it <= 60_000L }
+        val last1mOutgoing = outgoingTimestamps.count { now - it <= 60_000L }
+        val last15mIncoming = incomingTimestamps.size
+        val last15mOutgoing = outgoingTimestamps.size
+        val totalIncoming = _relayStats.value.totalIncomingCount
+        val totalOutgoing = _relayStats.value.totalOutgoingCount
         _relayStats.value = PacketRelayStats(
-            totalRelaysCount = total,
+            totalRelaysCount = totalIncoming + totalOutgoing,
             lastSecondRelays = last1s,
             last10SecondRelays = last10s,
             lastMinuteRelays = last1m,
             last15MinuteRelays = last15m,
             lastResetTime = _relayStats.value.lastResetTime,
             lastSecondIncoming = last1sIncoming,
-            lastSecondOutgoing = last1sOutgoing
+            lastSecondOutgoing = last1sOutgoing,
+            last10SecondIncoming = last10sIncoming,
+            last10SecondOutgoing = last10sOutgoing,
+            lastMinuteIncoming = last1mIncoming,
+            lastMinuteOutgoing = last1mOutgoing,
+            last15MinuteIncoming = last15mIncoming,
+            last15MinuteOutgoing = last15mOutgoing,
+            totalIncomingCount = totalIncoming,
+            totalOutgoingCount = totalOutgoing
         )
     }
     
@@ -401,27 +416,7 @@ class DebugSettingsManager private constructor() {
             }
         }
 
-        // Update rolling statistics only for relays
-        if (isRelay) {
-            val now = System.currentTimeMillis()
-            relayTimestamps.offer(now)
-            // Attribute to device and peer buckets for stacked graphs
-            fromDeviceAddress?.let { addr ->
-                val q = perDeviceRelayTimestamps.getOrPut(addr) { ConcurrentLinkedQueue() }
-                q.offer(now)
-                // Outgoing split
-                perDeviceOutgoing.getOrPut(addr) { ConcurrentLinkedQueue() }.offer(now)
-            }
-            // Prefer previous-hop peer if available; otherwise fall back to sender/origin
-            val peerKey = fromPeerID ?: senderPeerID
-            peerKey?.let { pk ->
-                val q = perPeerRelayTimestamps.getOrPut(pk) { ConcurrentLinkedQueue() }
-                q.offer(now)
-                // Outgoing split
-                perPeerOutgoing.getOrPut(pk) { ConcurrentLinkedQueue() }.offer(now)
-            }
-            updateRelayStatsFromTimestamps()
-        }
+        // Do not update counters here; this path is for readable logs only.
     }
 
     // Explicit incoming/outgoing logging to avoid double counting
@@ -434,6 +429,12 @@ class DebugSettingsManager private constructor() {
         incomingTimestamps.offer(now)
         fromDeviceAddress?.let { perDeviceIncoming.getOrPut(it) { ConcurrentLinkedQueue() }.offer(now) }
         fromPeerID?.let { perPeerIncoming.getOrPut(it) { ConcurrentLinkedQueue() }.offer(now) }
+        // bump totals
+        val cur = _relayStats.value
+        _relayStats.value = cur.copy(
+            totalIncomingCount = cur.totalIncomingCount + 1,
+            totalRelaysCount = cur.totalRelaysCount + 1
+        )
         updateRelayStatsFromTimestamps()
     }
 
@@ -446,6 +447,11 @@ class DebugSettingsManager private constructor() {
         outgoingTimestamps.offer(now)
         toDeviceAddress?.let { perDeviceOutgoing.getOrPut(it) { ConcurrentLinkedQueue() }.offer(now) }
         (toPeerID ?: previousHopPeerID)?.let { perPeerOutgoing.getOrPut(it) { ConcurrentLinkedQueue() }.offer(now) }
+        val cur = _relayStats.value
+        _relayStats.value = cur.copy(
+            totalOutgoingCount = cur.totalOutgoingCount + 1,
+            totalRelaysCount = cur.totalRelaysCount + 1
+        )
         updateRelayStatsFromTimestamps()
     }
     
@@ -515,5 +521,13 @@ data class PacketRelayStats(
     val last15MinuteRelays: Int = 0,
     val lastResetTime: Date = Date(),
     val lastSecondIncoming: Int = 0,
-    val lastSecondOutgoing: Int = 0
+    val lastSecondOutgoing: Int = 0,
+    val last10SecondIncoming: Int = 0,
+    val last10SecondOutgoing: Int = 0,
+    val lastMinuteIncoming: Int = 0,
+    val lastMinuteOutgoing: Int = 0,
+    val last15MinuteIncoming: Int = 0,
+    val last15MinuteOutgoing: Int = 0,
+    val totalIncomingCount: Long = 0,
+    val totalOutgoingCount: Long = 0
 )

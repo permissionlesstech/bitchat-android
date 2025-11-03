@@ -220,8 +220,7 @@ fun DebugSettingsSheet(
                             Spacer(Modifier.weight(1f))
                             Switch(checked = packetRelayEnabled, onCheckedChange = { manager.setPacketRelayEnabled(it) })
                         }
-                        Text(stringResource(R.string.debug_since_start_fmt, relayStats.totalRelaysCount), fontFamily = FontFamily.Monospace, fontSize = 11.sp)
-                        Text(stringResource(R.string.debug_relays_window_fmt, relayStats.last10SecondRelays, relayStats.lastMinuteRelays, relayStats.last15MinuteRelays), fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+                        // Removed aggregate labels; we will show per-direction compact labels below titles
                         // Toggle: overall vs per-connection vs per-peer
                         var graphMode by rememberSaveable { mutableStateOf(GraphMode.OVERALL) }
                         val perDeviceIncoming by manager.perDeviceIncomingLastSecond.collectAsState()
@@ -297,76 +296,48 @@ fun DebugSettingsSheet(
                                         GraphMode.OVERALL -> {
                                             val sIn = relayStats.lastSecondIncoming.toFloat()
                                             val sOut = relayStats.lastSecondOutgoing.toFloat()
-                                            val lastIn = overallSeriesIncoming.lastOrNull() ?: 0f
-                                            val lastOut = overallSeriesOutgoing.lastOrNull() ?: 0f
-                                            val vin = lastIn * 0.5f + sIn * 0.5f
-                                            val vout = lastOut * 0.5f + sOut * 0.5f
-                                            overallSeriesIncoming = (overallSeriesIncoming + vin).takeLast(60)
-                                            overallSeriesOutgoing = (overallSeriesOutgoing + vout).takeLast(60)
+                                            overallSeriesIncoming = (overallSeriesIncoming + sIn).takeLast(60)
+                                            overallSeriesOutgoing = (overallSeriesOutgoing + sOut).takeLast(60)
                                         }
                                         GraphMode.PER_DEVICE -> {
                                             val snapshotIn = perDeviceIncoming
                                             val snapshotOut = perDeviceOutgoing
-                                            // Synchronize keys and colors
-                                            val keysIn = snapshotIn.keys.sorted()
-                                            val keysOut = snapshotOut.keys.sorted()
-                                            ensureColors(keysIn)
-                                            ensureColors(keysOut)
-                                            // advance series per key
-                                            fun advance(base: Map<String, List<Float>>, snap: Map<String, Int>, keys: List<String>): Map<String, List<Float>> {
+                                            fun advance(base: Map<String, List<Float>>, snap: Map<String, Int>): Map<String, List<Float>> {
                                                 val next = mutableMapOf<String, List<Float>>()
-                                                keys.forEach { k ->
+                                                val union = (base.keys + snap.keys).toSet()
+                                                union.forEach { k ->
                                                     val prev = base[k] ?: List(60) { 0f }
-                                                    val last = prev.lastOrNull() ?: 0f
                                                     val s = (snap[k] ?: 0).toFloat()
-                                                    val v = last * 0.5f + s * 0.5f
-                                                    next[k] = (prev + v).takeLast(60)
-                                                }
-                                                base.keys.minus(keys.toSet()).forEach { k ->
-                                                    val prev = base[k] ?: List(60) { 0f }
-                                                    val last = prev.lastOrNull() ?: 0f
-                                                    val v = last * 0.6f
-                                                    next[k] = (prev + v).takeLast(60)
+                                                    next[k] = (prev + s).takeLast(60)
                                                 }
                                                 return next
                                             }
-                                            stackedSeriesIncoming = advance(stackedSeriesIncoming, snapshotIn, keysIn)
-                                            stackedSeriesOutgoing = advance(stackedSeriesOutgoing, snapshotOut, keysOut)
-                                            // Keep keys aligned with current series map to avoid vanishing stacks when snapshot empties
+                                            // Advance and prune fully-stale series (all-zero in visible window)
+                                            stackedSeriesIncoming = advance(stackedSeriesIncoming, snapshotIn).filterValues { series -> series.any { it != 0f } }
+                                            stackedSeriesOutgoing = advance(stackedSeriesOutgoing, snapshotOut).filterValues { series -> series.any { it != 0f } }
                                             stackedKeysIncoming = stackedSeriesIncoming.keys.sorted()
                                             stackedKeysOutgoing = stackedSeriesOutgoing.keys.sorted()
                                         }
                                         GraphMode.PER_PEER -> {
                                             val snapshotIn = perPeerIncoming
                                             val snapshotOut = perPeerOutgoing
-                                            val keysIn = snapshotIn.keys.sorted()
-                                            val keysOut = snapshotOut.keys.sorted()
-                                            ensureColors(keysIn)
-                                            ensureColors(keysOut)
-                                            fun advance(base: Map<String, List<Float>>, snap: Map<String, Int>, keys: List<String>): Map<String, List<Float>> {
+                                            fun advance(base: Map<String, List<Float>>, snap: Map<String, Int>): Map<String, List<Float>> {
                                                 val next = mutableMapOf<String, List<Float>>()
-                                                keys.forEach { k ->
+                                                val union = (base.keys + snap.keys).toSet()
+                                                union.forEach { k ->
                                                     val prev = base[k] ?: List(60) { 0f }
-                                                    val last = prev.lastOrNull() ?: 0f
                                                     val s = (snap[k] ?: 0).toFloat()
-                                                    val v = last * 0.5f + s * 0.5f
-                                                    next[k] = (prev + v).takeLast(60)
-                                                }
-                                                base.keys.minus(keys.toSet()).forEach { k ->
-                                                    val prev = base[k] ?: List(60) { 0f }
-                                                    val last = prev.lastOrNull() ?: 0f
-                                                    val v = last * 0.6f
-                                                    next[k] = (prev + v).takeLast(60)
+                                                    next[k] = (prev + s).takeLast(60)
                                                 }
                                                 return next
                                             }
-                                            stackedSeriesIncoming = advance(stackedSeriesIncoming, snapshotIn, keysIn)
-                                            stackedSeriesOutgoing = advance(stackedSeriesOutgoing, snapshotOut, keysOut)
+                                            stackedSeriesIncoming = advance(stackedSeriesIncoming, snapshotIn).filterValues { series -> series.any { it != 0f } }
+                                            stackedSeriesOutgoing = advance(stackedSeriesOutgoing, snapshotOut).filterValues { series -> series.any { it != 0f } }
                                             stackedKeysIncoming = stackedSeriesIncoming.keys.sorted()
                                             stackedKeysOutgoing = stackedSeriesOutgoing.keys.sorted()
                                         }
                                     }
-                                    kotlinx.coroutines.delay(400)
+                                    kotlinx.coroutines.delay(1000)
                                 }
                             }
 
@@ -374,6 +345,10 @@ fun DebugSettingsSheet(
 
                             // Render two blocks: Incoming and Outgoing
                             Text("Incoming", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                            Text(
+                                "${relayStats.last10SecondIncoming}s • ${relayStats.lastMinuteIncoming}m • ${relayStats.last15MinuteIncoming} (15m) • total ${relayStats.totalIncomingCount}",
+                                fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
                             DrawGraphBlock(
                                 title = "Incoming",
                                 stackedKeys = stackedKeysIncoming,
@@ -409,6 +384,10 @@ fun DebugSettingsSheet(
 
                             Spacer(Modifier.height(8.dp))
                             Text("Outgoing", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                            Text(
+                                "${relayStats.last10SecondOutgoing}s • ${relayStats.lastMinuteOutgoing}m • ${relayStats.last15MinuteOutgoing} (15m) • total ${relayStats.totalOutgoingCount}",
+                                fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
                             DrawGraphBlock(
                                 title = "Outgoing",
                                 stackedKeys = stackedKeysOutgoing,
