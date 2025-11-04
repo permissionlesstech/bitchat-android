@@ -97,10 +97,6 @@ class BluetoothMeshService(private val context: Context) {
                 connectionManager.broadcastPacket(RoutedPacket(packet))
                 wifiDirectManager.broadcastPacket(RoutedPacket(packet))
                 localNetworkManager.broadcastPacket(RoutedPacket(packet))
-                wifiDirectManager.broadcastPacket(RoutedPacket(packet))
-                localNetworkManager.broadcastPacket(RoutedPacket(packet))
-                wifiDirectManager.broadcastPacket(RoutedPacket(packet))
-                localNetworkManager.broadcastPacket(RoutedPacket(packet))
             }
             override fun sendPacketToPeer(peerID: String, packet: BitchatPacket) {
                 connectionManager.sendPacketToPeer(peerID, packet)
@@ -201,10 +197,6 @@ class BluetoothMeshService(private val context: Context) {
                 connectionManager.broadcastPacket(RoutedPacket(signedPacket))
         wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
         localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
-                wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
-                localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
-                wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
-                localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
                 Log.d(TAG, "Sent Noise handshake response to $peerID (${response.size} bytes)")
             }
 
@@ -225,10 +217,6 @@ class BluetoothMeshService(private val context: Context) {
 
             override fun sendPacket(packet: BitchatPacket) {
                 connectionManager.broadcastPacket(RoutedPacket(packet))
-                wifiDirectManager.broadcastPacket(RoutedPacket(packet))
-                localNetworkManager.broadcastPacket(RoutedPacket(packet))
-                wifiDirectManager.broadcastPacket(RoutedPacket(packet))
-                localNetworkManager.broadcastPacket(RoutedPacket(packet))
                 wifiDirectManager.broadcastPacket(RoutedPacket(packet))
                 localNetworkManager.broadcastPacket(RoutedPacket(packet))
             }
@@ -276,18 +264,10 @@ class BluetoothMeshService(private val context: Context) {
                 connectionManager.broadcastPacket(RoutedPacket(signedPacket))
         wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
         localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
-                wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
-                localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
-                wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
-                localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
             }
 
             override fun relayPacket(routed: RoutedPacket) {
                 connectionManager.broadcastPacket(routed)
-                wifiDirectManager.broadcastPacket(routed)
-                localNetworkManager.broadcastPacket(routed)
-                wifiDirectManager.broadcastPacket(routed)
-                localNetworkManager.broadcastPacket(routed)
                 wifiDirectManager.broadcastPacket(routed)
                 localNetworkManager.broadcastPacket(routed)
             }
@@ -337,16 +317,8 @@ class BluetoothMeshService(private val context: Context) {
                         // Sign the handshake packet before broadcasting
                         val signedPacket = signPacketBeforeBroadcast(packet)
                         connectionManager.broadcastPacket(RoutedPacket(signedPacket))
-        wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
-        localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
-                wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
-                localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
-                    wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
-                    localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
                         wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
                         localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
-                wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
-                localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
                         Log.d(TAG, "Initiated Noise handshake with $peerID (${handshakeData.size} bytes)")
                     } else {
                         Log.w(TAG, "Failed to generate Noise handshake data for $peerID")
@@ -518,10 +490,6 @@ class BluetoothMeshService(private val context: Context) {
 
             override fun relayPacket(routed: RoutedPacket) {
                 connectionManager.broadcastPacket(routed)
-                wifiDirectManager.broadcastPacket(routed)
-                localNetworkManager.broadcastPacket(routed)
-                wifiDirectManager.broadcastPacket(routed)
-                localNetworkManager.broadcastPacket(routed)
                 wifiDirectManager.broadcastPacket(routed)
                 localNetworkManager.broadcastPacket(routed)
             }
@@ -778,8 +746,6 @@ class BluetoothMeshService(private val context: Context) {
             connectionManager.broadcastPacket(routedPacket)
             wifiDirectManager.broadcastPacket(routedPacket)
             localNetworkManager.broadcastPacket(routedPacket)
-            wifiDirectManager.broadcastPacket(routedPacket)
-            localNetworkManager.broadcastPacket(routedPacket)
 
             // Track our own broadcast message for sync
             try { gossipSyncManager.onPublicPacketSeen(signedPacket) } catch (_: Exception) { }
@@ -955,14 +921,8 @@ class BluetoothMeshService(private val context: Context) {
                     // Sign the packet before broadcasting
                     val signedPacket = signPacketBeforeBroadcast(packet)
                     connectionManager.broadcastPacket(RoutedPacket(signedPacket))
-        wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
-        localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
-                wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
-                localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
                     wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
                     localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
-                wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
-                localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
                     Log.d(TAG, "📤 Sent encrypted private message to $recipientPeerID (${encrypted.size} bytes)")
 
                     // FIXED: Don't send didReceiveMessage for our own sent messages
@@ -1029,10 +989,6 @@ class BluetoothMeshService(private val context: Context) {
                 connectionManager.broadcastPacket(RoutedPacket(signedPacket))
         wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
         localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
-                wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
-                localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
-                wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
-                localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
                 Log.d(TAG, "📤 Sent read receipt to $recipientPeerID for message $messageID")
 
             } catch (e: Exception) {
@@ -1087,8 +1043,6 @@ class BluetoothMeshService(private val context: Context) {
 
             // Broadcast to all available connection managers
             connectionManager.broadcastPacket(routedPacket)
-            wifiDirectManager.broadcastPacket(routedPacket)
-            localNetworkManager.broadcastPacket(routedPacket)
             wifiDirectManager.broadcastPacket(routedPacket)
             localNetworkManager.broadcastPacket(routedPacket)
 
