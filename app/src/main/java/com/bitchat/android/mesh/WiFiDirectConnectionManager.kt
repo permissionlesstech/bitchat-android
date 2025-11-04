@@ -43,7 +43,17 @@ class WiFiDirectConnectionManager(
 
     // Component managers
     private val permissionManager = WiFiDirectPermissionManager(context)
-    private val packetBroadcaster = WiFiDirectPacketBroadcaster(connectionScope)
+    private val packetBroadcaster = WiFiDirectPacketBroadcaster(connectionScope).apply {
+        packetDelegate = object : WiFiDirectPacketDelegate {
+            override fun onPacketReceived(packet: BitchatPacket, deviceAddress: String) {
+                // Find the peer ID for this device address
+                val peerID = devicePeerMap[deviceAddress] ?: "wifi_peer_$deviceAddress"
+
+                // Forward to the connection manager delegate
+                delegate?.onPacketReceived(packet, peerID, connectedDevices[deviceAddress])
+            }
+        }
+    }
 
     // Connection state tracking
     private val connectedDevices = mutableMapOf<String, WifiP2pDevice>() // deviceAddress -> device

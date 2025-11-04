@@ -36,6 +36,9 @@ class WiFiDirectPacketBroadcaster(
     // Nickname resolver for logging
     private var nicknameResolver: ((String) -> String?)? = null
 
+    // Delegate for forwarding received packets
+    var packetDelegate: WiFiDirectPacketDelegate? = null
+
     /**
      * Set nickname resolver for better logging
      */
@@ -139,12 +142,8 @@ class WiFiDirectPacketBroadcaster(
                         if (packet != null) {
                             Log.d(TAG, "Received packet from $deviceAddress: type=${packet.type}")
 
-                            // Find peer ID for this device address
-                            // This would need to be passed from the connection manager
-                            // For now, we'll use a placeholder
-                            val peerID = "wifi_peer_$deviceAddress"
-
-                            // TODO: Call delegate to handle received packet
+                            // Forward packet to connection manager via delegate
+                            packetDelegate?.onPacketReceived(packet, deviceAddress)
                         }
                     } catch (e: EOFException) {
                         Log.d(TAG, "Client $deviceAddress disconnected")
@@ -267,4 +266,11 @@ class WiFiDirectPacketBroadcaster(
      */
     private val isActive: Boolean
         get() = serverSocket != null || clientSockets.isNotEmpty()
+}
+
+/**
+ * Delegate interface for forwarding received packets
+ */
+interface WiFiDirectPacketDelegate {
+    fun onPacketReceived(packet: BitchatPacket, deviceAddress: String)
 }
