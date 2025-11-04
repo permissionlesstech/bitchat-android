@@ -41,8 +41,12 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         
         Log.d(TAG, "Processing Noise encrypted message from $peerID (${packet.payload.size} bytes)")
         
-        // Skip our own messages
-        if (peerID == myPeerID) return
+        // Skip our own messages, except when coming from sync (TTL=SYNC_TTL_HOPS) and not tracked in gossip
+        if (peerID == myPeerID) {
+            val isSyncTtl = packet.ttl == com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS
+            val seenInGossip = try { delegate?.isInGossipSync(packet) } catch (_: Exception) { null }
+            if (!(isSyncTtl && (seenInGossip == false))) return
+        }
         
         // Check if this message is for us
         val recipientID = packet.recipientID?.toHexString()
@@ -209,7 +213,12 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         val packet = routed.packet
         val peerID = routed.peerID ?: "unknown"
 
-        if (peerID == myPeerID) return false
+        // Skip our own announce, except when coming from sync (TTL=SYNC_TTL_HOPS) and not tracked in gossip
+        if (peerID == myPeerID) {
+            val isSyncTtl = packet.ttl == com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS
+            val seenInGossip = try { delegate?.isInGossipSync(packet) } catch (_: Exception) { null }
+            if (!(isSyncTtl && (seenInGossip == false))) return false
+        }
 
         // Ignore stale announcements older than STALE_PEER_TIMEOUT
         val now = System.currentTimeMillis()
@@ -342,7 +351,11 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
     suspend fun handleMessage(routed: RoutedPacket) {
         val packet = routed.packet
         val peerID = routed.peerID ?: "unknown"
-        if (peerID == myPeerID) return
+        if (peerID == myPeerID) {
+            val isSyncTtl = packet.ttl == com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS
+            val seenInGossip = try { delegate?.isInGossipSync(packet) } catch (_: Exception) { null }
+            if (!(isSyncTtl && (seenInGossip == false))) return
+        }
         val senderNickname = delegate?.getPeerNickname(peerID)
         if (senderNickname != null) {
             Log.d(TAG, "Received message from $senderNickname")
@@ -611,4 +624,7 @@ interface MessageHandlerDelegate {
     fun onChannelLeave(channel: String, fromPeer: String)
     fun onDeliveryAckReceived(messageID: String, peerID: String)
     fun onReadReceiptReceived(messageID: String, peerID: String)
+
+    // Gossip sync visibility
+    fun isInGossipSync(packet: BitchatPacket): Boolean
 }

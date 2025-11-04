@@ -133,6 +133,20 @@ class GossipSyncManager(
         }
     }
 
+    // Check if we've already tracked this packet in our gossip sync state
+    fun hasSeenPacket(packet: BitchatPacket): Boolean {
+        return try {
+            val idBytes = PacketIdUtil.computeIdBytes(packet)
+            val id = idBytes.joinToString("") { b -> "%02x".format(b) }
+            // Check broadcast messages cache
+            synchronized(messages) {
+                if (messages.containsKey(id)) return true
+            }
+            // Check announcements cache (latest by peer keeps id hex)
+            latestAnnouncementByPeer.values.any { pair -> pair.first.equals(id, ignoreCase = true) }
+        } catch (_: Exception) { false }
+    }
+
     private fun sendRequestSync() {
         val payload = buildGcsPayload()
 

@@ -44,10 +44,14 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
      * Validate packet security (timestamp, replay attacks, duplicates, signatures)
      */
     fun validatePacket(packet: BitchatPacket, peerID: String): Boolean {
-        // Skip validation for our own packets
+        // Skip our own packets, except allow sync copies of our own packets
         if (peerID == myPeerID) {
-            Log.d(TAG, "Skipping validation for our own packet")
-            return false
+            val isSyncTtl = packet.ttl == com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS
+            val seenInGossip = try { delegate?.let { (it as? SecurityManagerGossipLookup)?.isInGossipSync(packet) } } catch (_: Exception) { null }
+            if (!(isSyncTtl && (seenInGossip == false))) {
+                Log.d(TAG, "Skipping validation for our own packet (not sync-eligible)")
+                return false
+            }
         }
         
         // Replay attack protection (same 5-minute window as iOS)
@@ -383,4 +387,9 @@ interface SecurityManagerDelegate {
     fun onKeyExchangeCompleted(peerID: String, peerPublicKeyData: ByteArray)
     fun sendHandshakeResponse(peerID: String, response: ByteArray)
     fun getPeerInfo(peerID: String): PeerInfo? // NEW: For signature verification
+}
+
+// Optional extension for gossip sync visibility (implemented by host service)
+interface SecurityManagerGossipLookup {
+    fun isInGossipSync(packet: BitchatPacket): Boolean
 }

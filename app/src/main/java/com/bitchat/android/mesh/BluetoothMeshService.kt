@@ -160,8 +160,8 @@ class BluetoothMeshService(private val context: Context) {
             }
         }
         
-        // SecurityManager delegate for key exchange notifications
-        securityManager.delegate = object : SecurityManagerDelegate {
+        // SecurityManager delegate for key exchange notifications + gossip lookup
+        securityManager.delegate = object : SecurityManagerDelegate, SecurityManagerGossipLookup {
             override fun onKeyExchangeCompleted(peerID: String, peerPublicKeyData: ByteArray) {
                 // Send announcement and cached messages after key exchange
                 serviceScope.launch {
@@ -192,6 +192,11 @@ class BluetoothMeshService(private val context: Context) {
             
             override fun getPeerInfo(peerID: String): PeerInfo? {
                 return peerManager.getPeerInfo(peerID)
+            }
+
+            // SecurityManagerGossipLookup
+            override fun isInGossipSync(packet: BitchatPacket): Boolean {
+                return try { gossipSyncManager.hasSeenPacket(packet) } catch (_: Exception) { false }
             }
         }
         
@@ -365,6 +370,10 @@ class BluetoothMeshService(private val context: Context) {
             
             override fun onReadReceiptReceived(messageID: String, peerID: String) {
                 delegate?.didReceiveReadReceipt(messageID, peerID)
+            }
+
+            override fun isInGossipSync(packet: BitchatPacket): Boolean {
+                return try { gossipSyncManager.hasSeenPacket(packet) } catch (_: Exception) { false }
             }
         }
         
