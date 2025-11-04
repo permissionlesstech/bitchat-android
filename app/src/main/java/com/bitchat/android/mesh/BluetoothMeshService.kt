@@ -21,10 +21,10 @@ import kotlin.random.Random
 /**
  * Bluetooth mesh service - REFACTORED to use component-based architecture
  * 100% compatible with iOS version and maintains exact same UUIDs, packet format, and protocol logic
- * 
+ *
  * This is now a coordinator that orchestrates the following components:
  * - PeerManager: Peer lifecycle management
- * - FragmentManager: Message fragmentation and reassembly  
+ * - FragmentManager: Message fragmentation and reassembly
  * - SecurityManager: Security, duplicate detection, encryption
  * - StoreForwardManager: Offline message caching
  * - MessageHandler: Message type processing and relay logic
@@ -33,12 +33,12 @@ import kotlin.random.Random
  */
 class BluetoothMeshService(private val context: Context) {
     private val debugManager by lazy { try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (e: Exception) { null } }
-    
+
     companion object {
         private const val TAG = "BluetoothMeshService"
         private val MAX_TTL: UByte = com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
     }
-    
+
     // Core components - each handling specific responsibilities
     private val encryptionService = EncryptionService(context)
 
@@ -50,18 +50,20 @@ class BluetoothMeshService(private val context: Context) {
     private val storeForwardManager = StoreForwardManager()
     private val messageHandler = MessageHandler(myPeerID, context.applicationContext)
     internal val connectionManager = BluetoothConnectionManager(context, myPeerID, fragmentManager) // Made internal for access
+    private val wifiDirectManager = WiFiDirectConnectionManager(context, myPeerID, fragmentManager)
+    val localNetworkManager = LocalNetworkConnectionManager(context, myPeerID, fragmentManager)
     private val packetProcessor = PacketProcessor(myPeerID)
     private lateinit var gossipSyncManager: GossipSyncManager
-    
+
     // Service state management
     private var isActive = false
-    
+
     // Delegate for message callbacks (maintains same interface)
     var delegate: BluetoothMeshDelegate? = null
-    
+
     // Coroutines
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    
+
     init {
         setupDelegates()
         messageHandler.packetProcessor = packetProcessor
@@ -90,6 +92,12 @@ class BluetoothMeshService(private val context: Context) {
         gossipSyncManager.delegate = object : GossipSyncManager.Delegate {
             override fun sendPacket(packet: BitchatPacket) {
                 connectionManager.broadcastPacket(RoutedPacket(packet))
+                wifiDirectManager.broadcastPacket(RoutedPacket(packet))
+                localNetworkManager.broadcastPacket(RoutedPacket(packet))
+                wifiDirectManager.broadcastPacket(RoutedPacket(packet))
+                localNetworkManager.broadcastPacket(RoutedPacket(packet))
+                wifiDirectManager.broadcastPacket(RoutedPacket(packet))
+                localNetworkManager.broadcastPacket(RoutedPacket(packet))
             }
             override fun sendPacketToPeer(peerID: String, packet: BitchatPacket) {
                 connectionManager.sendPacketToPeer(peerID, packet)
@@ -99,7 +107,7 @@ class BluetoothMeshService(private val context: Context) {
             }
         }
     }
-    
+
     /**
      * Start periodic debug logging every 10 seconds
      */
@@ -134,14 +142,15 @@ class BluetoothMeshService(private val context: Context) {
             }
         }
     }
-    
+
     /**
      * Setup delegate connections between components
      */
     private fun setupDelegates() {
-        // Provide nickname resolver to BLE broadcaster for detailed logs
+        // Provide nickname resolver to connection managers for detailed logs
         try {
             connectionManager.setNicknameResolver { pid -> peerManager.getPeerNickname(pid) }
+            wifiDirectManager.setNicknameResolver { pid -> peerManager.getPeerNickname(pid) }
         } catch (_: Exception) { }
         // PeerManager delegates to main mesh service delegate
         peerManager.delegate = object : PeerManagerDelegate {
@@ -159,7 +168,7 @@ class BluetoothMeshService(private val context: Context) {
                 }
             }
         }
-        
+
         // SecurityManager delegate for key exchange notifications
         securityManager.delegate = object : SecurityManagerDelegate {
             override fun onKeyExchangeCompleted(peerID: String, peerPublicKeyData: ByteArray) {
@@ -167,12 +176,12 @@ class BluetoothMeshService(private val context: Context) {
                 serviceScope.launch {
                     delay(100)
                     sendAnnouncementToPeer(peerID)
-                    
+
                     delay(1000)
                     storeForwardManager.sendCachedMessages(peerID)
                 }
             }
-            
+
             override fun sendHandshakeResponse(peerID: String, response: ByteArray) {
                 // Send Noise handshake response
                 val responsePacket = BitchatPacket(
@@ -187,101 +196,125 @@ class BluetoothMeshService(private val context: Context) {
                 // Sign the handshake response
                 val signedPacket = signPacketBeforeBroadcast(responsePacket)
                 connectionManager.broadcastPacket(RoutedPacket(signedPacket))
+        wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
+        localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
+                wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
+                localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
+                wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
+                localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
                 Log.d(TAG, "Sent Noise handshake response to $peerID (${response.size} bytes)")
             }
-            
+
             override fun getPeerInfo(peerID: String): PeerInfo? {
                 return peerManager.getPeerInfo(peerID)
             }
         }
-        
+
         // StoreForwardManager delegates
         storeForwardManager.delegate = object : StoreForwardManagerDelegate {
             override fun isFavorite(peerID: String): Boolean {
                 return delegate?.isFavorite(peerID) ?: false
             }
-            
+
             override fun isPeerOnline(peerID: String): Boolean {
                 return peerManager.isPeerActive(peerID)
             }
-            
+
             override fun sendPacket(packet: BitchatPacket) {
                 connectionManager.broadcastPacket(RoutedPacket(packet))
+                wifiDirectManager.broadcastPacket(RoutedPacket(packet))
+                localNetworkManager.broadcastPacket(RoutedPacket(packet))
+                wifiDirectManager.broadcastPacket(RoutedPacket(packet))
+                localNetworkManager.broadcastPacket(RoutedPacket(packet))
+                wifiDirectManager.broadcastPacket(RoutedPacket(packet))
+                localNetworkManager.broadcastPacket(RoutedPacket(packet))
             }
         }
-        
+
         // MessageHandler delegates
         messageHandler.delegate = object : MessageHandlerDelegate {
             // Peer management
             override fun addOrUpdatePeer(peerID: String, nickname: String): Boolean {
                 return peerManager.addOrUpdatePeer(peerID, nickname)
             }
-            
+
             override fun removePeer(peerID: String) {
                 peerManager.removePeer(peerID)
             }
-            
+
             override fun updatePeerNickname(peerID: String, nickname: String) {
                 peerManager.addOrUpdatePeer(peerID, nickname)
             }
-            
+
             override fun getPeerNickname(peerID: String): String? {
                 return peerManager.getPeerNickname(peerID)
             }
-            
+
             override fun getNetworkSize(): Int {
                 return peerManager.getActivePeerCount()
             }
-            
+
             override fun getMyNickname(): String? {
                 return delegate?.getNickname()
             }
-            
+
             override fun getPeerInfo(peerID: String): PeerInfo? {
                 return peerManager.getPeerInfo(peerID)
             }
-            
+
             override fun updatePeerInfo(peerID: String, nickname: String, noisePublicKey: ByteArray, signingPublicKey: ByteArray, isVerified: Boolean): Boolean {
                 return peerManager.updatePeerInfo(peerID, nickname, noisePublicKey, signingPublicKey, isVerified)
             }
-            
+
             // Packet operations
             override fun sendPacket(packet: BitchatPacket) {
                 // Sign the packet before broadcasting
                 val signedPacket = signPacketBeforeBroadcast(packet)
                 connectionManager.broadcastPacket(RoutedPacket(signedPacket))
+        wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
+        localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
+                wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
+                localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
+                wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
+                localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
             }
-            
+
             override fun relayPacket(routed: RoutedPacket) {
                 connectionManager.broadcastPacket(routed)
+                wifiDirectManager.broadcastPacket(routed)
+                localNetworkManager.broadcastPacket(routed)
+                wifiDirectManager.broadcastPacket(routed)
+                localNetworkManager.broadcastPacket(routed)
+                wifiDirectManager.broadcastPacket(routed)
+                localNetworkManager.broadcastPacket(routed)
             }
-            
+
             override fun getBroadcastRecipient(): ByteArray {
                 return SpecialRecipients.BROADCAST
             }
-            
+
             // Cryptographic operations
             override fun verifySignature(packet: BitchatPacket, peerID: String): Boolean {
                 return securityManager.verifySignature(packet, peerID)
             }
-            
+
             override fun encryptForPeer(data: ByteArray, recipientPeerID: String): ByteArray? {
                 return securityManager.encryptForPeer(data, recipientPeerID)
             }
-            
+
             override fun decryptFromPeer(encryptedData: ByteArray, senderPeerID: String): ByteArray? {
                 return securityManager.decryptFromPeer(encryptedData, senderPeerID)
             }
-            
+
             override fun verifyEd25519Signature(signature: ByteArray, data: ByteArray, publicKey: ByteArray): Boolean {
                 return encryptionService.verifyEd25519Signature(signature, data, publicKey)
             }
-            
+
             // Noise protocol operations
             override fun hasNoiseSession(peerID: String): Boolean {
                 return encryptionService.hasEstablishedSession(peerID)
             }
-            
+
             override fun initiateNoiseHandshake(peerID: String) {
                 try {
                     // Initiate proper Noise handshake with specific peer
@@ -301,16 +334,26 @@ class BluetoothMeshService(private val context: Context) {
                         // Sign the handshake packet before broadcasting
                         val signedPacket = signPacketBeforeBroadcast(packet)
                         connectionManager.broadcastPacket(RoutedPacket(signedPacket))
+        wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
+        localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
+                wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
+                localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
+                    wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
+                    localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
+                        wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
+                        localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
+                wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
+                localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
                         Log.d(TAG, "Initiated Noise handshake with $peerID (${handshakeData.size} bytes)")
                     } else {
                         Log.w(TAG, "Failed to generate Noise handshake data for $peerID")
                     }
-                    
+
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to initiate Noise handshake with $peerID: ${e.message}")
                 }
             }
-            
+
             override fun processNoiseHandshakeMessage(payload: ByteArray, peerID: String): ByteArray? {
                 return try {
                     encryptionService.processHandshakeMessage(payload, peerID)
@@ -319,14 +362,14 @@ class BluetoothMeshService(private val context: Context) {
                     null
                 }
             }
-            
+
             override fun updatePeerIDBinding(newPeerID: String, nickname: String,
                                            publicKey: ByteArray, previousPeerID: String?) {
 
                 Log.d(TAG, "Updating peer ID binding: $newPeerID (was: $previousPeerID) with nickname: $nickname and public key: ${publicKey.toHexString().take(16)}...")
                 // Update peer mapping in the PeerManager for peer ID rotation support
                 peerManager.addOrUpdatePeer(newPeerID, nickname)
-                
+
                 // Store fingerprint for the peer via centralized fingerprint manager
                 val fingerprint = peerManager.storeFingerprintForPeer(newPeerID, publicKey)
 
@@ -336,69 +379,69 @@ class BluetoothMeshService(private val context: Context) {
                         com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateNostrPublicKeyForPeerID(newPeerID, npub)
                     }
                 } catch (_: Exception) { }
-                
+
                 // If there was a previous peer ID, remove it to avoid duplicates
                 previousPeerID?.let { oldPeerID ->
                     peerManager.removePeer(oldPeerID)
                 }
-                
+
                 Log.d(TAG, "Updated peer ID binding: $newPeerID (was: $previousPeerID), fingerprint: ${fingerprint.take(16)}...")
             }
-            
+
             // Message operations  
             override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {
                 return delegate?.decryptChannelMessage(encryptedContent, channel)
             }
-            
+
             // Callbacks
             override fun onMessageReceived(message: BitchatMessage) {
                 delegate?.didReceiveMessage(message)
             }
-            
+
             override fun onChannelLeave(channel: String, fromPeer: String) {
                 delegate?.didReceiveChannelLeave(channel, fromPeer)
             }
-            
+
             override fun onDeliveryAckReceived(messageID: String, peerID: String) {
                 delegate?.didReceiveDeliveryAck(messageID, peerID)
             }
-            
+
             override fun onReadReceiptReceived(messageID: String, peerID: String) {
                 delegate?.didReceiveReadReceipt(messageID, peerID)
             }
         }
-        
+
         // PacketProcessor delegates
         packetProcessor.delegate = object : PacketProcessorDelegate {
             override fun validatePacketSecurity(packet: BitchatPacket, peerID: String): Boolean {
                 return securityManager.validatePacket(packet, peerID)
             }
-            
+
             override fun updatePeerLastSeen(peerID: String) {
                 peerManager.updatePeerLastSeen(peerID)
             }
-            
+
             override fun getPeerNickname(peerID: String): String? {
                 return peerManager.getPeerNickname(peerID)
             }
-            
+
             // Network information for relay manager
             override fun getNetworkSize(): Int {
                 return peerManager.getActivePeerCount()
             }
-            
+
             override fun getBroadcastRecipient(): ByteArray {
                 return SpecialRecipients.BROADCAST
             }
-            
+
             override fun handleNoiseHandshake(routed: RoutedPacket): Boolean {
                 return runBlocking { securityManager.handleNoiseHandshake(routed) }
             }
-            
+
             override fun handleNoiseEncrypted(routed: RoutedPacket) {
                 serviceScope.launch { messageHandler.handleNoiseEncrypted(routed) }
             }
-            
+
             override fun handleAnnounce(routed: RoutedPacket) {
                 serviceScope.launch {
                     // Process the announce
@@ -434,7 +477,7 @@ class BluetoothMeshService(private val context: Context) {
                     try { gossipSyncManager.onPublicPacketSeen(routed.packet) } catch (_: Exception) { }
                 }
             }
-            
+
             override fun handleMessage(routed: RoutedPacket) {
                 serviceScope.launch { messageHandler.handleMessage(routed) }
                 // Track broadcast messages for sync
@@ -446,11 +489,11 @@ class BluetoothMeshService(private val context: Context) {
                     }
                 } catch (_: Exception) { }
             }
-            
+
             override fun handleLeave(routed: RoutedPacket) {
                 serviceScope.launch { messageHandler.handleLeave(routed) }
             }
-            
+
             override fun handleFragment(packet: BitchatPacket): BitchatPacket? {
                 // Track broadcast fragments for gossip sync
                 try {
@@ -461,17 +504,23 @@ class BluetoothMeshService(private val context: Context) {
                 } catch (_: Exception) { }
                 return fragmentManager.handleFragment(packet)
             }
-            
+
             override fun sendAnnouncementToPeer(peerID: String) {
                 this@BluetoothMeshService.sendAnnouncementToPeer(peerID)
             }
-            
+
             override fun sendCachedMessages(peerID: String) {
                 storeForwardManager.sendCachedMessages(peerID)
             }
-            
+
             override fun relayPacket(routed: RoutedPacket) {
                 connectionManager.broadcastPacket(routed)
+                wifiDirectManager.broadcastPacket(routed)
+                localNetworkManager.broadcastPacket(routed)
+                wifiDirectManager.broadcastPacket(routed)
+                localNetworkManager.broadcastPacket(routed)
+                wifiDirectManager.broadcastPacket(routed)
+                localNetworkManager.broadcastPacket(routed)
             }
 
             override fun handleRequestSync(routed: RoutedPacket) {
@@ -481,13 +530,13 @@ class BluetoothMeshService(private val context: Context) {
                 gossipSyncManager.handleRequestSync(fromPeer, req)
             }
         }
-        
-        // BluetoothConnectionManager delegates
+
+        // Connection manager delegates
         connectionManager.delegate = object : BluetoothConnectionManagerDelegate {
             override fun onPacketReceived(packet: BitchatPacket, peerID: String, device: android.bluetooth.BluetoothDevice?) {
                 packetProcessor.processPacket(RoutedPacket(packet, peerID, device?.address))
             }
-            
+
             override fun onDeviceConnected(device: android.bluetooth.BluetoothDevice) {
                 // Send initial announcements after services are ready
                 serviceScope.launch {
@@ -524,7 +573,7 @@ class BluetoothMeshService(private val context: Context) {
                     } catch (_: Exception) { }
                 }
             }
-            
+
             override fun onRSSIUpdated(deviceAddress: String, rssi: Int) {
                 // Find the peer ID for this device address and update RSSI in PeerManager
                 connectionManager.addressPeerMap[deviceAddress]?.let { peerID ->
@@ -532,8 +581,78 @@ class BluetoothMeshService(private val context: Context) {
                 }
             }
         }
+
+        // WiFiDirectConnectionManager delegates
+        wifiDirectManager.delegate = object : WiFiDirectConnectionManagerDelegate {
+            override fun onPacketReceived(packet: BitchatPacket, peerID: String, device: android.net.wifi.p2p.WifiP2pDevice?) {
+                packetProcessor.processPacket(RoutedPacket(packet, peerID, device?.deviceAddress))
+            }
+
+            override fun onDeviceConnected(device: android.net.wifi.p2p.WifiP2pDevice) {
+                // Send initial announcements after services are ready
+                serviceScope.launch {
+                    delay(200)
+                    sendBroadcastAnnounce()
+                }
+                // Log Wi-Fi Direct connection
+                try {
+                    val addr = device.deviceAddress
+                    val peer = wifiDirectManager.getDeviceAddressForPeer("") // We need to map this
+                    val nick = peer?.let { peerManager.getPeerNickname(it) } ?: device.deviceName ?: "unknown"
+                    com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
+                        .logPeerConnection(peer ?: "unknown", nick, addr, isInbound = true)
+                } catch (_: Exception) { }
+            }
+
+            override fun onDeviceDisconnected(device: android.net.wifi.p2p.WifiP2pDevice) {
+                val addr = device.deviceAddress
+                // Remove mapping and clear direct flag
+                val peer = wifiDirectManager.getDeviceAddressForPeer("") // We need to map this
+                if (peer != null) {
+                    // Peer might still be reachable indirectly; mark as not-direct
+                    try { peerManager.setDirectConnection(peer, false) } catch (_: Exception) { }
+                    // Debug logging
+                    try {
+                        val nick = peerManager.getPeerNickname(peer) ?: "unknown"
+                        com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
+                            .logPeerDisconnection(peer, nick, addr)
+                    } catch (_: Exception) { }
+                }
+            }
+        }
+
+        // LocalNetworkConnectionManager delegates
+        localNetworkManager.delegate = object : LocalNetworkConnectionManagerDelegate {
+            override fun onPacketReceived(packet: BitchatPacket, peerID: String, address: String) {
+                packetProcessor.processPacket(RoutedPacket(packet, peerID, address))
+            }
+
+            override fun onDeviceConnected(address: String, peerID: String) {
+                // Send initial announcements after services are ready
+                serviceScope.launch {
+                    delay(200)
+                    sendBroadcastAnnounce()
+                }
+                // Log local network connection
+                try {
+                    val nick = peerManager.getPeerNickname(peerID) ?: "unknown"
+                    com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
+                        .logPeerConnection(peerID, nick, address, isInbound = true)
+                } catch (_: Exception) { }
+            }
+
+            override fun onDeviceDisconnected(address: String) {
+                // Find peer ID for this address and mark as disconnected
+                try {
+                    // We need to maintain a mapping from address to peer ID
+                    // For now, we'll just log the disconnection
+                    com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
+                        .logPeerDisconnection("unknown", "unknown", address)
+                } catch (_: Exception) { }
+            }
+        }
     }
-    
+
     /**
      * Start the mesh service
      */
@@ -543,22 +662,59 @@ class BluetoothMeshService(private val context: Context) {
             Log.w(TAG, "Mesh service already active, ignoring duplicate start request")
             return
         }
-        
-        Log.i(TAG, "Starting Bluetooth mesh service with peer ID: $myPeerID")
-        
+
+        Log.i(TAG, "Starting mesh services with peer ID: $myPeerID")
+
+        var bluetoothStarted = false
+        var wifiDirectStarted = false
+
+        // Try to start Bluetooth services
         if (connectionManager.startServices()) {
+            bluetoothStarted = true
+            Log.d(TAG, "Bluetooth services started successfully")
+        } else {
+            Log.w(TAG, "Failed to start Bluetooth services")
+        }
+
+        // Try to start Wi-Fi Direct services
+        if (wifiDirectManager.startServices()) {
+            wifiDirectStarted = true
+            Log.d(TAG, "Wi-Fi Direct services started successfully")
+        } else {
+            Log.w(TAG, "Failed to start Wi-Fi Direct services")
+        }
+
+        // Try to start Local Network services
+        var localNetworkStarted = false
+        try {
+            val debugManager = com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
+            val localNetworkEnabled = debugManager.localNetworkEnabled.value
+            if (localNetworkEnabled && localNetworkManager.startServices()) {
+                localNetworkStarted = true
+                Log.d(TAG, "Local Network services started successfully")
+            } else if (localNetworkEnabled) {
+                Log.w(TAG, "Failed to start Local Network services")
+            }
+        } catch (_: Exception) {
+            Log.w(TAG, "Local Network not available")
+        }
+
+        // If at least one service started, consider mesh active
+        if (bluetoothStarted || wifiDirectStarted || localNetworkStarted) {
             isActive = true
-            
+
             // Start periodic announcements for peer discovery and connectivity
             sendPeriodicBroadcastAnnounce()
             Log.d(TAG, "Started periodic broadcast announcements (every 30 seconds)")
             // Start periodic syncs
             gossipSyncManager.start()
+
+            Log.i(TAG, "Mesh services started: Bluetooth=$bluetoothStarted, WiFi Direct=$wifiDirectStarted")
         } else {
-            Log.e(TAG, "Failed to start Bluetooth services")
+            Log.e(TAG, "Failed to start any mesh services")
         }
     }
-    
+
     /**
      * Stop all mesh services
      */
@@ -567,36 +723,38 @@ class BluetoothMeshService(private val context: Context) {
             Log.w(TAG, "Mesh service not active, ignoring stop request")
             return
         }
-        
-        Log.i(TAG, "Stopping Bluetooth mesh service")
+
+        Log.i(TAG, "Stopping mesh services")
         isActive = false
-        
+
         // Send leave announcement
         sendLeaveAnnouncement()
-        
+
         serviceScope.launch {
             delay(200) // Give leave message time to send
-            
+
             // Stop all components
             gossipSyncManager.stop()
             connectionManager.stopServices()
+            wifiDirectManager.stopServices()
+            localNetworkManager.stopServices()
             peerManager.shutdown()
             fragmentManager.shutdown()
             securityManager.shutdown()
             storeForwardManager.shutdown()
             messageHandler.shutdown()
             packetProcessor.shutdown()
-            
+
             serviceScope.cancel()
         }
     }
-    
+
     /**
      * Send public message
      */
     fun sendMessage(content: String, mentions: List<String> = emptyList(), channel: String? = null) {
         if (content.isEmpty()) return
-        
+
         serviceScope.launch {
             val packet = BitchatPacket(
                 version = 1u,
@@ -611,7 +769,15 @@ class BluetoothMeshService(private val context: Context) {
 
             // Sign the packet before broadcasting
             val signedPacket = signPacketBeforeBroadcast(packet)
-            connectionManager.broadcastPacket(RoutedPacket(signedPacket))
+            val routedPacket = RoutedPacket(signedPacket)
+
+            // Broadcast to all available connection managers
+            connectionManager.broadcastPacket(routedPacket)
+            wifiDirectManager.broadcastPacket(routedPacket)
+            localNetworkManager.broadcastPacket(routedPacket)
+            wifiDirectManager.broadcastPacket(routedPacket)
+            localNetworkManager.broadcastPacket(routedPacket)
+
             // Track our own broadcast message for sync
             try { gossipSyncManager.onPublicPacketSeen(signedPacket) } catch (_: Exception) { }
         }
@@ -644,6 +810,8 @@ class BluetoothMeshService(private val context: Context) {
             // Use a stable transferId based on the file TLV payload for progress tracking
             val transferId = sha256Hex(payload)
             connectionManager.broadcastPacket(RoutedPacket(signed, transferId = transferId))
+            wifiDirectManager.broadcastPacket(RoutedPacket(signed, transferId = transferId))
+            localNetworkManager.broadcastPacket(RoutedPacket(signed, transferId = transferId))
             try { gossipSyncManager.onPublicPacketSeen(signed) } catch (_: Exception) { }
         }
             } catch (e: Exception) {
@@ -658,7 +826,7 @@ class BluetoothMeshService(private val context: Context) {
     fun sendFilePrivate(recipientPeerID: String, file: com.bitchat.android.model.BitchatFilePacket) {
         try {
             Log.d(TAG, "📤 sendFilePrivate (ENCRYPTED): to=$recipientPeerID, name=${file.fileName}, size=${file.fileSize}")
-            
+
             serviceScope.launch {
                 // Check if we have an established Noise session
                 if (encryptionService.hasEstablishedSession(recipientPeerID)) {
@@ -670,13 +838,13 @@ class BluetoothMeshService(private val context: Context) {
                             return@launch
                         }
                         Log.d(TAG, "📦 Encoded file TLV: ${filePayload.size} bytes")
-                        
+
                         // Create NoisePayload wrapper (type byte + file TLV data) - same as iOS
                         val noisePayload = com.bitchat.android.model.NoisePayload(
                             type = com.bitchat.android.model.NoisePayloadType.FILE_TRANSFER,
                             data = filePayload
                         )
-                        
+
                         // Encrypt the payload using Noise
                         val encrypted = encryptionService.encrypt(noisePayload.encode(), recipientPeerID)
                         if (encrypted == null) {
@@ -684,7 +852,7 @@ class BluetoothMeshService(private val context: Context) {
                             return@launch
                         }
                         Log.d(TAG, "🔐 Encrypted file payload: ${encrypted.size} bytes")
-                        
+
                         // Create NOISE_ENCRYPTED packet (not FILE_TRANSFER!)
                         val packet = BitchatPacket(
                             version = 1u,
@@ -696,14 +864,16 @@ class BluetoothMeshService(private val context: Context) {
                             signature = null,
                             ttl = com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
                         )
-                        
+
                         // Sign and send the encrypted packet
                         val signed = signPacketBeforeBroadcast(packet)
                         // Use a stable transferId based on the unencrypted file TLV payload for progress tracking
                         val transferId = sha256Hex(filePayload)
                         connectionManager.broadcastPacket(RoutedPacket(signed, transferId = transferId))
+            wifiDirectManager.broadcastPacket(RoutedPacket(signed, transferId = transferId))
+            localNetworkManager.broadcastPacket(RoutedPacket(signed, transferId = transferId))
                         Log.d(TAG, "✅ Sent encrypted file to $recipientPeerID")
-                        
+
                     } catch (e: Exception) {
                         Log.e(TAG, "❌ Failed to encrypt file for $recipientPeerID: ${e.message}", e)
                     }
@@ -729,20 +899,20 @@ class BluetoothMeshService(private val context: Context) {
         md.update(bytes)
         md.digest().joinToString("") { "%02x".format(it) }
     } catch (_: Exception) { bytes.size.toString(16) }
-    
+
     /**
-     * Send private message - SIMPLIFIED iOS-compatible version 
+     * Send private message - SIMPLIFIED iOS-compatible version
      * Uses NoisePayloadType system exactly like iOS SimplifiedBluetoothService
      */
     fun sendPrivateMessage(content: String, recipientPeerID: String, recipientNickname: String, messageID: String? = null) {
         if (content.isEmpty() || recipientPeerID.isEmpty()) return
         if (recipientNickname.isEmpty()) return
-        
+
         serviceScope.launch {
             val finalMessageID = messageID ?: java.util.UUID.randomUUID().toString()
-            
+
             Log.d(TAG, "📨 Sending PM to $recipientPeerID: ${content.take(30)}...")
-            
+
             // Check if we have an established Noise session
             if (encryptionService.hasEstablishedSession(recipientPeerID)) {
                 try {
@@ -751,22 +921,22 @@ class BluetoothMeshService(private val context: Context) {
                         messageID = finalMessageID,
                         content = content
                     )
-                    
+
                     val tlvData = privateMessage.encode()
                     if (tlvData == null) {
                         Log.e(TAG, "Failed to encode private message with TLV")
                         return@launch
                     }
-                    
+
                     // Create message payload with NoisePayloadType prefix: [type byte] + [TLV data]
                     val messagePayload = com.bitchat.android.model.NoisePayload(
                         type = com.bitchat.android.model.NoisePayloadType.PRIVATE_MESSAGE,
                         data = tlvData
                     )
-                    
+
                     // Encrypt the payload
                     val encrypted = encryptionService.encrypt(messagePayload.encode(), recipientPeerID)
-                    
+
                     // Create NOISE_ENCRYPTED packet exactly like iOS
                     val packet = BitchatPacket(
                         version = 1u,
@@ -778,16 +948,24 @@ class BluetoothMeshService(private val context: Context) {
                         signature = null,
                         ttl = MAX_TTL
                     )
-                    
+
                     // Sign the packet before broadcasting
                     val signedPacket = signPacketBeforeBroadcast(packet)
                     connectionManager.broadcastPacket(RoutedPacket(signedPacket))
+        wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
+        localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
+                wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
+                localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
+                    wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
+                    localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
+                wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
+                localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
                     Log.d(TAG, "📤 Sent encrypted private message to $recipientPeerID (${encrypted.size} bytes)")
-                    
+
                     // FIXED: Don't send didReceiveMessage for our own sent messages
                     // This was causing self-notifications - iOS doesn't do this
                     // The UI handles showing sent messages through its own message sending logic
-                    
+
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to encrypt private message for $recipientPeerID: ${e.message}")
                 }
@@ -795,13 +973,13 @@ class BluetoothMeshService(private val context: Context) {
                 // Fire and forget - initiate handshake but don't queue exactly like iOS
                 Log.d(TAG, "🤝 No session with $recipientPeerID, initiating handshake")
                 messageHandler.delegate?.initiateNoiseHandshake(recipientPeerID)
-                
+
                 // FIXED: Don't send didReceiveMessage for our own sent messages
                 // The UI will handle showing the message in the chat interface
             }
         }
     }
-    
+
     /**
      * Send read receipt for a received private message - NEW NoisePayloadType implementation
      * Uses same encryption approach as iOS SimplifiedBluetoothService
@@ -809,7 +987,7 @@ class BluetoothMeshService(private val context: Context) {
     fun sendReadReceipt(messageID: String, recipientPeerID: String, readerNickname: String) {
         serviceScope.launch {
             Log.d(TAG, "📖 Sending read receipt for message $messageID to $recipientPeerID")
-            
+
             // Route geohash read receipts via MessageRouter instead of here
             val geo = runCatching { com.bitchat.android.services.MessageRouter.tryGetInstance() }.getOrNull()
             val isGeoAlias = try {
@@ -820,17 +998,17 @@ class BluetoothMeshService(private val context: Context) {
                 geo.sendReadReceipt(com.bitchat.android.model.ReadReceipt(messageID), recipientPeerID)
                 return@launch
             }
-            
+
             try {
                 // Create read receipt payload using NoisePayloadType exactly like iOS
                 val readReceiptPayload = com.bitchat.android.model.NoisePayload(
                     type = com.bitchat.android.model.NoisePayloadType.READ_RECEIPT,
                     data = messageID.toByteArray(Charsets.UTF_8)
                 )
-                
+
                 // Encrypt the payload
                 val encrypted = encryptionService.encrypt(readReceiptPayload.encode(), recipientPeerID)
-                
+
                 // Create NOISE_ENCRYPTED packet exactly like iOS
                 val packet = BitchatPacket(
                     version = 1u,
@@ -842,18 +1020,24 @@ class BluetoothMeshService(private val context: Context) {
                     signature = null,
                     ttl = com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS // Same TTL as iOS messageTTL
                 )
-                
+
                 // Sign the packet before broadcasting
                 val signedPacket = signPacketBeforeBroadcast(packet)
                 connectionManager.broadcastPacket(RoutedPacket(signedPacket))
+        wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
+        localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
+                wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
+                localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
+                wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
+                localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
                 Log.d(TAG, "📤 Sent read receipt to $recipientPeerID for message $messageID")
-                
+
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send read receipt to $recipientPeerID: ${e.message}")
             }
         }
     }
-    
+
     /**
      * Send broadcast announce with TLV-encoded identity announcement - exactly like iOS
      */
@@ -861,21 +1045,21 @@ class BluetoothMeshService(private val context: Context) {
         Log.d(TAG, "Sending broadcast announce")
         serviceScope.launch {
             val nickname = delegate?.getNickname() ?: myPeerID
-            
+
             // Get the static public key for the announcement
             val staticKey = encryptionService.getStaticPublicKey()
             if (staticKey == null) {
                 Log.e(TAG, "No static public key available for announcement")
                 return@launch
             }
-            
+
             // Get the signing public key for the announcement
             val signingKey = encryptionService.getSigningPublicKey()
             if (signingKey == null) {
                 Log.e(TAG, "No signing public key available for announcement")
                 return@launch
             }
-            
+
             // Create iOS-compatible IdentityAnnouncement with TLV encoding
             val announcement = IdentityAnnouncement(nickname, staticKey, signingKey)
             val tlvPayload = announcement.encode()
@@ -883,48 +1067,56 @@ class BluetoothMeshService(private val context: Context) {
                 Log.e(TAG, "Failed to encode announcement as TLV")
                 return@launch
             }
-            
+
             val announcePacket = BitchatPacket(
                 type = MessageType.ANNOUNCE.value,
                 ttl = MAX_TTL,
                 senderID = myPeerID,
                 payload = tlvPayload
             )
-            
+
             // Sign the packet using our signing key (exactly like iOS)
             val signedPacket = encryptionService.signData(announcePacket.toBinaryDataForSigning()!!)?.let { signature ->
                 announcePacket.copy(signature = signature)
             } ?: announcePacket
-            
-            connectionManager.broadcastPacket(RoutedPacket(signedPacket))
+
+            val routedPacket = RoutedPacket(signedPacket)
+
+            // Broadcast to all available connection managers
+            connectionManager.broadcastPacket(routedPacket)
+            wifiDirectManager.broadcastPacket(routedPacket)
+            localNetworkManager.broadcastPacket(routedPacket)
+            wifiDirectManager.broadcastPacket(routedPacket)
+            localNetworkManager.broadcastPacket(routedPacket)
+
             Log.d(TAG, "Sent iOS-compatible signed TLV announce (${tlvPayload.size} bytes)")
             // Track announce for sync
             try { gossipSyncManager.onPublicPacketSeen(signedPacket) } catch (_: Exception) { }
         }
     }
-    
+
     /**
      * Send announcement to specific peer with TLV-encoded identity announcement - exactly like iOS
      */
     fun sendAnnouncementToPeer(peerID: String) {
         if (peerManager.hasAnnouncedToPeer(peerID)) return
-        
+
         val nickname = delegate?.getNickname() ?: myPeerID
-        
+
         // Get the static public key for the announcement
         val staticKey = encryptionService.getStaticPublicKey()
         if (staticKey == null) {
             Log.e(TAG, "No static public key available for peer announcement")
             return
         }
-        
+
         // Get the signing public key for the announcement
         val signingKey = encryptionService.getSigningPublicKey()
         if (signingKey == null) {
             Log.e(TAG, "No signing public key available for peer announcement")
             return
         }
-        
+
         // Create iOS-compatible IdentityAnnouncement with TLV encoding
         val announcement = IdentityAnnouncement(nickname, staticKey, signingKey)
         val tlvPayload = announcement.encode()
@@ -932,20 +1124,22 @@ class BluetoothMeshService(private val context: Context) {
             Log.e(TAG, "Failed to encode peer announcement as TLV")
             return
         }
-        
+
         val packet = BitchatPacket(
             type = MessageType.ANNOUNCE.value,
             ttl = MAX_TTL,
             senderID = myPeerID,
             payload = tlvPayload
         )
-        
+
         // Sign the packet using our signing key (exactly like iOS)
         val signedPacket = encryptionService.signData(packet.toBinaryDataForSigning()!!)?.let { signature ->
             packet.copy(signature = signature)
         } ?: packet
-        
+
         connectionManager.broadcastPacket(RoutedPacket(signedPacket))
+        wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
+        localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
         peerManager.markPeerAsAnnouncedTo(peerID)
         Log.d(TAG, "Sent iOS-compatible signed TLV peer announce to $peerID (${tlvPayload.size} bytes)")
 
@@ -964,36 +1158,38 @@ class BluetoothMeshService(private val context: Context) {
             senderID = myPeerID,
             payload = nickname.toByteArray()
         )
-        
+
         // Sign the packet before broadcasting
         val signedPacket = signPacketBeforeBroadcast(packet)
         connectionManager.broadcastPacket(RoutedPacket(signedPacket))
+        wifiDirectManager.broadcastPacket(RoutedPacket(signedPacket))
+        localNetworkManager.broadcastPacket(RoutedPacket(signedPacket))
     }
-    
+
     /**
      * Get peer nicknames
      */
     fun getPeerNicknames(): Map<String, String> = peerManager.getAllPeerNicknames()
-    
+
     /**
-     * Get peer RSSI values  
+     * Get peer RSSI values
      */
     fun getPeerRSSI(): Map<String, Int> = peerManager.getAllPeerRSSI()
-    
+
     /**
-     * Check if we have an established Noise session with a peer  
+     * Check if we have an established Noise session with a peer
      */
     fun hasEstablishedSession(peerID: String): Boolean {
         return encryptionService.hasEstablishedSession(peerID)
     }
-    
+
     /**
      * Get session state for a peer (for UI state display)
      */
     fun getSessionState(peerID: String): com.bitchat.android.noise.NoiseSession.NoiseSessionState {
         return encryptionService.getSessionState(peerID)
     }
-    
+
     /**
      * Initiate Noise handshake with a specific peer (public API)
      */
@@ -1001,7 +1197,7 @@ class BluetoothMeshService(private val context: Context) {
         // Delegate to the existing implementation in the MessageHandler delegate
         messageHandler.delegate?.initiateNoiseHandshake(peerID)
     }
-    
+
     /**
      * Get peer fingerprint for identity management
      */
@@ -1028,21 +1224,21 @@ class BluetoothMeshService(private val context: Context) {
     ): Boolean {
         return peerManager.updatePeerInfo(peerID, nickname, noisePublicKey, signingPublicKey, isVerified)
     }
-    
+
     /**
      * Get our identity fingerprint
      */
     fun getIdentityFingerprint(): String {
         return encryptionService.getIdentityFingerprint()
     }
-    
+
     /**
      * Check if encryption icon should be shown for a peer
      */
     fun shouldShowEncryptionIcon(peerID: String): Boolean {
         return encryptionService.hasEstablishedSession(peerID)
     }
-    
+
     /**
      * Get all peers with established encrypted sessions
      */
@@ -1051,21 +1247,21 @@ class BluetoothMeshService(private val context: Context) {
         // This method is not critical for the session retention fix
         return emptyList()
     }
-    
+
     /**
      * Get device address for a specific peer ID
      */
     fun getDeviceAddressForPeer(peerID: String): String? {
         return connectionManager.addressPeerMap.entries.find { it.value == peerID }?.key
     }
-    
+
     /**
      * Get all device addresses mapped to their peer IDs
      */
     fun getDeviceAddressToPeerMapping(): Map<String, String> {
         return connectionManager.addressPeerMap.toMap()
     }
-    
+
     /**
      * Print device addresses for all connected peers
      */
@@ -1098,7 +1294,7 @@ class BluetoothMeshService(private val context: Context) {
             appendLine(packetProcessor.getDebugInfo())
         }
     }
-    
+
     /**
      * Convert hex string peer ID to binary data (8 bytes) - exactly same as iOS
      */
@@ -1106,7 +1302,7 @@ class BluetoothMeshService(private val context: Context) {
         val result = ByteArray(8) { 0 } // Initialize with zeros, exactly 8 bytes
         var tempID = hexString
         var index = 0
-        
+
         while (tempID.length >= 2 && index < 8) {
             val hexByte = tempID.substring(0, 2)
             val byte = hexByte.toIntOrNull(16)?.toByte()
@@ -1116,10 +1312,10 @@ class BluetoothMeshService(private val context: Context) {
             tempID = tempID.substring(2)
             index++
         }
-        
+
         return result
     }
-    
+
     /**
      * Sign packet before broadcasting using our signing private key
      */
@@ -1131,7 +1327,7 @@ class BluetoothMeshService(private val context: Context) {
                 Log.w(TAG, "Failed to encode packet type ${packet.type} for signing, sending unsigned")
                 return packet
             }
-            
+
             // Sign the packet data using our signing key
             val signature = encryptionService.signData(packetDataForSigning)
             if (signature != null) {
@@ -1146,9 +1342,9 @@ class BluetoothMeshService(private val context: Context) {
             packet
         }
     }
-    
+
     // MARK: - Panic Mode Support
-    
+
     /**
      * Clear all internal mesh service data (for panic mode)
      */
@@ -1166,7 +1362,7 @@ class BluetoothMeshService(private val context: Context) {
             Log.e(TAG, "❌ Error clearing mesh service internal data: ${e.message}")
         }
     }
-    
+
     /**
      * Clear all encryption and cryptographic data (for panic mode)
      */

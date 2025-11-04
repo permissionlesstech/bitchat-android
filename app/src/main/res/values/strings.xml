@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">bitchat</string>
     <string name="permission_bluetooth_rationale">Bluetooth permission is required for peer-to-peer messaging without internet.</string>
-    <string name="permission_location_rationale">Location permission is required to discover nearby devices via Bluetooth.</string>
+    <string name="permission_location_rationale">Location permission is required to discover nearby devices via Bluetooth and Wi-Fi Direct.</string>
     <string name="permission_notification_rationale">Notification permission is required to alert you of new messages.</string>
     <string name="nickname_hint">nickname</string>
     <string name="message_hint">type a message…</string>
@@ -37,6 +37,16 @@
     <string name="battery_optimization_continue">Continue</string>
     <string name="retry">Retry</string>
   <string name="skip">Skip</string>
+
+  <!-- Wi-Fi Direct Strings -->
+  <string name="wifi_direct">Wi-Fi Direct</string>
+  <string name="wifi_direct_required">Wi-Fi Direct Required</string>
+  <string name="wifi_direct_not_supported">Wi-Fi Direct Not Supported</string>
+  <string name="wifi_direct_unsupported_explanation">Your device doesn\'t support Wi-Fi Direct. bitchat will still work with Bluetooth connections, but Wi-Fi Direct provides faster and more reliable local connections.</string>
+  <string name="wifi_direct_needs_for">Wi-Fi Direct enables:</string>
+  <string name="wifi_direct_needs_bullets">• Direct device-to-device connections\n• Faster data transfer speeds\n• Better range than Bluetooth\n• Works without internet access</string>
+  <string name="check_wifi_direct">Check Wi-Fi Direct</string>
+  <string name="checking_wifi_direct_status">Checking Wi-Fi Direct status</string>
   
   <!-- Notifications -->
   <string name="notification_summary_more">and %1$d more</string>
@@ -101,7 +111,7 @@
   <!-- About sheet -->
   <string name="about_tagline">decentralized mesh messaging with end-to-end encryption</string>
   <string name="about_offline_mesh_title">Offline Mesh Chat</string>
-  <string name="about_offline_mesh_desc">Communicate directly via Bluetooth LE without internet or servers. Messages relay through nearby devices to extend range.</string>
+  <string name="about_offline_mesh_desc">Communicate directly via Bluetooth LE and Wi-Fi Direct without internet or servers. Messages relay through nearby devices to extend range.</string>
   <string name="about_online_geohash_title">Online Geohash Channels</string>
   <string name="about_online_geohash_desc">Connect with people in your area using geohash-based channels. Extend the mesh using public internet relays.</string>
   <string name="about_e2e_title">End-to-End Encryption</string>
@@ -271,7 +281,7 @@
   <!-- Onboarding screens -->
   <string name="location_services_required">Location Services Required</string>
   <string name="privacy_first">Privacy First</string>
-  <string name="location_explanation">bitchat does NOT track your location.\n\nLocation services are required for Bluetooth scanning and for the Geohash chat feature.</string>
+  <string name="location_explanation">bitchat does NOT track your location.\n\nLocation services are required for Bluetooth and Wi-Fi Direct scanning and for the Geohash chat feature.</string>
   <string name="location_needs_for">bitchat needs location services for:</string>
   <string name="location_needs_bullets">• Bluetooth device scanning\n• Discovering nearby users on mesh network\n• Geohash chat feature\n• No tracking or location collection</string>
   <string name="open_location_settings">Open Location Settings</string>

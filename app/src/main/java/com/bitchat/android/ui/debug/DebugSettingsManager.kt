@@ -36,6 +36,12 @@ class DebugSettingsManager private constructor() {
     private val _packetRelayEnabled = MutableStateFlow(true)
     val packetRelayEnabled: StateFlow<Boolean> = _packetRelayEnabled.asStateFlow()
 
+    private val _wifiDirectEnabled = MutableStateFlow(true)
+    val wifiDirectEnabled: StateFlow<Boolean> = _wifiDirectEnabled.asStateFlow()
+
+    private val _localNetworkEnabled = MutableStateFlow(false)
+    val localNetworkEnabled: StateFlow<Boolean> = _localNetworkEnabled.asStateFlow()
+
     // Connection limit overrides (debug)
     private val _maxConnectionsOverall = MutableStateFlow(8)
     val maxConnectionsOverall: StateFlow<Int> = _maxConnectionsOverall.asStateFlow()
@@ -51,6 +57,8 @@ class DebugSettingsManager private constructor() {
             _gattServerEnabled.value = DebugPreferenceManager.getGattServerEnabled(true)
             _gattClientEnabled.value = DebugPreferenceManager.getGattClientEnabled(true)
             _packetRelayEnabled.value = DebugPreferenceManager.getPacketRelayEnabled(true)
+            _wifiDirectEnabled.value = DebugPreferenceManager.getWifiDirectEnabled(true)
+            _localNetworkEnabled.value = DebugPreferenceManager.getLocalNetworkEnabled(false)
             _maxConnectionsOverall.value = DebugPreferenceManager.getMaxConnectionsOverall(8)
             _maxServerConnections.value = DebugPreferenceManager.getMaxConnectionsServer(8)
             _maxClientConnections.value = DebugPreferenceManager.getMaxConnectionsClient(8)
@@ -137,6 +145,22 @@ class DebugSettingsManager private constructor() {
         _packetRelayEnabled.value = enabled
         addDebugMessage(DebugMessage.SystemMessage(
             if (enabled) "📡 Packet relay enabled" else "🚫 Packet relay disabled"
+        ))
+    }
+
+    fun setWifiDirectEnabled(enabled: Boolean) {
+        DebugPreferenceManager.setWifiDirectEnabled(enabled)
+        _wifiDirectEnabled.value = enabled
+        addDebugMessage(DebugMessage.SystemMessage(
+            if (enabled) "📶 Wi-Fi Direct enabled" else "🚫 Wi-Fi Direct disabled"
+        ))
+    }
+
+    fun setLocalNetworkEnabled(enabled: Boolean) {
+        DebugPreferenceManager.setLocalNetworkEnabled(enabled)
+        _localNetworkEnabled.value = enabled
+        addDebugMessage(DebugMessage.SystemMessage(
+            if (enabled) "🌐 Local Network enabled" else "🚫 Local Network disabled"
         ))
     }
 
