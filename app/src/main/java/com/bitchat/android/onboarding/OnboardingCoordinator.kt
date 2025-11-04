@@ -208,7 +208,10 @@ class OnboardingCoordinator(
     private fun getPermissionDisplayName(permission: String): String {
         return when {
             permission.contains("BLUETOOTH") -> "Bluetooth/Nearby Devices"
-            permission.contains("LOCATION") -> "Location (for Bluetooth scanning)"
+            permission.contains("LOCATION") -> "Location (for Bluetooth and Wi-Fi scanning)"
+            permission.contains("ACCESS_WIFI_STATE") -> "Wi-Fi Access (for Wi-Fi Direct)"
+            permission.contains("CHANGE_WIFI_STATE") -> "Wi-Fi Control (for Wi-Fi Direct)"
+            permission.contains("NEARBY_WIFI_DEVICES") -> "Nearby Wi-Fi Devices (for Wi-Fi Direct)"
             permission.contains("NOTIFICATION") -> "Notifications"
             else -> permission.substringAfterLast(".")
         }

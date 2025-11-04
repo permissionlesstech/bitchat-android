@@ -13,6 +13,8 @@ object DebugPreferenceManager {
     private const val KEY_GATT_SERVER = "gatt_server_enabled"
     private const val KEY_GATT_CLIENT = "gatt_client_enabled"
     private const val KEY_PACKET_RELAY = "packet_relay_enabled"
+    private const val KEY_WIFI_DIRECT = "wifi_direct_enabled"
+    private const val KEY_LOCAL_NETWORK = "local_network_enabled"
     private const val KEY_MAX_CONN_OVERALL = "max_connections_overall"
     private const val KEY_MAX_CONN_SERVER = "max_connections_server"
     private const val KEY_MAX_CONN_CLIENT = "max_connections_client"
@@ -55,6 +57,20 @@ object DebugPreferenceManager {
 
     fun setPacketRelayEnabled(value: Boolean) {
         if (ready()) prefs.edit().putBoolean(KEY_PACKET_RELAY, value).apply()
+    }
+
+    fun getWifiDirectEnabled(default: Boolean = true): Boolean =
+        if (ready()) prefs.getBoolean(KEY_WIFI_DIRECT, default) else default
+
+    fun setWifiDirectEnabled(value: Boolean) {
+        if (ready()) prefs.edit().putBoolean(KEY_WIFI_DIRECT, value).apply()
+    }
+
+    fun getLocalNetworkEnabled(default: Boolean = false): Boolean =
+        if (ready()) prefs.getBoolean(KEY_LOCAL_NETWORK, default) else default
+
+    fun setLocalNetworkEnabled(value: Boolean) {
+        if (ready()) prefs.edit().putBoolean(KEY_LOCAL_NETWORK, value).apply()
     }
 
     // Optional connection limits (0 or missing => use defaults)

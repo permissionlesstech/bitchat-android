@@ -61,11 +61,20 @@ class PermissionManager(private val context: Context) {
             ))
         }
 
-        // Location permissions (required for Bluetooth LE scanning)
+        // Location permissions (required for Bluetooth LE scanning and Wi-Fi Direct)
         permissions.addAll(listOf(
             Manifest.permission.ACCESS_COARSE_LOCATION,
             Manifest.permission.ACCESS_FINE_LOCATION
         ))
+
+        // Wi-Fi permissions (required for Wi-Fi Direct)
+        permissions.add(Manifest.permission.ACCESS_WIFI_STATE)
+        permissions.add(Manifest.permission.CHANGE_WIFI_STATE)
+
+        // Wi-Fi Direct permissions (Android 13+ requires NEARBY_WIFI_DEVICES)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.NEARBY_WIFI_DEVICES)
+        }
 
         // Notification permission intentionally excluded to keep it optional
 

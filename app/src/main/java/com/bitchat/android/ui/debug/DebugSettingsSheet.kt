@@ -12,12 +12,15 @@ import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.Router
 import androidx.compose.material.icons.filled.SettingsEthernet
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -43,6 +46,8 @@ fun DebugSettingsSheet(
     val gattServerEnabled by manager.gattServerEnabled.collectAsState()
     val gattClientEnabled by manager.gattClientEnabled.collectAsState()
     val packetRelayEnabled by manager.packetRelayEnabled.collectAsState()
+    val wifiDirectEnabled by manager.wifiDirectEnabled.collectAsState()
+    val localNetworkEnabled by manager.localNetworkEnabled.collectAsState()
     val maxOverall by manager.maxConnectionsOverall.collectAsState()
     val maxServer by manager.maxServerConnections.collectAsState()
     val maxClient by manager.maxClientConnections.collectAsState()
@@ -289,6 +294,39 @@ fun DebugSettingsSheet(
                 }
             }
 
+            // Wi-Fi Direct controls
+            item {
+                Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Filled.Wifi, contentDescription = null, tint = Color(0xFF2196F3))
+                            Text("Wi-Fi Direct", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Spacer(Modifier.weight(1f))
+                            Switch(checked = wifiDirectEnabled, onCheckedChange = { manager.setWifiDirectEnabled(it) })
+                        }
+                        Text("Enable/disable Wi-Fi Direct peer-to-peer connections", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                    }
+                }
+            }
+
+            // Local Network controls
+            item {
+                Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Filled.Router, contentDescription = null, tint = Color(0xFF4CAF50))
+                            Text("Local Network", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Spacer(Modifier.weight(1f))
+                            Switch(checked = localNetworkEnabled, onCheckedChange = { manager.setLocalNetworkEnabled(it) })
+                        }
+                        Text("Enable/disable TCP connections over local Wi-Fi network (works with iPhone hotspot)", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        Spacer(Modifier.height(8.dp))
+
+                        ManualIpConnectionSection(meshService, manager)
+                    }
+                }
+            }
+
             // Connected devices
             item {
                 Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
@@ -396,6 +434,49 @@ fun DebugSettingsSheet(
             }
 
             item { Spacer(Modifier.height(16.dp)) }
+        }
+    }
+}
+
+@Composable
+private fun ManualIpConnectionSection(
+    meshService: BluetoothMeshService,
+    manager: DebugSettingsManager
+) {
+    var manualIp by remember { mutableStateOf("") }
+
+    OutlinedTextField(
+        value = manualIp,
+        onValueChange = { manualIp = it },
+        label = { Text("Manual IP Connection", fontFamily = FontFamily.Monospace, fontSize = 10.sp) },
+        placeholder = { Text("192.168.1.100", fontFamily = FontFamily.Monospace, fontSize = 10.sp) },
+        modifier = Modifier.fillMaxWidth(),
+        textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+    )
+
+    Spacer(Modifier.height(4.dp))
+
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        OutlinedButton(
+            onClick = {
+                if (manualIp.isNotEmpty()) {
+                    meshService.localNetworkManager.connectToIpAddress(manualIp)
+                    manager.addDebugMessage(DebugMessage.SystemMessage("Attempting manual connection to: $manualIp"))
+                }
+            },
+            modifier = Modifier.weight(1f)
+        ) {
+            Text("🔗 Connect", fontFamily = FontFamily.Monospace, fontSize = 10.sp)
+        }
+
+        OutlinedButton(
+            onClick = {
+                val diagnostics = meshService.localNetworkManager.getNetworkDiagnostics()
+                manager.addDebugMessage(DebugMessage.SystemMessage("Local Network Diagnostics:\n$diagnostics"))
+            },
+            modifier = Modifier.weight(1f)
+        ) {
+            Text("🔍 Diag", fontFamily = FontFamily.Monospace, fontSize = 10.sp)
         }
     }
 }
