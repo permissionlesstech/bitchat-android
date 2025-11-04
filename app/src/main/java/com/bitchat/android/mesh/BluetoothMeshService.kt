@@ -1043,12 +1043,11 @@ class BluetoothMeshService(private val context: Context) {
      * Send leave announcement
      */
     private fun sendLeaveAnnouncement() {
-        val nickname = try { com.bitchat.android.services.NicknameProvider.getNickname(context, myPeerID) } catch (_: Exception) { myPeerID }
         val packet = BitchatPacket(
             type = MessageType.LEAVE.value,
             ttl = MAX_TTL,
             senderID = myPeerID,
-            payload = nickname.toByteArray()
+            payload = byteArrayOf()
         )
         
         // Sign the packet before broadcasting
