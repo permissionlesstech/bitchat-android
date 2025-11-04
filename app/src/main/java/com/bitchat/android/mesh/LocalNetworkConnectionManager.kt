@@ -54,7 +54,7 @@ class LocalNetworkConnectionManager(
     private val connectionScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     // Component managers
-    private val packetBroadcaster = LocalNetworkPacketBroadcaster(connectionScope, fragmentManager)
+    private val packetBroadcaster = LocalNetworkPacketBroadcaster(connectionScope)
 
     // Connection state
     private val connectedSockets = ConcurrentHashMap<String, Socket>() // ipAddress -> socket
@@ -192,7 +192,7 @@ class LocalNetworkConnectionManager(
 
                 val broadcastAddress = getBroadcastAddress()
                 if (broadcastAddress != null) {
-                    val message = "$BROADCAST_MESSAGE:$myPeerID".toByteArray()
+                    val message = "$DISCOVERY_MESSAGE:$myPeerID".toByteArray()
                     val packet = DatagramPacket(message, message.size, broadcastAddress, DISCOVERY_PORT)
 
                     Log.d(TAG, "📡 Starting discovery broadcast to ${broadcastAddress.hostAddress}:$DISCOVERY_PORT with peer ID: $myPeerID")
@@ -259,7 +259,7 @@ class LocalNetworkConnectionManager(
 
                         Log.v(TAG, "📨 Received UDP packet #$receivedCount from ${packet.address.hostAddress}: '$message'")
 
-                        if (message.startsWith(BROADCAST_MESSAGE)) {
+                        if (message.startsWith(DISCOVERY_MESSAGE)) {
                             val parts = message.split(":")
                             if (parts.size >= 2) {
                                 val peerID = parts[1]
