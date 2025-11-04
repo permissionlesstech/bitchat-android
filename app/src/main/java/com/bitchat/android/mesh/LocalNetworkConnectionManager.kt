@@ -26,7 +26,7 @@ import java.util.concurrent.ConcurrentHashMap
  * - Network diagnostics for troubleshooting
  *
  * Architecture:
- * - Uses UDP port 8990 for discovery broadcasts
+ * - Uses UDP port 8988 for discovery broadcasts
  * - Uses TCP port 8989 for data connections
  * - Implements PowerManagerDelegate for power-aware operation
  * - Integrates with BluetoothMeshService for unified mesh networking
@@ -39,9 +39,9 @@ class LocalNetworkConnectionManager(
 
     companion object {
         private const val TAG = "LocalNetworkConnectionManager"
-        private const val SERVER_PORT = 8989 // Different port from Wi-Fi Direct
-        private const val BROADCAST_PORT = 8990
-        private const val BROADCAST_MESSAGE = "BITCHAT_DISCOVERY"
+        private const val SERVER_PORT = 8989 // TCP port for data connections
+        private const val DISCOVERY_PORT = 8988 // UDP port for peer discovery
+        private const val DISCOVERY_MESSAGE = "BITCHAT_DISCOVERY"
     }
 
     // Network components
@@ -193,9 +193,9 @@ class LocalNetworkConnectionManager(
                 val broadcastAddress = getBroadcastAddress()
                 if (broadcastAddress != null) {
                     val message = "$BROADCAST_MESSAGE:$myPeerID".toByteArray()
-                    val packet = DatagramPacket(message, message.size, broadcastAddress, BROADCAST_PORT)
+                    val packet = DatagramPacket(message, message.size, broadcastAddress, DISCOVERY_PORT)
 
-                    Log.d(TAG, "📡 Starting discovery broadcast to ${broadcastAddress.hostAddress}:$BROADCAST_PORT with peer ID: $myPeerID")
+                    Log.d(TAG, "📡 Starting discovery broadcast to ${broadcastAddress.hostAddress}:$DISCOVERY_PORT with peer ID: $myPeerID")
 
                     var broadcastCount = 0
                     while (isActive) {
@@ -240,7 +240,7 @@ class LocalNetworkConnectionManager(
     private fun startDiscoveryListener() {
         connectionScope.launch(Dispatchers.IO) {
             try {
-                discoverySocket = DatagramSocket(BROADCAST_PORT).apply {
+                discoverySocket = DatagramSocket(DISCOVERY_PORT).apply {
                     broadcast = true
                     soTimeout = 5000 // 5 second timeout for receive
                 }
@@ -248,7 +248,7 @@ class LocalNetworkConnectionManager(
                 val buffer = ByteArray(1024)
                 val packet = DatagramPacket(buffer, buffer.size)
 
-                Log.d(TAG, "👂 Listening for discovery messages on port $BROADCAST_PORT")
+                Log.d(TAG, "👂 Listening for discovery messages on port $DISCOVERY_PORT")
 
                 var receivedCount = 0
                 while (isActive) {
