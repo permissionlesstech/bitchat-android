@@ -4,19 +4,22 @@ import android.content.Context
 import android.util.Log
 import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.model.BitchatMessage
-import com.bitchat.android.protocol.MessagePadding
-import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.model.IdentityAnnouncement
+import com.bitchat.android.model.RequestSyncPacket
+import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
-import com.bitchat.android.model.RequestSyncPacket
 import com.bitchat.android.sync.GossipSyncManager
 import com.bitchat.android.util.toHexString
-import kotlinx.coroutines.*
-import java.util.*
-import kotlin.math.sign
-import kotlin.random.Random
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 /**
  * Bluetooth mesh service - REFACTORED to use component-based architecture
@@ -50,7 +53,7 @@ class BluetoothMeshService(private val context: Context) {
     private val storeForwardManager = StoreForwardManager()
     private val messageHandler = MessageHandler(myPeerID, context.applicationContext)
     internal val connectionManager = BluetoothConnectionManager(context, myPeerID, fragmentManager) // Made internal for access
-    private val wifiDirectManager = WiFiDirectConnectionManager(context, myPeerID, fragmentManager)
+    private val wifiDirectManager = WiFiDirectConnectionManager(context, myPeerID)
     val localNetworkManager = LocalNetworkConnectionManager(context, myPeerID, fragmentManager)
     private val packetProcessor = PacketProcessor(myPeerID)
     private lateinit var gossipSyncManager: GossipSyncManager

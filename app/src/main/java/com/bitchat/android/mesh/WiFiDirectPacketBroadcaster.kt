@@ -17,7 +17,6 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class WiFiDirectPacketBroadcaster(
     private val scope: CoroutineScope,
-    private val fragmentManager: FragmentManager? = null
 ) {
 
     companion object {

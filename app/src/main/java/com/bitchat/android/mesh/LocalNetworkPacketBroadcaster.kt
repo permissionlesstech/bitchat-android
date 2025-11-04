@@ -15,7 +15,6 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class LocalNetworkPacketBroadcaster(
     private val scope: CoroutineScope,
-    private val fragmentManager: FragmentManager? = null
 ) {
 
     companion object {

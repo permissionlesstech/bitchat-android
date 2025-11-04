@@ -2,14 +2,21 @@ package com.bitchat.android.mesh
 
 import android.content.Context
 import android.net.wifi.WpsInfo
-import android.net.wifi.p2p.*
-import android.net.wifi.p2p.WifiP2pManager.*
-import android.os.Build
+import android.net.wifi.p2p.WifiP2pConfig
+import android.net.wifi.p2p.WifiP2pDevice
+import android.net.wifi.p2p.WifiP2pDeviceList
+import android.net.wifi.p2p.WifiP2pInfo
+import android.net.wifi.p2p.WifiP2pManager
+import android.net.wifi.p2p.WifiP2pManager.ActionListener
+import android.net.wifi.p2p.WifiP2pManager.Channel
 import android.util.Log
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 /**
  * Wi-Fi Direct connection manager for local peer-to-peer communication without internet
@@ -18,7 +25,6 @@ import kotlinx.coroutines.flow.collect
 class WiFiDirectConnectionManager(
     private val context: Context,
     private val myPeerID: String,
-    private val fragmentManager: FragmentManager? = null
 ) : PowerManagerDelegate {
 
     companion object {
@@ -37,7 +43,7 @@ class WiFiDirectConnectionManager(
 
     // Component managers
     private val permissionManager = WiFiDirectPermissionManager(context)
-    private val packetBroadcaster = WiFiDirectPacketBroadcaster(connectionScope, fragmentManager)
+    private val packetBroadcaster = WiFiDirectPacketBroadcaster(connectionScope)
 
     // Connection state tracking
     private val connectedDevices = mutableMapOf<String, WifiP2pDevice>() // deviceAddress -> device
