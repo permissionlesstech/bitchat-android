@@ -12,8 +12,24 @@ import java.net.*
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Local network connection manager for TCP/IP connections over regular Wi-Fi
- * Works with any Wi-Fi network (including iPhone hotspot)
+ * Local Network Connection Manager
+ *
+ * Handles TCP connections over local Wi-Fi networks for peer-to-peer communication.
+ * This provides an alternative to Wi-Fi Direct that works with iPhone hotspots and
+ * Android emulators.
+ *
+ * Features:
+ * - Automatic peer discovery via UDP broadcast
+ * - TCP connections for reliable data transfer
+ * - Self-connection prevention (devices don't connect to themselves)
+ * - Manual IP connection for testing and direct connections
+ * - Network diagnostics for troubleshooting
+ *
+ * Architecture:
+ * - Uses UDP port 8990 for discovery broadcasts
+ * - Uses TCP port 8989 for data connections
+ * - Implements PowerManagerDelegate for power-aware operation
+ * - Integrates with BluetoothMeshService for unified mesh networking
  */
 class LocalNetworkConnectionManager(
     private val context: Context,
