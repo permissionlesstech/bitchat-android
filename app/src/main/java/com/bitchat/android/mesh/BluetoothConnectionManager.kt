@@ -252,6 +252,16 @@ class BluetoothConnectionManager(
         )
     }
 
+    fun sendToPeer(peerID: String, routed: RoutedPacket): Boolean {
+        if (!isActive) return false
+        return packetBroadcaster.sendToPeer(
+            peerID,
+            routed,
+            serverManager.getGattServer(),
+            serverManager.getCharacteristic()
+        )
+    }
+
     fun cancelTransfer(transferId: String): Boolean {
         return packetBroadcaster.cancelTransfer(transferId)
     }
