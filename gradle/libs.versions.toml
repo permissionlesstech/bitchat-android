@@ -1,29 +1,29 @@
 [versions]
 # Android and Kotlin
 agp = "8.10.1"
-kotlin = "2.2.0"
-compileSdk = "35"
+kotlin = "2.2.21"
+compileSdk = "36"
 minSdk = "26" # API 26 for proper BLE support
-targetSdk = "34"
+targetSdk = "36"
 
 # AndroidX Core
-core-ktx = "1.16.0"
-lifecycle-runtime = "2.9.1"
-activity-compose = "1.10.1"
+core-ktx = "1.17.0"
+lifecycle-runtime = "2.9.4"
+activity-compose = "1.11.0"
 appcompat = "1.7.1"
 
 # Compose
-compose-bom = "2025.06.01"
+compose-bom = "2025.11.00"
 
 # Navigation
-navigation-compose = "2.9.1"
+navigation-compose = "2.9.6"
 
 # Accompanist
 accompanist-permissions = "0.37.3"
 
 # Cryptography
 bouncycastle = "1.70"
-tink-android = "1.10.0"
+tink-android = "1.19.0"
 
 # JSON
 gson = "2.13.1"
@@ -32,10 +32,10 @@ gson = "2.13.1"
 kotlinx-coroutines = "1.10.2"
 
 # Bluetooth
-nordic-ble = "2.6.1"
+nordic-ble = "2.11.0"
 
 # WebSocket
-okhttp = "4.12.0"
+okhttp = "5.3.2"
 tor-android-binary = "0.4.4.6"
 
 
@@ -43,7 +43,7 @@ tor-android-binary = "0.4.4.6"
 gms-location = "21.3.0"
 
 # Security
-security-crypto = "1.1.0-beta01"
+security-crypto = "1.1.0"
 
 # Testing
 junit = "4.13.2"
