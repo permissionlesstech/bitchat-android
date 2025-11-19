@@ -5,8 +5,8 @@ plugins {
 }
 
 android {
-    namespace = "com.yet.baselineprofile"
-    compileSdk = 36
+    namespace = "com.bitchat.baselineprofile"
+    compileSdk = libs.versions.compileSdk.get().toInt()
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
