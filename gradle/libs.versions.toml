@@ -120,6 +120,7 @@ koin-android = { group = "io.insert-koin", name = "koin-android", version.ref = 
 koin-annotation = { group = "io.insert-koin", name = "koin-annotations", version.ref = "koin-annotation" }
 koin-annotation-compiler = { group = "io.insert-koin", name = "koin-ksp-compiler", version.ref = "koin-annotation" }
 koin-jsr330 = { group = "io.insert-koin", name = "koin-jsr330", version.ref = "koin-annotation" }
+koin-compose = { group = "io.insert-koin", name = "koin-androidx-compose", version.ref = "koin" }
 
 
 # Testing

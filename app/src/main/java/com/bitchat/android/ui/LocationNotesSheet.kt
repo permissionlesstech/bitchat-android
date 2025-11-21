@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.nostr.LocationNotesManager
+import org.koin.compose.koinInject
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.Calendar
@@ -53,7 +54,7 @@ fun LocationNotesSheet(
     val accentGreen = if (isDark) Color.Green else Color(0xFF008000) // dark: green, light: dark green (0, 0.5, 0)
     
     // Managers
-    val notesManager = remember { LocationNotesManager.getInstance() }
+    val notesManager: LocationNotesManager = koinInject()
     val locationManager = remember { LocationChannelManager.getInstance(context) }
     
     // State

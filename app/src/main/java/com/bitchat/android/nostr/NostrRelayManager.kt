@@ -3,8 +3,12 @@ package com.bitchat.android.nostr
 import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import com.bitchat.android.net.OkHttpProvider
+import com.bitchat.android.net.TorManager
 import kotlinx.serialization.json.*
 import com.bitchat.android.util.JsonUtil
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
 import kotlinx.coroutines.*
 import okhttp3.*
 import java.util.concurrent.ConcurrentHashMap
@@ -16,21 +20,16 @@ import kotlin.math.pow
  * Manages WebSocket connections to Nostr relays
  * Compatible with iOS implementation with Android-specific optimizations
  */
-class NostrRelayManager private constructor() {
+@Singleton
+class NostrRelayManager @Inject constructor(
+    private val okHttpProvider: OkHttpProvider,
+    private val relayDirectory: RelayDirectory,
+    private val torManager: TorManager
+) {
     
     companion object {
-        @JvmStatic
-        val shared = NostrRelayManager()
-        
         private const val TAG = "NostrRelayManager"
         
-        /**
-         * Get instance for Android compatibility (context-aware calls)
-         */
-        fun getInstance(context: android.content.Context): NostrRelayManager {
-            return shared
-        }
-
         // Default relay list (same as iOS)
         private val DEFAULT_RELAYS = listOf(
             "wss://relay.damus.io",
@@ -45,16 +44,16 @@ class NostrRelayManager private constructor() {
         private const val BACKOFF_MULTIPLIER = com.bitchat.android.util.AppConstants.Nostr.BACKOFF_MULTIPLIER
         private const val MAX_RECONNECT_ATTEMPTS = com.bitchat.android.util.AppConstants.Nostr.MAX_RECONNECT_ATTEMPTS
         
-        // Track gift-wraps we initiated for logging
-        private val pendingGiftWrapIDs = ConcurrentHashMap.newKeySet<String>()
-        
-        fun registerPendingGiftWrap(id: String) {
-            pendingGiftWrapIDs.add(id)
-        }
-
         fun defaultRelays(): List<String> = DEFAULT_RELAYS
     }
     
+    // Track gift-wraps we initiated for logging
+    private val pendingGiftWrapIDs = ConcurrentHashMap.newKeySet<String>()
+    
+    fun registerPendingGiftWrap(id: String) {
+        pendingGiftWrapIDs.add(id)
+    }
+
     /**
      * Relay status information
      */
@@ -114,7 +113,7 @@ class NostrRelayManager private constructor() {
     
     // OkHttp client for WebSocket connections (via provider to honor Tor)
     private val httpClient: OkHttpClient
-        get() = com.bitchat.android.net.OkHttpProvider.webSocketClient()
+        get() = okHttpProvider.webSocketClient()
     
 
     
@@ -128,7 +127,7 @@ class NostrRelayManager private constructor() {
      */
     fun ensureGeohashRelaysConnected(geohash: String, nRelays: Int = 5, includeDefaults: Boolean = false) {
         try {
-            val nearest = RelayDirectory.closestRelaysForGeohash(geohash, nRelays)
+            val nearest = relayDirectory.closestRelaysForGeohash(geohash, nRelays)
             val selected = if (includeDefaults) {
                 (nearest + Companion.defaultRelays()).toSet()
             } else nearest.toSet()
@@ -233,6 +232,25 @@ class NostrRelayManager private constructor() {
             // Initialize with empty list as fallback
             _relays.postValue(emptyList())
             _isConnected.postValue(false)
+        }
+
+        // Observe Tor status to reset connections when network changes
+        scope.launch {
+            var lastMode = com.bitchat.android.net.TorMode.OFF
+            var lastRunning = false
+            
+            torManager.statusFlow.collect { status ->
+                val modeChanged = status.mode != lastMode
+                val runningChanged = status.running != lastRunning
+                
+                if (modeChanged || (runningChanged && status.running)) {
+                    Log.i(TAG, "Tor status changed (mode=$modeChanged, running=$runningChanged), resetting connections")
+                    resetAllConnections()
+                }
+                
+                lastMode = status.mode
+                lastRunning = status.running
+            }
         }
     }
     

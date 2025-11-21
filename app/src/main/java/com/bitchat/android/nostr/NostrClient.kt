@@ -4,29 +4,25 @@ import android.content.Context
 import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
 import kotlinx.coroutines.*
 
 /**
  * High-level Nostr client that manages identity, connections, and messaging
  * Provides a simple API for the rest of the application
  */
-class NostrClient private constructor(private val context: Context) {
+@Singleton
+class NostrClient @Inject constructor(
+    private val context: Context,
+    private val relayManager: NostrRelayManager
+) {
     
     companion object {
         private const val TAG = "NostrClient"
-        
-        @Volatile
-        private var INSTANCE: NostrClient? = null
-        
-        fun getInstance(context: Context): NostrClient {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: NostrClient(context.applicationContext).also { INSTANCE = it }
-            }
-        }
     }
     
     // Core components
-    private val relayManager = NostrRelayManager.shared
     private var currentIdentity: NostrIdentity? = null
     
     // Client state
@@ -116,7 +112,7 @@ class NostrClient private constructor(private val context: Context) {
                 
                 // Track and send all gift wraps
                 giftWraps.forEach { wrap ->
-                    NostrRelayManager.registerPendingGiftWrap(wrap.id)
+                    relayManager.registerPendingGiftWrap(wrap.id)
                     relayManager.sendEvent(wrap)
                 }
                 

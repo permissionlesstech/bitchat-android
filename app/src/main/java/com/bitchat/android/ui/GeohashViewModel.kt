@@ -12,26 +12,32 @@ import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.nostr.NostrProtocol
 import com.bitchat.android.nostr.NostrRelayManager
 import com.bitchat.android.nostr.NostrSubscriptionManager
+import com.bitchat.android.nostr.NostrTransport
 import com.bitchat.android.nostr.PoWPreferenceManager
+import jakarta.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.koin.android.annotation.KoinViewModel
 import java.util.Date
 
-class GeohashViewModel(
+@KoinViewModel
+class GeohashViewModel @Inject constructor(
     application: Application,
     private val state: ChatState,
     private val messageManager: MessageManager,
     private val privateChatManager: PrivateChatManager,
     private val meshDelegateHandler: MeshDelegateHandler,
     private val dataManager: DataManager,
-    private val notificationManager: NotificationManager
+    private val notificationManager: NotificationManager,
+    private val nostrRelayManager: NostrRelayManager,
+    private val nostrTransport: NostrTransport
 ) : AndroidViewModel(application) {
 
     companion object { private const val TAG = "GeohashViewModel" }
 
     private val repo = GeohashRepository(application, state, dataManager)
-    private val subscriptionManager = NostrSubscriptionManager(application, viewModelScope)
+    private val subscriptionManager = NostrSubscriptionManager(nostrRelayManager, viewModelScope)
     private val geohashMessageHandler = GeohashMessageHandler(
         application = application,
         state = state,
@@ -47,7 +53,8 @@ class GeohashViewModel(
         meshDelegateHandler = meshDelegateHandler,
         scope = viewModelScope,
         repo = repo,
-        dataManager = dataManager
+        dataManager = dataManager,
+        nostrTransport = nostrTransport
     )
 
     private var currentGeohashSubId: String? = null
@@ -122,8 +129,7 @@ class GeohashViewModel(
                     val identity = NostrIdentityBridge.deriveIdentity(forGeohash = channel.geohash, context = getApplication())
                     val teleported = state.isTeleported.value ?: false
                     val event = NostrProtocol.createEphemeralGeohashEvent(content, channel.geohash, identity, nickname, teleported)
-                    val relayManager = NostrRelayManager.getInstance(getApplication())
-                    relayManager.sendEventToGeohash(event, channel.geohash, includeDefaults = false, nRelays = 5)
+                    nostrRelayManager.sendEventToGeohash(event, channel.geohash, includeDefaults = false, nRelays = 5)
                 } finally {
                     // Ensure we stop the per-message mining animation regardless of success/failure
                     if (startedMining) {

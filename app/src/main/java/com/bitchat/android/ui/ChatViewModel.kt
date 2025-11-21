@@ -10,7 +10,10 @@ import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
+import com.bitchat.android.nostr.NostrRelayManager
+import com.bitchat.android.nostr.NostrTransport
 import com.bitchat.android.protocol.BitchatPacket
+import com.bitchat.android.services.MessageRouter
 
 
 import kotlinx.coroutines.launch
@@ -19,14 +22,20 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Date
 import kotlin.random.Random
+import jakarta.inject.Inject
+import org.koin.android.annotation.KoinViewModel
 
 /**
  * Refactored ChatViewModel - Main coordinator for bitchat functionality
  * Delegates specific responsibilities to specialized managers while maintaining 100% iOS compatibility
  */
-class ChatViewModel(
+@KoinViewModel
+class ChatViewModel @Inject constructor(
     application: Application,
-    val meshService: BluetoothMeshService
+    val meshService: BluetoothMeshService,
+    private val nostrRelayManager: NostrRelayManager,
+    private val nostrTransport: NostrTransport,
+    private val messageRouter: MessageRouter
 ) : AndroidViewModel(application), BluetoothMeshDelegate {
     private val debugManager by lazy { try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (e: Exception) { null } }
 
@@ -86,7 +95,8 @@ class ChatViewModel(
         coroutineScope = viewModelScope,
         onHapticFeedback = { ChatViewModelUtils.triggerHapticFeedback(application.applicationContext) },
         getMyPeerID = { meshService.myPeerID },
-        getMeshService = { meshService }
+        getMeshService = { meshService },
+        messageRouter = messageRouter
     )
     
     // New Geohash architecture ViewModel (replaces God object service usage in UI path)
@@ -97,7 +107,9 @@ class ChatViewModel(
         privateChatManager = privateChatManager,
         meshDelegateHandler = meshDelegateHandler,
         dataManager = dataManager,
-        notificationManager = notificationManager
+        notificationManager = notificationManager,
+        nostrRelayManager = nostrRelayManager,
+        nostrTransport = nostrTransport
     )
 
 
@@ -213,7 +225,6 @@ class ChatViewModel(
 
         // Ensure NostrTransport knows our mesh peer ID for embedded packets
         try {
-            val nostrTransport = com.bitchat.android.nostr.NostrTransport.getInstance(getApplication())
             nostrTransport.senderPeerID = meshService.myPeerID
         } catch (_: Exception) { }
 
@@ -442,8 +453,7 @@ class ChatViewModel(
                 meshService.myPeerID
             ) { messageContent, peerID, recipientNicknameParam, messageId ->
                 // Route via MessageRouter (mesh when connected+established, else Nostr)
-                val router = com.bitchat.android.services.MessageRouter.getInstance(getApplication(), meshService)
-                router.sendPrivate(messageContent, peerID, recipientNicknameParam, messageId)
+                messageRouter.sendPrivate(messageContent, peerID, recipientNicknameParam, messageId)
             }
         } else {
             // Check if we're in a location channel
@@ -551,7 +561,6 @@ class ChatViewModel(
                             java.util.UUID.randomUUID().toString()
                         )
                     } else {
-                        val nostrTransport = com.bitchat.android.nostr.NostrTransport.getInstance(getApplication())
                         nostrTransport.senderPeerID = meshService.myPeerID
                         nostrTransport.sendFavoriteNotification(peerID, isNowFavorite)
                     }
@@ -601,9 +610,7 @@ class ChatViewModel(
         sessionStates.forEach { (peerID, newState) ->
             val old = prevStates[peerID]
             if (old != "established" && newState == "established") {
-                com.bitchat.android.services.MessageRouter
-                    .getInstance(getApplication(), meshService)
-                    .onSessionEstablished(peerID)
+                messageRouter.onSessionEstablished(peerID)
             }
         }
         // Update fingerprint mappings from centralized manager

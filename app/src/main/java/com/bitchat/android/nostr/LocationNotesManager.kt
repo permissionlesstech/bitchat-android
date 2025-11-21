@@ -1,30 +1,28 @@
 package com.bitchat.android.nostr
 
+import android.content.Context
 import android.util.Log
 import androidx.annotation.MainThread
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import kotlinx.coroutines.*
+import jakarta.inject.Singleton
 
 /**
  * Manages location notes (kind=1 text notes with geohash tags)
  * iOS-compatible implementation with LiveData for Android UI binding
  */
 @MainThread
-class LocationNotesManager private constructor() {
+@Singleton
+class LocationNotesManager(
+    private val context: Context,
+    private val relayManager: NostrRelayManager,
+    private val relayDirectory: RelayDirectory
+) {
     
     companion object {
         private const val TAG = "LocationNotesManager"
         private const val MAX_NOTES_IN_MEMORY = 500
-        
-        @Volatile
-        private var INSTANCE: LocationNotesManager? = null
-        
-        fun getInstance(): LocationNotesManager {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: LocationNotesManager().also { INSTANCE = it }
-            }
-        }
     }
     
     /**
@@ -84,32 +82,8 @@ class LocationNotesManager private constructor() {
     private val noteIDs = mutableSetOf<String>() // For deduplication
     private var subscribedGeohashes: Set<String> = emptySet()
     
-    // Dependencies (injected via setters for flexibility)
-    private var relayLookup: (() -> NostrRelayManager)? = null
-    private var subscribeFunc: ((NostrFilter, String, (NostrEvent) -> Unit) -> String)? = null
-    private var unsubscribeFunc: ((String) -> Unit)? = null
-    private var sendEventFunc: ((NostrEvent, List<String>?) -> Unit)? = null
-    private var deriveIdentityFunc: ((String) -> NostrIdentity)? = null
-    
     // Coroutine scope for background operations
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
-    
-    /**
-     * Initialize dependencies
-     */
-    fun initialize(
-        relayManager: () -> NostrRelayManager,
-        subscribe: (NostrFilter, String, (NostrEvent) -> Unit) -> String,
-        unsubscribe: (String) -> Unit,
-        sendEvent: (NostrEvent, List<String>?) -> Unit,
-        deriveIdentity: (String) -> NostrIdentity
-    ) {
-        this.relayLookup = relayManager
-        this.subscribeFunc = subscribe
-        this.unsubscribeFunc = unsubscribe
-        this.sendEventFunc = sendEvent
-        this.deriveIdentityFunc = deriveIdentity
-    }
     
     /**
      * Set geohash and start subscription
@@ -207,7 +181,7 @@ class LocationNotesManager private constructor() {
         // CRITICAL FIX: Get geo-specific relays for sending (matching iOS pattern)
         // iOS: let relays = dependencies.relayLookup(geohash, TransportConfig.nostrGeoRelayCount)
         val relays = try {
-            com.bitchat.android.nostr.RelayDirectory.closestRelaysForGeohash(currentGeohash, 5)
+            relayDirectory.closestRelaysForGeohash(currentGeohash, 5)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to lookup relays for geohash $currentGeohash: ${e.message}")
             emptyList()
@@ -221,19 +195,12 @@ class LocationNotesManager private constructor() {
             return
         }
         
-        val deriveIdentity = deriveIdentityFunc
-        if (deriveIdentity == null) {
-            Log.e(TAG, "Cannot send note - deriveIdentity not initialized")
-            _errorMessage.value = "Not initialized"
-            return
-        }
-        
         Log.d(TAG, "Sending note to geohash: $currentGeohash via ${relays.size} geo relays")
         
         scope.launch {
             try {
                 val identity = withContext(Dispatchers.IO) {
-                    deriveIdentity(currentGeohash)
+                    NostrIdentityBridge.deriveIdentity(currentGeohash, context)
                 }
                 
                 val event = withContext(Dispatchers.IO) {
@@ -268,7 +235,7 @@ class LocationNotesManager private constructor() {
                 // CRITICAL FIX: Send to geo-specific relays (matching iOS pattern)
                 // iOS: dependencies.sendEvent(event, relays)
                 withContext(Dispatchers.IO) {
-                    sendEventFunc?.invoke(event, relays)
+                    relayManager.sendEvent(event, relays)
                 }
                 
                 Log.d(TAG, "✅ Note sent successfully to ${relays.size} geo relays: ${event.id.take(16)}...")
@@ -294,32 +261,6 @@ class LocationNotesManager private constructor() {
             _state.value = State.IDLE
             return
         }
-        
-        val subscribe = subscribeFunc
-        if (subscribe == null) {
-            Log.e(TAG, "Cannot subscribe - subscribe function not initialized; will retry shortly")
-            _state.value = State.LOADING
-            // Retry a few times in case initialization is racing the sheet open
-            scope.launch {
-                var attempts = 0
-                while (attempts < 10 && subscribeFunc == null) {
-                    delay(300)
-                    attempts++
-                }
-                val subNow = subscribeFunc
-                if (subNow != null) {
-                    // Try again now that dependencies are ready
-                    subscribeAll()
-                } else {
-                    // Give UI a chance to show empty state rather than spinner forever
-                    if (!_initialLoadComplete.value!!) {
-                        _initialLoadComplete.value = true
-                        _state.value = State.READY
-                    }
-                }
-            }
-            return
-        }
 
         _state.value = State.LOADING
         
@@ -333,7 +274,14 @@ class LocationNotesManager private constructor() {
             val subId = "location-notes-$gh"
             Log.d(TAG, "📡 Subscribing to location notes: $subId")
             try {
-                val id = subscribe(filter, subId) { event -> handleEvent(event) }
+                val id = relayManager.subscribeForGeohash(
+                    geohash = gh,
+                    filter = filter,
+                    id = subId,
+                    handler = { event -> handleEvent(event) },
+                    includeDefaults = true,
+                    nRelays = 5
+                )
                 subscriptionIDs[gh] = id
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to subscribe for $gh: ${e.message}")
@@ -444,7 +392,7 @@ class LocationNotesManager private constructor() {
             subscriptionIDs.values.forEach { subId ->
                 try {
                     Log.d(TAG, "🚫 Canceling subscription: $subId")
-                    unsubscribeFunc?.invoke(subId)
+                    relayManager.unsubscribe(subId)
                 } catch (_: Exception) { }
             }
             subscriptionIDs.clear()

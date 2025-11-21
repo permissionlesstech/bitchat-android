@@ -8,14 +8,16 @@ import kotlinx.coroutines.*
  * Test manager for Nostr functionality
  * Use this to verify the Nostr client works correctly
  */
-class NostrTestManager(private val context: Context) {
+class NostrTestManager(
+    private val context: Context,
+    private val nostrClient: NostrClient
+) {
     
     companion object {
         private const val TAG = "NostrTestManager"
     }
     
     private val testScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
-    private lateinit var nostrClient: NostrClient
     
     /**
      * Run comprehensive Nostr tests
@@ -54,7 +56,6 @@ class NostrTestManager(private val context: Context) {
     private suspend fun testClientInitialization() {
         Log.d(TAG, "Testing client initialization...")
         
-        nostrClient = NostrClient.getInstance(context)
         nostrClient.initialize()
         
         // Wait for initialization

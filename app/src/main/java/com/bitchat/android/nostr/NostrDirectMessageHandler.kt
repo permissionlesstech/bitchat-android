@@ -22,7 +22,8 @@ class NostrDirectMessageHandler(
     private val meshDelegateHandler: MeshDelegateHandler,
     private val scope: CoroutineScope,
     private val repo: GeohashRepository,
-    private val dataManager: com.bitchat.android.ui.DataManager
+    private val dataManager: com.bitchat.android.ui.DataManager,
+    private val nostrTransport: NostrTransport
 ) {
     companion object { private const val TAG = "NostrDirectMessageHandler" }
 
@@ -137,13 +138,11 @@ class NostrDirectMessageHandler(
                 }
 
                 if (!seenStore.hasDelivered(pm.messageID)) {
-                    val nostrTransport = NostrTransport.getInstance(application)
                     nostrTransport.sendDeliveryAckGeohash(pm.messageID, senderPubkey, recipientIdentity)
                     seenStore.markDelivered(pm.messageID)
                 }
 
                 if (isViewing && !suppressUnread) {
-                    val nostrTransport = NostrTransport.getInstance(application)
                     nostrTransport.sendReadReceiptGeohash(pm.messageID, senderPubkey, recipientIdentity)
                     seenStore.markRead(pm.messageID)
                 }

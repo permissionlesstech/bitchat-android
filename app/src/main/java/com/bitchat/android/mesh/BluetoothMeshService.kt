@@ -17,6 +17,7 @@ import kotlinx.coroutines.*
 import java.util.*
 import kotlin.math.sign
 import kotlin.random.Random
+import jakarta.inject.Singleton
 
 /**
  * Bluetooth mesh service - REFACTORED to use component-based architecture
@@ -31,6 +32,7 @@ import kotlin.random.Random
  * - BluetoothConnectionManager: BLE connections and GATT operations
  * - PacketProcessor: Incoming packet routing
  */
+@Singleton
 class BluetoothMeshService(private val context: Context) {
     private val debugManager by lazy { try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (e: Exception) { null } }
     
@@ -811,7 +813,11 @@ class BluetoothMeshService(private val context: Context) {
             Log.d(TAG, "📖 Sending read receipt for message $messageID to $recipientPeerID")
             
             // Route geohash read receipts via MessageRouter instead of here
-            val geo = runCatching { com.bitchat.android.services.MessageRouter.tryGetInstance() }.getOrNull()
+            // Break circular dependency by retrieving MessageRouter lazily from Koin
+            val geo = try {
+                org.koin.java.KoinJavaComponent.getKoin().get<com.bitchat.android.services.MessageRouter>()
+            } catch (e: Exception) { null }
+            
             val isGeoAlias = try {
                 val map = com.bitchat.android.nostr.GeohashAliasRegistry.snapshot()
                 map.containsKey(recipientPeerID)
