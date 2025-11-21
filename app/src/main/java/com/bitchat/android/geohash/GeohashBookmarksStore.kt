@@ -15,25 +15,21 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.Locale
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
 
 /**
  * Stores a user-maintained list of bookmarked geohash channels.
  * - Persistence: SharedPreferences (JSON string array)
  * - Semantics: geohashes are normalized to lowercase base32 and de-duplicated
  */
-class GeohashBookmarksStore private constructor(private val context: Context) {
+@Singleton
+class GeohashBookmarksStore @Inject constructor(private val context: Context) {
 
     companion object {
         private const val TAG = "GeohashBookmarksStore"
         private const val STORE_KEY = "locationChannel.bookmarks"
         private const val NAMES_STORE_KEY = "locationChannel.bookmarkNames"
-
-        @Volatile private var INSTANCE: GeohashBookmarksStore? = null
-        fun getInstance(context: Context): GeohashBookmarksStore {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: GeohashBookmarksStore(context.applicationContext).also { INSTANCE = it }
-            }
-        }
 
         private val allowedChars = "0123456789bcdefghjkmnpqrstuvwxyz".toSet()
         fun normalize(raw: String): String {

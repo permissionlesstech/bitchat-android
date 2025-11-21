@@ -536,7 +536,7 @@ private fun MainHeader(
 
     // Bookmarks store for current geohash toggle (iOS parity)
     val context = androidx.compose.ui.platform.LocalContext.current
-    val bookmarksStore = remember { com.bitchat.android.geohash.GeohashBookmarksStore.getInstance(context) }
+    val bookmarksStore: com.bitchat.android.geohash.GeohashBookmarksStore = koinInject()
     val bookmarks by bookmarksStore.bookmarks.observeAsState(emptyList())
 
     Row(

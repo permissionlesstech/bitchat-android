@@ -38,6 +38,7 @@ class ChatViewModel @Inject constructor(
     private val messageRouter: MessageRouter,
     private val seenStore: com.bitchat.android.services.SeenMessageStore,
     private val fingerprintManager: com.bitchat.android.mesh.PeerFingerprintManager,
+    private val geohashBookmarksStore: com.bitchat.android.geohash.GeohashBookmarksStore
 ) : AndroidViewModel(application), BluetoothMeshDelegate {
     private val debugManager by lazy { try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (e: Exception) { null } }
 
@@ -757,8 +758,7 @@ class ChatViewModel @Inject constructor(
         try {
             // Clear geohash bookmarks too (panic should remove everything)
             try {
-                val store = com.bitchat.android.geohash.GeohashBookmarksStore.getInstance(getApplication())
-                store.clearAll()
+                geohashBookmarksStore.clearAll()
             } catch (_: Exception) { }
 
             geohashViewModel.panicReset()
