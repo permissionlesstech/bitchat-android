@@ -3,6 +3,9 @@ package com.bitchat.android.crypto
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.noise.NoiseEncryptionService
+import com.bitchat.android.mesh.PeerFingerprintManager
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
 import org.bouncycastle.crypto.AsymmetricCipherKeyPair
 import org.bouncycastle.crypto.generators.Ed25519KeyPairGenerator
 import org.bouncycastle.crypto.params.Ed25519KeyGenerationParameters
@@ -19,15 +22,16 @@ import java.util.concurrent.ConcurrentHashMap
  * This is the main interface for all encryption/decryption operations in bitchat.
  * It now uses the Noise protocol for secure transport encryption with proper session management.
  */
-class EncryptionService(private val context: Context) {
+@Singleton
+class EncryptionService @Inject constructor(
+    private val context: Context,
+    private val noiseService: NoiseEncryptionService,
+) {
     
     companion object {
         private const val TAG = "EncryptionService"
         private const val ED25519_PRIVATE_KEY_PREF = "ed25519_signing_private_key"
     }
-    
-    // Core Noise encryption service
-    private val noiseService: NoiseEncryptionService = NoiseEncryptionService(context)
     
     // Session tracking for established connections
     private val establishedSessions = ConcurrentHashMap<String, String>() // peerID -> fingerprint

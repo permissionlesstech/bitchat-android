@@ -2,6 +2,7 @@ package com.bitchat.android.nostr
 
 import android.content.Context
 import android.util.Log
+import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.model.ReadReceipt
 import com.bitchat.android.model.NoisePayloadType
 import jakarta.inject.Inject
@@ -17,7 +18,8 @@ import jakarta.inject.Singleton
 @Singleton
 class NostrTransport @Inject constructor(
     private val context: Context,
-    private val nostrRelayManager: NostrRelayManager
+    private val nostrRelayManager: NostrRelayManager,
+    private val locationChannelManager: LocationChannelManager
 ) {
     var senderPeerID: String = ""
 
@@ -418,7 +420,7 @@ class NostrTransport @Inject constructor(
         // Use provided geohash or derive from current location
         val geohash = sourceGeohash ?: run {
             val selected = try {
-                com.bitchat.android.geohash.LocationChannelManager.getInstance(context).selectedChannel.value
+                locationChannelManager.selectedChannel.value
             } catch (_: Exception) { null }
             if (selected !is com.bitchat.android.geohash.ChannelID.Location) {
                 Log.w(TAG, "NostrTransport: cannot send geohash PM - not in a location channel and no geohash provided")

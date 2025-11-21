@@ -37,7 +37,7 @@ fun LocationNotesButton(
     
     // Get channel and permission state
     val selectedLocationChannel by viewModel.selectedLocationChannel.observeAsState()
-    val locationManager = remember { LocationChannelManager.getInstance(context) }
+    val locationManager: LocationChannelManager = koinInject()
     val permissionState by locationManager.permissionState.observeAsState()
     val locationServicesEnabled by locationManager.locationServicesEnabled.observeAsState(false)
 

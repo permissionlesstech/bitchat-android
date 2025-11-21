@@ -31,7 +31,9 @@ class GeohashViewModel @Inject constructor(
     private val dataManager: DataManager,
     private val notificationManager: NotificationManager,
     private val nostrRelayManager: NostrRelayManager,
-    private val nostrTransport: NostrTransport
+    private val nostrTransport: NostrTransport,
+    private val seenStore: com.bitchat.android.services.SeenMessageStore,
+    private val locationChannelManager: com.bitchat.android.geohash.LocationChannelManager
 ) : AndroidViewModel(application) {
 
     companion object { private const val TAG = "GeohashViewModel" }
@@ -54,13 +56,13 @@ class GeohashViewModel @Inject constructor(
         scope = viewModelScope,
         repo = repo,
         dataManager = dataManager,
-        nostrTransport = nostrTransport
+        nostrTransport = nostrTransport,
+        seenStore = seenStore,
     )
 
     private var currentGeohashSubId: String? = null
     private var currentDmSubId: String? = null
     private var geoTimer: Job? = null
-    private var locationChannelManager: com.bitchat.android.geohash.LocationChannelManager? = null
 
     val geohashPeople: LiveData<List<GeoPerson>> = state.geohashPeople
     val geohashParticipantCounts: LiveData<Map<String, Int>> = state.geohashParticipantCounts
@@ -79,12 +81,11 @@ class GeohashViewModel @Inject constructor(
             )
         }
         try {
-            locationChannelManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(getApplication())
-            locationChannelManager?.selectedChannel?.observeForever { channel ->
+            locationChannelManager.selectedChannel.observeForever { channel ->
                 state.setSelectedLocationChannel(channel)
                 switchLocationChannel(channel)
             }
-            locationChannelManager?.teleported?.observeForever { teleported ->
+            locationChannelManager.teleported.observeForever { teleported ->
                 state.setIsTeleported(teleported)
             }
         } catch (e: Exception) {
@@ -204,7 +205,7 @@ class GeohashViewModel @Inject constructor(
     }
 
     fun selectLocationChannel(channel: com.bitchat.android.geohash.ChannelID) {
-        locationChannelManager?.select(channel) ?: run { Log.w(TAG, "Cannot select location channel - not initialized") }
+        locationChannelManager.select(channel)
     }
 
     fun displayNameForNostrPubkeyUI(pubkeyHex: String): String = repo.displayNameForNostrPubkeyUI(pubkeyHex)

@@ -63,7 +63,9 @@ data class PeerInfo(
  * Now includes centralized peer fingerprint management via PeerFingerprintManager singleton
  * and support for signed announcement verification
  */
-class PeerManager {
+class PeerManager(
+    private val fingerprintManager: PeerFingerprintManager
+) {
     
     companion object {
         private const val TAG = "PeerManager"
@@ -79,10 +81,7 @@ class PeerManager {
     private val announcedToPeers = CopyOnWriteArrayList<String>()
     
     // Legacy fields removed: use PeerInfo map exclusively
-    
-    // Centralized fingerprint management
-    private val fingerprintManager = PeerFingerprintManager.getInstance()
-    
+
     // Delegate for callbacks
     var delegate: PeerManagerDelegate? = null
     

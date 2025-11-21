@@ -55,7 +55,7 @@ fun LocationNotesSheet(
     
     // Managers
     val notesManager: LocationNotesManager = koinInject()
-    val locationManager = remember { LocationChannelManager.getInstance(context) }
+    val locationManager: LocationChannelManager = org.koin.compose.koinInject()
     
     // State
     val notes by notesManager.notes.observeAsState(emptyList())

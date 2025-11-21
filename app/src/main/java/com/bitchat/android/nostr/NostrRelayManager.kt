@@ -24,7 +24,8 @@ import kotlin.math.pow
 class NostrRelayManager @Inject constructor(
     private val okHttpProvider: OkHttpProvider,
     private val relayDirectory: RelayDirectory,
-    private val torManager: TorManager
+    private val torManager: TorManager,
+    private val eventDeduplicator: NostrEventDeduplicator
 ) {
     
     companion object {
@@ -96,9 +97,6 @@ class NostrRelayManager @Inject constructor(
         val createdAt: Long = System.currentTimeMillis(),
         val originGeohash: String? = null // used for logging and grouping
     )
-    
-    // Event deduplication system
-    private val eventDeduplicator = NostrEventDeduplicator.getInstance()
     
     // Message queue for reliability
     private val messageQueue = mutableListOf<Pair<NostrEvent, List<String>>>()

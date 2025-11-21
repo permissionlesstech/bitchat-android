@@ -27,15 +27,13 @@ class PrivateChatManager(
     private val state: ChatState,
     private val messageManager: MessageManager,
     private val dataManager: DataManager,
-    private val noiseSessionDelegate: NoiseSessionDelegate
+    private val noiseSessionDelegate: NoiseSessionDelegate,
+    private val fingerprintManager: PeerFingerprintManager
 ) {
 
     companion object {
         private const val TAG = "PrivateChatManager"
     }
-
-    // Use centralized fingerprint management - NO LOCAL STORAGE
-    private val fingerprintManager = PeerFingerprintManager.getInstance()
 
     // Track received private messages that need read receipts
     private val unreadReceivedMessages = mutableMapOf<String, MutableList<BitchatMessage>>()

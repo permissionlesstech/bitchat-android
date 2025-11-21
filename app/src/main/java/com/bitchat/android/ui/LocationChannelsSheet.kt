@@ -53,7 +53,7 @@ fun LocationChannelsSheet(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val locationManager = LocationChannelManager.getInstance(context)
+    val locationManager: LocationChannelManager = org.koin.compose.koinInject()
     val bookmarksStore = remember { GeohashBookmarksStore.getInstance(context) }
 
     // Observe location manager state

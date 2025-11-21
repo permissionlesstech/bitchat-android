@@ -3,6 +3,8 @@ package com.bitchat.android.mesh
 import android.util.Log
 import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
 
 /**
  * Centralized peer fingerprint management singleton
@@ -19,22 +21,10 @@ import java.util.concurrent.ConcurrentHashMap
  * - Support for peer ID rotation while maintaining persistent identity
  * - Centralized logging for debugging identity management
  */
-class PeerFingerprintManager private constructor() {
-    
+@Singleton
+class PeerFingerprintManager @Inject constructor() {
     companion object {
         private const val TAG = "PeerFingerprintManager"
-        
-        @Volatile
-        private var INSTANCE: PeerFingerprintManager? = null
-        
-        /**
-         * Get the singleton instance
-         */
-        fun getInstance(): PeerFingerprintManager {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: PeerFingerprintManager().also { INSTANCE = it }
-            }
-        }
     }
     
     // Bidirectional mapping for efficient lookups

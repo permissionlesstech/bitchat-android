@@ -35,7 +35,9 @@ class ChatViewModel @Inject constructor(
     val meshService: BluetoothMeshService,
     private val nostrRelayManager: NostrRelayManager,
     private val nostrTransport: NostrTransport,
-    private val messageRouter: MessageRouter
+    private val messageRouter: MessageRouter,
+    private val seenStore: com.bitchat.android.services.SeenMessageStore,
+    private val fingerprintManager: com.bitchat.android.mesh.PeerFingerprintManager,
 ) : AndroidViewModel(application), BluetoothMeshDelegate {
     private val debugManager by lazy { try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (e: Exception) { null } }
 
@@ -74,7 +76,7 @@ class ChatViewModel @Inject constructor(
         override fun getMyPeerID(): String = meshService.myPeerID
     }
 
-    val privateChatManager = PrivateChatManager(state, messageManager, dataManager, noiseSessionDelegate)
+    val privateChatManager = PrivateChatManager(state, messageManager, dataManager, noiseSessionDelegate, fingerprintManager)
     private val commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager)
     private val notificationManager = NotificationManager(
       application.applicationContext,
@@ -98,7 +100,7 @@ class ChatViewModel @Inject constructor(
         getMeshService = { meshService },
         messageRouter = messageRouter
     )
-    
+
     // New Geohash architecture ViewModel (replaces God object service usage in UI path)
     val geohashViewModel = GeohashViewModel(
         application = application,
@@ -109,7 +111,9 @@ class ChatViewModel @Inject constructor(
         dataManager = dataManager,
         notificationManager = notificationManager,
         nostrRelayManager = nostrRelayManager,
-        nostrTransport = nostrTransport
+        nostrTransport = nostrTransport,
+        seenStore = seenStore,
+        locationChannelManager = org.koin.java.KoinJavaComponent.get(com.bitchat.android.geohash.LocationChannelManager::class.java)
     )
 
 
@@ -319,7 +323,7 @@ class ChatViewModel @Inject constructor(
             // Persistently mark all messages in this conversation as read so Nostr fetches
             // after app restarts won't re-mark them as unread.
             try {
-                val seen = com.bitchat.android.services.SeenMessageStore.getInstance(getApplication())
+                val seen = seenStore
                 val chats = state.getPrivateChatsValue()
                 val messages = chats[peerID] ?: emptyList()
                 messages.forEach { msg ->

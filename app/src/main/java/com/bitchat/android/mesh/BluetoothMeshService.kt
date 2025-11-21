@@ -18,6 +18,7 @@ import java.util.*
 import kotlin.math.sign
 import kotlin.random.Random
 import jakarta.inject.Singleton
+import jakarta.inject.Inject
 
 /**
  * Bluetooth mesh service - REFACTORED to use component-based architecture
@@ -33,20 +34,21 @@ import jakarta.inject.Singleton
  * - PacketProcessor: Incoming packet routing
  */
 @Singleton
-class BluetoothMeshService(private val context: Context) {
+class BluetoothMeshService @Inject constructor(
+    private val context: Context,
+    private val fingerprintManager: PeerFingerprintManager,
+    private val encryptionService: EncryptionService
+) {
     private val debugManager by lazy { try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (e: Exception) { null } }
     
     companion object {
         private const val TAG = "BluetoothMeshService"
         private val MAX_TTL: UByte = com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
     }
-    
-    // Core components - each handling specific responsibilities
-    private val encryptionService = EncryptionService(context)
 
     // My peer identification - derived from persisted Noise identity fingerprint (first 16 hex chars)
     val myPeerID: String = encryptionService.getIdentityFingerprint().take(16)
-    private val peerManager = PeerManager()
+    private val peerManager = PeerManager(fingerprintManager)
     private val fragmentManager = FragmentManager()
     private val securityManager = SecurityManager(encryptionService, myPeerID)
     private val storeForwardManager = StoreForwardManager()

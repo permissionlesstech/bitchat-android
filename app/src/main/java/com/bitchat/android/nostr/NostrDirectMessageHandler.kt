@@ -23,11 +23,10 @@ class NostrDirectMessageHandler(
     private val scope: CoroutineScope,
     private val repo: GeohashRepository,
     private val dataManager: com.bitchat.android.ui.DataManager,
-    private val nostrTransport: NostrTransport
+    private val nostrTransport: NostrTransport,
+    private val seenStore: SeenMessageStore
 ) {
     companion object { private const val TAG = "NostrDirectMessageHandler" }
-
-    private val seenStore by lazy { SeenMessageStore.getInstance(application) }
 
     // Simple event deduplication
     private val processedIds = ArrayDeque<String>()

@@ -42,6 +42,7 @@ import androidx.core.view.updateLayoutParams
 import com.bitchat.android.geohash.Geohash
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
+import org.koin.android.ext.android.inject
 
 @OptIn(ExperimentalMaterial3Api::class)
 class GeohashPickerActivity : OrientationAwareActivity() {
@@ -68,7 +69,7 @@ class GeohashPickerActivity : OrientationAwareActivity() {
             } catch (_: Throwable) {}
         } else {
             // If no initial geohash, try to use the user's coarsest location
-            val locationManager = LocationChannelManager.getInstance(applicationContext)
+            val locationManager: LocationChannelManager by inject()
             val channels = locationManager.availableChannels.value
             if (!channels.isNullOrEmpty()) {
                 val coarsestChannel = channels.minByOrNull { it.geohash.length }

@@ -6,11 +6,14 @@ import android.util.Log
 import kotlinx.serialization.json.*
 import com.bitchat.android.util.JsonUtil
 import kotlin.random.Random
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
 
 /**
  * Handles data persistence operations for the chat system
  */
-class DataManager(private val context: Context) {
+@Singleton
+class DataManager @Inject constructor(private val context: Context) {
     
     companion object {
         private const val TAG = "DataManager"

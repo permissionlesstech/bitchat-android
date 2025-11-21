@@ -5,23 +5,19 @@ import android.util.Log
 import com.bitchat.android.identity.SecureIdentityStateManager
 import kotlinx.serialization.Serializable
 import com.bitchat.android.util.JsonUtil
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
 
 /**
  * Persistent store for message IDs we've already acknowledged (DELIVERED) or READ.
  * Limits to last MAX_IDS entries per set to avoid memory bloat.
  */
-class SeenMessageStore private constructor(private val context: Context) {
+@Singleton
+class SeenMessageStore @Inject constructor(private val context: Context) {
     companion object {
         private const val TAG = "SeenMessageStore"
         private const val STORAGE_KEY = "seen_message_store_v1"
         private const val MAX_IDS = com.bitchat.android.util.AppConstants.Services.SEEN_MESSAGE_MAX_IDS
-
-        @Volatile private var INSTANCE: SeenMessageStore? = null
-        fun getInstance(appContext: Context): SeenMessageStore {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: SeenMessageStore(appContext.applicationContext).also { INSTANCE = it }
-            }
-        }
     }
 
 

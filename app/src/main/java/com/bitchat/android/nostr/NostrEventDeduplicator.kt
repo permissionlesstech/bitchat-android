@@ -2,6 +2,8 @@ package com.bitchat.android.nostr
 
 import android.util.Log
 import java.util.concurrent.ConcurrentHashMap
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
 
 /**
  * Efficient LRU-based Nostr event deduplication system
@@ -17,25 +19,14 @@ import java.util.concurrent.ConcurrentHashMap
  * - Efficient O(1) lookup and insertion
  * - Memory-bounded to prevent unbounded growth
  */
-class NostrEventDeduplicator(
-    private val maxCapacity: Int = DEFAULT_CAPACITY
-) {
+@Singleton
+class NostrEventDeduplicator @Inject constructor() {
     companion object {
         private const val TAG = "NostrDeduplicator"
         private const val DEFAULT_CAPACITY = com.bitchat.android.util.AppConstants.Nostr.DEFAULT_DEDUP_CAPACITY
-        
-        @Volatile
-        private var INSTANCE: NostrEventDeduplicator? = null
-        
-        /**
-         * Get the singleton instance of the deduplicator
-         */
-        fun getInstance(): NostrEventDeduplicator {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: NostrEventDeduplicator().also { INSTANCE = it }
-            }
-        }
     }
+    
+    private val maxCapacity: Int = DEFAULT_CAPACITY
     
     /**
      * Node for the doubly-linked list used in LRU implementation

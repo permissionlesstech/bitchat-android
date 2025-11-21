@@ -453,7 +453,7 @@ private fun ChatFloatingHeader(
     onLocationNotesClick: () -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val locationManager = remember { com.bitchat.android.geohash.LocationChannelManager.getInstance(context) }
+    val locationManager: com.bitchat.android.geohash.LocationChannelManager = org.koin.compose.koinInject()
     
     Surface(
         modifier = Modifier
