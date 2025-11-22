@@ -3,7 +3,7 @@ package com.bitchat.android
 import android.app.Application
 import com.bitchat.android.nostr.RelayDirectory
 import com.bitchat.android.ui.theme.ThemePreferenceManager
-import com.bitchat.android.net.TorProviderFactory
+import com.bitchat.android.net.ArtiTorManager
 
 /**
  * Main application class for bitchat Android
@@ -14,9 +14,8 @@ class BitchatApplication : Application() {
         super.onCreate()
 
         // Initialize Tor first so any early network goes over Tor
-        // Uses TorProviderFactory to get the correct implementation based on build flavor
         try {
-            val torProvider = TorProviderFactory.getInstance()
+            val torProvider = ArtiTorManager.getInstance()
             torProvider.init(this)
         } catch (_: Exception){}
 

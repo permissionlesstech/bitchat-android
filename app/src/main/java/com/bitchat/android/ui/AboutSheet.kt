@@ -11,7 +11,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Public
-import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.*
@@ -20,7 +19,6 @@ import androidx.compose.ui.Alignment
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -30,12 +28,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.nostr.NostrProofOfWork
 import com.bitchat.android.nostr.PoWPreferenceManager
-import com.bitchat.android.ui.debug.DebugSettingsSheet
 import androidx.compose.ui.res.stringResource
 import com.bitchat.android.R
 import com.bitchat.android.net.TorMode
 import com.bitchat.android.net.TorPreferenceManager
-import com.bitchat.android.net.TorProviderFactory
+import com.bitchat.android.net.ArtiTorManager
 
 /**
  * About Sheet for bitchat app information
@@ -389,7 +386,7 @@ fun AboutSheet(
                     // Network (Tor) section
                     item(key = "network_section") {
                         val torMode = remember { mutableStateOf(com.bitchat.android.net.TorPreferenceManager.get(context)) }
-                        val torProvider = remember { TorProviderFactory.getInstance() }
+                        val torProvider = remember { ArtiTorManager.getInstance() }
                         val torStatus by torProvider.statusFlow.collectAsState()
                         val torAvailable = remember { torProvider.isTorAvailable() }
                         Text(

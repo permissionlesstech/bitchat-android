@@ -37,30 +37,11 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-gradle-
 
-    - name: Check for tor-specific changes in PR
-      id: check_tor
-      if: github.event_name == 'pull_request'
-      run: |
-        BASE_SHA="${{ github.event.pull_request.base.sha }}"
-        HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+    - name: Run unit tests
+      run: ./gradlew testDebugUnitTest
 
-        if git diff --name-only $BASE_SHA...$HEAD_SHA | grep -q "^app/src/tor/"; then
-          echo "tor_changed=true" >> $GITHUB_OUTPUT
-          echo "✅ Tor-specific files changed in PR"
-        else
-          echo "tor_changed=false" >> $GITHUB_OUTPUT
-          echo "⏭️  No tor changes in PR, skipping tor lint"
-        fi
-
-    - name: Run unit tests (all flavors)
-      run: ./gradlew testStandardDebugUnitTest testTorDebugUnitTest
-
-    - name: Run lint (standard flavor covers shared code)
-      run: ./gradlew lintStandardDebug
-
-    - name: Run lint (tor flavor - only if changed in PR)
-      if: steps.check_tor.outputs.tor_changed == 'true'
-      run: ./gradlew lintTorDebug
+    - name: Run lint
+      run: ./gradlew lintDebug
 
     - name: Upload test reports
       if: always()
@@ -84,7 +65,7 @@ jobs:
     needs: verify
     strategy:
       matrix:
-        variant: [StandardDebug, TorDebug, StandardRelease, TorRelease]
+        variant: [Debug, Release]
 
     steps:
     - name: Checkout code

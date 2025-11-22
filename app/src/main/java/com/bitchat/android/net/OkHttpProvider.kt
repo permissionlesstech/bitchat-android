@@ -42,8 +42,7 @@ object OkHttpProvider {
 
     private fun baseBuilderForCurrentProxy(): OkHttpClient.Builder {
         val builder = OkHttpClient.Builder()
-        // Get TorProvider instance and check for SOCKS address
-        val torProvider = TorProviderFactory.getInstance()
+        val torProvider = ArtiTorManager.getInstance()
         val socks: InetSocketAddress? = torProvider.currentSocksAddress()
         // If a SOCKS address is defined, always use it. TorProvider sets this as soon as Tor mode is ON,
         // even before bootstrap, to prevent any direct connections from occurring.

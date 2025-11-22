@@ -59,25 +59,6 @@ android {
         abortOnError = false
         checkReleaseBuilds = false
     }
-
-    flavorDimensions += "torSupport"
-
-    productFlavors {
-        create("standard") {
-            dimension = "torSupport"
-            // Default lightweight build
-            proguardFiles("proguard-standard.pro")
-        }
-
-        create("tor") {
-            dimension = "torSupport"
-            applicationIdSuffix = ".tor"
-            versionNameSuffix = "-tor"
-            // Tor-enabled build with full privacy features
-            proguardFiles("proguard-tor.pro")
-        }
-    }
-
 }
 
 dependencies {
@@ -114,9 +95,11 @@ dependencies {
     // WebSocket
     implementation(libs.okhttp)
 
-    // Arti (Tor in Rust) Android bridge - use published AAR with native libs
+    // Arti (Tor in Rust) Android bridge - custom build from latest source
+    // Built with rustls, 16KB page size support, and onio//un service client
+    // Native libraries are in src/tor/jniLibs/ (extracted from arti-custom.aar)
     // Only included in tor flavor to reduce APK size for standard builds
-    "torImplementation"("info.guardianproject:arti-mobile-ex:1.2.3")
+    // Note: AAR is kept in libs/ for reference, but libraries loaded from jniLibs/
 
     // Google Play Services Location
     implementation(libs.gms.location)

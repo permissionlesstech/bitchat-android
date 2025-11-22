@@ -19,7 +19,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-    
+
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
         with:
@@ -38,34 +38,27 @@ jobs:
       - name: Grant execute permission for Gradlew
         run: chmod +x ./gradlew
 
-      - name: Build Standard Flavor (lightweight, no Tor)
-        run: ./gradlew assembleStandardRelease --no-daemon --stacktrace
-
-      - name: Build Tor Flavor (full privacy features)
-        run: ./gradlew assembleTorRelease --no-daemon --stacktrace
+      - name: Build Release APK (with Tor)
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: List APK files
         run: |
           echo "APK files built:"
           find app/build/outputs/apk -name "*.apk" -type f
 
-      - name: Rename APKs
+      - name: Rename APK
         run: |
-          mv app/build/outputs/apk/standard/release/app-standard-release-unsigned.apk app/build/outputs/apk/standard/release/bitchat-standard.apk
-          mv app/build/outputs/apk/tor/release/app-tor-release-unsigned.apk app/build/outputs/apk/tor/release/bitchat-tor.apk
-      
+          mv app/build/outputs/apk/release/app-release-unsigned.apk app/build/outputs/apk/release/bitchat-android.apk
+
       - name: DEBUG
         run: |
           set -x
-
           pwd
-
           ls -all
-
           cd app/build/outputs/
           ls -all
-          tree
-      
+          tree || ls -R
+
       # Optional: Sign APK (requires secrets)
       # - name: Sign APK
       #   uses: r0adkll/sign-android-release@v1
@@ -76,19 +69,11 @@ jobs:
       #     keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
       #     keyPassword: ${{ secrets.KEY_PASSWORD }}
 
-      - name: Upload Standard APK as artifact
+      - name: Upload APK as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: bitchat-standard-apk-${{ github.ref_name }}
-          path: app/build/outputs/apk/standard/release/*.apk
-          retention-days: 30
-          if-no-files-found: error
-
-      - name: Upload Tor APK as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: bitchat-tor-apk-${{ github.ref_name }}
-          path: app/build/outputs/apk/tor/release/*.apk
+          name: bitchat-android-apk-${{ github.ref_name }}
+          path: app/build/outputs/apk/release/*.apk
           retention-days: 30
           if-no-files-found: error
 
@@ -97,38 +82,25 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download Standard APK artifact
+      - name: Download APK artifact
         uses: actions/download-artifact@v4
         with:
-          name: bitchat-standard-apk-${{ github.ref_name }}
-          path: standard
-
-      - name: Download Tor APK artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: bitchat-tor-apk-${{ github.ref_name }}
-          path: tor
+          name: bitchat-android-apk-${{ github.ref_name }}
+          path: release
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            standard/bitchat-standard.apk
-            tor/bitchat-tor.apk
+            release/bitchat-android.apk
           name: Release ${{ github.ref_name }}
           body: |
             ## bitchat Android Release
 
-            ### Two builds available:
-
-            **bitchat-standard.apk** (~4-5MB)
-            - Lightweight build without Tor
-            - Direct internet connections
-            - Recommended for most users
-
-            **bitchat-tor.apk** (~140MB)
-            - Full privacy features with Tor integration
-            - All traffic routed through Tor network
-            - Recommended for maximum anonymity
+            **bitchat-android.apk** (~15MB)
+            - Secure P2P messaging over Bluetooth mesh and Nostr
+            - Built-in Tor support (custom Arti build with 16KB page size)
+            - Compatible with Google Play requirements (Nov 2025+)
+            - Cross-platform compatible with iOS version
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
