@@ -277,12 +277,10 @@ fun AboutSheet(
                                 .padding(horizontal = 24.dp)
                                 .padding(top = 24.dp, bottom = 8.dp)
                         )
-                        LaunchedEffect(Unit) {
-                            PoWPreferenceManager.init(context)
-                        }
-
-                        val powEnabled by PoWPreferenceManager.powEnabled.collectAsState()
-                        val powDifficulty by PoWPreferenceManager.powDifficulty.collectAsState()
+                        
+                        val powPreferenceManager: com.bitchat.android.nostr.PoWPreferenceManager = org.koin.compose.koinInject()
+                        val powEnabled by powPreferenceManager.powEnabled.collectAsState()
+                        val powDifficulty by powPreferenceManager.powDifficulty.collectAsState()
 
                         Column(
                             modifier = Modifier.padding(horizontal = 24.dp),
@@ -294,12 +292,12 @@ fun AboutSheet(
                             ) {
                                 FilterChip(
                                     selected = !powEnabled,
-                                    onClick = { PoWPreferenceManager.setPowEnabled(false) },
+                                    onClick = { powPreferenceManager.setPowEnabled(false) },
                                     label = { Text(stringResource(R.string.about_pow_off), fontFamily = FontFamily.Monospace) }
                                 )
                                 FilterChip(
                                     selected = powEnabled,
-                                    onClick = { PoWPreferenceManager.setPowEnabled(true) },
+                                    onClick = { powPreferenceManager.setPowEnabled(true) },
                                     label = {
                                         Row(
                                             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -339,7 +337,7 @@ fun AboutSheet(
 
                                     Slider(
                                         value = powDifficulty.toFloat(),
-                                        onValueChange = { PoWPreferenceManager.setPowDifficulty(it.toInt()) },
+                                        onValueChange = { powPreferenceManager.setPowDifficulty(it.toInt()) },
                                         valueRange = 0f..32f,
                                         steps = 33,
                                         colors = SliderDefaults.colors(

@@ -6,12 +6,14 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.viewModelScope
+import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.nostr.NostrRelayManager
 import com.bitchat.android.nostr.NostrTransport
+import com.bitchat.android.nostr.PoWPreferenceManager
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.services.MessageRouter
 import com.bitchat.android.ui.debug.DebugSettingsManager
@@ -40,7 +42,9 @@ class ChatViewModel @Inject constructor(
     private val seenStore: com.bitchat.android.services.SeenMessageStore,
     private val fingerprintManager: com.bitchat.android.mesh.PeerFingerprintManager,
     private val geohashBookmarksStore: com.bitchat.android.geohash.GeohashBookmarksStore,
-    private val debugManager: DebugSettingsManager
+    private val debugManager: DebugSettingsManager,
+    private val locationChannelManager: LocationChannelManager,
+    private val poWPreferenceManager: PoWPreferenceManager
 ) : AndroidViewModel(application), BluetoothMeshDelegate {
 
     companion object {
@@ -115,7 +119,8 @@ class ChatViewModel @Inject constructor(
         nostrRelayManager = nostrRelayManager,
         nostrTransport = nostrTransport,
         seenStore = seenStore,
-        locationChannelManager = org.koin.java.KoinJavaComponent.get(com.bitchat.android.geohash.LocationChannelManager::class.java)
+        locationChannelManager = locationChannelManager,
+        powPreferenceManager = poWPreferenceManager
     )
 
 

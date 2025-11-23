@@ -586,10 +586,6 @@ class MainActivity : OrientationAwareActivity() {
                 
                 Log.d("MainActivity", "Permissions verified, initializing chat system")
                 
-                // Initialize PoW preferences early in the initialization process
-                PoWPreferenceManager.init(this@MainActivity)
-                Log.d("MainActivity", "PoW preferences initialized")
-
                 // Ensure all permissions are still granted (user might have revoked in settings)
                 if (!permissionManager.areAllPermissionsGranted()) {
                     val missing = permissionManager.getMissingPermissions()

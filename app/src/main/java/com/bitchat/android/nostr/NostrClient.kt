@@ -15,7 +15,8 @@ import kotlinx.coroutines.*
 @Singleton
 class NostrClient @Inject constructor(
     private val context: Context,
-    private val relayManager: NostrRelayManager
+    private val relayManager: NostrRelayManager,
+    private val poWPreferenceManager: PoWPreferenceManager
 ) {
     
     companion object {
@@ -170,7 +171,8 @@ class NostrClient @Inject constructor(
                     content = content,
                     geohash = geohash,
                     senderIdentity = geohashIdentity,
-                    nickname = nickname
+                    nickname = nickname,
+                    powPreferenceManager = poWPreferenceManager
                 )
                 
                 relayManager.sendEvent(event)
@@ -278,7 +280,7 @@ class NostrClient @Inject constructor(
     ) {
         try {
             // Check Proof of Work validation for incoming geohash events
-            val powSettings = PoWPreferenceManager.getCurrentSettings()
+            val powSettings = poWPreferenceManager.getCurrentSettings()
             if (powSettings.enabled && powSettings.difficulty > 0) {
                 if (!NostrProofOfWork.validateDifficulty(event, powSettings.difficulty)) {
                     Log.w(TAG, "🚫 Rejecting geohash event ${event.id.take(8)}... due to insufficient PoW (required: ${powSettings.difficulty})")

@@ -12,6 +12,7 @@ import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
 import com.bitchat.android.model.RequestSyncPacket
 import com.bitchat.android.sync.GossipSyncManager
+import com.bitchat.android.ui.debug.DebugPreferenceManager
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.*
 import java.util.*
@@ -38,7 +39,8 @@ class BluetoothMeshService @Inject constructor(
     private val context: Context,
     private val fingerprintManager: PeerFingerprintManager,
     private val encryptionService: EncryptionService,
-    private val debugManager: com.bitchat.android.ui.debug.DebugSettingsManager
+    private val debugManager: com.bitchat.android.ui.debug.DebugSettingsManager,
+    private val debugPreferenceManager: DebugPreferenceManager
 ) {
     
     companion object {
@@ -77,15 +79,15 @@ class BluetoothMeshService @Inject constructor(
             scope = serviceScope,
             configProvider = object : GossipSyncManager.ConfigProvider {
                 override fun seenCapacity(): Int = try {
-                    com.bitchat.android.ui.debug.DebugPreferenceManager.getSeenPacketCapacity(500)
+                    debugPreferenceManager.getSeenPacketCapacity(500)
                 } catch (_: Exception) { 500 }
 
                 override fun gcsMaxBytes(): Int = try {
-                    com.bitchat.android.ui.debug.DebugPreferenceManager.getGcsMaxFilterBytes(400)
+                    debugPreferenceManager.getGcsMaxFilterBytes(400)
                 } catch (_: Exception) { 400 }
 
                 override fun gcsTargetFpr(): Double = try {
-                    com.bitchat.android.ui.debug.DebugPreferenceManager.getGcsFprPercent(1.0) / 100.0
+                    debugPreferenceManager.getGcsFprPercent(1.0) / 100.0
                 } catch (_: Exception) { 0.01 }
             }
         )

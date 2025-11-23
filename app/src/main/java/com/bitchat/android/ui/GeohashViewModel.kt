@@ -33,7 +33,8 @@ class GeohashViewModel @Inject constructor(
     private val nostrRelayManager: NostrRelayManager,
     private val nostrTransport: NostrTransport,
     private val seenStore: com.bitchat.android.services.SeenMessageStore,
-    private val locationChannelManager: com.bitchat.android.geohash.LocationChannelManager
+    private val locationChannelManager: com.bitchat.android.geohash.LocationChannelManager,
+    private val powPreferenceManager: PoWPreferenceManager
 ) : AndroidViewModel(application) {
 
     companion object { private const val TAG = "GeohashViewModel" }
@@ -46,7 +47,8 @@ class GeohashViewModel @Inject constructor(
         messageManager = messageManager,
         repo = repo,
         scope = viewModelScope,
-        dataManager = dataManager
+        dataManager = dataManager,
+        powPreferenceManager = powPreferenceManager
     )
     private val dmHandler = NostrDirectMessageHandler(
         application = application,
@@ -110,7 +112,7 @@ class GeohashViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val tempId = "temp_${System.currentTimeMillis()}_${kotlin.random.Random.nextInt(1000)}"
-                val pow = PoWPreferenceManager.getCurrentSettings()
+                val pow = powPreferenceManager.getCurrentSettings()
                 val localMsg = com.bitchat.android.model.BitchatMessage(
                     id = tempId,
                     sender = nickname ?: myPeerID,
@@ -124,17 +126,17 @@ class GeohashViewModel @Inject constructor(
                 messageManager.addChannelMessage("geo:${channel.geohash}", localMsg)
                 val startedMining = pow.enabled && pow.difficulty > 0
                 if (startedMining) {
-                    com.bitchat.android.ui.PoWMiningTracker.startMiningMessage(tempId)
+                    PoWMiningTracker.startMiningMessage(tempId)
                 }
                 try {
                     val identity = NostrIdentityBridge.deriveIdentity(forGeohash = channel.geohash, context = getApplication())
                     val teleported = state.isTeleported.value ?: false
-                    val event = NostrProtocol.createEphemeralGeohashEvent(content, channel.geohash, identity, nickname, teleported)
+                    val event = NostrProtocol.createEphemeralGeohashEvent(content, channel.geohash, identity, nickname, teleported, powPreferenceManager)
                     nostrRelayManager.sendEventToGeohash(event, channel.geohash, includeDefaults = false, nRelays = 5)
                 } finally {
                     // Ensure we stop the per-message mining animation regardless of success/failure
                     if (startedMining) {
-                        com.bitchat.android.ui.PoWMiningTracker.stopMiningMessage(tempId)
+                        PoWMiningTracker.stopMiningMessage(tempId)
                     }
                 }
             } catch (e: Exception) {
