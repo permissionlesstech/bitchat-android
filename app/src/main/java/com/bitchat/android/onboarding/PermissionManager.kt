@@ -7,12 +7,15 @@ import android.os.Build
 import android.os.PowerManager
 import android.util.Log
 import androidx.core.content.ContextCompat
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
 
 /**
  * Centralized permission management for bitchat app
  * Handles all Bluetooth and notification permissions required for the app to function
  */
-class PermissionManager(private val context: Context) {
+@Singleton
+class PermissionManager @Inject constructor(private val context: Context) {
 
     companion object {
         private const val TAG = "PermissionManager"

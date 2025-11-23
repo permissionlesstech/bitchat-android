@@ -47,7 +47,7 @@ import org.koin.android.ext.android.inject
 
 class MainActivity : OrientationAwareActivity() {
 
-    private lateinit var permissionManager: PermissionManager
+    private val permissionManager: PermissionManager by inject()
     private lateinit var onboardingCoordinator: OnboardingCoordinator
     private lateinit var bluetoothStatusManager: BluetoothStatusManager
     private lateinit var locationStatusManager: LocationStatusManager
@@ -65,8 +65,6 @@ class MainActivity : OrientationAwareActivity() {
         // Enable edge-to-edge display for modern Android look
         enableEdgeToEdge()
 
-        // Initialize permission management
-        permissionManager = PermissionManager(this)
         // Initialize core mesh service first - retrieve from Koin
         bluetoothStatusManager = BluetoothStatusManager(
             activity = this,
