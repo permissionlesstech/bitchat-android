@@ -43,6 +43,7 @@ import com.bitchat.android.ui.theme.BitchatTheme
 import com.bitchat.android.nostr.PoWPreferenceManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.koin.android.ext.android.inject
 
 class MainActivity : OrientationAwareActivity() {
 
@@ -53,7 +54,8 @@ class MainActivity : OrientationAwareActivity() {
     private lateinit var batteryOptimizationManager: BatteryOptimizationManager
     
     // Core mesh service - managed at app level
-    private lateinit var meshService: BluetoothMeshService
+    private val  meshService: BluetoothMeshService by inject()
+
     private val mainViewModel: MainViewModel by viewModels()
     private val chatViewModel: ChatViewModel by viewModel()
     
@@ -66,7 +68,6 @@ class MainActivity : OrientationAwareActivity() {
         // Initialize permission management
         permissionManager = PermissionManager(this)
         // Initialize core mesh service first - retrieve from Koin
-        meshService = org.koin.java.KoinJavaComponent.getKoin().get()
         bluetoothStatusManager = BluetoothStatusManager(
             activity = this,
             context = this,
