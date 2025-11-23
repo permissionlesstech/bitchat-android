@@ -14,6 +14,7 @@ import com.bitchat.android.nostr.NostrRelayManager
 import com.bitchat.android.nostr.NostrTransport
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.services.MessageRouter
+import com.bitchat.android.ui.debug.DebugSettingsManager
 
 
 import kotlinx.coroutines.launch
@@ -38,9 +39,9 @@ class ChatViewModel @Inject constructor(
     private val messageRouter: MessageRouter,
     private val seenStore: com.bitchat.android.services.SeenMessageStore,
     private val fingerprintManager: com.bitchat.android.mesh.PeerFingerprintManager,
-    private val geohashBookmarksStore: com.bitchat.android.geohash.GeohashBookmarksStore
+    private val geohashBookmarksStore: com.bitchat.android.geohash.GeohashBookmarksStore,
+    private val debugManager: DebugSettingsManager
 ) : AndroidViewModel(application), BluetoothMeshDelegate {
-    private val debugManager by lazy { try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (e: Exception) { null } }
 
     companion object {
         private const val TAG = "ChatViewModel"
@@ -207,8 +208,8 @@ class ChatViewModel @Inject constructor(
 
         // Bridge DebugSettingsManager -> Chat messages when verbose logging is on
         viewModelScope.launch {
-            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().debugMessages.collect { msgs ->
-                if (com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().verboseLoggingEnabled.value) {
+            debugManager.debugMessages.collect { msgs ->
+                if (debugManager.verboseLoggingEnabled.value) {
                     // Only show debug logs in the Mesh chat timeline to avoid leaking into geohash chats
                     val selectedLocation = state.selectedLocationChannel.value
                     if (selectedLocation is com.bitchat.android.geohash.ChannelID.Mesh) {

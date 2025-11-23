@@ -5,28 +5,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.Date
 import java.util.concurrent.ConcurrentLinkedQueue
-import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
 /**
  * Debug settings manager for controlling debug features and collecting debug data
  */
 @Singleton
-class DebugSettingsManager @Inject constructor() {
-    // NOTE: This singleton is referenced from mesh layer. Keep in ui.debug but avoid Compose deps.
-    
-    companion object {
-        @Volatile
-        private var INSTANCE: DebugSettingsManager? = null
-        
-        // Bridge method for backward compatibility with non-Koin code
-        fun getInstance(): DebugSettingsManager {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: org.koin.java.KoinJavaComponent.get<DebugSettingsManager>(DebugSettingsManager::class.java).also { INSTANCE = it }
-            }
-        }
-    }
-    
+class DebugSettingsManager {
     // Debug settings state
     private val _verboseLoggingEnabled = MutableStateFlow(false)
     val verboseLoggingEnabled: StateFlow<Boolean> = _verboseLoggingEnabled.asStateFlow()

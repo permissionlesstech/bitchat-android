@@ -4,6 +4,7 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCharacteristic
 import android.util.Log
+import com.bitchat.android.ui.debug.DebugSettingsManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -15,7 +16,8 @@ import java.util.concurrent.CopyOnWriteArrayList
  */
 class BluetoothConnectionTracker(
     private val connectionScope: CoroutineScope,
-    private val powerManager: PowerManager
+    private val powerManager: PowerManager,
+    private val debugManager: DebugSettingsManager
 ) {
     
     companion object {
@@ -236,10 +238,9 @@ class BluetoothConnectionTracker(
      */
     fun enforceConnectionLimits() {
         // Read debug overrides if available
-        val dbg = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (_: Exception) { null }
-        val maxOverall = dbg?.maxConnectionsOverall?.value ?: powerManager.getMaxConnections()
-        val maxClient = dbg?.maxClientConnections?.value ?: maxOverall
-        val maxServer = dbg?.maxServerConnections?.value ?: maxOverall
+        val maxOverall = debugManager.maxConnectionsOverall.value
+        val maxClient = debugManager.maxClientConnections.value
+        val maxServer = debugManager.maxServerConnections.value
 
         val clients = connectedDevices.values.filter { it.isClient }
         val servers = connectedDevices.values.filter { !it.isClient }
