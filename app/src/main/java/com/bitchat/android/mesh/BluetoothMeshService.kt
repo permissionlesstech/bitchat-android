@@ -37,9 +37,9 @@ import jakarta.inject.Inject
 class BluetoothMeshService @Inject constructor(
     private val context: Context,
     private val fingerprintManager: PeerFingerprintManager,
-    private val encryptionService: EncryptionService
+    private val encryptionService: EncryptionService,
+    private val debugManager: com.bitchat.android.ui.debug.DebugSettingsManager
 ) {
-    private val debugManager by lazy { try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (e: Exception) { null } }
     
     companion object {
         private const val TAG = "BluetoothMeshService"
@@ -53,8 +53,8 @@ class BluetoothMeshService @Inject constructor(
     private val securityManager = SecurityManager(encryptionService, myPeerID)
     private val storeForwardManager = StoreForwardManager()
     private val messageHandler = MessageHandler(myPeerID, context.applicationContext)
-    internal val connectionManager = BluetoothConnectionManager(context, myPeerID, fragmentManager) // Made internal for access
-    private val packetProcessor = PacketProcessor(myPeerID)
+    internal val connectionManager = BluetoothConnectionManager(context, myPeerID, fragmentManager, debugManager) // Made internal for access
+    private val packetProcessor = PacketProcessor(myPeerID, debugManager)
     private lateinit var gossipSyncManager: GossipSyncManager
     
     // Service state management
@@ -503,8 +503,7 @@ class BluetoothMeshService @Inject constructor(
                     val addr = device.address
                     val peer = connectionManager.addressPeerMap[addr]
                     val nick = peer?.let { peerManager.getPeerNickname(it) } ?: "unknown"
-                    com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
-                        .logPeerConnection(peer ?: "unknown", nick, addr, isInbound = !connectionManager.isClientConnection(addr)!!)
+                    debugManager.logPeerConnection(peer ?: "unknown", nick, addr, isInbound = !connectionManager.isClientConnection(addr)!!)
                 } catch (_: Exception) { }
             }
 
@@ -523,8 +522,7 @@ class BluetoothMeshService @Inject constructor(
                     // Verbose debug: device disconnected
                     try {
                         val nick = peerManager.getPeerNickname(peer) ?: "unknown"
-                        com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
-                            .logPeerDisconnection(peer, nick, addr)
+                        debugManager.logPeerDisconnection(peer, nick, addr)
                     } catch (_: Exception) { }
                 }
             }

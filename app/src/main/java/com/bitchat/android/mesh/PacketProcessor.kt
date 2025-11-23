@@ -4,6 +4,7 @@ import android.util.Log
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.model.RoutedPacket
+import com.bitchat.android.ui.debug.DebugSettingsManager
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.actor
@@ -15,8 +16,10 @@ import kotlinx.coroutines.channels.actor
  * Prevents race condition where multiple threads process packets
  * from the same peer simultaneously, causing session management conflicts.
  */
-class PacketProcessor(private val myPeerID: String) {
-    private val debugManager by lazy { try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (e: Exception) { null } }
+class PacketProcessor(
+    private val myPeerID: String,
+    private val debugManager: DebugSettingsManager
+) {
     
     companion object {
         private const val TAG = "PacketProcessor"
@@ -32,7 +35,7 @@ class PacketProcessor(private val myPeerID: String) {
     }
     
     // Packet relay manager for centralized relay decisions
-    private val packetRelayManager = PacketRelayManager(myPeerID)
+    private val packetRelayManager = PacketRelayManager(myPeerID, debugManager)
     
     // Coroutines
     private val processorScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -136,7 +139,7 @@ class PacketProcessor(private val myPeerID: String) {
             val mt = messageType?.name ?: packet.type.toString()
             val routeDevice = routed.relayAddress
             val nick = delegate?.getPeerNickname(peerID)
-            debugManager?.logIncomingPacket(peerID, nick, mt, routeDevice)
+            debugManager.logIncomingPacket(peerID, nick, mt, routeDevice)
         } catch (_: Exception) { }
         
         
