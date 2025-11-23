@@ -3,6 +3,7 @@ package com.bitchat.android.ui
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.bitchat.android.mesh.BluetoothMeshService
+import com.bitchat.android.mesh.PeerFingerprintManager
 import com.bitchat.android.model.BitchatMessage
 import junit.framework.TestCase.assertEquals
 
@@ -41,7 +42,8 @@ class CommandProcessorTest() {
         state = chatState,
         messageManager = messageManager,
         dataManager = DataManager(context = context),
-        noiseSessionDelegate = mock<NoiseSessionDelegate>()
+        noiseSessionDelegate = mock<NoiseSessionDelegate>(),
+        fingerprintManager = mock<PeerFingerprintManager>()
       )
     )
   }

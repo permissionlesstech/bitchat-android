@@ -7,7 +7,7 @@ import org.junit.Test
 
 class PeerManagerTest {
 
-    private val peerManager = PeerManager()
+    private val peerManager = PeerManager(fingerprintManager = com.bitchat.android.mesh.PeerFingerprintManager())
     private val unknownPeer = "unknown"
     private val unknownDevice = "Unknown"
 
