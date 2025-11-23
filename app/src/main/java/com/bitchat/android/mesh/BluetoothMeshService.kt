@@ -57,24 +57,9 @@ class BluetoothMeshService @Inject constructor(
     private val messageHandler = MessageHandler(myPeerID, context.applicationContext)
     internal val connectionManager = BluetoothConnectionManager(context, myPeerID, fragmentManager, debugManager) // Made internal for access
     private val packetProcessor = PacketProcessor(myPeerID, debugManager)
-    private lateinit var gossipSyncManager: GossipSyncManager
     
-    // Service state management
-    private var isActive = false
-    
-    // Delegate for message callbacks (maintains same interface)
-    var delegate: BluetoothMeshDelegate? = null
-    
-    // Coroutines
-    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    
-    init {
-        setupDelegates()
-        messageHandler.packetProcessor = packetProcessor
-        //startPeriodicDebugLogging()
-
-        // Initialize sync manager (needs serviceScope)
-        gossipSyncManager = GossipSyncManager(
+    private val gossipSyncManager: GossipSyncManager by lazy {
+        GossipSyncManager(
             myPeerID = myPeerID,
             scope = serviceScope,
             configProvider = object : GossipSyncManager.ConfigProvider {
@@ -90,20 +75,35 @@ class BluetoothMeshService @Inject constructor(
                     debugPreferenceManager.getGcsFprPercent(1.0) / 100.0
                 } catch (_: Exception) { 0.01 }
             }
-        )
-
-        // Wire sync manager delegate
-        gossipSyncManager.delegate = object : GossipSyncManager.Delegate {
-            override fun sendPacket(packet: BitchatPacket) {
-                connectionManager.broadcastPacket(RoutedPacket(packet))
-            }
-            override fun sendPacketToPeer(peerID: String, packet: BitchatPacket) {
-                connectionManager.sendPacketToPeer(peerID, packet)
-            }
-            override fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket {
-                return signPacketBeforeBroadcast(packet)
+        ).also { syncManager ->
+            // Wire sync manager delegate
+            syncManager.delegate = object : GossipSyncManager.Delegate {
+                override fun sendPacket(packet: BitchatPacket) {
+                    connectionManager.broadcastPacket(RoutedPacket(packet))
+                }
+                override fun sendPacketToPeer(peerID: String, packet: BitchatPacket) {
+                    connectionManager.sendPacketToPeer(peerID, packet)
+                }
+                override fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket {
+                    return signPacketBeforeBroadcast(packet)
+                }
             }
         }
+    }
+    
+    // Service state management
+    private var isActive = false
+    
+    // Delegate for message callbacks (maintains same interface)
+    var delegate: BluetoothMeshDelegate? = null
+    
+    // Coroutines
+    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    
+    init {
+        setupDelegates()
+        messageHandler.packetProcessor = packetProcessor
+        //startPeriodicDebugLogging()
     }
     
     /**
