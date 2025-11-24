@@ -1,6 +1,5 @@
 package com.bitchat.android.favorites
 
-import android.content.Context
 import android.util.Log
 import com.bitchat.android.identity.SecureIdentityStateManager
 import kotlinx.serialization.Serializable
@@ -62,7 +61,9 @@ interface FavoritesChangeListener {
  * Singleton pattern matching iOS implementation.
  */
 @Singleton
-class FavoritesPersistenceService @Inject constructor(private val context: Context) {
+class FavoritesPersistenceService @Inject constructor(
+    private val stateManager : SecureIdentityStateManager
+) {
 
     companion object {
         private const val TAG = "FavoritesPersistenceService"
@@ -70,7 +71,6 @@ class FavoritesPersistenceService @Inject constructor(private val context: Conte
         private const val PEERID_INDEX_KEY = "favorite_peerid_index"         // peerID(16-hex) -> npub
     }
 
-    private val stateManager = SecureIdentityStateManager(context)
 
     private val favorites = mutableMapOf<String, FavoriteRelationship>() // noiseHex -> relationship
     // NEW: Index by current mesh peerID (16-hex) for direct lookup when sending Nostr DMs from mesh context
@@ -150,7 +150,7 @@ class FavoritesPersistenceService @Inject constructor(private val context: Conte
     fun findPeerIDForNostrPubkey(nostrPubkey: String): String? {
         // First, try direct match in peerIdIndex (values are stored as npub strings)
         peerIdIndex.entries.firstOrNull { it.value.equals(nostrPubkey, ignoreCase = true) }?.let { return it.key }
-        
+
         // Attempt legacy mapping via favorites Noise key association
         val targetHex = normalizeNostrKeyToHex(nostrPubkey)
         if (targetHex != null) {

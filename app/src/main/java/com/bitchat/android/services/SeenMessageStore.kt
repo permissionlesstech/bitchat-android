@@ -1,6 +1,5 @@
 package com.bitchat.android.services
 
-import android.content.Context
 import android.util.Log
 import com.bitchat.android.identity.SecureIdentityStateManager
 import kotlinx.serialization.Serializable
@@ -13,15 +12,15 @@ import jakarta.inject.Singleton
  * Limits to last MAX_IDS entries per set to avoid memory bloat.
  */
 @Singleton
-class SeenMessageStore @Inject constructor(private val context: Context) {
+class SeenMessageStore @Inject constructor(
+    private val secure: SecureIdentityStateManager
+) {
     companion object {
         private const val TAG = "SeenMessageStore"
         private const val STORAGE_KEY = "seen_message_store_v1"
         private const val MAX_IDS = com.bitchat.android.util.AppConstants.Services.SEEN_MESSAGE_MAX_IDS
     }
 
-
-    private val secure = SecureIdentityStateManager(context)
 
     private val delivered = LinkedHashSet<String>(MAX_IDS)
     private val read = LinkedHashSet<String>(MAX_IDS)

@@ -6,6 +6,8 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import java.security.MessageDigest
 import android.util.Log
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
 
 /**
  * Manages persistent identity storage and peer ID rotation - 100% compatible with iOS implementation
@@ -15,7 +17,8 @@ import android.util.Log
  * - Secure storage using Android EncryptedSharedPreferences
  * - Fingerprint calculation and identity validation
  */
-class SecureIdentityStateManager(private val context: Context) {
+@Singleton
+class SecureIdentityStateManager @Inject constructor(private val context: Context) {
     
     companion object {
         private const val TAG = "SecureIdentityStateManager"
