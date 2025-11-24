@@ -19,6 +19,13 @@
     
     <!-- Notification permissions -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Foreground service and boot permissions for long-running background mesh -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- Connected device foreground service type for BLE operations (API 34+) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <!-- Data sync foreground service type (required when declaring dataSync) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     
     <!-- Microphone for voice notes -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -77,5 +84,34 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Persistent foreground service to run the mesh in background -->
+        <service
+            android:name=".service.MeshForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice|dataSync"
+            tools:ignore="DataExtractionRules">
+        </service>
+
+        <!-- Listen for in-app broadcast when POST_NOTIFICATIONS is granted -->
+        <receiver
+            android:name=".service.NotificationPermissionChangedReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.bitchat.android.action.NOTIFICATION_PERMISSION_GRANTED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Auto-start mesh service after boot if enabled -->
+        <receiver
+            android:name=".service.BootCompletedReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>
