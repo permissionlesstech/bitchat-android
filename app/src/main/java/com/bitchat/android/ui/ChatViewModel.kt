@@ -6,6 +6,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.viewModelScope
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.mesh.BluetoothMeshService
@@ -44,7 +45,8 @@ class ChatViewModel @Inject constructor(
     private val geohashBookmarksStore: com.bitchat.android.geohash.GeohashBookmarksStore,
     private val debugManager: DebugSettingsManager,
     private val locationChannelManager: LocationChannelManager,
-    private val poWPreferenceManager: PoWPreferenceManager
+    private val poWPreferenceManager: PoWPreferenceManager,
+    val favoritesService: FavoritesPersistenceService
 ) : AndroidViewModel(application), BluetoothMeshDelegate {
 
     companion object {
@@ -82,7 +84,7 @@ class ChatViewModel @Inject constructor(
         override fun getMyPeerID(): String = meshService.myPeerID
     }
 
-    val privateChatManager = PrivateChatManager(state, messageManager, dataManager, noiseSessionDelegate, fingerprintManager)
+    val privateChatManager = PrivateChatManager(state, messageManager, dataManager, noiseSessionDelegate, fingerprintManager, favoritesService)
     private val commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager)
     private val notificationManager = NotificationManager(
       application.applicationContext,
@@ -104,7 +106,8 @@ class ChatViewModel @Inject constructor(
         onHapticFeedback = { ChatViewModelUtils.triggerHapticFeedback(application.applicationContext) },
         getMyPeerID = { meshService.myPeerID },
         getMeshService = { meshService },
-        messageRouter = messageRouter
+        messageRouter = messageRouter,
+        favoritesService = favoritesService
     )
 
     // New Geohash architecture ViewModel (replaces God object service usage in UI path)
@@ -230,8 +233,7 @@ class ChatViewModel @Inject constructor(
         // Initialize new geohash architecture
         geohashViewModel.initialize()
 
-        // Initialize favorites persistence service
-        com.bitchat.android.favorites.FavoritesPersistenceService.initialize(getApplication())
+
 
 
         // Ensure NostrTransport knows our mesh peer ID for embedded packets
@@ -389,7 +391,7 @@ class ChatViewModel @Inject constructor(
                     meshNoiseKeyForPeer = { pid -> meshService.getPeerInfo(pid)?.noisePublicKey },
                     meshHasPeer = { pid -> meshService.getPeerInfo(pid)?.isConnected == true },
                     nostrPubHexForAlias = { alias -> com.bitchat.android.nostr.GeohashAliasRegistry.get(alias) },
-                    findNoiseKeyForNostr = { key -> com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNoiseKey(key) }
+                    findNoiseKeyForNostr = { key -> favoritesService.findNoiseKey(key) }
                 )
                 canonical ?: targetKey
             }
@@ -448,7 +450,7 @@ class ChatViewModel @Inject constructor(
                 meshNoiseKeyForPeer = { pid -> meshService.getPeerInfo(pid)?.noisePublicKey },
                 meshHasPeer = { pid -> meshService.getPeerInfo(pid)?.isConnected == true },
                 nostrPubHexForAlias = { alias -> com.bitchat.android.nostr.GeohashAliasRegistry.get(alias) },
-                findNoiseKeyForNostr = { key -> com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNoiseKey(key) }
+                findNoiseKeyForNostr = { key -> favoritesService.findNoiseKey(key) }
             ).also { canonical ->
                 if (canonical != state.getSelectedPrivateChatPeerValue()) {
                     privateChatManager.startPrivateChat(canonical, meshService)
@@ -540,7 +542,7 @@ class ChatViewModel @Inject constructor(
                     try {
                         noiseKey = peerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
                         // Prefer nickname from favorites store if available
-                        val rel = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey!!)
+                        val rel = favoritesService.getFavoriteStatus(noiseKey!!)
                         if (rel != null) nickname = rel.peerNickname
                     } catch (_: Exception) { }
                 }
@@ -552,7 +554,7 @@ class ChatViewModel @Inject constructor(
                 val fingerprint = identityManager.generateFingerprint(noiseKey!!)
                 val isNowFavorite = dataManager.favoritePeers.contains(fingerprint)
 
-                com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateFavoriteStatus(
+                favoritesService.updateFavoriteStatus(
                     noisePublicKey = noiseKey!!,
                     nickname = nickname,
                     isFavorite = isNowFavorite
@@ -796,6 +798,12 @@ class ChatViewModel @Inject constructor(
             Log.e(TAG, "❌ Error clearing mesh service data: ${e.message}")
         }
     }
+
+    // Expose favorites service functionality for UI components
+    fun getOfflineFavorites() = favoritesService.getOurFavorites()
+    fun findNostrPubkey(noiseKey: ByteArray) = favoritesService.findNostrPubkey(noiseKey)
+    fun getFavoriteStatus(noiseKey: ByteArray) = favoritesService.getFavoriteStatus(noiseKey)
+    fun getFavoriteStatus(peerID: String) = favoritesService.getFavoriteStatus(peerID)
     
     /**
      * Clear all cryptographic data including persistent identity
@@ -820,7 +828,7 @@ class ChatViewModel @Inject constructor(
 
             // Clear FavoritesPersistenceService persistent relationships
             try {
-                com.bitchat.android.favorites.FavoritesPersistenceService.shared.clearAllFavorites()
+                favoritesService.clearAllFavorites()
                 Log.d(TAG, "✅ Cleared FavoritesPersistenceService relationships")
             } catch (_: Exception) { }
             

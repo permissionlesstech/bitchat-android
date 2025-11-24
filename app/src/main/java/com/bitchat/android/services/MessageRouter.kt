@@ -2,6 +2,7 @@ package com.bitchat.android.services
 
 import android.content.Context
 import android.util.Log
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.ReadReceipt
 import com.bitchat.android.nostr.NostrTransport
@@ -15,7 +16,8 @@ import jakarta.inject.Singleton
 class MessageRouter @Inject constructor(
     private val context: Context,
     private val mesh: BluetoothMeshService,
-    private val nostr: NostrTransport
+    private val nostr: NostrTransport,
+    private val favoritesService: FavoritesPersistenceService
 ) {
     companion object {
         private const val TAG = "MessageRouter"
@@ -42,7 +44,7 @@ class MessageRouter @Inject constructor(
         nostr.senderPeerID = mesh.myPeerID
         // Register for favorites changes to flush outbox
         try {
-            com.bitchat.android.favorites.FavoritesPersistenceService.shared.addListener(favoriteListener)
+            favoritesService.addListener(favoriteListener)
         } catch (_: Exception) {}
     }
 
@@ -156,11 +158,11 @@ class MessageRouter @Inject constructor(
             // Full Noise key hex
             if (peerID.length == 64 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
                 val noiseKey = hexToBytes(peerID)
-                val fav = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)
+                val fav = favoritesService.getFavoriteStatus(noiseKey)
                 fav?.isMutual == true && fav.peerNostrPublicKey != null
             } else if (peerID.length == 16 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
                 // Ephemeral 16-hex mesh ID: resolve via prefix match in favorites
-                val fav = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(peerID)
+                val fav = favoritesService.getFavoriteStatus(peerID)
                 fav?.isMutual == true && fav.peerNostrPublicKey != null
             } else {
                 false

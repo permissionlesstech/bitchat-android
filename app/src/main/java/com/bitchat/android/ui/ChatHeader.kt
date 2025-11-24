@@ -327,9 +327,9 @@ private fun PrivateChatHeader(
             if (isNostrDM) return@remember false
             if (peerID.length == 64 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
                 val noiseKeyBytes = peerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
-                com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKeyBytes)?.isMutual == true
+                viewModel.getFavoriteStatus(noiseKeyBytes)?.isMutual == true
             } else if (peerID.length == 16 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
-                com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(peerID)?.isMutual == true
+                viewModel.getFavoriteStatus(peerID)?.isMutual == true
             } else false
         } catch (_: Exception) { false }
     }
@@ -360,9 +360,9 @@ private fun PrivateChatHeader(
             val titleFromFavorites = try {
                 if (peerID.length == 64 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
                     val noiseKeyBytes = peerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
-                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKeyBytes)?.peerNickname
+                    viewModel.getFavoriteStatus(noiseKeyBytes)?.peerNickname
                 } else if (peerID.length == 16 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
-                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(peerID)?.peerNickname
+                    viewModel.getFavoriteStatus(peerID)?.peerNickname
                 } else null
             } catch (_: Exception) { null }
             titleFromFavorites ?: peerID.take(12)

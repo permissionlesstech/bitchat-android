@@ -19,11 +19,6 @@ class BitchatApplication : Application() {
             androidLogger()
         }
 
-        // Initialize favorites persistence early so MessageRouter/NostrTransport can use it on startup
-        try {
-            com.bitchat.android.favorites.FavoritesPersistenceService.initialize(this)
-        } catch (_: Exception) { }
-
         // Warm up Nostr identity to ensure npub is available for favorite notifications
         try {
             com.bitchat.android.nostr.NostrIdentityBridge.getCurrentNostrIdentity(this)

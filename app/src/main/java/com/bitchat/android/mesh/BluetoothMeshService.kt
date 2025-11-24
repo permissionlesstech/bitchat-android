@@ -3,6 +3,7 @@ package com.bitchat.android.mesh
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.crypto.EncryptionService
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.protocol.MessagePadding
 import com.bitchat.android.model.RoutedPacket
@@ -40,7 +41,8 @@ class BluetoothMeshService @Inject constructor(
     private val fingerprintManager: PeerFingerprintManager,
     private val encryptionService: EncryptionService,
     private val debugManager: com.bitchat.android.ui.debug.DebugSettingsManager,
-    private val debugPreferenceManager: DebugPreferenceManager
+    private val debugPreferenceManager: DebugPreferenceManager,
+    private val favoritesService: FavoritesPersistenceService
 ) {
     
     companion object {
@@ -54,7 +56,7 @@ class BluetoothMeshService @Inject constructor(
     private val fragmentManager = FragmentManager()
     private val securityManager = SecurityManager(encryptionService, myPeerID)
     private val storeForwardManager = StoreForwardManager()
-    private val messageHandler = MessageHandler(myPeerID, context.applicationContext)
+    private val messageHandler = MessageHandler(myPeerID, context.applicationContext, favoritesService)
     internal val connectionManager = BluetoothConnectionManager(context, myPeerID, fragmentManager, debugManager) // Made internal for access
     private val packetProcessor = PacketProcessor(myPeerID, debugManager)
     
@@ -338,8 +340,8 @@ class BluetoothMeshService @Inject constructor(
 
                 // Index existing Nostr mapping by the new peerID if we have it
                 try {
-                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNostrPubkey(publicKey)?.let { npub ->
-                        com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateNostrPublicKeyForPeerID(newPeerID, npub)
+                    favoritesService.findNostrPubkey(publicKey)?.let { npub ->
+                        favoritesService.updateNostrPublicKeyForPeerID(newPeerID, npub)
                     }
                 } catch (_: Exception) { }
                 

@@ -43,7 +43,8 @@ class CommandProcessorTest() {
         messageManager = messageManager,
         dataManager = DataManager(context = context),
         noiseSessionDelegate = mock<NoiseSessionDelegate>(),
-        fingerprintManager = mock<PeerFingerprintManager>()
+        fingerprintManager = mock<PeerFingerprintManager>(),
+        favoritesService = mock<com.bitchat.android.favorites.FavoritesPersistenceService>()
       )
     )
   }

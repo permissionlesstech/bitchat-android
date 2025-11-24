@@ -340,7 +340,7 @@ fun PeopleSection(
         }
 
         // Offline favorites (exclude ones mapped to connected)
-        val offlineFavorites = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getOurFavorites()
+        val offlineFavorites = viewModel.getOfflineFavorites()
         offlineFavorites.forEach { fav ->
             val favPeerID = fav.peerNoisePublicKey.joinToString("") { b -> "%02x".format(b) }
             val isMappedToConnected = noiseHexByPeerID.values.any { it.equals(favPeerID, ignoreCase = true) }
@@ -415,7 +415,7 @@ fun PeopleSection(
 
             // Resolve potential Nostr conversation key for this favorite (for unread detection)
             val nostrConvKey: String? = try {
-                val npubOrHex = com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNostrPubkey(fav.peerNoisePublicKey)
+                val npubOrHex = viewModel.findNostrPubkey(fav.peerNoisePublicKey)
                 if (npubOrHex != null) {
                     val hex = if (npubOrHex.startsWith("npub")) {
                         val (hrp, data) = com.bitchat.android.nostr.Bech32.decode(npubOrHex)

@@ -7,6 +7,8 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import com.bitchat.android.util.JsonUtil
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
 import java.util.*
 
 /**
@@ -59,28 +61,13 @@ interface FavoritesChangeListener {
  * Manages favorites with Noise↔Nostr mapping
  * Singleton pattern matching iOS implementation.
  */
-class FavoritesPersistenceService private constructor(private val context: Context) {
+@Singleton
+class FavoritesPersistenceService @Inject constructor(private val context: Context) {
 
     companion object {
         private const val TAG = "FavoritesPersistenceService"
         private const val FAVORITES_KEY = "favorite_relationships"            // noiseHex -> relationship
         private const val PEERID_INDEX_KEY = "favorite_peerid_index"         // peerID(16-hex) -> npub
-
-        @Volatile
-        private var INSTANCE: FavoritesPersistenceService? = null
-
-        val shared: FavoritesPersistenceService
-            get() = INSTANCE ?: throw IllegalStateException("FavoritesPersistenceService not initialized")
-
-        fun initialize(context: Context) {
-            if (INSTANCE == null) {
-                synchronized(this) {
-                    if (INSTANCE == null) {
-                        INSTANCE = FavoritesPersistenceService(context.applicationContext)
-                    }
-                }
-            }
-        }
     }
 
     private val stateManager = SecureIdentityStateManager(context)

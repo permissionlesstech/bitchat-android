@@ -2,6 +2,7 @@ package com.bitchat.android.nostr
 
 import android.content.Context
 import android.util.Log
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.model.ReadReceipt
 import com.bitchat.android.model.NoisePayloadType
@@ -19,7 +20,8 @@ import jakarta.inject.Singleton
 class NostrTransport @Inject constructor(
     private val context: Context,
     private val nostrRelayManager: NostrRelayManager,
-    private val locationChannelManager: LocationChannelManager
+    private val locationChannelManager: LocationChannelManager,
+    private val favoritesService: FavoritesPersistenceService
 ) {
     var senderPeerID: String = ""
 
@@ -84,7 +86,7 @@ class NostrTransport @Inject constructor(
 
                 // Strict: lookup the recipient's current BitChat peer ID using favorites mapping
                 val recipientPeerIDForEmbed = try {
-                    com.bitchat.android.favorites.FavoritesPersistenceService.shared
+                    favoritesService
                         .findPeerIDForNostrPubkey(recipientNostrPubkey)
                 } catch (_: Exception) { null }
                 if (recipientPeerIDForEmbed.isNullOrBlank()) {
@@ -480,16 +482,16 @@ class NostrTransport @Inject constructor(
     private fun resolveNostrPublicKey(peerID: String): String? {
         try {
             // 1) Fast path: direct peerID→npub mapping (mutual favorites after mesh mapping)
-            com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNostrPubkeyForPeerID(peerID)?.let { return it }
+            favoritesService.findNostrPubkeyForPeerID(peerID)?.let { return it }
 
             // 2) Legacy path: resolve by noise public key association
             val noiseKey = hexStringToByteArray(peerID)
-            val favoriteStatus = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)
+            val favoriteStatus = favoritesService.getFavoriteStatus(noiseKey)
             if (favoriteStatus?.peerNostrPublicKey != null) return favoriteStatus.peerNostrPublicKey
 
             // 3) Prefix match on noiseHex from 16-hex peerID
             if (peerID.length == 16) {
-                val fallbackStatus = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(peerID)
+                val fallbackStatus = favoritesService.getFavoriteStatus(peerID)
                 return fallbackStatus?.peerNostrPublicKey
             }
 
