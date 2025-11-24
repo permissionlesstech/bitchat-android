@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.parcelize)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.baselineprofile)
 }
 
 android {
@@ -106,10 +107,12 @@ dependencies {
     
     // EXIF orientation handling for images
     implementation("androidx.exifinterface:exifinterface:1.3.7")
-    
+    implementation(libs.androidx.profileinstaller)
+
     // Testing
     testImplementation(libs.bundles.testing)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.bundles.compose.testing)
+    "baselineProfile"(project(":baselineprofile"))
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
