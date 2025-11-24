@@ -2,7 +2,9 @@ package com.bitchat.android.noise
 
 import android.util.Log
 import com.bitchat.android.util.JsonUtil
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.put
 import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import javax.crypto.Cipher
@@ -205,14 +207,14 @@ class NoiseChannelEncryption {
     fun createChannelKeyPacket(password: String, channel: String): ByteArray? {
         return try {
             // Create key packet with channel and password
-            val packet = mapOf(
-                "channel" to channel,
-                "password" to password,
-                "timestamp" to System.currentTimeMillis()
-            )
+            val jsonObject = buildJsonObject {
+                put("channel", channel)
+                put("password", password)
+                put("timestamp", System.currentTimeMillis())
+            }
             
             // Simple JSON encoding for now (could be replaced with more efficient format)
-            val json = JsonUtil.toJson(packet)
+            val json = JsonUtil.json.encodeToString(kotlinx.serialization.json.JsonObject.serializer(), jsonObject)
             json.toByteArray(Charsets.UTF_8)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to create channel key packet: ${e.message}")

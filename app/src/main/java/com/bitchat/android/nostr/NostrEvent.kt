@@ -2,6 +2,8 @@ package com.bitchat.android.nostr
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonArray
 import com.bitchat.android.util.JsonUtil
 import java.security.MessageDigest
 
@@ -117,17 +119,23 @@ data class NostrEvent(
      */
     private fun calculateEventId(): Pair<String, ByteArray> {
         // Create serialized array for hashing according to NIP-01
-        val serialized = listOf(
-            0,
-            pubkey,
-            createdAt,
-            kind,
-            tags,
-            content
-        )
+        val jsonArray = buildJsonArray {
+            add(0)
+            add(pubkey)
+            add(createdAt)
+            add(kind)
+            add(buildJsonArray {
+                tags.forEach { tag ->
+                    add(buildJsonArray {
+                        tag.forEach { add(it) }
+                    })
+                }
+            })
+            add(content)
+        }
         
         // Convert to JSON without escaping slashes (compact format)
-        val jsonString = JsonUtil.toJson(serialized)
+        val jsonString = JsonUtil.json.encodeToString(kotlinx.serialization.json.JsonArray.serializer(), jsonArray)
         
         // SHA256 hash of the JSON string
         val digest = MessageDigest.getInstance("SHA-256")
