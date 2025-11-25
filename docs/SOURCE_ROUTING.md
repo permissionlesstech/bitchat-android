@@ -30,7 +30,7 @@ Unknown flags are ignored by older implementations (they will simply not see a r
 ## Sender Behavior
 
 - Applicability: Intended for addressed packets (i.e., where `recipientID` is set and is not the broadcast ID). For broadcast packets, omit the route.
-- Path computation: Use Dijkstra’s shortest path (unit weights) on your internal mesh topology to find a route from `src` (your peerID) to `dst` (recipient peerID). The hop list SHOULD include the full path `[src, ..., dst]`.
+- Path computation: Use Dijkstra’s shortest path (unit weights) on your internal mesh topology to find a route from the sender (your peerID) to the recipient (the destination peerID). The `BitchatPacket` already contains dedicated `senderID` and `recipientID` fields. The `Route` field's `hops` list **SHOULD** contain the sequence of intermediate peer IDs that the packet should traverse. It **SHOULD NOT** duplicate the `senderID` or `recipientID` if they are already present in the `BitchatPacket`'s dedicated fields. Instead, the `hops` list represents the explicit path *between* the sender and recipient, starting from the first relay and ending with the last relay before the recipient.
 - Encoding: Set `HAS_ROUTE`, write `count = path.length`, then the 8‑byte hop IDs in order. Keep `count <= 255`.
 - Signing: The route is covered by the Ed25519 signature (recommended):
   - Signature input is the canonical encoding with `signature` omitted and `ttl = 0` (TTL excluded to allow relay decrement) — same rule as base protocol.
@@ -40,11 +40,13 @@ Unknown flags are ignored by older implementations (they will simply not see a r
 When receiving a packet that is not addressed to you:
 
 1) If `HAS_ROUTE` is not set, or the route is empty, relay using your normal broadcast logic (subject to TTL/probability policies).
-2) If `HAS_ROUTE` is set and your peer ID appears at index `i` in the hop list:
-   - If there is a next hop at `i+1`, attempt a targeted unicast to that next hop if you have a direct connection to it.
-     - If successful, do NOT broadcast this packet further.
-     - If not directly connected (or the send fails), fall back to broadcast relaying.
-   - If you are the last hop (no `i+1`), proceed with standard handling (e.g., if not addressed to you, do not relay further).
+2) If `HAS_ROUTE` is set:
+   - **Route Sanity Check**: Before processing, the relay **MUST** validate the route. If the route contains duplicate hops (i.e., the same peer ID appears more than once), the packet **MUST** be dropped to prevent loops.
+   - If your peer ID appears at index `i` in the hop list:
+     - If there is a next hop at `i+1`, attempt a targeted unicast to that next hop if you have a direct connection to it.
+       - If successful, do NOT broadcast this packet further.
+       - If not directly connected (or the send fails), fall back to broadcast relaying.
+     - If you are the last hop (no `i+1`), the packet has reached the end of its explicit route. The relay should then attempt to deliver it to the final `recipientID` if directly connected, but SHOULD NOT relay it further as a broadcast.
 
 TTL handling remains unchanged: relays decrement TTL by 1 before forwarding (whether targeted or broadcast). If TTL reaches 0, do not relay.
 
@@ -64,11 +66,11 @@ TTL handling remains unchanged: relays decrement TTL by 1 before forwarding (whe
 - Variable sections (ordered):
   - `SenderID(8)`
   - `RecipientID(8)` (if present)
-  - `HAS_ROUTE` set → `count=3`, `hops = [H0 H1 H2]` where each `Hk` is 8 bytes
+  - `HAS_ROUTE` set → `count=1`, `hops = [H1]` where `H1` is 8 bytes
   - Payload (optionally compressed)
   - Signature (64)
 
-Where `H0` is the sender’s peer ID, `H2` is the recipient’s peer ID, and `H1` is an intermediate relay. The receiver verifies the signature over the packet encoding (with `ttl = 0` and `signature` omitted), which includes the `hops` when `HAS_ROUTE` is set.
+In this example, `SENDER_ID` is the sender, `RECIPIENT_ID` is the final recipient, and `H1` is the single intermediate relay. The `hops` list explicitly defines the path *between* the sender and recipient. The receiver verifies the signature over the packet encoding (with `ttl = 0` and `signature` omitted), which includes the `hops` when `HAS_ROUTE` is set.
 
 ## Operational Notes
 
