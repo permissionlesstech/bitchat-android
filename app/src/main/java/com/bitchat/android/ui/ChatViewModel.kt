@@ -191,6 +191,7 @@ class ChatViewModel @Inject constructor(
     // PoW
     val powEnabled = poWPreferenceManager.powEnabled
     val powDifficulty = poWPreferenceManager.powDifficulty
+    val isMining = poWPreferenceManager.isMining
 
     init {
         // Note: Mesh service delegate is now set by MainActivity
@@ -837,6 +838,26 @@ class ChatViewModel @Inject constructor(
     fun enableLocationServices() = locationChannelManager.enableLocationServices()
     fun disableLocationServices() = locationChannelManager.disableLocationServices()
     fun selectLocationChannel(channel: ChannelID): Unit = locationChannelManager.select(channel)
+
+    /**
+     * Teleport to a specific geohash by parsing its level
+     */
+    fun teleportToGeohash(geohash: String) {
+        try {
+            val level = when (geohash.length) {
+                in 0..2 -> com.bitchat.android.geohash.GeohashChannelLevel.REGION
+                in 3..4 -> com.bitchat.android.geohash.GeohashChannelLevel.PROVINCE
+                5 -> com.bitchat.android.geohash.GeohashChannelLevel.CITY
+                6 -> com.bitchat.android.geohash.GeohashChannelLevel.NEIGHBORHOOD
+                else -> com.bitchat.android.geohash.GeohashChannelLevel.BLOCK
+            }
+            val channel = com.bitchat.android.geohash.GeohashChannel(level, geohash.lowercase())
+            locationChannelManager.setTeleported(true)
+            locationChannelManager.select(ChannelID.Location(channel))
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to teleport to geohash: $geohash", e)
+        }
+    }
     fun setTeleported(teleported: Boolean) = locationChannelManager.setTeleported(teleported)
     fun beginLiveRefresh() = locationChannelManager.beginLiveRefresh()
     fun endLiveRefresh() = locationChannelManager.endLiveRefresh()

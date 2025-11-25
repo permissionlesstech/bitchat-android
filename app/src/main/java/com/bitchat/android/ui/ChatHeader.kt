@@ -629,7 +629,8 @@ private fun MainHeader(
             // PoW status indicator
             PoWStatusIndicator(
                 modifier = Modifier,
-                style = PoWIndicatorStyle.COMPACT
+                style = PoWIndicatorStyle.COMPACT,
+                viewModel = viewModel
             )
             Spacer(modifier = Modifier.width(2.dp))
             PeerCounter(

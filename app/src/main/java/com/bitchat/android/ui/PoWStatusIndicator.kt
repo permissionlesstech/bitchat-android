@@ -17,7 +17,6 @@ import androidx.compose.ui.unit.sp
 import com.bitchat.android.nostr.NostrProofOfWork
 import androidx.compose.ui.res.stringResource
 import com.bitchat.android.R
-import com.bitchat.android.nostr.PoWPreferenceManager
 
 /**
  * Shows the current Proof of Work status and settings
@@ -25,12 +24,12 @@ import com.bitchat.android.nostr.PoWPreferenceManager
 @Composable
 fun PoWStatusIndicator(
     modifier: Modifier = Modifier,
-    style: PoWIndicatorStyle = PoWIndicatorStyle.COMPACT
+    style: PoWIndicatorStyle = PoWIndicatorStyle.COMPACT,
+    viewModel: ChatViewModel
 ) {
-    val powPreferenceManager: PoWPreferenceManager = org.koin.compose.koinInject()
-    val powEnabled by powPreferenceManager.powEnabled.collectAsState()
-    val powDifficulty by powPreferenceManager.powDifficulty.collectAsState()
-    val isMining by powPreferenceManager.isMining.collectAsState()
+    val powEnabled by viewModel.powEnabled.collectAsState()
+    val powDifficulty by viewModel.powDifficulty.collectAsState()
+    val isMining by viewModel.isMining.collectAsState()
     val colorScheme = MaterialTheme.colorScheme
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
     

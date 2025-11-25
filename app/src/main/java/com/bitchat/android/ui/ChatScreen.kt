@@ -179,6 +179,9 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     viewerImagePaths = allImagePaths
                     initialViewerIndex = initialIndex
                     showFullScreenImageViewer = true
+                },
+                onGeohashClick = { geohash ->
+                    viewModel.teleportToGeohash(geohash)
                 }
             )
             // Input area - stays at bottom
