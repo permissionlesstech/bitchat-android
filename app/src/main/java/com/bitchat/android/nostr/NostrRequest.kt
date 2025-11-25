@@ -1,7 +1,7 @@
 package com.bitchat.android.nostr
 
-import com.google.gson.*
-import java.lang.reflect.Type
+import kotlinx.serialization.json.*
+import com.bitchat.android.util.JsonUtil
 
 /**
  * Nostr protocol request messages
@@ -27,54 +27,34 @@ sealed class NostrRequest {
      */
     data class Close(val subscriptionId: String) : NostrRequest()
     
-    /**
-     * Custom JSON serializer for NostrRequest
-     */
-    class RequestSerializer : JsonSerializer<NostrRequest> {
-        override fun serialize(src: NostrRequest, typeOfSrc: Type, context: JsonSerializationContext): JsonElement {
-            val array = JsonArray()
-            
-            when (src) {
-                is Event -> {
-                    array.add("EVENT")
-                    array.add(context.serialize(src.event))
-                }
-                
-                is Subscribe -> {
-                    array.add("REQ")
-                    array.add(src.subscriptionId)
-                    src.filters.forEach { filter ->
-                        array.add(context.serialize(filter, NostrFilter::class.java))
-                    }
-                }
-                
-                is Close -> {
-                    array.add("CLOSE")
-                    array.add(src.subscriptionId)
-                }
-            }
-            
-            return array
-        }
-    }
-    
     companion object {
-        /**
-         * Create Gson instance with proper serializers
-         */
-        fun createGson(): Gson {
-            return GsonBuilder()
-                .registerTypeAdapter(NostrRequest::class.java, RequestSerializer())
-                .registerTypeAdapter(NostrFilter::class.java, NostrFilter.FilterSerializer())
-                .disableHtmlEscaping()
-                .create()
-        }
-        
         /**
          * Serialize request to JSON string
          */
         fun toJson(request: NostrRequest): String {
-            return createGson().toJson(request)
+            val jsonArray = buildJsonArray {
+                when (request) {
+                    is Event -> {
+                        add("EVENT")
+                        add(Json.encodeToJsonElement(request.event))
+                    }
+                    
+                    is Subscribe -> {
+                        add("REQ")
+                        add(request.subscriptionId)
+                        request.filters.forEach { filter ->
+                            add(filter.toJsonElement())
+                        }
+                    }
+                    
+                    is Close -> {
+                        add("CLOSE")
+                        add(request.subscriptionId)
+                    }
+                }
+            }
+            
+            return JsonUtil.json.encodeToString(JsonArray.serializer(), jsonArray)
         }
     }
 }
@@ -129,11 +109,11 @@ sealed class NostrResponse {
          */
         fun fromJsonArray(jsonArray: JsonArray): NostrResponse {
             return try {
-                when (val type = jsonArray[0].asString) {
+                when (val type = jsonArray[0].jsonPrimitive.content) {
                     "EVENT" -> {
-                        if (jsonArray.size() >= 3) {
-                            val subscriptionId = jsonArray[1].asString
-                            val eventJson = jsonArray[2].asJsonObject
+                        if (jsonArray.size >= 3) {
+                            val subscriptionId = jsonArray[1].jsonPrimitive.content
+                            val eventJson = jsonArray[2].jsonObject
                             val event = parseEventFromJson(eventJson)
                             Event(subscriptionId, event)
                         } else {
@@ -142,8 +122,8 @@ sealed class NostrResponse {
                     }
                     
                     "EOSE" -> {
-                        if (jsonArray.size() >= 2) {
-                            val subscriptionId = jsonArray[1].asString
+                        if (jsonArray.size >= 2) {
+                            val subscriptionId = jsonArray[1].jsonPrimitive.content
                             EndOfStoredEvents(subscriptionId)
                         } else {
                             Unknown(jsonArray.toString())
@@ -151,11 +131,11 @@ sealed class NostrResponse {
                     }
                     
                     "OK" -> {
-                        if (jsonArray.size() >= 3) {
-                            val eventId = jsonArray[1].asString
-                            val accepted = jsonArray[2].asBoolean
-                            val message = if (jsonArray.size() >= 4) {
-                                jsonArray[3].asString
+                        if (jsonArray.size >= 3) {
+                            val eventId = jsonArray[1].jsonPrimitive.content
+                            val accepted = jsonArray[2].jsonPrimitive.boolean
+                            val message = if (jsonArray.size >= 4) {
+                                jsonArray[3].jsonPrimitive.content
                             } else null
                             Ok(eventId, accepted, message)
                         } else {
@@ -164,8 +144,8 @@ sealed class NostrResponse {
                     }
                     
                     "NOTICE" -> {
-                        if (jsonArray.size() >= 2) {
-                            val message = jsonArray[1].asString
+                        if (jsonArray.size >= 2) {
+                            val message = jsonArray[1].jsonPrimitive.content
                             Notice(message)
                         } else {
                             Unknown(jsonArray.toString())
@@ -181,13 +161,13 @@ sealed class NostrResponse {
         
         private fun parseEventFromJson(jsonObject: JsonObject): NostrEvent {
             return NostrEvent(
-                id = jsonObject.get("id")?.asString ?: "",
-                pubkey = jsonObject.get("pubkey")?.asString ?: "",
-                createdAt = jsonObject.get("created_at")?.asInt ?: 0,
-                kind = jsonObject.get("kind")?.asInt ?: 0,
-                tags = parseTagsFromJson(jsonObject.get("tags")?.asJsonArray),
-                content = jsonObject.get("content")?.asString ?: "",
-                sig = jsonObject.get("sig")?.asString
+                id = jsonObject["id"]?.jsonPrimitive?.content ?: "",
+                pubkey = jsonObject["pubkey"]?.jsonPrimitive?.content ?: "",
+                createdAt = jsonObject["created_at"]?.jsonPrimitive?.int ?: 0,
+                kind = jsonObject["kind"]?.jsonPrimitive?.int ?: 0,
+                tags = parseTagsFromJson(jsonObject["tags"]?.jsonArray),
+                content = jsonObject["content"]?.jsonPrimitive?.content ?: "",
+                sig = jsonObject["sig"]?.jsonPrimitive?.content
             )
         }
         
@@ -196,9 +176,8 @@ sealed class NostrResponse {
             
             return try {
                 tagsArray.map { tagElement ->
-                    if (tagElement.isJsonArray) {
-                        val tagArray = tagElement.asJsonArray
-                        tagArray.map { it.asString }
+                    if (tagElement is JsonArray) {
+                        tagElement.map { it.jsonPrimitive.content }
                     } else {
                         emptyList()
                     }
