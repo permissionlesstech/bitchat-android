@@ -1,5 +1,6 @@
 package com.bitchat.android.ui
 
+
 import android.app.Application
 import android.util.Log
 import androidx.core.app.NotificationManagerCompat
@@ -7,27 +8,29 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.viewModelScope
 import com.bitchat.android.favorites.FavoritesPersistenceService
+import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
-import com.bitchat.android.model.BitchatMessageType
+import com.bitchat.android.net.TorManager
+import com.bitchat.android.net.TorMode
+import com.bitchat.android.net.TorPreferenceManager
+import com.bitchat.android.nostr.LocationNotesManager
 import com.bitchat.android.nostr.NostrRelayManager
 import com.bitchat.android.nostr.NostrTransport
 import com.bitchat.android.nostr.PoWPreferenceManager
-import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.services.MessageRouter
 import com.bitchat.android.ui.debug.DebugSettingsManager
-
-
-import kotlinx.coroutines.launch
+import com.bitchat.android.ui.theme.ThemePreference
+import com.bitchat.android.ui.theme.ThemePreferenceManager
 import com.bitchat.android.util.NotificationIntervalManager
+import jakarta.inject.Inject
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.koin.android.annotation.KoinViewModel
 import java.util.Date
 import kotlin.random.Random
-import jakarta.inject.Inject
-import org.koin.android.annotation.KoinViewModel
 
 /**
  * Refactored ChatViewModel - Main coordinator for bitchat functionality
@@ -46,7 +49,9 @@ class ChatViewModel @Inject constructor(
     private val debugManager: DebugSettingsManager,
     private val locationChannelManager: LocationChannelManager,
     private val poWPreferenceManager: PoWPreferenceManager,
-    val favoritesService: FavoritesPersistenceService
+    val favoritesService: FavoritesPersistenceService,
+    private val locationNotesManager: LocationNotesManager,
+    private val torManager: TorManager,
 ) : AndroidViewModel(application), BluetoothMeshDelegate {
 
     companion object {
@@ -163,6 +168,29 @@ class ChatViewModel @Inject constructor(
     val geohashPeople: LiveData<List<GeoPerson>> = state.geohashPeople
     val teleportedGeo: LiveData<Set<String>> = state.teleportedGeo
     val geohashParticipantCounts: LiveData<Map<String, Int>> = state.geohashParticipantCounts
+
+    // Location Notes
+    val locationNotes: LiveData<List<LocationNotesManager.Note>> = locationNotesManager.notes
+    val locationNotesState: LiveData<LocationNotesManager.State> = locationNotesManager.state
+    val locationNotesErrorMessage = locationNotesManager.errorMessage
+    val locationNotesInitialLoadComplete = locationNotesManager.initialLoadComplete
+
+    // Location Channel
+    val locationPermissionState = locationChannelManager.permissionState
+    val locationServicesEnabled = locationChannelManager.locationServicesEnabled
+    val availableLocationChannels = locationChannelManager.availableChannels
+    val locationNames = locationChannelManager.locationNames
+
+    // Bookmarks
+    val geohashBookmarks: LiveData<List<String>> = geohashBookmarksStore.bookmarks
+    val geohashBookmarkNames: LiveData<Map<String, String>> = geohashBookmarksStore.bookmarkNames
+
+    // Tor
+    val torStatus = torManager.statusFlow
+
+    // PoW
+    val powEnabled = poWPreferenceManager.powEnabled
+    val powDifficulty = poWPreferenceManager.powDifficulty
 
     init {
         // Note: Mesh service delegate is now set by MainActivity
@@ -799,6 +827,51 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    // MARK: - Location & Network Management
+    
+    fun refreshLocationChannels() {
+        locationChannelManager.refreshChannels()
+    }
+    
+    fun enableLocationChannels() = locationChannelManager.enableLocationChannels()
+    fun enableLocationServices() = locationChannelManager.enableLocationServices()
+    fun disableLocationServices() = locationChannelManager.disableLocationServices()
+    fun selectLocationChannel(channel: ChannelID): Unit = locationChannelManager.select(channel)
+    fun setTeleported(teleported: Boolean) = locationChannelManager.setTeleported(teleported)
+    fun beginLiveRefresh() = locationChannelManager.beginLiveRefresh()
+    fun endLiveRefresh() = locationChannelManager.endLiveRefresh()
+
+    // Location Notes
+    fun setLocationNotesGeohash(geohash: String) = locationNotesManager.setGeohash(geohash)
+    fun cancelLocationNotes() = locationNotesManager.cancel()
+    fun refreshLocationNotes() = locationNotesManager.refresh()
+    fun clearLocationNotesError() = locationNotesManager.clearError()
+    fun sendLocationNote(content: String, nickname: String?) = locationNotesManager.send(content, nickname)
+
+    // Bookmarks
+    fun toggleGeohashBookmark(geohash: String) = geohashBookmarksStore.toggle(geohash)
+    fun isGeohashBookmarked(geohash: String): Boolean = geohashBookmarksStore.isBookmarked(geohash)
+    fun resolveGeohashNameIfNeeded(geohash: String) = geohashBookmarksStore.resolveNameIfNeeded(geohash)
+
+    fun setTorMode(mode: TorMode) {
+        TorPreferenceManager.set(getApplication(), mode)
+    }
+
+    fun setPowEnabled(enabled: Boolean) {
+        poWPreferenceManager.setPowEnabled(enabled)
+    }
+
+    fun setPowDifficulty(difficulty: Int) {
+        poWPreferenceManager.setPowDifficulty(difficulty)
+    }
+    
+    // Theme
+    val themePreference = ThemePreferenceManager.themeFlow
+    
+    fun setTheme(preference: ThemePreference) {
+        ThemePreferenceManager.set(getApplication(), preference)
+    }
+
     // Expose favorites service functionality for UI components
     fun getOfflineFavorites() = favoritesService.getOurFavorites()
     fun findNostrPubkey(noiseKey: ByteArray) = favoritesService.findNostrPubkey(noiseKey)
@@ -874,11 +947,7 @@ class ChatViewModel @Inject constructor(
             startPrivateChat(convKey)
         }
     }
-
-    fun selectLocationChannel(channel: com.bitchat.android.geohash.ChannelID) {
-        geohashViewModel.selectLocationChannel(channel)
-    }
-
+    
     /**
      * Block a user in geohash channels by their nickname
      */

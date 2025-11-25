@@ -5,13 +5,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.bitchat.android.geohash.GeohashChannelLevel
-import com.bitchat.android.geohash.LocationChannelManager
 
 /**
  * Presenter component for LocationNotesSheet
@@ -24,9 +21,7 @@ fun LocationNotesSheetPresenter(
     viewModel: ChatViewModel,
     onDismiss: () -> Unit
 ) {
-    val context = LocalContext.current
-    val locationManager: LocationChannelManager = org.koin.compose.koinInject()
-    val availableChannels by locationManager.availableChannels.observeAsState(emptyList())
+    val availableChannels by viewModel.availableLocationChannels.observeAsState(emptyList())
     val nickname by viewModel.nickname.observeAsState("")
     
     // iOS pattern: notesGeohash ?? LocationChannelManager.shared.availableChannels.first(where: { $0.level == .building })?.geohash
@@ -34,7 +29,7 @@ fun LocationNotesSheetPresenter(
     
     if (buildingGeohash != null) {
         // Get location name from locationManager
-        val locationNames by locationManager.locationNames.observeAsState(emptyMap())
+        val locationNames by viewModel.locationNames.observeAsState(emptyMap())
         val locationName = locationNames[GeohashChannelLevel.BUILDING]
             ?: locationNames[GeohashChannelLevel.BLOCK]
         
@@ -42,13 +37,14 @@ fun LocationNotesSheetPresenter(
             geohash = buildingGeohash,
             locationName = locationName,
             nickname = nickname,
-            onDismiss = onDismiss
+            onDismiss = onDismiss,
+            viewModel = viewModel,
         )
     } else {
         // No building geohash available - show error state (matches iOS)
         LocationNotesErrorSheet(
             onDismiss = onDismiss,
-            locationManager = locationManager
+            viewModel = viewModel,
         )
     }
 }
@@ -60,7 +56,7 @@ fun LocationNotesSheetPresenter(
 @Composable
 private fun LocationNotesErrorSheet(
     onDismiss: () -> Unit,
-    locationManager: LocationChannelManager
+    viewModel: ChatViewModel,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
@@ -88,10 +84,10 @@ private fun LocationNotesErrorSheet(
             Spacer(modifier = Modifier.height(24.dp))
             Button(onClick = {
                 // UNIFIED FIX: Enable location services first (user toggle)
-                locationManager.enableLocationServices()
+                viewModel.enableLocationServices()
                 // Then request location channels (which will also request permission if needed)
-                locationManager.enableLocationChannels()
-                locationManager.refreshChannels()
+                viewModel.enableLocationChannels()
+                viewModel.refreshLocationChannels()
             }) {
                 Text("Enable Location")
             }

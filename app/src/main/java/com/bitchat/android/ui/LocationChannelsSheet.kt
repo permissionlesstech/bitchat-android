@@ -53,19 +53,17 @@ fun LocationChannelsSheet(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val locationManager: LocationChannelManager = org.koin.compose.koinInject()
-    val bookmarksStore: GeohashBookmarksStore = org.koin.compose.koinInject()
 
     // Observe location manager state
-    val permissionState by locationManager.permissionState.observeAsState()
-    val availableChannels by locationManager.availableChannels.observeAsState(emptyList())
-    val selectedChannel by locationManager.selectedChannel.observeAsState()
-    val locationNames by locationManager.locationNames.observeAsState(emptyMap())
-    val locationServicesEnabled by locationManager.locationServicesEnabled.observeAsState(false)
+    val permissionState by viewModel.locationPermissionState.observeAsState()
+    val availableChannels by viewModel.availableLocationChannels.observeAsState(emptyList())
+    val selectedChannel by viewModel.selectedLocationChannel.observeAsState()
+    val locationNames by viewModel.locationNames.observeAsState(emptyMap())
+    val locationServicesEnabled by viewModel.locationServicesEnabled.observeAsState(false)
 
     // Observe bookmarks state
-    val bookmarks by bookmarksStore.bookmarks.observeAsState(emptyList())
-    val bookmarkNames by bookmarksStore.bookmarkNames.observeAsState(emptyMap())
+    val bookmarks by viewModel.geohashBookmarks.observeAsState(emptyList())
+    val bookmarkNames by viewModel.geohashBookmarkNames.observeAsState(emptyMap())
 
     // Observe reactive participant counts
     val geohashParticipantCounts by viewModel.geohashParticipantCounts.observeAsState(emptyMap())
@@ -164,7 +162,7 @@ fun LocationChannelsSheet(
                                 when (permissionState) {
                                     LocationChannelManager.PermissionState.NOT_DETERMINED -> {
                                         Button(
-                                            onClick = { locationManager.enableLocationChannels() },
+                                            onClick = { viewModel.enableLocationChannels() },
                                             colors = ButtonDefaults.buttonColors(
                                                 containerColor = standardGreen.copy(alpha = 0.12f),
                                                 contentColor = standardGreen
@@ -240,7 +238,7 @@ fun LocationChannelsSheet(
                             titleBold = meshCount(viewModel) > 0,
                             trailingContent = null,
                             onClick = {
-                                locationManager.select(ChannelID.Mesh)
+                                viewModel.selectLocationChannel(ChannelID.Mesh)
                                 onDismiss()
                             }
                         )
@@ -258,7 +256,7 @@ fun LocationChannelsSheet(
                             val subtitlePrefix = "#${channel.geohash} • $coverage"
                             val participantCount = geohashParticipantCounts[channel.geohash] ?: 0
                             val highlight = participantCount > 0
-                            val isBookmarked = bookmarksStore.isBookmarked(channel.geohash)
+                            val isBookmarked = viewModel.isGeohashBookmarked(channel.geohash)
 
                             ChannelRow(
                                 title = geohashTitleWithCount(channel, participantCount),
@@ -267,7 +265,7 @@ fun LocationChannelsSheet(
                                 titleColor = standardGreen,
                                 titleBold = highlight,
                                 trailingContent = {
-                                IconButton(onClick = { bookmarksStore.toggle(channel.geohash) }) {
+                                IconButton(onClick = { viewModel.toggleGeohashBookmark(channel.geohash) }) {
                                     Icon(
                                         imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
                                         contentDescription = if (isBookmarked) stringResource(R.string.cd_remove_bookmark) else stringResource(R.string.cd_add_bookmark),
@@ -277,8 +275,8 @@ fun LocationChannelsSheet(
                                 },
                                 onClick = {
                                     // Selecting a suggested nearby channel is not a teleport
-                                    locationManager.setTeleported(false)
-                                    locationManager.select(ChannelID.Location(channel))
+                                    viewModel.setTeleported(false)
+                                    viewModel.selectLocationChannel(ChannelID.Location(channel))
                                     onDismiss()
                                 }
                             )
@@ -330,7 +328,7 @@ fun LocationChannelsSheet(
                                 titleColor = null,
                                 titleBold = participantCount > 0,
                                 trailingContent = {
-                                    IconButton(onClick = { bookmarksStore.toggle(gh) }) {
+                                    IconButton(onClick = { viewModel.toggleGeohashBookmark(gh) }) {
                                         Icon(
                                             imageVector = Icons.Filled.Bookmark,
                                             contentDescription = stringResource(R.string.cd_remove_bookmark),
@@ -342,15 +340,15 @@ fun LocationChannelsSheet(
                                     // For bookmarked selection, mark teleported based on regional membership
                                     val inRegional = availableChannels.any { it.geohash == gh }
                                     if (!inRegional && availableChannels.isNotEmpty()) {
-                                        locationManager.setTeleported(true)
+                                        viewModel.setTeleported(true)
                                     } else {
-                                        locationManager.setTeleported(false)
+                                        viewModel.setTeleported(false)
                                     }
-                                    locationManager.select(ChannelID.Location(channel))
+                                    viewModel.selectLocationChannel(ChannelID.Location(channel))
                                     onDismiss()
                                 }
                             )
-                            LaunchedEffect(gh) { bookmarksStore.resolveNameIfNeeded(gh) }
+                            LaunchedEffect(gh) { viewModel.resolveGeohashNameIfNeeded(gh) }
                         }
                     }
 
@@ -454,8 +452,8 @@ fun LocationChannelsSheet(
                                             val level = levelForLength(normalized.length)
                                             val channel = GeohashChannel(level = level, geohash = normalized)
                                             // Mark this selection as a manual teleport
-                                            locationManager.setTeleported(true)
-                                            locationManager.select(ChannelID.Location(channel))
+                                            viewModel.setTeleported(true)
+                                            viewModel.selectLocationChannel(ChannelID.Location(channel))
                                             onDismiss()
                                         } else {
                                             customError = context.getString(R.string.invalid_geohash)
@@ -514,9 +512,9 @@ fun LocationChannelsSheet(
                             Button(
                                 onClick = {
                                     if (locationServicesEnabled) {
-                                        locationManager.disableLocationServices()
+                                        viewModel.disableLocationServices()
                                     } else {
-                                        locationManager.enableLocationServices()
+                                        viewModel.enableLocationServices()
                                     }
                                 },
                                 colors = ButtonDefaults.buttonColors(
@@ -572,13 +570,13 @@ fun LocationChannelsSheet(
     LaunchedEffect(isPresented, availableChannels, bookmarks) {
         if (isPresented) {
             if (permissionState == LocationChannelManager.PermissionState.AUTHORIZED && locationServicesEnabled) {
-                locationManager.refreshChannels()
-                locationManager.beginLiveRefresh()
+                viewModel.refreshLocationChannels()
+                viewModel.beginLiveRefresh()
             }
             val geohashes = (availableChannels.map { it.geohash } + bookmarks).toSet().toList()
             viewModel.beginGeohashSampling(geohashes)
         } else {
-            locationManager.endLiveRefresh()
+            viewModel.endLiveRefresh()
             viewModel.endGeohashSampling()
         }
     }
@@ -586,14 +584,14 @@ fun LocationChannelsSheet(
     // React to permission changes
     LaunchedEffect(permissionState) {
         if (permissionState == LocationChannelManager.PermissionState.AUTHORIZED && locationServicesEnabled) {
-            locationManager.refreshChannels()
+            viewModel.refreshLocationChannels()
         }
     }
 
     // React to location services enable/disable
     LaunchedEffect(locationServicesEnabled) {
         if (locationServicesEnabled && permissionState == LocationChannelManager.PermissionState.AUTHORIZED) {
-            locationManager.refreshChannels()
+            viewModel.refreshLocationChannels()
         }
     }
 }

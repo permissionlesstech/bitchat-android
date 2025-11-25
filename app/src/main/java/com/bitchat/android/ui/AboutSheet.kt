@@ -32,10 +32,9 @@ import com.bitchat.android.nostr.PoWPreferenceManager
 import com.bitchat.android.ui.debug.DebugSettingsSheet
 import androidx.compose.ui.res.stringResource
 import com.bitchat.android.R
-import org.koin.compose.koinInject
-import com.bitchat.android.net.TorManager
 import com.bitchat.android.net.TorMode
-import com.bitchat.android.net.TorPreferenceManager
+import com.bitchat.android.ui.theme.ThemePreference
+
 /**
  * About Sheet for bitchat app information
  * Matches the design language of LocationChannelsSheet
@@ -45,6 +44,7 @@ import com.bitchat.android.net.TorPreferenceManager
 fun AboutSheet(
     isPresented: Boolean,
     onDismiss: () -> Unit,
+    viewModel: ChatViewModel,
     onShowDebug: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -245,24 +245,24 @@ fun AboutSheet(
                                 .padding(horizontal = 24.dp)
                                 .padding(top = 24.dp, bottom = 8.dp)
                         )
-                        val themePref by com.bitchat.android.ui.theme.ThemePreferenceManager.themeFlow.collectAsState()
+                        val themePref by viewModel.themePreference.collectAsState()
                         Row(
                             modifier = Modifier.padding(horizontal = 24.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             FilterChip(
                                 selected = themePref.isSystem,
-                                onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.System) },
+                                onClick = { viewModel.setTheme(ThemePreference.System) },
                                 label = { Text(stringResource(R.string.about_system), fontFamily = FontFamily.Monospace) }
                             )
                             FilterChip(
                                 selected = themePref.isLight,
-                                onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Light) },
+                                onClick = { viewModel.setTheme(ThemePreference.Light) },
                                 label = { Text(stringResource(R.string.about_light), fontFamily = FontFamily.Monospace) }
                             )
                             FilterChip(
                                 selected = themePref.isDark,
-                                onClick = { com.bitchat.android.ui.theme.ThemePreferenceManager.set(context, com.bitchat.android.ui.theme.ThemePreference.Dark) },
+                                onClick = { viewModel.setTheme(ThemePreference.Dark) },
                                 label = { Text(stringResource(R.string.about_dark), fontFamily = FontFamily.Monospace) }
                             )
                         }
@@ -278,9 +278,9 @@ fun AboutSheet(
                                 .padding(top = 24.dp, bottom = 8.dp)
                         )
                         
-                        val powPreferenceManager: com.bitchat.android.nostr.PoWPreferenceManager = org.koin.compose.koinInject()
-                        val powEnabled by powPreferenceManager.powEnabled.collectAsState()
-                        val powDifficulty by powPreferenceManager.powDifficulty.collectAsState()
+                        
+                        val powEnabled by viewModel.powEnabled.collectAsState()
+                        val powDifficulty by viewModel.powDifficulty.collectAsState()
 
                         Column(
                             modifier = Modifier.padding(horizontal = 24.dp),
@@ -292,12 +292,12 @@ fun AboutSheet(
                             ) {
                                 FilterChip(
                                     selected = !powEnabled,
-                                    onClick = { powPreferenceManager.setPowEnabled(false) },
+                                    onClick = { viewModel.setPowEnabled(false) },
                                     label = { Text(stringResource(R.string.about_pow_off), fontFamily = FontFamily.Monospace) }
                                 )
                                 FilterChip(
                                     selected = powEnabled,
-                                    onClick = { powPreferenceManager.setPowEnabled(true) },
+                                    onClick = { viewModel.setPowEnabled(true) },
                                     label = {
                                         Row(
                                             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -337,7 +337,7 @@ fun AboutSheet(
 
                                     Slider(
                                         value = powDifficulty.toFloat(),
-                                        onValueChange = { powPreferenceManager.setPowDifficulty(it.toInt()) },
+                                        onValueChange = { viewModel.setPowDifficulty(it.toInt()) },
                                         valueRange = 0f..32f,
                                         steps = 33,
                                         colors = SliderDefaults.colors(
@@ -385,9 +385,9 @@ fun AboutSheet(
 
                     // Network (Tor) section
                     item(key = "network_section") {
-                        val torManager: TorManager = koinInject()
-                        val torMode = remember { mutableStateOf(TorPreferenceManager.get(context)) }
-                        val torStatus by torManager.statusFlow.collectAsState()
+                        val torStatus by viewModel.torStatus.collectAsState()
+                        val torMode = torStatus.mode
+                        
                         Text(
                             text = stringResource(R.string.about_network),
                             style = MaterialTheme.typography.labelLarge,
@@ -402,18 +402,16 @@ fun AboutSheet(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 FilterChip(
-                                    selected = torMode.value == TorMode.OFF,
+                                    selected = torMode == TorMode.OFF,
                                     onClick = {
-                                        torMode.value = TorMode.OFF
-                                        TorPreferenceManager.set(context, torMode.value)
+                                        viewModel.setTorMode(TorMode.OFF)
                                     },
                                     label = { Text("tor off", fontFamily = FontFamily.Monospace) }
                                 )
                                 FilterChip(
-                                    selected = torMode.value == TorMode.ON,
+                                    selected = torMode == TorMode.ON,
                                     onClick = {
-                                        torMode.value = TorMode.ON
-                                        TorPreferenceManager.set(context, torMode.value)
+                                        viewModel.setTorMode(TorMode.ON)
                                     },
                                     label = {
                                         Row(
@@ -438,7 +436,7 @@ fun AboutSheet(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                             )
-                            if (torMode.value == TorMode.ON) {
+                            if (torMode == TorMode.ON) {
                                 val statusText = if (torStatus.running) "Running" else "Stopped"
                                 // Debug status (temporary)
                                 Surface(

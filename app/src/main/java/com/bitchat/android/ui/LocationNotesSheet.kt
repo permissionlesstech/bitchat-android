@@ -26,9 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.geohash.GeohashChannelLevel
-import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.nostr.LocationNotesManager
-import org.koin.compose.koinInject
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.Calendar
@@ -44,6 +42,7 @@ fun LocationNotesSheet(
     locationName: String?,
     nickname: String?,
     onDismiss: () -> Unit,
+    viewModel: ChatViewModel,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -52,22 +51,18 @@ fun LocationNotesSheet(
     // iOS color scheme
     val backgroundColor = if (isDark) Color.Black else Color.White
     val accentGreen = if (isDark) Color.Green else Color(0xFF008000) // dark: green, light: dark green (0, 0.5, 0)
-    
-    // Managers
-    val notesManager: LocationNotesManager = koinInject()
-    val locationManager: LocationChannelManager = org.koin.compose.koinInject()
-    
+
     // State
-    val notes by notesManager.notes.observeAsState(emptyList())
-    val state by notesManager.state.observeAsState(LocationNotesManager.State.IDLE)
-    val errorMessage by notesManager.errorMessage.observeAsState()
-    val initialLoadComplete by notesManager.initialLoadComplete.observeAsState(false)
+    val notes by viewModel.locationNotes.observeAsState(emptyList())
+    val state by viewModel.locationNotesState.observeAsState(LocationNotesManager.State.IDLE)
+    val errorMessage by viewModel.locationNotesErrorMessage.observeAsState()
+    val initialLoadComplete by viewModel.locationNotesInitialLoadComplete.observeAsState(false)
     
     // SIMPLIFIED: Get count directly from notes list (no separate counter needed)
     val count = notes.size
     
     // Get location name (building or block) - matches iOS locationNames lookup
-    val locationNames by locationManager.locationNames.observeAsState(emptyMap())
+    val locationNames by viewModel.locationNames.observeAsState(emptyMap())
     val displayLocationName = locationNames[GeohashChannelLevel.BUILDING]?.takeIf { it.isNotEmpty() }
         ?: locationNames[GeohashChannelLevel.BLOCK]?.takeIf { it.isNotEmpty() }
     
@@ -80,13 +75,13 @@ fun LocationNotesSheet(
     
     // Effect to set geohash when sheet opens
     LaunchedEffect(geohash) {
-        notesManager.setGeohash(geohash)
+        viewModel.setLocationNotesGeohash(geohash)
     }
     
     // Cleanup when sheet closes
     DisposableEffect(Unit) {
         onDispose {
-            notesManager.cancel()
+            viewModel.cancelLocationNotes()
         }
     }
     
@@ -130,7 +125,7 @@ fun LocationNotesSheet(
                         state == LocationNotesManager.State.NO_RELAYS -> {
                             item {
                                 NoRelaysRow(
-                                    onRetry = { notesManager.refresh() }
+                                    onRetry = { viewModel.refreshLocationNotes() }
                                 )
                             }
                         }
@@ -158,7 +153,7 @@ fun LocationNotesSheet(
                             item {
                                 ErrorRow(
                                     message = error,
-                                    onDismiss = { notesManager.clearError() }
+                                    onDismiss = { viewModel.clearLocationNotesError() }
                                 )
                             }
                         }
@@ -183,7 +178,7 @@ fun LocationNotesSheet(
                 onSend = {
                     val content = draft.trim()
                     if (content.isNotEmpty()) {
-                        notesManager.send(content, nickname)
+                        viewModel.sendLocationNote(content, nickname)
                         draft = ""
                     }
                 }

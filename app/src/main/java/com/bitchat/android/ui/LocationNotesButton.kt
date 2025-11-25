@@ -9,17 +9,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.bitchat.android.R
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.LocationChannelManager
-import com.bitchat.android.nostr.LocationNotesManager
-import org.koin.compose.koinInject
 
 /**
  * Location Notes button component for MainHeader
@@ -33,21 +29,18 @@ fun LocationNotesButton(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val context = LocalContext.current
-    
+
     // Get channel and permission state
     val selectedLocationChannel by viewModel.selectedLocationChannel.observeAsState()
-    val locationManager: LocationChannelManager = koinInject()
-    val permissionState by locationManager.permissionState.observeAsState()
-    val locationServicesEnabled by locationManager.locationServicesEnabled.observeAsState(false)
+    val permissionState by viewModel.locationPermissionState.observeAsState()
+    val locationServicesEnabled by viewModel.locationServicesEnabled.observeAsState(false)
 
     // Check both permission AND location services enabled
     val locationPermissionGranted = permissionState == LocationChannelManager.PermissionState.AUTHORIZED
     val locationEnabled = locationPermissionGranted && locationServicesEnabled
     
     // Get notes count from LocationNotesManager
-    val notesManager: LocationNotesManager = koinInject()
-    val notes by notesManager.notes.observeAsState(emptyList())
+    val notes by viewModel.locationNotes.observeAsState(emptyList())
     val notesCount = notes.size
 
     // Only show in mesh mode when location is authorized (iOS pattern)

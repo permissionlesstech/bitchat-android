@@ -206,10 +206,6 @@ class GeohashViewModel @Inject constructor(
         }
     }
 
-    fun selectLocationChannel(channel: com.bitchat.android.geohash.ChannelID) {
-        locationChannelManager.select(channel)
-    }
-
     fun displayNameForNostrPubkeyUI(pubkeyHex: String): String = repo.displayNameForNostrPubkeyUI(pubkeyHex)
 
     fun colorForNostrPubkey(pubkeyHex: String, isDark: Boolean): androidx.compose.ui.graphics.Color {

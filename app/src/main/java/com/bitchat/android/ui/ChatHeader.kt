@@ -31,8 +31,6 @@ import com.bitchat.android.core.ui.utils.singleOrTripleClickable
 import com.bitchat.android.geohash.LocationChannelManager.PermissionState
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.Offset
-import com.bitchat.android.net.TorManager
-import org.koin.compose.koinInject
 
 /**
  * Header components for ChatScreen
@@ -59,10 +57,10 @@ fun isFavoriteReactive(
 
 @Composable
 fun TorStatusDot(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: ChatViewModel,
 ) {
-    val torManager: TorManager = koinInject()
-    val torStatus by torManager.statusFlow.collectAsState()
+    val torStatus by viewModel.torStatus.collectAsState()
     
     if (torStatus.mode != com.bitchat.android.net.TorMode.OFF) {
         val dotColor = when {
@@ -535,9 +533,7 @@ private fun MainHeader(
     val geohashPeople by viewModel.geohashPeople.observeAsState(emptyList())
 
     // Bookmarks store for current geohash toggle (iOS parity)
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val bookmarksStore: com.bitchat.android.geohash.GeohashBookmarksStore = koinInject()
-    val bookmarks by bookmarksStore.bookmarks.observeAsState(emptyList())
+    val bookmarks by viewModel.geohashBookmarks.observeAsState(emptyList())
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -603,7 +599,7 @@ private fun MainHeader(
                         modifier = Modifier
                             .padding(start = 2.dp) // minimal gap between geohash and bookmark
                             .size(20.dp)
-                            .clickable { bookmarksStore.toggle(currentGeohash) },
+                            .clickable { viewModel.toggleGeohashBookmark(currentGeohash) },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -626,7 +622,8 @@ private fun MainHeader(
             TorStatusDot(
                 modifier = Modifier
                     .size(8.dp)
-                    .padding(start = 0.dp, end = 2.dp)
+                    .padding(start = 0.dp, end = 2.dp),
+                viewModel = viewModel
             )
             
             // PoW status indicator

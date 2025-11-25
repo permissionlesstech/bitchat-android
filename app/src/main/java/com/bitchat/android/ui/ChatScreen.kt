@@ -452,9 +452,6 @@ private fun ChatFloatingHeader(
     onLocationChannelsClick: () -> Unit,
     onLocationNotesClick: () -> Unit
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val locationManager: com.bitchat.android.geohash.LocationChannelManager = org.koin.compose.koinInject()
-    
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -481,7 +478,7 @@ private fun ChatFloatingHeader(
                     onLocationChannelsClick = onLocationChannelsClick,
                     onLocationNotesClick = {
                         // Ensure location is loaded before showing sheet
-                        locationManager.refreshChannels()
+                        viewModel.refreshLocationChannels()
                         onLocationNotesClick()
                     }
                 )
@@ -530,6 +527,7 @@ private fun ChatDialogs(
     AboutSheet(
         isPresented = showAppInfo,
         onDismiss = onAppInfoDismiss,
+        viewModel = viewModel,
         onShowDebug = { showDebugSheet = true }
     )
     if (showDebugSheet) {
