@@ -30,6 +30,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            ndk {
+                // Include x86_64 for emulator support during development
+                abiFilters += listOf("arm64-v8a", "x86_64")
+            }
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -37,6 +43,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            ndk {
+                // ARM64-only to minimize APK size (~5.8MB savings)
+                // Excludes x86_64 as emulator not needed for production builds
+                abiFilters += listOf("arm64-v8a")
+            }
         }
     }
     compileOptions {
