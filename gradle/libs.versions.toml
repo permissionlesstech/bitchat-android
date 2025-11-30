@@ -73,7 +73,6 @@ androidx-compose-material-icons-extended = { module = "androidx.compose.material
 
 # Lifecycle
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle-runtime" }
-androidx-lifecycle-livedata-ktx = { module = "androidx.lifecycle:lifecycle-livedata-ktx", version.ref = "lifecycle-runtime" }
 
 # Navigation
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigation-compose" }
@@ -137,7 +136,6 @@ compose = [
 lifecycle = [
     "androidx-lifecycle-runtime-ktx",
     "androidx-lifecycle-viewmodel-compose",
-    "androidx-lifecycle-livedata-ktx"
 ]
 
 cryptography = [
