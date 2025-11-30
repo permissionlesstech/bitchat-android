@@ -57,3 +57,5 @@ google-services.json
 # Keystore files
 *.jks
 *.keystore
+
+app/src/main/jniLibs/
