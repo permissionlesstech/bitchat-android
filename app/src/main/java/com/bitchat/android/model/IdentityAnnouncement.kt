@@ -12,7 +12,8 @@ import com.bitchat.android.util.*
 data class IdentityAnnouncement(
     val nickname: String,
     val noisePublicKey: ByteArray,    // Noise static public key (Curve25519.KeyAgreement)
-    val signingPublicKey: ByteArray   // Ed25519 public key for signing
+    val signingPublicKey: ByteArray,  // Ed25519 public key for signing
+    val features: Int = 0             // Optional feature bitmask (unknown bits ignored by legacy)
 ) : Parcelable {
 
     /**
@@ -21,7 +22,8 @@ data class IdentityAnnouncement(
     private enum class TLVType(val value: UByte) {
         NICKNAME(0x01u),
         NOISE_PUBLIC_KEY(0x02u),
-        SIGNING_PUBLIC_KEY(0x03u);  // NEW: Ed25519 signing public key
+        SIGNING_PUBLIC_KEY(0x03u),  // NEW: Ed25519 signing public key
+        FEATURES(0x04u);            // Optional feature bitmask (u8 length, up to 4 bytes value)
         
         companion object {
             fun fromValue(value: UByte): TLVType? {
@@ -58,6 +60,21 @@ data class IdentityAnnouncement(
         result.add(signingPublicKey.size.toByte())
         result.addAll(signingPublicKey.toList())
         
+        // Optional: features bitmask (encode as minimal big-endian, up to 4 bytes)
+        if (features != 0) {
+            val featBytes = ByteArray(4)
+            featBytes[0] = ((features ushr 24) and 0xFF).toByte()
+            featBytes[1] = ((features ushr 16) and 0xFF).toByte()
+            featBytes[2] = ((features ushr 8) and 0xFF).toByte()
+            featBytes[3] = (features and 0xFF).toByte()
+            // Trim leading zeros to minimize length
+            val firstNonZero = featBytes.indexOfFirst { it.toInt() != 0 }
+            val valueBytes = if (firstNonZero == -1) byteArrayOf(0) else featBytes.copyOfRange(firstNonZero, 4)
+            result.add(TLVType.FEATURES.value.toByte())
+            result.add(valueBytes.size.toByte())
+            result.addAll(valueBytes.toList())
+        }
+        
         return result.toByteArray()
     }
     
@@ -73,6 +90,7 @@ data class IdentityAnnouncement(
             var nickname: String? = null
             var noisePublicKey: ByteArray? = null
             var signingPublicKey: ByteArray? = null
+            var features: Int = 0
             
             while (offset + 2 <= dataCopy.size) {
                 // Read TLV type
@@ -102,6 +120,14 @@ data class IdentityAnnouncement(
                     TLVType.SIGNING_PUBLIC_KEY -> {
                         signingPublicKey = value
                     }
+                    TLVType.FEATURES -> {
+                        // Parse big-endian up to 4 bytes
+                        var f = 0
+                        value.forEach { b ->
+                            f = (f shl 8) or (b.toInt() and 0xFF)
+                        }
+                        features = f
+                    }
                     null -> {
                         // Unknown TLV; skip (tolerant decoder for forward compatibility)
                         continue
@@ -111,7 +137,7 @@ data class IdentityAnnouncement(
             
             // All three fields are required
             return if (nickname != null && noisePublicKey != null && signingPublicKey != null) {
-                IdentityAnnouncement(nickname, noisePublicKey, signingPublicKey)
+                IdentityAnnouncement(nickname, noisePublicKey, signingPublicKey, features)
             } else {
                 null
             }
@@ -128,6 +154,7 @@ data class IdentityAnnouncement(
         if (nickname != other.nickname) return false
         if (!noisePublicKey.contentEquals(other.noisePublicKey)) return false
         if (!signingPublicKey.contentEquals(other.signingPublicKey)) return false
+        if (features != other.features) return false
         
         return true
     }
@@ -136,10 +163,11 @@ data class IdentityAnnouncement(
         var result = nickname.hashCode()
         result = 31 * result + noisePublicKey.contentHashCode()
         result = 31 * result + signingPublicKey.contentHashCode()
+        result = 31 * result + features.hashCode()
         return result
     }
     
     override fun toString(): String {
-        return "IdentityAnnouncement(nickname='$nickname', noisePublicKey=${noisePublicKey.joinToString("") { "%02x".format(it) }.take(16)}..., signingPublicKey=${signingPublicKey.joinToString("") { "%02x".format(it) }.take(16)}...)"
+        return "IdentityAnnouncement(nickname='$nickname', noisePublicKey=${noisePublicKey.joinToString("") { "%02x".format(it) }.take(16)}..., signingPublicKey=${signingPublicKey.joinToString("") { "%02x".format(it) }.take(16)}..., features=$features)"
     }
 }
