@@ -19,6 +19,7 @@ import com.bitchat.android.R
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.nostr.LocationNotesManager
+import org.koin.compose.koinInject
 
 /**
  * Location Notes button component for MainHeader
@@ -36,7 +37,7 @@ fun LocationNotesButton(
     
     // Get channel and permission state
     val selectedLocationChannel by viewModel.selectedLocationChannel.observeAsState()
-    val locationManager = remember { LocationChannelManager.getInstance(context) }
+    val locationManager: LocationChannelManager = koinInject()
     val permissionState by locationManager.permissionState.observeAsState()
     val locationServicesEnabled by locationManager.locationServicesEnabled.observeAsState(false)
 
@@ -45,7 +46,7 @@ fun LocationNotesButton(
     val locationEnabled = locationPermissionGranted && locationServicesEnabled
     
     // Get notes count from LocationNotesManager
-    val notesManager = remember { LocationNotesManager.getInstance() }
+    val notesManager: LocationNotesManager = koinInject()
     val notes by notesManager.notes.observeAsState(emptyList())
     val notesCount = notes.size
 

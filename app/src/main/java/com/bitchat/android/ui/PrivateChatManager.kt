@@ -8,6 +8,7 @@ import java.security.MessageDigest
 import com.bitchat.android.mesh.BluetoothMeshService
 import java.util.*
 import android.util.Log
+import com.bitchat.android.favorites.FavoritesPersistenceService
 
 /**
  * Interface for Noise session operations needed by PrivateChatManager
@@ -27,15 +28,14 @@ class PrivateChatManager(
     private val state: ChatState,
     private val messageManager: MessageManager,
     private val dataManager: DataManager,
-    private val noiseSessionDelegate: NoiseSessionDelegate
+    private val noiseSessionDelegate: NoiseSessionDelegate,
+    private val fingerprintManager: PeerFingerprintManager,
+    private val favoritesService: FavoritesPersistenceService
 ) {
 
     companion object {
         private const val TAG = "PrivateChatManager"
     }
-
-    // Use centralized fingerprint management - NO LOCAL STORAGE
-    private val fingerprintManager = PeerFingerprintManager.getInstance()
 
     // Track received private messages that need read receipts
     private val unreadReceivedMessages = mutableMapOf<String, MutableList<BitchatMessage>>()
@@ -415,7 +415,7 @@ class PrivateChatManager(
         // If we know the sender's Nostr pubkey for this peer via favorites, derive temp key
         try {
             val noiseKeyBytes = targetPeerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
-            val npub = com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNostrPubkey(noiseKeyBytes)
+            val npub = favoritesService.findNostrPubkey(noiseKeyBytes)
             if (npub != null) {
                 // Normalize to hex to match how we formed temp keys (nostr_<pub16>)
                 val (hrp, data) = com.bitchat.android.nostr.Bech32.decode(npub)

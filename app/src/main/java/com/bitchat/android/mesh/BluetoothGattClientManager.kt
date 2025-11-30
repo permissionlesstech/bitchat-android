@@ -27,7 +27,8 @@ class BluetoothGattClientManager(
     private val connectionTracker: BluetoothConnectionTracker,
     private val permissionManager: BluetoothPermissionManager,
     private val powerManager: PowerManager,
-    private val delegate: BluetoothConnectionManagerDelegate?
+    private val delegate: BluetoothConnectionManagerDelegate?,
+    private val debugManager: DebugSettingsManager
 ) {
     
     companion object {
@@ -76,7 +77,7 @@ class BluetoothGattClientManager(
     fun start(): Boolean {
         // Respect debug setting
         try {
-            if (!com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattClientEnabled.value) {
+            if (!debugManager.gattClientEnabled.value) {
                 Log.i(TAG, "Client start skipped: GATT Client disabled in debug settings")
                 return false
             }
@@ -150,7 +151,7 @@ class BluetoothGattClientManager(
      * Handle scan state changes from power manager
      */
     fun onScanStateChanged(shouldScan: Boolean) {
-        val enabled = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattClientEnabled.value } catch (_: Exception) { true }
+        val enabled = try { debugManager.gattClientEnabled.value } catch (_: Exception) { true }
         if (shouldScan && enabled) {
             startScanning()
         } else {
@@ -199,7 +200,7 @@ class BluetoothGattClientManager(
     @Suppress("DEPRECATION")
     private fun startScanning() {
         // Respect debug setting
-        val enabled = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattClientEnabled.value } catch (_: Exception) { true }
+        val enabled = try { debugManager.gattClientEnabled.value } catch (_: Exception) { true }
         if (!permissionManager.hasBluetoothPermissions() || bleScanner == null || !isActive || !enabled) return
         
         // Rate limit scan starts to prevent "scanning too frequently" errors
@@ -327,7 +328,7 @@ class BluetoothGattClientManager(
 
         // Publish scan result to debug UI buffer
         try {
-            DebugSettingsManager.getInstance().addScanResult(
+            debugManager.addScanResult(
                 DebugScanResult(
                     deviceName = device.name,
                     deviceAddress = deviceAddress,
@@ -343,7 +344,7 @@ class BluetoothGattClientManager(
             // Even if we skip connecting, still publish scan result to debug UI
             try {
                 val pid: String? = null // We don't know peerID until packet exchange
-                DebugSettingsManager.getInstance().addScanResult(
+                debugManager.addScanResult(
                     DebugScanResult(
                         deviceName = device.name,
                         deviceAddress = deviceAddress,
@@ -541,7 +542,7 @@ class BluetoothGattClientManager(
      */
     fun restartScanning() {
         // Respect debug setting
-        val enabled = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattClientEnabled.value } catch (_: Exception) { true }
+        val enabled = try { debugManager.gattClientEnabled.value } catch (_: Exception) { true }
         if (!isActive || !enabled) return
         
         connectionScope.launch {

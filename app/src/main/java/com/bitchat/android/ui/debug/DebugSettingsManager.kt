@@ -1,28 +1,20 @@
 package com.bitchat.android.ui.debug
 
+import jakarta.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.Date
 import java.util.concurrent.ConcurrentLinkedQueue
+import jakarta.inject.Singleton
 
 /**
  * Debug settings manager for controlling debug features and collecting debug data
  */
-class DebugSettingsManager private constructor() {
-    // NOTE: This singleton is referenced from mesh layer. Keep in ui.debug but avoid Compose deps.
-    
-    companion object {
-        @Volatile
-        private var INSTANCE: DebugSettingsManager? = null
-        
-        fun getInstance(): DebugSettingsManager {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: DebugSettingsManager().also { INSTANCE = it }
-            }
-        }
-    }
-    
+@Singleton
+class DebugSettingsManager @Inject constructor(
+    private val debugPreferenceManager: DebugPreferenceManager
+) {
     // Debug settings state
     private val _verboseLoggingEnabled = MutableStateFlow(false)
     val verboseLoggingEnabled: StateFlow<Boolean> = _verboseLoggingEnabled.asStateFlow()
@@ -47,13 +39,13 @@ class DebugSettingsManager private constructor() {
     init {
         // Load persisted defaults (if preference manager already initialized)
         try {
-            _verboseLoggingEnabled.value = DebugPreferenceManager.getVerboseLogging(false)
-            _gattServerEnabled.value = DebugPreferenceManager.getGattServerEnabled(true)
-            _gattClientEnabled.value = DebugPreferenceManager.getGattClientEnabled(true)
-            _packetRelayEnabled.value = DebugPreferenceManager.getPacketRelayEnabled(true)
-            _maxConnectionsOverall.value = DebugPreferenceManager.getMaxConnectionsOverall(8)
-            _maxServerConnections.value = DebugPreferenceManager.getMaxConnectionsServer(8)
-            _maxClientConnections.value = DebugPreferenceManager.getMaxConnectionsClient(8)
+            _verboseLoggingEnabled.value = debugPreferenceManager.getVerboseLogging(false)
+            _gattServerEnabled.value = debugPreferenceManager.getGattServerEnabled(true)
+            _gattClientEnabled.value = debugPreferenceManager.getGattClientEnabled(true)
+            _packetRelayEnabled.value = debugPreferenceManager.getPacketRelayEnabled(true)
+            _maxConnectionsOverall.value = debugPreferenceManager.getMaxConnectionsOverall(8)
+            _maxServerConnections.value = debugPreferenceManager.getMaxConnectionsServer(8)
+            _maxClientConnections.value = debugPreferenceManager.getMaxConnectionsClient(8)
         } catch (_: Exception) {
             // Preferences not ready yet; keep defaults. They will be applied on first change.
         }
@@ -107,7 +99,7 @@ class DebugSettingsManager private constructor() {
     // MARK: - Setting Controls
     
     fun setVerboseLoggingEnabled(enabled: Boolean) {
-        DebugPreferenceManager.setVerboseLogging(enabled)
+        debugPreferenceManager.setVerboseLogging(enabled)
         _verboseLoggingEnabled.value = enabled
         if (enabled) {
             addDebugMessage(DebugMessage.SystemMessage("🔊 Verbose logging enabled"))
@@ -117,7 +109,7 @@ class DebugSettingsManager private constructor() {
     }
     
     fun setGattServerEnabled(enabled: Boolean) {
-        DebugPreferenceManager.setGattServerEnabled(enabled)
+        debugPreferenceManager.setGattServerEnabled(enabled)
         _gattServerEnabled.value = enabled
         addDebugMessage(DebugMessage.SystemMessage(
             if (enabled) "🟢 GATT Server enabled" else "🔴 GATT Server disabled"
@@ -125,7 +117,7 @@ class DebugSettingsManager private constructor() {
     }
     
     fun setGattClientEnabled(enabled: Boolean) {
-        DebugPreferenceManager.setGattClientEnabled(enabled)
+        debugPreferenceManager.setGattClientEnabled(enabled)
         _gattClientEnabled.value = enabled
         addDebugMessage(DebugMessage.SystemMessage(
             if (enabled) "🟢 GATT Client enabled" else "🔴 GATT Client disabled"
@@ -133,7 +125,7 @@ class DebugSettingsManager private constructor() {
     }
     
     fun setPacketRelayEnabled(enabled: Boolean) {
-        DebugPreferenceManager.setPacketRelayEnabled(enabled)
+        debugPreferenceManager.setPacketRelayEnabled(enabled)
         _packetRelayEnabled.value = enabled
         addDebugMessage(DebugMessage.SystemMessage(
             if (enabled) "📡 Packet relay enabled" else "🚫 Packet relay disabled"
@@ -142,21 +134,21 @@ class DebugSettingsManager private constructor() {
 
     fun setMaxConnectionsOverall(value: Int) {
         val clamped = value.coerceIn(1, 32)
-        DebugPreferenceManager.setMaxConnectionsOverall(clamped)
+        debugPreferenceManager.setMaxConnectionsOverall(clamped)
         _maxConnectionsOverall.value = clamped
         addDebugMessage(DebugMessage.SystemMessage("🔢 Max overall connections set to $clamped"))
     }
 
     fun setMaxServerConnections(value: Int) {
         val clamped = value.coerceIn(1, 32)
-        DebugPreferenceManager.setMaxConnectionsServer(clamped)
+        debugPreferenceManager.setMaxConnectionsServer(clamped)
         _maxServerConnections.value = clamped
         addDebugMessage(DebugMessage.SystemMessage("🖥️ Max server connections set to $clamped"))
     }
 
     fun setMaxClientConnections(value: Int) {
         val clamped = value.coerceIn(1, 32)
-        DebugPreferenceManager.setMaxConnectionsClient(clamped)
+        debugPreferenceManager.setMaxConnectionsClient(clamped)
         _maxClientConnections.value = clamped
         addDebugMessage(DebugMessage.SystemMessage("📱 Max client connections set to $clamped"))
     }
@@ -203,32 +195,32 @@ class DebugSettingsManager private constructor() {
     }
 
     // Sync/GCS settings (UI-configurable)
-    private val _seenPacketCapacity = MutableStateFlow(DebugPreferenceManager.getSeenPacketCapacity(500))
+    private val _seenPacketCapacity = MutableStateFlow(debugPreferenceManager.getSeenPacketCapacity(500))
     val seenPacketCapacity: StateFlow<Int> = _seenPacketCapacity.asStateFlow()
 
-    private val _gcsMaxBytes = MutableStateFlow(DebugPreferenceManager.getGcsMaxFilterBytes(400))
+    private val _gcsMaxBytes = MutableStateFlow(debugPreferenceManager.getGcsMaxFilterBytes(400))
     val gcsMaxBytes: StateFlow<Int> = _gcsMaxBytes.asStateFlow()
 
-    private val _gcsFprPercent = MutableStateFlow(DebugPreferenceManager.getGcsFprPercent(1.0))
+    private val _gcsFprPercent = MutableStateFlow(debugPreferenceManager.getGcsFprPercent(1.0))
     val gcsFprPercent: StateFlow<Double> = _gcsFprPercent.asStateFlow()
 
     fun setSeenPacketCapacity(value: Int) {
         val clamped = value.coerceIn(10, 1000)
-        DebugPreferenceManager.setSeenPacketCapacity(clamped)
+        debugPreferenceManager.setSeenPacketCapacity(clamped)
         _seenPacketCapacity.value = clamped
         addDebugMessage(DebugMessage.SystemMessage("🧩 max packets per sync set to $clamped"))
     }
 
     fun setGcsMaxBytes(value: Int) {
         val clamped = value.coerceIn(128, 1024)
-        DebugPreferenceManager.setGcsMaxFilterBytes(clamped)
+        debugPreferenceManager.setGcsMaxFilterBytes(clamped)
         _gcsMaxBytes.value = clamped
         addDebugMessage(DebugMessage.SystemMessage("🌸 max GCS filter size set to $clamped bytes"))
     }
 
     fun setGcsFprPercent(value: Double) {
         val clamped = value.coerceIn(0.1, 5.0)
-        DebugPreferenceManager.setGcsFprPercent(clamped)
+        debugPreferenceManager.setGcsFprPercent(clamped)
         _gcsFprPercent.value = clamped
         addDebugMessage(DebugMessage.SystemMessage("🎯 GCS FPR set to ${String.format("%.2f", clamped)}%"))
     }

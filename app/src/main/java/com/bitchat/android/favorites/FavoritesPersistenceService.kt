@@ -1,10 +1,13 @@
 package com.bitchat.android.favorites
 
-import android.content.Context
 import android.util.Log
 import com.bitchat.android.identity.SecureIdentityStateManager
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
+import com.bitchat.android.util.JsonUtil
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
 import java.util.*
 
 /**
@@ -57,32 +60,18 @@ interface FavoritesChangeListener {
  * Manages favorites with Noise↔Nostr mapping
  * Singleton pattern matching iOS implementation.
  */
-class FavoritesPersistenceService private constructor(private val context: Context) {
+@Singleton
+class FavoritesPersistenceService @Inject constructor(
+    private val stateManager : SecureIdentityStateManager
+) {
 
     companion object {
         private const val TAG = "FavoritesPersistenceService"
         private const val FAVORITES_KEY = "favorite_relationships"            // noiseHex -> relationship
         private const val PEERID_INDEX_KEY = "favorite_peerid_index"         // peerID(16-hex) -> npub
-
-        @Volatile
-        private var INSTANCE: FavoritesPersistenceService? = null
-
-        val shared: FavoritesPersistenceService
-            get() = INSTANCE ?: throw IllegalStateException("FavoritesPersistenceService not initialized")
-
-        fun initialize(context: Context) {
-            if (INSTANCE == null) {
-                synchronized(this) {
-                    if (INSTANCE == null) {
-                        INSTANCE = FavoritesPersistenceService(context.applicationContext)
-                    }
-                }
-            }
-        }
     }
 
-    private val stateManager = SecureIdentityStateManager(context)
-    private val gson = Gson()
+
     private val favorites = mutableMapOf<String, FavoriteRelationship>() // noiseHex -> relationship
     // NEW: Index by current mesh peerID (16-hex) for direct lookup when sending Nostr DMs from mesh context
     private val peerIdIndex = mutableMapOf<String, String>() // peerID (lowercase 16-hex) -> npub
@@ -161,7 +150,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
     fun findPeerIDForNostrPubkey(nostrPubkey: String): String? {
         // First, try direct match in peerIdIndex (values are stored as npub strings)
         peerIdIndex.entries.firstOrNull { it.value.equals(nostrPubkey, ignoreCase = true) }?.let { return it.key }
-        
+
         // Attempt legacy mapping via favorites Noise key association
         val targetHex = normalizeNostrKeyToHex(nostrPubkey)
         if (targetHex != null) {
@@ -258,14 +247,14 @@ class FavoritesPersistenceService private constructor(private val context: Conte
         try {
             val favoritesJson = stateManager.getSecureValue(FAVORITES_KEY)
             if (favoritesJson != null) {
-                val type = object : TypeToken<Map<String, FavoriteRelationshipData>>() {}.type
-                val data: Map<String, FavoriteRelationshipData> = gson.fromJson(favoritesJson, type)
-
-                favorites.clear()
-                data.forEach { (key, relationshipData) ->
-                    favorites[key] = relationshipData.toFavoriteRelationship()
+                val data = JsonUtil.fromJsonOrNull(MapSerializer(String.serializer(), FavoriteRelationshipData.serializer()), favoritesJson)
+                if (data != null) {
+                    favorites.clear()
+                    data.forEach { (key, relationshipData) ->
+                        favorites[key] = relationshipData.toFavoriteRelationship()
+                    }
+                    Log.d(TAG, "Loaded ${favorites.size} favorite relationships")
                 }
-                Log.d(TAG, "Loaded ${favorites.size} favorite relationships")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load favorites: ${e.message}")
@@ -277,7 +266,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
             val data = favorites.mapValues { (_, relationship) ->
                 FavoriteRelationshipData.fromFavoriteRelationship(relationship)
             }
-            val favoritesJson = gson.toJson(data)
+            val favoritesJson = JsonUtil.toJson(MapSerializer(String.serializer(), FavoriteRelationshipData.serializer()), data)
             stateManager.storeSecureValue(FAVORITES_KEY, favoritesJson)
             Log.d(TAG, "Saved ${favorites.size} favorite relationships")
         } catch (e: Exception) {
@@ -289,10 +278,11 @@ class FavoritesPersistenceService private constructor(private val context: Conte
         try {
             val json = stateManager.getSecureValue(PEERID_INDEX_KEY)
             if (json != null) {
-                val type = object : TypeToken<Map<String, String>>() {}.type
-                val data: Map<String, String> = gson.fromJson(json, type)
-                peerIdIndex.clear()
-                peerIdIndex.putAll(data)
+                val data = JsonUtil.fromJsonOrNull(MapSerializer(String.serializer(), String.serializer()), json)
+                if (data != null) {
+                    peerIdIndex.clear()
+                    peerIdIndex.putAll(data)
+                }
                 Log.d(TAG, "Loaded ${peerIdIndex.size} peerID→npub mappings")
             }
         } catch (e: Exception) {
@@ -302,7 +292,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
 
     private fun savePeerIdIndex() {
         try {
-            val json = gson.toJson(peerIdIndex)
+            val json = JsonUtil.toJson(MapSerializer(String.serializer(), String.serializer()), peerIdIndex)
             stateManager.storeSecureValue(PEERID_INDEX_KEY, json)
             Log.d(TAG, "Saved ${peerIdIndex.size} peerID→npub mappings")
         } catch (e: Exception) {
@@ -336,6 +326,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
 }
 
 /** Serializable data for JSON storage */
+@Serializable
 private data class FavoriteRelationshipData(
     val peerNoisePublicKeyHex: String,
     val peerNostrPublicKey: String?,

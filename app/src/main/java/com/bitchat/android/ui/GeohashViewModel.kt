@@ -12,33 +12,43 @@ import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.nostr.NostrProtocol
 import com.bitchat.android.nostr.NostrRelayManager
 import com.bitchat.android.nostr.NostrSubscriptionManager
+import com.bitchat.android.nostr.NostrTransport
 import com.bitchat.android.nostr.PoWPreferenceManager
+import jakarta.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.koin.android.annotation.KoinViewModel
 import java.util.Date
 
-class GeohashViewModel(
+@KoinViewModel
+class GeohashViewModel @Inject constructor(
     application: Application,
     private val state: ChatState,
     private val messageManager: MessageManager,
     private val privateChatManager: PrivateChatManager,
     private val meshDelegateHandler: MeshDelegateHandler,
     private val dataManager: DataManager,
-    private val notificationManager: NotificationManager
+    private val notificationManager: NotificationManager,
+    private val nostrRelayManager: NostrRelayManager,
+    private val nostrTransport: NostrTransport,
+    private val seenStore: com.bitchat.android.services.SeenMessageStore,
+    private val locationChannelManager: com.bitchat.android.geohash.LocationChannelManager,
+    private val powPreferenceManager: PoWPreferenceManager
 ) : AndroidViewModel(application) {
 
     companion object { private const val TAG = "GeohashViewModel" }
 
     private val repo = GeohashRepository(application, state, dataManager)
-    private val subscriptionManager = NostrSubscriptionManager(application, viewModelScope)
+    private val subscriptionManager = NostrSubscriptionManager(nostrRelayManager, viewModelScope)
     private val geohashMessageHandler = GeohashMessageHandler(
         application = application,
         state = state,
         messageManager = messageManager,
         repo = repo,
         scope = viewModelScope,
-        dataManager = dataManager
+        dataManager = dataManager,
+        powPreferenceManager = powPreferenceManager
     )
     private val dmHandler = NostrDirectMessageHandler(
         application = application,
@@ -47,13 +57,14 @@ class GeohashViewModel(
         meshDelegateHandler = meshDelegateHandler,
         scope = viewModelScope,
         repo = repo,
-        dataManager = dataManager
+        dataManager = dataManager,
+        nostrTransport = nostrTransport,
+        seenStore = seenStore,
     )
 
     private var currentGeohashSubId: String? = null
     private var currentDmSubId: String? = null
     private var geoTimer: Job? = null
-    private var locationChannelManager: com.bitchat.android.geohash.LocationChannelManager? = null
 
     val geohashPeople: LiveData<List<GeoPerson>> = state.geohashPeople
     val geohashParticipantCounts: LiveData<Map<String, Int>> = state.geohashParticipantCounts
@@ -72,12 +83,11 @@ class GeohashViewModel(
             )
         }
         try {
-            locationChannelManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(getApplication())
-            locationChannelManager?.selectedChannel?.observeForever { channel ->
+            locationChannelManager.selectedChannel.observeForever { channel ->
                 state.setSelectedLocationChannel(channel)
                 switchLocationChannel(channel)
             }
-            locationChannelManager?.teleported?.observeForever { teleported ->
+            locationChannelManager.teleported.observeForever { teleported ->
                 state.setIsTeleported(teleported)
             }
         } catch (e: Exception) {
@@ -102,7 +112,7 @@ class GeohashViewModel(
         viewModelScope.launch {
             try {
                 val tempId = "temp_${System.currentTimeMillis()}_${kotlin.random.Random.nextInt(1000)}"
-                val pow = PoWPreferenceManager.getCurrentSettings()
+                val pow = powPreferenceManager.getCurrentSettings()
                 val localMsg = com.bitchat.android.model.BitchatMessage(
                     id = tempId,
                     sender = nickname ?: myPeerID,
@@ -116,18 +126,17 @@ class GeohashViewModel(
                 messageManager.addChannelMessage("geo:${channel.geohash}", localMsg)
                 val startedMining = pow.enabled && pow.difficulty > 0
                 if (startedMining) {
-                    com.bitchat.android.ui.PoWMiningTracker.startMiningMessage(tempId)
+                    PoWMiningTracker.startMiningMessage(tempId)
                 }
                 try {
                     val identity = NostrIdentityBridge.deriveIdentity(forGeohash = channel.geohash, context = getApplication())
                     val teleported = state.isTeleported.value ?: false
-                    val event = NostrProtocol.createEphemeralGeohashEvent(content, channel.geohash, identity, nickname, teleported)
-                    val relayManager = NostrRelayManager.getInstance(getApplication())
-                    relayManager.sendEventToGeohash(event, channel.geohash, includeDefaults = false, nRelays = 5)
+                    val event = NostrProtocol.createEphemeralGeohashEvent(content, channel.geohash, identity, nickname, teleported, powPreferenceManager)
+                    nostrRelayManager.sendEventToGeohash(event, channel.geohash, includeDefaults = false, nRelays = 5)
                 } finally {
                     // Ensure we stop the per-message mining animation regardless of success/failure
                     if (startedMining) {
-                        com.bitchat.android.ui.PoWMiningTracker.stopMiningMessage(tempId)
+                        PoWMiningTracker.stopMiningMessage(tempId)
                     }
                 }
             } catch (e: Exception) {
@@ -198,7 +207,7 @@ class GeohashViewModel(
     }
 
     fun selectLocationChannel(channel: com.bitchat.android.geohash.ChannelID) {
-        locationChannelManager?.select(channel) ?: run { Log.w(TAG, "Cannot select location channel - not initialized") }
+        locationChannelManager.select(channel)
     }
 
     fun displayNameForNostrPubkeyUI(pubkeyHex: String): String = repo.displayNameForNostrPubkeyUI(pubkeyHex)
