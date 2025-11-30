@@ -9,7 +9,6 @@ import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -46,11 +45,11 @@ fun GeohashPeopleList(
     val colorScheme = MaterialTheme.colorScheme
     
     // Observe geohash people from ChatViewModel
-    val geohashPeople by viewModel.geohashPeople.observeAsState(emptyList())
-    val selectedLocationChannel by viewModel.selectedLocationChannel.observeAsState()
-    val isTeleported by viewModel.isTeleported.observeAsState(false)
-    val nickname by viewModel.nickname.observeAsState("")
-    val unreadPrivateMessages by viewModel.unreadPrivateMessages.observeAsState(emptySet())
+    val geohashPeople by viewModel.geohashPeople.collectAsState()
+    val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsState()
+    val isTeleported by viewModel.isTeleported.collectAsState()
+    val nickname by viewModel.nickname.collectAsState()
+    val unreadPrivateMessages by viewModel.unreadPrivateMessages.collectAsState()
     
     Column {
         // Header matching iOS style

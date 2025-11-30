@@ -12,7 +12,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,16 +56,16 @@ fun LocationNotesSheet(
     val locationManager = remember { LocationChannelManager.getInstance(context) }
     
     // State
-    val notes by notesManager.notes.observeAsState(emptyList())
-    val state by notesManager.state.observeAsState(LocationNotesManager.State.IDLE)
-    val errorMessage by notesManager.errorMessage.observeAsState()
-    val initialLoadComplete by notesManager.initialLoadComplete.observeAsState(false)
+    val notes by notesManager.notes.collectAsState()
+    val state by notesManager.state.collectAsState(LocationNotesManager.State.IDLE)
+    val errorMessage by notesManager.errorMessage.collectAsState()
+    val initialLoadComplete by notesManager.initialLoadComplete.collectAsState(false)
     
     // SIMPLIFIED: Get count directly from notes list (no separate counter needed)
     val count = notes.size
     
     // Get location name (building or block) - matches iOS locationNames lookup
-    val locationNames by locationManager.locationNames.observeAsState(emptyMap())
+    val locationNames by locationManager.locationNames.collectAsState()
     val displayLocationName = locationNames[GeohashChannelLevel.BUILDING]?.takeIf { it.isNotEmpty() }
         ?: locationNames[GeohashChannelLevel.BLOCK]?.takeIf { it.isNotEmpty() }
     

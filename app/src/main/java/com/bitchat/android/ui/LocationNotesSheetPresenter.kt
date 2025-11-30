@@ -3,8 +3,8 @@ package com.bitchat.android.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,15 +26,15 @@ fun LocationNotesSheetPresenter(
 ) {
     val context = LocalContext.current
     val locationManager = remember { LocationChannelManager.getInstance(context) }
-    val availableChannels by locationManager.availableChannels.observeAsState(emptyList())
-    val nickname by viewModel.nickname.observeAsState("")
+    val availableChannels by locationManager.availableChannels.collectAsState()
+    val nickname by viewModel.nickname.collectAsState()
     
     // iOS pattern: notesGeohash ?? LocationChannelManager.shared.availableChannels.first(where: { $0.level == .building })?.geohash
     val buildingGeohash = availableChannels.firstOrNull { it.level == GeohashChannelLevel.BUILDING }?.geohash
     
     if (buildingGeohash != null) {
         // Get location name from locationManager
-        val locationNames by locationManager.locationNames.observeAsState(emptyMap())
+        val locationNames by locationManager.locationNames.collectAsState()
         val locationName = locationNames[GeohashChannelLevel.BUILDING]
             ?: locationNames[GeohashChannelLevel.BLOCK]
         

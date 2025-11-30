@@ -14,7 +14,6 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -248,10 +247,10 @@ fun ChatHeaderContent(
     when {
         selectedPrivatePeer != null -> {
             // Private chat header - Fully reactive state tracking
-            val favoritePeers by viewModel.favoritePeers.observeAsState(emptySet())
-            val peerFingerprints by viewModel.peerFingerprints.observeAsState(emptyMap())
-            val peerSessionStates by viewModel.peerSessionStates.observeAsState(emptyMap())
-            val peerNicknames by viewModel.peerNicknames.observeAsState(emptyMap())
+            val favoritePeers by viewModel.favoritePeers.collectAsState()
+            val peerFingerprints by viewModel.peerFingerprints.collectAsState()
+            val peerSessionStates by viewModel.peerSessionStates.collectAsState()
+            val peerNicknames by viewModel.peerNicknames.collectAsState()
             
             // Reactive favorite computation - no more static lookups!
             val isFavorite = isFavoriteReactive(
@@ -264,8 +263,8 @@ fun ChatHeaderContent(
             Log.d("ChatHeader", "Header recomposing: peer=$selectedPrivatePeer, isFav=$isFavorite, sessionState=$sessionState")
             
             // Pass geohash context and people for NIP-17 chat title formatting
-            val selectedLocationChannel by viewModel.selectedLocationChannel.observeAsState()
-            val geohashPeople by viewModel.geohashPeople.observeAsState(emptyList())
+            val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsState()
+            val geohashPeople by viewModel.geohashPeople.collectAsState()
 
             PrivateChatHeader(
                 peerID = selectedPrivatePeer,
@@ -523,18 +522,18 @@ private fun MainHeader(
     viewModel: ChatViewModel
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val connectedPeers by viewModel.connectedPeers.observeAsState(emptyList())
-    val joinedChannels by viewModel.joinedChannels.observeAsState(emptySet())
-    val hasUnreadChannels by viewModel.unreadChannelMessages.observeAsState(emptyMap())
-    val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.observeAsState(emptySet())
-    val isConnected by viewModel.isConnected.observeAsState(false)
-    val selectedLocationChannel by viewModel.selectedLocationChannel.observeAsState()
-    val geohashPeople by viewModel.geohashPeople.observeAsState(emptyList())
+    val connectedPeers by viewModel.connectedPeers.collectAsState()
+    val joinedChannels by viewModel.joinedChannels.collectAsState()
+    val hasUnreadChannels by viewModel.unreadChannelMessages.collectAsState()
+    val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.collectAsState()
+    val isConnected by viewModel.isConnected.collectAsState()
+    val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsState()
+    val geohashPeople by viewModel.geohashPeople.collectAsState()
 
     // Bookmarks store for current geohash toggle (iOS parity)
     val context = androidx.compose.ui.platform.LocalContext.current
     val bookmarksStore = remember { com.bitchat.android.geohash.GeohashBookmarksStore.getInstance(context) }
-    val bookmarks by bookmarksStore.bookmarks.observeAsState(emptyList())
+    val bookmarks by bookmarksStore.bookmarks.collectAsState()
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -653,8 +652,8 @@ private fun LocationChannelsButton(
     val colorScheme = MaterialTheme.colorScheme
     
     // Get current channel selection from location manager
-    val selectedChannel by viewModel.selectedLocationChannel.observeAsState()
-    val teleported by viewModel.isTeleported.observeAsState(false)
+    val selectedChannel by viewModel.selectedLocationChannel.collectAsState()
+    val teleported by viewModel.isTeleported.collectAsState()
     
     val (badgeText, badgeColor) = when (selectedChannel) {
         is com.bitchat.android.geohash.ChannelID.Mesh -> {
