@@ -179,6 +179,9 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     viewerImagePaths = allImagePaths
                     initialViewerIndex = initialIndex
                     showFullScreenImageViewer = true
+                },
+                onGeohashClick = { geohash ->
+                    viewModel.teleportToGeohash(geohash)
                 }
             )
             // Input area - stays at bottom
@@ -452,9 +455,6 @@ private fun ChatFloatingHeader(
     onLocationChannelsClick: () -> Unit,
     onLocationNotesClick: () -> Unit
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val locationManager = remember { com.bitchat.android.geohash.LocationChannelManager.getInstance(context) }
-    
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -481,7 +481,7 @@ private fun ChatFloatingHeader(
                     onLocationChannelsClick = onLocationChannelsClick,
                     onLocationNotesClick = {
                         // Ensure location is loaded before showing sheet
-                        locationManager.refreshChannels()
+                        viewModel.refreshLocationChannels()
                         onLocationNotesClick()
                     }
                 )
@@ -530,6 +530,7 @@ private fun ChatDialogs(
     AboutSheet(
         isPresented = showAppInfo,
         onDismiss = onAppInfoDismiss,
+        viewModel = viewModel,
         onShowDebug = { showDebugSheet = true }
     )
     if (showDebugSheet) {

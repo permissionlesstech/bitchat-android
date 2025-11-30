@@ -7,6 +7,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import org.koin.androidx.viewmodel.ext.android.viewModel
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -42,26 +43,21 @@ import com.bitchat.android.ui.theme.BitchatTheme
 import com.bitchat.android.nostr.PoWPreferenceManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.koin.android.ext.android.inject
 
 class MainActivity : OrientationAwareActivity() {
 
-    private lateinit var permissionManager: PermissionManager
+    private val permissionManager: PermissionManager by inject()
     private lateinit var onboardingCoordinator: OnboardingCoordinator
     private lateinit var bluetoothStatusManager: BluetoothStatusManager
     private lateinit var locationStatusManager: LocationStatusManager
     private lateinit var batteryOptimizationManager: BatteryOptimizationManager
     
     // Core mesh service - managed at app level
-    private lateinit var meshService: BluetoothMeshService
+    private val  meshService: BluetoothMeshService by inject()
+
     private val mainViewModel: MainViewModel by viewModels()
-    private val chatViewModel: ChatViewModel by viewModels { 
-        object : ViewModelProvider.Factory {
-            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                @Suppress("UNCHECKED_CAST")
-                return ChatViewModel(application, meshService) as T
-            }
-        }
-    }
+    private val chatViewModel: ChatViewModel by viewModel()
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -69,10 +65,7 @@ class MainActivity : OrientationAwareActivity() {
         // Enable edge-to-edge display for modern Android look
         enableEdgeToEdge()
 
-        // Initialize permission management
-        permissionManager = PermissionManager(this)
-        // Initialize core mesh service first
-        meshService = BluetoothMeshService(this)
+        // Initialize core mesh service first - retrieve from Koin
         bluetoothStatusManager = BluetoothStatusManager(
             activity = this,
             context = this,
@@ -592,13 +585,6 @@ class MainActivity : OrientationAwareActivity() {
                 delay(1000) // Give the system time to process permission grants
                 
                 Log.d("MainActivity", "Permissions verified, initializing chat system")
-                
-                // Initialize PoW preferences early in the initialization process
-                PoWPreferenceManager.init(this@MainActivity)
-                Log.d("MainActivity", "PoW preferences initialized")
-                
-                // Initialize Location Notes Manager (extracted to separate file)
-                com.bitchat.android.nostr.LocationNotesInitializer.initialize(this@MainActivity)
                 
                 // Ensure all permissions are still granted (user might have revoked in settings)
                 if (!permissionManager.areAllPermissionsGranted()) {

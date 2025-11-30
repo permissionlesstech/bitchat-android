@@ -2,6 +2,8 @@ package com.bitchat.android.nostr
 
 import android.content.Context
 import android.content.SharedPreferences
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -9,15 +11,18 @@ import kotlinx.coroutines.flow.asStateFlow
 /**
  * Manages Proof of Work preferences for Nostr events
  */
-object PoWPreferenceManager {
+@Singleton
+class PoWPreferenceManager @Inject constructor(context: Context) {
     
-    private const val PREFS_NAME = "pow_preferences"
-    private const val KEY_POW_ENABLED = "pow_enabled"
-    private const val KEY_POW_DIFFICULTY = "pow_difficulty"
-    
-    // Default values
-    private const val DEFAULT_POW_ENABLED = false
-    private const val DEFAULT_POW_DIFFICULTY = 12 // Reasonable default for geohash spam prevention
+    private companion object {
+        const val PREFS_NAME = "pow_preferences"
+        const val KEY_POW_ENABLED = "pow_enabled"
+        const val KEY_POW_DIFFICULTY = "pow_difficulty"
+        
+        // Default values
+        const val DEFAULT_POW_ENABLED = false
+        const val DEFAULT_POW_DIFFICULTY = 12 // Reasonable default for geohash spam prevention
+    }
     
     // State flows for reactive UI
     private val _powEnabled = MutableStateFlow(DEFAULT_POW_ENABLED)
@@ -30,23 +35,12 @@ object PoWPreferenceManager {
     private val _isMining = MutableStateFlow(false)
     val isMining: StateFlow<Boolean> = _isMining.asStateFlow()
     
-    private lateinit var sharedPrefs: SharedPreferences
-    private var isInitialized = false
+    private val sharedPrefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     
-    /**
-     * Initialize the preference manager with application context
-     * Should be called once during app startup
-     */
-    fun init(context: Context) {
-        if (isInitialized) return
-        
-        sharedPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        
+    init {
         // Load current values
         _powEnabled.value = sharedPrefs.getBoolean(KEY_POW_ENABLED, DEFAULT_POW_ENABLED)
         _powDifficulty.value = sharedPrefs.getInt(KEY_POW_DIFFICULTY, DEFAULT_POW_DIFFICULTY)
-        
-        isInitialized = true
     }
     
     /**
@@ -61,9 +55,7 @@ object PoWPreferenceManager {
      */
     fun setPowEnabled(enabled: Boolean) {
         _powEnabled.value = enabled
-        if (::sharedPrefs.isInitialized) {
-            sharedPrefs.edit().putBoolean(KEY_POW_ENABLED, enabled).apply()
-        }
+        sharedPrefs.edit().putBoolean(KEY_POW_ENABLED, enabled).apply()
     }
     
     /**
@@ -79,9 +71,7 @@ object PoWPreferenceManager {
     fun setPowDifficulty(difficulty: Int) {
         val clampedDifficulty = difficulty.coerceIn(0, 32)
         _powDifficulty.value = clampedDifficulty
-        if (::sharedPrefs.isInitialized) {
-            sharedPrefs.edit().putInt(KEY_POW_DIFFICULTY, clampedDifficulty).apply()
-        }
+        sharedPrefs.edit().putInt(KEY_POW_DIFFICULTY, clampedDifficulty).apply()
     }
     
     /**

@@ -3,9 +3,12 @@ package com.bitchat.android.nostr
 import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import com.google.gson.Gson
-import com.google.gson.JsonArray
-import com.google.gson.JsonParser
+import com.bitchat.android.net.OkHttpProvider
+import com.bitchat.android.net.TorManager
+import kotlinx.serialization.json.*
+import com.bitchat.android.util.JsonUtil
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
 import kotlinx.coroutines.*
 import okhttp3.*
 import java.util.concurrent.ConcurrentHashMap
@@ -17,21 +20,17 @@ import kotlin.math.pow
  * Manages WebSocket connections to Nostr relays
  * Compatible with iOS implementation with Android-specific optimizations
  */
-class NostrRelayManager private constructor() {
+@Singleton
+class NostrRelayManager @Inject constructor(
+    private val okHttpProvider: OkHttpProvider,
+    private val relayDirectory: RelayDirectory,
+    private val torManager: TorManager,
+    private val eventDeduplicator: NostrEventDeduplicator
+) {
     
     companion object {
-        @JvmStatic
-        val shared = NostrRelayManager()
-        
         private const val TAG = "NostrRelayManager"
         
-        /**
-         * Get instance for Android compatibility (context-aware calls)
-         */
-        fun getInstance(context: android.content.Context): NostrRelayManager {
-            return shared
-        }
-
         // Default relay list (same as iOS)
         private val DEFAULT_RELAYS = listOf(
             "wss://relay.damus.io",
@@ -46,16 +45,16 @@ class NostrRelayManager private constructor() {
         private const val BACKOFF_MULTIPLIER = com.bitchat.android.util.AppConstants.Nostr.BACKOFF_MULTIPLIER
         private const val MAX_RECONNECT_ATTEMPTS = com.bitchat.android.util.AppConstants.Nostr.MAX_RECONNECT_ATTEMPTS
         
-        // Track gift-wraps we initiated for logging
-        private val pendingGiftWrapIDs = ConcurrentHashMap.newKeySet<String>()
-        
-        fun registerPendingGiftWrap(id: String) {
-            pendingGiftWrapIDs.add(id)
-        }
-
         fun defaultRelays(): List<String> = DEFAULT_RELAYS
     }
     
+    // Track gift-wraps we initiated for logging
+    private val pendingGiftWrapIDs = ConcurrentHashMap.newKeySet<String>()
+    
+    fun registerPendingGiftWrap(id: String) {
+        pendingGiftWrapIDs.add(id)
+    }
+
     /**
      * Relay status information
      */
@@ -99,9 +98,6 @@ class NostrRelayManager private constructor() {
         val originGeohash: String? = null // used for logging and grouping
     )
     
-    // Event deduplication system
-    private val eventDeduplicator = NostrEventDeduplicator.getInstance()
-    
     // Message queue for reliability
     private val messageQueue = mutableListOf<Pair<NostrEvent, List<String>>>()
     private val messageQueueLock = Any()
@@ -115,9 +111,9 @@ class NostrRelayManager private constructor() {
     
     // OkHttp client for WebSocket connections (via provider to honor Tor)
     private val httpClient: OkHttpClient
-        get() = com.bitchat.android.net.OkHttpProvider.webSocketClient()
+        get() = okHttpProvider.webSocketClient()
     
-    private val gson by lazy { NostrRequest.createGson() }
+
     
     // Per-geohash relay selection
     private val geohashToRelays = ConcurrentHashMap<String, Set<String>>() // geohash -> relay URLs
@@ -129,7 +125,7 @@ class NostrRelayManager private constructor() {
      */
     fun ensureGeohashRelaysConnected(geohash: String, nRelays: Int = 5, includeDefaults: Boolean = false) {
         try {
-            val nearest = RelayDirectory.closestRelaysForGeohash(geohash, nRelays)
+            val nearest = relayDirectory.closestRelaysForGeohash(geohash, nRelays)
             val selected = if (includeDefaults) {
                 (nearest + Companion.defaultRelays()).toSet()
             } else nearest.toSet()
@@ -235,6 +231,25 @@ class NostrRelayManager private constructor() {
             _relays.postValue(emptyList())
             _isConnected.postValue(false)
         }
+
+        // Observe Tor status to reset connections when network changes
+        scope.launch {
+            var lastMode = com.bitchat.android.net.TorMode.OFF
+            var lastRunning = false
+            
+            torManager.statusFlow.collect { status ->
+                val modeChanged = status.mode != lastMode
+                val runningChanged = status.running != lastRunning
+                
+                if (modeChanged || (runningChanged && status.running)) {
+                    Log.i(TAG, "Tor status changed (mode=$modeChanged, running=$runningChanged), resetting connections")
+                    resetAllConnections()
+                }
+                
+                lastMode = status.mode
+                lastRunning = status.running
+            }
+        }
     }
     
     /**
@@ -331,7 +346,7 @@ class NostrRelayManager private constructor() {
      */
     private fun sendSubscriptionToRelays(subscriptionInfo: SubscriptionInfo) {
         val request = NostrRequest.Subscribe(subscriptionInfo.id, listOf(subscriptionInfo.filter))
-        val message = gson.toJson(request, NostrRequest::class.java)
+        val message = NostrRequest.toJson(request)
         
         // DEBUG: Log the actual serialized message format
         Log.v(TAG, "🔍 DEBUG: Serialized subscription message: $message")
@@ -383,7 +398,7 @@ class NostrRelayManager private constructor() {
         Log.d(TAG, "🚫 Unsubscribing from subscription: $id")
         
         val request = NostrRequest.Close(id)
-        val message = gson.toJson(request, NostrRequest::class.java)
+        val message = NostrRequest.toJson(request)
         
         scope.launch {
             connections.forEach { (relayUrl, webSocket) ->
@@ -631,7 +646,7 @@ class NostrRelayManager private constructor() {
     private fun sendToRelay(event: NostrEvent, webSocket: WebSocket, relayUrl: String) {
         try {
             val request = NostrRequest.Event(event)
-            val message = gson.toJson(request, NostrRequest::class.java)
+            val message = NostrRequest.toJson(request)
             
             Log.v(TAG, "📤 Sending Nostr event (kind: ${event.kind}) to relay: $relayUrl")
             
@@ -651,13 +666,13 @@ class NostrRelayManager private constructor() {
     
     private fun handleMessage(message: String, relayUrl: String) {
         try {
-            val jsonElement = JsonParser.parseString(message)
-            if (!jsonElement.isJsonArray) {
+            val jsonElement = JsonUtil.json.parseToJsonElement(message)
+            if (jsonElement !is JsonArray) {
                 Log.w(TAG, "Received non-array message from $relayUrl")
                 return
             }
             
-            val response = NostrResponse.fromJsonArray(jsonElement.asJsonArray)
+            val response = NostrResponse.fromJsonArray(jsonElement)
             
             when (response) {
                 is NostrResponse.Event -> {
@@ -828,7 +843,7 @@ class NostrRelayManager private constructor() {
         subscriptionsToRestore.forEach { subscriptionInfo ->
             try {
                 val request = NostrRequest.Subscribe(subscriptionInfo.id, listOf(subscriptionInfo.filter))
-                val message = gson.toJson(request, NostrRequest::class.java)
+                val message = NostrRequest.toJson(request)
                 
                 val success = webSocket.send(message)
                 if (success) {

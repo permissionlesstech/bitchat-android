@@ -3,20 +3,24 @@ package com.bitchat.android.ui
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
-import com.google.gson.Gson
+import kotlinx.serialization.json.*
+import com.bitchat.android.util.JsonUtil
 import kotlin.random.Random
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
 
 /**
  * Handles data persistence operations for the chat system
  */
-class DataManager(private val context: Context) {
+@Singleton
+class DataManager @Inject constructor(private val context: Context) {
     
     companion object {
         private const val TAG = "DataManager"
     }
     
     private val prefs: SharedPreferences = context.getSharedPreferences("bitchat_prefs", Context.MODE_PRIVATE)
-    private val gson = Gson()
+
     
     // Channel-related maps that need to persist state
     private val _channelCreators = mutableMapOf<String, String>()
@@ -85,7 +89,11 @@ class DataManager(private val context: Context) {
         // Load channel creators
         val creatorsJson = prefs.getString("channel_creators", "{}")
         try {
-            val creatorsMap = gson.fromJson(creatorsJson, Map::class.java) as? Map<String, String>
+            val creatorsMap = try {
+                JsonUtil.json.parseToJsonElement(creatorsJson ?: "{}").jsonObject.mapValues { 
+                    it.value.jsonPrimitive.content 
+                }
+            } catch (e: Exception) { null }
             creatorsMap?.let { _channelCreators.putAll(it) }
         } catch (e: Exception) {
             // Ignore parsing errors
@@ -105,7 +113,7 @@ class DataManager(private val context: Context) {
         prefs.edit().apply {
             putStringSet("joined_channels", joinedChannels)
             putStringSet("password_protected_channels", passwordProtectedChannels)
-            putString("channel_creators", gson.toJson(_channelCreators))
+            putString("channel_creators", JsonUtil.toJson(_channelCreators))
             apply()
         }
     }

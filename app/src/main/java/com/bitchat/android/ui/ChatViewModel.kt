@@ -1,22 +1,34 @@
 package com.bitchat.android.ui
 
+
 import android.app.Application
 import android.util.Log
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.viewModelScope
+import com.bitchat.android.favorites.FavoritesPersistenceService
+import com.bitchat.android.geohash.ChannelID
+import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
-import com.bitchat.android.model.BitchatMessageType
-import com.bitchat.android.protocol.BitchatPacket
-
-
-import kotlinx.coroutines.launch
+import com.bitchat.android.net.TorManager
+import com.bitchat.android.net.TorMode
+import com.bitchat.android.net.TorPreferenceManager
+import com.bitchat.android.nostr.LocationNotesManager
+import com.bitchat.android.nostr.NostrRelayManager
+import com.bitchat.android.nostr.NostrTransport
+import com.bitchat.android.nostr.PoWPreferenceManager
+import com.bitchat.android.services.MessageRouter
+import com.bitchat.android.ui.debug.DebugSettingsManager
+import com.bitchat.android.ui.theme.ThemePreference
+import com.bitchat.android.ui.theme.ThemePreferenceManager
 import com.bitchat.android.util.NotificationIntervalManager
+import jakarta.inject.Inject
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.koin.android.annotation.KoinViewModel
 import java.util.Date
 import kotlin.random.Random
 
@@ -24,11 +36,23 @@ import kotlin.random.Random
  * Refactored ChatViewModel - Main coordinator for bitchat functionality
  * Delegates specific responsibilities to specialized managers while maintaining 100% iOS compatibility
  */
-class ChatViewModel(
+@KoinViewModel
+class ChatViewModel @Inject constructor(
     application: Application,
-    val meshService: BluetoothMeshService
+    val meshService: BluetoothMeshService,
+    private val nostrRelayManager: NostrRelayManager,
+    private val nostrTransport: NostrTransport,
+    private val messageRouter: MessageRouter,
+    private val seenStore: com.bitchat.android.services.SeenMessageStore,
+    private val fingerprintManager: com.bitchat.android.mesh.PeerFingerprintManager,
+    private val geohashBookmarksStore: com.bitchat.android.geohash.GeohashBookmarksStore,
+    private val debugManager: DebugSettingsManager,
+    private val locationChannelManager: LocationChannelManager,
+    private val poWPreferenceManager: PoWPreferenceManager,
+    val favoritesService: FavoritesPersistenceService,
+    private val locationNotesManager: LocationNotesManager,
+    private val torManager: TorManager,
 ) : AndroidViewModel(application), BluetoothMeshDelegate {
-    private val debugManager by lazy { try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (e: Exception) { null } }
 
     companion object {
         private const val TAG = "ChatViewModel"
@@ -65,7 +89,7 @@ class ChatViewModel(
         override fun getMyPeerID(): String = meshService.myPeerID
     }
 
-    val privateChatManager = PrivateChatManager(state, messageManager, dataManager, noiseSessionDelegate)
+    val privateChatManager = PrivateChatManager(state, messageManager, dataManager, noiseSessionDelegate, fingerprintManager, favoritesService)
     private val commandProcessor = CommandProcessor(state, messageManager, channelManager, privateChatManager)
     private val notificationManager = NotificationManager(
       application.applicationContext,
@@ -86,9 +110,11 @@ class ChatViewModel(
         coroutineScope = viewModelScope,
         onHapticFeedback = { ChatViewModelUtils.triggerHapticFeedback(application.applicationContext) },
         getMyPeerID = { meshService.myPeerID },
-        getMeshService = { meshService }
+        getMeshService = { meshService },
+        messageRouter = messageRouter,
+        favoritesService = favoritesService
     )
-    
+
     // New Geohash architecture ViewModel (replaces God object service usage in UI path)
     val geohashViewModel = GeohashViewModel(
         application = application,
@@ -97,7 +123,12 @@ class ChatViewModel(
         privateChatManager = privateChatManager,
         meshDelegateHandler = meshDelegateHandler,
         dataManager = dataManager,
-        notificationManager = notificationManager
+        notificationManager = notificationManager,
+        nostrRelayManager = nostrRelayManager,
+        nostrTransport = nostrTransport,
+        seenStore = seenStore,
+        locationChannelManager = locationChannelManager,
+        powPreferenceManager = poWPreferenceManager
     )
 
 
@@ -137,6 +168,30 @@ class ChatViewModel(
     val geohashPeople: LiveData<List<GeoPerson>> = state.geohashPeople
     val teleportedGeo: LiveData<Set<String>> = state.teleportedGeo
     val geohashParticipantCounts: LiveData<Map<String, Int>> = state.geohashParticipantCounts
+
+    // Location Notes
+    val locationNotes: LiveData<List<LocationNotesManager.Note>> = locationNotesManager.notes
+    val locationNotesState: LiveData<LocationNotesManager.State> = locationNotesManager.state
+    val locationNotesErrorMessage = locationNotesManager.errorMessage
+    val locationNotesInitialLoadComplete = locationNotesManager.initialLoadComplete
+
+    // Location Channel
+    val locationPermissionState = locationChannelManager.permissionState
+    val locationServicesEnabled = locationChannelManager.locationServicesEnabled
+    val availableLocationChannels = locationChannelManager.availableChannels
+    val locationNames = locationChannelManager.locationNames
+
+    // Bookmarks
+    val geohashBookmarks: LiveData<List<String>> = geohashBookmarksStore.bookmarks
+    val geohashBookmarkNames: LiveData<Map<String, String>> = geohashBookmarksStore.bookmarkNames
+
+    // Tor
+    val torStatus = torManager.statusFlow
+
+    // PoW
+    val powEnabled = poWPreferenceManager.powEnabled
+    val powDifficulty = poWPreferenceManager.powDifficulty
+    val isMining = poWPreferenceManager.isMining
 
     init {
         // Note: Mesh service delegate is now set by MainActivity
@@ -190,8 +245,8 @@ class ChatViewModel(
 
         // Bridge DebugSettingsManager -> Chat messages when verbose logging is on
         viewModelScope.launch {
-            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().debugMessages.collect { msgs ->
-                if (com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().verboseLoggingEnabled.value) {
+            debugManager.debugMessages.collect { msgs ->
+                if (debugManager.verboseLoggingEnabled.value) {
                     // Only show debug logs in the Mesh chat timeline to avoid leaking into geohash chats
                     val selectedLocation = state.selectedLocationChannel.value
                     if (selectedLocation is com.bitchat.android.geohash.ChannelID.Mesh) {
@@ -207,13 +262,11 @@ class ChatViewModel(
         // Initialize new geohash architecture
         geohashViewModel.initialize()
 
-        // Initialize favorites persistence service
-        com.bitchat.android.favorites.FavoritesPersistenceService.initialize(getApplication())
+
 
 
         // Ensure NostrTransport knows our mesh peer ID for embedded packets
         try {
-            val nostrTransport = com.bitchat.android.nostr.NostrTransport.getInstance(getApplication())
             nostrTransport.senderPeerID = meshService.myPeerID
         } catch (_: Exception) { }
 
@@ -308,7 +361,7 @@ class ChatViewModel(
             // Persistently mark all messages in this conversation as read so Nostr fetches
             // after app restarts won't re-mark them as unread.
             try {
-                val seen = com.bitchat.android.services.SeenMessageStore.getInstance(getApplication())
+                val seen = seenStore
                 val chats = state.getPrivateChatsValue()
                 val messages = chats[peerID] ?: emptyList()
                 messages.forEach { msg ->
@@ -367,7 +420,7 @@ class ChatViewModel(
                     meshNoiseKeyForPeer = { pid -> meshService.getPeerInfo(pid)?.noisePublicKey },
                     meshHasPeer = { pid -> meshService.getPeerInfo(pid)?.isConnected == true },
                     nostrPubHexForAlias = { alias -> com.bitchat.android.nostr.GeohashAliasRegistry.get(alias) },
-                    findNoiseKeyForNostr = { key -> com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNoiseKey(key) }
+                    findNoiseKeyForNostr = { key -> favoritesService.findNoiseKey(key) }
                 )
                 canonical ?: targetKey
             }
@@ -426,7 +479,7 @@ class ChatViewModel(
                 meshNoiseKeyForPeer = { pid -> meshService.getPeerInfo(pid)?.noisePublicKey },
                 meshHasPeer = { pid -> meshService.getPeerInfo(pid)?.isConnected == true },
                 nostrPubHexForAlias = { alias -> com.bitchat.android.nostr.GeohashAliasRegistry.get(alias) },
-                findNoiseKeyForNostr = { key -> com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNoiseKey(key) }
+                findNoiseKeyForNostr = { key -> favoritesService.findNoiseKey(key) }
             ).also { canonical ->
                 if (canonical != state.getSelectedPrivateChatPeerValue()) {
                     privateChatManager.startPrivateChat(canonical, meshService)
@@ -442,8 +495,7 @@ class ChatViewModel(
                 meshService.myPeerID
             ) { messageContent, peerID, recipientNicknameParam, messageId ->
                 // Route via MessageRouter (mesh when connected+established, else Nostr)
-                val router = com.bitchat.android.services.MessageRouter.getInstance(getApplication(), meshService)
-                router.sendPrivate(messageContent, peerID, recipientNicknameParam, messageId)
+                messageRouter.sendPrivate(messageContent, peerID, recipientNicknameParam, messageId)
             }
         } else {
             // Check if we're in a location channel
@@ -519,7 +571,7 @@ class ChatViewModel(
                     try {
                         noiseKey = peerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
                         // Prefer nickname from favorites store if available
-                        val rel = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey!!)
+                        val rel = favoritesService.getFavoriteStatus(noiseKey!!)
                         if (rel != null) nickname = rel.peerNickname
                     } catch (_: Exception) { }
                 }
@@ -531,7 +583,7 @@ class ChatViewModel(
                 val fingerprint = identityManager.generateFingerprint(noiseKey!!)
                 val isNowFavorite = dataManager.favoritePeers.contains(fingerprint)
 
-                com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateFavoriteStatus(
+                favoritesService.updateFavoriteStatus(
                     noisePublicKey = noiseKey!!,
                     nickname = nickname,
                     isFavorite = isNowFavorite
@@ -551,7 +603,6 @@ class ChatViewModel(
                             java.util.UUID.randomUUID().toString()
                         )
                     } else {
-                        val nostrTransport = com.bitchat.android.nostr.NostrTransport.getInstance(getApplication())
                         nostrTransport.senderPeerID = meshService.myPeerID
                         nostrTransport.sendFavoriteNotification(peerID, isNowFavorite)
                     }
@@ -601,9 +652,7 @@ class ChatViewModel(
         sessionStates.forEach { (peerID, newState) ->
             val old = prevStates[peerID]
             if (old != "established" && newState == "established") {
-                com.bitchat.android.services.MessageRouter
-                    .getInstance(getApplication(), meshService)
-                    .onSessionEstablished(peerID)
+                messageRouter.onSessionEstablished(peerID)
             }
         }
         // Update fingerprint mappings from centralized manager
@@ -746,8 +795,7 @@ class ChatViewModel(
         try {
             // Clear geohash bookmarks too (panic should remove everything)
             try {
-                val store = com.bitchat.android.geohash.GeohashBookmarksStore.getInstance(getApplication())
-                store.clearAll()
+                geohashBookmarksStore.clearAll()
             } catch (_: Exception) { }
 
             geohashViewModel.panicReset()
@@ -779,6 +827,77 @@ class ChatViewModel(
             Log.e(TAG, "❌ Error clearing mesh service data: ${e.message}")
         }
     }
+
+    // MARK: - Location & Network Management
+    
+    fun refreshLocationChannels() {
+        locationChannelManager.refreshChannels()
+    }
+    
+    fun enableLocationChannels() = locationChannelManager.enableLocationChannels()
+    fun enableLocationServices() = locationChannelManager.enableLocationServices()
+    fun disableLocationServices() = locationChannelManager.disableLocationServices()
+    fun selectLocationChannel(channel: ChannelID): Unit = locationChannelManager.select(channel)
+
+    /**
+     * Teleport to a specific geohash by parsing its level
+     */
+    fun teleportToGeohash(geohash: String) {
+        try {
+            val level = when (geohash.length) {
+                in 0..2 -> com.bitchat.android.geohash.GeohashChannelLevel.REGION
+                in 3..4 -> com.bitchat.android.geohash.GeohashChannelLevel.PROVINCE
+                5 -> com.bitchat.android.geohash.GeohashChannelLevel.CITY
+                6 -> com.bitchat.android.geohash.GeohashChannelLevel.NEIGHBORHOOD
+                else -> com.bitchat.android.geohash.GeohashChannelLevel.BLOCK
+            }
+            val channel = com.bitchat.android.geohash.GeohashChannel(level, geohash.lowercase())
+            locationChannelManager.setTeleported(true)
+            locationChannelManager.select(ChannelID.Location(channel))
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to teleport to geohash: $geohash", e)
+        }
+    }
+    fun setTeleported(teleported: Boolean) = locationChannelManager.setTeleported(teleported)
+    fun beginLiveRefresh() = locationChannelManager.beginLiveRefresh()
+    fun endLiveRefresh() = locationChannelManager.endLiveRefresh()
+
+    // Location Notes
+    fun setLocationNotesGeohash(geohash: String) = locationNotesManager.setGeohash(geohash)
+    fun cancelLocationNotes() = locationNotesManager.cancel()
+    fun refreshLocationNotes() = locationNotesManager.refresh()
+    fun clearLocationNotesError() = locationNotesManager.clearError()
+    fun sendLocationNote(content: String, nickname: String?) = locationNotesManager.send(content, nickname)
+
+    // Bookmarks
+    fun toggleGeohashBookmark(geohash: String) = geohashBookmarksStore.toggle(geohash)
+    fun isGeohashBookmarked(geohash: String): Boolean = geohashBookmarksStore.isBookmarked(geohash)
+    fun resolveGeohashNameIfNeeded(geohash: String) = geohashBookmarksStore.resolveNameIfNeeded(geohash)
+
+    fun setTorMode(mode: TorMode) {
+        TorPreferenceManager.set(getApplication(), mode)
+    }
+
+    fun setPowEnabled(enabled: Boolean) {
+        poWPreferenceManager.setPowEnabled(enabled)
+    }
+
+    fun setPowDifficulty(difficulty: Int) {
+        poWPreferenceManager.setPowDifficulty(difficulty)
+    }
+    
+    // Theme
+    val themePreference = ThemePreferenceManager.themeFlow
+    
+    fun setTheme(preference: ThemePreference) {
+        ThemePreferenceManager.set(getApplication(), preference)
+    }
+
+    // Expose favorites service functionality for UI components
+    fun getOfflineFavorites() = favoritesService.getOurFavorites()
+    fun findNostrPubkey(noiseKey: ByteArray) = favoritesService.findNostrPubkey(noiseKey)
+    fun getFavoriteStatus(noiseKey: ByteArray) = favoritesService.getFavoriteStatus(noiseKey)
+    fun getFavoriteStatus(peerID: String) = favoritesService.getFavoriteStatus(peerID)
     
     /**
      * Clear all cryptographic data including persistent identity
@@ -803,7 +922,7 @@ class ChatViewModel(
 
             // Clear FavoritesPersistenceService persistent relationships
             try {
-                com.bitchat.android.favorites.FavoritesPersistenceService.shared.clearAllFavorites()
+                favoritesService.clearAllFavorites()
                 Log.d(TAG, "✅ Cleared FavoritesPersistenceService relationships")
             } catch (_: Exception) { }
             
@@ -849,11 +968,7 @@ class ChatViewModel(
             startPrivateChat(convKey)
         }
     }
-
-    fun selectLocationChannel(channel: com.bitchat.android.geohash.ChannelID) {
-        geohashViewModel.selectLocationChannel(channel)
-    }
-
+    
     /**
      * Block a user in geohash channels by their nickname
      */

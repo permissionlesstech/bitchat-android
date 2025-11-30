@@ -57,9 +57,10 @@ fun isFavoriteReactive(
 
 @Composable
 fun TorStatusDot(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: ChatViewModel,
 ) {
-    val torStatus by com.bitchat.android.net.TorManager.statusFlow.collectAsState()
+    val torStatus by viewModel.torStatus.collectAsState()
     
     if (torStatus.mode != com.bitchat.android.net.TorMode.OFF) {
         val dotColor = when {
@@ -324,9 +325,9 @@ private fun PrivateChatHeader(
             if (isNostrDM) return@remember false
             if (peerID.length == 64 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
                 val noiseKeyBytes = peerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
-                com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKeyBytes)?.isMutual == true
+                viewModel.getFavoriteStatus(noiseKeyBytes)?.isMutual == true
             } else if (peerID.length == 16 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
-                com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(peerID)?.isMutual == true
+                viewModel.getFavoriteStatus(peerID)?.isMutual == true
             } else false
         } catch (_: Exception) { false }
     }
@@ -357,9 +358,9 @@ private fun PrivateChatHeader(
             val titleFromFavorites = try {
                 if (peerID.length == 64 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
                     val noiseKeyBytes = peerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
-                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKeyBytes)?.peerNickname
+                    viewModel.getFavoriteStatus(noiseKeyBytes)?.peerNickname
                 } else if (peerID.length == 16 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
-                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(peerID)?.peerNickname
+                    viewModel.getFavoriteStatus(peerID)?.peerNickname
                 } else null
             } catch (_: Exception) { null }
             titleFromFavorites ?: peerID.take(12)
@@ -532,9 +533,7 @@ private fun MainHeader(
     val geohashPeople by viewModel.geohashPeople.observeAsState(emptyList())
 
     // Bookmarks store for current geohash toggle (iOS parity)
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val bookmarksStore = remember { com.bitchat.android.geohash.GeohashBookmarksStore.getInstance(context) }
-    val bookmarks by bookmarksStore.bookmarks.observeAsState(emptyList())
+    val bookmarks by viewModel.geohashBookmarks.observeAsState(emptyList())
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -600,7 +599,7 @@ private fun MainHeader(
                         modifier = Modifier
                             .padding(start = 2.dp) // minimal gap between geohash and bookmark
                             .size(20.dp)
-                            .clickable { bookmarksStore.toggle(currentGeohash) },
+                            .clickable { viewModel.toggleGeohashBookmark(currentGeohash) },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -623,13 +622,15 @@ private fun MainHeader(
             TorStatusDot(
                 modifier = Modifier
                     .size(8.dp)
-                    .padding(start = 0.dp, end = 2.dp)
+                    .padding(start = 0.dp, end = 2.dp),
+                viewModel = viewModel
             )
             
             // PoW status indicator
             PoWStatusIndicator(
                 modifier = Modifier,
-                style = PoWIndicatorStyle.COMPACT
+                style = PoWIndicatorStyle.COMPACT,
+                viewModel = viewModel
             )
             Spacer(modifier = Modifier.width(2.dp))
             PeerCounter(
