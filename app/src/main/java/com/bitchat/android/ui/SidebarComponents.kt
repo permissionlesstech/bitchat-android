@@ -12,7 +12,6 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -39,14 +38,14 @@ fun SidebarOverlay(
     val colorScheme = MaterialTheme.colorScheme
     val interactionSource = remember { MutableInteractionSource() }
 
-    val connectedPeers by viewModel.connectedPeers.observeAsState(emptyList())
-    val joinedChannels by viewModel.joinedChannels.observeAsState(emptyList())
-    val currentChannel by viewModel.currentChannel.observeAsState()
-    val selectedPrivatePeer by viewModel.selectedPrivateChatPeer.observeAsState()
-    val nickname by viewModel.nickname.observeAsState("")
-    val unreadChannelMessages by viewModel.unreadChannelMessages.observeAsState(emptyMap())
-    val peerNicknames by viewModel.peerNicknames.observeAsState(emptyMap())
-    val peerRSSI by viewModel.peerRSSI.observeAsState(emptyMap())
+    val connectedPeers by viewModel.connectedPeers.collectAsState()
+    val joinedChannels by viewModel.joinedChannels.collectAsState()
+    val currentChannel by viewModel.currentChannel.collectAsState()
+    val selectedPrivatePeer by viewModel.selectedPrivateChatPeer.collectAsState()
+    val nickname by viewModel.nickname.collectAsState()
+    val unreadChannelMessages by viewModel.unreadChannelMessages.collectAsState()
+    val peerNicknames by viewModel.peerNicknames.collectAsState()
+    val peerRSSI by viewModel.peerRSSI.collectAsState()
 
     Box(
         modifier = modifier
@@ -110,7 +109,7 @@ fun SidebarOverlay(
                     
                     // People section - switch between mesh and geohash lists (iOS-compatible)
                     item {
-                        val selectedLocationChannel by viewModel.selectedLocationChannel.observeAsState()
+                        val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsState()
                         
                         when (selectedLocationChannel) {
                             is com.bitchat.android.geohash.ChannelID.Location -> {
@@ -291,10 +290,10 @@ fun PeopleSection(
         }
 
         // Observe reactive state for favorites and fingerprints
-        val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.observeAsState(emptySet())
-        val privateChats by viewModel.privateChats.observeAsState(emptyMap())
-        val favoritePeers by viewModel.favoritePeers.observeAsState(emptySet())
-        val peerFingerprints by viewModel.peerFingerprints.observeAsState(emptyMap())
+        val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.collectAsState()
+        val privateChats by viewModel.privateChats.collectAsState()
+        val favoritePeers by viewModel.favoritePeers.collectAsState()
+        val peerFingerprints by viewModel.peerFingerprints.collectAsState()
         
         // Reactive favorite computation for all peers
         val peerFavoriteStates = remember(favoritePeers, peerFingerprints, connectedPeers) {
@@ -384,7 +383,7 @@ fun PeopleSection(
             val (bName, _) = com.bitchat.android.ui.splitSuffix(displayName)
             val showHash = (baseNameCounts[bName] ?: 0) > 1
 
-            val directMap by viewModel.peerDirect.observeAsState(emptyMap())
+            val directMap by viewModel.peerDirect.collectAsState()
             val isDirectLive = directMap[peerID] ?: try { viewModel.meshService.getPeerInfo(peerID)?.isDirectConnection == true } catch (_: Exception) { false }
             PeerItem(
                 peerID = peerID,

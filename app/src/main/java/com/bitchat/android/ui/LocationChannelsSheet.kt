@@ -18,7 +18,6 @@ import androidx.compose.material.icons.filled.PinDrop
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
@@ -57,18 +56,18 @@ fun LocationChannelsSheet(
     val bookmarksStore = remember { GeohashBookmarksStore.getInstance(context) }
 
     // Observe location manager state
-    val permissionState by locationManager.permissionState.observeAsState()
-    val availableChannels by locationManager.availableChannels.observeAsState(emptyList())
-    val selectedChannel by locationManager.selectedChannel.observeAsState()
-    val locationNames by locationManager.locationNames.observeAsState(emptyMap())
-    val locationServicesEnabled by locationManager.locationServicesEnabled.observeAsState(false)
+    val permissionState by locationManager.permissionState.collectAsState()
+    val availableChannels by locationManager.availableChannels.collectAsState()
+    val selectedChannel by locationManager.selectedChannel.collectAsState()
+    val locationNames by locationManager.locationNames.collectAsState()
+    val locationServicesEnabled by locationManager.locationServicesEnabled.collectAsState()
 
     // Observe bookmarks state
-    val bookmarks by bookmarksStore.bookmarks.observeAsState(emptyList())
-    val bookmarkNames by bookmarksStore.bookmarkNames.observeAsState(emptyMap())
+    val bookmarks by bookmarksStore.bookmarks.collectAsState()
+    val bookmarkNames by bookmarksStore.bookmarkNames.collectAsState()
 
     // Observe reactive participant counts
-    val geohashParticipantCounts by viewModel.geohashParticipantCounts.observeAsState(emptyMap())
+    val geohashParticipantCounts by viewModel.geohashParticipantCounts.collectAsState()
 
     // UI state
     var customGeohash by remember { mutableStateOf("") }
