@@ -38,6 +38,12 @@ class BitchatApplication : Application() {
         // Initialize debug preference manager (persists debug toggles)
         try { com.bitchat.android.ui.debug.DebugPreferenceManager.init(this) } catch (_: Exception) { }
 
+        // Initialize mesh service preferences
+        try { com.bitchat.android.service.MeshServicePreferences.init(this) } catch (_: Exception) { }
+
+        // Proactively start the foreground service to keep mesh alive
+        try { com.bitchat.android.service.MeshForegroundService.start(this) } catch (_: Exception) { }
+
         // TorManager already initialized above
     }
 }
