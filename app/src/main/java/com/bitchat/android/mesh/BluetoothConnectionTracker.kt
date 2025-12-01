@@ -124,6 +124,23 @@ class BluetoothConnectionTracker(
     fun getSubscribedDevices(): List<BluetoothDevice> {
         return subscribedDevices.toList()
     }
+
+    /**
+     * Check whether a given peer already has an active direct connection.
+     */
+    fun isPeerDirectlyConnected(peerID: String): Boolean {
+        val address = getConnectedAddressForPeer(peerID)
+        return address != null
+    }
+
+    /**
+     * Return the connected device address for a peer, if currently connected.
+     */
+    fun getConnectedAddressForPeer(peerID: String): String? {
+        // Find any address mapped to this peer that is still connected
+        val address = addressPeerMap.entries.firstOrNull { it.value == peerID }?.key
+        return address?.takeIf { connectedDevices.containsKey(it) }
+    }
     
     /**
      * Get current RSSI for a device address
