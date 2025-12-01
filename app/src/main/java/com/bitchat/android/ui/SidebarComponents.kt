@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 
 
@@ -38,14 +39,14 @@ fun SidebarOverlay(
     val colorScheme = MaterialTheme.colorScheme
     val interactionSource = remember { MutableInteractionSource() }
 
-    val connectedPeers by viewModel.connectedPeers.collectAsState()
-    val joinedChannels by viewModel.joinedChannels.collectAsState()
-    val currentChannel by viewModel.currentChannel.collectAsState()
-    val selectedPrivatePeer by viewModel.selectedPrivateChatPeer.collectAsState()
-    val nickname by viewModel.nickname.collectAsState()
-    val unreadChannelMessages by viewModel.unreadChannelMessages.collectAsState()
-    val peerNicknames by viewModel.peerNicknames.collectAsState()
-    val peerRSSI by viewModel.peerRSSI.collectAsState()
+    val connectedPeers by viewModel.connectedPeers.collectAsStateWithLifecycle()
+    val joinedChannels by viewModel.joinedChannels.collectAsStateWithLifecycle()
+    val currentChannel by viewModel.currentChannel.collectAsStateWithLifecycle()
+    val selectedPrivatePeer by viewModel.selectedPrivateChatPeer.collectAsStateWithLifecycle()
+    val nickname by viewModel.nickname.collectAsStateWithLifecycle()
+    val unreadChannelMessages by viewModel.unreadChannelMessages.collectAsStateWithLifecycle()
+    val peerNicknames by viewModel.peerNicknames.collectAsStateWithLifecycle()
+    val peerRSSI by viewModel.peerRSSI.collectAsStateWithLifecycle()
 
     Box(
         modifier = modifier
@@ -290,10 +291,10 @@ fun PeopleSection(
         }
 
         // Observe reactive state for favorites and fingerprints
-        val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.collectAsState()
-        val privateChats by viewModel.privateChats.collectAsState()
-        val favoritePeers by viewModel.favoritePeers.collectAsState()
-        val peerFingerprints by viewModel.peerFingerprints.collectAsState()
+        val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.collectAsStateWithLifecycle()
+        val privateChats by viewModel.privateChats.collectAsStateWithLifecycle()
+        val favoritePeers by viewModel.favoritePeers.collectAsStateWithLifecycle()
+        val peerFingerprints by viewModel.peerFingerprints.collectAsStateWithLifecycle()
         
         // Reactive favorite computation for all peers
         val peerFavoriteStates = remember(favoritePeers, peerFingerprints, connectedPeers) {
@@ -383,7 +384,7 @@ fun PeopleSection(
             val (bName, _) = com.bitchat.android.ui.splitSuffix(displayName)
             val showHash = (baseNameCounts[bName] ?: 0) > 1
 
-            val directMap by viewModel.peerDirect.collectAsState()
+            val directMap by viewModel.peerDirect.collectAsStateWithLifecycle()
             val isDirectLive = directMap[peerID] ?: try { viewModel.meshService.getPeerInfo(peerID)?.isDirectConnection == true } catch (_: Exception) { false }
             PeerItem(
                 peerID = peerID,

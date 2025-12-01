@@ -20,6 +20,7 @@ import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import java.util.*
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.R
 
 /**
@@ -45,11 +46,11 @@ fun GeohashPeopleList(
     val colorScheme = MaterialTheme.colorScheme
     
     // Observe geohash people from ChatViewModel
-    val geohashPeople by viewModel.geohashPeople.collectAsState()
-    val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsState()
-    val isTeleported by viewModel.isTeleported.collectAsState()
-    val nickname by viewModel.nickname.collectAsState()
-    val unreadPrivateMessages by viewModel.unreadPrivateMessages.collectAsState()
+    val geohashPeople by viewModel.geohashPeople.collectAsStateWithLifecycle()
+    val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
+    val isTeleported by viewModel.isTeleported.collectAsStateWithLifecycle()
+    val nickname by viewModel.nickname.collectAsStateWithLifecycle()
+    val unreadPrivateMessages by viewModel.unreadPrivateMessages.collectAsStateWithLifecycle()
     
     Column {
         // Header matching iOS style

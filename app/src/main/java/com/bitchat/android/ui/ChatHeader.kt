@@ -30,6 +30,7 @@ import com.bitchat.android.core.ui.utils.singleOrTripleClickable
 import com.bitchat.android.geohash.LocationChannelManager.PermissionState
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.Offset
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 /**
  * Header components for ChatScreen
@@ -58,7 +59,7 @@ fun isFavoriteReactive(
 fun TorStatusDot(
     modifier: Modifier = Modifier
 ) {
-    val torStatus by com.bitchat.android.net.TorManager.statusFlow.collectAsState()
+    val torStatus by com.bitchat.android.net.TorManager.statusFlow.collectAsStateWithLifecycle()
     
     if (torStatus.mode != com.bitchat.android.net.TorMode.OFF) {
         val dotColor = when {
@@ -247,10 +248,10 @@ fun ChatHeaderContent(
     when {
         selectedPrivatePeer != null -> {
             // Private chat header - Fully reactive state tracking
-            val favoritePeers by viewModel.favoritePeers.collectAsState()
-            val peerFingerprints by viewModel.peerFingerprints.collectAsState()
-            val peerSessionStates by viewModel.peerSessionStates.collectAsState()
-            val peerNicknames by viewModel.peerNicknames.collectAsState()
+            val favoritePeers by viewModel.favoritePeers.collectAsStateWithLifecycle()
+            val peerFingerprints by viewModel.peerFingerprints.collectAsStateWithLifecycle()
+            val peerSessionStates by viewModel.peerSessionStates.collectAsStateWithLifecycle()
+            val peerNicknames by viewModel.peerNicknames.collectAsStateWithLifecycle()
             
             // Reactive favorite computation - no more static lookups!
             val isFavorite = isFavoriteReactive(
@@ -263,8 +264,8 @@ fun ChatHeaderContent(
             Log.d("ChatHeader", "Header recomposing: peer=$selectedPrivatePeer, isFav=$isFavorite, sessionState=$sessionState")
             
             // Pass geohash context and people for NIP-17 chat title formatting
-            val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsState()
-            val geohashPeople by viewModel.geohashPeople.collectAsState()
+            val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
+            val geohashPeople by viewModel.geohashPeople.collectAsStateWithLifecycle()
 
             PrivateChatHeader(
                 peerID = selectedPrivatePeer,
@@ -522,18 +523,18 @@ private fun MainHeader(
     viewModel: ChatViewModel
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val connectedPeers by viewModel.connectedPeers.collectAsState()
-    val joinedChannels by viewModel.joinedChannels.collectAsState()
-    val hasUnreadChannels by viewModel.unreadChannelMessages.collectAsState()
-    val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.collectAsState()
-    val isConnected by viewModel.isConnected.collectAsState()
-    val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsState()
-    val geohashPeople by viewModel.geohashPeople.collectAsState()
+    val connectedPeers by viewModel.connectedPeers.collectAsStateWithLifecycle()
+    val joinedChannels by viewModel.joinedChannels.collectAsStateWithLifecycle()
+    val hasUnreadChannels by viewModel.unreadChannelMessages.collectAsStateWithLifecycle()
+    val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.collectAsStateWithLifecycle()
+    val isConnected by viewModel.isConnected.collectAsStateWithLifecycle()
+    val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
+    val geohashPeople by viewModel.geohashPeople.collectAsStateWithLifecycle()
 
     // Bookmarks store for current geohash toggle (iOS parity)
     val context = androidx.compose.ui.platform.LocalContext.current
     val bookmarksStore = remember { com.bitchat.android.geohash.GeohashBookmarksStore.getInstance(context) }
-    val bookmarks by bookmarksStore.bookmarks.collectAsState()
+    val bookmarks by bookmarksStore.bookmarks.collectAsStateWithLifecycle()
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -652,8 +653,8 @@ private fun LocationChannelsButton(
     val colorScheme = MaterialTheme.colorScheme
     
     // Get current channel selection from location manager
-    val selectedChannel by viewModel.selectedLocationChannel.collectAsState()
-    val teleported by viewModel.isTeleported.collectAsState()
+    val selectedChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
+    val teleported by viewModel.isTeleported.collectAsStateWithLifecycle()
     
     val (badgeText, badgeColor) = when (selectedChannel) {
         is com.bitchat.android.geohash.ChannelID.Mesh -> {

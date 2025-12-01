@@ -24,6 +24,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.zIndex
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.ui.media.FullScreenImageViewer
 
@@ -40,22 +41,22 @@ import com.bitchat.android.ui.media.FullScreenImageViewer
 @Composable
 fun ChatScreen(viewModel: ChatViewModel) {
     val colorScheme = MaterialTheme.colorScheme
-    val messages by viewModel.messages.collectAsState()
-    val connectedPeers by viewModel.connectedPeers.collectAsState()
-    val nickname by viewModel.nickname.collectAsState()
-    val selectedPrivatePeer by viewModel.selectedPrivateChatPeer.collectAsState()
-    val currentChannel by viewModel.currentChannel.collectAsState()
-    val joinedChannels by viewModel.joinedChannels.collectAsState()
-    val hasUnreadChannels by viewModel.unreadChannelMessages.collectAsState()
-    val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.collectAsState()
-    val privateChats by viewModel.privateChats.collectAsState()
-    val channelMessages by viewModel.channelMessages.collectAsState()
-    val showSidebar by viewModel.showSidebar.collectAsState()
-    val showCommandSuggestions by viewModel.showCommandSuggestions.collectAsState()
-    val commandSuggestions by viewModel.commandSuggestions.collectAsState()
-    val showMentionSuggestions by viewModel.showMentionSuggestions.collectAsState()
-    val mentionSuggestions by viewModel.mentionSuggestions.collectAsState()
-    val showAppInfo by viewModel.showAppInfo.collectAsState()
+    val messages by viewModel.messages.collectAsStateWithLifecycle()
+    val connectedPeers by viewModel.connectedPeers.collectAsStateWithLifecycle()
+    val nickname by viewModel.nickname.collectAsStateWithLifecycle()
+    val selectedPrivatePeer by viewModel.selectedPrivateChatPeer.collectAsStateWithLifecycle()
+    val currentChannel by viewModel.currentChannel.collectAsStateWithLifecycle()
+    val joinedChannels by viewModel.joinedChannels.collectAsStateWithLifecycle()
+    val hasUnreadChannels by viewModel.unreadChannelMessages.collectAsStateWithLifecycle()
+    val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.collectAsStateWithLifecycle()
+    val privateChats by viewModel.privateChats.collectAsStateWithLifecycle()
+    val channelMessages by viewModel.channelMessages.collectAsStateWithLifecycle()
+    val showSidebar by viewModel.showSidebar.collectAsStateWithLifecycle()
+    val showCommandSuggestions by viewModel.showCommandSuggestions.collectAsStateWithLifecycle()
+    val commandSuggestions by viewModel.commandSuggestions.collectAsStateWithLifecycle()
+    val showMentionSuggestions by viewModel.showMentionSuggestions.collectAsStateWithLifecycle()
+    val mentionSuggestions by viewModel.mentionSuggestions.collectAsStateWithLifecycle()
+    val showAppInfo by viewModel.showAppInfo.collectAsStateWithLifecycle()
 
     var messageText by remember { mutableStateOf(TextFieldValue("")) }
     var showPasswordPrompt by remember { mutableStateOf(false) }
@@ -77,11 +78,11 @@ fun ChatScreen(viewModel: ChatViewModel) {
         showPasswordDialog = showPasswordPrompt
     }
 
-    val isConnected by viewModel.isConnected.collectAsState()
-    val passwordPromptChannel by viewModel.passwordPromptChannel.collectAsState()
+    val isConnected by viewModel.isConnected.collectAsStateWithLifecycle()
+    val passwordPromptChannel by viewModel.passwordPromptChannel.collectAsStateWithLifecycle()
 
     // Get location channel info for timeline switching
-    val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsState()
+    val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
 
     // Determine what messages to show based on current context (unified timelines)
     val displayMessages = when {

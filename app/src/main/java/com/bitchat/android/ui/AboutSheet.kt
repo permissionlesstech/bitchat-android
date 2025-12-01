@@ -31,6 +31,7 @@ import com.bitchat.android.nostr.NostrProofOfWork
 import com.bitchat.android.nostr.PoWPreferenceManager
 import com.bitchat.android.ui.debug.DebugSettingsSheet
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.R
 /**
  * About Sheet for bitchat app information
@@ -241,7 +242,7 @@ fun AboutSheet(
                                 .padding(horizontal = 24.dp)
                                 .padding(top = 24.dp, bottom = 8.dp)
                         )
-                        val themePref by com.bitchat.android.ui.theme.ThemePreferenceManager.themeFlow.collectAsState()
+                        val themePref by com.bitchat.android.ui.theme.ThemePreferenceManager.themeFlow.collectAsStateWithLifecycle()
                         Row(
                             modifier = Modifier.padding(horizontal = 24.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -277,8 +278,8 @@ fun AboutSheet(
                             PoWPreferenceManager.init(context)
                         }
 
-                        val powEnabled by PoWPreferenceManager.powEnabled.collectAsState()
-                        val powDifficulty by PoWPreferenceManager.powDifficulty.collectAsState()
+                        val powEnabled by PoWPreferenceManager.powEnabled.collectAsStateWithLifecycle()
+                        val powDifficulty by PoWPreferenceManager.powDifficulty.collectAsStateWithLifecycle()
 
                         Column(
                             modifier = Modifier.padding(horizontal = 24.dp),
@@ -384,7 +385,7 @@ fun AboutSheet(
                     // Network (Tor) section
                     item(key = "network_section") {
                         val torMode = remember { mutableStateOf(com.bitchat.android.net.TorPreferenceManager.get(context)) }
-                        val torStatus by com.bitchat.android.net.TorManager.statusFlow.collectAsState()
+                        val torStatus by com.bitchat.android.net.TorManager.statusFlow.collectAsStateWithLifecycle()
                         Text(
                             text = stringResource(R.string.about_network),
                             style = MaterialTheme.typography.labelLarge,

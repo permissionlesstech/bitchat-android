@@ -37,6 +37,7 @@ import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.geohash.GeohashBookmarksStore
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.R
 
 /**
@@ -56,18 +57,18 @@ fun LocationChannelsSheet(
     val bookmarksStore = remember { GeohashBookmarksStore.getInstance(context) }
 
     // Observe location manager state
-    val permissionState by locationManager.permissionState.collectAsState()
-    val availableChannels by locationManager.availableChannels.collectAsState()
-    val selectedChannel by locationManager.selectedChannel.collectAsState()
-    val locationNames by locationManager.locationNames.collectAsState()
-    val locationServicesEnabled by locationManager.locationServicesEnabled.collectAsState()
+    val permissionState by locationManager.permissionState.collectAsStateWithLifecycle()
+    val availableChannels by locationManager.availableChannels.collectAsStateWithLifecycle()
+    val selectedChannel by locationManager.selectedChannel.collectAsStateWithLifecycle()
+    val locationNames by locationManager.locationNames.collectAsStateWithLifecycle()
+    val locationServicesEnabled by locationManager.locationServicesEnabled.collectAsStateWithLifecycle()
 
     // Observe bookmarks state
-    val bookmarks by bookmarksStore.bookmarks.collectAsState()
-    val bookmarkNames by bookmarksStore.bookmarkNames.collectAsState()
+    val bookmarks by bookmarksStore.bookmarks.collectAsStateWithLifecycle()
+    val bookmarkNames by bookmarksStore.bookmarkNames.collectAsStateWithLifecycle()
 
     // Observe reactive participant counts
-    val geohashParticipantCounts by viewModel.geohashParticipantCounts.collectAsState()
+    val geohashParticipantCounts by viewModel.geohashParticipantCounts.collectAsStateWithLifecycle()
 
     // UI state
     var customGeohash by remember { mutableStateOf("") }
