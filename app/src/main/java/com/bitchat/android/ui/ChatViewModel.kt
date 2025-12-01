@@ -103,7 +103,7 @@ class ChatViewModel(
 
 
 
-    // Expose state through StateFlow (maintaining the same interface)
+
     val messages: StateFlow<List<BitchatMessage>> = state.messages
     val connectedPeers: StateFlow<List<String>> = state.connectedPeers
     val nickname: StateFlow<String> = state.nickname
