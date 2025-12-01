@@ -18,6 +18,23 @@ data class CommandSuggestion(
     val description: String
 )
 
+
+
+enum class PendingAttachmentType {
+    IMAGE,
+    AUDIO,
+    FILE
+}
+
+
+data class PendingAttachment(
+    val path: String,
+    val type: PendingAttachmentType,
+    val mimeType: String,
+    val targetPeerId: String?,
+    val targetChannel: String?
+)
+
 /**
  * Contains all the observable state for the chat system
  */
@@ -85,6 +102,9 @@ class ChatState {
     
     private val _mentionSuggestions = MutableLiveData<List<String>>(emptyList())
     val mentionSuggestions: LiveData<List<String>> = _mentionSuggestions
+
+    private val _pendingAttachment = MutableLiveData<PendingAttachment?>(null)
+    val pendingAttachment: LiveData<PendingAttachment?> = _pendingAttachment
     
     // Favorites
     private val _favoritePeers = MutableLiveData<Set<String>>(emptySet())
@@ -179,6 +199,8 @@ class ChatState {
     fun getCommandSuggestionsValue() = _commandSuggestions.value ?: emptyList()
     fun getShowMentionSuggestionsValue() = _showMentionSuggestions.value ?: false
     fun getMentionSuggestionsValue() = _mentionSuggestions.value ?: emptyList()
+
+    fun getPendingAttachmentValue() = _pendingAttachment.value
     fun getFavoritePeersValue() = _favoritePeers.value ?: emptySet()
     fun getPeerSessionStatesValue() = _peerSessionStates.value ?: emptyMap()
     fun getPeerFingerprintsValue() = _peerFingerprints.value ?: emptyMap()
@@ -266,6 +288,10 @@ class ChatState {
     
     fun setMentionSuggestions(suggestions: List<String>) {
         _mentionSuggestions.value = suggestions
+    }
+
+    fun setPendingAttachment(attachment: PendingAttachment?) {
+        _pendingAttachment.value = attachment
     }
 
     fun setFavoritePeers(favorites: Set<String>) {
