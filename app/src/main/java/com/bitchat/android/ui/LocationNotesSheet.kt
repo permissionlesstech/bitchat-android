@@ -12,7 +12,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,6 +24,7 @@ import com.bitchat.android.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.nostr.LocationNotesManager
@@ -57,16 +57,16 @@ fun LocationNotesSheet(
     val locationManager = remember { LocationChannelManager.getInstance(context) }
     
     // State
-    val notes by notesManager.notes.observeAsState(emptyList())
-    val state by notesManager.state.observeAsState(LocationNotesManager.State.IDLE)
-    val errorMessage by notesManager.errorMessage.observeAsState()
-    val initialLoadComplete by notesManager.initialLoadComplete.observeAsState(false)
+    val notes by notesManager.notes.collectAsStateWithLifecycle()
+    val state by notesManager.state.collectAsStateWithLifecycle(LocationNotesManager.State.IDLE)
+    val errorMessage by notesManager.errorMessage.collectAsStateWithLifecycle()
+    val initialLoadComplete by notesManager.initialLoadComplete.collectAsStateWithLifecycle(false)
     
     // SIMPLIFIED: Get count directly from notes list (no separate counter needed)
     val count = notes.size
     
     // Get location name (building or block) - matches iOS locationNames lookup
-    val locationNames by locationManager.locationNames.observeAsState(emptyMap())
+    val locationNames by locationManager.locationNames.collectAsStateWithLifecycle()
     val displayLocationName = locationNames[GeohashChannelLevel.BUILDING]?.takeIf { it.isNotEmpty() }
         ?: locationNames[GeohashChannelLevel.BLOCK]?.takeIf { it.isNotEmpty() }
     

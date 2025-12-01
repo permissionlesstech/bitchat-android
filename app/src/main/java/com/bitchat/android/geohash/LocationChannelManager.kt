@@ -10,12 +10,12 @@ import android.location.LocationManager
 import android.os.Bundle
 import android.util.Log
 import androidx.core.app.ActivityCompat
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import kotlinx.coroutines.*
 import java.util.*
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * Manages location permissions, one-shot location retrieval, and computing geohash channels.
@@ -53,28 +53,26 @@ class LocationChannelManager private constructor(private val context: Context) {
     private var dataManager: com.bitchat.android.ui.DataManager? = null
 
     // Published state for UI bindings (matching iOS @Published properties)
-    private val _permissionState = MutableLiveData(PermissionState.NOT_DETERMINED)
-    val permissionState: LiveData<PermissionState> = _permissionState
+    private val _permissionState = MutableStateFlow(PermissionState.NOT_DETERMINED)
+    val permissionState: StateFlow<PermissionState> = _permissionState
 
-    private val _availableChannels = MutableLiveData<List<GeohashChannel>>(emptyList())
-    val availableChannels: LiveData<List<GeohashChannel>> = _availableChannels
+    private val _availableChannels = MutableStateFlow<List<GeohashChannel>>(emptyList())
+    val availableChannels: StateFlow<List<GeohashChannel>> = _availableChannels
 
-    private val _selectedChannel = MutableLiveData<ChannelID>(ChannelID.Mesh)
-    val selectedChannel: LiveData<ChannelID> = _selectedChannel
+    private val _selectedChannel = MutableStateFlow<ChannelID>(ChannelID.Mesh)
+    val selectedChannel: StateFlow<ChannelID> = _selectedChannel
 
-    private val _teleported = MutableLiveData(false)
-    val teleported: LiveData<Boolean> = _teleported
+    private val _teleported = MutableStateFlow(false)
+    val teleported: StateFlow<Boolean> = _teleported
 
-    private val _locationNames = MutableLiveData<Map<GeohashChannelLevel, String>>(emptyMap())
-    val locationNames: LiveData<Map<GeohashChannelLevel, String>> = _locationNames
+    private val _locationNames = MutableStateFlow<Map<GeohashChannelLevel, String>>(emptyMap())
+    val locationNames: StateFlow<Map<GeohashChannelLevel, String>> = _locationNames
     
-    // Add a new LiveData property to indicate when location is being fetched
-    private val _isLoadingLocation = MutableLiveData(false)
-    val isLoadingLocation: LiveData<Boolean> = _isLoadingLocation
+    private val _isLoadingLocation = MutableStateFlow(false)
+    val isLoadingLocation: StateFlow<Boolean> = _isLoadingLocation
     
-    // Add a new LiveData property to track if location services are enabled by user
-    private val _locationServicesEnabled = MutableLiveData(false)
-    val locationServicesEnabled: LiveData<Boolean> = _locationServicesEnabled
+    private val _locationServicesEnabled = MutableStateFlow(false)
+    val locationServicesEnabled: StateFlow<Boolean> = _locationServicesEnabled
 
     init {
         updatePermissionState()
@@ -102,15 +100,15 @@ class LocationChannelManager private constructor(private val context: Context) {
         when (getCurrentPermissionStatus()) {
             PermissionState.NOT_DETERMINED -> {
                 Log.d(TAG, "Permission not determined - user needs to grant in app settings")
-                _permissionState.postValue(PermissionState.NOT_DETERMINED)
+                _permissionState.value = PermissionState.NOT_DETERMINED
             }
             PermissionState.DENIED, PermissionState.RESTRICTED -> {
                 Log.d(TAG, "Permission denied or restricted")
-                _permissionState.postValue(PermissionState.DENIED)
+                _permissionState.value = PermissionState.DENIED
             }
             PermissionState.AUTHORIZED -> {
                 Log.d(TAG, "Permission authorized - requesting location")
-                _permissionState.postValue(PermissionState.AUTHORIZED)
+                _permissionState.value = PermissionState.AUTHORIZED
                 requestOneShotLocation()
             }
         }
@@ -180,7 +178,7 @@ class LocationChannelManager private constructor(private val context: Context) {
         lastLocation?.let { location ->
             when (channel) {
                 is ChannelID.Mesh -> {
-                    _teleported.postValue(false)
+                    _teleported.value = false
                 }
                 is ChannelID.Location -> {
                     val currentGeohash = Geohash.encode(
@@ -189,7 +187,7 @@ class LocationChannelManager private constructor(private val context: Context) {
                         precision = channel.channel.level.precision
                     )
                     val isTeleportedNow = currentGeohash != channel.channel.geohash
-                    _teleported.postValue(isTeleportedNow)
+                    _teleported.value = isTeleportedNow
                     Log.d(TAG, "Teleported (immediate recompute): $isTeleportedNow (current: $currentGeohash, selected: ${channel.channel.geohash})")
                 }
             }
@@ -201,7 +199,7 @@ class LocationChannelManager private constructor(private val context: Context) {
      */
     fun setTeleported(teleported: Boolean) {
         Log.d(TAG, "Setting teleported status: $teleported")
-        _teleported.postValue(teleported)
+        _teleported.value = teleported
     }
 
     /**
@@ -209,7 +207,7 @@ class LocationChannelManager private constructor(private val context: Context) {
      */
     fun enableLocationServices() {
         Log.d(TAG, "enableLocationServices() called by user")
-        _locationServicesEnabled.postValue(true)
+        _locationServicesEnabled.value = true
         saveLocationServicesState(true)
         
         // If we have permission, start location operations
@@ -223,15 +221,15 @@ class LocationChannelManager private constructor(private val context: Context) {
      */
     fun disableLocationServices() {
         Log.d(TAG, "disableLocationServices() called by user")
-        _locationServicesEnabled.postValue(false)
+        _locationServicesEnabled.value = false
         saveLocationServicesState(false)
         
         // Stop any ongoing location operations
         endLiveRefresh()
         
         // Clear available channels when location is disabled
-        _availableChannels.postValue(emptyList())
-        _locationNames.postValue(emptyMap())
+        _availableChannels.value = emptyList()
+        _locationNames.value = emptyMap()
         
         // If user had a location channel selected, switch back to mesh
         if (_selectedChannel.value is ChannelID.Location) {
@@ -243,7 +241,7 @@ class LocationChannelManager private constructor(private val context: Context) {
      * Check if location services are enabled by the user
      */
     fun isLocationServicesEnabled(): Boolean {
-        return _locationServicesEnabled.value ?: false
+        return _locationServicesEnabled.value
     }
 
     // MARK: - Location Operations
@@ -280,13 +278,13 @@ class LocationChannelManager private constructor(private val context: Context) {
             if (lastKnownLocation != null) {
                 Log.d(TAG, "Using last known location: ${lastKnownLocation.latitude}, ${lastKnownLocation.longitude}")
                 lastLocation = lastKnownLocation
-                _isLoadingLocation.postValue(false) // Make sure loading state is off
+                _isLoadingLocation.value = false // Make sure loading state is off
                 computeChannels(lastKnownLocation)
                 reverseGeocodeIfNeeded(lastKnownLocation)
             } else {
                 Log.d(TAG, "No last known location available")
                 // Set loading state to true so UI can show a spinner
-                _isLoadingLocation.postValue(true)
+                _isLoadingLocation.value = true
                 
                 // Request a fresh location only when we don't have a last known location
                 Log.d(TAG, "Requesting fresh location...")
@@ -294,7 +292,7 @@ class LocationChannelManager private constructor(private val context: Context) {
             }
         } catch (e: SecurityException) {
             Log.e(TAG, "Security exception requesting location: ${e.message}")
-            _isLoadingLocation.postValue(false) // Turn off loading state on error
+            _isLoadingLocation.value = false // Turn off loading state on error
             updatePermissionState()
         }
     }
@@ -308,7 +306,7 @@ class LocationChannelManager private constructor(private val context: Context) {
             reverseGeocodeIfNeeded(location)
             
             // Update loading state to indicate we have a location now
-            _isLoadingLocation.postValue(false)
+            _isLoadingLocation.value = false
             
             // Remove this listener after getting the update
             try {
@@ -322,13 +320,13 @@ class LocationChannelManager private constructor(private val context: Context) {
     // Request a fresh location update using getCurrentLocation instead of continuous updates
     private fun requestFreshLocation() {
         if (!hasLocationPermission()) {
-            _isLoadingLocation.postValue(false) // Turn off loading state if no permission
+            _isLoadingLocation.value = false // Turn off loading state if no permission
             return
         }
         
         try {
             // Set loading state to true to indicate we're actively trying to get a location
-            _isLoadingLocation.postValue(true)
+            _isLoadingLocation.value = true
             
             // Try common providers in order of preference
             val providers = listOf(
@@ -358,7 +356,7 @@ class LocationChannelManager private constructor(private val context: Context) {
                                     Log.w(TAG, "Received null location from getCurrentLocation")
                                 }
                                 // Update loading state to indicate we have a location now
-                                _isLoadingLocation.postValue(false)
+                                _isLoadingLocation.value = false
                             }
                         )
                     } else {
@@ -378,14 +376,14 @@ class LocationChannelManager private constructor(private val context: Context) {
             // If no provider was available, turn off loading state
             if (!providerFound) {
                 Log.w(TAG, "No location providers available")
-                _isLoadingLocation.postValue(false)
+                _isLoadingLocation.value = false
             }
         } catch (e: SecurityException) {
             Log.e(TAG, "Security exception requesting location: ${e.message}")
-            _isLoadingLocation.postValue(false) // Turn off loading state on error
+            _isLoadingLocation.value = false // Turn off loading state on error
         } catch (e: Exception) {
             Log.e(TAG, "Error requesting location: ${e.message}")
-            _isLoadingLocation.postValue(false) // Turn off loading state on error
+            _isLoadingLocation.value = false // Turn off loading state on error
         }
     }
 
@@ -408,7 +406,7 @@ class LocationChannelManager private constructor(private val context: Context) {
     private fun updatePermissionState() {
         val newState = getCurrentPermissionStatus()
         Log.d(TAG, "Permission state updated to: $newState")
-        _permissionState.postValue(newState)
+        _permissionState.value = newState
     }
 
     private fun hasLocationPermission(): Boolean {
@@ -433,13 +431,13 @@ class LocationChannelManager private constructor(private val context: Context) {
             Log.v(TAG, "Generated ${level.displayName}: $geohash")
         }
         
-        _availableChannels.postValue(result)
+        _availableChannels.value = result
         
         // Recompute teleported status based on current location vs selected channel
         val selectedChannelValue = _selectedChannel.value
         when (selectedChannelValue) {
             is ChannelID.Mesh -> {
-                _teleported.postValue(false)
+                _teleported.value = false
             }
             is ChannelID.Location -> {
                 val currentGeohash = Geohash.encode(
@@ -448,11 +446,8 @@ class LocationChannelManager private constructor(private val context: Context) {
                     precision = selectedChannelValue.channel.level.precision
                 )
                 val isTeleported = currentGeohash != selectedChannelValue.channel.geohash
-                _teleported.postValue(isTeleported)
+                _teleported.value = isTeleported
                 Log.d(TAG, "Teleported status: $isTeleported (current: $currentGeohash, selected: ${selectedChannelValue.channel.geohash})")
-            }
-            null -> {
-                _teleported.postValue(false)
             }
         }
     }
@@ -482,7 +477,7 @@ class LocationChannelManager private constructor(private val context: Context) {
                     val names = namesByLevel(address)
                     
                     Log.d(TAG, "Reverse geocoding result: $names")
-                    _locationNames.postValue(names)
+                    _locationNames.value = names
                 } else {
                     Log.w(TAG, "No reverse geocoding results")
                 }
@@ -601,26 +596,26 @@ class LocationChannelManager private constructor(private val context: Context) {
                     }
                     
                     if (channel != null) {
-                        _selectedChannel.postValue(channel)
+                        _selectedChannel.value = channel
                         Log.d(TAG, "Restored persisted channel: ${channel.displayName}")
                     } else {
                         Log.d(TAG, "Could not restore persisted channel, defaulting to Mesh")
-                        _selectedChannel.postValue(ChannelID.Mesh)
+                        _selectedChannel.value = ChannelID.Mesh
                     }
                 } else {
                     Log.w(TAG, "Invalid channel data format in persistence")
-                    _selectedChannel.postValue(ChannelID.Mesh)
+                    _selectedChannel.value = ChannelID.Mesh
                 }
             } else {
                 Log.d(TAG, "No persisted channel found, defaulting to Mesh")
-                _selectedChannel.postValue(ChannelID.Mesh)
+                _selectedChannel.value = ChannelID.Mesh
             }
         } catch (e: JsonSyntaxException) {
             Log.e(TAG, "Failed to parse persisted channel data: ${e.message}")
-            _selectedChannel.postValue(ChannelID.Mesh)
+            _selectedChannel.value = ChannelID.Mesh
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load persisted channel: ${e.message}")
-            _selectedChannel.postValue(ChannelID.Mesh)
+            _selectedChannel.value = ChannelID.Mesh
         }
     }
     
@@ -629,7 +624,7 @@ class LocationChannelManager private constructor(private val context: Context) {
      */
     fun clearPersistedChannel() {
         dataManager?.clearLastGeohashChannel()
-        _selectedChannel.postValue(ChannelID.Mesh)
+        _selectedChannel.value = ChannelID.Mesh
         Log.d(TAG, "Cleared persisted channel selection")
     }
 
@@ -653,11 +648,11 @@ class LocationChannelManager private constructor(private val context: Context) {
     private fun loadLocationServicesState() {
         try {
             val enabled = dataManager?.isLocationServicesEnabled() ?: false
-            _locationServicesEnabled.postValue(enabled)
+            _locationServicesEnabled.value = enabled
             Log.d(TAG, "Loaded location services state: $enabled")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load location services state: ${e.message}")
-            _locationServicesEnabled.postValue(false)
+            _locationServicesEnabled.value = false
         }
     }
 

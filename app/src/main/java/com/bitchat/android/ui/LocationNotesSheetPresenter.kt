@@ -4,12 +4,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
 
@@ -26,15 +26,15 @@ fun LocationNotesSheetPresenter(
 ) {
     val context = LocalContext.current
     val locationManager = remember { LocationChannelManager.getInstance(context) }
-    val availableChannels by locationManager.availableChannels.observeAsState(emptyList())
-    val nickname by viewModel.nickname.observeAsState("")
+    val availableChannels by locationManager.availableChannels.collectAsStateWithLifecycle()
+    val nickname by viewModel.nickname.collectAsStateWithLifecycle()
     
     // iOS pattern: notesGeohash ?? LocationChannelManager.shared.availableChannels.first(where: { $0.level == .building })?.geohash
     val buildingGeohash = availableChannels.firstOrNull { it.level == GeohashChannelLevel.BUILDING }?.geohash
     
     if (buildingGeohash != null) {
         // Get location name from locationManager
-        val locationNames by locationManager.locationNames.observeAsState(emptyMap())
+        val locationNames by locationManager.locationNames.collectAsStateWithLifecycle()
         val locationName = locationNames[GeohashChannelLevel.BUILDING]
             ?: locationNames[GeohashChannelLevel.BLOCK]
         

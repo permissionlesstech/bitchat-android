@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.nostr.NostrProofOfWork
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.R
 import com.bitchat.android.nostr.PoWPreferenceManager
 
@@ -27,9 +28,9 @@ fun PoWStatusIndicator(
     modifier: Modifier = Modifier,
     style: PoWIndicatorStyle = PoWIndicatorStyle.COMPACT
 ) {
-    val powEnabled by PoWPreferenceManager.powEnabled.collectAsState()
-    val powDifficulty by PoWPreferenceManager.powDifficulty.collectAsState()
-    val isMining by PoWPreferenceManager.isMining.collectAsState()
+    val powEnabled by PoWPreferenceManager.powEnabled.collectAsStateWithLifecycle()
+    val powDifficulty by PoWPreferenceManager.powDifficulty.collectAsStateWithLifecycle()
+    val isMining by PoWPreferenceManager.isMining.collectAsStateWithLifecycle()
     val colorScheme = MaterialTheme.colorScheme
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
     

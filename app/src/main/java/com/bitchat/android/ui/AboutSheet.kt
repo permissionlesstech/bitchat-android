@@ -11,14 +11,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Public
-import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -28,9 +26,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.nostr.NostrProofOfWork
 import com.bitchat.android.nostr.PoWPreferenceManager
-import com.bitchat.android.ui.debug.DebugSettingsSheet
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.R
+import com.bitchat.android.core.ui.component.button.CloseButton
+
 /**
  * About Sheet for bitchat app information
  * Matches the design language of LocationChannelsSheet
@@ -240,7 +240,7 @@ fun AboutSheet(
                                 .padding(horizontal = 24.dp)
                                 .padding(top = 24.dp, bottom = 8.dp)
                         )
-                        val themePref by com.bitchat.android.ui.theme.ThemePreferenceManager.themeFlow.collectAsState()
+                        val themePref by com.bitchat.android.ui.theme.ThemePreferenceManager.themeFlow.collectAsStateWithLifecycle()
                         Row(
                             modifier = Modifier.padding(horizontal = 24.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -276,8 +276,8 @@ fun AboutSheet(
                             PoWPreferenceManager.init(context)
                         }
 
-                        val powEnabled by PoWPreferenceManager.powEnabled.collectAsState()
-                        val powDifficulty by PoWPreferenceManager.powDifficulty.collectAsState()
+                        val powEnabled by PoWPreferenceManager.powEnabled.collectAsStateWithLifecycle()
+                        val powDifficulty by PoWPreferenceManager.powDifficulty.collectAsStateWithLifecycle()
 
                         Column(
                             modifier = Modifier.padding(horizontal = 24.dp),
@@ -383,7 +383,7 @@ fun AboutSheet(
                     // Network (Tor) section
                     item(key = "network_section") {
                         val torMode = remember { mutableStateOf(com.bitchat.android.net.TorPreferenceManager.get(context)) }
-                        val torStatus by com.bitchat.android.net.TorManager.statusFlow.collectAsState()
+                        val torStatus by com.bitchat.android.net.TorManager.statusFlow.collectAsStateWithLifecycle()
                         Text(
                             text = stringResource(R.string.about_network),
                             style = MaterialTheme.typography.labelLarge,
@@ -551,18 +551,12 @@ fun AboutSheet(
                         .height(64.dp)
                         .background(MaterialTheme.colorScheme.background.copy(alpha = topBarAlpha))
                 ) {
-                    TextButton(
+                    CloseButton(
                         onClick = onDismiss,
-                        modifier = Modifier
+                        modifier = modifier
                             .align(Alignment.CenterEnd)
-                            .padding(horizontal = 16.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.close_plain),
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                    }
+                            .padding(horizontal = 16.dp),
+                    )
                 }
             }
         }
