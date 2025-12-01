@@ -6,9 +6,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.SharingStarted.Companion.WhileSubscribed
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 /**
@@ -137,24 +139,20 @@ class ChatState {
     private val _geohashParticipantCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
     val geohashParticipantCounts: StateFlow<Map<String, Int>> = _geohashParticipantCounts.asStateFlow()
     
-    // Unread state computed properties using Flow.combine
+
     val hasUnreadChannels: StateFlow<Boolean> = _unreadChannelMessages
-        .combine(_unreadChannelMessages) { unreadMap, _ ->
-            unreadMap.values.any { it > 0 }
-        }
+        .map { unreadMap -> unreadMap.values.any { it > 0 } }
         .stateIn(
             scope = CoroutineScope(Dispatchers.Default),
-            started = SharingStarted.Eagerly,
+            started = WhileSubscribed(5_000),
             initialValue = false
         )
     
     val hasUnreadPrivateMessages: StateFlow<Boolean> = _unreadPrivateMessages
-        .combine(_unreadPrivateMessages) { unreadSet, _ ->
-            unreadSet.isNotEmpty()
-        }
+        .map { unreadSet -> unreadSet.isNotEmpty() }
         .stateIn(
             scope = CoroutineScope(Dispatchers.Default),
-            started = SharingStarted.Eagerly,
+            started = WhileSubscribed(5_000),
             initialValue = false
         )
     
