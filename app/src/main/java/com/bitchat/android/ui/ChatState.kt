@@ -28,7 +28,9 @@ data class CommandSuggestion(
 /**
  * Contains all the observable state for the chat system
  */
-class ChatState {
+class ChatState(
+    scope: CoroutineScope
+) {
     
     // Core messages and peer state
     private val _messages = MutableStateFlow<List<BitchatMessage>>(emptyList())
@@ -143,7 +145,7 @@ class ChatState {
     val hasUnreadChannels: StateFlow<Boolean> = _unreadChannelMessages
         .map { unreadMap -> unreadMap.values.any { it > 0 } }
         .stateIn(
-            scope = CoroutineScope(Dispatchers.Default),
+            scope = scope,
             started = WhileSubscribed(5_000),
             initialValue = false
         )
@@ -151,7 +153,7 @@ class ChatState {
     val hasUnreadPrivateMessages: StateFlow<Boolean> = _unreadPrivateMessages
         .map { unreadSet -> unreadSet.isNotEmpty() }
         .stateIn(
-            scope = CoroutineScope(Dispatchers.Default),
+            scope = scope,
             started = WhileSubscribed(5_000),
             initialValue = false
         )

@@ -47,7 +47,9 @@ class ChatViewModel(
     }
 
     // MARK: - State management
-    private val state = ChatState()
+    private val state = ChatState(
+        scope = viewModelScope,
+    )
 
     // Transfer progress tracking
     private val transferMessageMap = mutableMapOf<String, String>()
