@@ -18,3 +18,4 @@ dependencyResolutionManagement {
 rootProject.name = "bitchat-android"
 include(":app")
 // Using published Arti AAR; local module not included
+include(":baselineprofile")
