@@ -43,7 +43,9 @@ dependency-reduced-pom.xml
 # Other
 *.log
 .cxx/
-*build/
+# Gradle/Android build directories (but not tools/arti-build/)
+**/build/
+!tools/arti-build/
 out/
 gen/
 *~
@@ -57,3 +59,7 @@ google-services.json
 # Keystore files
 *.jks
 *.keystore
+
+# Arti build artifacts (cloned repo and Rust build cache)
+tools/arti-build/.arti-source/
+tools/arti-build/target/

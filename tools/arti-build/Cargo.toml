@@ -1,0 +1,25 @@
+[package]
+name = "arti-android-wrapper"
+version = "1.7.0"
+edition = "2021"
+
+[workspace]
+# Empty workspace table to exclude from parent workspace
+
+[lib]
+crate-type = ["cdylib"]
+name = "arti_android"
+
+[dependencies]
+arti-client = { path = "../crates/arti-client", default-features = false, features = ["tokio", "rustls", "compression", "bridge-client", "onion-service-client", "static-sqlite"] }
+tor-rtcompat = { path = "../crates/tor-rtcompat", features = ["tokio", "rustls"] }
+jni = "0.21"
+tokio = { version = "1", features = ["full"] }
+anyhow = "1.0"
+
+[profile.release]
+opt-level = "z"     # Optimize for size
+lto = true          # Link-time optimization
+codegen-units = 1   # Better optimization
+strip = true        # Strip symbols
+panic = "abort"     # Smaller panic handler

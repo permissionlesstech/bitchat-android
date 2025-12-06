@@ -19,7 +19,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-    
+
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
         with:
@@ -38,30 +38,27 @@ jobs:
       - name: Grant execute permission for Gradlew
         run: chmod +x ./gradlew
 
-      - name: Build APK
+      - name: Build Release APK (with Tor)
         run: ./gradlew assembleRelease --no-daemon --stacktrace
-      
+
       - name: List APK files
         run: |
           echo "APK files built:"
-          find app/build/outputs/apk/release -name "*.apk" -type f
+          find app/build/outputs/apk -name "*.apk" -type f
 
       - name: Rename APK
         run: |
-          mv app/build/outputs/apk/release/app-release-unsigned.apk app/build/outputs/apk/release/bitchat.apk
-      
+          mv app/build/outputs/apk/release/app-release-unsigned.apk app/build/outputs/apk/release/bitchat-android.apk
+
       - name: DEBUG
         run: |
           set -x
-
           pwd
-
           ls -all
-
           cd app/build/outputs/
           ls -all
-          tree
-      
+          tree || ls -R
+
       # Optional: Sign APK (requires secrets)
       # - name: Sign APK
       #   uses: r0adkll/sign-android-release@v1
@@ -75,7 +72,7 @@ jobs:
       - name: Upload APK as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: bitchat-release-apk-${{ github.ref_name }}
+          name: bitchat-android-apk-${{ github.ref_name }}
           path: app/build/outputs/apk/release/*.apk
           retention-days: 30
           if-no-files-found: error
@@ -88,13 +85,22 @@ jobs:
       - name: Download APK artifact
         uses: actions/download-artifact@v4
         with:
-          name: bitchat-release-apk-${{ github.ref_name }}
-          path: .
+          name: bitchat-android-apk-${{ github.ref_name }}
+          path: release
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: bitchat.apk
+          files: |
+            release/bitchat-android.apk
           name: Release ${{ github.ref_name }}
+          body: |
+            ## bitchat Android Release
+
+            **bitchat-android.apk** (~15MB)
+            - Secure P2P messaging over Bluetooth mesh and Nostr
+            - Built-in Tor support (custom Arti build with 16KB page size)
+            - Compatible with Google Play requirements (Nov 2025+)
+            - Cross-platform compatible with iOS version
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

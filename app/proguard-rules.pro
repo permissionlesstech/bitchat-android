@@ -17,9 +17,12 @@
 -keep class com.bitchat.android.nostr.** { *; }
 -keep class com.bitchat.android.identity.** { *; }
 
-# Arti (Tor) ProGuard rules
+# Keep Tor implementation (always included)
+-keep class com.bitchat.android.net.RealTorProvider { *; }
+
+# Arti (Custom Tor implementation in Rust) ProGuard rules
 -keep class info.guardianproject.arti.** { *; }
--keep class org.torproject.jni.** { *; }
--keepnames class org.torproject.jni.**
+-keep class org.torproject.arti.** { *; }
+-keepnames class org.torproject.arti.**
 -dontwarn info.guardianproject.arti.**
--dontwarn org.torproject.jni.**
+-dontwarn org.torproject.arti.**
