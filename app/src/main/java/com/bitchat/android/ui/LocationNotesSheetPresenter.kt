@@ -25,7 +25,7 @@ fun LocationNotesSheetPresenter(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    val locationManager = remember { LocationChannelManager.getInstance(context) }
+    val locationManager: LocationChannelManager = org.koin.compose.koinInject()
     val availableChannels by locationManager.availableChannels.observeAsState(emptyList())
     val nickname by viewModel.nickname.observeAsState("")
     

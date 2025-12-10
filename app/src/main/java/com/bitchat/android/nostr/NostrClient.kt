@@ -4,29 +4,26 @@ import android.content.Context
 import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
 import kotlinx.coroutines.*
 
 /**
  * High-level Nostr client that manages identity, connections, and messaging
  * Provides a simple API for the rest of the application
  */
-class NostrClient private constructor(private val context: Context) {
+@Singleton
+class NostrClient @Inject constructor(
+    private val context: Context,
+    private val relayManager: NostrRelayManager,
+    private val poWPreferenceManager: PoWPreferenceManager
+) {
     
     companion object {
         private const val TAG = "NostrClient"
-        
-        @Volatile
-        private var INSTANCE: NostrClient? = null
-        
-        fun getInstance(context: Context): NostrClient {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: NostrClient(context.applicationContext).also { INSTANCE = it }
-            }
-        }
     }
     
     // Core components
-    private val relayManager = NostrRelayManager.shared
     private var currentIdentity: NostrIdentity? = null
     
     // Client state
@@ -116,7 +113,7 @@ class NostrClient private constructor(private val context: Context) {
                 
                 // Track and send all gift wraps
                 giftWraps.forEach { wrap ->
-                    NostrRelayManager.registerPendingGiftWrap(wrap.id)
+                    relayManager.registerPendingGiftWrap(wrap.id)
                     relayManager.sendEvent(wrap)
                 }
                 
@@ -174,7 +171,8 @@ class NostrClient private constructor(private val context: Context) {
                     content = content,
                     geohash = geohash,
                     senderIdentity = geohashIdentity,
-                    nickname = nickname
+                    nickname = nickname,
+                    powPreferenceManager = poWPreferenceManager
                 )
                 
                 relayManager.sendEvent(event)
@@ -282,7 +280,7 @@ class NostrClient private constructor(private val context: Context) {
     ) {
         try {
             // Check Proof of Work validation for incoming geohash events
-            val powSettings = PoWPreferenceManager.getCurrentSettings()
+            val powSettings = poWPreferenceManager.getCurrentSettings()
             if (powSettings.enabled && powSettings.difficulty > 0) {
                 if (!NostrProofOfWork.validateDifficulty(event, powSettings.difficulty)) {
                     Log.w(TAG, "🚫 Rejecting geohash event ${event.id.take(8)}... due to insufficient PoW (required: ${powSettings.difficulty})")

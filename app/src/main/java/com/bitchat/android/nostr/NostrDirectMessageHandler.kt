@@ -22,11 +22,11 @@ class NostrDirectMessageHandler(
     private val meshDelegateHandler: MeshDelegateHandler,
     private val scope: CoroutineScope,
     private val repo: GeohashRepository,
-    private val dataManager: com.bitchat.android.ui.DataManager
+    private val dataManager: com.bitchat.android.ui.DataManager,
+    private val nostrTransport: NostrTransport,
+    private val seenStore: SeenMessageStore
 ) {
     companion object { private const val TAG = "NostrDirectMessageHandler" }
-
-    private val seenStore by lazy { SeenMessageStore.getInstance(application) }
 
     // Simple event deduplication
     private val processedIds = ArrayDeque<String>()
@@ -137,13 +137,11 @@ class NostrDirectMessageHandler(
                 }
 
                 if (!seenStore.hasDelivered(pm.messageID)) {
-                    val nostrTransport = NostrTransport.getInstance(application)
                     nostrTransport.sendDeliveryAckGeohash(pm.messageID, senderPubkey, recipientIdentity)
                     seenStore.markDelivered(pm.messageID)
                 }
 
                 if (isViewing && !suppressUnread) {
-                    val nostrTransport = NostrTransport.getInstance(application)
                     nostrTransport.sendReadReceiptGeohash(pm.messageID, senderPubkey, recipientIdentity)
                     seenStore.markRead(pm.messageID)
                 }

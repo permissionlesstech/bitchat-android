@@ -8,7 +8,9 @@ import com.bitchat.android.onboarding.BatteryOptimizationStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import org.koin.android.annotation.KoinViewModel
 
+@KoinViewModel
 class MainViewModel : ViewModel() {
 
     private val _onboardingState = MutableStateFlow(OnboardingState.CHECKING)

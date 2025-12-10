@@ -31,6 +31,8 @@ import com.bitchat.android.core.ui.utils.singleOrTripleClickable
 import com.bitchat.android.geohash.LocationChannelManager.PermissionState
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.Offset
+import com.bitchat.android.net.TorManager
+import org.koin.compose.koinInject
 
 /**
  * Header components for ChatScreen
@@ -59,7 +61,8 @@ fun isFavoriteReactive(
 fun TorStatusDot(
     modifier: Modifier = Modifier
 ) {
-    val torStatus by com.bitchat.android.net.TorManager.statusFlow.collectAsState()
+    val torManager: TorManager = koinInject()
+    val torStatus by torManager.statusFlow.collectAsState()
     
     if (torStatus.mode != com.bitchat.android.net.TorMode.OFF) {
         val dotColor = when {
@@ -324,9 +327,9 @@ private fun PrivateChatHeader(
             if (isNostrDM) return@remember false
             if (peerID.length == 64 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
                 val noiseKeyBytes = peerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
-                com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKeyBytes)?.isMutual == true
+                viewModel.getFavoriteStatus(noiseKeyBytes)?.isMutual == true
             } else if (peerID.length == 16 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
-                com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(peerID)?.isMutual == true
+                viewModel.getFavoriteStatus(peerID)?.isMutual == true
             } else false
         } catch (_: Exception) { false }
     }
@@ -357,9 +360,9 @@ private fun PrivateChatHeader(
             val titleFromFavorites = try {
                 if (peerID.length == 64 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
                     val noiseKeyBytes = peerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
-                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKeyBytes)?.peerNickname
+                    viewModel.getFavoriteStatus(noiseKeyBytes)?.peerNickname
                 } else if (peerID.length == 16 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
-                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(peerID)?.peerNickname
+                    viewModel.getFavoriteStatus(peerID)?.peerNickname
                 } else null
             } catch (_: Exception) { null }
             titleFromFavorites ?: peerID.take(12)
@@ -533,7 +536,7 @@ private fun MainHeader(
 
     // Bookmarks store for current geohash toggle (iOS parity)
     val context = androidx.compose.ui.platform.LocalContext.current
-    val bookmarksStore = remember { com.bitchat.android.geohash.GeohashBookmarksStore.getInstance(context) }
+    val bookmarksStore: com.bitchat.android.geohash.GeohashBookmarksStore = koinInject()
     val bookmarks by bookmarksStore.bookmarks.observeAsState(emptyList())
 
     Row(

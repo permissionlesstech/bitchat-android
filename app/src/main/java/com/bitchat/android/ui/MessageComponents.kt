@@ -384,6 +384,7 @@ fun MessageItem(
         
         val haptic = LocalHapticFeedback.current
         val context = LocalContext.current
+        val locationManager: com.bitchat.android.geohash.LocationChannelManager = org.koin.compose.koinInject()
         var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
         Text(
             text = annotatedText,
@@ -415,9 +416,6 @@ fun MessageItem(
                         if (geohashAnnotations.isNotEmpty()) {
                             val geohash = geohashAnnotations.first().item
                             try {
-                                val locationManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(
-                                    context
-                                )
                                 val level = when (geohash.length) {
                                     in 0..2 -> com.bitchat.android.geohash.GeohashChannelLevel.REGION
                                     in 3..4 -> com.bitchat.android.geohash.GeohashChannelLevel.PROVINCE

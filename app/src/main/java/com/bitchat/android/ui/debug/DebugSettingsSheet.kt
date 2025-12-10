@@ -37,7 +37,7 @@ fun DebugSettingsSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
     val colorScheme = MaterialTheme.colorScheme
-    val manager = remember { DebugSettingsManager.getInstance() }
+    val manager = org.koin.compose.koinInject<DebugSettingsManager>()
 
     val verboseLogging by manager.verboseLoggingEnabled.collectAsState()
     val gattServerEnabled by manager.gattServerEnabled.collectAsState()

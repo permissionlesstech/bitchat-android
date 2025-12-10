@@ -27,9 +27,10 @@ fun PoWStatusIndicator(
     modifier: Modifier = Modifier,
     style: PoWIndicatorStyle = PoWIndicatorStyle.COMPACT
 ) {
-    val powEnabled by PoWPreferenceManager.powEnabled.collectAsState()
-    val powDifficulty by PoWPreferenceManager.powDifficulty.collectAsState()
-    val isMining by PoWPreferenceManager.isMining.collectAsState()
+    val powPreferenceManager: PoWPreferenceManager = org.koin.compose.koinInject()
+    val powEnabled by powPreferenceManager.powEnabled.collectAsState()
+    val powDifficulty by powPreferenceManager.powDifficulty.collectAsState()
+    val isMining by powPreferenceManager.isMining.collectAsState()
     val colorScheme = MaterialTheme.colorScheme
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
     
