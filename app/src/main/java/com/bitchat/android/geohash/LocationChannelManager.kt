@@ -14,26 +14,24 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import kotlinx.coroutines.*
 import java.util.*
-import com.google.gson.Gson
+import kotlinx.serialization.json.*
+import com.bitchat.android.util.JsonUtil
 import com.google.gson.JsonSyntaxException
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
 
 /**
  * Manages location permissions, one-shot location retrieval, and computing geohash channels.
  * Direct port from iOS LocationChannelManager for 100% compatibility
  */
-class LocationChannelManager private constructor(private val context: Context) {
+@Singleton
+class LocationChannelManager @Inject constructor(
+    private val context: Context,
+    private val dataManager: com.bitchat.android.ui.DataManager
+) {
     
     companion object {
         private const val TAG = "LocationChannelManager"
-        
-        @Volatile
-        private var INSTANCE: LocationChannelManager? = null
-        
-        fun getInstance(context: Context): LocationChannelManager {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: LocationChannelManager(context.applicationContext).also { INSTANCE = it }
-            }
-        }
     }
 
     // State enum matching iOS
@@ -49,8 +47,7 @@ class LocationChannelManager private constructor(private val context: Context) {
     private var lastLocation: Location? = null
     private var refreshTimer: Job? = null
     private var isGeocoding: Boolean = false
-    private val gson = Gson()
-    private var dataManager: com.bitchat.android.ui.DataManager? = null
+
 
     // Published state for UI bindings (matching iOS @Published properties)
     private val _permissionState = MutableLiveData(PermissionState.NOT_DETERMINED)
@@ -78,8 +75,6 @@ class LocationChannelManager private constructor(private val context: Context) {
 
     init {
         updatePermissionState()
-        // Initialize DataManager and load persisted settings
-        dataManager = com.bitchat.android.ui.DataManager(context)
         loadPersistedChannelSelection()
         loadLocationServicesState()
     }
@@ -544,10 +539,10 @@ class LocationChannelManager private constructor(private val context: Context) {
         try {
             val channelData = when (channel) {
                 is ChannelID.Mesh -> {
-                    gson.toJson(mapOf("type" to "mesh"))
+                    JsonUtil.toJson(mapOf("type" to "mesh"))
                 }
                 is ChannelID.Location -> {
-                    gson.toJson(mapOf(
+                    JsonUtil.toJson(mapOf(
                         "type" to "location",
                         "level" to channel.channel.level.name,
                         "precision" to channel.channel.level.precision,
@@ -556,7 +551,7 @@ class LocationChannelManager private constructor(private val context: Context) {
                     ))
                 }
             }
-            dataManager?.saveLastGeohashChannel(channelData)
+            dataManager.saveLastGeohashChannel(channelData)
             Log.d(TAG, "Saved channel selection: ${channel.displayName}")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save channel selection: ${e.message}")
@@ -568,9 +563,16 @@ class LocationChannelManager private constructor(private val context: Context) {
      */
     private fun loadPersistedChannelSelection() {
         try {
-            val channelData = dataManager?.loadLastGeohashChannel()
+            val channelData = dataManager.loadLastGeohashChannel()
             if (channelData != null) {
-                val channelMap = gson.fromJson(channelData, Map::class.java) as? Map<String, Any>
+                val channelMap = try {
+                    JsonUtil.json.parseToJsonElement(channelData).jsonObject.mapValues { 
+                        when (val value = it.value) {
+                            is JsonPrimitive -> if (value.isString) value.content else value.toString()
+                            else -> value.toString()
+                        }
+                    }
+                } catch (e: Exception) { null }
                 if (channelMap != null) {
                     val channel = when (channelMap["type"] as? String) {
                         "mesh" -> ChannelID.Mesh
@@ -628,7 +630,7 @@ class LocationChannelManager private constructor(private val context: Context) {
      * Clear persisted channel selection (useful for testing or reset)
      */
     fun clearPersistedChannel() {
-        dataManager?.clearLastGeohashChannel()
+        dataManager.clearLastGeohashChannel()
         _selectedChannel.postValue(ChannelID.Mesh)
         Log.d(TAG, "Cleared persisted channel selection")
     }
@@ -640,7 +642,7 @@ class LocationChannelManager private constructor(private val context: Context) {
      */
     private fun saveLocationServicesState(enabled: Boolean) {
         try {
-            dataManager?.saveLocationServicesEnabled(enabled)
+            dataManager.saveLocationServicesEnabled(enabled)
             Log.d(TAG, "Saved location services state: $enabled")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save location services state: ${e.message}")
@@ -652,7 +654,7 @@ class LocationChannelManager private constructor(private val context: Context) {
      */
     private fun loadLocationServicesState() {
         try {
-            val enabled = dataManager?.isLocationServicesEnabled() ?: false
+            val enabled = dataManager.isLocationServicesEnabled()
             _locationServicesEnabled.postValue(enabled)
             Log.d(TAG, "Loaded location services state: $enabled")
         } catch (e: Exception) {

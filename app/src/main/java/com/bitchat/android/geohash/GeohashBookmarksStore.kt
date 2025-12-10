@@ -7,31 +7,29 @@ import android.location.LocationManager
 import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
+import com.bitchat.android.util.JsonUtil
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.Locale
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
 
 /**
  * Stores a user-maintained list of bookmarked geohash channels.
  * - Persistence: SharedPreferences (JSON string array)
  * - Semantics: geohashes are normalized to lowercase base32 and de-duplicated
  */
-class GeohashBookmarksStore private constructor(private val context: Context) {
+@Singleton
+class GeohashBookmarksStore @Inject constructor(private val context: Context) {
 
     companion object {
         private const val TAG = "GeohashBookmarksStore"
         private const val STORE_KEY = "locationChannel.bookmarks"
         private const val NAMES_STORE_KEY = "locationChannel.bookmarkNames"
-
-        @Volatile private var INSTANCE: GeohashBookmarksStore? = null
-        fun getInstance(context: Context): GeohashBookmarksStore {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: GeohashBookmarksStore(context.applicationContext).also { INSTANCE = it }
-            }
-        }
 
         private val allowedChars = "0123456789bcdefghjkmnpqrstuvwxyz".toSet()
         fun normalize(raw: String): String {
@@ -41,7 +39,7 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
         }
     }
 
-    private val gson = Gson()
+
     private val prefs = context.getSharedPreferences("geohash_prefs", Context.MODE_PRIVATE)
 
     private val membership = mutableSetOf<String>()
@@ -96,19 +94,20 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
         try {
             val arrJson = prefs.getString(STORE_KEY, null)
             if (!arrJson.isNullOrEmpty()) {
-                val listType = object : TypeToken<List<String>>() {}.type
-                val arr = gson.fromJson<List<String>>(arrJson, listType)
-                val seen = mutableSetOf<String>()
-                val ordered = mutableListOf<String>()
-                arr.forEach { raw ->
+                val arr = JsonUtil.fromJsonOrNull(ListSerializer(String.serializer()), arrJson)
+                if (arr != null) {
+                    val seen = mutableSetOf<String>()
+                    val ordered = mutableListOf<String>()
+                    arr.forEach { raw ->
                     val gh = normalize(raw)
                     if (gh.isNotEmpty() && !seen.contains(gh)) {
                         seen.add(gh)
                         ordered.add(gh)
                     }
+                    }
+                    membership.clear(); membership.addAll(seen)
+                    _bookmarks.postValue(ordered)
                 }
-                membership.clear(); membership.addAll(seen)
-                _bookmarks.postValue(ordered)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load bookmarks: ${e.message}")
@@ -116,9 +115,10 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
         try {
             val namesJson = prefs.getString(NAMES_STORE_KEY, null)
             if (!namesJson.isNullOrEmpty()) {
-                val mapType = object : TypeToken<Map<String, String>>() {}.type
-                val dict = gson.fromJson<Map<String, String>>(namesJson, mapType)
-                _bookmarkNames.postValue(dict)
+                val dict = JsonUtil.fromJsonOrNull(MapSerializer(String.serializer(), String.serializer()), namesJson)
+                if (dict != null) {
+                    _bookmarkNames.postValue(dict)
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load bookmark names: ${e.message}")
@@ -127,14 +127,14 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
 
     private fun persist() {
         try {
-            val json = gson.toJson(_bookmarks.value ?: emptyList<String>())
+            val json = JsonUtil.toJson(ListSerializer(String.serializer()), _bookmarks.value ?: emptyList<String>())
             prefs.edit().putString(STORE_KEY, json).apply()
         } catch (_: Exception) {}
     }
 
     private fun persistNames() {
         try {
-            val json = gson.toJson(_bookmarkNames.value ?: emptyMap<String, String>())
+            val json = JsonUtil.toJson(MapSerializer(String.serializer(), String.serializer()), _bookmarkNames.value ?: emptyMap<String, String>())
             prefs.edit().putString(NAMES_STORE_KEY, json).apply()
         } catch (_: Exception) {}
     }
@@ -235,14 +235,14 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
 
     private fun persist(list: List<String>) {
         try {
-            val json = gson.toJson(list)
+            val json = JsonUtil.toJson(ListSerializer(String.serializer()), list)
             prefs.edit().putString(STORE_KEY, json).apply()
         } catch (_: Exception) {}
     }
 
     private fun persistNames(map: Map<String, String>) {
         try {
-            val json = gson.toJson(map)
+            val json = JsonUtil.toJson(MapSerializer(String.serializer(), String.serializer()), map)
             prefs.edit().putString(NAMES_STORE_KEY, json).apply()
         } catch (_: Exception) {}
     }

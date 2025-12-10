@@ -2,40 +2,25 @@ package com.bitchat.android.services
 
 import android.content.Context
 import android.util.Log
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.ReadReceipt
 import com.bitchat.android.nostr.NostrTransport
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
 
 /**
  * Routes messages between BLE mesh and Nostr transports, matching iOS behavior.
  */
-class MessageRouter private constructor(
+@Singleton
+class MessageRouter @Inject constructor(
     private val context: Context,
     private val mesh: BluetoothMeshService,
-    private val nostr: NostrTransport
+    private val nostr: NostrTransport,
+    private val favoritesService: FavoritesPersistenceService
 ) {
     companion object {
         private const val TAG = "MessageRouter"
-        @Volatile private var INSTANCE: MessageRouter? = null
-        fun tryGetInstance(): MessageRouter? = INSTANCE
-        fun getInstance(context: Context, mesh: BluetoothMeshService): MessageRouter {
-            return INSTANCE ?: synchronized(this) {
-                val nostr = NostrTransport.getInstance(context)
-                INSTANCE?.also {
-                    // Update mesh reference if needed and keep senderPeerID in sync
-                    it.nostr.senderPeerID = mesh.myPeerID
-                    return it
-                }
-                MessageRouter(context.applicationContext, mesh, nostr).also { instance ->
-                    instance.nostr.senderPeerID = mesh.myPeerID
-                    // Register for favorites changes to flush outbox
-                    try {
-                        com.bitchat.android.favorites.FavoritesPersistenceService.shared.addListener(instance.favoriteListener)
-                    } catch (_: Exception) {}
-                    INSTANCE = instance
-                }
-            }
-        }
     }
 
     // Outbox: peerID -> queued (content, nickname, messageID)
@@ -53,6 +38,14 @@ class MessageRouter private constructor(
         override fun onAllCleared() {
             // Nothing special; leave queued items until routing becomes possible
         }
+    }
+
+    init {
+        nostr.senderPeerID = mesh.myPeerID
+        // Register for favorites changes to flush outbox
+        try {
+            favoritesService.addListener(favoriteListener)
+        } catch (_: Exception) {}
     }
 
     fun sendPrivate(content: String, toPeerID: String, recipientNickname: String, messageID: String) {
@@ -165,11 +158,11 @@ class MessageRouter private constructor(
             // Full Noise key hex
             if (peerID.length == 64 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
                 val noiseKey = hexToBytes(peerID)
-                val fav = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)
+                val fav = favoritesService.getFavoriteStatus(noiseKey)
                 fav?.isMutual == true && fav.peerNostrPublicKey != null
             } else if (peerID.length == 16 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
                 // Ephemeral 16-hex mesh ID: resolve via prefix match in favorites
-                val fav = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(peerID)
+                val fav = favoritesService.getFavoriteStatus(peerID)
                 fav?.isMutual == true && fav.peerNostrPublicKey != null
             } else {
                 false

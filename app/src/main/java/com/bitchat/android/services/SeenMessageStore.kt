@@ -1,30 +1,26 @@
 package com.bitchat.android.services
 
-import android.content.Context
 import android.util.Log
 import com.bitchat.android.identity.SecureIdentityStateManager
-import com.google.gson.Gson
+import kotlinx.serialization.Serializable
+import com.bitchat.android.util.JsonUtil
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
 
 /**
  * Persistent store for message IDs we've already acknowledged (DELIVERED) or READ.
  * Limits to last MAX_IDS entries per set to avoid memory bloat.
  */
-class SeenMessageStore private constructor(private val context: Context) {
+@Singleton
+class SeenMessageStore @Inject constructor(
+    private val secure: SecureIdentityStateManager
+) {
     companion object {
         private const val TAG = "SeenMessageStore"
         private const val STORAGE_KEY = "seen_message_store_v1"
         private const val MAX_IDS = com.bitchat.android.util.AppConstants.Services.SEEN_MESSAGE_MAX_IDS
-
-        @Volatile private var INSTANCE: SeenMessageStore? = null
-        fun getInstance(appContext: Context): SeenMessageStore {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: SeenMessageStore(appContext.applicationContext).also { INSTANCE = it }
-            }
-        }
     }
 
-    private val gson = Gson()
-    private val secure = SecureIdentityStateManager(context)
 
     private val delivered = LinkedHashSet<String>(MAX_IDS)
     private val read = LinkedHashSet<String>(MAX_IDS)
@@ -61,7 +57,7 @@ class SeenMessageStore private constructor(private val context: Context) {
     @Synchronized private fun load() {
         try {
             val json = secure.getSecureValue(STORAGE_KEY) ?: return
-            val data = gson.fromJson(json, StorePayload::class.java) ?: return
+            val data = JsonUtil.fromJsonOrNull<StorePayload>(json) ?: return
             delivered.clear(); read.clear()
             data.delivered.takeLast(MAX_IDS).forEach { delivered.add(it) }
             data.read.takeLast(MAX_IDS).forEach { read.add(it) }
@@ -74,13 +70,14 @@ class SeenMessageStore private constructor(private val context: Context) {
     @Synchronized private fun persist() {
         try {
             val payload = StorePayload(delivered.toList(), read.toList())
-            val json = gson.toJson(payload)
+            val json = JsonUtil.toJson(payload)
             secure.storeSecureValue(STORAGE_KEY, json)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to persist SeenMessageStore: ${e.message}")
         }
     }
 
+    @Serializable
     private data class StorePayload(
         val delivered: List<String> = emptyList(),
         val read: List<String> = emptyList()
