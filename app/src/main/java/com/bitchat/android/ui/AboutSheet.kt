@@ -238,7 +238,7 @@ fun AboutSheet(
             modifier = modifier.statusBarsPadding(),
             onDismissRequest = onDismiss,
             sheetState = sheetState,
-            containerColor = colorScheme.surfaceContainer,
+            containerColor = colorScheme.background,
             dragHandle = null
         ) {
             Box(modifier = Modifier.fillMaxWidth()) {
