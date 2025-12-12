@@ -4,7 +4,7 @@ import android.app.Application
 import android.os.Process
 import androidx.core.app.NotificationManagerCompat
 import com.bitchat.android.mesh.BluetoothMeshService
-import com.bitchat.android.net.TorManager
+import com.bitchat.android.net.ArtiTorManager
 import com.bitchat.android.net.TorMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -37,8 +37,9 @@ object AppShutdownCoordinator {
             try { mesh?.stopServices() } catch (_: Exception) { }
 
             // Stop Tor temporarily (do not change user setting)
+            val torProvider = ArtiTorManager.getInstance()
             val torStop = async {
-                try { TorManager.applyMode(app, TorMode.OFF) } catch (_: Exception) { }
+                try { torProvider.applyMode(app, TorMode.OFF) } catch (_: Exception) { }
             }
 
             // Clear AppState in-memory store
