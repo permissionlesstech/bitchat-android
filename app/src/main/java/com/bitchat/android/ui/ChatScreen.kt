@@ -13,11 +13,21 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.Alignment
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.IconButton
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
@@ -56,6 +66,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val commandSuggestions by viewModel.commandSuggestions.observeAsState(emptyList())
     val showMentionSuggestions by viewModel.showMentionSuggestions.observeAsState(false)
     val mentionSuggestions by viewModel.mentionSuggestions.observeAsState(emptyList())
+    val pendingAttachment by viewModel.pendingAttachment.observeAsState()
     val showAppInfo by viewModel.showAppInfo.observeAsState(false)
 
     var messageText by remember { mutableStateOf(TextFieldValue("")) }
@@ -197,17 +208,28 @@ fun ChatScreen(viewModel: ChatViewModel) {
             viewModel.updateMentionSuggestions(newText.text)
         },
         onSend = {
-            if (messageText.text.trim().isNotEmpty()) {
-                viewModel.sendMessage(messageText.text.trim())
+            val trimmed = messageText.text.trim()
+            val hasTextToSend = trimmed.isNotEmpty()
+            val hadAttachment = pendingAttachment != null
+            if (!hasTextToSend && !hadAttachment) {
+                return@ChatInputSection
+            }
+            if (hadAttachment) {
+                viewModel.confirmPendingAttachment()
+            }
+            if (hasTextToSend) {
+                viewModel.sendMessage(trimmed)
                 messageText = TextFieldValue("")
+            }
+            if (hasTextToSend || hadAttachment) {
                 forceScrollToBottom = !forceScrollToBottom // Toggle to trigger scroll
             }
         },
         onSendVoiceNote = { peer, onionOrChannel, path ->
             viewModel.sendVoiceNote(peer, onionOrChannel, path)
         },
-        onSendImageNote = { peer, onionOrChannel, path ->
-            viewModel.sendImageNote(peer, onionOrChannel, path)
+        onImageSelected = { peer, onionOrChannel, path ->
+            viewModel.stageImageAttachment(peer, onionOrChannel, path)
         },
         onSendFileNote = { peer, onionOrChannel, path ->
             viewModel.sendFileNote(peer, onionOrChannel, path)
@@ -231,6 +253,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
                         selection = TextRange(mentionText.length)
                     )
                 },
+                pendingAttachment = pendingAttachment,
+                onPendingAttachmentRemove = { viewModel.clearPendingAttachment() },
                 selectedPrivatePeer = selectedPrivatePeer,
                 currentChannel = currentChannel,
                 nickname = nickname,
@@ -383,8 +407,10 @@ private fun ChatInputSection(
     onMessageTextChange: (TextFieldValue) -> Unit,
     onSend: () -> Unit,
     onSendVoiceNote: (String?, String?, String) -> Unit,
-    onSendImageNote: (String?, String?, String) -> Unit,
+    onImageSelected: (String?, String?, String) -> Unit,
     onSendFileNote: (String?, String?, String) -> Unit,
+    pendingAttachment: PendingAttachment?,
+    onPendingAttachmentRemove: () -> Unit,
     showCommandSuggestions: Boolean,
     commandSuggestions: List<CommandSuggestion>,
     showMentionSuggestions: Boolean,
@@ -421,13 +447,23 @@ private fun ChatInputSection(
                 )
                 HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.2f))
             }
+            if (pendingAttachment != null) {
+                PendingAttachmentPreview(
+                    attachment = pendingAttachment,
+                    onRemove = onPendingAttachmentRemove,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                )
+            }
             MessageInput(
                 value = messageText,
                 onValueChange = onMessageTextChange,
                 onSend = onSend,
                 onSendVoiceNote = onSendVoiceNote,
-                onSendImageNote = onSendImageNote,
+                onImageSelected = onImageSelected,
                 onSendFileNote = onSendFileNote,
+                pendingAttachment = pendingAttachment,
                 selectedPrivatePeer = selectedPrivatePeer,
                 currentChannel = currentChannel,
                 nickname = nickname,
@@ -437,6 +473,98 @@ private fun ChatInputSection(
         }
     }
 }
+
+@Composable
+private fun PendingAttachmentPreview(
+    attachment: PendingAttachment,
+    onRemove: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val fileName = remember(attachment.path) { runCatching { java.io.File(attachment.path).name }.getOrDefault("attachment") }
+    val targetLabel = remember(attachment.targetPeerId, attachment.targetChannel) {
+        when {
+            !attachment.targetPeerId.isNullOrBlank() -> "Private"
+            !attachment.targetChannel.isNullOrBlank() -> "#${attachment.targetChannel}"
+            else -> "Broadcast"
+        }
+    }
+    val previewBitmap = remember(attachment.path) {
+        runCatching { android.graphics.BitmapFactory.decodeFile(attachment.path) }.getOrNull()
+    }
+
+    Surface(
+        modifier = modifier,
+        color = colorScheme.surfaceVariant.copy(alpha = 0.6f),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+        ) {
+            val previewModifier = Modifier
+                .size(56.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(colorScheme.surfaceVariant)
+
+            if (attachment.type == PendingAttachmentType.IMAGE && previewBitmap != null) {
+                Image(
+                    bitmap = previewBitmap.asImageBitmap(),
+                    contentDescription = null,
+                    modifier = previewModifier,
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Box(modifier = previewModifier, contentAlignment = Alignment.Center) {
+                    val fallbackIcon = when (attachment.type) {
+                        PendingAttachmentType.AUDIO -> Icons.Filled.Mic
+                        PendingAttachmentType.FILE -> Icons.Filled.InsertDriveFile
+                        PendingAttachmentType.IMAGE -> Icons.Filled.Image
+                    }
+                    Icon(
+                        imageVector = fallbackIcon,
+                        contentDescription = null,
+                        tint = colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                    )
+                }
+            }
+
+            Spacer(Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = fileName,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                    color = colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = targetLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = attachment.mimeType,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+            }
+
+            IconButton(onClick = onRemove) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = "Remove pending attachment",
+                    tint = colorScheme.onSurface
+                )
+            }
+        }
+    }
+}
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChatFloatingHeader(
@@ -568,3 +696,4 @@ private fun ChatDialogs(
         )
     }
 }
+
