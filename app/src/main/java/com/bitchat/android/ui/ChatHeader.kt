@@ -27,7 +27,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.core.ui.utils.singleOrTripleClickable
-import com.bitchat.android.geohash.LocationChannelManager.PermissionState
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -59,7 +58,8 @@ fun isFavoriteReactive(
 fun TorStatusDot(
     modifier: Modifier = Modifier
 ) {
-    val torStatus by com.bitchat.android.net.TorManager.statusFlow.collectAsStateWithLifecycle()
+    val torProvider = remember { com.bitchat.android.net.ArtiTorManager.getInstance() }
+    val torStatus by torProvider.statusFlow.collectAsState()
     
     if (torStatus.mode != com.bitchat.android.net.TorMode.OFF) {
         val dotColor = when {
