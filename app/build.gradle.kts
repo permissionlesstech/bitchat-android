@@ -1,7 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.parcelize)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.compose)
 }
 
@@ -93,12 +93,12 @@ dependencies {
     
     // Cryptography
     implementation(libs.bundles.cryptography)
-    
-    // JSON
-    implementation(libs.gson)
-    
+
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
+    
+    // Serialization
+    implementation(libs.kotlinx.serialization.json)
     
     // Bluetooth
     implementation(libs.nordic.ble)

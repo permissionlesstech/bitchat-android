@@ -14,8 +14,8 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import kotlinx.coroutines.*
 import java.util.*
-import com.google.gson.Gson
-import com.google.gson.JsonSyntaxException
+import kotlinx.serialization.json.*
+import com.bitchat.android.util.JsonUtil
 
 /**
  * Manages location permissions, one-shot location retrieval, and computing geohash channels.
@@ -49,7 +49,7 @@ class LocationChannelManager private constructor(private val context: Context) {
     private var lastLocation: Location? = null
     private var refreshTimer: Job? = null
     private var isGeocoding: Boolean = false
-    private val gson = Gson()
+
     private var dataManager: com.bitchat.android.ui.DataManager? = null
 
     // Published state for UI bindings (matching iOS @Published properties)
@@ -544,16 +544,20 @@ class LocationChannelManager private constructor(private val context: Context) {
         try {
             val channelData = when (channel) {
                 is ChannelID.Mesh -> {
-                    gson.toJson(mapOf("type" to "mesh"))
+                    val jsonObject = buildJsonObject {
+                        put("type", "mesh")
+                    }
+                    JsonUtil.json.encodeToString(JsonObject.serializer(), jsonObject)
                 }
                 is ChannelID.Location -> {
-                    gson.toJson(mapOf(
-                        "type" to "location",
-                        "level" to channel.channel.level.name,
-                        "precision" to channel.channel.level.precision,
-                        "geohash" to channel.channel.geohash,
-                        "displayName" to channel.channel.level.displayName
-                    ))
+                    val jsonObject = buildJsonObject {
+                        put("type", "location")
+                        put("level", channel.channel.level.name)
+                        put("precision", channel.channel.level.precision)
+                        put("geohash", channel.channel.geohash)
+                        put("displayName", channel.channel.level.displayName)
+                    }
+                    JsonUtil.json.encodeToString(JsonObject.serializer(), jsonObject)
                 }
             }
             dataManager?.saveLastGeohashChannel(channelData)
@@ -570,15 +574,17 @@ class LocationChannelManager private constructor(private val context: Context) {
         try {
             val channelData = dataManager?.loadLastGeohashChannel()
             if (channelData != null) {
-                val channelMap = gson.fromJson(channelData, Map::class.java) as? Map<String, Any>
-                if (channelMap != null) {
-                    val channel = when (channelMap["type"] as? String) {
+                val channelObject = try {
+                    JsonUtil.json.parseToJsonElement(channelData).jsonObject
+                } catch (e: Exception) { null }
+                if (channelObject != null) {
+                    val channel = when (channelObject["type"]?.jsonPrimitive?.contentOrNull) {
                         "mesh" -> ChannelID.Mesh
                         "location" -> {
-                            val levelName = channelMap["level"] as? String
-                            val precision = (channelMap["precision"] as? Double)?.toInt()
-                            val geohash = channelMap["geohash"] as? String
-                            val displayName = channelMap["displayName"] as? String
+                            val levelName = channelObject["level"]?.jsonPrimitive?.contentOrNull
+                            val precision = channelObject["precision"]?.jsonPrimitive?.doubleOrNull?.toInt()
+                            val geohash = channelObject["geohash"]?.jsonPrimitive?.contentOrNull
+                            val displayName = channelObject["displayName"]?.jsonPrimitive?.contentOrNull
                             
                             if (levelName != null && precision != null && geohash != null && displayName != null) {
                                 try {
@@ -595,7 +601,7 @@ class LocationChannelManager private constructor(private val context: Context) {
                             }
                         }
                         else -> {
-                            Log.w(TAG, "Unknown channel type in persisted data: ${channelMap["type"]}")
+                            Log.w(TAG, "Unknown channel type in persisted data: ${channelObject["type"]}")
                             null
                         }
                     }
@@ -615,9 +621,6 @@ class LocationChannelManager private constructor(private val context: Context) {
                 Log.d(TAG, "No persisted channel found, defaulting to Mesh")
                 _selectedChannel.postValue(ChannelID.Mesh)
             }
-        } catch (e: JsonSyntaxException) {
-            Log.e(TAG, "Failed to parse persisted channel data: ${e.message}")
-            _selectedChannel.postValue(ChannelID.Mesh)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load persisted channel: ${e.message}")
             _selectedChannel.postValue(ChannelID.Mesh)
