@@ -102,6 +102,7 @@ The app requires the following permissions (automatically requested):
 
 - **Bluetooth**: Core BLE functionality
 - **Location**: Required for BLE scanning on Android
+- **Network**: Expand your mesh through public internet relays
 - **Notifications**: Message alerts and background updates
 
 ### Hardware Requirements
