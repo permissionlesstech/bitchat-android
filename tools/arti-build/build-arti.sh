@@ -19,7 +19,6 @@
 #   ./build-arti.sh              # Build both architectures (debug/emulator)
 #   ./build-arti.sh --release    # Build ARM64 only (production)
 #   ./build-arti.sh --clean      # Remove cloned Arti repo and rebuild
-#
 
 set -euo pipefail
 
@@ -40,6 +39,39 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ARTI_SOURCE_DIR="$SCRIPT_DIR/.arti-source"
 JNILIBS_DIR="$PROJECT_ROOT/app/src/main/jniLibs"
 
+
+detect_default_ndk_home() {
+  local candidates=(
+    "$HOME/Library/Android/sdk/ndk/27.0.12077973"
+    "$HOME/Library/Android/sdk/ndk"
+    "$HOME/Library/Android/sdk/ndk-bundle"
+    "$HOME/Android/Sdk/ndk/27.0.12077973"
+    "$HOME/Android/Sdk/ndk"
+    "$HOME/Android/Sdk/ndk-bundle"
+  )
+
+  for candidate in "${candidates[@]}"; do
+    if [ -d "$candidate" ]; then
+      echo "$candidate"
+      return
+    fi
+  done
+
+  local base
+  for base in "$HOME/Library/Android/sdk/ndk" "$HOME/Android/Sdk/ndk"; do
+    if [ -d "$base" ]; then
+      local latest
+      latest="$(find "$base" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | sort | tail -1)"
+      if [ -n "$latest" ]; then
+        echo "$latest"
+        return
+      fi
+    fi
+  done
+
+  echo ""
+}
+
 # Read pinned version
 if [ ! -f "$SCRIPT_DIR/ARTI_VERSION" ]; then
   echo -e "${RED}Error: ARTI_VERSION file not found${NC}"
@@ -48,7 +80,18 @@ fi
 VERSION="$(tr -d '[:space:]' < "$SCRIPT_DIR/ARTI_VERSION")"
 
 # Android NDK path
-export ANDROID_NDK_HOME="${ANDROID_NDK_HOME:-$HOME/Library/Android/sdk/ndk/27.0.12077973}"
+if [ -z "${ANDROID_NDK_HOME:-}" ]; then
+  AUTO_NDK_HOME="$(detect_default_ndk_home)"
+  if [ -n "$AUTO_NDK_HOME" ]; then
+    ANDROID_NDK_HOME="$AUTO_NDK_HOME"
+  fi
+fi
+if [ -z "${ANDROID_NDK_HOME:-}" ]; then
+  echo -e "${RED}Error: ANDROID_NDK_HOME is not set and automatic detection failed.${NC}"
+  echo "Set ANDROID_NDK_HOME to your NDK installation (e.g., ~/Android/Sdk/ndk/<version>)."
+  exit 1
+fi
+export ANDROID_NDK_HOME
 
 # Min SDK version (must match bitchat-android minSdk)
 MIN_SDK_VERSION=26
@@ -159,7 +202,8 @@ check_prerequisites() {
   # Bash version
   if [ "${BASH_VERSINFO:-0}" -lt 4 ]; then
     print_error "Bash 4+ is required. macOS ships bash 3.2 by default."
-    print_info "Install: brew install bash (macOS) or use your distro package manager"
+    print_info "macOS: brew install bash"
+    print_info "Linux: use your distro package manager (e.g., sudo apt install bash)"
     print_info "Then run with the installed bash (e.g., /opt/homebrew/bin/bash ./build-arti.sh)"
     exit 1
   fi
@@ -524,4 +568,3 @@ ensure_wrapper_lockfile() {
 }
 
 main
-
