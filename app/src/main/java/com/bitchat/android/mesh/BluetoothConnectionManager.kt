@@ -318,7 +318,23 @@ class BluetoothConnectionManager(
      * Public: connect/disconnect helpers for debug UI
      */
     fun connectToAddress(address: String): Boolean = clientManager.connectToAddress(address)
-    fun disconnectAddress(address: String) { connectionTracker.disconnectDevice(address) }
+    fun disconnectAddress(address: String) {
+        connectionScope.launch {
+            try {
+                val dc = connectionTracker.getDeviceConnection(address)
+                if (dc != null) {
+                    if (dc.gatt != null) {
+                        try { dc.gatt.disconnect() } catch (_: Exception) { }
+                    } else {
+                        // Try canceling server-side connection if present
+                        try { serverManager.getGattServer()?.cancelConnection(dc.device) } catch (_: Exception) { }
+                    }
+                }
+            } catch (_: Exception) { }
+            // Cleanup tracking regardless
+            connectionTracker.cleanupDeviceConnection(address)
+        }
+    }
 
 
     // Optionally disconnect all connections (server and client)
