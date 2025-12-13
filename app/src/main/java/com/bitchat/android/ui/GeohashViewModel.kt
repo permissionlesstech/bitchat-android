@@ -3,7 +3,6 @@ package com.bitchat.android.ui
 import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.LiveData
 import androidx.lifecycle.viewModelScope
 import com.bitchat.android.nostr.GeohashMessageHandler
 import com.bitchat.android.nostr.GeohashRepository
@@ -15,6 +14,7 @@ import com.bitchat.android.nostr.NostrSubscriptionManager
 import com.bitchat.android.nostr.PoWPreferenceManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.util.Date
 
@@ -55,9 +55,9 @@ class GeohashViewModel(
     private var geoTimer: Job? = null
     private var locationChannelManager: com.bitchat.android.geohash.LocationChannelManager? = null
 
-    val geohashPeople: LiveData<List<GeoPerson>> = state.geohashPeople
-    val geohashParticipantCounts: LiveData<Map<String, Int>> = state.geohashParticipantCounts
-    val selectedLocationChannel: LiveData<com.bitchat.android.geohash.ChannelID?> = state.selectedLocationChannel
+    val geohashPeople: StateFlow<List<GeoPerson>> = state.geohashPeople
+    val geohashParticipantCounts: StateFlow<Map<String, Int>> = state.geohashParticipantCounts
+    val selectedLocationChannel: StateFlow<com.bitchat.android.geohash.ChannelID?> = state.selectedLocationChannel
 
     fun initialize() {
         subscriptionManager.connect()
@@ -73,12 +73,16 @@ class GeohashViewModel(
         }
         try {
             locationChannelManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(getApplication())
-            locationChannelManager?.selectedChannel?.observeForever { channel ->
-                state.setSelectedLocationChannel(channel)
-                switchLocationChannel(channel)
+            viewModelScope.launch {
+                locationChannelManager?.selectedChannel?.collect { channel ->
+                    state.setSelectedLocationChannel(channel)
+                    switchLocationChannel(channel)
+                }
             }
-            locationChannelManager?.teleported?.observeForever { teleported ->
-                state.setIsTeleported(teleported)
+            viewModelScope.launch {
+                locationChannelManager?.teleported?.collect { teleported ->
+                    state.setIsTeleported(teleported)
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize location channel state: ${e.message}")
@@ -120,7 +124,7 @@ class GeohashViewModel(
                 }
                 try {
                     val identity = NostrIdentityBridge.deriveIdentity(forGeohash = channel.geohash, context = getApplication())
-                    val teleported = state.isTeleported.value ?: false
+                    val teleported = state.isTeleported.value
                     val event = NostrProtocol.createEphemeralGeohashEvent(content, channel.geohash, identity, nickname, teleported)
                     val relayManager = NostrRelayManager.getInstance(getApplication())
                     relayManager.sendEventToGeohash(event, channel.geohash, includeDefaults = false, nRelays = 5)
@@ -231,7 +235,7 @@ class GeohashViewModel(
                 try {
                     val identity = NostrIdentityBridge.deriveIdentity(channel.channel.geohash, getApplication())
                     repo.updateParticipant(channel.channel.geohash, identity.publicKeyHex, Date())
-                    val teleported = state.isTeleported.value ?: false
+                    val teleported = state.isTeleported.value
                     if (teleported) repo.markTeleported(identity.publicKeyHex)
                 } catch (e: Exception) { Log.w(TAG, "Failed identity setup: ${e.message}") }
 
