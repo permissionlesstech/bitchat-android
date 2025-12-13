@@ -8,6 +8,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material.icons.filled.WifiTethering
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Devices
@@ -53,6 +55,11 @@ fun DebugSettingsSheet(
     val seenCapacity by manager.seenPacketCapacity.collectAsState()
     val gcsMaxBytes by manager.gcsMaxBytes.collectAsState()
     val gcsFpr by manager.gcsFprPercent.collectAsState()
+    val bleEnabled by manager.bleEnabled.collectAsState()
+    val wifiAwareEnabled by manager.wifiAwareEnabled.collectAsState()
+    val wifiAwareVerbose by manager.wifiAwareVerbose.collectAsState()
+    val wifiAwareDiscovered by manager.wifiAwareDiscovered.collectAsState()
+    val wifiAwareConnected by manager.wifiAwareConnected.collectAsState()
 
     // Push live connected devices from mesh service whenever sheet is visible
     LaunchedEffect(isPresented) {
@@ -76,6 +83,15 @@ fun DebugSettingsSheet(
                     )
                 }
                 manager.updateConnectedDevices(devices)
+                // Also surface Wi‑Fi Aware status
+                try {
+                    val ctrl = com.bitchat.android.wifiaware.WifiAwareController
+                    val known = ctrl.knownPeers.value
+                    val discovered = ctrl.discoveredPeers.value
+                    val discoveredMap = discovered.associateWith { pid -> known[pid] ?: "" }
+                    manager.updateWifiAwareDiscovered(discoveredMap)
+                    manager.updateWifiAwareConnected(ctrl.connectedPeers.value)
+                } catch (_: Exception) { }
                 kotlinx.coroutines.delay(1000)
             }
         }
@@ -198,6 +214,46 @@ fun DebugSettingsSheet(
                 }
             }
 
+            // Transport toggles (BLE + Wi‑Fi Aware)
+            item {
+                Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Filled.Devices, contentDescription = null, tint = Color(0xFF4CAF50))
+                            Text("Transports", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Bluetooth, contentDescription = null, tint = Color(0xFF007AFF))
+                            Spacer(Modifier.width(8.dp))
+                            Text("BLE", fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
+                            Switch(checked = bleEnabled, onCheckedChange = {
+                                manager.setBleEnabled(it)
+                                scope.launch {
+                                    if (it) {
+                                        if (gattServerEnabled) meshService.connectionManager.startServer()
+                                        if (gattClientEnabled) meshService.connectionManager.startClient()
+                                    } else {
+                                        meshService.connectionManager.stopServer()
+                                        meshService.connectionManager.stopClient()
+                                    }
+                                }
+                            })
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Wifi, contentDescription = null, tint = Color(0xFF9C27B0))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Wi‑Fi Aware", fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
+                            Switch(checked = wifiAwareEnabled, onCheckedChange = { manager.setWifiAwareEnabled(it) })
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Spacer(Modifier.width(24.dp))
+                            Text("Wi‑Fi Aware verbose", fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
+                            Switch(checked = wifiAwareVerbose, onCheckedChange = { manager.setWifiAwareVerbose(it) })
+                        }
+                    }
+                }
+            }
+
             // Packet relay controls and stats
             item {
                 Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
@@ -283,6 +339,43 @@ fun DebugSettingsSheet(
                                     )
                                 }
                                 Spacer(Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Wi‑Fi Aware controls and status
+            item {
+                Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Filled.WifiTethering, contentDescription = null, tint = Color(0xFF9C27B0))
+                            Text("Wi‑Fi Aware", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Spacer(Modifier.weight(1f))
+                            val running by com.bitchat.android.wifiaware.WifiAwareController.running.collectAsState()
+                            Text(if (running) "running" else "stopped", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            AssistChip(onClick = { com.bitchat.android.wifiaware.WifiAwareController.startIfPossible() }, label = { Text("Start") })
+                            AssistChip(onClick = { com.bitchat.android.wifiaware.WifiAwareController.stop() }, label = { Text("Stop") })
+                            AssistChip(onClick = { com.bitchat.android.wifiaware.WifiAwareController.getService()?.sendBroadcastAnnounce() }, label = { Text("Announce") })
+                        }
+                        Text("Discovered: ${wifiAwareDiscovered.size}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                        if (wifiAwareDiscovered.isEmpty()) {
+                            Text("No discoveries yet", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
+                        } else {
+                            wifiAwareDiscovered.entries.take(50).forEach { (peer, nick) ->
+                                Text("• ${if (nick.isBlank()) peer.take(8) + "…" else nick} (${peer.take(8)}…) ", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                            }
+                        }
+                        Divider()
+                        Text("Connected: ${wifiAwareConnected.size}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                        if (wifiAwareConnected.isEmpty()) {
+                            Text("No active sockets", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
+                        } else {
+                            wifiAwareConnected.entries.take(50).forEach { (peer, ip) ->
+                                Text("• ${peer.take(8)}… @ $ip", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                             }
                         }
                     }

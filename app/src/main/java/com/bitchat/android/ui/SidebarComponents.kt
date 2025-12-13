@@ -576,9 +576,26 @@ private fun PeerItem(
                     tint = Color.Gray
                 )
             } else {
+                val awareConnected by com.bitchat.android.wifiaware.WifiAwareController.connectedPeers.collectAsState()
+                val awareDiscovered by com.bitchat.android.wifiaware.WifiAwareController.discoveredPeers.collectAsState()
+                val isWifiDirect = awareConnected.containsKey(peerID)
+                val isBleDirect = isDirect
+                val icon = when {
+                    isWifiDirect -> Icons.Filled.Wifi
+                    isBleDirect -> Icons.Outlined.SettingsInputAntenna
+                    // Routed: show Route icon; optionally prefer Wi‑Fi Aware if discovered there
+                    awareDiscovered.contains(peerID) -> Icons.Filled.WifiTethering
+                    else -> Icons.Filled.Route
+                }
+                val cd = when {
+                    isWifiDirect -> "Direct Wi‑Fi Aware"
+                    isBleDirect -> "Direct Bluetooth"
+                    awareDiscovered.contains(peerID) -> "Routed over Wi‑Fi"
+                    else -> "Routed"
+                }
                 Icon(
-                    imageVector = if (isDirect) Icons.Outlined.SettingsInputAntenna else Icons.Filled.Route,
-                    contentDescription = if (isDirect) "Direct Bluetooth" else "Routed",
+                    imageVector = icon,
+                    contentDescription = cd,
                     modifier = Modifier.size(16.dp),
                     tint = colorScheme.onSurface.copy(alpha = 0.8f)
                 )

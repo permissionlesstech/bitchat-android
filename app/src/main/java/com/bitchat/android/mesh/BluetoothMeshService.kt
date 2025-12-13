@@ -249,7 +249,8 @@ class BluetoothMeshService(private val context: Context) {
             override fun sendPacket(packet: BitchatPacket) {
                 // Sign the packet before broadcasting
                 val signedPacket = signPacketBeforeBroadcast(packet)
-                connectionManager.broadcastPacket(RoutedPacket(signedPacket))
+                val routed = RoutedPacket(signedPacket)
+                connectionManager.broadcastPacket(routed)
             }
             
             override fun relayPacket(routed: RoutedPacket) {

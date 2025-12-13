@@ -73,6 +73,8 @@ class MainActivity : OrientationAwareActivity() {
         permissionManager = PermissionManager(this)
         // Initialize core mesh service first
         meshService = BluetoothMeshService(this)
+        // Expose BLE mesh to Wi‑Fi Aware controller for cross-transport relays
+        try { com.bitchat.android.wifiaware.WifiAwareController.setBleMeshService(meshService) } catch (_: Exception) { }
         bluetoothStatusManager = BluetoothStatusManager(
             activity = this,
             context = this,
@@ -117,6 +119,45 @@ class MainActivity : OrientationAwareActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 mainViewModel.onboardingState.collect { state ->
                     handleOnboardingStateChange(state)
+                }
+            }
+        }
+
+        // Bridge Wi‑Fi Aware callbacks into ChatViewModel (reusing BLE delegate methods)
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                com.bitchat.android.wifiaware.WifiAwareController.running.collect { running ->
+                    val svc = com.bitchat.android.wifiaware.WifiAwareController.getService()
+                    if (running && svc != null) {
+                        svc.delegate = object : com.bitchat.android.wifiaware.WifiAwareMeshDelegate {
+                            override fun didReceiveMessage(message: com.bitchat.android.model.BitchatMessage) {
+                                chatViewModel.didReceiveMessage(message)
+                            }
+                            override fun didUpdatePeerList(peers: List<String>) {
+                                chatViewModel.didUpdatePeerList(peers)
+                            }
+                            override fun didReceiveChannelLeave(channel: String, fromPeer: String) {
+                                chatViewModel.didReceiveChannelLeave(channel, fromPeer)
+                            }
+                            override fun didReceiveDeliveryAck(messageID: String, recipientPeerID: String) {
+                                chatViewModel.didReceiveDeliveryAck(messageID, recipientPeerID)
+                            }
+                            override fun didReceiveReadReceipt(messageID: String, recipientPeerID: String) {
+                                chatViewModel.didReceiveReadReceipt(messageID, recipientPeerID)
+                            }
+                            override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {
+                                return chatViewModel.decryptChannelMessage(encryptedContent, channel)
+                            }
+                            override fun getNickname(): String? {
+                                return chatViewModel.getNickname()
+                            }
+                            override fun isFavorite(peerID: String): Boolean {
+                                return try {
+                                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(peerID)?.isMutual == true
+                                } catch (_: Exception) { false }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -308,6 +349,12 @@ class MainActivity : OrientationAwareActivity() {
         bluetoothStatusManager.logBluetoothStatus()
         mainViewModel.updateBluetoothStatus(bluetoothStatusManager.checkBluetoothStatus())
         
+        val bleRequired = try { com.bitchat.android.ui.debug.DebugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true }
+        if (!bleRequired) {
+            // Skip BLE checks entirely when BLE is disabled in debug settings
+            checkLocationAndProceed()
+            return
+        }
         when (mainViewModel.bluetoothStatus.value) {
             BluetoothStatus.ENABLED -> {
                 // Bluetooth is enabled, check location services next
@@ -474,8 +521,9 @@ class MainActivity : OrientationAwareActivity() {
             else -> BatteryOptimizationStatus.ENABLED
         }
         
+        val bleRequired2 = try { com.bitchat.android.ui.debug.DebugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true }
         when {
-            currentBluetoothStatus != BluetoothStatus.ENABLED -> {
+            bleRequired2 && currentBluetoothStatus != BluetoothStatus.ENABLED -> {
                 // Bluetooth still disabled, but now we have permissions to enable it
                 Log.d("MainActivity", "Permissions granted, but Bluetooth still disabled. Showing Bluetooth enable screen.")
                 mainViewModel.updateBluetoothStatus(currentBluetoothStatus)
