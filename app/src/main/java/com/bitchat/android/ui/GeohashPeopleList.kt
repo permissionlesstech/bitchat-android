@@ -9,7 +9,6 @@ import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -21,6 +20,7 @@ import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import java.util.*
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.R
 
 /**
@@ -46,11 +46,11 @@ fun GeohashPeopleList(
     val colorScheme = MaterialTheme.colorScheme
     
     // Observe geohash people from ChatViewModel
-    val geohashPeople by viewModel.geohashPeople.observeAsState(emptyList())
-    val selectedLocationChannel by viewModel.selectedLocationChannel.observeAsState()
-    val isTeleported by viewModel.isTeleported.observeAsState(false)
-    val nickname by viewModel.nickname.observeAsState("")
-    val unreadPrivateMessages by viewModel.unreadPrivateMessages.observeAsState(emptySet())
+    val geohashPeople by viewModel.geohashPeople.collectAsStateWithLifecycle()
+    val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
+    val isTeleported by viewModel.isTeleported.collectAsStateWithLifecycle()
+    val nickname by viewModel.nickname.collectAsStateWithLifecycle()
+    val unreadPrivateMessages by viewModel.unreadPrivateMessages.collectAsStateWithLifecycle()
     
     Column {
         // Header matching iOS style

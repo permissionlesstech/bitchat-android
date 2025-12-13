@@ -5,6 +5,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,7 +27,7 @@ private enum class CharacterAnimationState {
  */
 @Composable
 fun shouldAnimateMessage(messageId: String): Boolean {
-    val miningMessages by PoWMiningTracker.miningMessages.collectAsState()
+    val miningMessages by PoWMiningTracker.miningMessages.collectAsStateWithLifecycle()
     return miningMessages.contains(messageId)
 }
 
