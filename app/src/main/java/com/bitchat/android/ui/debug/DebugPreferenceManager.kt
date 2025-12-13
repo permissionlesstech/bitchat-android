@@ -20,6 +20,7 @@ object DebugPreferenceManager {
     // GCS keys (no migration/back-compat)
     private const val KEY_GCS_MAX_BYTES = "gcs_max_filter_bytes"
     private const val KEY_GCS_FPR = "gcs_filter_fpr_percent"
+    // Removed: persistent notification toggle is now governed by MeshServicePreferences.isBackgroundEnabled
 
     private lateinit var prefs: SharedPreferences
 
@@ -100,4 +101,6 @@ object DebugPreferenceManager {
     fun setGcsFprPercent(value: Double) {
         if (ready()) prefs.edit().putLong(KEY_GCS_FPR, java.lang.Double.doubleToRawLongBits(value)).apply()
     }
+
+    // No longer storing persistent notification in debug prefs.
 }

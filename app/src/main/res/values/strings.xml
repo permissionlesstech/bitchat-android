@@ -61,6 +61,11 @@
   <string name="notification_more_locations">and %1$d more locations</string>
   <string name="notification_and_more">and %1$d more</string>
 
+  <!-- Mesh Service Foreground Notification -->
+  <string name="mesh_service_channel_name">Mesh Background Service</string>
+  <string name="mesh_service_channel_desc">Keeps the Bluetooth mesh running in the background</string>
+  <string name="mesh_service_notification_content">Mesh running — %1$d users connected</string>
+
   <!-- Favorites accessibility -->
   <string name="cd_add_favorite">Add to favorites</string>
   <string name="cd_remove_favorite">Remove from favorites</string>
@@ -152,6 +157,9 @@
   <string name="cd_remove_bookmark">Remove bookmark</string>
   <string name="cd_teleport">Teleport</string>
   <string name="cd_selected">Selected</string>
+  <string name="notification_action_quit_bitchat">Quit bitchat</string>
+  <string name="about_background_title">run in background</string>
+  <string name="about_background_desc">keep mesh active when app is closed (foreground service)</string>
   <string name="cd_leave_channel">Leave channel</string>
   <string name="cd_reachable_via_nostr">Reachable via Nostr</string>
   <string name="cd_offline_favorite">Offline favorite</string>
@@ -378,8 +386,9 @@
   <string name="pwd_label">Password</string>
   <string name="join">Join</string>
   <string name="cancel">Cancel</string>
+    <string name="tor_not_available_in_this_build">Tor not available in this build</string>
 
-  <!-- Plurals -->
+    <!-- Plurals -->
   <plurals name="notification_and_more">
     <item quantity="one">and %d more</item>
     <item quantity="other">and %d more</item>
