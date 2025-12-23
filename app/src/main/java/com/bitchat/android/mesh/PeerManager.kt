@@ -17,7 +17,8 @@ data class PeerInfo(
     var noisePublicKey: ByteArray?,
     var signingPublicKey: ByteArray?,      // NEW: Ed25519 public key for verification
     var isVerifiedNickname: Boolean,       // NEW: Verification status flag
-    var lastSeen: Long  // Using Long instead of Date for simplicity
+    var lastSeen: Long,  // Using Long instead of Date for simplicity
+    var features: Int = 0                  // Feature bitmask from announcements
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -39,6 +40,7 @@ data class PeerInfo(
         } else if (other.signingPublicKey != null) return false
         if (isVerifiedNickname != other.isVerifiedNickname) return false
         if (lastSeen != other.lastSeen) return false
+        if (features != other.features) return false
         
         return true
     }
@@ -52,6 +54,7 @@ data class PeerInfo(
         result = 31 * result + (signingPublicKey?.contentHashCode() ?: 0)
         result = 31 * result + isVerifiedNickname.hashCode()
         result = 31 * result + lastSeen.hashCode()
+        result = 31 * result + features.hashCode()
         return result
     }
 }
@@ -104,7 +107,8 @@ class PeerManager {
         nickname: String,
         noisePublicKey: ByteArray,
         signingPublicKey: ByteArray,
-        isVerified: Boolean
+        isVerified: Boolean,
+        features: Int = 0
     ): Boolean {
         if (peerID == "unknown") return false
         
@@ -121,7 +125,8 @@ class PeerManager {
             noisePublicKey = noisePublicKey,
             signingPublicKey = signingPublicKey,
             isVerifiedNickname = isVerified,
-            lastSeen = now
+            lastSeen = now,
+            features = features
         )
         
         peers[peerID] = peerInfo
@@ -149,6 +154,14 @@ class PeerManager {
      */
     fun getPeerInfo(peerID: String): PeerInfo? {
         return peers[peerID]
+    }
+
+    /**
+     * Check if a peer advertises a feature bit.
+     */
+    fun peerHasFeature(peerID: String, featureBit: Int): Boolean {
+        val f = peers[peerID]?.features ?: 0
+        return (f and featureBit) != 0
     }
 
     /**
