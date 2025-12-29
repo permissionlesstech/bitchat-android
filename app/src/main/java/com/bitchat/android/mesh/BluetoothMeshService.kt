@@ -456,18 +456,28 @@ class BluetoothMeshService(private val context: Context) {
                     val deviceAddress = routed.relayAddress
                     val pid = routed.peerID
                     if (deviceAddress != null && pid != null) {
-                        // First ANNOUNCE over a device connection defines a direct neighbor.
+                        // Only process on first ANNOUNCE seen for this device connection
                         if (!connectionManager.hasSeenFirstAnnounce(deviceAddress)) {
-                            // Bind or rebind this device address to the announcing peer
-                            connectionManager.addressPeerMap[deviceAddress] = pid
-                            connectionManager.noteAnnounceReceived(deviceAddress)
-                            Log.d(TAG, "Mapped device $deviceAddress to peer $pid on FIRST-ANNOUNCE for this connection")
+                            // If we're already directly connected to this peer via another address, drop the new one.
+                            val existingAddress = connectionManager.addressPeerMap
+                                .entries.firstOrNull { it.value == pid }?.key
 
-                            // Mark as directly connected (upgrades from routed if needed)
-                            try { peerManager.setDirectConnection(pid, true) } catch (_: Exception) { }
+                            val existingConnected = existingAddress != null &&
+                                connectionManager.isClientConnection(existingAddress!!) != null
 
-                            // Initial sync for this newly direct peer
-                            try { gossipSyncManager.scheduleInitialSyncToPeer(pid, 1_000) } catch (_: Exception) { }
+                            if (existingAddress != null && existingAddress != deviceAddress && existingConnected) {
+                                Log.i(TAG, "Peer $pid already connected via $existingAddress; dropping new connection $deviceAddress")
+                                // Disconnect the newer duplicate connection
+                                connectionManager.disconnectAddress(deviceAddress)
+                            } else {
+                                // Bind this device address to peer and mark direct
+                                connectionManager.addressPeerMap[deviceAddress] = pid
+                                connectionManager.noteAnnounceReceived(deviceAddress)
+                                Log.d(TAG, "Mapped device $deviceAddress to peer $pid on FIRST-ANNOUNCE for this connection")
+
+                                try { peerManager.setDirectConnection(pid, true) } catch (_: Exception) { }
+                                try { gossipSyncManager.scheduleInitialSyncToPeer(pid, 1_000) } catch (_: Exception) { }
+                            }
                         }
                     }
                     // Track for sync
