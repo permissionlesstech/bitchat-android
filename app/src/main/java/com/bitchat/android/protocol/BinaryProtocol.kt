@@ -78,8 +78,8 @@ data class BitchatPacket(
         ttl = ttl
     )
 
-    fun toBinaryData(): ByteArray? {
-        return BinaryProtocol.encode(this)
+    fun toBinaryData(padding: Boolean = true): ByteArray? {
+        return BinaryProtocol.encode(this, padding = padding)
     }
 
     /**
@@ -189,7 +189,7 @@ object BinaryProtocol {
         }
     }
     
-    fun encode(packet: BitchatPacket): ByteArray? {
+    fun encode(packet: BitchatPacket, padding: Boolean = true): ByteArray? {
         try {
             // Try to compress payload if beneficial
             var payload = packet.payload
@@ -275,11 +275,13 @@ object BinaryProtocol {
             buffer.rewind()
             buffer.get(result)
             
-            // Apply padding to standard block sizes for traffic analysis resistance
-            val optimalSize = MessagePadding.optimalBlockSize(result.size)
-            val paddedData = MessagePadding.pad(result, optimalSize)
+            // Apply padding if requested (iOS-compatible: selective padding for privacy)
+            if (padding) {
+                val optimalSize = MessagePadding.optimalBlockSize(result.size)
+                return MessagePadding.pad(result, optimalSize)
+            }
             
-            return paddedData
+            return result
             
         } catch (e: Exception) {
             Log.e("BinaryProtocol", "Error encoding packet type ${packet.type}: ${e.message}")
