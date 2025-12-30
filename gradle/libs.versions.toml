@@ -45,6 +45,9 @@ gms-location = "21.3.0"
 # Security
 security-crypto = "1.1.0-beta01"
 
+# QR
+zxing-embedded = "4.3.0"
+
 # Testing
 junit = "4.13.2"
 androidx-test-ext = "1.2.1"
@@ -103,6 +106,9 @@ gms-location = { module = "com.google.android.gms:play-services-location", versi
 
 # Security
 androidx-security-crypto = { module = "androidx.security:security-crypto", version.ref = "security-crypto" }
+
+# QR
+zxing-embedded = { module = "com.journeyapps:zxing-android-embedded", version.ref = "zxing-embedded" }
 
 # Testing
 junit = { module = "junit:junit", version.ref = "junit" }

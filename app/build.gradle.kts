@@ -90,6 +90,9 @@ dependencies {
     
     // Permissions
     implementation(libs.accompanist.permissions)
+
+    // QR
+    implementation(libs.zxing.embedded)
     
     // Cryptography
     implementation(libs.bundles.cryptography)
