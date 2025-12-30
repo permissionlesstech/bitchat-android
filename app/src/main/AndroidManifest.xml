@@ -29,6 +29,8 @@
     
     <!-- Microphone for voice notes -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Camera for QR verification -->
+    <uses-permission android:name="android.permission.CAMERA" />
 
     <!-- Storage permissions for file sharing -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
@@ -45,6 +47,7 @@
     <!-- Hardware features -->
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
     <uses-feature android:name="android.hardware.bluetooth" android:required="true" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
         android:name=".BitchatApplication"
