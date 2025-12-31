@@ -5,11 +5,15 @@ import android.util.Log
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
+import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.protocol.BitchatPacket
 
 
@@ -19,6 +23,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Date
 import kotlin.random.Random
+import com.bitchat.android.services.VerificationService
+import com.bitchat.android.identity.SecureIdentityStateManager
+import com.bitchat.android.noise.NoiseSession
+import com.bitchat.android.nostr.GeohashAliasRegistry
+import com.bitchat.android.util.dataFromHexString
+import com.bitchat.android.util.hexEncodedString
+import java.security.MessageDigest
 
 /**
  * Refactored ChatViewModel - Main coordinator for bitchat functionality
@@ -46,6 +57,20 @@ class ChatViewModel(
         mediaSendingManager.sendImageNote(toPeerIDOrNull, channelOrNull, filePath)
     }
 
+    fun getCurrentNpub(): String? {
+        return try {
+            NostrIdentityBridge
+                .getCurrentNostrIdentity(getApplication())
+                ?.npub
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun buildMyQRString(nickname: String, npub: String?): String {
+        return VerificationService.buildMyQRString(nickname, npub) ?: ""
+    }
+
     // MARK: - State management
     private val state = ChatState(
         scope = viewModelScope,
@@ -57,6 +82,7 @@ class ChatViewModel(
 
     // Specialized managers
     private val dataManager = DataManager(application.applicationContext)
+    private val identityManager by lazy { SecureIdentityStateManager(getApplication()) }
     private val messageManager = MessageManager(state)
     private val channelManager = ChannelManager(state, messageManager, dataManager, viewModelScope)
 
@@ -74,6 +100,14 @@ class ChatViewModel(
       NotificationManagerCompat.from(application.applicationContext),
       NotificationIntervalManager()
     )
+
+    // QR verification state
+    private val _verifiedFingerprints = MutableStateFlow<Set<String>>(emptySet())
+    val verifiedFingerprints: StateFlow<Set<String>> = _verifiedFingerprints.asStateFlow()
+    private val pendingQRVerifications = mutableMapOf<String, PendingVerification>()
+    private val lastVerifyNonceByPeer = mutableMapOf<String, ByteArray>()
+    private val lastInboundVerifyChallengeAt = mutableMapOf<String, Long>()
+    private val lastMutualToastAt = mutableMapOf<String, Long>()
 
     // Media file sending manager
     private val mediaSendingManager = MediaSendingManager(state, messageManager, channelManager, meshService)
@@ -134,6 +168,8 @@ class ChatViewModel(
     val peerRSSI: StateFlow<Map<String, Int>> = state.peerRSSI
     val peerDirect: StateFlow<Map<String, Boolean>> = state.peerDirect
     val showAppInfo: StateFlow<Boolean> = state.showAppInfo
+    val showVerificationSheet: StateFlow<Boolean> = state.showVerificationSheet
+    val showSecurityVerificationSheet: StateFlow<Boolean> = state.showSecurityVerificationSheet
     val selectedLocationChannel: StateFlow<com.bitchat.android.geohash.ChannelID?> = state.selectedLocationChannel
     val isTeleported: StateFlow<Boolean> = state.isTeleported
     val geohashPeople: StateFlow<List<GeoPerson>> = state.geohashPeople
@@ -246,6 +282,9 @@ class ChatViewModel(
 
         // Initialize favorites persistence service
         com.bitchat.android.favorites.FavoritesPersistenceService.initialize(getApplication())
+
+        // Load verified fingerprints from secure storage
+        loadVerifiedFingerprints()
 
 
         // Ensure NostrTransport knows our mesh peer ID for embedded packets
@@ -646,6 +685,18 @@ class ChatViewModel(
         // Update fingerprint mappings from centralized manager
         val fingerprints = privateChatManager.getAllPeerFingerprints()
         state.setPeerFingerprints(fingerprints)
+        fingerprints.forEach { (peerID, fingerprint) ->
+            identityManager.cachePeerFingerprint(peerID, fingerprint)
+            val info = try { meshService.getPeerInfo(peerID) } catch (_: Exception) { null }
+            val noiseKeyHex = info?.noisePublicKey?.hexEncodedString()
+            if (noiseKeyHex != null) {
+                identityManager.cachePeerNoiseKey(peerID, noiseKeyHex)
+                identityManager.cacheNoiseFingerprint(noiseKeyHex, fingerprint)
+            }
+            info?.nickname?.takeIf { it.isNotBlank() }?.let { nickname ->
+                identityManager.cacheFingerprintNickname(fingerprint, nickname)
+            }
+        }
 
         val nicknames = meshService.getPeerNicknames()
         state.setPeerNicknames(nicknames)
@@ -660,6 +711,93 @@ class ChatViewModel(
             }
             state.setPeerDirect(directMap)
         } catch (_: Exception) { }
+
+        // Flush any pending QR verification once a Noise session is established
+        currentPeers.forEach { peerID ->
+            if (meshService.getSessionState(peerID) is NoiseSession.NoiseSessionState.Established) {
+                sendPendingVerificationIfNeeded(peerID)
+            }
+        }
+    }
+
+    // MARK: - QR Verification
+
+    fun isPeerVerified(peerID: String, verifiedFingerprints: Set<String>): Boolean {
+        if (peerID.startsWith("nostr_") || peerID.startsWith("nostr:")) return false
+        val fingerprint = getPeerFingerprintForDisplay(peerID)
+        return fingerprint != null && verifiedFingerprints.contains(fingerprint)
+    }
+
+    fun isNoisePublicKeyVerified(noisePublicKey: ByteArray, verifiedFingerprints: Set<String>): Boolean {
+        val fingerprint = fingerprintFromNoiseBytes(noisePublicKey)
+        return verifiedFingerprints.contains(fingerprint)
+    }
+
+    private fun loadVerifiedFingerprints() {
+        val identityManager = SecureIdentityStateManager(getApplication())
+        _verifiedFingerprints.value = identityManager.getVerifiedFingerprints()
+    }
+
+    fun unverifyFingerprint(peerID: String) {
+        val fingerprint = meshService.getPeerFingerprint(peerID) ?: return
+        val identityManager = SecureIdentityStateManager(getApplication())
+        identityManager.setVerifiedFingerprint(fingerprint, false)
+        _verifiedFingerprints.value -= fingerprint
+    }
+
+    fun beginQRVerification(qr: VerificationService.VerificationQR): Boolean {
+        val targetNoise = qr.noiseKeyHex.lowercase()
+        val peerID = state.getConnectedPeersValue().firstOrNull { pid ->
+            val noiseKeyHex = meshService.getPeerInfo(pid)?.noisePublicKey?.hexEncodedString()?.lowercase()
+            noiseKeyHex == targetNoise
+        } ?: return false
+
+        if (pendingQRVerifications.containsKey(peerID)) return true
+        val nonce = ByteArray(16)
+        java.security.SecureRandom().nextBytes(nonce)
+        val pending = PendingVerification(qr.noiseKeyHex, qr.signKeyHex, nonce, System.currentTimeMillis(), false)
+        pendingQRVerifications[peerID] = pending
+
+        if (meshService.getSessionState(peerID) is NoiseSession.NoiseSessionState.Established) {
+            meshService.sendVerifyChallenge(peerID, qr.noiseKeyHex, nonce)
+            pendingQRVerifications[peerID] = pending.copy(sent = true)
+        } else {
+            meshService.initiateNoiseHandshake(peerID)
+        }
+        fingerprintFromNoiseHex(qr.noiseKeyHex)?.let { fp ->
+            identityManager.cacheFingerprintNickname(fp, qr.nickname)
+            identityManager.cacheNoiseFingerprint(qr.noiseKeyHex, fp)
+            identityManager.cachePeerNoiseKey(peerID, qr.noiseKeyHex)
+        }
+        return true
+    }
+
+    private fun sendPendingVerificationIfNeeded(peerID: String) {
+        val pending = pendingQRVerifications[peerID] ?: return
+        if (pending.sent) return
+        meshService.sendVerifyChallenge(peerID, pending.noiseKeyHex, pending.nonceA)
+        pendingQRVerifications[peerID] = pending.copy(sent = true)
+    }
+
+    private fun addVerificationSystemMessage(peerID: String, text: String) {
+        val msg = BitchatMessage(
+            sender = "system",
+            content = text,
+            timestamp = Date(),
+            isRelay = false,
+            isPrivate = true,
+            senderPeerID = peerID
+        )
+        messageManager.addPrivateMessageNoUnread(peerID, msg)
+    }
+
+    private fun resolvePeerDisplayName(peerID: String): String {
+        val nick = try { meshService.getPeerInfo(peerID)?.nickname } catch (_: Exception) { null }
+        return nick ?: peerID.take(8)
+    }
+
+    private fun sendVerificationNotification(title: String, body: String, peerID: String) {
+        notificationManager.showVerificationNotification(title, body, peerID)
     }
 
     // MARK: - Debug and Troubleshooting
@@ -703,6 +841,156 @@ class ChatViewModel(
         notificationManager.clearMeshMentionNotifications()
     }
 
+    private var reopenSidebarAfterVerification = false
+
+    fun showVerificationSheet(fromSidebar: Boolean = false) {
+        if (fromSidebar) {
+            reopenSidebarAfterVerification = true
+        }
+        state.setShowVerificationSheet(true)
+    }
+
+    fun hideVerificationSheet() {
+        state.setShowVerificationSheet(false)
+        if (reopenSidebarAfterVerification) {
+            reopenSidebarAfterVerification = false
+            state.setShowSidebar(true)
+        }
+    }
+
+    fun showSecurityVerificationSheet() {
+        state.setShowSecurityVerificationSheet(true)
+    }
+
+    fun hideSecurityVerificationSheet() {
+        state.setShowSecurityVerificationSheet(false)
+    }
+
+    fun getPeerFingerprintForDisplay(peerID: String): String? {
+        val fromMap = peerFingerprints.value[peerID]
+        if (fromMap != null) return fromMap
+        val hexRegex = Regex("^[0-9a-fA-F]+$")
+        return try {
+            when {
+                peerID.length == 64 && peerID.matches(hexRegex) -> {
+                    identityManager.getCachedNoiseFingerprint(peerID)?.let { return it }
+                    fingerprintFromNoiseHex(peerID)?.also { identityManager.cacheNoiseFingerprint(peerID, it) }
+                }
+                peerID.length == 16 && peerID.matches(hexRegex) -> {
+                    val meshFp = meshService.getPeerFingerprint(peerID)
+                    if (meshFp != null) return meshFp
+                    identityManager.getCachedPeerFingerprint(peerID)?.let { return it }
+                    identityManager.getCachedNoiseKey(peerID)?.let { noiseHex ->
+                        identityManager.getCachedNoiseFingerprint(noiseHex)?.let { return it }
+                        return fingerprintFromNoiseHex(noiseHex)?.also { identityManager.cacheNoiseFingerprint(noiseHex, it) }
+                    }
+                    val favorite = try {
+                        FavoritesPersistenceService.shared.getFavoriteStatus(peerID)
+                    } catch (_: Exception) {
+                        null
+                    }
+                    favorite?.peerNoisePublicKey?.let { fingerprintFromNoiseBytes(it) }
+                }
+                peerID.startsWith("nostr_") -> {
+                    val pubHex = GeohashAliasRegistry.get(peerID)
+                    val noiseKey = pubHex?.let {
+                        FavoritesPersistenceService.shared.findNoiseKey(it)
+                    }
+                    noiseKey?.let {
+                        val noiseHex = it.hexEncodedString()
+                        identityManager.getCachedNoiseFingerprint(noiseHex) ?: fingerprintFromNoiseBytes(it)
+                    }
+                }
+                peerID.startsWith("nostr:") -> {
+                    val prefix = peerID.removePrefix("nostr:").lowercase()
+                    val pubHex = GeohashAliasRegistry
+                        .snapshot()
+                        .values
+                        .firstOrNull { it.lowercase().startsWith(prefix) }
+                    val noiseKey = pubHex?.let {
+                        FavoritesPersistenceService.shared.findNoiseKey(it)
+                    }
+                    noiseKey?.let {
+                        val noiseHex = it.hexEncodedString()
+                        identityManager.getCachedNoiseFingerprint(noiseHex) ?: fingerprintFromNoiseBytes(it)
+                    }
+                }
+                else -> {
+                    val meshFp = meshService.getPeerFingerprint(peerID)
+                    if (meshFp != null) return meshFp
+                    identityManager.getCachedPeerFingerprint(peerID)?.let { return it }
+                    identityManager.getCachedNoiseKey(peerID)?.let { noiseHex ->
+                        identityManager.getCachedNoiseFingerprint(noiseHex)?.let { return it }
+                        return fingerprintFromNoiseHex(noiseHex)?.also { identityManager.cacheNoiseFingerprint(noiseHex, it) }
+                    }
+                    val favorite = try {
+                        FavoritesPersistenceService.shared.getFavoriteStatus(peerID)
+                    } catch (_: Exception) {
+                        null
+                    }
+                    favorite?.peerNoisePublicKey?.let { fingerprintFromNoiseBytes(it) }
+                }
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun getMyFingerprint(): String {
+        return meshService.getIdentityFingerprint()
+    }
+
+    fun resolvePeerDisplayNameForFingerprint(peerID: String): String {
+        val nicknameMap = peerNicknames.value
+        nicknameMap[peerID]?.let { return it }
+        try {
+            meshService.getPeerInfo(peerID)?.nickname?.let { return it }
+        } catch (_: Exception) { }
+
+        val fingerprint = getPeerFingerprintForDisplay(peerID)
+        fingerprint?.let { fp ->
+            identityManager.getCachedFingerprintNickname(fp)?.let { cached ->
+                if (cached.isNotBlank()) return cached
+            }
+        }
+
+        val hexRegex = Regex("^[0-9a-fA-F]+$")
+        if (peerID.length == 64 && peerID.matches(hexRegex)) {
+            val noiseKeyBytes = try {
+                peerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+            } catch (_: Exception) { null }
+            val favorite = noiseKeyBytes?.let {
+                FavoritesPersistenceService.shared.getFavoriteStatus(it)
+            }
+            favorite?.peerNickname?.takeIf { it.isNotBlank() }?.let { return it }
+        }
+
+        if (peerID.length == 16 && peerID.matches(hexRegex)) {
+            val favorite = try {
+                FavoritesPersistenceService.shared.getFavoriteStatus(peerID)
+            } catch (_: Exception) {
+                null
+            }
+            favorite?.peerNickname?.takeIf { it.isNotBlank() }?.let { return it }
+        }
+
+        return peerID.take(8)
+    }
+
+    fun verifyFingerprintValue(fingerprint: String) {
+        if (fingerprint.isBlank()) return
+        val identityManager = SecureIdentityStateManager(getApplication())
+        identityManager.setVerifiedFingerprint(fingerprint, true)
+        _verifiedFingerprints.value += fingerprint
+    }
+
+    fun unverifyFingerprintValue(fingerprint: String) {
+        if (fingerprint.isBlank()) return
+        val identityManager = SecureIdentityStateManager(getApplication())
+        identityManager.setVerifiedFingerprint(fingerprint, false)
+        _verifiedFingerprints.value -= fingerprint
+    }
+
     // MARK: - Command Autocomplete (delegated)
     
     fun updateCommandSuggestions(input: String) {
@@ -743,6 +1031,81 @@ class ChatViewModel(
     
     override fun didReceiveReadReceipt(messageID: String, recipientPeerID: String) {
         meshDelegateHandler.didReceiveReadReceipt(messageID, recipientPeerID)
+    }
+
+    override fun didReceiveVerifyChallenge(peerID: String, payload: ByteArray, timestampMs: Long) {
+        viewModelScope.launch {
+            val parsed = VerificationService.parseVerifyChallenge(payload) ?: return@launch
+            val myNoiseHex = meshService.getStaticNoisePublicKey()?.hexEncodedString()?.lowercase() ?: return@launch
+            if (parsed.first.lowercase() != myNoiseHex) return@launch
+
+            val lastNonce = lastVerifyNonceByPeer[peerID]
+            if (lastNonce != null && lastNonce.contentEquals(parsed.second)) return@launch
+            lastVerifyNonceByPeer[peerID] = parsed.second
+
+            val fp = meshService.getPeerFingerprint(peerID)
+            if (fp != null) {
+                lastInboundVerifyChallengeAt[fp] = System.currentTimeMillis()
+                if (_verifiedFingerprints.value.contains(fp)) {
+                    val lastToast = lastMutualToastAt[fp] ?: 0L
+                    if (System.currentTimeMillis() - lastToast > 60_000L) {
+                        lastMutualToastAt[fp] = System.currentTimeMillis()
+                        val name = resolvePeerDisplayName(peerID)
+                        val body = "You and $name verified each other"
+                        addVerificationSystemMessage(peerID, "mutual verification with $name")
+                        sendVerificationNotification("Mutual verification", body, peerID)
+                    }
+                }
+            }
+
+            meshService.sendVerifyResponse(peerID, parsed.first, parsed.second)
+        }
+    }
+
+    override fun didReceiveVerifyResponse(peerID: String, payload: ByteArray, timestampMs: Long) {
+        viewModelScope.launch {
+            val resp = VerificationService.parseVerifyResponse(payload) ?: return@launch
+            val pending = pendingQRVerifications[peerID] ?: return@launch
+            if (!resp.noiseKeyHex.equals(pending.noiseKeyHex, ignoreCase = true)) return@launch
+            if (!resp.nonceA.contentEquals(pending.nonceA)) return@launch
+
+            val ok = VerificationService.verifyResponseSignature(
+                noiseKeyHex = resp.noiseKeyHex,
+                nonceA = resp.nonceA,
+                signature = resp.signature,
+                signerPublicKeyHex = pending.signKeyHex
+            )
+            if (!ok) return@launch
+
+            pendingQRVerifications.remove(peerID)
+            val fp = meshService.getPeerFingerprint(peerID) ?: return@launch
+            identityManager.setVerifiedFingerprint(fp, true)
+            _verifiedFingerprints.value = _verifiedFingerprints.value + fp
+            val name = resolvePeerDisplayName(peerID)
+            identityManager.cacheFingerprintNickname(fp, name)
+            val noiseKeyHex = try {
+                meshService.getPeerInfo(peerID)?.noisePublicKey?.hexEncodedString()
+            } catch (_: Exception) {
+                null
+            }
+            if (noiseKeyHex != null) {
+                identityManager.cachePeerNoiseKey(peerID, noiseKeyHex)
+                identityManager.cacheNoiseFingerprint(noiseKeyHex, fp)
+            }
+            addVerificationSystemMessage(peerID, "verified $name")
+            sendVerificationNotification("Verified", "You verified $name", peerID)
+
+            val lastChallenge = lastInboundVerifyChallengeAt[fp] ?: 0L
+            if (System.currentTimeMillis() - lastChallenge < 600_000L) {
+                val lastToast = lastMutualToastAt[fp] ?: 0L
+                if (System.currentTimeMillis() - lastToast > 60_000L) {
+                    lastMutualToastAt[fp] = System.currentTimeMillis()
+                    val body = "You and $name verified each other"
+                    addVerificationSystemMessage(peerID, "mutual verification with $name")
+                    sendVerificationNotification("Mutual verification", body, peerID)
+                }
+            }
+        }
     }
     
     override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {
@@ -827,7 +1190,7 @@ class ChatViewModel(
             
             // Clear secure identity state (if used)
             try {
-                val identityManager = com.bitchat.android.identity.SecureIdentityStateManager(getApplication())
+                val identityManager = SecureIdentityStateManager(getApplication())
                 identityManager.clearIdentityData()
                 // Also clear secure values used by FavoritesPersistenceService (favorites + peerID index)
                 try {
@@ -840,7 +1203,7 @@ class ChatViewModel(
 
             // Clear FavoritesPersistenceService persistent relationships
             try {
-                com.bitchat.android.favorites.FavoritesPersistenceService.shared.clearAllFavorites()
+                FavoritesPersistenceService.shared.clearAllFavorites()
                 Log.d(TAG, "✅ Cleared FavoritesPersistenceService relationships")
             } catch (_: Exception) { }
             
@@ -953,6 +1316,16 @@ class ChatViewModel(
         }
     }
 
+    private fun fingerprintFromNoiseHex(noiseHex: String): String? {
+        val bytes = noiseHex.dataFromHexString() ?: return null
+        return fingerprintFromNoiseBytes(bytes)
+    }
+
+    private fun fingerprintFromNoiseBytes(bytes: ByteArray): String {
+        val hash = MessageDigest.getInstance("SHA-256").digest(bytes)
+        return hash.hexEncodedString()
+    }
+
     // MARK: - iOS-Compatible Color System
 
     /**
@@ -970,4 +1343,37 @@ class ChatViewModel(
     fun colorForNostrPubkey(pubkeyHex: String, isDark: Boolean): androidx.compose.ui.graphics.Color {
         return geohashViewModel.colorForNostrPubkey(pubkeyHex, isDark)
     }
+
+    private data class PendingVerification(
+        val noiseKeyHex: String,
+        val signKeyHex: String,
+        val nonceA: ByteArray,
+        val startedAtMs: Long,
+        val sent: Boolean
+    ) {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+
+            other as PendingVerification
+
+            if (startedAtMs != other.startedAtMs) return false
+            if (sent != other.sent) return false
+            if (noiseKeyHex != other.noiseKeyHex) return false
+            if (signKeyHex != other.signKeyHex) return false
+            if (!nonceA.contentEquals(other.nonceA)) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            var result = startedAtMs.hashCode()
+            result = 31 * result + sent.hashCode()
+            result = 31 * result + noiseKeyHex.hashCode()
+            result = 31 * result + signKeyHex.hashCode()
+            result = 31 * result + nonceA.contentHashCode()
+            return result
+        }
+    }
+
 }
