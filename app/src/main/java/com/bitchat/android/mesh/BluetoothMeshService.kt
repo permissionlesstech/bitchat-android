@@ -7,12 +7,15 @@ import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.protocol.MessagePadding
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.model.IdentityAnnouncement
+import com.bitchat.android.model.NoisePayload
+import com.bitchat.android.model.NoisePayloadType
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
 import com.bitchat.android.model.RequestSyncPacket
 import com.bitchat.android.sync.GossipSyncManager
 import com.bitchat.android.util.toHexString
+import com.bitchat.android.services.VerificationService
 import kotlinx.coroutines.*
 import java.util.*
 import kotlin.math.sign
@@ -72,6 +75,7 @@ class BluetoothMeshService(private val context: Context) {
     
     init {
         Log.i(TAG, "Initializing BluetoothMeshService for peer=$myPeerID")
+        VerificationService.configure(encryptionService)
         setupDelegates()
         messageHandler.packetProcessor = packetProcessor
         //startPeriodicDebugLogging()
@@ -413,6 +417,14 @@ class BluetoothMeshService(private val context: Context) {
             
             override fun onReadReceiptReceived(messageID: String, peerID: String) {
                 delegate?.didReceiveReadReceipt(messageID, peerID)
+            }
+
+            override fun onVerifyChallengeReceived(peerID: String, payload: ByteArray, timestampMs: Long) {
+                delegate?.didReceiveVerifyChallenge(peerID, payload, timestampMs)
+            }
+
+            override fun onVerifyResponseReceived(peerID: String, payload: ByteArray, timestampMs: Long) {
+                delegate?.didReceiveVerifyResponse(peerID, payload, timestampMs)
             }
         }
         
@@ -939,6 +951,50 @@ class BluetoothMeshService(private val context: Context) {
             }
         }
     }
+
+    // MARK: QR Verification over Noise
+
+    fun sendVerifyChallenge(peerID: String, noiseKeyHex: String, nonceA: ByteArray) {
+        val tlv = VerificationService.buildVerifyChallenge(noiseKeyHex, nonceA)
+        val payload = NoisePayload(
+            type = NoisePayloadType.VERIFY_CHALLENGE,
+            data = tlv
+        )
+        sendNoisePayloadToPeer(payload, peerID, "verify challenge")
+    }
+
+    fun sendVerifyResponse(peerID: String, noiseKeyHex: String, nonceA: ByteArray) {
+        val tlv = VerificationService.buildVerifyResponse(noiseKeyHex, nonceA) ?: return
+        val payload = NoisePayload(
+            type = NoisePayloadType.VERIFY_RESPONSE,
+            data = tlv
+        )
+        sendNoisePayloadToPeer(payload, peerID, "verify response")
+    }
+
+    private fun sendNoisePayloadToPeer(payload: NoisePayload, recipientPeerID: String, label: String) {
+        serviceScope.launch {
+            try {
+                val encrypted = encryptionService.encrypt(payload.encode(), recipientPeerID)
+                val packet = BitchatPacket(
+                    version = 1u,
+                    type = MessageType.NOISE_ENCRYPTED.value,
+                    senderID = hexStringToByteArray(myPeerID),
+                    recipientID = hexStringToByteArray(recipientPeerID),
+                    timestamp = System.currentTimeMillis().toULong(),
+                    payload = encrypted,
+                    signature = null,
+                    ttl = com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
+                )
+
+                val signedPacket = signPacketBeforeBroadcast(packet)
+                connectionManager.broadcastPacket(RoutedPacket(signedPacket))
+                Log.d(TAG, "📤 Sent $label to $recipientPeerID (${payload.data.size} bytes)")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send $label to $recipientPeerID: ${e.message}")
+            }
+        }
+    }
     
     /**
      * Send broadcast announce with TLV-encoded identity announcement - exactly like iOS
@@ -1127,6 +1183,10 @@ class BluetoothMeshService(private val context: Context) {
     fun getIdentityFingerprint(): String {
         return encryptionService.getIdentityFingerprint()
     }
+
+    fun getStaticNoisePublicKey(): ByteArray? {
+        return encryptionService.getStaticPublicKey()
+    }
     
     /**
      * Check if encryption icon should be shown for a peer
@@ -1283,6 +1343,8 @@ interface BluetoothMeshDelegate {
     fun didReceiveChannelLeave(channel: String, fromPeer: String)
     fun didReceiveDeliveryAck(messageID: String, recipientPeerID: String)
     fun didReceiveReadReceipt(messageID: String, recipientPeerID: String)
+    fun didReceiveVerifyChallenge(peerID: String, payload: ByteArray, timestampMs: Long)
+    fun didReceiveVerifyResponse(peerID: String, payload: ByteArray, timestampMs: Long)
     fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String?
     fun getNickname(): String?
     fun isFavorite(peerID: String): Boolean
