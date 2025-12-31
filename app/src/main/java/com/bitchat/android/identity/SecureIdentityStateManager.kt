@@ -5,7 +5,10 @@ import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import java.security.MessageDigest
+import android.util.Base64
 import android.util.Log
+import com.bitchat.android.util.hexEncodedString
+import androidx.core.content.edit
 
 /**
  * Manages persistent identity storage and peer ID rotation - 100% compatible with iOS implementation
@@ -24,6 +27,11 @@ class SecureIdentityStateManager(private val context: Context) {
         private const val KEY_STATIC_PUBLIC_KEY = "static_public_key"
         private const val KEY_SIGNING_PRIVATE_KEY = "signing_private_key"
         private const val KEY_SIGNING_PUBLIC_KEY = "signing_public_key"
+        private const val KEY_VERIFIED_FINGERPRINTS = "verified_fingerprints"
+        private const val KEY_CACHED_PEER_FINGERPRINTS = "cached_peer_fingerprints"
+        private const val KEY_CACHED_PEER_NOISE_KEYS = "cached_peer_noise_keys"
+        private const val KEY_CACHED_NOISE_FINGERPRINTS = "cached_noise_fingerprints"
+        private const val KEY_CACHED_FINGERPRINT_NICKNAMES = "cached_fingerprint_nicknames"
     }
     
     private val prefs: SharedPreferences
@@ -168,7 +176,7 @@ class SecureIdentityStateManager(private val context: Context) {
     fun generateFingerprint(publicKeyData: ByteArray): String {
         val digest = MessageDigest.getInstance("SHA-256")
         val hash = digest.digest(publicKeyData)
-        return hash.joinToString("") { "%02x".format(it) }
+        return hash.hexEncodedString()
     }
     
     /**
@@ -177,6 +185,98 @@ class SecureIdentityStateManager(private val context: Context) {
     fun isValidFingerprint(fingerprint: String): Boolean {
         // SHA-256 fingerprint should be 64 hex characters
         return fingerprint.matches(Regex("^[a-fA-F0-9]{64}$"))
+    }
+
+    // MARK: - Verified Fingerprints
+
+    fun getVerifiedFingerprints(): Set<String> {
+        return prefs.getStringSet(KEY_VERIFIED_FINGERPRINTS, emptySet())?.toSet() ?: emptySet()
+    }
+
+    fun isVerifiedFingerprint(fingerprint: String): Boolean {
+        return getVerifiedFingerprints().contains(fingerprint)
+    }
+
+    fun setVerifiedFingerprint(fingerprint: String, verified: Boolean) {
+        if (!isValidFingerprint(fingerprint)) return
+        val current = prefs.getStringSet(KEY_VERIFIED_FINGERPRINTS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        if (verified) {
+            current.add(fingerprint)
+        } else {
+            current.remove(fingerprint)
+        }
+        prefs.edit { putStringSet(KEY_VERIFIED_FINGERPRINTS, current) }
+    }
+
+    fun getCachedPeerFingerprint(peerID: String): String? {
+        val pid = peerID.lowercase()
+        val entries = prefs.getStringSet(KEY_CACHED_PEER_FINGERPRINTS, emptySet()) ?: return null
+        val entry = entries.firstOrNull { it.startsWith("$pid:") } ?: return null
+        return entry.substringAfter(':').takeIf { isValidFingerprint(it) }
+    }
+
+    fun cachePeerFingerprint(peerID: String, fingerprint: String) {
+        if (!isValidFingerprint(fingerprint)) return
+        val pid = peerID.lowercase()
+        val current = prefs.getStringSet(KEY_CACHED_PEER_FINGERPRINTS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        current.removeAll { it.startsWith("$pid:") }
+        current.add("$pid:$fingerprint")
+        prefs.edit { putStringSet(KEY_CACHED_PEER_FINGERPRINTS, current) }
+    }
+
+    fun getCachedNoiseKey(peerID: String): String? {
+        val pid = peerID.lowercase()
+        val entries = prefs.getStringSet(KEY_CACHED_PEER_NOISE_KEYS, emptySet()) ?: return null
+        val entry = entries.firstOrNull { it.startsWith("$pid=") } ?: return null
+        return entry.substringAfter('=').takeIf { it.matches(Regex("^[a-fA-F0-9]{64}$")) }
+    }
+
+    fun cachePeerNoiseKey(peerID: String, noiseKeyHex: String) {
+        if (!noiseKeyHex.matches(Regex("^[a-fA-F0-9]{64}$"))) return
+        val pid = peerID.lowercase()
+        val current = prefs.getStringSet(KEY_CACHED_PEER_NOISE_KEYS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        current.removeAll { it.startsWith("$pid=") }
+        current.add("$pid=${noiseKeyHex.lowercase()}")
+        prefs.edit { putStringSet(KEY_CACHED_PEER_NOISE_KEYS, current) }
+    }
+
+    fun getCachedNoiseFingerprint(noiseKeyHex: String): String? {
+        val key = noiseKeyHex.lowercase()
+        val entries = prefs.getStringSet(KEY_CACHED_NOISE_FINGERPRINTS, emptySet()) ?: return null
+        val entry = entries.firstOrNull { it.startsWith("$key=") } ?: return null
+        return entry.substringAfter('=').takeIf { isValidFingerprint(it) }
+    }
+
+    fun cacheNoiseFingerprint(noiseKeyHex: String, fingerprint: String) {
+        if (!isValidFingerprint(fingerprint)) return
+        if (!noiseKeyHex.matches(Regex("^[a-fA-F0-9]{64}$"))) return
+        val key = noiseKeyHex.lowercase()
+        val current = prefs.getStringSet(KEY_CACHED_NOISE_FINGERPRINTS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        current.removeAll { it.startsWith("$key=") }
+        current.add("$key=$fingerprint")
+        prefs.edit { putStringSet(KEY_CACHED_NOISE_FINGERPRINTS, current) }
+    }
+
+    fun getCachedFingerprintNickname(fingerprint: String): String? {
+        if (!isValidFingerprint(fingerprint)) return null
+        val key = fingerprint.lowercase()
+        val entries = prefs.getStringSet(KEY_CACHED_FINGERPRINT_NICKNAMES, emptySet()) ?: return null
+        val entry = entries.firstOrNull { it.startsWith("$key=") } ?: return null
+        val encoded = entry.substringAfter('=')
+        return runCatching {
+            val bytes = Base64.decode(encoded, Base64.NO_WRAP)
+            String(bytes, Charsets.UTF_8)
+        }.getOrNull()
+    }
+
+    fun cacheFingerprintNickname(fingerprint: String, nickname: String) {
+        if (!isValidFingerprint(fingerprint)) return
+        val key = fingerprint.lowercase()
+        val encoded = Base64.encodeToString(nickname.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
+        val current = prefs.getStringSet(KEY_CACHED_FINGERPRINT_NICKNAMES, emptySet())?.toMutableSet() ?: mutableSetOf()
+        current.removeAll { it.startsWith("$key=") }
+        current.add("$key=$encoded")
+        prefs.edit { putStringSet(KEY_CACHED_FINGERPRINT_NICKNAMES, current) }
     }
     
     // MARK: - Peer ID Rotation Management (removed)
