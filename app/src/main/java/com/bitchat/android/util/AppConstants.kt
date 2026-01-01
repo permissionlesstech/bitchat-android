@@ -115,6 +115,7 @@ object AppConstants {
         const val MESSAGE_DEDUP_TIMEOUT_MS: Long = 30_000L
         const val SYSTEM_EVENT_DEDUP_TIMEOUT_MS: Long = 5_000L
         const val ACTIVE_PEERS_NOTIFICATION_INTERVAL_MS: Long = 300_000L
+        const val ACTION_FORCE_FINISH: String = "com.bitchat.android.ACTION_FORCE_FINISH"
     }
 
     object Media {

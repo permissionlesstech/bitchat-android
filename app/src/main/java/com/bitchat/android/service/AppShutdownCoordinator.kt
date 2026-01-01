@@ -33,6 +33,11 @@ object AppShutdownCoordinator {
         stopService: () -> Unit
     ) {
         scope.launch {
+            // Signal UI to finish gracefully before we kill the process
+            try {
+                app.sendBroadcast(android.content.Intent(com.bitchat.android.util.AppConstants.UI.ACTION_FORCE_FINISH))
+            } catch (_: Exception) { }
+
             // Stop mesh (best-effort)
             try { mesh?.stopServices() } catch (_: Exception) { }
 
