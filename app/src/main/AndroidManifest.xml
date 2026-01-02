@@ -19,6 +19,8 @@
     
     <!-- Notification permissions -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Signature permission for internal UI shutdown broadcasts -->
+    <uses-permission android:name="com.bitchat.android.permission.FORCE_FINISH" />
     <!-- Foreground service and boot permissions for long-running background mesh -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <!-- Connected device foreground service type for BLE operations (API 34+) -->
@@ -45,6 +47,10 @@
     <!-- Hardware features -->
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
     <uses-feature android:name="android.hardware.bluetooth" android:required="true" />
+
+    <permission
+        android:name="com.bitchat.android.permission.FORCE_FINISH"
+        android:protectionLevel="signature" />
 
     <application
         android:name=".BitchatApplication"

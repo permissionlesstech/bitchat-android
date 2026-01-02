@@ -35,7 +35,9 @@ object AppShutdownCoordinator {
         scope.launch {
             // Signal UI to finish gracefully before we kill the process
             try {
-                app.sendBroadcast(android.content.Intent(com.bitchat.android.util.AppConstants.UI.ACTION_FORCE_FINISH))
+                val intent = android.content.Intent(com.bitchat.android.util.AppConstants.UI.ACTION_FORCE_FINISH)
+                    .setPackage(app.packageName)
+                app.sendBroadcast(intent, com.bitchat.android.util.AppConstants.UI.PERMISSION_FORCE_FINISH)
             } catch (_: Exception) { }
 
             // Stop mesh (best-effort)
@@ -69,4 +71,3 @@ object AppShutdownCoordinator {
         }
     }
 }
-
