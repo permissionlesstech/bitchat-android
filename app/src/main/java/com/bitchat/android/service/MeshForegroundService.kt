@@ -115,6 +115,7 @@ class MeshForegroundService : Service() {
     private val serviceJob = Job()
     private val scope = CoroutineScope(Dispatchers.Default + serviceJob)
     private var isInForeground: Boolean = false
+    private var isShuttingDown: Boolean = false
 
     override fun onCreate() {
         super.onCreate()
@@ -133,6 +134,9 @@ class MeshForegroundService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (isShuttingDown && intent?.action != ACTION_QUIT) {
+            return START_NOT_STICKY
+        }
         when (intent?.action) {
             ACTION_STOP -> {
                 // Stop FGS and mesh cleanly
@@ -145,6 +149,12 @@ class MeshForegroundService : Service() {
                 return START_NOT_STICKY
             }
             ACTION_QUIT -> {
+                isShuttingDown = true
+                updateJob?.cancel()
+                updateJob = null
+                try { stopForeground(true) } catch (_: Exception) { }
+                notificationManager.cancel(NOTIFICATION_ID)
+                isInForeground = false
                 // Fully stop all background activity, stop Tor (without changing setting), then kill the app
                 AppShutdownCoordinator.requestFullShutdownAndKill(
                     app = application,
@@ -208,6 +218,7 @@ class MeshForegroundService : Service() {
     }
 
     private fun ensureMeshStarted() {
+        if (isShuttingDown) return
         if (!hasBluetoothPermissions()) return
         try {
             android.util.Log.d("MeshForegroundService", "Ensuring mesh service is started")
@@ -218,6 +229,10 @@ class MeshForegroundService : Service() {
     }
 
     private fun updateNotification(force: Boolean) {
+        if (isShuttingDown) {
+            notificationManager.cancel(NOTIFICATION_ID)
+            return
+        }
         val count = meshService?.getActivePeerCount() ?: 0
         val notification = buildNotification(count)
         if (MeshServicePreferences.isBackgroundEnabled(true) && hasAllRequiredPermissions()) {
