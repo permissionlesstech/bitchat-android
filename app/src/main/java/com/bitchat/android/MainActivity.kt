@@ -101,6 +101,8 @@ class MainActivity : OrientationAwareActivity() {
             finish()
             return
         }
+
+        com.bitchat.android.service.AppShutdownCoordinator.cancelPendingShutdown()
         
         // Enable edge-to-edge display for modern Android look
         enableEdgeToEdge()
@@ -675,6 +677,8 @@ class MainActivity : OrientationAwareActivity() {
             finish()
             return
         }
+
+        com.bitchat.android.service.AppShutdownCoordinator.cancelPendingShutdown()
         
         // Handle notification intents when app is already running
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {

@@ -134,6 +134,10 @@ class MeshForegroundService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (isShuttingDown && intent?.action == ACTION_START) {
+            AppShutdownCoordinator.cancelPendingShutdown()
+            isShuttingDown = false
+        }
         if (isShuttingDown && intent?.action != ACTION_QUIT) {
             return START_NOT_STICKY
         }
