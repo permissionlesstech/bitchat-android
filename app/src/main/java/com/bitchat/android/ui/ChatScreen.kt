@@ -23,6 +23,7 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
+
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.model.BitchatMessage
@@ -113,7 +114,10 @@ fun ChatScreen(viewModel: ChatViewModel) {
             .background(colorScheme.background) // Extend background to fill entire screen including status bar
     ) {
         val headerHeight = 42.dp
-        
+        // Reserve exact height: header + status bar inset so content below won't be overlapped
+        val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        val reservedHeaderHeight = headerHeight + statusBarTop
+
         // Main content area that responds to keyboard/window insets
         Column(
             modifier = Modifier
@@ -121,11 +125,10 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 .windowInsetsPadding(WindowInsets.ime) // This handles keyboard insets
                 .windowInsetsPadding(WindowInsets.navigationBars) // Add bottom padding when keyboard is not expanded
         ) {
-            // Header spacer - creates exact space for the floating header (status bar + compact header)
+            // Header spacer - reserve space equal to header + status bar inset
             Spacer(
                 modifier = Modifier
-                    .windowInsetsPadding(WindowInsets.statusBars)
-                    .height(headerHeight)
+                    .height(reservedHeaderHeight)
             )
 
             // Messages area - takes up available space, will compress when keyboard appears
@@ -254,15 +257,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             onLocationNotesClick = { showLocationNotesSheet = true }
         )
 
-        // Divider under header - positioned after status bar + header height
-        HorizontalDivider(
-            modifier = Modifier
-                .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .offset(y = headerHeight)
-                .zIndex(1f),
-            color = colorScheme.outline.copy(alpha = 0.3f)
-        )
+
 
         val alpha by animateFloatAsState(
             targetValue = if (showSidebar) 0.5f else 0f,
@@ -459,38 +454,46 @@ private fun ChatFloatingHeader(
         modifier = Modifier
             .fillMaxWidth()
             .zIndex(1f)
-            .windowInsetsPadding(WindowInsets.statusBars), // Extend into status bar area
+            .statusBarsPadding(), // Respect status bar insets
         color = colorScheme.background // Solid background color extending into status bar
     ) {
-        TopAppBar(
-            title = {
-                ChatHeaderContent(
-                    selectedPrivatePeer = selectedPrivatePeer,
-                    currentChannel = currentChannel,
-                    nickname = nickname,
-                    viewModel = viewModel,
-                    onBackClick = {
-                        when {
-                            selectedPrivatePeer != null -> viewModel.endPrivateChat()
-                            currentChannel != null -> viewModel.switchToChannel(null)
+        Column {
+            TopAppBar(
+                title = {
+                    ChatHeaderContent(
+                        selectedPrivatePeer = selectedPrivatePeer,
+                        currentChannel = currentChannel,
+                        nickname = nickname,
+                        viewModel = viewModel,
+                        onBackClick = {
+                            when {
+                                selectedPrivatePeer != null -> viewModel.endPrivateChat()
+                                currentChannel != null -> viewModel.switchToChannel(null)
+                            }
+                        },
+                        onSidebarClick = onSidebarToggle,
+                        onTripleClick = onPanicClear,
+                        onShowAppInfo = onShowAppInfo,
+                        onLocationChannelsClick = onLocationChannelsClick,
+                        onLocationNotesClick = {
+                            // Ensure location is loaded before showing sheet
+                            locationManager.refreshChannels()
+                            onLocationNotesClick()
                         }
-                    },
-                    onSidebarClick = onSidebarToggle,
-                    onTripleClick = onPanicClear,
-                    onShowAppInfo = onShowAppInfo,
-                    onLocationChannelsClick = onLocationChannelsClick,
-                    onLocationNotesClick = {
-                        // Ensure location is loaded before showing sheet
-                        locationManager.refreshChannels()
-                        onLocationNotesClick()
-                    }
-                )
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color.Transparent
-            ),
-            modifier = Modifier.height(headerHeight) // Ensure compact header height
-        )
+                    )
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent
+                ),
+                modifier = Modifier.heightIn(min = headerHeight) // Allow header to expand for accessibility font scales
+            )
+
+            // Divider under header - always aligned with header bottom
+            Divider(
+                modifier = Modifier.fillMaxWidth(),
+                color = colorScheme.outline.copy(alpha = 0.3f)
+            )
+        }
     }
 }
 
