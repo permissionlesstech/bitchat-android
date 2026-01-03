@@ -10,12 +10,6 @@ import com.bitchat.android.mesh.BluetoothMeshService
 object MeshServiceHolder {
     private const val TAG = "MeshServiceHolder"
     @Volatile
-    var sharedGossipSyncManager: com.bitchat.android.sync.GossipSyncManager? = null
-        private set
-
-    fun setGossipManager(mgr: com.bitchat.android.sync.GossipSyncManager) { sharedGossipSyncManager = mgr }
-
-    @Volatile
     var meshService: BluetoothMeshService? = null
         private set
 

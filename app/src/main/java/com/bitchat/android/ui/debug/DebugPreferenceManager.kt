@@ -20,10 +20,7 @@ object DebugPreferenceManager {
     // GCS keys (no migration/back-compat)
     private const val KEY_GCS_MAX_BYTES = "gcs_max_filter_bytes"
     private const val KEY_GCS_FPR = "gcs_filter_fpr_percent"
-    // Transport master toggles
-    private const val KEY_BLE_ENABLED = "ble_enabled"
-    private const val KEY_WIFI_AWARE_ENABLED = "wifi_aware_enabled"
-    private const val KEY_WIFI_AWARE_VERBOSE = "wifi_aware_verbose"
+    // Removed: persistent notification toggle is now governed by MeshServicePreferences.isBackgroundEnabled
 
     private lateinit var prefs: SharedPreferences
 
@@ -105,25 +102,5 @@ object DebugPreferenceManager {
         if (ready()) prefs.edit().putLong(KEY_GCS_FPR, java.lang.Double.doubleToRawLongBits(value)).apply()
     }
 
-    // Transport toggles
-    fun getBleEnabled(default: Boolean = true): Boolean =
-        if (ready()) prefs.getBoolean(KEY_BLE_ENABLED, default) else default
-
-    fun setBleEnabled(value: Boolean) {
-        if (ready()) prefs.edit().putBoolean(KEY_BLE_ENABLED, value).apply()
-    }
-
-    fun getWifiAwareEnabled(default: Boolean = false): Boolean =
-        if (ready()) prefs.getBoolean(KEY_WIFI_AWARE_ENABLED, default) else default
-
-    fun setWifiAwareEnabled(value: Boolean) {
-        if (ready()) prefs.edit().putBoolean(KEY_WIFI_AWARE_ENABLED, value).apply()
-    }
-
-    fun getWifiAwareVerbose(default: Boolean = false): Boolean =
-        if (ready()) prefs.getBoolean(KEY_WIFI_AWARE_VERBOSE, default) else default
-
-    fun setWifiAwareVerbose(value: Boolean) {
-        if (ready()) prefs.edit().putBoolean(KEY_WIFI_AWARE_VERBOSE, value).apply()
-    }
+    // No longer storing persistent notification in debug prefs.
 }

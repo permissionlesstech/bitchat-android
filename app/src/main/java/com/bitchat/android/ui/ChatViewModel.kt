@@ -441,9 +441,8 @@ class ChatViewModel(
                         state.getNicknameValue()
                     )
                 } else {
-                    // Default: route via mesh + Wi‑Fi Aware
+                    // Default: route via mesh
                     meshService.sendMessage(messageContent, mentions, channel)
-                    try { com.bitchat.android.wifiaware.WifiAwareController.getService()?.sendMessage(messageContent, mentions, channel) } catch (_: Exception) {}
                 }
             })
             return
@@ -513,23 +512,19 @@ class ChatViewModel(
                             state.getNicknameValue(),
                             meshService.myPeerID,
                             onEncryptedPayload = { encryptedData ->
-                                // Send encrypted payload announcement over both transports for reachability
+                                // This would need proper mesh service integration
                                 meshService.sendMessage(content, mentions, currentChannelValue)
-                                try { com.bitchat.android.wifiaware.WifiAwareController.getService()?.sendMessage(content, mentions, currentChannelValue) } catch (_: Exception) {}
                             },
                             onFallback = {
                                 meshService.sendMessage(content, mentions, currentChannelValue)
-                                try { com.bitchat.android.wifiaware.WifiAwareController.getService()?.sendMessage(content, mentions, currentChannelValue) } catch (_: Exception) {}
                             }
                         )
                     } else {
                         meshService.sendMessage(content, mentions, currentChannelValue)
-                        try { com.bitchat.android.wifiaware.WifiAwareController.getService()?.sendMessage(content, mentions, currentChannelValue) } catch (_: Exception) {}
                     }
                 } else {
                     messageManager.addMessage(message)
                     meshService.sendMessage(content, mentions, null)
-                    try { com.bitchat.android.wifiaware.WifiAwareController.getService()?.sendMessage(content, mentions, null) } catch (_: Exception) {}
                 }
             }
         }
@@ -652,23 +647,16 @@ class ChatViewModel(
         val fingerprints = privateChatManager.getAllPeerFingerprints()
         state.setPeerFingerprints(fingerprints)
 
-        // Merge nicknames from BLE and Wi‑Fi Aware to display names for all peers
-        val bleNick = meshService.getPeerNicknames()
-        val awareNickRaw = try { com.bitchat.android.wifiaware.WifiAwareController.getService()?.getPeerNicknamesMap() } catch (_: Exception) { null }
-        val mergedNick = if (awareNickRaw != null) bleNick + awareNickRaw.filter { it.value != null }.mapValues { it.value!! }.filterKeys { it !in bleNick || bleNick[it].isNullOrBlank() } else bleNick
-        state.setPeerNicknames(mergedNick)
+        val nicknames = meshService.getPeerNicknames()
+        state.setPeerNicknames(nicknames)
 
         val rssiValues = meshService.getPeerRSSI()
-        val awareRssi = try { com.bitchat.android.wifiaware.WifiAwareController.getService()?.getPeerRSSI() } catch (_: Exception) { null }
-        val mergedRssi = if (awareRssi != null) rssiValues + awareRssi.filterKeys { it !in rssiValues } else rssiValues
-        state.setPeerRSSI(mergedRssi)
+        state.setPeerRSSI(rssiValues)
 
         // Update directness per peer (driven by PeerManager state)
         try {
             val directMap = state.getConnectedPeersValue().associateWith { pid ->
-                val ble = meshService.getPeerInfo(pid)?.isDirectConnection == true
-                val aware = try { com.bitchat.android.wifiaware.WifiAwareController.getService()?.getPeerInfo(pid)?.isDirectConnection == true } catch (_: Exception) { false }
-                ble || aware
+                meshService.getPeerInfo(pid)?.isDirectConnection == true
             }
             state.setPeerDirect(directMap)
         } catch (_: Exception) { }

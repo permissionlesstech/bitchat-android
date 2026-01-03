@@ -96,10 +96,7 @@ class MeshDelegateHandler(
     
     override fun didUpdatePeerList(peers: List<String>) {
         coroutineScope.launch {
-            // Merge peers from multiple transports to avoid flapping
-            val current = state.getConnectedPeersValue().toMutableSet()
-            current.addAll(peers)
-            state.setConnectedPeers(current.toList())
+            state.setConnectedPeers(peers)
             state.setIsConnected(peers.isNotEmpty())
             notificationManager.showActiveUserNotification(peers)
             // Flush router outbox for any peers that just connected (and their noiseHex aliases)

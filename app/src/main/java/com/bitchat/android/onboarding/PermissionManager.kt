@@ -67,11 +67,6 @@ class PermissionManager(private val context: Context) {
             Manifest.permission.ACCESS_FINE_LOCATION
         ))
 
-        // Wi‑Fi Aware: Android 13+ requires NEARBY_WIFI_DEVICES runtime permission
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissions.add(Manifest.permission.NEARBY_WIFI_DEVICES)
-        }
-
         // Notification permission intentionally excluded to keep it optional
 
         return permissions
@@ -182,20 +177,6 @@ class PermissionManager(private val context: Context) {
             )
         )
 
-        // Wi‑Fi Aware category (Android 13+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val wifiAwarePermissions = listOf(Manifest.permission.NEARBY_WIFI_DEVICES)
-            categories.add(
-                PermissionCategory(
-                    type = PermissionType.WIFI_AWARE,
-                    description = "Enable Wi‑Fi Aware to discover and connect to nearby bitchat users over Wi‑Fi.",
-                    permissions = wifiAwarePermissions,
-                    isGranted = wifiAwarePermissions.all { isPermissionGranted(it) },
-                    systemDescription = "Allow bitchat to discover nearby Wi‑Fi devices"
-                )
-            )
-        }
-
         // Notifications category (if applicable)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             categories.add(
@@ -281,7 +262,6 @@ enum class PermissionType(val nameValue: String) {
     PRECISE_LOCATION("Precise Location"),
     MICROPHONE("Microphone"),
     NOTIFICATIONS("Notifications"),
-    WIFI_AWARE("Wi‑Fi Aware"),
     BATTERY_OPTIMIZATION("Battery Optimization"),
     OTHER("Other")
 }
