@@ -4,13 +4,15 @@ import android.graphics.Bitmap
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import androidx.camera.compose.CameraXViewfinder
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
+import androidx.camera.core.SurfaceRequest
 import androidx.camera.lifecycle.ProcessCameraProvider
-import androidx.camera.view.PreviewView
+import androidx.camera.viewfinder.core.ImplementationMode
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -41,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,7 +62,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.set
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -73,6 +76,7 @@ import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
+import kotlinx.coroutines.flow.MutableStateFlow
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.common.BitMatrix
 import com.google.zxing.qrcode.QRCodeWriter
@@ -358,7 +362,8 @@ private fun QRScannerPanel(
     var lastValid by remember { mutableStateOf<String?>(null) }
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
     val cameraExecutor: ExecutorService = remember { Executors.newSingleThreadExecutor() }
-    val barcodeView = remember { PreviewView(context) }
+    val surfaceRequests = remember { MutableStateFlow<SurfaceRequest?>(null) }
+    val surfaceRequest by surfaceRequests.collectAsState(initial = null)
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
 
     val onCodeState = rememberUpdatedState(onScan)
@@ -373,31 +378,40 @@ private fun QRScannerPanel(
     }
 
     DisposableEffect(permissionState.status.isGranted) {
+        var cameraProvider: ProcessCameraProvider? = null
         if (permissionState.status.isGranted) {
-            val cameraProvider = cameraProviderFuture.get()
-            val preview = Preview.Builder()
-                .build()
-                .also { it.surfaceProvider = barcodeView.surfaceProvider }
-            val analysis = ImageAnalysis.Builder()
-                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .build()
-                .also { it.setAnalyzer(cameraExecutor, analyzer) }
+            val executor = ContextCompat.getMainExecutor(context)
+            cameraProviderFuture.addListener(
+                {
+                    val provider = cameraProviderFuture.get()
+                    cameraProvider = provider
+                    val preview = Preview.Builder()
+                        .build()
+                        .also { it.setSurfaceProvider { request -> surfaceRequests.value = request } }
+                    val analysis = ImageAnalysis.Builder()
+                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                        .build()
+                        .also { it.setAnalyzer(cameraExecutor, analyzer) }
 
-            runCatching {
-                cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(
-                    lifecycleOwner,
-                    CameraSelector.DEFAULT_BACK_CAMERA,
-                    preview,
-                    analysis
-                )
-            }.onFailure {
-                Log.w("VerificationSheet", "Failed to bind camera: ${it.message}")
-            }
+                    runCatching {
+                        provider.unbindAll()
+                        provider.bindToLifecycle(
+                            lifecycleOwner,
+                            CameraSelector.DEFAULT_BACK_CAMERA,
+                            preview,
+                            analysis
+                        )
+                    }.onFailure {
+                        Log.w("VerificationSheet", "Failed to bind camera: ${it.message}")
+                    }
+                },
+                executor
+            )
         }
 
         onDispose {
-            runCatching { cameraProviderFuture.get().unbindAll() }
+            surfaceRequests.value = null
+            runCatching { cameraProvider?.unbindAll() }
         }
     }
 
@@ -423,12 +437,15 @@ private fun QRScannerPanel(
         )
 
         if (permissionState.status.isGranted) {
-            AndroidView(
-                factory = { barcodeView },
-                modifier = Modifier
-                    .size(220.dp)
-                    .clipToBounds()
-            )
+            surfaceRequest?.let { request ->
+                CameraXViewfinder(
+                    surfaceRequest = request,
+                    implementationMode = ImplementationMode.EMBEDDED,
+                    modifier = Modifier
+                        .size(220.dp)
+                        .clipToBounds()
+                )
+            }
         } else {
             Text(
                 text = stringResource(R.string.verify_camera_permission),
