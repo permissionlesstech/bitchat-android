@@ -143,6 +143,41 @@ class ChatViewModel(
     init {
         // Note: Mesh service delegate is now set by MainActivity
         loadAndInitialize()
+        // Hydrate UI state from process-wide AppStateStore to survive Activity recreation
+        viewModelScope.launch {
+            try { com.bitchat.android.services.AppStateStore.peers.collect { peers ->
+                state.setConnectedPeers(peers)
+                state.setIsConnected(peers.isNotEmpty())
+            } } catch (_: Exception) { }
+        }
+        viewModelScope.launch {
+            try { com.bitchat.android.services.AppStateStore.publicMessages.collect { msgs ->
+                // Source of truth is AppStateStore; replace to avoid duplicate keys in LazyColumn
+                state.setMessages(msgs)
+            } } catch (_: Exception) { }
+        }
+        viewModelScope.launch {
+            try { com.bitchat.android.services.AppStateStore.privateMessages.collect { byPeer ->
+                // Replace with store snapshot
+                state.setPrivateChats(byPeer)
+                // Recompute unread set using SeenMessageStore for robustness across Activity recreation
+                try {
+                    val seen = com.bitchat.android.services.SeenMessageStore.getInstance(getApplication())
+                    val myNick = state.getNicknameValue() ?: meshService.myPeerID
+                    val unread = mutableSetOf<String>()
+                    byPeer.forEach { (peer, list) ->
+                        if (list.any { msg -> msg.sender != myNick && !seen.hasRead(msg.id) }) unread.add(peer)
+                    }
+                    state.setUnreadPrivateMessages(unread)
+                } catch (_: Exception) { }
+            } } catch (_: Exception) { }
+        }
+        viewModelScope.launch {
+            try { com.bitchat.android.services.AppStateStore.channelMessages.collect { byChannel ->
+                // Replace with store snapshot
+                state.setChannelMessages(byChannel)
+            } } catch (_: Exception) { }
+        }
         // Subscribe to BLE transfer progress and reflect in message deliveryStatus
         viewModelScope.launch {
             com.bitchat.android.mesh.TransferProgressManager.events.collect { evt ->
@@ -619,8 +654,8 @@ class ChatViewModel(
 
         // Merge nicknames from BLE and Wi‑Fi Aware to display names for all peers
         val bleNick = meshService.getPeerNicknames()
-        val awareNick = try { com.bitchat.android.wifiaware.WifiAwareController.getService()?.getPeerNicknames() } catch (_: Exception) { null }
-        val mergedNick = if (awareNick != null) bleNick + awareNick.filterKeys { it !in bleNick || bleNick[it].isNullOrBlank() } else bleNick
+        val awareNickRaw = try { com.bitchat.android.wifiaware.WifiAwareController.getService()?.getPeerNicknamesMap() } catch (_: Exception) { null }
+        val mergedNick = if (awareNickRaw != null) bleNick + awareNickRaw.filter { it.value != null }.mapValues { it.value!! }.filterKeys { it !in bleNick || bleNick[it].isNullOrBlank() } else bleNick
         state.setPeerNicknames(mergedNick)
 
         val rssiValues = meshService.getPeerRSSI()

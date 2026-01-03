@@ -80,8 +80,8 @@ object AppConstants {
         const val SCAN_ON_DURATION_ULTRA_LOW_MS: Long = 1_000L
         const val SCAN_OFF_DURATION_ULTRA_LOW_MS: Long = 10_000L
         const val MAX_CONNECTIONS_NORMAL: Int = 8
-        const val MAX_CONNECTIONS_POWER_SAVE: Int = 4
-        const val MAX_CONNECTIONS_ULTRA_LOW: Int = 2
+        const val MAX_CONNECTIONS_POWER_SAVE: Int = 8
+        const val MAX_CONNECTIONS_ULTRA_LOW: Int = 4
     }
 
     object Nostr {
@@ -115,6 +115,8 @@ object AppConstants {
         const val MESSAGE_DEDUP_TIMEOUT_MS: Long = 30_000L
         const val SYSTEM_EVENT_DEDUP_TIMEOUT_MS: Long = 5_000L
         const val ACTIVE_PEERS_NOTIFICATION_INTERVAL_MS: Long = 300_000L
+        const val ACTION_FORCE_FINISH: String = "com.bitchat.android.ACTION_FORCE_FINISH"
+        const val PERMISSION_FORCE_FINISH: String = "com.bitchat.android.permission.FORCE_FINISH"
     }
 
     object Media {
