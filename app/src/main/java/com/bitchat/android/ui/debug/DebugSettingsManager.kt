@@ -36,9 +36,6 @@ class DebugSettingsManager private constructor() {
     private val _packetRelayEnabled = MutableStateFlow(true)
     val packetRelayEnabled: StateFlow<Boolean> = _packetRelayEnabled.asStateFlow()
 
-    private val _packetRelayEnabled = MutableStateFlow(true)
-    val packetRelayEnabled: StateFlow<Boolean> = _packetRelayEnabled.asStateFlow()
-
     // Master transport toggles
     private val _bleEnabled = MutableStateFlow(true)
     val bleEnabled: StateFlow<Boolean> = _bleEnabled.asStateFlow()

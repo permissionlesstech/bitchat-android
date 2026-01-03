@@ -619,7 +619,7 @@ class WifiAwareMeshService(private val context: Context) {
             }
             override fun onLost(network: Network) {
                 networkCallbacks.remove(peerId)
-                Log.d(TAG, "SERVER: network lost for \${peerId.take(8)}…")
+                Log.d(TAG, "SERVER: network lost for ${peerId.take(8)}…")
             }
         }
 
@@ -656,11 +656,13 @@ class WifiAwareMeshService(private val context: Context) {
     ) {
         // TCP keep-alive pings
         serviceScope.launch {
-            val os = client.getOutputStream()
-            while (peerSockets.containsKey(peerId)) {
-                try { os.write(0) } catch (_: IOException) { break }
-                delay(2_000)
-            }
+            try {
+                val os = client.getOutputStream()
+                while (peerSockets.containsKey(peerId)) {
+                    try { os.write(0) } catch (_: IOException) { break }
+                    delay(2_000)
+                }
+            } catch (_: Exception) {}
         }
         // Discovery keep-alive
         serviceScope.launch {
@@ -711,14 +713,7 @@ class WifiAwareMeshService(private val context: Context) {
             override fun onCapabilitiesChanged(network: Network, nc: NetworkCapabilities) {
                 if (peerSockets.containsKey(peerId)) return
                 val info = (nc.transportInfo as? WifiAwareNetworkInfo) ?: return
-                val addr = info.peerIpv6Addr as Inet6Address
-
-                val lp = cm.getLinkProperties(network)
-                val iface = lp?.interfaceName
-
-                try {
-                    val sock = Socket()
-                    network.bindSocket(sock)
+                val addr = info.peerIpv6Addr as? Inet6Address ?: return
 
                 val lp = cm.getLinkProperties(network)
                 val iface = lp?.interfaceName
@@ -731,13 +726,17 @@ class WifiAwareMeshService(private val context: Context) {
 
                     // Use scoped IPv6 if interface name is available
                     val scopedAddr = if (iface != null && addr.scopeId == 0) {
-                        Inet6Address.getByAddress(null, addr.address, java.net.NetworkInterface.getByName(iface))
+                        try {
+                            Inet6Address.getByAddress(null, addr.address, java.net.NetworkInterface.getByName(iface))
+                        } catch (e: Exception) {
+                            addr
+                        }
                     } else {
                         addr
                     }
 
                     sock.connect(java.net.InetSocketAddress(scopedAddr, port), 7000)
-                    Log.d(TAG, "CLIENT: TCP connected to \${peerId.take(8)}… addr=\$scopedAddr:\$port (iface=\$iface)")
+                    Log.d(TAG, "CLIENT: TCP connected to ${peerId.take(8)}… addr=$scopedAddr:$port (iface=$iface)")
 
                     peerSockets[peerId] = sock
                     try { peerManager.setDirectConnection(peerId, true) } catch (_: Exception) {}
@@ -776,11 +775,13 @@ class WifiAwareMeshService(private val context: Context) {
     ) {
         // TCP keep-alive
         serviceScope.launch {
-            val os = sock.getOutputStream()
-            while (peerSockets.containsKey(peerId)) {
-                try { os.write(0) } catch (_: IOException) { break }
-                delay(2_000)
-            }
+            try {
+                val os = sock.getOutputStream()
+                while (peerSockets.containsKey(peerId)) {
+                    try { os.write(0) } catch (_: IOException) { break }
+                    delay(2_000)
+                }
+            } catch (_: Exception) {}
         }
         // Discovery keep-alive
         serviceScope.launch {
@@ -1047,9 +1048,7 @@ class WifiAwareMeshService(private val context: Context) {
                 senderID = myPeerID,
                 payload = tlvPayload
             )
-            val signed = encryptionService.signData(announcePacket.toBinaryDataForSigning()!!)?.let {
-                announcePacket.copy(signature = it)
-            } ?: announcePacket
+            val signed = signPacketBeforeBroadcast(announcePacket)
 
             broadcastPacket(RoutedPacket(signed))
             try { gossipSyncManager.onPublicPacketSeen(signed) } catch (_: Exception) { }
@@ -1074,9 +1073,7 @@ class WifiAwareMeshService(private val context: Context) {
             senderID = myPeerID,
             payload = tlvPayload
         )
-        val signed = encryptionService.signData(packet.toBinaryDataForSigning()!!)?.let {
-            packet.copy(signature = it)
-        } ?: packet
+        val signed = signPacketBeforeBroadcast(packet)
 
         broadcastPacket(RoutedPacket(signed))
         peerManager.markPeerAsAnnouncedTo(peerID)

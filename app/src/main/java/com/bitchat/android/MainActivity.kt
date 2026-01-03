@@ -170,6 +170,13 @@ class MainActivity : OrientationAwareActivity() {
                     if (running && svc != null) {
                         svc.delegate = object : com.bitchat.android.wifiaware.WifiAwareMeshDelegate {
                             override fun didReceiveMessage(message: com.bitchat.android.model.BitchatMessage) {
+                                if (message.isPrivate) {
+                                    message.senderPeerID?.let { pid -> com.bitchat.android.services.AppStateStore.addPrivateMessage(pid, message) }
+                                } else if (message.channel != null) {
+                                    com.bitchat.android.services.AppStateStore.addChannelMessage(message.channel, message)
+                                } else {
+                                    com.bitchat.android.services.AppStateStore.addPublicMessage(message)
+                                }
                                 chatViewModel.didReceiveMessage(message)
                             }
                             override fun didUpdatePeerList(peers: List<String>) {
