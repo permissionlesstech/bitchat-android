@@ -94,6 +94,9 @@ class BluetoothMeshService(private val context: Context) {
                 } catch (_: Exception) { 0.01 }
             }
         )
+        
+        // Register as shared instance for Wi-Fi Aware transport
+        com.bitchat.android.service.MeshServiceHolder.setGossipManager(gossipSyncManager)
 
         // Wire sync manager delegate
         gossipSyncManager.delegate = object : GossipSyncManager.Delegate {

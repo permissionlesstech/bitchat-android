@@ -654,8 +654,8 @@ class ChatViewModel(
 
         // Merge nicknames from BLE and Wi‑Fi Aware to display names for all peers
         val bleNick = meshService.getPeerNicknames()
-        val awareNick = try { com.bitchat.android.wifiaware.WifiAwareController.getService()?.getPeerNicknamesMap() } catch (_: Exception) { null }
-        val mergedNick = if (awareNick != null) bleNick + awareNick.filterKeys { it !in bleNick || bleNick[it].isNullOrBlank() } else bleNick
+        val awareNickRaw = try { com.bitchat.android.wifiaware.WifiAwareController.getService()?.getPeerNicknamesMap() } catch (_: Exception) { null }
+        val mergedNick = if (awareNickRaw != null) bleNick + awareNickRaw.filter { it.value != null }.mapValues { it.value!! }.filterKeys { it !in bleNick || bleNick[it].isNullOrBlank() } else bleNick
         state.setPeerNicknames(mergedNick)
 
         val rssiValues = meshService.getPeerRSSI()

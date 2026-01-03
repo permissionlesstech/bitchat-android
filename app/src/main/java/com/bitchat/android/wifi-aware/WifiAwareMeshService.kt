@@ -106,24 +106,30 @@ class WifiAwareMeshService(private val context: Context) {
         setupDelegates()
         messageHandler.packetProcessor = packetProcessor
 
-        gossipSyncManager = GossipSyncManager(
-            myPeerID = myPeerID,
-            scope = serviceScope,
-            configProvider = object : GossipSyncManager.ConfigProvider {
-                override fun seenCapacity(): Int = 500
-                override fun gcsMaxBytes(): Int = 400
-                override fun gcsTargetFpr(): Double = 0.01
-            }
-        )
-        gossipSyncManager.delegate = object : GossipSyncManager.Delegate {
-            override fun sendPacketToPeer(peerID: String, packet: BitchatPacket) {
-                this@WifiAwareMeshService.sendPacketToPeer(peerID, packet)
-            }
-            override fun sendPacket(packet: BitchatPacket) {
-                broadcastPacket(RoutedPacket(packet))
-            }
-            override fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket {
-                return signPacketBeforeBroadcast(packet)
+        // Use shared GossipSyncManager from MeshServiceHolder if available (minimal refactor)
+        val shared = com.bitchat.android.service.MeshServiceHolder.sharedGossipSyncManager
+        if (shared != null) {
+            gossipSyncManager = shared
+        } else {
+            gossipSyncManager = GossipSyncManager(
+                myPeerID = myPeerID,
+                scope = serviceScope,
+                configProvider = object : GossipSyncManager.ConfigProvider {
+                    override fun seenCapacity(): Int = 500
+                    override fun gcsMaxBytes(): Int = 400
+                    override fun gcsTargetFpr(): Double = 0.01
+                }
+            )
+            gossipSyncManager.delegate = object : GossipSyncManager.Delegate {
+                override fun sendPacketToPeer(peerID: String, packet: BitchatPacket) {
+                    this@WifiAwareMeshService.sendPacketToPeer(peerID, packet)
+                }
+                override fun sendPacket(packet: BitchatPacket) {
+                    broadcastPacket(RoutedPacket(packet))
+                }
+                override fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket {
+                    return signPacketBeforeBroadcast(packet)
+                }
             }
         }
     }
@@ -619,7 +625,7 @@ class WifiAwareMeshService(private val context: Context) {
             }
             override fun onLost(network: Network) {
                 networkCallbacks.remove(peerId)
-                Log.d(TAG, "SERVER: network lost for ${peerId.take(8)}…")
+                Log.d(TAG, "SERVER: network lost for \${peerId.take(8)}…")
             }
         }
 
@@ -826,15 +832,21 @@ class WifiAwareMeshService(private val context: Context) {
             }
 
             if (routedPeerId == null) {
+                routedPeerId = senderPeerHex
+                peerSockets[routedPeerId] = socket
+            }
+
             Log.d(TAG, "RX: packet type=${pkt.type} from ${senderPeerHex.take(8)}… (bytes=${raw.size})")
             packetProcessor.processPacket(RoutedPacket(pkt, routedPeerId))
         }
-        
-        // Loop break -> disconnection
+
         handlePeerDisconnection(initialLogicalPeerId, routedPeerId)
         socket.closeQuietly()
     }
 
+    /**
+     * Internal helper to ensure peer is cleaned up from all managers when a socket dies.
+     */
     private fun handlePeerDisconnection(initialId: String, routedId: String?) {
         serviceScope.launch {
             Log.w(TAG, "Cleaning up peer: $initialId / $routedId")
