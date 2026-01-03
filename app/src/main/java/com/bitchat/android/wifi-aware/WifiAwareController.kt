@@ -108,9 +108,4 @@ object WifiAwareController {
     }
 
     fun getService(): WifiAwareMeshService? = service
-
-    // Optional bridge to BLE mesh for cross-transport relaying
-    @Volatile private var bleMesh: com.bitchat.android.mesh.BluetoothMeshService? = null
-    fun setBleMeshService(svc: com.bitchat.android.mesh.BluetoothMeshService) { bleMesh = svc }
-    fun getBleMeshService(): com.bitchat.android.mesh.BluetoothMeshService? = bleMesh
 }
