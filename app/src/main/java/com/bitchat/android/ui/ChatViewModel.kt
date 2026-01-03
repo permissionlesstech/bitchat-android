@@ -441,8 +441,9 @@ class ChatViewModel(
                         state.getNicknameValue()
                     )
                 } else {
-                    // Default: route via mesh
+                    // Default: route via mesh + Wi‑Fi Aware
                     meshService.sendMessage(messageContent, mentions, channel)
+                    try { com.bitchat.android.wifiaware.WifiAwareController.getService()?.sendMessage(messageContent, mentions, channel) } catch (_: Exception) {}
                 }
             })
             return
@@ -512,19 +513,23 @@ class ChatViewModel(
                             state.getNicknameValue(),
                             meshService.myPeerID,
                             onEncryptedPayload = { encryptedData ->
-                                // This would need proper mesh service integration
+                                // Send encrypted payload announcement over both transports for reachability
                                 meshService.sendMessage(content, mentions, currentChannelValue)
+                                try { com.bitchat.android.wifiaware.WifiAwareController.getService()?.sendMessage(content, mentions, currentChannelValue) } catch (_: Exception) {}
                             },
                             onFallback = {
                                 meshService.sendMessage(content, mentions, currentChannelValue)
+                                try { com.bitchat.android.wifiaware.WifiAwareController.getService()?.sendMessage(content, mentions, currentChannelValue) } catch (_: Exception) {}
                             }
                         )
                     } else {
                         meshService.sendMessage(content, mentions, currentChannelValue)
+                        try { com.bitchat.android.wifiaware.WifiAwareController.getService()?.sendMessage(content, mentions, currentChannelValue) } catch (_: Exception) {}
                     }
                 } else {
                     messageManager.addMessage(message)
                     meshService.sendMessage(content, mentions, null)
+                    try { com.bitchat.android.wifiaware.WifiAwareController.getService()?.sendMessage(content, mentions, null) } catch (_: Exception) {}
                 }
             }
         }
@@ -647,16 +652,23 @@ class ChatViewModel(
         val fingerprints = privateChatManager.getAllPeerFingerprints()
         state.setPeerFingerprints(fingerprints)
 
-        val nicknames = meshService.getPeerNicknames()
-        state.setPeerNicknames(nicknames)
+        // Merge nicknames from BLE and Wi‑Fi Aware to display names for all peers
+        val bleNick = meshService.getPeerNicknames()
+        val awareNickRaw = try { com.bitchat.android.wifiaware.WifiAwareController.getService()?.getPeerNicknamesMap() } catch (_: Exception) { null }
+        val mergedNick = if (awareNickRaw != null) bleNick + awareNickRaw.filter { it.value != null }.mapValues { it.value!! }.filterKeys { it !in bleNick || bleNick[it].isNullOrBlank() } else bleNick
+        state.setPeerNicknames(mergedNick)
 
         val rssiValues = meshService.getPeerRSSI()
-        state.setPeerRSSI(rssiValues)
+        val awareRssi = try { com.bitchat.android.wifiaware.WifiAwareController.getService()?.getPeerRSSI() } catch (_: Exception) { null }
+        val mergedRssi = if (awareRssi != null) rssiValues + awareRssi.filterKeys { it !in rssiValues } else rssiValues
+        state.setPeerRSSI(mergedRssi)
 
         // Update directness per peer (driven by PeerManager state)
         try {
             val directMap = state.getConnectedPeersValue().associateWith { pid ->
-                meshService.getPeerInfo(pid)?.isDirectConnection == true
+                val ble = meshService.getPeerInfo(pid)?.isDirectConnection == true
+                val aware = try { com.bitchat.android.wifiaware.WifiAwareController.getService()?.getPeerInfo(pid)?.isDirectConnection == true } catch (_: Exception) { false }
+                ble || aware
             }
             state.setPeerDirect(directMap)
         } catch (_: Exception) { }
@@ -731,6 +743,10 @@ class ChatViewModel(
     
     override fun didUpdatePeerList(peers: List<String>) {
         meshDelegateHandler.didUpdatePeerList(peers)
+    }
+
+    fun onWifiPeersUpdated(peers: List<String>) {
+        meshDelegateHandler.onWifiPeersUpdated(peers)
     }
     
     override fun didReceiveChannelLeave(channel: String, fromPeer: String) {

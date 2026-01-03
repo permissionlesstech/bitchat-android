@@ -14,5 +14,7 @@
   <string name="location_notes_empty_desc">成為第一個為此地點新增筆記的人。</string>
   <string name="dismiss">關閉</string>
   <string name="location_notes_input_placeholder">為此地點新增一則筆記</string>
+    <string name="skip">跳過</string>
+    <string name="bluetooth_recommended">建議開啟藍牙</string>
 </resources>
 

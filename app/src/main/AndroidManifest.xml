@@ -5,6 +5,7 @@
     <!-- Internet permissions for Nostr relay connections -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     
     <!-- Bluetooth permissions -->
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
@@ -19,6 +20,12 @@
     
     <!-- Notification permissions -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Wi‑Fi / Wi‑Fi Aware permissions -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <!-- Android 13+ runtime permission for Wi‑Fi operations (including Aware) -->
+    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
     <!-- Signature permission for internal UI shutdown broadcasts -->
     <uses-permission android:name="com.bitchat.android.permission.FORCE_FINISH" />
     <!-- Foreground service and boot permissions for long-running background mesh -->
@@ -47,6 +54,8 @@
     <!-- Hardware features -->
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
     <uses-feature android:name="android.hardware.bluetooth" android:required="true" />
+    <!-- Device support hint for Wi‑Fi Aware (optional) -->
+    <uses-feature android:name="android.hardware.wifi.aware" android:required="false" />
 
     <permission
         android:name="com.bitchat.android.permission.FORCE_FINISH"

@@ -349,4 +349,5 @@
         <item quantity="other">%d بندے</item>
     </plurals>
 
+    <string name="bluetooth_recommended">Bluetooth Recommended</string>
 </resources>

@@ -349,4 +349,5 @@
         <item quantity="other">%d người</item>
     </plurals>
 
+    <string name="bluetooth_recommended">Khuyên dùng Bluetooth</string>
 </resources>

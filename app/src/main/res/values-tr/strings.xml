@@ -350,4 +350,5 @@
   <string name="location_notes_empty_desc">bu yer için ilk notu ekleyen siz olun.</string>
   <string name="dismiss">kapat</string>
   <string name="location_notes_input_placeholder">bu yer için bir not ekleyin</string>
+    <string name="bluetooth_recommended">Bluetooth Önerilir</string>
 </resources>

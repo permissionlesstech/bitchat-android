@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- TODO: Ukrainian translations -->
+    <string name="skip">Пропустити</string>
+    <string name="bluetooth_recommended">Рекомендується Bluetooth</string>
 </resources>
 

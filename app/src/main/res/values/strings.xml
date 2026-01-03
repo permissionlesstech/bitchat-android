@@ -399,4 +399,5 @@
     <item quantity="other">%d people</item>
   </plurals>
 
+    <string name="bluetooth_recommended">Bluetooth Recommended</string>
 </resources>
