@@ -349,4 +349,5 @@
         <item quantity="other">%d জন</item>
     </plurals>
 
+    <string name="bluetooth_recommended">ব্লুটুথ প্রস্তাবিত</string>
 </resources>

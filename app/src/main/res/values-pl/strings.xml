@@ -14,5 +14,7 @@
   <string name="location_notes_empty_desc">bądź pierwszy, który doda notatkę dla tego miejsca.</string>
   <string name="dismiss">zamknij</string>
   <string name="location_notes_input_placeholder">dodaj notatkę dla tego miejsca</string>
+    <string name="skip">Pomiń</string>
+    <string name="bluetooth_recommended">Bluetooth zalecany</string>
 </resources>
 
