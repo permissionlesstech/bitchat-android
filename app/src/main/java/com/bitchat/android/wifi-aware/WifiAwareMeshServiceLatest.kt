@@ -536,8 +536,6 @@ class WifiAwareMeshService(private val context: Context) {
             serverSockets.clear()
             peerSockets.clear()
 
-            cm.bindProcessToNetwork(null)
-
             peerManager.shutdown()
             fragmentManager.shutdown()
             securityManager.shutdown()
@@ -597,10 +595,9 @@ class WifiAwareMeshService(private val context: Context) {
 
         val cb = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                cm.bindProcessToNetwork(network)
                 try {
                     val client = ss.accept().apply { keepAlive = true }
-                    Log.d(TAG, "SERVER: accepted TCP from ${peerId.take(8)}… addr=${client.inetAddress?.hostAddress}")
+                    Log.d(TAG, "SERVER: accepted TCP from \${peerId.take(8)}… addr=\${client.inetAddress?.hostAddress}")
                     peerSockets[peerId] = client
                     try { peerManager.setDirectConnection(peerId, true) } catch (_: Exception) {}
                     try { peerManager.addOrUpdatePeer(peerId, peerId) } catch (_: Exception) {}
@@ -618,9 +615,8 @@ class WifiAwareMeshService(private val context: Context) {
                 }
             }
             override fun onLost(network: Network) {
-                cm.bindProcessToNetwork(null)
                 networkCallbacks.remove(peerId)
-                Log.d(TAG, "SERVER: network lost for ${peerId.take(8)}…")
+                Log.d(TAG, "SERVER: network lost for \${peerId.take(8)}…")
             }
         }
 
@@ -713,14 +709,25 @@ class WifiAwareMeshService(private val context: Context) {
                 val info = (nc.transportInfo as? WifiAwareNetworkInfo) ?: return
                 val addr = info.peerIpv6Addr as Inet6Address
 
+                val lp = cm.getLinkProperties(network)
+                val iface = lp?.interfaceName
+
                 try {
-                    // Some devices deny bindSocket() (EPERM). Rely on scoped IPv6 to route correctly.
                     val sock = Socket()
+                    network.bindSocket(sock)
                     sock.tcpNoDelay = true
                     sock.keepAlive = true
-                    sock.connect(java.net.InetSocketAddress(addr, port), 7000)
 
-                    Log.d(TAG, "CLIENT: TCP connected to ${peerId.take(8)}… addr=$addr:$port")
+                    // Use scoped IPv6 if interface name is available
+                    val scopedAddr = if (iface != null && addr.scopeId == 0) {
+                        Inet6Address.getByAddress(null, addr.address, java.net.NetworkInterface.getByName(iface))
+                    } else {
+                        addr
+                    }
+
+                    sock.connect(java.net.InetSocketAddress(scopedAddr, port), 7000)
+                    Log.d(TAG, "CLIENT: TCP connected to \${peerId.take(8)}… addr=\$scopedAddr:\$port (iface=\$iface)")
+
                     peerSockets[peerId] = sock
                     try { peerManager.setDirectConnection(peerId, true) } catch (_: Exception) {}
                     try { peerManager.addOrUpdatePeer(peerId, peerId) } catch (_: Exception) {}
