@@ -590,13 +590,16 @@ class WifiAwareMeshService(private val context: Context) {
 
         val req = NetworkRequest.Builder()
             .addTransportType(NetworkCapabilities.TRANSPORT_WIFI_AWARE)
+            .removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
             .setNetworkSpecifier(spec)
             .build()
 
         val cb = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
                 try {
-                    val client = ss.accept().apply { keepAlive = true }
+                    val client = ss.accept()
+                    try { network.bindSocket(client) } catch (e: Exception) { Log.w(TAG, "Server bindSocket EPERM: \${e.message}") }
+                    client.keepAlive = true
                     Log.d(TAG, "SERVER: accepted TCP from \${peerId.take(8)}… addr=\${client.inetAddress?.hostAddress}")
                     peerSockets[peerId] = client
                     try { peerManager.setDirectConnection(peerId, true) } catch (_: Exception) {}
@@ -697,6 +700,7 @@ class WifiAwareMeshService(private val context: Context) {
             .build()
         val req = NetworkRequest.Builder()
             .addTransportType(NetworkCapabilities.TRANSPORT_WIFI_AWARE)
+            .removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
             .setNetworkSpecifier(spec)
             .build()
 
@@ -715,6 +719,13 @@ class WifiAwareMeshService(private val context: Context) {
                 try {
                     val sock = Socket()
                     network.bindSocket(sock)
+
+                val lp = cm.getLinkProperties(network)
+                val iface = lp?.interfaceName
+
+                try {
+                    val sock = Socket()
+                    try { network.bindSocket(sock) } catch (e: Exception) { Log.w(TAG, "Client bindSocket EPERM: \${e.message}") }
                     sock.tcpNoDelay = true
                     sock.keepAlive = true
 
