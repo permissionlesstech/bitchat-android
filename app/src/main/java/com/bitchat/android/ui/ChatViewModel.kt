@@ -744,6 +744,10 @@ class ChatViewModel(
     override fun didUpdatePeerList(peers: List<String>) {
         meshDelegateHandler.didUpdatePeerList(peers)
     }
+
+    fun onWifiPeersUpdated(peers: List<String>) {
+        meshDelegateHandler.onWifiPeersUpdated(peers)
+    }
     
     override fun didReceiveChannelLeave(channel: String, fromPeer: String) {
         meshDelegateHandler.didReceiveChannelLeave(channel, fromPeer)

@@ -14,6 +14,7 @@ import androidx.annotation.RequiresPermission
 import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.model.*
 import com.bitchat.android.protocol.*
+import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.sync.GossipSyncManager
 import com.bitchat.android.util.toHexString
 // Mesh-layer components are reused from the existing Bluetooth stack
@@ -51,7 +52,7 @@ import java.util.concurrent.Executors
  * - MessageHandler: Message type processing and relay logic
  * - PacketProcessor: Incoming packet routing
  */
-class WifiAwareMeshService(private val context: Context) {
+class WifiAwareMeshService(private val context: Context) : TransportBridgeService.TransportLayer {
 
     companion object {
         private const val TAG = "WifiAwareMeshService"
@@ -95,6 +96,7 @@ class WifiAwareMeshService(private val context: Context) {
     private val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     private val handleToPeerId = ConcurrentHashMap<PeerHandle, String>() // discovery mapping
     private val discoveredTimestamps = ConcurrentHashMap<String, Long>() // peerID -> last seen time
+    private val connectionAttempts = ConcurrentHashMap<String, Long>() // peerID -> last connection attempt time
 
     // Timestamp dedupe
     private val lastTimestamps = ConcurrentHashMap<String, ULong>()
@@ -125,7 +127,7 @@ class WifiAwareMeshService(private val context: Context) {
                     this@WifiAwareMeshService.sendPacketToPeer(peerID, packet)
                 }
                 override fun sendPacket(packet: BitchatPacket) {
-                    broadcastPacket(RoutedPacket(packet))
+                    dispatchGlobal(RoutedPacket(packet))
                 }
                 override fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket {
                     return signPacketBeforeBroadcast(packet)
@@ -172,6 +174,23 @@ class WifiAwareMeshService(private val context: Context) {
             }
         }
         Log.i(TAG, "TX: broadcast via Wi-Fi Aware to $sent peers (bytes=${bytes.size})")
+    }
+
+    // TransportLayer implementation
+    override fun send(packet: RoutedPacket) {
+        // Received from bridge (e.g. BLE) -> Send via Wi-Fi
+        // Direct injection prevents routing loops (bridge handles source check)
+        broadcastPacket(packet)
+    }
+
+    /**
+     * unified dispatch: Send to local Wi-Fi and bridge to other transports
+     */
+    private fun dispatchGlobal(routed: RoutedPacket) {
+        // 1. Send to local Wi-Fi transport
+        broadcastPacket(routed)
+        // 2. Bridge to other transports (e.g. BLE)
+        TransportBridgeService.broadcast("WIFI", routed)
     }
 
     /**
@@ -244,7 +263,7 @@ class WifiAwareMeshService(private val context: Context) {
                     payload = response,
                     ttl = MAX_TTL
                 )
-                broadcastPacket(RoutedPacket(signPacketBeforeBroadcast(packet)))
+                dispatchGlobal(RoutedPacket(signPacketBeforeBroadcast(packet)))
             }
             override fun getPeerInfo(peerID: String): PeerInfo? {
                 return peerManager.getPeerInfo(peerID)
@@ -255,7 +274,7 @@ class WifiAwareMeshService(private val context: Context) {
             override fun isFavorite(peerID: String) = delegate?.isFavorite(peerID) ?: false
             override fun isPeerOnline(peerID: String) = peerManager.isPeerActive(peerID)
             override fun sendPacket(packet: BitchatPacket) {
-                broadcastPacket(RoutedPacket(packet))
+                dispatchGlobal(RoutedPacket(packet))
             }
         }
 
@@ -280,9 +299,9 @@ class WifiAwareMeshService(private val context: Context) {
             ): Boolean = peerManager.updatePeerInfo(peerID, nickname, noisePublicKey, signingPublicKey, isVerified)
 
             override fun sendPacket(packet: BitchatPacket) {
-                broadcastPacket(RoutedPacket(signPacketBeforeBroadcast(packet)))
+                dispatchGlobal(RoutedPacket(signPacketBeforeBroadcast(packet)))
             }
-            override fun relayPacket(routed: RoutedPacket) { broadcastPacket(routed) }
+            override fun relayPacket(routed: RoutedPacket) { dispatchGlobal(routed) }
             override fun getBroadcastRecipient() = SpecialRecipients.BROADCAST
 
             override fun verifySignature(packet: BitchatPacket, peerID: String) =
@@ -308,7 +327,7 @@ class WifiAwareMeshService(private val context: Context) {
                         payload = hs,
                         ttl = MAX_TTL
                     )
-                    broadcastPacket(RoutedPacket(signPacketBeforeBroadcast(packet)))
+                    dispatchGlobal(RoutedPacket(signPacketBeforeBroadcast(packet)))
                 }
             }
             override fun processNoiseHandshakeMessage(payload: ByteArray, peerID: String): ByteArray? =
@@ -390,7 +409,7 @@ class WifiAwareMeshService(private val context: Context) {
 
             override fun sendAnnouncementToPeer(peerID: String) = this@WifiAwareMeshService.sendAnnouncementToPeer(peerID)
             override fun sendCachedMessages(peerID: String) = storeForwardManager.sendCachedMessages(peerID)
-            override fun relayPacket(routed: RoutedPacket) = broadcastPacket(routed)
+            override fun relayPacket(routed: RoutedPacket) = dispatchGlobal(routed)
 
             override fun handleRequestSync(routed: RoutedPacket) {
                 val fromPeer = routed.peerID ?: return
@@ -512,7 +531,11 @@ class WifiAwareMeshService(private val context: Context) {
         }, Handler(Looper.getMainLooper()))
 
         sendPeriodicBroadcastAnnounce()
+        startPeriodicConnectionMaintenance()
         gossipSyncManager.start()
+        
+        // Register with cross-layer transport bridge
+        TransportBridgeService.register("WIFI", this)
     }
 
     /**
@@ -522,6 +545,9 @@ class WifiAwareMeshService(private val context: Context) {
         if (!isActive) return
         isActive = false
         Log.i(TAG, "Stopping Wi-Fi Aware mesh")
+
+        // Unregister from bridge
+        TransportBridgeService.unregister("WIFI")
 
         sendLeaveAnnouncement()
 
@@ -561,6 +587,55 @@ class WifiAwareMeshService(private val context: Context) {
         serviceScope.launch {
             while (isActive) {
                 try { delay(30_000); sendBroadcastAnnounce() } catch (_: Exception) { }
+            }
+        }
+    }
+
+    /**
+     * Periodic active maintenance: retries connections to discovered but unconnected peers.
+     */
+    private fun startPeriodicConnectionMaintenance() {
+        serviceScope.launch {
+            Log.d(TAG, "Starting periodic connection maintenance loop")
+            while (isActive) {
+                try {
+                    delay(15_000) // Check every 15 seconds
+                    if (!isActive) break
+
+                    val now = System.currentTimeMillis()
+                    // 1. Identify peers that are discovered (recently seen) but not currently connected
+                    val recentDiscovered = discoveredTimestamps.filter { (id, ts) ->
+                        (now - ts) < 5 * 60 * 1000 // Seen in last 5 minutes
+                    }.keys
+
+                    // 2. Filter out those who are already connected (either as client or server)
+                    val disconnectedPeers = recentDiscovered.filter { peerId ->
+                        !peerSockets.containsKey(peerId) && !serverSockets.containsKey(peerId)
+                    }
+
+                    // 3. Attempt reconnection
+                    for (peerId in disconnectedPeers) {
+                        // Find the PeerHandle for this peerId
+                        val handle = handleToPeerId.entries.find { it.value == peerId }?.key ?: continue
+                        
+                        // Rate limit attempts: max 1 per minute per peer
+                        val lastAttempt = connectionAttempts[peerId] ?: 0L
+                        if (now - lastAttempt < 60_000) continue
+
+                        Log.i(TAG, "🔄 Maintenance: attempting reconnect to ${peerId.take(8)}")
+                        connectionAttempts[peerId] = now
+                        
+                        // Resend ping to trigger handshake
+                        val msgId = (System.nanoTime() and 0x7fffffff).toInt()
+                        try {
+                            subscribeSession?.sendMessage(handle, msgId, myPeerID.toByteArray())
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Failed to send maintenance ping to ${peerId.take(8)}: ${e.message}")
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error in connection maintenance: ${e.message}")
+                }
             }
         }
     }
@@ -819,7 +894,6 @@ class WifiAwareMeshService(private val context: Context) {
     private fun listenToPeer(socket: Socket, initialLogicalPeerId: String) {
         val inStream = socket.getInputStream()
         val buf = ByteArray(64 * 1024)
-        var routedPeerId: String? = null
 
         while (isActive) {
             val len = try { inStream.read(buf) } catch (_: IOException) { break }
@@ -829,46 +903,36 @@ class WifiAwareMeshService(private val context: Context) {
             val pkt = BitchatPacket.fromBinaryData(raw) ?: continue
 
             val senderPeerHex = pkt.senderID?.toHexString()?.take(16) ?: continue
-            if (senderPeerHex == myPeerID) continue
-
+            
+            // Deduplicate based on timestamp + sender (standard flood fill protection)
             val ts = pkt.timestamp
             if (lastTimestamps.put(senderPeerHex, ts) == ts) {
                 continue
             }
 
-            if (routedPeerId == null) {
-                routedPeerId = senderPeerHex
-                peerSockets[routedPeerId] = socket
-            }
-
-            Log.d(TAG, "RX: packet type=${pkt.type} from ${senderPeerHex.take(8)} (bytes=${raw.size})")
-            packetProcessor.processPacket(RoutedPacket(pkt, routedPeerId))
+            // Route the packet: 
+            // - peerID = Originator (who signed it)
+            // - relayAddress = Neighbor (who sent it to us over this socket)
+            // Note: We do NOT update peerSockets mapping based on senderPeerHex. 
+            // The socket belongs to initialLogicalPeerId effectively serving as the "MAC address" layer.
+            Log.d(TAG, "RX: packet type=${pkt.type} from ${senderPeerHex.take(8)} via ${initialLogicalPeerId.take(8)} (bytes=${raw.size})")
+            packetProcessor.processPacket(RoutedPacket(pkt, senderPeerHex, initialLogicalPeerId))
         }
         
         // Breaking out of the loop means the socket is dead or service is stopping.
-        // We MUST notify the mesh layer so it removes the logical peer immediately to allow reconnection.
         Log.i(TAG, "Socket loop terminated for ${initialLogicalPeerId.take(8)} removing peer.")
-        handlePeerDisconnection(initialLogicalPeerId, routedPeerId)
+        handlePeerDisconnection(initialLogicalPeerId)
         socket.closeQuietly()
     }
 
-    private fun handlePeerDisconnection(initialId: String, routedId: String?) {
+    private fun handlePeerDisconnection(initialId: String) {
         serviceScope.launch {
-            Log.d(TAG, "Cleaning up peer: $initialId / $routedId")
+            Log.d(TAG, "Cleaning up peer: $initialId")
             
             peerSockets.remove(initialId)?.closeQuietly()
             serverSockets.remove(initialId)?.closeQuietly()
             networkCallbacks.remove(initialId)?.let { runCatching { cm.unregisterNetworkCallback(it) } }
             peerManager.removePeer(initialId)
-            
-            routedId?.let { id ->
-                if (id != initialId) {
-                    peerSockets.remove(id)?.closeQuietly()
-                    serverSockets.remove(id)?.closeQuietly()
-                    networkCallbacks.remove(id)?.let { runCatching { cm.unregisterNetworkCallback(it) } }
-                    peerManager.removePeer(id)
-                }
-            }
         }
     }
 
@@ -893,7 +957,7 @@ class WifiAwareMeshService(private val context: Context) {
                 ttl = MAX_TTL
             )
             val signed = signPacketBeforeBroadcast(packet)
-            broadcastPacket(RoutedPacket(signed))
+            dispatchGlobal(RoutedPacket(signed))
             try { gossipSyncManager.onPublicPacketSeen(signed) } catch (_: Exception) { }
         }
     }
@@ -929,7 +993,7 @@ class WifiAwareMeshService(private val context: Context) {
                         signature = null,
                         ttl = MAX_TTL
                     )
-                    broadcastPacket(RoutedPacket(signPacketBeforeBroadcast(pkt)))
+                    dispatchGlobal(RoutedPacket(signPacketBeforeBroadcast(pkt)))
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to encrypt private message: ${e.message}")
                 }
@@ -965,7 +1029,7 @@ class WifiAwareMeshService(private val context: Context) {
                     signature = null,
                     ttl = MAX_TTL
                 )
-                broadcastPacket(RoutedPacket(signPacketBeforeBroadcast(pkt)))
+                dispatchGlobal(RoutedPacket(signPacketBeforeBroadcast(pkt)))
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send read receipt: ${e.message}")
             }
@@ -994,7 +1058,7 @@ class WifiAwareMeshService(private val context: Context) {
                 )
                 val signed = signPacketBeforeBroadcast(pkt)
                 val transferId = sha256Hex(payload)
-                broadcastPacket(RoutedPacket(signed, transferId = transferId))
+                dispatchGlobal(RoutedPacket(signed, transferId = transferId))
                 try { gossipSyncManager.onPublicPacketSeen(signed) } catch (_: Exception) { }
             }
         } catch (e: Exception) {
@@ -1031,7 +1095,7 @@ class WifiAwareMeshService(private val context: Context) {
                 )
                 val signed = signPacketBeforeBroadcast(pkt)
                 val transferId = sha256Hex(tlv)
-                broadcastPacket(RoutedPacket(signed, transferId = transferId))
+                dispatchGlobal(RoutedPacket(signed, transferId = transferId))
             }
         } catch (e: Exception) {
             Log.e(TAG, "sendFilePrivate failed: ${e.message}", e)
@@ -1080,7 +1144,7 @@ class WifiAwareMeshService(private val context: Context) {
             )
             val signed = signPacketBeforeBroadcast(announcePacket)
 
-            broadcastPacket(RoutedPacket(signed))
+            dispatchGlobal(RoutedPacket(signed))
             try { gossipSyncManager.onPublicPacketSeen(signed) } catch (_: Exception) { }
         }
     }
@@ -1105,7 +1169,7 @@ class WifiAwareMeshService(private val context: Context) {
         )
         val signed = signPacketBeforeBroadcast(packet)
 
-        broadcastPacket(RoutedPacket(signed))
+        dispatchGlobal(RoutedPacket(signed))
         peerManager.markPeerAsAnnouncedTo(peerID)
         try { gossipSyncManager.onPublicPacketSeen(signed) } catch (_: Exception) { }
     }
@@ -1121,7 +1185,7 @@ class WifiAwareMeshService(private val context: Context) {
             senderID = myPeerID,
             payload = nickname.toByteArray()
         )
-        broadcastPacket(RoutedPacket(signPacketBeforeBroadcast(packet)))
+        dispatchGlobal(RoutedPacket(signPacketBeforeBroadcast(packet)))
     }
 
     /** @return Mapping of peer IDs to nicknames. */

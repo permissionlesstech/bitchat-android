@@ -112,8 +112,9 @@ class MainActivity : OrientationAwareActivity() {
         // Ensure foreground service is running and get mesh instance from holder
         try { com.bitchat.android.service.MeshForegroundService.start(applicationContext) } catch (_: Exception) { }
         meshService = com.bitchat.android.service.MeshServiceHolder.getOrCreate(applicationContext)
-        // Expose BLE mesh to Wi‑Fi Aware controller for cross-transport relays
-        try { com.bitchat.android.wifiaware.WifiAwareController.setBleMeshService(meshService) } catch (_: Exception) { }
+        // Expose BLE mesh to Wi‑Fi Aware controller for cross-transport relays - DEPRECATED
+        // Bridging is now handled by TransportBridgeService automatically
+        
         bluetoothStatusManager = BluetoothStatusManager(
             activity = this,
             context = this,
@@ -180,7 +181,7 @@ class MainActivity : OrientationAwareActivity() {
                                 chatViewModel.didReceiveMessage(message)
                             }
                             override fun didUpdatePeerList(peers: List<String>) {
-                                chatViewModel.didUpdatePeerList(peers)
+                                chatViewModel.onWifiPeersUpdated(peers)
                             }
                             override fun didReceiveChannelLeave(channel: String, fromPeer: String) {
                                 chatViewModel.didReceiveChannelLeave(channel, fromPeer)
