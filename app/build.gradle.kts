@@ -92,7 +92,13 @@ dependencies {
     implementation(libs.accompanist.permissions)
 
     // QR
-    implementation(libs.zxing.embedded)
+    implementation(libs.zxing.core)
+    implementation(libs.mlkit.barcode.scanning)
+
+    // CameraX
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
     
     // Cryptography
     implementation(libs.bundles.cryptography)

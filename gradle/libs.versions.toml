@@ -46,7 +46,11 @@ gms-location = "21.3.0"
 security-crypto = "1.1.0-beta01"
 
 # QR
-zxing-embedded = "4.3.0"
+zxing-core = "3.5.4"
+
+# CameraX / ML Kit
+camerax = "1.5.2"
+mlkit-barcode = "17.3.0"
 
 # Testing
 junit = "4.13.2"
@@ -108,7 +112,13 @@ gms-location = { module = "com.google.android.gms:play-services-location", versi
 androidx-security-crypto = { module = "androidx.security:security-crypto", version.ref = "security-crypto" }
 
 # QR
-zxing-embedded = { module = "com.journeyapps:zxing-android-embedded", version.ref = "zxing-embedded" }
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxing-core" }
+
+# CameraX / ML Kit
+androidx-camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "camerax" }
+androidx-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camerax" }
+androidx-camera-view = { module = "androidx.camera:camera-view", version.ref = "camerax" }
+mlkit-barcode-scanning = { module = "com.google.mlkit:barcode-scanning", version.ref = "mlkit-barcode" }
 
 # Testing
 junit = { module = "junit:junit", version.ref = "junit" }
