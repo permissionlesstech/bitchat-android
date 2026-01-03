@@ -46,6 +46,11 @@ class BitchatApplication : Application() {
             val enabled = com.bitchat.android.ui.debug.DebugPreferenceManager.getWifiAwareEnabled(false)
             com.bitchat.android.wifiaware.WifiAwareController.initialize(this, enabled)
         } catch (_: Exception) { }
+        // Initialize mesh service preferences
+        try { com.bitchat.android.service.MeshServicePreferences.init(this) } catch (_: Exception) { }
+
+        // Proactively start the foreground service to keep mesh alive
+        try { com.bitchat.android.service.MeshForegroundService.start(this) } catch (_: Exception) { }
 
         // TorManager already initialized above
     }
