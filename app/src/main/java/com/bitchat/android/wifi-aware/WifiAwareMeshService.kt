@@ -168,10 +168,10 @@ class WifiAwareMeshService(private val context: Context) {
                 sock.getOutputStream().write(bytes)
                 sent++
             } catch (e: IOException) {
-                Log.e(TAG, "TX: write failed to ${pid.take(8)}…: ${e.message}")
+                Log.e(TAG, "TX: write failed to ${pid.take(8)}: ${e.message}")
             }
         }
-        Log.i(TAG, "TX: broadcast via Wi‑Fi Aware to $sent peers (bytes=${bytes.size})")
+        Log.i(TAG, "TX: broadcast via Wi-Fi Aware to $sent peers (bytes=${bytes.size})")
     }
 
     /**
@@ -179,12 +179,12 @@ class WifiAwareMeshService(private val context: Context) {
      */
     private fun broadcastPacket(routed: RoutedPacket) {
         Log.d(TAG, "TX: packet type=${routed.packet.type} broadcast (ttl=${routed.packet.ttl})")
-        // Wi‑Fi Aware uses full packets; no fragmentation
+        // Wi-Fi Aware uses full packets; no fragmentation
         val data = routed.packet.toBinaryData() ?: return
         serviceScope.launch { broadcastRaw(data) }
     }
 
-    // Expose a public method so BLE can forward relays to Wi‑Fi Aware
+    // Expose a public method so BLE can forward relays to Wi-Fi Aware
     fun broadcastRoutedPacket(routed: RoutedPacket) {
         broadcastPacket(routed)
     }
@@ -193,19 +193,19 @@ class WifiAwareMeshService(private val context: Context) {
      * Send packet to connected peer.
      */
     private fun sendPacketToPeer(peerID: String, packet: BitchatPacket) {
-        // Wi‑Fi Aware uses full packets; no fragmentation
+        // Wi-Fi Aware uses full packets; no fragmentation
         val data = packet.toBinaryData() ?: return
         serviceScope.launch {
             val sock = peerSockets[peerID]
             if (sock == null) {
-                Log.w(TAG, "TX: no socket for ${peerID.take(8)}…")
+                Log.w(TAG, "TX: no socket for ${peerID.take(8)}")
                 return@launch
             }
             try {
                 sock.getOutputStream().write(data)
-                Log.d(TAG, "TX: packet type=${packet.type} → ${peerID.take(8)}… (bytes=${data.size})")
+                Log.d(TAG, "TX: packet type=${packet.type} to ${peerID.take(8)} (bytes=${data.size})")
             } catch (e: IOException) {
-                Log.e(TAG, "TX: write to ${peerID.take(8)}… failed: ${e.message}")
+                Log.e(TAG, "TX: write to ${peerID.take(8)} failed: ${e.message}")
             }
         }
     }
@@ -415,7 +415,7 @@ class WifiAwareMeshService(private val context: Context) {
     fun startServices() {
         if (isActive) return
         isActive = true
-        Log.i(TAG, "Starting Wi‑Fi Aware mesh with peer ID: $myPeerID")
+        Log.i(TAG, "Starting Wi-Fi Aware mesh with peer ID: $myPeerID")
 
         awareManager?.attach(object : AttachCallback() {
             @SuppressLint("MissingPermission")
@@ -425,7 +425,7 @@ class WifiAwareMeshService(private val context: Context) {
             ])
             override fun onAttached(session: WifiAwareSession) {
                 wifiAwareSession = session
-                Log.i(TAG, "Wi‑Fi Aware attached; starting publish & subscribe (peerID=$myPeerID)")
+                Log.i(TAG, "Wi-Fi Aware attached; starting publish & subscribe (peerID=$myPeerID)")
 
                 // PUBLISH (server role)
                 session.publish(
@@ -446,7 +446,7 @@ class WifiAwareMeshService(private val context: Context) {
                             val peerId = try { String(serviceSpecificInfo) } catch (_: Exception) { "" }
                             handleToPeerId[peerHandle] = peerId
                             if (peerId.isNotBlank()) discoveredTimestamps[peerId] = System.currentTimeMillis()
-                            Log.d(TAG, "PUBLISH: onServiceDiscovered ssi='${peerId.take(16)}…' len=${serviceSpecificInfo.size}")
+                            Log.d(TAG, "PUBLISH: onServiceDiscovered ssi='${peerId.take(16)}' len=${serviceSpecificInfo.size}")
                         }
 
                         @RequiresApi(Build.VERSION_CODES.Q)
@@ -487,7 +487,7 @@ class WifiAwareMeshService(private val context: Context) {
                             val msgId = (System.nanoTime() and 0x7fffffff).toInt()
                             subscribeSession?.sendMessage(peerHandle, msgId, myPeerID.toByteArray())
                             if (peerId.isNotBlank()) discoveredTimestamps[peerId] = System.currentTimeMillis()
-                            Log.d(TAG, "SUBSCRIBE: sent ping to '${peerId.take(16)}…' (msgId=$msgId)")
+                            Log.d(TAG, "SUBSCRIBE: sent ping to '${peerId.take(16)}' (msgId=$msgId)")
                         }
 
                         @RequiresApi(Build.VERSION_CODES.Q)
@@ -499,7 +499,7 @@ class WifiAwareMeshService(private val context: Context) {
                             val peerId = handleToPeerId[peerHandle] ?: return
                             if (peerId == myPeerID) return
 
-                            Log.d(TAG, "SUBSCRIBE: onMessageReceived() → server-ready from ${peerId.take(8)}… payload=${message.size}B")
+                            Log.d(TAG, "SUBSCRIBE: onMessageReceived() → server-ready from ${peerId.take(8)} payload=${message.size}B")
                             handleServerReady(peerHandle, message)
                         }
                     },
@@ -587,16 +587,22 @@ class WifiAwareMeshService(private val context: Context) {
         val ss = ServerSocket(0)
         serverSockets[peerId] = ss
         val port = ss.localPort
-        Log.d(TAG, "SERVER: listening for ${peerId.take(8)}… on port $port")
+        
+        // Ensure port is set to reuse if connection was recently closed (TIME_WAIT)
+        try {
+            ss.reuseAddress = true
+        } catch (_: Exception) {}
+
+        Log.d(TAG, "SERVER: listening for ${peerId.take(8)} on port $port")
 
         val spec = WifiAwareNetworkSpecifier.Builder(pubSession, peerHandle)
             .setPskPassphrase(PSK)
             .setPort(port)
             .build()
-
+        // Default capabilities include NET_CAPABILITY_NOT_VPN.
+        // Keeping defaults for hardware interface handle acquisition compatibility with global VPNs.
         val req = NetworkRequest.Builder()
             .addTransportType(NetworkCapabilities.TRANSPORT_WIFI_AWARE)
-            .removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
             .setNetworkSpecifier(spec)
             .build()
 
@@ -604,9 +610,9 @@ class WifiAwareMeshService(private val context: Context) {
             override fun onAvailable(network: Network) {
                 try {
                     val client = ss.accept()
-                    try { network.bindSocket(client) } catch (e: Exception) { Log.w(TAG, "Server bindSocket EPERM: \${e.message}") }
+                    try { network.bindSocket(client) } catch (e: Exception) { Log.w(TAG, "Server bindSocket EPERM: ${e.message}") }
                     client.keepAlive = true
-                    Log.d(TAG, "SERVER: accepted TCP from \${peerId.take(8)}… addr=\${client.inetAddress?.hostAddress}")
+                    Log.d(TAG, "SERVER: accepted TCP from ${peerId.take(8)} addr=${client.inetAddress?.hostAddress}")
                     peerSockets[peerId] = client
                     try { peerManager.setDirectConnection(peerId, true) } catch (_: Exception) {}
                     try { peerManager.addOrUpdatePeer(peerId, peerId) } catch (_: Exception) {}
@@ -615,22 +621,22 @@ class WifiAwareMeshService(private val context: Context) {
                     // Kick off Noise handshake for this logical peer
                     if (myPeerID < peerId) {
                         messageHandler.delegate?.initiateNoiseHandshake(peerId)
-                        Log.d(TAG, "SERVER: initiating Noise handshake to ${peerId.take(8)}… (lower ID)")
+                        Log.d(TAG, "SERVER: initiating Noise handshake to ${peerId.take(8)} (lower ID)")
                     }
                     // Ensure fast presence even before handshake settles
                     serviceScope.launch { delay(150); sendBroadcastAnnounce() }
                 } catch (ioe: IOException) {
-                    Log.e(TAG, "SERVER: accept failed for ${peerId.take(8)}…", ioe)
+                    Log.e(TAG, "SERVER: accept failed for ${peerId.take(8)}", ioe)
                 }
             }
             override fun onLost(network: Network) {
                 networkCallbacks.remove(peerId)
-                Log.d(TAG, "SERVER: network lost for \${peerId.take(8)}…")
+                Log.d(TAG, "SERVER: network lost for ${peerId.take(8)}")
             }
         }
 
         networkCallbacks[peerId] = cb
-        Log.d(TAG, "SERVER: requesting Aware network for ${peerId.take(8)}…")
+        Log.d(TAG, "SERVER: requesting Aware network for ${peerId.take(8)}")
         cm.requestNetwork(req, cb)
 
         val readyId = (System.nanoTime() and 0x7fffffff).toInt()
@@ -701,14 +707,13 @@ class WifiAwareMeshService(private val context: Context) {
         }
 
         val port = ByteBuffer.wrap(payload).order(ByteOrder.BIG_ENDIAN).int
-        Log.d(TAG, "CLIENT: connecting to ${peerId.take(8)}… port=$port")
+        Log.d(TAG, "CLIENT: connecting to ${peerId.take(8)} port=$port")
 
         val spec = WifiAwareNetworkSpecifier.Builder(subscribeSession!!, peerHandle)
             .setPskPassphrase(PSK)
             .build()
         val req = NetworkRequest.Builder()
             .addTransportType(NetworkCapabilities.TRANSPORT_WIFI_AWARE)
-            .removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
             .setNetworkSpecifier(spec)
             .build()
 
@@ -726,7 +731,7 @@ class WifiAwareMeshService(private val context: Context) {
 
                 try {
                     val sock = Socket()
-                    try { network.bindSocket(sock) } catch (e: Exception) { Log.w(TAG, "Client bindSocket EPERM: \${e.message}") }
+                    try { network.bindSocket(sock) } catch (e: Exception) { Log.w(TAG, "Client bindSocket EPERM: ${e.message}") }
                     sock.tcpNoDelay = true
                     sock.keepAlive = true
 
@@ -742,7 +747,7 @@ class WifiAwareMeshService(private val context: Context) {
                     }
 
                     sock.connect(java.net.InetSocketAddress(scopedAddr, port), 7000)
-                    Log.d(TAG, "CLIENT: TCP connected to ${peerId.take(8)}… addr=$scopedAddr:$port (iface=$iface)")
+                    Log.d(TAG, "CLIENT: TCP connected to ${peerId.take(8)} addr=$scopedAddr:$port (iface=$iface)")
 
                     peerSockets[peerId] = sock
                     try { peerManager.setDirectConnection(peerId, true) } catch (_: Exception) {}
@@ -752,22 +757,22 @@ class WifiAwareMeshService(private val context: Context) {
                     // Kick off Noise handshake for this logical peer
                     if (myPeerID < peerId) {
                         messageHandler.delegate?.initiateNoiseHandshake(peerId)
-                        Log.d(TAG, "CLIENT: initiating Noise handshake to ${peerId.take(8)}… (lower ID)")
+                        Log.d(TAG, "CLIENT: initiating Noise handshake to ${peerId.take(8)} (lower ID)")
                     }
                     // Ensure fast presence even before handshake settles
                     serviceScope.launch { delay(150); sendBroadcastAnnounce() }
                 } catch (ioe: IOException) {
-                    Log.e(TAG, "CLIENT: socket connect failed to ${peerId.take(8)}…", ioe)
+                    Log.e(TAG, "CLIENT: socket connect failed to ${peerId.take(8)}", ioe)
                 }
             }
             override fun onLost(network: Network) {
                 networkCallbacks.remove(peerId)
-                Log.d(TAG, "CLIENT: network lost for ${peerId.take(8)}…")
+                Log.d(TAG, "CLIENT: network lost for ${peerId.take(8)}")
             }
         }
 
         networkCallbacks[peerId] = cb
-        Log.d(TAG, "CLIENT: requesting Aware network for ${peerId.take(8)}…")
+        Log.d(TAG, "CLIENT: requesting Aware network for ${peerId.take(8)}")
         cm.requestNetwork(req, cb)
     }
 
@@ -836,26 +841,33 @@ class WifiAwareMeshService(private val context: Context) {
                 peerSockets[routedPeerId] = socket
             }
 
-            Log.d(TAG, "RX: packet type=${pkt.type} from ${senderPeerHex.take(8)}… (bytes=${raw.size})")
+            Log.d(TAG, "RX: packet type=${pkt.type} from ${senderPeerHex.take(8)} (bytes=${raw.size})")
             packetProcessor.processPacket(RoutedPacket(pkt, routedPeerId))
         }
-
+        
+        // Breaking out of the loop means the socket is dead or service is stopping.
+        // We MUST notify the mesh layer so it removes the logical peer immediately to allow reconnection.
+        Log.i(TAG, "Socket loop terminated for ${initialLogicalPeerId.take(8)} removing peer.")
         handlePeerDisconnection(initialLogicalPeerId, routedPeerId)
         socket.closeQuietly()
     }
 
-    /**
-     * Internal helper to ensure peer is cleaned up from all managers when a socket dies.
-     */
     private fun handlePeerDisconnection(initialId: String, routedId: String?) {
         serviceScope.launch {
-            Log.w(TAG, "Cleaning up peer: $initialId / $routedId")
-            val possible = setOfNotNull(initialId, routedId).filter { it.isNotEmpty() && it != myPeerID }
-            possible.forEach { id ->
-                peerSockets.remove(id)?.closeQuietly()
-                serverSockets.remove(id)?.closeQuietly()
-                networkCallbacks.remove(id)?.let { runCatching { cm.unregisterNetworkCallback(it) } }
-                peerManager.removePeer(id)
+            Log.d(TAG, "Cleaning up peer: $initialId / $routedId")
+            
+            peerSockets.remove(initialId)?.closeQuietly()
+            serverSockets.remove(initialId)?.closeQuietly()
+            networkCallbacks.remove(initialId)?.let { runCatching { cm.unregisterNetworkCallback(it) } }
+            peerManager.removePeer(initialId)
+            
+            routedId?.let { id ->
+                if (id != initialId) {
+                    peerSockets.remove(id)?.closeQuietly()
+                    serverSockets.remove(id)?.closeQuietly()
+                    networkCallbacks.remove(id)?.let { runCatching { cm.unregisterNetworkCallback(it) } }
+                    peerManager.removePeer(id)
+                }
             }
         }
     }
