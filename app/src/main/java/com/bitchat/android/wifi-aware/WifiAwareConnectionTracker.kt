@@ -72,9 +72,8 @@ class WifiAwareConnectionTracker(
      */
     override fun stop() {
         super.stop()
-        peerSockets.keys.toList().forEach { disconnect(it) }
-        serverSockets.keys.toList().forEach { disconnect(it) }
-        // (disconnect handles map removal)
+        val allIds = peerSockets.keys + serverSockets.keys + networkCallbacks.keys
+        allIds.toSet().forEach { disconnect(it) }
     }
     
     fun getDebugInfo(): String {
