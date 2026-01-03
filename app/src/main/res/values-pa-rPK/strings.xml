@@ -349,4 +349,5 @@
         <item quantity="other">%d بندے</item>
     </plurals>
 
+    <string name="mesh_service_notification_content">میش چل رہا ہے — %1$d ساتھی</string>
 </resources>

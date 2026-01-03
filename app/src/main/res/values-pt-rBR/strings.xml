@@ -362,4 +362,5 @@
   <string name="location_notes_empty_desc">seja o primeiro a adicionar uma para este local.</string>
   <string name="dismiss">fechar</string>
   <string name="location_notes_input_placeholder">adicione uma nota para este local</string>
+    <string name="mesh_service_notification_content">Mesh rodando — %1$d pares</string>
 </resources>

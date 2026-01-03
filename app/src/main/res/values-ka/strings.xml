@@ -349,4 +349,5 @@
         <item quantity="other">%d ადამიანი</item>
     </plurals>
 
+    <string name="mesh_service_notification_content">Mesh გაშვებულია — %1$d პირები</string>
 </resources>
