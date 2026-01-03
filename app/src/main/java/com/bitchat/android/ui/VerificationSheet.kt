@@ -1,6 +1,16 @@
 package com.bitchat.android.ui
 
 import android.graphics.Bitmap
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ExperimentalGetImage
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -11,7 +21,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -32,7 +41,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,6 +48,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
@@ -53,19 +62,22 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.set
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.R
 import com.bitchat.android.services.VerificationService
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
+import com.google.mlkit.vision.barcode.BarcodeScannerOptions
+import com.google.mlkit.vision.barcode.BarcodeScanning
+import com.google.mlkit.vision.barcode.common.Barcode
+import com.google.mlkit.vision.common.InputImage
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.common.BitMatrix
 import com.google.zxing.qrcode.QRCodeWriter
-import com.journeyapps.barcodescanner.BarcodeCallback
-import com.journeyapps.barcodescanner.BarcodeResult
-import com.journeyapps.barcodescanner.DecoratedBarcodeView
-import com.journeyapps.barcodescanner.DefaultDecoderFactory
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -123,8 +135,9 @@ fun VerificationSheet(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     if (showingScanner) {
-                        VerificationScanner(
+                        QRScannerPanel(
                             accent = accent,
+                            boxColor = boxColor,
                             onScan = { code ->
                                 val qr = VerificationService.verifyScannedQR(code)
                                 if (qr != null && viewModel.beginQRVerification(qr)) {
@@ -213,22 +226,6 @@ private fun MyQrPanel(
     )
 
     QRCodeCard(qrString = qrString, boxColor = boxColor)
-}
-
-@Composable
-private fun VerificationScanner(
-    accent: Color,
-    onScan: (String) -> Unit
-) {
-    Text(
-        text = stringResource(R.string.verify_scan_prompt_friend),
-        fontSize = 16.sp,
-        fontFamily = FontFamily.Monospace,
-        color = accent,
-        modifier = Modifier.fillMaxWidth(),
-        textAlign = TextAlign.Center
-    )
-    QRScannerPanel(onCode = onScan)
 }
 
 @Composable
@@ -350,56 +347,87 @@ private fun bitmapFromMatrix(matrix: BitMatrix): Bitmap {
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 private fun QRScannerPanel(
-    onCode: (String) -> Unit,
+    onScan: (String) -> Unit,
+    accent: Color,
+    boxColor: Color,
     modifier: Modifier = Modifier
 ) {
     val permissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     var lastValid by remember { mutableStateOf<String?>(null) }
+    val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
+    val cameraExecutor: ExecutorService = remember { Executors.newSingleThreadExecutor() }
+    val barcodeView = remember { PreviewView(context) }
+    val mainHandler = remember { Handler(Looper.getMainLooper()) }
 
-    val onCodeState = rememberUpdatedState(onCode)
-    val barcodeCallback = remember {
-        object : BarcodeCallback {
-            override fun barcodeResult(result: BarcodeResult?) {
-                val text = result?.text ?: return
-                if (text == lastValid) return
+    val onCodeState = rememberUpdatedState(onScan)
+    val analyzer = remember {
+        QRCodeAnalyzer { text ->
+            mainHandler.post {
+                if (text == lastValid) return@post
                 lastValid = text
                 onCodeState.value(text)
             }
         }
     }
 
-    val barcodeView = remember {
-        DecoratedBarcodeView(context).apply {
-            barcodeView.decoderFactory = DefaultDecoderFactory(listOf(BarcodeFormat.QR_CODE))
-            setStatusText("")
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        barcodeView.decodeContinuous(barcodeCallback)
-    }
-
     DisposableEffect(permissionState.status.isGranted) {
         if (permissionState.status.isGranted) {
-            barcodeView.resume()
-        } else {
-            barcodeView.pause()
+            val cameraProvider = cameraProviderFuture.get()
+            val preview = Preview.Builder()
+                .build()
+                .also { it.surfaceProvider = barcodeView.surfaceProvider }
+            val analysis = ImageAnalysis.Builder()
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .build()
+                .also { it.setAnalyzer(cameraExecutor, analyzer) }
+
+            runCatching {
+                cameraProvider.unbindAll()
+                cameraProvider.bindToLifecycle(
+                    lifecycleOwner,
+                    CameraSelector.DEFAULT_BACK_CAMERA,
+                    preview,
+                    analysis
+                )
+            }.onFailure {
+                Log.w("VerificationSheet", "Failed to bind camera: ${it.message}")
+            }
         }
-        onDispose { barcodeView.pause() }
+
+        onDispose {
+            runCatching { cameraProviderFuture.get().unbindAll() }
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { cameraExecutor.shutdown() }
     }
 
     Column(
-        modifier = modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = modifier
+            .fillMaxWidth()
+            .background(boxColor, RoundedCornerShape(12.dp))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Text(
+            text = stringResource(R.string.verify_scan_prompt_friend),
+            fontSize = 16.sp,
+            fontFamily = FontFamily.Monospace,
+            color = accent,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center
+        )
+
         if (permissionState.status.isGranted) {
             AndroidView(
                 factory = { barcodeView },
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(260.dp)
+                    .size(220.dp)
+                    .clipToBounds()
             )
         } else {
             Text(
@@ -422,5 +450,30 @@ private fun QRScannerPanel(
                 )
             }
         }
+    }
+}
+
+private class QRCodeAnalyzer(
+    private val onCode: (String) -> Unit
+) : ImageAnalysis.Analyzer {
+    private val scanner = BarcodeScanning.getClient(
+        BarcodeScannerOptions.Builder()
+            .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
+            .build()
+    )
+
+    @ExperimentalGetImage
+    override fun analyze(imageProxy: ImageProxy) {
+        val mediaImage = imageProxy.image ?: run {
+            imageProxy.close()
+            return
+        }
+        val input = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+        scanner.process(input)
+            .addOnSuccessListener { barcodes ->
+                val text = barcodes.firstOrNull()?.rawValue
+                if (!text.isNullOrBlank()) onCode(text)
+            }
+            .addOnCompleteListener { imageProxy.close() }
     }
 }
