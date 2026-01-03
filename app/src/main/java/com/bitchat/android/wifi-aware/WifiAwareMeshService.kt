@@ -826,24 +826,30 @@ class WifiAwareMeshService(private val context: Context) {
             }
 
             if (routedPeerId == null) {
-                routedPeerId = senderPeerHex
-                peerSockets[routedPeerId] = socket
-            }
-
             Log.d(TAG, "RX: packet type=${pkt.type} from ${senderPeerHex.take(8)}… (bytes=${raw.size})")
             packetProcessor.processPacket(RoutedPacket(pkt, routedPeerId))
         }
-
+        
+        // Loop break -> disconnection
+        handlePeerDisconnection(initialLogicalPeerId, routedPeerId)
         socket.closeQuietly()
-        routedPeerId?.let {
-            peerSockets.remove(it)
-            peerManager.removePeer(it)
+    }
+
+    private fun handlePeerDisconnection(initialId: String, routedId: String?) {
+        serviceScope.launch {
+            Log.w(TAG, "Cleaning up peer: $initialId / $routedId")
+            val possible = setOfNotNull(initialId, routedId).filter { it.isNotEmpty() && it != myPeerID }
+            possible.forEach { id ->
+                peerSockets.remove(id)?.closeQuietly()
+                serverSockets.remove(id)?.closeQuietly()
+                networkCallbacks.remove(id)?.let { runCatching { cm.unregisterNetworkCallback(it) } }
+                peerManager.removePeer(id)
+            }
         }
     }
 
     /**
      * Sends a broadcast message to all peers.
-     *
      * @param content   Text content of the message
      * @param mentions  Optional list of mentioned peer IDs
      * @param channel   Optional channel name
@@ -1160,15 +1166,43 @@ class WifiAwareMeshService(private val context: Context) {
 
     /**
      * @return the current IPv4/IPv6 address of a connected peer, if any.
+     * Prefers the scoped IPv6 address format.
      */
     fun getDeviceAddressForPeer(peerID: String): String? =
-        peerSockets[peerID]?.inetAddress?.hostAddress
+        peerSockets[peerID]?.let { resolveScopedAddress(it) }
+
+    /**
+     * Helper to resolve a scoped IPv6 address from a socket for UI display.
+     */
+    private fun resolveScopedAddress(sock: Socket): String? {
+        val addr = sock.inetAddress as? Inet6Address ?: return sock.inetAddress?.hostAddress
+        if (addr.scopeId != 0 || addr.isLoopbackAddress) return addr.hostAddress
+        
+        // If address has no scope but we are on Aware (Link-Local fe80), attempt interface resolution
+        val iface = try {
+            val lp = cm.getLinkProperties(cm.activeNetwork)
+            lp?.interfaceName ?: "aware0"
+        } catch (_: Exception) { "aware0" }
+        
+        return "${addr.hostAddress}%$iface"
+    }
 
     /**
      * @return a mapping of peerID → connected device IP address for all active sockets.
+     * Results are formatted as scoped addresses if applicable.
      */
-    fun getDeviceAddressToPeerMapping(): Map<String, String> =
-        peerSockets.mapValues { it.value.inetAddress.hostAddress }
+    fun getDeviceAddressToPeerMapping(): Map<String, String> {
+        val map = mutableMapOf<String, String>()
+        peerSockets.forEach { (pid, sock) ->
+            map[pid] = resolveScopedAddress(sock) ?: "unknown"
+        }
+        return map
+    }
+
+    /**
+     * @return map of peer ID to nickname, bridged for UI warning fix.
+     */
+    fun getPeerNicknamesMap(): Map<String, String?> = peerManager.getAllPeerNicknames()
 
     /** Returns recently discovered peer IDs via Aware discovery (may not be connected). */
     fun getDiscoveredPeerIds(): Set<String> =
