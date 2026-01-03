@@ -363,4 +363,5 @@
   <string name="dismiss">إغلاق</string>
   <string name="location_notes_input_placeholder">أضف ملاحظة لهذا المكان</string>
     <string name="bluetooth_recommended">بلوتوث موصى به</string>
+    <string name="mesh_service_notification_content">الشبكة تعمل — %1$d أقران</string>
 </resources>

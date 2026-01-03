@@ -353,4 +353,5 @@
   <string name="dismiss">закрыть</string>
   <string name="location_notes_input_placeholder">добавьте заметку для этого места</string>
     <string name="bluetooth_recommended">Рекомендуется Bluetooth</string>
+    <string name="mesh_service_notification_content">Mesh запущен — %1$d пиров</string>
 </resources>

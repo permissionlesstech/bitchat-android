@@ -351,4 +351,5 @@
   <string name="dismiss">stäng</string>
   <string name="location_notes_input_placeholder">lägg till en anteckning för den här platsen</string>
     <string name="bluetooth_recommended">Bluetooth rekommenderas</string>
+    <string name="mesh_service_notification_content">Mesh körs — %1$d peers</string>
 </resources>

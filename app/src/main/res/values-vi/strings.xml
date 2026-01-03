@@ -350,4 +350,5 @@
     </plurals>
 
     <string name="bluetooth_recommended">Khuyên dùng Bluetooth</string>
+    <string name="mesh_service_notification_content">Mesh đang chạy — %1$d ngang hàng</string>
 </resources>
