@@ -26,6 +26,7 @@ fun BluetoothCheckScreen(
     status: BluetoothStatus,
     onEnableBluetooth: () -> Unit,
     onRetry: () -> Unit,
+    onSkip: () -> Unit,
     isLoading: Boolean = false
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -39,13 +40,15 @@ fun BluetoothCheckScreen(
                 BluetoothDisabledContent(
                     onEnableBluetooth = onEnableBluetooth,
                     onRetry = onRetry,
+                    onSkip = onSkip,
                     colorScheme = colorScheme,
                     isLoading = isLoading
                 )
             }
             BluetoothStatus.NOT_SUPPORTED -> {
                 BluetoothNotSupportedContent(
-                    colorScheme = colorScheme
+                    colorScheme = colorScheme,
+                    onSkip = onSkip
                 )
             }
             BluetoothStatus.ENABLED -> {
@@ -61,6 +64,7 @@ fun BluetoothCheckScreen(
 private fun BluetoothDisabledContent(
     onEnableBluetooth: () -> Unit,
     onRetry: () -> Unit,
+    onSkip: () -> Unit,
     colorScheme: ColorScheme,
     isLoading: Boolean
 ) {
@@ -77,7 +81,7 @@ private fun BluetoothDisabledContent(
         )
 
         Text(
-            text = stringResource(R.string.bluetooth_required),
+            text = stringResource(R.string.bluetooth_recommended),
             style = MaterialTheme.typography.headlineSmall.copy(
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,
@@ -141,20 +145,17 @@ private fun BluetoothDisabledContent(
                     )
                 }
 
-                //Since we are automatically checking bluetooth state -- commented
-
-//                OutlinedButton(
-//                    onClick = onRetry,
-//                    modifier = Modifier.fillMaxWidth()
-//                ) {
-//                    Text(
-//                        text = "Check Again",
-//                        style = MaterialTheme.typography.bodyMedium.copy(
-//                            fontFamily = FontFamily.Monospace
-//                        ),
-//                        modifier = Modifier.padding(vertical = 4.dp)
-//                    )
-//                }
+                TextButton(
+                    onClick = onSkip,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = stringResource(R.string.skip),
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            color = colorScheme.onSurface.copy(alpha = 0.7f)
+                        )
+                    )
+                }
             }
         }
     }
@@ -162,7 +163,8 @@ private fun BluetoothDisabledContent(
 
 @Composable
 private fun BluetoothNotSupportedContent(
-    colorScheme: ColorScheme
+    colorScheme: ColorScheme,
+    onSkip: () -> Unit
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(24.dp),
@@ -208,6 +210,16 @@ private fun BluetoothNotSupportedContent(
                 modifier = Modifier.padding(16.dp),
                 textAlign = TextAlign.Center
             )
+        }
+
+        Button(
+            onClick = onSkip,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = colorScheme.secondary
+            )
+        ) {
+            Text(text = stringResource(R.string.continue_btn))
         }
     }
 }

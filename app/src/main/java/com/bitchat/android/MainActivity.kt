@@ -266,6 +266,10 @@ class MainActivity : OrientationAwareActivity() {
                     onRetry = {
                         checkBluetoothAndProceed()
                     },
+                    onSkip = {
+                        mainViewModel.skipBluetoothCheck()
+                        checkLocationAndProceed()
+                    },
                     isLoading = isBluetoothLoading
                 )
             }
@@ -383,6 +387,13 @@ class MainActivity : OrientationAwareActivity() {
      */
     private fun checkBluetoothAndProceed() {
         // Log.d("MainActivity", "Checking Bluetooth status")
+        
+        // Check if user has skipped Bluetooth check for this session
+        if (mainViewModel.isBluetoothCheckSkipped.value) {
+            Log.d("MainActivity", "Bluetooth check skipped by user, proceeding to location check")
+            checkLocationAndProceed()
+            return
+        }
         
         // For first-time users, skip Bluetooth check and go straight to permissions
         // We'll check Bluetooth after permissions are granted
@@ -754,7 +765,7 @@ class MainActivity : OrientationAwareActivity() {
 
             // Check if Bluetooth was disabled while app was backgrounded
             val currentBluetoothStatus = bluetoothStatusManager.checkBluetoothStatus()
-            if (currentBluetoothStatus != BluetoothStatus.ENABLED) {
+            if (currentBluetoothStatus != BluetoothStatus.ENABLED && !mainViewModel.isBluetoothCheckSkipped.value) {
                 Log.w("MainActivity", "Bluetooth disabled while app was backgrounded")
                 mainViewModel.updateBluetoothStatus(currentBluetoothStatus)
                 mainViewModel.updateOnboardingState(OnboardingState.BLUETOOTH_CHECK)

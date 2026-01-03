@@ -362,4 +362,5 @@
         <item quantity="other">%d जना</item>
     </plurals>
 
+    <string name="bluetooth_recommended">ब्लुटुथ सिफारिस गरिएको</string>
 </resources>
