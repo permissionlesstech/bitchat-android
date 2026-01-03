@@ -89,20 +89,17 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
     // Delegate
     var delegate: WifiAwareMeshDelegate? = null
 
-    // Transport state
-    private val peerSockets = ConcurrentHashMap<String, Socket>()
-    private val serverSockets = ConcurrentHashMap<String, ServerSocket>()
-    private val networkCallbacks = ConcurrentHashMap<String, ConnectivityManager.NetworkCallback>()
+    // Coroutines - must be initialized before tracker
+    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+
+    // Transport state
+    private val connectionTracker = WifiAwareConnectionTracker(serviceScope, cm)
     private val handleToPeerId = ConcurrentHashMap<PeerHandle, String>() // discovery mapping
     private val discoveredTimestamps = ConcurrentHashMap<String, Long>() // peerID -> last seen time
-    private val connectionAttempts = ConcurrentHashMap<String, Long>() // peerID -> last connection attempt time
 
     // Timestamp dedupe
     private val lastTimestamps = ConcurrentHashMap<String, ULong>()
-
-    // Coroutines
-    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     init {
         setupDelegates()
@@ -165,7 +162,7 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
      */
     private fun broadcastRaw(bytes: ByteArray) {
         var sent = 0
-        peerSockets.forEach { (pid, sock) ->
+        connectionTracker.peerSockets.forEach { (pid, sock) ->
             try {
                 sock.getOutputStream().write(bytes)
                 sent++
@@ -215,7 +212,7 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
         // Wi-Fi Aware uses full packets; no fragmentation
         val data = packet.toBinaryData() ?: return
         serviceScope.launch {
-            val sock = peerSockets[peerID]
+            val sock = connectionTracker.peerSockets[peerID]
             if (sock == null) {
                 Log.w(TAG, "TX: no socket for ${peerID.take(8)}")
                 return@launch
@@ -532,6 +529,7 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
 
         sendPeriodicBroadcastAnnounce()
         startPeriodicConnectionMaintenance()
+        connectionTracker.start()
         gossipSyncManager.start()
         
         // Register with cross-layer transport bridge
@@ -555,18 +553,13 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
             delay(200)
 
             gossipSyncManager.stop()
+            connectionTracker.stop() // Handles socket closing and callback unregistration
 
-            networkCallbacks.values.forEach { runCatching { cm.unregisterNetworkCallback(it) } }
-            networkCallbacks.clear()
             publishSession?.close();   publishSession   = null
             subscribeSession?.close(); subscribeSession = null
             wifiAwareSession?.close(); wifiAwareSession = null
 
-            serverSockets.values.forEach { it.closeQuietly() }
-            peerSockets.values.forEach { it.closeQuietly() }
             handleToPeerId.clear()
-            serverSockets.clear()
-            peerSockets.clear()
 
             peerManager.shutdown()
             fragmentManager.shutdown()
@@ -608,9 +601,9 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
                         (now - ts) < 5 * 60 * 1000 // Seen in last 5 minutes
                     }.keys
 
-                    // 2. Filter out those who are already connected (either as client or server)
+                    // 2. Filter out those who are already connected
                     val disconnectedPeers = recentDiscovered.filter { peerId ->
-                        !peerSockets.containsKey(peerId) && !serverSockets.containsKey(peerId)
+                        !connectionTracker.isConnected(peerId)
                     }
 
                     // 3. Attempt reconnection
@@ -618,19 +611,18 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
                         // Find the PeerHandle for this peerId
                         val handle = handleToPeerId.entries.find { it.value == peerId }?.key ?: continue
                         
-                        // Rate limit attempts: max 1 per minute per peer
-                        val lastAttempt = connectionAttempts[peerId] ?: 0L
-                        if (now - lastAttempt < 60_000) continue
+                        // Check tracker policy
+                        if (!connectionTracker.isConnectionAttemptAllowed(peerId)) continue
 
                         Log.i(TAG, "🔄 Maintenance: attempting reconnect to ${peerId.take(8)}")
-                        connectionAttempts[peerId] = now
-                        
-                        // Resend ping to trigger handshake
-                        val msgId = (System.nanoTime() and 0x7fffffff).toInt()
-                        try {
-                            subscribeSession?.sendMessage(handle, msgId, myPeerID.toByteArray())
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Failed to send maintenance ping to ${peerId.take(8)}: ${e.message}")
+                        if (connectionTracker.addPendingConnection(peerId)) {
+                            // Resend ping to trigger handshake
+                            val msgId = (System.nanoTime() and 0x7fffffff).toInt()
+                            try {
+                                subscribeSession?.sendMessage(handle, msgId, myPeerID.toByteArray())
+                            } catch (e: Exception) {
+                                Log.w(TAG, "Failed to send maintenance ping to ${peerId.take(8)}: ${e.message}")
+                            }
                         }
                     }
                 } catch (e: Exception) {
@@ -654,13 +646,13 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
         val peerId = handleToPeerId[peerHandle] ?: return
         if (!amIServerFor(peerId)) return
 
-        if (serverSockets.containsKey(peerId)) {
+        if (connectionTracker.serverSockets.containsKey(peerId)) {
             Log.v(TAG, "↪ already serving $peerId, skipping")
             return
         }
 
         val ss = ServerSocket(0)
-        serverSockets[peerId] = ss
+        connectionTracker.addServerSocket(peerId, ss)
         val port = ss.localPort
         
         // Ensure port is set to reuse if connection was recently closed (TIME_WAIT)
@@ -688,7 +680,7 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
                     try { network.bindSocket(client) } catch (e: Exception) { Log.w(TAG, "Server bindSocket EPERM: ${e.message}") }
                     client.keepAlive = true
                     Log.d(TAG, "SERVER: accepted TCP from ${peerId.take(8)} addr=${client.inetAddress?.hostAddress}")
-                    peerSockets[peerId] = client
+                    connectionTracker.onClientConnected(peerId, client)
                     try { peerManager.setDirectConnection(peerId, true) } catch (_: Exception) {}
                     try { peerManager.addOrUpdatePeer(peerId, peerId) } catch (_: Exception) {}
                     listenerExec.execute { listenToPeer(client, peerId) }
@@ -705,12 +697,12 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
                 }
             }
             override fun onLost(network: Network) {
-                networkCallbacks.remove(peerId)
+                connectionTracker.networkCallbacks.remove(peerId)
                 Log.d(TAG, "SERVER: network lost for ${peerId.take(8)}")
             }
         }
 
-        networkCallbacks[peerId] = cb
+        connectionTracker.addNetworkCallback(peerId, cb)
         Log.d(TAG, "SERVER: requesting Aware network for ${peerId.take(8)}")
         cm.requestNetwork(req, cb)
 
@@ -745,7 +737,7 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
         serviceScope.launch {
             try {
                 val os = client.getOutputStream()
-                while (peerSockets.containsKey(peerId)) {
+                while (connectionTracker.isConnected(peerId)) {
                     try { os.write(0) } catch (_: IOException) { break }
                     delay(2_000)
                 }
@@ -754,7 +746,7 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
         // Discovery keep-alive
         serviceScope.launch {
             var msgId = 0
-            while (peerSockets.containsKey(peerId)) {
+            while (connectionTracker.isConnected(peerId)) {
                 try { pubSession.sendMessage(peerHandle, msgId++, ByteArray(0)) } catch (_: Exception) { break }
                 delay(20_000)
             }
@@ -776,7 +768,7 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
 
         val peerId = handleToPeerId[peerHandle] ?: return
         if (amIServerFor(peerId)) return
-        if (peerSockets.containsKey(peerId)) {
+        if (connectionTracker.peerSockets.containsKey(peerId)) {
             Log.v(TAG, "↪ already client-connected to $peerId, skipping")
             return
         }
@@ -797,7 +789,7 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
                 // Do not bind process for Aware; use per-socket binding instead
             }
             override fun onCapabilitiesChanged(network: Network, nc: NetworkCapabilities) {
-                if (peerSockets.containsKey(peerId)) return
+                if (connectionTracker.peerSockets.containsKey(peerId)) return
                 val info = (nc.transportInfo as? WifiAwareNetworkInfo) ?: return
                 val addr = info.peerIpv6Addr as? Inet6Address ?: return
 
@@ -824,7 +816,7 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
                     sock.connect(java.net.InetSocketAddress(scopedAddr, port), 7000)
                     Log.d(TAG, "CLIENT: TCP connected to ${peerId.take(8)} addr=$scopedAddr:$port (iface=$iface)")
 
-                    peerSockets[peerId] = sock
+                    connectionTracker.onClientConnected(peerId, sock)
                     try { peerManager.setDirectConnection(peerId, true) } catch (_: Exception) {}
                     try { peerManager.addOrUpdatePeer(peerId, peerId) } catch (_: Exception) {}
                     listenerExec.execute { listenToPeer(sock, peerId) }
@@ -841,12 +833,12 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
                 }
             }
             override fun onLost(network: Network) {
-                networkCallbacks.remove(peerId)
+                connectionTracker.networkCallbacks.remove(peerId)
                 Log.d(TAG, "CLIENT: network lost for ${peerId.take(8)}")
             }
         }
 
-        networkCallbacks[peerId] = cb
+        connectionTracker.addNetworkCallback(peerId, cb)
         Log.d(TAG, "CLIENT: requesting Aware network for ${peerId.take(8)}")
         cm.requestNetwork(req, cb)
     }
@@ -863,7 +855,7 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
         serviceScope.launch {
             try {
                 val os = sock.getOutputStream()
-                while (peerSockets.containsKey(peerId)) {
+                while (connectionTracker.isConnected(peerId)) {
                     try { os.write(0) } catch (_: IOException) { break }
                     delay(2_000)
                 }
@@ -872,7 +864,7 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
         // Discovery keep-alive
         serviceScope.launch {
             var msgId = 0
-            while (peerSockets.containsKey(peerId)) {
+            while (connectionTracker.isConnected(peerId)) {
                 try { subscribeSession?.sendMessage(peerHandle, msgId++, ByteArray(0)) } catch (_: Exception) { break }
                 delay(20_000)
             }
@@ -929,9 +921,7 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
         serviceScope.launch {
             Log.d(TAG, "Cleaning up peer: $initialId")
             
-            peerSockets.remove(initialId)?.closeQuietly()
-            serverSockets.remove(initialId)?.closeQuietly()
-            networkCallbacks.remove(initialId)?.let { runCatching { cm.unregisterNetworkCallback(it) } }
+            connectionTracker.disconnect(initialId)
             peerManager.removePeer(initialId)
         }
     }
@@ -1257,7 +1247,7 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
      * Prefers the scoped IPv6 address format.
      */
     fun getDeviceAddressForPeer(peerID: String): String? =
-        peerSockets[peerID]?.let { resolveScopedAddress(it) }
+        connectionTracker.peerSockets[peerID]?.let { resolveScopedAddress(it) }
 
     /**
      * Helper to resolve a scoped IPv6 address from a socket for UI display.
@@ -1281,7 +1271,7 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
      */
     fun getDeviceAddressToPeerMapping(): Map<String, String> {
         val map = mutableMapOf<String, String>()
-        peerSockets.forEach { (pid, sock) ->
+        connectionTracker.peerSockets.forEach { (pid, sock) ->
             map[pid] = resolveScopedAddress(sock) ?: "unknown"
         }
         return map
@@ -1308,7 +1298,8 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
     fun getDebugStatus(): String = buildString {
         appendLine("=== Wi-Fi Aware Mesh Debug Status ===")
         appendLine("My Peer ID: $myPeerID")
-        appendLine("Peers: ${peerSockets.keys}")
+        appendLine("Peers: ${connectionTracker.peerSockets.keys}")
+        appendLine(connectionTracker.getDebugInfo())
         appendLine(peerManager.getDebugInfo(getDeviceAddressToPeerMapping()))
         appendLine(fragmentManager.getDebugInfo())
         appendLine(securityManager.getDebugInfo())
