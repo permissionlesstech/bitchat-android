@@ -349,4 +349,5 @@
         <item quantity="other">%d người</item>
     </plurals>
 
+    <string name="mesh_service_notification_content">Mesh đang chạy — %1$d ngang hàng</string>
 </resources>

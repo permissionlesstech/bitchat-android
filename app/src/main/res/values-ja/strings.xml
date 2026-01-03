@@ -362,4 +362,5 @@
   <string name="location_notes_empty_desc">この場所の最初のメモを追加しましょう。</string>
   <string name="dismiss">閉じる</string>
   <string name="location_notes_input_placeholder">この場所へのメモを追加</string>
+    <string name="mesh_service_notification_content">メッシュ実行中 — %1$d ピア</string>
 </resources>

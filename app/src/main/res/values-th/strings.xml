@@ -349,4 +349,5 @@
         <item quantity="other">%d คน</item>
     </plurals>
 
+    <string name="mesh_service_notification_content">Mesh กำลังทำงาน — %1$d เพื่อน</string>
 </resources>

@@ -376,4 +376,5 @@
         <item quantity="other">Olona %d</item>
     </plurals>
 
+    <string name="mesh_service_notification_content">Mandeha ny Mesh — %1$d peers</string>
 </resources>

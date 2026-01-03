@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- TODO: Malay translations -->
+    <string name="mesh_service_notification_content">Mesh sedang berjalan — %1$d rakan</string>
 </resources>
 

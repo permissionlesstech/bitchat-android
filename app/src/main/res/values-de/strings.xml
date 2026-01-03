@@ -363,4 +363,5 @@
   <string name="location_notes_empty_desc">sei der Erste, der hier eine Notiz hinterlässt.</string>
   <string name="dismiss">schließen</string>
   <string name="location_notes_input_placeholder">füge eine Notiz zu diesem Ort hinzu</string>
+    <string name="mesh_service_notification_content">Mesh läuft — %1$d Peers</string>
 </resources>

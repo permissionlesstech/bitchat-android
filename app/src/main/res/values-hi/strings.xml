@@ -362,4 +362,5 @@
   <string name="location_notes_empty_desc">इस स्थान के लिए पहला नोट जोड़ें।</string>
   <string name="dismiss">बंद करें</string>
   <string name="location_notes_input_placeholder">इस स्थान के लिए एक नोट जोड़ें</string>
+    <string name="mesh_service_notification_content">मेश चल रहा है — %1$d पीयर्स</string>
 </resources>
