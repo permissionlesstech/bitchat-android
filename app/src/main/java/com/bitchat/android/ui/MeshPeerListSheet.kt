@@ -818,6 +818,8 @@ private fun PrivateChatSheet(
     val favoritePeers by viewModel.favoritePeers.collectAsStateWithLifecycle()
     val peerFingerprints by viewModel.peerFingerprints.collectAsStateWithLifecycle()
 
+    val verifiedFingerprints by viewModel.verifiedFingerprints.collectAsStateWithLifecycle()
+
     // Start private chat when screen opens
     LaunchedEffect(peerID) {
         viewModel.startPrivateChat(peerID)
@@ -832,6 +834,16 @@ private fun PrivateChatSheet(
     val fingerprint = peerFingerprints[peerID]
     val isFavorite = remember(favoritePeers, fingerprint) {
         if (fingerprint != null) favoritePeers.contains(fingerprint) else viewModel.isFavorite(peerID)
+    }
+
+    val isVerified = remember(peerID, verifiedFingerprints) {
+        viewModel.isPeerVerified(peerID, verifiedFingerprints)
+    }
+
+    val securityModifier = if (!isNostrPeer) {
+        Modifier.clickable { viewModel.showSecurityVerificationSheet() }
+    } else {
+        Modifier
     }
 
     val sheetState = rememberModalBottomSheetState(
@@ -984,11 +996,26 @@ private fun PrivateChatSheet(
                             color = colorScheme.onSurface
                         )
 
-                        if (!isNostrPeer) {
-                            NoiseSessionIcon(
-                                sessionState = sessionState,
-                                modifier = Modifier.size(14.dp)
-                            )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.then(securityModifier)
+                        ) {
+                            if (!isNostrPeer) {
+                                NoiseSessionIcon(
+                                    sessionState = sessionState,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+
+                            if (isVerified) {
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(
+                                    imageVector = Icons.Filled.Verified,
+                                    contentDescription = stringResource(R.string.verify_title),
+                                    modifier = Modifier.size(14.dp),
+                                    tint = Color(0xFF32D74B) // iOS Green
+                                )
+                            }
                         }
 
                         IconButton(
