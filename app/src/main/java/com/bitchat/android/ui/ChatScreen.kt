@@ -55,6 +55,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val showMentionSuggestions by viewModel.showMentionSuggestions.collectAsStateWithLifecycle()
     val mentionSuggestions by viewModel.mentionSuggestions.collectAsStateWithLifecycle()
     val showAppInfo by viewModel.showAppInfo.collectAsStateWithLifecycle()
+    val showVerificationSheet by viewModel.showVerificationSheet.collectAsStateWithLifecycle()
+    val showSecurityVerificationSheet by viewModel.showSecurityVerificationSheet.collectAsStateWithLifecycle()
 
     var messageText by remember { mutableStateOf(TextFieldValue("")) }
     var showPasswordPrompt by remember { mutableStateOf(false) }
@@ -328,11 +330,15 @@ fun ChatScreen(viewModel: ChatViewModel) {
         },
         selectedUserForSheet = selectedUserForSheet,
         selectedMessageForSheet = selectedMessageForSheet,
+        viewModel = viewModel,
+        showVerificationSheet = showVerificationSheet,
+        onVerificationSheetDismiss = viewModel::hideVerificationSheet,
+        showSecurityVerificationSheet = showSecurityVerificationSheet,
+        onSecurityVerificationSheetDismiss = viewModel::hideSecurityVerificationSheet,
         showMeshPeerListSheet = showMeshPeerListSheet,
         onMeshPeerListDismiss = {
             showMeshPeerListSheet = false
         },
-        viewModel = viewModel
     )
 }
 
@@ -480,9 +486,13 @@ private fun ChatDialogs(
     onUserSheetDismiss: () -> Unit,
     selectedUserForSheet: String,
     selectedMessageForSheet: BitchatMessage?,
+    viewModel: ChatViewModel,
+    showVerificationSheet: Boolean,
+    onVerificationSheetDismiss: () -> Unit,
+    showSecurityVerificationSheet: Boolean,
+    onSecurityVerificationSheetDismiss: () -> Unit
     showMeshPeerListSheet: Boolean,
     onMeshPeerListDismiss: () -> Unit,
-    viewModel: ChatViewModel
 ) {
     // Password dialog
     PasswordPromptDialog(
@@ -536,13 +546,28 @@ private fun ChatDialogs(
             viewModel = viewModel
         )
     }
-
     // MeshPeerList sheet (network view)
     if (showMeshPeerListSheet){
         MeshPeerListSheet(
             isPresented = showMeshPeerListSheet,
             viewModel = viewModel,
             onDismiss = onMeshPeerListDismiss
+        )
+    }
+
+    if (showVerificationSheet) {
+        VerificationSheet(
+            isPresented = showVerificationSheet,
+            onDismiss = onVerificationSheetDismiss,
+            viewModel = viewModel
+        )
+    }
+
+    if (showSecurityVerificationSheet) {
+        SecurityVerificationSheet(
+            isPresented = showSecurityVerificationSheet,
+            onDismiss = onSecurityVerificationSheetDismiss,
+            viewModel = viewModel
         )
     }
 }

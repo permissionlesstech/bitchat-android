@@ -40,6 +40,7 @@ import com.bitchat.android.ui.ChatViewModel
 import com.bitchat.android.ui.OrientationAwareActivity
 import com.bitchat.android.ui.theme.BitchatTheme
 import com.bitchat.android.nostr.PoWPreferenceManager
+import com.bitchat.android.services.VerificationService
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -655,6 +656,7 @@ class MainActivity : OrientationAwareActivity() {
                 
                 // Handle any notification intent
                 handleNotificationIntent(intent)
+                handleVerificationIntent(intent)
                 
                 // Small delay to ensure mesh service is fully initialized
                 delay(500)
@@ -683,6 +685,7 @@ class MainActivity : OrientationAwareActivity() {
         // Handle notification intents when app is already running
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
             handleNotificationIntent(intent)
+            handleVerificationIntent(intent)
         }
     }
     
@@ -785,6 +788,17 @@ class MainActivity : OrientationAwareActivity() {
                     chatViewModel.clearNotificationsForGeohash(geohash)
                 }
             }
+        }
+    }
+
+    private fun handleVerificationIntent(intent: Intent) {
+        val uri = intent.data ?: return
+        if (uri.scheme != "bitchat" || uri.host != "verify") return
+
+        chatViewModel.showVerificationSheet()
+        val qr = VerificationService.verifyScannedQR(uri.toString())
+        if (qr != null) {
+            chatViewModel.beginQRVerification(qr)
         }
     }
 

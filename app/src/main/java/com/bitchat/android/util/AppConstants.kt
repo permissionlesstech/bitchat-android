@@ -58,6 +58,10 @@ object AppConstants {
         const val HIGH_NONCE_WARNING_THRESHOLD: Long = 1_000_000_000L
     }
 
+    object Verification {
+        const val QR_MAX_AGE_SECONDS: Long = 300L // 5 minutes
+    }
+
     object Protocol {
         const val COMPRESSION_THRESHOLD_BYTES: Int = 100
     }
