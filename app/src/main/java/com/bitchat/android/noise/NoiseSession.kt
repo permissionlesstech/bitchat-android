@@ -153,6 +153,9 @@ class NoiseSession(
     // Session state
     private var state: NoiseSessionState = NoiseSessionState.Uninitialized
     private val creationTime = System.currentTimeMillis()
+    private var handshakeStartMs: Long? = null
+    private var lastHandshakeActivityMs: Long? = null
+    private var handshakeMessage1: ByteArray? = null
 
     // Session counters
     private var currentPattern = 0;
@@ -195,6 +198,15 @@ class NoiseSession(
     fun isEstablished(): Boolean = state is NoiseSessionState.Established
     fun isHandshaking(): Boolean = state is NoiseSessionState.Handshaking
     fun getCreationTime(): Long = creationTime
+    fun isInitiatorRole(): Boolean = isInitiator
+    fun getHandshakeStartMs(): Long? = handshakeStartMs
+    fun getLastHandshakeActivityMs(): Long? = lastHandshakeActivityMs
+
+    internal fun getHandshakeMessage1(): ByteArray? = handshakeMessage1?.clone()
+
+    internal fun setLastHandshakeActivityForTest(timestampMs: Long) {
+        lastHandshakeActivityMs = timestampMs
+    }
     
     init {
         try {
@@ -317,12 +329,17 @@ class NoiseSession(
             // Initialize handshake as initiator 
             initializeNoiseHandshake(HandshakeState.INITIATOR)
             state = NoiseSessionState.Handshaking
+            if (handshakeStartMs == null) {
+                handshakeStartMs = System.currentTimeMillis()
+            }
+            lastHandshakeActivityMs = System.currentTimeMillis()
             
             val messageBuffer = ByteArray(XX_MESSAGE_1_SIZE)
             val handshakeStateLocal = handshakeState ?: throw IllegalStateException("Handshake state is null")
             val messageLength = handshakeStateLocal.writeMessage(messageBuffer, 0, null, 0, 0)
             currentPattern++
             val firstMessage = messageBuffer.copyOf(messageLength)
+            handshakeMessage1 = firstMessage
             
             // Validate message size matches XX pattern expectations
             if (firstMessage.size != XX_MESSAGE_1_SIZE) {
@@ -351,12 +368,16 @@ class NoiseSession(
             if (state == NoiseSessionState.Uninitialized && !isInitiator) {
                 initializeNoiseHandshake(HandshakeState.RESPONDER)
                 state = NoiseSessionState.Handshaking
+                if (handshakeStartMs == null) {
+                    handshakeStartMs = System.currentTimeMillis()
+                }
                 Log.d(TAG, "Initialized as RESPONDER for XX handshake with $peerID")
             }
             
             if (state != NoiseSessionState.Handshaking) {
                 throw IllegalStateException("Invalid state for handshake: $state")
             }
+            lastHandshakeActivityMs = System.currentTimeMillis()
             
             val handshakeStateLocal = handshakeState ?: throw IllegalStateException("Handshake state is null")
             

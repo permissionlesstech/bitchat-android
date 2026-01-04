@@ -56,6 +56,7 @@ class MeshCore(
 
     val gossipSyncManager: GossipSyncManager =
         sharedGossipManager ?: GossipSyncManager(myPeerID = myPeerID, scope = scope, configProvider = gossipConfigProvider)
+    private val ownsGossipManager: Boolean = sharedGossipManager == null
 
     var delegate: MeshDelegate? = null
 
@@ -74,6 +75,7 @@ class MeshCore(
 
                 override fun sendPacketToPeer(peerID: String, packet: BitchatPacket) {
                     transport.sendPacketToPeer(peerID, packet)
+                    TransportBridgeService.sendToPeer(transport.id, peerID, packet)
                 }
 
                 override fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket {
@@ -87,7 +89,9 @@ class MeshCore(
         if (isActive) return
         isActive = true
         startPeriodicBroadcastAnnounce()
-        gossipSyncManager.start()
+        if (ownsGossipManager) {
+            gossipSyncManager.start()
+        }
     }
 
     fun stopCore() {
@@ -95,7 +99,9 @@ class MeshCore(
         isActive = false
         announceJob?.cancel()
         announceJob = null
-        gossipSyncManager.stop()
+        if (ownsGossipManager) {
+            gossipSyncManager.stop()
+        }
     }
 
     fun shutdown() {

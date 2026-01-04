@@ -168,6 +168,10 @@ class BluetoothMeshService(private val context: Context) : MeshService, Transpor
         // Direct injection prevents routing loops (bridge handles source check)
         meshCore.sendFromBridge(packet)
     }
+
+    override fun sendToPeer(peerID: String, packet: BitchatPacket) {
+        connectionManager.sendPacketToPeer(peerID, packet)
+    }
     
     /**
      * Start periodic debug logging every 10 seconds

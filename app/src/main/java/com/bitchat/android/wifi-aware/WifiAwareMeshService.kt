@@ -144,6 +144,10 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         meshCore.sendFromBridge(packet)
     }
 
+    override fun sendToPeer(peerID: String, packet: BitchatPacket) {
+        sendPacketToPeer(peerID, packet)
+    }
+
     /**
      * Broadcasts routed packet to currently connected peers.
      */
