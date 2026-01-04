@@ -10,7 +10,6 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
@@ -24,7 +23,9 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
+
 import androidx.compose.ui.zIndex
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.ui.media.FullScreenImageViewer
 
@@ -41,22 +42,24 @@ import com.bitchat.android.ui.media.FullScreenImageViewer
 @Composable
 fun ChatScreen(viewModel: ChatViewModel) {
     val colorScheme = MaterialTheme.colorScheme
-    val messages by viewModel.messages.observeAsState(emptyList())
-    val connectedPeers by viewModel.connectedPeers.observeAsState(emptyList())
-    val nickname by viewModel.nickname.observeAsState("")
-    val selectedPrivatePeer by viewModel.selectedPrivateChatPeer.observeAsState()
-    val currentChannel by viewModel.currentChannel.observeAsState()
-    val joinedChannels by viewModel.joinedChannels.observeAsState(emptySet())
-    val hasUnreadChannels by viewModel.unreadChannelMessages.observeAsState(emptyMap())
-    val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.observeAsState(emptySet())
-    val privateChats by viewModel.privateChats.observeAsState(emptyMap())
-    val channelMessages by viewModel.channelMessages.observeAsState(emptyMap())
-    val showSidebar by viewModel.showSidebar.observeAsState(false)
-    val showCommandSuggestions by viewModel.showCommandSuggestions.observeAsState(false)
-    val commandSuggestions by viewModel.commandSuggestions.observeAsState(emptyList())
-    val showMentionSuggestions by viewModel.showMentionSuggestions.observeAsState(false)
-    val mentionSuggestions by viewModel.mentionSuggestions.observeAsState(emptyList())
-    val showAppInfo by viewModel.showAppInfo.observeAsState(false)
+    val messages by viewModel.messages.collectAsStateWithLifecycle()
+    val connectedPeers by viewModel.connectedPeers.collectAsStateWithLifecycle()
+    val nickname by viewModel.nickname.collectAsStateWithLifecycle()
+    val selectedPrivatePeer by viewModel.selectedPrivateChatPeer.collectAsStateWithLifecycle()
+    val currentChannel by viewModel.currentChannel.collectAsStateWithLifecycle()
+    val joinedChannels by viewModel.joinedChannels.collectAsStateWithLifecycle()
+    val hasUnreadChannels by viewModel.unreadChannelMessages.collectAsStateWithLifecycle()
+    val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.collectAsStateWithLifecycle()
+    val privateChats by viewModel.privateChats.collectAsStateWithLifecycle()
+    val channelMessages by viewModel.channelMessages.collectAsStateWithLifecycle()
+    val showSidebar by viewModel.showSidebar.collectAsStateWithLifecycle()
+    val showCommandSuggestions by viewModel.showCommandSuggestions.collectAsStateWithLifecycle()
+    val commandSuggestions by viewModel.commandSuggestions.collectAsStateWithLifecycle()
+    val showMentionSuggestions by viewModel.showMentionSuggestions.collectAsStateWithLifecycle()
+    val mentionSuggestions by viewModel.mentionSuggestions.collectAsStateWithLifecycle()
+    val showAppInfo by viewModel.showAppInfo.collectAsStateWithLifecycle()
+    val showVerificationSheet by viewModel.showVerificationSheet.collectAsStateWithLifecycle()
+    val showSecurityVerificationSheet by viewModel.showSecurityVerificationSheet.collectAsStateWithLifecycle()
 
     var messageText by remember { mutableStateOf(TextFieldValue("")) }
     var showPasswordPrompt by remember { mutableStateOf(false) }
@@ -78,11 +81,11 @@ fun ChatScreen(viewModel: ChatViewModel) {
         showPasswordDialog = showPasswordPrompt
     }
 
-    val isConnected by viewModel.isConnected.observeAsState(false)
-    val passwordPromptChannel by viewModel.passwordPromptChannel.observeAsState(null)
+    val isConnected by viewModel.isConnected.collectAsStateWithLifecycle()
+    val passwordPromptChannel by viewModel.passwordPromptChannel.collectAsStateWithLifecycle()
 
     // Get location channel info for timeline switching
-    val selectedLocationChannel by viewModel.selectedLocationChannel.observeAsState()
+    val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
 
     // Determine what messages to show based on current context (unified timelines)
     val displayMessages = when {
@@ -113,7 +116,10 @@ fun ChatScreen(viewModel: ChatViewModel) {
             .background(colorScheme.background) // Extend background to fill entire screen including status bar
     ) {
         val headerHeight = 42.dp
-        
+        // Reserve exact height: header + status bar inset so content below won't be overlapped
+        val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        val reservedHeaderHeight = headerHeight + statusBarTop
+
         // Main content area that responds to keyboard/window insets
         Column(
             modifier = Modifier
@@ -121,11 +127,10 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 .windowInsetsPadding(WindowInsets.ime) // This handles keyboard insets
                 .windowInsetsPadding(WindowInsets.navigationBars) // Add bottom padding when keyboard is not expanded
         ) {
-            // Header spacer - creates exact space for the floating header (status bar + compact header)
+            // Header spacer - reserve space equal to header + status bar inset
             Spacer(
                 modifier = Modifier
-                    .windowInsetsPadding(WindowInsets.statusBars)
-                    .height(headerHeight)
+                    .height(reservedHeaderHeight)
             )
 
             // Messages area - takes up available space, will compress when keyboard appears
@@ -254,15 +259,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             onLocationNotesClick = { showLocationNotesSheet = true }
         )
 
-        // Divider under header - positioned after status bar + header height
-        HorizontalDivider(
-            modifier = Modifier
-                .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .offset(y = headerHeight)
-                .zIndex(1f),
-            color = colorScheme.outline.copy(alpha = 0.3f)
-        )
+
 
         val alpha by animateFloatAsState(
             targetValue = if (showSidebar) 0.5f else 0f,
@@ -327,6 +324,10 @@ fun ChatScreen(viewModel: ChatViewModel) {
             SidebarOverlay(
                 viewModel = viewModel,
                 onDismiss = { viewModel.hideSidebar() },
+                onShowVerification = {
+                    viewModel.showVerificationSheet(fromSidebar = true)
+                    viewModel.hideSidebar()
+                },
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -373,7 +374,11 @@ fun ChatScreen(viewModel: ChatViewModel) {
         },
         selectedUserForSheet = selectedUserForSheet,
         selectedMessageForSheet = selectedMessageForSheet,
-        viewModel = viewModel
+        viewModel = viewModel,
+        showVerificationSheet = showVerificationSheet,
+        onVerificationSheetDismiss = viewModel::hideVerificationSheet,
+        showSecurityVerificationSheet = showSecurityVerificationSheet,
+        onSecurityVerificationSheetDismiss = viewModel::hideSecurityVerificationSheet
     )
 }
 
@@ -459,38 +464,46 @@ private fun ChatFloatingHeader(
         modifier = Modifier
             .fillMaxWidth()
             .zIndex(1f)
-            .windowInsetsPadding(WindowInsets.statusBars), // Extend into status bar area
+            .statusBarsPadding(), // Respect status bar insets
         color = colorScheme.background // Solid background color extending into status bar
     ) {
-        TopAppBar(
-            title = {
-                ChatHeaderContent(
-                    selectedPrivatePeer = selectedPrivatePeer,
-                    currentChannel = currentChannel,
-                    nickname = nickname,
-                    viewModel = viewModel,
-                    onBackClick = {
-                        when {
-                            selectedPrivatePeer != null -> viewModel.endPrivateChat()
-                            currentChannel != null -> viewModel.switchToChannel(null)
+        Column {
+            TopAppBar(
+                title = {
+                    ChatHeaderContent(
+                        selectedPrivatePeer = selectedPrivatePeer,
+                        currentChannel = currentChannel,
+                        nickname = nickname,
+                        viewModel = viewModel,
+                        onBackClick = {
+                            when {
+                                selectedPrivatePeer != null -> viewModel.endPrivateChat()
+                                currentChannel != null -> viewModel.switchToChannel(null)
+                            }
+                        },
+                        onSidebarClick = onSidebarToggle,
+                        onTripleClick = onPanicClear,
+                        onShowAppInfo = onShowAppInfo,
+                        onLocationChannelsClick = onLocationChannelsClick,
+                        onLocationNotesClick = {
+                            // Ensure location is loaded before showing sheet
+                            locationManager.refreshChannels()
+                            onLocationNotesClick()
                         }
-                    },
-                    onSidebarClick = onSidebarToggle,
-                    onTripleClick = onPanicClear,
-                    onShowAppInfo = onShowAppInfo,
-                    onLocationChannelsClick = onLocationChannelsClick,
-                    onLocationNotesClick = {
-                        // Ensure location is loaded before showing sheet
-                        locationManager.refreshChannels()
-                        onLocationNotesClick()
-                    }
-                )
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color.Transparent
-            ),
-            modifier = Modifier.height(headerHeight) // Ensure compact header height
-        )
+                    )
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent
+                ),
+                modifier = Modifier.heightIn(min = headerHeight) // Allow header to expand for accessibility font scales
+            )
+
+            // Divider under header - always aligned with header bottom
+            Divider(
+                modifier = Modifier.fillMaxWidth(),
+                color = colorScheme.outline.copy(alpha = 0.3f)
+            )
+        }
     }
 }
 
@@ -513,7 +526,11 @@ private fun ChatDialogs(
     onUserSheetDismiss: () -> Unit,
     selectedUserForSheet: String,
     selectedMessageForSheet: BitchatMessage?,
-    viewModel: ChatViewModel
+    viewModel: ChatViewModel,
+    showVerificationSheet: Boolean,
+    onVerificationSheetDismiss: () -> Unit,
+    showSecurityVerificationSheet: Boolean,
+    onSecurityVerificationSheetDismiss: () -> Unit
 ) {
     // Password dialog
     PasswordPromptDialog(
@@ -564,6 +581,22 @@ private fun ChatDialogs(
             onDismiss = onUserSheetDismiss,
             targetNickname = selectedUserForSheet,
             selectedMessage = selectedMessageForSheet,
+            viewModel = viewModel
+        )
+    }
+
+    if (showVerificationSheet) {
+        VerificationSheet(
+            isPresented = showVerificationSheet,
+            onDismiss = onVerificationSheetDismiss,
+            viewModel = viewModel
+        )
+    }
+
+    if (showSecurityVerificationSheet) {
+        SecurityVerificationSheet(
+            isPresented = showSecurityVerificationSheet,
+            onDismiss = onSecurityVerificationSheetDismiss,
             viewModel = viewModel
         )
     }

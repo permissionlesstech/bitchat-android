@@ -5,7 +5,9 @@ import androidx.test.core.app.ApplicationProvider
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
 import junit.framework.TestCase.assertEquals
-
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.junit.Before
 import org.junit.Ignore
 import org.junit.Test
@@ -18,7 +20,10 @@ import java.util.Date
 @RunWith(RobolectricTestRunner::class)
 class CommandProcessorTest() {
   private val context: Context = ApplicationProvider.getApplicationContext()
-  private val chatState = ChatState()
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val testDispatcher = UnconfinedTestDispatcher()
+    private val testScope = TestScope(testDispatcher)
+  private val chatState = ChatState(scope = testScope)
   private lateinit var commandProcessor: CommandProcessor
 
   val messageManager: MessageManager = MessageManager(state = chatState)
@@ -26,7 +31,7 @@ class CommandProcessorTest() {
     state = chatState,
     messageManager = messageManager,
     dataManager = DataManager(context = context),
-    coroutineScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main.immediate)
+    coroutineScope = testScope
   )
 
   private val meshService: BluetoothMeshService = mock()
