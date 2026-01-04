@@ -102,6 +102,7 @@ class ChatViewModel(
     )
 
     private val verificationHandler = VerificationHandler(
+        context = application.applicationContext,
         scope = viewModelScope,
         meshService = meshService,
         identityManager = identityManager,

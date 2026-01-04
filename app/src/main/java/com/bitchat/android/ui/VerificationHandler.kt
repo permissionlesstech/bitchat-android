@@ -1,5 +1,7 @@
 package com.bitchat.android.ui
 
+import android.content.Context
+import com.bitchat.android.R
 import com.bitchat.android.favorites.FavoritesPersistenceService
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.mesh.BluetoothMeshService
@@ -22,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap
  * Handles QR verification logic and state, extracted from ChatViewModel.
  */
 class VerificationHandler(
+    private val context: Context,
     private val scope: CoroutineScope,
     private val meshService: BluetoothMeshService,
     private val identityManager: SecureIdentityStateManager,
@@ -113,9 +116,9 @@ class VerificationHandler(
                     if (System.currentTimeMillis() - lastToast > 60_000L) {
                         lastMutualToastAt[fp] = System.currentTimeMillis()
                         val name = resolvePeerDisplayName(peerID)
-                        val body = "You and $name verified each other"
-                        addVerificationSystemMessage(peerID, "mutual verification with $name")
-                        sendVerificationNotification("Mutual verification", body, peerID)
+                        val body = context.getString(R.string.verify_mutual_match_body, name)
+                        addVerificationSystemMessage(peerID, context.getString(R.string.verify_mutual_system_message, name))
+                        sendVerificationNotification(context.getString(R.string.verify_mutual_match_title), body, peerID)
                     }
                 }
             }
@@ -157,17 +160,17 @@ class VerificationHandler(
                 identityManager.cachePeerNoiseKey(peerID, noiseKeyHex)
                 identityManager.cacheNoiseFingerprint(noiseKeyHex, fp)
             }
-            addVerificationSystemMessage(peerID, "verified $name")
-            sendVerificationNotification("Verified", "You verified $name", peerID)
+            addVerificationSystemMessage(peerID, context.getString(R.string.verify_success_system_message, name))
+            sendVerificationNotification(context.getString(R.string.verify_success_title), context.getString(R.string.verify_success_body, name), peerID)
 
             val lastChallenge = lastInboundVerifyChallengeAt[fp] ?: 0L
             if (System.currentTimeMillis() - lastChallenge < 600_000L) {
                 val lastToast = lastMutualToastAt[fp] ?: 0L
                 if (System.currentTimeMillis() - lastToast > 60_000L) {
                     lastMutualToastAt[fp] = System.currentTimeMillis()
-                    val body = "You and $name verified each other"
-                    addVerificationSystemMessage(peerID, "mutual verification with $name")
-                    sendVerificationNotification("Mutual verification", body, peerID)
+                    val body = context.getString(R.string.verify_mutual_match_body, name)
+                    addVerificationSystemMessage(peerID, context.getString(R.string.verify_mutual_system_message, name))
+                    sendVerificationNotification(context.getString(R.string.verify_mutual_match_title), body, peerID)
                 }
             }
         }
