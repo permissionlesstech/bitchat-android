@@ -352,4 +352,5 @@
   <string name="location_notes_empty_desc">станьте первым, кто добавит заметку для этого места.</string>
   <string name="dismiss">закрыть</string>
   <string name="location_notes_input_placeholder">добавьте заметку для этого места</string>
+    <string name="mesh_service_notification_content">Mesh запущен — %1$d пиров</string>
 </resources>

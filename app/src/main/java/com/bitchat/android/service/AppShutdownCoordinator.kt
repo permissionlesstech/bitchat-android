@@ -9,10 +9,13 @@ import com.bitchat.android.net.TorMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Coordinates a full application shutdown:
@@ -24,6 +27,15 @@ import kotlinx.coroutines.withTimeoutOrNull
  */
 object AppShutdownCoordinator {
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private val shutdownToken = AtomicLong(0L)
+    @Volatile
+    private var shutdownJob: Job? = null
+
+    fun cancelPendingShutdown() {
+        shutdownToken.incrementAndGet()
+        shutdownJob?.cancel()
+        shutdownJob = null
+    }
 
     fun requestFullShutdownAndKill(
         app: Application,
@@ -32,7 +44,16 @@ object AppShutdownCoordinator {
         stopForeground: () -> Unit,
         stopService: () -> Unit
     ) {
-        scope.launch {
+        val token = shutdownToken.incrementAndGet()
+        shutdownJob?.cancel()
+        val job = scope.launch {
+            // Signal UI to finish gracefully before we kill the process
+            try {
+                val intent = android.content.Intent(com.bitchat.android.util.AppConstants.UI.ACTION_FORCE_FINISH)
+                    .setPackage(app.packageName)
+                app.sendBroadcast(intent, com.bitchat.android.util.AppConstants.UI.PERMISSION_FORCE_FINISH)
+            } catch (_: Exception) { }
+
             // Stop mesh (best-effort)
             try { mesh?.stopServices() } catch (_: Exception) { }
 
@@ -56,12 +77,19 @@ object AppShutdownCoordinator {
             }
 
             // Stop the service itself
+            if (!isActive || shutdownToken.get() != token) return@launch
             try { stopService() } catch (_: Exception) { }
 
             // Hard kill the app process
+            if (!isActive || shutdownToken.get() != token) return@launch
             try { Process.killProcess(Process.myPid()) } catch (_: Exception) { }
             try { System.exit(0) } catch (_: Exception) { }
         }
+        shutdownJob = job
+        job.invokeOnCompletion {
+            if (shutdownJob === job) {
+                shutdownJob = null
+            }
+        }
     }
 }
-

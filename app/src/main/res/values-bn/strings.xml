@@ -349,4 +349,5 @@
         <item quantity="other">%d জন</item>
     </plurals>
 
+    <string name="mesh_service_notification_content">মেশ চলছে — %1$d পিয়ার</string>
 </resources>

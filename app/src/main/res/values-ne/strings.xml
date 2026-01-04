@@ -362,4 +362,5 @@
         <item quantity="other">%d जना</item>
     </plurals>
 
+    <string name="mesh_service_notification_content">मेश चलिरहेको छ — %1$d पियर्स</string>
 </resources>

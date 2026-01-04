@@ -362,4 +362,5 @@
         <item quantity="other">%d tao</item>
     </plurals>
 
+    <string name="mesh_service_notification_content">Tumatakbo ang Mesh — %1$d na peer</string>
 </resources>
