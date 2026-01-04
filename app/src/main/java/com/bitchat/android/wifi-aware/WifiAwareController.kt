@@ -71,13 +71,30 @@ object WifiAwareController {
     }
 
     fun startIfPossible() {
-        if (_running.value) return
+        if (_running.value || !_enabled.value) return
         val ctx = appContext ?: return
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             Log.w(TAG, "Wi‑Fi Aware requires Android 10 (Q)+; disabled.")
             try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware not supported on this device (requires Android 10+)")) } catch (_: Exception) {}
             return
         }
+
+        // Check system location setting: WifiAwareManager.attach() throws SecurityException if disabled
+        val lm = ctx.getSystemService(Context.LOCATION_SERVICE) as? android.location.LocationManager
+        val locationEnabled = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            lm?.isLocationEnabled == true
+        } else {
+            @Suppress("DEPRECATION")
+            lm?.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER) == true ||
+            lm?.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER) == true
+        }
+
+        if (!locationEnabled) {
+            Log.w(TAG, "Location services are disabled; Wi-Fi Aware cannot start.")
+            try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Enable Location Services to start Wi-Fi Aware")) } catch (_: Exception) {}
+            return
+        }
+
         // Android 13+: require NEARBY_WIFI_DEVICES runtime permission
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val granted = androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.NEARBY_WIFI_DEVICES) == android.content.pm.PackageManager.PERMISSION_GRANTED
