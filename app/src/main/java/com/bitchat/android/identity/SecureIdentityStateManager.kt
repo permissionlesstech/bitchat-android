@@ -35,6 +35,7 @@ class SecureIdentityStateManager(private val context: Context) {
     }
     
     private val prefs: SharedPreferences
+    private val lock = Any()
     
     init {
         // Create master key for encryption
@@ -199,17 +200,23 @@ class SecureIdentityStateManager(private val context: Context) {
 
     fun setVerifiedFingerprint(fingerprint: String, verified: Boolean) {
         if (!isValidFingerprint(fingerprint)) return
-        val current = prefs.getStringSet(KEY_VERIFIED_FINGERPRINTS, emptySet())?.toMutableSet() ?: mutableSetOf()
-        if (verified) {
-            current.add(fingerprint)
-        } else {
-            current.remove(fingerprint)
+        synchronized(lock) {
+            val current = prefs.getStringSet(KEY_VERIFIED_FINGERPRINTS, emptySet())?.toMutableSet() ?: mutableSetOf()
+            if (verified) {
+                current.add(fingerprint)
+            } else {
+                current.remove(fingerprint)
+            }
+            prefs.edit { putStringSet(KEY_VERIFIED_FINGERPRINTS, current) }
         }
-        prefs.edit { putStringSet(KEY_VERIFIED_FINGERPRINTS, current) }
     }
 
     fun getCachedPeerFingerprint(peerID: String): String? {
         val pid = peerID.lowercase()
+        // Reading is safe without lock for SharedPreferences, but synchronizing ensures memory visibility
+        // if we are paranoid, but SharedPreferences is generally thread-safe for reads.
+        // However, to ensure we don't read a partial update (unlikely with SP), we can leave it.
+        // The critical part is the write.
         val entries = prefs.getStringSet(KEY_CACHED_PEER_FINGERPRINTS, emptySet()) ?: return null
         val entry = entries.firstOrNull { it.startsWith("$pid:") } ?: return null
         return entry.substringAfter(':').takeIf { isValidFingerprint(it) }
@@ -218,10 +225,12 @@ class SecureIdentityStateManager(private val context: Context) {
     fun cachePeerFingerprint(peerID: String, fingerprint: String) {
         if (!isValidFingerprint(fingerprint)) return
         val pid = peerID.lowercase()
-        val current = prefs.getStringSet(KEY_CACHED_PEER_FINGERPRINTS, emptySet())?.toMutableSet() ?: mutableSetOf()
-        current.removeAll { it.startsWith("$pid:") }
-        current.add("$pid:$fingerprint")
-        prefs.edit { putStringSet(KEY_CACHED_PEER_FINGERPRINTS, current) }
+        synchronized(lock) {
+            val current = prefs.getStringSet(KEY_CACHED_PEER_FINGERPRINTS, emptySet())?.toMutableSet() ?: mutableSetOf()
+            current.removeAll { it.startsWith("$pid:") }
+            current.add("$pid:$fingerprint")
+            prefs.edit { putStringSet(KEY_CACHED_PEER_FINGERPRINTS, current) }
+        }
     }
 
     fun getCachedNoiseKey(peerID: String): String? {
@@ -234,10 +243,12 @@ class SecureIdentityStateManager(private val context: Context) {
     fun cachePeerNoiseKey(peerID: String, noiseKeyHex: String) {
         if (!noiseKeyHex.matches(Regex("^[a-fA-F0-9]{64}$"))) return
         val pid = peerID.lowercase()
-        val current = prefs.getStringSet(KEY_CACHED_PEER_NOISE_KEYS, emptySet())?.toMutableSet() ?: mutableSetOf()
-        current.removeAll { it.startsWith("$pid=") }
-        current.add("$pid=${noiseKeyHex.lowercase()}")
-        prefs.edit { putStringSet(KEY_CACHED_PEER_NOISE_KEYS, current) }
+        synchronized(lock) {
+            val current = prefs.getStringSet(KEY_CACHED_PEER_NOISE_KEYS, emptySet())?.toMutableSet() ?: mutableSetOf()
+            current.removeAll { it.startsWith("$pid=") }
+            current.add("$pid=${noiseKeyHex.lowercase()}")
+            prefs.edit { putStringSet(KEY_CACHED_PEER_NOISE_KEYS, current) }
+        }
     }
 
     fun getCachedNoiseFingerprint(noiseKeyHex: String): String? {
@@ -251,10 +262,12 @@ class SecureIdentityStateManager(private val context: Context) {
         if (!isValidFingerprint(fingerprint)) return
         if (!noiseKeyHex.matches(Regex("^[a-fA-F0-9]{64}$"))) return
         val key = noiseKeyHex.lowercase()
-        val current = prefs.getStringSet(KEY_CACHED_NOISE_FINGERPRINTS, emptySet())?.toMutableSet() ?: mutableSetOf()
-        current.removeAll { it.startsWith("$key=") }
-        current.add("$key=$fingerprint")
-        prefs.edit { putStringSet(KEY_CACHED_NOISE_FINGERPRINTS, current) }
+        synchronized(lock) {
+            val current = prefs.getStringSet(KEY_CACHED_NOISE_FINGERPRINTS, emptySet())?.toMutableSet() ?: mutableSetOf()
+            current.removeAll { it.startsWith("$key=") }
+            current.add("$key=$fingerprint")
+            prefs.edit { putStringSet(KEY_CACHED_NOISE_FINGERPRINTS, current) }
+        }
     }
 
     fun getCachedFingerprintNickname(fingerprint: String): String? {
@@ -273,10 +286,12 @@ class SecureIdentityStateManager(private val context: Context) {
         if (!isValidFingerprint(fingerprint)) return
         val key = fingerprint.lowercase()
         val encoded = Base64.encodeToString(nickname.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
-        val current = prefs.getStringSet(KEY_CACHED_FINGERPRINT_NICKNAMES, emptySet())?.toMutableSet() ?: mutableSetOf()
-        current.removeAll { it.startsWith("$key=") }
-        current.add("$key=$encoded")
-        prefs.edit { putStringSet(KEY_CACHED_FINGERPRINT_NICKNAMES, current) }
+        synchronized(lock) {
+            val current = prefs.getStringSet(KEY_CACHED_FINGERPRINT_NICKNAMES, emptySet())?.toMutableSet() ?: mutableSetOf()
+            current.removeAll { it.startsWith("$key=") }
+            current.add("$key=$encoded")
+            prefs.edit { putStringSet(KEY_CACHED_FINGERPRINT_NICKNAMES, current) }
+        }
     }
     
     // MARK: - Peer ID Rotation Management (removed)
