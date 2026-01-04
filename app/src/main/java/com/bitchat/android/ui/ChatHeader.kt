@@ -566,7 +566,8 @@ private fun MainHeader(
         // Right section with location channels button and peer counter
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp)
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            modifier = Modifier.offset(x = (-8).dp) // Shift left to fix alignment on some phones (e.g. Flip 7)
         ) {
 
             // Unread private messages badge (click to open most recent DM)
