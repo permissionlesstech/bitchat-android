@@ -15,7 +15,6 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -25,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 
 
@@ -43,14 +43,14 @@ fun MeshPeerListSheet(
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
-    val connectedPeers by viewModel.connectedPeers.observeAsState(emptyList())
-    val joinedChannels by viewModel.joinedChannels.observeAsState(emptyList())
-    val currentChannel by viewModel.currentChannel.observeAsState()
-    val selectedPrivatePeer by viewModel.selectedPrivateChatPeer.observeAsState()
-    val nickname by viewModel.nickname.observeAsState("")
-    val unreadChannelMessages by viewModel.unreadChannelMessages.observeAsState(emptyMap())
-    val peerNicknames by viewModel.peerNicknames.observeAsState(emptyMap())
-    val peerRSSI by viewModel.peerRSSI.observeAsState(emptyMap())
+    val connectedPeers by viewModel.connectedPeers.collectAsStateWithLifecycle()
+    val joinedChannels by viewModel.joinedChannels.collectAsStateWithLifecycle()
+    val currentChannel by viewModel.currentChannel.collectAsStateWithLifecycle()
+    val selectedPrivatePeer by viewModel.selectedPrivateChatPeer.collectAsStateWithLifecycle()
+    val nickname by viewModel.nickname.collectAsStateWithLifecycle()
+    val unreadChannelMessages by viewModel.unreadChannelMessages.collectAsStateWithLifecycle()
+    val peerNicknames by viewModel.peerNicknames.collectAsStateWithLifecycle()
+    val peerRSSI by viewModel.peerRSSI.collectAsStateWithLifecycle()
 
     // Track nested private chat sheet state
     var showPrivateChatSheet by remember { mutableStateOf(false) }
@@ -140,7 +140,7 @@ fun MeshPeerListSheet(
 
                     // People section - switch between mesh and geohash lists (iOS-compatible)
                     item(key = "people_section") {
-                        val selectedLocationChannel by viewModel.selectedLocationChannel.observeAsState()
+                        val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
 
                         when (selectedLocationChannel) {
                             is com.bitchat.android.geohash.ChannelID.Location -> {
@@ -343,10 +343,10 @@ fun PeopleSection(
         }
 
         // Observe reactive state for favorites and fingerprints
-        val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.observeAsState(emptySet())
-        val privateChats by viewModel.privateChats.observeAsState(emptyMap())
-        val favoritePeers by viewModel.favoritePeers.observeAsState(emptySet())
-        val peerFingerprints by viewModel.peerFingerprints.observeAsState(emptyMap())
+        val hasUnreadPrivateMessages by viewModel.unreadPrivateMessages.collectAsStateWithLifecycle()
+        val privateChats by viewModel.privateChats.collectAsStateWithLifecycle()
+        val favoritePeers by viewModel.favoritePeers.collectAsStateWithLifecycle()
+        val peerFingerprints by viewModel.peerFingerprints.collectAsStateWithLifecycle()
 
         // Reactive favorite computation for all peers
         val peerFavoriteStates = remember(favoritePeers, peerFingerprints, connectedPeers) {
@@ -387,7 +387,7 @@ fun PeopleSection(
         // Connected peers
         sortedPeers.forEach { pid ->
             val dn = computeDisplayNameForPeerId(pid)
-            val (b, _) = com.bitchat.android.ui.splitSuffix(dn)
+            val (b, _) = splitSuffix(dn)
             if (b != "You") baseNameCounts[b] = (baseNameCounts[b] ?: 0) + 1
         }
 
@@ -398,7 +398,7 @@ fun PeopleSection(
             val isMappedToConnected = noiseHexByPeerID.values.any { it.equals(favPeerID, ignoreCase = true) }
             if (!isMappedToConnected) {
                 val dn = peerNicknames[favPeerID] ?: fav.peerNickname
-                val (b, _) = com.bitchat.android.ui.splitSuffix(dn)
+                val (b, _) = splitSuffix(dn)
                 if (b != "You") baseNameCounts[b] = (baseNameCounts[b] ?: 0) + 1
             }
         }
@@ -414,7 +414,7 @@ fun PeopleSection(
             }
             .forEach { convKey ->
                 val dn = peerNicknames[convKey] ?: (privateChats[convKey]?.lastOrNull()?.sender ?: convKey.take(12))
-                val (b, _) = com.bitchat.android.ui.splitSuffix(dn)
+                val (b, _) = splitSuffix(dn)
                 if (b != "You") baseNameCounts[b] = (baseNameCounts[b] ?: 0) + 1
             }
 
@@ -433,10 +433,10 @@ fun PeopleSection(
             )
 
             val displayName = if (peerID == nickname) "You" else (peerNicknames[peerID] ?: (privateChats[peerID]?.lastOrNull()?.sender ?: peerID.take(12)))
-            val (bName, _) = com.bitchat.android.ui.splitSuffix(displayName)
+            val (bName, _) = splitSuffix(displayName)
             val showHash = (baseNameCounts[bName] ?: 0) > 1
 
-            val directMap by viewModel.peerDirect.observeAsState(emptyMap())
+            val directMap by viewModel.peerDirect.collectAsStateWithLifecycle()
             val isDirectLive = directMap[peerID] ?: try { viewModel.meshService.getPeerInfo(peerID)?.isDirectConnection == true } catch (_: Exception) { false }
             PeerItem(
                 peerID = peerID,
@@ -485,7 +485,7 @@ fun PeopleSection(
             // open chat with the connected peerID instead of the noise hex for a seamless window
             val mappedConnectedPeerID = noiseHexByPeerID.entries.firstOrNull { it.value.equals(favPeerID, ignoreCase = true) }?.key
             val dn = peerNicknames[favPeerID] ?: fav.peerNickname
-            val (bName, _) = com.bitchat.android.ui.splitSuffix(dn)
+            val (bName, _) = splitSuffix(dn)
             val showHash = (baseNameCounts[bName] ?: 0) > 1
 
             // Compute unreadCount from either noise conversation or Nostr conversation
@@ -534,7 +534,7 @@ fun PeopleSection(
             .forEach { convKey ->
                 val lastSender = privateChats[convKey]?.lastOrNull()?.sender
                 val dn = peerNicknames[convKey] ?: (lastSender ?: convKey.take(12))
-                val (bName, _) = com.bitchat.android.ui.splitSuffix(dn)
+                val (bName, _) = splitSuffix(dn)
                 val showHash = (baseNameCounts[bName] ?: 0) > 1
 
                 PeerItem(
@@ -577,11 +577,12 @@ private fun PeerItem(
     showNostrGlobe: Boolean = false,
     showHashSuffix: Boolean = true
 ) {
+    val currentNickname by viewModel.nickname.collectAsStateWithLifecycle()
     // Split display name for hashtag suffix support (iOS-compatible)
-    val (baseNameRaw, suffixRaw) = com.bitchat.android.ui.splitSuffix(displayName)
+    val (baseNameRaw, suffixRaw) = splitSuffix(displayName)
     val baseName = truncateNickname(baseNameRaw)
     val suffix = if (showHashSuffix) suffixRaw else ""
-    val isMe = displayName == "You" || peerID == viewModel.nickname.value
+    val isMe = displayName == "You" || peerID == currentNickname
 
     // Get consistent peer color (iOS-compatible)
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
@@ -617,7 +618,7 @@ private fun PeerItem(
                     // Show mail icon for unread DMs (iOS orange)
                     Icon(
                         imageVector = Icons.Filled.Email,
-                        contentDescription = stringResource(com.bitchat.android.R.string.cd_unread_message),
+                        contentDescription = stringResource(R.string.cd_unread_message),
                         modifier = Modifier.size(16.dp),
                         tint = Color(0xFFFF9500) // iOS orange
                     )
@@ -625,7 +626,7 @@ private fun PeerItem(
                     // Purple globe to indicate Nostr availability
                     Icon(
                         imageVector = Icons.Filled.Public,
-                        contentDescription = stringResource(com.bitchat.android.R.string.cd_reachable_via_nostr),
+                        contentDescription = stringResource(R.string.cd_reachable_via_nostr),
                         modifier = Modifier.size(16.dp),
                         tint = Color(0xFF9C27B0) // Purple
                     )
@@ -633,7 +634,7 @@ private fun PeerItem(
                     // Offline favorited user: show outlined circle icon
                     Icon(
                         imageVector = Icons.Outlined.Circle,
-                        contentDescription = stringResource(com.bitchat.android.R.string.cd_offline_favorite),
+                        contentDescription = stringResource(R.string.cd_offline_favorite),
                         modifier = Modifier.size(16.dp),
                         tint = Color.Gray
                     )
@@ -773,14 +774,14 @@ private fun PrivateChatSheet(
     onDismiss: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val privateChats by viewModel.privateChats.observeAsState(emptyMap())
-    val peerNicknames by viewModel.peerNicknames.observeAsState(emptyMap())
-    val nickname by viewModel.nickname.observeAsState("")
-    val connectedPeers by viewModel.connectedPeers.observeAsState(emptyList())
-    val peerDirectMap by viewModel.peerDirect.observeAsState(emptyMap())
-    val peerSessionStates by viewModel.peerSessionStates.observeAsState(emptyMap())
-    val favoritePeers by viewModel.favoritePeers.observeAsState(emptySet())
-    val peerFingerprints by viewModel.peerFingerprints.observeAsState(emptyMap())
+    val privateChats by viewModel.privateChats.collectAsStateWithLifecycle()
+    val peerNicknames by viewModel.peerNicknames.collectAsStateWithLifecycle()
+    val nickname by viewModel.nickname.collectAsStateWithLifecycle()
+    val connectedPeers by viewModel.connectedPeers.collectAsStateWithLifecycle()
+    val peerDirectMap by viewModel.peerDirect.collectAsStateWithLifecycle()
+    val peerSessionStates by viewModel.peerSessionStates.collectAsStateWithLifecycle()
+    val favoritePeers by viewModel.favoritePeers.collectAsStateWithLifecycle()
+    val peerFingerprints by viewModel.peerFingerprints.collectAsStateWithLifecycle()
 
     // Start private chat when screen opens
     LaunchedEffect(peerID) {
