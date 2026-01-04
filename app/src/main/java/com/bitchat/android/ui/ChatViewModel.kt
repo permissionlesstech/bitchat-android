@@ -170,6 +170,7 @@ class ChatViewModel(
     val peerRSSI: StateFlow<Map<String, Int>> = state.peerRSSI
     val peerDirect: StateFlow<Map<String, Boolean>> = state.peerDirect
     val showAppInfo: StateFlow<Boolean> = state.showAppInfo
+    val showMeshPeerList: StateFlow<Boolean> = state.showMeshPeerList
     val showVerificationSheet: StateFlow<Boolean> = state.showVerificationSheet
     val showSecurityVerificationSheet: StateFlow<Boolean> = state.showSecurityVerificationSheet
     val selectedLocationChannel: StateFlow<com.bitchat.android.geohash.ChannelID?> = state.selectedLocationChannel
@@ -781,7 +782,7 @@ class ChatViewModel(
         state.setShowVerificationSheet(false)
         if (reopenSidebarAfterVerification) {
             reopenSidebarAfterVerification = false
-            state.setShowSidebar(true)
+            state.setShowMeshPeerList(true)
         }
     }
 
@@ -791,6 +792,14 @@ class ChatViewModel(
 
     fun hideSecurityVerificationSheet() {
         state.setShowSecurityVerificationSheet(false)
+    }
+
+    fun showMeshPeerList() {
+        state.setShowMeshPeerList(true)
+    }
+
+    fun hideMeshPeerList() {
+        state.setShowMeshPeerList(false)
     }
 
     fun getPeerFingerprintForDisplay(peerID: String): String? {
