@@ -19,6 +19,8 @@
     
     <!-- Notification permissions -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Signature permission for internal UI shutdown broadcasts -->
+    <uses-permission android:name="com.bitchat.android.permission.FORCE_FINISH" />
     <!-- Foreground service and boot permissions for long-running background mesh -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <!-- Connected device foreground service type for BLE operations (API 34+) -->
@@ -29,6 +31,8 @@
     
     <!-- Microphone for voice notes -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Camera for QR verification -->
+    <uses-permission android:name="android.permission.CAMERA" />
 
     <!-- Storage permissions for file sharing -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
@@ -45,6 +49,11 @@
     <!-- Hardware features -->
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
     <uses-feature android:name="android.hardware.bluetooth" android:required="true" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
+    <permission
+        android:name="com.bitchat.android.permission.FORCE_FINISH"
+        android:protectionLevel="signature" />
 
     <application
         android:name=".BitchatApplication"
@@ -82,6 +91,12 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="bitchat" android:host="verify" />
             </intent-filter>
         </activity>
 

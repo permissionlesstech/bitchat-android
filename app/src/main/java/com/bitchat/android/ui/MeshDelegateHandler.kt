@@ -216,6 +216,14 @@ class MeshDelegateHandler(
             messageManager.updateMessageDeliveryStatus(messageID, DeliveryStatus.Read(recipientPeerID, Date()))
         }
     }
+
+    override fun didReceiveVerifyChallenge(peerID: String, payload: ByteArray, timestampMs: Long) {
+        // Handled by ChatViewModel for verification flow
+    }
+
+    override fun didReceiveVerifyResponse(peerID: String, payload: ByteArray, timestampMs: Long) {
+        // Handled by ChatViewModel for verification flow
+    }
     
     override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {
         return channelManager.decryptChannelMessage(encryptedContent, channel)

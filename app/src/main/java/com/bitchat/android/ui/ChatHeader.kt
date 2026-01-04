@@ -26,6 +26,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import com.bitchat.android.core.ui.utils.singleOrTripleClickable
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.Offset
@@ -318,6 +320,10 @@ private fun PrivateChatHeader(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val isNostrDM = peerID.startsWith("nostr_") || peerID.startsWith("nostr:")
+    val verifiedFingerprints by viewModel.verifiedFingerprints.collectAsStateWithLifecycle()
+    val isVerified = remember(peerID, verifiedFingerprints) {
+        viewModel.isPeerVerified(peerID, verifiedFingerprints)
+    }
     // Determine mutual favorite state for this peer (supports mesh ephemeral 16-hex via favorites lookup)
     val isMutualFavorite = remember(peerID, peerNicknames) {
         try {
@@ -406,24 +412,42 @@ private fun PrivateChatHeader(
             Text(
                 text = titleText,
                 style = MaterialTheme.typography.titleMedium,
-                color = Color(0xFFFF9500) // Orange
+                color = Color(0xFFFF9500), // Orange
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
 
             Spacer(modifier = Modifier.width(4.dp))
 
             // Show a globe when chatting via Nostr alias, or when mesh session not established but mutual favorite exists
             val showGlobe = isNostrDM || (sessionState != "established" && isMutualFavorite)
+            val securityModifier = if (!isNostrDM) {
+                Modifier.clickable { viewModel.showSecurityVerificationSheet() }
+            } else {
+                Modifier
+            }
+
             if (showGlobe) {
                 Icon(
                     imageVector = Icons.Outlined.Public,
                 contentDescription = stringResource(R.string.cd_nostr_reachable),
-                    modifier = Modifier.size(14.dp),
+                    modifier = Modifier.size(14.dp).then(securityModifier),
                     tint = Color(0xFF9B59B6) // Purple like iOS
                 )
             } else {
                 NoiseSessionIcon(
                     sessionState = sessionState,
-                    modifier = Modifier.size(14.dp)
+                    modifier = Modifier.size(14.dp).then(securityModifier)
+                )
+            }
+
+            if (isVerified) {
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    imageVector = Icons.Filled.Verified,
+                    contentDescription = stringResource(R.string.verify_title),
+                    modifier = Modifier.size(14.dp).then(securityModifier),
+                    tint = Color(0xFF32D74B)
                 )
             }
 
@@ -493,8 +517,12 @@ private fun ChannelHeader(
             style = MaterialTheme.typography.titleMedium,
             color = Color(0xFFFF9500), // Orange to match input field
             modifier = Modifier
-                .align(Alignment.Center)
-                .clickable { onSidebarClick() }
+                .fillMaxWidth()
+                .padding(horizontal = 56.dp)
+                .clickable { onSidebarClick() },
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
         
         // Leave button - positioned on the right
@@ -552,7 +580,9 @@ private fun MainHeader(
                 modifier = Modifier.singleOrTripleClickable(
                     onSingleClick = onTitleClick,
                     onTripleClick = onTripleTitleClick
-                )
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             
             Spacer(modifier = Modifier.width(2.dp))

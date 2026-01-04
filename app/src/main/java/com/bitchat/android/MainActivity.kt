@@ -40,6 +40,7 @@ import com.bitchat.android.ui.ChatViewModel
 import com.bitchat.android.ui.OrientationAwareActivity
 import com.bitchat.android.ui.theme.BitchatTheme
 import com.bitchat.android.nostr.PoWPreferenceManager
+import com.bitchat.android.services.VerificationService
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -63,8 +64,37 @@ class MainActivity : OrientationAwareActivity() {
         }
     }
     
+    private val forceFinishReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: android.content.Context, intent: android.content.Intent) {
+            if (intent.action == com.bitchat.android.util.AppConstants.UI.ACTION_FORCE_FINISH) {
+                android.util.Log.i("MainActivity", "Received force finish broadcast, closing UI")
+                finishAffinity()
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Register receiver for force finish signal from shutdown coordinator
+        val filter = android.content.IntentFilter(com.bitchat.android.util.AppConstants.UI.ACTION_FORCE_FINISH)
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(
+                forceFinishReceiver,
+                filter,
+                com.bitchat.android.util.AppConstants.UI.PERMISSION_FORCE_FINISH,
+                null,
+                android.content.Context.RECEIVER_NOT_EXPORTED
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(
+                forceFinishReceiver,
+                filter,
+                com.bitchat.android.util.AppConstants.UI.PERMISSION_FORCE_FINISH,
+                null
+            )
+        }
         
         // Check if this is a quit request from the notification
         if (intent.getBooleanExtra("ACTION_QUIT_APP", false)) {
@@ -72,6 +102,8 @@ class MainActivity : OrientationAwareActivity() {
             finish()
             return
         }
+
+        com.bitchat.android.service.AppShutdownCoordinator.cancelPendingShutdown()
         
         // Enable edge-to-edge display for modern Android look
         enableEdgeToEdge()
@@ -624,6 +656,7 @@ class MainActivity : OrientationAwareActivity() {
                 
                 // Handle any notification intent
                 handleNotificationIntent(intent)
+                handleVerificationIntent(intent)
                 
                 // Small delay to ensure mesh service is fully initialized
                 delay(500)
@@ -646,10 +679,13 @@ class MainActivity : OrientationAwareActivity() {
             finish()
             return
         }
+
+        com.bitchat.android.service.AppShutdownCoordinator.cancelPendingShutdown()
         
         // Handle notification intents when app is already running
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
             handleNotificationIntent(intent)
+            handleVerificationIntent(intent)
         }
     }
     
@@ -755,9 +791,22 @@ class MainActivity : OrientationAwareActivity() {
         }
     }
 
+    private fun handleVerificationIntent(intent: Intent) {
+        val uri = intent.data ?: return
+        if (uri.scheme != "bitchat" || uri.host != "verify") return
+
+        chatViewModel.showVerificationSheet()
+        val qr = VerificationService.verifyScannedQR(uri.toString())
+        if (qr != null) {
+            chatViewModel.beginQRVerification(qr)
+        }
+    }
+
     
     override fun onDestroy() {
         super.onDestroy()
+        
+        try { unregisterReceiver(forceFinishReceiver) } catch (_: Exception) { }
         
         // Cleanup location status manager
         try {
