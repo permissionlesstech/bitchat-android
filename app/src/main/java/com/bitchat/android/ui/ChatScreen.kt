@@ -55,6 +55,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val showMentionSuggestions by viewModel.showMentionSuggestions.collectAsStateWithLifecycle()
     val mentionSuggestions by viewModel.mentionSuggestions.collectAsStateWithLifecycle()
     val showAppInfo by viewModel.showAppInfo.collectAsStateWithLifecycle()
+    val showMeshPeerListSheet by viewModel.showMeshPeerList.collectAsStateWithLifecycle()
     val showVerificationSheet by viewModel.showVerificationSheet.collectAsStateWithLifecycle()
     val showSecurityVerificationSheet by viewModel.showSecurityVerificationSheet.collectAsStateWithLifecycle()
 
@@ -64,7 +65,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
     var passwordInput by remember { mutableStateOf("") }
     var showLocationChannelsSheet by remember { mutableStateOf(false) }
     var showLocationNotesSheet by remember { mutableStateOf(false) }
-    var showMeshPeerListSheet by remember { mutableStateOf(false) }
     var showUserSheet by remember { mutableStateOf(false) }
     var selectedUserForSheet by remember { mutableStateOf("") }
     var selectedMessageForSheet by remember { mutableStateOf<BitchatMessage?>(null) }
@@ -250,7 +250,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             nickname = nickname,
             viewModel = viewModel,
             colorScheme = colorScheme,
-            onSidebarToggle = { showMeshPeerListSheet = true },
+            onSidebarToggle = { viewModel.showMeshPeerList() },
             onShowAppInfo = { viewModel.showAppInfo() },
             onPanicClear = { viewModel.panicClearAllData() },
             onLocationChannelsClick = { showLocationChannelsSheet = true },
@@ -336,9 +336,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
         showSecurityVerificationSheet = showSecurityVerificationSheet,
         onSecurityVerificationSheetDismiss = viewModel::hideSecurityVerificationSheet,
         showMeshPeerListSheet = showMeshPeerListSheet,
-        onMeshPeerListDismiss = {
-            showMeshPeerListSheet = false
-        },
+        onMeshPeerListDismiss = viewModel::hideMeshPeerList,
     )
 }
 
@@ -490,7 +488,7 @@ private fun ChatDialogs(
     showVerificationSheet: Boolean,
     onVerificationSheetDismiss: () -> Unit,
     showSecurityVerificationSheet: Boolean,
-    onSecurityVerificationSheetDismiss: () -> Unit
+    onSecurityVerificationSheetDismiss: () -> Unit,
     showMeshPeerListSheet: Boolean,
     onMeshPeerListDismiss: () -> Unit,
 ) {
@@ -551,7 +549,11 @@ private fun ChatDialogs(
         MeshPeerListSheet(
             isPresented = showMeshPeerListSheet,
             viewModel = viewModel,
-            onDismiss = onMeshPeerListDismiss
+            onDismiss = onMeshPeerListDismiss,
+            onShowVerification = {
+                onMeshPeerListDismiss()
+                viewModel.showVerificationSheet(fromSidebar = true)
+            }
         )
     }
 
