@@ -71,7 +71,13 @@ object WifiAwareController {
     }
 
     fun startIfPossible() {
-        if (_running.value || !_enabled.value) return
+        if (_running.value) {
+            if (!_enabled.value) return
+            // If already marked running but we are calling this (e.g. after a drop), 
+            // ensure we clean up the old service before restarting.
+            stop()
+        }
+        if (!_enabled.value) return
         val ctx = appContext ?: return
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             Log.w(TAG, "Wi‑Fi Aware requires Android 10 (Q)+; disabled.")
