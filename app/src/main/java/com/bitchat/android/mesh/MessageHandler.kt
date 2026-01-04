@@ -157,6 +157,14 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     // Simplified: Call delegate with messageID and peerID directly
                     delegate?.onReadReceiptReceived(messageID, peerID)
                 }
+                com.bitchat.android.model.NoisePayloadType.VERIFY_CHALLENGE -> {
+                    Log.d(TAG, "🔐 Verify challenge received from $peerID (${noisePayload.data.size} bytes)")
+                    delegate?.onVerifyChallengeReceived(peerID, noisePayload.data, packet.timestamp.toLong())
+                }
+                com.bitchat.android.model.NoisePayloadType.VERIFY_RESPONSE -> {
+                    Log.d(TAG, "🔐 Verify response received from $peerID (${noisePayload.data.size} bytes)")
+                    delegate?.onVerifyResponseReceived(peerID, noisePayload.data, packet.timestamp.toLong())
+                }
             }
             
         } catch (e: Exception) {
@@ -611,4 +619,6 @@ interface MessageHandlerDelegate {
     fun onChannelLeave(channel: String, fromPeer: String)
     fun onDeliveryAckReceived(messageID: String, peerID: String)
     fun onReadReceiptReceived(messageID: String, peerID: String)
+    fun onVerifyChallengeReceived(peerID: String, payload: ByteArray, timestampMs: Long)
+    fun onVerifyResponseReceived(peerID: String, payload: ByteArray, timestampMs: Long)
 }

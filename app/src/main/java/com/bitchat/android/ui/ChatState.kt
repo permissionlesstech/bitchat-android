@@ -122,6 +122,12 @@ class ChatState(
     // Navigation state
     private val _showAppInfo = MutableStateFlow<Boolean>(false)
     val showAppInfo: StateFlow<Boolean> = _showAppInfo.asStateFlow()
+
+    private val _showVerificationSheet = MutableStateFlow(false)
+    val showVerificationSheet: StateFlow<Boolean> = _showVerificationSheet.asStateFlow()
+
+    private val _showSecurityVerificationSheet = MutableStateFlow(false)
+    val showSecurityVerificationSheet: StateFlow<Boolean> = _showSecurityVerificationSheet.asStateFlow()
     
     // Location channels state (for Nostr geohash features)
     private val _selectedLocationChannel = MutableStateFlow<com.bitchat.android.geohash.ChannelID?>(com.bitchat.android.geohash.ChannelID.Mesh)
@@ -301,6 +307,14 @@ class ChatState(
     
     fun setShowAppInfo(show: Boolean) {
         _showAppInfo.value = show
+    }
+
+    fun setShowVerificationSheet(show: Boolean) {
+        _showVerificationSheet.value = show
+    }
+
+    fun setShowSecurityVerificationSheet(show: Boolean) {
+        _showSecurityVerificationSheet.value = show
     }
     
     fun setSelectedLocationChannel(channel: com.bitchat.android.geohash.ChannelID?) {

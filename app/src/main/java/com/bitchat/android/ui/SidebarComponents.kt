@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
+import com.bitchat.android.util.hexEncodedString
 
 
 /**
@@ -34,6 +35,7 @@ import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 fun SidebarOverlay(
     viewModel: ChatViewModel,
     onDismiss: () -> Unit,
+    onShowVerification: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -131,6 +133,7 @@ fun SidebarOverlay(
                                     colorScheme = colorScheme,
                                     selectedPrivatePeer = selectedPrivatePeer,
                                     viewModel = viewModel,
+                                    onShowVerification = onShowVerification,
                                     onPrivateChatStart = { peerID ->
                                         viewModel.startPrivateChat(peerID)
                                         onDismiss()
@@ -257,8 +260,11 @@ fun PeopleSection(
     colorScheme: ColorScheme,
     selectedPrivatePeer: String?,
     viewModel: ChatViewModel,
+    onShowVerification: () -> Unit,
     onPrivateChatStart: (String) -> Unit
 ) {
+    val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
+
     Column(modifier = modifier) {
         Row(
             modifier = Modifier
@@ -279,6 +285,17 @@ fun PeopleSection(
                 color = colorScheme.onSurface.copy(alpha = 0.6f),
                 fontWeight = FontWeight.Bold
             )
+            Spacer(modifier = Modifier.weight(1f))
+            if (selectedLocationChannel !is com.bitchat.android.geohash.ChannelID.Location) {
+                IconButton(onClick = onShowVerification, modifier = Modifier.size(24.dp)) {
+                    Icon(
+                        imageVector = Icons.Outlined.QrCode,
+                        contentDescription = stringResource(R.string.verify_title),
+                        tint = colorScheme.onSurface.copy(alpha = 0.8f),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
         }
         
         if (connectedPeers.isEmpty()) {
@@ -295,6 +312,7 @@ fun PeopleSection(
         val privateChats by viewModel.privateChats.collectAsStateWithLifecycle()
         val favoritePeers by viewModel.favoritePeers.collectAsStateWithLifecycle()
         val peerFingerprints by viewModel.peerFingerprints.collectAsStateWithLifecycle()
+        val verifiedFingerprints by viewModel.verifiedFingerprints.collectAsStateWithLifecycle()
         
         // Reactive favorite computation for all peers
         val peerFavoriteStates = remember(favoritePeers, peerFingerprints, connectedPeers) {
@@ -308,9 +326,15 @@ fun PeopleSection(
         // Build mapping of connected peerID -> noise key hex to unify with offline favorites
         val noiseHexByPeerID: Map<String, String> = connectedPeers.associateWith { pid ->
             try {
-                viewModel.meshService.getPeerInfo(pid)?.noisePublicKey?.joinToString("") { b -> "%02x".format(b) }
+                viewModel.meshService.getPeerInfo(pid)?.noisePublicKey?.hexEncodedString()
             } catch (_: Exception) { null }
         }.filterValues { it != null }.mapValues { it.value!! }
+
+        val peerVerifiedStates = remember(verifiedFingerprints, peerFingerprints, connectedPeers) {
+            connectedPeers.associateWith { peerID ->
+                viewModel.isPeerVerified(peerID, verifiedFingerprints)
+            }
+        }
 
         Log.d("SidebarComponents", "Recomposing with ${favoritePeers.size} favorites, peer states: $peerFavoriteStates")
 
@@ -342,7 +366,7 @@ fun PeopleSection(
         // Offline favorites (exclude ones mapped to connected)
         val offlineFavorites = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getOurFavorites()
         offlineFavorites.forEach { fav ->
-            val favPeerID = fav.peerNoisePublicKey.joinToString("") { b -> "%02x".format(b) }
+            val favPeerID = fav.peerNoisePublicKey.hexEncodedString()
             val isMappedToConnected = noiseHexByPeerID.values.any { it.equals(favPeerID, ignoreCase = true) }
             if (!isMappedToConnected) {
                 val dn = peerNicknames[favPeerID] ?: fav.peerNickname
@@ -368,6 +392,7 @@ fun PeopleSection(
 
         sortedPeers.forEach { peerID ->
             val isFavorite = peerFavoriteStates[peerID] ?: false
+            val isVerified = peerVerifiedStates[peerID] ?: false
             // fingerprint and favorite relationship resolution not needed here; UI will show Nostr globe for appended offline favorites below
             
             val noiseHex = noiseHexByPeerID[peerID]
@@ -392,6 +417,7 @@ fun PeopleSection(
                 isDirect = isDirectLive,
                 isSelected = peerID == selectedPrivatePeer,
                 isFavorite = isFavorite,
+                isVerified = isVerified,
                 hasUnreadDM = combinedHasUnread,
                 colorScheme = colorScheme,
                 viewModel = viewModel,
@@ -408,7 +434,7 @@ fun PeopleSection(
 
         // Append offline favorites we actively favorite (and not currently connected)
         offlineFavorites.forEach { fav ->
-            val favPeerID = fav.peerNoisePublicKey.joinToString("") { b -> "%02x".format(b) }
+            val favPeerID = fav.peerNoisePublicKey.hexEncodedString()
             // If any connected peer maps to this noise key, skip showing the offline entry
             val isMappedToConnected = noiseHexByPeerID.values.any { it.equals(favPeerID, ignoreCase = true) }
             if (isMappedToConnected) return@forEach
@@ -419,7 +445,7 @@ fun PeopleSection(
                 if (npubOrHex != null) {
                     val hex = if (npubOrHex.startsWith("npub")) {
                         val (hrp, data) = com.bitchat.android.nostr.Bech32.decode(npubOrHex)
-                        if (hrp == "npub") data.joinToString("") { "%02x".format(it) } else null
+                        if (hrp == "npub") data.hexEncodedString() else null
                     } else {
                         npubOrHex.lowercase()
                     }
@@ -435,6 +461,7 @@ fun PeopleSection(
             val dn = peerNicknames[favPeerID] ?: fav.peerNickname
             val (bName, _) = com.bitchat.android.ui.splitSuffix(dn)
             val showHash = (baseNameCounts[bName] ?: 0) > 1
+            val isVerified = viewModel.isNoisePublicKeyVerified(fav.peerNoisePublicKey, verifiedFingerprints)
 
             // Compute unreadCount from either noise conversation or Nostr conversation
             val unreadCount = (
@@ -449,6 +476,7 @@ fun PeopleSection(
                 isDirect = false,
                 isSelected = (mappedConnectedPeerID ?: favPeerID) == selectedPrivatePeer,
                 isFavorite = true,
+                isVerified = isVerified,
                 hasUnreadDM = hasUnread,
                 colorScheme = colorScheme,
                 viewModel = viewModel,
@@ -516,6 +544,7 @@ private fun PeerItem(
     isDirect: Boolean,
     isSelected: Boolean,
     isFavorite: Boolean,
+    isVerified: Boolean,
     hasUnreadDM: Boolean,
     colorScheme: ColorScheme,
     viewModel: ChatViewModel,
@@ -614,6 +643,16 @@ private fun PeerItem(
                         fontSize = BASE_FONT_SIZE.sp
                     ),
                     color = baseColor.copy(alpha = 0.6f)
+                )
+            }
+
+            if (isVerified) {
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    imageVector = Icons.Filled.Verified,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = Color(0xFF32D74B)
                 )
             }
         }
