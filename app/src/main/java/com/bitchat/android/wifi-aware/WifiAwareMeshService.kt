@@ -12,32 +12,29 @@ import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import com.bitchat.android.crypto.EncryptionService
-import com.bitchat.android.model.*
-import com.bitchat.android.protocol.*
+import com.bitchat.android.mesh.MeshCore
+import com.bitchat.android.mesh.MeshService
+import com.bitchat.android.mesh.MeshTransport
+import com.bitchat.android.mesh.PeerInfo
+import com.bitchat.android.model.BitchatFilePacket
+import com.bitchat.android.model.RoutedPacket
+import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.sync.GossipSyncManager
 import com.bitchat.android.util.toHexString
-// Mesh-layer components are reused from the existing Bluetooth stack
-import com.bitchat.android.mesh.PeerManager
-import com.bitchat.android.mesh.PeerManagerDelegate
-import com.bitchat.android.mesh.PeerInfo
-import com.bitchat.android.mesh.FragmentManager
-import com.bitchat.android.mesh.SecurityManager
-import com.bitchat.android.mesh.SecurityManagerDelegate
-import com.bitchat.android.mesh.StoreForwardManager
-import com.bitchat.android.mesh.StoreForwardManagerDelegate
-import com.bitchat.android.mesh.MessageHandler
-import com.bitchat.android.mesh.MessageHandlerDelegate
-import com.bitchat.android.mesh.PacketProcessor
-import com.bitchat.android.mesh.PacketProcessorDelegate
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import java.io.IOException
 import java.net.Inet6Address
 import java.net.ServerSocket
 import java.net.Socket
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 
@@ -52,7 +49,7 @@ import java.util.concurrent.Executors
  * - MessageHandler: Message type processing and relay logic
  * - PacketProcessor: Incoming packet routing
  */
-class WifiAwareMeshService(private val context: Context) : TransportBridgeService.TransportLayer {
+class WifiAwareMeshService(private val context: Context) : MeshService, TransportBridgeService.TransportLayer {
 
     companion object {
         private const val TAG = "WifiAwareMeshService"
@@ -65,18 +62,10 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
     private val encryptionService = EncryptionService(context)
 
     // Peer ID must match BluetoothMeshService: first 16 hex chars of identity fingerprint (8 bytes)
-    val myPeerID: String = encryptionService.getIdentityFingerprint().take(16)
-
-    // Core components
-    private val peerManager = PeerManager()
-    private val fragmentManager = FragmentManager()
-    private val securityManager = SecurityManager(encryptionService, myPeerID)
-    private val storeForwardManager = StoreForwardManager()
-    private val messageHandler = MessageHandler(myPeerID, context.applicationContext)
-    private val packetProcessor = PacketProcessor(myPeerID)
-
-    // Gossip sync
-    private val gossipSyncManager: GossipSyncManager
+    override val myPeerID: String = encryptionService.getIdentityFingerprint().take(16)
+    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val wifiTransport = WifiAwareTransport()
+    private lateinit var meshCore: MeshCore
 
     // Wi-Fi Aware transport
     private val awareManager = context.getSystemService(WifiAwareManager::class.java)
@@ -87,10 +76,13 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
     private var isActive = false
 
     // Delegate
-    var delegate: WifiAwareMeshDelegate? = null
-
-    // Coroutines - must be initialized before tracker
-    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    override var delegate: WifiAwareMeshDelegate? = null
+        set(value) {
+            field = value
+            if (::meshCore.isInitialized) {
+                meshCore.delegate = value
+            }
+        }
     private val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
     // Transport state
@@ -102,59 +94,31 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
     private val lastTimestamps = ConcurrentHashMap<String, ULong>()
 
     init {
-        setupDelegates()
-        messageHandler.packetProcessor = packetProcessor
-
-        // Use shared GossipSyncManager from MeshServiceHolder if available (minimal refactor)
         val shared = com.bitchat.android.service.MeshServiceHolder.sharedGossipSyncManager
-        if (shared != null) {
-            gossipSyncManager = shared
-        } else {
-            gossipSyncManager = GossipSyncManager(
-                myPeerID = myPeerID,
-                scope = serviceScope,
-                configProvider = object : GossipSyncManager.ConfigProvider {
-                    override fun seenCapacity(): Int = 500
-                    override fun gcsMaxBytes(): Int = 400
-                    override fun gcsTargetFpr(): Double = 0.01
+        meshCore = MeshCore(
+            context = context.applicationContext,
+            scope = serviceScope,
+            transport = wifiTransport,
+            encryptionService = encryptionService,
+            myPeerID = myPeerID,
+            maxTtl = MAX_TTL,
+            sharedGossipManager = shared,
+            gossipConfigProvider = object : GossipSyncManager.ConfigProvider {
+                override fun seenCapacity(): Int = 500
+                override fun gcsMaxBytes(): Int = 400
+                override fun gcsTargetFpr(): Double = 0.01
+            },
+            hooks = MeshCore.Hooks(
+                onAnnounceProcessed = { routed, _ ->
+                    routed.peerID?.let { pid ->
+                        try { meshCore.gossipSyncManager.scheduleInitialSyncToPeer(pid, 1_000) } catch (_: Exception) { }
+                    }
+                },
+                leavePayloadProvider = {
+                    (delegate?.getNickname() ?: myPeerID).toByteArray(Charsets.UTF_8)
                 }
             )
-            gossipSyncManager.delegate = object : GossipSyncManager.Delegate {
-                override fun sendPacketToPeer(peerID: String, packet: BitchatPacket) {
-                    this@WifiAwareMeshService.sendPacketToPeer(peerID, packet)
-                }
-                override fun sendPacket(packet: BitchatPacket) {
-                    dispatchGlobal(RoutedPacket(packet))
-                }
-                override fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket {
-                    return signPacketBeforeBroadcast(packet)
-                }
-            }
-        }
-    }
-
-    /**
-     * Helper method hexToBa.
-     */
-    private fun hexStringToByteArray(hex: String): ByteArray {
-        val out = ByteArray(8)
-        var idx = 0
-        var s = hex
-        while (s.length >= 2 && idx < 8) {
-            val b = s.substring(0, 2).toIntOrNull(16)?.toByte() ?: 0
-            out[idx++] = b
-            s = s.drop(2)
-        }
-        return out
-    }
-
-    /**
-     * Sign packet before broadcasting.
-     */
-    private fun signPacketBeforeBroadcast(packet: BitchatPacket): BitchatPacket {
-        val data = packet.toBinaryDataForSigning() ?: return packet
-        val sig = encryptionService.signData(data) ?: return packet
-        return packet.copy(signature = sig)
+        )
     }
 
     /**
@@ -177,17 +141,7 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
     override fun send(packet: RoutedPacket) {
         // Received from bridge (e.g. BLE) -> Send via Wi-Fi
         // Direct injection prevents routing loops (bridge handles source check)
-        broadcastPacket(packet)
-    }
-
-    /**
-     * unified dispatch: Send to local Wi-Fi and bridge to other transports
-     */
-    private fun dispatchGlobal(routed: RoutedPacket) {
-        // 1. Send to local Wi-Fi transport
-        broadcastPacket(routed)
-        // 2. Bridge to other transports (e.g. BLE)
-        TransportBridgeService.broadcast("WIFI", routed)
+        meshCore.sendFromBridge(packet)
     }
 
     /**
@@ -226,195 +180,7 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
         }
     }
 
-    /**
-     * Configures delegates for internal components so that events are routed back
-     * through this service and ultimately to the {@link WifiAwareMeshDelegate}.
-     */
-    private fun setupDelegates() {
-        peerManager.delegate = object : PeerManagerDelegate {
-            override fun onPeerListUpdated(peerIDs: List<String>) {
-                delegate?.didUpdatePeerList(peerIDs)
-            }
-            override fun onPeerRemoved(peerID: String) {
-                try { gossipSyncManager.removeAnnouncementForPeer(peerID) } catch (_: Exception) { }
-                try { encryptionService.removePeer(peerID) } catch (_: Exception) { }
-            }
-        }
-
-        securityManager.delegate = object : SecurityManagerDelegate {
-            override fun onKeyExchangeCompleted(peerID: String, peerPublicKeyData: ByteArray) {
-                serviceScope.launch {
-                    delay(100)
-                    sendAnnouncementToPeer(peerID)
-                    delay(1000)
-                    storeForwardManager.sendCachedMessages(peerID)
-                }
-            }
-            override fun sendHandshakeResponse(peerID: String, response: ByteArray) {
-                val packet = BitchatPacket(
-                    version = 1u,
-                    type = MessageType.NOISE_HANDSHAKE.value,
-                    senderID = hexStringToByteArray(myPeerID),
-                    recipientID = hexStringToByteArray(peerID),
-                    timestamp = System.currentTimeMillis().toULong(),
-                    payload = response,
-                    ttl = MAX_TTL
-                )
-                dispatchGlobal(RoutedPacket(signPacketBeforeBroadcast(packet)))
-            }
-            override fun getPeerInfo(peerID: String): PeerInfo? {
-                return peerManager.getPeerInfo(peerID)
-            }
-        }
-
-        storeForwardManager.delegate = object : StoreForwardManagerDelegate {
-            override fun isFavorite(peerID: String) = delegate?.isFavorite(peerID) ?: false
-            override fun isPeerOnline(peerID: String) = peerManager.isPeerActive(peerID)
-            override fun sendPacket(packet: BitchatPacket) {
-                dispatchGlobal(RoutedPacket(packet))
-            }
-        }
-
-        messageHandler.delegate = object : MessageHandlerDelegate {
-            override fun addOrUpdatePeer(peerID: String, nickname: String) =
-                peerManager.addOrUpdatePeer(peerID, nickname)
-            override fun removePeer(peerID: String) = peerManager.removePeer(peerID)
-            override fun updatePeerNickname(peerID: String, nickname: String) {
-                peerManager.addOrUpdatePeer(peerID, nickname)
-            }
-            override fun getPeerNickname(peerID: String) =
-                peerManager.getPeerNickname(peerID)
-            override fun getNetworkSize() = peerManager.getActivePeerCount()
-            override fun getMyNickname() = delegate?.getNickname()
-            override fun getPeerInfo(peerID: String): PeerInfo? = peerManager.getPeerInfo(peerID)
-            override fun updatePeerInfo(
-                peerID: String,
-                nickname: String,
-                noisePublicKey: ByteArray,
-                signingPublicKey: ByteArray,
-                isVerified: Boolean
-            ): Boolean = peerManager.updatePeerInfo(peerID, nickname, noisePublicKey, signingPublicKey, isVerified)
-
-            override fun sendPacket(packet: BitchatPacket) {
-                dispatchGlobal(RoutedPacket(signPacketBeforeBroadcast(packet)))
-            }
-            override fun relayPacket(routed: RoutedPacket) { dispatchGlobal(routed) }
-            override fun getBroadcastRecipient() = SpecialRecipients.BROADCAST
-
-            override fun verifySignature(packet: BitchatPacket, peerID: String) =
-                securityManager.verifySignature(packet, peerID)
-            override fun encryptForPeer(data: ByteArray, recipientPeerID: String) =
-                securityManager.encryptForPeer(data, recipientPeerID)
-            override fun decryptFromPeer(encryptedData: ByteArray, senderPeerID: String) =
-                securityManager.decryptFromPeer(encryptedData, senderPeerID)
-            override fun verifyEd25519Signature(signature: ByteArray, data: ByteArray, publicKey: ByteArray): Boolean =
-                encryptionService.verifyEd25519Signature(signature, data, publicKey)
-
-            override fun hasNoiseSession(peerID: String) =
-                encryptionService.hasEstablishedSession(peerID)
-            override fun initiateNoiseHandshake(peerID: String) {
-                serviceScope.launch {
-                    val hs = encryptionService.initiateHandshake(peerID) ?: return@launch
-                    val packet = BitchatPacket(
-                        version = 1u,
-                        type = MessageType.NOISE_HANDSHAKE.value,
-                        senderID = hexStringToByteArray(myPeerID),
-                        recipientID = hexStringToByteArray(peerID),
-                        timestamp = System.currentTimeMillis().toULong(),
-                        payload = hs,
-                        ttl = MAX_TTL
-                    )
-                    dispatchGlobal(RoutedPacket(signPacketBeforeBroadcast(packet)))
-                }
-            }
-            override fun processNoiseHandshakeMessage(payload: ByteArray, peerID: String): ByteArray? =
-                try { encryptionService.processHandshakeMessage(payload, peerID) } catch (_: Exception) { null }
-
-            override fun updatePeerIDBinding(newPeerID: String, nickname: String, publicKey: ByteArray, previousPeerID: String?) {
-                peerManager.addOrUpdatePeer(newPeerID, nickname)
-                val fingerprint = peerManager.storeFingerprintForPeer(newPeerID, publicKey)
-                previousPeerID?.let { peerManager.removePeer(it) }
-                Log.d(TAG, "Updated peer binding to $newPeerID, fp=${fingerprint.take(16)}")
-            }
-
-            override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String) =
-                delegate?.decryptChannelMessage(encryptedContent, channel)
-
-            override fun onMessageReceived(message: BitchatMessage) {
-                delegate?.didReceiveMessage(message)
-            }
-            override fun onChannelLeave(channel: String, fromPeer: String) {
-                delegate?.didReceiveChannelLeave(channel, fromPeer)
-            }
-            override fun onDeliveryAckReceived(messageID: String, peerID: String) {
-                delegate?.didReceiveDeliveryAck(messageID, peerID)
-            }
-            override fun onReadReceiptReceived(messageID: String, peerID: String) {
-                delegate?.didReceiveReadReceipt(messageID, peerID)
-            }
-        }
-
-        packetProcessor.delegate = object : PacketProcessorDelegate {
-            override fun validatePacketSecurity(packet: BitchatPacket, peerID: String) =
-                securityManager.validatePacket(packet, peerID)
-            override fun updatePeerLastSeen(peerID: String) = peerManager.updatePeerLastSeen(peerID)
-            override fun getPeerNickname(peerID: String): String? = peerManager.getPeerNickname(peerID)
-            override fun getNetworkSize(): Int = peerManager.getActivePeerCount()
-            override fun getBroadcastRecipient(): ByteArray = SpecialRecipients.BROADCAST
-
-            override fun handleNoiseHandshake(routed: RoutedPacket): Boolean =
-                runBlocking { securityManager.handleNoiseHandshake(routed) }
-
-            override fun handleNoiseEncrypted(routed: RoutedPacket) {
-                serviceScope.launch { messageHandler.handleNoiseEncrypted(routed) }
-            }
-
-            override fun handleAnnounce(routed: RoutedPacket) {
-                serviceScope.launch {
-                    val isFirst = messageHandler.handleAnnounce(routed)
-                    routed.peerID?.let { pid ->
-                        try { gossipSyncManager.scheduleInitialSyncToPeer(pid, 1_000) } catch (_: Exception) { }
-                    }
-                    try { gossipSyncManager.onPublicPacketSeen(routed.packet) } catch (_: Exception) { }
-                }
-            }
-
-            override fun handleMessage(routed: RoutedPacket) {
-                serviceScope.launch { messageHandler.handleMessage(routed) }
-                try {
-                    val pkt = routed.packet
-                    val isBroadcast = (pkt.recipientID == null || pkt.recipientID.contentEquals(SpecialRecipients.BROADCAST))
-                    if (isBroadcast && pkt.type == MessageType.MESSAGE.value) {
-                        gossipSyncManager.onPublicPacketSeen(pkt)
-                    }
-                } catch (_: Exception) { }
-            }
-
-            override fun handleLeave(routed: RoutedPacket) {
-                serviceScope.launch { messageHandler.handleLeave(routed) }
-            }
-
-            override fun handleFragment(packet: BitchatPacket): BitchatPacket? {
-                try {
-                    val isBroadcast = (packet.recipientID == null || packet.recipientID.contentEquals(SpecialRecipients.BROADCAST))
-                    if (isBroadcast && packet.type == MessageType.FRAGMENT.value) {
-                        gossipSyncManager.onPublicPacketSeen(packet)
-                    }
-                } catch (_: Exception) { }
-                return fragmentManager.handleFragment(packet)
-            }
-
-            override fun sendAnnouncementToPeer(peerID: String) = this@WifiAwareMeshService.sendAnnouncementToPeer(peerID)
-            override fun sendCachedMessages(peerID: String) = storeForwardManager.sendCachedMessages(peerID)
-            override fun relayPacket(routed: RoutedPacket) = dispatchGlobal(routed)
-
-            override fun handleRequestSync(routed: RoutedPacket) {
-                val fromPeer = routed.peerID ?: return
-                val req = RequestSyncPacket.decode(routed.packet.payload) ?: return
-                gossipSyncManager.handleRequestSync(fromPeer, req)
-            }
-        }
-    }
+    
 
     /**
      * Starts Wi-Fi Aware services (publish + subscribe).
@@ -428,7 +194,7 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
         Manifest.permission.ACCESS_WIFI_STATE,
         Manifest.permission.CHANGE_WIFI_STATE
     ])
-    fun startServices() {
+    override fun startServices() {
         if (isActive) return
         isActive = true
         Log.i(TAG, "Starting Wi-Fi Aware mesh with peer ID: $myPeerID")
@@ -527,10 +293,9 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
             }
         }, Handler(Looper.getMainLooper()))
 
-        sendPeriodicBroadcastAnnounce()
+        meshCore.startCore()
         startPeriodicConnectionMaintenance()
         connectionTracker.start()
-        gossipSyncManager.start()
         
         // Register with cross-layer transport bridge
         TransportBridgeService.register("WIFI", this)
@@ -539,7 +304,7 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
     /**
      * Stops the Wi-Fi Aware mesh services and cleans up sockets and sessions.
      */
-    fun stopServices() {
+    override fun stopServices() {
         if (!isActive) return
         isActive = false
         Log.i(TAG, "Stopping Wi-Fi Aware mesh")
@@ -547,12 +312,12 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
         // Unregister from bridge
         TransportBridgeService.unregister("WIFI")
 
-        sendLeaveAnnouncement()
+        meshCore.sendLeaveAnnouncement()
 
         serviceScope.launch {
             delay(200)
 
-            gossipSyncManager.stop()
+            meshCore.stopCore()
             connectionTracker.stop() // Handles socket closing and callback unregistration
 
             publishSession?.close();   publishSession   = null
@@ -561,26 +326,9 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
 
             handleToPeerId.clear()
 
-            peerManager.shutdown()
-            fragmentManager.shutdown()
-            securityManager.shutdown()
-            storeForwardManager.shutdown()
-            messageHandler.shutdown()
-            packetProcessor.shutdown()
+            meshCore.shutdown()
 
             serviceScope.cancel()
-        }
-    }
-
-    /**
-     * Periodically broadcasts an ANNOUNCE packet (every ~30s) while the service is active,
-     * so new/idle peers can discover us without user action.
-     */
-    private fun sendPeriodicBroadcastAnnounce() {
-        serviceScope.launch {
-            while (isActive) {
-                try { delay(30_000); sendBroadcastAnnounce() } catch (_: Exception) { }
-            }
         }
     }
 
@@ -681,13 +429,13 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
                     client.keepAlive = true
                     Log.d(TAG, "SERVER: accepted TCP from ${peerId.take(8)} addr=${client.inetAddress?.hostAddress}")
                     connectionTracker.onClientConnected(peerId, client)
-                    try { peerManager.setDirectConnection(peerId, true) } catch (_: Exception) {}
-                    try { peerManager.addOrUpdatePeer(peerId, peerId) } catch (_: Exception) {}
+                    try { meshCore.setDirectConnection(peerId, true) } catch (_: Exception) {}
+                    try { meshCore.addOrUpdatePeer(peerId, peerId) } catch (_: Exception) {}
                     listenerExec.execute { listenToPeer(client, peerId) }
                     handleSubscriberKeepAlive(client, peerId, pubSession, peerHandle)
                     // Kick off Noise handshake for this logical peer
                     if (myPeerID < peerId) {
-                        messageHandler.delegate?.initiateNoiseHandshake(peerId)
+                        meshCore.initiateNoiseHandshake(peerId)
                         Log.d(TAG, "SERVER: initiating Noise handshake to ${peerId.take(8)} (lower ID)")
                     }
                     // Ensure fast presence even before handshake settles
@@ -817,13 +565,13 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
                     Log.d(TAG, "CLIENT: TCP connected to ${peerId.take(8)} addr=$scopedAddr:$port (iface=$iface)")
 
                     connectionTracker.onClientConnected(peerId, sock)
-                    try { peerManager.setDirectConnection(peerId, true) } catch (_: Exception) {}
-                    try { peerManager.addOrUpdatePeer(peerId, peerId) } catch (_: Exception) {}
+                    try { meshCore.setDirectConnection(peerId, true) } catch (_: Exception) {}
+                    try { meshCore.addOrUpdatePeer(peerId, peerId) } catch (_: Exception) {}
                     listenerExec.execute { listenToPeer(sock, peerId) }
                     handleServerKeepAlive(sock, peerId, peerHandle)
                     // Kick off Noise handshake for this logical peer
                     if (myPeerID < peerId) {
-                        messageHandler.delegate?.initiateNoiseHandshake(peerId)
+                        meshCore.initiateNoiseHandshake(peerId)
                         Log.d(TAG, "CLIENT: initiating Noise handshake to ${peerId.take(8)} (lower ID)")
                     }
                     // Ensure fast presence even before handshake settles
@@ -908,7 +656,7 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
             // Note: We do NOT update peerSockets mapping based on senderPeerHex. 
             // The socket belongs to initialLogicalPeerId effectively serving as the "MAC address" layer.
             Log.d(TAG, "RX: packet type=${pkt.type} from ${senderPeerHex.take(8)} via ${initialLogicalPeerId.take(8)} (bytes=${raw.size})")
-            packetProcessor.processPacket(RoutedPacket(pkt, senderPeerHex, initialLogicalPeerId))
+            meshCore.processIncoming(pkt, senderPeerHex, initialLogicalPeerId)
         }
         
         // Breaking out of the loop means the socket is dead or service is stopping.
@@ -922,7 +670,7 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
             Log.d(TAG, "Cleaning up peer: $initialId")
             
             connectionTracker.disconnect(initialId)
-            peerManager.removePeer(initialId)
+            meshCore.removePeer(initialId)
         }
     }
 
@@ -932,24 +680,8 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
      * @param mentions  Optional list of mentioned peer IDs
      * @param channel   Optional channel name
      */
-    fun sendMessage(content: String, mentions: List<String> = emptyList(), channel: String? = null) {
-        if (content.isEmpty()) return
-
-        serviceScope.launch {
-            val packet = BitchatPacket(
-                version = 1u,
-                type = MessageType.MESSAGE.value,
-                senderID = hexStringToByteArray(myPeerID),
-                recipientID = SpecialRecipients.BROADCAST,
-                timestamp = System.currentTimeMillis().toULong(),
-                payload = content.toByteArray(Charsets.UTF_8),
-                signature = null,
-                ttl = MAX_TTL
-            )
-            val signed = signPacketBeforeBroadcast(packet)
-            dispatchGlobal(RoutedPacket(signed))
-            try { gossipSyncManager.onPublicPacketSeen(signed) } catch (_: Exception) { }
-        }
+    override fun sendMessage(content: String, mentions: List<String>, channel: String?) {
+        meshCore.sendMessage(content, mentions, channel)
     }
 
     /**
@@ -960,37 +692,8 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
      * @param recipientNickname  Recipient nickname
      * @param messageID          Optional message ID (UUID if null)
      */
-    fun sendPrivateMessage(content: String, recipientPeerID: String, recipientNickname: String, messageID: String? = null) {
-        if (content.isEmpty() || recipientPeerID.isEmpty()) return
-
-        serviceScope.launch {
-            val finalId = messageID ?: UUID.randomUUID().toString()
-
-            if (encryptionService.hasEstablishedSession(recipientPeerID)) {
-                try {
-                    val pm = PrivateMessagePacket(messageID = finalId, content = content)
-                    val tlv = pm.encode() ?: return@launch
-                    val payload = NoisePayload(type = NoisePayloadType.PRIVATE_MESSAGE, data = tlv).encode()
-                    val enc = encryptionService.encrypt(payload, recipientPeerID)
-
-                    val pkt = BitchatPacket(
-                        version = 1u,
-                        type = MessageType.NOISE_ENCRYPTED.value,
-                        senderID = hexStringToByteArray(myPeerID),
-                        recipientID = hexStringToByteArray(recipientPeerID),
-                        timestamp = System.currentTimeMillis().toULong(),
-                        payload = enc,
-                        signature = null,
-                        ttl = MAX_TTL
-                    )
-                    dispatchGlobal(RoutedPacket(signPacketBeforeBroadcast(pkt)))
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to encrypt private message: ${e.message}")
-                }
-            } else {
-                messageHandler.delegate?.initiateNoiseHandshake(recipientPeerID)
-            }
-        }
+    override fun sendPrivateMessage(content: String, recipientPeerID: String, recipientNickname: String, messageID: String?) {
+        meshCore.sendPrivateMessage(content, recipientPeerID, recipientNickname, messageID)
     }
 
     /**
@@ -1001,29 +704,8 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
      * @param recipientPeerID  The peer to notify.
      * @param readerNickname   Nickname of the reader (may be shown by the receiver).
      */
-    fun sendReadReceipt(messageID: String, recipientPeerID: String, readerNickname: String) {
-        serviceScope.launch {
-            try {
-                val payload = NoisePayload(
-                    type = NoisePayloadType.READ_RECEIPT,
-                    data = messageID.toByteArray(Charsets.UTF_8)
-                ).encode()
-                val enc = encryptionService.encrypt(payload, recipientPeerID)
-                val pkt = BitchatPacket(
-                    version = 1u,
-                    type = MessageType.NOISE_ENCRYPTED.value,
-                    senderID = hexStringToByteArray(myPeerID),
-                    recipientID = hexStringToByteArray(recipientPeerID),
-                    timestamp = System.currentTimeMillis().toULong(),
-                    payload = enc,
-                    signature = null,
-                    ttl = MAX_TTL
-                )
-                dispatchGlobal(RoutedPacket(signPacketBeforeBroadcast(pkt)))
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to send read receipt: ${e.message}")
-            }
-        }
+    override fun sendReadReceipt(messageID: String, recipientPeerID: String, readerNickname: String) {
+        meshCore.sendReadReceipt(messageID, recipientPeerID, readerNickname)
     }
 
     /**
@@ -1032,28 +714,8 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
      *
      * @param file Encoded metadata and chunks descriptor of the file to send.
      */
-    fun sendFileBroadcast(file: BitchatFilePacket) {
-        try {
-            val payload = file.encode() ?: run { Log.e(TAG, "file TLV encode failed"); return }
-            serviceScope.launch {
-                val pkt = BitchatPacket(
-                    version = 2u, // FILE_TRANSFER big length
-                    type = MessageType.FILE_TRANSFER.value,
-                    senderID = hexStringToByteArray(myPeerID),
-                    recipientID = SpecialRecipients.BROADCAST,
-                    timestamp = System.currentTimeMillis().toULong(),
-                    payload = payload,
-                    signature = null,
-                    ttl = MAX_TTL
-                )
-                val signed = signPacketBeforeBroadcast(pkt)
-                val transferId = sha256Hex(payload)
-                dispatchGlobal(RoutedPacket(signed, transferId = transferId))
-                try { gossipSyncManager.onPublicPacketSeen(signed) } catch (_: Exception) { }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "sendFileBroadcast failed: ${e.message}", e)
-        }
+    override fun sendFileBroadcast(file: BitchatFilePacket) {
+        meshCore.sendFileBroadcast(file)
     }
 
     /**
@@ -1063,33 +725,8 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
      * @param recipientPeerID Target peer.
      * @param file            Encoded metadata and chunks descriptor of the file to send.
      */
-    fun sendFilePrivate(recipientPeerID: String, file: BitchatFilePacket) {
-        try {
-            serviceScope.launch {
-                if (!encryptionService.hasEstablishedSession(recipientPeerID)) {
-                    messageHandler.delegate?.initiateNoiseHandshake(recipientPeerID)
-                    return@launch
-                }
-                val tlv = file.encode() ?: return@launch
-                val np = NoisePayload(type = NoisePayloadType.FILE_TRANSFER, data = tlv).encode()
-                val enc = encryptionService.encrypt(np, recipientPeerID)
-                val pkt = BitchatPacket(
-                    version = 1u,
-                    type = MessageType.NOISE_ENCRYPTED.value,
-                    senderID = hexStringToByteArray(myPeerID),
-                    recipientID = hexStringToByteArray(recipientPeerID),
-                    timestamp = System.currentTimeMillis().toULong(),
-                    payload = enc,
-                    signature = null,
-                    ttl = MAX_TTL
-                )
-                val signed = signPacketBeforeBroadcast(pkt)
-                val transferId = sha256Hex(tlv)
-                dispatchGlobal(RoutedPacket(signed, transferId = transferId))
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "sendFilePrivate failed: ${e.message}", e)
-        }
+    override fun sendFilePrivate(recipientPeerID: String, file: BitchatFilePacket) {
+        meshCore.sendFilePrivate(recipientPeerID, file)
     }
 
     /**
@@ -1098,116 +735,57 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
      * @param transferId Deterministic id (usually sha256 of the file TLV).
      * @return true if a transfer with this id was found and cancellation was scheduled, false otherwise.
      */
-    fun cancelFileTransfer(transferId: String): Boolean {
-        return false
+    override fun cancelFileTransfer(transferId: String): Boolean {
+        return meshCore.cancelFileTransfer(transferId)
     }
-
-    /**
-     * Computes the SHA-256 of the given bytes and returns a lowercase hex string.
-     * Falls back to the byte-length in hex if MessageDigest is unavailable.
-     */
-    private fun sha256Hex(bytes: ByteArray): String = try {
-        val md = java.security.MessageDigest.getInstance("SHA-256")
-        md.update(bytes); md.digest().joinToString("") { "%02x".format(it) }
-    } catch (_: Exception) { bytes.size.toString(16) }
 
     /**
      * Broadcasts an ANNOUNCE packet to the entire mesh.
      */
-    fun sendBroadcastAnnounce() {
-        serviceScope.launch {
-            val nickname = delegate?.getNickname() ?: myPeerID
-            val staticKey = encryptionService.getStaticPublicKey() ?: run {
-                Log.e(TAG, "No static public key available for announcement"); return@launch
-            }
-            val signingKey = encryptionService.getSigningPublicKey() ?: run {
-                Log.e(TAG, "No signing public key available for announcement"); return@launch
-            }
-
-            val tlvPayload = IdentityAnnouncement(nickname, staticKey, signingKey).encode() ?: return@launch
-
-            val announcePacket = BitchatPacket(
-                type = MessageType.ANNOUNCE.value,
-                ttl = MAX_TTL,
-                senderID = myPeerID,
-                payload = tlvPayload
-            )
-            val signed = signPacketBeforeBroadcast(announcePacket)
-
-            dispatchGlobal(RoutedPacket(signed))
-            try { gossipSyncManager.onPublicPacketSeen(signed) } catch (_: Exception) { }
-        }
+    override fun sendBroadcastAnnounce() {
+        meshCore.sendBroadcastAnnounce()
     }
 
     /**
      * Sends an ANNOUNCE packet to a specific peer.
      */
-    fun sendAnnouncementToPeer(peerID: String) {
-        if (peerManager.hasAnnouncedToPeer(peerID)) return
-
-        val nickname = delegate?.getNickname() ?: myPeerID
-        val staticKey = encryptionService.getStaticPublicKey() ?: return
-        val signingKey = encryptionService.getSigningPublicKey() ?: return
-
-        val tlvPayload = IdentityAnnouncement(nickname, staticKey, signingKey).encode() ?: return
-
-        val packet = BitchatPacket(
-            type = MessageType.ANNOUNCE.value,
-            ttl = MAX_TTL,
-            senderID = myPeerID,
-            payload = tlvPayload
-        )
-        val signed = signPacketBeforeBroadcast(packet)
-
-        dispatchGlobal(RoutedPacket(signed))
-        peerManager.markPeerAsAnnouncedTo(peerID)
-        try { gossipSyncManager.onPublicPacketSeen(signed) } catch (_: Exception) { }
-    }
-
-    /**
-     * Sends a LEAVE announcement to all peers before disconnecting.
-     */
-    private fun sendLeaveAnnouncement() {
-        val nickname = delegate?.getNickname() ?: myPeerID
-        val packet = BitchatPacket(
-            type = MessageType.LEAVE.value,
-            ttl = MAX_TTL,
-            senderID = myPeerID,
-            payload = nickname.toByteArray()
-        )
-        dispatchGlobal(RoutedPacket(signPacketBeforeBroadcast(packet)))
+    override fun sendAnnouncementToPeer(peerID: String) {
+        meshCore.sendAnnouncementToPeer(peerID)
     }
 
     /** @return Mapping of peer IDs to nicknames. */
-    fun getPeerNicknames(): Map<String, String> = peerManager.getAllPeerNicknames()
+    override fun getPeerNicknames(): Map<String, String> = meshCore.getPeerNicknames()
 
     /** @return Mapping of peer IDs to RSSI values. */
-    fun getPeerRSSI(): Map<String, Int> = peerManager.getAllPeerRSSI()
+    override fun getPeerRSSI(): Map<String, Int> = meshCore.getPeerRSSI()
+
+    /** @return current active peer count for status surfaces. */
+    override fun getActivePeerCount(): Int = meshCore.getActivePeerCount()
 
     /**
      * @return true if a Noise session with the peer is fully established.
      */
-    fun hasEstablishedSession(peerID: String) = encryptionService.hasEstablishedSession(peerID)
+    override fun hasEstablishedSession(peerID: String) = meshCore.hasEstablishedSession(peerID)
 
     /**
      * @return a human-readable Noise session state for the given peer (implementation-defined).
      */
-    fun getSessionState(peerID: String) = encryptionService.getSessionState(peerID)
+    override fun getSessionState(peerID: String) = meshCore.getSessionState(peerID)
 
     /**
      * Triggers a Noise handshake with the given peer. Safe to call repeatedly; no-op if already handshaking/established.
      */
-    fun initiateNoiseHandshake(peerID: String) = messageHandler.delegate?.initiateNoiseHandshake(peerID)
+    override fun initiateNoiseHandshake(peerID: String) = meshCore.initiateNoiseHandshake(peerID)
 
     /**
      * @return the stored public-key fingerprint (hex) for a peer, if known.
      */
-    fun getPeerFingerprint(peerID: String): String? = peerManager.getFingerprintForPeer(peerID)
+    override fun getPeerFingerprint(peerID: String): String? = meshCore.getPeerFingerprint(peerID)
 
     /**
      * Retrieves the full profile for a peer, including keys and verification state, if available.
      */
-    fun getPeerInfo(peerID: String): PeerInfo? = peerManager.getPeerInfo(peerID)
+    override fun getPeerInfo(peerID: String): PeerInfo? = meshCore.getPeerInfo(peerID)
 
     /**
      * Updates local metadata for a peer and returns whether the change was applied.
@@ -1219,35 +797,35 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
      * @param isVerified       Whether this identity is verified by the user.
      * @return true if the record was updated or created, false otherwise.
      */
-    fun updatePeerInfo(
+    override fun updatePeerInfo(
         peerID: String,
         nickname: String,
         noisePublicKey: ByteArray,
         signingPublicKey: ByteArray,
         isVerified: Boolean
-    ): Boolean = peerManager.updatePeerInfo(peerID, nickname, noisePublicKey, signingPublicKey, isVerified)
+    ): Boolean = meshCore.updatePeerInfo(peerID, nickname, noisePublicKey, signingPublicKey, isVerified)
 
     /**
      * @return the local device’s long-term identity fingerprint (hex).
      */
-    fun getIdentityFingerprint(): String = encryptionService.getIdentityFingerprint()
+    override fun getIdentityFingerprint(): String = meshCore.getIdentityFingerprint()
 
     /**
      * @return true if the UI should show an “encrypted” indicator for this peer.
      */
-    fun shouldShowEncryptionIcon(peerID: String) = encryptionService.hasEstablishedSession(peerID)
+    override fun shouldShowEncryptionIcon(peerID: String) = meshCore.shouldShowEncryptionIcon(peerID)
 
     /**
      * @return a snapshot list of peers with established Noise sessions.
      */
-    fun getEncryptedPeers(): List<String> = emptyList()
+    override fun getEncryptedPeers(): List<String> = meshCore.getEncryptedPeers()
 
     /**
      * @return the current IPv4/IPv6 address of a connected peer, if any.
      * Prefers the scoped IPv6 address format.
      */
-    fun getDeviceAddressForPeer(peerID: String): String? =
-        connectionTracker.peerSockets[peerID]?.let { resolveScopedAddress(it) }
+    override fun getDeviceAddressForPeer(peerID: String): String? =
+        meshCore.getDeviceAddressForPeer(peerID)
 
     /**
      * Helper to resolve a scoped IPv6 address from a socket for UI display.
@@ -1269,18 +847,13 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
      * @return a mapping of peerID → connected device IP address for all active sockets.
      * Results are formatted as scoped addresses if applicable.
      */
-    fun getDeviceAddressToPeerMapping(): Map<String, String> {
-        val map = mutableMapOf<String, String>()
-        connectionTracker.peerSockets.forEach { (pid, sock) ->
-            map[pid] = resolveScopedAddress(sock) ?: "unknown"
-        }
-        return map
-    }
+    override fun getDeviceAddressToPeerMapping(): Map<String, String> =
+        meshCore.getDeviceAddressToPeerMapping()
 
     /**
      * @return map of peer ID to nickname, bridged for UI warning fix.
      */
-    fun getPeerNicknamesMap(): Map<String, String?> = peerManager.getAllPeerNicknames()
+    fun getPeerNicknamesMap(): Map<String, String?> = meshCore.getPeerNicknames()
 
     /** Returns recently discovered peer IDs via Aware discovery (may not be connected). */
     fun getDiscoveredPeerIds(): Set<String> =
@@ -1289,23 +862,27 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
     /**
      * Utility for logs/UI: pretty-prints one peer-to-address mapping per line.
      */
-    fun printDeviceAddressesForPeers(): String =
+    override fun printDeviceAddressesForPeers(): String =
         getDeviceAddressToPeerMapping().entries.joinToString("\n") { "${it.key} -> ${it.value}" }
 
     /**
      * @return A detailed string containing the debug status of all mesh components.
      */
-    fun getDebugStatus(): String = buildString {
-        appendLine("=== Wi-Fi Aware Mesh Debug Status ===")
-        appendLine("My Peer ID: $myPeerID")
-        appendLine("Peers: ${connectionTracker.peerSockets.keys}")
-        appendLine(connectionTracker.getDebugInfo())
-        appendLine(peerManager.getDebugInfo(getDeviceAddressToPeerMapping()))
-        appendLine(fragmentManager.getDebugInfo())
-        appendLine(securityManager.getDebugInfo())
-        appendLine(storeForwardManager.getDebugInfo())
-        appendLine(messageHandler.getDebugInfo())
-        appendLine(packetProcessor.getDebugInfo())
+    override fun getDebugStatus(): String {
+        return meshCore.getDebugStatus(
+            transportInfo = connectionTracker.getDebugInfo(),
+            deviceMap = getDeviceAddressToPeerMapping(),
+            extraLines = listOf("Peers: ${connectionTracker.peerSockets.keys}"),
+            title = "Wi-Fi Aware Mesh Debug Status"
+        )
+    }
+
+    override fun clearAllInternalData() {
+        meshCore.clearAllInternalData()
+    }
+
+    override fun clearAllEncryptionData() {
+        meshCore.clearAllEncryptionData()
     }
 
     /** Utility extension to safely close sockets. */
@@ -1313,20 +890,32 @@ class WifiAwareMeshService(private val context: Context) : TransportBridgeServic
 
     /** Utility extension to safely close server sockets. */
     private fun ServerSocket.closeQuietly() = try { close() } catch (_: Exception) {}
-}
 
+    private inner class WifiAwareTransport : MeshTransport {
+        override val id: String = "WIFI"
 
-/**
- * Delegate interface for mesh service callbacks (maintains exact same interface)
- */
-interface WifiAwareMeshDelegate {
-    fun didReceiveMessage(message: BitchatMessage)
-    fun didUpdatePeerList(peers: List<String>)
-    fun didReceiveChannelLeave(channel: String, fromPeer: String)
-    fun didReceiveDeliveryAck(messageID: String, recipientPeerID: String)
-    fun didReceiveReadReceipt(messageID: String, recipientPeerID: String)
-    fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String?
-    fun getNickname(): String?
-    fun isFavorite(peerID: String): Boolean
-    // registerPeerPublicKey REMOVED - fingerprints now handled centrally in PeerManager
+        override fun broadcastPacket(routed: RoutedPacket) {
+            this@WifiAwareMeshService.broadcastPacket(routed)
+        }
+
+        override fun sendPacketToPeer(peerID: String, packet: BitchatPacket) {
+            this@WifiAwareMeshService.sendPacketToPeer(peerID, packet)
+        }
+
+        override fun getDeviceAddressForPeer(peerID: String): String? {
+            return connectionTracker.peerSockets[peerID]?.let { resolveScopedAddress(it) }
+        }
+
+        override fun getDeviceAddressToPeerMapping(): Map<String, String> {
+            val map = mutableMapOf<String, String>()
+            connectionTracker.peerSockets.forEach { (pid, sock) ->
+                map[pid] = resolveScopedAddress(sock) ?: "unknown"
+            }
+            return map
+        }
+
+        override fun getTransportDebugInfo(): String {
+            return connectionTracker.getDebugInfo()
+        }
+    }
 }
