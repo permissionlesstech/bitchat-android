@@ -70,7 +70,7 @@
     <string name="cd_remove_favorite">Retirer des favoris</string>
     <string name="cd_add_bookmark">Ajouter un signet</string>
 
-    <!-- En‑tête de chat & accessibilité -->
+    <!-- En‑tête de chat &amp; accessibilité -->
     <string name="chat_back">retour</string>
     <string name="chat_channel_prefix">canal : %1$s</string>
     <string name="chat_leave">quitter</string>
@@ -165,7 +165,7 @@
     <string name="cd_online_geohash_channels">Canaux Geohash en ligne</string>
     <string name="cd_end_to_end_encryption">Chiffrement de bout en bout</string>
 
-    <!-- Images & fichiers -->
+    <!-- Images &amp; fichiers -->
     <string name="image_page_of">Image %1$d sur %2$d</string>
     <string name="image_unavailable">Image indisponible</string>
     <string name="image_saved_to_downloads">Image enregistrée dans "Téléchargements"</string>
@@ -395,7 +395,7 @@
   <string name="fingerprint_yours">votre empreinte</string>
   <string name="fingerprint_pending">négociation en cours</string>
   <string name="fingerprint_no_peer">ouvrir un chat privé</string>
-  <string name="fingerprint_status_verified">chiffré & vérifié</string>
+  <string name="fingerprint_status_verified">chiffré &amp; vérifié</string>
   <string name="fingerprint_status_encrypted">chiffré</string>
   <string name="fingerprint_status_handshaking">négociation</string>
   <string name="fingerprint_status_failed">échec négociation</string>

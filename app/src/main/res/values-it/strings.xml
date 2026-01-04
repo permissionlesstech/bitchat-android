@@ -415,7 +415,7 @@
   <string name="fingerprint_yours">tua impronta</string>
   <string name="fingerprint_pending">handshake in corso</string>
   <string name="fingerprint_no_peer">apri chat privata</string>
-  <string name="fingerprint_status_verified">criptato & verificato</string>
+  <string name="fingerprint_status_verified">criptato &amp; verificato</string>
   <string name="fingerprint_status_encrypted">criptato</string>
   <string name="fingerprint_status_handshaking">handshake</string>
   <string name="fingerprint_status_failed">handshake fallito</string>

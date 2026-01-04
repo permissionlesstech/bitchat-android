@@ -70,7 +70,7 @@
     <string name="cd_remove_favorite">Aus Favoriten entfernen</string>
     <string name="cd_add_bookmark">Lesezeichen hinzufügen</string>
 
-    <!-- Chat‑Kopf & Barrierefreiheit -->
+    <!-- Chat‑Kopf &amp; Barrierefreiheit -->
     <string name="chat_back">zurück</string>
     <string name="chat_channel_prefix">Kanal: %1$s</string>
     <string name="chat_leave">verlassen</string>
@@ -170,7 +170,7 @@
     <string name="cd_online_geohash_channels">Online‑Geohash‑Kanäle</string>
     <string name="cd_end_to_end_encryption">Ende‑zu‑Ende‑Verschlüsselung</string>
 
-    <!-- Bilder & Dateien -->
+    <!-- Bilder &amp; Dateien -->
     <string name="image_page_of">Bild %1$d von %2$d</string>
     <string name="image_unavailable">Bild nicht verfügbar</string>
     <string name="image_saved_to_downloads">Bild in "Downloads" gespeichert</string>
@@ -382,7 +382,7 @@
   <string name="fingerprint_yours">dein fingerabdruck</string>
   <string name="fingerprint_pending">handshake ausstehend</string>
   <string name="fingerprint_no_peer">privatchat öffnen</string>
-  <string name="fingerprint_status_verified">verschlüsselt & verifiziert</string>
+  <string name="fingerprint_status_verified">verschlüsselt &amp; verifiziert</string>
   <string name="fingerprint_status_encrypted">verschlüsselt</string>
   <string name="fingerprint_status_handshaking">handshake</string>
   <string name="fingerprint_status_failed">handshake fehlgeschlagen</string>

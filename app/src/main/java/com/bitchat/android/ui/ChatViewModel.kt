@@ -744,6 +744,38 @@ class ChatViewModel(
         return verificationHandler.beginQRVerification(qr)
     }
 
+    // MARK: - Debug and Troubleshooting
+    
+    fun getDebugStatus(): String {
+        return meshService.getDebugStatus()
+    }
+    
+    fun setAppBackgroundState(inBackground: Boolean) {
+        notificationManager.setAppBackgroundState(inBackground)
+    }
+    
+    fun setCurrentPrivateChatPeer(peerID: String?) {
+        notificationManager.setCurrentPrivateChatPeer(peerID)
+    }
+    
+    fun setCurrentGeohash(geohash: String?) {
+        notificationManager.setCurrentGeohash(geohash)
+    }
+
+    fun clearNotificationsForSender(peerID: String) {
+        notificationManager.clearNotificationsForSender(peerID)
+    }
+    
+    fun clearNotificationsForGeohash(geohash: String) {
+        notificationManager.clearNotificationsForGeohash(geohash)
+    }
+
+    fun clearMeshMentionNotifications() {
+        notificationManager.clearMeshMentionNotifications()
+    }
+
+    private var reopenSidebarAfterVerification = false
+
     fun showVerificationSheet(fromSidebar: Boolean = false) {
         if (fromSidebar) {
             reopenSidebarAfterVerification = true
@@ -1061,8 +1093,6 @@ class ChatViewModel(
      */
     fun colorForNostrPubkey(pubkeyHex: String, isDark: Boolean): androidx.compose.ui.graphics.Color {
         return geohashViewModel.colorForNostrPubkey(pubkeyHex, isDark)
-    }
-
 }
 
 }

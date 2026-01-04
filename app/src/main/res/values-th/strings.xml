@@ -70,7 +70,7 @@
     <string name="cd_remove_favorite">เอาออกจากรายการโปรด</string>
     <string name="cd_add_bookmark">เพิ่มที่คั่นหน้า</string>
 
-    <!-- ส่วนหัวแชท & การช่วยสำหรับการเข้าถึง -->
+    <!-- ส่วนหัวแชท &amp; การช่วยสำหรับการเข้าถึง -->
     <string name="chat_back">กลับ</string>
     <string name="chat_channel_prefix">ช่อง: %1$s</string>
     <string name="chat_leave">ออก</string>
@@ -170,7 +170,7 @@
     <string name="cd_online_geohash_channels">ช่อง geohash ออนไลน์</string>
     <string name="cd_end_to_end_encryption">การเข้ารหัสแบบปลายทางถึงปลายทาง</string>
 
-    <!-- รูปภาพ & ไฟล์ -->
+    <!-- รูปภาพ &amp; ไฟล์ -->
     <string name="image_page_of">รูปภาพ %1$d จาก %2$d</string>
     <string name="image_unavailable">ไม่สามารถใช้รูปภาพได้</string>
     <string name="image_saved_to_downloads">บันทึกรูปภาพไว้ใน "ดาวน์โหลด" แล้ว</string>
@@ -368,7 +368,7 @@
   <string name="fingerprint_yours">your fingerprint</string>
   <string name="fingerprint_pending">handshake pending</string>
   <string name="fingerprint_no_peer">open a private chat to view fingerprints</string>
-  <string name="fingerprint_status_verified">encrypted & verified</string>
+  <string name="fingerprint_status_verified">encrypted &amp; verified</string>
   <string name="fingerprint_status_encrypted">encrypted</string>
   <string name="fingerprint_status_handshaking">handshaking</string>
   <string name="fingerprint_status_failed">handshake failed</string>

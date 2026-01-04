@@ -33,7 +33,7 @@
   <string name="fingerprint_yours">your fingerprint</string>
   <string name="fingerprint_pending">handshake pending</string>
   <string name="fingerprint_no_peer">open a private chat to view fingerprints</string>
-  <string name="fingerprint_status_verified">encrypted & verified</string>
+  <string name="fingerprint_status_verified">encrypted &amp; verified</string>
   <string name="fingerprint_status_encrypted">encrypted</string>
   <string name="fingerprint_status_handshaking">handshaking</string>
   <string name="fingerprint_status_failed">handshake failed</string>

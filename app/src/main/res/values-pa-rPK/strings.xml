@@ -70,7 +70,7 @@
     <string name="cd_remove_favorite">پسندیدہ توں ہٹاؤ</string>
     <string name="cd_add_bookmark">بُک مارک پاؤ</string>
 
-    <!-- چیٹ ہیڈر & رسائی پذیری -->
+    <!-- چیٹ ہیڈر &amp; رسائی پذیری -->
     <string name="chat_back">واپس</string>
     <string name="chat_channel_prefix">چینل: %1$s</string>
     <string name="chat_leave">باہر آؤ</string>
@@ -170,7 +170,7 @@
     <string name="cd_online_geohash_channels">آن لائن geohash چینل</string>
     <string name="cd_end_to_end_encryption">اینڈ ٹو اینڈ انکرپشن</string>
 
-    <!-- تصویراں & فائلز -->
+    <!-- تصویراں &amp; فائلز -->
     <string name="image_page_of">تصویر %1$d وچوں %2$d</string>
     <string name="image_unavailable">تصویر دستیاب نئیں</string>
     <string name="image_saved_to_downloads">تصویر \"Downloads\" وچ سیو ہو گئی</string>
@@ -368,7 +368,7 @@
   <string name="fingerprint_yours">your fingerprint</string>
   <string name="fingerprint_pending">handshake pending</string>
   <string name="fingerprint_no_peer">open a private chat to view fingerprints</string>
-  <string name="fingerprint_status_verified">encrypted & verified</string>
+  <string name="fingerprint_status_verified">encrypted &amp; verified</string>
   <string name="fingerprint_status_encrypted">encrypted</string>
   <string name="fingerprint_status_handshaking">handshaking</string>
   <string name="fingerprint_status_failed">handshake failed</string>

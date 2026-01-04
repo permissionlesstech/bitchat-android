@@ -71,7 +71,7 @@
   <string name="cd_remove_favorite">Remove from favorites</string>
   <string name="cd_add_bookmark">Add bookmark</string>
 
-  <!-- Chat header & accessibility -->
+  <!-- Chat header &amp; accessibility -->
   <string name="chat_back">back</string>
   <string name="chat_channel_prefix">channel: %1$s</string>
   <string name="chat_leave">leave</string>

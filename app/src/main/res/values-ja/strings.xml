@@ -70,7 +70,7 @@
     <string name="cd_remove_favorite">お気に入りから削除</string>
     <string name="cd_add_bookmark">ブックマークに追加</string>
 
-    <!-- チャットヘッダー & アクセシビリティ -->
+    <!-- チャットヘッダー &amp; アクセシビリティ -->
     <string name="chat_back">戻る</string>
     <string name="chat_channel_prefix">チャンネル: %1$s</string>
     <string name="chat_leave">退出</string>
@@ -170,7 +170,7 @@
     <string name="cd_online_geohash_channels">オンライン Geohash チャンネル</string>
     <string name="cd_end_to_end_encryption">エンドツーエンド暗号化</string>
 
-    <!-- 画像 & ファイル -->
+    <!-- 画像 &amp; ファイル -->
     <string name="image_page_of">画像 %1$d / %2$d</string>
     <string name="image_unavailable">画像は利用できません</string>
     <string name="image_saved_to_downloads">画像を「ダウンロード」に保存しました</string>

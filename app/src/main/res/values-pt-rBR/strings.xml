@@ -70,7 +70,7 @@
     <string name="cd_remove_favorite">Remover dos favoritos</string>
     <string name="cd_add_bookmark">Adicionar favorito</string>
 
-    <!-- Cabeçalho do chat & acessibilidade -->
+    <!-- Cabeçalho do chat &amp; acessibilidade -->
     <string name="chat_back">voltar</string>
     <string name="chat_channel_prefix">Canal: %1$s</string>
     <string name="chat_leave">sair</string>
@@ -170,7 +170,7 @@
     <string name="cd_online_geohash_channels">Canais geohash online</string>
     <string name="cd_end_to_end_encryption">Criptografia de ponta a ponta</string>
 
-    <!-- Imagens & arquivos -->
+    <!-- Imagens &amp; arquivos -->
     <string name="image_page_of">Imagem %1$d de %2$d</string>
     <string name="image_unavailable">Imagem indisponível</string>
     <string name="image_saved_to_downloads">Imagem salva em "Downloads"</string>
