@@ -26,8 +26,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.style.TextAlign
 import com.bitchat.android.core.ui.utils.singleOrTripleClickable
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.Offset
@@ -412,9 +410,7 @@ private fun PrivateChatHeader(
             Text(
                 text = titleText,
                 style = MaterialTheme.typography.titleMedium,
-                color = Color(0xFFFF9500), // Orange
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                color = Color(0xFFFF9500) // Orange
             )
 
             Spacer(modifier = Modifier.width(4.dp))
@@ -517,12 +513,8 @@ private fun ChannelHeader(
             style = MaterialTheme.typography.titleMedium,
             color = Color(0xFFFF9500), // Orange to match input field
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 56.dp)
-                .clickable { onSidebarClick() },
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+                .align(Alignment.Center)
+                .clickable { onSidebarClick() }
         )
         
         // Leave button - positioned on the right
@@ -580,9 +572,7 @@ private fun MainHeader(
                 modifier = Modifier.singleOrTripleClickable(
                     onSingleClick = onTitleClick,
                     onTripleClick = onTripleTitleClick
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                )
             )
             
             Spacer(modifier = Modifier.width(2.dp))
