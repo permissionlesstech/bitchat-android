@@ -43,6 +43,13 @@ class WifiAwareConnectionTracker(
             try { it.close() } catch (e: Exception) { Log.w(TAG, "Error closing server socket for $id: ${e.message}") }
         }
 
+        // Ensure any pending/active network request is explicitly released
+        releaseNetworkRequest(id)
+    }
+
+    fun releaseNetworkRequest(id: String) {
+        if (!networkCallbacks.containsKey(id)) return
+        
         // 3. Unregister network callback properly from ConnectivityManager
         networkCallbacks.remove(id)?.let {
             try { 

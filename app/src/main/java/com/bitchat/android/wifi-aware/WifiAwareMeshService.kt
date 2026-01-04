@@ -481,7 +481,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
 
             override fun onUnavailable() {
                 Log.e(TAG, "SERVER: onUnavailable() - Failed to acquire Aware network for ${peerId.take(8)} (timeout or refused)")
-                handlePeerDisconnection(peerId)
+                handleNetworkFailure(peerId)
             }
 
             override fun onLost(network: Network) {
@@ -586,7 +586,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             
             override fun onUnavailable() {
                 Log.e(TAG, "CLIENT: onUnavailable() - Failed to acquire Aware network for ${peerId.take(8)}")
-                handlePeerDisconnection(peerId)
+                handleNetworkFailure(peerId)
             }
 
             override fun onCapabilitiesChanged(network: Network, nc: NetworkCapabilities) {
@@ -722,6 +722,15 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         Log.i(TAG, "Socket loop terminated for ${initialLogicalPeerId.take(8)} removing peer.")
         handlePeerDisconnection(initialLogicalPeerId)
         socket.closeQuietly()
+    }
+
+    private fun handleNetworkFailure(peerId: String) {
+         serviceScope.launch {
+            Log.d(TAG, "Network failure cleanup for: $peerId")
+            // Specifically release the callback if it didn't happen automatically
+            connectionTracker.releaseNetworkRequest(peerId)
+            meshCore.removePeer(peerId)
+        }
     }
 
     private fun handlePeerDisconnection(initialId: String) {
