@@ -219,6 +219,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                         override fun onPublishStarted(pub: PublishDiscoverySession) {
                             publishSession = pub
                             Log.d(TAG, "PUBLISH: onPublishStarted()")
+                            try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi-Fi Aware Publish Started")) } catch (_: Exception) {}
                         }
                         override fun onServiceDiscovered(
                             peerHandle: PeerHandle,
@@ -245,6 +246,16 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                             Log.d(TAG, "PUBLISH: got ping from $subscriberId; spinning up server")
                             handleSubscriberPing(publishSession!!, peerHandle)
                         }
+
+                        override fun onSessionTerminated() {
+                            Log.e(TAG, "PUBLISH: onSessionTerminated()")
+                            publishSession = null
+                            if (isActive) {
+                                Log.i(TAG, "PUBLISH: Attempting to restart publish session...")
+                                // Delay and check if we need to restart services entirely
+                                serviceScope.launch { delay(2000); if (isActive) startServices() }
+                            }
+                        }
                     },
                     Handler(Looper.getMainLooper())
                 )
@@ -258,6 +269,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                         override fun onSubscribeStarted(sub: SubscribeDiscoverySession) {
                             subscribeSession = sub
                             Log.d(TAG, "SUBSCRIBE: onSubscribeStarted()")
+                            try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi-Fi Aware Subscribe Started")) } catch (_: Exception) {}
                         }
                         override fun onServiceDiscovered(
                             peerHandle: PeerHandle,
@@ -281,8 +293,17 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                             val peerId = handleToPeerId[peerHandle] ?: return
                             if (peerId == myPeerID) return
 
-                            Log.d(TAG, "SUBSCRIBE: onMessageReceived() → server-ready from ${peerId.take(8)} payload=${message.size}B")
+                            Log.d(TAG, "SUBSCRIBE: onMessageReceived() \u2192 server-ready from ${peerId.take(8)} payload=${message.size}B")
                             handleServerReady(peerHandle, message)
+                        }
+
+                        override fun onSessionTerminated() {
+                            Log.e(TAG, "SUBSCRIBE: onSessionTerminated()")
+                            subscribeSession = null
+                            if (isActive) {
+                                Log.i(TAG, "SUBSCRIBE: Attempting to restart subscribe session...")
+                                serviceScope.launch { delay(2000); if (isActive) startServices() }
+                            }
                         }
                     },
                     Handler(Looper.getMainLooper())
@@ -290,6 +311,13 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             }
             override fun onAttachFailed() {
                 Log.e(TAG, "Wi-Fi Aware attach failed")
+            }
+
+            override fun onAwareSessionTerminated() {
+                Log.e(TAG, "Aware Session Terminated unexpectedly")
+                wifiAwareSession = null
+                isActive = false
+                if (com.bitchat.android.wifiaware.WifiAwareController.enabled.value) { serviceScope.launch { delay(3000); com.bitchat.android.wifiaware.WifiAwareController.startIfPossible() } }
             }
         }, Handler(Looper.getMainLooper()))
 
@@ -358,7 +386,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                     for (peerId in disconnectedPeers) {
                         // Find the PeerHandle for this peerId
                         val handle = handleToPeerId.entries.find { it.value == peerId }?.key ?: continue
-                        
+
                         // Check tracker policy
                         if (!connectionTracker.isConnectionAttemptAllowed(peerId)) continue
 
@@ -399,14 +427,14 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             return
         }
 
-        val ss = ServerSocket(0)
-        connectionTracker.addServerSocket(peerId, ss)
-        val port = ss.localPort
-        
-        // Ensure port is set to reuse if connection was recently closed (TIME_WAIT)
+        val ss = ServerSocket()
         try {
             ss.reuseAddress = true
-        } catch (_: Exception) {}
+            ss.bind(java.net.InetSocketAddress(0))
+        } catch (e: Exception) { Log.e(TAG, "Failed to bind server socket", e) }
+
+        connectionTracker.addServerSocket(peerId, ss)
+        val port = ss.localPort
 
         Log.d(TAG, "SERVER: listening for ${peerId.take(8)} on port $port")
 
@@ -445,7 +473,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                 }
             }
             override fun onLost(network: Network) {
-                connectionTracker.networkCallbacks.remove(peerId)
+                handlePeerDisconnection(peerId)
                 Log.d(TAG, "SERVER: network lost for ${peerId.take(8)}")
             }
         }
@@ -581,7 +609,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                 }
             }
             override fun onLost(network: Network) {
-                connectionTracker.networkCallbacks.remove(peerId)
+                handlePeerDisconnection(peerId)
                 Log.d(TAG, "CLIENT: network lost for ${peerId.take(8)}")
             }
         }

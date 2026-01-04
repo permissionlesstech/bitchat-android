@@ -43,9 +43,12 @@ class WifiAwareConnectionTracker(
             try { it.close() } catch (e: Exception) { Log.w(TAG, "Error closing server socket for $id: ${e.message}") }
         }
 
-        // 3. Unregister network callback
+        // 3. Unregister network callback properly from ConnectivityManager
         networkCallbacks.remove(id)?.let {
-            try { cm.unregisterNetworkCallback(it) } catch (e: Exception) { Log.w(TAG, "Error unregistering callback for $id: ${e.message}") }
+            try { 
+                Log.d(TAG, "Unregistering network callback for $id")
+                cm.unregisterNetworkCallback(it) 
+            } catch (e: Exception) { Log.w(TAG, "Error unregistering callback for $id: ${e.message}") }
         }
     }
 
