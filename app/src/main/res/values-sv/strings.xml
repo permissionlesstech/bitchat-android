@@ -350,4 +350,5 @@
   <string name="location_notes_empty_desc">var först med att lägga till en anteckning för den här platsen.</string>
   <string name="dismiss">stäng</string>
   <string name="location_notes_input_placeholder">lägg till en anteckning för den här platsen</string>
+    <string name="mesh_service_notification_content">Mesh körs — %1$d peers</string>
 </resources>

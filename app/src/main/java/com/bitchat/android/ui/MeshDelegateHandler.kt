@@ -46,10 +46,10 @@ class MeshDelegateHandler(
             if (message.isPrivate) {
                 // Private message
                 privateChatManager.handleIncomingPrivateMessage(message)
-                
-                // Reactive read receipts: Send immediately if user is currently viewing this chat
+
+                // Reactive read receipts: if chat is focused, send immediately for this message
                 message.senderPeerID?.let { senderPeerID ->
-                    sendReadReceiptIfFocused(senderPeerID)
+                    sendReadReceiptIfFocused(message)
                 }
                 
                 // Show notification with enhanced information - now includes senderPeerID 
@@ -64,15 +64,26 @@ class MeshDelegateHandler(
                     )
                 }
             } else if (message.channel != null) {
-                // Channel message
+                // Channel message: AppStateStore is the source of truth for list; only manage unread
                 if (state.getJoinedChannelsValue().contains(message.channel)) {
-                    channelManager.addChannelMessage(message.channel, message, message.senderPeerID)
+                    val channel = message.channel
+                    val viewingClassic = state.getCurrentChannelValue() == channel
+                    val viewingGeohash = try {
+                        if (channel.startsWith("geo:")) {
+                            val geo = channel.removePrefix("geo:")
+                            val selected = state.selectedLocationChannel.value
+                            selected is com.bitchat.android.geohash.ChannelID.Location && selected.channel.geohash.equals(geo, ignoreCase = true)
+                        } else false
+                    } catch (_: Exception) { false }
+                    if (!viewingClassic && !viewingGeohash) {
+                        val currentUnread = state.getUnreadChannelMessagesValue().toMutableMap()
+                        currentUnread[channel] = (currentUnread[channel] ?: 0) + 1
+                        state.setUnreadChannelMessages(currentUnread)
+                    }
                 }
             } else {
-                // Public mesh message - always store to preserve message history
-                messageManager.addMessage(message)
-
-                // Check for mentions in mesh chat
+                // Public mesh message: AppStateStore is the source of truth; avoid double-adding to UI state
+                // Still run mention detection/notifications
                 checkAndTriggerMeshMentionNotification(message)
             }
             
@@ -263,21 +274,31 @@ class MeshDelegateHandler(
      * Uses same logic as notification system - send read receipt if user is currently
      * viewing the private chat with this sender AND app is in foreground.
      */
-    private fun sendReadReceiptIfFocused(senderPeerID: String) {
+    private fun sendReadReceiptIfFocused(message: BitchatMessage) {
         // Get notification manager's focus state (mirror the notification logic)
         val isAppInBackground = notificationManager.getAppBackgroundState()
         val currentPrivateChatPeer = notificationManager.getCurrentPrivateChatPeer()
         
         // Send read receipt if user is currently focused on this specific chat
-        val shouldSendReadReceipt = !isAppInBackground && currentPrivateChatPeer == senderPeerID
+        val senderPeerID = message.senderPeerID
+        val shouldSendReadReceipt = !isAppInBackground && senderPeerID != null && currentPrivateChatPeer == senderPeerID
         
-        if (shouldSendReadReceipt) {
-            android.util.Log.d("MeshDelegateHandler", "Sending reactive read receipt for focused chat with $senderPeerID")
-            privateChatManager.sendReadReceiptsForPeer(senderPeerID, getMeshService())
-        } else {
-            android.util.Log.d("MeshDelegateHandler", "Skipping read receipt - chat not focused (background: $isAppInBackground, current peer: $currentPrivateChatPeer, sender: $senderPeerID)")
+            if (shouldSendReadReceipt) {
+                android.util.Log.d("MeshDelegateHandler", "Sending reactive read receipt for focused chat with $senderPeerID (message=${message.id})")
+                val nickname = state.getNicknameValue() ?: "unknown"
+                // Send directly for this message to avoid relying on unread queues
+                getMeshService().sendReadReceipt(message.id, senderPeerID!!, nickname)
+                // Ensure unread badge is cleared for this peer immediately
+                try {
+                    val current = state.getUnreadPrivateMessagesValue().toMutableSet()
+                    if (current.remove(senderPeerID)) {
+                        state.setUnreadPrivateMessages(current)
+                    }
+                } catch (_: Exception) { }
+            } else {
+                android.util.Log.d("MeshDelegateHandler", "Skipping read receipt - chat not focused (background: $isAppInBackground, current peer: $currentPrivateChatPeer, sender: $senderPeerID)")
+            }
         }
-    }
     
     // registerPeerPublicKey REMOVED - fingerprints now handled centrally in PeerManager
 

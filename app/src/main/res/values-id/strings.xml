@@ -362,4 +362,5 @@
   <string name="location_notes_empty_desc">jadilah yang pertama menambahkan catatan untuk tempat ini.</string>
   <string name="dismiss">tutup</string>
   <string name="location_notes_input_placeholder">tambahkan catatan untuk tempat ini</string>
+    <string name="mesh_service_notification_content">Mesh berjalan — %1$d peer</string>
 </resources>

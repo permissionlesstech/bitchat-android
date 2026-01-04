@@ -14,5 +14,6 @@
   <string name="location_notes_empty_desc">bądź pierwszy, który doda notatkę dla tego miejsca.</string>
   <string name="dismiss">zamknij</string>
   <string name="location_notes_input_placeholder">dodaj notatkę dla tego miejsca</string>
+    <string name="mesh_service_notification_content">Mesh działa — %1$d peerów</string>
 </resources>
 

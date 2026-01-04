@@ -13,8 +13,8 @@ android {
         applicationId = "com.bitchat.droid"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 26
-        versionName = "1.5.1"
+        versionCode = 27
+        versionName = "1.6.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -30,6 +30,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            ndk {
+                // Include x86_64 for emulator support during development
+                abiFilters += listOf("arm64-v8a", "x86_64")
+            }
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -37,6 +43,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            ndk {
+                // ARM64-only to minimize APK size (~5.8MB savings)
+                // Excludes x86_64 as emulator not needed for production builds
+                abiFilters += listOf("arm64-v8a")
+            }
         }
     }
     compileOptions {
@@ -95,8 +106,11 @@ dependencies {
     // WebSocket
     implementation(libs.okhttp)
 
-    // Arti (Tor in Rust) Android bridge - use published AAR with native libs
-    implementation("info.guardianproject:arti-mobile-ex:1.2.3")
+    // Arti (Tor in Rust) Android bridge - custom build from latest source
+    // Built with rustls, 16KB page size support, and onio//un service client
+    // Native libraries are in src/tor/jniLibs/ (extracted from arti-custom.aar)
+    // Only included in tor flavor to reduce APK size for standard builds
+    // Note: AAR is kept in libs/ for reference, but libraries loaded from jniLibs/
 
     // Google Play Services Location
     implementation(libs.gms.location)

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- TODO: Ukrainian translations -->
+    <string name="mesh_service_notification_content">Mesh працює — %1$d пірів</string>
 </resources>
 

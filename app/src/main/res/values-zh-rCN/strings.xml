@@ -14,5 +14,6 @@
   <string name="location_notes_empty_desc">成为第一个为此地点添加笔记的人。</string>
   <string name="dismiss">关闭</string>
   <string name="location_notes_input_placeholder">为此地点添加一条笔记</string>
+    <string name="mesh_service_notification_content">Mesh 运行中 — %1$d 个节点</string>
 </resources>
 

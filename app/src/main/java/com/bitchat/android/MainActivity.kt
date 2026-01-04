@@ -51,7 +51,7 @@ class MainActivity : OrientationAwareActivity() {
     private lateinit var locationStatusManager: LocationStatusManager
     private lateinit var batteryOptimizationManager: BatteryOptimizationManager
     
-    // Core mesh service - managed at app level
+    // Core mesh service - provided by the foreground service holder
     private lateinit var meshService: BluetoothMeshService
     private val mainViewModel: MainViewModel by viewModels()
     private val chatViewModel: ChatViewModel by viewModels { 
@@ -63,16 +63,55 @@ class MainActivity : OrientationAwareActivity() {
         }
     }
     
+    private val forceFinishReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: android.content.Context, intent: android.content.Intent) {
+            if (intent.action == com.bitchat.android.util.AppConstants.UI.ACTION_FORCE_FINISH) {
+                android.util.Log.i("MainActivity", "Received force finish broadcast, closing UI")
+                finishAffinity()
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Register receiver for force finish signal from shutdown coordinator
+        val filter = android.content.IntentFilter(com.bitchat.android.util.AppConstants.UI.ACTION_FORCE_FINISH)
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(
+                forceFinishReceiver,
+                filter,
+                com.bitchat.android.util.AppConstants.UI.PERMISSION_FORCE_FINISH,
+                null,
+                android.content.Context.RECEIVER_NOT_EXPORTED
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(
+                forceFinishReceiver,
+                filter,
+                com.bitchat.android.util.AppConstants.UI.PERMISSION_FORCE_FINISH,
+                null
+            )
+        }
+        
+        // Check if this is a quit request from the notification
+        if (intent.getBooleanExtra("ACTION_QUIT_APP", false)) {
+            android.util.Log.d("MainActivity", "Quit request received in onCreate, finishing activity")
+            finish()
+            return
+        }
+
+        com.bitchat.android.service.AppShutdownCoordinator.cancelPendingShutdown()
         
         // Enable edge-to-edge display for modern Android look
         enableEdgeToEdge()
 
         // Initialize permission management
         permissionManager = PermissionManager(this)
-        // Initialize core mesh service first
-        meshService = BluetoothMeshService(this)
+        // Ensure foreground service is running and get mesh instance from holder
+        try { com.bitchat.android.service.MeshForegroundService.start(applicationContext) } catch (_: Exception) { }
+        meshService = com.bitchat.android.service.MeshServiceHolder.getOrCreate(applicationContext)
         bluetoothStatusManager = BluetoothStatusManager(
             activity = this,
             context = this,
@@ -630,6 +669,17 @@ class MainActivity : OrientationAwareActivity() {
     
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
+        
+        // Check if this is a quit request from the notification
+        if (intent.getBooleanExtra("ACTION_QUIT_APP", false)) {
+            android.util.Log.d("MainActivity", "Quit request received, finishing activity")
+            finish()
+            return
+        }
+
+        com.bitchat.android.service.AppShutdownCoordinator.cancelPendingShutdown()
+        
         // Handle notification intents when app is already running
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
             handleNotificationIntent(intent)
@@ -640,6 +690,8 @@ class MainActivity : OrientationAwareActivity() {
         super.onResume()
         // Check Bluetooth and Location status on resume and handle accordingly
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
+            // Reattach mesh delegate to new ChatViewModel instance after Activity recreation
+            try { meshService.delegate = chatViewModel } catch (_: Exception) { }
             // Set app foreground state
             meshService.connectionManager.setAppBackgroundState(false)
             chatViewModel.setAppBackgroundState(false)
@@ -665,13 +717,15 @@ class MainActivity : OrientationAwareActivity() {
         }
     }
     
-     override fun onPause() {
+    override fun onPause() {
         super.onPause()
         // Only set background state if app is fully initialized
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
             // Set app background state
             meshService.connectionManager.setAppBackgroundState(true)
             chatViewModel.setAppBackgroundState(true)
+            // Detach UI delegate so the foreground service can own DM notifications while UI is closed
+            try { meshService.delegate = null } catch (_: Exception) { }
         }
     }
     
@@ -738,6 +792,8 @@ class MainActivity : OrientationAwareActivity() {
     override fun onDestroy() {
         super.onDestroy()
         
+        try { unregisterReceiver(forceFinishReceiver) } catch (_: Exception) { }
+        
         // Cleanup location status manager
         try {
             locationStatusManager.cleanup()
@@ -746,14 +802,6 @@ class MainActivity : OrientationAwareActivity() {
             Log.w("MainActivity", "Error cleaning up location status manager: ${e.message}")
         }
         
-        // Stop mesh services if app was fully initialized
-        if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
-            try {
-                meshService.stopServices()
-                Log.d("MainActivity", "Mesh services stopped successfully")
-            } catch (e: Exception) {
-                Log.w("MainActivity", "Error stopping mesh services in onDestroy: ${e.message}")
-            }
-        }
+        // Do not stop mesh here; ForegroundService owns lifecycle for background reliability
     }
 }

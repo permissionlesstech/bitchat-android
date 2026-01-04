@@ -36,6 +36,11 @@ class DebugSettingsManager private constructor() {
     private val _packetRelayEnabled = MutableStateFlow(true)
     val packetRelayEnabled: StateFlow<Boolean> = _packetRelayEnabled.asStateFlow()
 
+    // Visibility of the debug sheet; gates heavy work
+    private val _debugSheetVisible = MutableStateFlow(false)
+    val debugSheetVisible: StateFlow<Boolean> = _debugSheetVisible.asStateFlow()
+    fun setDebugSheetVisible(visible: Boolean) { _debugSheetVisible.value = visible }
+
     // Connection limit overrides (debug)
     private val _maxConnectionsOverall = MutableStateFlow(8)
     val maxConnectionsOverall: StateFlow<Int> = _maxConnectionsOverall.asStateFlow()
@@ -75,12 +80,63 @@ class DebugSettingsManager private constructor() {
 
     // Timestamps to compute rolling window stats
     private val relayTimestamps = ConcurrentLinkedQueue<Long>()
+    // Per-device and per-peer rolling timestamps for stacked graphs
+    private val perDeviceRelayTimestamps = mutableMapOf<String, ConcurrentLinkedQueue<Long>>()
+    private val perPeerRelayTimestamps = mutableMapOf<String, ConcurrentLinkedQueue<Long>>()
+
+    // Additional buckets to split incoming vs outgoing
+    private val incomingTimestamps = ConcurrentLinkedQueue<Long>()
+    private val outgoingTimestamps = ConcurrentLinkedQueue<Long>()
+    private val perDeviceIncoming = mutableMapOf<String, ConcurrentLinkedQueue<Long>>()
+    private val perDeviceOutgoing = mutableMapOf<String, ConcurrentLinkedQueue<Long>>()
+    private val perPeerIncoming = mutableMapOf<String, ConcurrentLinkedQueue<Long>>()
+    private val perPeerOutgoing = mutableMapOf<String, ConcurrentLinkedQueue<Long>>()
+
+    // Expose current per-second rates (updated when logging/pruning occurs)
+    private val _perDeviceLastSecond: MutableStateFlow<Map<String, Int>> = MutableStateFlow(emptyMap())
+    val perDeviceLastSecond: StateFlow<Map<String, Int>> = _perDeviceLastSecond.asStateFlow()
+    private val _perPeerLastSecond: MutableStateFlow<Map<String, Int>> = MutableStateFlow(emptyMap())
+    val perPeerLastSecond: StateFlow<Map<String, Int>> = _perPeerLastSecond.asStateFlow()
+    // New flows used by UI for incoming/outgoing stacked plots
+    private val _perDeviceIncomingLastSecond: MutableStateFlow<Map<String, Int>> = MutableStateFlow(emptyMap())
+    val perDeviceIncomingLastSecond: StateFlow<Map<String, Int>> = _perDeviceIncomingLastSecond.asStateFlow()
+    private val _perDeviceOutgoingLastSecond: MutableStateFlow<Map<String, Int>> = MutableStateFlow(emptyMap())
+    val perDeviceOutgoingLastSecond: StateFlow<Map<String, Int>> = _perDeviceOutgoingLastSecond.asStateFlow()
+    private val _perPeerIncomingLastSecond: MutableStateFlow<Map<String, Int>> = MutableStateFlow(emptyMap())
+    val perPeerIncomingLastSecond: StateFlow<Map<String, Int>> = _perPeerIncomingLastSecond.asStateFlow()
+    private val _perPeerOutgoingLastSecond: MutableStateFlow<Map<String, Int>> = MutableStateFlow(emptyMap())
+    val perPeerOutgoingLastSecond: StateFlow<Map<String, Int>> = _perPeerOutgoingLastSecond.asStateFlow()
+
+    // Per-minute counts per key
+    private val _perDeviceIncomingLastMinute: MutableStateFlow<Map<String, Int>> = MutableStateFlow(emptyMap())
+    val perDeviceIncomingLastMinute: StateFlow<Map<String, Int>> = _perDeviceIncomingLastMinute.asStateFlow()
+    private val _perDeviceOutgoingLastMinute: MutableStateFlow<Map<String, Int>> = MutableStateFlow(emptyMap())
+    val perDeviceOutgoingLastMinute: StateFlow<Map<String, Int>> = _perDeviceOutgoingLastMinute.asStateFlow()
+    private val _perPeerIncomingLastMinute: MutableStateFlow<Map<String, Int>> = MutableStateFlow(emptyMap())
+    val perPeerIncomingLastMinute: StateFlow<Map<String, Int>> = _perPeerIncomingLastMinute.asStateFlow()
+    private val _perPeerOutgoingLastMinute: MutableStateFlow<Map<String, Int>> = MutableStateFlow(emptyMap())
+    val perPeerOutgoingLastMinute: StateFlow<Map<String, Int>> = _perPeerOutgoingLastMinute.asStateFlow()
+
+    // Totals per key (since app start)
+    private val deviceIncomingTotalsMap = mutableMapOf<String, Long>()
+    private val deviceOutgoingTotalsMap = mutableMapOf<String, Long>()
+    private val peerIncomingTotalsMap = mutableMapOf<String, Long>()
+    private val peerOutgoingTotalsMap = mutableMapOf<String, Long>()
+    private val _perDeviceIncomingTotalsFlow: MutableStateFlow<Map<String, Long>> = MutableStateFlow(emptyMap())
+    val perDeviceIncomingTotal: StateFlow<Map<String, Long>> = _perDeviceIncomingTotalsFlow.asStateFlow()
+    private val _perDeviceOutgoingTotalsFlow: MutableStateFlow<Map<String, Long>> = MutableStateFlow(emptyMap())
+    val perDeviceOutgoingTotal: StateFlow<Map<String, Long>> = _perDeviceOutgoingTotalsFlow.asStateFlow()
+    private val _perPeerIncomingTotalsFlow: MutableStateFlow<Map<String, Long>> = MutableStateFlow(emptyMap())
+    val perPeerIncomingTotal: StateFlow<Map<String, Long>> = _perPeerIncomingTotalsFlow.asStateFlow()
+    private val _perPeerOutgoingTotalsFlow: MutableStateFlow<Map<String, Long>> = MutableStateFlow(emptyMap())
+    val perPeerOutgoingTotal: StateFlow<Map<String, Long>> = _perPeerOutgoingTotalsFlow.asStateFlow()
     
     // Internal data storage for managing debug data
     private val debugMessageQueue = ConcurrentLinkedQueue<DebugMessage>()
     private val scanResultsQueue = ConcurrentLinkedQueue<DebugScanResult>()
     
     private fun updateRelayStatsFromTimestamps() {
+        if (!_debugSheetVisible.value) return
         val now = System.currentTimeMillis()
         // prune older than 15m
         while (true) {
@@ -89,18 +145,84 @@ class DebugSettingsManager private constructor() {
                 relayTimestamps.poll()
             } else break
         }
+        // prune per-device and per-peer and compute 1s/60s rates
+        fun pruneAndCount1s(map: MutableMap<String, ConcurrentLinkedQueue<Long>>): Map<String, Int> {
+            val result = mutableMapOf<String, Int>()
+            val iterator = map.entries.iterator()
+            while (iterator.hasNext()) {
+                val (key, q) = iterator.next()
+                // prune this queue
+                while (true) {
+                    val ts = q.peek() ?: break
+                    if (now - ts > 15 * 60 * 1000L) {
+                        q.poll()
+                    } else break
+                }
+                // count last 1s only
+                val count1s = q.count { now - it <= 1_000L }
+                if (q.isEmpty()) {
+                    // cleanup empty queues to prevent unbounded growth
+                    iterator.remove()
+                }
+                if (count1s > 0) result[key] = count1s
+            }
+            return result
+        }
+        fun pruneAndCount60s(map: MutableMap<String, ConcurrentLinkedQueue<Long>>): Map<String, Int> {
+            val result = mutableMapOf<String, Int>()
+            map.forEach { (key, q) ->
+                val count60 = q.count { now - it <= 60_000L }
+                if (count60 > 0) result[key] = count60
+            }
+            return result
+        }
+
+        val perDevice1s = pruneAndCount1s(perDeviceRelayTimestamps)
+        val perPeer1s = pruneAndCount1s(perPeerRelayTimestamps)
+
+        _perDeviceLastSecond.value = perDevice1s
+        _perPeerLastSecond.value = perPeer1s
+        // Also compute incoming/outgoing per-key rates
+        _perDeviceIncomingLastSecond.value = pruneAndCount1s(perDeviceIncoming)
+        _perDeviceOutgoingLastSecond.value = pruneAndCount1s(perDeviceOutgoing)
+        _perPeerIncomingLastSecond.value = pruneAndCount1s(perPeerIncoming)
+        _perPeerOutgoingLastSecond.value = pruneAndCount1s(perPeerOutgoing)
+        _perDeviceIncomingLastMinute.value = pruneAndCount60s(perDeviceIncoming)
+        _perDeviceOutgoingLastMinute.value = pruneAndCount60s(perDeviceOutgoing)
+        _perPeerIncomingLastMinute.value = pruneAndCount60s(perPeerIncoming)
+        _perPeerOutgoingLastMinute.value = pruneAndCount60s(perPeerOutgoing)
         val last1s = relayTimestamps.count { now - it <= 1_000L }
         val last10s = relayTimestamps.count { now - it <= 10_000L }
         val last1m = relayTimestamps.count { now - it <= 60_000L }
         val last15m = relayTimestamps.size
-        val total = _relayStats.value.totalRelaysCount + 1
+        // And incoming/outgoing per-second counters
+        val last1sIncoming = incomingTimestamps.count { now - it <= 1_000L }
+        val last1sOutgoing = outgoingTimestamps.count { now - it <= 1_000L }
+        val last10sIncoming = incomingTimestamps.count { now - it <= 10_000L }
+        val last10sOutgoing = outgoingTimestamps.count { now - it <= 10_000L }
+        val last1mIncoming = incomingTimestamps.count { now - it <= 60_000L }
+        val last1mOutgoing = outgoingTimestamps.count { now - it <= 60_000L }
+        val last15mIncoming = incomingTimestamps.size
+        val last15mOutgoing = outgoingTimestamps.size
+        val totalIncoming = _relayStats.value.totalIncomingCount
+        val totalOutgoing = _relayStats.value.totalOutgoingCount
         _relayStats.value = PacketRelayStats(
-            totalRelaysCount = total,
+            totalRelaysCount = totalIncoming + totalOutgoing,
             lastSecondRelays = last1s,
             last10SecondRelays = last10s,
             lastMinuteRelays = last1m,
             last15MinuteRelays = last15m,
-            lastResetTime = _relayStats.value.lastResetTime
+            lastResetTime = _relayStats.value.lastResetTime,
+            lastSecondIncoming = last1sIncoming,
+            lastSecondOutgoing = last1sOutgoing,
+            last10SecondIncoming = last10sIncoming,
+            last10SecondOutgoing = last10sOutgoing,
+            lastMinuteIncoming = last1mIncoming,
+            lastMinuteOutgoing = last1mOutgoing,
+            last15MinuteIncoming = last15mIncoming,
+            last15MinuteOutgoing = last15mOutgoing,
+            totalIncomingCount = totalIncoming,
+            totalOutgoingCount = totalOutgoing
         )
     }
     
@@ -336,11 +458,61 @@ class DebugSettingsManager private constructor() {
             }
         }
 
-        // Update rolling statistics only for relays
-        if (isRelay) {
-            relayTimestamps.offer(System.currentTimeMillis())
-            updateRelayStatsFromTimestamps()
+        // Do not update counters here; this path is for readable logs only.
+    }
+
+    // Explicit incoming/outgoing logging to avoid double counting
+    fun logIncoming(packetType: String, fromPeerID: String?, fromNickname: String?, fromDeviceAddress: String?) {
+        if (verboseLoggingEnabled.value) {
+            val who = fromNickname ?: fromPeerID ?: "unknown"
+            addDebugMessage(DebugMessage.PacketEvent("📥 Incoming $packetType from $who (${fromPeerID ?: "?"}, ${fromDeviceAddress ?: "?"})"))
         }
+        val now = System.currentTimeMillis()
+        val visible = _debugSheetVisible.value
+        if (visible) incomingTimestamps.offer(now)
+        fromDeviceAddress?.let {
+            perDeviceIncoming.getOrPut(it) { ConcurrentLinkedQueue() }.offer(now)
+            deviceIncomingTotalsMap[it] = (deviceIncomingTotalsMap[it] ?: 0L) + 1L
+            _perDeviceIncomingTotalsFlow.value = deviceIncomingTotalsMap.toMap()
+        }
+        fromPeerID?.let {
+            perPeerIncoming.getOrPut(it) { ConcurrentLinkedQueue() }.offer(now)
+            peerIncomingTotalsMap[it] = (peerIncomingTotalsMap[it] ?: 0L) + 1L
+            _perPeerIncomingTotalsFlow.value = peerIncomingTotalsMap.toMap()
+        }
+        // bump totals
+        val cur = _relayStats.value
+        _relayStats.value = cur.copy(
+            totalIncomingCount = cur.totalIncomingCount + 1,
+            totalRelaysCount = cur.totalRelaysCount + 1
+        )
+        if (visible) updateRelayStatsFromTimestamps()
+    }
+
+    fun logOutgoing(packetType: String, toPeerID: String?, toNickname: String?, toDeviceAddress: String?, previousHopPeerID: String? = null) {
+        if (verboseLoggingEnabled.value) {
+            val who = toNickname ?: toPeerID ?: "unknown"
+            addDebugMessage(DebugMessage.PacketEvent("📤 Outgoing $packetType to $who (${toPeerID ?: "?"}, ${toDeviceAddress ?: "?"})"))
+        }
+        val now = System.currentTimeMillis()
+        val visible = _debugSheetVisible.value
+        if (visible) outgoingTimestamps.offer(now)
+        toDeviceAddress?.let {
+            perDeviceOutgoing.getOrPut(it) { ConcurrentLinkedQueue() }.offer(now)
+            deviceOutgoingTotalsMap[it] = (deviceOutgoingTotalsMap[it] ?: 0L) + 1L
+            _perDeviceOutgoingTotalsFlow.value = deviceOutgoingTotalsMap.toMap()
+        }
+        (toPeerID ?: previousHopPeerID)?.let {
+            perPeerOutgoing.getOrPut(it) { ConcurrentLinkedQueue() }.offer(now)
+            peerOutgoingTotalsMap[it] = (peerOutgoingTotalsMap[it] ?: 0L) + 1L
+            _perPeerOutgoingTotalsFlow.value = peerOutgoingTotalsMap.toMap()
+        }
+        val cur = _relayStats.value
+        _relayStats.value = cur.copy(
+            totalOutgoingCount = cur.totalOutgoingCount + 1,
+            totalRelaysCount = cur.totalRelaysCount + 1
+        )
+        if (visible) updateRelayStatsFromTimestamps()
     }
     
     // MARK: - Clear Data
@@ -407,5 +579,15 @@ data class PacketRelayStats(
     val last10SecondRelays: Int = 0,
     val lastMinuteRelays: Int = 0,
     val last15MinuteRelays: Int = 0,
-    val lastResetTime: Date = Date()
+    val lastResetTime: Date = Date(),
+    val lastSecondIncoming: Int = 0,
+    val lastSecondOutgoing: Int = 0,
+    val last10SecondIncoming: Int = 0,
+    val last10SecondOutgoing: Int = 0,
+    val lastMinuteIncoming: Int = 0,
+    val lastMinuteOutgoing: Int = 0,
+    val last15MinuteIncoming: Int = 0,
+    val last15MinuteOutgoing: Int = 0,
+    val totalIncomingCount: Long = 0,
+    val totalOutgoingCount: Long = 0
 )
