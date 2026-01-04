@@ -112,6 +112,7 @@ object WifiAwareController {
         }
         try {
             service = WifiAwareMeshService(ctx).also {
+                Log.i(TAG, "Instantiating WifiAwareMeshService...")
                 it.startServices()
                 _running.value = true
                 try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware started")) } catch (_: Exception) {}

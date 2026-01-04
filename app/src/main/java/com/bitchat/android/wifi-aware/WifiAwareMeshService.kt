@@ -228,7 +228,10 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                         ) {
                             val peerId = try { String(serviceSpecificInfo) } catch (_: Exception) { "" }
                             handleToPeerId[peerHandle] = peerId
-                            if (peerId.isNotBlank()) discoveredTimestamps[peerId] = System.currentTimeMillis()
+                            if (peerId.isNotBlank()) {
+                                discoveredTimestamps[peerId] = System.currentTimeMillis()
+                                Log.i(TAG, "PUBLISH: Discovered subscriber '$peerId' via Aware")
+                            }
                             Log.d(TAG, "PUBLISH: onServiceDiscovered ssi='${peerId.take(16)}' len=${serviceSpecificInfo.size}")
                         }
 
@@ -243,7 +246,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
 
                             handleToPeerId[peerHandle] = subscriberId
                             if (subscriberId.isNotBlank()) discoveredTimestamps[subscriberId] = System.currentTimeMillis()
-                            Log.d(TAG, "PUBLISH: got ping from $subscriberId; spinning up server")
+                            Log.i(TAG, "PUBLISH: Received discovery ping from subscriber '$subscriberId'")
                             handleSubscriberPing(publishSession!!, peerHandle)
                         }
 
@@ -451,20 +454,23 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
 
         val cb = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
+                Log.i(TAG, "SERVER: onAvailable() - Aware network is ready for ${peerId.take(8)}")
                 try {
                     val client = ss.accept()
+                    Log.i(TAG, "SERVER: Accepted raw TCP connection from ${peerId.take(8)}")
                     try { network.bindSocket(client) } catch (e: Exception) { Log.w(TAG, "Server bindSocket EPERM: ${e.message}") }
                     client.keepAlive = true
-                    Log.d(TAG, "SERVER: accepted TCP from ${peerId.take(8)} addr=${client.inetAddress?.hostAddress}")
+                    Log.i(TAG, "SERVER: Bound and established TCP with ${peerId.take(8)} addr=${client.inetAddress?.hostAddress}")
                     connectionTracker.onClientConnected(peerId, client)
                     try { meshCore.setDirectConnection(peerId, true) } catch (_: Exception) {}
                     try { meshCore.addOrUpdatePeer(peerId, peerId) } catch (_: Exception) {}
                     listenerExec.execute { listenToPeer(client, peerId) }
                     handleSubscriberKeepAlive(client, peerId, pubSession, peerHandle)
+                    
                     // Kick off Noise handshake for this logical peer
                     if (myPeerID < peerId) {
                         meshCore.initiateNoiseHandshake(peerId)
-                        Log.d(TAG, "SERVER: initiating Noise handshake to ${peerId.take(8)} (lower ID)")
+                        Log.i(TAG, "SERVER: Initiating Noise handshake to ${peerId.take(8)}")
                     }
                     // Ensure fast presence even before handshake settles
                     serviceScope.launch { delay(150); sendBroadcastAnnounce() }
@@ -472,15 +478,27 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                     Log.e(TAG, "SERVER: accept failed for ${peerId.take(8)}", ioe)
                 }
             }
+
+            override fun onUnavailable() {
+                Log.e(TAG, "SERVER: onUnavailable() - Failed to acquire Aware network for ${peerId.take(8)} (timeout or refused)")
+                handlePeerDisconnection(peerId)
+            }
+
             override fun onLost(network: Network) {
                 handlePeerDisconnection(peerId)
-                Log.d(TAG, "SERVER: network lost for ${peerId.take(8)}")
+                Log.i(TAG, "SERVER: WiFi Aware network lost for ${peerId.take(8)}")
             }
         }
 
         connectionTracker.addNetworkCallback(peerId, cb)
-        Log.d(TAG, "SERVER: requesting Aware network for ${peerId.take(8)}")
-        cm.requestNetwork(req, cb)
+        Log.i(TAG, "SERVER: [Calling requestNetwork] for ${peerId.take(8)} with port $port")
+        try {
+            // use requestNetwork with a timeout to trigger onUnavailable if it fails
+            cm.requestNetwork(req, cb, 30_000) 
+        } catch (e: Exception) {
+            Log.e(TAG, "SERVER: ConnectivityManager.requestNetwork threw exception", e)
+            connectionTracker.disconnect(peerId)
+        }
 
         val readyId = (System.nanoTime() and 0x7fffffff).toInt()
         val portBytes = ByteBuffer.allocate(4)
@@ -550,7 +568,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         }
 
         val port = ByteBuffer.wrap(payload).order(ByteOrder.BIG_ENDIAN).int
-        Log.d(TAG, "CLIENT: connecting to ${peerId.take(8)} port=$port")
+        Log.i(TAG, "CLIENT: Received server-ready from ${peerId.take(8)} on port $port. Requesting network...")
 
         val spec = WifiAwareNetworkSpecifier.Builder(subscribeSession!!, peerHandle)
             .setPskPassphrase(PSK)
@@ -562,12 +580,19 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
 
         val cb = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
+                Log.i(TAG, "CLIENT: onAvailable() - Aware network is ready for ${peerId.take(8)}")
                 // Do not bind process for Aware; use per-socket binding instead
             }
+            
+            override fun onUnavailable() {
+                Log.e(TAG, "CLIENT: onUnavailable() - Failed to acquire Aware network for ${peerId.take(8)}")
+                handlePeerDisconnection(peerId)
+            }
+
             override fun onCapabilitiesChanged(network: Network, nc: NetworkCapabilities) {
-                if (connectionTracker.peerSockets.containsKey(peerId)) return
                 val info = (nc.transportInfo as? WifiAwareNetworkInfo) ?: return
                 val addr = info.peerIpv6Addr as? Inet6Address ?: return
+                Log.i(TAG, "CLIENT: onCapabilitiesChanged() - Peer IPv6 discovered: $addr")
 
                 val lp = cm.getLinkProperties(network)
                 val iface = lp?.interfaceName
@@ -590,17 +615,18 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                     }
 
                     sock.connect(java.net.InetSocketAddress(scopedAddr, port), 7000)
-                    Log.d(TAG, "CLIENT: TCP connected to ${peerId.take(8)} addr=$scopedAddr:$port (iface=$iface)")
+                    Log.i(TAG, "CLIENT: TCP connected to ${peerId.take(8)} at $scopedAddr:$port")
 
                     connectionTracker.onClientConnected(peerId, sock)
                     try { meshCore.setDirectConnection(peerId, true) } catch (_: Exception) {}
                     try { meshCore.addOrUpdatePeer(peerId, peerId) } catch (_: Exception) {}
                     listenerExec.execute { listenToPeer(sock, peerId) }
                     handleServerKeepAlive(sock, peerId, peerHandle)
+                    
                     // Kick off Noise handshake for this logical peer
                     if (myPeerID < peerId) {
                         meshCore.initiateNoiseHandshake(peerId)
-                        Log.d(TAG, "CLIENT: initiating Noise handshake to ${peerId.take(8)} (lower ID)")
+                        Log.i(TAG, "CLIENT: Initiating Noise handshake to ${peerId.take(8)}")
                     }
                     // Ensure fast presence even before handshake settles
                     serviceScope.launch { delay(150); sendBroadcastAnnounce() }
@@ -610,13 +636,18 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             }
             override fun onLost(network: Network) {
                 handlePeerDisconnection(peerId)
-                Log.d(TAG, "CLIENT: network lost for ${peerId.take(8)}")
+                Log.i(TAG, "CLIENT: WiFi Aware network lost for ${peerId.take(8)}")
             }
         }
 
         connectionTracker.addNetworkCallback(peerId, cb)
-        Log.d(TAG, "CLIENT: requesting Aware network for ${peerId.take(8)}")
-        cm.requestNetwork(req, cb)
+        Log.i(TAG, "CLIENT: [Calling requestNetwork] for ${peerId.take(8)}")
+        try {
+            cm.requestNetwork(req, cb, 30_000)
+        } catch (e: Exception) {
+            Log.e(TAG, "CLIENT: ConnectivityManager.requestNetwork threw exception", e)
+            connectionTracker.disconnect(peerId)
+        }
     }
 
     /**
