@@ -129,7 +129,7 @@ class LocationChannelManager private constructor(private val context: Context) {
      * Begin real-time location updates while a selector UI is visible
      * Uses requestLocationUpdates for continuous updates, plus a one-shot to prime state immediately
      */
-    fun beginLiveRefresh(interval: Long = 5000L) { // interval unused; kept for API compatibility
+    fun beginLiveRefresh(interval: Long = 5000L) {
         Log.d(TAG, "Beginning live refresh (continuous updates)")
 
         if (_permissionState.value != PermissionState.AUTHORIZED) {
@@ -159,7 +159,7 @@ class LocationChannelManager private constructor(private val context: Context) {
                         // 2s min time, 5m min distance for responsive yet battery-aware updates
                         locationManager.requestLocationUpdates(
                             provider,
-                            2000L,
+                            interval,
                             5f,
                             continuousLocationListener
                         )
@@ -218,27 +218,6 @@ class LocationChannelManager private constructor(private val context: Context) {
                     Log.d(TAG, "Teleported (immediate recompute): $isTeleportedNow (current: $currentGeohash, selected: ${channel.channel.geohash})")
                 }
             }
-
-    /**
-     * Start background location updates for other features that need live location
-     * (e.g., Location Notes auto-geohash selection in future). Currently unused but available.
-     */
-    fun startBackgroundLocationUpdates(minTimeMs: Long = 5000L, minDistanceM: Float = 10f) {
-        if (!hasLocationPermission() || !isLocationServicesEnabled()) return
-        try {
-            val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
-            providers.forEach { provider ->
-                if (locationManager.isProviderEnabled(provider)) {
-                    locationManager.requestLocationUpdates(provider, minTimeMs, minDistanceM, continuousLocationListener)
-                }
-            }
-        } catch (_: Exception) { }
-    }
-
-    fun stopBackgroundLocationUpdates() {
-        try { locationManager.removeUpdates(continuousLocationListener) } catch (_: Exception) {}
-    }
-
         }
     }
     
