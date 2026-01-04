@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 
 
@@ -39,6 +40,7 @@ fun MeshPeerListSheet(
     isPresented: Boolean,
     viewModel: ChatViewModel,
     onDismiss: () -> Unit,
+    onShowVerification: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -51,6 +53,7 @@ fun MeshPeerListSheet(
     val unreadChannelMessages by viewModel.unreadChannelMessages.collectAsStateWithLifecycle()
     val peerNicknames by viewModel.peerNicknames.collectAsStateWithLifecycle()
     val peerRSSI by viewModel.peerRSSI.collectAsStateWithLifecycle()
+    val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
 
     // Track nested private chat sheet state
     var showPrivateChatSheet by remember { mutableStateOf(false) }
@@ -114,6 +117,7 @@ fun MeshPeerListSheet(
                                 isSelected = isSelected,
                                 unreadCount = unreadCount,
                                 colorScheme = colorScheme,
+                                selectedLocationChannel = selectedLocationChannel,
                                 onChannelClick = {
                                     // Check if this is a DM channel (starts with @)
                                     if (channel.startsWith("@")) {
@@ -133,7 +137,8 @@ fun MeshPeerListSheet(
                                 },
                                 onLeaveChannel = {
                                     viewModel.leaveChannel(channel)
-                                }
+                                },
+                                onShowVerification = onShowVerification,
                             )
                         }
                     }
@@ -143,7 +148,7 @@ fun MeshPeerListSheet(
                         val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
 
                         when (selectedLocationChannel) {
-                            is com.bitchat.android.geohash.ChannelID.Location -> {
+                            is ChannelID.Location -> {
                                 // Show geohash people list when in location channel
                                 GeohashPeopleList(
                                     viewModel = viewModel,
@@ -225,8 +230,10 @@ private fun ChannelRow(
     isSelected: Boolean,
     unreadCount: Int,
     colorScheme: ColorScheme,
+    selectedLocationChannel: ChannelID?,
     onChannelClick: () -> Unit,
-    onLeaveChannel: () -> Unit
+    onLeaveChannel: () -> Unit,
+    onShowVerification: () -> Unit,
 ) {
     Surface(
         onClick = onChannelClick,
@@ -285,16 +292,27 @@ private fun ChannelRow(
                     )
                 }
 
-                // Leave channel button
-                IconButton(
-                    onClick = onLeaveChannel,
-                    modifier = Modifier.size(32.dp)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = stringResource(R.string.cd_leave_channel),
-                        modifier = Modifier.size(16.dp),
-                        tint = colorScheme.onSurface.copy(alpha = 0.5f)
+                    if (selectedLocationChannel !is ChannelID.Location) {
+                        IconButton(
+                            onClick = onShowVerification,
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.QrCode,
+                                contentDescription = stringResource(R.string.verify_title),
+                                tint = colorScheme.onSurface.copy(alpha = 0.8f),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    // Leave channel button
+                    CloseButton(
+                        onClick = onLeaveChannel,
                     )
                 }
             }
@@ -347,6 +365,7 @@ fun PeopleSection(
         val privateChats by viewModel.privateChats.collectAsStateWithLifecycle()
         val favoritePeers by viewModel.favoritePeers.collectAsStateWithLifecycle()
         val peerFingerprints by viewModel.peerFingerprints.collectAsStateWithLifecycle()
+        val verifiedFingerprints by viewModel.verifiedFingerprints.collectAsStateWithLifecycle()
 
         // Reactive favorite computation for all peers
         val peerFavoriteStates = remember(favoritePeers, peerFingerprints, connectedPeers) {
@@ -354,6 +373,12 @@ fun PeopleSection(
                 // Reactive favorite computation - same as ChatHeader
                 val fingerprint = peerFingerprints[peerID]
                 fingerprint != null && favoritePeers.contains(fingerprint)
+            }
+        }
+
+        val peerVerifiedStates = remember(verifiedFingerprints, peerFingerprints, connectedPeers) {
+            connectedPeers.associateWith { peerID ->
+                viewModel.isPeerVerified(peerID, verifiedFingerprints)
             }
         }
 
@@ -420,6 +445,7 @@ fun PeopleSection(
 
         sortedPeers.forEach { peerID ->
             val isFavorite = peerFavoriteStates[peerID] ?: false
+            val isVerified = peerVerifiedStates[peerID] ?: false
             // fingerprint and favorite relationship resolution not needed here; UI will show Nostr globe for appended offline favorites below
 
             val noiseHex = noiseHexByPeerID[peerID]
@@ -444,6 +470,7 @@ fun PeopleSection(
                 isDirect = isDirectLive,
                 isSelected = peerID == selectedPrivatePeer,
                 isFavorite = isFavorite,
+                isVerified = isVerified,
                 hasUnreadDM = combinedHasUnread,
                 colorScheme = colorScheme,
                 viewModel = viewModel,
@@ -488,6 +515,8 @@ fun PeopleSection(
             val (bName, _) = splitSuffix(dn)
             val showHash = (baseNameCounts[bName] ?: 0) > 1
 
+            val isVerified = viewModel.isNoisePublicKeyVerified(fav.peerNoisePublicKey, verifiedFingerprints)
+
             // Compute unreadCount from either noise conversation or Nostr conversation
             val unreadCount = (
                 privateChats[favPeerID]?.count { msg -> msg.sender != nickname && hasUnreadPrivateMessages.contains(favPeerID) } ?: 0
@@ -501,6 +530,7 @@ fun PeopleSection(
                 isDirect = false,
                 isSelected = (mappedConnectedPeerID ?: favPeerID) == selectedPrivatePeer,
                 isFavorite = true,
+                isVerified = isVerified,
                 hasUnreadDM = hasUnread,
                 colorScheme = colorScheme,
                 viewModel = viewModel,
@@ -568,6 +598,7 @@ private fun PeerItem(
     isDirect: Boolean,
     isSelected: Boolean,
     isFavorite: Boolean,
+    isVerified: Boolean,
     hasUnreadDM: Boolean,
     colorScheme: ColorScheme,
     viewModel: ChatViewModel,
@@ -674,6 +705,16 @@ private fun PeerItem(
                         )
                     }
                 }
+            }
+
+            if (isVerified) {
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    imageVector = Icons.Filled.Verified,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = Color(0xFF32D74B) // iOS Green
+                )
             }
 
             Row(
