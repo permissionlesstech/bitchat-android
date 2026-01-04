@@ -117,7 +117,6 @@ fun MeshPeerListSheet(
                                 isSelected = isSelected,
                                 unreadCount = unreadCount,
                                 colorScheme = colorScheme,
-                                selectedLocationChannel = selectedLocationChannel,
                                 onChannelClick = {
                                     // Check if this is a DM channel (starts with @)
                                     if (channel.startsWith("@")) {
@@ -138,15 +137,12 @@ fun MeshPeerListSheet(
                                 onLeaveChannel = {
                                     viewModel.leaveChannel(channel)
                                 },
-                                onShowVerification = onShowVerification,
                             )
                         }
                     }
 
                     // People section - switch between mesh and geohash lists (iOS-compatible)
                     item(key = "people_section") {
-                        val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
-
                         when (selectedLocationChannel) {
                             is ChannelID.Location -> {
                                 // Show geohash people list when in location channel
@@ -198,12 +194,31 @@ fun MeshPeerListSheet(
                             .padding(horizontal = 24.dp)
                     )
 
-                    CloseButton(
-                        onClick = onDismiss,
+                    Row(
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
-                            .padding(horizontal = 16.dp)
-                    )
+                            .padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (selectedLocationChannel !is ChannelID.Location) {
+                            IconButton(
+                                onClick = onShowVerification,
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.QrCode,
+                                    contentDescription = stringResource(R.string.verify_title),
+                                    tint = colorScheme.onSurface.copy(alpha = 0.8f),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+
+                        CloseButton(
+                            onClick = onDismiss
+                        )
+                    }
                 }
             }
         }
@@ -230,10 +245,8 @@ private fun ChannelRow(
     isSelected: Boolean,
     unreadCount: Int,
     colorScheme: ColorScheme,
-    selectedLocationChannel: ChannelID?,
     onChannelClick: () -> Unit,
     onLeaveChannel: () -> Unit,
-    onShowVerification: () -> Unit,
 ) {
     Surface(
         onClick = onChannelClick,
@@ -292,29 +305,10 @@ private fun ChannelRow(
                     )
                 }
 
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (selectedLocationChannel !is ChannelID.Location) {
-                        IconButton(
-                            onClick = onShowVerification,
-                            modifier = Modifier.size(24.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.QrCode,
-                                contentDescription = stringResource(R.string.verify_title),
-                                tint = colorScheme.onSurface.copy(alpha = 0.8f),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-
-                    // Leave channel button
-                    CloseButton(
-                        onClick = onLeaveChannel,
-                    )
-                }
+                // Leave channel button
+                CloseButton(
+                    onClick = onLeaveChannel,
+                )
             }
         }
     }
