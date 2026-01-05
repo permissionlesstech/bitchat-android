@@ -231,6 +231,14 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
      */
     private fun verifyPacketSignature(packet: BitchatPacket, peerID: String): Boolean {
         try {
+            // only verify ANNOUNCE, MESSAGE, and FILE_TRANSFER
+            if (MessageType.fromValue(packet.type) !in setOf(
+                    MessageType.ANNOUNCE,
+                    MessageType.MESSAGE,
+                    MessageType.FILE_TRANSFER
+                )) {
+                return true
+            }
             // 1. Mandatory Signature Check
             if (packet.signature == null) {
                 Log.w(TAG, "❌ Signature check for $peerID: NO_SIGNATURE (packet type ${packet.type})")
