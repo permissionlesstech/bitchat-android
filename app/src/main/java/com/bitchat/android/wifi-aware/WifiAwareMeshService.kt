@@ -258,15 +258,10 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                             handleSubscriberPing(publishSession!!, peerHandle)
                         }
 
-                        override fun onSessionTerminated() {
-                            Log.e(TAG, "PUBLISH: onSessionTerminated()")
-                            publishSession = null
-                            if (isActive) {
-                                Log.i(TAG, "PUBLISH: Attempting to restart publish session...")
-                                // Delay and check if we need to restart services entirely
-                                serviceScope.launch { delay(2000); if (isActive) startServices() }
-                            }
-                        }
+            override fun onSessionTerminated() {
+                Log.e(TAG, "PUBLISH: onSessionTerminated()")
+                publishSession = null
+            }
                     },
                     Handler(Looper.getMainLooper())
                 )
@@ -598,6 +593,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             }
 
             override fun onCapabilitiesChanged(network: Network, nc: NetworkCapabilities) {
+                if (connectionTracker.peerSockets.containsKey(peerId)) return
                 val info = (nc.transportInfo as? WifiAwareNetworkInfo) ?: return
                 val addr = info.peerIpv6Addr as? Inet6Address ?: return
                 Log.i(TAG, "CLIENT: onCapabilitiesChanged() - Peer IPv6 discovered: $addr")
