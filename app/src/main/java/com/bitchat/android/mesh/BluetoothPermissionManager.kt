@@ -34,10 +34,6 @@ class BluetoothPermissionManager(private val context: Context) {
             Manifest.permission.ACCESS_FINE_LOCATION
         ))
 
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            permissions.add(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-        }
-        
         return permissions.all { 
             ActivityCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED 
         }

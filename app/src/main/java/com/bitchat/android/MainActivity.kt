@@ -276,6 +276,12 @@ class MainActivity : OrientationAwareActivity() {
                     modifier = modifier,
                     onContinue = {
                         onboardingCoordinator.requestBackgroundLocation()
+                    },
+                    onRetry = {
+                        onboardingCoordinator.checkBackgroundLocationAndProceed()
+                    },
+                    onSkip = {
+                        onboardingCoordinator.skipBackgroundLocation()
                     }
                 )
             }
@@ -393,10 +399,17 @@ class MainActivity : OrientationAwareActivity() {
             if (permissionManager.isFirstTimeLaunch()) {
                 Log.d("MainActivity", "First time launch, showing permission explanation")
                 mainViewModel.updateOnboardingState(OnboardingState.PERMISSION_EXPLANATION)
-            } else if (permissionManager.areAllPermissionsGranted()) {
-                Log.d("MainActivity", "Existing user with permissions, initializing app")
-                mainViewModel.updateOnboardingState(OnboardingState.INITIALIZING)
-                initializeApp()
+            } else if (permissionManager.areRequiredPermissionsGranted()) {
+                Log.d("MainActivity", "Existing user with required permissions")
+                if (permissionManager.needsBackgroundLocationPermission() &&
+                    !permissionManager.isBackgroundLocationGranted() &&
+                    !com.bitchat.android.onboarding.BackgroundLocationPreferenceManager.isSkipped(this@MainActivity)
+                ) {
+                    mainViewModel.updateOnboardingState(OnboardingState.BACKGROUND_LOCATION_EXPLANATION)
+                } else {
+                    mainViewModel.updateOnboardingState(OnboardingState.INITIALIZING)
+                    initializeApp()
+                }
             } else {
                 Log.d("MainActivity", "Existing user missing permissions, showing explanation")
                 mainViewModel.updateOnboardingState(OnboardingState.PERMISSION_EXPLANATION)
@@ -655,8 +668,7 @@ class MainActivity : OrientationAwareActivity() {
                 
                 // Ensure all permissions are still granted (user might have revoked in settings)
                 if (!permissionManager.areAllPermissionsGranted()) {
-                    val missing = permissionManager.getMissingPermissions() +
-                        permissionManager.getMissingBackgroundLocationPermission()
+                    val missing = permissionManager.getMissingPermissions()
                     Log.w("MainActivity", "Permissions revoked during initialization: $missing")
                     handleOnboardingFailed("Some permissions were revoked. Please grant all permissions to continue.")
                     return@launch

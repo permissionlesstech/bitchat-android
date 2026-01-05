@@ -61,9 +61,14 @@ class OnboardingCoordinator(
         Log.d(TAG, "Starting onboarding process")
         permissionManager.logPermissionStatus()
 
-        if (permissionManager.areAllPermissionsGranted()) {
-            Log.d(TAG, "All permissions already granted, completing onboarding")
-            completeOnboarding()
+        if (permissionManager.areRequiredPermissionsGranted()) {
+            if (shouldRequestBackgroundLocation()) {
+                Log.d(TAG, "Foreground permissions granted; background location recommended")
+                onBackgroundLocationRequired()
+            } else {
+                Log.d(TAG, "Required permissions already granted, completing onboarding")
+                completeOnboarding()
+            }
         } else {
             Log.d(TAG, "Missing permissions, need to start explanation flow")
             // The explanation screen will be shown by the calling activity
@@ -147,18 +152,28 @@ class OnboardingCoordinator(
     private fun handleBackgroundLocationResult(granted: Boolean) {
         if (granted) {
             Log.d(TAG, "Background location permission granted")
-            completeOnboarding()
-            return
+        } else {
+            Log.w(TAG, "Background location permission denied; continuing without it")
         }
+        completeOnboarding()
+    }
 
-        val message = "Background location is required for Bluetooth scanning after reboot. " +
-            "bitchat NEVER collects or stores your location. Please enable background location in Settings."
-        Log.e(TAG, "Background location permission denied")
-        onOnboardingFailed(message)
+    fun skipBackgroundLocation() {
+        Log.d(TAG, "User skipped background location permission")
+        BackgroundLocationPreferenceManager.setSkipped(activity, true)
+        completeOnboarding()
+    }
+
+    fun checkBackgroundLocationAndProceed() {
+        if (!shouldRequestBackgroundLocation()) {
+            completeOnboarding()
+        }
     }
 
     private fun shouldRequestBackgroundLocation(): Boolean {
-        return permissionManager.needsBackgroundLocationPermission() && !permissionManager.isBackgroundLocationGranted()
+        return permissionManager.needsBackgroundLocationPermission() &&
+            !permissionManager.isBackgroundLocationGranted() &&
+            !BackgroundLocationPreferenceManager.isSkipped(activity)
     }
 
     /**

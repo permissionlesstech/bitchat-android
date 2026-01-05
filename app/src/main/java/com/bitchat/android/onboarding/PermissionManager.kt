@@ -116,10 +116,14 @@ class PermissionManager(private val context: Context) {
     }
 
     /**
-     * Check if all required permissions are granted
+     * Check if all required permissions are granted (background location is optional).
      */
     fun areAllPermissionsGranted(): Boolean {
-        return getRequiredPermissions().all { isPermissionGranted(it) } && isBackgroundLocationGranted()
+        return getRequiredPermissions().all { isPermissionGranted(it) }
+    }
+
+    fun areRequiredPermissionsGranted(): Boolean {
+        return getRequiredPermissions().all { isPermissionGranted(it) }
     }
 
     /**
@@ -257,7 +261,7 @@ class PermissionManager(private val context: Context) {
             appendLine("Permission Diagnostics:")
             appendLine("Android SDK: ${Build.VERSION.SDK_INT}")
             appendLine("First time launch: ${isFirstTimeLaunch()}")
-            appendLine("All permissions granted: ${areAllPermissionsGranted()}")
+            appendLine("Required permissions granted: ${areAllPermissionsGranted()}")
             appendLine()
             
             getCategorizedPermissions().forEach { category ->

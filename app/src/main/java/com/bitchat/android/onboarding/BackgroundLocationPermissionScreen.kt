@@ -21,8 +21,10 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,7 +41,9 @@ import com.bitchat.android.R
 @Composable
 fun BackgroundLocationPermissionScreen(
     modifier: Modifier,
-    onContinue: () -> Unit
+    onContinue: () -> Unit,
+    onRetry: () -> Unit,
+    onSkip: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val scrollState = rememberScrollState()
@@ -89,6 +93,14 @@ fun BackgroundLocationPermissionScreen(
                             Text(
                                 text = stringResource(R.string.background_location_explanation),
                                 style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onBackground.copy(alpha = 0.8f)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = stringResource(R.string.background_location_settings_tip),
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontFamily = FontFamily.Monospace
+                                ),
                                 color = colorScheme.onBackground.copy(alpha = 0.8f)
                             )
                         }
@@ -155,23 +167,57 @@ fun BackgroundLocationPermissionScreen(
             color = colorScheme.surface,
             shadowElevation = 8.dp
         ) {
-            Button(
-                onClick = onContinue,
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp, vertical = 16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = colorScheme.primary
-                )
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    text = stringResource(R.string.grant_background_location),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold
-                    ),
-                    modifier = Modifier.padding(vertical = 4.dp)
-                )
+                Button(
+                    onClick = onContinue,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colorScheme.primary
+                    )
+                ) {
+                    Text(
+                        text = stringResource(R.string.grant_background_location),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onRetry,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.check_again),
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontFamily = FontFamily.Monospace
+                            )
+                        )
+                    }
+
+                    TextButton(
+                        onClick = onSkip,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.battery_optimization_skip),
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontFamily = FontFamily.Monospace
+                            )
+                        )
+                    }
+                }
             }
         }
     }
