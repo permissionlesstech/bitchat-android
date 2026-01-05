@@ -84,6 +84,7 @@ dependencies {
     
     // Lifecycle
     implementation(libs.bundles.lifecycle)
+    implementation(libs.androidx.lifecycle.process)
     
     // Navigation
     implementation(libs.androidx.navigation.compose)

@@ -721,9 +721,6 @@ class MainActivity : OrientationAwareActivity() {
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
             // Reattach mesh delegate to new ChatViewModel instance after Activity recreation
             try { meshService.delegate = chatViewModel } catch (_: Exception) { }
-            // Set app foreground state
-            meshService.connectionManager.setAppBackgroundState(false)
-            chatViewModel.setAppBackgroundState(false)
 
             // Check if Bluetooth was disabled while app was backgrounded
             val currentBluetoothStatus = bluetoothStatusManager.checkBluetoothStatus()
@@ -750,9 +747,6 @@ class MainActivity : OrientationAwareActivity() {
         super.onPause()
         // Only set background state if app is fully initialized
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
-            // Set app background state
-            meshService.connectionManager.setAppBackgroundState(true)
-            chatViewModel.setAppBackgroundState(true)
             // Detach UI delegate so the foreground service can own DM notifications while UI is closed
             try { meshService.delegate = null } catch (_: Exception) { }
         }
