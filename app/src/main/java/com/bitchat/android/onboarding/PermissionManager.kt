@@ -119,7 +119,7 @@ class PermissionManager(private val context: Context) {
      * Check if all required permissions are granted (background location is optional).
      */
     fun areAllPermissionsGranted(): Boolean {
-        return getRequiredPermissions().all { isPermissionGranted(it) }
+        return areRequiredPermissionsGranted()
     }
 
     fun areRequiredPermissionsGranted(): Boolean {
