@@ -19,6 +19,7 @@ class OnboardingCoordinator(
     private val activity: ComponentActivity,
     private val permissionManager: PermissionManager,
     private val onOnboardingComplete: () -> Unit,
+    private val onBackgroundLocationRequired: () -> Unit,
     private val onOnboardingFailed: (String) -> Unit
 ) {
 
@@ -27,9 +28,11 @@ class OnboardingCoordinator(
     }
 
     private var permissionLauncher: ActivityResultLauncher<Array<String>>? = null
+    private var backgroundLocationLauncher: ActivityResultLauncher<String>? = null
 
     init {
         setupPermissionLauncher()
+        setupBackgroundLocationLauncher()
     }
 
     /**
@@ -40,6 +43,14 @@ class OnboardingCoordinator(
             ActivityResultContracts.RequestMultiplePermissions()
         ) { permissions ->
             handlePermissionResults(permissions)
+        }
+    }
+
+    private fun setupBackgroundLocationLauncher() {
+        backgroundLocationLauncher = activity.registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { granted ->
+            handleBackgroundLocationResult(granted)
         }
     }
 
@@ -76,7 +87,11 @@ class OnboardingCoordinator(
         val missingPermissions = (missingRequired + optionalToRequest).distinct()
 
         if (missingPermissions.isEmpty()) {
-            completeOnboarding()
+            if (shouldRequestBackgroundLocation()) {
+                onBackgroundLocationRequired()
+            } else {
+                completeOnboarding()
+            }
             return
         }
 
@@ -98,19 +113,52 @@ class OnboardingCoordinator(
         val criticalGranted = criticalPermissions.all { permissions[it] == true }
 
         when {
-            allGranted -> {
-                Log.d(TAG, "All permissions granted successfully")
-                completeOnboarding()
-            }
             criticalGranted -> {
-                Log.d(TAG, "Critical permissions granted, can proceed with limited functionality")
-                showPartialPermissionWarning(permissions)
+                if (shouldRequestBackgroundLocation()) {
+                    Log.d(TAG, "Foreground permissions granted; requesting background location next")
+                    onBackgroundLocationRequired()
+                    return
+                }
+                if (allGranted) {
+                    Log.d(TAG, "All permissions granted successfully")
+                    completeOnboarding()
+                } else {
+                    Log.d(TAG, "Critical permissions granted, can proceed with limited functionality")
+                    showPartialPermissionWarning(permissions)
+                }
             }
             else -> {
                 Log.d(TAG, "Critical permissions denied")
                 handlePermissionDenial(permissions)
             }
         }
+    }
+
+    fun requestBackgroundLocation() {
+        val permission = permissionManager.getBackgroundLocationPermission()
+        if (permission == null) {
+            completeOnboarding()
+            return
+        }
+        Log.d(TAG, "Requesting background location permission")
+        backgroundLocationLauncher?.launch(permission)
+    }
+
+    private fun handleBackgroundLocationResult(granted: Boolean) {
+        if (granted) {
+            Log.d(TAG, "Background location permission granted")
+            completeOnboarding()
+            return
+        }
+
+        val message = "Background location is required for Bluetooth scanning after reboot. " +
+            "bitchat NEVER collects or stores your location. Please enable background location in Settings."
+        Log.e(TAG, "Background location permission denied")
+        onOnboardingFailed(message)
+    }
+
+    private fun shouldRequestBackgroundLocation(): Boolean {
+        return permissionManager.needsBackgroundLocationPermission() && !permissionManager.isBackgroundLocationGranted()
     }
 
     /**
@@ -208,6 +256,7 @@ class OnboardingCoordinator(
     private fun getPermissionDisplayName(permission: String): String {
         return when {
             permission.contains("BLUETOOTH") -> "Bluetooth/Nearby Devices"
+            permission.contains("BACKGROUND") -> "Background Location"
             permission.contains("LOCATION") -> "Location (for Bluetooth scanning)"
             permission.contains("NOTIFICATION") -> "Notifications"
             else -> permission.substringAfterLast(".")

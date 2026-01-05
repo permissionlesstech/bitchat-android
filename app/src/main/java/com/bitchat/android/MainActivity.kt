@@ -26,6 +26,7 @@ import com.bitchat.android.onboarding.BatteryOptimizationManager
 import com.bitchat.android.onboarding.BatteryOptimizationPreferenceManager
 import com.bitchat.android.onboarding.BatteryOptimizationScreen
 import com.bitchat.android.onboarding.BatteryOptimizationStatus
+import com.bitchat.android.onboarding.BackgroundLocationPermissionScreen
 import com.bitchat.android.onboarding.InitializationErrorScreen
 import com.bitchat.android.onboarding.InitializingScreen
 import com.bitchat.android.onboarding.LocationCheckScreen
@@ -135,6 +136,9 @@ class MainActivity : OrientationAwareActivity() {
             activity = this,
             permissionManager = permissionManager,
             onOnboardingComplete = ::handleOnboardingComplete,
+            onBackgroundLocationRequired = {
+                mainViewModel.updateOnboardingState(OnboardingState.BACKGROUND_LOCATION_EXPLANATION)
+            },
             onOnboardingFailed = ::handleOnboardingFailed
         )
         
@@ -263,6 +267,15 @@ class MainActivity : OrientationAwareActivity() {
                     onContinue = {
                         mainViewModel.updateOnboardingState(OnboardingState.PERMISSION_REQUESTING)
                         onboardingCoordinator.requestPermissions()
+                    }
+                )
+            }
+
+            OnboardingState.BACKGROUND_LOCATION_EXPLANATION -> {
+                BackgroundLocationPermissionScreen(
+                    modifier = modifier,
+                    onContinue = {
+                        onboardingCoordinator.requestBackgroundLocation()
                     }
                 )
             }
@@ -642,7 +655,8 @@ class MainActivity : OrientationAwareActivity() {
                 
                 // Ensure all permissions are still granted (user might have revoked in settings)
                 if (!permissionManager.areAllPermissionsGranted()) {
-                    val missing = permissionManager.getMissingPermissions()
+                    val missing = permissionManager.getMissingPermissions() +
+                        permissionManager.getMissingBackgroundLocationPermission()
                     Log.w("MainActivity", "Permissions revoked during initialization: $missing")
                     handleOnboardingFailed("Some permissions were revoked. Please grant all permissions to continue.")
                     return@launch

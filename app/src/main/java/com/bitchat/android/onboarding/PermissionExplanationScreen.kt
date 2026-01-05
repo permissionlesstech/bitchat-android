@@ -209,7 +209,7 @@ private fun PermissionCategoryCard(
                 color = colorScheme.onBackground.copy(alpha = 0.8f)
             )
 
-            if (category.type == PermissionType.PRECISE_LOCATION) {
+            if (category.type == PermissionType.PRECISE_LOCATION || category.type == PermissionType.BACKGROUND_LOCATION) {
                 // Extra emphasis for location permission
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(
@@ -240,6 +240,7 @@ private fun getPermissionIcon(permissionType: PermissionType): ImageVector {
     return when (permissionType) {
         PermissionType.NEARBY_DEVICES -> Icons.Filled.Bluetooth
         PermissionType.PRECISE_LOCATION -> Icons.Filled.LocationOn
+        PermissionType.BACKGROUND_LOCATION -> Icons.Filled.LocationOn
         PermissionType.MICROPHONE -> Icons.Filled.Mic
         PermissionType.NOTIFICATIONS -> Icons.Filled.Notifications
         PermissionType.BATTERY_OPTIMIZATION -> Icons.Filled.Power

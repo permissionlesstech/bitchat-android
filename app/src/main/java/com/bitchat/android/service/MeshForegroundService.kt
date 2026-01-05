@@ -92,7 +92,7 @@ class MeshForegroundService : Service() {
         }
 
         private fun hasBluetoothPermissionsStatic(ctx: Context): Boolean {
-            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val base = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.BLUETOOTH_ADVERTISE) == android.content.pm.PackageManager.PERMISSION_GRANTED &&
                 androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.BLUETOOTH_CONNECT) == android.content.pm.PackageManager.PERMISSION_GRANTED &&
                 androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.BLUETOOTH_SCAN) == android.content.pm.PackageManager.PERMISSION_GRANTED
@@ -101,6 +101,12 @@ class MeshForegroundService : Service() {
                 val coarse = androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
                 fine || coarse
             }
+            val backgroundOk = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.ACCESS_BACKGROUND_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            } else {
+                true
+            }
+            return base && backgroundOk
         }
 
         private fun hasNotificationPermissionStatic(ctx: Context): Boolean {
@@ -259,7 +265,7 @@ class MeshForegroundService : Service() {
     }
 
     private fun hasBluetoothPermissions(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val base = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_ADVERTISE) == android.content.pm.PackageManager.PERMISSION_GRANTED &&
             androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_CONNECT) == android.content.pm.PackageManager.PERMISSION_GRANTED &&
             androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_SCAN) == android.content.pm.PackageManager.PERMISSION_GRANTED
@@ -269,6 +275,12 @@ class MeshForegroundService : Service() {
             val coarse = androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
             fine || coarse
         }
+        val backgroundOk = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_BACKGROUND_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
+        return base && backgroundOk
     }
 
     private fun hasNotificationPermission(): Boolean {
