@@ -61,6 +61,7 @@ class BluetoothMeshService(private val context: Context) : MeshService, Transpor
             field = value
             if (::meshCore.isInitialized) {
                 meshCore.delegate = value
+                meshCore.refreshPeerList()
             }
         }
     // Tracks whether this instance has been terminated via stopServices()

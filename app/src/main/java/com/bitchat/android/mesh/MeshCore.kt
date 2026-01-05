@@ -668,6 +668,10 @@ class MeshCore(
 
     fun getActivePeerCount(): Int = try { peerManager.getActivePeerCount() } catch (_: Exception) { 0 }
 
+    fun refreshPeerList() {
+        try { peerManager.refreshPeerList() } catch (_: Exception) { }
+    }
+
     fun getDeviceAddressForPeer(peerID: String): String? = transport.getDeviceAddressForPeer(peerID)
 
     fun getDeviceAddressToPeerMapping(): Map<String, String> = transport.getDeviceAddressToPeerMapping()

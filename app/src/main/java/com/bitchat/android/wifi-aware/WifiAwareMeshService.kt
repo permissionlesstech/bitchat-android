@@ -81,6 +81,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             field = value
             if (::meshCore.isInitialized) {
                 meshCore.delegate = value
+                meshCore.refreshPeerList()
             }
         }
     private val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -113,6 +114,9 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                     routed.peerID?.let { pid ->
                         try { meshCore.gossipSyncManager.scheduleInitialSyncToPeer(pid, 1_000) } catch (_: Exception) { }
                     }
+                },
+                announcementNicknameProvider = {
+                    try { com.bitchat.android.services.NicknameProvider.getNickname(context, myPeerID) } catch (_: Exception) { null }
                 },
                 leavePayloadProvider = {
                     (delegate?.getNickname() ?: myPeerID).toByteArray(Charsets.UTF_8)
