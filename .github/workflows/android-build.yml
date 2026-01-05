@@ -95,7 +95,12 @@ jobs:
           ${{ runner.os }}-gradle-
 
     - name: Build ${{ matrix.variant }} APK
-      run: ./gradlew assemble${{ matrix.variant }}
+      run: |
+        if [ "${{ matrix.variant }}" == "Release" ]; then
+          ./gradlew assemble${{ matrix.variant }} -PbuildSplitApks=true
+        else
+          ./gradlew assemble${{ matrix.variant }}
+        fi
 
     - name: Upload ${{ matrix.variant }} APK
       uses: actions/upload-artifact@v4

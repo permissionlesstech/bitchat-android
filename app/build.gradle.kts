@@ -48,9 +48,14 @@ android {
 
     // APK splits for GitHub releases - creates arm64, x86_64, and universal APKs
     // AAB for Play Store handles architecture distribution automatically
+    // Enable splits via: ./gradlew assembleRelease -PbuildSplitApks=true
+    // Splits are disabled by default to allow AAB builds (bundleRelease)
+    val enableSplits = project.hasProperty("buildSplitApks") &&
+                       project.property("buildSplitApks") == "true"
+
     splits {
         abi {
-            isEnable = true
+            isEnable = enableSplits
             reset()
             include("arm64-v8a", "x86_64", "armeabi-v7a", "x86")
             isUniversalApk = true  // For F-Droid and fallback
