@@ -13,7 +13,7 @@ android {
         applicationId = "com.bitchat.droid"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 28
+        versionCode = 29
         versionName = "1.6.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
