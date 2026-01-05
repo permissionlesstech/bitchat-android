@@ -56,18 +56,24 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
 
         // Duplicate detection
         val messageID = generateMessageID(packet, peerID)
-        if (messageType != MessageType.ANNOUNCE) {
-            if (processedMessages.contains(messageID)) {
+        
+        if (processedMessages.contains(messageID)) {
+            // Check for ANNOUNCE exception: allow if it looks like a direct neighbor (max TTL)
+            // This ensures we catch the "first announce" on a new connection for binding,
+            // while still dropping looped/relayed duplicates.
+            val isFreshAnnounce = messageType == MessageType.ANNOUNCE &&
+                    packet.ttl >= com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
+
+            if (!isFreshAnnounce) {
                 Log.d(TAG, "Dropping duplicate packet: $messageID")
                 return false
             }
-            // Add to processed messages
-            processedMessages.add(messageID)
-            messageTimestamps[messageID] = currentTime
-        } else {
-            // Do not deduplicate ANNOUNCE at the security layer.
-            // They are signed/idempotent and we need to ensure first-announce per-connection can bind.
+            Log.d(TAG, "Allowing duplicate ANNOUNCE from direct neighbor: $messageID")
         }
+
+        // Add to processed messages
+        processedMessages.add(messageID)
+        messageTimestamps[messageID] = currentTime
         
         // Enforce mandatory signature verification
         if (!verifyPacketSignature(packet, peerID)) {

@@ -239,6 +239,37 @@ class SecurityManagerTest {
         assertFalse("Duplicate packet should be rejected", result2)
     }
 
+    @Test
+    fun `validatePacket - handles ANNOUNCE duplicates correctly`() {
+        val announcement = IdentityAnnouncement(
+            nickname = "New User",
+            noisePublicKey = otherNoiseKey,
+            signingPublicKey = otherSigningKey
+        )
+        val payload = announcement.encode()!!
+        
+        // 1. Initial Announce (Fresh)
+        val packet1 = BitchatPacket(
+            type = MessageType.ANNOUNCE.value,
+            ttl = com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS, // 7u
+            senderID = unknownPeerID,
+            payload = payload
+        )
+        packet1.signature = validSignature
+        
+        whenever(mockDelegate.getPeerInfo(unknownPeerID)).thenReturn(null)
+
+        assertTrue("First ANNOUNCE should be accepted", securityManager.validatePacket(packet1, unknownPeerID))
+        
+        // 2. Relayed Duplicate (Lower TTL)
+        val packet2 = packet1.copy(ttl = (com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS - 1u).toUByte())
+        assertFalse("Relayed duplicate ANNOUNCE should be rejected", securityManager.validatePacket(packet2, unknownPeerID))
+        
+        // 3. Direct Duplicate (Max TTL)
+        val packet3 = packet1.copy(ttl = com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS)
+        assertTrue("Fresh duplicate ANNOUNCE should be accepted", securityManager.validatePacket(packet3, unknownPeerID))
+    }
+
     private fun setupKnownPeer(peerID: String, signingKey: ByteArray) {
         val info = PeerInfo(
             id = peerID,
