@@ -248,13 +248,6 @@ class BluetoothConnectionManager(
     }
     
     /**
-     * Set app background state for power optimization
-     */
-    fun setAppBackgroundState(inBackground: Boolean) {
-        powerManager.setAppBackgroundState(inBackground)
-    }
-
-    /**
      * Broadcast packet to connected devices with connection limit enforcement
      * Automatically fragments large packets to fit within BLE MTU limits
      */

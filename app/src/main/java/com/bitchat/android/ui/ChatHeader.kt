@@ -318,6 +318,10 @@ private fun PrivateChatHeader(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val isNostrDM = peerID.startsWith("nostr_") || peerID.startsWith("nostr:")
+    val verifiedFingerprints by viewModel.verifiedFingerprints.collectAsStateWithLifecycle()
+    val isVerified = remember(peerID, verifiedFingerprints) {
+        viewModel.isPeerVerified(peerID, verifiedFingerprints)
+    }
     // Determine mutual favorite state for this peer (supports mesh ephemeral 16-hex via favorites lookup)
     val isMutualFavorite = remember(peerID, peerNicknames) {
         try {
@@ -413,17 +417,33 @@ private fun PrivateChatHeader(
 
             // Show a globe when chatting via Nostr alias, or when mesh session not established but mutual favorite exists
             val showGlobe = isNostrDM || (sessionState != "established" && isMutualFavorite)
+            val securityModifier = if (!isNostrDM) {
+                Modifier.clickable { viewModel.showSecurityVerificationSheet() }
+            } else {
+                Modifier
+            }
+
             if (showGlobe) {
                 Icon(
                     imageVector = Icons.Outlined.Public,
                 contentDescription = stringResource(R.string.cd_nostr_reachable),
-                    modifier = Modifier.size(14.dp),
+                    modifier = Modifier.size(14.dp).then(securityModifier),
                     tint = Color(0xFF9B59B6) // Purple like iOS
                 )
             } else {
                 NoiseSessionIcon(
                     sessionState = sessionState,
-                    modifier = Modifier.size(14.dp)
+                    modifier = Modifier.size(14.dp).then(securityModifier)
+                )
+            }
+
+            if (isVerified) {
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    imageVector = Icons.Filled.Verified,
+                    contentDescription = stringResource(R.string.verify_title),
+                    modifier = Modifier.size(14.dp).then(securityModifier),
+                    tint = Color(0xFF32D74B)
                 )
             }
 

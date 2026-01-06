@@ -26,6 +26,7 @@ import com.bitchat.android.onboarding.BatteryOptimizationManager
 import com.bitchat.android.onboarding.BatteryOptimizationPreferenceManager
 import com.bitchat.android.onboarding.BatteryOptimizationScreen
 import com.bitchat.android.onboarding.BatteryOptimizationStatus
+import com.bitchat.android.onboarding.BackgroundLocationPermissionScreen
 import com.bitchat.android.onboarding.InitializationErrorScreen
 import com.bitchat.android.onboarding.InitializingScreen
 import com.bitchat.android.onboarding.LocationCheckScreen
@@ -40,6 +41,7 @@ import com.bitchat.android.ui.ChatViewModel
 import com.bitchat.android.ui.OrientationAwareActivity
 import com.bitchat.android.ui.theme.BitchatTheme
 import com.bitchat.android.nostr.PoWPreferenceManager
+import com.bitchat.android.services.VerificationService
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -63,8 +65,37 @@ class MainActivity : OrientationAwareActivity() {
         }
     }
     
+    private val forceFinishReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: android.content.Context, intent: android.content.Intent) {
+            if (intent.action == com.bitchat.android.util.AppConstants.UI.ACTION_FORCE_FINISH) {
+                android.util.Log.i("MainActivity", "Received force finish broadcast, closing UI")
+                finishAffinity()
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Register receiver for force finish signal from shutdown coordinator
+        val filter = android.content.IntentFilter(com.bitchat.android.util.AppConstants.UI.ACTION_FORCE_FINISH)
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(
+                forceFinishReceiver,
+                filter,
+                com.bitchat.android.util.AppConstants.UI.PERMISSION_FORCE_FINISH,
+                null,
+                android.content.Context.RECEIVER_NOT_EXPORTED
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(
+                forceFinishReceiver,
+                filter,
+                com.bitchat.android.util.AppConstants.UI.PERMISSION_FORCE_FINISH,
+                null
+            )
+        }
         
         // Check if this is a quit request from the notification
         if (intent.getBooleanExtra("ACTION_QUIT_APP", false)) {
@@ -72,6 +103,8 @@ class MainActivity : OrientationAwareActivity() {
             finish()
             return
         }
+
+        com.bitchat.android.service.AppShutdownCoordinator.cancelPendingShutdown()
         
         // Enable edge-to-edge display for modern Android look
         enableEdgeToEdge()
@@ -103,6 +136,9 @@ class MainActivity : OrientationAwareActivity() {
             activity = this,
             permissionManager = permissionManager,
             onOnboardingComplete = ::handleOnboardingComplete,
+            onBackgroundLocationRequired = {
+                mainViewModel.updateOnboardingState(OnboardingState.BACKGROUND_LOCATION_EXPLANATION)
+            },
             onOnboardingFailed = ::handleOnboardingFailed
         )
         
@@ -235,6 +271,21 @@ class MainActivity : OrientationAwareActivity() {
                 )
             }
 
+            OnboardingState.BACKGROUND_LOCATION_EXPLANATION -> {
+                BackgroundLocationPermissionScreen(
+                    modifier = modifier,
+                    onContinue = {
+                        onboardingCoordinator.requestBackgroundLocation()
+                    },
+                    onRetry = {
+                        onboardingCoordinator.checkBackgroundLocationAndProceed()
+                    },
+                    onSkip = {
+                        onboardingCoordinator.skipBackgroundLocation()
+                    }
+                )
+            }
+
             OnboardingState.CHECKING, OnboardingState.INITIALIZING, OnboardingState.COMPLETE -> {
                 // Set up back navigation handling for the chat screen
                 val backCallback = object : OnBackPressedCallback(true) {
@@ -348,10 +399,17 @@ class MainActivity : OrientationAwareActivity() {
             if (permissionManager.isFirstTimeLaunch()) {
                 Log.d("MainActivity", "First time launch, showing permission explanation")
                 mainViewModel.updateOnboardingState(OnboardingState.PERMISSION_EXPLANATION)
-            } else if (permissionManager.areAllPermissionsGranted()) {
-                Log.d("MainActivity", "Existing user with permissions, initializing app")
-                mainViewModel.updateOnboardingState(OnboardingState.INITIALIZING)
-                initializeApp()
+            } else if (permissionManager.areRequiredPermissionsGranted()) {
+                Log.d("MainActivity", "Existing user with required permissions")
+                if (permissionManager.needsBackgroundLocationPermission() &&
+                    !permissionManager.isBackgroundLocationGranted() &&
+                    !com.bitchat.android.onboarding.BackgroundLocationPreferenceManager.isSkipped(this@MainActivity)
+                ) {
+                    mainViewModel.updateOnboardingState(OnboardingState.BACKGROUND_LOCATION_EXPLANATION)
+                } else {
+                    mainViewModel.updateOnboardingState(OnboardingState.INITIALIZING)
+                    initializeApp()
+                }
             } else {
                 Log.d("MainActivity", "Existing user missing permissions, showing explanation")
                 mainViewModel.updateOnboardingState(OnboardingState.PERMISSION_EXPLANATION)
@@ -624,6 +682,7 @@ class MainActivity : OrientationAwareActivity() {
                 
                 // Handle any notification intent
                 handleNotificationIntent(intent)
+                handleVerificationIntent(intent)
                 
                 // Small delay to ensure mesh service is fully initialized
                 delay(500)
@@ -646,10 +705,13 @@ class MainActivity : OrientationAwareActivity() {
             finish()
             return
         }
+
+        com.bitchat.android.service.AppShutdownCoordinator.cancelPendingShutdown()
         
         // Handle notification intents when app is already running
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
             handleNotificationIntent(intent)
+            handleVerificationIntent(intent)
         }
     }
     
@@ -659,9 +721,6 @@ class MainActivity : OrientationAwareActivity() {
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
             // Reattach mesh delegate to new ChatViewModel instance after Activity recreation
             try { meshService.delegate = chatViewModel } catch (_: Exception) { }
-            // Set app foreground state
-            meshService.connectionManager.setAppBackgroundState(false)
-            chatViewModel.setAppBackgroundState(false)
 
             // Check if Bluetooth was disabled while app was backgrounded
             val currentBluetoothStatus = bluetoothStatusManager.checkBluetoothStatus()
@@ -688,9 +747,6 @@ class MainActivity : OrientationAwareActivity() {
         super.onPause()
         // Only set background state if app is fully initialized
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
-            // Set app background state
-            meshService.connectionManager.setAppBackgroundState(true)
-            chatViewModel.setAppBackgroundState(true)
             // Detach UI delegate so the foreground service can own DM notifications while UI is closed
             try { meshService.delegate = null } catch (_: Exception) { }
         }
@@ -755,9 +811,22 @@ class MainActivity : OrientationAwareActivity() {
         }
     }
 
+    private fun handleVerificationIntent(intent: Intent) {
+        val uri = intent.data ?: return
+        if (uri.scheme != "bitchat" || uri.host != "verify") return
+
+        chatViewModel.showVerificationSheet()
+        val qr = VerificationService.verifyScannedQR(uri.toString())
+        if (qr != null) {
+            chatViewModel.beginQRVerification(qr)
+        }
+    }
+
     
     override fun onDestroy() {
         super.onDestroy()
+        
+        try { unregisterReceiver(forceFinishReceiver) } catch (_: Exception) { }
         
         // Cleanup location status manager
         try {

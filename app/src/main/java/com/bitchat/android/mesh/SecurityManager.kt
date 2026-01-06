@@ -56,21 +56,30 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
 
         // Duplicate detection
         val messageID = generateMessageID(packet, peerID)
-        if (messageType != MessageType.ANNOUNCE) {
-            if (processedMessages.contains(messageID)) {
+        
+        if (processedMessages.contains(messageID)) {
+            // Check for ANNOUNCE exception: allow if it looks like a direct neighbor (max TTL)
+            // This ensures we catch the "first announce" on a new connection for binding,
+            // while still dropping looped/relayed duplicates.
+            val isFreshAnnounce = messageType == MessageType.ANNOUNCE &&
+                    packet.ttl >= com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
+
+            if (!isFreshAnnounce) {
                 Log.d(TAG, "Dropping duplicate packet: $messageID")
                 return false
             }
-            // Add to processed messages
-            processedMessages.add(messageID)
-            messageTimestamps[messageID] = currentTime
-        } else {
-            // Do not deduplicate ANNOUNCE at the security layer.
-            // They are signed/idempotent and we need to ensure first-announce per-connection can bind.
+            Log.d(TAG, "Allowing duplicate ANNOUNCE from direct neighbor: $messageID")
         }
+
+        // Add to processed messages
+        processedMessages.add(messageID)
+        messageTimestamps[messageID] = currentTime
         
-        // NEW: Signature verification logging (not rejecting yet)
-        verifyPacketSignatureWithLogging(packet, peerID)
+        // Enforce mandatory signature verification
+        if (!verifyPacketSignature(packet, peerID)) {
+            Log.w(TAG, "Dropping packet from $peerID due to signature verification failure")
+            return false
+        }
         
         Log.d(TAG, "Packet validation passed for $peerID, messageID: $messageID")
         return true
@@ -223,34 +232,58 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
     }
     
     /**
-     * Verify packet signature using peer's signing public key and log the result
+     * Verify packet signature using peer's signing public key
+     * Returns true only if signature is present and valid
      */
-    private fun verifyPacketSignatureWithLogging(packet: BitchatPacket, peerID: String) {
+    private fun verifyPacketSignature(packet: BitchatPacket, peerID: String): Boolean {
         try {
-            // Check if packet has a signature
+            // only verify ANNOUNCE, MESSAGE, and FILE_TRANSFER
+            if (MessageType.fromValue(packet.type) !in setOf(
+                    MessageType.ANNOUNCE,
+                    MessageType.MESSAGE,
+                    MessageType.FILE_TRANSFER
+                )) {
+                return true
+            }
+            // 1. Mandatory Signature Check
             if (packet.signature == null) {
-                Log.d(TAG, "📝 Signature check for $peerID: NO_SIGNATURE (packet type ${packet.type})")
-                return
+                Log.w(TAG, "❌ Signature check for $peerID: NO_SIGNATURE (packet type ${packet.type})")
+                return false
             }
             
-            // Try to get peer's signing public key from peer info
-            val peerInfo = delegate?.getPeerInfo(peerID)
-            val signingPublicKey = peerInfo?.signingPublicKey
+            // 2. Get Signing Public Key
+            var signingPublicKey: ByteArray? = null
+            
+            if (MessageType.fromValue(packet.type) == MessageType.ANNOUNCE) {
+                // Special Case: ANNOUNCE packets carry their own signing key
+                try {
+                    val announcement = com.bitchat.android.model.IdentityAnnouncement.decode(packet.payload)
+                    signingPublicKey = announcement?.signingPublicKey
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to decode announcement for key extraction: ${e.message}")
+                }
+            } else {
+                // Standard Case: Get key from known peer info
+                val peerInfo = delegate?.getPeerInfo(peerID)
+                signingPublicKey = peerInfo?.signingPublicKey
+            }
             
             if (signingPublicKey == null) {
-                Log.d(TAG, "📝 Signature check for $peerID: NO_SIGNING_KEY (packet type ${packet.type})")
-                return
+                // If we don't have a key (and it's not an announce), we can't verify.
+                // For security, we must reject packets from unknown peers unless it's an announce.
+                Log.w(TAG, "❌ Signature check for $peerID: NO_SIGNING_KEY_AVAILABLE (packet type ${packet.type})")
+                return false
             }
             
-            // Get the canonical packet data for signature verification (without signature)
+            // 3. Get Canonical Data
             val packetDataForSigning = packet.toBinaryDataForSigning()
             if (packetDataForSigning == null) {
-                Log.w(TAG, "📝 Signature check for $peerID: ENCODING_ERROR (packet type ${packet.type})")
-                return
+                Log.w(TAG, "❌ Signature check for $peerID: ENCODING_ERROR (packet type ${packet.type})")
+                return false
             }
             
-            // Verify the signature using the peer's signing public key
-            val signature = packet.signature!! // We already checked for null above
+            // 4. Verify Signature
+            val signature = packet.signature!!
             val isSignatureValid = encryptionService.verifyEd25519Signature(
                 signature,
                 packetDataForSigning,
@@ -258,13 +291,16 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
             )
             
             if (isSignatureValid) {
-                Log.d(TAG, "📝 Signature check for $peerID: ✅ VALID (packet type ${packet.type})")
+                // Log.v(TAG, "✅ Signature verified for $peerID (type ${packet.type})")
+                return true
             } else {
-                Log.w(TAG, "📝 Signature check for $peerID: ❌ INVALID (packet type ${packet.type})")
+                Log.w(TAG, "❌ Signature INVALID for $peerID (type ${packet.type})")
+                return false
             }
             
         } catch (e: Exception) {
-            Log.w(TAG, "📝 Signature check for $peerID: ERROR - ${e.message} (packet type ${packet.type})")
+            Log.e(TAG, "❌ Signature verification error for $peerID: ${e.message}")
+            return false
         }
     }
     

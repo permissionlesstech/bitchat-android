@@ -58,6 +58,10 @@ object AppConstants {
         const val HIGH_NONCE_WARNING_THRESHOLD: Long = 1_000_000_000L
     }
 
+    object Verification {
+        const val QR_MAX_AGE_SECONDS: Long = 300L // 5 minutes
+    }
+
     object Protocol {
         const val COMPRESSION_THRESHOLD_BYTES: Int = 100
     }
@@ -76,9 +80,9 @@ object AppConstants {
         const val SCAN_ON_DURATION_NORMAL_MS: Long = 8_000L
         const val SCAN_OFF_DURATION_NORMAL_MS: Long = 2_000L
         const val SCAN_ON_DURATION_POWER_SAVE_MS: Long = 2_000L
-        const val SCAN_OFF_DURATION_POWER_SAVE_MS: Long = 8_000L
+        const val SCAN_OFF_DURATION_POWER_SAVE_MS: Long = 28_000L
         const val SCAN_ON_DURATION_ULTRA_LOW_MS: Long = 1_000L
-        const val SCAN_OFF_DURATION_ULTRA_LOW_MS: Long = 10_000L
+        const val SCAN_OFF_DURATION_ULTRA_LOW_MS: Long = 29_000L
         const val MAX_CONNECTIONS_NORMAL: Int = 8
         const val MAX_CONNECTIONS_POWER_SAVE: Int = 8
         const val MAX_CONNECTIONS_ULTRA_LOW: Int = 4
@@ -115,6 +119,8 @@ object AppConstants {
         const val MESSAGE_DEDUP_TIMEOUT_MS: Long = 30_000L
         const val SYSTEM_EVENT_DEDUP_TIMEOUT_MS: Long = 5_000L
         const val ACTIVE_PEERS_NOTIFICATION_INTERVAL_MS: Long = 300_000L
+        const val ACTION_FORCE_FINISH: String = "com.bitchat.android.ACTION_FORCE_FINISH"
+        const val PERMISSION_FORCE_FINISH: String = "com.bitchat.android.permission.FORCE_FINISH"
     }
 
     object Media {

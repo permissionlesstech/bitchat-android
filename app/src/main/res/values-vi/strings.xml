@@ -70,7 +70,7 @@
     <string name="cd_remove_favorite">Xóa khỏi yêu thích</string>
     <string name="cd_add_bookmark">Thêm bookmark</string>
 
-    <!-- Header trò chuyện & khả năng truy cập -->
+    <!-- Header trò chuyện &amp; khả năng truy cập -->
     <string name="chat_back">quay lại</string>
     <string name="chat_channel_prefix">Kênh: %1$s</string>
     <string name="chat_leave">rời khỏi</string>
@@ -170,7 +170,7 @@
     <string name="cd_online_geohash_channels">Kênh Geohash trực tuyến</string>
     <string name="cd_end_to_end_encryption">Mã hóa đầu cuối</string>
 
-    <!-- Hình ảnh & file -->
+    <!-- Hình ảnh &amp; file -->
     <string name="image_page_of">Hình ảnh %1$d trong %2$d</string>
     <string name="image_unavailable">Hình ảnh không có sẵn</string>
     <string name="image_saved_to_downloads">Hình ảnh đã lưu vào \"Downloads\"</string>
@@ -349,4 +349,41 @@
         <item quantity="other">%d người</item>
     </plurals>
 
+    <string name="mesh_service_notification_content">Mesh đang chạy — %1$d ngang hàng</string>
+
+  <string name="verify_title">verify</string>
+  <string name="verify_my_qr_title">scan to verify me</string>
+  <string name="verify_scan_prompt_friend">scan someone elses qr</string>
+  <string name="verify_scan_someone">scan someone elses qr</string>
+  <string name="verify_show_my_qr">show my qr</string>
+  <string name="verify_remove">remove verification</string>
+  <string name="verify_qr_unavailable">qr unavailable</string>
+  <string name="verify_camera_permission">camera permission is needed to scan qr codes</string>
+  <string name="verify_request_camera">enable camera</string>
+  <string name="verify_paste_label">paste verification url</string>
+  <string name="verify_validate">validate</string>
+  <string name="verify_scanned">verification requested</string>
+  <string name="security_verification_title">security verification</string>
+  <string name="fingerprint_their">their fingerprint</string>
+  <string name="fingerprint_yours">your fingerprint</string>
+  <string name="fingerprint_pending">handshake pending</string>
+  <string name="fingerprint_no_peer">open a private chat to view fingerprints</string>
+  <string name="fingerprint_status_verified">encrypted &amp; verified</string>
+  <string name="fingerprint_status_encrypted">encrypted</string>
+  <string name="fingerprint_status_handshaking">handshaking</string>
+  <string name="fingerprint_status_failed">handshake failed</string>
+  <string name="fingerprint_status_uninitialized">not encrypted</string>
+  <string name="fingerprint_verified_label">verified</string>
+  <string name="fingerprint_verified_message">you have verified this persons identity.</string>
+  <string name="fingerprint_not_verified_label">not verified</string>
+  <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>
+  <string name="fingerprint_mark_verified">mark as verified</string>
+  <string name="fingerprint_start_handshake">start handshake</string>
+  <string name="fingerprint_copy">copy</string>
+  <string name="verify_mutual_match_title">Mutual verification</string>
+  <string name="verify_mutual_match_body">You and %1$s verified each other</string>
+  <string name="verify_mutual_system_message">mutual verification with %1$s</string>
+  <string name="verify_success_title">Verified</string>
+  <string name="verify_success_body">You verified %1$s</string>
+  <string name="verify_success_system_message">verified %1$s</string>
 </resources>

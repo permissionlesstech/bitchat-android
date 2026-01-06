@@ -12,12 +12,10 @@ import androidx.compose.material.icons.filled.Power
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -209,29 +207,6 @@ private fun PermissionCategoryCard(
                 color = colorScheme.onBackground.copy(alpha = 0.8f)
             )
 
-            if (category.type == PermissionType.PRECISE_LOCATION) {
-                // Extra emphasis for location permission
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Warning,
-                        contentDescription = stringResource(R.string.cd_warning),
-                        tint = Color(0xFFFF9800),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = stringResource(R.string.location_tracking_warning),
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Medium,
-                            color = Color(0xFFFF9800)
-                        )
-                    )
-                }
-            }
         }
     }
 }
@@ -240,6 +215,7 @@ private fun getPermissionIcon(permissionType: PermissionType): ImageVector {
     return when (permissionType) {
         PermissionType.NEARBY_DEVICES -> Icons.Filled.Bluetooth
         PermissionType.PRECISE_LOCATION -> Icons.Filled.LocationOn
+        PermissionType.BACKGROUND_LOCATION -> Icons.Filled.LocationOn
         PermissionType.MICROPHONE -> Icons.Filled.Mic
         PermissionType.NOTIFICATIONS -> Icons.Filled.Notifications
         PermissionType.BATTERY_OPTIMIZATION -> Icons.Filled.Power

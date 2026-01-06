@@ -5,11 +5,15 @@ import android.util.Log
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.bitchat.android.favorites.FavoritesPersistenceService
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
+import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.protocol.BitchatPacket
 
 
@@ -19,6 +23,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Date
 import kotlin.random.Random
+import com.bitchat.android.services.VerificationService
+import com.bitchat.android.identity.SecureIdentityStateManager
+import com.bitchat.android.noise.NoiseSession
+import com.bitchat.android.nostr.GeohashAliasRegistry
+import com.bitchat.android.util.dataFromHexString
+import com.bitchat.android.util.hexEncodedString
+import java.security.MessageDigest
 
 /**
  * Refactored ChatViewModel - Main coordinator for bitchat functionality
@@ -46,6 +57,20 @@ class ChatViewModel(
         mediaSendingManager.sendImageNote(toPeerIDOrNull, channelOrNull, filePath)
     }
 
+    fun getCurrentNpub(): String? {
+        return try {
+            NostrIdentityBridge
+                .getCurrentNostrIdentity(getApplication())
+                ?.npub
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun buildMyQRString(nickname: String, npub: String?): String {
+        return VerificationService.buildMyQRString(nickname, npub) ?: ""
+    }
+
     // MARK: - State management
     private val state = ChatState(
         scope = viewModelScope,
@@ -57,6 +82,7 @@ class ChatViewModel(
 
     // Specialized managers
     private val dataManager = DataManager(application.applicationContext)
+    private val identityManager by lazy { SecureIdentityStateManager(getApplication()) }
     private val messageManager = MessageManager(state)
     private val channelManager = ChannelManager(state, messageManager, dataManager, viewModelScope)
 
@@ -74,6 +100,17 @@ class ChatViewModel(
       NotificationManagerCompat.from(application.applicationContext),
       NotificationIntervalManager()
     )
+
+    private val verificationHandler = VerificationHandler(
+        context = application.applicationContext,
+        scope = viewModelScope,
+        meshService = meshService,
+        identityManager = identityManager,
+        state = state,
+        notificationManager = notificationManager,
+        messageManager = messageManager
+    )
+    val verifiedFingerprints = verificationHandler.verifiedFingerprints
 
     // Media file sending manager
     private val mediaSendingManager = MediaSendingManager(state, messageManager, channelManager, meshService)
@@ -134,6 +171,8 @@ class ChatViewModel(
     val peerRSSI: StateFlow<Map<String, Int>> = state.peerRSSI
     val peerDirect: StateFlow<Map<String, Boolean>> = state.peerDirect
     val showAppInfo: StateFlow<Boolean> = state.showAppInfo
+    val showVerificationSheet: StateFlow<Boolean> = state.showVerificationSheet
+    val showSecurityVerificationSheet: StateFlow<Boolean> = state.showSecurityVerificationSheet
     val selectedLocationChannel: StateFlow<com.bitchat.android.geohash.ChannelID?> = state.selectedLocationChannel
     val isTeleported: StateFlow<Boolean> = state.isTeleported
     val geohashPeople: StateFlow<List<GeoPerson>> = state.geohashPeople
@@ -246,6 +285,9 @@ class ChatViewModel(
 
         // Initialize favorites persistence service
         com.bitchat.android.favorites.FavoritesPersistenceService.initialize(getApplication())
+
+        // Load verified fingerprints from secure storage
+        verificationHandler.loadVerifiedFingerprints()
 
 
         // Ensure NostrTransport knows our mesh peer ID for embedded packets
@@ -646,6 +688,18 @@ class ChatViewModel(
         // Update fingerprint mappings from centralized manager
         val fingerprints = privateChatManager.getAllPeerFingerprints()
         state.setPeerFingerprints(fingerprints)
+        fingerprints.forEach { (peerID, fingerprint) ->
+            identityManager.cachePeerFingerprint(peerID, fingerprint)
+            val info = try { meshService.getPeerInfo(peerID) } catch (_: Exception) { null }
+            val noiseKeyHex = info?.noisePublicKey?.hexEncodedString()
+            if (noiseKeyHex != null) {
+                identityManager.cachePeerNoiseKey(peerID, noiseKeyHex)
+                identityManager.cacheNoiseFingerprint(noiseKeyHex, fingerprint)
+            }
+            info?.nickname?.takeIf { it.isNotBlank() }?.let { nickname ->
+                identityManager.cacheFingerprintNickname(fingerprint, nickname)
+            }
+        }
 
         val nicknames = meshService.getPeerNicknames()
         state.setPeerNicknames(nicknames)
@@ -660,6 +714,34 @@ class ChatViewModel(
             }
             state.setPeerDirect(directMap)
         } catch (_: Exception) { }
+
+        // Flush any pending QR verification once a Noise session is established
+        currentPeers.forEach { peerID ->
+            if (meshService.getSessionState(peerID) is NoiseSession.NoiseSessionState.Established) {
+                verificationHandler.sendPendingVerificationIfNeeded(peerID)
+            }
+        }
+    }
+
+    // MARK: - QR Verification
+
+    fun isPeerVerified(peerID: String, verifiedFingerprints: Set<String>): Boolean {
+        if (peerID.startsWith("nostr_") || peerID.startsWith("nostr:")) return false
+        val fingerprint = verificationHandler.getPeerFingerprintForDisplay(peerID)
+        return fingerprint != null && verifiedFingerprints.contains(fingerprint)
+    }
+
+    fun isNoisePublicKeyVerified(noisePublicKey: ByteArray, verifiedFingerprints: Set<String>): Boolean {
+        val fingerprint = verificationHandler.fingerprintFromNoiseBytes(noisePublicKey)
+        return verifiedFingerprints.contains(fingerprint)
+    }
+
+    fun unverifyFingerprint(peerID: String) {
+        verificationHandler.unverifyFingerprint(peerID)
+    }
+
+    fun beginQRVerification(qr: VerificationService.VerificationQR): Boolean {
+        return verificationHandler.beginQRVerification(qr)
     }
 
     // MARK: - Debug and Troubleshooting
@@ -668,39 +750,69 @@ class ChatViewModel(
         return meshService.getDebugStatus()
     }
     
-    // Note: Mesh service restart is now handled by MainActivity
-    // This function is no longer needed
-    
-    fun setAppBackgroundState(inBackground: Boolean) {
-        // Forward to notification manager for notification logic
-        notificationManager.setAppBackgroundState(inBackground)
-    }
-    
     fun setCurrentPrivateChatPeer(peerID: String?) {
-        // Update notification manager with current private chat peer
         notificationManager.setCurrentPrivateChatPeer(peerID)
     }
     
     fun setCurrentGeohash(geohash: String?) {
-        // Update notification manager with current geohash for notification logic
         notificationManager.setCurrentGeohash(geohash)
     }
 
     fun clearNotificationsForSender(peerID: String) {
-        // Clear notifications when user opens a chat
         notificationManager.clearNotificationsForSender(peerID)
     }
     
     fun clearNotificationsForGeohash(geohash: String) {
-        // Clear notifications when user opens a geohash chat
         notificationManager.clearNotificationsForGeohash(geohash)
     }
 
-    /**
-     * Clear mesh mention notifications when user opens mesh chat
-     */
     fun clearMeshMentionNotifications() {
         notificationManager.clearMeshMentionNotifications()
+    }
+
+    private var reopenSidebarAfterVerification = false
+
+    fun showVerificationSheet(fromSidebar: Boolean = false) {
+        if (fromSidebar) {
+            reopenSidebarAfterVerification = true
+        }
+        state.setShowVerificationSheet(true)
+    }
+
+    fun hideVerificationSheet() {
+        state.setShowVerificationSheet(false)
+        if (reopenSidebarAfterVerification) {
+            reopenSidebarAfterVerification = false
+            state.setShowSidebar(true)
+        }
+    }
+
+    fun showSecurityVerificationSheet() {
+        state.setShowSecurityVerificationSheet(true)
+    }
+
+    fun hideSecurityVerificationSheet() {
+        state.setShowSecurityVerificationSheet(false)
+    }
+
+    fun getPeerFingerprintForDisplay(peerID: String): String? {
+        return verificationHandler.getPeerFingerprintForDisplay(peerID)
+    }
+
+    fun getMyFingerprint(): String {
+        return verificationHandler.getMyFingerprint()
+    }
+
+    fun resolvePeerDisplayNameForFingerprint(peerID: String): String {
+        return verificationHandler.resolvePeerDisplayNameForFingerprint(peerID)
+    }
+
+    fun verifyFingerprintValue(fingerprint: String) {
+        verificationHandler.verifyFingerprintValue(fingerprint)
+    }
+
+    fun unverifyFingerprintValue(fingerprint: String) {
+        verificationHandler.unverifyFingerprintValue(fingerprint)
     }
 
     // MARK: - Command Autocomplete (delegated)
@@ -743,6 +855,14 @@ class ChatViewModel(
     
     override fun didReceiveReadReceipt(messageID: String, recipientPeerID: String) {
         meshDelegateHandler.didReceiveReadReceipt(messageID, recipientPeerID)
+    }
+
+    override fun didReceiveVerifyChallenge(peerID: String, payload: ByteArray, timestampMs: Long) {
+        verificationHandler.didReceiveVerifyChallenge(peerID, payload)
+    }
+
+    override fun didReceiveVerifyResponse(peerID: String, payload: ByteArray, timestampMs: Long) {
+        verificationHandler.didReceiveVerifyResponse(peerID, payload)
     }
     
     override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {
@@ -827,7 +947,7 @@ class ChatViewModel(
             
             // Clear secure identity state (if used)
             try {
-                val identityManager = com.bitchat.android.identity.SecureIdentityStateManager(getApplication())
+                val identityManager = SecureIdentityStateManager(getApplication())
                 identityManager.clearIdentityData()
                 // Also clear secure values used by FavoritesPersistenceService (favorites + peerID index)
                 try {
@@ -840,7 +960,7 @@ class ChatViewModel(
 
             // Clear FavoritesPersistenceService persistent relationships
             try {
-                com.bitchat.android.favorites.FavoritesPersistenceService.shared.clearAllFavorites()
+                FavoritesPersistenceService.shared.clearAllFavorites()
                 Log.d(TAG, "✅ Cleared FavoritesPersistenceService relationships")
             } catch (_: Exception) { }
             
@@ -969,5 +1089,6 @@ class ChatViewModel(
      */
     fun colorForNostrPubkey(pubkeyHex: String, isDark: Boolean): androidx.compose.ui.graphics.Color {
         return geohashViewModel.colorForNostrPubkey(pubkeyHex, isDark)
-    }
+}
+
 }

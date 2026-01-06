@@ -64,14 +64,14 @@
   <!-- Mesh Service Foreground Notification -->
   <string name="mesh_service_channel_name">Mesh Background Service</string>
   <string name="mesh_service_channel_desc">Keeps the Bluetooth mesh running in the background</string>
-  <string name="mesh_service_notification_content">Mesh running — %1$d users connected</string>
+    <string name="mesh_service_notification_content">Mesh running — %1$d peers</string>
 
   <!-- Favorites accessibility -->
   <string name="cd_add_favorite">Add to favorites</string>
   <string name="cd_remove_favorite">Remove from favorites</string>
   <string name="cd_add_bookmark">Add bookmark</string>
 
-  <!-- Chat header & accessibility -->
+  <!-- Chat header &amp; accessibility -->
   <string name="chat_back">back</string>
   <string name="chat_channel_prefix">channel: %1$s</string>
   <string name="chat_leave">leave</string>
@@ -265,6 +265,44 @@
   <string name="debug_none">none</string>
   <string name="debug_disconnect">disconnect</string>
   <string name="debug_recent_scan_results">recent scan results</string>
+
+  <string name="verify_title">verify</string>
+  <string name="verify_my_qr_title">scan to verify me</string>
+  <string name="verify_scan_prompt_friend">scan someone elses qr</string>
+  <string name="verify_scan_someone">scan someone elses qr</string>
+  <string name="verify_show_my_qr">show my qr</string>
+  <string name="verify_remove">remove verification</string>
+  <string name="verify_qr_unavailable">qr unavailable</string>
+  <string name="verify_camera_permission">camera permission is needed to scan qr codes</string>
+  <string name="verify_request_camera">enable camera</string>
+  <string name="verify_paste_label">paste verification url</string>
+  <string name="verify_validate">validate</string>
+  <string name="verify_scanned">verification requested</string>
+  <string name="security_verification_title">security verification</string>
+  <string name="fingerprint_their">their fingerprint</string>
+  <string name="fingerprint_yours">your fingerprint</string>
+  <string name="fingerprint_pending">handshake pending</string>
+  <string name="fingerprint_no_peer">open a private chat to view fingerprints</string>
+  <string name="fingerprint_status_verified">encrypted &amp; verified</string>
+  <string name="fingerprint_status_encrypted">encrypted</string>
+  <string name="fingerprint_status_handshaking">handshaking</string>
+  <string name="fingerprint_status_failed">handshake failed</string>
+  <string name="fingerprint_status_uninitialized">not encrypted</string>
+  <string name="fingerprint_verified_label">verified</string>
+  <string name="fingerprint_verified_message">you have verified this persons identity.</string>
+  <string name="fingerprint_not_verified_label">not verified</string>
+  <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>
+  <string name="fingerprint_mark_verified">mark as verified</string>
+  <string name="fingerprint_start_handshake">start handshake</string>
+  <string name="fingerprint_copy">copy</string>
+
+  <string name="verify_mutual_match_title">Mutual verification</string>
+  <string name="verify_mutual_match_body">You and %1$s verified each other</string>
+  <string name="verify_mutual_system_message">mutual verification with %1$s</string>
+  <string name="verify_success_title">Verified</string>
+  <string name="verify_success_body">You verified %1$s</string>
+  <string name="verify_success_system_message">verified %1$s</string>
+
   <string name="debug_connect">connect</string>
   <string name="debug_debug_console">debug console</string>
   <string name="debug_clear">clear</string>
@@ -282,6 +320,15 @@
   <string name="location_explanation">bitchat does NOT track your location.\n\nLocation services are required for Bluetooth scanning and for the Geohash chat feature.</string>
   <string name="location_needs_for">bitchat needs location services for:</string>
   <string name="location_needs_bullets">• Bluetooth device scanning\n• Discovering nearby users on mesh network\n• Geohash chat feature\n• No tracking or location collection</string>
+  <string name="background_location_required_title">Background Location Recommended</string>
+  <string name="background_location_required_subtitle">optional, improves mesh reliability</string>
+  <string name="background_location_explanation">Android recommends background location so bitchat can scan for nearby devices while the app is not open. This keeps the mesh alive after reboot.</string>
+  <string name="background_location_settings_tip">When settings opens, choose "Allow all the time".</string>
+  <string name="background_location_needs_for">bitchat uses background location for:</string>
+  <string name="background_location_needs_bullets">- scan for nearby devices while the app is closed\n- reconnect after reboot\n- keep the mesh running in the background</string>
+  <string name="background_location_privacy_note">We NEVER collect or store your location. Your privacy is safe.</string>
+  <string name="grant_background_location">Allow Background Location</string>
+  <string name="skip_background_location">Continue without background location</string>
   <string name="open_location_settings">Open Location Settings</string>
   <string name="check_again">Check Again</string>
   <string name="location_services_unavailable">Location Services Unavailable</string>
@@ -367,6 +414,8 @@
   <string name="perm_nearby_devices_system">Allow bitchat to connect to nearby devices</string>
   <string name="perm_location_desc">Required by Android to discover nearby bitchat users via Bluetooth</string>
   <string name="perm_location_system">bitchat needs this to scan for nearby devices</string>
+  <string name="perm_background_location_desc">Recommended to scan for nearby devices while the app is in the background</string>
+  <string name="perm_background_location_system">Allow background location access</string>
   <string name="perm_notifications_desc">Receive notifications when you receive private messages</string>
   <string name="perm_notifications_system">Allow bitchat to send you notifications</string>
   <string name="perm_battery_desc">Disable battery optimization to ensure bitchat runs reliably in the background and maintains mesh network connections</string>
@@ -375,6 +424,7 @@
   <!-- Permission types -->
   <string name="perm_type_nearby_devices">Nearby Devices</string>
   <string name="perm_type_precise_location">Precise Location</string>
+  <string name="perm_type_background_location">Background Location</string>
   <string name="perm_type_microphone">Microphone</string>
   <string name="perm_type_notifications">Notifications</string>
   <string name="perm_type_battery_optimization">Battery Optimization</string>

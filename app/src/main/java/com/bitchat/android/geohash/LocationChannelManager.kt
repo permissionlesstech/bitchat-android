@@ -124,36 +124,55 @@ class LocationChannelManager private constructor(private val context: Context) {
     }
 
     /**
-     * Begin periodic one-shot location refreshes while a selector UI is visible
+     * Begin real-time location updates while a selector UI is visible
+     * Uses requestLocationUpdates for continuous updates, plus a one-shot to prime state immediately
      */
     fun beginLiveRefresh(interval: Long = 5000L) {
-        Log.d(TAG, "Beginning live refresh with interval ${interval}ms")
-        
+        Log.d(TAG, "Beginning live refresh (continuous updates)")
+
         if (_permissionState.value != PermissionState.AUTHORIZED) {
             Log.w(TAG, "Cannot start live refresh - permission not authorized")
             return
         }
-        
+
         if (!isLocationServicesEnabled()) {
             Log.w(TAG, "Cannot start live refresh - location services disabled by user")
             return
         }
 
-        // Cancel existing timer
+        // Cancel any existing timer-based refreshers
         refreshTimer?.cancel()
-        
-        // Start new timer with coroutines
-        refreshTimer = CoroutineScope(Dispatchers.IO).launch {
-            while (isActive) {
-                if (isLocationServicesEnabled()) {
-                    requestOneShotLocation()
+        refreshTimer = null
+
+        // Register for continuous updates from available providers
+        try {
+            if (hasLocationPermission()) {
+                val providers = listOf(
+                    LocationManager.GPS_PROVIDER,
+                    LocationManager.NETWORK_PROVIDER
+                )
+
+                providers.forEach { provider ->
+                    if (locationManager.isProviderEnabled(provider)) {
+                        // 2s min time, 5m min distance for responsive yet battery-aware updates
+                        locationManager.requestLocationUpdates(
+                            provider,
+                            interval,
+                            5f,
+                            continuousLocationListener
+                        )
+                        Log.d(TAG, "Registered continuous updates for $provider")
+                    }
                 }
-                delay(interval)
+
+                // Prime state immediately with last known / current location
+                requestOneShotLocation()
             }
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Missing location permission for continuous updates: ${e.message}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to register continuous updates: ${e.message}")
         }
-        
-        // Kick off immediately
-        requestOneShotLocation()
     }
 
     /**
@@ -163,6 +182,12 @@ class LocationChannelManager private constructor(private val context: Context) {
         Log.d(TAG, "Ending live refresh")
         refreshTimer?.cancel()
         refreshTimer = null
+        // Unregister continuous updates listener
+        try {
+            locationManager.removeUpdates(continuousLocationListener)
+        } catch (_: SecurityException) {
+        } catch (_: Exception) {
+        }
     }
 
     /**
@@ -297,14 +322,38 @@ class LocationChannelManager private constructor(private val context: Context) {
         }
     }
     
+    // Continuous location listener for real-time updates
+    private val continuousLocationListener = object : LocationListener {
+        override fun onLocationChanged(location: Location) {
+            Log.d(TAG, "Real-time location: ${location.latitude}, ${location.longitude} acc=${location.accuracy}m")
+            lastLocation = location
+            _isLoadingLocation.value = false
+            computeChannels(location)
+            reverseGeocodeIfNeeded(location)
+        }
+
+        override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {
+            // Deprecated but can still be called on older devices
+            Log.v(TAG, "Provider status changed: $provider -> $status")
+        }
+
+        override fun onProviderEnabled(provider: String) {
+            Log.d(TAG, "Provider enabled: $provider")
+        }
+
+        override fun onProviderDisabled(provider: String) {
+            Log.d(TAG, "Provider disabled: $provider")
+        }
+    }
+
     // One-time location listener to get a fresh location update
     private val oneShotLocationListener = object : LocationListener {
         override fun onLocationChanged(location: Location) {
-            Log.d(TAG, "Fresh location received: ${location.latitude}, ${location.longitude}")
+            Log.d(TAG, "One-shot location: ${location.latitude}, ${location.longitude}")
             lastLocation = location
             computeChannels(location)
             reverseGeocodeIfNeeded(location)
-            
+
             // Update loading state to indicate we have a location now
             _isLoadingLocation.value = false
             
@@ -314,6 +363,18 @@ class LocationChannelManager private constructor(private val context: Context) {
             } catch (e: SecurityException) {
                 Log.e(TAG, "Error removing location listener: ${e.message}")
             }
+        }
+
+        override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {
+            // Required for compatibility with older platform versions
+        }
+
+        override fun onProviderEnabled(provider: String) {
+            // Required for compatibility with older platform versions
+        }
+
+        override fun onProviderDisabled(provider: String) {
+            // Required for compatibility with older platform versions
         }
     }
     
@@ -663,16 +724,9 @@ class LocationChannelManager private constructor(private val context: Context) {
         Log.d(TAG, "Cleaning up LocationChannelManager")
         endLiveRefresh()
         
-        // For older Android versions, remove any remaining location listener to prevent memory leaks
-        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R) {
-            try {
-                locationManager.removeUpdates(oneShotLocationListener)
-            } catch (e: SecurityException) {
-                Log.e(TAG, "Error removing location listener during cleanup: ${e.message}")
-            } catch (e: Exception) {
-                Log.e(TAG, "Error during cleanup: ${e.message}")
-            }
-        }
+        // Remove listeners to prevent memory leaks
+        try { locationManager.removeUpdates(oneShotLocationListener) } catch (_: Exception) {}
+        try { locationManager.removeUpdates(continuousLocationListener) } catch (_: Exception) {}
         // For Android 11+, getCurrentLocation doesn't need explicit cleanup as it's a one-time operation
     }
 }
