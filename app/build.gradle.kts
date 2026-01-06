@@ -13,7 +13,7 @@ android {
         applicationId = "com.bitchat.droid"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 27
+        versionCode = 30
         versionName = "1.6.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -43,13 +43,20 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            ndk {
-                // ARM64-only to minimize APK size (~5.8MB savings)
-                // Excludes x86_64 as emulator not needed for production builds
-                abiFilters += listOf("arm64-v8a")
-            }
         }
     }
+
+    // APK splits for GitHub releases - creates arm64, x86_64, and universal APKs
+    // AAB for Play Store handles architecture distribution automatically
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "x86_64")
+            isUniversalApk = true  // For F-Droid and fallback
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
@@ -84,6 +91,7 @@ dependencies {
     
     // Lifecycle
     implementation(libs.bundles.lifecycle)
+    implementation(libs.androidx.lifecycle.process)
     
     // Navigation
     implementation(libs.androidx.navigation.compose)

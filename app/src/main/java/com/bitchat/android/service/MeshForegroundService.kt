@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -176,7 +177,7 @@ class MeshForegroundService : Service() {
                 // If we became eligible and are not in foreground yet, promote once
                 if (MeshServicePreferences.isBackgroundEnabled(true) && hasAllRequiredPermissions() && !isInForeground) {
                     val n = buildNotification(meshService?.getActivePeerCount() ?: 0)
-                    startForeground(NOTIFICATION_ID, n)
+                    startForegroundCompat(n)
                     isInForeground = true
                 } else {
                     updateNotification(force = true)
@@ -191,7 +192,7 @@ class MeshForegroundService : Service() {
         // Promote exactly once when eligible, otherwise stay background (or stop)
         if (MeshServicePreferences.isBackgroundEnabled(true) && hasAllRequiredPermissions() && !isInForeground) {
             val notification = buildNotification(meshService?.getActivePeerCount() ?: 0)
-            startForeground(NOTIFICATION_ID, notification)
+            startForegroundCompat(notification)
             isInForeground = true
         }
 
@@ -323,6 +324,35 @@ class MeshForegroundService : Service() {
             }
             (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
                 .createNotificationChannel(channel)
+        }
+    }
+
+    private fun hasLocationPermission(): Boolean {
+        val fine = androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        val coarse = androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        return fine || coarse
+    }
+
+    private fun startForegroundCompat(notification: Notification) {
+        if (Build.VERSION.SDK_INT >= 34) {
+            val type = if (hasLocationPermission()) {
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+            } else {
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+            }
+            try {
+                startForeground(NOTIFICATION_ID, notification, type)
+            } catch (e: SecurityException) {
+                // Fallback for cases where "While In Use" permission exists but background start is restricted
+                if (type and ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION != 0) {
+                     android.util.Log.w("MeshForegroundService", "Failed to start with LOCATION type, falling back to CONNECTED_DEVICE: ${e.message}")
+                     startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
+                } else {
+                    throw e
+                }
+            }
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
         }
     }
 
