@@ -682,27 +682,6 @@ fun AboutSheet(
     }
 }
 
-@Composable
-fun CloseButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    IconButton(
-        onClick = onClick,
-        modifier = modifier
-            .size(32.dp),
-        colors = IconButtonDefaults.iconButtonColors(
-            contentColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
-            containerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f)
-        )
-    ) {
-        Icon(
-            imageVector = Icons.Default.Close,
-            contentDescription = "Close",
-            modifier = Modifier.size(18.dp)
-        )
-    }
-}
 /**
  * Password prompt dialog for password-protected channels
  * Kept as dialog since it requires user input
