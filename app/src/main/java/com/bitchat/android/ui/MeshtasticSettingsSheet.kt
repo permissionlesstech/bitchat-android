@@ -143,7 +143,7 @@ fun MeshtasticSettingsSheet(
                 }
             }
             
-            Divider()
+            HorizontalDivider()
             
             // Status and Controls
             Column(
