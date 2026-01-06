@@ -207,10 +207,8 @@ class BluetoothConnectionManager(
                         return@launch
                     }
                     Log.d(TAG, "GATT Client started")
-                    this@BluetoothConnectionManager.isActive = false
-                    return@launch
-                }
-                
+                } else {
+                    Log.i(TAG, "GATT Client disabled by debug settings; not starting")
                 // Disconnect any lingering Meshtastic connections to start fresh
                 meshtasticManager.disconnect()
                 
