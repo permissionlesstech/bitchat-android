@@ -12,6 +12,8 @@ object MeshServiceHolder {
     @Volatile
     var meshService: BluetoothMeshService? = null
         private set
+        
+    var foregroundServiceInstance: MeshForegroundService? = null
 
     @Synchronized
     fun getOrCreate(context: Context): BluetoothMeshService {

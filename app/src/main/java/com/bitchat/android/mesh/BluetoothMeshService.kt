@@ -1332,6 +1332,13 @@ class BluetoothMeshService(private val context: Context) {
             Log.e(TAG, "❌ Error clearing encryption data: ${e.message}")
         }
     }
+
+    /**
+     * Connect to a Meshtastic device for relay functionality
+     */
+    fun connectToMeshtasticDevice(device: android.bluetooth.BluetoothDevice) {
+        connectionManager.connectMeshtasticDevice(device)
+    }
 }
 
 /**

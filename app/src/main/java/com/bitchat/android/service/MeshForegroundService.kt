@@ -107,6 +107,10 @@ class MeshForegroundService : Service() {
                 androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
             } else true
         }
+        
+        fun getInstance(): MeshForegroundService? {
+            return MeshServiceHolder.foregroundServiceInstance
+        }
     }
 
     private lateinit var notificationManager: NotificationManagerCompat
@@ -123,6 +127,7 @@ class MeshForegroundService : Service() {
         createChannel()
 
         // Adopt or create the mesh service
+        MeshServiceHolder.foregroundServiceInstance = this
         val existing = MeshServiceHolder.meshService
         meshService = existing ?: MeshServiceHolder.getOrCreate(applicationContext)
         if (existing != null) {
@@ -219,6 +224,10 @@ class MeshForegroundService : Service() {
         }
 
         return START_STICKY
+    }
+
+    fun connectToMeshtastic(device: android.bluetooth.BluetoothDevice) {
+        meshService?.connectToMeshtasticDevice(device)
     }
 
     private fun ensureMeshStarted() {
@@ -331,6 +340,9 @@ class MeshForegroundService : Service() {
         updateJob = null
         // Cancel the service coroutine scope to prevent leaks
         try { serviceJob.cancel() } catch (_: Exception) { }
+        if (MeshServiceHolder.foregroundServiceInstance == this) {
+             MeshServiceHolder.foregroundServiceInstance = null
+        }
         // Best-effort ensure we are not marked foreground
         if (isInForeground) {
             try { stopForeground(true) } catch (_: Exception) { }

@@ -20,6 +20,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.material.icons.filled.CellTower
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -236,6 +237,9 @@ fun AboutSheet(
     val colorScheme = MaterialTheme.colorScheme
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
     
+    // Moved up to be accessible in both scopes
+    var showMeshtasticSheet by remember { mutableStateOf(false) }
+
     if (isPresented) {
         ModalBottomSheet(
             modifier = modifier.statusBarsPadding(),
@@ -464,6 +468,24 @@ fun AboutSheet(
                                             }
                                         } else null
                                     )
+                                    
+                                    // Meshtastic Configuration Button
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(start = 56.dp),
+                                        color = colorScheme.outline.copy(alpha = 0.12f)
+                                    )
+                                    
+                                    Surface(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        color = Color.Transparent,
+                                        onClick = { showMeshtasticSheet = true }
+                                    ) {
+                                        FeatureRow(
+                                            icon = Icons.Filled.CellTower,
+                                            title = "Meshtastic Settings",
+                                            subtitle = "Configure external Meshtastic radio"
+                                        )
+                                    }
                                 }
                             }
                             
@@ -679,6 +701,15 @@ fun AboutSheet(
                 }
             }
         }
+        
+    }
+    
+    // Meshtastic settings sheet modal
+    if (showMeshtasticSheet) {
+         MeshtasticSettingsSheet(
+             isPresented = true,
+             onDismiss = { showMeshtasticSheet = false }
+         )
     }
 }
 
