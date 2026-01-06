@@ -14,7 +14,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -25,6 +24,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bitchat.android.core.ui.component.button.CloseButton
+import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.nostr.LocationNotesManager
@@ -49,7 +50,6 @@ fun LocationNotesSheet(
     val isDark = isSystemInDarkTheme()
     
     // iOS color scheme
-    val backgroundColor = if (isDark) Color.Black else Color.White
     val accentGreen = if (isDark) Color.Green else Color(0xFF008000) // dark: green, light: dark green (0, 0.5, 0)
     
     // Managers
@@ -88,13 +88,10 @@ fun LocationNotesSheet(
             notesManager.cancel()
         }
     }
-    
-    ModalBottomSheet(
+
+    BitchatBottomSheet(
         onDismissRequest = onDismiss,
         modifier = modifier,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = backgroundColor,
-        contentColor = if (isDark) Color.White else Color.Black
     ) {
         Column(
             modifier = Modifier
@@ -108,7 +105,6 @@ fun LocationNotesSheet(
                 locationName = displayLocationName,
                 state = state,
                 accentGreen = accentGreen,
-                backgroundColor = backgroundColor,
                 onClose = onDismiss
             )
             
@@ -117,7 +113,6 @@ fun LocationNotesSheet(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .background(backgroundColor)
             ) {
                 LazyColumn(
                     state = listState,
@@ -178,7 +173,6 @@ fun LocationNotesSheet(
                 onDraftChange = { draft = it },
                 sendButtonEnabled = sendButtonEnabled,
                 accentGreen = accentGreen,
-                backgroundColor = backgroundColor,
                 onSend = {
                     val content = draft.trim()
                     if (content.isNotEmpty()) {
@@ -202,13 +196,11 @@ private fun LocationNotesHeader(
     locationName: String?,
     state: LocationNotesManager.State,
     accentGreen: Color,
-    backgroundColor: Color,
     onClose: () -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(backgroundColor)
             .padding(horizontal = 16.dp)
             .padding(top = 16.dp, bottom = 12.dp)
     ) {
@@ -230,22 +222,8 @@ private fun LocationNotesHeader(
                 fontSize = 18.sp,
                 color = MaterialTheme.colorScheme.onSurface
             )
-            
-            // Close button - iOS style with xmark icon
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clickable(onClick = onClose),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "✕",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
+
+            CloseButton(onClick = onClose)
         }
         
         Spacer(modifier = Modifier.height(8.dp))
@@ -469,7 +447,6 @@ private fun LocationNotesInputSection(
     onDraftChange: (String) -> Unit,
     sendButtonEnabled: Boolean,
     accentGreen: Color,
-    backgroundColor: Color,
     onSend: () -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
@@ -478,7 +455,6 @@ private fun LocationNotesInputSection(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(backgroundColor)
             .padding(horizontal = 12.dp, vertical = 8.dp), // Match main chat padding
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp) // Match main chat spacing
