@@ -4,7 +4,7 @@ agp = "8.10.1"
 kotlin = "2.2.0"
 compileSdk = "35"
 minSdk = "26" # API 26 for proper BLE support
-targetSdk = "34"
+targetSdk = "35"
 
 # AndroidX Core
 core-ktx = "1.16.0"
@@ -45,6 +45,13 @@ gms-location = "21.3.0"
 # Security
 security-crypto = "1.1.0-beta01"
 
+# QR
+zxing-core = "3.5.4"
+
+# CameraX / ML Kit
+camerax = "1.5.2"
+mlkit-barcode = "17.3.0"
+
 # Testing
 junit = "4.13.2"
 androidx-test-ext = "1.2.1"
@@ -54,9 +61,12 @@ mockito-inline = "4.1.0"
 roboelectric = "4.15"
 kotlinx-coroutines-test = "1.6"
 
+lifecycle-process = "2.8.7"
+
 [libraries]
 # AndroidX Core
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "core-ktx" }
+androidx-lifecycle-process = { module = "androidx.lifecycle:lifecycle-process", version.ref = "lifecycle-process" }
 androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycle-runtime" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
@@ -68,12 +78,10 @@ androidx-compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
 androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
-androidx-compose-runtime-livedata = { module = "androidx.compose.runtime:runtime-livedata" }
 androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
 
 # Lifecycle
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle-runtime" }
-androidx-lifecycle-livedata-ktx = { module = "androidx.lifecycle:lifecycle-livedata-ktx", version.ref = "lifecycle-runtime" }
 
 # Navigation
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigation-compose" }
@@ -106,6 +114,15 @@ gms-location = { module = "com.google.android.gms:play-services-location", versi
 # Security
 androidx-security-crypto = { module = "androidx.security:security-crypto", version.ref = "security-crypto" }
 
+# QR
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxing-core" }
+
+# CameraX / ML Kit
+androidx-camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "camerax" }
+androidx-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camerax" }
+androidx-camera-compose = { module = "androidx.camera:camera-compose", version.ref = "camerax" }
+mlkit-barcode-scanning = { module = "com.google.mlkit:barcode-scanning", version.ref = "mlkit-barcode" }
+
 # Testing
 junit = { module = "junit:junit", version.ref = "junit" }
 androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidx-test-ext" }
@@ -130,14 +147,12 @@ compose = [
     "androidx-compose-ui-graphics",
     "androidx-compose-ui-tooling-preview",
     "androidx-compose-material3",
-    "androidx-compose-runtime-livedata",
     "androidx-compose-material-icons-extended"
 ]
 
 lifecycle = [
     "androidx-lifecycle-runtime-ktx",
     "androidx-lifecycle-viewmodel-compose",
-    "androidx-lifecycle-livedata-ktx"
 ]
 
 cryptography = [

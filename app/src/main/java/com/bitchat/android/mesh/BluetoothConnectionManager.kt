@@ -84,6 +84,10 @@ class BluetoothConnectionManager(
     
     // Public property for address-peer mapping
     val addressPeerMap get() = connectionTracker.addressPeerMap
+
+    // Expose first-announce helpers to higher layers
+    fun noteAnnounceReceived(address: String) { connectionTracker.noteAnnounceReceived(address) }
+    fun hasSeenFirstAnnounce(address: String): Boolean = connectionTracker.hasSeenFirstAnnounce(address)
     
     init {
         powerManager.delegate = this
@@ -145,6 +149,7 @@ class BluetoothConnectionManager(
         
         try {
             isActive = true
+            Log.d(TAG, "ConnectionManager activated (permissions and adapter OK)")
 
         // set the adapter's name to our 8-character peerID for iOS privacy, TODO: Make this configurable
         // try {
@@ -175,6 +180,7 @@ class BluetoothConnectionManager(
                         this@BluetoothConnectionManager.isActive = false
                         return@launch
                     }
+                    Log.d(TAG, "GATT Server started")
                 } else {
                     Log.i(TAG, "GATT Server disabled by debug settings; not starting")
                 }
@@ -185,6 +191,7 @@ class BluetoothConnectionManager(
                         this@BluetoothConnectionManager.isActive = false
                         return@launch
                     }
+                    Log.d(TAG, "GATT Client started")
                 } else {
                     Log.i(TAG, "GATT Client disabled by debug settings; not starting")
                 }
@@ -210,6 +217,7 @@ class BluetoothConnectionManager(
         isActive = false
         
         connectionScope.launch {
+            Log.d(TAG, "Stopping client/server and power components...")
             // Stop component managers
             clientManager.stop()
             serverManager.stop()
@@ -226,14 +234,19 @@ class BluetoothConnectionManager(
             Log.i(TAG, "All Bluetooth services stopped")
         }
     }
-    
-    /**
-     * Set app background state for power optimization
-     */
-    fun setAppBackgroundState(inBackground: Boolean) {
-        powerManager.setAppBackgroundState(inBackground)
-    }
 
+    /**
+     * Indicates whether this instance can be safely reused for a future start.
+     * Returns false if its coroutine scope has been cancelled.
+     */
+    fun isReusable(): Boolean {
+        val active = connectionScope.isActive
+        if (!active) {
+            Log.d(TAG, "BluetoothConnectionManager isReusable=false (scope cancelled)")
+        }
+        return active
+    }
+    
     /**
      * Broadcast packet to connected devices with connection limit enforcement
      * Automatically fragments large packets to fit within BLE MTU limits

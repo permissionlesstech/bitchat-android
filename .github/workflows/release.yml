@@ -19,7 +19,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-    
+
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v2
         with:
@@ -38,32 +38,32 @@ jobs:
       - name: Grant execute permission for Gradlew
         run: chmod +x ./gradlew
 
-      - name: Build APK
+      - name: Build Release APKs (with architecture splits)
         run: ./gradlew assembleRelease --no-daemon --stacktrace
-      
+
       - name: List APK files
         run: |
           echo "APK files built:"
-          find app/build/outputs/apk/release -name "*.apk" -type f
+          find app/build/outputs/apk/release -name "*.apk" -type f -exec ls -lh {} \;
 
-      - name: Rename APK
+      - name: Rename APKs for GitHub Release
         run: |
-          mv app/build/outputs/apk/release/app-release-unsigned.apk app/build/outputs/apk/release/bitchat.apk
-      
+          cd app/build/outputs/apk/release
+          [ -f "app-arm64-v8a-release-unsigned.apk" ] && mv app-arm64-v8a-release-unsigned.apk bitchat-android-arm64.apk
+          [ -f "app-x86_64-release-unsigned.apk" ] && mv app-x86_64-release-unsigned.apk bitchat-android-x86_64.apk
+          [ -f "app-universal-release-unsigned.apk" ] && mv app-universal-release-unsigned.apk bitchat-android-universal.apk
+
       - name: DEBUG
         run: |
           set -x
-
           pwd
-
           ls -all
-
           cd app/build/outputs/
           ls -all
-          tree
-      
-      # Optional: Sign APK (requires secrets)
-      # - name: Sign APK
+          tree || ls -R
+
+      # Optional: Sign APKs (uncomment and configure secrets when ready)
+      # - name: Sign APKs
       #   uses: r0adkll/sign-android-release@v1
       #   with:
       #     releaseDirectory: app/build/outputs/apk/release
@@ -72,10 +72,10 @@ jobs:
       #     keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
       #     keyPassword: ${{ secrets.KEY_PASSWORD }}
 
-      - name: Upload APK as artifact
+      - name: Upload APKs as artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: bitchat-release-apk-${{ github.ref_name }}
+          name: bitchat-android-release-${{ github.ref_name }}
           path: app/build/outputs/apk/release/*.apk
           retention-days: 30
           if-no-files-found: error
@@ -85,16 +85,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download APK artifact
+      - name: Download release artifacts
         uses: actions/download-artifact@v4
         with:
-          name: bitchat-release-apk-${{ github.ref_name }}
-          path: .
+          name: bitchat-android-release-${{ github.ref_name }}
+          path: release
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: bitchat.apk
+          files: |
+            release/bitchat-android-arm64.apk
+            release/bitchat-android-x86_64.apk
+            release/bitchat-android-universal.apk
           name: Release ${{ github.ref_name }}
+          body: |
+            **bitchat-android-arm64.apk** - ARM64 (most phones)
+            **bitchat-android-x86_64.apk** - x86_64 (Chromebooks, tablets)
+            **bitchat-android-universal.apk** - All architectures (fallback)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

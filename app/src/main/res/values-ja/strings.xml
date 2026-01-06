@@ -70,7 +70,7 @@
     <string name="cd_remove_favorite">お気に入りから削除</string>
     <string name="cd_add_bookmark">ブックマークに追加</string>
 
-    <!-- チャットヘッダー & アクセシビリティ -->
+    <!-- チャットヘッダー &amp; アクセシビリティ -->
     <string name="chat_back">戻る</string>
     <string name="chat_channel_prefix">チャンネル: %1$s</string>
     <string name="chat_leave">退出</string>
@@ -170,7 +170,7 @@
     <string name="cd_online_geohash_channels">オンライン Geohash チャンネル</string>
     <string name="cd_end_to_end_encryption">エンドツーエンド暗号化</string>
 
-    <!-- 画像 & ファイル -->
+    <!-- 画像 &amp; ファイル -->
     <string name="image_page_of">画像 %1$d / %2$d</string>
     <string name="image_unavailable">画像は利用できません</string>
     <string name="image_saved_to_downloads">画像を「ダウンロード」に保存しました</string>
@@ -362,4 +362,41 @@
   <string name="location_notes_empty_desc">この場所の最初のメモを追加しましょう。</string>
   <string name="dismiss">閉じる</string>
   <string name="location_notes_input_placeholder">この場所へのメモを追加</string>
+    <string name="mesh_service_notification_content">メッシュ実行中 — %1$d ピア</string>
+
+  <string name="verify_title">検証</string>
+  <string name="verify_my_qr_title">私を検証するためにスキャン</string>
+  <string name="verify_scan_prompt_friend">他人のQRをスキャン</string>
+  <string name="verify_scan_someone">他人のQRをスキャン</string>
+  <string name="verify_show_my_qr">QRコードを表示</string>
+  <string name="verify_remove">検証を削除</string>
+  <string name="verify_qr_unavailable">QR利用不可</string>
+  <string name="verify_camera_permission">QRスキャンにカメラ権限が必要です</string>
+  <string name="verify_request_camera">カメラを有効化</string>
+  <string name="verify_paste_label">検証URLを貼り付け</string>
+  <string name="verify_validate">検証する</string>
+  <string name="verify_scanned">検証をリクエストしました</string>
+  <string name="security_verification_title">セキュリティ検証</string>
+  <string name="fingerprint_their">相手の指紋</string>
+  <string name="fingerprint_yours">あなたの指紋</string>
+  <string name="fingerprint_pending">ハンドシェイク保留中</string>
+  <string name="fingerprint_no_peer">指紋を見るにはプライベートチャットを開いてください</string>
+  <string name="fingerprint_status_verified">暗号化＆検証済み</string>
+  <string name="fingerprint_status_encrypted">暗号化済み</string>
+  <string name="fingerprint_status_handshaking">ハンドシェイク中</string>
+  <string name="fingerprint_status_failed">ハンドシェイク失敗</string>
+  <string name="fingerprint_status_uninitialized">未暗号化</string>
+  <string name="fingerprint_verified_label">検証済み</string>
+  <string name="fingerprint_verified_message">この人物の身元を検証しました。</string>
+  <string name="fingerprint_not_verified_label">未検証</string>
+  <string name="fingerprint_not_verified_message_fmt">安全な経路で %1$s と指紋を比較してください。</string>
+  <string name="fingerprint_mark_verified">検証済みにする</string>
+  <string name="fingerprint_start_handshake">ハンドシェイク開始</string>
+  <string name="fingerprint_copy">コピー</string>
+  <string name="verify_mutual_match_title">相互検証</string>
+  <string name="verify_mutual_match_body">あなたと %1$s は相互に検証しました</string>
+  <string name="verify_mutual_system_message">%1$s と相互検証しました</string>
+  <string name="verify_success_title">検証済み</string>
+  <string name="verify_success_body">%1$s を検証しました</string>
+  <string name="verify_success_system_message">%1$s を検証しました</string>
 </resources>

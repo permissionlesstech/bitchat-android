@@ -70,7 +70,7 @@
     <string name="cd_remove_favorite">Retirer des favoris</string>
     <string name="cd_add_bookmark">Ajouter un signet</string>
 
-    <!-- En‑tête de chat & accessibilité -->
+    <!-- En‑tête de chat &amp; accessibilité -->
     <string name="chat_back">retour</string>
     <string name="chat_channel_prefix">canal : %1$s</string>
     <string name="chat_leave">quitter</string>
@@ -165,7 +165,7 @@
     <string name="cd_online_geohash_channels">Canaux Geohash en ligne</string>
     <string name="cd_end_to_end_encryption">Chiffrement de bout en bout</string>
 
-    <!-- Images & fichiers -->
+    <!-- Images &amp; fichiers -->
     <string name="image_page_of">Image %1$d sur %2$d</string>
     <string name="image_unavailable">Image indisponible</string>
     <string name="image_saved_to_downloads">Image enregistrée dans "Téléchargements"</string>
@@ -376,4 +376,41 @@
   <string name="location_notes_empty_desc">soyez le premier à en ajouter pour cet endroit.</string>
   <string name="dismiss">fermer</string>
   <string name="location_notes_input_placeholder">ajoutez une note pour cet endroit</string>
+    <string name="mesh_service_notification_content">Mesh actif — %1$d pairs</string>
+
+  <string name="verify_title">vérifier</string>
+  <string name="verify_my_qr_title">scanner pour me vérifier</string>
+  <string name="verify_scan_prompt_friend">scanner un autre qr</string>
+  <string name="verify_scan_someone">scanner un autre qr</string>
+  <string name="verify_show_my_qr">afficher mon qr</string>
+  <string name="verify_remove">supprimer la vérification</string>
+  <string name="verify_qr_unavailable">qr indisponible</string>
+  <string name="verify_camera_permission">permission caméra requise</string>
+  <string name="verify_request_camera">activer caméra</string>
+  <string name="verify_paste_label">coller url de vérification</string>
+  <string name="verify_validate">valider</string>
+  <string name="verify_scanned">vérification demandée</string>
+  <string name="security_verification_title">vérification de sécurité</string>
+  <string name="fingerprint_their">leur empreinte</string>
+  <string name="fingerprint_yours">votre empreinte</string>
+  <string name="fingerprint_pending">négociation en cours</string>
+  <string name="fingerprint_no_peer">ouvrir un chat privé</string>
+  <string name="fingerprint_status_verified">chiffré &amp; vérifié</string>
+  <string name="fingerprint_status_encrypted">chiffré</string>
+  <string name="fingerprint_status_handshaking">négociation</string>
+  <string name="fingerprint_status_failed">échec négociation</string>
+  <string name="fingerprint_status_uninitialized">non chiffré</string>
+  <string name="fingerprint_verified_label">vérifié</string>
+  <string name="fingerprint_verified_message">vous avez vérifié cette personne.</string>
+  <string name="fingerprint_not_verified_label">non vérifié</string>
+  <string name="fingerprint_not_verified_message_fmt">comparez avec %1$s via canal sûr.</string>
+  <string name="fingerprint_mark_verified">marquer vérifié</string>
+  <string name="fingerprint_start_handshake">lancer handshake</string>
+  <string name="fingerprint_copy">copier</string>
+  <string name="verify_mutual_match_title">Vérification mutuelle</string>
+  <string name="verify_mutual_match_body">Vous et %1$s êtes vérifiés</string>
+  <string name="verify_mutual_system_message">vérification mutuelle avec %1$s</string>
+  <string name="verify_success_title">Vérifié</string>
+  <string name="verify_success_body">Vous avez vérifié %1$s</string>
+  <string name="verify_success_system_message">vérifié %1$s</string>
 </resources>

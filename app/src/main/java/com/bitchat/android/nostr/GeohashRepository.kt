@@ -2,7 +2,6 @@ package com.bitchat.android.nostr
 
 import android.app.Application
 import android.util.Log
-import androidx.lifecycle.LiveData
 import com.bitchat.android.ui.ChatState
 import com.bitchat.android.ui.GeoPerson
 import java.util.Date
@@ -112,7 +111,7 @@ class GeohashRepository(
         val geohash = currentGeohash
         if (geohash == null) {
             // Use postValue for thread safety - this can be called from background threads
-            state.postGeohashPeople(emptyList())
+            state.setGeohashPeople(emptyList())
             return
         }
         val cutoff = Date(System.currentTimeMillis() - 5 * 60 * 1000)
@@ -143,7 +142,7 @@ class GeohashRepository(
             )
         }.sortedByDescending { it.lastSeen }
         // Use postValue for thread safety - this can be called from background threads
-        state.postGeohashPeople(people)
+        state.setGeohashPeople(people)
     }
 
     fun updateReactiveParticipantCounts() {
@@ -155,7 +154,7 @@ class GeohashRepository(
             counts[gh] = active
         }
         // Use postValue for thread safety - this can be called from background threads  
-        state.postGeohashParticipantCounts(counts)
+        state.setGeohashParticipantCounts(counts)
     }
 
     fun putNostrKeyMapping(tempKeyOrPeer: String, pubkeyHex: String) {

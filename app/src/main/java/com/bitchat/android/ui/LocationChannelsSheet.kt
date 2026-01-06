@@ -18,7 +18,6 @@ import androidx.compose.material.icons.filled.PinDrop
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
@@ -38,7 +37,9 @@ import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.geohash.GeohashBookmarksStore
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.R
+import com.bitchat.android.core.ui.component.button.CloseButton
 
 /**
  * Location Channels Sheet for selecting geohash-based location channels
@@ -57,18 +58,18 @@ fun LocationChannelsSheet(
     val bookmarksStore = remember { GeohashBookmarksStore.getInstance(context) }
 
     // Observe location manager state
-    val permissionState by locationManager.permissionState.observeAsState()
-    val availableChannels by locationManager.availableChannels.observeAsState(emptyList())
-    val selectedChannel by locationManager.selectedChannel.observeAsState()
-    val locationNames by locationManager.locationNames.observeAsState(emptyMap())
-    val locationServicesEnabled by locationManager.locationServicesEnabled.observeAsState(false)
+    val permissionState by locationManager.permissionState.collectAsStateWithLifecycle()
+    val availableChannels by locationManager.availableChannels.collectAsStateWithLifecycle()
+    val selectedChannel by locationManager.selectedChannel.collectAsStateWithLifecycle()
+    val locationNames by locationManager.locationNames.collectAsStateWithLifecycle()
+    val locationServicesEnabled by locationManager.locationServicesEnabled.collectAsStateWithLifecycle()
 
     // Observe bookmarks state
-    val bookmarks by bookmarksStore.bookmarks.observeAsState(emptyList())
-    val bookmarkNames by bookmarksStore.bookmarkNames.observeAsState(emptyMap())
+    val bookmarks by bookmarksStore.bookmarks.collectAsStateWithLifecycle()
+    val bookmarkNames by bookmarksStore.bookmarkNames.collectAsStateWithLifecycle()
 
     // Observe reactive participant counts
-    val geohashParticipantCounts by viewModel.geohashParticipantCounts.observeAsState(emptyMap())
+    val geohashParticipantCounts by viewModel.geohashParticipantCounts.collectAsStateWithLifecycle()
 
     // UI state
     var customGeohash by remember { mutableStateOf("") }
@@ -551,18 +552,12 @@ fun LocationChannelsSheet(
                         .height(56.dp)
                         .background(MaterialTheme.colorScheme.background.copy(alpha = topBarAlpha))
                 ) {
-                    TextButton(
+                    CloseButton(
                         onClick = onDismiss,
-                        modifier = Modifier
+                        modifier = modifier
                             .align(Alignment.CenterEnd)
-                            .padding(horizontal = 16.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.close_plain),
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                    }
+                            .padding(horizontal = 16.dp),
+                    )
                 }
             }
         }

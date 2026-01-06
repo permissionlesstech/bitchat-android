@@ -7,8 +7,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -35,10 +35,10 @@ fun LocationNotesButton(
     val context = LocalContext.current
     
     // Get channel and permission state
-    val selectedLocationChannel by viewModel.selectedLocationChannel.observeAsState()
+    val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
     val locationManager = remember { LocationChannelManager.getInstance(context) }
-    val permissionState by locationManager.permissionState.observeAsState()
-    val locationServicesEnabled by locationManager.locationServicesEnabled.observeAsState(false)
+    val permissionState by locationManager.permissionState.collectAsStateWithLifecycle()
+    val locationServicesEnabled by locationManager.locationServicesEnabled.collectAsStateWithLifecycle(false)
 
     // Check both permission AND location services enabled
     val locationPermissionGranted = permissionState == LocationChannelManager.PermissionState.AUTHORIZED
@@ -46,7 +46,7 @@ fun LocationNotesButton(
     
     // Get notes count from LocationNotesManager
     val notesManager = remember { LocationNotesManager.getInstance() }
-    val notes by notesManager.notes.observeAsState(emptyList())
+    val notes by notesManager.notes.collectAsStateWithLifecycle()
     val notesCount = notes.size
 
     // Only show in mesh mode when location is authorized (iOS pattern)

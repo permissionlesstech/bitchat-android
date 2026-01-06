@@ -299,8 +299,7 @@ class PeerManager {
      */
     fun isPeerActive(peerID: String): Boolean {
         val info = peers[peerID] ?: return false
-        val now = System.currentTimeMillis()
-        return (now - info.lastSeen) <= stalePeerTimeoutMs && info.isConnected
+        return info.isConnected
     }
     
     /**
@@ -328,8 +327,7 @@ class PeerManager {
      * Get list of active peer IDs
      */
     fun getActivePeerIDs(): List<String> {
-        val now = System.currentTimeMillis()
-        return peers.filterValues { (now - it.lastSeen) <= stalePeerTimeoutMs && it.isConnected }
+        return peers.filterValues { it.isConnected }
             .keys
             .toList()
             .sorted()

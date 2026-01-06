@@ -19,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap
  * This is the main interface for all encryption/decryption operations in bitchat.
  * It now uses the Noise protocol for secure transport encryption with proper session management.
  */
-class EncryptionService(private val context: Context) {
+open class EncryptionService(private val context: Context) {
     
     companion object {
         private const val TAG = "EncryptionService"
@@ -27,14 +27,14 @@ class EncryptionService(private val context: Context) {
     }
     
     // Core Noise encryption service
-    private val noiseService: NoiseEncryptionService = NoiseEncryptionService(context)
+    private val noiseService: NoiseEncryptionService by lazy { NoiseEncryptionService(context) }
     
     // Session tracking for established connections
     private val establishedSessions = ConcurrentHashMap<String, String>() // peerID -> fingerprint
     
     // Ed25519 signing keys (separate from Noise static keys)
-    private val ed25519PrivateKey: Ed25519PrivateKeyParameters
-    private val ed25519PublicKey: Ed25519PublicKeyParameters
+    private lateinit var ed25519PrivateKey: Ed25519PrivateKeyParameters
+    private lateinit var ed25519PublicKey: Ed25519PublicKeyParameters
     
     // Callbacks for UI state updates
     var onSessionEstablished: ((String) -> Unit)? = null // peerID
@@ -42,6 +42,13 @@ class EncryptionService(private val context: Context) {
     var onHandshakeRequired: ((String) -> Unit)? = null // peerID
     
     init {
+        initialize()
+    }
+
+    /**
+     * Initialization logic moved to method to allow overriding in tests
+     */
+    protected open fun initialize() {
         // Initialize or load Ed25519 signing keys
         val keyPair = loadOrCreateEd25519KeyPair()
         ed25519PrivateKey = keyPair.private as Ed25519PrivateKeyParameters
@@ -356,7 +363,7 @@ class EncryptionService(private val context: Context) {
     /**
      * Verify Ed25519 signature against data using a public key
      */
-    fun verifyEd25519Signature(signature: ByteArray, data: ByteArray, publicKeyBytes: ByteArray): Boolean {
+    open fun verifyEd25519Signature(signature: ByteArray, data: ByteArray, publicKeyBytes: ByteArray): Boolean {
         return try {
             val publicKey = Ed25519PublicKeyParameters(publicKeyBytes, 0)
             val verifier = Ed25519Signer()
