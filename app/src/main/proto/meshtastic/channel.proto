@@ -1,0 +1,157 @@
+syntax = "proto3";
+
+/* trunk-ignore(buf-lint/PACKAGE_DIRECTORY_MATCH) */
+package meshtastic;
+
+option csharp_namespace = "Meshtastic.Protobufs";
+option go_package = "github.com/meshtastic/go/generated";
+option java_outer_classname = "ChannelProtos";
+option java_package = "org.meshtastic.proto";
+option swift_prefix = "";
+
+/*
+ * This information can be encoded as a QRcode/url so that other users can configure
+ * their radio to join the same channel.
+ * A note about how channel names are shown to users: channelname-X
+ * poundsymbol is a prefix used to indicate this is a channel name (idea from @professr).
+ * Where X is a letter from A-Z (base 26) representing a hash of the PSK for this
+ * channel - so that if the user changes anything about the channel (which does
+ * force a new PSK) this letter will also change. Thus preventing user confusion if
+ * two friends try to type in a channel name of "BobsChan" and then can't talk
+ * because their PSKs will be different.
+ * The PSK is hashed into this letter by "0x41 + [xor all bytes of the psk ] modulo 26"
+ * This also allows the option of someday if people have the PSK off (zero), the
+ * users COULD type in a channel name and be able to talk.
+ * FIXME: Add description of multi-channel support and how primary vs secondary channels are used.
+ * FIXME: explain how apps use channels for security.
+ * explain how remote settings and remote gpio are managed as an example
+ */
+message ChannelSettings {
+  /*
+   * Deprecated in favor of LoraConfig.channel_num
+   */
+  uint32 channel_num = 1 [deprecated = true];
+
+  /*
+   * A simple pre-shared key for now for crypto.
+   * Must be either 0 bytes (no crypto), 16 bytes (AES128), or 32 bytes (AES256).
+   * A special shorthand is used for 1 byte long psks.
+   * These psks should be treated as only minimally secure,
+   * because they are listed in this source code.
+   * Those bytes are mapped using the following scheme:
+   * `0` = No crypto
+   * `1` = The special "default" channel key: {0xd4, 0xf1, 0xbb, 0x3a, 0x20, 0x29, 0x07, 0x59, 0xf0, 0xbc, 0xff, 0xab, 0xcf, 0x4e, 0x69, 0x01}
+   * `2` through 10 = The default channel key, except with 1 through 9 added to the last byte.
+   * Shown to user as simple1 through 10
+   */
+  bytes psk = 2;
+
+  /*
+   * A SHORT name that will be packed into the URL.
+   * Less than 12 bytes.
+   * Something for end users to call the channel
+   * If this is the empty string it is assumed that this channel
+   * is the special (minimally secure) "Default"channel.
+   * In user interfaces it should be rendered as a local language translation of "X".
+   * For channel_num hashing empty string will be treated as "X".
+   * Where "X" is selected based on the English words listed above for ModemPreset
+   */
+  string name = 3;
+
+  /*
+   * Used to construct a globally unique channel ID.
+   * The full globally unique ID will be: "name.id" where ID is shown as base36.
+   * Assuming that the number of meshtastic users is below 20K (true for a long time)
+   * the chance of this 64 bit random number colliding with anyone else is super low.
+   * And the penalty for collision is low as well, it just means that anyone trying to decrypt channel messages might need to
+   * try multiple candidate channels.
+   * Any time a non wire compatible change is made to a channel, this field should be regenerated.
+   * There are a small number of 'special' globally known (and fairly) insecure standard channels.
+   * Those channels do not have a numeric id included in the settings, but instead it is pulled from
+   * a table of well known IDs.
+   * (see Well Known Channels FIXME)
+   */
+  fixed32 id = 4;
+
+  /*
+   * If true, messages on the mesh will be sent to the *public* internet by any gateway ndoe
+   */
+  bool uplink_enabled = 5;
+
+  /*
+   * If true, messages seen on the internet will be forwarded to the local mesh.
+   */
+  bool downlink_enabled = 6;
+
+  /*
+   * Per-channel module settings.
+   */
+  ModuleSettings module_settings = 7;
+}
+
+/*
+ * This message is specifically for modules to store per-channel configuration data.
+ */
+message ModuleSettings {
+  /*
+   * Bits of precision for the location sent in position packets.
+   */
+  uint32 position_precision = 1;
+
+  /*
+   * Controls whether or not the client / device should mute the current channel
+   * Useful for noisy public channels you don't necessarily want to disable
+   */
+  bool is_muted = 2;
+}
+
+/*
+ * A pair of a channel number, mode and the (sharable) settings for that channel
+ */
+message Channel {
+  /*
+   * How this channel is being used (or not).
+   * Note: this field is an enum to give us options for the future.
+   * In particular, someday we might make a 'SCANNING' option.
+   * SCANNING channels could have different frequencies and the radio would
+   * occasionally check that freq to see if anything is being transmitted.
+   * For devices that have multiple physical radios attached, we could keep multiple PRIMARY/SCANNING channels active at once to allow
+   * cross band routing as needed.
+   * If a device has only a single radio (the common case) only one channel can be PRIMARY at a time
+   * (but any number of SECONDARY channels can't be sent received on that common frequency)
+   */
+  enum Role {
+    /*
+     * This channel is not in use right now
+     */
+    DISABLED = 0;
+
+    /*
+     * This channel is used to set the frequency for the radio - all other enabled channels must be SECONDARY
+     */
+    PRIMARY = 1;
+
+    /*
+     * Secondary channels are only used for encryption/decryption/authentication purposes.
+     * Their radio settings (freq etc) are ignored, only psk is used.
+     */
+    SECONDARY = 2;
+  }
+
+  /*
+   * The index of this channel in the channel table (from 0 to MAX_NUM_CHANNELS-1)
+   * (Someday - not currently implemented) An index of -1 could be used to mean "set by name",
+   * in which case the target node will find and set the channel by settings.name.
+   */
+  int32 index = 1;
+
+  /*
+   * The new settings, or NULL to disable that channel
+   */
+  ChannelSettings settings = 2;
+
+  /*
+   * TODO: REPLACE
+   */
+  Role role = 3;
+}

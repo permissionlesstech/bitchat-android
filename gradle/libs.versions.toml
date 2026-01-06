@@ -11,6 +11,7 @@ core-ktx = "1.16.0"
 lifecycle-runtime = "2.9.1"
 activity-compose = "1.10.1"
 appcompat = "1.7.1"
+protobuf-compiler = "4.26.1"
 
 # Compose
 compose-bom = "2025.06.01"
@@ -30,6 +31,10 @@ gson = "2.13.1"
 
 # Coroutines
 kotlinx-coroutines = "1.10.2"
+
+# Protobuf
+protobuf-javalite = "4.26.1"
+protobuf-plugin = "0.9.4"
 
 # Bluetooth
 nordic-ble = "2.6.1"
@@ -96,6 +101,10 @@ gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 # Coroutines
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
 
+# Protobuf
+protobuf-javalite = { module = "com.google.protobuf:protobuf-javalite", version.ref = "protobuf-javalite" }
+protobuf-kotlin-lite = { module = "com.google.protobuf:protobuf-kotlin-lite", version.ref = "protobuf-javalite" }
+
 # Bluetooth
 nordic-ble = { module = "no.nordicsemi.android:ble", version.ref = "nordic-ble" }
 
@@ -137,6 +146,7 @@ android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-parcelize = { id = "kotlin-parcelize" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+protobuf = { id = "com.google.protobuf", version.ref = "protobuf-plugin" }
 
 [bundles]
 compose = [

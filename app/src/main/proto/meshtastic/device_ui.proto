@@ -1,0 +1,389 @@
+syntax = "proto3";
+
+package meshtastic;
+
+option csharp_namespace = "Meshtastic.Protobufs";
+option go_package = "github.com/meshtastic/go/generated";
+option java_outer_classname = "DeviceUIProtos";
+option java_package = "org.meshtastic.proto";
+option swift_prefix = "";
+
+/*
+ * Protobuf structures for device-ui persistency
+ */
+
+message DeviceUIConfig {
+  /*
+   * A version integer used to invalidate saved files when we make incompatible changes.
+   */
+  uint32 version = 1;
+
+  /*
+   * TFT display brightness 1..255
+   */
+  uint32 screen_brightness = 2;
+
+  /*
+   * Screen timeout 0..900
+   */
+  uint32 screen_timeout = 3;
+
+  /*
+   * Screen/Settings lock enabled
+   */
+  bool screen_lock = 4;
+  bool settings_lock = 5;
+  uint32 pin_code = 6;
+
+  /*
+   * Color theme
+   */
+  Theme theme = 7;
+
+  /*
+   * Audible message, banner and ring tone
+   */
+  bool alert_enabled = 8;
+  bool banner_enabled = 9;
+  uint32 ring_tone_id = 10;
+
+  /*
+   * Localization
+   */
+  Language language = 11;
+
+  /*
+   * Node list filter
+   */
+  NodeFilter node_filter = 12;
+
+  /*
+   * Node list highlightening
+   */
+  NodeHighlight node_highlight = 13;
+
+  /*
+   * 8 integers for screen calibration data
+   */
+  bytes calibration_data = 14;
+
+  /*
+   * Map related data
+   */
+  Map map_data = 15;
+
+  /*
+   * Compass mode
+   */
+  CompassMode compass_mode = 16;
+
+  /*
+   * RGB color for BaseUI
+   * 0xRRGGBB format, e.g. 0xFF0000 for red
+   */
+  uint32 screen_rgb_color = 17;
+
+  /*
+   * Clockface analog style
+   * true for analog clockface, false for digital clockface
+   */
+  bool is_clockface_analog = 18;
+
+  /*
+   * How the GPS coordinates are formatted on the OLED screen.
+   */
+  GpsCoordinateFormat gps_format = 19;
+
+  /*
+   * How the GPS coordinates are displayed on the OLED screen.
+   */
+  enum GpsCoordinateFormat {
+    /*
+     * GPS coordinates are displayed in the normal decimal degrees format:
+     * DD.DDDDDD DDD.DDDDDD
+     */
+    DEC = 0;
+
+    /*
+     * GPS coordinates are displayed in the degrees minutes seconds format:
+     * DD°MM'SS"C DDD°MM'SS"C, where C is the compass point representing the locations quadrant
+     */
+    DMS = 1;
+
+    /*
+     * Universal Transverse Mercator format:
+     * ZZB EEEEEE NNNNNNN, where Z is zone, B is band, E is easting, N is northing
+     */
+    UTM = 2;
+
+    /*
+     * Military Grid Reference System format:
+     * ZZB CD EEEEE NNNNN, where Z is zone, B is band, C is the east 100k square, D is the north 100k square,
+     * E is easting, N is northing
+     */
+    MGRS = 3;
+
+    /*
+     * Open Location Code (aka Plus Codes).
+     */
+    OLC = 4;
+
+    /*
+     * Ordnance Survey Grid Reference (the National Grid System of the UK).
+     * Format: AB EEEEE NNNNN, where A is the east 100k square, B is the north 100k square,
+     * E is the easting, N is the northing
+     */
+    OSGR = 5;
+
+    /*
+     * Maidenhead Locator System
+     * Described here: https://en.wikipedia.org/wiki/Maidenhead_Locator_System
+     */
+    MLS = 6;
+  }
+}
+
+message NodeFilter {
+  /*
+   * Filter unknown nodes
+   */
+  bool unknown_switch = 1;
+
+  /*
+   * Filter offline nodes
+   */
+  bool offline_switch = 2;
+
+  /*
+   * Filter nodes w/o public key
+   */
+  bool public_key_switch = 3;
+
+  /*
+   * Filter based on hops away
+   */
+  int32 hops_away = 4;
+
+  /*
+   * Filter nodes w/o position
+   */
+  bool position_switch = 5;
+
+  /*
+   * Filter nodes by matching name string
+   */
+  string node_name = 6;
+
+  /*
+   * Filter based on channel
+   */
+  int32 channel = 7;
+}
+
+message NodeHighlight {
+  /*
+   * Hightlight nodes w/ active chat
+   */
+  bool chat_switch = 1;
+
+  /*
+   * Highlight nodes w/ position
+   */
+  bool position_switch = 2;
+
+  /*
+   * Highlight nodes w/ telemetry data
+   */
+  bool telemetry_switch = 3;
+
+  /*
+   * Highlight nodes w/ iaq data
+   */
+  bool iaq_switch = 4;
+
+  /*
+   * Highlight nodes by matching name string
+   */
+  string node_name = 5;
+}
+
+message GeoPoint {
+  /*
+   * Zoom level
+   */
+  int32 zoom = 1;
+
+  /*
+   * Coordinate: latitude
+   */
+  int32 latitude = 2;
+
+  /*
+   * Coordinate: longitude
+   */
+  int32 longitude = 3;
+}
+
+message Map {
+  /*
+   * Home coordinates
+   */
+  GeoPoint home = 1;
+
+  /*
+   * Map tile style
+   */
+  string style = 2;
+
+  /*
+   * Map scroll follows GPS
+   */
+  bool follow_gps = 3;
+}
+
+enum CompassMode {
+  /*
+   * Compass with dynamic ring and heading
+   */
+  DYNAMIC = 0;
+
+  /*
+   * Compass with fixed ring and heading
+   */
+  FIXED_RING = 1;
+
+  /*
+   * Compass with heading and freeze option
+   */
+  FREEZE_HEADING = 2;
+}
+
+enum Theme {
+  /*
+   * Dark
+   */
+  DARK = 0;
+  /*
+   * Light
+   */
+  LIGHT = 1;
+  /*
+   * Red
+   */
+  RED = 2;
+}
+
+/*
+ * Localization
+ */
+enum Language {
+  /*
+   * English
+   */
+  ENGLISH = 0;
+
+  /*
+   * French
+   */
+  FRENCH = 1;
+
+  /*
+   * German
+   */
+  GERMAN = 2;
+
+  /*
+   * Italian
+   */
+  ITALIAN = 3;
+
+  /*
+   * Portuguese
+   */
+  PORTUGUESE = 4;
+
+  /*
+   * Spanish
+   */
+  SPANISH = 5;
+
+  /*
+   * Swedish
+   */
+  SWEDISH = 6;
+
+  /*
+   * Finnish
+   */
+  FINNISH = 7;
+
+  /*
+   * Polish
+   */
+  POLISH = 8;
+
+  /*
+   * Turkish
+   */
+  TURKISH = 9;
+
+  /*
+   * Serbian
+   */
+  SERBIAN = 10;
+
+  /*
+   * Russian
+   */
+  RUSSIAN = 11;
+
+  /*
+   * Dutch
+   */
+  DUTCH = 12;
+
+  /*
+   * Greek
+   */
+  GREEK = 13;
+
+  /*
+   * Norwegian
+   */
+  NORWEGIAN = 14;
+
+  /*
+   * Slovenian
+   */
+  SLOVENIAN = 15;
+
+  /*
+   * Ukrainian
+   */
+  UKRAINIAN = 16;
+
+  /*
+   * Bulgarian
+   */
+  BULGARIAN = 17;
+
+  /*
+   * Czech
+   */
+  CZECH = 18;
+
+  /*
+   * Danish
+   */
+  DANISH = 19;
+
+  /*
+   * Simplified Chinese (experimental)
+   */
+  SIMPLIFIED_CHINESE = 30;
+
+  /*
+   * Traditional Chinese (experimental)
+   */
+  TRADITIONAL_CHINESE = 31;
+}

@@ -1,0 +1,813 @@
+syntax = "proto3";
+
+package meshtastic;
+
+option csharp_namespace = "Meshtastic.Protobufs";
+option go_package = "github.com/meshtastic/go/generated";
+option java_outer_classname = "TelemetryProtos";
+option java_package = "org.meshtastic.proto";
+option swift_prefix = "";
+
+/*
+ * Key native device metrics such as battery level
+ */
+message DeviceMetrics {
+  /*
+   * 0-100 (>100 means powered)
+   */
+  optional uint32 battery_level = 1;
+
+  /*
+   * Voltage measured
+   */
+  optional float voltage = 2;
+
+  /*
+   * Utilization for the current channel, including well formed TX, RX and malformed RX (aka noise).
+   */
+  optional float channel_utilization = 3;
+
+  /*
+   * Percent of airtime for transmission used within the last hour.
+   */
+  optional float air_util_tx = 4;
+
+  /*
+   * How long the device has been running since the last reboot (in seconds)
+   */
+  optional uint32 uptime_seconds = 5;
+}
+
+/*
+ * Weather station or other environmental metrics
+ */
+message EnvironmentMetrics {
+  /*
+   * Temperature measured
+   */
+  optional float temperature = 1;
+
+  /*
+   * Relative humidity percent measured
+   */
+  optional float relative_humidity = 2;
+
+  /*
+   * Barometric pressure in hPA measured
+   */
+  optional float barometric_pressure = 3;
+
+  /*
+   * Gas resistance in MOhm measured
+   */
+  optional float gas_resistance = 4;
+
+  /*
+   * Voltage measured (To be depreciated in favor of PowerMetrics in Meshtastic 3.x)
+   */
+  optional float voltage = 5;
+
+  /*
+   * Current measured (To be depreciated in favor of PowerMetrics in Meshtastic 3.x)
+   */
+  optional float current = 6;
+
+  /*
+   * relative scale IAQ value as measured by Bosch BME680 . value 0-500.
+   * Belongs to Air Quality but is not particle but VOC measurement. Other VOC values can also be put in here.
+   */
+  optional uint32 iaq = 7;
+
+  /*
+   * RCWL9620 Doppler Radar Distance Sensor, used for water level detection. Float value in mm.
+   */
+  optional float distance = 8;
+
+  /*
+   * VEML7700 high accuracy ambient light(Lux) digital 16-bit resolution sensor.
+   */
+  optional float lux = 9;
+
+  /*
+   * VEML7700 high accuracy white light(irradiance) not calibrated digital 16-bit resolution sensor.
+   */
+  optional float white_lux = 10;
+
+  /*
+   * Infrared lux
+   */
+  optional float ir_lux = 11;
+
+  /*
+   * Ultraviolet lux
+   */
+  optional float uv_lux = 12;
+
+  /*
+   * Wind direction in degrees
+   * 0 degrees = North, 90 = East, etc...
+   */
+  optional uint32 wind_direction = 13;
+
+  /*
+   * Wind speed in m/s
+   */
+  optional float wind_speed = 14;
+
+  /*
+   * Weight in KG
+   */
+  optional float weight = 15;
+
+  /*
+   * Wind gust in m/s
+   */
+  optional float wind_gust = 16;
+
+  /*
+   * Wind lull in m/s
+   */
+  optional float wind_lull = 17;
+
+  /*
+   * Radiation in µR/h
+   */
+  optional float radiation = 18;
+
+  /*
+   * Rainfall in the last hour in mm
+   */
+  optional float rainfall_1h = 19;
+
+  /*
+   * Rainfall in the last 24 hours in mm
+   */
+  optional float rainfall_24h = 20;
+
+  /*
+   * Soil moisture measured (% 1-100)
+   */
+  optional uint32 soil_moisture = 21;
+
+  /*
+   * Soil temperature measured (*C)
+   */
+  optional float soil_temperature = 22;
+}
+
+/*
+ * Power Metrics (voltage / current / etc)
+ */
+message PowerMetrics {
+  /*
+   * Voltage (Ch1)
+   */
+  optional float ch1_voltage = 1;
+
+  /*
+   * Current (Ch1)
+   */
+  optional float ch1_current = 2;
+
+  /*
+   * Voltage (Ch2)
+   */
+  optional float ch2_voltage = 3;
+
+  /*
+   * Current (Ch2)
+   */
+  optional float ch2_current = 4;
+
+  /*
+   * Voltage (Ch3)
+   */
+  optional float ch3_voltage = 5;
+
+  /*
+   * Current (Ch3)
+   */
+  optional float ch3_current = 6;
+
+  /*
+   * Voltage (Ch4)
+   */
+  optional float ch4_voltage = 7;
+
+  /*
+   * Current (Ch4)
+   */
+  optional float ch4_current = 8;
+
+  /*
+   * Voltage (Ch5)
+   */
+  optional float ch5_voltage = 9;
+
+  /*
+   * Current (Ch5)
+   */
+  optional float ch5_current = 10;
+
+  /*
+   * Voltage (Ch6)
+   */
+  optional float ch6_voltage = 11;
+
+  /*
+   * Current (Ch6)
+   */
+  optional float ch6_current = 12;
+
+  /*
+   * Voltage (Ch7)
+   */
+  optional float ch7_voltage = 13;
+
+  /*
+   * Current (Ch7)
+   */
+  optional float ch7_current = 14;
+
+  /*
+   * Voltage (Ch8)
+   */
+  optional float ch8_voltage = 15;
+
+  /*
+   * Current (Ch8)
+   */
+  optional float ch8_current = 16;
+}
+
+/*
+ * Air quality metrics
+ */
+message AirQualityMetrics {
+  /*
+   * Concentration Units Standard PM1.0 in ug/m3
+   */
+  optional uint32 pm10_standard = 1;
+
+  /*
+   * Concentration Units Standard PM2.5 in ug/m3
+   */
+  optional uint32 pm25_standard = 2;
+
+  /*
+   * Concentration Units Standard PM10.0 in ug/m3
+   */
+  optional uint32 pm100_standard = 3;
+
+  /*
+   * Concentration Units Environmental PM1.0 in ug/m3
+   */
+  optional uint32 pm10_environmental = 4;
+
+  /*
+   * Concentration Units Environmental PM2.5 in ug/m3
+   */
+  optional uint32 pm25_environmental = 5;
+
+  /*
+   * Concentration Units Environmental PM10.0 in ug/m3
+   */
+  optional uint32 pm100_environmental = 6;
+
+  /*
+   * 0.3um Particle Count in #/0.1l
+   */
+  optional uint32 particles_03um = 7;
+
+  /*
+   * 0.5um Particle Count in #/0.1l
+   */
+  optional uint32 particles_05um = 8;
+
+  /*
+   * 1.0um Particle Count in #/0.1l
+   */
+  optional uint32 particles_10um = 9;
+
+  /*
+   * 2.5um Particle Count in #/0.1l
+   */
+  optional uint32 particles_25um = 10;
+
+  /*
+   * 5.0um Particle Count in #/0.1l
+   */
+  optional uint32 particles_50um = 11;
+
+  /*
+   * 10.0um Particle Count in #/0.1l
+   */
+  optional uint32 particles_100um = 12;
+
+  /*
+   * CO2 concentration in ppm
+   */
+  optional uint32 co2 = 13;
+
+  /*
+   * CO2 sensor temperature in degC
+   */
+  optional float co2_temperature = 14;
+
+  /*
+   * CO2 sensor relative humidity in %
+   */
+  optional float co2_humidity = 15;
+
+  /*
+   * Formaldehyde sensor formaldehyde concentration in ppb
+   */
+  optional float form_formaldehyde = 16;
+
+  /*
+   * Formaldehyde sensor relative humidity in %RH
+   */
+  optional float form_humidity = 17;
+
+  /*
+   * Formaldehyde sensor temperature in degrees Celsius
+   */
+  optional float form_temperature = 18;
+
+  /*
+   * Concentration Units Standard PM4.0 in ug/m3
+   */
+  optional uint32 pm40_standard = 19;
+
+  /*
+   * 4.0um Particle Count in #/0.1l
+   */
+  optional uint32 particles_40um = 20;
+
+  /*
+   * PM Sensor Temperature
+   */
+  optional float pm_temperature = 21;
+
+  /*
+   * PM Sensor humidity
+   */
+  optional float pm_humidity = 22;
+
+  /*
+   * PM Sensor VOC Index
+   */
+  optional float pm_voc_idx = 23;
+
+  /*
+   * PM Sensor NOx Index
+   */
+  optional float pm_nox_idx = 24;
+
+  /*
+   * Typical Particle Size in um
+   */
+  optional float particles_tps = 25;
+}
+
+/*
+ * Local device mesh statistics
+ */
+message LocalStats {
+  /*
+   * How long the device has been running since the last reboot (in seconds)
+   */
+  uint32 uptime_seconds = 1;
+  /*
+   * Utilization for the current channel, including well formed TX, RX and malformed RX (aka noise).
+   */
+  float channel_utilization = 2;
+  /*
+   * Percent of airtime for transmission used within the last hour.
+   */
+  float air_util_tx = 3;
+
+  /*
+   * Number of packets sent
+   */
+  uint32 num_packets_tx = 4;
+
+  /*
+   * Number of packets received (both good and bad)
+   */
+  uint32 num_packets_rx = 5;
+
+  /*
+   * Number of packets received that are malformed or violate the protocol
+   */
+  uint32 num_packets_rx_bad = 6;
+
+  /*
+   * Number of nodes online (in the past 2 hours)
+   */
+  uint32 num_online_nodes = 7;
+
+  /*
+   * Number of nodes total
+   */
+  uint32 num_total_nodes = 8;
+
+  /*
+   * Number of received packets that were duplicates (due to multiple nodes relaying).
+   * If this number is high, there are nodes in the mesh relaying packets when it's unnecessary, for example due to the ROUTER/REPEATER role.
+   */
+  uint32 num_rx_dupe = 9;
+
+  /*
+   * Number of packets we transmitted that were a relay for others (not originating from ourselves).
+   */
+  uint32 num_tx_relay = 10;
+
+  /*
+   * Number of times we canceled a packet to be relayed, because someone else did it before us.
+   * This will always be zero for ROUTERs/REPEATERs. If this number is high, some other node(s) is/are relaying faster than you.
+   */
+  uint32 num_tx_relay_canceled = 11;
+
+  /*
+   * Number of bytes used in the heap
+   */
+  uint32 heap_total_bytes = 12;
+
+  /*
+   * Number of bytes free in the heap
+   */
+  uint32 heap_free_bytes = 13;
+
+  /*
+   * Number of packets that were dropped because the transmit queue was full.
+   */
+  uint32 num_tx_dropped = 14;
+}
+
+/*
+ * Health telemetry metrics
+ */
+message HealthMetrics {
+  /*
+   * Heart rate (beats per minute)
+   */
+  optional uint32 heart_bpm = 1;
+
+  /*
+   * SpO2 (blood oxygen saturation) level
+   */
+  optional uint32 spO2 = 2;
+
+  /*
+   * Body temperature in degrees Celsius
+   */
+  optional float temperature = 3;
+}
+
+/*
+ * Linux host metrics
+ */
+message HostMetrics {
+  /*
+   * Host system uptime
+   */
+  uint32 uptime_seconds = 1;
+
+  /*
+   * Host system free memory
+   */
+  uint64 freemem_bytes = 2;
+
+  /*
+   * Host system disk space free for /
+   */
+  uint64 diskfree1_bytes = 3;
+
+  /*
+   * Secondary system disk space free
+   */
+  optional uint64 diskfree2_bytes = 4;
+
+  /*
+   * Tertiary disk space free
+   */
+  optional uint64 diskfree3_bytes = 5;
+
+  /*
+   * Host system one minute load in 1/100ths
+   */
+  uint32 load1 = 6;
+
+  /*
+   * Host system five minute load  in 1/100ths
+   */
+  uint32 load5 = 7;
+
+  /*
+   * Host system fifteen minute load  in 1/100ths
+   */
+  uint32 load15 = 8;
+
+  /*
+   * Optional User-provided string for arbitrary host system information
+   * that doesn't make sense as a dedicated entry.
+   */
+  optional string user_string = 9;
+}
+
+/*
+ * Types of Measurements the telemetry module is equipped to handle
+ */
+message Telemetry {
+  /*
+   * Seconds since 1970 - or 0 for unknown/unset
+   */
+  fixed32 time = 1;
+
+  oneof variant {
+    /*
+     * Key native device metrics such as battery level
+     */
+    DeviceMetrics device_metrics = 2;
+
+    /*
+     * Weather station or other environmental metrics
+     */
+    EnvironmentMetrics environment_metrics = 3;
+
+    /*
+     * Air quality metrics
+     */
+    AirQualityMetrics air_quality_metrics = 4;
+
+    /*
+     * Power Metrics
+     */
+    PowerMetrics power_metrics = 5;
+
+    /*
+     * Local device mesh statistics
+     */
+    LocalStats local_stats = 6;
+
+    /*
+     * Health telemetry metrics
+     */
+    HealthMetrics health_metrics = 7;
+
+    /*
+     * Linux host metrics
+     */
+    HostMetrics host_metrics = 8;
+  }
+}
+
+/*
+ * Supported I2C Sensors for telemetry in Meshtastic
+ */
+enum TelemetrySensorType {
+  /*
+   * No external telemetry sensor explicitly set
+   */
+  SENSOR_UNSET = 0;
+
+  /*
+   * High accuracy temperature, pressure, humidity
+   */
+  BME280 = 1;
+
+  /*
+   * High accuracy temperature, pressure, humidity, and air resistance
+   */
+  BME680 = 2;
+
+  /*
+   * Very high accuracy temperature
+   */
+  MCP9808 = 3;
+
+  /*
+   * Moderate accuracy current and voltage
+   */
+  INA260 = 4;
+
+  /*
+   * Moderate accuracy current and voltage
+   */
+  INA219 = 5;
+
+  /*
+   * High accuracy temperature and pressure
+   */
+  BMP280 = 6;
+
+  /*
+   * High accuracy temperature and humidity
+   */
+  SHTC3 = 7;
+
+  /*
+   * High accuracy pressure
+   */
+  LPS22 = 8;
+
+  /*
+   * 3-Axis magnetic sensor
+   */
+  QMC6310 = 9;
+
+  /*
+   * 6-Axis inertial measurement sensor
+   */
+  QMI8658 = 10;
+
+  /*
+   * 3-Axis magnetic sensor
+   */
+  QMC5883L = 11;
+
+  /*
+   * High accuracy temperature and humidity
+   */
+  SHT31 = 12;
+
+  /*
+   * PM2.5 air quality sensor
+   */
+  PMSA003I = 13;
+
+  /*
+   * INA3221 3 Channel Voltage / Current Sensor
+   */
+  INA3221 = 14;
+
+  /*
+   * BMP085/BMP180 High accuracy temperature and pressure (older Version of BMP280)
+   */
+  BMP085 = 15;
+
+  /*
+   * RCWL-9620 Doppler Radar Distance Sensor, used for water level detection
+   */
+  RCWL9620 = 16;
+
+  /*
+   * Sensirion High accuracy temperature and humidity
+   */
+  SHT4X = 17;
+
+  /*
+   * VEML7700 high accuracy ambient light(Lux) digital 16-bit resolution sensor.
+   */
+  VEML7700 = 18;
+
+  /*
+   * MLX90632 non-contact IR temperature sensor.
+   */
+  MLX90632 = 19;
+
+  /*
+   * TI OPT3001 Ambient Light Sensor
+   */
+  OPT3001 = 20;
+
+  /*
+   * Lite On LTR-390UV-01 UV Light Sensor
+   */
+  LTR390UV = 21;
+
+  /*
+   * AMS TSL25911FN RGB Light Sensor
+   */
+  TSL25911FN = 22;
+
+  /*
+   * AHT10 Integrated temperature and humidity sensor
+   */
+  AHT10 = 23;
+
+  /*
+   * DFRobot Lark Weather station (temperature, humidity, pressure, wind speed and direction)
+   */
+  DFROBOT_LARK = 24;
+
+  /*
+   * NAU7802 Scale Chip or compatible
+   */
+  NAU7802 = 25;
+
+  /*
+   * BMP3XX High accuracy temperature and pressure
+   */
+  BMP3XX = 26;
+
+  /*
+   * ICM-20948 9-Axis digital motion processor
+   */
+  ICM20948 = 27;
+
+  /*
+   * MAX17048 1S lipo battery sensor (voltage, state of charge, time to go)
+   */
+  MAX17048 = 28;
+
+  /*
+   * Custom I2C sensor implementation based on https://github.com/meshtastic/i2c-sensor
+   */
+  CUSTOM_SENSOR = 29;
+
+  /*
+   * MAX30102 Pulse Oximeter and Heart-Rate Sensor
+   */
+  MAX30102 = 30;
+
+  /*
+   * MLX90614 non-contact IR temperature sensor
+   */
+  MLX90614 = 31;
+
+  /*
+   * SCD40/SCD41 CO2, humidity, temperature sensor
+   */
+  SCD4X = 32;
+
+  /*
+   * ClimateGuard RadSens, radiation, Geiger-Muller Tube
+   */
+  RADSENS = 33;
+
+  /*
+   * High accuracy current and voltage
+   */
+  INA226 = 34;
+
+  /*
+   * DFRobot Gravity tipping bucket rain gauge
+   */
+  DFROBOT_RAIN = 35;
+
+  /*
+   * Infineon DPS310 High accuracy pressure and temperature
+   */
+  DPS310 = 36;
+
+  /*
+   * RAKWireless RAK12035 Soil Moisture Sensor Module
+   */
+  RAK12035 = 37;
+
+  /*
+   * MAX17261 lipo battery gauge
+   */
+  MAX17261 = 38;
+
+  /*
+   * PCT2075 Temperature Sensor
+   */
+  PCT2075 = 39;
+
+  /*
+   * ADS1X15 ADC
+   */
+  ADS1X15 = 40;
+
+  /*
+   * ADS1X15 ADC_ALT
+   */
+  ADS1X15_ALT = 41;
+
+  /*
+   * Sensirion SFA30 Formaldehyde sensor
+   */
+  SFA30 = 42;
+
+  /*
+   * SEN5X PM SENSORS
+   */
+  SEN5X = 43;
+  /*
+   * TSL2561 light sensor
+   */
+  TSL2561 = 44;
+
+  /*
+   * BH1750 light sensor
+   */
+  BH1750 = 45;
+}
+
+/*
+ * NAU7802 Telemetry configuration, for saving to flash
+ */
+message Nau7802Config {
+  /*
+   * The offset setting for the NAU7802
+   */
+  int32 zeroOffset = 1;
+
+  /*
+   * The calibration factor for the NAU7802
+   */
+  float calibrationFactor = 2;
+}

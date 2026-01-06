@@ -1,0 +1,2539 @@
+syntax = "proto3";
+
+package meshtastic;
+
+import "meshtastic/channel.proto";
+import "meshtastic/config.proto";
+import "meshtastic/device_ui.proto";
+import "meshtastic/module_config.proto";
+import "meshtastic/portnums.proto";
+import "meshtastic/telemetry.proto";
+import "meshtastic/xmodem.proto";
+
+option csharp_namespace = "Meshtastic.Protobufs";
+option go_package = "github.com/meshtastic/go/generated";
+option java_outer_classname = "MeshProtos";
+option java_package = "org.meshtastic.proto";
+option swift_prefix = "";
+
+/*
+ * A GPS Position
+ */
+message Position {
+  /*
+   * The new preferred location encoding, multiply by 1e-7 to get degrees
+   * in floating point
+   */
+  optional sfixed32 latitude_i = 1;
+
+  /*
+   * TODO: REPLACE
+   */
+  optional sfixed32 longitude_i = 2;
+
+  /*
+   * In meters above MSL (but see issue #359)
+   */
+  optional int32 altitude = 3;
+
+  /*
+   * This is usually not sent over the mesh (to save space), but it is sent
+   * from the phone so that the local device can set its time if it is sent over
+   * the mesh (because there are devices on the mesh without GPS or RTC).
+   * seconds since 1970
+   */
+  fixed32 time = 4;
+
+  /*
+   * How the location was acquired: manual, onboard GPS, external (EUD) GPS
+   */
+  enum LocSource {
+    /*
+     * TODO: REPLACE
+     */
+    LOC_UNSET = 0;
+
+    /*
+     * TODO: REPLACE
+     */
+    LOC_MANUAL = 1;
+
+    /*
+     * TODO: REPLACE
+     */
+    LOC_INTERNAL = 2;
+
+    /*
+     * TODO: REPLACE
+     */
+    LOC_EXTERNAL = 3;
+  }
+
+  /*
+   * TODO: REPLACE
+   */
+  LocSource location_source = 5;
+
+  /*
+   * How the altitude was acquired: manual, GPS int/ext, etc
+   * Default: same as location_source if present
+   */
+  enum AltSource {
+    /*
+     * TODO: REPLACE
+     */
+    ALT_UNSET = 0;
+
+    /*
+     * TODO: REPLACE
+     */
+    ALT_MANUAL = 1;
+
+    /*
+     * TODO: REPLACE
+     */
+    ALT_INTERNAL = 2;
+
+    /*
+     * TODO: REPLACE
+     */
+    ALT_EXTERNAL = 3;
+
+    /*
+     * TODO: REPLACE
+     */
+    ALT_BAROMETRIC = 4;
+  }
+
+  /*
+   * TODO: REPLACE
+   */
+  AltSource altitude_source = 6;
+
+  /*
+   * Positional timestamp (actual timestamp of GPS solution) in integer epoch seconds
+   */
+  fixed32 timestamp = 7;
+
+  /*
+   * Pos. timestamp milliseconds adjustment (rarely available or required)
+   */
+  int32 timestamp_millis_adjust = 8;
+
+  /*
+   * HAE altitude in meters - can be used instead of MSL altitude
+   */
+  optional sint32 altitude_hae = 9;
+
+  /*
+   * Geoidal separation in meters
+   */
+  optional sint32 altitude_geoidal_separation = 10;
+
+  /*
+   * Horizontal, Vertical and Position Dilution of Precision, in 1/100 units
+   * - PDOP is sufficient for most cases
+   * - for higher precision scenarios, HDOP and VDOP can be used instead,
+   *   in which case PDOP becomes redundant (PDOP=sqrt(HDOP^2 + VDOP^2))
+   * TODO: REMOVE/INTEGRATE
+   */
+  uint32 PDOP = 11;
+
+  /*
+   * TODO: REPLACE
+   */
+  uint32 HDOP = 12;
+
+  /*
+   * TODO: REPLACE
+   */
+  uint32 VDOP = 13;
+
+  /*
+   * GPS accuracy (a hardware specific constant) in mm
+   *   multiplied with DOP to calculate positional accuracy
+   * Default: "'bout three meters-ish" :)
+   */
+  uint32 gps_accuracy = 14;
+
+  /*
+   * Ground speed in m/s and True North TRACK in 1/100 degrees
+   * Clarification of terms:
+   * - "track" is the direction of motion (measured in horizontal plane)
+   * - "heading" is where the fuselage points (measured in horizontal plane)
+   * - "yaw" indicates a relative rotation about the vertical axis
+   * TODO: REMOVE/INTEGRATE
+   */
+  optional uint32 ground_speed = 15;
+
+  /*
+   * TODO: REPLACE
+   */
+  optional uint32 ground_track = 16;
+
+  /*
+   * GPS fix quality (from NMEA GxGGA statement or similar)
+   */
+  uint32 fix_quality = 17;
+
+  /*
+   * GPS fix type 2D/3D (from NMEA GxGSA statement)
+   */
+  uint32 fix_type = 18;
+
+  /*
+   * GPS "Satellites in View" number
+   */
+  uint32 sats_in_view = 19;
+
+  /*
+   * Sensor ID - in case multiple positioning sensors are being used
+   */
+  uint32 sensor_id = 20;
+
+  /*
+   * Estimated/expected time (in seconds) until next update:
+   * - if we update at fixed intervals of X seconds, use X
+   * - if we update at dynamic intervals (based on relative movement etc),
+   *   but "AT LEAST every Y seconds", use Y
+   */
+  uint32 next_update = 21;
+
+  /*
+   * A sequence number, incremented with each Position message to help
+   *   detect lost updates if needed
+   */
+  uint32 seq_number = 22;
+
+  /*
+   * Indicates the bits of precision set by the sending node
+   */
+  uint32 precision_bits = 23;
+}
+
+/*
+ * Note: these enum names must EXACTLY match the string used in the device
+ * bin/build-all.sh script.
+ * Because they will be used to find firmware filenames in the android app for OTA updates.
+ * To match the old style filenames, _ is converted to -, p is converted to .
+ */
+enum HardwareModel {
+  /*
+   * TODO: REPLACE
+   */
+  UNSET = 0;
+
+  /*
+   * TODO: REPLACE
+   */
+  TLORA_V2 = 1;
+
+  /*
+   * TODO: REPLACE
+   */
+  TLORA_V1 = 2;
+
+  /*
+   * TODO: REPLACE
+   */
+  TLORA_V2_1_1P6 = 3;
+
+  /*
+   * TODO: REPLACE
+   */
+  TBEAM = 4;
+
+  /*
+   * The original heltec WiFi_Lora_32_V2, which had battery voltage sensing hooked to GPIO 13
+   * (see HELTEC_V2 for the new version).
+   */
+  HELTEC_V2_0 = 5;
+
+  /*
+   * TODO: REPLACE
+   */
+  TBEAM_V0P7 = 6;
+
+  /*
+   * TODO: REPLACE
+   */
+  T_ECHO = 7;
+
+  /*
+   * TODO: REPLACE
+   */
+  TLORA_V1_1P3 = 8;
+
+  /*
+   * TODO: REPLACE
+   */
+  RAK4631 = 9;
+
+  /*
+   * The new version of the heltec WiFi_Lora_32_V2 board that has battery sensing hooked to GPIO 37.
+   * Sadly they did not update anything on the silkscreen to identify this board
+   */
+  HELTEC_V2_1 = 10;
+
+  /*
+   * Ancient heltec WiFi_Lora_32 board
+   */
+  HELTEC_V1 = 11;
+
+  /*
+   * New T-BEAM with ESP32-S3 CPU
+   */
+  LILYGO_TBEAM_S3_CORE = 12;
+
+  /*
+   * RAK WisBlock ESP32 core: https://docs.rakwireless.com/Product-Categories/WisBlock/RAK11200/Overview/
+   */
+  RAK11200 = 13;
+
+  /*
+   * B&Q Consulting Nano Edition G1: https://uniteng.com/wiki/doku.php?id=meshtastic:nano
+   */
+  NANO_G1 = 14;
+
+  /*
+   * TODO: REPLACE
+   */
+  TLORA_V2_1_1P8 = 15;
+
+  /*
+   * TODO: REPLACE
+   */
+  TLORA_T3_S3 = 16;
+
+  /*
+   * B&Q Consulting Nano G1 Explorer: https://wiki.uniteng.com/en/meshtastic/nano-g1-explorer
+   */
+  NANO_G1_EXPLORER = 17;
+
+  /*
+   * B&Q Consulting Nano G2 Ultra: https://wiki.uniteng.com/en/meshtastic/nano-g2-ultra
+   */
+  NANO_G2_ULTRA = 18;
+
+  /*
+   * LoRAType device: https://loratype.org/
+   */
+  LORA_TYPE = 19;
+
+  /*
+   * wiphone https://www.wiphone.io/
+   */
+  WIPHONE = 20;
+
+  /*
+   * WIO Tracker WM1110 family from Seeed Studio. Includes wio-1110-tracker and wio-1110-sdk
+   */
+  WIO_WM1110 = 21;
+
+  /*
+   * RAK2560 Solar base station based on RAK4630
+   */
+  RAK2560 = 22;
+
+  /*
+   * Heltec HRU-3601: https://heltec.org/project/hru-3601/
+   */
+  HELTEC_HRU_3601 = 23;
+
+  /*
+   * Heltec Wireless Bridge
+   */
+  HELTEC_WIRELESS_BRIDGE = 24;
+
+  /*
+   * B&Q Consulting Station Edition G1: https://uniteng.com/wiki/doku.php?id=meshtastic:station
+   */
+  STATION_G1 = 25;
+
+  /*
+   * RAK11310 (RP2040 + SX1262)
+   */
+  RAK11310 = 26;
+
+  /*
+   * Makerfabs SenseLoRA Receiver (RP2040 + RFM96)
+   */
+  SENSELORA_RP2040 = 27;
+
+  /*
+   * Makerfabs SenseLoRA Industrial Monitor (ESP32-S3 + RFM96)
+   */
+  SENSELORA_S3 = 28;
+
+  /*
+   * Canary Radio Company - CanaryOne: https://canaryradio.io/products/canaryone
+   */
+  CANARYONE = 29;
+
+  /*
+   * Waveshare RP2040 LoRa - https://www.waveshare.com/rp2040-lora.htm
+   */
+  RP2040_LORA = 30;
+
+  /*
+   * B&Q Consulting Station G2: https://wiki.uniteng.com/en/meshtastic/station-g2
+   */
+  STATION_G2 = 31;
+
+  /*
+   * ---------------------------------------------------------------------------
+   * Less common/prototype boards listed here (needs one more byte over the air)
+   * ---------------------------------------------------------------------------
+   */
+  LORA_RELAY_V1 = 32;
+
+  /*
+   * T-Echo Plus device from LilyGo
+   */
+  T_ECHO_PLUS = 33;
+
+  /*
+   * TODO: REPLACE
+   */
+  PPR = 34;
+
+  /*
+   * TODO: REPLACE
+   */
+  GENIEBLOCKS = 35;
+
+  /*
+   * TODO: REPLACE
+   */
+  NRF52_UNKNOWN = 36;
+
+  /*
+   * TODO: REPLACE
+   */
+  PORTDUINO = 37;
+
+  /*
+   * The simulator built into the android app
+   */
+  ANDROID_SIM = 38;
+
+  /*
+   * Custom DIY device based on @NanoVHF schematics: https://github.com/NanoVHF/Meshtastic-DIY/tree/main/Schematics
+   */
+  DIY_V1 = 39;
+
+  /*
+   * nRF52840 Dongle : https://www.nordicsemi.com/Products/Development-hardware/nrf52840-dongle/
+   */
+  NRF52840_PCA10059 = 40;
+
+  /*
+   * Custom Disaster Radio esp32 v3 device https://github.com/sudomesh/disaster-radio/tree/master/hardware/board_esp32_v3
+   */
+  DR_DEV = 41;
+
+  /*
+   * M5 esp32 based MCU modules with enclosure, TFT and LORA Shields. All Variants (Basic, Core, Fire, Core2, CoreS3, Paper) https://m5stack.com/
+   */
+  M5STACK = 42;
+
+  /*
+   * New Heltec LoRA32 with ESP32-S3 CPU
+   */
+  HELTEC_V3 = 43;
+
+  /*
+   * New Heltec Wireless Stick Lite with ESP32-S3 CPU
+   */
+  HELTEC_WSL_V3 = 44;
+
+  /*
+   * New BETAFPV ELRS Micro TX Module 2.4G with ESP32 CPU
+   */
+  BETAFPV_2400_TX = 45;
+
+  /*
+   * BetaFPV ExpressLRS "Nano" TX Module 900MHz with ESP32 CPU
+   */
+  BETAFPV_900_NANO_TX = 46;
+
+  /*
+   * Raspberry Pi Pico (W) with Waveshare SX1262 LoRa Node Module
+   */
+  RPI_PICO = 47;
+
+  /*
+   * Heltec Wireless Tracker with ESP32-S3 CPU, built-in GPS, and TFT
+   * Newer V1.1, version is written on the PCB near the display.
+   */
+  HELTEC_WIRELESS_TRACKER = 48;
+
+  /*
+   * Heltec Wireless Paper with ESP32-S3 CPU and E-Ink display
+   */
+  HELTEC_WIRELESS_PAPER = 49;
+
+  /*
+   * LilyGo T-Deck with ESP32-S3 CPU, Keyboard and IPS display
+   */
+  T_DECK = 50;
+
+  /*
+   * LilyGo T-Watch S3 with ESP32-S3 CPU and IPS display
+   */
+  T_WATCH_S3 = 51;
+
+  /*
+   * Bobricius Picomputer with ESP32-S3 CPU, Keyboard and IPS display
+   */
+  PICOMPUTER_S3 = 52;
+
+  /*
+   * Heltec HT-CT62 with ESP32-C3 CPU and SX1262 LoRa
+   */
+  HELTEC_HT62 = 53;
+
+  /*
+   * EBYTE SPI LoRa module and ESP32-S3
+   */
+  EBYTE_ESP32_S3 = 54;
+
+  /*
+   * Waveshare ESP32-S3-PICO with PICO LoRa HAT and 2.9inch e-Ink
+   */
+  ESP32_S3_PICO = 55;
+
+  /*
+   * CircuitMess Chatter 2 LLCC68 Lora Module and ESP32 Wroom
+   * Lora module can be swapped out for a Heltec RA-62 which is "almost" pin compatible
+   * with one cut and one jumper Meshtastic works
+   */
+  CHATTER_2 = 56;
+
+  /*
+   * Heltec Wireless Paper, With ESP32-S3 CPU and E-Ink display
+   * Older "V1.0" Variant, has no "version sticker"
+   * E-Ink model is DEPG0213BNS800
+   * Tab on the screen protector is RED
+   * Flex connector marking is FPC-7528B
+   */
+  HELTEC_WIRELESS_PAPER_V1_0 = 57;
+
+  /*
+   * Heltec Wireless Tracker with ESP32-S3 CPU, built-in GPS, and TFT
+   * Older "V1.0" Variant
+   */
+  HELTEC_WIRELESS_TRACKER_V1_0 = 58;
+
+  /*
+   * unPhone with ESP32-S3, TFT touchscreen,  LSM6DS3TR-C accelerometer and gyroscope
+   */
+  UNPHONE = 59;
+
+  /*
+   * Teledatics TD-LORAC NRF52840 based M.2 LoRA module
+   * Compatible with the TD-WRLS development board
+   */
+  TD_LORAC = 60;
+
+  /*
+   * CDEBYTE EoRa-S3 board using their own MM modules, clone of LILYGO T3S3
+   */
+  CDEBYTE_EORA_S3 = 61;
+
+  /*
+   * TWC_MESH_V4
+   * Adafruit NRF52840 feather express with SX1262, SSD1306 OLED and NEO6M GPS
+   */
+  TWC_MESH_V4 = 62;
+
+  /*
+   * NRF52_PROMICRO_DIY
+   * Promicro NRF52840 with SX1262/LLCC68, SSD1306 OLED and NEO6M GPS
+   */
+  NRF52_PROMICRO_DIY = 63;
+
+  /*
+   * RadioMaster 900 Bandit Nano, https://www.radiomasterrc.com/products/bandit-nano-expresslrs-rf-module
+   * ESP32-D0WDQ6 With SX1276/SKY66122, SSD1306 OLED and No GPS
+   */
+  RADIOMASTER_900_BANDIT_NANO = 64;
+
+  /*
+   * Heltec Capsule Sensor V3 with ESP32-S3 CPU, Portable LoRa device that can replace GNSS modules or sensors
+   */
+  HELTEC_CAPSULE_SENSOR_V3 = 65;
+
+  /*
+   * Heltec Vision Master T190 with ESP32-S3 CPU, and a 1.90 inch TFT display
+   */
+  HELTEC_VISION_MASTER_T190 = 66;
+
+  /*
+   * Heltec Vision Master E213 with ESP32-S3 CPU, and a 2.13 inch E-Ink display
+   */
+  HELTEC_VISION_MASTER_E213 = 67;
+
+  /*
+   * Heltec Vision Master E290 with ESP32-S3 CPU, and a 2.9 inch E-Ink display
+   */
+  HELTEC_VISION_MASTER_E290 = 68;
+
+  /*
+   * Heltec Mesh Node T114 board with nRF52840 CPU, and a 1.14 inch TFT display, Ultimate low-power design,
+   * specifically adapted for the Meshtatic project
+   */
+  HELTEC_MESH_NODE_T114 = 69;
+
+  /*
+   * Sensecap Indicator from Seeed Studio. ESP32-S3 device with TFT and RP2040 coprocessor
+   */
+  SENSECAP_INDICATOR = 70;
+
+  /*
+   * Seeed studio T1000-E tracker card. NRF52840 w/ LR1110 radio, GPS, button, buzzer, and sensors.
+   */
+  TRACKER_T1000_E = 71;
+
+  /*
+   * RAK3172 STM32WLE5 Module (https://store.rakwireless.com/products/wisduo-lpwan-module-rak3172)
+   */
+  RAK3172 = 72;
+
+  /*
+   * Seeed Studio Wio-E5 (either mini or Dev kit) using STM32WL chip.
+   */
+  WIO_E5 = 73;
+
+  /*
+   * RadioMaster 900 Bandit, https://www.radiomasterrc.com/products/bandit-expresslrs-rf-module
+   * SSD1306 OLED and No GPS
+   */
+  RADIOMASTER_900_BANDIT = 74;
+
+  /*
+   * Minewsemi ME25LS01 (ME25LE01_V1.0). NRF52840 w/ LR1110 radio, buttons and leds and pins.
+   */
+  ME25LS01_4Y10TD = 75;
+
+  /*
+   * RP2040_FEATHER_RFM95
+   * Adafruit Feather RP2040 with RFM95 LoRa Radio RFM95 with SX1272, SSD1306 OLED
+   * https://www.adafruit.com/product/5714
+   * https://www.adafruit.com/product/326
+   * https://www.adafruit.com/product/938
+   *  ^^^ short A0 to switch to I2C address 0x3C
+   *
+   */
+  RP2040_FEATHER_RFM95 = 76;
+
+  /* M5 esp32 based MCU modules with enclosure, TFT and LORA Shields. All Variants (Basic, Core, Fire, Core2, CoreS3, Paper) https://m5stack.com/ */
+  M5STACK_COREBASIC = 77;
+  M5STACK_CORE2 = 78;
+
+  /* Pico2 with Waveshare Hat, same as Pico */
+  RPI_PICO2 = 79;
+
+  /* M5 esp32 based MCU modules with enclosure, TFT and LORA Shields. All Variants (Basic, Core, Fire, Core2, CoreS3, Paper) https://m5stack.com/ */
+  M5STACK_CORES3 = 80;
+
+  /* Seeed XIAO S3 DK*/
+  SEEED_XIAO_S3 = 81;
+
+  /*
+   * Nordic nRF52840+Semtech SX1262 LoRa BLE Combo Module. nRF52840+SX1262 MS24SF1
+   */
+  MS24SF1 = 82;
+
+  /*
+   * Lilygo TLora-C6 with the new ESP32-C6 MCU
+   */
+  TLORA_C6 = 83;
+
+  /*
+   * WisMesh Tap
+   * RAK-4631 w/ TFT in injection modled case
+   */
+  WISMESH_TAP = 84;
+
+  /*
+   * Similar to PORTDUINO but used by Routastic devices, this is not any
+   * particular device and does not run Meshtastic's code but supports
+   * the same frame format.
+   * Runs on linux, see https://github.com/Jorropo/routastic
+   */
+  ROUTASTIC = 85;
+
+  /*
+   * Mesh-Tab, esp32 based
+   * https://github.com/valzzu/Mesh-Tab
+   */
+  MESH_TAB = 86;
+
+  /*
+   * MeshLink board developed by LoraItalia. NRF52840, eByte E22900M22S (Will also come with other frequencies), 25w MPPT solar charger (5v,12v,18v selectable), support for gps, buzzer, oled or e-ink display, 10 gpios, hardware watchdog
+   * https://www.loraitalia.it
+   */
+  MESHLINK = 87;
+
+  /*
+   * Seeed XIAO nRF52840 + Wio SX1262 kit
+   */
+  XIAO_NRF52_KIT = 88;
+
+  /*
+   * Elecrow ThinkNode M1 & M2
+   * https://www.elecrow.com/wiki/ThinkNode-M1_Transceiver_Device(Meshtastic)_Power_By_nRF52840.html
+   * https://www.elecrow.com/wiki/ThinkNode-M2_Transceiver_Device(Meshtastic)_Power_By_NRF52840.html (this actually uses ESP32-S3)
+   */
+  THINKNODE_M1 = 89;
+  THINKNODE_M2 = 90;
+
+  /*
+   * Lilygo T-ETH-Elite
+   */
+  T_ETH_ELITE = 91;
+
+  /*
+   * Heltec HRI-3621 industrial probe
+   */
+  HELTEC_SENSOR_HUB = 92;
+
+  /*
+   * Muzi Works Muzi-Base device
+   */
+  MUZI_BASE = 93;
+
+  /*
+   * Heltec Magnetic Power Bank with Meshtastic compatible
+   */
+  HELTEC_MESH_POCKET = 94;
+
+  /*
+   * Seeed Solar Node
+   */
+  SEEED_SOLAR_NODE = 95;
+
+  /*
+   * NomadStar Meteor Pro https://nomadstar.ch/
+   */
+  NOMADSTAR_METEOR_PRO = 96;
+
+  /*
+   * Elecrow CrowPanel Advance models, ESP32-S3 and TFT with SX1262 radio plugin
+   */
+  CROWPANEL = 97;
+
+  /*
+   * Lilygo LINK32 board with sensors
+   */
+  LINK_32 = 98;
+
+  /*
+   * Seeed Tracker L1
+   */
+  SEEED_WIO_TRACKER_L1 = 99;
+
+  /*
+   * Seeed Tracker L1 EINK driver
+   */
+  SEEED_WIO_TRACKER_L1_EINK = 100;
+
+  /*
+   * Muzi Works R1 Neo
+   */
+  MUZI_R1_NEO = 101;
+
+  /*
+   * Lilygo T-Deck Pro
+   */
+  T_DECK_PRO = 102;
+
+  /*
+   * Lilygo TLora Pager
+   */
+  T_LORA_PAGER = 103;
+
+  /*
+   * M5Stack Reserved
+   */
+  M5STACK_RESERVED = 104; // 0x68
+
+  /*
+   * RAKwireless WisMesh Tag
+   */
+  WISMESH_TAG = 105;
+
+  /*
+   * RAKwireless WisBlock Core RAK3312 https://docs.rakwireless.com/product-categories/wisduo/rak3112-module/overview/
+   */
+  RAK3312 = 106;
+
+  /*
+   * Elecrow ThinkNode M5 https://www.elecrow.com/wiki/ThinkNode_M5_Meshtastic_LoRa_Signal_Transceiver_ESP32-S3.html
+   */
+  THINKNODE_M5 = 107;
+
+  /*
+   * MeshSolar is an integrated power management and communication solution designed for outdoor low-power devices.
+   * https://heltec.org/project/meshsolar/
+   */
+  HELTEC_MESH_SOLAR = 108;
+
+  /*
+   * Lilygo T-Echo Lite
+   */
+  T_ECHO_LITE = 109;
+
+  /*
+   * New Heltec LoRA32 with ESP32-S3 CPU
+   */
+  HELTEC_V4 = 110;
+
+  /*
+   * M5Stack C6L
+   */
+  M5STACK_C6L = 111;
+
+  /*
+   * M5Stack Cardputer Adv
+   */
+  M5STACK_CARDPUTER_ADV = 112;
+
+  /*
+   * ESP32S3 main controller with GPS and TFT screen.
+   */
+  HELTEC_WIRELESS_TRACKER_V2 = 113;
+
+  /*
+   * LilyGo T-Watch Ultra
+   */
+  T_WATCH_ULTRA = 114;
+
+  /*
+   * Elecrow ThinkNode M3
+   */
+  THINKNODE_M3 = 115;
+
+  /*
+   * RAK WISMESH_TAP_V2 with ESP32-S3 CPU
+   */
+  WISMESH_TAP_V2 = 116;
+
+  /*
+   * RAK3401
+   */
+  RAK3401 = 117;
+
+  /*
+   * RAK6421 Hat+
+   */
+  RAK6421 = 118;
+
+  /*
+   * Elecrow ThinkNode M4
+   */
+  THINKNODE_M4 = 119;
+
+  /*
+   * Elecrow ThinkNode M6
+   */
+  THINKNODE_M6 = 120;
+
+  /*
+   * ------------------------------------------------------------------------------------------------------------------------------------------
+   * Reserved ID For developing private Ports. These will show up in live traffic sparsely, so we can use a high number. Keep it within 8 bits.
+   * ------------------------------------------------------------------------------------------------------------------------------------------
+   */
+  PRIVATE_HW = 255;
+}
+
+/*
+ * Broadcast when a newly powered mesh node wants to find a node num it can use
+ * Sent from the phone over bluetooth to set the user id for the owner of this node.
+ * Also sent from nodes to each other when a new node signs on (so all clients can have this info)
+ * The algorithm is as follows:
+ * when a node starts up, it broadcasts their user and the normal flow is for all
+ * other nodes to reply with their User as well (so the new node can build its nodedb)
+ * If a node ever receives a User (not just the first broadcast) message where
+ * the sender node number equals our node number, that indicates a collision has
+ * occurred and the following steps should happen:
+ * If the receiving node (that was already in the mesh)'s macaddr is LOWER than the
+ * new User who just tried to sign in: it gets to keep its nodenum.
+ * We send a broadcast message of OUR User (we use a broadcast so that the other node can
+ * receive our message, considering we have the same id - it also serves to let
+ * observers correct their nodedb) - this case is rare so it should be okay.
+ * If any node receives a User where the macaddr is GTE than their local macaddr,
+ * they have been vetoed and should pick a new random nodenum (filtering against
+ * whatever it knows about the nodedb) and rebroadcast their User.
+ * A few nodenums are reserved and will never be requested:
+ * 0xff - broadcast
+ * 0 through 3 - for future use
+ */
+message User {
+  /*
+   * A globally unique ID string for this user.
+   * In the case of Signal that would mean +16504442323, for the default macaddr derived id it would be !<8 hexidecimal bytes>.
+   * Note: app developers are encouraged to also use the following standard
+   * node IDs "^all" (for broadcast), "^local" (for the locally connected node)
+   */
+  string id = 1;
+
+  /*
+   * A full name for this user, i.e. "Kevin Hester"
+   */
+  string long_name = 2;
+
+  /*
+   * A VERY short name, ideally two characters.
+   * Suitable for a tiny OLED screen
+   */
+  string short_name = 3;
+
+  /*
+   * Deprecated in Meshtastic 2.1.x
+   * This is the addr of the radio.
+   * Not populated by the phone, but added by the esp32 when broadcasting
+   */
+  bytes macaddr = 4 [deprecated = true];
+
+  /*
+   * TBEAM, HELTEC, etc...
+   * Starting in 1.2.11 moved to hw_model enum in the NodeInfo object.
+   * Apps will still need the string here for older builds
+   * (so OTA update can find the right image), but if the enum is available it will be used instead.
+   */
+  HardwareModel hw_model = 5;
+
+  /*
+   * In some regions Ham radio operators have different bandwidth limitations than others.
+   * If this user is a licensed operator, set this flag.
+   * Also, "long_name" should be their licence number.
+   */
+  bool is_licensed = 6;
+
+  /*
+   * Indicates that the user's role in the mesh
+   */
+  Config.DeviceConfig.Role role = 7;
+
+  /*
+   * The public key of the user's device.
+   * This is sent out to other nodes on the mesh to allow them to compute a shared secret key.
+   */
+  bytes public_key = 8;
+
+  /*
+   * Whether or not the node can be messaged
+   */
+  optional bool is_unmessagable = 9;
+}
+
+/*
+ * A message used in a traceroute
+ */
+message RouteDiscovery {
+  /*
+   * The list of nodenums this packet has visited so far to the destination.
+   */
+  repeated fixed32 route = 1;
+
+  /*
+   * The list of SNRs (in dB, scaled by 4) in the route towards the destination.
+   */
+  repeated int32 snr_towards = 2;
+
+  /*
+   * The list of nodenums the packet has visited on the way back from the destination.
+   */
+  repeated fixed32 route_back = 3;
+
+  /*
+   * The list of SNRs (in dB, scaled by 4) in the route back from the destination.
+   */
+  repeated int32 snr_back = 4;
+}
+
+/*
+ * A Routing control Data packet handled by the routing module
+ */
+message Routing {
+  /*
+   * A failure in delivering a message (usually used for routing control messages, but might be provided in addition to ack.fail_id to provide
+   * details on the type of failure).
+   */
+  enum Error {
+    /*
+     * This message is not a failure
+     */
+    NONE = 0;
+
+    /*
+     * Our node doesn't have a route to the requested destination anymore.
+     */
+    NO_ROUTE = 1;
+
+    /*
+     * We received a nak while trying to forward on your behalf
+     */
+    GOT_NAK = 2;
+
+    /*
+     * TODO: REPLACE
+     */
+    TIMEOUT = 3;
+
+    /*
+     * No suitable interface could be found for delivering this packet
+     */
+    NO_INTERFACE = 4;
+
+    /*
+     * We reached the max retransmission count (typically for naive flood routing)
+     */
+    MAX_RETRANSMIT = 5;
+
+    /*
+     * No suitable channel was found for sending this packet (i.e. was requested channel index disabled?)
+     */
+    NO_CHANNEL = 6;
+
+    /*
+     * The packet was too big for sending (exceeds interface MTU after encoding)
+     */
+    TOO_LARGE = 7;
+
+    /*
+     * The request had want_response set, the request reached the destination node, but no service on that node wants to send a response
+     * (possibly due to bad channel permissions)
+     */
+    NO_RESPONSE = 8;
+
+    /*
+     * Cannot send currently because duty cycle regulations will be violated.
+     */
+    DUTY_CYCLE_LIMIT = 9;
+
+    /*
+     * The application layer service on the remote node received your request, but considered your request somehow invalid
+     */
+    BAD_REQUEST = 32;
+
+    /*
+     * The application layer service on the remote node received your request, but considered your request not authorized
+     * (i.e you did not send the request on the required bound channel)
+     */
+    NOT_AUTHORIZED = 33;
+
+    /*
+     * The client specified a PKI transport, but the node was unable to send the packet using PKI (and did not send the message at all)
+     */
+    PKI_FAILED = 34;
+
+    /*
+     * The receiving node does not have a Public Key to decode with
+     */
+    PKI_UNKNOWN_PUBKEY = 35;
+
+    /*
+     * Admin packet otherwise checks out, but uses a bogus or expired session key
+     */
+    ADMIN_BAD_SESSION_KEY = 36;
+
+    /*
+     * Admin packet sent using PKC, but not from a public key on the admin key list
+     */
+    ADMIN_PUBLIC_KEY_UNAUTHORIZED = 37;
+
+    /*
+     * Airtime fairness rate limit exceeded for a packet
+     * This typically enforced per portnum and is used to prevent a single node from monopolizing airtime
+     */
+    RATE_LIMIT_EXCEEDED = 38;
+
+    /*
+     * PKI encryption failed, due to no public key for the remote node
+     * This is different from PKI_UNKNOWN_PUBKEY which indicates a failure upon receiving a packet
+     */
+    PKI_SEND_FAIL_PUBLIC_KEY = 39;
+  }
+
+  oneof variant {
+    /*
+     * A route request going from the requester
+     */
+    RouteDiscovery route_request = 1;
+
+    /*
+     * A route reply
+     */
+    RouteDiscovery route_reply = 2;
+
+    /*
+     * A failure in delivering a message (usually used for routing control messages, but might be provided
+     * in addition to ack.fail_id to provide details on the type of failure).
+     */
+    Error error_reason = 3;
+  }
+}
+
+/*
+ * (Formerly called SubPacket)
+ * The payload portion fo a packet, this is the actual bytes that are sent
+ * inside a radio packet (because from/to are broken out by the comms library)
+ */
+message Data {
+  /*
+   * Formerly named typ and of type Type
+   */
+  PortNum portnum = 1;
+
+  /*
+   * TODO: REPLACE
+   */
+  bytes payload = 2;
+
+  /*
+   * Not normally used, but for testing a sender can request that recipient
+   * responds in kind (i.e. if it received a position, it should unicast back it's position).
+   * Note: that if you set this on a broadcast you will receive many replies.
+   */
+  bool want_response = 3;
+
+  /*
+   * The address of the destination node.
+   * This field is is filled in by the mesh radio device software, application
+   * layer software should never need it.
+   * RouteDiscovery messages _must_ populate this.
+   * Other message types might need to if they are doing multihop routing.
+   */
+  fixed32 dest = 4;
+
+  /*
+   * The address of the original sender for this message.
+   * This field should _only_ be populated for reliable multihop packets (to keep
+   * packets small).
+   */
+  fixed32 source = 5;
+
+  /*
+   * Only used in routing or response messages.
+   * Indicates the original message ID that this message is reporting failure on. (formerly called original_id)
+   */
+  fixed32 request_id = 6;
+
+  /*
+   * If set, this message is intened to be a reply to a previously sent message with the defined id.
+   */
+  fixed32 reply_id = 7;
+
+  /*
+   * Defaults to false. If true, then what is in the payload should be treated as an emoji like giving
+   * a message a heart or poop emoji.
+   */
+  fixed32 emoji = 8;
+
+  /*
+   * Bitfield for extra flags. First use is to indicate that user approves the packet being uploaded to MQTT.
+   */
+  optional uint32 bitfield = 9;
+}
+
+/*
+ * The actual over-the-mesh message doing KeyVerification
+ */
+message KeyVerification {
+  /*
+   * random value Selected by the requesting node
+   */
+  uint64 nonce = 1;
+
+  /*
+   * The final authoritative hash, only to be sent by NodeA at the end of the handshake
+   */
+  bytes hash1 = 2;
+
+  /*
+   * The intermediary hash (actually derived from hash1),
+   * sent from NodeB to NodeA in response to the initial message.
+   */
+  bytes hash2 = 3;
+}
+
+/*
+ * The actual over-the-mesh message doing store and forward++
+ */
+message StoreForwardPlusPlus {
+  /*
+   * Enum of message types
+   */
+  enum SFPP_message_type {
+    /*
+     * Send an announcement of the canonical tip of a chain
+     */
+    CANON_ANNOUNCE = 0;
+
+    /*
+     * Query whether a specific link is on the chain
+     */
+    CHAIN_QUERY = 1;
+
+    /*
+     * Request the next link in the chain
+     */
+    LINK_REQUEST = 3;
+
+    /*
+     * Provide a link to add to the chain
+     */
+    LINK_PROVIDE = 4;
+
+    /*
+     * If we must fragment, send the first half
+     */
+    LINK_PROVIDE_FIRSTHALF = 5;
+
+    /*
+     * If we must fragment, send the second half
+     */
+    LINK_PROVIDE_SECONDHALF = 6;
+  }
+
+  /*
+   * Which message type is this
+   */
+  SFPP_message_type sfpp_message_type = 1;
+
+  /*
+   * The hash of the specific message
+   */
+  bytes message_hash = 2;
+
+  /*
+   * The hash of a link on a chain
+   */
+  bytes commit_hash = 3;
+
+  /*
+   * the root hash of a chain
+   */
+  bytes root_hash = 4;
+
+  /*
+   * The encrypted bytes from a message
+   */
+  bytes message = 5;
+
+  /*
+   * Message ID of the contained message
+   */
+  uint32 encapsulated_id = 6;
+
+  /*
+   * Destination of the contained message
+   */
+  uint32 encapsulated_to = 7;
+
+  /*
+   * Sender of the contained message
+   */
+  uint32 encapsulated_from = 8;
+
+  /*
+   * The receive time of the message in question
+   */
+  uint32 encapsulated_rxtime = 9;
+
+  /*
+   * Used in a LINK_REQUEST to specify the message X spots back from head
+   */
+  uint32 chain_count = 10;
+}
+
+/*
+ * Waypoint message, used to share arbitrary locations across the mesh
+ */
+message Waypoint {
+  /*
+   * Id of the waypoint
+   */
+  uint32 id = 1;
+
+  /*
+   * latitude_i
+   */
+  optional sfixed32 latitude_i = 2;
+
+  /*
+   * longitude_i
+   */
+  optional sfixed32 longitude_i = 3;
+
+  /*
+   * Time the waypoint is to expire (epoch)
+   */
+  uint32 expire = 4;
+
+  /*
+   * If greater than zero, treat the value as a nodenum only allowing them to update the waypoint.
+   * If zero, the waypoint is open to be edited by any member of the mesh.
+   */
+  uint32 locked_to = 5;
+
+  /*
+   * Name of the waypoint - max 30 chars
+   */
+  string name = 6;
+
+  /*
+   * Description of the waypoint - max 100 chars
+   */
+  string description = 7;
+
+  /*
+   * Designator icon for the waypoint in the form of a unicode emoji
+   */
+  fixed32 icon = 8;
+}
+
+/*
+ * This message will be proxied over the PhoneAPI for the client to deliver to the MQTT server
+ */
+message MqttClientProxyMessage {
+  /*
+   * The MQTT topic this message will be sent /received on
+   */
+  string topic = 1;
+
+  /*
+   * The actual service envelope payload or text for mqtt pub / sub
+   */
+  oneof payload_variant {
+    /*
+     * Bytes
+     */
+    bytes data = 2;
+
+    /*
+     * Text
+     */
+    string text = 3;
+  }
+
+  /*
+   * Whether the message should be retained (or not)
+   */
+  bool retained = 4;
+}
+
+/*
+ * A packet envelope sent/received over the mesh
+ * only payload_variant is sent in the payload portion of the LORA packet.
+ * The other fields are either not sent at all, or sent in the special 16 byte LORA header.
+ */
+message MeshPacket {
+  /*
+   * The priority of this message for sending.
+   * Higher priorities are sent first (when managing the transmit queue).
+   * This field is never sent over the air, it is only used internally inside of a local device node.
+   * API clients (either on the local node or connected directly to the node)
+   * can set this parameter if necessary.
+   * (values must be <= 127 to keep protobuf field to one byte in size.
+   * Detailed background on this field:
+   * I noticed a funny side effect of lora being so slow: Usually when making
+   * a protocol there isn’t much need to use message priority to change the order
+   * of transmission (because interfaces are fairly fast).
+   * But for lora where packets can take a few seconds each, it is very important
+   * to make sure that critical packets are sent ASAP.
+   * In the case of meshtastic that means we want to send protocol acks as soon as possible
+   * (to prevent unneeded retransmissions), we want routing messages to be sent next,
+   * then messages marked as reliable and finally 'background' packets like periodic position updates.
+   * So I bit the bullet and implemented a new (internal - not sent over the air)
+   * field in MeshPacket called 'priority'.
+   * And the transmission queue in the router object is now a priority queue.
+   */
+  enum Priority {
+    /*
+     * Treated as Priority.DEFAULT
+     */
+    UNSET = 0;
+
+    /*
+     * TODO: REPLACE
+     */
+    MIN = 1;
+
+    /*
+     * Background position updates are sent with very low priority -
+     * if the link is super congested they might not go out at all
+     */
+    BACKGROUND = 10;
+
+    /*
+     * This priority is used for most messages that don't have a priority set
+     */
+    DEFAULT = 64;
+
+    /*
+     * If priority is unset but the message is marked as want_ack,
+     * assume it is important and use a slightly higher priority
+     */
+    RELIABLE = 70;
+
+    /*
+     * If priority is unset but the packet is a response to a request, we want it to get there relatively quickly.
+     * Furthermore, responses stop relaying packets directed to a node early.
+     */
+    RESPONSE = 80;
+
+    /*
+     * Higher priority for specific message types (portnums) to distinguish between other reliable packets.
+     */
+    HIGH = 100;
+
+    /*
+     * Higher priority alert message used for critical alerts which take priority over other reliable packets.
+     */
+    ALERT = 110;
+
+    /*
+     * Ack/naks are sent with very high priority to ensure that retransmission
+     * stops as soon as possible
+     */
+    ACK = 120;
+
+    /*
+     * TODO: REPLACE
+     */
+    MAX = 127;
+  }
+
+  /*
+   * Identify if this is a delayed packet
+   */
+  enum Delayed {
+    /*
+     * If unset, the message is being sent in real time.
+     */
+    NO_DELAY = 0;
+
+    /*
+     * The message is delayed and was originally a broadcast
+     */
+    DELAYED_BROADCAST = 1;
+
+    /*
+     * The message is delayed and was originally a direct message
+     */
+    DELAYED_DIRECT = 2;
+  }
+
+  /*
+   * Enum to identify which transport mechanism this packet arrived over
+   */
+  enum TransportMechanism {
+    /*
+     * The default case is that the node generated a packet itself
+     */
+    TRANSPORT_INTERNAL = 0;
+
+    /*
+     * Arrived via the primary LoRa radio
+     */
+    TRANSPORT_LORA = 1;
+
+    /*
+     * Arrived via a secondary LoRa radio
+     */
+    TRANSPORT_LORA_ALT1 = 2;
+
+    /*
+     * Arrived via a tertiary LoRa radio
+     */
+    TRANSPORT_LORA_ALT2 = 3;
+
+    /*
+     * Arrived via a quaternary LoRa radio
+     */
+    TRANSPORT_LORA_ALT3 = 4;
+
+    /*
+     * Arrived via an MQTT connection
+     */
+    TRANSPORT_MQTT = 5;
+
+    /*
+     * Arrived via Multicast UDP
+     */
+    TRANSPORT_MULTICAST_UDP = 6;
+
+    /*
+     * Arrived via API connection
+     */
+    TRANSPORT_API = 7;
+  }
+
+  /*
+   * The sending node number.
+   * Note: Our crypto implementation uses this field as well.
+   * See [crypto](/docs/overview/encryption) for details.
+   */
+  fixed32 from = 1;
+
+  /*
+   * The (immediate) destination for this packet
+   * If the value is 4,294,967,295 (maximum value of an unsigned 32bit integer), this indicates that the packet was
+   * not destined for a specific node, but for a channel as indicated by the value of `channel` below.
+   * If the value is another, this indicates that the packet was destined for a specific
+   * node (i.e. a kind of "Direct Message" to this node) and not broadcast on a channel.
+   */
+  fixed32 to = 2;
+
+  /*
+   * (Usually) If set, this indicates the index in the secondary_channels table that this packet was sent/received on.
+   * If unset, packet was on the primary channel.
+   * A particular node might know only a subset of channels in use on the mesh.
+   * Therefore channel_index is inherently a local concept and meaningless to send between nodes.
+   * Very briefly, while sending and receiving deep inside the device Router code, this field instead
+   * contains the 'channel hash' instead of the index.
+   * This 'trick' is only used while the payload_variant is an 'encrypted'.
+   */
+  uint32 channel = 3;
+
+  /*
+   * Internally to the mesh radios we will route SubPackets encrypted per [this](docs/developers/firmware/encryption).
+   * However, when a particular node has the correct
+   * key to decode a particular packet, it will decode the payload into a SubPacket protobuf structure.
+   * Software outside of the device nodes will never encounter a packet where
+   * "decoded" is not populated (i.e. any encryption/decryption happens before reaching the applications)
+   * The numeric IDs for these fields were selected to keep backwards compatibility with old applications.
+   */
+
+  oneof payload_variant {
+    /*
+     * TODO: REPLACE
+     */
+    Data decoded = 4;
+
+    /*
+     * TODO: REPLACE
+     */
+    bytes encrypted = 5;
+  }
+
+  /*
+   * A unique ID for this packet.
+   * Always 0 for no-ack packets or non broadcast packets (and therefore take zero bytes of space).
+   * Otherwise a unique ID for this packet, useful for flooding algorithms.
+   * ID only needs to be unique on a _per sender_ basis, and it only
+   * needs to be unique for a few minutes (long enough to last for the length of
+   * any ACK or the completion of a mesh broadcast flood).
+   * Note: Our crypto implementation uses this id as well.
+   * See [crypto](/docs/overview/encryption) for details.
+   */
+  fixed32 id = 6;
+
+  /*
+   * The time this message was received by the esp32 (secs since 1970).
+   * Note: this field is _never_ sent on the radio link itself (to save space) Times
+   * are typically not sent over the mesh, but they will be added to any Packet
+   * (chain of SubPacket) sent to the phone (so the phone can know exact time of reception)
+   */
+  fixed32 rx_time = 7;
+
+  /*
+   * *Never* sent over the radio links.
+   * Set during reception to indicate the SNR of this packet.
+   * Used to collect statistics on current link quality.
+   */
+  float rx_snr = 8;
+
+  /*
+   * If unset treated as zero (no forwarding, send to direct neighbor nodes only)
+   * if 1, allow hopping through one node, etc...
+   * For our usecase real world topologies probably have a max of about 3.
+   * This field is normally placed into a few of bits in the header.
+   */
+  uint32 hop_limit = 9;
+
+  /*
+   * This packet is being sent as a reliable message, we would prefer it to arrive at the destination.
+   * We would like to receive a ack packet in response.
+   * Broadcasts messages treat this flag specially: Since acks for broadcasts would
+   * rapidly flood the channel, the normal ack behavior is suppressed.
+   * Instead, the original sender listens to see if at least one node is rebroadcasting this packet (because naive flooding algorithm).
+   * If it hears that the odds (given typical LoRa topologies) the odds are very high that every node should eventually receive the message.
+   * So FloodingRouter.cpp generates an implicit ack which is delivered to the original sender.
+   * If after some time we don't hear anyone rebroadcast our packet, we will timeout and retransmit, using the regular resend logic.
+   * Note: This flag is normally sent in a flag bit in the header when sent over the wire
+   */
+  bool want_ack = 10;
+
+  /*
+   * The priority of this message for sending.
+   * See MeshPacket.Priority description for more details.
+   */
+  Priority priority = 11;
+
+  /*
+   * rssi of received packet. Only sent to phone for dispay purposes.
+   */
+  int32 rx_rssi = 12;
+
+  /*
+   * Describe if this message is delayed
+   */
+  Delayed delayed = 13 [deprecated = true];
+
+  /*
+   * Describes whether this packet passed via MQTT somewhere along the path it currently took.
+   */
+  bool via_mqtt = 14;
+
+  /*
+   * Hop limit with which the original packet started. Sent via LoRa using three bits in the unencrypted header.
+   * When receiving a packet, the difference between hop_start and hop_limit gives how many hops it traveled.
+   */
+  uint32 hop_start = 15;
+
+  /*
+   * Records the public key the packet was encrypted with, if applicable.
+   */
+  bytes public_key = 16;
+
+  /*
+   * Indicates whether the packet was en/decrypted using PKI
+   */
+  bool pki_encrypted = 17;
+
+  /*
+   * Last byte of the node number of the node that should be used as the next hop in routing.
+   * Set by the firmware internally, clients are not supposed to set this.
+   */
+  uint32 next_hop = 18;
+
+  /*
+   * Last byte of the node number of the node that will relay/relayed this packet.
+   * Set by the firmware internally, clients are not supposed to set this.
+   */
+  uint32 relay_node = 19;
+
+  /*
+   * *Never* sent over the radio links.
+   * Timestamp after which this packet may be sent.
+   * Set by the firmware internally, clients are not supposed to set this.
+   */
+  uint32 tx_after = 20;
+
+  /*
+   * Indicates which transport mechanism this packet arrived over
+   */
+  TransportMechanism transport_mechanism = 21;
+}
+
+/*
+ * Shared constants between device and phone
+ */
+enum Constants {
+  /*
+   * First enum must be zero, and we are just using this enum to
+   * pass int constants between two very different environments
+   */
+  ZERO = 0;
+
+  /*
+   * From mesh.options
+   * note: this payload length is ONLY the bytes that are sent inside of the Data protobuf (excluding protobuf overhead). The 16 byte header is
+   * outside of this envelope
+   */
+  DATA_PAYLOAD_LEN = 233;
+}
+
+/*
+ * The bluetooth to device link:
+ * Old BTLE protocol docs from TODO, merge in above and make real docs...
+ * use protocol buffers, and NanoPB
+ * messages from device to phone:
+ * POSITION_UPDATE (..., time)
+ * TEXT_RECEIVED(from, text, time)
+ * OPAQUE_RECEIVED(from, payload, time) (for signal messages or other applications)
+ * messages from phone to device:
+ * SET_MYID(id, human readable long, human readable short) (send down the unique ID
+ * string used for this node, a human readable string shown for that id, and a very
+ * short human readable string suitable for oled screen) SEND_OPAQUE(dest, payload)
+ * (for signal messages or other applications) SEND_TEXT(dest, text) Get all
+ * nodes() (returns list of nodes, with full info, last time seen, loc, battery
+ * level etc) SET_CONFIG (switches device to a new set of radio params and
+ * preshared key, drops all existing nodes, force our node to rejoin this new group)
+ * Full information about a node on the mesh
+ */
+message NodeInfo {
+  /*
+   * The node number
+   */
+  uint32 num = 1;
+
+  /*
+   * The user info for this node
+   */
+  User user = 2;
+
+  /*
+   * This position data. Note: before 1.2.14 we would also store the last time we've heard from this node in position.time, that is no longer true.
+   * Position.time now indicates the last time we received a POSITION from that node.
+   */
+  Position position = 3;
+
+  /*
+   * Returns the Signal-to-noise ratio (SNR) of the last received message,
+   * as measured by the receiver. Return SNR of the last received message in dB
+   */
+  float snr = 4;
+
+  /*
+   * TODO: REMOVE/INTEGRATE
+   * Returns the last measured frequency error.
+   * The LoRa receiver estimates the frequency offset between the receiver
+   * center frequency and that of the received LoRa signal. This function
+   * returns the estimates offset (in Hz) of the last received message.
+   * Caution: this measurement is not absolute, but is measured relative to the
+   * local receiver's oscillator. Apparent errors may be due to the
+   * transmitter, the receiver or both. \return The estimated center frequency
+   * offset in Hz of the last received message.
+   * int32 frequency_error = 6;
+   * enum RouteState {
+   *  Invalid = 0;
+   *  Discovering = 1;
+   *  Valid = 2;
+   * }
+   * Not needed?
+   * RouteState route = 4;
+   */
+
+  /*
+   * TODO: REMOVE/INTEGRATE
+   * Not currently used (till full DSR deployment?) Our current preferred node node for routing - might be the same as num if
+   * we are direct neighbor or zero if we don't yet know a route to this node.
+   * fixed32 next_hop = 5;
+   */
+
+  /*
+   * Set to indicate the last time we received a packet from this node
+   */
+  fixed32 last_heard = 5;
+  /*
+   * The latest device metrics for the node.
+   */
+  DeviceMetrics device_metrics = 6;
+
+  /*
+   * local channel index we heard that node on. Only populated if its not the default channel.
+   */
+  uint32 channel = 7;
+
+  /*
+   * True if we witnessed the node over MQTT instead of LoRA transport
+   */
+  bool via_mqtt = 8;
+
+  /*
+   * Number of hops away from us this node is (0 if direct neighbor)
+   */
+  optional uint32 hops_away = 9;
+
+  /*
+   * True if node is in our favorites list
+   * Persists between NodeDB internal clean ups
+   */
+  bool is_favorite = 10;
+
+  /*
+   * True if node is in our ignored list
+   * Persists between NodeDB internal clean ups
+   */
+  bool is_ignored = 11;
+
+  /*
+   * True if node public key has been verified.
+   * Persists between NodeDB internal clean ups
+   * LSB 0 of the bitfield
+   */
+  bool is_key_manually_verified = 12;
+}
+
+/*
+ * Error codes for critical errors
+ * The device might report these fault codes on the screen.
+ * If you encounter a fault code, please post on the meshtastic.discourse.group
+ * and we'll try to help.
+ */
+enum CriticalErrorCode {
+  /*
+   * TODO: REPLACE
+   */
+  NONE = 0;
+
+  /*
+   * A software bug was detected while trying to send lora
+   */
+  TX_WATCHDOG = 1;
+
+  /*
+   * A software bug was detected on entry to sleep
+   */
+  SLEEP_ENTER_WAIT = 2;
+
+  /*
+   * No Lora radio hardware could be found
+   */
+  NO_RADIO = 3;
+
+  /*
+   * Not normally used
+   */
+  UNSPECIFIED = 4;
+
+  /*
+   * We failed while configuring a UBlox GPS
+   */
+  UBLOX_UNIT_FAILED = 5;
+
+  /*
+   * This board was expected to have a power management chip and it is missing or broken
+   */
+  NO_AXP192 = 6;
+
+  /*
+   * The channel tried to set a radio setting which is not supported by this chipset,
+   * radio comms settings are now undefined.
+   */
+  INVALID_RADIO_SETTING = 7;
+
+  /*
+   * Radio transmit hardware failure. We sent data to the radio chip, but it didn't
+   * reply with an interrupt.
+   */
+  TRANSMIT_FAILED = 8;
+
+  /*
+   * We detected that the main CPU voltage dropped below the minimum acceptable value
+   */
+  BROWNOUT = 9;
+
+  /* Selftest of SX1262 radio chip failed */
+  SX1262_FAILURE = 10;
+
+  /*
+   * A (likely software but possibly hardware) failure was detected while trying to send packets.
+   * If this occurs on your board, please post in the forum so that we can ask you to collect some information to allow fixing this bug
+   */
+  RADIO_SPI_BUG = 11;
+
+  /*
+   * Corruption was detected on the flash filesystem but we were able to repair things.
+   * If you see this failure in the field please post in the forum because we are interested in seeing if this is occurring in the field.
+   */
+  FLASH_CORRUPTION_RECOVERABLE = 12;
+
+  /*
+   * Corruption was detected on the flash filesystem but we were unable to repair things.
+   * NOTE: Your node will probably need to be reconfigured the next time it reboots (it will lose the region code etc...)
+   * If you see this failure in the field please post in the forum because we are interested in seeing if this is occurring in the field.
+   */
+  FLASH_CORRUPTION_UNRECOVERABLE = 13;
+}
+
+/*
+ * Enum to indicate to clients whether this firmware is a special firmware build, like an event.
+ * The first 16 values are reserved for non-event special firmwares, like the Smart Citizen use case.
+ */
+enum FirmwareEdition {
+  /*
+   * Vanilla firmware
+   */
+  VANILLA = 0;
+
+  /*
+   * Firmware for use in the Smart Citizen environmental monitoring network
+   */
+  SMART_CITIZEN = 1;
+
+  /*
+   * Open Sauce, the maker conference held yearly in CA
+   */
+  OPEN_SAUCE = 16;
+
+  /*
+   * DEFCON, the yearly hacker conference
+   */
+  DEFCON = 17;
+
+  /*
+   * Burning Man, the yearly hippie gathering in the desert
+   */
+  BURNING_MAN = 18;
+
+  /*
+   * Hamvention, the Dayton amateur radio convention
+   */
+  HAMVENTION = 19;
+
+  /*
+   * Placeholder for DIY and unofficial events
+   */
+  DIY_EDITION = 127;
+}
+
+/*
+ * Unique local debugging info for this node
+ * Note: we don't include position or the user info, because that will come in the
+ * Sent to the phone in response to WantNodes.
+ */
+message MyNodeInfo {
+  /*
+   * Tells the phone what our node number is, default starting value is
+   * lowbyte of macaddr, but it will be fixed if that is already in use
+   */
+  uint32 my_node_num = 1;
+
+  /*
+   * The total number of reboots this node has ever encountered
+   * (well - since the last time we discarded preferences)
+   */
+  uint32 reboot_count = 8;
+
+  /*
+   * The minimum app version that can talk to this device.
+   * Phone/PC apps should compare this to their build number and if too low tell the user they must update their app
+   */
+  uint32 min_app_version = 11;
+
+  /*
+   * Unique hardware identifier for this device
+   */
+  bytes device_id = 12;
+
+  /*
+   * The PlatformIO environment used to build this firmware
+   */
+  string pio_env = 13;
+
+  /*
+   * The indicator for whether this device is running event firmware and which
+   */
+  FirmwareEdition firmware_edition = 14;
+
+  /*
+   * The number of nodes in the nodedb.
+   * This is used by the phone to know how many NodeInfo packets to expect on want_config
+   */
+  uint32 nodedb_count = 15;
+}
+
+/*
+ * Debug output from the device.
+ * To minimize the size of records inside the device code, if a time/source/level is not set
+ * on the message it is assumed to be a continuation of the previously sent message.
+ * This allows the device code to use fixed maxlen 64 byte strings for messages,
+ * and then extend as needed by emitting multiple records.
+ */
+message LogRecord {
+  /*
+   * Log levels, chosen to match python logging conventions.
+   */
+  enum Level {
+    /*
+     * Log levels, chosen to match python logging conventions.
+     */
+    UNSET = 0;
+
+    /*
+     * Log levels, chosen to match python logging conventions.
+     */
+    CRITICAL = 50;
+
+    /*
+     * Log levels, chosen to match python logging conventions.
+     */
+    ERROR = 40;
+
+    /*
+     * Log levels, chosen to match python logging conventions.
+     */
+    WARNING = 30;
+
+    /*
+     * Log levels, chosen to match python logging conventions.
+     */
+    INFO = 20;
+
+    /*
+     * Log levels, chosen to match python logging conventions.
+     */
+    DEBUG = 10;
+
+    /*
+     * Log levels, chosen to match python logging conventions.
+     */
+    TRACE = 5;
+  }
+
+  /*
+   * Log levels, chosen to match python logging conventions.
+   */
+  string message = 1;
+
+  /*
+   * Seconds since 1970 - or 0 for unknown/unset
+   */
+  fixed32 time = 2;
+
+  /*
+   * Usually based on thread name - if known
+   */
+  string source = 3;
+
+  /*
+   * Not yet set
+   */
+  Level level = 4;
+}
+
+message QueueStatus {
+  /* Last attempt to queue status, ErrorCode */
+  int32 res = 1;
+
+  /* Free entries in the outgoing queue */
+  uint32 free = 2;
+
+  /* Maximum entries in the outgoing queue */
+  uint32 maxlen = 3;
+
+  /* What was mesh packet id that generated this response? */
+  uint32 mesh_packet_id = 4;
+}
+
+/*
+ * Packets from the radio to the phone will appear on the fromRadio characteristic.
+ * It will support READ and NOTIFY. When a new packet arrives the device will BLE notify?
+ * It will sit in that descriptor until consumed by the phone,
+ * at which point the next item in the FIFO will be populated.
+ */
+message FromRadio {
+  /*
+   * The packet id, used to allow the phone to request missing read packets from the FIFO,
+   * see our bluetooth docs
+   */
+  uint32 id = 1;
+
+  /*
+   * Log levels, chosen to match python logging conventions.
+   */
+  oneof payload_variant {
+    /*
+     * Log levels, chosen to match python logging conventions.
+     */
+    MeshPacket packet = 2;
+
+    /*
+     * Tells the phone what our node number is, can be -1 if we've not yet joined a mesh.
+     * NOTE: This ID must not change - to keep (minimal) compatibility with <1.2 version of android apps.
+     */
+    MyNodeInfo my_info = 3;
+
+    /*
+     * One packet is sent for each node in the on radio DB
+     * starts over with the first node in our DB
+     */
+    NodeInfo node_info = 4;
+
+    /*
+     * Include a part of the config (was: RadioConfig radio)
+     */
+    Config config = 5;
+
+    /*
+     * Set to send debug console output over our protobuf stream
+     */
+    LogRecord log_record = 6;
+
+    /*
+     * Sent as true once the device has finished sending all of the responses to want_config
+     * recipient should check if this ID matches our original request nonce, if
+     * not, it means your config responses haven't started yet.
+     * NOTE: This ID must not change - to keep (minimal) compatibility with <1.2 version of android apps.
+     */
+    uint32 config_complete_id = 7;
+
+    /*
+     * Sent to tell clients the radio has just rebooted.
+     * Set to true if present.
+     * Not used on all transports, currently just used for the serial console.
+     * NOTE: This ID must not change - to keep (minimal) compatibility with <1.2 version of android apps.
+     */
+    bool rebooted = 8;
+
+    /*
+     * Include module config
+     */
+    ModuleConfig moduleConfig = 9;
+
+    /*
+     * One packet is sent for each channel
+     */
+    Channel channel = 10;
+
+    /*
+     * Queue status info
+     */
+    QueueStatus queueStatus = 11;
+
+    /*
+     * File Transfer Chunk
+     */
+    XModem xmodemPacket = 12;
+
+    /*
+     * Device metadata message
+     */
+    DeviceMetadata metadata = 13;
+
+    /*
+     * MQTT Client Proxy Message (device sending to client / phone for publishing to MQTT)
+     */
+    MqttClientProxyMessage mqttClientProxyMessage = 14;
+
+    /*
+     * File system manifest messages
+     */
+    FileInfo fileInfo = 15;
+
+    /*
+     * Notification message to the client
+     */
+    ClientNotification clientNotification = 16;
+
+    /*
+     * Persistent data for device-ui
+     */
+    DeviceUIConfig deviceuiConfig = 17;
+  }
+}
+
+/*
+ * A notification message from the device to the client
+ * To be used for important messages that should to be displayed to the user
+ * in the form of push notifications or validation messages when saving
+ * invalid configuration.
+ */
+message ClientNotification {
+  /*
+   * The id of the packet we're notifying in response to
+   */
+  optional uint32 reply_id = 1;
+
+  /*
+   * Seconds since 1970 - or 0 for unknown/unset
+   */
+  fixed32 time = 2;
+
+  /*
+   * The level type of notification
+   */
+  LogRecord.Level level = 3;
+  /*
+   * The message body of the notification
+   */
+  string message = 4;
+
+  oneof payload_variant {
+    KeyVerificationNumberInform key_verification_number_inform = 11;
+    KeyVerificationNumberRequest key_verification_number_request = 12;
+    KeyVerificationFinal key_verification_final = 13;
+    DuplicatedPublicKey duplicated_public_key = 14;
+    LowEntropyKey low_entropy_key = 15;
+  }
+}
+
+message KeyVerificationNumberInform {
+  uint64 nonce = 1;
+  string remote_longname = 2;
+  uint32 security_number = 3;
+}
+message KeyVerificationNumberRequest {
+  uint64 nonce = 1;
+  string remote_longname = 2;
+}
+message KeyVerificationFinal {
+  uint64 nonce = 1;
+  string remote_longname = 2;
+  bool isSender = 3;
+  string verification_characters = 4;
+}
+message DuplicatedPublicKey {}
+message LowEntropyKey {}
+
+/*
+ * Individual File info for the device
+ */
+message FileInfo {
+  /*
+   * The fully qualified path of the file
+   */
+  string file_name = 1;
+
+  /*
+   * The size of the file in bytes
+   */
+  uint32 size_bytes = 2;
+}
+
+/*
+ * Packets/commands to the radio will be written (reliably) to the toRadio characteristic.
+ * Once the write completes the phone can assume it is handled.
+ */
+message ToRadio {
+  /*
+   * Log levels, chosen to match python logging conventions.
+   */
+  oneof payload_variant {
+    /*
+     * Send this packet on the mesh
+     */
+    MeshPacket packet = 1;
+
+    /*
+     * Phone wants radio to send full node db to the phone, This is
+     * typically the first packet sent to the radio when the phone gets a
+     * bluetooth connection. The radio will respond by sending back a
+     * MyNodeInfo, a owner, a radio config and a series of
+     * FromRadio.node_infos, and config_complete
+     * the integer you write into this field will be reported back in the
+     * config_complete_id response this allows clients to never be confused by
+     * a stale old partially sent config.
+     */
+    uint32 want_config_id = 3;
+
+    /*
+     * Tell API server we are disconnecting now.
+     * This is useful for serial links where there is no hardware/protocol based notification that the client has dropped the link.
+     * (Sending this message is optional for clients)
+     */
+    bool disconnect = 4;
+
+    /*
+     * File Transfer Chunk
+     */
+
+    XModem xmodemPacket = 5;
+
+    /*
+     * MQTT Client Proxy Message (for client / phone subscribed to MQTT sending to device)
+     */
+    MqttClientProxyMessage mqttClientProxyMessage = 6;
+
+    /*
+     * Heartbeat message (used to keep the device connection awake on serial)
+     */
+    Heartbeat heartbeat = 7;
+  }
+}
+
+/*
+ * Compressed message payload
+ */
+message Compressed {
+  /*
+   * PortNum to determine the how to handle the compressed payload.
+   */
+  PortNum portnum = 1;
+
+  /*
+   * Compressed data.
+   */
+  bytes data = 2;
+}
+
+/*
+ * Full info on edges for a single node
+ */
+message NeighborInfo {
+  /*
+   * The node ID of the node sending info on its neighbors
+   */
+  uint32 node_id = 1;
+  /*
+   * Field to pass neighbor info for the next sending cycle
+   */
+  uint32 last_sent_by_id = 2;
+
+  /*
+   * Broadcast interval of the represented node (in seconds)
+   */
+  uint32 node_broadcast_interval_secs = 3;
+  /*
+   * The list of out edges from this node
+   */
+  repeated Neighbor neighbors = 4;
+}
+
+/*
+ * A single edge in the mesh
+ */
+message Neighbor {
+  /*
+   * Node ID of neighbor
+   */
+  uint32 node_id = 1;
+
+  /*
+   * SNR of last heard message
+   */
+  float snr = 2;
+
+  /*
+   * Reception time (in secs since 1970) of last message that was last sent by this ID.
+   * Note: this is for local storage only and will not be sent out over the mesh.
+   */
+  fixed32 last_rx_time = 3;
+
+  /*
+   * Broadcast interval of this neighbor (in seconds).
+   * Note: this is for local storage only and will not be sent out over the mesh.
+   */
+  uint32 node_broadcast_interval_secs = 4;
+}
+
+/*
+ * Device metadata response
+ */
+message DeviceMetadata {
+  /*
+   * Device firmware version string
+   */
+  string firmware_version = 1;
+
+  /*
+   * Device state version
+   */
+  uint32 device_state_version = 2;
+
+  /*
+   * Indicates whether the device can shutdown CPU natively or via power management chip
+   */
+  bool canShutdown = 3;
+
+  /*
+   * Indicates that the device has native wifi capability
+   */
+  bool hasWifi = 4;
+
+  /*
+   * Indicates that the device has native bluetooth capability
+   */
+  bool hasBluetooth = 5;
+
+  /*
+   * Indicates that the device has an ethernet peripheral
+   */
+  bool hasEthernet = 6;
+
+  /*
+   * Indicates that the device's role in the mesh
+   */
+  Config.DeviceConfig.Role role = 7;
+
+  /*
+   * Indicates the device's current enabled position flags
+   */
+  uint32 position_flags = 8;
+
+  /*
+   * Device hardware model
+   */
+  HardwareModel hw_model = 9;
+
+  /*
+   * Has Remote Hardware enabled
+   */
+  bool hasRemoteHardware = 10;
+
+  /*
+   * Has PKC capabilities
+   */
+  bool hasPKC = 11;
+
+  /*
+   * Bit field of boolean for excluded modules
+   * (bitwise OR of ExcludedModules)
+   */
+  uint32 excluded_modules = 12;
+}
+
+/*
+ * Enum for modules excluded from a device's configuration.
+ * Each value represents a ModuleConfigType that can be toggled as excluded
+ * by setting its corresponding bit in the `excluded_modules` bitmask field.
+ */
+enum ExcludedModules {
+  /*
+   * Default value of 0 indicates no modules are excluded.
+   */
+  EXCLUDED_NONE = 0x0000;
+
+  /*
+   * MQTT module
+   */
+  MQTT_CONFIG = 0x0001;
+
+  /*
+   * Serial module
+   */
+  SERIAL_CONFIG = 0x0002;
+
+  /*
+   * External Notification module
+   */
+  EXTNOTIF_CONFIG = 0x0004;
+
+  /*
+   * Store and Forward module
+   */
+  STOREFORWARD_CONFIG = 0x0008;
+
+  /*
+   * Range Test module
+   */
+  RANGETEST_CONFIG = 0x0010;
+
+  /*
+   * Telemetry module
+   */
+  TELEMETRY_CONFIG = 0x0020;
+
+  /*
+   * Canned Message module
+   */
+  CANNEDMSG_CONFIG = 0x0040;
+
+  /*
+   * Audio module
+   */
+  AUDIO_CONFIG = 0x0080;
+
+  /*
+   * Remote Hardware module
+   */
+  REMOTEHARDWARE_CONFIG = 0x0100;
+
+  /*
+   * Neighbor Info module
+   */
+  NEIGHBORINFO_CONFIG = 0x0200;
+
+  /*
+   * Ambient Lighting module
+   */
+  AMBIENTLIGHTING_CONFIG = 0x0400;
+
+  /*
+   * Detection Sensor module
+   */
+  DETECTIONSENSOR_CONFIG = 0x0800;
+
+  /*
+   * Paxcounter module
+   */
+  PAXCOUNTER_CONFIG = 0x1000;
+
+  /*
+   * Bluetooth config (not technically a module, but used to indicate bluetooth capabilities)
+   */
+  BLUETOOTH_CONFIG = 0x2000;
+
+  /*
+   * Network config (not technically a module, but used to indicate network capabilities)
+   */
+  NETWORK_CONFIG = 0x4000;
+}
+
+/*
+ * A heartbeat message is sent to the node from the client to keep the connection alive.
+ * This is currently only needed to keep serial connections alive, but can be used by any PhoneAPI.
+ */
+message Heartbeat {
+  /*
+   * The nonce of the heartbeat message
+   */
+  uint32 nonce = 1;
+}
+
+/*
+ * RemoteHardwarePins associated with a node
+ */
+message NodeRemoteHardwarePin {
+  /*
+   * The node_num exposing the available gpio pin
+   */
+  uint32 node_num = 1;
+
+  /*
+   * The the available gpio pin for usage with RemoteHardware module
+   */
+  RemoteHardwarePin pin = 2;
+}
+
+message ChunkedPayload {
+  /*
+   * The ID of the entire payload
+   */
+  uint32 payload_id = 1;
+
+  /*
+   * The total number of chunks in the payload
+   */
+  uint32 chunk_count = 2;
+
+  /*
+   * The current chunk index in the total
+   */
+  uint32 chunk_index = 3;
+
+  /*
+   * The binary data of the current chunk
+   */
+  bytes payload_chunk = 4;
+}
+
+/*
+ * Wrapper message for broken repeated oneof support
+ */
+message resend_chunks {
+  repeated uint32 chunks = 1;
+}
+
+/*
+ * Responses to a ChunkedPayload request
+ */
+message ChunkedPayloadResponse {
+  /*
+   * The ID of the entire payload
+   */
+  uint32 payload_id = 1;
+
+  oneof payload_variant {
+    /*
+     * Request to transfer chunked payload
+     */
+    bool request_transfer = 2;
+
+    /*
+     * Accept the transfer chunked payload
+     */
+    bool accept_transfer = 3;
+    /*
+     * Request missing indexes in the chunked payload
+     */
+    resend_chunks resend_chunks = 4;
+  }
+}
