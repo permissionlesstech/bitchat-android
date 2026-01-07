@@ -202,12 +202,12 @@ object BinaryProtocol {
         try {
             // Try to compress payload if beneficial
             var payload = packet.payload
-            var originalPayloadSize: UShort? = null
+            var originalPayloadSize: Int? = null
             var isCompressed = false
             
             if (CompressionUtil.shouldCompress(payload)) {
                 CompressionUtil.compress(payload)?.let { compressedPayload ->
-                    originalPayloadSize = payload.size.toUShort()
+                    originalPayloadSize = payload.size
                     payload = compressedPayload
                     isCompressed = true
                 }
@@ -217,7 +217,8 @@ object BinaryProtocol {
             val headerSize = getHeaderSize(packet.version)
             val recipientBytes = if (packet.recipientID != null) RECIPIENT_ID_SIZE else 0
             val signatureBytes = if (packet.signature != null) SIGNATURE_SIZE else 0
-            val payloadBytes = payload.size + if (isCompressed) 2 else 0
+            val sizeFieldBytes = if (isCompressed) (if (packet.version >= 2u.toUByte()) 4 else 2) else 0
+            val payloadBytes = payload.size + sizeFieldBytes
             val capacity = headerSize + SENDER_ID_SIZE + recipientBytes + payloadBytes + signatureBytes + 16 // small slack
             val buffer = ByteBuffer.allocate(capacity.coerceAtLeast(512)).apply { order(ByteOrder.BIG_ENDIAN) }
             
@@ -247,7 +248,7 @@ object BinaryProtocol {
             buffer.put(flags.toByte())
             
             // Payload length (2 or 4 bytes, big-endian) - includes original size if compressed
-            val payloadDataSize = payload.size + if (isCompressed) 2 else 0
+            val payloadDataSize = payload.size + sizeFieldBytes
             if (packet.version >= 2u.toUByte()) {
                 buffer.putInt(payloadDataSize)  // 4 bytes for v2+
             } else {
@@ -284,7 +285,11 @@ object BinaryProtocol {
             if (isCompressed) {
                 val originalSize = originalPayloadSize
                 if (originalSize != null) {
-                    buffer.putShort(originalSize.toShort())
+                    if (packet.version >= 2u.toUByte()) {
+                        buffer.putInt(originalSize.toInt())
+                    } else {
+                        buffer.putShort(originalSize.toShort())
+                    }
                 }
             }
             buffer.put(payload)
@@ -398,13 +403,28 @@ object BinaryProtocol {
 
             // Payload
             val payload = if (isCompressed) {
-                // First 2 bytes are original size
-                if (payloadLength.toInt() < 2) return null
-                val originalSize = buffer.getShort().toInt()
+                val lengthFieldBytes = if (version >= 2u.toUByte()) 4 else 2
+                if (payloadLength.toInt() < lengthFieldBytes) return null
+                
+                val originalSize = if (version >= 2u.toUByte()) {
+                    buffer.getInt()
+                } else {
+                    buffer.getShort().toUShort().toInt()
+                }
                 
                 // Compressed payload
-                val compressedPayload = ByteArray(payloadLength.toInt() - 2)
+                val compressedSize = payloadLength.toInt() - lengthFieldBytes
+                val compressedPayload = ByteArray(compressedSize)
                 buffer.get(compressedPayload)
+
+                // Security check: Compression bomb protection
+                if (compressedSize > 0) {
+                    val ratio = originalSize.toDouble() / compressedSize.toDouble()
+                    if (ratio > 50_000.0) {
+                        Log.w("BinaryProtocol", "🚫 Suspicious compression ratio: ${ratio}:1")
+                        return null
+                    }
+                }
                 
                 // Decompress
                 CompressionUtil.decompress(compressedPayload, originalSize) ?: return null
