@@ -39,12 +39,33 @@ class BluetoothConnectionManager(
     private val connectionTracker = BluetoothConnectionTracker(connectionScope, powerManager)
     private val packetBroadcaster = BluetoothPacketBroadcaster(connectionScope, connectionTracker, fragmentManager)
     
+    // Meshtastic Fragmentation Manager (Lower MTU for LoRa)
+    // Uses smaller fragment sizes (~230 bytes) to fit in Meshtastic PRIVATE_APP payload
+    private val meshtasticFragmentManager = FragmentManager().apply {
+        // Override private constants for tighter limits if possible, 
+        // but standard FragmentManager is tuned for BLE (512 bytes).
+        // Creating a localized strategy or subclass might be better but for consistency 
+        // we will handle the split logic in the send pipeline manually if generic FragmentManager isn't configurable.
+        // Actually, we can just let it be and implement manual check below.
+    }
+    
     // Meshtastic manager
     private val meshtasticManager = MeshtasticConnectionManager(context, connectionScope) { packetBytes ->
         // Handle incoming packets from Meshtastic
         // Currently assuming they are raw Bitchat packets (or wrapped BitchatPacket objects serialized)
         // For now, let's treat them as raw bytes and try to parse them if possible or pass them up 
         // Note: The original architecture expects BitchatPacket object. We'll need to parse.
+        
+        // Check if this is a fragment packet
+        val rawPacket = BitchatPacket.fromBinaryData(packetBytes)
+        if (rawPacket?.type == com.bitchat.android.protocol.MessageType.FRAGMENT.value) {
+             // Reassembly logic
+             val reassembled = meshtasticFragmentManager.handleFragment(rawPacket)
+             if (reassembled != null) {
+                 componentDelegate.onPacketReceived(reassembled, BitchatPacket.byteArrayToHexString(reassembled.senderID), null)
+             }
+             return@MeshtasticConnectionManager
+        }
         
         BitchatPacket.fromBinaryData(packetBytes)?.let { packet ->
             Log.d(TAG, "Parsed packet from Meshtastic: ${packet.type}")
@@ -209,6 +230,8 @@ class BluetoothConnectionManager(
                     Log.d(TAG, "GATT Client started")
                 } else {
                     Log.i(TAG, "GATT Client disabled by debug settings; not starting")
+                }
+                
                 // Disconnect any lingering Meshtastic connections to start fresh
                 meshtasticManager.disconnect()
                 
@@ -293,9 +316,36 @@ class BluetoothConnectionManager(
         // we will check if routed.packet has a serialization method.
         
         try {
-            routed.packet.toBinaryData()?.let { bytes ->
-                // Send logic
-                meshtasticManager.sendPacket(bytes)
+            val rawBytes = routed.packet.toBinaryData()
+            if (rawBytes != null) {
+                // Check size for LoRa MTU
+                if (rawBytes.size > com.bitchat.android.util.AppConstants.Mesh.Meshtastic.MAX_PAYLOAD_SIZE) {
+                    // We need to fragment specifically for Meshtastic
+                    // But FragmentManager logic is hardcoded to 512 bytes.
+                    // We need a specific fragmenter for LoRa.
+                    // TODO: Ideally refactor FragmentManager to accept MTU config.
+                    // For now, if it's too big, we log a warning or drop. 
+                    // Or, we reuse FragmentManager logic but effectively we need new logic since 
+                    // 512 > 237.
+                    
+                    // Let's implement a quick fragmentation strategy here or ignore for now if too complex?
+                    // The user explicitly asked to "introduce fragmentation" because of the 237 byte limit.
+                    
+                    // Let's manually chunk using the existing logic found in FragmentManager but with smaller MTU.
+                    
+                    val loRaFragments = meshtasticFragmenter(routed.packet)
+                    loRaFragments.forEach { frag ->
+                        frag.toBinaryData()?.let { fragBytes ->
+                             meshtasticManager.sendPacket(fragBytes)
+                             // Small delay to prevent LoRa radio TX queue overflow
+                             Thread.sleep(250) 
+                        }
+                    }
+                    
+                } else {
+                    // Send directly
+                    meshtasticManager.sendPacket(rawBytes)
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error serializing packet for Meshtastic broadcast", e)
@@ -447,6 +497,64 @@ class BluetoothConnectionManager(
     }
     
     // MARK: - Private Implementation - All moved to component managers
+
+    /**
+     * Custom fragmenter for Meshtastic MTU limits (~230 bytes)
+     * Reuses the packet structure of standard Bitchat fragments but with smaller chunks
+     */
+    private fun meshtasticFragmenter(packet: BitchatPacket): List<BitchatPacket> {
+        val encoded = packet.toBinaryData() ?: return emptyList()
+        try {
+            val fullData = com.bitchat.android.protocol.MessagePadding.unpad(encoded)
+            val maxFragmentSize = 200 // Conservative LoRa payload size (230 - fragment headers)
+            
+            if (fullData.size <= 230) return listOf(packet) // Should have caught this above, but sanity check
+            
+            val fragments = mutableListOf<BitchatPacket>()
+            val fragmentID = com.bitchat.android.model.FragmentPayload.generateFragmentID()
+            
+            val chunks = stride(0, fullData.size, maxFragmentSize) { offset ->
+                val endOffset = minOf(offset + maxFragmentSize, fullData.size)
+                fullData.sliceArray(offset until endOffset)
+            }
+            
+            for (index in chunks.indices) {
+                val fragmentData = chunks[index]
+                val fragmentPayload = com.bitchat.android.model.FragmentPayload(
+                    fragmentID = fragmentID,
+                    index = index,
+                    total = chunks.size,
+                    originalType = packet.type,
+                    data = fragmentData
+                )
+                
+                val fragmentPacket = BitchatPacket(
+                    type = com.bitchat.android.protocol.MessageType.FRAGMENT.value,
+                    ttl = packet.ttl,
+                    senderID = packet.senderID,
+                    recipientID = packet.recipientID, // Can be broadcast or direct
+                    timestamp = packet.timestamp,
+                    payload = fragmentPayload.encode(),
+                    signature = null
+                )
+                fragments.add(fragmentPacket)
+            }
+            return fragments
+        } catch (e: Exception) {
+            Log.e(TAG, "Meshtastic fragmentation failed", e)
+            return emptyList()
+        }
+    }
+    
+    private fun <T> stride(from: Int, to: Int, by: Int, transform: (Int) -> T): List<T> {
+        val result = mutableListOf<T>()
+        var current = from
+        while (current < to) {
+            result.add(transform(current))
+            current += by
+        }
+        return result
+    }
 }
 
 /**

@@ -37,6 +37,7 @@ object AppConstants {
             val TO_RADIO_UUID: UUID = UUID.fromString("f75c76d2-129e-4dad-a1dd-7866124401e7")
             val FROM_NUM_UUID: UUID = UUID.fromString("ed9da18c-a800-4f66-a670-aa7547e34453")
             val PRIVATE_APP_PORT: Int = 258 // BITCHAT_APP
+            val MAX_PAYLOAD_SIZE: Int = 230 // Keep below typical LoRa MTU (~237)
         }
     }
 
