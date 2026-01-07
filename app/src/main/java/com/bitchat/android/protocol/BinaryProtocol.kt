@@ -240,7 +240,8 @@ object BinaryProtocol {
             if (isCompressed) {
                 flags = flags or Flags.IS_COMPRESSED
             }
-            if (!packet.route.isNullOrEmpty()) {
+            // HAS_ROUTE is only supported for v2+ packets
+            if (!packet.route.isNullOrEmpty() && packet.version >= 2u.toUByte()) {
                 flags = flags or Flags.HAS_ROUTE
             }
             buffer.put(flags.toByte())
@@ -269,12 +270,14 @@ object BinaryProtocol {
                 }
             }
 
-            // Route (optional): 1 byte count + N*8 bytes
-            packet.route?.let { routeList ->
-                val cleaned = routeList.map { bytes -> bytes.take(SENDER_ID_SIZE).toByteArray().let { if (it.size < SENDER_ID_SIZE) it + ByteArray(SENDER_ID_SIZE - it.size) else it } }
-                val count = cleaned.size.coerceAtMost(255)
-                buffer.put(count.toByte())
-                cleaned.take(count).forEach { hop -> buffer.put(hop) }
+            // Route (optional, v2+ only): 1 byte count + N*8 bytes
+            if (packet.version >= 2u.toUByte()) {
+                packet.route?.let { routeList ->
+                    val cleaned = routeList.map { bytes -> bytes.take(SENDER_ID_SIZE).toByteArray().let { if (it.size < SENDER_ID_SIZE) it + ByteArray(SENDER_ID_SIZE - it.size) else it } }
+                    val count = cleaned.size.coerceAtMost(255)
+                    buffer.put(count.toByte())
+                    cleaned.take(count).forEach { hop -> buffer.put(hop) }
+                }
             }
             
             // Payload (with original size prepended if compressed)
@@ -344,7 +347,8 @@ object BinaryProtocol {
             val hasRecipient = (flags and Flags.HAS_RECIPIENT) != 0u.toUByte()
             val hasSignature = (flags and Flags.HAS_SIGNATURE) != 0u.toUByte()
             val isCompressed = (flags and Flags.IS_COMPRESSED) != 0u.toUByte()
-            val hasRoute = (flags and Flags.HAS_ROUTE) != 0u.toUByte()
+            // HAS_ROUTE is only valid for v2+ packets; ignore the flag for v1
+            val hasRoute = (version >= 2u.toUByte()) && (flags and Flags.HAS_ROUTE) != 0u.toUByte()
 
             // Payload length - version-dependent (2 or 4 bytes)
             val payloadLength = if (version >= 2u.toUByte()) {
