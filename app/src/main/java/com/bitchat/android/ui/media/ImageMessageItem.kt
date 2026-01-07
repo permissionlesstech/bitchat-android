@@ -31,6 +31,8 @@ import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
 import androidx.compose.material3.ColorScheme
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.bitchat.android.core.ui.utils.spoiler
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -93,6 +95,8 @@ fun ImageMessageItem(
                 is com.bitchat.android.model.DeliveryStatus.PartiallyDelivered -> if (st.total > 0) st.reached.toFloat() / st.total.toFloat() else 0f
                 else -> null
             }
+            var isSpoilerVisible by rememberSaveable(key = message.id) { mutableStateOf(true) }
+            
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
                 Box {
                     if (progressFraction != null && progressFraction < 1f && message.sender == currentUserNickname) {
@@ -110,6 +114,7 @@ fun ImageMessageItem(
                                     val currentIndex = imagePaths.indexOf(path)
                                     onImageClick?.invoke(path, imagePaths, currentIndex)
                                 }
+                                .spoiler(isOn = isSpoilerVisible) { isSpoilerVisible = false }
                         )
                     } else {
                         // Fully revealed image
@@ -120,10 +125,11 @@ fun ImageMessageItem(
                                 .widthIn(max = 300.dp)
                                 .aspectRatio(aspect)
                                 .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
-                                .clickable {
+                                .clickable(enabled = !isSpoilerVisible) {
                                     val currentIndex = imagePaths.indexOf(path)
                                     onImageClick?.invoke(path, imagePaths, currentIndex)
-                                },
+                                }
+                                .spoiler(isOn = isSpoilerVisible) { isSpoilerVisible = false },
                             contentScale = ContentScale.Fit
                         )
                     }
