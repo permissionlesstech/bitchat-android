@@ -8,6 +8,9 @@ import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
+import android.os.CancellationSignal
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import kotlinx.coroutines.*
@@ -25,6 +28,7 @@ class LocationChannelManager private constructor(private val context: Context) {
     
     companion object {
         private const val TAG = "LocationChannelManager"
+        private const val LOCATION_TIMEOUT_MS = 120_000L // 120 seconds
         
         @Volatile
         private var INSTANCE: LocationChannelManager? = null
@@ -51,6 +55,18 @@ class LocationChannelManager private constructor(private val context: Context) {
     private var isGeocoding: Boolean = false
     private val gson = Gson()
     private var dataManager: com.bitchat.android.ui.DataManager? = null
+    
+    // Managed coroutine scope for background operations - cancelled in cleanup()
+    private val coroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    
+    // Cancellation signal for location requests with timeout
+    private var locationCancellationSignal: CancellationSignal? = null
+    private val locationTimeoutHandler = Handler(Looper.getMainLooper())
+    private val locationTimeoutRunnable = Runnable {
+        Log.w(TAG, "Location request timed out after 120 seconds")
+        locationCancellationSignal?.cancel()
+        _isLoadingLocation.value = false
+    }
 
     // Published state for UI bindings (matching iOS @Published properties)
     private val _permissionState = MutableStateFlow(PermissionState.NOT_DETERMINED)
@@ -402,12 +418,22 @@ class LocationChannelManager private constructor(private val context: Context) {
                     Log.d(TAG, "Getting current location from $provider")
                     
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                        // For Android 11+ (API 30+), use getCurrentLocation
+                        // For Android 11+ (API 30+), use getCurrentLocation with timeout
+                        locationCancellationSignal?.cancel()
+                        locationCancellationSignal = CancellationSignal()
+                        
+                        // Set up timeout
+                        locationTimeoutHandler.removeCallbacks(locationTimeoutRunnable)
+                        locationTimeoutHandler.postDelayed(locationTimeoutRunnable, LOCATION_TIMEOUT_MS)
+                        
                         locationManager.getCurrentLocation(
                             provider,
-                            null, // No cancellation signal
+                            locationCancellationSignal,
                             context.mainExecutor,
                             { location ->
+                                // Cancel timeout since we got a response
+                                locationTimeoutHandler.removeCallbacks(locationTimeoutRunnable)
+                                
                                 if (location != null) {
                                     Log.d(TAG, "Fresh location received: ${location.latitude}, ${location.longitude}")
                                     lastLocation = location
@@ -526,7 +552,7 @@ class LocationChannelManager private constructor(private val context: Context) {
 
         isGeocoding = true
         
-        CoroutineScope(Dispatchers.IO).launch {
+        coroutineScope.launch(Dispatchers.IO) {
             try {
                 Log.d(TAG, "Starting reverse geocoding")
                 
@@ -724,9 +750,15 @@ class LocationChannelManager private constructor(private val context: Context) {
         Log.d(TAG, "Cleaning up LocationChannelManager")
         endLiveRefresh()
         
+        // Cancel any pending location timeout
+        locationTimeoutHandler.removeCallbacks(locationTimeoutRunnable)
+        locationCancellationSignal?.cancel()
+        
+        // Cancel all coroutines to prevent memory leaks
+        coroutineScope.cancel()
+        
         // Remove listeners to prevent memory leaks
         try { locationManager.removeUpdates(oneShotLocationListener) } catch (_: Exception) {}
         try { locationManager.removeUpdates(continuousLocationListener) } catch (_: Exception) {}
-        // For Android 11+, getCurrentLocation doesn't need explicit cleanup as it's a one-time operation
     }
 }
