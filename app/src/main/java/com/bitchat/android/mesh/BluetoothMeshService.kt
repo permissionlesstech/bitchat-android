@@ -1334,7 +1334,8 @@ class BluetoothMeshService(private val context: Context) {
                         val intermediates = path.subList(1, path.size - 1)
                         val hopsBytes = intermediates.map { hexStringToByteArray(it) }
                         Log.d(TAG, "✅ Signed packet type ${packet.type} (route ${hopsBytes.size} hops: $intermediates)")
-                        packet.copy(route = hopsBytes)
+                        // Attach route and upgrade to v2 (required for HAS_ROUTE flag)
+                        packet.copy(route = hopsBytes, version = 2u)
                     } else packet.copy(route = null)
                 } else packet
             } catch (_: Exception) { packet }
