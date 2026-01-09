@@ -11,7 +11,7 @@ import com.bitchat.android.nostr.NostrTransport
  */
 class MessageRouter private constructor(
     private val context: Context,
-    private val mesh: BluetoothMeshService,
+    private var mesh: BluetoothMeshService,
     private val nostr: NostrTransport
 ) {
     companion object {
@@ -23,6 +23,7 @@ class MessageRouter private constructor(
                 val nostr = NostrTransport.getInstance(context)
                 INSTANCE?.also {
                     // Update mesh reference if needed and keep senderPeerID in sync
+                    it.mesh = mesh
                     it.nostr.senderPeerID = mesh.myPeerID
                     return it
                 }
