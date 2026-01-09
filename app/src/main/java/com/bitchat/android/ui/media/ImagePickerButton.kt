@@ -21,7 +21,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.bitchat.android.features.media.ImageUtils
-import com.bitchat.android.BuildConfig
 import java.io.File
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -66,7 +65,7 @@ fun ImagePickerButton(
             val file = File(dir, "camera_${System.currentTimeMillis()}.jpg")
             val uri = FileProvider.getUriForFile(
                 context,
-                BuildConfig.APPLICATION_ID + ".fileprovider",
+                context.packageName + ".fileprovider",
                 file
             )
             capturedImagePath = file.absolutePath
