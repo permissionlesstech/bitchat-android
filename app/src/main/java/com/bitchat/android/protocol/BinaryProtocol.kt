@@ -219,7 +219,10 @@ object BinaryProtocol {
             val signatureBytes = if (packet.signature != null) SIGNATURE_SIZE else 0
             val sizeFieldBytes = if (isCompressed) (if (packet.version >= 2u.toUByte()) 4 else 2) else 0
             val payloadBytes = payload.size + sizeFieldBytes
-            val capacity = headerSize + SENDER_ID_SIZE + recipientBytes + payloadBytes + signatureBytes + 16 // small slack
+            val routeBytes = if (!packet.route.isNullOrEmpty() && packet.version >= 2u.toUByte()) {
+                1 + (packet.route!!.size.coerceAtMost(255) * SENDER_ID_SIZE)
+            } else 0
+            val capacity = headerSize + SENDER_ID_SIZE + recipientBytes + payloadBytes + signatureBytes + routeBytes + 16 // small slack
             val buffer = ByteBuffer.allocate(capacity.coerceAtLeast(512)).apply { order(ByteOrder.BIG_ENDIAN) }
             
             // Header
