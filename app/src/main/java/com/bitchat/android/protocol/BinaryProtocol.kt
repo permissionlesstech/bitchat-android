@@ -368,9 +368,16 @@ object BinaryProtocol {
             var routeCount = 0
             if (hasRoute) {
                 // Peek count (1 byte) without consuming buffer for now
-                val mark = buffer.position()
-                if (raw.size >= mark + 1) {
-                    routeCount = raw[mark].toUByte().toInt()
+                // The buffer is currently positioned at the start of SenderID (after fixed header)
+                // We must skip SenderID and RecipientID (if present) to find the route count
+                val currentPos = buffer.position()
+                var routeOffset = currentPos + SENDER_ID_SIZE
+                if (hasRecipient) {
+                    routeOffset += RECIPIENT_ID_SIZE
+                }
+
+                if (raw.size >= routeOffset + 1) {
+                    routeCount = raw[routeOffset].toUByte().toInt()
                 }
                 expectedSize += 1 + (routeCount * SENDER_ID_SIZE)
             }
