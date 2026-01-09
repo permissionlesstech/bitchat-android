@@ -91,6 +91,13 @@ To calculate routes, nodes need a view of the network topology. This is achieved
 ```
 Nodes receiving this TLV update their local mesh graph, linking the sender to the listed neighbors.
 
+### Edge Verification (Two-Way Handshake)
+
+To prevent spoofing and routing through stale connections, the Mesh Graph service implements a strict two-way handshake verification:
+
+*   **Unconfirmed Edge:** If Peer A announces Peer B, but Peer B does *not* announce Peer A, the connection is treated as **unconfirmed**. Unconfirmed edges are visualized as dotted lines in debug tools but are **excluded** from route calculations.
+*   **Confirmed Edge:** An edge is only valid for routing when **both** peers explicitly announce each other in their neighbor lists. This ensures that the connection is bidirectional and currently active from both perspectives.
+
 ---
 
 ## 5. Fragmentation & Source Routing
