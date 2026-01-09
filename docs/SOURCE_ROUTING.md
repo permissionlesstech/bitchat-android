@@ -102,6 +102,31 @@ When a large source-routed packet (e.g., File Transfer) exceeds the MTU and requ
 
 **Why?** If fragments were sent as v1 packets or without routes, they would fall back to flooding, negating the bandwidth benefits of source routing for large data transfers.
 
+### 5.1 Dynamic Fragment Sizing (Critical Implementation Detail)
+
+To ensure reliable transmission over Bluetooth LE, all packets must strictly adhere to the 512-byte MTU limit. Because the Source Route field has a variable length, a fixed fragment size (e.g., the standard 469 bytes) is **unsafe** and will cause transmission failures when a long route is attached.
+
+**Implementations MUST dynamically calculate the maximum fragment payload size for each packet using the following formula:**
+
+```text
+Overhead = HeaderV2(15) + SenderID(8) + RecipientID(8) + RouteSize + FragmentHeader(13) + PaddingBuffer(16)
+MaxFragmentPayload = 512 - Overhead
+```
+
+**Definitions:**
+*   **HeaderV2:** 15 bytes (Fixed header size for Version 2).
+*   **RouteSize:** `1 + (Hops * 8)` bytes.
+*   **FragmentHeader:** 13 bytes (Standard fragment payload header).
+*   **PaddingBuffer:** 16 bytes (Reserved for PKCS#7 padding expansion and encryption tag overhead).
+
+**Example:**
+For a packet with a 3-hop route:
+1.  **RouteSize:** `1 + (3 * 8) = 25` bytes.
+2.  **Overhead:** `15 + 8 + 8 + 25 + 13 + 16 = 85` bytes.
+3.  **MaxFragmentPayload:** `512 - 85 = 427` bytes.
+
+Implementations that fail to adjust the fragment size based on the route length will produce packets exceeding the MTU, resulting in dropped fragments and failed transfers.
+
 ---
 
 ## 6. Security & Signing
