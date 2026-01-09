@@ -26,3 +26,8 @@
 -keepnames class org.torproject.arti.**
 -dontwarn info.guardianproject.arti.**
 -dontwarn org.torproject.arti.**
+
+# Fix for AbstractMethodError on API < 29 where LocationListener methods are abstract
+-keepclassmembers class * implements android.location.LocationListener {
+    public <methods>;
+}
