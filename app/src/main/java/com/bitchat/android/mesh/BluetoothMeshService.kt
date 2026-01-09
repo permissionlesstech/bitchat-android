@@ -111,6 +111,13 @@ class BluetoothMeshService(private val context: Context) {
                 return signPacketBeforeBroadcast(packet)
             }
         }
+        
+        // Inject dynamic direct connection check into PeerManager
+        // Matches iOS logic: checks if we have an active hardware mapping for this peer
+        peerManager.isPeerDirectlyConnected = { peerID ->
+            connectionManager.addressPeerMap.containsValue(peerID)
+        }
+        
         Log.d(TAG, "Delegates set up; GossipSyncManager initialized")
     }
     
@@ -478,8 +485,8 @@ class BluetoothMeshService(private val context: Context) {
                             connectionManager.addressPeerMap[deviceAddress] = pid
                             Log.d(TAG, "Mapped device $deviceAddress to peer $pid (TTL=${routed.packet.ttl})")
 
-                            // Mark as directly connected
-                            try { peerManager.setDirectConnection(pid, true) } catch (_: Exception) { }
+                            // Mark as directly connected - refresh UI state
+                            try { peerManager.refreshPeerList() } catch (_: Exception) { }
 
                             // Initial sync for this direct peer
                             try { gossipSyncManager.scheduleInitialSyncToPeer(pid, 1_000) } catch (_: Exception) { }
@@ -584,8 +591,8 @@ class BluetoothMeshService(private val context: Context) {
                 if (peer != null) {
                     val stillMapped = connectionManager.addressPeerMap.values.any { it == peer }
                     if (!stillMapped) {
-                        // Peer might still be reachable indirectly; mark as not-direct
-                        try { peerManager.setDirectConnection(peer, false) } catch (_: Exception) { }
+                        // Peer might still be reachable indirectly; refresh to update state
+                        try { peerManager.refreshPeerList() } catch (_: Exception) { }
                     }
                     // Verbose debug: device disconnected
                     try {
