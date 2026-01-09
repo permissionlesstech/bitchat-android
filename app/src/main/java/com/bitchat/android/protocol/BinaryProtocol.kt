@@ -219,7 +219,10 @@ object BinaryProtocol {
             val signatureBytes = if (packet.signature != null) SIGNATURE_SIZE else 0
             val sizeFieldBytes = if (isCompressed) (if (packet.version >= 2u.toUByte()) 4 else 2) else 0
             val payloadBytes = payload.size + sizeFieldBytes
-            val capacity = headerSize + SENDER_ID_SIZE + recipientBytes + payloadBytes + signatureBytes + 16 // small slack
+            val routeBytes = if (!packet.route.isNullOrEmpty() && packet.version >= 2u.toUByte()) {
+                1 + (packet.route!!.size.coerceAtMost(255) * SENDER_ID_SIZE)
+            } else 0
+            val capacity = headerSize + SENDER_ID_SIZE + recipientBytes + payloadBytes + signatureBytes + routeBytes + 16 // small slack
             val buffer = ByteBuffer.allocate(capacity.coerceAtLeast(512)).apply { order(ByteOrder.BIG_ENDIAN) }
             
             // Header
@@ -368,9 +371,16 @@ object BinaryProtocol {
             var routeCount = 0
             if (hasRoute) {
                 // Peek count (1 byte) without consuming buffer for now
-                val mark = buffer.position()
-                if (raw.size >= mark + 1) {
-                    routeCount = raw[mark].toUByte().toInt()
+                // The buffer is currently positioned at the start of SenderID (after fixed header)
+                // We must skip SenderID and RecipientID (if present) to find the route count
+                val currentPos = buffer.position()
+                var routeOffset = currentPos + SENDER_ID_SIZE
+                if (hasRecipient) {
+                    routeOffset += RECIPIENT_ID_SIZE
+                }
+
+                if (raw.size >= routeOffset + 1) {
+                    routeCount = raw[routeOffset].toUByte().toInt()
                 }
                 expectedSize += 1 + (routeCount * SENDER_ID_SIZE)
             }
