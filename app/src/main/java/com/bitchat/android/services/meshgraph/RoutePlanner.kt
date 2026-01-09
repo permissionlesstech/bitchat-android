@@ -17,7 +17,9 @@ object RoutePlanner {
         if (src == dst) return listOf(src)
         val snapshot = MeshGraphService.getInstance().graphState.value
         val neighbors = mutableMapOf<String, MutableSet<String>>()
-        snapshot.edges.forEach { e ->
+        
+        // Only consider confirmed edges for routing
+        snapshot.edges.filter { it.isConfirmed }.forEach { e ->
             neighbors.getOrPut(e.a) { mutableSetOf() }.add(e.b)
             neighbors.getOrPut(e.b) { mutableSetOf() }.add(e.a)
         }
@@ -63,4 +65,3 @@ object RoutePlanner {
         return path
     }
 }
-

@@ -80,7 +80,29 @@ fun MeshTopologySection() {
                             val p1 = positions[e.a]
                             val p2 = positions[e.b]
                             if (p1 != null && p2 != null) {
-                                drawLine(color = Color(0xFF4A90E2), start = p1, end = p2, strokeWidth = 2f)
+                                if (e.isConfirmed) {
+                                    drawLine(color = Color(0xFF4A90E2), start = p1, end = p2, strokeWidth = 2f)
+                                } else {
+                                    // Unconfirmed: draw "solid" from declarer, "dashed" from other
+                                    val start = if (e.confirmedBy == e.a) p1 else p2
+                                    val end = if (e.confirmedBy == e.a) p2 else p1
+                                    
+                                    val midX = (start.x + end.x) / 2
+                                    val midY = (start.y + end.y) / 2
+                                    val mid = androidx.compose.ui.geometry.Offset(midX, midY)
+                                    
+                                    // Solid half
+                                    drawLine(color = Color(0xFF4A90E2), start = start, end = mid, strokeWidth = 2f)
+                                    
+                                    // Dotted half
+                                    drawLine(
+                                        color = Color(0xFF4A90E2),
+                                        start = mid,
+                                        end = end,
+                                        strokeWidth = 2f,
+                                        pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(5f, 5f), 0f)
+                                    )
+                                }
                             }
                         }
 

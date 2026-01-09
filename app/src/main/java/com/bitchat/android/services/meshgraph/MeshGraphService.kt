@@ -6,18 +6,18 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Maintains an internal undirected graph of the mesh based on gossip.
+ * Maintains an internal graph of the mesh based on gossip.
  * Nodes are peers (peerID), edges are direct connections.
  */
 class MeshGraphService private constructor() {
     data class GraphNode(val peerID: String, val nickname: String?)
-    data class GraphEdge(val a: String, val b: String)
+    data class GraphEdge(val a: String, val b: String, val isConfirmed: Boolean, val confirmedBy: String? = null)
     data class GraphSnapshot(val nodes: List<GraphNode>, val edges: List<GraphEdge>)
 
     // Map peerID -> nickname (may be null if unknown)
     private val nicknames = ConcurrentHashMap<String, String?>()
-    // Adjacency (undirected): peerID -> set of neighbor peerIDs
-    private val adjacency = ConcurrentHashMap<String, MutableSet<String>>()
+    // Announcements: peerID -> set of neighbor peerIDs that *this* peer claims to see
+    private val announcements = ConcurrentHashMap<String, Set<String>>()
     // Latest announcement timestamp per peer (ULong from packet)
     private val lastUpdate = ConcurrentHashMap<String, ULong>()
 
@@ -47,20 +47,10 @@ class MeshGraphService private constructor() {
             }
             lastUpdate[originPeerID] = timestamp
 
-            // Remove old symmetric edges contributed by this origin
-            val prevNeighbors = adjacency[originPeerID]?.toSet().orEmpty()
-            prevNeighbors.forEach { n ->
-                adjacency[n]?.remove(originPeerID)
-            }
-
-            // Replace origin's adjacency with new set (may be empty)
-            val newSet = neighborsOrNull.distinct().take(10).filter { it != originPeerID }.toMutableSet()
-            adjacency[originPeerID] = newSet
-            // Ensure undirected edges
-            newSet.forEach { n ->
-                adjacency.putIfAbsent(n, mutableSetOf())
-                adjacency[n]?.add(originPeerID)
-            }
+            // Update what originPeerID announces
+            // Filter out self-loops just in case
+            val newSet = neighborsOrNull.distinct().take(10).filter { it != originPeerID }.toSet()
+            announcements[originPeerID] = newSet
 
             publishSnapshot()
         }
@@ -73,24 +63,43 @@ class MeshGraphService private constructor() {
     }
 
     private fun publishSnapshot() {
-        val nodes = mutableSetOf<String>()
-        adjacency.forEach { (a, neighbors) ->
-            nodes.add(a)
-            nodes.addAll(neighbors)
+        // Collect all known nodes from nicknames and announcements
+        val allNodes = mutableSetOf<String>()
+        allNodes.addAll(nicknames.keys)
+        announcements.forEach { (origin, neighbors) ->
+            allNodes.add(origin)
+            allNodes.addAll(neighbors)
         }
-        // Merge in nicknames-only nodes
-        nodes.addAll(nicknames.keys)
 
-        val nodeList = nodes.map { GraphNode(it, nicknames[it]) }.sortedBy { it.peerID }
-        val edgeSet = mutableSetOf<Pair<String, String>>()
-        adjacency.forEach { (a, ns) ->
-            ns.forEach { b ->
-                val (x, y) = if (a <= b) a to b else b to a
-                edgeSet.add(x to y)
+        val nodeList = allNodes.map { GraphNode(it, nicknames[it]) }.sortedBy { it.peerID }
+
+        val edges = mutableListOf<GraphEdge>()
+        val processedPairs = mutableSetOf<Pair<String, String>>()
+
+        // We only care about connections that exist in at least one direction.
+        // So iterating through all entries in `announcements` covers every declared edge.
+        announcements.forEach { (source, targets) ->
+            targets.forEach { target ->
+                val pair = if (source <= target) source to target else target to source
+                if (processedPairs.add(pair)) {
+                    // This is a new pair we haven't evaluated yet
+                    val (a, b) = pair
+                    val aAnnouncesB = announcements[a]?.contains(b) == true
+                    val bAnnouncesA = announcements[b]?.contains(a) == true
+
+                    if (aAnnouncesB && bAnnouncesA) {
+                        edges.add(GraphEdge(a, b, isConfirmed = true))
+                    } else if (aAnnouncesB) {
+                        edges.add(GraphEdge(a, b, isConfirmed = false, confirmedBy = a))
+                    } else if (bAnnouncesA) {
+                        edges.add(GraphEdge(a, b, isConfirmed = false, confirmedBy = b))
+                    }
+                }
             }
         }
-        val edges = edgeSet.map { GraphEdge(it.first, it.second) }.sortedWith(compareBy({ it.a }, { it.b }))
-        _graphState.value = GraphSnapshot(nodeList, edges)
+
+        val sortedEdges = edges.sortedWith(compareBy({ it.a }, { it.b }))
+        _graphState.value = GraphSnapshot(nodeList, sortedEdges)
     }
 
     companion object {
