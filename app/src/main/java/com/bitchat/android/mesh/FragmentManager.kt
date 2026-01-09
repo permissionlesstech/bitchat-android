@@ -98,13 +98,16 @@ class FragmentManager {
             )
             
             // iOS: MessageType.fragment.rawValue (single fragment type)
+            // Fix: Fragments must inherit source route and use v2 if routed
             val fragmentPacket = BitchatPacket(
+                version = if (packet.route != null) 2u else 1u,
                 type = MessageType.FRAGMENT.value,
                 ttl = packet.ttl,
                 senderID = packet.senderID,
                 recipientID = packet.recipientID,
                 timestamp = packet.timestamp,
                 payload = fragmentPayload.encode(),
+                route = packet.route,
                 signature = null // iOS: signature: nil
             )
             
