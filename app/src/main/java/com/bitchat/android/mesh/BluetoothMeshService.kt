@@ -111,6 +111,13 @@ class BluetoothMeshService(private val context: Context) {
                 return signPacketBeforeBroadcast(packet)
             }
         }
+        
+        // Inject dynamic direct connection check into PeerManager
+        // Matches iOS logic: checks if we have an active hardware mapping for this peer
+        peerManager.isPeerDirectlyConnected = { peerID ->
+            connectionManager.addressPeerMap.containsValue(peerID)
+        }
+        
         Log.d(TAG, "Delegates set up; GossipSyncManager initialized")
     }
     
@@ -464,21 +471,24 @@ class BluetoothMeshService(private val context: Context) {
                     // Process the announce
                     val isFirst = messageHandler.handleAnnounce(routed)
 
-                    // Map device address -> peerID on first announce seen over this device connection
+                    // Map device address -> peerID based on TTL (max TTL = direct neighbor)
+                    // Matches iOS logic: any announce with max TTL on a link defines the direct peer
                     val deviceAddress = routed.relayAddress
                     val pid = routed.peerID
                     if (deviceAddress != null && pid != null) {
-                        // First ANNOUNCE over a device connection defines a direct neighbor.
-                        if (!connectionManager.hasSeenFirstAnnounce(deviceAddress)) {
+                        // Check if this is a direct connection (MAX TTL)
+                        // Note: packet.ttl is UByte, compare with AppConstants.MESSAGE_TTL_HOPS
+                        val isDirect = routed.packet.ttl == com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
+                        
+                        if (isDirect) {
                             // Bind or rebind this device address to the announcing peer
                             connectionManager.addressPeerMap[deviceAddress] = pid
-                            connectionManager.noteAnnounceReceived(deviceAddress)
-                            Log.d(TAG, "Mapped device $deviceAddress to peer $pid on FIRST-ANNOUNCE for this connection")
+                            Log.d(TAG, "Mapped device $deviceAddress to peer $pid (TTL=${routed.packet.ttl})")
 
-                            // Mark as directly connected (upgrades from routed if needed)
-                            try { peerManager.setDirectConnection(pid, true) } catch (_: Exception) { }
+                            // Mark as directly connected - refresh UI state
+                            try { peerManager.refreshPeerList() } catch (_: Exception) { }
 
-                            // Initial sync for this newly direct peer
+                            // Initial sync for this direct peer
                             try { gossipSyncManager.scheduleInitialSyncToPeer(pid, 1_000) } catch (_: Exception) { }
                         }
                     }
@@ -577,8 +587,8 @@ class BluetoothMeshService(private val context: Context) {
                 if (peer != null) {
                     val stillMapped = connectionManager.addressPeerMap.values.any { it == peer }
                     if (!stillMapped) {
-                        // Peer might still be reachable indirectly; mark as not-direct
-                        try { peerManager.setDirectConnection(peer, false) } catch (_: Exception) { }
+                        // Peer might still be reachable indirectly; refresh to update state
+                        try { peerManager.refreshPeerList() } catch (_: Exception) { }
                     }
                     // Verbose debug: device disconnected
                     try {
