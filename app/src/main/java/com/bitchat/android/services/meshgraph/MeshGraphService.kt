@@ -62,6 +62,18 @@ class MeshGraphService private constructor() {
         publishSnapshot()
     }
 
+    /**
+     * Remove a peer from the graph completely (e.g. when stale/offline).
+     */
+    fun removePeer(peerID: String) {
+        synchronized(this) {
+            nicknames.remove(peerID)
+            announcements.remove(peerID)
+            lastUpdate.remove(peerID)
+            publishSnapshot()
+        }
+    }
+
     private fun publishSnapshot() {
         // Collect all known nodes from nicknames and announcements
         val allNodes = mutableSetOf<String>()
