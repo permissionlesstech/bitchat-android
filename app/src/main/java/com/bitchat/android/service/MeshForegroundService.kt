@@ -276,7 +276,7 @@ class MeshForegroundService : Service() {
         } else true
     }
 
-    private fun buildNotification(activeUsers: Int): Notification {
+    private fun buildNotification(activePeers: Int): Notification {
         val openIntent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
             this, 0, openIntent,
@@ -291,7 +291,7 @@ class MeshForegroundService : Service() {
         )
 
         val title = getString(R.string.app_name)
-        val content = getString(R.string.mesh_service_notification_content, activeUsers)
+        val content = getString(R.string.mesh_service_notification_content, activePeers)
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)

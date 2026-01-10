@@ -350,4 +350,5 @@
     </plurals>
 
     <string name="bluetooth_recommended">ব্লুটুথ প্রস্তাবিত</string>
+    <string name="mesh_service_notification_content">মেশ চলছে — %1$d পিয়ার</string>
 </resources>

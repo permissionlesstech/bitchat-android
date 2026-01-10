@@ -363,4 +363,5 @@
   <string name="dismiss">बंद करें</string>
   <string name="location_notes_input_placeholder">इस स्थान के लिए एक नोट जोड़ें</string>
     <string name="bluetooth_recommended">ब्लूटूथ अनुशंसित</string>
+    <string name="mesh_service_notification_content">मेश चल रहा है — %1$d पीयर्स</string>
 </resources>

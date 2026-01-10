@@ -91,7 +91,8 @@ class NoiseEncryptionService(private val context: Context) {
         }
         
         // Initialize session manager
-        sessionManager = NoiseSessionManager(staticIdentityPrivateKey, staticIdentityPublicKey)
+        val localPeerID = calculateFingerprint(staticIdentityPublicKey).take(16)
+        sessionManager = NoiseSessionManager(staticIdentityPrivateKey, staticIdentityPublicKey, localPeerID)
         
         // Set up session callbacks
         sessionManager.onSessionEstablished = { peerID, remoteStaticKey ->

@@ -363,4 +363,5 @@
   <string name="dismiss">닫기</string>
   <string name="location_notes_input_placeholder">이 장소에 노트 추가</string>
     <string name="bluetooth_recommended">블루투스 권장</string>
+    <string name="mesh_service_notification_content">메시 실행 중 — %1$d 피어</string>
 </resources>

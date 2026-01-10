@@ -2,6 +2,7 @@ package com.bitchat.android.service
 
 import android.util.Log
 import com.bitchat.android.model.RoutedPacket
+import com.bitchat.android.protocol.BitchatPacket
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -23,6 +24,11 @@ object TransportBridgeService {
          * Send a packet out via this transport.
          */
         fun send(packet: RoutedPacket)
+
+        /**
+         * Send a packet to a specific peer via this transport (optional).
+         */
+        fun sendToPeer(peerID: String, packet: BitchatPacket) { }
     }
 
     private val transports = ConcurrentHashMap<String, TransportLayer>()
@@ -63,6 +69,22 @@ object TransportBridgeService {
                 layer.send(packet)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to bridge packet to $id: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Send a packet to a specific peer across all other transports.
+     */
+    fun sendToPeer(sourceId: String, peerID: String, packet: BitchatPacket) {
+        val targets = transports.filterKeys { it != sourceId }
+        if (targets.isEmpty()) return
+
+        targets.forEach { (id, layer) ->
+            try {
+                layer.sendToPeer(peerID, packet)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to bridge unicast packet to $id: ${e.message}")
             }
         }
     }

@@ -324,7 +324,7 @@ class ChatViewModel(
     
     fun leaveChannel(channel: String) {
         channelManager.leaveChannel(channel)
-        meshService.sendMessage("left $channel")
+        meshService.sendMessage("left $channel", emptyList(), null)
     }
     
     // MARK: - Private Chat Management (delegated)

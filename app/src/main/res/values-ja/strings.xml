@@ -363,4 +363,5 @@
   <string name="dismiss">閉じる</string>
   <string name="location_notes_input_placeholder">この場所へのメモを追加</string>
     <string name="bluetooth_recommended">Bluetooth推奨</string>
+    <string name="mesh_service_notification_content">メッシュ実行中 — %1$d ピア</string>
 </resources>

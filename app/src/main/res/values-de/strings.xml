@@ -364,4 +364,5 @@
   <string name="dismiss">schließen</string>
   <string name="location_notes_input_placeholder">füge eine Notiz zu diesem Ort hinzu</string>
     <string name="bluetooth_recommended">Bluetooth empfohlen</string>
+    <string name="mesh_service_notification_content">Mesh läuft — %1$d Peers</string>
 </resources>

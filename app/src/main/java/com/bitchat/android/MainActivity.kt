@@ -39,6 +39,8 @@ import com.bitchat.android.ui.ChatScreen
 import com.bitchat.android.ui.ChatViewModel
 import com.bitchat.android.ui.OrientationAwareActivity
 import com.bitchat.android.ui.theme.BitchatTheme
+import com.bitchat.android.wifiaware.WifiAwareController
+import com.bitchat.android.wifiaware.WifiAwareMeshDelegate
 import com.bitchat.android.nostr.PoWPreferenceManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -59,6 +61,37 @@ class MainActivity : OrientationAwareActivity() {
             override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
                 @Suppress("UNCHECKED_CAST")
                 return ChatViewModel(application, meshService) as T
+            }
+        }
+    }
+
+    private val wifiAwareDelegate by lazy {
+        object : WifiAwareMeshDelegate {
+            override fun didReceiveMessage(message: com.bitchat.android.model.BitchatMessage) {
+                chatViewModel.didReceiveMessage(message)
+            }
+            override fun didUpdatePeerList(peers: List<String>) {
+                chatViewModel.onWifiPeersUpdated(peers)
+            }
+            override fun didReceiveChannelLeave(channel: String, fromPeer: String) {
+                chatViewModel.didReceiveChannelLeave(channel, fromPeer)
+            }
+            override fun didReceiveDeliveryAck(messageID: String, recipientPeerID: String) {
+                chatViewModel.didReceiveDeliveryAck(messageID, recipientPeerID)
+            }
+            override fun didReceiveReadReceipt(messageID: String, recipientPeerID: String) {
+                chatViewModel.didReceiveReadReceipt(messageID, recipientPeerID)
+            }
+            override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {
+                return chatViewModel.decryptChannelMessage(encryptedContent, channel)
+            }
+            override fun getNickname(): String? {
+                return chatViewModel.getNickname()
+            }
+            override fun isFavorite(peerID: String): Boolean {
+                return try {
+                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(peerID)?.isMutual == true
+                } catch (_: Exception) { false }
             }
         }
     }
@@ -166,44 +199,10 @@ class MainActivity : OrientationAwareActivity() {
         // Bridge Wi‑Fi Aware callbacks into ChatViewModel (reusing BLE delegate methods)
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                com.bitchat.android.wifiaware.WifiAwareController.running.collect { running ->
-                    val svc = com.bitchat.android.wifiaware.WifiAwareController.getService()
-                    if (running && svc != null) {
-                        svc.delegate = object : com.bitchat.android.wifiaware.WifiAwareMeshDelegate {
-                            override fun didReceiveMessage(message: com.bitchat.android.model.BitchatMessage) {
-                                if (message.isPrivate) {
-                                    message.senderPeerID?.let { pid -> com.bitchat.android.services.AppStateStore.addPrivateMessage(pid, message) }
-                                } else if (message.channel != null) {
-                                    com.bitchat.android.services.AppStateStore.addChannelMessage(message.channel, message)
-                                } else {
-                                    com.bitchat.android.services.AppStateStore.addPublicMessage(message)
-                                }
-                                chatViewModel.didReceiveMessage(message)
-                            }
-                            override fun didUpdatePeerList(peers: List<String>) {
-                                chatViewModel.onWifiPeersUpdated(peers)
-                            }
-                            override fun didReceiveChannelLeave(channel: String, fromPeer: String) {
-                                chatViewModel.didReceiveChannelLeave(channel, fromPeer)
-                            }
-                            override fun didReceiveDeliveryAck(messageID: String, recipientPeerID: String) {
-                                chatViewModel.didReceiveDeliveryAck(messageID, recipientPeerID)
-                            }
-                            override fun didReceiveReadReceipt(messageID: String, recipientPeerID: String) {
-                                chatViewModel.didReceiveReadReceipt(messageID, recipientPeerID)
-                            }
-                            override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {
-                                return chatViewModel.decryptChannelMessage(encryptedContent, channel)
-                            }
-                            override fun getNickname(): String? {
-                                return chatViewModel.getNickname()
-                            }
-                            override fun isFavorite(peerID: String): Boolean {
-                                return try {
-                                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(peerID)?.isMutual == true
-                                } catch (_: Exception) { false }
-                            }
-                        }
+                WifiAwareController.running.collect { running ->
+                    val svc = WifiAwareController.getService()
+                    if (running && svc != null && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                        svc.delegate = wifiAwareDelegate
                     }
                 }
             }
@@ -511,6 +510,8 @@ class MainActivity : OrientationAwareActivity() {
         Log.d("MainActivity", "Location services enabled by user")
         mainViewModel.updateLocationLoading(false)
         mainViewModel.updateLocationStatus(LocationStatus.ENABLED)
+        // Ensure Wi-Fi Aware starts now that location is enabled
+        com.bitchat.android.wifiaware.WifiAwareController.startIfPossible()
         checkBatteryOptimizationAndProceed()
     }
 
@@ -759,6 +760,7 @@ class MainActivity : OrientationAwareActivity() {
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
             // Reattach mesh delegate to new ChatViewModel instance after Activity recreation
             try { meshService.delegate = chatViewModel } catch (_: Exception) { }
+            try { WifiAwareController.getService()?.delegate = wifiAwareDelegate } catch (_: Exception) { }
             // Set app foreground state
             meshService.connectionManager.setAppBackgroundState(false)
             chatViewModel.setAppBackgroundState(false)
@@ -780,6 +782,9 @@ class MainActivity : OrientationAwareActivity() {
                 mainViewModel.updateLocationStatus(currentLocationStatus)
                 mainViewModel.updateOnboardingState(OnboardingState.LOCATION_CHECK)
                 mainViewModel.updateLocationLoading(false)
+            } else {
+                // If location is enabled, ensure Wi-Fi Aware starts if it was blocked by location earlier
+                com.bitchat.android.wifiaware.WifiAwareController.startIfPossible()
             }
         }
     }
@@ -793,6 +798,7 @@ class MainActivity : OrientationAwareActivity() {
             chatViewModel.setAppBackgroundState(true)
             // Detach UI delegate so the foreground service can own DM notifications while UI is closed
             try { meshService.delegate = null } catch (_: Exception) { }
+            try { WifiAwareController.getService()?.delegate = null } catch (_: Exception) { }
         }
     }
     

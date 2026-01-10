@@ -3,5 +3,6 @@
     <!-- TODO: Malay translations -->
     <string name="skip">Skip</string>
     <string name="bluetooth_recommended">Bluetooth Recommended</string>
+    <string name="mesh_service_notification_content">Mesh sedang berjalan — %1$d rakan</string>
 </resources>
 

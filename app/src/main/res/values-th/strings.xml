@@ -350,4 +350,5 @@
     </plurals>
 
     <string name="bluetooth_recommended">Bluetooth Recommended</string>
+    <string name="mesh_service_notification_content">Mesh กำลังทำงาน — %1$d เพื่อน</string>
 </resources>

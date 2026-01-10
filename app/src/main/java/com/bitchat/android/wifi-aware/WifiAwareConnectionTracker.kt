@@ -21,7 +21,7 @@ class WifiAwareConnectionTracker(
     }
 
     // Active resources per peer
-    val peerSockets = ConcurrentHashMap<String, Socket>()
+    val peerSockets = ConcurrentHashMap<String, SyncedSocket>()
     val serverSockets = ConcurrentHashMap<String, ServerSocket>()
     val networkCallbacks = ConcurrentHashMap<String, ConnectivityManager.NetworkCallback>()
 
@@ -43,9 +43,19 @@ class WifiAwareConnectionTracker(
             try { it.close() } catch (e: Exception) { Log.w(TAG, "Error closing server socket for $id: ${e.message}") }
         }
 
-        // 3. Unregister network callback
+        // Ensure any pending/active network request is explicitly released
+        releaseNetworkRequest(id)
+    }
+
+    fun releaseNetworkRequest(id: String) {
+        if (!networkCallbacks.containsKey(id)) return
+        
+        // 3. Unregister network callback properly from ConnectivityManager
         networkCallbacks.remove(id)?.let {
-            try { cm.unregisterNetworkCallback(it) } catch (e: Exception) { Log.w(TAG, "Error unregistering callback for $id: ${e.message}") }
+            try { 
+                Log.d(TAG, "Unregistering network callback for $id")
+                cm.unregisterNetworkCallback(it) 
+            } catch (e: Exception) { Log.w(TAG, "Error unregistering callback for $id: ${e.message}") }
         }
     }
 
@@ -54,7 +64,11 @@ class WifiAwareConnectionTracker(
     /**
      * Successfully established a client connection
      */
-    fun onClientConnected(peerId: String, socket: Socket) {
+    fun onClientConnected(peerId: String, socket: SyncedSocket) {
+        // Close previous socket if one exists to prevent zombie readers
+        peerSockets[peerId]?.let { 
+            try { it.close() } catch (_: Exception) {}
+        }
         peerSockets[peerId] = socket
         removePendingConnection(peerId) // Clear retry state on success
     }

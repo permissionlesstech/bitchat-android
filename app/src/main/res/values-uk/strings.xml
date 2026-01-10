@@ -3,5 +3,6 @@
     <!-- TODO: Ukrainian translations -->
     <string name="skip">Пропустити</string>
     <string name="bluetooth_recommended">Рекомендується Bluetooth</string>
+    <string name="mesh_service_notification_content">Mesh працює — %1$d пірів</string>
 </resources>
 

@@ -333,13 +333,21 @@ class PrivateChatManager(
         }
 
         val myNickname = state.getNicknameValue() ?: "unknown"
+        val aware = try { com.bitchat.android.wifiaware.WifiAwareController.getService() } catch (_: Exception) { null }
+        val hasMesh = try { meshService.getPeerInfo(peerID)?.isConnected == true && meshService.hasEstablishedSession(peerID) } catch (_: Exception) { false }
+        val hasAware = try { aware?.getPeerInfo(peerID)?.isConnected == true && aware.hasEstablishedSession(peerID) } catch (_: Exception) { false }
         var sentCount = 0
         messages.forEach { msg ->
             // Only for incoming messages from this peer
             if (msg.senderPeerID == peerID) {
                 try {
-                    meshService.sendReadReceipt(msg.id, peerID, myNickname)
-                    sentCount += 1
+                    if (hasMesh) {
+                        meshService.sendReadReceipt(msg.id, peerID, myNickname)
+                        sentCount += 1
+                    } else if (hasAware) {
+                        aware?.sendReadReceipt(msg.id, peerID, myNickname)
+                        sentCount += 1
+                    }
                 } catch (e: Exception) {
                     Log.w(TAG, "Failed to send read receipt for message ${msg.id}: ${e.message}")
                 }
