@@ -346,7 +346,8 @@ class NoiseSession(
                 Log.w(TAG, "Warning: XX message 1 size ${firstMessage.size} != expected $XX_MESSAGE_1_SIZE")
             }
             
-            Log.d(TAG, "Sending XX handshake message 1 to $peerID (${firstMessage.size} bytes) currentPattern: $currentPattern")
+            val ePrefix = firstMessage.take(4).toByteArray().toHexString()
+            Log.d(TAG, "Sending XX handshake message 1 to $peerID (${firstMessage.size} bytes) e_prefix=$ePrefix currentPattern: $currentPattern")
             return firstMessage
         } catch (e: Exception) {
             state = NoiseSessionState.Failed(e)
@@ -361,7 +362,8 @@ class NoiseSession(
      */
     @Synchronized
     fun processHandshakeMessage(message: ByteArray): ByteArray? {
-        Log.d(TAG, "Processing handshake message from $peerID (${message.size} bytes)")
+        val inputPrefix = message.take(4).toByteArray().toHexString()
+        Log.d(TAG, "Processing handshake message from $peerID (${message.size} bytes) prefix=$inputPrefix")
         
         try {
             // Initialize as responder if receiving first message
@@ -387,7 +389,8 @@ class NoiseSession(
             // Read the incoming message - the Noise library will handle validation
             val payloadLength = handshakeStateLocal.readMessage(message, 0, message.size, payloadBuffer, 0)
             currentPattern++
-            Log.d(TAG, "Read handshake message, payload length: $payloadLength currentPattern: $currentPattern")
+            val readPrefix = message.take(4).toByteArray().toHexString()
+            Log.d(TAG, "Read handshake message, payload length: $payloadLength prefix=$readPrefix currentPattern: $currentPattern")
             
             // Check what action the handshake state wants us to take next
             val action = handshakeStateLocal.getAction()

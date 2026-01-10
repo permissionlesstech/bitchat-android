@@ -21,7 +21,7 @@ class WifiAwareConnectionTracker(
     }
 
     // Active resources per peer
-    val peerSockets = ConcurrentHashMap<String, Socket>()
+    val peerSockets = ConcurrentHashMap<String, SyncedSocket>()
     val serverSockets = ConcurrentHashMap<String, ServerSocket>()
     val networkCallbacks = ConcurrentHashMap<String, ConnectivityManager.NetworkCallback>()
 
@@ -64,7 +64,11 @@ class WifiAwareConnectionTracker(
     /**
      * Successfully established a client connection
      */
-    fun onClientConnected(peerId: String, socket: Socket) {
+    fun onClientConnected(peerId: String, socket: SyncedSocket) {
+        // Close previous socket if one exists to prevent zombie readers
+        peerSockets[peerId]?.let { 
+            try { it.close() } catch (_: Exception) {}
+        }
         peerSockets[peerId] = socket
         removePendingConnection(peerId) // Clear retry state on success
     }
