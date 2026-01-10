@@ -261,6 +261,11 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             override fun onSessionTerminated() {
                 Log.e(TAG, "PUBLISH: onSessionTerminated()")
                 publishSession = null
+                if (isActive) {
+                    Log.i(TAG, "PUBLISH: Attempting to restart publish session...")
+                    // Delay and check if we need to restart services entirely
+                    serviceScope.launch { delay(2000); if (isActive) startServices() }
+                }
             }
                     },
                     Handler(Looper.getMainLooper())
