@@ -17,6 +17,7 @@ import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.mesh.MeshTransport
 import com.bitchat.android.mesh.PeerInfo
 import com.bitchat.android.model.BitchatFilePacket
+import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.service.TransportBridgeService
@@ -67,6 +68,13 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
     private val wifiTransport = WifiAwareTransport()
     private lateinit var meshCore: MeshCore
 
+    // Service-level notification manager for background (no-UI) DMs
+    private val serviceNotificationManager = com.bitchat.android.ui.NotificationManager(
+        context.applicationContext,
+        androidx.core.app.NotificationManagerCompat.from(context.applicationContext),
+        com.bitchat.android.util.NotificationIntervalManager()
+    )
+
     // Wi-Fi Aware transport
     private val awareManager = context.getSystemService(WifiAwareManager::class.java)
     private var wifiAwareSession: WifiAwareSession? = null
@@ -95,6 +103,9 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
     private val lastTimestamps = ConcurrentHashMap<String, ULong>()
 
     init {
+        // Ensure BluetoothMeshService is initialized so we share its GossipSyncManager
+        // This avoids race conditions and ensures a single gossip source/delegate
+        com.bitchat.android.service.MeshServiceHolder.getOrCreate(context)
         val shared = com.bitchat.android.service.MeshServiceHolder.sharedGossipSyncManager
         meshCore = MeshCore(
             context = context.applicationContext,
@@ -110,6 +121,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                 override fun gcsTargetFpr(): Double = 0.01
             },
             hooks = MeshCore.Hooks(
+                onMessageReceived = { message -> handleMessageReceived(message) },
                 onAnnounceProcessed = { routed, _ ->
                     routed.peerID?.let { pid ->
                         try { meshCore.gossipSyncManager.scheduleInitialSyncToPeer(pid, 1_000) } catch (_: Exception) { }
@@ -123,6 +135,35 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                 }
             )
         )
+    }
+
+    private fun handleMessageReceived(message: BitchatMessage) {
+        try {
+            when {
+                message.isPrivate -> {
+                    val peer = message.senderPeerID ?: ""
+                    if (peer.isNotEmpty()) com.bitchat.android.services.AppStateStore.addPrivateMessage(peer, message)
+                }
+                message.channel != null -> {
+                    com.bitchat.android.services.AppStateStore.addChannelMessage(message.channel!!, message)
+                }
+                else -> {
+                    com.bitchat.android.services.AppStateStore.addPublicMessage(message)
+                }
+            }
+        } catch (_: Exception) { }
+
+        if (delegate == null && message.isPrivate) {
+            try {
+                val senderPeerID = message.senderPeerID
+                if (senderPeerID != null) {
+                    val nick = try { meshCore.getPeerNickname(senderPeerID) } catch (_: Exception) { null } ?: senderPeerID
+                    val preview = com.bitchat.android.ui.NotificationTextUtils.buildPrivateMessagePreview(message)
+                    serviceNotificationManager.setAppBackgroundState(true)
+                    serviceNotificationManager.showPrivateMessageNotification(senderPeerID, nick, preview)
+                }
+            } catch (_: Exception) { }
+        }
     }
 
     /**
