@@ -584,12 +584,11 @@ class BluetoothMeshService(private val context: Context) {
                 val peer = connectionManager.addressPeerMap[addr]
                 // ConnectionTracker has already removed the address mapping; be defensive either way
                 connectionManager.addressPeerMap.remove(addr)
+
+                // refresh peer list on disconnect. 
+                try { peerManager.refreshPeerList() } catch (_: Exception) { }
+
                 if (peer != null) {
-                    val stillMapped = connectionManager.addressPeerMap.values.any { it == peer }
-                    if (!stillMapped) {
-                        // Peer might still be reachable indirectly; refresh to update state
-                        try { peerManager.refreshPeerList() } catch (_: Exception) { }
-                    }
                     // Verbose debug: device disconnected
                     try {
                         val nick = peerManager.getPeerNickname(peer) ?: "unknown"
