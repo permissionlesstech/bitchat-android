@@ -59,6 +59,7 @@ class SyncedSocket(val rawSocket: Socket) {
                 Log.v(TAG, "Reading frame of size: $length")
                 
                 if (length < 0) throw IOException("Negative frame length: $length")
+                if (length > 64 * 1024) throw IOException("Frame length exceeds 64KB limit: $length")
                 
                 if (length == 0) {
                     return ByteArray(0)

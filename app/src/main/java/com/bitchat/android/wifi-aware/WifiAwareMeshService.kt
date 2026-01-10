@@ -456,6 +456,8 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             .build()
 
         val cb = object : ConnectivityManager.NetworkCallback() {
+            private var activeSocket: SyncedSocket? = null
+
             override fun onAvailable(network: Network) {
                 Log.i(TAG, "SERVER: onAvailable() - Aware network is ready for ${peerId.take(8)}")
                 try {
@@ -465,6 +467,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                     client.keepAlive = true
                     Log.i(TAG, "SERVER: Bound and established TCP with ${peerId.take(8)} addr=${client.inetAddress?.hostAddress}")
                     val synced = SyncedSocket(client)
+                    activeSocket = synced
                     connectionTracker.onClientConnected(peerId, synced)
                     try { meshCore.setDirectConnection(peerId, true) } catch (_: Exception) {}
                     try { meshCore.addOrUpdatePeer(peerId, peerId) } catch (_: Exception) {}
@@ -489,7 +492,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             }
 
             override fun onLost(network: Network) {
-                handlePeerDisconnection(peerId)
+                handlePeerDisconnection(peerId, activeSocket)
                 Log.i(TAG, "SERVER: WiFi Aware network lost for ${peerId.take(8)}")
             }
         }
@@ -583,6 +586,8 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             .build()
 
         val cb = object : ConnectivityManager.NetworkCallback() {
+            private var activeSocket: SyncedSocket? = null
+
             override fun onAvailable(network: Network) {
                 Log.i(TAG, "CLIENT: onAvailable() - Aware network is ready for ${peerId.take(8)}")
                 // Do not bind process for Aware; use per-socket binding instead
@@ -623,6 +628,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                     Log.i(TAG, "CLIENT: TCP connected to ${peerId.take(8)} at $scopedAddr:$port")
 
                     val synced = SyncedSocket(sock)
+                    activeSocket = synced
                     connectionTracker.onClientConnected(peerId, synced)
                     try { meshCore.setDirectConnection(peerId, true) } catch (_: Exception) {}
                     try { meshCore.addOrUpdatePeer(peerId, peerId) } catch (_: Exception) {}
@@ -641,7 +647,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                 }
             }
             override fun onLost(network: Network) {
-                handlePeerDisconnection(peerId)
+                handlePeerDisconnection(peerId, activeSocket)
                 Log.i(TAG, "CLIENT: WiFi Aware network lost for ${peerId.take(8)}")
             }
         }
