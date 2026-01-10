@@ -765,6 +765,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             } else if (socket == null && currentSocket == null) {
                 // Fallback: If we don't have a specific socket context but we are already disconnected, ensure cleanup
                 Log.d(TAG, "Cleaning up peer: $initialId (no active socket)")
+                connectionTracker.disconnect(initialId)
                 meshCore.removePeer(initialId)
             } else {
                 Log.d(TAG, "Ignored disconnection for $initialId - socket replaced or inactive")
