@@ -543,19 +543,23 @@ class BluetoothMeshService(private val context: Context) {
         
         // BluetoothConnectionManager delegates
         connectionManager.delegate = object : BluetoothConnectionManagerDelegate {
-            override fun onPacketReceived(packet: BitchatPacket, peerID: String, device: android.bluetooth.BluetoothDevice?) {
-                // Log incoming for debug graphs (do not double-count anywhere else)
-                try {
-                    val nick = getPeerNicknames()[peerID]
-                    com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().logIncoming(
-                        packetType = packet.type.toString(),
-                        fromPeerID = peerID,
-                        fromNickname = nick,
-                        fromDeviceAddress = device?.address
-                    )
-                } catch (_: Exception) { }
-                packetProcessor.processPacket(RoutedPacket(packet, peerID, device?.address))
-            }
+        override fun onPacketReceived(packet: BitchatPacket, peerID: String, device: android.bluetooth.BluetoothDevice?) {
+            // Log incoming for debug graphs (do not double-count anywhere else)
+            try {
+                val nick = getPeerNicknames()[peerID]
+                val route = packet.route
+                val routeInfo = if (!route.isNullOrEmpty()) "routed: ${route.size} hops" else null
+                com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().logIncoming(
+                    packetType = packet.type.toString(),
+                    fromPeerID = peerID,
+                    fromNickname = nick,
+                    fromDeviceAddress = device?.address,
+                    packetVersion = packet.version,
+                    routeInfo = routeInfo
+                )
+            } catch (_: Exception) { }
+            packetProcessor.processPacket(RoutedPacket(packet, peerID, device?.address))
+        }
             
             override fun onDeviceConnected(device: android.bluetooth.BluetoothDevice) {
                 // Send initial announcements after services are ready
