@@ -109,11 +109,19 @@ class BluetoothConnectionManager(
             }
             // Connection caps: enforce on change
             connectionScope.launch {
-                dbg.maxConnectionsOverall.collect {
+                dbg.maxConnectionsOverall.collect { maxOverall ->
                     if (!isActive) return@collect
+                    // 1. Enforce client limits (handled by tracker)
                     connectionTracker.enforceConnectionLimits()
-                    // Also enforce server side best-effort
-                    serverManager.enforceServerLimit(dbg.maxServerConnections.value)
+                    
+                    // 2. Enforce overall limit on server connections if needed
+                    // (Tracker knows about all connections but can't disconnect servers directly)
+                    val maxServer = dbg.maxServerConnections.value
+                    val excessServers = connectionTracker.getExcessServerConnections(maxServer, maxOverall)
+                    excessServers.forEach { device ->
+                        Log.d(TAG, "Disconnecting server ${device.address} due to overall cap")
+                        serverManager.disconnectDevice(device)
+                    }
                 }
             }
             connectionScope.launch {
@@ -123,9 +131,18 @@ class BluetoothConnectionManager(
                 }
             }
             connectionScope.launch {
-                dbg.maxServerConnections.collect {
+                dbg.maxServerConnections.collect { maxServer ->
                     if (!isActive) return@collect
-                    serverManager.enforceServerLimit(dbg.maxServerConnections.value)
+                    // Enforce server specific limit
+                    serverManager.enforceServerLimit(maxServer)
+                    
+                    // Also check if this change puts us over the overall limit
+                    val maxOverall = dbg.maxConnectionsOverall.value
+                    val excessServers = connectionTracker.getExcessServerConnections(maxServer, maxOverall)
+                    excessServers.forEach { device ->
+                        Log.d(TAG, "Disconnecting server ${device.address} due to overall cap")
+                        serverManager.disconnectDevice(device)
+                    }
                 }
             }
         } catch (_: Exception) { }
@@ -255,6 +272,16 @@ class BluetoothConnectionManager(
         if (!isActive) return
         
         packetBroadcaster.broadcastPacket(
+            routed,
+            serverManager.getGattServer(),
+            serverManager.getCharacteristic()
+        )
+    }
+
+    fun sendToPeer(peerID: String, routed: RoutedPacket): Boolean {
+        if (!isActive) return false
+        return packetBroadcaster.sendToPeer(
+            peerID,
             routed,
             serverManager.getGattServer(),
             serverManager.getCharacteristic()
