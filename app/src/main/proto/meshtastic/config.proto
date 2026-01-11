@@ -1,0 +1,1207 @@
+syntax = "proto3";
+
+package meshtastic;
+
+import "meshtastic/device_ui.proto";
+
+option csharp_namespace = "Meshtastic.Protobufs";
+option go_package = "github.com/meshtastic/go/generated";
+option java_outer_classname = "ConfigProtos";
+option java_package = "org.meshtastic.proto";
+option swift_prefix = "";
+
+message Config {
+  /*
+   * Configuration
+   */
+  message DeviceConfig {
+    /*
+     * Defines the device's role on the Mesh network
+     */
+    enum Role {
+      /*
+       * Description: App connected or stand alone messaging device.
+       * Technical Details: Default Role
+       */
+      CLIENT = 0;
+      /*
+       *  Description: Device that does not forward packets from other devices.
+       */
+      CLIENT_MUTE = 1;
+
+      /*
+       * Description: Infrastructure node for extending network coverage by relaying messages. Visible in Nodes list.
+       * Technical Details: Mesh packets will prefer to be routed over this node. This node will not be used by client apps.
+       *   The wifi radio and the oled screen will be put to sleep.
+       *   This mode may still potentially have higher power usage due to it's preference in message rebroadcasting on the mesh.
+       */
+      ROUTER = 2;
+
+      /*
+       * Description: Combination of both ROUTER and CLIENT. Not for mobile devices.
+       * Deprecated in v2.3.15 because improper usage is impacting public meshes: Use ROUTER or CLIENT instead.
+       */
+
+      ROUTER_CLIENT = 3 [deprecated = true];
+
+      /*
+       * Description: Infrastructure node for extending network coverage by relaying messages with minimal overhead. Not visible in Nodes list.
+       * Technical Details: Mesh packets will simply be rebroadcasted over this node. Nodes configured with this role will not originate NodeInfo, Position, Telemetry
+       *   or any other packet type. They will simply rebroadcast any mesh packets on the same frequency, channel num, spread factor, and coding rate.
+       * Deprecated in v2.7.11 because it creates "holes" in the mesh rebroadcast chain.
+       */
+      REPEATER = 4 [deprecated = true];
+
+      /*
+       * Description: Broadcasts GPS position packets as priority.
+       * Technical Details: Position Mesh packets will be prioritized higher and sent more frequently by default.
+       *   When used in conjunction with power.is_power_saving = true, nodes will wake up,
+       *   send position, and then sleep for position.position_broadcast_secs seconds.
+       */
+      TRACKER = 5;
+
+      /*
+       * Description: Broadcasts telemetry packets as priority.
+       * Technical Details: Telemetry Mesh packets will be prioritized higher and sent more frequently by default.
+       *   When used in conjunction with power.is_power_saving = true, nodes will wake up,
+       *   send environment telemetry, and then sleep for telemetry.environment_update_interval seconds.
+       */
+      SENSOR = 6;
+
+      /*
+       * Description: Optimized for ATAK system communication and reduces routine broadcasts.
+       * Technical Details: Used for nodes dedicated for connection to an ATAK EUD.
+       *    Turns off many of the routine broadcasts to favor CoT packet stream
+       *    from the Meshtastic ATAK plugin -> IMeshService -> Node
+       */
+      TAK = 7;
+
+      /*
+       * Description: Device that only broadcasts as needed for stealth or power savings.
+       * Technical Details: Used for nodes that "only speak when spoken to"
+       *    Turns all of the routine broadcasts but allows for ad-hoc communication
+       *    Still rebroadcasts, but with local only rebroadcast mode (known meshes only)
+       *    Can be used for clandestine operation or to dramatically reduce airtime / power consumption
+       */
+      CLIENT_HIDDEN = 8;
+
+      /*
+       * Description: Broadcasts location as message to default channel regularly for to assist with device recovery.
+       * Technical Details: Used to automatically send a text message to the mesh
+       *    with the current position of the device on a frequent interval:
+       *    "I'm lost! Position: lat / long"
+       */
+      LOST_AND_FOUND = 9;
+
+      /*
+       * Description: Enables automatic TAK PLI broadcasts and reduces routine broadcasts.
+       * Technical Details: Turns off many of the routine broadcasts to favor ATAK CoT packet stream
+       *    and automatic TAK PLI (position location information) broadcasts.
+       *    Uses position module configuration to determine TAK PLI broadcast interval.
+       */
+      TAK_TRACKER = 10;
+
+      /*
+       * Description: Will always rebroadcast packets, but will do so after all other modes.
+       * Technical Details: Used for router nodes that are intended to provide additional coverage
+       *    in areas not already covered by other routers, or to bridge around problematic terrain,
+       *    but should not be given priority over other routers in order to avoid unnecessaraily
+       *    consuming hops.
+       */
+      ROUTER_LATE = 11;
+
+      /*
+       * Description: Treats packets from or to favorited nodes as ROUTER, and all other packets as CLIENT.
+       * Technical Details: Used for stronger attic/roof nodes to distribute messages more widely
+       *    from weaker, indoor, or less-well-positioned nodes. Recommended for users with multiple nodes
+       *    where one CLIENT_BASE acts as a more powerful base station, such as an attic/roof node.
+       */
+      CLIENT_BASE = 12;
+    }
+
+    /*
+     * Defines the device's behavior for how messages are rebroadcast
+     */
+    enum RebroadcastMode {
+      /*
+       * Default behavior.
+       * Rebroadcast any observed message, if it was on our private channel or from another mesh with the same lora params.
+       */
+      ALL = 0;
+
+      /*
+       * Same as behavior as ALL but skips packet decoding and simply rebroadcasts them.
+       * Only available in Repeater role. Setting this on any other roles will result in ALL behavior.
+       */
+      ALL_SKIP_DECODING = 1;
+
+      /*
+       * Ignores observed messages from foreign meshes that are open or those which it cannot decrypt.
+       * Only rebroadcasts message on the nodes local primary / secondary channels.
+       */
+      LOCAL_ONLY = 2;
+
+      /*
+       * Ignores observed messages from foreign meshes like LOCAL_ONLY,
+       * but takes it step further by also ignoring messages from nodenums not in the node's known list (NodeDB)
+       */
+      KNOWN_ONLY = 3;
+
+      /*
+       * Only permitted for SENSOR, TRACKER and TAK_TRACKER roles, this will inhibit all rebroadcasts, not unlike CLIENT_MUTE role.
+       */
+      NONE = 4;
+
+      /*
+       * Ignores packets from non-standard portnums such as: TAK, RangeTest, PaxCounter, etc.
+       * Only rebroadcasts packets with standard portnums: NodeInfo, Text, Position, Telemetry, and Routing.
+       */
+      CORE_PORTNUMS_ONLY = 5;
+    }
+
+    /*
+     * Defines buzzer behavior for audio feedback
+     */
+    enum BuzzerMode {
+      /*
+       * Default behavior.
+       * Buzzer is enabled for all audio feedback including button presses and alerts.
+       */
+      ALL_ENABLED = 0;
+
+      /*
+       * Disabled.
+       * All buzzer audio feedback is disabled.
+       */
+      DISABLED = 1;
+
+      /*
+       * Notifications Only.
+       * Buzzer is enabled only for notifications and alerts, but not for button presses.
+       * External notification config determines the specifics of the notification behavior.
+       */
+      NOTIFICATIONS_ONLY = 2;
+
+      /*
+       * Non-notification system buzzer tones only.
+       * Buzzer is enabled only for non-notification tones such as button presses, startup, shutdown, but not for alerts.
+       */
+      SYSTEM_ONLY = 3;
+
+      /*
+       * Direct Message notifications only.
+       * Buzzer is enabled only for direct messages and alerts, but not for button presses.
+       * External notification config determines the specifics of the notification behavior.
+       */
+      DIRECT_MSG_ONLY = 4;
+    }
+
+    /*
+     * Sets the role of node
+     */
+    Role role = 1;
+
+    /*
+     * Disabling this will disable the SerialConsole by not initilizing the StreamAPI
+     * Moved to SecurityConfig
+     */
+    bool serial_enabled = 2 [deprecated = true];
+
+    /*
+     * For boards without a hard wired button, this is the pin number that will be used
+     * Boards that have more than one button can swap the function with this one. defaults to BUTTON_PIN if defined.
+     */
+    uint32 button_gpio = 4;
+
+    /*
+     * For boards without a PWM buzzer, this is the pin number that will be used
+     * Defaults to PIN_BUZZER if defined.
+     */
+    uint32 buzzer_gpio = 5;
+
+    /*
+     * Sets the role of node
+     */
+    RebroadcastMode rebroadcast_mode = 6;
+
+    /*
+     * Send our nodeinfo this often
+     * Defaults to 900 Seconds (15 minutes)
+     */
+    uint32 node_info_broadcast_secs = 7;
+
+    /*
+     * Treat double tap interrupt on supported accelerometers as a button press if set to true
+     */
+    bool double_tap_as_button_press = 8;
+
+    /*
+     * If true, device is considered to be "managed" by a mesh administrator
+     * Clients should then limit available configuration and administrative options inside the user interface
+     * Moved to SecurityConfig
+     */
+    bool is_managed = 9 [deprecated = true];
+
+    /*
+     * Disables the triple-press of user button to enable or disable GPS
+     */
+    bool disable_triple_click = 10;
+
+    /*
+     * POSIX Timezone definition string from https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv.
+     */
+    string tzdef = 11;
+
+    /*
+     * If true, disable the default blinking LED (LED_PIN) behavior on the device
+     */
+    bool led_heartbeat_disabled = 12;
+
+    /*
+     * Controls buzzer behavior for audio feedback
+     * Defaults to ENABLED
+     */
+    BuzzerMode buzzer_mode = 13;
+  }
+
+  /*
+   * Position Config
+   */
+  message PositionConfig {
+    /*
+     * Bit field of boolean configuration options, indicating which optional
+     * fields to include when assembling POSITION messages.
+     * Longitude, latitude, altitude, speed, heading, and DOP
+     * are always included (also time if GPS-synced)
+     * NOTE: the more fields are included, the larger the message will be -
+     *   leading to longer airtime and a higher risk of packet loss
+     */
+    enum PositionFlags {
+      /*
+       * Required for compilation
+       */
+      UNSET = 0x0000;
+
+      /*
+       * Include an altitude value (if available)
+       */
+      ALTITUDE = 0x0001;
+
+      /*
+       * Altitude value is MSL
+       */
+      ALTITUDE_MSL = 0x0002;
+
+      /*
+       * Include geoidal separation
+       */
+      GEOIDAL_SEPARATION = 0x0004;
+
+      /*
+       * Include the DOP value ; PDOP used by default, see below
+       */
+      DOP = 0x0008;
+
+      /*
+       * If POS_DOP set, send separate HDOP / VDOP values instead of PDOP
+       */
+      HVDOP = 0x0010;
+
+      /*
+       * Include number of "satellites in view"
+       */
+      SATINVIEW = 0x0020;
+
+      /*
+       * Include a sequence number incremented per packet
+       */
+      SEQ_NO = 0x0040;
+
+      /*
+       * Include positional timestamp (from GPS solution)
+       */
+      TIMESTAMP = 0x0080;
+
+      /*
+       * Include positional heading
+       * Intended for use with vehicle not walking speeds
+       * walking speeds are likely to be error prone like the compass
+       */
+      HEADING = 0x0100;
+
+      /*
+       * Include positional speed
+       * Intended for use with vehicle not walking speeds
+       * walking speeds are likely to be error prone like the compass
+       */
+      SPEED = 0x0200;
+    }
+
+    enum GpsMode {
+      /*
+       * GPS is present but disabled
+       */
+      DISABLED = 0;
+
+      /*
+       * GPS is present and enabled
+       */
+      ENABLED = 1;
+
+      /*
+       * GPS is not present on the device
+       */
+      NOT_PRESENT = 2;
+    }
+
+    /*
+     * We should send our position this often (but only if it has changed significantly)
+     * Defaults to 15 minutes
+     */
+    uint32 position_broadcast_secs = 1;
+
+    /*
+     * Adaptive position braoadcast, which is now the default.
+     */
+    bool position_broadcast_smart_enabled = 2;
+
+    /*
+     * If set, this node is at a fixed position.
+     * We will generate GPS position updates at the regular interval, but use whatever the last lat/lon/alt we have for the node.
+     * The lat/lon/alt can be set by an internal GPS or with the help of the app.
+     */
+    bool fixed_position = 3;
+
+    /*
+     * Is GPS enabled for this node?
+     */
+    bool gps_enabled = 4 [deprecated = true];
+
+    /*
+     * How often should we try to get GPS position (in seconds)
+     * or zero for the default of once every 30 seconds
+     * or a very large value (maxint) to update only once at boot.
+     */
+    uint32 gps_update_interval = 5;
+
+    /*
+     * Deprecated in favor of using smart / regular broadcast intervals as implicit attempt time
+     */
+    uint32 gps_attempt_time = 6 [deprecated = true];
+
+    /*
+     * Bit field of boolean configuration options for POSITION messages
+     * (bitwise OR of PositionFlags)
+     */
+    uint32 position_flags = 7;
+
+    /*
+     * (Re)define GPS_RX_PIN for your board.
+     */
+    uint32 rx_gpio = 8;
+
+    /*
+     * (Re)define GPS_TX_PIN for your board.
+     */
+    uint32 tx_gpio = 9;
+
+    /*
+     * The minimum distance in meters traveled (since the last send) before we can send a position to the mesh if position_broadcast_smart_enabled
+     */
+    uint32 broadcast_smart_minimum_distance = 10;
+
+    /*
+     * The minimum number of seconds (since the last send) before we can send a position to the mesh if position_broadcast_smart_enabled
+     */
+    uint32 broadcast_smart_minimum_interval_secs = 11;
+
+    /*
+     * (Re)define PIN_GPS_EN for your board.
+     */
+    uint32 gps_en_gpio = 12;
+
+    /*
+     * Set where GPS is enabled, disabled, or not present
+     */
+    GpsMode gps_mode = 13;
+  }
+
+  /*
+   * Power Config\
+   * See [Power Config](/docs/settings/config/power) for additional power config details.
+   */
+  message PowerConfig {
+    /*
+     * Description: Will sleep everything as much as possible, for the tracker and sensor role this will also include the lora radio.
+     * Don't use this setting if you want to use your device with the phone apps or are using a device without a user button.
+     * Technical Details: Works for ESP32 devices and NRF52 devices in the Sensor or Tracker roles
+     */
+    bool is_power_saving = 1;
+
+    /*
+     *  Description: If non-zero, the device will fully power off this many seconds after external power is removed.
+     */
+    uint32 on_battery_shutdown_after_secs = 2;
+
+    /*
+     * Ratio of voltage divider for battery pin eg. 3.20 (R1=100k, R2=220k)
+     * Overrides the ADC_MULTIPLIER defined in variant for battery voltage calculation.
+     * https://meshtastic.org/docs/configuration/radio/power/#adc-multiplier-override
+     * Should be set to floating point value between 2 and 6
+     */
+    float adc_multiplier_override = 3;
+
+    /*
+     *  Description: The number of seconds for to wait before turning off BLE in No Bluetooth states
+     *  Technical Details: ESP32 Only 0 for default of 1 minute
+     */
+    uint32 wait_bluetooth_secs = 4;
+
+    /*
+     * Super Deep Sleep Seconds
+     * While in Light Sleep if mesh_sds_timeout_secs is exceeded we will lower into super deep sleep
+     * for this value (default 1 year) or a button press
+     * 0 for default of one year
+     */
+    uint32 sds_secs = 6;
+
+    /*
+     * Description: In light sleep the CPU is suspended, LoRa radio is on, BLE is off an GPS is on
+     * Technical Details: ESP32 Only 0 for default of 300
+     */
+    uint32 ls_secs = 7;
+
+    /*
+     * Description: While in light sleep when we receive packets on the LoRa radio we will wake and handle them and stay awake in no BLE mode for this value
+     * Technical Details: ESP32 Only 0 for default of 10 seconds
+     */
+    uint32 min_wake_secs = 8;
+
+    /*
+     * I2C address of INA_2XX to use for reading device battery voltage
+     */
+    uint32 device_battery_ina_address = 9;
+
+    /*
+     * If non-zero, we want powermon log outputs.  With the particular (bitfield) sources enabled.
+     * Note: we picked an ID of 32 so that lower more efficient IDs can be used for more frequently used options.
+     */
+    uint64 powermon_enables = 32;
+  }
+
+  /*
+   * Network Config
+   */
+  message NetworkConfig {
+    enum AddressMode {
+      /*
+       * obtain ip address via DHCP
+       */
+      DHCP = 0;
+
+      /*
+       * use static ip address
+       */
+      STATIC = 1;
+    }
+
+    message IpV4Config {
+      /*
+       * Static IP address
+       */
+      fixed32 ip = 1;
+
+      /*
+       * Static gateway address
+       */
+      fixed32 gateway = 2;
+
+      /*
+       * Static subnet mask
+       */
+      fixed32 subnet = 3;
+
+      /*
+       * Static DNS server address
+       */
+      fixed32 dns = 4;
+    }
+
+    /*
+     * Enable WiFi (disables Bluetooth)
+     */
+    bool wifi_enabled = 1;
+
+    /*
+     * If set, this node will try to join the specified wifi network and
+     * acquire an address via DHCP
+     */
+    string wifi_ssid = 3;
+
+    /*
+     * If set, will be use to authenticate to the named wifi
+     */
+    string wifi_psk = 4;
+
+    /*
+     * NTP server to use if WiFi is conneced, defaults to `meshtastic.pool.ntp.org`
+     */
+    string ntp_server = 5;
+
+    /*
+     * Enable Ethernet
+     */
+    bool eth_enabled = 6;
+
+    /*
+     * acquire an address via DHCP or assign static
+     */
+    AddressMode address_mode = 7;
+
+    /*
+     * struct to keep static address
+     */
+    IpV4Config ipv4_config = 8;
+
+    /*
+     * rsyslog Server and Port
+     */
+    string rsyslog_server = 9;
+
+    /*
+     * Flags for enabling/disabling network protocols
+     */
+    uint32 enabled_protocols = 10;
+
+    /*
+     * Enable/Disable ipv6 support
+     */
+    bool ipv6_enabled = 11;
+
+    /*
+     * Available flags auxiliary network protocols
+     */
+    enum ProtocolFlags {
+      /*
+       * Do not broadcast packets over any network protocol
+       */
+      NO_BROADCAST = 0x0000;
+
+      /*
+       * Enable broadcasting packets via UDP over the local network
+       */
+      UDP_BROADCAST = 0x0001;
+    }
+  }
+
+  /*
+   * Display Config
+   */
+  message DisplayConfig {
+    /*
+     * Deprecated in 2.7.4: Unused
+     */
+    enum DeprecatedGpsCoordinateFormat {
+      UNUSED = 0;
+    }
+
+    /*
+     * Unit display preference
+     */
+    enum DisplayUnits {
+      /*
+       * Metric (Default)
+       */
+      METRIC = 0;
+
+      /*
+       * Imperial
+       */
+      IMPERIAL = 1;
+    }
+
+    /*
+     * Override OLED outo detect with this if it fails.
+     */
+    enum OledType {
+      /*
+       * Default / Autodetect
+       */
+      OLED_AUTO = 0;
+
+      /*
+       * Default / Autodetect
+       */
+      OLED_SSD1306 = 1;
+
+      /*
+       * Default / Autodetect
+       */
+      OLED_SH1106 = 2;
+
+      /*
+       * Can not be auto detected but set by proto. Used for 128x64 screens
+       */
+      OLED_SH1107 = 3;
+
+      /*
+       * Can not be auto detected but set by proto. Used for 128x128 screens
+       */
+      OLED_SH1107_128_128 = 4;
+    }
+
+    /*
+     * Number of seconds the screen stays on after pressing the user button or receiving a message
+     * 0 for default of one minute MAXUINT for always on
+     */
+    uint32 screen_on_secs = 1;
+
+    /*
+     * Deprecated in 2.7.4: Unused
+     * How the GPS coordinates are formatted on the OLED screen.
+     */
+    DeprecatedGpsCoordinateFormat gps_format = 2 [deprecated = true];
+
+    /*
+     * Automatically toggles to the next page on the screen like a carousel, based the specified interval in seconds.
+     * Potentially useful for devices without user buttons.
+     */
+    uint32 auto_screen_carousel_secs = 3;
+
+    /*
+     * If this is set, the displayed compass will always point north. if unset, the old behaviour
+     * (top of display is heading direction) is used.
+     */
+    bool compass_north_top = 4 [deprecated = true];
+
+    /*
+     * Flip screen vertically, for cases that mount the screen upside down
+     */
+    bool flip_screen = 5;
+
+    /*
+     * Perferred display units
+     */
+    DisplayUnits units = 6;
+
+    /*
+     * Override auto-detect in screen
+     */
+    OledType oled = 7;
+
+    enum DisplayMode {
+      /*
+       * Default. The old style for the 128x64 OLED screen
+       */
+      DEFAULT = 0;
+
+      /*
+       * Rearrange display elements to cater for bicolor OLED displays
+       */
+      TWOCOLOR = 1;
+
+      /*
+       * Same as TwoColor, but with inverted top bar. Not so good for Epaper displays
+       */
+      INVERTED = 2;
+
+      /*
+       * TFT Full Color Displays (not implemented yet)
+       */
+      COLOR = 3;
+    }
+    /*
+     * Display Mode
+     */
+    DisplayMode displaymode = 8;
+
+    /*
+     * Print first line in pseudo-bold? FALSE is original style, TRUE is bold
+     */
+    bool heading_bold = 9;
+
+    /*
+     * Should we wake the screen up on accelerometer detected motion or tap
+     */
+    bool wake_on_tap_or_motion = 10;
+
+    enum CompassOrientation {
+      /*
+       * The compass and the display are in the same orientation.
+       */
+      DEGREES_0 = 0;
+
+      /*
+       * Rotate the compass by 90 degrees.
+       */
+      DEGREES_90 = 1;
+
+      /*
+       * Rotate the compass by 180 degrees.
+       */
+      DEGREES_180 = 2;
+
+      /*
+       * Rotate the compass by 270 degrees.
+       */
+      DEGREES_270 = 3;
+
+      /*
+       * Don't rotate the compass, but invert the result.
+       */
+      DEGREES_0_INVERTED = 4;
+
+      /*
+       * Rotate the compass by 90 degrees and invert.
+       */
+      DEGREES_90_INVERTED = 5;
+
+      /*
+       * Rotate the compass by 180 degrees and invert.
+       */
+      DEGREES_180_INVERTED = 6;
+
+      /*
+       * Rotate the compass by 270 degrees and invert.
+       */
+      DEGREES_270_INVERTED = 7;
+    }
+
+    /*
+     * Indicates how to rotate or invert the compass output to accurate display on the display.
+     */
+    CompassOrientation compass_orientation = 11;
+
+    /*
+     * If false (default), the device will display the time in 24-hour format on screen.
+     * If true, the device will display the time in 12-hour format on screen.
+     */
+    bool use_12h_clock = 12;
+
+    /*
+     * If false (default), the device will use short names for various display screens.
+     * If true, node names will show in long format
+     */
+    bool use_long_node_name = 13;
+  }
+
+  /*
+   * Lora Config
+   */
+  message LoRaConfig {
+    enum RegionCode {
+      /*
+       * Region is not set
+       */
+      UNSET = 0;
+
+      /*
+       * United States
+       */
+      US = 1;
+
+      /*
+       * European Union 433mhz
+       */
+      EU_433 = 2;
+
+      /*
+       * European Union 868mhz
+       */
+      EU_868 = 3;
+
+      /*
+       * China
+       */
+      CN = 4;
+
+      /*
+       * Japan
+       */
+      JP = 5;
+
+      /*
+       * Australia / New Zealand
+       */
+      ANZ = 6;
+
+      /*
+       * Korea
+       */
+      KR = 7;
+
+      /*
+       * Taiwan
+       */
+      TW = 8;
+
+      /*
+       * Russia
+       */
+      RU = 9;
+
+      /*
+       * India
+       */
+      IN = 10;
+
+      /*
+       * New Zealand 865mhz
+       */
+      NZ_865 = 11;
+
+      /*
+       * Thailand
+       */
+      TH = 12;
+
+      /*
+       * WLAN Band
+       */
+      LORA_24 = 13;
+
+      /*
+       * Ukraine 433mhz
+       */
+      UA_433 = 14;
+
+      /*
+       * Ukraine 868mhz
+       */
+      UA_868 = 15;
+
+      /*
+       * Malaysia 433mhz
+       */
+      MY_433 = 16;
+
+      /*
+       * Malaysia 919mhz
+       */
+      MY_919 = 17;
+
+      /*
+       * Singapore 923mhz
+       */
+      SG_923 = 18;
+
+      /*
+       * Philippines 433mhz
+       */
+      PH_433 = 19;
+
+      /*
+       * Philippines 868mhz
+       */
+      PH_868 = 20;
+
+      /*
+       * Philippines 915mhz
+       */
+      PH_915 = 21;
+
+      /*
+       * Australia / New Zealand 433MHz
+       */
+      ANZ_433 = 22;
+
+      /*
+       * Kazakhstan 433MHz
+       */
+      KZ_433 = 23;
+
+      /*
+       * Kazakhstan 863MHz
+       */
+      KZ_863 = 24;
+
+      /*
+       * Nepal 865MHz
+       */
+      NP_865 = 25;
+
+      /*
+       * Brazil 902MHz
+       */
+      BR_902 = 26;
+    }
+
+    /*
+     * Standard predefined channel settings
+     * Note: these mappings must match ModemPreset Choice in the device code.
+     */
+    enum ModemPreset {
+      /*
+       * Long Range - Fast
+       */
+      LONG_FAST = 0;
+
+      /*
+       * Long Range - Slow
+       * Deprecated in 2.7: Unpopular slow preset.
+       */
+      LONG_SLOW = 1 [deprecated = true];
+
+      /*
+       * Very Long Range - Slow
+       * Deprecated in 2.5: Works only with txco and is unusably slow
+       */
+      VERY_LONG_SLOW = 2 [deprecated = true];
+
+      /*
+       * Medium Range - Slow
+       */
+      MEDIUM_SLOW = 3;
+
+      /*
+       * Medium Range - Fast
+       */
+      MEDIUM_FAST = 4;
+
+      /*
+       * Short Range - Slow
+       */
+      SHORT_SLOW = 5;
+
+      /*
+       * Short Range - Fast
+       */
+      SHORT_FAST = 6;
+
+      /*
+       * Long Range - Moderately Fast
+       */
+      LONG_MODERATE = 7;
+
+      /*
+       * Short Range - Turbo
+       * This is the fastest preset and the only one with 500kHz bandwidth.
+       * It is not legal to use in all regions due to this wider bandwidth.
+       */
+      SHORT_TURBO = 8;
+
+      /*
+       * Long Range - Turbo
+       * This preset performs similarly to LongFast, but with 500Khz bandwidth.
+       */
+      LONG_TURBO = 9;
+    }
+
+    /*
+     * When enabled, the `modem_preset` fields will be adhered to, else the `bandwidth`/`spread_factor`/`coding_rate`
+     * will be taked from their respective manually defined fields
+     */
+    bool use_preset = 1;
+
+    /*
+     * Either modem_config or bandwidth/spreading/coding will be specified - NOT BOTH.
+     * As a heuristic: If bandwidth is specified, do not use modem_config.
+     * Because protobufs take ZERO space when the value is zero this works out nicely.
+     * This value is replaced by bandwidth/spread_factor/coding_rate.
+     * If you'd like to experiment with other options add them to MeshRadio.cpp in the device code.
+     */
+    ModemPreset modem_preset = 2;
+
+    /*
+     * Bandwidth in MHz
+     * Certain bandwidth numbers are 'special' and will be converted to the
+     * appropriate floating point value: 31 -> 31.25MHz
+     */
+    uint32 bandwidth = 3;
+
+    /*
+     * A number from 7 to 12.
+     * Indicates number of chirps per symbol as 1<<spread_factor.
+     */
+    uint32 spread_factor = 4;
+
+    /*
+     * The denominator of the coding rate.
+     * ie for 4/5, the value is 5. 4/8 the value is 8.
+     */
+    uint32 coding_rate = 5;
+
+    /*
+     * This parameter is for advanced users with advanced test equipment, we do not recommend most users use it.
+     * A frequency offset that is added to to the calculated band center frequency.
+     * Used to correct for crystal calibration errors.
+     */
+    float frequency_offset = 6;
+
+    /*
+     * The region code for the radio (US, CN, EU433, etc...)
+     */
+    RegionCode region = 7;
+
+    /*
+     * Maximum number of hops. This can't be greater than 7.
+     * Default of 3
+     * Attempting to set a value > 7 results in the default
+     */
+    uint32 hop_limit = 8;
+
+    /*
+     * Disable TX from the LoRa radio. Useful for hot-swapping antennas and other tests.
+     * Defaults to false
+     */
+    bool tx_enabled = 9;
+
+    /*
+     * If zero, then use default max legal continuous power (ie. something that won't
+     * burn out the radio hardware)
+     * In most cases you should use zero here.
+     * Units are in dBm.
+     */
+    int32 tx_power = 10;
+
+    /*
+     * This controls the actual hardware frequency the radio transmits on.
+     * Most users should never need to be exposed to this field/concept.
+     * A channel number between 1 and NUM_CHANNELS (whatever the max is in the current region).
+     * If ZERO then the rule is "use the old channel name hash based
+     * algorithm to derive the channel number")
+     * If using the hash algorithm the channel number will be: hash(channel_name) %
+     * NUM_CHANNELS (Where num channels depends on the regulatory region).
+     */
+    uint32 channel_num = 11;
+
+    /*
+     * If true, duty cycle limits will be exceeded and thus you're possibly not following
+     * the local regulations if you're not a HAM.
+     * Has no effect if the duty cycle of the used region is 100%.
+     */
+    bool override_duty_cycle = 12;
+
+    /*
+     * If true, sets RX boosted gain mode on SX126X based radios
+     */
+    bool sx126x_rx_boosted_gain = 13;
+
+    /*
+     * This parameter is for advanced users and licensed HAM radio operators.
+     * Ignore Channel Calculation and use this frequency instead. The frequency_offset
+     * will still be applied. This will allow you to use out-of-band frequencies.
+     * Please respect your local laws and regulations. If you are a HAM, make sure you
+     * enable HAM mode and turn off encryption.
+     */
+    float override_frequency = 14;
+
+    /*
+     * If true, disable the build-in PA FAN using pin define in RF95_FAN_EN.
+     */
+    bool pa_fan_disabled = 15;
+
+    /*
+     * For testing it is useful sometimes to force a node to never listen to
+     * particular other nodes (simulating radio out of range). All nodenums listed
+     * in ignore_incoming will have packets they send dropped on receive (by router.cpp)
+     */
+    repeated uint32 ignore_incoming = 103;
+
+    /*
+     * If true, the device will not process any packets received via LoRa that passed via MQTT anywhere on the path towards it.
+     */
+    bool ignore_mqtt = 104;
+
+    /*
+     * Sets the ok_to_mqtt bit on outgoing packets
+     */
+    bool config_ok_to_mqtt = 105;
+  }
+
+  message BluetoothConfig {
+    enum PairingMode {
+      /*
+       * Device generates a random PIN that will be shown on the screen of the device for pairing
+       */
+      RANDOM_PIN = 0;
+
+      /*
+       * Device requires a specified fixed PIN for pairing
+       */
+      FIXED_PIN = 1;
+
+      /*
+       * Device requires no PIN for pairing
+       */
+      NO_PIN = 2;
+    }
+
+    /*
+     * Enable Bluetooth on the device
+     */
+    bool enabled = 1;
+
+    /*
+     * Determines the pairing strategy for the device
+     */
+    PairingMode mode = 2;
+
+    /*
+     * Specified PIN for PairingMode.FixedPin
+     */
+    uint32 fixed_pin = 3;
+  }
+
+  message SecurityConfig {
+    /*
+     * The public key of the user's device.
+     * Sent out to other nodes on the mesh to allow them to compute a shared secret key.
+     */
+    bytes public_key = 1;
+
+    /*
+     * The private key of the device.
+     * Used to create a shared key with a remote device.
+     */
+    bytes private_key = 2;
+
+    /*
+     * The public key authorized to send admin messages to this node.
+     */
+    repeated bytes admin_key = 3;
+
+    /*
+     * If true, device is considered to be "managed" by a mesh administrator via admin messages
+     * Device is managed by a mesh administrator.
+     */
+    bool is_managed = 4;
+
+    /*
+     * Serial Console over the Stream API."
+     */
+    bool serial_enabled = 5;
+
+    /*
+     * By default we turn off logging as soon as an API client connects (to keep shared serial link quiet).
+     * Output live debug logging over serial or bluetooth is set to true.
+     */
+    bool debug_log_api_enabled = 6;
+
+    /*
+     * Allow incoming device control over the insecure legacy admin channel.
+     */
+    bool admin_channel_enabled = 8;
+  }
+
+  /*
+   * Blank config request, strictly for getting the session key
+   */
+  message SessionkeyConfig {}
+
+  /*
+   * Payload Variant
+   */
+  oneof payload_variant {
+    DeviceConfig device = 1;
+    PositionConfig position = 2;
+    PowerConfig power = 3;
+    NetworkConfig network = 4;
+    DisplayConfig display = 5;
+    LoRaConfig lora = 6;
+    BluetoothConfig bluetooth = 7;
+    SecurityConfig security = 8;
+    SessionkeyConfig sessionkey = 9;
+    DeviceUIConfig device_ui = 10;
+  }
+}

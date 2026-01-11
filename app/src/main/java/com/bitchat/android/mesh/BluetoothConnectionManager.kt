@@ -39,6 +39,39 @@ class BluetoothConnectionManager(
     private val connectionTracker = BluetoothConnectionTracker(connectionScope, powerManager)
     private val packetBroadcaster = BluetoothPacketBroadcaster(connectionScope, connectionTracker, fragmentManager)
     
+    // Meshtastic Fragmentation Manager (Lower MTU for LoRa)
+    // Uses smaller fragment sizes (~230 bytes) to fit in Meshtastic PRIVATE_APP payload
+    private val meshtasticFragmentManager = FragmentManager(
+        fragmentSizeThreshold = com.bitchat.android.util.AppConstants.Mesh.Meshtastic.MAX_PAYLOAD_SIZE,
+        maxFragmentSize = 200 // Conservative chunk size for Meshtastic
+    )
+    
+    // Meshtastic manager
+    private val meshtasticManager = MeshtasticConnectionManager(context, connectionScope) { packetBytes ->
+        // Handle incoming packets from Meshtastic
+        // Currently assuming they are raw Bitchat packets (or wrapped BitchatPacket objects serialized)
+        // For now, let's treat them as raw bytes and try to parse them if possible or pass them up 
+        // Note: The original architecture expects BitchatPacket object. We'll need to parse.
+        
+        // Check if this is a fragment packet
+        val rawPacket = BitchatPacket.fromBinaryData(packetBytes)
+        if (rawPacket?.type == com.bitchat.android.protocol.MessageType.FRAGMENT.value) {
+             // Reassembly logic
+             val reassembled = meshtasticFragmentManager.handleFragment(rawPacket)
+             if (reassembled != null) {
+                 componentDelegate.onPacketReceived(reassembled, BitchatPacket.byteArrayToHexString(reassembled.senderID), null)
+             }
+             return@MeshtasticConnectionManager
+        }
+        
+        BitchatPacket.fromBinaryData(packetBytes)?.let { packet ->
+            Log.d(TAG, "Parsed packet from Meshtastic: ${packet.type}")
+            // Inject into the receive pipeline
+             // We treat the Meshtastic device as "unknown" BLE device or just use a placeholder
+            componentDelegate.onPacketReceived(packet, BitchatPacket.byteArrayToHexString(packet.senderID), null)
+        }
+    }
+    
     // Delegate for component managers to call back to main manager
     private val componentDelegate = object : BluetoothConnectionManagerDelegate {
         override fun onPacketReceived(packet: BitchatPacket, peerID: String, device: BluetoothDevice?) {
@@ -196,6 +229,9 @@ class BluetoothConnectionManager(
                     Log.i(TAG, "GATT Client disabled by debug settings; not starting")
                 }
                 
+                // Disconnect any lingering Meshtastic connections to start fresh
+                meshtasticManager.disconnect()
+                
                 Log.i(TAG, "Bluetooth services started successfully")
             }
             
@@ -228,6 +264,8 @@ class BluetoothConnectionManager(
             // Stop connection tracker
             connectionTracker.stop()
             
+            meshtasticManager.disconnect()
+            
             // Cancel the coroutine scope
             connectionScope.cancel()
             
@@ -259,6 +297,39 @@ class BluetoothConnectionManager(
             serverManager.getGattServer(),
             serverManager.getCharacteristic()
         )
+        
+        // Also broadcast to Meshtastic if connected
+        // We need to serialize the packet to bytes.
+        // Currently RoutedPacket wraps BitchatPacket. 
+        // Ideally we grab the raw bytes if available, or we need a serializer.
+        // Since BitchatPacket usually has a toByteArray() or equivalent in the Protocol layer (not visible here directly easily without heavy imports),
+        // we will check if routed.packet has a serialization method.
+        
+        try {
+            val rawBytes = routed.packet.toBinaryData()
+            if (rawBytes != null) {
+                // Check size for LoRa MTU
+                if (rawBytes.size > com.bitchat.android.util.AppConstants.Mesh.Meshtastic.MAX_PAYLOAD_SIZE) {
+                    // Use the configured meshtasticFragmentManager to split the packet
+                    // This ensures consistent logic with standard BLE fragmentation but with LoRa-specific MTU
+                    val loRaFragments = meshtasticFragmentManager.createFragments(routed.packet)
+                    
+                    loRaFragments.forEach { frag ->
+                        frag.toBinaryData()?.let { fragBytes ->
+                             meshtasticManager.sendPacket(fragBytes)
+                             // Small delay to prevent LoRa radio TX queue overflow
+                             Thread.sleep(250) 
+                        }
+                    }
+                    
+                } else {
+                    // Send directly
+                    meshtasticManager.sendPacket(rawBytes)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error serializing packet for Meshtastic broadcast", e)
+        }
     }
 
     fun cancelTransfer(transferId: String): Boolean {
@@ -328,8 +399,15 @@ class BluetoothConnectionManager(
             }
         }
     }
+    
+    /**
+     * Connect to a specific Meshtastic device
+     */
+    fun connectMeshtasticDevice(device: BluetoothDevice) {
+        meshtasticManager.connect(device)
+    }
 
-
+    
     /**
      * Get connected device count
      */

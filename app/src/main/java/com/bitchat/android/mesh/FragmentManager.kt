@@ -16,14 +16,16 @@ import java.util.concurrent.ConcurrentHashMap
  * - Same MTU thresholds and fragment sizes
  * - Same reassembly logic and timeout handling
  * - Uses new FragmentPayload model for type safety
+ * 
+ * Now supports custom MTU settings for different transports (BLE vs LoRa).
  */
-class FragmentManager {
+class FragmentManager(
+    private val fragmentSizeThreshold: Int = com.bitchat.android.util.AppConstants.Fragmentation.FRAGMENT_SIZE_THRESHOLD,
+    private val maxFragmentSize: Int = com.bitchat.android.util.AppConstants.Fragmentation.MAX_FRAGMENT_SIZE
+) {
     
     companion object {
         private const val TAG = "FragmentManager"
-        // iOS values: 512 MTU threshold, 469 max fragment size (512 MTU - headers)
-        private const val FRAGMENT_SIZE_THRESHOLD = com.bitchat.android.util.AppConstants.Fragmentation.FRAGMENT_SIZE_THRESHOLD // Matches iOS: if data.count > 512
-        private const val MAX_FRAGMENT_SIZE = com.bitchat.android.util.AppConstants.Fragmentation.MAX_FRAGMENT_SIZE        // Matches iOS: maxFragmentSize = 469 
         private const val FRAGMENT_TIMEOUT = com.bitchat.android.util.AppConstants.Fragmentation.FRAGMENT_TIMEOUT_MS     // Matches iOS: 30 seconds cleanup
         private const val CLEANUP_INTERVAL = com.bitchat.android.util.AppConstants.Fragmentation.CLEANUP_INTERVAL_MS     // 10 seconds cleanup check
     }
@@ -67,7 +69,7 @@ class FragmentManager {
             Log.d(TAG, "📏 Unpadded to ${fullData.size} bytes")
         
         // iOS logic: if data.count > 512 && packet.type != MessageType.fragment.rawValue
-        if (fullData.size <= FRAGMENT_SIZE_THRESHOLD) {
+        if (fullData.size <= fragmentSizeThreshold) {
             return listOf(packet) // No fragmentation needed
         }
         
@@ -77,8 +79,8 @@ class FragmentManager {
         val fragmentID = FragmentPayload.generateFragmentID()
         
         // iOS: stride(from: 0, to: fullData.count, by: maxFragmentSize)
-        val fragmentChunks = stride(0, fullData.size, MAX_FRAGMENT_SIZE) { offset ->
-            val endOffset = minOf(offset + MAX_FRAGMENT_SIZE, fullData.size)
+        val fragmentChunks = stride(0, fullData.size, maxFragmentSize) { offset ->
+            val endOffset = minOf(offset + maxFragmentSize, fullData.size)
             fullData.sliceArray(offset..<endOffset)
         }
         
@@ -245,8 +247,8 @@ class FragmentManager {
         return buildString {
             appendLine("=== Fragment Manager Debug Info (iOS Compatible) ===")
             appendLine("Active Fragment Sets: ${incomingFragments.size}")
-            appendLine("Fragment Size Threshold: $FRAGMENT_SIZE_THRESHOLD bytes")
-            appendLine("Max Fragment Size: $MAX_FRAGMENT_SIZE bytes")
+            appendLine("Fragment Size Threshold: $fragmentSizeThreshold bytes")
+            appendLine("Max Fragment Size: $maxFragmentSize bytes")
             
             fragmentMetadata.forEach { (fragmentID, metadata) ->
                 val (originalType, totalFragments, timestamp) = metadata

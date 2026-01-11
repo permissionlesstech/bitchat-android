@@ -1,0 +1,870 @@
+syntax = "proto3";
+
+package meshtastic;
+
+option csharp_namespace = "Meshtastic.Protobufs";
+option go_package = "github.com/meshtastic/go/generated";
+option java_outer_classname = "ModuleConfigProtos";
+option java_package = "org.meshtastic.proto";
+option swift_prefix = "";
+
+/*
+ * Module Config
+ */
+message ModuleConfig {
+  /*
+   * MQTT Client Config
+   */
+  message MQTTConfig {
+    /*
+     * If a meshtastic node is able to reach the internet it will normally attempt to gateway any channels that are marked as
+     * is_uplink_enabled or is_downlink_enabled.
+     */
+    bool enabled = 1;
+
+    /*
+     * The server to use for our MQTT global message gateway feature.
+     * If not set, the default server will be used
+     */
+    string address = 2;
+
+    /*
+     * MQTT username to use (most useful for a custom MQTT server).
+     * If using a custom server, this will be honoured even if empty.
+     * If using the default server, this will only be honoured if set, otherwise the device will use the default username
+     */
+    string username = 3;
+
+    /*
+     * MQTT password to use (most useful for a custom MQTT server).
+     * If using a custom server, this will be honoured even if empty.
+     * If using the default server, this will only be honoured if set, otherwise the device will use the default password
+     */
+    string password = 4;
+
+    /*
+     * Whether to send encrypted or decrypted packets to MQTT.
+     * This parameter is only honoured if you also set server
+     * (the default official mqtt.meshtastic.org server can handle encrypted packets)
+     * Decrypted packets may be useful for external systems that want to consume meshtastic packets
+     */
+    bool encryption_enabled = 5;
+
+    /*
+     * Whether to send / consume json packets on MQTT
+     */
+    bool json_enabled = 6;
+
+    /*
+     * If true, we attempt to establish a secure connection using TLS
+     */
+    bool tls_enabled = 7;
+
+    /*
+     * The root topic to use for MQTT messages. Default is "msh".
+     * This is useful if you want to use a single MQTT server for multiple meshtastic networks and separate them via ACLs
+     */
+    string root = 8;
+
+    /*
+     * If true, we can use the connected phone / client to proxy messages to MQTT instead of a direct connection
+     */
+    bool proxy_to_client_enabled = 9;
+
+    /*
+     * If true, we will periodically report unencrypted information about our node to a map via MQTT
+     */
+    bool map_reporting_enabled = 10;
+
+    /*
+     * Settings for reporting information about our node to a map via MQTT
+     */
+    MapReportSettings map_report_settings = 11;
+  }
+
+  /*
+   * Settings for reporting unencrypted information about our node to a map via MQTT
+   */
+  message MapReportSettings {
+    /*
+     * How often we should report our info to the map (in seconds)
+     */
+    uint32 publish_interval_secs = 1;
+
+    /*
+     * Bits of precision for the location sent (default of 32 is full precision).
+     */
+    uint32 position_precision = 2;
+
+    /*
+     * Whether we have opted-in to report our location to the map
+     */
+    bool should_report_location = 3;
+  }
+
+  /*
+   * RemoteHardwareModule Config
+   */
+  message RemoteHardwareConfig {
+    /*
+     * Whether the Module is enabled
+     */
+    bool enabled = 1;
+
+    /*
+     * Whether the Module allows consumers to read / write to pins not defined in available_pins
+     */
+    bool allow_undefined_pin_access = 2;
+
+    /*
+     * Exposes the available pins to the mesh for reading and writing
+     */
+    repeated RemoteHardwarePin available_pins = 3;
+  }
+
+  /*
+   * NeighborInfoModule Config
+   */
+  message NeighborInfoConfig {
+    /*
+     * Whether the Module is enabled
+     */
+    bool enabled = 1;
+
+    /*
+     * Interval in seconds of how often we should try to send our
+     * Neighbor Info (minimum is 14400, i.e., 4 hours)
+     */
+    uint32 update_interval = 2;
+
+    /*
+     * Whether in addition to sending it to MQTT and the PhoneAPI, our NeighborInfo should be transmitted over LoRa.
+     * Note that this is not available on a channel with default key and name.
+     */
+    bool transmit_over_lora = 3;
+  }
+
+  /*
+   * Detection Sensor Module Config
+   */
+  message DetectionSensorConfig {
+    enum TriggerType {
+      // Event is triggered if pin is low
+      LOGIC_LOW = 0;
+      // Event is triggered if pin is high
+      LOGIC_HIGH = 1;
+      // Event is triggered when pin goes high to low
+      FALLING_EDGE = 2;
+      // Event is triggered when pin goes low to high
+      RISING_EDGE = 3;
+      // Event is triggered on every pin state change, low is considered to be
+      // "active"
+      EITHER_EDGE_ACTIVE_LOW = 4;
+      // Event is triggered on every pin state change, high is considered to be
+      // "active"
+      EITHER_EDGE_ACTIVE_HIGH = 5;
+    }
+    /*
+     * Whether the Module is enabled
+     */
+    bool enabled = 1;
+
+    /*
+     * Interval in seconds of how often we can send a message to the mesh when a
+     * trigger event is detected
+     */
+    uint32 minimum_broadcast_secs = 2;
+
+    /*
+     * Interval in seconds of how often we should send a message to the mesh
+     * with the current state regardless of trigger events When set to 0, only
+     * trigger events will be broadcasted Works as a sort of status heartbeat
+     * for peace of mind
+     */
+    uint32 state_broadcast_secs = 3;
+
+    /*
+     * Send ASCII bell with alert message
+     * Useful for triggering ext. notification on bell
+     */
+    bool send_bell = 4;
+
+    /*
+     * Friendly name used to format message sent to mesh
+     * Example: A name "Motion" would result in a message "Motion detected"
+     * Maximum length of 20 characters
+     */
+    string name = 5;
+
+    /*
+     * GPIO pin to monitor for state changes
+     */
+    uint32 monitor_pin = 6;
+
+    /*
+     * The type of trigger event to be used
+     */
+    TriggerType detection_trigger_type = 7;
+
+    /*
+     * Whether or not use INPUT_PULLUP mode for GPIO pin
+     * Only applicable if the board uses pull-up resistors on the pin
+     */
+    bool use_pullup = 8;
+  }
+
+  /*
+   * Audio Config for codec2 voice
+   */
+  message AudioConfig {
+    /*
+     * Baudrate for codec2 voice
+     */
+    enum Audio_Baud {
+      CODEC2_DEFAULT = 0;
+      CODEC2_3200 = 1;
+      CODEC2_2400 = 2;
+      CODEC2_1600 = 3;
+      CODEC2_1400 = 4;
+      CODEC2_1300 = 5;
+      CODEC2_1200 = 6;
+      CODEC2_700 = 7;
+      CODEC2_700B = 8;
+    }
+
+    /*
+     * Whether Audio is enabled
+     */
+    bool codec2_enabled = 1;
+
+    /*
+     * PTT Pin
+     */
+    uint32 ptt_pin = 2;
+
+    /*
+     * The audio sample rate to use for codec2
+     */
+    Audio_Baud bitrate = 3;
+
+    /*
+     * I2S Word Select
+     */
+    uint32 i2s_ws = 4;
+
+    /*
+     * I2S Data IN
+     */
+    uint32 i2s_sd = 5;
+
+    /*
+     * I2S Data OUT
+     */
+    uint32 i2s_din = 6;
+
+    /*
+     * I2S Clock
+     */
+    uint32 i2s_sck = 7;
+  }
+
+  /*
+   * Config for the Paxcounter Module
+   */
+  message PaxcounterConfig {
+    /*
+     * Enable the Paxcounter Module
+     */
+    bool enabled = 1;
+
+    /*
+     * Interval in seconds of how often we should try to send our
+     * metrics to the mesh
+     */
+
+    uint32 paxcounter_update_interval = 2;
+
+    /*
+     * WiFi RSSI threshold. Defaults to -80
+     */
+    int32 wifi_threshold = 3;
+
+    /*
+     * BLE RSSI threshold. Defaults to -80
+     */
+    int32 ble_threshold = 4;
+  }
+
+  /*
+   * Serial Config
+   */
+  message SerialConfig {
+    /*
+     * TODO: REPLACE
+     */
+    enum Serial_Baud {
+      BAUD_DEFAULT = 0;
+      BAUD_110 = 1;
+      BAUD_300 = 2;
+      BAUD_600 = 3;
+      BAUD_1200 = 4;
+      BAUD_2400 = 5;
+      BAUD_4800 = 6;
+      BAUD_9600 = 7;
+      BAUD_19200 = 8;
+      BAUD_38400 = 9;
+      BAUD_57600 = 10;
+      BAUD_115200 = 11;
+      BAUD_230400 = 12;
+      BAUD_460800 = 13;
+      BAUD_576000 = 14;
+      BAUD_921600 = 15;
+    }
+
+    /*
+     * TODO: REPLACE
+     */
+    enum Serial_Mode {
+      DEFAULT = 0;
+      SIMPLE = 1;
+      PROTO = 2;
+      TEXTMSG = 3;
+      NMEA = 4;
+      // NMEA messages specifically tailored for CalTopo
+      CALTOPO = 5;
+      // Ecowitt WS85 weather station
+      WS85 = 6;
+      // VE.Direct is a serial protocol used by Victron Energy products
+      // https://beta.ivc.no/wiki/index.php/Victron_VE_Direct_DIY_Cable
+      VE_DIRECT = 7;
+      //Used to configure and view some parameters of MeshSolar.
+      //https://heltec.org/project/meshsolar/
+      MS_CONFIG = 8;
+    }
+
+    /*
+     * Preferences for the SerialModule
+     */
+    bool enabled = 1;
+
+    /*
+     * TODO: REPLACE
+     */
+    bool echo = 2;
+
+    /*
+     * RX pin (should match Arduino gpio pin number)
+     */
+    uint32 rxd = 3;
+
+    /*
+     * TX pin (should match Arduino gpio pin number)
+     */
+    uint32 txd = 4;
+
+    /*
+     * Serial baud rate
+     */
+    Serial_Baud baud = 5;
+
+    /*
+     * TODO: REPLACE
+     */
+    uint32 timeout = 6;
+
+    /*
+     * Mode for serial module operation
+     */
+    Serial_Mode mode = 7;
+
+    /*
+     * Overrides the platform's defacto Serial port instance to use with Serial module config settings
+     * This is currently only usable in output modes like NMEA / CalTopo and may behave strangely or not work at all in other modes
+     * Existing logging over the Serial Console will still be present
+     */
+    bool override_console_serial_port = 8;
+  }
+
+  /*
+   * External Notifications Config
+   */
+  message ExternalNotificationConfig {
+    /*
+     * Enable the ExternalNotificationModule
+     */
+    bool enabled = 1;
+
+    /*
+     * When using in On/Off mode, keep the output on for this many
+     * milliseconds. Default 1000ms (1 second).
+     */
+    uint32 output_ms = 2;
+
+    /*
+     * Define the output pin GPIO setting Defaults to
+     * EXT_NOTIFY_OUT if set for the board.
+     * In standalone devices this pin should drive the LED to match the UI.
+     */
+    uint32 output = 3;
+
+    /*
+     * Optional: Define a secondary output pin for a vibra motor
+     * This is used in standalone devices to match the UI.
+     */
+    uint32 output_vibra = 8;
+
+    /*
+     * Optional: Define a tertiary output pin for an active buzzer
+     * This is used in standalone devices to to match the UI.
+     */
+    uint32 output_buzzer = 9;
+
+    /*
+     * IF this is true, the 'output' Pin will be pulled active high, false
+     * means active low.
+     */
+    bool active = 4;
+
+    /*
+     * True: Alert when a text message arrives (output)
+     */
+    bool alert_message = 5;
+
+    /*
+     * True: Alert when a text message arrives (output_vibra)
+     */
+    bool alert_message_vibra = 10;
+
+    /*
+     * True: Alert when a text message arrives (output_buzzer)
+     */
+    bool alert_message_buzzer = 11;
+
+    /*
+     * True: Alert when the bell character is received (output)
+     */
+    bool alert_bell = 6;
+
+    /*
+     * True: Alert when the bell character is received (output_vibra)
+     */
+    bool alert_bell_vibra = 12;
+
+    /*
+     * True: Alert when the bell character is received (output_buzzer)
+     */
+    bool alert_bell_buzzer = 13;
+
+    /*
+     * use a PWM output instead of a simple on/off output. This will ignore
+     * the 'output', 'output_ms' and 'active' settings and use the
+     * device.buzzer_gpio instead.
+     */
+    bool use_pwm = 7;
+
+    /*
+     * The notification will toggle with 'output_ms' for this time of seconds.
+     * Default is 0 which means don't repeat at all. 60 would mean blink
+     * and/or beep for 60 seconds
+     */
+    uint32 nag_timeout = 14;
+
+    /*
+     * When true, enables devices with native I2S audio output to use the RTTTL over speaker like a buzzer
+     * T-Watch S3 and T-Deck for example have this capability
+     */
+    bool use_i2s_as_buzzer = 15;
+  }
+
+  /*
+   * Store and Forward Module Config
+   */
+  message StoreForwardConfig {
+    /*
+     * Enable the Store and Forward Module
+     */
+    bool enabled = 1;
+
+    /*
+     * TODO: REPLACE
+     */
+    bool heartbeat = 2;
+
+    /*
+     * TODO: REPLACE
+     */
+    uint32 records = 3;
+
+    /*
+     * TODO: REPLACE
+     */
+    uint32 history_return_max = 4;
+
+    /*
+     * TODO: REPLACE
+     */
+    uint32 history_return_window = 5;
+
+    /*
+     * Set to true to let this node act as a server that stores received messages and resends them upon request.
+     */
+    bool is_server = 6;
+  }
+
+  /*
+   * Preferences for the RangeTestModule
+   */
+  message RangeTestConfig {
+    /*
+     * Enable the Range Test Module
+     */
+    bool enabled = 1;
+
+    /*
+     * Send out range test messages from this node
+     */
+    uint32 sender = 2;
+
+    /*
+     * Bool value indicating that this node should save a RangeTest.csv file.
+     * ESP32 Only
+     */
+    bool save = 3;
+
+    /*
+     * Bool indicating that the node should cleanup / destroy it's RangeTest.csv file.
+     * ESP32 Only
+     */
+    bool clear_on_reboot = 4;
+  }
+
+  /*
+   * Configuration for both device and environment metrics
+   */
+  message TelemetryConfig {
+    /*
+     * Interval in seconds of how often we should try to send our
+     * device metrics to the mesh
+     */
+    uint32 device_update_interval = 1;
+
+    /*
+     * Interval in seconds of how often we should try to send our
+     * environment measurements to the mesh
+     */
+
+    uint32 environment_update_interval = 2;
+
+    /*
+     * Preferences for the Telemetry Module (Environment)
+     * Enable/Disable the telemetry measurement module measurement collection
+     */
+    bool environment_measurement_enabled = 3;
+
+    /*
+     * Enable/Disable the telemetry measurement module on-device display
+     */
+    bool environment_screen_enabled = 4;
+
+    /*
+     * We'll always read the sensor in Celsius, but sometimes we might want to
+     * display the results in Fahrenheit as a "user preference".
+     */
+    bool environment_display_fahrenheit = 5;
+
+    /*
+     * Enable/Disable the air quality metrics
+     */
+    bool air_quality_enabled = 6;
+
+    /*
+     * Interval in seconds of how often we should try to send our
+     * air quality metrics to the mesh
+     */
+    uint32 air_quality_interval = 7;
+
+    /*
+     * Enable/disable Power metrics
+     */
+    bool power_measurement_enabled = 8;
+
+    /*
+     * Interval in seconds of how often we should try to send our
+     * power metrics to the mesh
+     */
+    uint32 power_update_interval = 9;
+
+    /*
+     * Enable/Disable the power measurement module on-device display
+     */
+    bool power_screen_enabled = 10;
+
+    /*
+     * Preferences for the (Health) Telemetry Module
+     * Enable/Disable the telemetry measurement module measurement collection
+     */
+    bool health_measurement_enabled = 11;
+
+    /*
+     * Interval in seconds of how often we should try to send our
+     * health metrics to the mesh
+     */
+    uint32 health_update_interval = 12;
+
+    /*
+     * Enable/Disable the health telemetry module on-device display
+     */
+    bool health_screen_enabled = 13;
+
+    /*
+     * Enable/Disable the device telemetry module to send metrics to the mesh
+     * Note: We will still send telemtry to the connected phone / client every minute over the API
+     */
+    bool device_telemetry_enabled = 14;
+  }
+
+  /*
+   * Canned Messages Module Config
+   */
+  message CannedMessageConfig {
+    /*
+     * TODO: REPLACE
+     */
+    enum InputEventChar {
+      /*
+       * TODO: REPLACE
+       */
+      NONE = 0;
+
+      /*
+       * TODO: REPLACE
+       */
+      UP = 17;
+
+      /*
+       * TODO: REPLACE
+       */
+      DOWN = 18;
+
+      /*
+       * TODO: REPLACE
+       */
+      LEFT = 19;
+
+      /*
+       * TODO: REPLACE
+       */
+      RIGHT = 20;
+
+      /*
+       * '\n'
+       */
+      SELECT = 10;
+
+      /*
+       * TODO: REPLACE
+       */
+      BACK = 27;
+
+      /*
+       * TODO: REPLACE
+       */
+      CANCEL = 24;
+    }
+
+    /*
+     * Enable the rotary encoder #1. This is a 'dumb' encoder sending pulses on both A and B pins while rotating.
+     */
+    bool rotary1_enabled = 1;
+
+    /*
+     * GPIO pin for rotary encoder A port.
+     */
+    uint32 inputbroker_pin_a = 2;
+
+    /*
+     * GPIO pin for rotary encoder B port.
+     */
+    uint32 inputbroker_pin_b = 3;
+
+    /*
+     * GPIO pin for rotary encoder Press port.
+     */
+    uint32 inputbroker_pin_press = 4;
+
+    /*
+     * Generate input event on CW of this kind.
+     */
+    InputEventChar inputbroker_event_cw = 5;
+
+    /*
+     * Generate input event on CCW of this kind.
+     */
+    InputEventChar inputbroker_event_ccw = 6;
+
+    /*
+     * Generate input event on Press of this kind.
+     */
+    InputEventChar inputbroker_event_press = 7;
+
+    /*
+     * Enable the Up/Down/Select input device. Can be RAK rotary encoder or 3 buttons. Uses the a/b/press definitions from inputbroker.
+     */
+    bool updown1_enabled = 8;
+
+    /*
+     * Enable/disable CannedMessageModule.
+     */
+    bool enabled = 9 [deprecated = true];
+
+    /*
+     * Input event origin accepted by the canned message module.
+     * Can be e.g. "rotEnc1", "upDownEnc1", "scanAndSelect", "cardkb", "serialkb", or keyword "_any"
+     */
+    string allow_input_source = 10 [deprecated = true];
+
+    /*
+     * CannedMessageModule also sends a bell character with the messages.
+     * ExternalNotificationModule can benefit from this feature.
+     */
+    bool send_bell = 11;
+  }
+
+  /*
+     Ambient Lighting Module - Settings for control of onboard LEDs to allow users to adjust the brightness levels and respective color levels.
+     Initially created for the RAK14001 RGB LED module.
+  */
+  message AmbientLightingConfig {
+    /*
+     * Sets LED to on or off.
+     */
+    bool led_state = 1;
+
+    /*
+     * Sets the current for the LED output. Default is 10.
+     */
+    uint32 current = 2;
+
+    /*
+     * Sets the red LED level. Values are 0-255.
+     */
+    uint32 red = 3;
+
+    /*
+     * Sets the green LED level. Values are 0-255.
+     */
+    uint32 green = 4;
+
+    /*
+     * Sets the blue LED level. Values are 0-255.
+     */
+    uint32 blue = 5;
+  }
+
+  /*
+   * TODO: REPLACE
+   */
+  oneof payload_variant {
+    /*
+     * TODO: REPLACE
+     */
+    MQTTConfig mqtt = 1;
+
+    /*
+     * TODO: REPLACE
+     */
+    SerialConfig serial = 2;
+
+    /*
+     * TODO: REPLACE
+     */
+    ExternalNotificationConfig external_notification = 3;
+
+    /*
+     * TODO: REPLACE
+     */
+    StoreForwardConfig store_forward = 4;
+
+    /*
+     * TODO: REPLACE
+     */
+    RangeTestConfig range_test = 5;
+
+    /*
+     * TODO: REPLACE
+     */
+    TelemetryConfig telemetry = 6;
+
+    /*
+     * TODO: REPLACE
+     */
+    CannedMessageConfig canned_message = 7;
+
+    /*
+     * TODO: REPLACE
+     */
+    AudioConfig audio = 8;
+
+    /*
+     * TODO: REPLACE
+     */
+    RemoteHardwareConfig remote_hardware = 9;
+
+    /*
+     * TODO: REPLACE
+     */
+    NeighborInfoConfig neighbor_info = 10;
+
+    /*
+     * TODO: REPLACE
+     */
+    AmbientLightingConfig ambient_lighting = 11;
+
+    /*
+     * TODO: REPLACE
+     */
+    DetectionSensorConfig detection_sensor = 12;
+
+    /*
+     * TODO: REPLACE
+     */
+    PaxcounterConfig paxcounter = 13;
+  }
+}
+
+/*
+ * A GPIO pin definition for remote hardware module
+ */
+message RemoteHardwarePin {
+  /*
+   * GPIO Pin number (must match Arduino)
+   */
+  uint32 gpio_pin = 1;
+
+  /*
+   * Name for the GPIO pin (i.e. Front gate, mailbox, etc)
+   */
+  string name = 2;
+
+  /*
+   * Type of GPIO access available to consumers on the mesh
+   */
+  RemoteHardwarePinType type = 3;
+}
+
+enum RemoteHardwarePinType {
+  /*
+   * Unset/unused
+   */
+  UNKNOWN = 0;
+
+  /*
+   * GPIO pin can be read (if it is high / low)
+   */
+  DIGITAL_READ = 1;
+
+  /*
+   * GPIO pin can be written to (high / low)
+   */
+  DIGITAL_WRITE = 2;
+}
