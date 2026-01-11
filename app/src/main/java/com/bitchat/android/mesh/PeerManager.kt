@@ -86,6 +86,9 @@ class PeerManager {
     // Delegate for callbacks
     var delegate: PeerManagerDelegate? = null
     
+    // Callback to check if a peer is directly connected (injected by BluetoothMeshService)
+    var isPeerDirectlyConnected: ((String) -> Boolean)? = null
+
     // Coroutines
     private val managerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
@@ -145,10 +148,18 @@ class PeerManager {
     }
 
     /**
-     * Get peer info
+     * Get peer info with dynamic direct connection status
      */
     fun getPeerInfo(peerID: String): PeerInfo? {
-        return peers[peerID]
+        return peers[peerID]?.let { info ->
+            // Dynamically check direct connection status from ConnectionManager
+            val isDirect = isPeerDirectlyConnected?.invoke(peerID) ?: false
+            if (info.isDirectConnection != isDirect) {
+                info.copy(isDirectConnection = isDirect)
+            } else {
+                info
+            }
+        }
     }
 
     /**
@@ -159,28 +170,21 @@ class PeerManager {
     }
 
     /**
-     * Get all verified peers
+     * Get all verified peers with dynamic direct connection status
      */
     fun getVerifiedPeers(): Map<String, PeerInfo> {
-        return peers.filterValues { it.isVerifiedNickname }
+        return peers.filterValues { it.isVerifiedNickname }.mapValues { (_, info) ->
+            val isDirect = isPeerDirectlyConnected?.invoke(info.id) ?: false
+            if (info.isDirectConnection != isDirect) info.copy(isDirectConnection = isDirect) else info
+        }
     }
 
     /**
-     * Set whether a peer is directly connected over Bluetooth.
-     * Triggers a peer list update to refresh UI badges.
+     * Force a peer list update notification.
+     * Call this when connection state changes to refresh UI badges.
      */
-    fun setDirectConnection(peerID: String, isDirect: Boolean) {
-        peers[peerID]?.let { existing ->
-            if (existing.isDirectConnection != isDirect) {
-                peers[peerID] = existing.copy(isDirectConnection = isDirect)
-                notifyPeerListUpdate()
-                // NEW: notify UI state (if available via delegate path) about directness change
-                try {
-                    // Best-effort: delegate path flows up to ChatViewModel via didUpdatePeerList
-                    // No direct reference to UI layer here by design.
-                } catch (_: Exception) { }
-            }
-        }
+    fun refreshPeerList() {
+        notifyPeerListUpdate()
     }
 
     // MARK: - Legacy Methods (maintained for compatibility)
@@ -364,7 +368,11 @@ class PeerManager {
         return buildString {
             appendLine("=== Peer Manager Debug Info ===")
             appendLine("Active Peers: ${activeIds.size}")
-            peers.forEach { (peerID, info) ->
+            peers.forEach { (peerID, storedInfo) ->
+                // Use dynamic direct status for debug log accuracy
+                val isDirect = isPeerDirectlyConnected?.invoke(peerID) ?: false
+                val info = if (storedInfo.isDirectConnection != isDirect) storedInfo.copy(isDirectConnection = isDirect) else storedInfo
+                
                 val timeSince = (now - info.lastSeen) / 1000
                 val rssi = peerRSSI[peerID]?.let { "${it} dBm" } ?: "No RSSI"
                 val deviceAddress = addressPeerMap?.entries?.find { it.value == peerID }?.key

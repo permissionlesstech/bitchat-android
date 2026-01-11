@@ -38,7 +38,6 @@ Timers:
 - Added a `DeviceMonitoringManager` instance and provided a `disconnectCallback` that:
   - disconnects client GATT connections via `BluetoothConnectionTracker`.
   - cancels server connections via `BluetoothGattServer.cancelConnection`.
-- Exposed `noteAnnounceReceived(address)` as a small helper for higher layers.
 - Updated `componentDelegate.onPacketReceived` to notify per-device activity to the monitor.
 
 2) GATT Client
@@ -59,7 +58,6 @@ Timers:
 
 4) ANNOUNCE Binding
 - File: `BluetoothMeshService.kt` (in the ANNOUNCE handler where we first map device → peer)
-- After mapping a device address to a peer on first verified ANNOUNCE, call `connectionManager.noteAnnounceReceived(address)` to cancel the 15s timer for that device.
 
 ## Behavior Summary
 
