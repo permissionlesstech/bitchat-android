@@ -71,19 +71,14 @@ fun MessagesList(
     
     // Track if this is the first time messages are being loaded
     var hasScrolledToInitialPosition by remember { mutableStateOf(false) }
+    var followIncomingMessages by remember { mutableStateOf(true) }
     
-    // Smart scroll: auto-scroll to bottom for initial load, then only when user is at or near the bottom
+    // Smart scroll: auto-scroll to bottom for initial load, then follow unless user scrolls away
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
-            val layoutInfo = listState.layoutInfo
-            val firstVisibleIndex = layoutInfo.visibleItemsInfo.firstOrNull()?.index ?: -1
-            
-            // With reverseLayout=true and reversed data, index 0 is the latest message at the bottom
             val isFirstLoad = !hasScrolledToInitialPosition
-            val isNearLatest = firstVisibleIndex <= 2
-            
-            if (isFirstLoad || isNearLatest) {
-                listState.animateScrollToItem(0)
+            if (isFirstLoad || followIncomingMessages) {
+                listState.scrollToItem(0)
                 if (isFirstLoad) {
                     hasScrolledToInitialPosition = true
                 }
@@ -99,6 +94,7 @@ fun MessagesList(
         }
     }
     LaunchedEffect(isAtLatest) {
+        followIncomingMessages = isAtLatest
         onScrolledUpChanged?.invoke(!isAtLatest)
     }
     
@@ -106,7 +102,8 @@ fun MessagesList(
     LaunchedEffect(forceScrollToBottom) {
         if (messages.isNotEmpty()) {
             // With reverseLayout=true and reversed data, latest is at index 0
-            listState.animateScrollToItem(0)
+            followIncomingMessages = true
+            listState.scrollToItem(0)
         }
     }
     
