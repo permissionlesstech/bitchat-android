@@ -157,7 +157,6 @@ class ChatViewModel(
     val passwordProtectedChannels: StateFlow<Set<String>> = state.passwordProtectedChannels
     val showPasswordPrompt: StateFlow<Boolean> = state.showPasswordPrompt
     val passwordPromptChannel: StateFlow<String?> = state.passwordPromptChannel
-    val showSidebar: StateFlow<Boolean> = state.showSidebar
     val hasUnreadChannels = state.hasUnreadChannels
     val hasUnreadPrivateMessages = state.hasUnreadPrivateMessages
     val showCommandSuggestions: StateFlow<Boolean> = state.showCommandSuggestions
@@ -171,6 +170,7 @@ class ChatViewModel(
     val peerRSSI: StateFlow<Map<String, Int>> = state.peerRSSI
     val peerDirect: StateFlow<Map<String, Boolean>> = state.peerDirect
     val showAppInfo: StateFlow<Boolean> = state.showAppInfo
+    val showMeshPeerList: StateFlow<Boolean> = state.showMeshPeerList
     val showVerificationSheet: StateFlow<Boolean> = state.showVerificationSheet
     val showSecurityVerificationSheet: StateFlow<Boolean> = state.showSecurityVerificationSheet
     val selectedLocationChannel: StateFlow<com.bitchat.android.geohash.ChannelID?> = state.selectedLocationChannel
@@ -452,11 +452,6 @@ class ChatViewModel(
             }
 
             startPrivateChat(openPeer)
-
-            // If sidebar visible, hide it to focus on the private chat
-            if (state.getShowSidebarValue()) {
-                state.setShowSidebar(false)
-            }
         } catch (e: Exception) {
             Log.w(TAG, "openLatestUnreadPrivateChat failed: ${e.message}")
         }
@@ -783,7 +778,7 @@ class ChatViewModel(
         state.setShowVerificationSheet(false)
         if (reopenSidebarAfterVerification) {
             reopenSidebarAfterVerification = false
-            state.setShowSidebar(true)
+            state.setShowMeshPeerList(true)
         }
     }
 
@@ -793,6 +788,14 @@ class ChatViewModel(
 
     fun hideSecurityVerificationSheet() {
         state.setShowSecurityVerificationSheet(false)
+    }
+
+    fun showMeshPeerList() {
+        state.setShowMeshPeerList(true)
+    }
+
+    fun hideMeshPeerList() {
+        state.setShowMeshPeerList(false)
     }
 
     fun getPeerFingerprintForDisplay(peerID: String): String? {
@@ -1027,15 +1030,7 @@ class ChatViewModel(
     fun hideAppInfo() {
         state.setShowAppInfo(false)
     }
-    
-    fun showSidebar() {
-        state.setShowSidebar(true)
-    }
-    
-    fun hideSidebar() {
-        state.setShowSidebar(false)
-    }
-    
+
     /**
      * Handle Android back navigation
      * Returns true if the back press was handled, false if it should be passed to the system
@@ -1045,11 +1040,6 @@ class ChatViewModel(
             // Close app info dialog
             state.getShowAppInfoValue() -> {
                 hideAppInfo()
-                true
-            }
-            // Close sidebar
-            state.getShowSidebarValue() -> {
-                hideSidebar()
                 true
             }
             // Close password dialog
