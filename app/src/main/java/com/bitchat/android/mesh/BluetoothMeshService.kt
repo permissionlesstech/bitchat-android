@@ -549,13 +549,18 @@ class BluetoothMeshService(private val context: Context) {
                 val nick = getPeerNicknames()[peerID]
                 val route = packet.route
                 val routeInfo = if (!route.isNullOrEmpty()) "routed: ${route.size} hops" else null
+                
+                // Convert route to hex strings for visualization
+                val routeStrings = route?.map { it.toHexString() }
+                
                 com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().logIncoming(
                     packetType = packet.type.toString(),
                     fromPeerID = peerID,
                     fromNickname = nick,
                     fromDeviceAddress = device?.address,
                     packetVersion = packet.version,
-                    routeInfo = routeInfo
+                    routeInfo = routeInfo,
+                    route = routeStrings
                 )
             } catch (_: Exception) { }
             packetProcessor.processPacket(RoutedPacket(packet, peerID, device?.address))

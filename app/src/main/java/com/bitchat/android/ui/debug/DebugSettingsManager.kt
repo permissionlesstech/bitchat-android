@@ -3,6 +3,8 @@ package com.bitchat.android.ui.debug
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import java.util.Date
 import java.util.concurrent.ConcurrentLinkedQueue
 
@@ -465,13 +467,40 @@ class DebugSettingsManager private constructor() {
         // Do not update counters here; this path is for readable logs only.
     }
 
+    // MARK: - Debug Events for Animation
+    sealed class MeshVisualEvent {
+        data class PacketActivity(val peerID: String) : MeshVisualEvent()
+        data class RouteActivity(val route: List<String>) : MeshVisualEvent()
+    }
+
+    private val _meshVisualEvents = kotlinx.coroutines.flow.MutableSharedFlow<MeshVisualEvent>(
+        extraBufferCapacity = 64,
+        onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST
+    )
+    val meshVisualEvents: kotlinx.coroutines.flow.SharedFlow<MeshVisualEvent> = _meshVisualEvents.asSharedFlow()
+
+    fun emitVisualEvent(event: MeshVisualEvent) {
+        if (_debugSheetVisible.value) {
+            _meshVisualEvents.tryEmit(event)
+        }
+    }
+
     // Explicit incoming/outgoing logging to avoid double counting
-    fun logIncoming(packetType: String, fromPeerID: String?, fromNickname: String?, fromDeviceAddress: String?, packetVersion: UByte = 1u, routeInfo: String? = null) {
+    fun logIncoming(packetType: String, fromPeerID: String?, fromNickname: String?, fromDeviceAddress: String?, packetVersion: UByte = 1u, routeInfo: String? = null, route: List<String>? = null) {
         if (verboseLoggingEnabled.value) {
             val who = fromNickname ?: fromPeerID ?: "unknown"
             val routeStr = if (routeInfo != null) " $routeInfo" else ""
             addDebugMessage(DebugMessage.PacketEvent("📥 Incoming v$packetVersion $packetType from $who (${fromPeerID ?: "?"}, ${fromDeviceAddress ?: "?"})$routeStr"))
         }
+
+        // Emit visual events
+        if (fromPeerID != null) {
+            emitVisualEvent(MeshVisualEvent.PacketActivity(fromPeerID))
+        }
+        if (!route.isNullOrEmpty()) {
+            emitVisualEvent(MeshVisualEvent.RouteActivity(route))
+        }
+
         val now = System.currentTimeMillis()
         val visible = _debugSheetVisible.value
         if (visible) incomingTimestamps.offer(now)

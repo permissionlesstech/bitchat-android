@@ -61,12 +61,21 @@ fun MeshTopologySection() {
                         .height(300.dp)
                         .background(colorScheme.surface.copy(alpha = 0.4f))
                 )
-                // Label list for clarity under the canvas
-                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 140.dp)) {
-                    items(nodes.size) { i ->
-                        val node = nodes[i]
+                
+                // Flexible peer list
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    nodes.forEach { node ->
                         val label = "${node.peerID.take(8)} • ${node.nickname ?: "unknown"}"
-                        Text(label, fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.85f))
+                        Text(
+                            text = label,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp,
+                            color = colorScheme.onSurface.copy(alpha = 0.85f)
+                        )
                     }
                 }
             }
