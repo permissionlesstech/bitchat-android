@@ -39,12 +39,13 @@ The presence event mimics the structure of a geohash chat message (Kind 20000) b
 Clients MUST broadcast a Kind 20001 presence event globally when the app is open, regardless of which screen the user is viewing.
 
 *   **Global Heartbeat:**
-    *   **Trigger:** Application start / initialization.
-    *   **Frequency:** Repeated every **60 seconds**.
+    *   **Trigger:** Application start / initialization, or whenever location (available geohashes) changes.
+    *   **Frequency:** Randomized loop interval between **40s and 80s** (average 60s).
     *   **Scope:** Sent to *all* geohash channels corresponding to the device's *current physical location*.
     *   **Privacy Restriction:** Presence MUST ONLY be broadcast to low-precision geohash levels to protect user privacy. Specifically:
         *   **Allowed:** `REGION` (precision 2), `PROVINCE` (precision 4), `CITY` (precision 5).
         *   **Denied:** `NEIGHBORHOOD` (precision 6), `BLOCK` (precision 7), `BUILDING` (precision 8+).
+    *   **Decorrelation:** Individual broadcasts within a heartbeat loop must be separated by random delays (e.g., 2-5 seconds) to prevent temporal correlation of public keys across different geohash levels. The main loop delay is adjusted to maintain the target average cadence.
 
 ### 2. Subscribing to Presence
 
@@ -68,8 +69,8 @@ The "online participants" count shown in the UI aggregates unique public keys fr
 *   **`NostrKind.GEOHASH_PRESENCE`**: Added constant `20001`.
 *   **`NostrProtocol.createGeohashPresenceEvent`**: Helper to generate the event.
 *   **`GeohashViewModel`**:
-    *   `startGlobalPresenceHeartbeat()`: Coroutine running every 60s.
-    *   Observes `LocationChannelManager.availableChannels`.
+    *   `startGlobalPresenceHeartbeat()`: Coroutine that `collectLatest` on `LocationChannelManager.availableChannels`.
+    *   Implements randomized loop logic (40-80s) and per-broadcast random delays (2-5s).
     *   Filters channels by `precision <= 5` before broadcasting.
 *   **`GeohashMessageHandler`**:
     *   Refactored `onEvent` to update participant counts for both Kind 20000 and 20001.
@@ -77,5 +78,5 @@ The "online participants" count shown in the UI aggregates unique public keys fr
 ## Benefits
 
 *   **Accuracy:** Counts reflect both active listeners (via heartbeats) and active speakers (via messages).
-*   **Privacy:** High-precision location presence (street/block level) is NOT broadcast automatically.
-*   **Consistency:** "Online" status is maintained globally while the app is open, not just when viewing a specific screen.
+*   **Privacy:** High-precision location presence is NOT broadcast. Temporal correlation between different levels is obfuscated via random delays.
+*   **Consistency:** "Online" status is maintained globally while the app is open.

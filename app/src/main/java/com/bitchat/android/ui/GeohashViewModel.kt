@@ -111,15 +111,31 @@ class GeohashViewModel(
                     // Enter heartbeat loop for this set of channels
                     // If channels change (e.g. user moves), collectLatest cancels this loop and starts a new one immediately
                     while (true) {
+                        // Randomize loop interval (40-80s, average 60s)
+                        val loopInterval = kotlin.random.Random.nextLong(40000L, 80000L)
+                        var timeSpent = 0L
+
                         try {
-                            Log.v(TAG, "💓 Broadcasting global presence to ${targetGeohashes.size} channels: $targetGeohashes")
+                            Log.v(TAG, "💓 Broadcasting global presence to ${targetGeohashes.size} channels")
                             targetGeohashes.forEach { geohash ->
+                                // Decorrelate individual broadcasts with random delay (1s-5s)
+                                val stepDelay = kotlin.random.Random.nextLong(1000L, 10000L)
+                                delay(stepDelay)
+                                timeSpent += stepDelay
+                                
                                 broadcastPresence(geohash)
                             }
                         } catch (e: Exception) {
                             Log.w(TAG, "Global presence heartbeat error: ${e.message}")
                         }
-                        delay(60000L) // 60 seconds
+                        
+                        // Wait remaining time to satisfy target average cadence
+                        val remaining = loopInterval - timeSpent
+                        if (remaining > 0) {
+                            delay(remaining)
+                        } else {
+                            delay(10000L) // Minimum guard delay
+                        }
                     }
                 }
             }
