@@ -54,7 +54,11 @@ class GeohashMessageHandler(
                 // PoW validation (if enabled)
                 val pow = PoWPreferenceManager.getCurrentSettings()
                 if (pow.enabled && pow.difficulty > 0) {
-                    if (!NostrProofOfWork.validateDifficulty(event, pow.difficulty)) return@launch
+                    if (NostrProofOfWork.hasNonce(event)) {
+                        if (!NostrProofOfWork.validateDifficulty(event, pow.difficulty)) return@launch
+                    } else {
+                        Log.v(TAG, "Skipping PoW validation for event without nonce: ${event.id.take(16)}...")
+                    }
                 }
 
                 // Blocked users check (use injected DataManager which has loaded state)
