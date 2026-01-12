@@ -53,6 +53,8 @@ class GeohashViewModel(
     private var currentGeohashSubId: String? = null
     private var currentDmSubId: String? = null
     private var geoTimer: Job? = null
+    private var samplingPresenceJob: Job? = null
+    private var activePresenceJob: Job? = null
     private var locationChannelManager: com.bitchat.android.geohash.LocationChannelManager? = null
 
     val geohashPeople: StateFlow<List<GeoPerson>> = state.geohashPeople
@@ -98,8 +100,25 @@ class GeohashViewModel(
         currentDmSubId = null
         geoTimer?.cancel()
         geoTimer = null
+        samplingPresenceJob?.cancel()
+        samplingPresenceJob = null
+        activePresenceJob?.cancel()
+        activePresenceJob = null
         try { NostrIdentityBridge.clearAllAssociations(getApplication()) } catch (_: Exception) {}
         initialize()
+    }
+
+    private suspend fun broadcastPresence(geohash: String) {
+        try {
+            val identity = NostrIdentityBridge.deriveIdentity(geohash, getApplication())
+            val event = NostrProtocol.createGeohashPresenceEvent(geohash, identity)
+            val relayManager = NostrRelayManager.getInstance(getApplication())
+            // Presence is lightweight, send to geohash relays
+            relayManager.sendEventToGeohash(event, geohash, includeDefaults = false, nRelays = 5)
+            Log.v(TAG, "💓 Sent presence heartbeat for $geohash")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to send presence for $geohash: ${e.message}")
+        }
     }
 
     fun sendGeohashMessage(content: String, channel: com.bitchat.android.geohash.GeohashChannel, myPeerID: String, nickname: String?) {
@@ -143,6 +162,8 @@ class GeohashViewModel(
     fun beginGeohashSampling(geohashes: List<String>) {
         if (geohashes.isEmpty()) return
         Log.d(TAG, "🌍 Beginning geohash sampling for ${geohashes.size} geohashes")
+        
+        // Subscribe to events
         viewModelScope.launch {
             geohashes.forEach { geohash ->
                 subscriptionManager.subscribeGeohash(
@@ -154,9 +175,24 @@ class GeohashViewModel(
                 )
             }
         }
+
+        // Start presence heartbeat loop for sampling
+        samplingPresenceJob?.cancel()
+        samplingPresenceJob = viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            while (true) {
+                geohashes.forEach { geohash ->
+                    broadcastPresence(geohash)
+                }
+                delay(60000L) // 60 seconds
+            }
+        }
     }
 
-    fun endGeohashSampling() { Log.d(TAG, "🌍 Ending geohash sampling") }
+    fun endGeohashSampling() { 
+        Log.d(TAG, "🌍 Ending geohash sampling")
+        samplingPresenceJob?.cancel()
+        samplingPresenceJob = null
+    }
     fun geohashParticipantCount(geohash: String): Int = repo.geohashParticipantCount(geohash)
     fun isPersonTeleported(pubkeyHex: String): Boolean = repo.isPersonTeleported(pubkeyHex)
 
@@ -214,6 +250,7 @@ class GeohashViewModel(
 
     private fun switchLocationChannel(channel: com.bitchat.android.geohash.ChannelID?) {
         geoTimer?.cancel(); geoTimer = null
+        activePresenceJob?.cancel(); activePresenceJob = null
         currentGeohashSubId?.let { subscriptionManager.unsubscribe(it); currentGeohashSubId = null }
         currentDmSubId?.let { subscriptionManager.unsubscribe(it); currentDmSubId = null }
 
@@ -234,12 +271,20 @@ class GeohashViewModel(
 
                 try {
                     val identity = NostrIdentityBridge.deriveIdentity(channel.channel.geohash, getApplication())
-                    repo.updateParticipant(channel.channel.geohash, identity.publicKeyHex, Date())
+                    // We don't update participant here anymore; presence loop handles it via Kind 20001
                     val teleported = state.isTeleported.value
                     if (teleported) repo.markTeleported(identity.publicKeyHex)
                 } catch (e: Exception) { Log.w(TAG, "Failed identity setup: ${e.message}") }
 
                 startGeoParticipantsTimer()
+                
+                // Start active presence heartbeat for this channel
+                activePresenceJob = viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                    while (true) {
+                        broadcastPresence(channel.channel.geohash)
+                        delay(60000L) // 60 seconds
+                    }
+                }
                 
                 viewModelScope.launch {
                     val geohash = channel.channel.geohash
