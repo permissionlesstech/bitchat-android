@@ -298,6 +298,16 @@ class PrivateChatManager(
             if (!isPeerBlocked(senderPeerID)) {
                 // Ensure chat exists
                 messageManager.initializePrivateChat(senderPeerID)
+
+                // Exception: Nostr messages (nostr_ prefix) originate in Kotlin layer and MUST be added here.
+                if (senderPeerID.startsWith("nostr_")) {
+                    if (suppressUnread) {
+                        messageManager.addPrivateMessageNoUnread(senderPeerID, message)
+                    } else {
+                        messageManager.addPrivateMessage(senderPeerID, message)
+                    }
+                }
+
                 // Track as unread for read receipt purposes if not focused
                 if (!suppressUnread && state.getSelectedPrivateChatPeerValue() != senderPeerID) {
                     val unreadList = unreadReceivedMessages.getOrPut(senderPeerID) { mutableListOf() }
