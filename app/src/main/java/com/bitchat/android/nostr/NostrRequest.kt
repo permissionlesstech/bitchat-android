@@ -1,12 +1,30 @@
 package com.bitchat.android.nostr
 
-import com.google.gson.*
-import java.lang.reflect.Type
+import com.bitchat.android.serialization.JsonConfig
+import kotlinx.serialization.InternalSerializationApi
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.descriptors.buildSerialDescriptor
+import kotlinx.serialization.descriptors.StructureKind
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonDecoder
+import kotlinx.serialization.json.JsonEncoder
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * Nostr protocol request messages
  * Supports EVENT, REQ, and CLOSE message types
  */
+@Serializable(with = NostrRequestSerializer::class)
 sealed class NostrRequest {
     
     /**
@@ -27,54 +45,83 @@ sealed class NostrRequest {
      */
     data class Close(val subscriptionId: String) : NostrRequest()
     
-    /**
-     * Custom JSON serializer for NostrRequest
-     */
-    class RequestSerializer : JsonSerializer<NostrRequest> {
-        override fun serialize(src: NostrRequest, typeOfSrc: Type, context: JsonSerializationContext): JsonElement {
-            val array = JsonArray()
-            
-            when (src) {
-                is Event -> {
-                    array.add("EVENT")
-                    array.add(context.serialize(src.event))
-                }
-                
-                is Subscribe -> {
-                    array.add("REQ")
-                    array.add(src.subscriptionId)
-                    src.filters.forEach { filter ->
-                        array.add(context.serialize(filter, NostrFilter::class.java))
-                    }
-                }
-                
-                is Close -> {
-                    array.add("CLOSE")
-                    array.add(src.subscriptionId)
-                }
-            }
-            
-            return array
-        }
-    }
-    
     companion object {
-        /**
-         * Create Gson instance with proper serializers
-         */
-        fun createGson(): Gson {
-            return GsonBuilder()
-                .registerTypeAdapter(NostrRequest::class.java, RequestSerializer())
-                .registerTypeAdapter(NostrFilter::class.java, NostrFilter.FilterSerializer())
-                .disableHtmlEscaping()
-                .create()
-        }
-        
         /**
          * Serialize request to JSON string
          */
         fun toJson(request: NostrRequest): String {
-            return createGson().toJson(request)
+            return JsonConfig.json.encodeToString(NostrRequestSerializer, request)
+        }
+    }
+}
+
+/**
+ * Custom JSON serializer for NostrRequest
+ */
+@OptIn(InternalSerializationApi::class)
+object NostrRequestSerializer : KSerializer<NostrRequest> {
+    override val descriptor: SerialDescriptor =
+        buildSerialDescriptor("NostrRequest", StructureKind.LIST)
+
+    override fun serialize(encoder: Encoder, value: NostrRequest) {
+        val jsonEncoder = encoder as? JsonEncoder
+            ?: throw SerializationException("NostrRequestSerializer only supports JSON")
+
+        val jsonArray = buildJsonArray {
+            when (value) {
+                is NostrRequest.Event -> {
+                    add(JsonPrimitive("EVENT"))
+                    add(JsonConfig.json.encodeToJsonElement(NostrEvent.serializer(), value.event))
+                }
+                is NostrRequest.Subscribe -> {
+                    add(JsonPrimitive("REQ"))
+                    add(JsonPrimitive(value.subscriptionId))
+                    value.filters.forEach { filter ->
+                        add(JsonConfig.json.encodeToJsonElement(NostrFilter.NostrFilterSerializer, filter))
+                    }
+                }
+                is NostrRequest.Close -> {
+                    add(JsonPrimitive("CLOSE"))
+                    add(JsonPrimitive(value.subscriptionId))
+                }
+            }
+        }
+
+        jsonEncoder.encodeJsonElement(jsonArray)
+    }
+
+    override fun deserialize(decoder: Decoder): NostrRequest {
+        val jsonDecoder = decoder as? JsonDecoder
+            ?: throw SerializationException("NostrRequestSerializer only supports JSON")
+        val element = jsonDecoder.decodeJsonElement()
+        val jsonArray = element as? JsonArray
+            ?: throw SerializationException("Expected JsonArray for NostrRequest")
+        if (jsonArray.isEmpty()) {
+            throw SerializationException("Empty NostrRequest array")
+        }
+
+        val type = jsonArray[0].jsonPrimitive.content
+        return when (type) {
+            "EVENT" -> {
+                val eventElement = jsonArray.getOrNull(1) as? JsonObject
+                    ?: throw SerializationException("Missing event payload")
+                val event = jsonDecoder.json.decodeFromJsonElement(NostrEvent.serializer(), eventElement)
+                NostrRequest.Event(event)
+            }
+            "REQ" -> {
+                val subscriptionId = jsonArray.getOrNull(1)?.jsonPrimitive?.content
+                    ?: throw SerializationException("Missing subscriptionId")
+                val filters = jsonArray.drop(2).map { filterElement ->
+                    jsonDecoder.json.decodeFromJsonElement(NostrFilter.NostrFilterSerializer, filterElement)
+                }
+                NostrRequest.Subscribe(subscriptionId, filters)
+            }
+            "CLOSE" -> {
+                val subscriptionId = jsonArray.getOrNull(1)?.jsonPrimitive?.content
+                    ?: throw SerializationException("Missing subscriptionId")
+                NostrRequest.Close(subscriptionId)
+            }
+            else -> throw SerializationException("Unknown NostrRequest type: $type")
         }
     }
 }
@@ -129,12 +176,12 @@ sealed class NostrResponse {
          */
         fun fromJsonArray(jsonArray: JsonArray): NostrResponse {
             return try {
-                when (val type = jsonArray[0].asString) {
+                when (val type = jsonArray[0].jsonPrimitive.content) {
                     "EVENT" -> {
-                        if (jsonArray.size() >= 3) {
-                            val subscriptionId = jsonArray[1].asString
-                            val eventJson = jsonArray[2].asJsonObject
-                            val event = parseEventFromJson(eventJson)
+                        if (jsonArray.size >= 3) {
+                            val subscriptionId = jsonArray[1].jsonPrimitive.content
+                            val eventJson = jsonArray[2].jsonObject
+                            val event = JsonConfig.json.decodeFromJsonElement(NostrEvent.serializer(), eventJson)
                             Event(subscriptionId, event)
                         } else {
                             Unknown(jsonArray.toString())
@@ -142,8 +189,8 @@ sealed class NostrResponse {
                     }
                     
                     "EOSE" -> {
-                        if (jsonArray.size() >= 2) {
-                            val subscriptionId = jsonArray[1].asString
+                        if (jsonArray.size >= 2) {
+                            val subscriptionId = jsonArray[1].jsonPrimitive.content
                             EndOfStoredEvents(subscriptionId)
                         } else {
                             Unknown(jsonArray.toString())
@@ -151,11 +198,11 @@ sealed class NostrResponse {
                     }
                     
                     "OK" -> {
-                        if (jsonArray.size() >= 3) {
-                            val eventId = jsonArray[1].asString
-                            val accepted = jsonArray[2].asBoolean
-                            val message = if (jsonArray.size() >= 4) {
-                                jsonArray[3].asString
+                        if (jsonArray.size >= 3) {
+                            val eventId = jsonArray[1].jsonPrimitive.content
+                            val accepted = jsonArray[2].jsonPrimitive.boolean
+                            val message = if (jsonArray.size >= 4) {
+                                jsonArray[3].jsonPrimitive.content
                             } else null
                             Ok(eventId, accepted, message)
                         } else {
@@ -164,8 +211,8 @@ sealed class NostrResponse {
                     }
                     
                     "NOTICE" -> {
-                        if (jsonArray.size() >= 2) {
-                            val message = jsonArray[1].asString
+                        if (jsonArray.size >= 2) {
+                            val message = jsonArray[1].jsonPrimitive.content
                             Notice(message)
                         } else {
                             Unknown(jsonArray.toString())
@@ -176,35 +223,6 @@ sealed class NostrResponse {
                 }
             } catch (e: Exception) {
                 Unknown(jsonArray.toString())
-            }
-        }
-        
-        private fun parseEventFromJson(jsonObject: JsonObject): NostrEvent {
-            return NostrEvent(
-                id = jsonObject.get("id")?.asString ?: "",
-                pubkey = jsonObject.get("pubkey")?.asString ?: "",
-                createdAt = jsonObject.get("created_at")?.asInt ?: 0,
-                kind = jsonObject.get("kind")?.asInt ?: 0,
-                tags = parseTagsFromJson(jsonObject.get("tags")?.asJsonArray),
-                content = jsonObject.get("content")?.asString ?: "",
-                sig = jsonObject.get("sig")?.asString
-            )
-        }
-        
-        private fun parseTagsFromJson(tagsArray: JsonArray?): List<List<String>> {
-            if (tagsArray == null) return emptyList()
-            
-            return try {
-                tagsArray.map { tagElement ->
-                    if (tagElement.isJsonArray) {
-                        val tagArray = tagElement.asJsonArray
-                        tagArray.map { it.asString }
-                    } else {
-                        emptyList()
-                    }
-                }
-            } catch (e: Exception) {
-                emptyList()
             }
         }
     }

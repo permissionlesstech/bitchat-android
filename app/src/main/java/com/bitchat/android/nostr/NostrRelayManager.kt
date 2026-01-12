@@ -1,16 +1,14 @@
 package com.bitchat.android.nostr
 
 import android.util.Log
-import com.google.gson.Gson
+import com.bitchat.android.serialization.JsonConfig
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import com.google.gson.JsonArray
-import com.google.gson.JsonParser
 import kotlinx.coroutines.*
+import kotlinx.serialization.json.JsonArray
 import okhttp3.*
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.TimeUnit
 import kotlin.math.min
 import kotlin.math.pow
 
@@ -117,8 +115,6 @@ class NostrRelayManager private constructor() {
     // OkHttp client for WebSocket connections (via provider to honor Tor)
     private val httpClient: OkHttpClient
         get() = com.bitchat.android.net.OkHttpProvider.webSocketClient()
-    
-    private val gson by lazy { NostrRequest.createGson() }
     
     // Per-geohash relay selection
     private val geohashToRelays = ConcurrentHashMap<String, Set<String>>() // geohash -> relay URLs
@@ -332,7 +328,7 @@ class NostrRelayManager private constructor() {
      */
     private fun sendSubscriptionToRelays(subscriptionInfo: SubscriptionInfo) {
         val request = NostrRequest.Subscribe(subscriptionInfo.id, listOf(subscriptionInfo.filter))
-        val message = gson.toJson(request, NostrRequest::class.java)
+        val message = NostrRequest.toJson(request)
         
         // DEBUG: Log the actual serialized message format
         Log.v(TAG, "🔍 DEBUG: Serialized subscription message: $message")
@@ -384,7 +380,7 @@ class NostrRelayManager private constructor() {
         Log.d(TAG, "🚫 Unsubscribing from subscription: $id")
         
         val request = NostrRequest.Close(id)
-        val message = gson.toJson(request, NostrRequest::class.java)
+        val message = NostrRequest.toJson(request)
         
         scope.launch {
             connections.forEach { (relayUrl, webSocket) ->
@@ -632,7 +628,7 @@ class NostrRelayManager private constructor() {
     private fun sendToRelay(event: NostrEvent, webSocket: WebSocket, relayUrl: String) {
         try {
             val request = NostrRequest.Event(event)
-            val message = gson.toJson(request, NostrRequest::class.java)
+            val message = NostrRequest.toJson(request)
             
             Log.v(TAG, "📤 Sending Nostr event (kind: ${event.kind}) to relay: $relayUrl")
             
@@ -652,19 +648,20 @@ class NostrRelayManager private constructor() {
     
     private fun handleMessage(message: String, relayUrl: String) {
         try {
-            val jsonElement = JsonParser.parseString(message)
-            if (!jsonElement.isJsonArray) {
+            val jsonElement = JsonConfig.json.parseToJsonElement(message)
+            val jsonArray = jsonElement as? JsonArray
+            if (jsonArray == null) {
                 Log.w(TAG, "Received non-array message from $relayUrl")
                 return
             }
             
-            val response = NostrResponse.fromJsonArray(jsonElement.asJsonArray)
+            val response = NostrResponse.fromJsonArray(jsonArray)
             
             when (response) {
                 is NostrResponse.Event -> {
                     // Update relay stats
                     val relay = relaysList.find { it.url == relayUrl }
-                    relay?.messagesReceived = (relay?.messagesReceived ?: 0) + 1
+                    relay?.messagesReceived = relay.messagesReceived + 1
                     updateRelaysList()
                     
                     // CLIENT-SIDE FILTER ENFORCEMENT: Ensure this event matches the subscription's filter
@@ -829,7 +826,7 @@ class NostrRelayManager private constructor() {
         subscriptionsToRestore.forEach { subscriptionInfo ->
             try {
                 val request = NostrRequest.Subscribe(subscriptionInfo.id, listOf(subscriptionInfo.filter))
-                val message = gson.toJson(request, NostrRequest::class.java)
+                val message = NostrRequest.toJson(request)
                 
                 val success = webSocket.send(message)
                 if (success) {
