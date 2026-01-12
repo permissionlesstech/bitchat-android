@@ -9,18 +9,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -28,15 +24,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.nostr.NostrProofOfWork
 import com.bitchat.android.nostr.PoWPreferenceManager
 import androidx.compose.ui.res.stringResource
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.button.CloseButton
+import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 import com.bitchat.android.net.TorMode
 import com.bitchat.android.net.TorPreferenceManager
 import com.bitchat.android.net.ArtiTorManager
@@ -218,10 +213,6 @@ fun AboutSheet(
         }
     }
 
-    val sheetState = rememberModalBottomSheetState(
-        skipPartiallyExpanded = true
-    )
-
     val lazyListState = rememberLazyListState()
     val isScrolled by remember {
         derivedStateOf {
@@ -237,12 +228,9 @@ fun AboutSheet(
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
     
     if (isPresented) {
-        ModalBottomSheet(
-            modifier = modifier.statusBarsPadding(),
+        BitchatBottomSheet(
+            modifier = modifier,
             onDismissRequest = onDismiss,
-            sheetState = sheetState,
-            containerColor = colorScheme.background,
-            dragHandle = null
         ) {
             Box(modifier = Modifier.fillMaxWidth()) {
                 LazyColumn(
@@ -682,27 +670,6 @@ fun AboutSheet(
     }
 }
 
-@Composable
-fun CloseButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    IconButton(
-        onClick = onClick,
-        modifier = modifier
-            .size(32.dp),
-        colors = IconButtonDefaults.iconButtonColors(
-            contentColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
-            containerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f)
-        )
-    ) {
-        Icon(
-            imageVector = Icons.Default.Close,
-            contentDescription = "Close",
-            modifier = Modifier.size(18.dp)
-        )
-    }
-}
 /**
  * Password prompt dialog for password-protected channels
  * Kept as dialog since it requires user input

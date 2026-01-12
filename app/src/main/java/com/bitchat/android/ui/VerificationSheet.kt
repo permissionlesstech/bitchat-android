@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -38,9 +37,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -68,6 +65,8 @@ import androidx.core.graphics.set
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.R
+import com.bitchat.android.core.ui.component.button.CloseButton
+import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 import com.bitchat.android.services.VerificationService
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
@@ -93,7 +92,6 @@ fun VerificationSheet(
 ) {
     if (!isPresented) return
 
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val isDark = isSystemInDarkTheme()
     val accent = if (isDark) Color.Green else Color(0xFF008000)
     val boxColor = if (isDark) Color.White.copy(alpha = 0.06f) else Color.Black.copy(alpha = 0.06f)
@@ -109,12 +107,9 @@ fun VerificationSheet(
         viewModel.buildMyQRString(nickname, npub)
     }
 
-    ModalBottomSheet(
-        modifier = modifier.statusBarsPadding(),
+    BitchatBottomSheet(
+        modifier = modifier,
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.background,
-        dragHandle = null
     ) {
         Column(
             modifier = Modifier
