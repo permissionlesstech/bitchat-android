@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Geohash Presence feature provides a mechanism to track online participants in geohash-based location channels without relying on chat message activity. It uses a dedicated ephemeral Nostr event kind to broadcast "heartbeats," ensuring accurate and privacy-preserving online counts.
+The Geohash Presence feature provides a mechanism to track online participants in geohash-based location channels. It uses a dedicated ephemeral Nostr event kind to broadcast "heartbeats," ensuring accurate and privacy-preserving online counts.
 
 ## Nostr Protocol
 
@@ -36,17 +36,15 @@ The presence event mimics the structure of a geohash chat message (Kind 20000) b
 
 ### 1. Broadcasting Presence
 
-Clients MUST broadcast a Kind 20001 presence event in the following scenarios:
+Clients MUST broadcast a Kind 20001 presence event globally when the app is open, regardless of which screen the user is viewing.
 
-*   **Sampling Mode (Sheet Open):**
-    *   When the user opens the list of nearby/bookmarked location channels.
-    *   **Frequency:** Immediately upon opening, and repeated every **60 seconds** while the list remains open.
-    *   **Scope:** Sent to *all* geohashes currently being sampled (nearby + bookmarks).
-
-*   **Active Chat Mode (Channel Open):**
-    *   When the user enters a specific geohash chat channel.
-    *   **Frequency:** Immediately upon entry, and repeated every **60 seconds** while the user remains in the channel.
-    *   **Scope:** Sent to the *current* geohash only.
+*   **Global Heartbeat:**
+    *   **Trigger:** Application start / initialization.
+    *   **Frequency:** Repeated every **60 seconds**.
+    *   **Scope:** Sent to *all* geohash channels corresponding to the device's *current physical location*.
+    *   **Privacy Restriction:** Presence MUST ONLY be broadcast to low-precision geohash levels to protect user privacy. Specifically:
+        *   **Allowed:** `REGION` (precision 2), `PROVINCE` (precision 4), `CITY` (precision 5).
+        *   **Denied:** `NEIGHBORHOOD` (precision 6), `BLOCK` (precision 7), `BUILDING` (precision 8+).
 
 ### 2. Subscribing to Presence
 
@@ -58,12 +56,11 @@ Clients must update their Nostr filters to listen for both chat and presence eve
 
 ### 3. Participant Counting
 
-The "online participants" count shown in the UI must be derived **exclusively** from Kind 20001 events.
+The "online participants" count shown in the UI aggregates unique public keys from both presence heartbeats and active chat messages.
 
 *   **Logic:**
     *   Maintain a map of `pubkey -> last_seen_timestamp` for each geohash.
-    *   Update `last_seen_timestamp` *only* upon receiving a valid Kind 20001 event.
-    *   Kind 20000 (Chat) events should **not** update the "online" timestamp for counting purposes (though they may update nickname caches).
+    *   Update `last_seen_timestamp` upon receiving a valid **Kind 20001 (Presence)** OR **Kind 20000 (Chat)** event.
     *   A participant is considered "online" if their `last_seen_timestamp` is within the last **5 minutes**.
 
 ### 4. Implementation Details (Android)
@@ -71,15 +68,14 @@ The "online participants" count shown in the UI must be derived **exclusively** 
 *   **`NostrKind.GEOHASH_PRESENCE`**: Added constant `20001`.
 *   **`NostrProtocol.createGeohashPresenceEvent`**: Helper to generate the event.
 *   **`GeohashViewModel`**:
-    *   Manages `samplingPresenceJob` for the location sheet.
-    *   Manages `activePresenceJob` for the active chat channel.
-    *   Both jobs run a `while(true)` loop with `delay(60000)`.
+    *   `startGlobalPresenceHeartbeat()`: Coroutine running every 60s.
+    *   Observes `LocationChannelManager.availableChannels`.
+    *   Filters channels by `precision <= 5` before broadcasting.
 *   **`GeohashMessageHandler`**:
-    *   Refactored to handle `GEOHASH_PRESENCE`.
-    *   Updates `GeohashRepository` participant timestamps only on Kind 20001.
+    *   Refactored `onEvent` to update participant counts for both Kind 20000 and 20001.
 
 ## Benefits
 
-*   **Accuracy:** Counts reflect active listeners, not just speakers.
-*   **Efficiency:** Small payload size (empty content).
-*   **Privacy:** No nickname broadcast in heartbeats (nicknames only revealed when speaking).
+*   **Accuracy:** Counts reflect both active listeners (via heartbeats) and active speakers (via messages).
+*   **Privacy:** High-precision location presence (street/block level) is NOT broadcast automatically.
+*   **Consistency:** "Online" status is maintained globally while the app is open, not just when viewing a specific screen.

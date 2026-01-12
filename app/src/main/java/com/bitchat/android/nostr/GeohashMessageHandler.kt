@@ -65,8 +65,8 @@ class GeohashMessageHandler(
                 // Update repository (participants, nickname, teleport)
                 // Update repository on a background-safe path; repository will post updates to LiveData
                 
-                // ONLY update participant count (last seen) on PRESENCE events (kind 20001)
-                if (event.kind == NostrKind.GEOHASH_PRESENCE) {
+                // Update participant count (last seen) on BOTH Presence (20001) and Chat (20000) events
+                if (event.kind == NostrKind.GEOHASH_PRESENCE || event.kind == NostrKind.EPHEMERAL_EVENT) {
                     repo.updateParticipant(subscribedGeohash, event.pubkey, Date(event.createdAt * 1000L))
                 }
                 
