@@ -76,11 +76,7 @@ class ChatState(
     
     private val _passwordPromptChannel = MutableStateFlow<String?>(null)
     val passwordPromptChannel: StateFlow<String?> = _passwordPromptChannel.asStateFlow()
-    
-    // Sidebar state
-    private val _showSidebar = MutableStateFlow(false)
-    val showSidebar: StateFlow<Boolean> = _showSidebar.asStateFlow()
-    
+
     // Command autocomplete
     private val _showCommandSuggestions = MutableStateFlow(false)
     val showCommandSuggestions: StateFlow<Boolean> = _showCommandSuggestions.asStateFlow()
@@ -123,6 +119,9 @@ class ChatState(
     private val _showAppInfo = MutableStateFlow<Boolean>(false)
     val showAppInfo: StateFlow<Boolean> = _showAppInfo.asStateFlow()
 
+    private val _showMeshPeerList = MutableStateFlow(false)
+    val showMeshPeerList: StateFlow<Boolean> = _showMeshPeerList.asStateFlow()
+
     private val _showVerificationSheet = MutableStateFlow(false)
     val showVerificationSheet: StateFlow<Boolean> = _showVerificationSheet.asStateFlow()
 
@@ -155,7 +154,7 @@ class ChatState(
             started = WhileSubscribed(5_000),
             initialValue = false
         )
-    
+
     val hasUnreadPrivateMessages: StateFlow<Boolean> = _unreadPrivateMessages
         .map { unreadSet -> unreadSet.isNotEmpty() }
         .stateIn(
@@ -178,7 +177,6 @@ class ChatState(
     fun getPasswordProtectedChannelsValue() = _passwordProtectedChannels.value
     fun getShowPasswordPromptValue() = _showPasswordPrompt.value
     fun getPasswordPromptChannelValue() = _passwordPromptChannel.value
-    fun getShowSidebarValue() = _showSidebar.value
     fun getShowCommandSuggestionsValue() = _showCommandSuggestions.value
     fun getCommandSuggestionsValue() = _commandSuggestions.value
     fun getShowMentionSuggestionsValue() = _showMentionSuggestions.value
@@ -188,6 +186,9 @@ class ChatState(
     fun getPeerFingerprintsValue() = _peerFingerprints.value
     fun getShowAppInfoValue() = _showAppInfo.value
     fun getGeohashPeopleValue() = _geohashPeople.value
+
+    fun getShowMeshPeerListValue() = _showMeshPeerList.value
+
     fun getTeleportedGeoValue() = _teleportedGeo.value
     fun getGeohashParticipantCountsValue() = _geohashParticipantCounts.value
     
@@ -251,11 +252,7 @@ class ChatState(
     fun setPasswordPromptChannel(channel: String?) {
         _passwordPromptChannel.value = channel
     }
-    
-    fun setShowSidebar(show: Boolean) {
-        _showSidebar.value = show
-    }
-    
+
     fun setShowCommandSuggestions(show: Boolean) {
         _showCommandSuggestions.value = show
     }
@@ -337,4 +334,7 @@ class ChatState(
         _geohashParticipantCounts.value = counts
     }
 
+    fun setShowMeshPeerList(show: Boolean) {
+        _showMeshPeerList.value = show
+    }
 }

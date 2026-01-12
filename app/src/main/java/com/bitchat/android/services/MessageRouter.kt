@@ -11,7 +11,7 @@ import com.bitchat.android.nostr.NostrTransport
  */
 class MessageRouter private constructor(
     private val context: Context,
-    private val mesh: BluetoothMeshService,
+    private var mesh: BluetoothMeshService,
     private val nostr: NostrTransport
 ) {
     companion object {
@@ -19,22 +19,22 @@ class MessageRouter private constructor(
         @Volatile private var INSTANCE: MessageRouter? = null
         fun tryGetInstance(): MessageRouter? = INSTANCE
         fun getInstance(context: Context, mesh: BluetoothMeshService): MessageRouter {
-            return INSTANCE ?: synchronized(this) {
-                val nostr = NostrTransport.getInstance(context)
-                INSTANCE?.also {
-                    // Update mesh reference if needed and keep senderPeerID in sync
-                    it.nostr.senderPeerID = mesh.myPeerID
-                    return it
-                }
-                MessageRouter(context.applicationContext, mesh, nostr).also { instance ->
-                    instance.nostr.senderPeerID = mesh.myPeerID
-                    // Register for favorites changes to flush outbox
-                    try {
-                        com.bitchat.android.favorites.FavoritesPersistenceService.shared.addListener(instance.favoriteListener)
-                    } catch (_: Exception) {}
-                    INSTANCE = instance
+            val instance = INSTANCE ?: synchronized(this) {
+                INSTANCE ?: run {
+                    val nostr = NostrTransport.getInstance(context)
+                    MessageRouter(context.applicationContext, mesh, nostr).also { instance ->
+                        // Register for favorites changes to flush outbox
+                        try {
+                            com.bitchat.android.favorites.FavoritesPersistenceService.shared.addListener(instance.favoriteListener)
+                        } catch (_: Exception) {}
+                        INSTANCE = instance
+                    }
                 }
             }
+            // Always update mesh reference and sync peer ID
+            instance.mesh = mesh
+            instance.nostr.senderPeerID = mesh.myPeerID
+            return instance
         }
     }
 
