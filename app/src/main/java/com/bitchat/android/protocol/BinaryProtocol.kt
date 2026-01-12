@@ -275,7 +275,7 @@ object BinaryProtocol {
             }
 
             // Route (optional, v2+ only): 1 byte count + N*8 bytes
-            if (packet.version >= 2u.toUByte()) {
+            if (packet.version >= 2u.toUByte() && !packet.route.isNullOrEmpty()) {
                 packet.route?.let { routeList ->
                     val cleaned = routeList.map { bytes -> bytes.take(SENDER_ID_SIZE).toByteArray().let { if (it.size < SENDER_ID_SIZE) it + ByteArray(SENDER_ID_SIZE - it.size) else it } }
                     val count = cleaned.size.coerceAtMost(255)
@@ -402,13 +402,17 @@ object BinaryProtocol {
             // Route (optional)
             val route: List<ByteArray>? = if (hasRoute) {
                 val count = buffer.get().toUByte().toInt()
-                val hops = mutableListOf<ByteArray>()
-                repeat(count) {
-                    val hop = ByteArray(SENDER_ID_SIZE)
-                    buffer.get(hop)
-                    hops.add(hop)
+                if (count == 0) {
+                    null // Treat empty route list as null to enforce canonical representation
+                } else {
+                    val hops = mutableListOf<ByteArray>()
+                    repeat(count) {
+                        val hop = ByteArray(SENDER_ID_SIZE)
+                        buffer.get(hop)
+                        hops.add(hop)
+                    }
+                    hops
                 }
-                hops
             } else null
 
             // Payload
