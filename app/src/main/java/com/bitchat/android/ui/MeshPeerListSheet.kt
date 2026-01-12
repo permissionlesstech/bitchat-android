@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bitchat.android.core.ui.component.button.CloseButton
+import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 
@@ -77,12 +79,10 @@ fun MeshPeerListSheet(
     )
 
     if (isPresented) {
-        ModalBottomSheet(
-            modifier = modifier.statusBarsPadding(),
+        BitchatBottomSheet(
+            modifier = modifier,
             onDismissRequest = onDismiss,
             sheetState = sheetState,
-            containerColor = MaterialTheme.colorScheme.background,
-            dragHandle = null
         ) {
             Box(modifier = Modifier.fillMaxWidth()) {
                 LazyColumn(
@@ -851,12 +851,9 @@ private fun PrivateChatSheet(
     )
 
     if (isPresented) {
-        ModalBottomSheet(
-            modifier = Modifier.statusBarsPadding(),
+        BitchatBottomSheet(
             onDismissRequest = onDismiss,
             sheetState = sheetState,
-            containerColor = colorScheme.background,
-            dragHandle = null
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 Column(
