@@ -39,7 +39,8 @@ object RoutePlanner {
         pq.add(src to 0)
 
         while (pq.isNotEmpty()) {
-            val (u, d) = pq.poll()
+            val top = pq.poll() ?: break
+            val (u, d) = top
             if (d > (dist[u] ?: Int.MAX_VALUE)) continue
             if (u == dst) break
             neighbors[u]?.forEach { v ->

@@ -131,7 +131,7 @@ fun MeshTopologySection() {
                 }
                 // Label list for clarity under the canvas
                 LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 140.dp)) {
-                    items(nodes) { node ->
+                    items(items = nodes) { node ->
                         val label = "${node.peerID.take(8)} • ${node.nickname ?: "unknown"}"
                         Text(label, fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.85f))
                     }
