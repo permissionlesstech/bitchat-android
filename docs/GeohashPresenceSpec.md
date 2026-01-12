@@ -64,7 +64,18 @@ The "online participants" count shown in the UI aggregates unique public keys fr
     *   Update `last_seen_timestamp` upon receiving a valid **Kind 20001 (Presence)** OR **Kind 20000 (Chat)** event.
     *   A participant is considered "online" if their `last_seen_timestamp` is within the last **5 minutes**.
 
-### 4. Implementation Details (Android)
+### 4. UI Presentation
+
+The presentation of the participant count depends on the geohash precision level and data availability.
+
+*   **Standard Display:** For channels where presence is broadcast (Region, Province, City) OR any channel where at least one participant has been detected, show the exact count: `[N people]`.
+*   **High-Precision Uncertainty:** For high-precision channels (Neighborhood, Block, Building) where:
+    *   Presence broadcasting is disabled (privacy restriction).
+    *   **AND** the detected participant count is `0`.
+    *   **Display:** `[? people]`
+    *   **Reasoning:** Since clients don't announce themselves in these channels, a count of "0" is misleading (people could be lurking).
+
+### 5. Implementation Details (Android Reference)
 
 *   **`NostrKind.GEOHASH_PRESENCE`**: Added constant `20001`.
 *   **`NostrProtocol.createGeohashPresenceEvent`**: Helper to generate the event.
@@ -74,9 +85,12 @@ The "online participants" count shown in the UI aggregates unique public keys fr
     *   Filters channels by `precision <= 5` before broadcasting.
 *   **`GeohashMessageHandler`**:
     *   Refactored `onEvent` to update participant counts for both Kind 20000 and 20001.
+*   **`LocationChannelsSheet`**:
+    *   Implements the `[? people]` display logic for high-precision, zero-count channels.
 
 ## Benefits
 
 *   **Accuracy:** Counts reflect both active listeners (via heartbeats) and active speakers (via messages).
 *   **Privacy:** High-precision location presence is NOT broadcast. Temporal correlation between different levels is obfuscated via random delays.
 *   **Consistency:** "Online" status is maintained globally while the app is open.
+*   **Transparency:** The UI correctly reflects uncertainty (`?`) when privacy rules prevent accurate passive counting.
