@@ -49,14 +49,27 @@ class BluetoothGattServerManager(
     fun enforceServerLimit(maxServer: Int) {
         if (maxServer <= 0) return
         try {
-            val subs = connectionTracker.getSubscribedDevices()
-            if (subs.size > maxServer) {
-                val excess = subs.size - maxServer
-                subs.take(excess).forEach { d ->
-                    try { gattServer?.cancelConnection(d) } catch (_: Exception) { }
+            // Use connection tracker to get actual connected server devices
+            val servers = connectionTracker.getConnectedDevices().values.filter { !it.isClient }
+            if (servers.size > maxServer) {
+                val excess = servers.size - maxServer
+                // Disconnect oldest
+                servers.sortedBy { it.connectedAt }.take(excess).forEach { d ->
+                    try { gattServer?.cancelConnection(d.device) } catch (_: Exception) { }
                 }
             }
         } catch (_: Exception) { }
+    }
+
+    /**
+     * Disconnect a specific device (used by ConnectionManager to enforce overall limits)
+     */
+    fun disconnectDevice(device: BluetoothDevice) {
+        try {
+            gattServer?.cancelConnection(device)
+        } catch (e: Exception) {
+            Log.w(TAG, "Error disconnecting device ${device.address}: ${e.message}")
+        }
     }
     
     /**
@@ -122,9 +135,10 @@ class BluetoothGattServerManager(
             
             // Try to cancel any active connections explicitly before closing
             try {
-                val devices = connectionTracker.getSubscribedDevices()
-                devices.forEach { d ->
-                    try { gattServer?.cancelConnection(d) } catch (_: Exception) { }
+                // Disconnect ALL server connections
+                val servers = connectionTracker.getConnectedDevices().values.filter { !it.isClient }
+                servers.forEach { d ->
+                    try { gattServer?.cancelConnection(d.device) } catch (_: Exception) { }
                 }
             } catch (_: Exception) { }
             
