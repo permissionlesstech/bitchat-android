@@ -1,3 +1,7 @@
+## Unreleased
+
+- feat(dm): add backward-compatible 2-byte TLV for Direct Messages with capability signaling to enable Cashu token DMs. Receive supports both 1B/2B; send uses 2B when peer advertises support. Enables integration with [bitpoints.me](https://github.com/bitpoints-cashu/bitpoints.me) for offline peer-to-peer Bitcoin payments.
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
