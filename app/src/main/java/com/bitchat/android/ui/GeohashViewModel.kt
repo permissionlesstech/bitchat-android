@@ -17,6 +17,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.util.Date
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.Dispatchers
 
 class GeohashViewModel(
     application: Application,
@@ -99,24 +102,26 @@ class GeohashViewModel(
     private fun startGlobalPresenceHeartbeat() {
         globalPresenceJob?.cancel()
         globalPresenceJob = viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            while (true) {
-                try {
-                    // Get current available channels from manager
-                    val channels = locationChannelManager?.availableChannels?.value ?: emptyList()
-                    
-                    // Filter for REGION (2), PROVINCE (4), CITY (5) - precision <= 5
-                    val targetGeohashes = channels.filter { it.level.precision <= 5 }.map { it.geohash }
-                    
-                    if (targetGeohashes.isNotEmpty()) {
-                        Log.v(TAG, "💓 Broadcasting global presence to ${targetGeohashes.size} channels: $targetGeohashes")
-                        targetGeohashes.forEach { geohash ->
-                            broadcastPresence(geohash)
+            // Reactively restart heartbeat whenever available channels change
+            locationChannelManager?.availableChannels?.collectLatest { channels ->
+                // Filter for REGION (2), PROVINCE (4), CITY (5) - precision <= 5
+                val targetGeohashes = channels.filter { it.level.precision <= 5 }.map { it.geohash }
+
+                if (targetGeohashes.isNotEmpty()) {
+                    // Enter heartbeat loop for this set of channels
+                    // If channels change (e.g. user moves), collectLatest cancels this loop and starts a new one immediately
+                    while (true) {
+                        try {
+                            Log.v(TAG, "💓 Broadcasting global presence to ${targetGeohashes.size} channels: $targetGeohashes")
+                            targetGeohashes.forEach { geohash ->
+                                broadcastPresence(geohash)
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Global presence heartbeat error: ${e.message}")
                         }
+                        delay(60000L) // 60 seconds
                     }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Global presence heartbeat error: ${e.message}")
                 }
-                delay(60000L) // 60 seconds
             }
         }
     }
