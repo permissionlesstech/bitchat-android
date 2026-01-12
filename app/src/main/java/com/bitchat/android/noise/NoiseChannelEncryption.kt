@@ -1,6 +1,8 @@
 package com.bitchat.android.noise
 
 import android.util.Log
+import com.bitchat.android.serialization.JsonConfig
+import kotlinx.serialization.Serializable
 import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import javax.crypto.Cipher
@@ -202,15 +204,12 @@ class NoiseChannelEncryption {
      */
     fun createChannelKeyPacket(password: String, channel: String): ByteArray? {
         return try {
-            // Create key packet with channel and password
-            val packet = mapOf(
-                "channel" to channel,
-                "password" to password,
-                "timestamp" to System.currentTimeMillis()
+            val packet = ChannelKeyPacket(
+                channel = channel,
+                password = password,
+                timestamp = System.currentTimeMillis()
             )
-            
-            // Simple JSON encoding for now (could be replaced with more efficient format)
-            val json = com.google.gson.Gson().toJson(packet)
+            val json = JsonConfig.json.encodeToString(packet)
             json.toByteArray(Charsets.UTF_8)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to create channel key packet: ${e.message}")
@@ -225,22 +224,20 @@ class NoiseChannelEncryption {
     fun processChannelKeyPacket(data: ByteArray): Pair<String, String>? {
         return try {
             val json = String(data, Charsets.UTF_8)
-            val packet = com.google.gson.Gson().fromJson(json, Map::class.java) as Map<String, Any>
-            
-            val channel = packet["channel"] as? String
-            val password = packet["password"] as? String
-            
-            if (channel != null && password != null) {
-                Pair(channel, password)
-            } else {
-                Log.w(TAG, "Invalid channel key packet format")
-                null
-            }
+            val packet = JsonConfig.json.decodeFromString<ChannelKeyPacket>(json)
+            Pair(packet.channel, packet.password)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to process channel key packet: ${e.message}")
             null
         }
     }
+
+    @Serializable
+    private data class ChannelKeyPacket(
+        val channel: String,
+        val password: String,
+        val timestamp: Long
+    )
     
     // MARK: - Debug and Management
     

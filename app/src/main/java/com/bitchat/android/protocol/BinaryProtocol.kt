@@ -1,14 +1,14 @@
 package com.bitchat.android.protocol
 
-import android.os.Parcelable
-import kotlinx.parcelize.Parcelize
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import android.util.Log
+import kotlinx.serialization.Serializable
 
 /**
  * Message types - exact same as iOS version with Noise Protocol support
  */
+@Serializable
 enum class MessageType(val value: UByte) {
     ANNOUNCE(0x01u),
     MESSAGE(0x02u),  // All user messages (private and broadcast)
@@ -50,7 +50,7 @@ object SpecialRecipients {
  * - Payload: Variable length (includes original size if compressed)
  * - Signature: 64 bytes (if hasSignature flag set)
  */
-@Parcelize
+@Serializable
 data class BitchatPacket(
     val version: UByte = 1u,
     val type: UByte,
@@ -60,7 +60,7 @@ data class BitchatPacket(
     val payload: ByteArray,
     var signature: ByteArray? = null,  // Changed from val to var for packet signing
     var ttl: UByte
-) : Parcelable {
+) {
 
     constructor(
         type: UByte,

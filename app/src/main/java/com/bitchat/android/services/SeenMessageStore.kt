@@ -3,7 +3,8 @@ package com.bitchat.android.services
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.identity.SecureIdentityStateManager
-import com.google.gson.Gson
+import com.bitchat.android.serialization.JsonConfig
+import kotlinx.serialization.Serializable
 
 /**
  * Persistent store for message IDs we've already acknowledged (DELIVERED) or READ.
@@ -23,7 +24,6 @@ class SeenMessageStore private constructor(private val context: Context) {
         }
     }
 
-    private val gson = Gson()
     private val secure = SecureIdentityStateManager(context)
 
     private val delivered = LinkedHashSet<String>(MAX_IDS)
@@ -61,7 +61,7 @@ class SeenMessageStore private constructor(private val context: Context) {
     @Synchronized private fun load() {
         try {
             val json = secure.getSecureValue(STORAGE_KEY) ?: return
-            val data = gson.fromJson(json, StorePayload::class.java) ?: return
+            val data = JsonConfig.json.decodeFromString<StorePayload>(json)
             delivered.clear(); read.clear()
             data.delivered.takeLast(MAX_IDS).forEach { delivered.add(it) }
             data.read.takeLast(MAX_IDS).forEach { read.add(it) }
@@ -74,13 +74,14 @@ class SeenMessageStore private constructor(private val context: Context) {
     @Synchronized private fun persist() {
         try {
             val payload = StorePayload(delivered.toList(), read.toList())
-            val json = gson.toJson(payload)
+            val json = JsonConfig.json.encodeToString(payload)
             secure.storeSecureValue(STORAGE_KEY, json)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to persist SeenMessageStore: ${e.message}")
         }
     }
 
+    @Serializable
     private data class StorePayload(
         val delivered: List<String> = emptyList(),
         val read: List<String> = emptyList()

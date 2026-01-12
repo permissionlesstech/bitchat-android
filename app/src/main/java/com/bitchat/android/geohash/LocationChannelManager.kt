@@ -10,10 +10,10 @@ import android.location.LocationManager
 import android.os.Bundle
 import android.util.Log
 import androidx.core.app.ActivityCompat
+import com.bitchat.android.serialization.JsonConfig
 import kotlinx.coroutines.*
+import kotlinx.serialization.Serializable
 import java.util.*
-import com.google.gson.Gson
-import com.google.gson.JsonSyntaxException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -49,7 +49,6 @@ class LocationChannelManager private constructor(private val context: Context) {
     private var lastLocation: Location? = null
     private var refreshTimer: Job? = null
     private var isGeocoding: Boolean = false
-    private val gson = Gson()
     private var dataManager: com.bitchat.android.ui.DataManager? = null
 
     // Published state for UI bindings (matching iOS @Published properties)
@@ -592,6 +591,15 @@ class LocationChannelManager private constructor(private val context: Context) {
     }
 
     // MARK: - Channel Persistence
+
+    @Serializable
+    private data class PersistedChannel(
+        val type: String,
+        val level: String? = null,
+        val precision: Int? = null,
+        val geohash: String? = null,
+        val displayName: String? = null
+    )
     
     /**
      * Save current channel selection to persistent storage
@@ -600,16 +608,18 @@ class LocationChannelManager private constructor(private val context: Context) {
         try {
             val channelData = when (channel) {
                 is ChannelID.Mesh -> {
-                    gson.toJson(mapOf("type" to "mesh"))
+                    JsonConfig.json.encodeToString(PersistedChannel(type = "mesh"))
                 }
                 is ChannelID.Location -> {
-                    gson.toJson(mapOf(
-                        "type" to "location",
-                        "level" to channel.channel.level.name,
-                        "precision" to channel.channel.level.precision,
-                        "geohash" to channel.channel.geohash,
-                        "displayName" to channel.channel.level.displayName
-                    ))
+                    JsonConfig.json.encodeToString(
+                        PersistedChannel(
+                            type = "location",
+                            level = channel.channel.level.name,
+                            precision = channel.channel.level.precision,
+                            geohash = channel.channel.geohash,
+                            displayName = channel.channel.level.displayName
+                        )
+                    )
                 }
             }
             dataManager?.saveLastGeohashChannel(channelData)
@@ -626,54 +636,46 @@ class LocationChannelManager private constructor(private val context: Context) {
         try {
             val channelData = dataManager?.loadLastGeohashChannel()
             if (channelData != null) {
-                val channelMap = gson.fromJson(channelData, Map::class.java) as? Map<String, Any>
-                if (channelMap != null) {
-                    val channel = when (channelMap["type"] as? String) {
-                        "mesh" -> ChannelID.Mesh
-                        "location" -> {
-                            val levelName = channelMap["level"] as? String
-                            val precision = (channelMap["precision"] as? Double)?.toInt()
-                            val geohash = channelMap["geohash"] as? String
-                            val displayName = channelMap["displayName"] as? String
-                            
-                            if (levelName != null && precision != null && geohash != null && displayName != null) {
-                                try {
-                                    val level = GeohashChannelLevel.valueOf(levelName)
-                                    val geohashChannel = GeohashChannel(level, geohash)
-                                    ChannelID.Location(geohashChannel)
-                                } catch (e: IllegalArgumentException) {
-                                    Log.w(TAG, "Invalid geohash level in persisted data: $levelName")
-                                    null
-                                }
-                            } else {
-                                Log.w(TAG, "Incomplete location channel data in persistence")
+                val persisted = JsonConfig.json.decodeFromString<PersistedChannel>(channelData)
+                val channel = when (persisted.type) {
+                    "mesh" -> ChannelID.Mesh
+                    "location" -> {
+                        val levelName = persisted.level
+                        val precision = persisted.precision
+                        val geohash = persisted.geohash
+                        val displayName = persisted.displayName
+
+                        if (levelName != null && precision != null && geohash != null && displayName != null) {
+                            try {
+                                val level = GeohashChannelLevel.valueOf(levelName)
+                                val geohashChannel = GeohashChannel(level, geohash)
+                                ChannelID.Location(geohashChannel)
+                            } catch (e: IllegalArgumentException) {
+                                Log.w(TAG, "Invalid geohash level in persisted data: $levelName")
                                 null
                             }
-                        }
-                        else -> {
-                            Log.w(TAG, "Unknown channel type in persisted data: ${channelMap["type"]}")
+                        } else {
+                            Log.w(TAG, "Incomplete location channel data in persistence")
                             null
                         }
                     }
-                    
-                    if (channel != null) {
-                        _selectedChannel.value = channel
-                        Log.d(TAG, "Restored persisted channel: ${channel.displayName}")
-                    } else {
-                        Log.d(TAG, "Could not restore persisted channel, defaulting to Mesh")
-                        _selectedChannel.value = ChannelID.Mesh
+                    else -> {
+                        Log.w(TAG, "Unknown channel type in persisted data: ${persisted.type}")
+                        null
                     }
+                }
+                    
+                if (channel != null) {
+                    _selectedChannel.value = channel
+                    Log.d(TAG, "Restored persisted channel: ${channel.displayName}")
                 } else {
-                    Log.w(TAG, "Invalid channel data format in persistence")
+                    Log.d(TAG, "Could not restore persisted channel, defaulting to Mesh")
                     _selectedChannel.value = ChannelID.Mesh
                 }
             } else {
                 Log.d(TAG, "No persisted channel found, defaulting to Mesh")
                 _selectedChannel.value = ChannelID.Mesh
             }
-        } catch (e: JsonSyntaxException) {
-            Log.e(TAG, "Failed to parse persisted channel data: ${e.message}")
-            _selectedChannel.value = ChannelID.Mesh
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load persisted channel: ${e.message}")
             _selectedChannel.value = ChannelID.Mesh
