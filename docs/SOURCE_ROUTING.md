@@ -81,14 +81,18 @@ Topology: `Alice (Sender) -> Bob -> Charlie -> Dave (Recipient)`
 
 To calculate routes, nodes need a view of the network topology. This is achieved via a **Neighbor List** extension to the `IdentityAnnouncement` packet.
 
-*   **Mechanism:** `IdentityAnnouncement` packets contain a TLV (Type-Length-Value) payload.
+The `ANNOUNCE` packet payload now consists of a sequence of TLVs. The standard identity information is followed by an optional Gossip TLV.
+
+*   **Mechanism:** Appended to the `IdentityAnnouncement` payload.
 *   **New TLV Type:** `0x04` (Direct Neighbors).
 *   **Content:** A list of Peer IDs that the announcing node is directly connected to.
 
 **TLV Structure (Type 0x04):**
 ```text
-[Type: 0x04] [Length: 1B] [Count: 1B] [NeighborID1 (8B)] [NeighborID2 (8B)] ...
+[Type: 0x04] [Length: 1B] [NeighborID1 (8B)] [NeighborID2 (8B)] ...
 ```
+The `Length` field indicates the total size of the neighbor IDs in bytes (N * 8). There is no explicit count field.
+
 Nodes receiving this TLV update their local mesh graph, linking the sender to the listed neighbors.
 
 ### Edge Verification (Two-Way Handshake)
