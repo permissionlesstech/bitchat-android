@@ -48,10 +48,12 @@ android {
 
     // APK splits for GitHub releases - creates arm64, x86_64, and universal APKs
     // AAB for Play Store handles architecture distribution automatically
-    // Enable splits via: ./gradlew assembleRelease -PbuildSplitApks=true
-    // Splits are disabled by default to allow AAB builds (bundleRelease)
-    val enableSplits = project.hasProperty("buildSplitApks") &&
-                       project.property("buildSplitApks") == "true"
+    // Auto-detects: splits enabled for assemble tasks, disabled for bundle tasks
+    // Works in Android Studio GUI and CLI without needing extra properties
+    val enableSplits = gradle.startParameter.taskNames.any { taskName ->
+        taskName.contains("assemble", ignoreCase = true) &&
+        !taskName.contains("bundle", ignoreCase = true)
+    }
 
     splits {
         abi {

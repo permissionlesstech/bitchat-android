@@ -39,7 +39,7 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Build Release APKs (with architecture splits)
-        run: ./gradlew assembleRelease -PbuildSplitApks=true --no-daemon --stacktrace
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: List APK files
         run: |
