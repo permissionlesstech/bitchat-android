@@ -1,0 +1,18 @@
+diff --git a/crates/tor-memquota/src/config.rs b/crates/tor-memquota/src/config.rs
+index ee0ef3b6..7445c7a3 100644
+--- a/crates/tor-memquota/src/config.rs
++++ b/crates/tor-memquota/src/config.rs
+@@ -230,7 +230,12 @@ fn compute_max_from_total_system_mem(mem: Result<usize, MemQueryError>) -> Qty {
+         }
+     };
+ 
+-    let mem = if mem >= 8 * GIB {
++    #[cfg(target_pointer_width = "64")]
++    let is_large_memory = mem >= 8 * GIB;
++    #[cfg(not(target_pointer_width = "64"))]
++    let is_large_memory = false;
++
++    let mem = if is_large_memory {
+         // From c-tor:
+         //
+         // > The idea behind this value is that the amount of RAM is more than enough
