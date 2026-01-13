@@ -7,6 +7,8 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import java.util.Date
 import java.util.concurrent.ConcurrentLinkedQueue
+import com.bitchat.android.protocol.BitchatPacket
+import com.bitchat.android.util.toHexString
 
 /**
  * Debug settings manager for controlling debug features and collecting debug data
@@ -485,20 +487,32 @@ class DebugSettingsManager private constructor() {
         }
     }
 
+    // Peer nickname resolver
+    private var nicknameResolver: ((String) -> String?)? = null
+    fun setNicknameResolver(resolver: (String) -> String?) { nicknameResolver = resolver }
+    
     // Explicit incoming/outgoing logging to avoid double counting
-    fun logIncoming(packetType: String, fromPeerID: String?, fromNickname: String?, fromDeviceAddress: String?, packetVersion: UByte = 1u, routeInfo: String? = null, route: List<String>? = null) {
+    fun logIncoming(packet: BitchatPacket, fromPeerID: String, fromNickname: String?, fromDeviceAddress: String?, myPeerID: String) {
+        val packetType = packet.type.toString()
+        val packetVersion = packet.version
+        val route = packet.route
+        val routeInfo = if (!route.isNullOrEmpty()) "routed: ${route.size} hops" else null
+
         if (verboseLoggingEnabled.value) {
-            val who = fromNickname ?: fromPeerID ?: "unknown"
+            val resolvedNick = fromNickname ?: nicknameResolver?.invoke(fromPeerID) ?: "unknown"
+            val who = if (resolvedNick != "unknown") "$resolvedNick ($fromPeerID)" else fromPeerID
             val routeStr = if (routeInfo != null) " $routeInfo" else ""
-            addDebugMessage(DebugMessage.PacketEvent("📥 Incoming v$packetVersion $packetType from $who (${fromPeerID ?: "?"}, ${fromDeviceAddress ?: "?"})$routeStr"))
+            addDebugMessage(DebugMessage.PacketEvent("📥 Incoming v$packetVersion $packetType from $who (${fromDeviceAddress ?: "?"})$routeStr"))
         }
 
-        // Emit visual events
-        if (fromPeerID != null) {
-            emitVisualEvent(MeshVisualEvent.PacketActivity(fromPeerID))
-        }
+        emitVisualEvent(MeshVisualEvent.PacketActivity(fromPeerID))
+        
         if (!route.isNullOrEmpty()) {
-            emitVisualEvent(MeshVisualEvent.RouteActivity(route))
+            val fullRoute = mutableListOf<String>()
+            fullRoute.add(packet.senderID.toHexString())
+            route.forEach { fullRoute.add(it.toHexString()) }
+            packet.recipientID?.let { fullRoute.add(it.toHexString()) }
+            emitVisualEvent(MeshVisualEvent.RouteActivity(fullRoute))
         }
 
         val now = System.currentTimeMillis()
@@ -509,11 +523,11 @@ class DebugSettingsManager private constructor() {
             deviceIncomingTotalsMap[it] = (deviceIncomingTotalsMap[it] ?: 0L) + 1L
             _perDeviceIncomingTotalsFlow.value = deviceIncomingTotalsMap.toMap()
         }
-        fromPeerID?.let {
-            perPeerIncoming.getOrPut(it) { ConcurrentLinkedQueue() }.offer(now)
-            peerIncomingTotalsMap[it] = (peerIncomingTotalsMap[it] ?: 0L) + 1L
-            _perPeerIncomingTotalsFlow.value = peerIncomingTotalsMap.toMap()
-        }
+        
+        perPeerIncoming.getOrPut(fromPeerID) { ConcurrentLinkedQueue() }.offer(now)
+        peerIncomingTotalsMap[fromPeerID] = (peerIncomingTotalsMap[fromPeerID] ?: 0L) + 1L
+        _perPeerIncomingTotalsFlow.value = peerIncomingTotalsMap.toMap()
+        
         // bump totals
         val cur = _relayStats.value
         _relayStats.value = cur.copy(
