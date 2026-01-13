@@ -879,6 +879,10 @@ class ChatViewModel(
     override fun isFavorite(peerID: String): Boolean {
         return meshDelegateHandler.isFavorite(peerID)
     }
+
+    override fun onSessionEstablished(peerID: String) {
+        meshDelegateHandler.onSessionEstablished(peerID)
+    }
     
     // registerPeerPublicKey REMOVED - fingerprints now handled centrally in PeerManager
     

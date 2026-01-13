@@ -188,6 +188,12 @@ class BluetoothMeshService(private val context: Context) {
         // SecurityManager delegate for key exchange notifications
         securityManager.delegate = object : SecurityManagerDelegate {
             override fun onKeyExchangeCompleted(peerID: String, peerPublicKeyData: ByteArray) {
+                // Immediate notification for UI updates
+                delegate?.onSessionEstablished(peerID)
+                
+                // Flush router outbox immediately
+                com.bitchat.android.services.MessageRouter.tryGetInstance()?.onSessionEstablished(peerID)
+
                 // Send announcement and cached messages after key exchange
                 serviceScope.launch {
                     Log.d(TAG, "Key exchange completed with $peerID; sending follow-ups")
@@ -1418,5 +1424,6 @@ interface BluetoothMeshDelegate {
     fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String?
     fun getNickname(): String?
     fun isFavorite(peerID: String): Boolean
-    // registerPeerPublicKey REMOVED - fingerprints now handled centrally in PeerManager
+    fun onSessionEstablished(peerID: String)
 }
+
