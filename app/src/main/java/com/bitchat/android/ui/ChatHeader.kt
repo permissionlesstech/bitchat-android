@@ -26,10 +26,43 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.bitchat.android.core.ui.utils.singleOrTripleClickable
+import androidx.compose.animation.core.*
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bitchat.android.core.ui.utils.singleOrTripleClickable
+
+/**
+ * Animated dots for handshake state
+ */
+@Composable
+fun HandshakeAnimatedDots() {
+    val infiniteTransition = rememberInfiniteTransition(label = "handshakeDots")
+    val dotCount by infiniteTransition.animateValue(
+        initialValue = 1,
+        targetValue = 4,
+        typeConverter = Int.VectorConverter,
+        animationSpec = infiniteRepeatable(
+            animation = keyframes {
+                durationMillis = 1500
+                1 at 0
+                2 at 500
+                3 at 1000
+                1 at 1499
+            },
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "dotCount"
+    )
+
+    Text(
+        text = ".".repeat(dotCount),
+        style = MaterialTheme.typography.titleMedium,
+        color = Color(0xFFFF9500),
+        modifier = Modifier.width(20.dp)
+    )
+}
 
 /**
  * Header components for ChatScreen
@@ -92,8 +125,8 @@ fun NoiseSessionIcon(
             stringResource(R.string.cd_ready_for_handshake)
         )
         "handshaking" -> Triple(
-            Icons.Outlined.Sync,
-            Color(0x87878700), // Grey - in progress
+            null,
+            Color.Transparent,
             stringResource(R.string.cd_handshake_in_progress)
         )
         "established" -> Triple(
@@ -110,12 +143,16 @@ fun NoiseSessionIcon(
         }
     }
     
-    Icon(
-        imageVector = icon,
-        contentDescription = contentDescription,
-        modifier = modifier,
-        tint = color
-    )
+    if (icon != null) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            modifier = modifier,
+            tint = color
+        )
+    } else {
+        Spacer(modifier = modifier)
+    }
 }
 
 @Composable
@@ -410,8 +447,14 @@ private fun PrivateChatHeader(
             Text(
                 text = titleText,
                 style = MaterialTheme.typography.titleMedium,
-                color = Color(0xFFFF9500) // Orange
+                color = Color(0xFFFF9500), // Orange
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
+
+            if (sessionState == "handshaking") {
+                HandshakeAnimatedDots()
+            }
 
             Spacer(modifier = Modifier.width(4.dp))
 
