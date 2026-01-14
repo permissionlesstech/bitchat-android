@@ -16,6 +16,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
@@ -107,17 +108,19 @@ fun NoiseSessionIcon(
 fun NicknameEditor(
     value: String,
     onValueChange: (String) -> Unit,
+    onCommit: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val focusManager = LocalFocusManager.current
     val scrollState = rememberScrollState()
-    
+    var isFocused by remember { mutableStateOf(false) }
+
     // Auto-scroll to end when text changes (simulates cursor following)
     LaunchedEffect(value) {
         scrollState.animateScrollTo(scrollState.maxValue)
     }
-    
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
@@ -127,7 +130,7 @@ fun NicknameEditor(
             style = MaterialTheme.typography.bodyMedium,
             color = colorScheme.primary.copy(alpha = 0.8f)
         )
-        
+
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
@@ -139,13 +142,21 @@ fun NicknameEditor(
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(
-                onDone = { 
+                onDone = {
+                    onCommit(value)
                     focusManager.clearFocus()
                 }
             ),
             modifier = Modifier
                 .widthIn(max = 120.dp)
                 .horizontalScroll(scrollState)
+                .onFocusChanged { focusState ->
+                    if (isFocused && !focusState.isFocused) {
+                        // Focus lost - commit the change
+                        onCommit(value)
+                    }
+                    isFocused = focusState.isFocused
+                }
         )
     }
 }
@@ -245,6 +256,7 @@ fun ChatHeaderContent(
             MainHeader(
                 nickname = nickname,
                 onNicknameChange = viewModel::setNickname,
+                onNicknameCommit = viewModel::commitNicknameChange,
                 onTitleClick = onShowAppInfo,
                 onTripleTitleClick = onTripleClick,
                 onSidebarClick = onSidebarClick,
@@ -326,6 +338,7 @@ private fun ChannelHeader(
 private fun MainHeader(
     nickname: String,
     onNicknameChange: (String) -> Unit,
+    onNicknameCommit: (String) -> Unit,
     onTitleClick: () -> Unit,
     onTripleTitleClick: () -> Unit,
     onSidebarClick: () -> Unit,
@@ -370,7 +383,8 @@ private fun MainHeader(
             
             NicknameEditor(
                 value = nickname,
-                onValueChange = onNicknameChange
+                onValueChange = onNicknameChange,
+                onCommit = onNicknameCommit
             )
         }
         

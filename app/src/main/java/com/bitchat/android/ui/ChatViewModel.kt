@@ -335,10 +335,20 @@ class ChatViewModel(
     }
     
     // MARK: - Nickname Management
-    
+
     fun setNickname(newNickname: String) {
+        // Just update the state immediately for live editing (no validation)
+        state.setNickname(newNickname)
+    }
+
+    fun commitNicknameChange(newNickname: String) {
         val trimmed = newNickname.trim()
-        if (trimmed.isEmpty()) return
+        if (trimmed.isEmpty()) {
+            // Restore previous nickname if empty
+            val previousNickname = dataManager.loadNickname()
+            state.setNickname(previousNickname)
+            return
+        }
 
         // Check for duplicates among connected peers
         val duplicates = meshService.getPeerNicknames().entries
