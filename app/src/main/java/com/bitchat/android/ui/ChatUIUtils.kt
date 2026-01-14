@@ -46,7 +46,10 @@ fun formatMessageAsAnnotatedString(
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
     
     // Determine if this message was sent by self
-    val isSelf = message.senderPeerID == meshService.myPeerID
+    // For mesh messages, check senderPeerID against myPeerID
+    // For geohash/location messages, check if senderPeerID starts with "geohash:" AND sender matches current user
+    val isSelf = message.senderPeerID == meshService.myPeerID ||
+                 (message.senderPeerID?.startsWith("geohash:") == true && message.sender == currentUserNickname)
 
     if (message.sender != "system") {
         // Get base color for this peer (iOS-style color assignment)
@@ -187,8 +190,10 @@ fun formatMessageHeaderAnnotatedString(
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
 
     // Determine if this message was sent by self
-    // Only check senderPeerID to avoid false positives with duplicate nicknames
-    val isSelf = message.senderPeerID == meshService.myPeerID
+    // For mesh messages, check senderPeerID against myPeerID
+    // For geohash/location messages, check if senderPeerID starts with "geohash:" AND sender matches current user
+    val isSelf = message.senderPeerID == meshService.myPeerID ||
+                 (message.senderPeerID?.startsWith("geohash:") == true && message.sender == currentUserNickname)
 
     if (message.sender != "system") {
         val baseColor = if (isSelf) Color(0xFFFF9500) else getPeerColor(message, isDark)
