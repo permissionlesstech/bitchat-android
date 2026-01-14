@@ -893,6 +893,11 @@ class ChatViewModel(
         privateChatManager.clearAllPrivateChats()
         dataManager.clearAllData()
         
+        // Clear seen message store
+        try {
+            com.bitchat.android.services.SeenMessageStore.getInstance(getApplication()).clear()
+        } catch (_: Exception) { }
+        
         // Clear all mesh service data
         clearAllMeshServiceData()
         

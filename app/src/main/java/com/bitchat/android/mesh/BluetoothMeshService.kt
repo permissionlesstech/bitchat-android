@@ -1375,6 +1375,9 @@ class BluetoothMeshService(private val context: Context) {
     fun clearAllInternalData() {
         Log.w(TAG, "🚨 Clearing all mesh service internal data")
         try {
+            // Stop services to cease broadcasting old ID immediately
+            stopServices()
+            
             // Clear all managers
             fragmentManager.clearAllFragments()
             storeForwardManager.clearAllCache()
