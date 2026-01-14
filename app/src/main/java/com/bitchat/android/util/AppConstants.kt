@@ -44,8 +44,8 @@ object AppConstants {
     }
 
     object Security {
-        const val MESSAGE_TIMEOUT_MS: Long = 300_000L
-        const val CLEANUP_INTERVAL_MS: Long = 300_000L
+        const val MESSAGE_TIMEOUT_MS: Long = 60_000L
+        const val CLEANUP_INTERVAL_MS: Long = 60_000L
         const val MAX_PROCESSED_MESSAGES: Int = 10_000
         const val MAX_PROCESSED_KEY_EXCHANGES: Int = 1_000
     }

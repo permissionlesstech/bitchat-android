@@ -9,6 +9,7 @@ import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.*
 import java.util.*
 import kotlin.collections.mutableSetOf
+import kotlin.math.abs
 
 /**
  * Manages security aspects of the mesh network including duplicate detection,
@@ -53,6 +54,13 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         // Replay attack protection (same 5-minute window as iOS)
         val currentTime = System.currentTimeMillis()
         val messageType = MessageType.fromValue(packet.type)
+
+        // Timestamp validation
+        val packetTime = packet.timestamp.toLong()
+        if (abs(currentTime - packetTime) > MESSAGE_TIMEOUT) {
+            Log.w(TAG, "Dropping expired/future packet from $peerID (diff: ${currentTime - packetTime}ms)")
+            return false
+        }
 
         // Duplicate detection
         val messageID = generateMessageID(packet, peerID)
