@@ -196,20 +196,6 @@ fun LocationChannelsSheet(
                                             color = standardGreen
                                         )
                                     }
-                                    null -> {
-                                        Row(
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            CircularProgressIndicator(modifier = Modifier.size(12.dp))
-                                            Text(
-                                                text = stringResource(R.string.checking_permissions),
-                                                fontSize = 11.sp,
-                                                fontFamily = FontFamily.Monospace,
-                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                                            )
-                                        }
-                                    }
                                 }
                             }
                         }
@@ -566,20 +552,6 @@ fun LocationChannelsSheet(
             viewModel.beginGeohashSampling(geohashes)
         } else {
             viewModel.endGeohashSampling()
-        }
-    }
-
-    // React to permission changes
-    LaunchedEffect(permissionState) {
-        if (permissionState == LocationChannelManager.PermissionState.AUTHORIZED && locationServicesEnabled) {
-            locationManager.refreshChannels()
-        }
-    }
-
-    // React to location services enable/disable
-    LaunchedEffect(locationServicesEnabled) {
-        if (locationServicesEnabled && permissionState == LocationChannelManager.PermissionState.AUTHORIZED) {
-            locationManager.refreshChannels()
         }
     }
 }

@@ -1,6 +1,8 @@
 package com.bitchat.android.geohash
 
 import android.Manifest
+import android.content.Context
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.location.Geocoder
 import android.location.Location
@@ -51,6 +53,25 @@ class LocationChannelManager private constructor(private val context: Context) {
     private val gson = Gson()
     private var dataManager: com.bitchat.android.ui.DataManager? = null
 
+    private fun checkSystemLocationEnabled(): Boolean {
+        return try {
+            locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+                    locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private val locationStateReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: android.content.Intent?) {
+            if (intent?.action == LocationManager.PROVIDERS_CHANGED_ACTION) {
+                val isEnabled = checkSystemLocationEnabled()
+                Log.d(TAG, "System location state changed: $isEnabled")
+                _systemLocationEnabled.value = isEnabled
+            }
+        }
+    }
+
     // Published state for UI bindings (matching iOS @Published properties)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -96,6 +117,9 @@ class LocationChannelManager private constructor(private val context: Context) {
         dataManager = com.bitchat.android.ui.DataManager(context)
         loadPersistedChannelSelection()
         loadLocationServicesState()
+
+        // Register for system location changes
+        context.registerReceiver(locationStateReceiver, IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION))
     }
 
     // MARK: - Public API (matching iOS interface)
@@ -679,9 +703,6 @@ class LocationChannelManager private constructor(private val context: Context) {
         }
     }
 
-
-    }
-    
     data class PersistedChannel(
         val mesh: Boolean,
         val level: String? = null,
@@ -744,6 +765,9 @@ class LocationChannelManager private constructor(private val context: Context) {
         
         geocodingJob?.cancel()
         geocodingJob = null
+        
+        // Unregister receiver
+        try { context.unregisterReceiver(locationStateReceiver) } catch (_: Exception) {}
         
         // Remove listeners to prevent memory leaks
         try { locationManager.removeUpdates(oneShotLocationListener) } catch (_: Exception) {}
