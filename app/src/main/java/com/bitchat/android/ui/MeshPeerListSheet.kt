@@ -30,6 +30,8 @@ import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetCenterTopBar
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
+import com.bitchat.android.nostr.GeohashAliasRegistry
+import com.bitchat.android.nostr.GeohashConversationRegistry
 
 
 /**
@@ -57,10 +59,6 @@ fun MeshPeerListSheet(
     val peerNicknames by viewModel.peerNicknames.collectAsStateWithLifecycle()
     val peerRSSI by viewModel.peerRSSI.collectAsStateWithLifecycle()
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
-
-    // Track nested private chat sheet state
-    var showPrivateChatSheet by remember { mutableStateOf(false) }
-    var privateChatPeerID by remember { mutableStateOf<String?>(null) }
 
     // Bottom sheet state
     val sheetState = rememberModalBottomSheetState(
@@ -125,9 +123,9 @@ fun MeshPeerListSheet(
                                         val peerName = channel.removePrefix("@")
                                         val peerID =
                                             peerNicknames.entries.firstOrNull { it.value == peerName }?.key
-                                        if (peerID != null) {
-                                            privateChatPeerID = peerID
-                                            showPrivateChatSheet = true
+                                    if (peerID != null) {
+                                            viewModel.showPrivateChatSheet(peerID)
+                                            onDismiss()
                                         }
                                     } else {
                                         // Regular channel switch
@@ -164,11 +162,10 @@ fun MeshPeerListSheet(
                                     colorScheme = colorScheme,
                                     selectedPrivatePeer = selectedPrivatePeer,
                                     viewModel = viewModel,
-                                    onPrivateChatStart = { peerID ->
-                                        viewModel.startPrivateChat(peerID)
-                                        privateChatPeerID = peerID
-                                        showPrivateChatSheet = true
-                                    }
+                                     onPrivateChatStart = { peerID ->
+                                         viewModel.showPrivateChatSheet(peerID)
+                                         onDismiss()
+                                     }
                                 )
                             }
                         }
@@ -224,19 +221,6 @@ fun MeshPeerListSheet(
             }
         }
 
-        // Nested Private Chat Sheet (iOS-style)
-        if (showPrivateChatSheet && privateChatPeerID != null) {
-            PrivateChatSheet(
-                isPresented = showPrivateChatSheet,
-                peerID = privateChatPeerID!!,
-                viewModel = viewModel,
-                onDismiss = {
-                    showPrivateChatSheet = false
-                    privateChatPeerID = null
-                    viewModel.endPrivateChat()
-                }
-            )
-        }
     }
 }
 
@@ -296,16 +280,6 @@ private fun ChannelRow(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Selection indicator
-                if (isSelected) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = stringResource(R.string.cd_selected),
-                        tint = Color(0xFF32D74B), // iOS green
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
                 // Leave channel button
                 CloseButton(
                     onClick = onLeaveChannel,
@@ -666,7 +640,7 @@ private fun PeerItem(
                     )
                 } else {
                     Icon(
-                        imageVector = if (isDirect) Icons.Outlined.SettingsInputAntenna else Icons.Filled.Route,
+                        imageVector = if (isDirect) Icons.Outlined.Bluetooth else Icons.Filled.Route,
                         contentDescription = if (isDirect) "Direct Bluetooth" else "Routed",
                         modifier = Modifier.size(16.dp),
                         tint = colorScheme.onSurface.copy(alpha = 0.6f)
@@ -716,16 +690,6 @@ private fun PeerItem(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Selection indicator
-                if (isSelected) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = stringResource(R.string.cd_selected),
-                        tint = Color(0xFF32D74B), // iOS green
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
                 // Favorite star with proper filled/outlined states
                 IconButton(
                     onClick = onToggleFavorite,
@@ -803,7 +767,7 @@ private fun convertRSSIToSignalStrength(rssi: Int?): Int {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PrivateChatSheet(
+fun PrivateChatSheet(
     isPresented: Boolean,
     peerID: String,
     viewModel: ChatViewModel,
@@ -826,11 +790,28 @@ private fun PrivateChatSheet(
         viewModel.startPrivateChat(peerID)
     }
 
+    val isNostrPeer = peerID.startsWith("nostr_") || peerID.startsWith("nostr:")
+
+    // Compute display name and title text reactively
     val displayName = peerNicknames[peerID] ?: peerID.take(12)
+    val titleText = remember(peerID, peerNicknames) {
+        if (isNostrPeer) {
+            val gh = GeohashConversationRegistry.get(peerID) ?: "geohash"
+            val fullPubkey = GeohashAliasRegistry.get(peerID) ?: ""
+            val name = if (fullPubkey.isNotEmpty()) {
+                viewModel.geohashViewModel.displayNameForGeohashConversation(fullPubkey, gh)
+            } else {
+                peerNicknames[peerID] ?: "unknown"
+            }
+            "#$gh/@$name"
+        } else {
+            peerNicknames[peerID] ?: peerID.take(12)
+        }
+    }
+
     val messages = privateChats[peerID] ?: emptyList()
     val isDirect = peerDirectMap[peerID] == true
     val isConnected = connectedPeers.contains(peerID) || isDirect
-    val isNostrPeer = peerID.startsWith("nostr_") || peerID.startsWith("nostr:")
     val sessionState = peerSessionStates[peerID]
     val fingerprint = peerFingerprints[peerID]
     val isFavorite = remember(favoritePeers, fingerprint) {
@@ -981,14 +962,14 @@ private fun PrivateChatSheet(
                                 }
                             }
 
-                            Text(
-                                text = displayName,
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = FontFamily.Monospace
-                                ),
-                                color = colorScheme.onSurface
-                            )
+                        Text(
+                            text = titleText,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            ),
+                            color = if (isNostrPeer) Color(0xFFFF9500) else colorScheme.onSurface
+                        )
 
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,

@@ -46,15 +46,17 @@ class GeohashMessageHandler(
     fun onEvent(event: NostrEvent, subscribedGeohash: String) {
         scope.launch(Dispatchers.Default) {
             try {
-                if (event.kind != 20000) return@launch
+                if (event.kind != NostrKind.EPHEMERAL_EVENT && event.kind != NostrKind.GEOHASH_PRESENCE) return@launch
                 val tagGeo = event.tags.firstOrNull { it.size >= 2 && it[0] == "g" }?.getOrNull(1)
                 if (tagGeo == null || !tagGeo.equals(subscribedGeohash, true)) return@launch
                 if (dedupe(event.id)) return@launch
 
-                // PoW validation (if enabled)
-                val pow = PoWPreferenceManager.getCurrentSettings()
-                if (pow.enabled && pow.difficulty > 0) {
-                    if (!NostrProofOfWork.validateDifficulty(event, pow.difficulty)) return@launch
+                // PoW validation (if enabled) - apply to chat messages primarily
+                if (event.kind == NostrKind.EPHEMERAL_EVENT) {
+                    val pow = PoWPreferenceManager.getCurrentSettings()
+                    if (pow.enabled && pow.difficulty > 0) {
+                        if (!NostrProofOfWork.validateDifficulty(event, pow.difficulty)) return@launch
+                    }
                 }
 
                 // Blocked users check (use injected DataManager which has loaded state)
@@ -62,13 +64,21 @@ class GeohashMessageHandler(
 
                 // Update repository (participants, nickname, teleport)
                 // Update repository on a background-safe path; repository will post updates to LiveData
-                repo.updateParticipant(subscribedGeohash, event.pubkey, Date(event.createdAt * 1000L))
+                
+                // Update participant count (last seen) on BOTH Presence (20001) and Chat (20000) events
+                if (event.kind == NostrKind.GEOHASH_PRESENCE || event.kind == NostrKind.EPHEMERAL_EVENT) {
+                    repo.updateParticipant(subscribedGeohash, event.pubkey, Date(event.createdAt * 1000L))
+                }
+                
                 event.tags.find { it.size >= 2 && it[0] == "n" }?.let { repo.cacheNickname(event.pubkey, it[1]) }
                 event.tags.find { it.size >= 2 && it[0] == "t" && it[1] == "teleport" }?.let { repo.markTeleported(event.pubkey) }
                 // Register a geohash DM alias for this participant so MessageRouter can route DMs via Nostr
                 try {
                     com.bitchat.android.nostr.GeohashAliasRegistry.put("nostr_${event.pubkey.take(16)}", event.pubkey)
                 } catch (_: Exception) { }
+
+                // Stop here for presence events - they don't produce chat messages
+                if (event.kind == NostrKind.GEOHASH_PRESENCE) return@launch
 
                 // Skip our own events for message emission
                 val my = NostrIdentityBridge.deriveIdentity(subscribedGeohash, application)
