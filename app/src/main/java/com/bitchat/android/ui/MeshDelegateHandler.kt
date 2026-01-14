@@ -234,6 +234,15 @@ class MeshDelegateHandler(
     override fun isFavorite(peerID: String): Boolean {
         return privateChatManager.isFavorite(peerID)
     }
+
+    override fun onSessionEstablished(peerID: String) {
+        coroutineScope.launch {
+            val sessionStates = state.getPeerSessionStatesValue().toMutableMap()
+            sessionStates[peerID] = "established"
+            state.setPeerSessionStates(sessionStates)
+            android.util.Log.d("MeshDelegateHandler", "UI: Updated session state to 'established' for $peerID")
+        }
+    }
     
     /**
      * Check for mentions in mesh messages and trigger notifications

@@ -26,10 +26,43 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.bitchat.android.core.ui.utils.singleOrTripleClickable
+import androidx.compose.animation.core.*
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bitchat.android.core.ui.utils.singleOrTripleClickable
+
+/**
+ * Animated dots for handshake state
+ */
+@Composable
+fun HandshakeAnimatedDots() {
+    val infiniteTransition = rememberInfiniteTransition(label = "handshakeDots")
+    val dotCount by infiniteTransition.animateValue(
+        initialValue = 1,
+        targetValue = 4,
+        typeConverter = Int.VectorConverter,
+        animationSpec = infiniteRepeatable(
+            animation = keyframes {
+                durationMillis = 1500
+                1 at 0
+                2 at 500
+                3 at 1000
+                1 at 1499
+            },
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "dotCount"
+    )
+
+    Text(
+        text = ".".repeat(dotCount),
+        style = MaterialTheme.typography.titleMedium,
+        color = Color(0xFFFF9500),
+        modifier = Modifier.width(20.dp)
+    )
+}
 
 /**
  * Header components for ChatScreen
@@ -77,8 +110,8 @@ fun NoiseSessionIcon(
             stringResource(R.string.cd_ready_for_handshake)
         )
         "handshaking" -> Triple(
-            Icons.Outlined.Sync,
-            Color(0x87878700), // Grey - in progress
+            null,
+            Color.Transparent,
             stringResource(R.string.cd_handshake_in_progress)
         )
         "established" -> Triple(
@@ -95,12 +128,16 @@ fun NoiseSessionIcon(
         }
     }
     
-    Icon(
-        imageVector = icon,
-        contentDescription = contentDescription,
-        modifier = modifier,
-        tint = color
-    )
+    if (icon != null) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            modifier = modifier,
+            tint = color
+        )
+    } else {
+        Spacer(modifier = modifier)
+    }
 }
 
 @Composable
@@ -257,6 +294,146 @@ fun ChatHeaderContent(
 }
 
 
+<<<<<<< HEAD
+    // Compute title text: for NIP-17 chats show "#geohash/@username" (iOS parity)
+    val titleText: String = if (isNostrDM) {
+        // For geohash DMs, get the actual source geohash and proper display name
+        val (conversationGeohash, baseName) = try {
+            val repoField = com.bitchat.android.ui.GeohashViewModel::class.java.getDeclaredField("repo")
+            repoField.isAccessible = true
+            val repo = repoField.get(viewModel.geohashViewModel) as com.bitchat.android.nostr.GeohashRepository
+            val gh = repo.getConversationGeohash(peerID) ?: "geohash"
+            val fullPubkey = com.bitchat.android.nostr.GeohashAliasRegistry.get(peerID) ?: ""
+            val displayName = if (fullPubkey.isNotEmpty()) {
+                repo.displayNameForGeohashConversation(fullPubkey, gh)
+            } else {
+                peerNicknames[peerID] ?: "unknown"
+            }
+            Pair(gh, displayName)
+        } catch (e: Exception) { 
+            Pair("geohash", peerNicknames[peerID] ?: "unknown")
+        }
+        
+        "#$conversationGeohash/@$baseName"
+    } else {
+        // Prefer live mesh nickname; fallback to favorites nickname (supports 16-hex), finally short key
+        peerNicknames[peerID] ?: run {
+            val titleFromFavorites = try {
+                if (peerID.length == 64 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
+                    val noiseKeyBytes = peerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKeyBytes)?.peerNickname
+                } else if (peerID.length == 16 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
+                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(peerID)?.peerNickname
+                } else null
+            } catch (_: Exception) { null }
+            titleFromFavorites ?: peerID.take(12)
+        }
+    }
+    
+    Box(modifier = Modifier.fillMaxWidth()) {
+        // Back button - positioned all the way to the left with minimal margin
+        Button(
+            onClick = onBackClick,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color.Transparent,
+                contentColor = colorScheme.primary
+            ),
+            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp), // Reduced horizontal padding
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .offset(x = (-8).dp) // Move even further left to minimize margin
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.back),
+                    modifier = Modifier.size(16.dp),
+                    tint = colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = stringResource(R.string.chat_back),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colorScheme.primary
+                )
+            }
+        }
+        
+        // Title - perfectly centered regardless of other elements
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.align(Alignment.Center)
+        ) {
+            
+            Text(
+                text = titleText,
+                style = MaterialTheme.typography.titleMedium,
+                color = Color(0xFFFF9500), // Orange
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            if (sessionState == "handshaking") {
+                HandshakeAnimatedDots()
+            }
+
+            Spacer(modifier = Modifier.width(4.dp))
+
+            // Show a globe when chatting via Nostr alias, or when mesh session not established but mutual favorite exists
+            val showGlobe = isNostrDM || (sessionState != "established" && isMutualFavorite)
+            val securityModifier = if (!isNostrDM) {
+                Modifier.clickable { viewModel.showSecurityVerificationSheet() }
+            } else {
+                Modifier
+            }
+
+            if (showGlobe) {
+                Icon(
+                    imageVector = Icons.Outlined.Public,
+                contentDescription = stringResource(R.string.cd_nostr_reachable),
+                    modifier = Modifier.size(14.dp).then(securityModifier),
+                    tint = Color(0xFF9B59B6) // Purple like iOS
+                )
+            } else {
+                NoiseSessionIcon(
+                    sessionState = sessionState,
+                    modifier = Modifier.size(14.dp).then(securityModifier)
+                )
+            }
+
+            if (isVerified) {
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    imageVector = Icons.Filled.Verified,
+                    contentDescription = stringResource(R.string.verify_title),
+                    modifier = Modifier.size(14.dp).then(securityModifier),
+                    tint = Color(0xFF32D74B)
+                )
+            }
+
+        }
+        
+        // Favorite button - positioned on the right
+        IconButton(
+            onClick = {
+                Log.d("ChatHeader", "Header toggle favorite: peerID=$peerID, currentFavorite=$isFavorite")
+                onToggleFavorite()
+            },
+            modifier = Modifier.align(Alignment.CenterEnd)
+        ) {
+            Icon(
+                imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
+                contentDescription = if (isFavorite) stringResource(R.string.cd_remove_favorite) else stringResource(R.string.cd_add_favorite),
+                modifier = Modifier.size(18.dp), // Slightly larger than sidebar icon
+                tint = if (isFavorite) Color(0xFFFFD700) else Color(0x87878700) // Yellow or grey
+            )
+        }
+    }
+}
+=======
+>>>>>>> main
 
 @Composable
 private fun ChannelHeader(

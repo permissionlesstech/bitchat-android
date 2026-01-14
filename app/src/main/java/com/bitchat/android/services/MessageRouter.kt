@@ -6,6 +6,9 @@ import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.ReadReceipt
 import com.bitchat.android.nostr.NostrTransport
 
+import java.util.concurrent.ConcurrentHashMap
+import java.util.Collections
+
 /**
  * Routes messages between BLE mesh and Nostr transports, matching iOS behavior.
  */
@@ -39,7 +42,8 @@ class MessageRouter private constructor(
     }
 
     // Outbox: peerID -> queued (content, nickname, messageID)
-    private val outbox = mutableMapOf<String, MutableList<Triple<String, String, String>>>()
+    // Thread-safe map with synchronized lists
+    private val outbox = ConcurrentHashMap<String, MutableList<Triple<String, String, String>>>()
 
     // Listener for favorites changes to flush outbox when npub mapping appears/changes
     private val favoriteListener = object: com.bitchat.android.favorites.FavoritesChangeListener {
@@ -80,7 +84,7 @@ class MessageRouter private constructor(
             nostr.sendPrivateMessage(content, toPeerID, recipientNickname, messageID)
         } else {
             Log.d(TAG, "Queued PM for ${toPeerID} (no mesh, no Nostr mapping) msg_id=${messageID.take(8)}…")
-            val q = outbox.getOrPut(toPeerID) { mutableListOf() }
+            val q = outbox.getOrPut(toPeerID) { Collections.synchronizedList(mutableListOf()) }
             q.add(Triple(content, recipientNickname, messageID))
             Log.d(TAG, "Initiating noise handshake after queueing PM for ${toPeerID.take(8)}…")
             mesh.initiateNoiseHandshake(toPeerID)
@@ -126,30 +130,34 @@ class MessageRouter private constructor(
     // Flush any queued messages for a specific peerID
     fun flushOutboxFor(peerID: String) {
         val queued = outbox[peerID] ?: return
-        if (queued.isEmpty()) return
-        Log.d(TAG, "Flushing outbox for ${peerID.take(8)}… count=${queued.size}")
-        val iterator = queued.iterator()
-        while (iterator.hasNext()) {
-            val (content, nickname, messageID) = iterator.next()
-            var hasMesh = mesh.getPeerInfo(peerID)?.isConnected == true && mesh.hasEstablishedSession(peerID)
-            // If this is a noiseHex key, see if there is a connected mesh peer for this identity
-            if (!hasMesh && peerID.length == 64 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
-                val meshPeer = resolveMeshPeerForNoiseHex(peerID)
-                if (meshPeer != null && mesh.getPeerInfo(meshPeer)?.isConnected == true && mesh.hasEstablishedSession(meshPeer)) {
-                    mesh.sendPrivateMessage(content, meshPeer, nickname, messageID)
+        
+        synchronized(queued) {
+            if (queued.isEmpty()) return
+            Log.d(TAG, "Flushing outbox for ${peerID.take(8)}… count=${queued.size}")
+            val iterator = queued.iterator()
+            while (iterator.hasNext()) {
+                val (content, nickname, messageID) = iterator.next()
+                var hasMesh = mesh.getPeerInfo(peerID)?.isConnected == true && mesh.hasEstablishedSession(peerID)
+                // If this is a noiseHex key, see if there is a connected mesh peer for this identity
+                if (!hasMesh && peerID.length == 64 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
+                    val meshPeer = resolveMeshPeerForNoiseHex(peerID)
+                    if (meshPeer != null && mesh.getPeerInfo(meshPeer)?.isConnected == true && mesh.hasEstablishedSession(meshPeer)) {
+                        mesh.sendPrivateMessage(content, meshPeer, nickname, messageID)
+                        iterator.remove()
+                        continue
+                    }
+                }
+                val canNostr = canSendViaNostr(peerID)
+                if (hasMesh) {
+                    mesh.sendPrivateMessage(content, peerID, nickname, messageID)
                     iterator.remove()
-                    continue
+                } else if (canNostr) {
+                    nostr.sendPrivateMessage(content, peerID, nickname, messageID)
+                    iterator.remove()
                 }
             }
-            val canNostr = canSendViaNostr(peerID)
-            if (hasMesh) {
-                mesh.sendPrivateMessage(content, peerID, nickname, messageID)
-                iterator.remove()
-            } else if (canNostr) {
-                nostr.sendPrivateMessage(content, peerID, nickname, messageID)
-                iterator.remove()
-            }
         }
+        // Cleanup empty lists (safe-ish with ConcurrentHashMap, worst case we create a new one later)
         if (queued.isEmpty()) {
             outbox.remove(peerID)
         }
