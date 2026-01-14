@@ -4,6 +4,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
@@ -16,8 +19,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import com.bitchat.android.R
 
 /**
  * Dialog warning users when they choose a nickname that matches existing peers.
@@ -31,6 +37,9 @@ fun DuplicateNicknameWarningDialog(
     onConfirm: () -> Unit,
     onCancel: () -> Unit
 ) {
+    val peerCount = existingPeerIDs.size
+    val scrollState = rememberScrollState()
+
     AlertDialog(
         onDismissRequest = onCancel,
         icon = {
@@ -41,19 +50,30 @@ fun DuplicateNicknameWarningDialog(
             )
         },
         title = {
-            Text("Duplicate Nickname Warning")
+            Text(stringResource(R.string.duplicate_nickname_warning))
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 300.dp)
+                    .verticalScroll(scrollState),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Text(
-                    text = "The nickname '$nickname' is already used by ${existingPeerIDs.size} other ${if (existingPeerIDs.size == 1) "peer" else "peers"}:",
+                    text = pluralStringResource(
+                        R.plurals.duplicate_nickname_used_by,
+                        peerCount,
+                        nickname,
+                        peerCount
+                    ),
                     style = MaterialTheme.typography.bodyMedium
                 )
 
                 existingPeerIDs.take(3).forEach { peerID ->
-                    val fp = peerFingerprints[peerID]
+                    val fp = peerFingerprints[peerID]?.take(8)
+                        ?: stringResource(R.string.unknown)
                     Text(
-                        text = "• ${fp?.take(8) ?: "unknown"} ($nickname)",
+                        text = stringResource(R.string.duplicate_nickname_peer_entry, fp, nickname),
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontFamily = FontFamily.Monospace
                         ),
@@ -61,9 +81,10 @@ fun DuplicateNicknameWarningDialog(
                     )
                 }
 
-                if (existingPeerIDs.size > 3) {
+                val remaining = peerCount - 3
+                if (remaining > 0) {
                     Text(
-                        text = "... and ${existingPeerIDs.size - 3} more",
+                        text = pluralStringResource(R.plurals.and_more_peers, remaining, remaining),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                     )
@@ -72,7 +93,7 @@ fun DuplicateNicknameWarningDialog(
                 Spacer(Modifier.height(4.dp))
 
                 Text(
-                    text = "This may cause confusion when sending messages. Fingerprints will help identify the correct peer.",
+                    text = stringResource(R.string.duplicate_nickname_description),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                 )
@@ -85,12 +106,12 @@ fun DuplicateNicknameWarningDialog(
                     containerColor = Color(0xFFFF9500)
                 )
             ) {
-                Text("Use Anyway")
+                Text(stringResource(R.string.use_anyway))
             }
         },
         dismissButton = {
             TextButton(onClick = onCancel) {
-                Text("Abort")
+                Text(stringResource(R.string.abort))
             }
         }
     )

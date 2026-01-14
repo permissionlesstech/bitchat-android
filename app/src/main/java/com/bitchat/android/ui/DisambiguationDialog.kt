@@ -28,9 +28,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.bitchat.android.R
 
 /**
  * Dialog for disambiguating between multiple peers with the same nickname.
@@ -53,7 +55,7 @@ fun PeerDisambiguationDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text("Multiple users named '$nickname'")
+            Text(stringResource(R.string.multiple_users_named, nickname))
         },
         text = {
             LazyColumn(
@@ -61,7 +63,7 @@ fun PeerDisambiguationDialog(
             ) {
                 item {
                     Text(
-                        text = "Select the correct peer:",
+                        text = stringResource(R.string.select_the_correct_peer),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     )
@@ -129,7 +131,7 @@ private fun PeerDisambiguationItem(
                         Spacer(Modifier.width(4.dp))
                         Icon(
                             imageVector = Icons.Filled.Verified,
-                            contentDescription = "Verified",
+                            contentDescription = stringResource(R.string.verified),
                             modifier = Modifier.size(14.dp),
                             tint = Color(0xFF32D74B)
                         )
@@ -138,7 +140,7 @@ private fun PeerDisambiguationItem(
                         Spacer(Modifier.width(4.dp))
                         Icon(
                             imageVector = Icons.Filled.Star,
-                            contentDescription = "Favorite",
+                            contentDescription = stringResource(R.string.favorite),
                             modifier = Modifier.size(14.dp),
                             tint = Color(0xFFFFD700)
                         )
@@ -147,7 +149,7 @@ private fun PeerDisambiguationItem(
 
                 if (fingerprint != null) {
                     Text(
-                        text = "ID: ${fingerprint.take(8)}...",
+                        text = stringResource(R.string.id, fingerprint.take(8)),
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontFamily = FontFamily.Monospace
                         ),
@@ -155,7 +157,7 @@ private fun PeerDisambiguationItem(
                     )
                 } else {
                     Text(
-                        text = "ID: pending",
+                        text = stringResource(R.string.id_pending),
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontFamily = FontFamily.Monospace
                         ),
@@ -172,9 +174,9 @@ private fun PeerDisambiguationItem(
                     else -> Icons.Filled.Route
                 },
                 contentDescription = when {
-                    !isConnected -> "Offline"
-                    isDirect -> "Direct connection"
-                    else -> "Routed connection"
+                    !isConnected -> stringResource(R.string.offline)
+                    isDirect -> stringResource(R.string.direct_connection)
+                    else -> stringResource(R.string.routed_connection)
                 },
                 modifier = Modifier.size(16.dp),
                 tint = if (isConnected)
