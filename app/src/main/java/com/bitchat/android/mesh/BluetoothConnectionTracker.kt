@@ -232,8 +232,14 @@ class BluetoothConnectionTracker(
     /**
      * Check if connection limit is reached
      */
+    /**
+     * Check if connection limit is reached
+     */
     fun isConnectionLimitReached(): Boolean {
-        return connectedDevices.size >= powerManager.getMaxConnections()
+        // Respect debug override if set
+        val dbg = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (_: Exception) { null }
+        val maxConnections = dbg?.maxConnectionsOverall?.value ?: powerManager.getMaxConnections()
+        return connectedDevices.size >= maxConnections
     }
     
     /**
@@ -244,10 +250,9 @@ class BluetoothConnectionTracker(
         val dbg = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (_: Exception) { null }
         val maxOverall = dbg?.maxConnectionsOverall?.value ?: powerManager.getMaxConnections()
         val maxClient = dbg?.maxClientConnections?.value ?: maxOverall
-        val maxServer = dbg?.maxServerConnections?.value ?: maxOverall
+        // Note: maxServer is handled by GattServerManager, but we need to respect overall limit here too
 
         val clients = connectedDevices.values.filter { it.isClient }
-        val servers = connectedDevices.values.filter { !it.isClient }
 
         // Enforce client cap first (we can actively disconnect)
         if (clients.size > maxClient) {
@@ -259,21 +264,55 @@ class BluetoothConnectionTracker(
             }
         }
 
-        // Note: server cap enforced in GattServerManager (we don't have server handle here)
-
-        // Enforce overall cap by disconnecting oldest client connections
+        // Re-check overall cap after client cleanup
         if (connectedDevices.size > maxOverall) {
             Log.i(TAG, "Enforcing overall cap: ${connectedDevices.size} > $maxOverall")
             val excess = connectedDevices.size - maxOverall
-            val toDisconnect = connectedDevices.values
-                .filter { it.isClient } // only clients from here
+            
+            // Prefer disconnecting clients first to satisfy overall cap
+            val clientsToDisconnect = connectedDevices.values
+                .filter { it.isClient }
                 .sortedBy { it.connectedAt }
                 .take(excess)
-            toDisconnect.forEach { dc ->
+                
+            clientsToDisconnect.forEach { dc ->
                 Log.d(TAG, "Disconnecting client ${dc.device.address} due to overall cap")
                 dc.gatt?.disconnect()
             }
         }
+    }
+
+    /**
+     * Get excess server connections that should be disconnected to satisfy limits.
+     * This allows the Manager to coordinate server disconnects since Tracker doesn't control the server.
+     */
+    fun getExcessServerConnections(maxServer: Int, maxOverall: Int): List<BluetoothDevice> {
+        val servers = connectedDevices.values.filter { !it.isClient }
+        val excessList = mutableListOf<BluetoothDevice>()
+
+        // 1. Check server specific limit
+        if (servers.size > maxServer) {
+            val excessCount = servers.size - maxServer
+            val toRemove = servers.sortedBy { it.connectedAt }.take(excessCount)
+            excessList.addAll(toRemove.map { it.device })
+        }
+
+        // 2. Check overall limit (considering we might have already removed some above)
+        // We need to count how many connections we will have after the above removals
+        val currentTotal = connectedDevices.size
+        val plannedRemovals = excessList.size
+        val projectedTotal = currentTotal - plannedRemovals
+        
+        if (projectedTotal > maxOverall) {
+            val furtherExcess = projectedTotal - maxOverall
+            // We can only remove servers here. Clients are handled in enforceConnectionLimits.
+            // Filter out devices we already planned to remove
+            val remainingServers = servers.filter { s -> excessList.none { it.address == s.device.address } }
+            val toRemove = remainingServers.sortedBy { it.connectedAt }.take(furtherExcess)
+            excessList.addAll(toRemove.map { it.device })
+        }
+
+        return excessList
     }
     
     /**

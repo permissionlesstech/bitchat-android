@@ -77,8 +77,31 @@ class FragmentManager {
         val fragmentID = FragmentPayload.generateFragmentID()
         
         // iOS: stride(from: 0, to: fullData.count, by: maxFragmentSize)
-        val fragmentChunks = stride(0, fullData.size, MAX_FRAGMENT_SIZE) { offset ->
-            val endOffset = minOf(offset + MAX_FRAGMENT_SIZE, fullData.size)
+        // Calculate dynamic fragment size to fit in MTU (512)
+        // Packet = Header + Sender + Recipient + Route + FragmentHeader + Payload + PaddingBuffer
+        val hasRoute = packet.route != null
+        val version = if (hasRoute) 2 else 1
+        val headerSize = if (version == 2) 15 else 13
+        val senderSize = 8
+        val recipientSize = if (packet.recipientID != null) 8 else 0
+        // Route: 1 byte count + 8 bytes per hop
+        val routeSize = if (hasRoute) (1 + (packet.route?.size ?: 0) * 8) else 0
+        val fragmentHeaderSize = 13 // FragmentPayload header
+        val paddingBuffer = 16 // MessagePadding.optimalBlockSize adds 16 bytes overhead
+
+        // 512 - Overhead
+        val packetOverhead = headerSize + senderSize + recipientSize + routeSize + fragmentHeaderSize + paddingBuffer
+        val maxDataSize = (512 - packetOverhead).coerceAtMost(MAX_FRAGMENT_SIZE)
+        
+        if (maxDataSize <= 0) {
+            Log.e(TAG, "❌ Calculated maxDataSize is non-positive ($maxDataSize). Route too large?")
+            return emptyList()
+        }
+
+        Log.d(TAG, "📏 Dynamic fragment size: $maxDataSize (MAX: $MAX_FRAGMENT_SIZE, Overhead: $packetOverhead)")
+
+        val fragmentChunks = stride(0, fullData.size, maxDataSize) { offset ->
+            val endOffset = minOf(offset + maxDataSize, fullData.size)
             fullData.sliceArray(offset..<endOffset)
         }
         
@@ -98,13 +121,16 @@ class FragmentManager {
             )
             
             // iOS: MessageType.fragment.rawValue (single fragment type)
+            // Fix: Fragments must inherit source route and use v2 if routed
             val fragmentPacket = BitchatPacket(
+                version = if (packet.route != null) 2u else 1u,
                 type = MessageType.FRAGMENT.value,
                 ttl = packet.ttl,
                 senderID = packet.senderID,
                 recipientID = packet.recipientID,
                 timestamp = packet.timestamp,
                 payload = fragmentPayload.encode(),
+                route = packet.route,
                 signature = null // iOS: signature: nil
             )
             

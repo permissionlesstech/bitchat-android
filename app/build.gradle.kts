@@ -33,7 +33,7 @@ android {
         debug {
             ndk {
                 // Include x86_64 for emulator support during development
-                abiFilters += listOf("arm64-v8a", "x86_64")
+                abiFilters += listOf("arm64-v8a", "x86_64", "armeabi-v7a", "x86")
             }
         }
         release {
@@ -52,7 +52,7 @@ android {
         abi {
             isEnable = true
             reset()
-            include("arm64-v8a", "x86_64")
+            include("arm64-v8a", "x86_64", "armeabi-v7a", "x86")
             isUniversalApk = true  // For F-Droid and fallback
         }
     }
