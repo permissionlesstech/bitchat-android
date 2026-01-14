@@ -124,6 +124,7 @@ fun MeshPeerListSheet(
                                             peerNicknames.entries.firstOrNull { it.value == peerName }?.key
                                     if (peerID != null) {
                                             viewModel.showPrivateChatSheet(peerID)
+                                            onDismiss()
                                         }
                                     } else {
                                         // Regular channel switch
@@ -160,9 +161,10 @@ fun MeshPeerListSheet(
                                     colorScheme = colorScheme,
                                     selectedPrivatePeer = selectedPrivatePeer,
                                     viewModel = viewModel,
-                                    onPrivateChatStart = { peerID ->
-                                        viewModel.showPrivateChatSheet(peerID)
-                                    }
+                                     onPrivateChatStart = { peerID ->
+                                         viewModel.showPrivateChatSheet(peerID)
+                                         onDismiss()
+                                     }
                                 )
                             }
                         }

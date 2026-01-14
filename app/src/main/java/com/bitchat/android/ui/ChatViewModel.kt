@@ -803,10 +803,6 @@ class ChatViewModel(
 
     fun hideMeshPeerList() {
         state.setShowMeshPeerList(false)
-        if (state.getPrivateChatSheetPeerValue() != null) {
-            endPrivateChat()
-        }
-        hidePrivateChatSheet()
     }
 
     fun showPrivateChatSheet(peerID: String) {
