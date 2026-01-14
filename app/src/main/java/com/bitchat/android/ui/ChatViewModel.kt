@@ -547,6 +547,10 @@ class ChatViewModel(
         _showDuplicateNicknameWarning.value = false
         _duplicateNicknameCandidates.value = emptyList()
         _pendingNickname.value = null
+        // Revert to previously saved nickname
+        val savedNickname = dataManager.loadNickname()
+        state.setNickname(savedNickname)
+
     }
 
     private fun applyNicknameChange(nickname: String) {

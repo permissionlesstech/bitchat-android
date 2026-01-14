@@ -90,7 +90,7 @@ fun DuplicateNicknameWarningDialog(
         },
         dismissButton = {
             TextButton(onClick = onCancel) {
-                Text("Choose Different Name")
+                Text("Abort")
             }
         }
     )
