@@ -63,7 +63,9 @@ fun LocationChannelsSheet(
     val availableChannels by locationManager.availableChannels.collectAsStateWithLifecycle()
     val selectedChannel by locationManager.selectedChannel.collectAsStateWithLifecycle()
     val locationNames by locationManager.locationNames.collectAsStateWithLifecycle()
-    val locationServicesEnabled by locationManager.locationServicesEnabled.collectAsStateWithLifecycle()
+    val appLocationEnabled by locationManager.locationServicesEnabled.collectAsStateWithLifecycle()
+    val systemLocationEnabled by locationManager.systemLocationEnabled.collectAsStateWithLifecycle()
+    val locationServicesEnabled by locationManager.effectiveLocationEnabled.collectAsStateWithLifecycle()
 
     // Observe bookmarks state
     val bookmarks by bookmarksStore.bookmarks.collectAsStateWithLifecycle()
@@ -162,24 +164,7 @@ fun LocationChannelsSheet(
                                 verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 when (permissionState) {
-                                    LocationChannelManager.PermissionState.NOT_DETERMINED -> {
-                                        Button(
-                                            onClick = { locationManager.enableLocationChannels() },
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = standardGreen.copy(alpha = 0.12f),
-                                                contentColor = standardGreen
-                                            ),
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            Text(
-                                                text = stringResource(R.string.grant_location_permission),
-                                                fontSize = 12.sp,
-                                                fontFamily = FontFamily.Monospace
-                                            )
-                                        }
-                                    }
-                                    LocationChannelManager.PermissionState.DENIED,
-                                    LocationChannelManager.PermissionState.RESTRICTED -> {
+                                    LocationChannelManager.PermissionState.DENIED -> {
                                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                             Text(
                                                 text = stringResource(R.string.location_permission_denied),
@@ -562,17 +547,24 @@ fun LocationChannelsSheet(
         }
     }
 
-    // Lifecycle management: when presented, sample both nearby and bookmarked geohashes
+    // Lifecycle management: when presented, manage location updates
+    DisposableEffect(isPresented, permissionState, locationServicesEnabled) {
+        if (isPresented && permissionState == LocationChannelManager.PermissionState.AUTHORIZED && locationServicesEnabled) {
+            locationManager.refreshChannels()
+            locationManager.beginLiveRefresh()
+        }
+
+        onDispose {
+            locationManager.endLiveRefresh()
+        }
+    }
+
+    // Sampling management: update sampling when channels/bookmarks change
     LaunchedEffect(isPresented, availableChannels, bookmarks) {
         if (isPresented) {
-            if (permissionState == LocationChannelManager.PermissionState.AUTHORIZED && locationServicesEnabled) {
-                locationManager.refreshChannels()
-                locationManager.beginLiveRefresh()
-            }
             val geohashes = (availableChannels.map { it.geohash } + bookmarks).toSet().toList()
             viewModel.beginGeohashSampling(geohashes)
         } else {
-            locationManager.endLiveRefresh()
             viewModel.endGeohashSampling()
         }
     }
