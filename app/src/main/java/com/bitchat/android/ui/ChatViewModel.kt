@@ -109,7 +109,7 @@ class ChatViewModel(
     private val verificationHandler = VerificationHandler(
         context = application.applicationContext,
         scope = viewModelScope,
-        meshService = meshService,
+        getMeshService = { meshService },
         identityManager = identityManager,
         state = state,
         notificationManager = notificationManager,
@@ -118,7 +118,7 @@ class ChatViewModel(
     val verifiedFingerprints = verificationHandler.verifiedFingerprints
 
     // Media file sending manager
-    private val mediaSendingManager = MediaSendingManager(state, messageManager, channelManager, meshService)
+    private val mediaSendingManager = MediaSendingManager(state, messageManager, channelManager) { meshService }
     
     // Delegate handler for mesh callbacks
     private val meshDelegateHandler = MeshDelegateHandler(
