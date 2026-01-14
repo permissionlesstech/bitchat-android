@@ -57,10 +57,6 @@ fun MeshPeerListSheet(
     val peerRSSI by viewModel.peerRSSI.collectAsStateWithLifecycle()
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
 
-    // Track nested private chat sheet state
-    var showPrivateChatSheet by remember { mutableStateOf(false) }
-    var privateChatPeerID by remember { mutableStateOf<String?>(null) }
-
     // Bottom sheet state
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
@@ -124,9 +120,8 @@ fun MeshPeerListSheet(
                                         val peerName = channel.removePrefix("@")
                                         val peerID =
                                             peerNicknames.entries.firstOrNull { it.value == peerName }?.key
-                                        if (peerID != null) {
-                                            privateChatPeerID = peerID
-                                            showPrivateChatSheet = true
+                                    if (peerID != null) {
+                                            viewModel.showPrivateChatSheet(peerID)
                                         }
                                     } else {
                                         // Regular channel switch
@@ -164,9 +159,7 @@ fun MeshPeerListSheet(
                                     selectedPrivatePeer = selectedPrivatePeer,
                                     viewModel = viewModel,
                                     onPrivateChatStart = { peerID ->
-                                        viewModel.startPrivateChat(peerID)
-                                        privateChatPeerID = peerID
-                                        showPrivateChatSheet = true
+                                        viewModel.showPrivateChatSheet(peerID)
                                     }
                                 )
                             }
@@ -223,19 +216,6 @@ fun MeshPeerListSheet(
             }
         }
 
-        // Nested Private Chat Sheet (iOS-style)
-        if (showPrivateChatSheet && privateChatPeerID != null) {
-            PrivateChatSheet(
-                isPresented = showPrivateChatSheet,
-                peerID = privateChatPeerID!!,
-                viewModel = viewModel,
-                onDismiss = {
-                    showPrivateChatSheet = false
-                    privateChatPeerID = null
-                    viewModel.endPrivateChat()
-                }
-            )
-        }
     }
 }
 
@@ -295,16 +275,6 @@ private fun ChannelRow(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Selection indicator
-                if (isSelected) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = stringResource(R.string.cd_selected),
-                        tint = Color(0xFF32D74B), // iOS green
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
                 // Leave channel button
                 CloseButton(
                     onClick = onLeaveChannel,
@@ -715,16 +685,6 @@ private fun PeerItem(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Selection indicator
-                if (isSelected) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = stringResource(R.string.cd_selected),
-                        tint = Color(0xFF32D74B), // iOS green
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
                 // Favorite star with proper filled/outlined states
                 IconButton(
                     onClick = onToggleFavorite,
@@ -802,7 +762,7 @@ private fun convertRSSIToSignalStrength(rssi: Int?): Int {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PrivateChatSheet(
+fun PrivateChatSheet(
     isPresented: Boolean,
     peerID: String,
     viewModel: ChatViewModel,
