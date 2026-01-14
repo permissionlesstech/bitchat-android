@@ -635,7 +635,7 @@ private fun PeerItem(
                     )
                 } else {
                     Icon(
-                        imageVector = if (isDirect) Icons.Outlined.SettingsInputAntenna else Icons.Filled.Route,
+                        imageVector = if (isDirect) Icons.Outlined.Bluetooth else Icons.Filled.Route,
                         contentDescription = if (isDirect) "Direct Bluetooth" else "Routed",
                         modifier = Modifier.size(16.dp),
                         tint = colorScheme.onSurface.copy(alpha = 0.6f)
@@ -920,7 +920,7 @@ fun PrivateChatSheet(
                         when {
                             isDirect -> {
                                 Icon(
-                                    imageVector = Icons.Outlined.SettingsInputAntenna,
+                                    imageVector = Icons.Outlined.Bluetooth,
                                     contentDescription = stringResource(R.string.cd_connected_peers),
                                     modifier = Modifier.size(14.dp),
                                     tint = colorScheme.onSurface.copy(alpha = 0.6f)
