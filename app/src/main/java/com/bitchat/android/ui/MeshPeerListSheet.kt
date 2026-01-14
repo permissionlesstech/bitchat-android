@@ -275,16 +275,6 @@ private fun ChannelRow(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Selection indicator
-                if (isSelected) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = stringResource(R.string.cd_selected),
-                        tint = Color(0xFF32D74B), // iOS green
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
                 // Leave channel button
                 CloseButton(
                     onClick = onLeaveChannel,
@@ -695,16 +685,6 @@ private fun PeerItem(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Selection indicator
-                if (isSelected) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = stringResource(R.string.cd_selected),
-                        tint = Color(0xFF32D74B), // iOS green
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
                 // Favorite star with proper filled/outlined states
                 IconButton(
                     onClick = onToggleFavorite,
