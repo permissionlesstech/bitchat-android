@@ -57,7 +57,14 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
 
         // Timestamp validation
         val packetTime = packet.timestamp.toLong()
-        if (abs(currentTime - packetTime) > MESSAGE_TIMEOUT) {
+        
+        // Exempt message packets from strict timestamp check to allow for mesh delays
+        val isMessagePacket = messageType == MessageType.MESSAGE || 
+                              messageType == MessageType.NOISE_ENCRYPTED || 
+                              messageType == MessageType.FILE_TRANSFER ||
+                              messageType == MessageType.FRAGMENT
+                              
+        if (!isMessagePacket && abs(currentTime - packetTime) > MESSAGE_TIMEOUT) {
             Log.w(TAG, "Dropping expired/future packet from $peerID (diff: ${currentTime - packetTime}ms)")
             return false
         }
