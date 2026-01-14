@@ -28,6 +28,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.core.ui.component.button.CloseButton
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetCenterTopBar
+import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
+import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import com.bitchat.android.nostr.GeohashAliasRegistry
@@ -173,32 +175,12 @@ fun MeshPeerListSheet(
                 }
 
                 // TopBar (animated)
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .fillMaxWidth()
-                        .height(64.dp)
-                        .background(colorScheme.background.copy(alpha = topBarAlpha))
-                ) {
-                    Text(
-                        text = stringResource(id = R.string.your_network).uppercase(),
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace
-                        ),
-                        color = colorScheme.onSurface,
-                        modifier = Modifier
-                            .align(Alignment.CenterStart)
-                            .padding(horizontal = 24.dp)
-                    )
-
-                    Row(
-                        modifier = Modifier
-                            .align(Alignment.CenterEnd)
-                            .padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                BitchatSheetTopBar(
+                    title = {
+                        BitchatSheetTitle(text = stringResource(id = R.string.your_network))
+                    },
+                    backgroundAlpha = topBarAlpha,
+                    actions = {
                         if (selectedLocationChannel !is ChannelID.Location) {
                             IconButton(
                                 onClick = onShowVerification,
@@ -212,12 +194,9 @@ fun MeshPeerListSheet(
                                 )
                             }
                         }
-
-                        CloseButton(
-                            onClick = onDismiss
-                        )
-                    }
-                }
+                    },
+                    onClose = onDismiss,
+                )
             }
         }
 
