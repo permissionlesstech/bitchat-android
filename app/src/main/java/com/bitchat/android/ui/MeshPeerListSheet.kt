@@ -29,6 +29,8 @@ import com.bitchat.android.core.ui.component.button.CloseButton
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
+import com.bitchat.android.nostr.GeohashAliasRegistry
+import com.bitchat.android.nostr.GeohashConversationRegistry
 
 
 /**
@@ -122,6 +124,7 @@ fun MeshPeerListSheet(
                                             peerNicknames.entries.firstOrNull { it.value == peerName }?.key
                                     if (peerID != null) {
                                             viewModel.showPrivateChatSheet(peerID)
+                                            onDismiss()
                                         }
                                     } else {
                                         // Regular channel switch
@@ -158,9 +161,10 @@ fun MeshPeerListSheet(
                                     colorScheme = colorScheme,
                                     selectedPrivatePeer = selectedPrivatePeer,
                                     viewModel = viewModel,
-                                    onPrivateChatStart = { peerID ->
-                                        viewModel.showPrivateChatSheet(peerID)
-                                    }
+                                     onPrivateChatStart = { peerID ->
+                                         viewModel.showPrivateChatSheet(peerID)
+                                         onDismiss()
+                                     }
                                 )
                             }
                         }
@@ -785,11 +789,28 @@ fun PrivateChatSheet(
         viewModel.startPrivateChat(peerID)
     }
 
+    val isNostrPeer = peerID.startsWith("nostr_") || peerID.startsWith("nostr:")
+    
+    // Compute display name and title text reactively
     val displayName = peerNicknames[peerID] ?: peerID.take(12)
+    val titleText = remember(peerID, peerNicknames) {
+        if (isNostrPeer) {
+            val gh = GeohashConversationRegistry.get(peerID) ?: "geohash"
+            val fullPubkey = GeohashAliasRegistry.get(peerID) ?: ""
+            val name = if (fullPubkey.isNotEmpty()) {
+                viewModel.geohashViewModel.displayNameForGeohashConversation(fullPubkey, gh)
+            } else {
+                peerNicknames[peerID] ?: "unknown"
+            }
+            "#$gh/@$name"
+        } else {
+            peerNicknames[peerID] ?: peerID.take(12)
+        }
+    }
+
     val messages = privateChats[peerID] ?: emptyList()
     val isDirect = peerDirectMap[peerID] == true
     val isConnected = connectedPeers.contains(peerID) || isDirect
-    val isNostrPeer = peerID.startsWith("nostr_") || peerID.startsWith("nostr:")
     val sessionState = peerSessionStates[peerID]
     val fingerprint = peerFingerprints[peerID]
     val isFavorite = remember(favoritePeers, fingerprint) {
@@ -945,12 +966,12 @@ fun PrivateChatSheet(
                         }
 
                         Text(
-                            text = displayName,
+                            text = titleText,
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace
                             ),
-                            color = colorScheme.onSurface
+                            color = if (isNostrPeer) Color(0xFFFF9500) else colorScheme.onSurface
                         )
 
                         Row(

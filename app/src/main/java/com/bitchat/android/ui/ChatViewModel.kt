@@ -507,6 +507,10 @@ class ChatViewModel(
             ).also { canonical ->
                 if (canonical != state.getSelectedPrivateChatPeerValue()) {
                     privateChatManager.startPrivateChat(canonical, meshService)
+                    // If we're in the private chat sheet, update its active peer too
+                    if (state.getPrivateChatSheetPeerValue() != null) {
+                        showPrivateChatSheet(canonical)
+                    }
                 }
             }
             // Send private message
@@ -722,7 +726,7 @@ class ChatViewModel(
     }
 
     // MARK: - QR Verification
-
+    
     fun isPeerVerified(peerID: String, verifiedFingerprints: Set<String>): Boolean {
         if (peerID.startsWith("nostr_") || peerID.startsWith("nostr:")) return false
         val fingerprint = verificationHandler.getPeerFingerprintForDisplay(peerID)
@@ -799,10 +803,6 @@ class ChatViewModel(
 
     fun hideMeshPeerList() {
         state.setShowMeshPeerList(false)
-        if (state.getPrivateChatSheetPeerValue() != null) {
-            endPrivateChat()
-        }
-        hidePrivateChatSheet()
     }
 
     fun showPrivateChatSheet(peerID: String) {
