@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.core.ui.component.button.CloseButton
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
+import com.bitchat.android.core.ui.component.sheet.BitchatSheetCenterTopBar
 import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 
@@ -928,114 +929,103 @@ private fun PrivateChatSheet(
                 }
 
                 // TopBar (fixed at top, iOS-style)
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .fillMaxWidth()
-                        .height(64.dp)
-                        .background(colorScheme.background),
-                    contentAlignment = Alignment.Center
-                ) {
-                    // Back button
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier
-                            .align(Alignment.CenterStart)
-                            .padding(start = 16.dp)
-                            .size(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.chat_back),
-                            tint = colorScheme.onSurface
-                        )
-                    }
-
-                    // Center content: connection status + name + encryption
-                    Row(
-                        modifier = Modifier.align(Alignment.Center),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        when {
-                            isDirect -> {
-                                Icon(
-                                    imageVector = Icons.Outlined.SettingsInputAntenna,
-                                    contentDescription = stringResource(R.string.cd_connected_peers),
-                                    modifier = Modifier.size(14.dp),
-                                    tint = colorScheme.onSurface.copy(alpha = 0.6f)
-                                )
-                            }
-                            isConnected -> {
-                                Icon(
-                                    imageVector = Icons.Filled.Route,
-                                    contentDescription = stringResource(R.string.cd_ready_for_handshake),
-                                    modifier = Modifier.size(14.dp),
-                                    tint = colorScheme.onSurface.copy(alpha = 0.6f)
-                                )
-                            }
-                            isNostrPeer -> {
-                                Icon(
-                                    imageVector = Icons.Filled.Public,
-                                    contentDescription = stringResource(R.string.cd_nostr_reachable),
-                                    modifier = Modifier.size(14.dp),
-                                    tint = Color(0xFF9C27B0)
-                                )
-                            }
-                        }
-
-                        Text(
-                            text = displayName,
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.Monospace
-                            ),
-                            color = colorScheme.onSurface
-                        )
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.then(securityModifier)
-                        ) {
-                            if (!isNostrPeer) {
-                                NoiseSessionIcon(
-                                    sessionState = sessionState,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                            }
-
-                            if (isVerified) {
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Icon(
-                                    imageVector = Icons.Filled.Verified,
-                                    contentDescription = stringResource(R.string.verify_title),
-                                    modifier = Modifier.size(14.dp),
-                                    tint = Color(0xFF32D74B) // iOS Green
-                                )
-                            }
-                        }
-
+                BitchatSheetCenterTopBar(
+                    onClose = onDismiss,
+                    modifier = Modifier.align(Alignment.TopCenter),
+                    navigationIcon = {
                         IconButton(
-                            onClick = { viewModel.toggleFavorite(peerID) },
-                            modifier = Modifier.size(28.dp)
+                            onClick = onDismiss,
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .padding(start = 16.dp)
+                                .size(32.dp)
                         ) {
                             Icon(
-                                imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
-                                contentDescription = if (isFavorite) stringResource(R.string.cd_remove_favorite) else stringResource(R.string.cd_add_favorite),
-                                modifier = Modifier.size(16.dp),
-                                tint = if (isFavorite) Color(0xFFFFD700) else colorScheme.onSurface.copy(alpha = 0.6f)
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.chat_back),
+                                tint = colorScheme.onSurface
                             )
                         }
+                    },
+                    title = {
+                        // Center content: connection status + name + encryption
+                        Row(
+                            modifier = Modifier.align(Alignment.Center),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            when {
+                                isDirect -> {
+                                    Icon(
+                                        imageVector = Icons.Outlined.SettingsInputAntenna,
+                                        contentDescription = stringResource(R.string.cd_connected_peers),
+                                        modifier = Modifier.size(14.dp),
+                                        tint = colorScheme.onSurface.copy(alpha = 0.6f)
+                                    )
+                                }
+                                isConnected -> {
+                                    Icon(
+                                        imageVector = Icons.Filled.Route,
+                                        contentDescription = stringResource(R.string.cd_ready_for_handshake),
+                                        modifier = Modifier.size(14.dp),
+                                        tint = colorScheme.onSurface.copy(alpha = 0.6f)
+                                    )
+                                }
+                                isNostrPeer -> {
+                                    Icon(
+                                        imageVector = Icons.Filled.Public,
+                                        contentDescription = stringResource(R.string.cd_nostr_reachable),
+                                        modifier = Modifier.size(14.dp),
+                                        tint = Color(0xFF9C27B0)
+                                    )
+                                }
+                            }
+
+                            Text(
+                                text = displayName,
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                ),
+                                color = colorScheme.onSurface
+                            )
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.then(securityModifier)
+                            ) {
+                                if (!isNostrPeer) {
+                                    NoiseSessionIcon(
+                                        sessionState = sessionState,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+
+                                if (isVerified) {
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Icon(
+                                        imageVector = Icons.Filled.Verified,
+                                        contentDescription = stringResource(R.string.verify_title),
+                                        modifier = Modifier.size(14.dp),
+                                        tint = Color(0xFF32D74B) // iOS Green
+                                    )
+                                }
+                            }
+
+                            IconButton(
+                                onClick = { viewModel.toggleFavorite(peerID) },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.Star,
+                                    contentDescription = if (isFavorite) stringResource(R.string.cd_remove_favorite) else stringResource(R.string.cd_add_favorite),
+                                    modifier = Modifier.size(16.dp),
+                                    tint = if (isFavorite) Color(0xFFFFD700) else colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
+                            }
+                        }
                     }
-
-                    CloseButton(
-                        onClick = onDismiss,
-                        modifier = Modifier
-                            .align(Alignment.CenterEnd)
-                            .padding(horizontal = 16.dp)
-                    )
-
-                }
+                )
             }
         }
     }

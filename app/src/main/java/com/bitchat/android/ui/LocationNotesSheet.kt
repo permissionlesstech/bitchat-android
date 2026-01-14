@@ -26,8 +26,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.bitchat.android.core.ui.component.button.CloseButton
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
+import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
+import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.nostr.LocationNotesManager
@@ -112,8 +113,6 @@ fun LocationNotesSheet(
             ) {
                 item(key = "notes_header") {
                     LocationNotesHeader(
-                        geohash = geohash,
-                        count = count,
                         locationName = displayLocationName,
                         state = state,
                         accentGreen = accentGreen,
@@ -164,20 +163,20 @@ fun LocationNotesSheet(
             }
 
             // TopBar (animated)
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth()
-                    .height(64.dp)
-                    .background(MaterialTheme.colorScheme.background.copy(alpha = topBarAlpha))
-            ) {
-                CloseButton(
-                    onClick = onDismiss,
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .padding(horizontal = 16.dp)
-                )
-            }
+            BitchatSheetTopBar(
+                onClose = onDismiss,
+                modifier = Modifier.align(Alignment.TopCenter),
+                title = {
+                    BitchatSheetTitle(
+                        text = pluralStringResource(
+                            id = R.plurals.location_notes_title,
+                            count = count,
+                            geohash,
+                            count
+                        )
+                    )
+                }
+            )
 
             Box(
                 modifier = Modifier
@@ -214,12 +213,10 @@ fun LocationNotesSheet(
 
 /**
  * Header section - matches iOS headerSection exactly
- * Shows: "#geohash • X notes", location name, description, and close button
+ * Shows: "#geohash • X notes", location name, description
  */
 @Composable
 private fun LocationNotesHeader(
-    geohash: String,
-    count: Int,
     locationName: String?,
     state: LocationNotesManager.State,
     accentGreen: Color,
@@ -228,22 +225,8 @@ private fun LocationNotesHeader(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-            .padding(top = 16.dp, bottom = 12.dp)
+            .padding(bottom = 12.dp)
     ) {
-        // Localized title with ±1 and note count
-        Text(
-            text = pluralStringResource(
-                id = R.plurals.location_notes_title,
-                count = count,
-                geohash,
-                count
-            ),
-            fontFamily = FontFamily.Monospace,
-            fontSize = 18.sp,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        
         // Location name in green (building or block)
         locationName?.let { name ->
             if (name.isNotEmpty()) {
@@ -471,6 +454,7 @@ private fun LocationNotesInputSection(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(color = colorScheme.background)
             .padding(horizontal = 12.dp, vertical = 8.dp), // Match main chat padding
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp) // Match main chat spacing
