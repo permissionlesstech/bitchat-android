@@ -86,11 +86,9 @@ fun ChatScreen(viewModel: ChatViewModel) {
     // Get location channel info for timeline switching
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
 
-    val effectiveSelectedPrivatePeer = if (privateChatSheetPeer != null) null else selectedPrivatePeer
-
     // Determine what messages to show based on current context (unified timelines)
+    // Legacy private chat timeline removed - private chats now exclusively use PrivateChatSheet
     val displayMessages = when {
-        effectiveSelectedPrivatePeer != null -> privateChats[effectiveSelectedPrivatePeer] ?: emptyList()
         currentChannel != null -> channelMessages[currentChannel] ?: emptyList()
         else -> {
             val locationChannel = selectedLocationChannel
@@ -105,7 +103,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
 
     // Determine whether to show media buttons (only hide in geohash location chats)
     val showMediaButtons = when {
-        effectiveSelectedPrivatePeer != null -> true
         currentChannel != null -> true
         else -> selectedLocationChannel !is com.bitchat.android.geohash.ChannelID.Location
     }
@@ -235,7 +232,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                         selection = TextRange(mentionText.length)
                     )
                 },
-                selectedPrivatePeer = effectiveSelectedPrivatePeer,
+                selectedPrivatePeer = null,
                 currentChannel = currentChannel,
                 nickname = nickname,
                 colorScheme = colorScheme,
@@ -246,7 +243,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
         // Floating header - positioned absolutely at top, ignores keyboard
         ChatFloatingHeader(
             headerHeight = headerHeight,
-            selectedPrivatePeer = effectiveSelectedPrivatePeer,
+            selectedPrivatePeer = null,
             currentChannel = currentChannel,
             nickname = nickname,
             viewModel = viewModel,

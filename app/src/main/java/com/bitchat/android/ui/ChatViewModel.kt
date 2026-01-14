@@ -404,6 +404,8 @@ class ChatViewModel(
         setCurrentPrivateChatPeer(null)
         // Clear mesh mention notifications since user is now back in mesh chat
         clearMeshMentionNotifications()
+        // Ensure sheet is hidden
+        hidePrivateChatSheet()
     }
 
     // MARK: - Open Latest Unread Private Chat
@@ -452,7 +454,7 @@ class ChatViewModel(
                 canonical ?: targetKey
             }
 
-            startPrivateChat(openPeer)
+            showPrivateChatSheet(openPeer)
         } catch (e: Exception) {
             Log.w(TAG, "openLatestUnreadPrivateChat failed: ${e.message}")
         }
@@ -1019,7 +1021,7 @@ class ChatViewModel(
      */
     fun startGeohashDM(pubkeyHex: String) {
         geohashViewModel.startGeohashDM(pubkeyHex) { convKey ->
-            startPrivateChat(convKey)
+            showPrivateChatSheet(convKey)
         }
     }
 
@@ -1062,7 +1064,7 @@ class ChatViewModel(
                 true
             }
             // Exit private chat
-            state.getSelectedPrivateChatPeerValue() != null -> {
+            state.getSelectedPrivateChatPeerValue() != null || state.getPrivateChatSheetPeerValue() != null -> {
                 endPrivateChat()
                 true
             }
