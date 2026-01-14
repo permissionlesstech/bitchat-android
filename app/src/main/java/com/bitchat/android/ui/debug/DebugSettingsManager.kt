@@ -3,8 +3,12 @@ package com.bitchat.android.ui.debug
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import java.util.Date
 import java.util.concurrent.ConcurrentLinkedQueue
+import com.bitchat.android.protocol.BitchatPacket
+import com.bitchat.android.util.toHexString
 
 /**
  * Debug settings manager for controlling debug features and collecting debug data
@@ -465,13 +469,52 @@ class DebugSettingsManager private constructor() {
         // Do not update counters here; this path is for readable logs only.
     }
 
-    // Explicit incoming/outgoing logging to avoid double counting
-    fun logIncoming(packetType: String, fromPeerID: String?, fromNickname: String?, fromDeviceAddress: String?, packetVersion: UByte = 1u, routeInfo: String? = null) {
-        if (verboseLoggingEnabled.value) {
-            val who = fromNickname ?: fromPeerID ?: "unknown"
-            val routeStr = if (routeInfo != null) " $routeInfo" else ""
-            addDebugMessage(DebugMessage.PacketEvent("📥 Incoming v$packetVersion $packetType from $who (${fromPeerID ?: "?"}, ${fromDeviceAddress ?: "?"})$routeStr"))
+    // MARK: - Debug Events for Animation
+    sealed class MeshVisualEvent {
+        data class PacketActivity(val peerID: String) : MeshVisualEvent()
+        data class RouteActivity(val route: List<String>) : MeshVisualEvent()
+    }
+
+    private val _meshVisualEvents = kotlinx.coroutines.flow.MutableSharedFlow<MeshVisualEvent>(
+        extraBufferCapacity = 64,
+        onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST
+    )
+    val meshVisualEvents: kotlinx.coroutines.flow.SharedFlow<MeshVisualEvent> = _meshVisualEvents.asSharedFlow()
+
+    fun emitVisualEvent(event: MeshVisualEvent) {
+        if (_debugSheetVisible.value) {
+            _meshVisualEvents.tryEmit(event)
         }
+    }
+
+    // Peer nickname resolver
+    private var nicknameResolver: ((String) -> String?)? = null
+    fun setNicknameResolver(resolver: (String) -> String?) { nicknameResolver = resolver }
+    
+    // Explicit incoming/outgoing logging to avoid double counting
+    fun logIncoming(packet: BitchatPacket, fromPeerID: String, fromNickname: String?, fromDeviceAddress: String?, myPeerID: String) {
+        val packetType = packet.type.toString()
+        val packetVersion = packet.version
+        val route = packet.route
+        val routeInfo = if (!route.isNullOrEmpty()) "routed: ${route.size} hops" else null
+
+        if (verboseLoggingEnabled.value) {
+            val resolvedNick = fromNickname ?: nicknameResolver?.invoke(fromPeerID) ?: "unknown"
+            val who = if (resolvedNick != "unknown") "$resolvedNick ($fromPeerID)" else fromPeerID
+            val routeStr = if (routeInfo != null) " $routeInfo" else ""
+            addDebugMessage(DebugMessage.PacketEvent("📥 Incoming v$packetVersion $packetType from $who (${fromDeviceAddress ?: "?"})$routeStr"))
+        }
+
+        emitVisualEvent(MeshVisualEvent.PacketActivity(fromPeerID))
+        
+        if (!route.isNullOrEmpty()) {
+            val fullRoute = mutableListOf<String>()
+            fullRoute.add(packet.senderID.toHexString())
+            route.forEach { fullRoute.add(it.toHexString()) }
+            packet.recipientID?.let { fullRoute.add(it.toHexString()) }
+            emitVisualEvent(MeshVisualEvent.RouteActivity(fullRoute))
+        }
+
         val now = System.currentTimeMillis()
         val visible = _debugSheetVisible.value
         if (visible) incomingTimestamps.offer(now)
@@ -480,11 +523,11 @@ class DebugSettingsManager private constructor() {
             deviceIncomingTotalsMap[it] = (deviceIncomingTotalsMap[it] ?: 0L) + 1L
             _perDeviceIncomingTotalsFlow.value = deviceIncomingTotalsMap.toMap()
         }
-        fromPeerID?.let {
-            perPeerIncoming.getOrPut(it) { ConcurrentLinkedQueue() }.offer(now)
-            peerIncomingTotalsMap[it] = (peerIncomingTotalsMap[it] ?: 0L) + 1L
-            _perPeerIncomingTotalsFlow.value = peerIncomingTotalsMap.toMap()
-        }
+        
+        perPeerIncoming.getOrPut(fromPeerID) { ConcurrentLinkedQueue() }.offer(now)
+        peerIncomingTotalsMap[fromPeerID] = (peerIncomingTotalsMap[fromPeerID] ?: 0L) + 1L
+        _perPeerIncomingTotalsFlow.value = peerIncomingTotalsMap.toMap()
+        
         // bump totals
         val cur = _relayStats.value
         _relayStats.value = cur.copy(

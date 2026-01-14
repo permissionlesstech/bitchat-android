@@ -70,22 +70,7 @@ fun HandshakeAnimatedDots() {
  */
 
 
-/**
- * Reactive helper to compute favorite state from fingerprint mapping
- * This eliminates the need for static isFavorite parameters and makes
- * the UI reactive to fingerprint manager changes
- */
-@Composable
-fun isFavoriteReactive(
-    peerID: String,
-    peerFingerprints: Map<String, String>,
-    favoritePeers: Set<String>
-): Boolean {
-    return remember(peerID, peerFingerprints, favoritePeers) {
-        val fingerprint = peerFingerprints[peerID]
-        fingerprint != null && favoritePeers.contains(fingerprint)
-    }
-}
+
 
 @Composable
 fun TorStatusDot(
@@ -283,39 +268,6 @@ fun ChatHeaderContent(
     val colorScheme = MaterialTheme.colorScheme
 
     when {
-        selectedPrivatePeer != null -> {
-            // Private chat header - Fully reactive state tracking
-            val favoritePeers by viewModel.favoritePeers.collectAsStateWithLifecycle()
-            val peerFingerprints by viewModel.peerFingerprints.collectAsStateWithLifecycle()
-            val peerSessionStates by viewModel.peerSessionStates.collectAsStateWithLifecycle()
-            val peerNicknames by viewModel.peerNicknames.collectAsStateWithLifecycle()
-            
-            // Reactive favorite computation - no more static lookups!
-            val isFavorite = isFavoriteReactive(
-                peerID = selectedPrivatePeer,
-                peerFingerprints = peerFingerprints,
-                favoritePeers = favoritePeers
-            )
-            val sessionState = peerSessionStates[selectedPrivatePeer]
-            
-            Log.d("ChatHeader", "Header recomposing: peer=$selectedPrivatePeer, isFav=$isFavorite, sessionState=$sessionState")
-            
-            // Pass geohash context and people for NIP-17 chat title formatting
-            val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
-            val geohashPeople by viewModel.geohashPeople.collectAsStateWithLifecycle()
-
-            PrivateChatHeader(
-                peerID = selectedPrivatePeer,
-                peerNicknames = peerNicknames,
-                isFavorite = isFavorite,
-                sessionState = sessionState,
-                selectedLocationChannel = selectedLocationChannel,
-                geohashPeople = geohashPeople,
-                onBackClick = onBackClick,
-                onToggleFavorite = { viewModel.toggleFavorite(selectedPrivatePeer) },
-                viewModel = viewModel
-            )
-        }
         currentChannel != null -> {
             // Channel header
             ChannelHeader(
@@ -341,37 +293,8 @@ fun ChatHeaderContent(
     }
 }
 
-@Composable
-private fun PrivateChatHeader(
-    peerID: String,
-    peerNicknames: Map<String, String>,
-    isFavorite: Boolean,
-    sessionState: String?,
-    selectedLocationChannel: com.bitchat.android.geohash.ChannelID?,
-    geohashPeople: List<GeoPerson>,
-    onBackClick: () -> Unit,
-    onToggleFavorite: () -> Unit,
-    viewModel: ChatViewModel
-) {
-    val colorScheme = MaterialTheme.colorScheme
-    val isNostrDM = peerID.startsWith("nostr_") || peerID.startsWith("nostr:")
-    val verifiedFingerprints by viewModel.verifiedFingerprints.collectAsStateWithLifecycle()
-    val isVerified = remember(peerID, verifiedFingerprints) {
-        viewModel.isPeerVerified(peerID, verifiedFingerprints)
-    }
-    // Determine mutual favorite state for this peer (supports mesh ephemeral 16-hex via favorites lookup)
-    val isMutualFavorite = remember(peerID, peerNicknames) {
-        try {
-            if (isNostrDM) return@remember false
-            if (peerID.length == 64 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
-                val noiseKeyBytes = peerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
-                com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKeyBytes)?.isMutual == true
-            } else if (peerID.length == 16 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
-                com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(peerID)?.isMutual == true
-            } else false
-        } catch (_: Exception) { false }
-    }
 
+<<<<<<< HEAD
     // Compute title text: for NIP-17 chats show "#geohash/@username" (iOS parity)
     val titleText: String = if (isNostrDM) {
         // For geohash DMs, get the actual source geohash and proper display name
@@ -509,6 +432,8 @@ private fun PrivateChatHeader(
         }
     }
 }
+=======
+>>>>>>> main
 
 @Composable
 private fun ChannelHeader(
