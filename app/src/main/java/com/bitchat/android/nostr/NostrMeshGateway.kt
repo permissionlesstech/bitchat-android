@@ -12,9 +12,51 @@ import kotlinx.coroutines.launch
  * Nostr Mesh Gateway helpers
  * - publishToMeshOrRelay(event): decide ruta según conectividad
  * - MeshListener snippet: detecta TYPE_NOSTR_RELAY_REQUEST paquetes y publica en relays
+ * - Deduplication: prevents multiple mesh peers from publishing the same event
  */
 object NostrMeshGateway {
     private const val TAG = "NostrMeshGateway"
+    
+    // Deduplication cache: stores event IDs that we've already published to relays
+    // This prevents multiple online devices from publishing the same event
+    private const val MAX_PUBLISHED_CACHE_SIZE = 500
+    private const val PUBLISHED_CACHE_TTL_MS = 5 * 60 * 1000L  // 5 minutes
+    private val publishedEventCache = LinkedHashMap<String, Long>(MAX_PUBLISHED_CACHE_SIZE, 0.75f, true)
+    private val cacheLock = Any()
+    
+    /**
+     * Check if we've already published this event recently
+     */
+    private fun hasRecentlyPublished(eventId: String): Boolean {
+        synchronized(cacheLock) {
+            val publishedAt = publishedEventCache[eventId] ?: return false
+            val age = System.currentTimeMillis() - publishedAt
+            if (age > PUBLISHED_CACHE_TTL_MS) {
+                publishedEventCache.remove(eventId)
+                return false
+            }
+            return true
+        }
+    }
+    
+    /**
+     * Mark an event as published (add to dedup cache)
+     */
+    private fun markAsPublished(eventId: String) {
+        synchronized(cacheLock) {
+            // Evict old entries if cache is full
+            if (publishedEventCache.size >= MAX_PUBLISHED_CACHE_SIZE) {
+                val now = System.currentTimeMillis()
+                publishedEventCache.entries.removeIf { now - it.value > PUBLISHED_CACHE_TTL_MS }
+                // If still full, remove oldest
+                if (publishedEventCache.size >= MAX_PUBLISHED_CACHE_SIZE) {
+                    val oldest = publishedEventCache.keys.firstOrNull()
+                    if (oldest != null) publishedEventCache.remove(oldest)
+                }
+            }
+            publishedEventCache[eventId] = System.currentTimeMillis()
+        }
+    }
 
     /**
      * Decide publicar directamente a relays si hay conectividad, o enviar por Mesh si no
@@ -116,10 +158,17 @@ object NostrMeshGateway {
                     Log.w(TAG, "Event failed PoW validation - discarding id=${event.id.take(16)}...")
                     return@launch
                 }
+                
+                // Deduplication: check if we (or another peer) already published this event
+                if (hasRecentlyPublished(event.id)) {
+                    Log.d(TAG, "Event already published recently, skipping duplicate id=${event.id.take(16)}...")
+                    return@launch
+                }
 
                 // Publish to relays via NostrRelayManager
                 try {
                     NostrRelayManager.getInstance(context).sendEvent(event)
+                    markAsPublished(event.id)  // Mark as published AFTER successful send
                     Log.i(TAG, "Published mesh-origin event to relays id=${event.id.take(16)}...")
 
                     // Optionally send acknowledgement back over mesh

@@ -14,6 +14,9 @@ import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.nostr.NostrIdentityBridge
+import com.bitchat.android.nostr.NostrProfileManager
+import com.bitchat.android.nostr.NostrKind
+import com.bitchat.android.nostr.NostrRelayManager
 import com.bitchat.android.protocol.BitchatPacket
 
 
@@ -299,6 +302,17 @@ class ChatViewModel(
 
         // Note: Mesh service is now started by MainActivity
 
+        // Initialize NostrProfileManager with relay/mesh hooks
+        try {
+            NostrProfileManager.initialize(
+                context = getApplication(),
+                meshService = meshService,
+                subscribe = { filter, id, handler -> NostrRelayManager.getInstance(getApplication()).subscribe(filter, id, handler) },
+                unsubscribe = { id -> NostrRelayManager.getInstance(getApplication()).unsubscribe(id) },
+                sendEvent = { event, relays -> NostrRelayManager.getInstance(getApplication()).sendEvent(event, relays) }
+            )
+        } catch (_: Exception) { }
+
         // BLE receives are inserted by MessageHandler path; no VoiceNoteBus for Tor in this branch.
     }
     
@@ -362,7 +376,54 @@ class ChatViewModel(
     }
     
     fun switchToChannel(channel: String?) {
+        // Manage subscription lifecycle for our Nostr-profile channel (#me)
+        val prev = state.getCurrentChannelValue()
+        if (prev == "#me" && channel != "#me") {
+            try { NostrProfileManager.unsubscribeProfile() } catch (_: Exception) { }
+        }
+
         channelManager.switchToChannel(channel)
+
+        if (channel == "#me") {
+            try {
+                NostrProfileManager.subscribeMyProfile { event ->
+                    try {
+                        // Accept all valid kind=1 text notes from our profile
+                        if (event.kind == NostrKind.TEXT_NOTE && event.isValidSignature()) {
+                            val meNick = state.getNicknameValue() ?: meshService.myPeerID
+                            val originalContent = event.content
+                            val eventId = event.id
+                            
+                            // Parse nostr: URIs to human-readable format (uses cache)
+                            val parsedContent = NostrIdentityBridge.parseNostrContent(originalContent)
+                            val msg = BitchatMessage(
+                                id = eventId,
+                                sender = meNick,
+                                content = parsedContent,
+                                timestamp = Date(event.createdAt.toLong() * 1000L),
+                                isRelay = true,
+                                senderPeerID = meshService.myPeerID,
+                                channel = "#me"
+                            )
+                            channelManager.addChannelMessage("#me", msg, meshService.myPeerID)
+                            
+                            // Resolve references asynchronously and update message when done
+                            NostrIdentityBridge.resolveNostrReferences(originalContent) {
+                                // Re-parse with updated cache and update the message
+                                val updatedContent = NostrIdentityBridge.parseNostrContent(originalContent)
+                                if (updatedContent != parsedContent) {
+                                    channelManager.updateChannelMessageContent("#me", eventId, updatedContent)
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to process profile event: ${e.message}")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to subscribe to #me profile: ${e.message}")
+            }
+        }
     }
     
     fun leaveChannel(channel: String) {
@@ -533,6 +594,57 @@ class ChatViewModel(
                 // Send to geohash channel via Nostr ephemeral event
                 geohashViewModel.sendGeohashMessage(content, selectedLocationChannel.channel, meshService.myPeerID, state.getNicknameValue())
             } else {
+                // If we're in the special profile channel #me, publish via NostrProfileManager
+                Log.d(TAG, "sendMessage: currentChannelValue=$currentChannelValue")
+                if (currentChannelValue == "#me") {
+                    val nick = state.getNicknameValue()
+                    Log.d(TAG, "Publishing to #me profile channel")
+                    // Local echo
+                    val echo = BitchatMessage(
+                        sender = nick ?: meshService.myPeerID,
+                        content = content,
+                        timestamp = Date(),
+                        isRelay = false,
+                        senderPeerID = meshService.myPeerID,
+                        mentions = if (mentions.isNotEmpty()) mentions else null,
+                        channel = "#me"
+                    )
+                    channelManager.addChannelMessage("#me", echo, meshService.myPeerID)
+
+                    // Publish to Nostr (async with result handling)
+                    viewModelScope.launch {
+                        val result = NostrProfileManager.publishProfileMessage(content, nick)
+                        when (result) {
+                            is NostrProfileManager.PublishResult.PowRequired -> {
+                                // Show system message explaining PoW is needed
+                                val systemMessage = BitchatMessage(
+                                    sender = "system",
+                                    content = "⚠️ Para enviar mensajes en #me sin conexión, debes activar Proof of Work en Configuración → Nostr → PoW",
+                                    timestamp = Date(),
+                                    isRelay = false,
+                                    channel = "#me"
+                                )
+                                channelManager.addChannelMessage("#me", systemMessage, null)
+                            }
+                            is NostrProfileManager.PublishResult.PowMiningFailed -> {
+                                val systemMessage = BitchatMessage(
+                                    sender = "system",
+                                    content = "❌ Error: El minado de PoW falló. Intenta con una dificultad menor.",
+                                    timestamp = Date(),
+                                    isRelay = false,
+                                    channel = "#me"
+                                )
+                                channelManager.addChannelMessage("#me", systemMessage, null)
+                            }
+                            is NostrProfileManager.PublishResult.Error -> {
+                                Log.w(TAG, "Failed to publish profile message: ${result.message}")
+                            }
+                            else -> { /* Success or other cases */ }
+                        }
+                    }
+                    return
+                }
+
                 // Send public/channel message via mesh
                 val message = BitchatMessage(
                     sender = state.getNicknameValue() ?: meshService.myPeerID,

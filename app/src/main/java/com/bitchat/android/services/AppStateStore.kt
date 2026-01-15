@@ -91,7 +91,8 @@ object AppStateStore {
             seenMessageIds.add(msg.id)
             val map = _channelMessages.value.toMutableMap()
             val list = (map[channel] ?: emptyList()) + msg
-            map[channel] = list
+            // Only sort #me channel (Nostr posts can arrive out of order from relays)
+            map[channel] = if (channel == "#me") list.sortedBy { it.timestamp } else list
             _channelMessages.value = map
         }
     }
