@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.mesh.BluetoothMeshService
+import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.nostr.NostrIdentityBridge
@@ -37,8 +38,12 @@ import java.security.MessageDigest
  */
 class ChatViewModel(
     application: Application,
-    val meshService: BluetoothMeshService
+    initialMeshService: BluetoothMeshService
 ) : AndroidViewModel(application), BluetoothMeshDelegate {
+
+    // Made var to support mesh service replacement after panic clear
+    var meshService: BluetoothMeshService = initialMeshService
+        private set
     private val debugManager by lazy { try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (e: Exception) { null } }
 
     companion object {
@@ -104,7 +109,7 @@ class ChatViewModel(
     private val verificationHandler = VerificationHandler(
         context = application.applicationContext,
         scope = viewModelScope,
-        meshService = meshService,
+        getMeshService = { meshService },
         identityManager = identityManager,
         state = state,
         notificationManager = notificationManager,
@@ -113,7 +118,7 @@ class ChatViewModel(
     val verifiedFingerprints = verificationHandler.verifiedFingerprints
 
     // Media file sending manager
-    private val mediaSendingManager = MediaSendingManager(state, messageManager, channelManager, meshService)
+    private val mediaSendingManager = MediaSendingManager(state, messageManager, channelManager) { meshService }
     
     // Delegate handler for mesh callbacks
     private val meshDelegateHandler = MeshDelegateHandler(
@@ -908,6 +913,11 @@ class ChatViewModel(
         privateChatManager.clearAllPrivateChats()
         dataManager.clearAllData()
         
+        // Clear seen message store
+        try {
+            com.bitchat.android.services.SeenMessageStore.getInstance(getApplication()).clear()
+        } catch (_: Exception) { }
+        
         // Clear all mesh service data
         clearAllMeshServiceData()
         
@@ -935,10 +945,37 @@ class ChatViewModel(
         state.setNickname(newNickname)
         dataManager.saveNickname(newNickname)
         
-        Log.w(TAG, "🚨 PANIC MODE COMPLETED - All sensitive data cleared")
-        
-        // Note: Mesh service restart is now handled by MainActivity
-        // This method now only clears data, not mesh service lifecycle
+        // Recreate mesh service with fresh identity
+        recreateMeshServiceAfterPanic()
+
+        Log.w(TAG, "🚨 PANIC MODE COMPLETED - New identity: ${meshService.myPeerID}")
+    }
+
+    /**
+     * Recreate the mesh service with a fresh identity after panic clear.
+     * This ensures the new cryptographic keys are used for a new peer ID.
+     */
+    private fun recreateMeshServiceAfterPanic() {
+        val oldPeerID = meshService.myPeerID
+
+        // Clear the holder so getOrCreate() returns a fresh instance
+        MeshServiceHolder.clear()
+
+        // Create fresh mesh service with new identity (keys were regenerated in clearAllCryptographicData)
+        val freshMeshService = MeshServiceHolder.getOrCreate(getApplication())
+
+        // Replace our reference and set up the new service
+        meshService = freshMeshService
+        meshService.delegate = this
+
+        // Restart mesh operations with new identity
+        meshService.startServices()
+        meshService.sendBroadcastAnnounce()
+
+        Log.d(
+            TAG,
+            "✅ Mesh service recreated. Old peerID: $oldPeerID, New peerID: ${meshService.myPeerID}"
+        )
     }
     
     /**

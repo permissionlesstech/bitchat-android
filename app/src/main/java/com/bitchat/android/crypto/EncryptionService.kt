@@ -145,6 +145,12 @@ open class EncryptionService(private val context: Context) {
             val prefs = context.getSharedPreferences("bitchat_crypto", Context.MODE_PRIVATE)
             prefs.edit().remove(ED25519_PRIVATE_KEY_PREF).apply()
             Log.d(TAG, "🗑️ Cleared Ed25519 signing keys from preferences")
+
+            // Generate new keys immediately
+            val keyPair = loadOrCreateEd25519KeyPair()
+            ed25519PrivateKey = keyPair.private as Ed25519PrivateKeyParameters
+            ed25519PublicKey = keyPair.public as Ed25519PublicKeyParameters
+            Log.d(TAG, "✅ Rotated Ed25519 signing keys in memory")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Failed to clear Ed25519 keys: ${e.message}")
         }

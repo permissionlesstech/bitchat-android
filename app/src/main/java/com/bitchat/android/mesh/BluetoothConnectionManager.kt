@@ -70,7 +70,7 @@ class BluetoothConnectionManager(
     }
     
     private val serverManager = BluetoothGattServerManager(
-        context, connectionScope, connectionTracker, permissionManager, powerManager, componentDelegate
+        context, connectionScope, connectionTracker, permissionManager, powerManager, componentDelegate, myPeerID
     )
     private val clientManager = BluetoothGattClientManager(
         context, connectionScope, connectionTracker, permissionManager, powerManager, componentDelegate
