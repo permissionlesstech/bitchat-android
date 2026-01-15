@@ -38,7 +38,7 @@ fun LocationNotesButton(
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
     val locationManager = remember { LocationChannelManager.getInstance(context) }
     val permissionState by locationManager.permissionState.collectAsStateWithLifecycle()
-    val locationServicesEnabled by locationManager.locationServicesEnabled.collectAsStateWithLifecycle(false)
+    val locationServicesEnabled by locationManager.effectiveLocationEnabled.collectAsStateWithLifecycle(false)
 
     // Check both permission AND location services enabled
     val locationPermissionGranted = permissionState == LocationChannelManager.PermissionState.AUTHORIZED

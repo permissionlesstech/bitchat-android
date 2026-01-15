@@ -13,8 +13,10 @@ import androidx.camera.core.Preview
 import androidx.camera.core.SurfaceRequest
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.viewfinder.core.ImplementationMode
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,20 +25,23 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.QrCode
 import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -48,6 +53,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -75,10 +81,10 @@ import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
-import kotlinx.coroutines.flow.MutableStateFlow
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.common.BitMatrix
 import com.google.zxing.qrcode.QRCodeWriter
+import kotlinx.coroutines.flow.MutableStateFlow
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -94,14 +100,10 @@ fun VerificationSheet(
 
     val isDark = isSystemInDarkTheme()
     val accent = if (isDark) Color.Green else Color(0xFF008000)
-    val boxColor = if (isDark) Color.White.copy(alpha = 0.06f) else Color.Black.copy(alpha = 0.06f)
-
-    var showingScanner by remember { mutableStateOf(false) }
+    
+    var selectedTab by remember { mutableStateOf(0) } // 0 = My Code, 1 = Scan
     val nickname by viewModel.nickname.collectAsStateWithLifecycle()
-    val npub = remember {
-        viewModel.getCurrentNpub()
-    }
-
+    val npub = remember { viewModel.getCurrentNpub() }
 
     val qrString = remember(nickname, npub) {
         viewModel.buildMyQRString(nickname, npub)
@@ -114,74 +116,101 @@ fun VerificationSheet(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(bottom = 16.dp),
+            verticalArrangement = Arrangement.Top
         ) {
+            // Header
             VerificationHeader(
                 accent = accent,
-                onClose = onDismiss
+                onClose = onDismiss,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
             )
 
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
+            // Tabs
+            TabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = Color.Transparent,
+                contentColor = accent,
+                indicator = { tabPositions ->
+                    TabRowDefaults.Indicator(
+                        Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                        color = accent
+                    )
+                }
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    if (showingScanner) {
-                        QRScannerPanel(
-                            accent = accent,
-                            boxColor = boxColor,
-                            onScan = { code ->
-                                val qr = VerificationService.verifyScannedQR(code)
-                                if (qr != null && viewModel.beginQRVerification(qr)) {
-                                    showingScanner = false
-                                }
-                            }
-                        )
-                    } else {
-                        MyQrPanel(
-                            qrString = qrString,
-                            accent = accent,
-                            boxColor = boxColor,
+                Tab(
+                    selected = selectedTab == 0,
+                    onClick = { selectedTab = 0 },
+                    text = {
+                        Text(
+                            text = "My QR",
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 14.sp
                         )
                     }
-                }
+                )
+                Tab(
+                    selected = selectedTab == 1,
+                    onClick = { selectedTab = 1 },
+                    text = {
+                        Text(
+                            text = "Scan",
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 14.sp
+                        )
+                    }
+                )
             }
 
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                ToggleVerificationModeButton(
-                    showingScanner = showingScanner,
-                    onToggle = { showingScanner = !showingScanner }
-                )
+            Spacer(modifier = Modifier.height(24.dp))
 
-                val peerID by viewModel.selectedPrivateChatPeer.collectAsStateWithLifecycle()
-                val fingerprints by viewModel.verifiedFingerprints.collectAsStateWithLifecycle()
-                if (peerID != null) {
-                    val fingerprint = viewModel.meshService.getPeerFingerprint(peerID!!)
-                    if (fingerprint != null && fingerprints.contains(fingerprint)) {
-                        Button(
-                            onClick = { viewModel.unverifyFingerprint(peerID!!) },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
-                                contentColor = MaterialTheme.colorScheme.onSurface
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = stringResource(R.string.verify_remove),
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 12.sp
-                            )
+            // Content
+            Crossfade(
+                targetState = selectedTab, 
+                label = "VerificationTabCrossfade",
+                modifier = Modifier.weight(1f)
+            ) { tab ->
+                when (tab) {
+                    0 -> MyQrTabContent(
+                        qrString = qrString,
+                        nickname = nickname,
+                        accent = accent
+                    )
+                    1 -> ScanTabContent(
+                        accent = accent,
+                        onScan = { code ->
+                            val qr = VerificationService.verifyScannedQR(code)
+                            if (qr != null && viewModel.beginQRVerification(qr)) {
+                                selectedTab = 0
+                            }
                         }
+                    )
+                }
+            }
+            
+            // Unverify Action
+            val peerID by viewModel.selectedPrivateChatPeer.collectAsStateWithLifecycle()
+            val fingerprints by viewModel.verifiedFingerprints.collectAsStateWithLifecycle()
+            
+            if (peerID != null) {
+                val fingerprint = viewModel.meshService.getPeerFingerprint(peerID!!)
+                if (fingerprint != null && fingerprints.contains(fingerprint)) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = { viewModel.unverifyFingerprint(peerID!!) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.verify_remove),
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 12.sp
+                        )
                     }
                 }
             }
@@ -192,10 +221,11 @@ fun VerificationSheet(
 @Composable
 private fun VerificationHeader(
     accent: Color,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -210,100 +240,239 @@ private fun VerificationHeader(
 }
 
 @Composable
-private fun MyQrPanel(
+private fun MyQrTabContent(
     qrString: String,
-    accent: Color,
-    boxColor: Color,
+    nickname: String,
+    accent: Color
 ) {
-    Text(
-        text = stringResource(R.string.verify_my_qr_title),
-        fontSize = 16.sp,
-        fontFamily = FontFamily.Monospace,
-        color = accent,
-        modifier = Modifier.fillMaxWidth(),
-        textAlign = TextAlign.Center
-    )
-
-    QRCodeCard(qrString = qrString, boxColor = boxColor)
-}
-
-@Composable
-private fun ToggleVerificationModeButton(
-    showingScanner: Boolean,
-    onToggle: () -> Unit
-) {
-    Button(
-        onClick = onToggle,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
-            contentColor = MaterialTheme.colorScheme.onSurface
-        ),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        if (showingScanner) {
-            Icon(
-                imageVector = Icons.Outlined.QrCode,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp)
-            )
-            Spacer(modifier = Modifier.size(8.dp))
-            Text(
-                text = stringResource(R.string.verify_show_my_qr),
-                fontFamily = FontFamily.Monospace,
-                fontSize = 13.sp
-            )
-        } else {
-            Icon(
-                imageVector = Icons.Outlined.QrCodeScanner,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp)
-            )
-            Spacer(modifier = Modifier.size(8.dp))
-            Text(
-                text = stringResource(R.string.verify_scan_someone),
-                fontFamily = FontFamily.Monospace,
-                fontSize = 13.sp
-            )
-        }
-    }
-}
-
-@Composable
-private fun QRCodeCard(qrString: String, boxColor: Color) {
     Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .background(boxColor, RoundedCornerShape(12.dp))
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Top
     ) {
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Text(
+            text = stringResource(R.string.verify_my_qr_title),
+            style = MaterialTheme.typography.titleMedium,
+            fontFamily = FontFamily.Monospace,
+            color = accent
+        )
+        
+        Spacer(modifier = Modifier.height(32.dp))
+
         if (qrString.isNotBlank()) {
-            QRCodeImage(data = qrString, size = 220.dp)
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color.White)
+                    .padding(20.dp) // Quiet zone
+            ) {
+                QRCodeImage(data = qrString, size = 260.dp)
+            }
         } else {
             Box(
                 modifier = Modifier
-                    .size(220.dp)
-                    .background(Color.Transparent, RoundedCornerShape(8.dp)),
+                    .size(260.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color.White.copy(alpha = 0.5f)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = stringResource(R.string.verify_qr_unavailable),
                     fontFamily = FontFamily.Monospace,
                     fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    color = Color.Black.copy(alpha = 0.6f)
                 )
             }
         }
 
-        SelectionContainer {
-            Text(
-                text = qrString,
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // User Nickname
+        Text(
+            text = nickname,
+            style = MaterialTheme.typography.headlineSmall,
+            fontFamily = FontFamily.Monospace,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        // Helper text
+        Text(
+            text = stringResource(R.string.app_name).lowercase(),
+            style = MaterialTheme.typography.bodyMedium,
+            fontFamily = FontFamily.Monospace,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@OptIn(ExperimentalPermissionsApi::class)
+@Composable
+private fun ScanTabContent(
+    accent: Color,
+    onScan: (String) -> Unit
+) {
+    val permissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
+    
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        if (permissionState.status.isGranted) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color.Black),
+                contentAlignment = Alignment.Center
+            ) {
+                ScannerView(onScan = onScan)
+                
+                // Overlay border
+                Box(
+                    modifier = Modifier
+                        .size(280.dp)
+                        .border(2.dp, accent.copy(alpha = 0.8f), RoundedCornerShape(16.dp))
+                )
+                
+                // Corner accents for the overlay
+                Box(modifier = Modifier.size(260.dp)) {
+                    // This could be drawn with Canvas for cooler effect, but simple border is cleaner for now
+                }
+                
+                Text(
+                    text = stringResource(R.string.verify_scan_prompt_friend),
+                    color = Color.White,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 12.sp,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 32.dp)
+                        .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                )
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .background(
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                        RoundedCornerShape(24.dp)
+                    )
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.QrCodeScanner,
+                    contentDescription = null,
+                    modifier = Modifier.size(64.dp),
+                    tint = accent
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    text = stringResource(R.string.verify_camera_permission),
+                    fontFamily = FontFamily.Monospace,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(32.dp))
+                Button(
+                    onClick = { permissionState.launchPermissionRequest() },
+                    colors = ButtonDefaults.buttonColors(containerColor = accent)
+                ) {
+                    Text(
+                        text = stringResource(R.string.verify_request_camera),
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
         }
+    }
+}
+
+@Composable
+private fun ScannerView(
+    onScan: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var lastValid by remember { mutableStateOf<String?>(null) }
+    val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
+    val cameraExecutor: ExecutorService = remember { Executors.newSingleThreadExecutor() }
+    val surfaceRequests = remember { MutableStateFlow<SurfaceRequest?>(null) }
+    val surfaceRequest by surfaceRequests.collectAsState(initial = null)
+    val mainHandler = remember { Handler(Looper.getMainLooper()) }
+
+    val onCodeState = rememberUpdatedState(onScan)
+    val analyzer = remember {
+        QRCodeAnalyzer { text ->
+            mainHandler.post {
+                if (text == lastValid) return@post
+                lastValid = text
+                onCodeState.value(text)
+            }
+        }
+    }
+
+    DisposableEffect(Unit) {
+        val executor = ContextCompat.getMainExecutor(context)
+        var cameraProvider: ProcessCameraProvider? = null
+
+        cameraProviderFuture.addListener(
+            {
+                val provider = cameraProviderFuture.get()
+                cameraProvider = provider
+                val preview = Preview.Builder().build().also {
+                    it.setSurfaceProvider { request -> surfaceRequests.value = request }
+                }
+                val analysis = ImageAnalysis.Builder()
+                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .build()
+                    .also { it.setAnalyzer(cameraExecutor, analyzer) }
+
+                runCatching {
+                    provider.unbindAll()
+                    provider.bindToLifecycle(
+                        lifecycleOwner,
+                        CameraSelector.DEFAULT_BACK_CAMERA,
+                        preview,
+                        analysis
+                    )
+                }.onFailure {
+                    Log.w("VerificationSheet", "Failed to bind camera: ${it.message}")
+                }
+            },
+            executor
+        )
+
+        onDispose {
+            surfaceRequests.value = null
+            runCatching { cameraProvider?.unbindAll() }
+            cameraExecutor.shutdown()
+        }
+    }
+
+    surfaceRequest?.let { request ->
+        CameraXViewfinder(
+            surfaceRequest = request,
+            implementationMode = ImplementationMode.EMBEDDED,
+            modifier = Modifier.fillMaxSize()
+        )
     }
 }
 
@@ -341,128 +510,6 @@ private fun bitmapFromMatrix(matrix: BitMatrix): Bitmap {
         }
     }
     return bitmap
-}
-
-@OptIn(ExperimentalPermissionsApi::class)
-@Composable
-private fun QRScannerPanel(
-    onScan: (String) -> Unit,
-    accent: Color,
-    boxColor: Color,
-    modifier: Modifier = Modifier
-) {
-    val permissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
-    val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
-    var lastValid by remember { mutableStateOf<String?>(null) }
-    val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
-    val cameraExecutor: ExecutorService = remember { Executors.newSingleThreadExecutor() }
-    val surfaceRequests = remember { MutableStateFlow<SurfaceRequest?>(null) }
-    val surfaceRequest by surfaceRequests.collectAsState(initial = null)
-    val mainHandler = remember { Handler(Looper.getMainLooper()) }
-
-    val onCodeState = rememberUpdatedState(onScan)
-    val analyzer = remember {
-        QRCodeAnalyzer { text ->
-            mainHandler.post {
-                if (text == lastValid) return@post
-                lastValid = text
-                onCodeState.value(text)
-            }
-        }
-    }
-
-    DisposableEffect(permissionState.status.isGranted) {
-        var cameraProvider: ProcessCameraProvider? = null
-        if (permissionState.status.isGranted) {
-            val executor = ContextCompat.getMainExecutor(context)
-            cameraProviderFuture.addListener(
-                {
-                    val provider = cameraProviderFuture.get()
-                    cameraProvider = provider
-                    val preview = Preview.Builder()
-                        .build()
-                        .also { it.setSurfaceProvider { request -> surfaceRequests.value = request } }
-                    val analysis = ImageAnalysis.Builder()
-                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                        .build()
-                        .also { it.setAnalyzer(cameraExecutor, analyzer) }
-
-                    runCatching {
-                        provider.unbindAll()
-                        provider.bindToLifecycle(
-                            lifecycleOwner,
-                            CameraSelector.DEFAULT_BACK_CAMERA,
-                            preview,
-                            analysis
-                        )
-                    }.onFailure {
-                        Log.w("VerificationSheet", "Failed to bind camera: ${it.message}")
-                    }
-                },
-                executor
-            )
-        }
-
-        onDispose {
-            surfaceRequests.value = null
-            runCatching { cameraProvider?.unbindAll() }
-        }
-    }
-
-    DisposableEffect(Unit) {
-        onDispose { cameraExecutor.shutdown() }
-    }
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(boxColor, RoundedCornerShape(12.dp))
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = stringResource(R.string.verify_scan_prompt_friend),
-            fontSize = 16.sp,
-            fontFamily = FontFamily.Monospace,
-            color = accent,
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center
-        )
-
-        if (permissionState.status.isGranted) {
-            surfaceRequest?.let { request ->
-                CameraXViewfinder(
-                    surfaceRequest = request,
-                    implementationMode = ImplementationMode.EMBEDDED,
-                    modifier = Modifier
-                        .size(220.dp)
-                        .clipToBounds()
-                )
-            }
-        } else {
-            Text(
-                text = stringResource(R.string.verify_camera_permission),
-                fontFamily = FontFamily.Monospace,
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-            )
-            Button(
-                onClick = { permissionState.launchPermissionRequest() },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
-                    contentColor = MaterialTheme.colorScheme.onSurface
-                )
-            ) {
-                Text(
-                    text = stringResource(R.string.verify_request_camera),
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp
-                )
-            }
-        }
-    }
 }
 
 private class QRCodeAnalyzer(

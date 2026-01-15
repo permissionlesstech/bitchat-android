@@ -197,7 +197,9 @@ object FileUtils {
     ): String {
         val lowerMime = file.mimeType.lowercase()
         val isImage = lowerMime.startsWith("image/")
-        val baseDir = context.filesDir
+        // FIX: Use cacheDir instead of filesDir to prevent storage exhaustion attacks (Issue #592)
+        // Files in cacheDir are eligible for automatic system cleanup when space is low
+        val baseDir = context.cacheDir
         val subdir = if (isImage) "images/incoming" else "files/incoming"
         val dir = java.io.File(baseDir, subdir).apply { mkdirs() }
 

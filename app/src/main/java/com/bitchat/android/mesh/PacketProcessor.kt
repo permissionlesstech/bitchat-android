@@ -78,8 +78,6 @@ class PacketProcessor(private val myPeerID: String) {
             Log.w(TAG, "Received packet with no peer ID, skipping")
             return
         }
-
-
         
         // Get or create actor for this peer
         val actor = actors.getOrPut(peerID) { getOrCreateActorForPeer(peerID) }

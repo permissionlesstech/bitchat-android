@@ -165,9 +165,11 @@ class BluetoothMeshService(private val context: Context) {
      */
     private fun setupDelegates() {
         Log.d(TAG, "Setting up component delegates")
-        // Provide nickname resolver to BLE broadcaster for detailed logs
+        // Provide nickname resolver to BLE broadcaster and debug manager
         try {
-            connectionManager.setNicknameResolver { pid -> peerManager.getPeerNickname(pid) }
+            val resolver: (String) -> String? = { pid -> peerManager.getPeerNickname(pid) }
+            connectionManager.setNicknameResolver(resolver)
+            debugManager?.setNicknameResolver(resolver)
         } catch (_: Exception) { }
         // PeerManager delegates to main mesh service delegate
         peerManager.delegate = object : PeerManagerDelegate {
@@ -556,21 +558,12 @@ class BluetoothMeshService(private val context: Context) {
         override fun onPacketReceived(packet: BitchatPacket, peerID: String, device: android.bluetooth.BluetoothDevice?) {
             // Log incoming for debug graphs (do not double-count anywhere else)
             try {
-                val nick = getPeerNicknames()[peerID]
-                val route = packet.route
-                val routeInfo = if (!route.isNullOrEmpty()) "routed: ${route.size} hops" else null
-                
-                // Convert route to hex strings for visualization
-                val routeStrings = route?.map { it.toHexString() }
-                
                 com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().logIncoming(
-                    packetType = packet.type.toString(),
+                    packet = packet,
                     fromPeerID = peerID,
-                    fromNickname = nick,
+                    fromNickname = null,
                     fromDeviceAddress = device?.address,
-                    packetVersion = packet.version,
-                    routeInfo = routeInfo,
-                    route = routeStrings
+                    myPeerID = myPeerID
                 )
             } catch (_: Exception) { }
             packetProcessor.processPacket(RoutedPacket(packet, peerID, device?.address))
@@ -1391,6 +1384,9 @@ class BluetoothMeshService(private val context: Context) {
     fun clearAllInternalData() {
         Log.w(TAG, "🚨 Clearing all mesh service internal data")
         try {
+            // Stop services to cease broadcasting old ID immediately
+            stopServices()
+            
             // Clear all managers
             fragmentManager.clearAllFragments()
             storeForwardManager.clearAllCache()
