@@ -24,7 +24,8 @@ class BluetoothGattServerManager(
     private val connectionTracker: BluetoothConnectionTracker,
     private val permissionManager: BluetoothPermissionManager,
     private val powerManager: PowerManager,
-    private val delegate: BluetoothConnectionManagerDelegate?
+    private val delegate: BluetoothConnectionManagerDelegate?,
+    private val myPeerID: String
 ) {
     
     companion object {
@@ -45,18 +46,15 @@ class BluetoothGattServerManager(
     // State management
     private var isActive = false
 
-    // Enforce a server connection limit by canceling the oldest connections (best-effort)
-    fun enforceServerLimit(maxServer: Int) {
-        if (maxServer <= 0) return
+    /**
+     * Disconnect a specific device (used by ConnectionManager to enforce overall limits)
+     */
+    fun disconnectDevice(device: BluetoothDevice) {
         try {
-            val subs = connectionTracker.getSubscribedDevices()
-            if (subs.size > maxServer) {
-                val excess = subs.size - maxServer
-                subs.take(excess).forEach { d ->
-                    try { gattServer?.cancelConnection(d) } catch (_: Exception) { }
-                }
-            }
-        } catch (_: Exception) { }
+            gattServer?.cancelConnection(device)
+        } catch (e: Exception) {
+            Log.w(TAG, "Error disconnecting device ${device.address}: ${e.message}")
+        }
     }
     
     /**
@@ -122,9 +120,10 @@ class BluetoothGattServerManager(
             
             // Try to cancel any active connections explicitly before closing
             try {
-                val devices = connectionTracker.getSubscribedDevices()
-                devices.forEach { d ->
-                    try { gattServer?.cancelConnection(d) } catch (_: Exception) { }
+                // Disconnect ALL server connections
+                val servers = connectionTracker.getConnectedDevices().values.filter { !it.isClient }
+                servers.forEach { d ->
+                    try { gattServer?.cancelConnection(d.device) } catch (_: Exception) { }
                 }
             } catch (_: Exception) { }
             
@@ -358,13 +357,27 @@ class BluetoothGattServerManager(
             .setIncludeTxPowerLevel(false)
             .setIncludeDeviceName(false)
             .build()
+            
+        // Add stable identity (first 8 bytes of peerID) to Scan Response
+        // This allows scanners to deduplicate devices even if MAC address rotates
+        val peerIDBytes = try {
+            myPeerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray().take(8).toByteArray()
+        } catch (e: Exception) {
+            ByteArray(0)
+        }
+        
+        val scanResponse = AdvertiseData.Builder()
+            .addServiceData(ParcelUuid(AppConstants.Mesh.Gatt.SERVICE_UUID), peerIDBytes)
+            .setIncludeTxPowerLevel(false)
+            .setIncludeDeviceName(false)
+            .build()
         
         advertiseCallback = object : AdvertiseCallback() {
             override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
                 val mode = try {
                     powerManager.getPowerInfo().split("Current Mode: ")[1].split("\n")[0]
                 } catch (_: Exception) { "unknown" }
-                Log.i(TAG, "Advertising started (power mode: $mode)")
+                Log.i(TAG, "Advertising started (power mode: $mode) with stable ID: ${peerIDBytes.joinToString("") { "%02x".format(it) }}")
             }
             
             override fun onStartFailure(errorCode: Int) {
@@ -373,7 +386,7 @@ class BluetoothGattServerManager(
         }
         
         try {
-            bleAdvertiser.startAdvertising(settings, data, advertiseCallback)
+            bleAdvertiser.startAdvertising(settings, data, scanResponse, advertiseCallback)
         } catch (se: SecurityException) {
             Log.e(TAG, "SecurityException starting advertising (missing permission?): ${se.message}")
         } catch (e: Exception) {

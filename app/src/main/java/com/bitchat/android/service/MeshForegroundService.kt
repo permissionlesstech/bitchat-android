@@ -10,6 +10,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.bitchat.android.MainActivity
@@ -112,7 +113,8 @@ class MeshForegroundService : Service() {
 
     private lateinit var notificationManager: NotificationManagerCompat
     private var updateJob: Job? = null
-    private var meshService: BluetoothMeshService? = null
+    private val meshService: BluetoothMeshService?
+        get() = MeshServiceHolder.meshService
     private val serviceJob = Job()
     private val scope = CoroutineScope(Dispatchers.Default + serviceJob)
     private var isInForeground: Boolean = false
@@ -123,15 +125,15 @@ class MeshForegroundService : Service() {
         notificationManager = NotificationManagerCompat.from(this)
         createChannel()
 
-        // Adopt or create the mesh service
+        // Ensure mesh service exists in holder (create if needed)
         val existing = MeshServiceHolder.meshService
-        meshService = existing ?: MeshServiceHolder.getOrCreate(applicationContext)
         if (existing != null) {
-            android.util.Log.d("MeshForegroundService", "Adopted existing BluetoothMeshService from holder")
+            Log.d("MeshForegroundService", "Using existing BluetoothMeshService from holder")
         } else {
-            android.util.Log.i("MeshForegroundService", "Created/adopted new BluetoothMeshService via holder")
+            val created = MeshServiceHolder.getOrCreate(applicationContext)
+            Log.i("MeshForegroundService", "Created new BluetoothMeshService via holder")
+            MeshServiceHolder.attach(created)
         }
-        MeshServiceHolder.attach(meshService!!)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -227,7 +229,8 @@ class MeshForegroundService : Service() {
         if (!hasBluetoothPermissions()) return
         try {
             android.util.Log.d("MeshForegroundService", "Ensuring mesh service is started")
-            meshService?.startServices()
+            val service = MeshServiceHolder.getOrCreate(applicationContext)
+            service.startServices()
         } catch (e: Exception) {
             android.util.Log.e("MeshForegroundService", "Failed to start mesh service: ${e.message}")
         }

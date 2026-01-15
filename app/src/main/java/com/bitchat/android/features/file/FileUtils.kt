@@ -197,7 +197,9 @@ object FileUtils {
     ): String {
         val lowerMime = file.mimeType.lowercase()
         val isImage = lowerMime.startsWith("image/")
-        val baseDir = context.filesDir
+        // FIX: Use cacheDir instead of filesDir to prevent storage exhaustion attacks (Issue #592)
+        // Files in cacheDir are eligible for automatic system cleanup when space is low
+        val baseDir = context.cacheDir
         val subdir = if (isImage) "images/incoming" else "files/incoming"
         val dir = java.io.File(baseDir, subdir).apply { mkdirs() }
 
@@ -269,6 +271,56 @@ object FileUtils {
             lower.startsWith("image/") -> com.bitchat.android.model.BitchatMessageType.Image
             lower.startsWith("audio/") -> com.bitchat.android.model.BitchatMessageType.Audio
             else -> com.bitchat.android.model.BitchatMessageType.File
+        }
+    }
+
+    /**
+     * Recursively delete all media files (incoming and outgoing)
+     * Used for Panic Mode cleanup
+     */
+    fun clearAllMedia(context: Context) {
+        try {
+            // Clear files dir subdirectories (legacy storage and outgoing)
+            val filesDir = context.filesDir
+            val dirsToClear = listOf(
+                "files/incoming",
+                "files/outgoing",
+                "images/incoming",
+                "images/outgoing",
+                "voicenotes"
+            )
+
+            dirsToClear.forEach { subDir ->
+                val dir = File(filesDir, subDir)
+                if (dir.exists()) {
+                    dir.deleteRecursively()
+                    Log.d(TAG, "Deleted media directory from filesDir: $subDir")
+                }
+            }
+            
+            // Clear cache dir subdirectories (new incoming storage)
+            // Note: cacheDir.deleteRecursively() below would handle this, but being explicit ensures these
+            // specific media folders are targeted even if full cache clear fails or is modified later.
+            val cacheDir = context.cacheDir
+            val cacheDirsToClear = listOf(
+                "files/incoming",
+                "images/incoming"
+            )
+            
+            cacheDirsToClear.forEach { subDir ->
+                val dir = File(cacheDir, subDir)
+                if (dir.exists()) {
+                    dir.deleteRecursively()
+                    Log.d(TAG, "Deleted media directory from cacheDir: $subDir")
+                }
+            }
+            
+            // Also clear entire cache dir as a catch-all
+            context.cacheDir.deleteRecursively()
+            Log.d(TAG, "Cleared entire cache directory")
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to clear media files", e)
         }
     }
 }

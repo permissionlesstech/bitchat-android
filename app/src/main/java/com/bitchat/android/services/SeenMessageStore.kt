@@ -50,6 +50,12 @@ class SeenMessageStore private constructor(private val context: Context) {
         persist()
     }
 
+    @Synchronized fun clear() {
+        delivered.clear()
+        read.clear()
+        persist()
+    }
+
     private fun trim(set: LinkedHashSet<String>) {
         if (set.size <= MAX_IDS) return
         val it = set.iterator()

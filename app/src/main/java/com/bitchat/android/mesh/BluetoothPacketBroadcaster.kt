@@ -42,7 +42,8 @@ import kotlinx.coroutines.channels.actor
 class BluetoothPacketBroadcaster(
     private val connectionScope: CoroutineScope,
     private val connectionTracker: BluetoothConnectionTracker,
-    private val fragmentManager: FragmentManager?
+    private val fragmentManager: FragmentManager?,
+    private val myPeerID: String
 ) {
     
     companion object {
@@ -68,7 +69,9 @@ class BluetoothPacketBroadcaster(
         incomingAddr: String?,
         toPeer: String?,
         toDeviceAddress: String,
-        ttl: UByte
+        ttl: UByte,
+        packetVersion: UByte = 1u,
+        routeInfo: String? = null
     ) {
         try {
             val fromNick = incomingPeer?.let { nicknameResolver?.invoke(it) }
@@ -80,7 +83,9 @@ class BluetoothPacketBroadcaster(
                 toPeerID = toPeer,
                 toNickname = toNick,
                 toDeviceAddress = toDeviceAddress,
-                previousHopPeerID = incomingPeer
+                previousHopPeerID = incomingPeer,
+                packetVersion = packetVersion,
+                routeInfo = routeInfo
             )
             // Keep the verbose relay message for human readability
             manager.logPacketRelayDetailed(
@@ -94,7 +99,9 @@ class BluetoothPacketBroadcaster(
                 toNickname = toNick,
                 toDeviceAddress = toDeviceAddress,
                 ttl = ttl,
-                isRelay = true
+                isRelay = true,
+                packetVersion = packetVersion,
+                routeInfo = routeInfo
             )
         } catch (_: Exception) { 
             // Silently ignore debug logging failures
@@ -221,17 +228,19 @@ class BluetoothPacketBroadcaster(
             TransferProgressManager.start(transferId, 1)
         }
         val typeName = MessageType.fromValue(packet.type)?.name ?: packet.type.toString()
+        val senderPeerID = routed.peerID ?: packet.senderID.toHexString()
         val incomingAddr = routed.relayAddress
         val incomingPeer = incomingAddr?.let { connectionTracker.addressPeerMap[it] }
-        val senderPeerID = routed.peerID ?: packet.senderID.toHexString()
         val senderNick = senderPeerID.let { pid -> nicknameResolver?.invoke(pid) }
+        val route = packet.route
+        val routeInfo = if (!route.isNullOrEmpty()) "routed: ${route.size} hops" else null
 
         // Prefer server-side subscriptions
         val serverTarget = connectionTracker.getSubscribedDevices()
             .firstOrNull { connectionTracker.addressPeerMap[it.address] == targetPeerID }
         if (serverTarget != null) {
             if (notifyDevice(serverTarget, data, gattServer, characteristic)) {
-                logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, targetPeerID, serverTarget.address, packet.ttl)
+                logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, targetPeerID, serverTarget.address, packet.ttl, packet.version, routeInfo)
                 if (transferId != null) {
                     TransferProgressManager.progress(transferId, 1, 1)
                     TransferProgressManager.complete(transferId, 1)
@@ -245,7 +254,7 @@ class BluetoothPacketBroadcaster(
             .firstOrNull { connectionTracker.addressPeerMap[it.device.address] == targetPeerID }
         if (clientTarget != null) {
             if (writeToDeviceConn(clientTarget, data)) {
-                logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, targetPeerID, clientTarget.device.address, packet.ttl)
+                logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, targetPeerID, clientTarget.device.address, packet.ttl, packet.version, routeInfo)
                 if (transferId != null) {
                     TransferProgressManager.progress(transferId, 1, 1)
                     TransferProgressManager.complete(transferId, 1)
@@ -283,6 +292,46 @@ class BluetoothPacketBroadcaster(
             }
         }
     }
+
+    /**
+     * Targeted send to a specific peer (by peerID) if directly connected.
+     * Returns true if sent to at least one matching connection.
+     */
+    fun sendToPeer(
+        targetPeerID: String,
+        routed: RoutedPacket,
+        gattServer: BluetoothGattServer?,
+        characteristic: BluetoothGattCharacteristic?
+    ): Boolean {
+        val packet = routed.packet
+        val data = packet.toBinaryData() ?: return false
+        val typeName = MessageType.fromValue(packet.type)?.name ?: packet.type.toString()
+        val senderPeerID = routed.peerID ?: packet.senderID.toHexString()
+        val incomingAddr = routed.relayAddress
+        val incomingPeer = incomingAddr?.let { connectionTracker.addressPeerMap[it] }
+        val senderNick = senderPeerID.let { pid -> nicknameResolver?.invoke(pid) }
+
+        // Try server-side connections first
+        val targetDevice = connectionTracker.getSubscribedDevices()
+            .firstOrNull { connectionTracker.addressPeerMap[it.address] == targetPeerID }
+        if (targetDevice != null) {
+            if (notifyDevice(targetDevice, data, gattServer, characteristic)) {
+                logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, targetPeerID, targetDevice.address, packet.ttl)
+                return true
+            }
+        }
+
+        // Try client-side connections next
+        val targetConn = connectionTracker.getConnectedDevices().values
+            .firstOrNull { connectionTracker.addressPeerMap[it.device.address] == targetPeerID }
+        if (targetConn != null) {
+            if (writeToDeviceConn(targetConn, data)) {
+                logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, targetPeerID, targetConn.device.address, packet.ttl)
+                return true
+            }
+        }
+        return false
+    }
     
     /**
      * Internal broadcast implementation - runs in serialized actor context
@@ -299,11 +348,52 @@ class BluetoothPacketBroadcaster(
         val incomingAddr = routed.relayAddress
         val incomingPeer = incomingAddr?.let { connectionTracker.addressPeerMap[it] }
         val senderNick = senderPeerID.let { pid -> nicknameResolver?.invoke(pid) }
+        val route = packet.route
+        val routeInfo = if (!route.isNullOrEmpty()) "routed: ${route.size} hops" else null
+
+        // Source Routing for Originating Packets
+        // If we are the sender and a source route is defined, we must send ONLY to the first hop.
+        if (packet.senderID.toHexString() == myPeerID && !packet.route.isNullOrEmpty()) {
+            val firstHop = packet.route!![0].toHexString()
+            Log.d(TAG, "Source Routing: Packet has explicit route, attempting to send to first hop: $firstHop")
+
+            var sent = false
+
+            // Try to find first hop in server connections (subscribedDevices)
+            val serverTarget = connectionTracker.getSubscribedDevices()
+                .firstOrNull { connectionTracker.addressPeerMap[it.address] == firstHop }
+            
+            if (serverTarget != null) {
+                Log.d(TAG, "Source Routing: sending directly to first hop (server conn) $firstHop: ${serverTarget.address}")
+                if (notifyDevice(serverTarget, data, gattServer, characteristic)) {
+                    val toPeer = connectionTracker.addressPeerMap[serverTarget.address]
+                    logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, toPeer, serverTarget.address, packet.ttl, packet.version, routeInfo)
+                    sent = true
+                }
+            }
+
+            // Try to find first hop in client connections if not sent yet
+            if (!sent) {
+                val clientTarget = connectionTracker.getConnectedDevices().values
+                    .firstOrNull { connectionTracker.addressPeerMap[it.device.address] == firstHop }
+                
+                if (clientTarget != null) {
+                    Log.d(TAG, "Source Routing: sending directly to first hop (client conn) $firstHop: ${clientTarget.device.address}")
+                    if (writeToDeviceConn(clientTarget, data)) {
+                        val toPeer = connectionTracker.addressPeerMap[clientTarget.device.address]
+                        logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, toPeer, clientTarget.device.address, packet.ttl, packet.version, routeInfo)
+                        sent = true
+                    }
+                }
+            }
+
+            if (sent) return
+            
+            Log.w(TAG, "Source Routing: First hop $firstHop not connected. Falling back to standard broadcast logic.")
+        }
         
         if (packet.recipientID != SpecialRecipients.BROADCAST) {
-            val recipientID = packet.recipientID?.let {
-                String(it).replace("\u0000", "").trim()
-            } ?: ""
+            val recipientID = packet.recipientID?.toHexString() ?: ""
 
             // Try to find the recipient in server connections (subscribedDevices)
             val targetDevice = connectionTracker.getSubscribedDevices()
@@ -314,7 +404,7 @@ class BluetoothPacketBroadcaster(
                 Log.d(TAG, "Send packet type ${packet.type} directly to target device for recipient $recipientID: ${targetDevice.address}")
                 if (notifyDevice(targetDevice, data, gattServer, characteristic)) {
                     val toPeer = connectionTracker.addressPeerMap[targetDevice.address]
-                    logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, toPeer, targetDevice.address, packet.ttl)
+                    logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, toPeer, targetDevice.address, packet.ttl, packet.version, routeInfo)
                     return  // Sent, no need to continue
                 }
             }
@@ -328,7 +418,7 @@ class BluetoothPacketBroadcaster(
                 Log.d(TAG, "Send packet type ${packet.type} directly to target client connection for recipient $recipientID: ${targetDeviceConn.device.address}")
                 if (writeToDeviceConn(targetDeviceConn, data)) {
                     val toPeer = connectionTracker.addressPeerMap[targetDeviceConn.device.address]
-                    logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, toPeer, targetDeviceConn.device.address, packet.ttl)
+                    logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, toPeer, targetDeviceConn.device.address, packet.ttl, packet.version, routeInfo)
                     return  // Sent, no need to continue
                 }
             }
@@ -338,9 +428,9 @@ class BluetoothPacketBroadcaster(
         val subscribedDevices = connectionTracker.getSubscribedDevices()
         val connectedDevices = connectionTracker.getConnectedDevices()
         
-        Log.i(TAG, "Broadcasting packet type ${packet.type} to ${subscribedDevices.size} server + ${connectedDevices.size} client connections")
+        Log.i(TAG, "Broadcasting packet v${packet.version} type ${packet.type} to ${subscribedDevices.size} server + ${connectedDevices.size} client connections")
 
-        val senderID = String(packet.senderID).replace("\u0000", "")        
+        val senderID = packet.senderID.toHexString()
         
         // Send to server connections (devices connected to our GATT server)
         subscribedDevices.forEach { device ->
@@ -355,7 +445,7 @@ class BluetoothPacketBroadcaster(
             val sent = notifyDevice(device, data, gattServer, characteristic)
             if (sent) {
                 val toPeer = connectionTracker.addressPeerMap[device.address]
-                logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, toPeer, device.address, packet.ttl)
+                logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, toPeer, device.address, packet.ttl, packet.version, routeInfo)
             }
         }
         
@@ -373,7 +463,7 @@ class BluetoothPacketBroadcaster(
                 val sent = writeToDeviceConn(deviceConn, data)
                 if (sent) {
                     val toPeer = connectionTracker.addressPeerMap[deviceConn.device.address]
-                    logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, toPeer, deviceConn.device.address, packet.ttl)
+                    logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, toPeer, deviceConn.device.address, packet.ttl, packet.version, routeInfo)
                 }
             }
         }

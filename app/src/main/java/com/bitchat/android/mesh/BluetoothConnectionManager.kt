@@ -7,6 +7,7 @@ import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
 
 /**
  * Power-optimized Bluetooth connection manager with comprehensive memory management
@@ -37,7 +38,7 @@ class BluetoothConnectionManager(
     // Component managers
     private val permissionManager = BluetoothPermissionManager(context)
     private val connectionTracker = BluetoothConnectionTracker(connectionScope, powerManager)
-    private val packetBroadcaster = BluetoothPacketBroadcaster(connectionScope, connectionTracker, fragmentManager)
+    private val packetBroadcaster = BluetoothPacketBroadcaster(connectionScope, connectionTracker, fragmentManager, myPeerID)
     
     // Delegate for component managers to call back to main manager
     private val componentDelegate = object : BluetoothConnectionManagerDelegate {
@@ -57,6 +58,8 @@ class BluetoothConnectionManager(
         }
         
         override fun onDeviceConnected(device: BluetoothDevice) {
+            // Trigger limit enforcement immediately upon any new connection
+            enforceStrictLimits()
             delegate?.onDeviceConnected(device)
         }
 
@@ -70,7 +73,7 @@ class BluetoothConnectionManager(
     }
     
     private val serverManager = BluetoothGattServerManager(
-        context, connectionScope, connectionTracker, permissionManager, powerManager, componentDelegate
+        context, connectionScope, connectionTracker, permissionManager, powerManager, componentDelegate, myPeerID
     )
     private val clientManager = BluetoothGattClientManager(
         context, connectionScope, connectionTracker, permissionManager, powerManager, componentDelegate
@@ -85,10 +88,6 @@ class BluetoothConnectionManager(
     // Public property for address-peer mapping
     val addressPeerMap get() = connectionTracker.addressPeerMap
 
-    // Expose first-announce helpers to higher layers
-    fun noteAnnounceReceived(address: String) { connectionTracker.noteAnnounceReceived(address) }
-    fun hasSeenFirstAnnounce(address: String): Boolean = connectionTracker.hasSeenFirstAnnounce(address)
-    
     init {
         powerManager.delegate = this
         // Observe debug settings to enforce role state while active
@@ -107,28 +106,56 @@ class BluetoothConnectionManager(
                     if (enabled) startClient() else stopClient()
                 }
             }
-            // Connection caps: enforce on change
+            
+            // Centralized limit enforcement on any setting change
             connectionScope.launch {
-                dbg.maxConnectionsOverall.collect {
-                    if (!isActive) return@collect
-                    connectionTracker.enforceConnectionLimits()
-                    // Also enforce server side best-effort
-                    serverManager.enforceServerLimit(dbg.maxServerConnections.value)
-                }
-            }
-            connectionScope.launch {
-                dbg.maxClientConnections.collect {
-                    if (!isActive) return@collect
-                    connectionTracker.enforceConnectionLimits()
-                }
-            }
-            connectionScope.launch {
-                dbg.maxServerConnections.collect {
-                    if (!isActive) return@collect
-                    serverManager.enforceServerLimit(dbg.maxServerConnections.value)
+                combine(
+                    dbg.maxConnectionsOverall,
+                    dbg.maxServerConnections,
+                    dbg.maxClientConnections
+                ) { _, _, _ -> 
+                    // We don't need the values here, we just need to trigger enforcement
+                    Unit 
+                }.collect {
+                    if (isActive) {
+                        enforceStrictLimits()
+                    }
                 }
             }
         } catch (_: Exception) { }
+    }
+    
+    /**
+     * Centralized connection limit enforcement
+     */
+    private fun enforceStrictLimits() {
+        if (!isActive) return
+        
+        try {
+            val dbg = com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
+            val maxOverall = dbg.maxConnectionsOverall.value
+            val maxServer = dbg.maxServerConnections.value
+            val maxClient = dbg.maxClientConnections.value
+            
+            // Get list of connections to evict to satisfy all constraints
+            val toEvict = connectionTracker.getConnectionsToEvict(maxOverall, maxServer, maxClient)
+            
+            if (toEvict.isNotEmpty()) {
+                Log.i(TAG, "Enforcing limits (max: $maxOverall, s: $maxServer, c: $maxClient) - evicting ${toEvict.size} connections")
+                
+                toEvict.forEach { conn ->
+                    if (conn.isClient) {
+                        Log.d(TAG, "Evicting client ${conn.device.address}")
+                        try { conn.gatt?.disconnect() } catch (_: Exception) { }
+                    } else {
+                        Log.d(TAG, "Evicting server ${conn.device.address}")
+                        serverManager.disconnectDevice(conn.device)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error enforcing limits: ${e.message}")
+        }
     }
     
     /**
@@ -261,6 +288,16 @@ class BluetoothConnectionManager(
         )
     }
 
+    fun sendToPeer(peerID: String, routed: RoutedPacket): Boolean {
+        if (!isActive) return false
+        return packetBroadcaster.sendToPeer(
+            peerID,
+            routed,
+            serverManager.getGattServer(),
+            serverManager.getCharacteristic()
+        )
+    }
+
     fun cancelTransfer(transferId: String): Boolean {
         return packetBroadcaster.cancelTransfer(transferId)
     }
@@ -385,12 +422,7 @@ class BluetoothConnectionManager(
             }
             
             // Enforce connection limits
-            connectionTracker.enforceConnectionLimits()
-            // Best-effort server cap
-            try {
-                val maxServer = com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().maxServerConnections.value
-                serverManager.enforceServerLimit(maxServer)
-            } catch (_: Exception) { }
+            enforceStrictLimits()
         }
     }
     
