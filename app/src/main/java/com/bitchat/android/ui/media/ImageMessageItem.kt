@@ -114,7 +114,7 @@ fun ImageMessageItem(
                                     val currentIndex = imagePaths.indexOf(path)
                                     onImageClick?.invoke(path, imagePaths, currentIndex)
                                 }
-                                .spoiler(isVisible = isSpoilerVisible) { isSpoilerVisible = false }
+                                .spoiler(isVisible = isSpoilerVisible, blurBitmap = bmp) { isSpoilerVisible = false }
                         )
                     } else {
                         // Fully revealed image

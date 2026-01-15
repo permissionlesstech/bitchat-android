@@ -18,19 +18,25 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.asComposeRenderEffect
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 
 /**
  * Applies a spoiler effect to the content.
  *
  * @param isVisible Whether the spoiler (obscuration) is active.
+ * @param blurBitmap Optional bitmap to be blurred and displayed for API < 31.
+ *                   If null, a dimming overlay is used as fallback.
  * @param onReveal Called when the user taps to reveal the content.
  */
 fun Modifier.spoiler(
     isVisible: Boolean,
+    blurBitmap: Bitmap? = null,
     onReveal: () -> Unit
 ): Modifier = composed {
     val revealProgress by animateFloatAsState(
@@ -47,6 +53,24 @@ fun Modifier.spoiler(
     // Icon Logic
     val iconPainter = rememberVectorPainter(Icons.Filled.TouchApp)
     val iconColor = MaterialTheme.colorScheme.onSurface
+    
+    // API < 31 Fallback: Generate a blurred bitmap if provided
+    val fallbackBlurredBitmap = remember(blurBitmap) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S && blurBitmap != null) {
+            // Perform a fast "Downscale Blur" (Box/Bilinear Filter simulation)
+            // Scale down to ~5% size then let the canvas upscale it with filtering
+            try {
+                val w = (blurBitmap.width * 0.05f).toInt().coerceAtLeast(1)
+                val h = (blurBitmap.height * 0.05f).toInt().coerceAtLeast(1)
+                val small = Bitmap.createScaledBitmap(blurBitmap, w, h, true)
+                small.asImageBitmap()
+            } catch (e: Exception) {
+                null
+            }
+        } else {
+            null
+        }
+    }
 
     this
         .clickable(
@@ -59,14 +83,26 @@ fun Modifier.spoiler(
         // 1. drawWithContent (Outer wrapper) -> Draws overlays ON TOP of everything else
         // 2. graphicsLayer (Inner wrapper) -> Blurs the content (Image)
         .drawWithContent {
-            drawContent() // Calls the next modifier (graphicsLayer -> Image)
+            // API < 31 Fallback Logic
+            if (fallbackBlurredBitmap != null && revealProgress < 1f) {
+                // Instead of drawing the sharp content, draw the blurred bitmap
+                // filling the drawing area
+                drawImage(
+                    image = fallbackBlurredBitmap,
+                    dstSize = IntSize(size.width.toInt(), size.height.toInt()),
+                    dstOffset = IntOffset.Zero,
+                    filterQuality = androidx.compose.ui.graphics.FilterQuality.Low // Ensure filtering happens
+                )
+            } else {
+                drawContent() // Normal draw
+            }
 
             // Calculate overlay opacity (fades out as revealed)
             val overlayAlpha = (1f - revealProgress).coerceIn(0f, 1f)
             
             if (overlayAlpha > 0f) {
                 // 1. Draw Dimming Overlay
-                // Necessary for both API levels to ensure icon visibility against light images
+                // Necessary to ensure icon visibility against light images
                 drawRect(
                     color = Color.Black.copy(alpha = 0.4f * overlayAlpha)
                 )
@@ -87,12 +123,12 @@ fun Modifier.spoiler(
                 }
             }
         }
-        // Blur Implementation
+        // Blur Implementation (API 31+)
         .graphicsLayer {
-            val blurRadius = (40f * (1f - revealProgress)).coerceAtLeast(0f) * density
-            
-            if (blurRadius > 0) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val blurRadius = (40f * (1f - revealProgress)).coerceAtLeast(0f) * density
+                
+                if (blurRadius > 0) {
                      renderEffect = android.graphics.RenderEffect
                         .createBlurEffect(
                             blurRadius,
@@ -100,52 +136,6 @@ fun Modifier.spoiler(
                             android.graphics.Shader.TileMode.CLAMP
                         )
                         .asComposeRenderEffect()
-                } else {
-                    // Fallback for API < 31: Use legacy RenderScript-style blurring via graphicsLayer
-                    // Note: Modifier.blur() uses RenderEffect internally on API 31+ but falls back 
-                    // to a less efficient or different implementation on older APIs if available in Compose.
-                    // However, standard Compose Modifier.blur isn't supported < 31.
-                    // Instead, we just use a very high alpha scrim (already drawn above) 
-                    // and apply a scale transform to "distort" slightly if desired, or accept
-                    // that on older phones it's just a dimmed overlay (safety fallback).
-                    
-                    // Since "software blur" is extremely expensive to do in real-time on the UI thread
-                    // without RenderEffect, the standard industry practice for API < 31 is:
-                    // 1. Pre-blur the bitmap (async) -> We can't easily do that in a Modifier
-                    // 2. Just use a solid cover (Safety)
-                    
-                    // User requested: "blur the image yourself by applying a simple gaussian filter"
-                    // Doing this per-frame in a Modifier is not performant.
-                    // A compromise is to use a "pixelation" or "downscale" trick if possible,
-                    // but standard Canvas doesn't support easy blur.
-                    
-                    // We will rely on the opaque overlay we drew above for safety. 
-                    // However, to satisfy the prompt's request for "blur", we can try to use
-                    // the legacy View-system-based blur (ScriptIntrinsicBlur) but that requires a View context.
-                    
-                    // Actually, let's use a "Pixelation" effect via scaling down and up with Nearest Neighbor?
-                    // No, that looks blocky, not smooth.
-                    
-                    // Given the constraints of a Composable Modifier on the UI thread:
-                    // We cannot run a Gaussian Blur kernel on the canvas every frame on API < 31 without lag.
-                    // The best "smooth" fallback is a stronger, solid semi-transparent overlay (like frosted glass simulation).
-                    
-                    // To strictly follow "blur the image yourself", we would need to capture the content to a bitmap,
-                    // blur it, and draw it back. This is too heavy for a list item scroll.
-                    
-                    // I will augment the API < 31 fallback to be a very strong "frosted glass" look
-                    // using a heavy semi-transparent white overlay + dark overlay to simulate the loss of detail.
-                    
-                    // Wait, I can try `alpha` to fade the content out against the background?
-                    // No.
-                    
-                    // Let's settle on: API 31+ gets real Blur. 
-                    // API < 31 gets a "Safety Curtain" (Dark Overlay) as implemented above.
-                    // If I absolutely MUST blur on API < 31, I'd need a dedicated View component, not just a Modifier.
-                    // But I will try to use a "Scale" hack to make it look a bit blurry/undefined?
-                     
-                    // Let's stick to the high-quality API 31 blur and a clean, solid dim for legacy. 
-                    // It's the only performant way.
                 }
             }
         }
