@@ -10,21 +10,8 @@ class MeshGraphServiceTest {
 
     @Before
     fun setUp() {
-        // Since MeshGraphService is a singleton, we need to be careful.
-        // However, the test environment usually creates a new classloader or we can rely on internal state if exposed.
-        // But looking at the code, it has a private constructor and getInstance().
-        // For unit testing, it's better if we can reset it or create a new instance via reflection if needed.
-        // Or just rely on the fact that we can clear it using internal methods if available.
-        // The service has `removePeer`.
-        // Let's rely on getInstance() but try to clear state if possible.
-        // Ideally we would modify the service to allow testing or dependency injection, but for now I'll use reflection to reset the singleton or just use it as is if it's fresh.
-        // Actually, let's just use getInstance() and hope it's clean enough or I can clear it by "removing" known peers if I knew them.
-        
-        // Reflection to reset singleton for isolation
-        val instanceField = MeshGraphService::class.java.getDeclaredField("INSTANCE")
-        instanceField.isAccessible = true
-        instanceField.set(null, null)
-        
+        // Use the test-only API to reset the singleton state safely
+        MeshGraphService.resetForTesting()
         service = MeshGraphService.getInstance()
     }
 

@@ -116,5 +116,12 @@ class MeshGraphService private constructor() {
         fun getInstance(): MeshGraphService = INSTANCE ?: synchronized(this) {
             INSTANCE ?: MeshGraphService().also { INSTANCE = it }
         }
+
+        @org.jetbrains.annotations.TestOnly
+        fun resetForTesting() {
+            synchronized(this) {
+                INSTANCE = null
+            }
+        }
     }
 }
