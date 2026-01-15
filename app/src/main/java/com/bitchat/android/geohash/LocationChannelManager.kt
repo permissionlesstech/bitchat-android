@@ -2,6 +2,7 @@ package com.bitchat.android.geohash
 
 import android.Manifest
 import android.content.Context
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.location.Geocoder
 import android.location.Location
@@ -15,7 +16,10 @@ import java.util.*
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 
 /**
  * Manages location permissions, one-shot location retrieval, and computing geohash channels.
@@ -38,22 +42,40 @@ class LocationChannelManager private constructor(private val context: Context) {
 
     // State enum matching iOS
     enum class PermissionState {
-        NOT_DETERMINED,
         DENIED,
-        RESTRICTED,
         AUTHORIZED
     }
 
     private val locationManager: LocationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-    private val geocoder: Geocoder = Geocoder(context, Locale.getDefault())
+    private val geocoderProvider: GeocoderProvider = GeocoderFactory.get(context)
     private var lastLocation: Location? = null
-    private var refreshTimer: Job? = null
-    private var isGeocoding: Boolean = false
+    private var geocodingJob: Job? = null
     private val gson = Gson()
     private var dataManager: com.bitchat.android.ui.DataManager? = null
 
+    private fun checkSystemLocationEnabled(): Boolean {
+        return try {
+            locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+                    locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private val locationStateReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: android.content.Intent?) {
+            if (intent?.action == LocationManager.PROVIDERS_CHANGED_ACTION) {
+                val isEnabled = checkSystemLocationEnabled()
+                Log.d(TAG, "System location state changed: $isEnabled")
+                _systemLocationEnabled.value = isEnabled
+            }
+        }
+    }
+
     // Published state for UI bindings (matching iOS @Published properties)
-    private val _permissionState = MutableStateFlow(PermissionState.NOT_DETERMINED)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    private val _permissionState = MutableStateFlow(PermissionState.DENIED)
     val permissionState: StateFlow<PermissionState> = _permissionState
 
     private val _availableChannels = MutableStateFlow<List<GeohashChannel>>(emptyList())
@@ -74,12 +96,30 @@ class LocationChannelManager private constructor(private val context: Context) {
     private val _locationServicesEnabled = MutableStateFlow(false)
     val locationServicesEnabled: StateFlow<Boolean> = _locationServicesEnabled
 
+    private val _systemLocationEnabled = MutableStateFlow(checkSystemLocationEnabled())
+    val systemLocationEnabled: StateFlow<Boolean> = _systemLocationEnabled
+
+    val effectiveLocationEnabled: StateFlow<Boolean> = combine(
+        locationServicesEnabled,
+        systemLocationEnabled
+    ) { appToggle, systemToggle ->
+        appToggle && systemToggle
+    }.stateIn(
+        scope,
+        SharingStarted.Eagerly,
+        false
+    )
+
+
     init {
         updatePermissionState()
         // Initialize DataManager and load persisted settings
         dataManager = com.bitchat.android.ui.DataManager(context)
         loadPersistedChannelSelection()
         loadLocationServicesState()
+
+        // Register for system location changes
+        context.registerReceiver(locationStateReceiver, IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION))
     }
 
     // MARK: - Public API (matching iOS interface)
@@ -91,26 +131,19 @@ class LocationChannelManager private constructor(private val context: Context) {
     fun enableLocationChannels() {
         Log.d(TAG, "enableLocationChannels() called")
         
-        // UNIFIED FIX: Check if location services are enabled by user
-        if (!isLocationServicesEnabled()) {
-            Log.w(TAG, "Location services disabled by user - not requesting location")
+        if (!_locationServicesEnabled.value || !_systemLocationEnabled.value) {
+            Log.w(TAG, "Location services disabled (app or system) - not requesting location")
             return
         }
         
-        when (getCurrentPermissionStatus()) {
-            PermissionState.NOT_DETERMINED -> {
-                Log.d(TAG, "Permission not determined - user needs to grant in app settings")
-                _permissionState.value = PermissionState.NOT_DETERMINED
-            }
-            PermissionState.DENIED, PermissionState.RESTRICTED -> {
-                Log.d(TAG, "Permission denied or restricted")
-                _permissionState.value = PermissionState.DENIED
-            }
-            PermissionState.AUTHORIZED -> {
-                Log.d(TAG, "Permission authorized - requesting location")
-                _permissionState.value = PermissionState.AUTHORIZED
-                requestOneShotLocation()
-            }
+
+        if (getCurrentPermissionStatus() == PermissionState.AUTHORIZED) {
+            Log.d(TAG, "Permission authorized - requesting location")
+            _permissionState.value = PermissionState.AUTHORIZED
+            requestOneShotLocation()
+        } else {
+            Log.d(TAG, "Permission not granted")
+            _permissionState.value = PermissionState.DENIED
         }
     }
 
@@ -136,13 +169,9 @@ class LocationChannelManager private constructor(private val context: Context) {
         }
 
         if (!isLocationServicesEnabled()) {
-            Log.w(TAG, "Cannot start live refresh - location services disabled by user")
+            Log.w(TAG, "Cannot start live refresh - location services disabled")
             return
         }
-
-        // Cancel any existing timer-based refreshers
-        refreshTimer?.cancel()
-        refreshTimer = null
 
         // Register for continuous updates from available providers
         try {
@@ -180,8 +209,6 @@ class LocationChannelManager private constructor(private val context: Context) {
      */
     fun endLiveRefresh() {
         Log.d(TAG, "Ending live refresh")
-        refreshTimer?.cancel()
-        refreshTimer = null
         // Unregister continuous updates listener
         try {
             locationManager.removeUpdates(continuousLocationListener)
@@ -235,8 +262,8 @@ class LocationChannelManager private constructor(private val context: Context) {
         _locationServicesEnabled.value = true
         saveLocationServicesState(true)
         
-        // If we have permission, start location operations
-        if (_permissionState.value == PermissionState.AUTHORIZED) {
+        // If we have permission and system location is on, start location operations
+        if (_permissionState.value == PermissionState.AUTHORIZED && systemLocationEnabled.value) {
             requestOneShotLocation()
         }
     }
@@ -265,8 +292,11 @@ class LocationChannelManager private constructor(private val context: Context) {
     /**
      * Check if location services are enabled by the user
      */
+    /**
+     * Check if both the app toggle and system location are enabled
+     */
     fun isLocationServicesEnabled(): Boolean {
-        return _locationServicesEnabled.value
+        return _locationServicesEnabled.value && _systemLocationEnabled.value
     }
 
     // MARK: - Location Operations
@@ -451,16 +481,10 @@ class LocationChannelManager private constructor(private val context: Context) {
     // MARK: - Helpers
 
     private fun getCurrentPermissionStatus(): PermissionState {
-        return when {
-            ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED -> {
-                PermissionState.AUTHORIZED
-            }
-            ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED -> {
-                PermissionState.AUTHORIZED
-            }
-            else -> {
-                PermissionState.DENIED // In Android, we can't distinguish between denied and not determined after first ask
-            }
+        return if (hasLocationPermission()) {
+            PermissionState.AUTHORIZED
+        } else {
+            PermissionState.DENIED
         }
     }
 
@@ -514,38 +538,29 @@ class LocationChannelManager private constructor(private val context: Context) {
     }
 
     private fun reverseGeocodeIfNeeded(location: Location) {
-        if (!Geocoder.isPresent()) {
-            Log.w(TAG, "Geocoder not present on this device")
-            return
-        }
-        
-        if (isGeocoding) {
-            Log.d(TAG, "Already geocoding, skipping")
-            return
-        }
+        // Cancel any pending geocoding job to avoid race conditions
+        geocodingJob?.cancel()
 
-        isGeocoding = true
-        
-        CoroutineScope(Dispatchers.IO).launch {
+        geocodingJob = scope.launch(Dispatchers.IO) {
             try {
                 Log.d(TAG, "Starting reverse geocoding")
                 
-                @Suppress("DEPRECATION")
-                val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1)
-                
-                if (!addresses.isNullOrEmpty()) {
+                val addresses = geocoderProvider.getFromLocation(location.latitude, location.longitude, 1)
+
+                if (!isActive) return@launch
+
+                if (addresses.isNotEmpty()) {
                     val address = addresses[0]
                     val names = namesByLevel(address)
-                    
                     Log.d(TAG, "Reverse geocoding result: $names")
                     _locationNames.value = names
                 } else {
                     Log.w(TAG, "No reverse geocoding results")
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Reverse geocoding failed: ${e.message}")
-            } finally {
-                isGeocoding = false
+                if (e !is CancellationException) {
+                    Log.e(TAG, "Reverse geocoding failed: ${e.message}")
+                }
             }
         }
     }
@@ -558,10 +573,12 @@ class LocationChannelManager private constructor(private val context: Context) {
             dict[GeohashChannelLevel.REGION] = it
         }
         
-        // Province (state/province or county)
+        // Province (state/province or county or city)
         address.adminArea?.takeIf { it.isNotEmpty() }?.let {
             dict[GeohashChannelLevel.PROVINCE] = it
         } ?: address.subAdminArea?.takeIf { it.isNotEmpty() }?.let {
+            dict[GeohashChannelLevel.PROVINCE] = it
+        } ?: address.locality?.takeIf { it.isNotEmpty() }?.let {
             dict[GeohashChannelLevel.PROVINCE] = it
         }
         
@@ -599,18 +616,14 @@ class LocationChannelManager private constructor(private val context: Context) {
     private fun saveChannelSelection(channel: ChannelID) {
         try {
             val channelData = when (channel) {
-                is ChannelID.Mesh -> {
-                    gson.toJson(mapOf("type" to "mesh"))
-                }
-                is ChannelID.Location -> {
-                    gson.toJson(mapOf(
-                        "type" to "location",
-                        "level" to channel.channel.level.name,
-                        "precision" to channel.channel.level.precision,
-                        "geohash" to channel.channel.geohash,
-                        "displayName" to channel.channel.level.displayName
-                    ))
-                }
+                is ChannelID.Mesh -> gson.toJson(PersistedChannel(mesh = true))
+                is ChannelID.Location -> gson.toJson(
+                    PersistedChannel(
+                        mesh = false,
+                        level = channel.channel.level.name,
+                        geohash = channel.channel.geohash
+                    )
+                )
             }
             dataManager?.saveLastGeohashChannel(channelData)
             Log.d(TAG, "Saved channel selection: ${channel.displayName}")
@@ -625,46 +638,14 @@ class LocationChannelManager private constructor(private val context: Context) {
     private fun loadPersistedChannelSelection() {
         try {
             val channelData = dataManager?.loadLastGeohashChannel()
-            if (channelData != null) {
-                val channelMap = gson.fromJson(channelData, Map::class.java) as? Map<String, Any>
-                if (channelMap != null) {
-                    val channel = when (channelMap["type"] as? String) {
-                        "mesh" -> ChannelID.Mesh
-                        "location" -> {
-                            val levelName = channelMap["level"] as? String
-                            val precision = (channelMap["precision"] as? Double)?.toInt()
-                            val geohash = channelMap["geohash"] as? String
-                            val displayName = channelMap["displayName"] as? String
-                            
-                            if (levelName != null && precision != null && geohash != null && displayName != null) {
-                                try {
-                                    val level = GeohashChannelLevel.valueOf(levelName)
-                                    val geohashChannel = GeohashChannel(level, geohash)
-                                    ChannelID.Location(geohashChannel)
-                                } catch (e: IllegalArgumentException) {
-                                    Log.w(TAG, "Invalid geohash level in persisted data: $levelName")
-                                    null
-                                }
-                            } else {
-                                Log.w(TAG, "Incomplete location channel data in persistence")
-                                null
-                            }
-                        }
-                        else -> {
-                            Log.w(TAG, "Unknown channel type in persisted data: ${channelMap["type"]}")
-                            null
-                        }
-                    }
-                    
-                    if (channel != null) {
-                        _selectedChannel.value = channel
-                        Log.d(TAG, "Restored persisted channel: ${channel.displayName}")
-                    } else {
-                        Log.d(TAG, "Could not restore persisted channel, defaulting to Mesh")
-                        _selectedChannel.value = ChannelID.Mesh
-                    }
+            if (!channelData.isNullOrBlank()) {
+                val persisted = gson.fromJson(channelData, PersistedChannel::class.java)
+                val channel = persisted?.toChannel()
+                if (channel != null) {
+                    _selectedChannel.value = channel
+                    Log.d(TAG, "Restored persisted channel: ${channel.displayName}")
                 } else {
-                    Log.w(TAG, "Invalid channel data format in persistence")
+                    Log.d(TAG, "Could not restore persisted channel, defaulting to Mesh")
                     _selectedChannel.value = ChannelID.Mesh
                 }
             } else {
@@ -679,7 +660,23 @@ class LocationChannelManager private constructor(private val context: Context) {
             _selectedChannel.value = ChannelID.Mesh
         }
     }
-    
+
+    data class PersistedChannel(
+        val mesh: Boolean,
+        val level: String? = null,
+        val geohash: String? = null
+    ) {
+        fun toChannel(): ChannelID? {
+            return if (mesh) {
+                ChannelID.Mesh
+            } else {
+                val levelName = level ?: return null
+                val gh = geohash ?: return null
+                ChannelID.Location.fromPersisted(levelName, gh)
+            }
+        }
+    }
+
     /**
      * Clear persisted channel selection (useful for testing or reset)
      */
@@ -723,6 +720,12 @@ class LocationChannelManager private constructor(private val context: Context) {
     fun cleanup() {
         Log.d(TAG, "Cleaning up LocationChannelManager")
         endLiveRefresh()
+        
+        geocodingJob?.cancel()
+        geocodingJob = null
+        
+        // Unregister receiver
+        try { context.unregisterReceiver(locationStateReceiver) } catch (_: Exception) {}
         
         // Remove listeners to prevent memory leaks
         try { locationManager.removeUpdates(oneShotLocationListener) } catch (_: Exception) {}

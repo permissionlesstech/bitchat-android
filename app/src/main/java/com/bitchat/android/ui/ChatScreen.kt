@@ -56,6 +56,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val mentionSuggestions by viewModel.mentionSuggestions.collectAsStateWithLifecycle()
     val showAppInfo by viewModel.showAppInfo.collectAsStateWithLifecycle()
     val showMeshPeerListSheet by viewModel.showMeshPeerList.collectAsStateWithLifecycle()
+    val privateChatSheetPeer by viewModel.privateChatSheetPeer.collectAsStateWithLifecycle()
     val showVerificationSheet by viewModel.showVerificationSheet.collectAsStateWithLifecycle()
     val showSecurityVerificationSheet by viewModel.showSecurityVerificationSheet.collectAsStateWithLifecycle()
 
@@ -86,8 +87,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
 
     // Determine what messages to show based on current context (unified timelines)
+    // Legacy private chat timeline removed - private chats now exclusively use PrivateChatSheet
     val displayMessages = when {
-        selectedPrivatePeer != null -> privateChats[selectedPrivatePeer] ?: emptyList()
         currentChannel != null -> channelMessages[currentChannel] ?: emptyList()
         else -> {
             val locationChannel = selectedLocationChannel
@@ -102,7 +103,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
 
     // Determine whether to show media buttons (only hide in geohash location chats)
     val showMediaButtons = when {
-        selectedPrivatePeer != null -> true
         currentChannel != null -> true
         else -> selectedLocationChannel !is com.bitchat.android.geohash.ChannelID.Location
     }
@@ -232,7 +232,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                         selection = TextRange(mentionText.length)
                     )
                 },
-                selectedPrivatePeer = selectedPrivatePeer,
+                selectedPrivatePeer = null,
                 currentChannel = currentChannel,
                 nickname = nickname,
                 colorScheme = colorScheme,
@@ -243,7 +243,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
         // Floating header - positioned absolutely at top, ignores keyboard
         ChatFloatingHeader(
             headerHeight = headerHeight,
-            selectedPrivatePeer = selectedPrivatePeer,
+            selectedPrivatePeer = null,
             currentChannel = currentChannel,
             nickname = nickname,
             viewModel = viewModel,
@@ -490,6 +490,8 @@ private fun ChatDialogs(
     showMeshPeerListSheet: Boolean,
     onMeshPeerListDismiss: () -> Unit,
 ) {
+    val privateChatSheetPeer by viewModel.privateChatSheetPeer.collectAsStateWithLifecycle()
+
     // Password dialog
     PasswordPromptDialog(
         show = showPasswordDialog,
@@ -568,6 +570,18 @@ private fun ChatDialogs(
             isPresented = showSecurityVerificationSheet,
             onDismiss = onSecurityVerificationSheetDismiss,
             viewModel = viewModel
+        )
+    }
+
+    if (privateChatSheetPeer != null) {
+        PrivateChatSheet(
+            isPresented = true,
+            peerID = privateChatSheetPeer!!,
+            viewModel = viewModel,
+            onDismiss = {
+                viewModel.hidePrivateChatSheet()
+                viewModel.endPrivateChat()
+            }
         )
     }
 }
