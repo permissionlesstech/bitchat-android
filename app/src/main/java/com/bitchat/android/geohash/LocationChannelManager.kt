@@ -128,7 +128,7 @@ class LocationChannelManager private constructor(private val context: Context) {
             SystemLocationProvider(context)
         }
 
-        updatePermissionState()
+        checkAndSyncPermission()
         // Initialize DataManager and load persisted settings
         dataManager = com.bitchat.android.ui.DataManager(context)
         loadPersistedChannelSelection()
@@ -293,7 +293,7 @@ class LocationChannelManager private constructor(private val context: Context) {
     // MARK: - Location Operations
 
     private fun requestOneShotLocation() {
-        if (!hasLocationPermission()) {
+        if (!checkAndSyncPermission()) {
             Log.w(TAG, "No location permission for one-shot request")
             return
         }
@@ -334,22 +334,25 @@ class LocationChannelManager private constructor(private val context: Context) {
     // MARK: - Helpers
 
     private fun getCurrentPermissionStatus(): PermissionState {
-        return if (hasLocationPermission()) {
+        return if (checkAndSyncPermission()) {
             PermissionState.AUTHORIZED
         } else {
             PermissionState.DENIED
         }
     }
 
-    private fun updatePermissionState() {
-        val newState = getCurrentPermissionStatus()
-        Log.d(TAG, "Permission state updated to: $newState")
-        _permissionState.value = newState
-    }
-
-    private fun hasLocationPermission(): Boolean {
-        return ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+    private fun checkAndSyncPermission(): Boolean {
+        val hasPermission = ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
                ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+        val newState = if (hasPermission) PermissionState.AUTHORIZED else PermissionState.DENIED
+
+        if (_permissionState.value != newState) {
+            Log.d(TAG, "Permission state updated to: $newState")
+            _permissionState.value = newState
+        }
+
+        return hasPermission
     }
 
     private fun computeChannels(location: Location) {
