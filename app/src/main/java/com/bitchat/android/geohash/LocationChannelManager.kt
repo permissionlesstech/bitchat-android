@@ -592,6 +592,8 @@ class LocationChannelManager private constructor(private val context: Context) {
                     @Suppress("DEPRECATION")
                     val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1)
                     
+                    if (!isActive) return@launch
+                    
                     if (!addresses.isNullOrEmpty()) {
                         val address = addresses[0]
                         val names = namesByLevel(address)
