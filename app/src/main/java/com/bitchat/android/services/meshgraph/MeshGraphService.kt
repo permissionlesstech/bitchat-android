@@ -33,23 +33,20 @@ class MeshGraphService private constructor() {
             // Always update nickname if provided
             if (originNickname != null) nicknames[originPeerID] = originNickname
 
-            // If no neighbors TLV present, do not modify edges or timestamps
-            if (neighborsOrNull == null) {
-                publishSnapshot()
-                return
-            }
-
-            // Newer-only replacement per origin (based on TLV-bearing announcements only)
+            // 1. Check timestamp first to ensure this is the latest word from the peer
             val prevTs = lastUpdate[originPeerID]
             if (prevTs != null && prevTs >= timestamp) {
-                // Older or equal TLV-bearing update: ignore
+                // Older or equal update: ignore
                 return
             }
             lastUpdate[originPeerID] = timestamp
 
-            // Update what originPeerID announces
+            // 2. Latest announcement determines state.
+            // If neighborsOrNull is null (TLV omitted), it means the peer is not reporting any neighbors (empty list).
+            val neighbors = neighborsOrNull ?: emptyList()
+            
             // Filter out self-loops just in case
-            val newSet = neighborsOrNull.distinct().take(10).filter { it != originPeerID }.toSet()
+            val newSet = neighbors.distinct().take(10).filter { it != originPeerID }.toSet()
             announcements[originPeerID] = newSet
 
             publishSnapshot()
