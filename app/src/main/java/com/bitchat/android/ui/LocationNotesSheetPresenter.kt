@@ -87,7 +87,7 @@ private fun LocationNotesAcquiringSheet(
             )
             Spacer(modifier = Modifier.height(24.dp))
             Text(
-                text = "Please wait while we determine your location",
+                text = "Please wait while your location is being determined",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
