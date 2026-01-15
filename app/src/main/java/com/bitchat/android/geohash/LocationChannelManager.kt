@@ -49,7 +49,7 @@ class LocationChannelManager private constructor(private val context: Context) {
 
     private val locationManager: LocationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
     private val locationProvider: LocationProvider
-    private val geocoder: Geocoder = Geocoder(context, Locale.getDefault())
+    private val geocoderProvider: GeocoderProvider = GeocoderFactory.get(context)
     private var lastLocation: Location? = null
     private var geocodingJob: Job? = null
     private val gson = Gson()
@@ -391,11 +391,6 @@ class LocationChannelManager private constructor(private val context: Context) {
     }
 
     private fun reverseGeocodeIfNeeded(location: Location) {
-        if (!Geocoder.isPresent()) {
-            Log.w(TAG, "Geocoder not present on this device")
-            return
-        }
-        
         // Cancel any pending geocoding job to avoid race conditions
         geocodingJob?.cancel()
 
@@ -403,58 +398,17 @@ class LocationChannelManager private constructor(private val context: Context) {
             try {
                 Log.d(TAG, "Starting reverse geocoding")
                 
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                    // Use new listener-based API for Android 13+
-                    suspendCancellableCoroutine<Unit> { cont ->
-                        try {
-                            geocoder.getFromLocation(
-                                location.latitude,
-                                location.longitude,
-                                1,
-                                object : Geocoder.GeocodeListener {
-                                    override fun onGeocode(addresses: MutableList<android.location.Address>) {
-                                        if (!cont.isActive) return
-                                        if (addresses.isNotEmpty()) {
-                                            val address = addresses[0]
-                                            val names = namesByLevel(address)
-                                            Log.d(TAG, "Reverse geocoding result: $names")
-                                            _locationNames.value = names
-                                        } else {
-                                            Log.w(TAG, "No reverse geocoding results")
-                                        }
-                                        cont.resume(Unit) {}
-                                    }
+                val addresses = geocoderProvider.getFromLocation(location.latitude, location.longitude, 1)
 
-                                    override fun onError(errorMessage: String?) {
-                                        if (!cont.isActive) return
-                                        Log.e(TAG, "Reverse geocoding failed: $errorMessage")
-                                        cont.resume(Unit) {}
-                                    }
-                                }
-                            )
-                        } catch (e: Exception) {
-                            if (!cont.isActive) return@suspendCancellableCoroutine
-                            Log.e(TAG, "Error initiating geocoding listener: ${e.message}")
-                            cont.resume(Unit) {}
-                        }
-                        cont.invokeOnCancellation {
-                            // Listener-based API has no explicit unregister, so we just ignore callbacks
-                        }
-                    }
+                if (!isActive) return@launch
+
+                if (addresses.isNotEmpty()) {
+                    val address = addresses[0]
+                    val names = namesByLevel(address)
+                    Log.d(TAG, "Reverse geocoding result: $names")
+                    _locationNames.value = names
                 } else {
-                    @Suppress("DEPRECATION")
-                    val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1)
-                    
-                    if (!isActive) return@launch
-                    
-                    if (!addresses.isNullOrEmpty()) {
-                        val address = addresses[0]
-                        val names = namesByLevel(address)
-                        Log.d(TAG, "Reverse geocoding result: $names")
-                        _locationNames.value = names
-                    } else {
-                        Log.w(TAG, "No reverse geocoding results")
-                    }
+                    Log.w(TAG, "No reverse geocoding results")
                 }
             } catch (e: Exception) {
                 if (e !is CancellationException) {
@@ -472,10 +426,12 @@ class LocationChannelManager private constructor(private val context: Context) {
             dict[GeohashChannelLevel.REGION] = it
         }
         
-        // Province (state/province or county)
+        // Province (state/province or county or city)
         address.adminArea?.takeIf { it.isNotEmpty() }?.let {
             dict[GeohashChannelLevel.PROVINCE] = it
         } ?: address.subAdminArea?.takeIf { it.isNotEmpty() }?.let {
+            dict[GeohashChannelLevel.PROVINCE] = it
+        } ?: address.locality?.takeIf { it.isNotEmpty() }?.let {
             dict[GeohashChannelLevel.PROVINCE] = it
         }
         

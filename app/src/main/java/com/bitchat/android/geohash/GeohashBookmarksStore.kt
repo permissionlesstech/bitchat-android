@@ -167,12 +167,11 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
         if (gh.isEmpty()) return
         if (_bookmarkNames.value?.containsKey(gh) == true) return
         if (resolving.contains(gh)) return
-        if (!Geocoder.isPresent()) return
 
         resolving.add(gh)
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val geocoder = Geocoder(context, Locale.getDefault())
+                val geocoderProvider = GeocoderFactory.get(context)
                 val name: String? = if (gh.length <= 2) {
                     // Composite admin name from multiple points
                     val b = Geohash.decodeToBounds(gh)
@@ -186,9 +185,8 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
                     val admins = linkedSetOf<String>()
                     for (loc in points) {
                         try {
-                            @Suppress("DEPRECATION")
-                            val list = geocoder.getFromLocation(loc.latitude, loc.longitude, 1)
-                            val a = list?.firstOrNull()
+                            val list = geocoderProvider.getFromLocation(loc.latitude, loc.longitude, 1)
+                            val a = list.firstOrNull()
                             val admin = a?.adminArea?.takeIf { !it.isNullOrEmpty() }
                             val country = a?.countryName?.takeIf { !it.isNullOrEmpty() }
                             if (admin != null) admins.add(admin)
@@ -203,9 +201,8 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
                     }
                 } else {
                     val center = Geohash.decodeToCenter(gh)
-                    @Suppress("DEPRECATION")
-                    val list = geocoder.getFromLocation(center.first, center.second, 1)
-                    val a = list?.firstOrNull()
+                    val list = geocoderProvider.getFromLocation(center.first, center.second, 1)
+                    val a = list.firstOrNull()
                     pickNameForLength(gh.length, a)
                 }
 
