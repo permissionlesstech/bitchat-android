@@ -28,6 +28,8 @@ fun LocationNotesSheetPresenter(
     val context = LocalContext.current
     val locationManager = remember { LocationChannelManager.getInstance(context) }
     val availableChannels by locationManager.availableChannels.collectAsStateWithLifecycle()
+    val permissionState by locationManager.permissionState.collectAsStateWithLifecycle()
+    val isLoadingLocation by locationManager.isLoadingLocation.collectAsStateWithLifecycle()
     val nickname by viewModel.nickname.collectAsStateWithLifecycle()
     
     // iOS pattern: notesGeohash ?? LocationChannelManager.shared.availableChannels.first(where: { $0.level == .building })?.geohash
@@ -45,12 +47,51 @@ fun LocationNotesSheetPresenter(
             nickname = nickname,
             onDismiss = onDismiss
         )
+    } else if (permissionState == LocationChannelManager.PermissionState.AUTHORIZED && isLoadingLocation) {
+        LocationNotesAcquiringSheet(onDismiss = onDismiss)
     } else {
         // No building geohash available - show error state (matches iOS)
         LocationNotesErrorSheet(
             onDismiss = onDismiss,
             locationManager = locationManager
         )
+    }
+}
+
+/**
+ * Loading sheet when location is being acquired
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LocationNotesAcquiringSheet(
+    onDismiss: () -> Unit
+) {
+    BitchatBottomSheet(
+        onDismissRequest = onDismiss,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Acquiring Location",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            CircularProgressIndicator(
+                modifier = Modifier.size(48.dp),
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = "Please wait while we determine your location",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
