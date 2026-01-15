@@ -46,22 +46,6 @@ class BluetoothGattServerManager(
     // State management
     private var isActive = false
 
-    // Enforce a server connection limit by canceling the oldest connections (best-effort)
-    fun enforceServerLimit(maxServer: Int) {
-        if (maxServer <= 0) return
-        try {
-            // Use connection tracker to get actual connected server devices
-            val servers = connectionTracker.getConnectedDevices().values.filter { !it.isClient }
-            if (servers.size > maxServer) {
-                val excess = servers.size - maxServer
-                // Disconnect oldest
-                servers.sortedBy { it.connectedAt }.take(excess).forEach { d ->
-                    try { gattServer?.cancelConnection(d.device) } catch (_: Exception) { }
-                }
-            }
-        } catch (_: Exception) { }
-    }
-
     /**
      * Disconnect a specific device (used by ConnectionManager to enforce overall limits)
      */

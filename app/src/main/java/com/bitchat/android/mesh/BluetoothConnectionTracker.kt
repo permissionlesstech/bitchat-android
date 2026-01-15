@@ -237,86 +237,60 @@ class BluetoothConnectionTracker(
      * Check if connection limit is reached
      */
     /**
-     * Check if connection limit is reached
+     * Check if a new client connection is allowed based on limits
      */
-    fun isConnectionLimitReached(): Boolean {
-        // Respect debug override if set
-        val dbg = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (_: Exception) { null }
-        val maxConnections = dbg?.maxConnectionsOverall?.value ?: powerManager.getMaxConnections()
-        return connectedDevices.size >= maxConnections
+    fun canConnectAsClient(maxOverall: Int, maxClient: Int): Boolean {
+        val total = connectedDevices.size
+        val clients = connectedDevices.values.count { it.isClient }
+        return total < maxOverall && clients < maxClient
     }
     
     /**
-     * Enforce connection limits by disconnecting oldest connections
+     * Calculate which connections should be evicted to satisfy limits.
+     * Logic:
+     * 1. Enforce strict role limits (maxClient, maxServer) - evict oldest excess.
+     * 2. Enforce overall limit (maxOverall) - evict oldest remaining, preferring clients.
      */
-    fun enforceConnectionLimits() {
-        // Read debug overrides if available
-        val dbg = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (_: Exception) { null }
-        val maxOverall = dbg?.maxConnectionsOverall?.value ?: powerManager.getMaxConnections()
-        val maxClient = dbg?.maxClientConnections?.value ?: maxOverall
-        // Note: maxServer is handled by GattServerManager, but we need to respect overall limit here too
-
-        val clients = connectedDevices.values.filter { it.isClient }
-
-        // Enforce client cap first (we can actively disconnect)
-        if (clients.size > maxClient) {
-            Log.i(TAG, "Enforcing client cap: ${clients.size} > $maxClient")
-            val toDisconnect = clients.sortedBy { it.connectedAt }.take(clients.size - maxClient)
-            toDisconnect.forEach { dc ->
-                Log.d(TAG, "Disconnecting client ${dc.device.address} due to client cap")
-                dc.gatt?.disconnect()
-            }
-        }
-
-        // Re-check overall cap after client cleanup
-        if (connectedDevices.size > maxOverall) {
-            Log.i(TAG, "Enforcing overall cap: ${connectedDevices.size} > $maxOverall")
-            val excess = connectedDevices.size - maxOverall
-            
-            // Prefer disconnecting clients first to satisfy overall cap
-            val clientsToDisconnect = connectedDevices.values
-                .filter { it.isClient }
-                .sortedBy { it.connectedAt }
-                .take(excess)
-                
-            clientsToDisconnect.forEach { dc ->
-                Log.d(TAG, "Disconnecting client ${dc.device.address} due to overall cap")
-                dc.gatt?.disconnect()
-            }
-        }
-    }
-
-    /**
-     * Get excess server connections that should be disconnected to satisfy limits.
-     * This allows the Manager to coordinate server disconnects since Tracker doesn't control the server.
-     */
-    fun getExcessServerConnections(maxServer: Int, maxOverall: Int): List<BluetoothDevice> {
-        val servers = connectedDevices.values.filter { !it.isClient }
-        val excessList = mutableListOf<BluetoothDevice>()
-
-        // 1. Check server specific limit
-        if (servers.size > maxServer) {
-            val excessCount = servers.size - maxServer
-            val toRemove = servers.sortedBy { it.connectedAt }.take(excessCount)
-            excessList.addAll(toRemove.map { it.device })
-        }
-
-        // 2. Check overall limit (considering we might have already removed some above)
-        // We need to count how many connections we will have after the above removals
-        val currentTotal = connectedDevices.size
-        val plannedRemovals = excessList.size
-        val projectedTotal = currentTotal - plannedRemovals
+    fun getConnectionsToEvict(maxOverall: Int, maxServer: Int, maxClient: Int): List<DeviceConnection> {
+        val toEvict = mutableSetOf<DeviceConnection>()
+        val currentDevices = connectedDevices.values.toList()
         
-        if (projectedTotal > maxOverall) {
-            val furtherExcess = projectedTotal - maxOverall
-            // We can only remove servers here. Clients are handled in enforceConnectionLimits.
-            // Filter out devices we already planned to remove
-            val remainingServers = servers.filter { s -> excessList.none { it.address == s.device.address } }
-            val toRemove = remainingServers.sortedBy { it.connectedAt }.take(furtherExcess)
-            excessList.addAll(toRemove.map { it.device })
+        // 1. Enforce Role Limits
+        val clients = currentDevices.filter { it.isClient }.sortedBy { it.connectedAt }
+        if (clients.size > maxClient) {
+            toEvict.addAll(clients.take(clients.size - maxClient))
         }
-
-        return excessList
+        
+        val servers = currentDevices.filter { !it.isClient }.sortedBy { it.connectedAt }
+        if (servers.size > maxServer) {
+            toEvict.addAll(servers.take(servers.size - maxServer))
+        }
+        
+        // 2. Enforce Overall Limit
+        // Count how many would remain after the above evictions
+        val remaining = currentDevices.filter { !toEvict.contains(it) }
+        if (remaining.size > maxOverall) {
+            val excessCount = remaining.size - maxOverall
+            
+            // Explicitly prefer evicting clients first
+            val clientCandidates = remaining.filter { it.isClient }.sortedBy { it.connectedAt }
+            val serverCandidates = remaining.filter { !it.isClient }.sortedBy { it.connectedAt }
+            
+            var needed = excessCount
+            
+            // Take from clients first
+            val fromClients = clientCandidates.take(needed)
+            toEvict.addAll(fromClients)
+            needed -= fromClients.size
+            
+            // If still need more, take from servers
+            if (needed > 0) {
+                val fromServers = serverCandidates.take(needed)
+                toEvict.addAll(fromServers)
+            }
+        }
+        
+        return toEvict.toList()
     }
     
     /**
