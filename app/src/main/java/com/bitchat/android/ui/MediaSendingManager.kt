@@ -16,8 +16,11 @@ class MediaSendingManager(
     private val state: ChatState,
     private val messageManager: MessageManager,
     private val channelManager: ChannelManager,
-    private val meshService: BluetoothMeshService
+    private val getMeshService: () -> BluetoothMeshService
 ) {
+    // Helper to get current mesh service (may change after panic clear)
+    private val meshService: BluetoothMeshService
+        get() = getMeshService()
     companion object {
         private const val TAG = "MediaSendingManager"
         private const val MAX_FILE_SIZE = com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES // 50MB limit
