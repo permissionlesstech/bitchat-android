@@ -58,6 +58,7 @@ class FusedLocationProvider(private val context: Context) : LocationProvider {
         try {
             val request = CurrentLocationRequest.Builder()
                 .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
+                .setDurationMillis(30000)
                 .build()
 
             fusedLocationClient.getCurrentLocation(request, null)
@@ -122,6 +123,20 @@ class FusedLocationProvider(private val context: Context) : LocationProvider {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error removing fused updates: ${e.message}")
+        }
+    }
+
+    override fun cancel() {
+        try {
+            synchronized(activeCallbacks) {
+                for ((callback, locationCallback) in activeCallbacks) {
+                    fusedLocationClient.removeLocationUpdates(locationCallback)
+                }
+                activeCallbacks.clear()
+            }
+            Log.d(TAG, "Cancelled all fused updates")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error cancelling fused provider: ${e.message}")
         }
     }
 }

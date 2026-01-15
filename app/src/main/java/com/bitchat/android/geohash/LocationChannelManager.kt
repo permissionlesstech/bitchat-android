@@ -576,6 +576,7 @@ class LocationChannelManager private constructor(private val context: Context) {
     fun cleanup() {
         Log.d(TAG, "Cleaning up LocationChannelManager")
         endLiveRefresh()
+        locationProvider.cancel()
         
         geocodingJob?.cancel()
         geocodingJob = null

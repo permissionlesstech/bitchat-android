@@ -19,8 +19,12 @@ class SystemLocationProvider(private val context: Context) : LocationProvider {
     }
 
     private val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    
     // Map to keep track of listeners to unregister them later
     private val activeListeners = mutableMapOf<(Location) -> Unit, LocationListener>()
+    private val activeOneShotListeners = mutableMapOf<(Location?) -> Unit, LocationListener>()
+    private val activeOneShotRunnables = mutableMapOf<(Location?) -> Unit, Runnable>()
 
     private fun hasLocationPermission(): Boolean {
         return ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
@@ -80,17 +84,47 @@ class SystemLocationProvider(private val context: Context) : LocationProvider {
                             callback(location)
                         }
                     } else {
-                        // For older versions, use requestSingleUpdate
+                        // For older versions, use requestSingleUpdate with timeout mechanism
+                        val timeoutRunnable = Runnable {
+                            Log.w(TAG, "Location request timed out")
+                            synchronized(activeOneShotListeners) {
+                                val listener = activeOneShotListeners.remove(callback)
+                                activeOneShotRunnables.remove(callback)
+                                if (listener != null) {
+                                    try {
+                                        locationManager.removeUpdates(listener)
+                                    } catch (e: Exception) {
+                                        Log.e(TAG, "Error removing timed out listener: ${e.message}")
+                                    }
+                                }
+                            }
+                            callback(null)
+                        }
+
                         val listener = object : LocationListener {
                             override fun onLocationChanged(location: Location) {
-                                callback(location)
+                                synchronized(activeOneShotListeners) {
+                                    activeOneShotListeners.remove(callback)
+                                    val runnable = activeOneShotRunnables.remove(callback)
+                                    if (runnable != null) {
+                                        handler.removeCallbacks(runnable)
+                                    }
+                                }
                                 locationManager.removeUpdates(this)
+                                callback(location)
                             }
                             override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
                             override fun onProviderEnabled(provider: String) {}
                             override fun onProviderDisabled(provider: String) {}
                         }
+
+                        synchronized(activeOneShotListeners) {
+                            activeOneShotListeners[callback] = listener
+                            activeOneShotRunnables[callback] = timeoutRunnable
+                        }
+                        
                         locationManager.requestSingleUpdate(provider, listener, null)
+                        handler.postDelayed(timeoutRunnable, 30000L) // 30s timeout
                     }
                     providerFound = true
                     break
@@ -167,6 +201,34 @@ class SystemLocationProvider(private val context: Context) : LocationProvider {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error removing updates: ${e.message}")
+        }
+    }
+
+    override fun cancel() {
+        try {
+            // Cancel continuous updates
+            synchronized(activeListeners) {
+                for ((_, listener) in activeListeners) {
+                    try { locationManager.removeUpdates(listener) } catch (_: Exception) {}
+                }
+                activeListeners.clear()
+            }
+
+            // Cancel one-shot requests
+            synchronized(activeOneShotListeners) {
+                for ((_, listener) in activeOneShotListeners) {
+                    try { locationManager.removeUpdates(listener) } catch (_: Exception) {}
+                }
+                activeOneShotListeners.clear()
+                
+                for ((_, runnable) in activeOneShotRunnables) {
+                    handler.removeCallbacks(runnable)
+                }
+                activeOneShotRunnables.clear()
+            }
+            Log.d(TAG, "Cancelled all system location requests")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error cancelling system provider: ${e.message}")
         }
     }
 }

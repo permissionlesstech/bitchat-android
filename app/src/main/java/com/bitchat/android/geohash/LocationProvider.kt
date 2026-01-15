@@ -32,4 +32,9 @@ interface LocationProvider {
      * @param callback The same callback instance passed to requestLocationUpdates.
      */
     fun removeLocationUpdates(callback: (Location) -> Unit)
+
+    /**
+     * Cancel any pending one-shot location requests and cleanup resources.
+     */
+    fun cancel()
 }
