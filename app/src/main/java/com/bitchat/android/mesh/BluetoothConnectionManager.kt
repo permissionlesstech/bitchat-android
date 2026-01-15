@@ -7,6 +7,7 @@ import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
 
 /**
  * Power-optimized Bluetooth connection manager with comprehensive memory management
@@ -57,6 +58,8 @@ class BluetoothConnectionManager(
         }
         
         override fun onDeviceConnected(device: BluetoothDevice) {
+            // Trigger limit enforcement immediately upon any new connection
+            enforceStrictLimits()
             delegate?.onDeviceConnected(device)
         }
 
@@ -103,45 +106,56 @@ class BluetoothConnectionManager(
                     if (enabled) startClient() else stopClient()
                 }
             }
-            // Connection caps: enforce on change
+            
+            // Centralized limit enforcement on any setting change
             connectionScope.launch {
-                dbg.maxConnectionsOverall.collect { maxOverall ->
-                    if (!isActive) return@collect
-                    // 1. Enforce client limits (handled by tracker)
-                    connectionTracker.enforceConnectionLimits()
-                    
-                    // 2. Enforce overall limit on server connections if needed
-                    // (Tracker knows about all connections but can't disconnect servers directly)
-                    val maxServer = dbg.maxServerConnections.value
-                    val excessServers = connectionTracker.getExcessServerConnections(maxServer, maxOverall)
-                    excessServers.forEach { device ->
-                        Log.d(TAG, "Disconnecting server ${device.address} due to overall cap")
-                        serverManager.disconnectDevice(device)
-                    }
-                }
-            }
-            connectionScope.launch {
-                dbg.maxClientConnections.collect {
-                    if (!isActive) return@collect
-                    connectionTracker.enforceConnectionLimits()
-                }
-            }
-            connectionScope.launch {
-                dbg.maxServerConnections.collect { maxServer ->
-                    if (!isActive) return@collect
-                    // Enforce server specific limit
-                    serverManager.enforceServerLimit(maxServer)
-                    
-                    // Also check if this change puts us over the overall limit
-                    val maxOverall = dbg.maxConnectionsOverall.value
-                    val excessServers = connectionTracker.getExcessServerConnections(maxServer, maxOverall)
-                    excessServers.forEach { device ->
-                        Log.d(TAG, "Disconnecting server ${device.address} due to overall cap")
-                        serverManager.disconnectDevice(device)
+                combine(
+                    dbg.maxConnectionsOverall,
+                    dbg.maxServerConnections,
+                    dbg.maxClientConnections
+                ) { _, _, _ -> 
+                    // We don't need the values here, we just need to trigger enforcement
+                    Unit 
+                }.collect {
+                    if (isActive) {
+                        enforceStrictLimits()
                     }
                 }
             }
         } catch (_: Exception) { }
+    }
+    
+    /**
+     * Centralized connection limit enforcement
+     */
+    private fun enforceStrictLimits() {
+        if (!isActive) return
+        
+        try {
+            val dbg = com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
+            val maxOverall = dbg.maxConnectionsOverall.value
+            val maxServer = dbg.maxServerConnections.value
+            val maxClient = dbg.maxClientConnections.value
+            
+            // Get list of connections to evict to satisfy all constraints
+            val toEvict = connectionTracker.getConnectionsToEvict(maxOverall, maxServer, maxClient)
+            
+            if (toEvict.isNotEmpty()) {
+                Log.i(TAG, "Enforcing limits (max: $maxOverall, s: $maxServer, c: $maxClient) - evicting ${toEvict.size} connections")
+                
+                toEvict.forEach { conn ->
+                    if (conn.isClient) {
+                        Log.d(TAG, "Evicting client ${conn.device.address}")
+                        try { conn.gatt?.disconnect() } catch (_: Exception) { }
+                    } else {
+                        Log.d(TAG, "Evicting server ${conn.device.address}")
+                        serverManager.disconnectDevice(conn.device)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error enforcing limits: ${e.message}")
+        }
     }
     
     /**
@@ -408,12 +422,7 @@ class BluetoothConnectionManager(
             }
             
             // Enforce connection limits
-            connectionTracker.enforceConnectionLimits()
-            // Best-effort server cap
-            try {
-                val maxServer = com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().maxServerConnections.value
-                serverManager.enforceServerLimit(maxServer)
-            } catch (_: Exception) { }
+            enforceStrictLimits()
         }
     }
     

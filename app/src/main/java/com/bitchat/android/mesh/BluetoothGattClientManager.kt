@@ -381,8 +381,13 @@ class BluetoothGattClientManager(
             return
         }
         
-        if (connectionTracker.isConnectionLimitReached()) {
-            Log.d(TAG, "Connection limit reached (${powerManager.getMaxConnections()})")
+        // Check if connection limit is reached
+        val dbg = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (_: Exception) { null }
+        val maxOverall = dbg?.maxConnectionsOverall?.value ?: powerManager.getMaxConnections()
+        val maxClient = dbg?.maxClientConnections?.value ?: maxOverall
+
+        if (!connectionTracker.canConnectAsClient(maxOverall, maxClient)) {
+            Log.d(TAG, "Client connection limit reached (overall: $maxOverall, client: $maxClient)")
             return
         }
         
