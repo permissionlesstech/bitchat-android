@@ -29,7 +29,8 @@ open class EncryptionService(private val context: Context) {
     companion object {
         private const val TAG = "EncryptionService"
         private const val ED25519_PRIVATE_KEY_PREF = "ed25519_signing_private_key"
-        private const val PREFS_NAME = "bitchat_crypto"
+        private const val OLD_PREFS_NAME = "bitchat_crypto"
+        private const val SECURE_PREFS_NAME = "bitchat_crypto_secure"
     }
     
     // Core Noise encryption service
@@ -49,7 +50,6 @@ open class EncryptionService(private val context: Context) {
     private lateinit var prefs: SharedPreferences
     
     init {
-        setUpEncryptedPrefs()
         initialize()
     }
 
@@ -61,7 +61,7 @@ open class EncryptionService(private val context: Context) {
         // Create encrypted shared preferences
         prefs = EncryptedSharedPreferences.create(
             context,
-            PREFS_NAME,
+            SECURE_PREFS_NAME,
             masterKey,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
@@ -72,6 +72,7 @@ open class EncryptionService(private val context: Context) {
      * Initialization logic moved to method to allow overriding in tests
      */
     protected open fun initialize() {
+        setUpEncryptedPrefs()
         // Initialize or load Ed25519 signing keys
         val keyPair = loadOrCreateEd25519KeyPair()
         ed25519PrivateKey = keyPair.private as Ed25519PrivateKeyParameters
@@ -456,12 +457,11 @@ open class EncryptionService(private val context: Context) {
     private fun migrateOldEd25519KeyIfNeeded() {
         try {
             // old existing plain text preference
-            val oldPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val oldPrefs = context.getSharedPreferences(OLD_PREFS_NAME, Context.MODE_PRIVATE)
 
             val oldKey = oldPrefs.getString(ED25519_PRIVATE_KEY_PREF, null)
-            val newKey = prefs.getString(ED25519_PRIVATE_KEY_PREF, null)
 
-            if (oldKey != null && newKey == null) {
+            if (oldKey != null && !prefs.contains(ED25519_PRIVATE_KEY_PREF)) {
                 prefs.edit {
                     putString(ED25519_PRIVATE_KEY_PREF, oldKey)
                 }
