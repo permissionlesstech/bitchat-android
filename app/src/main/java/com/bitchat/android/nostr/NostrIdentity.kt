@@ -531,12 +531,12 @@ object NostrIdentityBridge {
                     id = subscriptionId,
                     handler = { event ->
                         if (!resolved && event.kind == NostrKind.METADATA && event.pubkey == pubkeyHex) {
-                            resolved = true
                             try {
                                 val profileJson = com.google.gson.JsonParser.parseString(event.content).asJsonObject
                                 val name = profileJson.get("name")?.asString?.takeIf { it.isNotBlank() }
                                     ?: profileJson.get("display_name")?.asString?.takeIf { it.isNotBlank() }
                                 
+                                resolved = true
                                 relayManager.unsubscribe(subscriptionId)
                                 
                                 GlobalScope.launch(Dispatchers.Main) {
@@ -544,6 +544,7 @@ object NostrIdentityBridge {
                                 }
                             } catch (e: Exception) {
                                 Log.w(TAG, "Failed to parse profile for $pubkeyHex: ${e.message}")
+                                // Don't mark as resolved - let timeout or next event retry
                             }
                         }
                     }
