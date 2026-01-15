@@ -110,7 +110,11 @@ class SystemLocationProvider(private val context: Context) : LocationProvider {
                                         handler.removeCallbacks(runnable)
                                     }
                                 }
-                                locationManager.removeUpdates(this)
+                                try {
+                                    locationManager.removeUpdates(this)
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Error removing updates in callback: ${e.message}")
+                                }
                                 callback(location)
                             }
                             override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
