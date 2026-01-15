@@ -6,11 +6,12 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.location.Geocoder
 import android.location.Location
-import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
 import android.util.Log
 import androidx.core.app.ActivityCompat
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
 import kotlinx.coroutines.*
 import java.util.*
 import com.google.gson.Gson
@@ -47,6 +48,7 @@ class LocationChannelManager private constructor(private val context: Context) {
     }
 
     private val locationManager: LocationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+    private val locationProvider: LocationProvider
     private val geocoder: Geocoder = Geocoder(context, Locale.getDefault())
     private var lastLocation: Location? = null
     private var geocodingJob: Job? = null
@@ -70,6 +72,10 @@ class LocationChannelManager private constructor(private val context: Context) {
                 _systemLocationEnabled.value = isEnabled
             }
         }
+    }
+
+    private val locationUpdateCallback: (Location) -> Unit = { location ->
+        onLocationUpdated(location)
     }
 
     // Published state for UI bindings (matching iOS @Published properties)
@@ -112,6 +118,16 @@ class LocationChannelManager private constructor(private val context: Context) {
 
 
     init {
+        // Choose the best location provider
+        val availability = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context)
+        locationProvider = if (availability == ConnectionResult.SUCCESS) {
+            Log.i(TAG, "Using FusedLocationProvider (Google Play Services)")
+            FusedLocationProvider(context)
+        } else {
+            Log.i(TAG, "Using SystemLocationProvider (Native LocationManager)")
+            SystemLocationProvider(context)
+        }
+
         updatePermissionState()
         // Initialize DataManager and load persisted settings
         dataManager = com.bitchat.android.ui.DataManager(context)
@@ -173,35 +189,15 @@ class LocationChannelManager private constructor(private val context: Context) {
             return
         }
 
-        // Register for continuous updates from available providers
-        try {
-            if (hasLocationPermission()) {
-                val providers = listOf(
-                    LocationManager.GPS_PROVIDER,
-                    LocationManager.NETWORK_PROVIDER
-                )
-
-                providers.forEach { provider ->
-                    if (locationManager.isProviderEnabled(provider)) {
-                        // 2s min time, 5m min distance for responsive yet battery-aware updates
-                        locationManager.requestLocationUpdates(
-                            provider,
-                            interval,
-                            5f,
-                            continuousLocationListener
-                        )
-                        Log.d(TAG, "Registered continuous updates for $provider")
-                    }
-                }
-
-                // Prime state immediately with last known / current location
-                requestOneShotLocation()
-            }
-        } catch (e: SecurityException) {
-            Log.e(TAG, "Missing location permission for continuous updates: ${e.message}")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to register continuous updates: ${e.message}")
-        }
+        // Register for continuous updates from available provider
+        locationProvider.requestLocationUpdates(
+            intervalMs = interval,
+            minDistanceMeters = 5f,
+            callback = locationUpdateCallback
+        )
+        
+        // Prime state immediately with last known / current location
+        requestOneShotLocation()
     }
 
     /**
@@ -209,12 +205,7 @@ class LocationChannelManager private constructor(private val context: Context) {
      */
     fun endLiveRefresh() {
         Log.d(TAG, "Ending live refresh")
-        // Unregister continuous updates listener
-        try {
-            locationManager.removeUpdates(continuousLocationListener)
-        } catch (_: SecurityException) {
-        } catch (_: Exception) {
-        }
+        locationProvider.removeLocationUpdates(locationUpdateCallback)
     }
 
     /**
@@ -308,175 +299,37 @@ class LocationChannelManager private constructor(private val context: Context) {
         }
 
         Log.d(TAG, "Requesting one-shot location")
+        // Set loading state initially
+        _isLoadingLocation.value = true
         
-        try {
-            // Try to get last known location from all available providers
-            var lastKnownLocation: Location? = null
-            
-            // Get all available providers and try each one
-            val providers = locationManager.getProviders(true)
-            for (provider in providers) {
-                val location = locationManager.getLastKnownLocation(provider)
-                if (location != null) {
-                    // If we find a location, check if it's more recent than what we have
-                    if (lastKnownLocation == null || location.time > lastKnownLocation.time) {
-                        lastKnownLocation = location
-                    }
-                }
-            }
-
-            if (lastKnownLocation == null) {
-                lastKnownLocation = lastLocation;
-            }
-            
-            // Use last known location if we have one
-            if (lastKnownLocation != null) {
-                Log.d(TAG, "Using last known location: ${lastKnownLocation.latitude}, ${lastKnownLocation.longitude}")
-                lastLocation = lastKnownLocation
-                _isLoadingLocation.value = false // Make sure loading state is off
-                computeChannels(lastKnownLocation)
-                reverseGeocodeIfNeeded(lastKnownLocation)
+        locationProvider.getLastKnownLocation { cached ->
+            // If we have a cached location and it's reasonably recent (e.g. < 5 mins), use it
+            // For now, we just use it if it exists, similar to previous logic
+            if (cached != null) {
+                Log.d(TAG, "Using last known location: ${cached.latitude}, ${cached.longitude}")
+                onLocationUpdated(cached)
             } else {
-                Log.d(TAG, "No last known location available")
-                // Set loading state to true so UI can show a spinner
-                _isLoadingLocation.value = true
-                
-                // Request a fresh location only when we don't have a last known location
-                Log.d(TAG, "Requesting fresh location...")
-                requestFreshLocation()
-            }
-        } catch (e: SecurityException) {
-            Log.e(TAG, "Security exception requesting location: ${e.message}")
-            _isLoadingLocation.value = false // Turn off loading state on error
-            updatePermissionState()
-        }
-    }
-    
-    // Continuous location listener for real-time updates
-    private val continuousLocationListener = object : LocationListener {
-        override fun onLocationChanged(location: Location) {
-            Log.d(TAG, "Real-time location: ${location.latitude}, ${location.longitude} acc=${location.accuracy}m")
-            lastLocation = location
-            _isLoadingLocation.value = false
-            computeChannels(location)
-            reverseGeocodeIfNeeded(location)
-        }
-
-        override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {
-            // Deprecated but can still be called on older devices
-            Log.v(TAG, "Provider status changed: $provider -> $status")
-        }
-
-        override fun onProviderEnabled(provider: String) {
-            Log.d(TAG, "Provider enabled: $provider")
-        }
-
-        override fun onProviderDisabled(provider: String) {
-            Log.d(TAG, "Provider disabled: $provider")
-        }
-    }
-
-    // One-time location listener to get a fresh location update
-    private val oneShotLocationListener = object : LocationListener {
-        override fun onLocationChanged(location: Location) {
-            Log.d(TAG, "One-shot location: ${location.latitude}, ${location.longitude}")
-            lastLocation = location
-            computeChannels(location)
-            reverseGeocodeIfNeeded(location)
-
-            // Update loading state to indicate we have a location now
-            _isLoadingLocation.value = false
-            
-            // Remove this listener after getting the update
-            try {
-                locationManager.removeUpdates(this)
-            } catch (e: SecurityException) {
-                Log.e(TAG, "Error removing location listener: ${e.message}")
-            }
-        }
-
-        override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {
-            // Required for compatibility with older platform versions
-        }
-
-        override fun onProviderEnabled(provider: String) {
-            // Required for compatibility with older platform versions
-        }
-
-        override fun onProviderDisabled(provider: String) {
-            // Required for compatibility with older platform versions
-        }
-    }
-    
-    // Request a fresh location update using getCurrentLocation instead of continuous updates
-    private fun requestFreshLocation() {
-        if (!hasLocationPermission()) {
-            _isLoadingLocation.value = false // Turn off loading state if no permission
-            return
-        }
-        
-        try {
-            // Set loading state to true to indicate we're actively trying to get a location
-            _isLoadingLocation.value = true
-            
-            // Try common providers in order of preference
-            val providers = listOf(
-                LocationManager.GPS_PROVIDER,
-                LocationManager.NETWORK_PROVIDER,
-                LocationManager.PASSIVE_PROVIDER
-            )
-            
-            var providerFound = false
-            for (provider in providers) {
-                if (locationManager.isProviderEnabled(provider)) {
-                    Log.d(TAG, "Getting current location from $provider")
-                    
-                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                        // For Android 11+ (API 30+), use getCurrentLocation
-                        locationManager.getCurrentLocation(
-                            provider,
-                            null, // No cancellation signal
-                            context.mainExecutor,
-                            { location ->
-                                if (location != null) {
-                                    Log.d(TAG, "Fresh location received: ${location.latitude}, ${location.longitude}")
-                                    lastLocation = location
-                                    computeChannels(location)
-                                    reverseGeocodeIfNeeded(location)
-                                } else {
-                                    Log.w(TAG, "Received null location from getCurrentLocation")
-                                }
-                                // Update loading state to indicate we have a location now
-                                _isLoadingLocation.value = false
-                            }
-                        )
+                Log.d(TAG, "No last known location available, requesting fresh...")
+                locationProvider.requestFreshLocation { fresh ->
+                    if (fresh != null) {
+                        Log.d(TAG, "Fresh location received: ${fresh.latitude}, ${fresh.longitude}")
+                        onLocationUpdated(fresh)
                     } else {
-                        // For older versions, fall back to one-shot requestSingleUpdate
-                        locationManager.requestSingleUpdate(
-                            provider,
-                            oneShotLocationListener,
-                            null // Looper - null uses the main thread
-                        )
+                        Log.w(TAG, "Failed to get fresh location")
+                        _isLoadingLocation.value = false
                     }
-                    
-                    providerFound = true
-                    break
                 }
             }
-            
-            // If no provider was available, turn off loading state
-            if (!providerFound) {
-                Log.w(TAG, "No location providers available")
-                _isLoadingLocation.value = false
-            }
-        } catch (e: SecurityException) {
-            Log.e(TAG, "Security exception requesting location: ${e.message}")
-            _isLoadingLocation.value = false // Turn off loading state on error
-        } catch (e: Exception) {
-            Log.e(TAG, "Error requesting location: ${e.message}")
-            _isLoadingLocation.value = false // Turn off loading state on error
         }
     }
+
+    private fun onLocationUpdated(location: Location) {
+        lastLocation = location
+        _isLoadingLocation.value = false
+        computeChannels(location)
+        reverseGeocodeIfNeeded(location)
+    }
+
 
     // MARK: - Helpers
 
@@ -770,10 +623,5 @@ class LocationChannelManager private constructor(private val context: Context) {
         
         // Unregister receiver
         try { context.unregisterReceiver(locationStateReceiver) } catch (_: Exception) {}
-        
-        // Remove listeners to prevent memory leaks
-        try { locationManager.removeUpdates(oneShotLocationListener) } catch (_: Exception) {}
-        try { locationManager.removeUpdates(continuousLocationListener) } catch (_: Exception) {}
-        // For Android 11+, getCurrentLocation doesn't need explicit cleanup as it's a one-time operation
     }
 }
