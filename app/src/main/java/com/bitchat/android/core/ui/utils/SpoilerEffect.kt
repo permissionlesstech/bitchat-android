@@ -25,6 +25,8 @@ import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.scale
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
@@ -54,23 +56,31 @@ fun Modifier.spoiler(
     // Icon Logic
     val iconPainter = rememberVectorPainter(Icons.Filled.TouchApp)
     val iconColor = MaterialTheme.colorScheme.onSurface
-    
+
+    val blurRadius = (40f * (1f - revealProgress)).coerceAtLeast(0f)
+    val legacyBlurRadius = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+        (blurRadius / 5f).roundToInt().coerceAtLeast(0)
+    } else {
+        0
+    }
+
+    val legacySmallBitmap = remember(blurBitmap) {
+        if ((Build.VERSION.SDK_INT < Build.VERSION_CODES.S) && blurBitmap != null) {
+            // Scale down to a small size for performance.
+            val scale = 64f / blurBitmap.width.coerceAtLeast(1)
+            val w = (blurBitmap.width * scale).toInt().coerceAtLeast(1)
+            val h = (blurBitmap.height * scale).toInt().coerceAtLeast(1)
+            blurBitmap.scale(w, h)
+        } else {
+            null
+        }
+    }
+
     // API < 31 Fallback: Generate a blurred bitmap shader if provided
-    val fallbackShader = remember(blurBitmap) {
-        // Keep user's debug flags as requested
-        if ((Build.VERSION.SDK_INT < Build.VERSION_CODES.S || true) && blurBitmap != null) {
+    val fallbackShader = remember(legacySmallBitmap, legacyBlurRadius) {
+        if (legacySmallBitmap != null && legacyBlurRadius > 0) {
             try {
-                // 1. Scale down to a small size for performance (e.g. 64px)
-                // This ensures the O(N) pixel loop is negligible even on low-end devices
-                val scale = 64f / blurBitmap.width.coerceAtLeast(1)
-                val w = (blurBitmap.width * scale).toInt().coerceAtLeast(1)
-                val h = (blurBitmap.height * scale).toInt().coerceAtLeast(1)
-                val small = Bitmap.createScaledBitmap(blurBitmap, w, h, true)
-                
-                // 2. Blur the pixels manually (StackBlur/FastBlur algorithm)
-                val blurred = fastBlur(small, 8) // Radius 8 on 64px image is very blurry
-                
-                // 3. Create a Shader from the result
+                val blurred = fastBlur(legacySmallBitmap, legacyBlurRadius)
                 BitmapShader(blurred, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
             } catch (e: Exception) {
                 null
@@ -131,18 +141,22 @@ fun Modifier.spoiler(
         // Blur Implementation (API 31+)
         .graphicsLayer {
             // Keep user's debug flag as requested (&& false)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && false) {
-                val blurRadius = (40f * (1f - revealProgress)).coerceAtLeast(0f) * density
-                
-                if (blurRadius > 0) {
-                     renderEffect = android.graphics.RenderEffect
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val blurRadiusPx = blurRadius * density
+
+                renderEffect = if (blurRadiusPx > 0) {
+                    android.graphics.RenderEffect
                         .createBlurEffect(
-                            blurRadius,
-                            blurRadius,
-                            android.graphics.Shader.TileMode.CLAMP
+                            blurRadiusPx,
+                            blurRadiusPx,
+                            Shader.TileMode.CLAMP
                         )
                         .asComposeRenderEffect()
+                } else {
+                    null
                 }
+            } else {
+                renderEffect = null
             }
         }
 }
@@ -177,7 +191,7 @@ private fun fastBlur(sentBitmap: Bitmap, radius: Int): Bitmap {
     var p: Int
     var yp: Int
     var yi: Int
-    val vmin = IntArray(Math.max(w, h))
+    val vmin = IntArray(w.coerceAtLeast(h))
 
     var divsum = (div + 1) shr 1
     divsum *= divsum
@@ -194,7 +208,7 @@ private fun fastBlur(sentBitmap: Bitmap, radius: Int): Bitmap {
     var stackstart: Int
     var sir: IntArray
     var rbs: Int
-    var r1 = radius + 1
+    val r1 = radius + 1
     var routsum: Int
     var goutsum: Int
     var boutsum: Int
@@ -213,12 +227,12 @@ private fun fastBlur(sentBitmap: Bitmap, radius: Int): Bitmap {
         gsum = 0
         bsum = 0
         for (i in -radius..radius) {
-            p = pix[yi + Math.min(wm, Math.max(i, 0))]
+            p = pix[yi + wm.coerceAtMost(i.coerceAtLeast(0))]
             sir = stack[i + radius]
             sir[0] = (p and 0xff0000) shr 16
             sir[1] = (p and 0x00ff00) shr 8
             sir[2] = (p and 0x0000ff)
-            rbs = r1 - Math.abs(i)
+            rbs = r1 - abs(i)
             rsum += sir[0] * rbs
             gsum += sir[1] * rbs
             bsum += sir[2] * rbs
@@ -251,7 +265,7 @@ private fun fastBlur(sentBitmap: Bitmap, radius: Int): Bitmap {
             boutsum -= sir[2]
 
             if (y == 0) {
-                vmin[x] = Math.min(x + radius + 1, wm)
+                vmin[x] = (x + radius + 1).coerceAtMost(wm)
             }
             p = pix[yw + vmin[x]]
 
@@ -295,12 +309,12 @@ private fun fastBlur(sentBitmap: Bitmap, radius: Int): Bitmap {
         bsum = 0
         yp = -radius * w
         for (i in -radius..radius) {
-            yi = Math.max(0, yp) + x
+            yi = 0.coerceAtLeast(yp) + x
             sir = stack[i + radius]
             sir[0] = r[yi]
             sir[1] = g[yi]
             sir[2] = b[yi]
-            rbs = r1 - Math.abs(i)
+            rbs = r1 - abs(i)
             rsum += r[yi] * rbs
             gsum += g[yi] * rbs
             bsum += b[yi] * rbs
@@ -334,7 +348,7 @@ private fun fastBlur(sentBitmap: Bitmap, radius: Int): Bitmap {
             boutsum -= sir[2]
 
             if (x == 0) {
-                vmin[y] = Math.min(y + r1, hm) * w
+                vmin[y] = (y + r1).coerceAtMost(hm) * w
             }
             p = x + vmin[y]
 
