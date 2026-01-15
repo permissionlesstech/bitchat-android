@@ -62,7 +62,8 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         val isMessagePacket = messageType == MessageType.MESSAGE || 
                               messageType == MessageType.NOISE_ENCRYPTED || 
                               messageType == MessageType.FILE_TRANSFER ||
-                              messageType == MessageType.FRAGMENT
+                              messageType == MessageType.FRAGMENT ||
+                              messageType == MessageType.REQUEST_SYNC
                               
         if (!isMessagePacket && abs(currentTime - packetTime) > MESSAGE_TIMEOUT) {
             Log.w(TAG, "Dropping expired/future packet from $peerID (diff: ${currentTime - packetTime}ms)")
