@@ -110,7 +110,7 @@ fun ImageMessageItem(
                                 .widthIn(max = 300.dp)
                                 .aspectRatio(aspect)
                                 .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
-                                .clickable {
+                                .clickable(enabled = !isSpoilerVisible) {
                                     val currentIndex = imagePaths.indexOf(path)
                                     onImageClick?.invoke(path, imagePaths, currentIndex)
                                 }
