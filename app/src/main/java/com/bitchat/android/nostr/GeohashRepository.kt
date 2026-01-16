@@ -37,10 +37,25 @@ class GeohashRepository(
     fun getConversationGeohash(convKey: String): String? = conversationGeohash[convKey]
 
     fun findPubkeyByNickname(targetNickname: String): String? {
-        return geoNicknames.entries.firstOrNull { (_, nickname) ->
-            val base = nickname.split("#").firstOrNull() ?: nickname
-            base == targetNickname
-        }?.key
+        val parts = targetNickname.split("#")
+        val baseName = parts[0]
+        val suffix = if (parts.size > 1) parts[1] else null
+
+        if (suffix != null) {
+            // Exact match attempt: nickname + pubkey suffix
+            return geoNicknames.entries.find { (id, nick) ->
+                val base = nick.split("#").firstOrNull() ?: nick
+                base.equals(baseName, ignoreCase = true) && id.endsWith(suffix, ignoreCase = true)
+            }?.key
+        } else {
+            // No suffix provided. Check for matches.
+            val matches = geoNicknames.entries.filter { (_, nick) ->
+                val base = nick.split("#").firstOrNull() ?: nick
+                base.equals(baseName, ignoreCase = true)
+            }
+            // If only one match, return it. If multiple, it's ambiguous (return null or handle)
+            return if (matches.size == 1) matches.first().key else null
+        }
     }
 
     // peerID alias -> nostr pubkey mapping for geohash DMs and temp aliases

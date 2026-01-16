@@ -167,9 +167,13 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 },
                 onMessageLongPress = { message ->
                     // Message long press - open user action sheet with message context
-                    // Extract base nickname from message sender (contains all necessary info)
-                    val (baseName, _) = splitSuffix(message.sender)
-                    selectedUserForSheet = baseName
+                    // Use disambiguated name so actions like /block work with suffixes if collisions exist
+                    val disambiguated = if (message.senderPeerID != null && !message.senderPeerID.startsWith("nostr_")) {
+                        viewModel.meshService.getDisambiguatedNickname(message.senderPeerID)
+                    } else {
+                        message.sender
+                    }
+                    selectedUserForSheet = disambiguated
                     selectedMessageForSheet = message
                     showUserSheet = true
                 },

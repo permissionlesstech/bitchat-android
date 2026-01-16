@@ -53,8 +53,21 @@ fun formatMessageAsAnnotatedString(
     val isSelf = message.senderPeerID == meshService.myPeerID || 
                  message.sender == currentUserNickname ||
                  message.sender.startsWith("$currentUserNickname#")
-    
     if (message.sender != "system") {
+        // Resolve disambiguated sender name if it's a mesh message
+        val senderDisplayName = if (message.senderPeerID != null && !message.senderPeerID.startsWith("nostr_")) {
+            val disambiguated = meshService.getDisambiguatedNickname(message.senderPeerID)
+            // If it returned the raw peerID because the peer is offline, fall back to message.sender (nickname at time of send)
+            if (disambiguated == message.senderPeerID && message.sender != message.senderPeerID) {
+                 message.sender
+            } else {
+                 disambiguated
+            }
+        } else {
+            message.sender
+        }
+
+
         // Get base color for this peer (iOS-style color assignment)
         val baseColor = if (isSelf) {
             Color(0xFFFF9500) // Orange for self (iOS orange)
@@ -63,7 +76,7 @@ fun formatMessageAsAnnotatedString(
         }
         
         // Split sender into base name and hashtag suffix
-        val (baseName, suffix) = splitSuffix(message.sender)
+        val (baseName, suffix) = splitSuffix(senderDisplayName)
         
         // Sender prefix "<@"
         builder.pushStyle(SpanStyle(
@@ -85,11 +98,11 @@ fun formatMessageAsAnnotatedString(
         builder.append(truncatedBase)
         val nicknameEnd = builder.length
         
-        // Add click annotation for nickname (store canonical sender name with hash if available)
+        // Add click annotation for nickname (store disambiguated name for mentions)
         if (!isSelf) {
             builder.addStringAnnotation(
                 tag = "nickname_click",
-                annotation = (message.originalSender ?: message.sender),
+                annotation = senderDisplayName,
                 start = nicknameStart,
                 end = nicknameEnd
             )
@@ -174,8 +187,21 @@ fun formatMessageHeaderAnnotatedString(
             message.sender.startsWith("$currentUserNickname#")
 
     if (message.sender != "system") {
+        // Resolve disambiguated sender name if it's a mesh message
+        val senderDisplayName = if (message.senderPeerID != null && !message.senderPeerID.startsWith("nostr_")) {
+            val disambiguated = meshService.getDisambiguatedNickname(message.senderPeerID)
+            // If it returned the raw peerID because the peer is offline, fall back to message.sender (nickname at time of send)
+            if (disambiguated == message.senderPeerID && message.sender != message.senderPeerID) {
+                message.sender
+            } else {
+                disambiguated
+            }
+        } else {
+            message.sender
+        }
+
         val baseColor = if (isSelf) Color(0xFFFF9500) else getPeerColor(message, isDark)
-        val (baseName, suffix) = splitSuffix(message.sender)
+        val (baseName, suffix) = splitSuffix(senderDisplayName)
 
         // "<@"
         builder.pushStyle(SpanStyle(
@@ -198,7 +224,7 @@ fun formatMessageHeaderAnnotatedString(
         if (!isSelf) {
             builder.addStringAnnotation(
                 tag = "nickname_click",
-                annotation = (message.originalSender ?: message.sender),
+                annotation = senderDisplayName,
                 start = nicknameStart,
                 end = nicknameEnd
             )

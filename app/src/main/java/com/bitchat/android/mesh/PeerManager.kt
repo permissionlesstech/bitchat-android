@@ -207,22 +207,7 @@ class PeerManager {
     fun addOrUpdatePeer(peerID: String, nickname: String): Boolean {
         if (peerID == "unknown") return false
         
-        // Clean up stale peer IDs with the same nickname (exact same logic as iOS)
         val now = System.currentTimeMillis()
-        val stalePeerIDs = mutableListOf<String>()
-        peers.forEach { (existingPeerID, info) ->
-            if (info.nickname == nickname && existingPeerID != peerID) {
-                val wasRecentlySeen = (now - info.lastSeen) < 10000
-                if (!wasRecentlySeen) {
-                    stalePeerIDs.add(existingPeerID)
-                }
-            }
-        }
-        
-        // Remove stale peer IDs
-        stalePeerIDs.forEach { stalePeerID ->
-            removePeer(stalePeerID, notifyDelegate = false)
-        }
         
         // Check if this is a new peer announcement
         val isFirstAnnounce = !announcedPeers.contains(peerID)
@@ -311,6 +296,16 @@ class PeerManager {
      */
     fun getPeerNickname(peerID: String): String? {
         return peers[peerID]?.nickname
+    }
+    
+    /**
+     * Get disambiguated peer nickname (nickname#suffix if collisions exist)
+     */
+    fun getDisambiguatedNickname(peerID: String): String {
+        val info = peers[peerID] ?: return peerID
+        val nick = info.nickname.trim()
+        val isAmbiguous = peers.values.count { it.nickname.trim().equals(nick, ignoreCase = true) } > 1
+        return if (isAmbiguous) "$nick#${peerID.takeLast(4)}" else nick
     }
     
     /**
