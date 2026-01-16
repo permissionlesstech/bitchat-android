@@ -14,6 +14,7 @@ import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
 import com.bitchat.android.model.RequestSyncPacket
 import com.bitchat.android.sync.GossipSyncManager
+import com.bitchat.android.sync.RequestSyncManager
 import com.bitchat.android.util.toHexString
 import com.bitchat.android.services.VerificationService
 import kotlinx.coroutines.*
@@ -47,9 +48,13 @@ class BluetoothMeshService(private val context: Context) {
 
     // My peer identification - derived from persisted Noise identity fingerprint (first 16 hex chars)
     val myPeerID: String = encryptionService.getIdentityFingerprint().take(16)
+    
+    // New: RequestSyncManager for tracking sync requests and attributing responses
+    private val requestSyncManager = RequestSyncManager()
+    
     private val peerManager = PeerManager()
     private val fragmentManager = FragmentManager()
-    private val securityManager = SecurityManager(encryptionService, myPeerID)
+    private val securityManager = SecurityManager(encryptionService, myPeerID, requestSyncManager)
     private val storeForwardManager = StoreForwardManager()
     private val messageHandler = MessageHandler(myPeerID, context.applicationContext)
     internal val connectionManager = BluetoothConnectionManager(context, myPeerID, fragmentManager) // Made internal for access
@@ -96,7 +101,8 @@ class BluetoothMeshService(private val context: Context) {
                 override fun gcsTargetFpr(): Double = try {
                     com.bitchat.android.ui.debug.DebugPreferenceManager.getGcsFprPercent(1.0) / 100.0
                 } catch (_: Exception) { 0.01 }
-            }
+            },
+            requestSyncManager = requestSyncManager
         )
 
         // Wire sync manager delegate
@@ -109,6 +115,9 @@ class BluetoothMeshService(private val context: Context) {
             }
             override fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket {
                 return signPacketBeforeBroadcast(packet)
+            }
+            override fun getConnectedPeers(): List<String> {
+                return peerManager.getActivePeers()
             }
         }
         Log.d(TAG, "Delegates set up; GossipSyncManager initialized")

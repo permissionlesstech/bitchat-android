@@ -1,6 +1,8 @@
 package com.bitchat.android.model
 
 import com.bitchat.android.sync.SyncDefaults
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 /**
  * REQUEST_SYNC payload using GCS (Golomb-Coded Set) parameters.
@@ -8,11 +10,19 @@ import com.bitchat.android.sync.SyncDefaults
  *  - 0x01: P (uint8) — Golomb-Rice parameter
  *  - 0x02: M (uint32, big-endian) — hash range (N * 2^P)
  *  - 0x03: data (opaque) — GR bitstream bytes
+ *  - 0x05: typeFilter (uint8) — optional message type filter
+ *  - 0x06: sinceTimestamp (uint64, big-endian) — optional timestamp floor
+ *  - 0x07: fragmentIdFilter (string/bytes) — optional fragment ID filter
+ * 
+ * Note: requestId (0x04) was removed as it is not needed for the current sync attribution mechanism.
  */
 data class RequestSyncPacket(
     val p: Int,
     val m: Long,
-    val data: ByteArray
+    val data: ByteArray,
+    val typeFilter: UByte? = null,
+    val sinceTimestamp: ULong? = null,
+    val fragmentIdFilter: String? = null
 ) {
     fun encode(): ByteArray {
         val out = ArrayList<Byte>()
@@ -38,6 +48,24 @@ data class RequestSyncPacket(
         )
         // data
         putTLV(0x03, data)
+        
+        // typeFilter (uint8)
+        typeFilter?.let {
+            putTLV(0x05, byteArrayOf(it.toByte()))
+        }
+        
+        // sinceTimestamp (uint64)
+        sinceTimestamp?.let {
+            val buf = ByteBuffer.allocate(8).order(ByteOrder.BIG_ENDIAN)
+            buf.putLong(it.toLong())
+            putTLV(0x06, buf.array())
+        }
+        
+        // fragmentIdFilter (string/bytes)
+        fragmentIdFilter?.let {
+            putTLV(0x07, it.toByteArray(Charsets.UTF_8))
+        }
+        
         return out.toByteArray()
     }
 
@@ -50,6 +78,9 @@ data class RequestSyncPacket(
             var p: Int? = null
             var m: Long? = null
             var payload: ByteArray? = null
+            var typeFilter: UByte? = null
+            var sinceTimestamp: ULong? = null
+            var fragmentIdFilter: String? = null
 
             while (off + 3 <= data.size) {
                 val t = (data[off].toInt() and 0xFF); off += 1
@@ -69,6 +100,16 @@ data class RequestSyncPacket(
                         if (v.size > MAX_ACCEPT_FILTER_BYTES) return null
                         payload = v
                     }
+                    // 0x04 was requestId, now deprecated/unused
+                    0x05 -> if (len == 1) {
+                        typeFilter = v[0].toUByte()
+                    }
+                    0x06 -> if (len == 8) {
+                        sinceTimestamp = ByteBuffer.wrap(v).order(ByteOrder.BIG_ENDIAN).long.toULong()
+                    }
+                    0x07 -> {
+                        fragmentIdFilter = String(v, Charsets.UTF_8)
+                    }
                 }
             }
 
@@ -76,7 +117,7 @@ data class RequestSyncPacket(
             val mm = m ?: return null
             val dd = payload ?: return null
             if (pp < 1 || mm <= 0L) return null
-            return RequestSyncPacket(pp, mm, dd)
+            return RequestSyncPacket(pp, mm, dd, typeFilter, sinceTimestamp, fragmentIdFilter)
         }
     }
 }
