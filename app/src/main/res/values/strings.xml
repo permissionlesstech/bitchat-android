@@ -142,6 +142,61 @@
   <string name="cd_privacy_protected">Privacy Protected</string>
   <string name="cancel_lower">cancel</string>
 
+  <!-- APK Sharing -->
+  <string name="share_bitchat_title">Share BitChat</string>
+  <string name="share_bitchat_subtitle">Share installation file for offline distribution</string>
+  <string name="share_apk_title">Share BitChat App</string>
+  <string name="share_apk_explanation">This will share the BitChat installation file(s) so others can install the app without internet access. Perfect for mesh network expansion!</string>
+  <string name="share_apk_receiver_instructions">The receiver will need to:\n• Enable \"Install from unknown sources\" in Android settings\n• Uninstall BitChat first if already installed (signatures differ)</string>
+  <string name="share_apk_confirm">Share App</string>
+  <string name="share_apk_chooser_title">Share BitChat via…</string>
+  <string name="share_apk_error">Failed to prepare app for sharing. Please try again.</string>
+
+  <!-- Universal APK Preparation -->
+  <string name="prepare_apk_title">Prepare App for Sharing</string>
+  <string name="prepare_apk_subtitle">Download universal APK for offline sharing</string>
+  <string name="prepare_apk_status_not_downloaded">Not ready • Tap to download</string>
+  <string name="prepare_apk_status_ready">Ready to share</string>
+  <string name="prepare_apk_status_downloading">Downloading… %1$d%%</string>
+  <string name="prepare_apk_status_update_available">Update available</string>
+  <string name="prepare_apk_button_prepare">Prepare</string>
+  <string name="prepare_apk_button_update">Update</string>
+  <string name="prepare_apk_button_delete">Delete</string>
+  <string name="prepare_apk_info">Version %1$s • %2$d MB</string>
+  <string name="prepare_apk_dialog_title">Download Universal APK?</string>
+  <string name="prepare_apk_dialog_message">This will download the universal APK (~%1$d MB) from GitHub releases. You only need to do this once.</string>
+  <string name="prepare_apk_dialog_confirm">Download</string>
+  <string name="prepare_apk_downloading_title">Downloading Universal APK</string>
+  <string name="prepare_apk_downloading_message">Downloading %1$d MB…</string>
+  <string name="prepare_apk_verifying">Verifying checksum…</string>
+  <string name="prepare_apk_success">Universal APK ready!</string>
+  <string name="prepare_apk_error_network">Network error. Check your connection.</string>
+  <string name="prepare_apk_error_checksum">Checksum verification failed. Please try again.</string>
+  <string name="prepare_apk_error_storage">Not enough storage space.</string>
+  <string name="prepare_apk_error_github">Failed to fetch release info from GitHub.</string>
+  <string name="prepare_apk_delete_confirm">Delete cached APK?</string>
+  <string name="prepare_apk_delete_message">This will free up ~%1$d MB of storage.</string>
+  <string name="prepare_apk_update_dialog_title">Update Available</string>
+  <string name="prepare_apk_update_dialog_message">A newer version (%1$s) is available. Current: %2$s</string>
+  <string name="prepare_apk_required">Please prepare the app for sharing first.</string>
+
+  <!-- Hotspot Sharing -->
+  <string name="hotspot_share_via">Share via Hotspot</string>
+  <string name="hotspot_share_other">Share via Bluetooth/Email</string>
+
+  <!-- APK Installation -->
+  <string name="install_bitchat_title">Install Received APK</string>
+  <string name="install_bitchat_subtitle">Install BitChat from received files</string>
+  <string name="install_apk_dialog_title">Install BitChat Update</string>
+  <string name="install_apk_dialog_message">Install BitChat from the received APK file(s)? This allows offline app distribution in mesh networks.</string>
+  <string name="install_apk_permission_title">Permission Required</string>
+  <string name="install_apk_permission_message">BitChat needs permission to install packages for self-distribution. Please enable \"Install unknown apps\" in the next screen.</string>
+  <string name="install_apk_confirm">Install</string>
+  <string name="install_apk_grant_permission">Grant Permission</string>
+  <string name="install_apk_select_files">Select APK Files</string>
+  <string name="install_apk_error">Failed to install APK. Please try again.</string>
+  <string name="install_apk_no_files">No APK files selected.</string>
+
   <!-- Generic content descriptions -->
   <string name="cd_warning">Warning</string>
   <string name="cd_location_services">Location Services</string>
