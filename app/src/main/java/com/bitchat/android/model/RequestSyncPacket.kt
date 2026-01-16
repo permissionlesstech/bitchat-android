@@ -10,11 +10,9 @@ import java.nio.ByteOrder
  *  - 0x01: P (uint8) — Golomb-Rice parameter
  *  - 0x02: M (uint32, big-endian) — hash range (N * 2^P)
  *  - 0x03: data (opaque) — GR bitstream bytes
- *  - 0x05: typeFilter (uint8) — optional message type filter
- *  - 0x06: sinceTimestamp (uint64, big-endian) — optional timestamp floor
- *  - 0x07: fragmentIdFilter (string/bytes) — optional fragment ID filter
- * 
- * Note: requestId (0x04) was removed as it is not needed for the current sync attribution mechanism.
+ *  - 0x04: typeFilter (uint8) — optional message type filter
+ *  - 0x05: sinceTimestamp (uint64, big-endian) — optional timestamp floor
+ *  - 0x06: fragmentIdFilter (string/bytes) — optional fragment ID filter
  */
 data class RequestSyncPacket(
     val p: Int,
@@ -51,19 +49,19 @@ data class RequestSyncPacket(
         
         // typeFilter (uint8)
         typeFilter?.let {
-            putTLV(0x05, byteArrayOf(it.toByte()))
+            putTLV(0x04, byteArrayOf(it.toByte()))
         }
         
         // sinceTimestamp (uint64)
         sinceTimestamp?.let {
             val buf = ByteBuffer.allocate(8).order(ByteOrder.BIG_ENDIAN)
             buf.putLong(it.toLong())
-            putTLV(0x06, buf.array())
+            putTLV(0x05, buf.array())
         }
         
         // fragmentIdFilter (string/bytes)
         fragmentIdFilter?.let {
-            putTLV(0x07, it.toByteArray(Charsets.UTF_8))
+            putTLV(0x06, it.toByteArray(Charsets.UTF_8))
         }
         
         return out.toByteArray()
@@ -100,14 +98,13 @@ data class RequestSyncPacket(
                         if (v.size > MAX_ACCEPT_FILTER_BYTES) return null
                         payload = v
                     }
-                    // 0x04 was requestId, now deprecated/unused
-                    0x05 -> if (len == 1) {
+                    0x04 -> if (len == 1) {
                         typeFilter = v[0].toUByte()
                     }
-                    0x06 -> if (len == 8) {
+                    0x05 -> if (len == 8) {
                         sinceTimestamp = ByteBuffer.wrap(v).order(ByteOrder.BIG_ENDIAN).long.toULong()
                     }
-                    0x07 -> {
+                    0x06 -> {
                         fragmentIdFilter = String(v, Charsets.UTF_8)
                     }
                 }

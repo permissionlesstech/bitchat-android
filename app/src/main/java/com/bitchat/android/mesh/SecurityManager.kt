@@ -64,15 +64,32 @@ class SecurityManager(
 
         // 1. Timestamp Validation (Skipped for valid RSR packets)
         val isRSR = packet.isRSR
+        val isLegacyRSR = packet.ttl.toUInt() == com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS.toUInt()
         var skipTimestampCheck = false
 
-        if (isRSR) {
+        if (isRSR || isLegacyRSR) {
+            // We check both explicit RSR flag AND legacy TTL=0 packets
+            // Legacy clients send responses with TTL=0 (neighbor only) but no flag
             if (requestSyncManager.isValidResponse(peerID, isRSR = true)) {
-                Log.d(TAG, "Valid RSR packet from $peerID - skipping timestamp check")
+                Log.d(TAG, "Valid RSR packet (legacy=$isLegacyRSR) from $peerID - skipping timestamp check")
                 skipTimestampCheck = true
             } else {
-                Log.w(TAG, "Invalid or unsolicited RSR packet from $peerID - rejecting")
-                return false
+                // Only strict reject if it was EXPLICITLY marked RSR
+                // If it's just TTL=0 (legacy), it might be a legitimate neighbor broadcast (unlikely for ANNOUNCE/MESSAGE but possible)
+                // However, the requirement is "ignore RSR packets incoming from peer we didn't request it from"
+                // And we want to enforce timestamp on normal packets.
+                // If a legacy packet has TTL=0 and is OLD, it MUST be a sync response. 
+                // If it's NEW, it passes timestamp check anyway.
+                // So if it fails here (unsolicited), we fall through to timestamp check.
+                // If it's old and unsolicited, it will be rejected by timestamp check.
+                // If it's explicit RSR, we MUST reject it to prevent spoofing/flooding.
+                
+                if (isRSR) {
+                    Log.w(TAG, "Invalid or unsolicited RSR packet from $peerID - rejecting")
+                    return false
+                }
+                // For legacy RSR (TTL=0), if it's unsolicited, we just treat it as a normal packet.
+                // It will likely fail timestamp check if it's an old sync packet.
             }
         }
 
