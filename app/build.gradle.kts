@@ -130,6 +130,9 @@ dependencies {
     // WebSocket
     implementation(libs.okhttp)
 
+    // HTTP Server for hotspot APK sharing
+    implementation("org.nanohttpd:nanohttpd:2.3.1")
+
     // Arti (Tor in Rust) Android bridge - custom build from latest source
     // Built with rustls, 16KB page size support, and onio//un service client
     // Native libraries are in src/tor/jniLibs/ (extracted from arti-custom.aar)
