@@ -75,8 +75,7 @@ class SecurityManager(
                 skipTimestampCheck = true
             } else {
                 // Only strict reject if it was EXPLICITLY marked RSR
-                // If it's just TTL=0 (legacy), it might be a legitimate neighbor broadcast (unlikely for ANNOUNCE/MESSAGE but possible)
-                // However, the requirement is "ignore RSR packets incoming from peer we didn't request it from"
+                // The requirement is "ignore RSR packets incoming from peer we didn't request it from"
                 // And we want to enforce timestamp on normal packets.
                 // If a legacy packet has TTL=0 and is OLD, it MUST be a sync response. 
                 // If it's NEW, it passes timestamp check anyway.

@@ -101,7 +101,7 @@ data class BitchatPacket(
             signature = null, // Remove signature for signing
             route = route,
             ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS, // Use fixed TTL=0 for signing to ensure relay compatibility
-            isRSR = isRSR
+            isRSR = false // RSR flag is mutable and not part of the signature
         )
         return BinaryProtocol.encode(unsignedPacket)
     }
