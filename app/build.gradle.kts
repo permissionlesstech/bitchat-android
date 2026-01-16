@@ -108,7 +108,6 @@ dependencies {
 
     // QR
     implementation(libs.zxing.core)
-    implementation(libs.mlkit.barcode.scanning)
 
     // CameraX
     implementation(libs.androidx.camera.camera2)
@@ -135,9 +134,6 @@ dependencies {
     // Native libraries are in src/tor/jniLibs/ (extracted from arti-custom.aar)
     // Only included in tor flavor to reduce APK size for standard builds
     // Note: AAR is kept in libs/ for reference, but libraries loaded from jniLibs/
-
-    // Google Play Services Location
-    implementation(libs.gms.location)
 
     // Security preferences
     implementation(libs.androidx.security.crypto)
