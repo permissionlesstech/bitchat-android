@@ -531,12 +531,29 @@ private class QRCodeAnalyzer(
         }
 
         try {
-            val yBuffer = mediaImage.planes[0].buffer
-            val ySize = yBuffer.remaining()
-            val yData = ByteArray(ySize)
-            yBuffer.get(yData)
             val width = mediaImage.width
             val height = mediaImage.height
+            val yPlane = mediaImage.planes[0]
+            val yBuffer = yPlane.buffer
+            val rowStride = yPlane.rowStride
+            val pixelStride = yPlane.pixelStride
+            val yData = ByteArray(width * height)
+            if (rowStride == width && pixelStride == 1) {
+                yBuffer.get(yData)
+            } else {
+                var offset = 0
+                for (row in 0 until height) {
+                    yBuffer.position(row * rowStride)
+                    if (pixelStride == 1) {
+                        yBuffer.get(yData, offset, width)
+                    } else {
+                        for (col in 0 until width) {
+                            yData[offset + col] = yBuffer.get(row * rowStride + col * pixelStride)
+                        }
+                    }
+                    offset += width
+                }
+            }
             val source = PlanarYUVLuminanceSource(
                 yData,
                 width,
