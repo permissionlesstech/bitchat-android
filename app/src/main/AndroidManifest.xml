@@ -20,6 +20,14 @@
     
     <!-- Notification permissions -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Wi-Fi permissions for hotspot APK sharing -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Nearby devices permission for Wi-Fi P2P (API 33+) -->
+    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" android:usesPermissionFlags="neverForLocation" />
+
     <!-- Signature permission for internal UI shutdown broadcasts -->
     <uses-permission android:name="com.bitchat.android.permission.FORCE_FINISH" />
     <!-- Foreground service and boot permissions for long-running background mesh -->
@@ -131,5 +139,13 @@
                 <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+
+        <!-- Hotspot Activity for offline APK sharing -->
+        <activity
+            android:name=".hotspot.HotspotActivity"
+            android:exported="false"
+            android:label="Share BitChat"
+            android:theme="@style/Theme.BitchatAndroid"
+            android:launchMode="singleTop" />
     </application>
 </manifest>
