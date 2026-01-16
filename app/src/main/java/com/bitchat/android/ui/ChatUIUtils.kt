@@ -44,7 +44,8 @@ fun formatMessageAsAnnotatedString(
     currentUserNickname: String,
     meshService: BluetoothMeshService,
     colorScheme: ColorScheme,
-    timeFormatter: SimpleDateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+    timeFormatter: SimpleDateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault()),
+    peerNicknames: Map<String, String> = emptyMap()
 ): AnnotatedString {
     val builder = AnnotatedString.Builder()
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
@@ -53,26 +54,26 @@ fun formatMessageAsAnnotatedString(
     val isSelf = message.senderPeerID == meshService.myPeerID || 
                  message.sender == currentUserNickname ||
                  message.sender.startsWith("$currentUserNickname#")
+    
     if (message.sender != "system") {
         // Resolve disambiguated sender name if it's a mesh message
         val senderDisplayName = if (message.senderPeerID != null && !message.senderPeerID.startsWith("nostr_")) {
             val disambiguated = meshService.getDisambiguatedNickname(message.senderPeerID)
             // If it returned the raw peerID because the peer is offline, fall back to message.sender (nickname at time of send)
             if (disambiguated == message.senderPeerID && message.sender != message.senderPeerID) {
-                 message.sender
+                message.sender
             } else {
-                 disambiguated
+                disambiguated
             }
         } else {
             message.sender
         }
 
-
         // Get base color for this peer (iOS-style color assignment)
         val baseColor = if (isSelf) {
             Color(0xFFFF9500) // Orange for self (iOS orange)
         } else {
-            getPeerColor(message, isDark)
+            colorForPeer(message.senderPeerID, message.sender, isDark)
         }
         
         // Split sender into base name and hashtag suffix
@@ -130,10 +131,9 @@ fun formatMessageAsAnnotatedString(
         builder.pop()
         
         // Message content with iOS-style hashtag and mention highlighting
-        appendIOSFormattedContent(builder, message.content, message.mentions, currentUserNickname, baseColor, isSelf, isDark)
+        appendIOSFormattedContent(builder, message.content, message.mentions, currentUserNickname, baseColor, isSelf, isDark, meshService, peerNicknames)
         
         // iOS-style timestamp at the END (smaller, grey)
-        // Timestamp (and optional PoW badge)
         builder.pushStyle(SpanStyle(
             color = Color.Gray.copy(alpha = 0.7f),
             fontSize = (BASE_FONT_SIZE - 4).sp
@@ -152,7 +152,7 @@ fun formatMessageAsAnnotatedString(
         builder.pushStyle(SpanStyle(
             color = Color.Gray,
             fontSize = (BASE_FONT_SIZE - 2).sp,
-            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+            fontStyle = FontStyle.Italic
         ))
         builder.append("* ${message.content} *")
         builder.pop()
@@ -177,7 +177,8 @@ fun formatMessageHeaderAnnotatedString(
     currentUserNickname: String,
     meshService: BluetoothMeshService,
     colorScheme: ColorScheme,
-    timeFormatter: SimpleDateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+    timeFormatter: SimpleDateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault()),
+    peerNicknames: Map<String, String> = emptyMap()
 ): AnnotatedString {
     val builder = AnnotatedString.Builder()
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
@@ -189,18 +190,12 @@ fun formatMessageHeaderAnnotatedString(
     if (message.sender != "system") {
         // Resolve disambiguated sender name if it's a mesh message
         val senderDisplayName = if (message.senderPeerID != null && !message.senderPeerID.startsWith("nostr_")) {
-            val disambiguated = meshService.getDisambiguatedNickname(message.senderPeerID)
-            // If it returned the raw peerID because the peer is offline, fall back to message.sender (nickname at time of send)
-            if (disambiguated == message.senderPeerID && message.sender != message.senderPeerID) {
-                message.sender
-            } else {
-                disambiguated
-            }
+            meshService.getDisambiguatedNickname(message.senderPeerID)
         } else {
             message.sender
         }
 
-        val baseColor = if (isSelf) Color(0xFFFF9500) else getPeerColor(message, isDark)
+        val baseColor = if (isSelf) Color(0xFFFF9500) else colorForPeer(message.senderPeerID, message.sender, isDark)
         val (baseName, suffix) = splitSuffix(senderDisplayName)
 
         // "<@"
@@ -266,7 +261,7 @@ fun formatMessageHeaderAnnotatedString(
         builder.pushStyle(SpanStyle(
             color = Color.Gray,
             fontSize = (BASE_FONT_SIZE - 2).sp,
-            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+            fontStyle = FontStyle.Italic
         ))
         builder.append("* ${message.content} *")
         builder.pop()
@@ -286,23 +281,26 @@ fun formatMessageHeaderAnnotatedString(
  * Avoids orange (~30°) reserved for self messages
  */
 fun getPeerColor(message: BitchatMessage, isDark: Boolean): Color {
+    return colorForPeer(message.senderPeerID, message.sender, isDark)
+}
+
+/**
+ * Generate consistent peer color based on peer ID or nickname
+ */
+fun colorForPeer(peerID: String?, nickname: String, isDark: Boolean): Color {
     // Create seed from peer identifier (prioritizing stable keys)
     val seed = when {
-        message.senderPeerID?.startsWith("nostr:") == true || message.senderPeerID?.startsWith("nostr_") == true -> {
-            // For Nostr peers, use the full key if available, otherwise the peer ID
-            "nostr:${message.senderPeerID.lowercase()}"
+        peerID?.startsWith("nostr:") == true || peerID?.startsWith("nostr_") == true -> {
+            "nostr:${peerID.lowercase()}"
         }
-        message.senderPeerID?.length == 16 -> {
-            // For ephemeral peer IDs, try to get stable Noise key, fallback to peer ID  
-            "noise:${message.senderPeerID.lowercase()}"
+        peerID?.length == 16 -> {
+            "noise:${peerID.lowercase()}"
         }
-        message.senderPeerID?.length == 64 -> {
-            // This is already a stable Noise key
-            "noise:${message.senderPeerID.lowercase()}"
+        peerID?.length == 64 -> {
+            "noise:${peerID.lowercase()}"
         }
         else -> {
-            // Fallback to sender name
-            message.sender.lowercase()
+            nickname.lowercase()
         }
     }
     
@@ -355,6 +353,34 @@ fun splitSuffix(name: String): Pair<String, String> {
 }
 
 /**
+ * Truncate nickname if it's too long for UI display
+ */
+fun truncateNickname(nickname: String): String {
+    return if (nickname.length > 20) {
+        nickname.take(18) + ".."
+    } else {
+        nickname
+    }
+}
+
+/**
+ * Resolve a display name (with potential #suffix) back to a Peer ID
+ */
+fun resolvePeerIDFromDisplayName(displayName: String, nicknames: Map<String, String>): String? {
+    val (base, suffix) = splitSuffix(displayName)
+    
+    return nicknames.entries.find { (id, nick) ->
+        if (suffix.isNotEmpty()) {
+            // Match nickname and Peer ID ending
+            nick.equals(base, ignoreCase = true) && id.endsWith(suffix.removePrefix("#"), ignoreCase = true)
+        } else {
+            // Match nickname only
+            nick.equals(displayName, ignoreCase = true)
+        }
+    }?.key
+}
+
+/**
  * iOS-style content formatting with proper hashtag and mention handling
  */
 private fun appendIOSFormattedContent(
@@ -364,7 +390,9 @@ private fun appendIOSFormattedContent(
     currentUserNickname: String,
     baseColor: Color,
     isSelf: Boolean,
-    isDark: Boolean
+    isDark: Boolean,
+    meshService: BluetoothMeshService,
+    peerNicknames: Map<String, String> = emptyMap()
 ) {
     // iOS-style patterns: allow optional '#abcd' suffix in mentions
     val hashtagPattern = "#([a-zA-Z0-9_]+)".toRegex()
@@ -396,7 +424,6 @@ private fun appendIOSFormattedContent(
     }
 
     // Add standalone geohash matches (e.g., "#9q") that are not part of another word
-    // We use MessageSpecialParser to find exact ranges; then merge with existing ranges avoiding overlaps
     val geoMatches = MessageSpecialParser.findStandaloneGeohashes(content)
     for (gm in geoMatches) {
         val range = gm.start until gm.endExclusive
@@ -414,7 +441,7 @@ private fun appendIOSFormattedContent(
         }
     }
 
-    // Remove generic hashtag matches that overlap with detected geohash ranges to avoid duplicate rendering
+    // Remove generic hashtag matches that overlap with detected geohash ranges
     fun rangesOverlap(a: IntRange, b: IntRange): Boolean {
         return a.first < b.last && a.last > b.first
     }
@@ -424,7 +451,6 @@ private fun appendIOSFormattedContent(
         val iterator = allMatches.listIterator()
         while (iterator.hasNext()) {
             val (range, type) = iterator.next()
-            // Remove generic hashtags that overlap with geohashes, and geohashes that overlap with URLs
             val overlapsGeo = geoRanges.any { rangesOverlap(range, it) }
             val overlapsUrl = urlRanges.any { rangesOverlap(range, it) }
             if ((type == "hashtag" && overlapsGeo) || (type == "geohash" && overlapsUrl)) iterator.remove()
@@ -436,6 +462,9 @@ private fun appendIOSFormattedContent(
     var lastEnd = 0
     val isMentioned = mentions?.contains(currentUserNickname) == true
     
+    // Use provided map if available, else query service once
+    val nicknameMap = if (peerNicknames.isNotEmpty()) peerNicknames else meshService.getPeerNicknames()
+
     for ((range, type) in allMatches) {
         // Add text before match
         if (lastEnd < range.first) {
@@ -447,7 +476,6 @@ private fun appendIOSFormattedContent(
                     fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Normal
                 ))
                 if (isMentioned) {
-                    // Make entire message bold if user is mentioned
                     builder.pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
                     builder.append(beforeText)
                     builder.pop()
@@ -462,13 +490,19 @@ private fun appendIOSFormattedContent(
         val matchText = content.substring(range.first, range.last + 1)
         when (type) {
             "mention" -> {
-                // iOS-style mention with hashtag suffix support
                 val mentionWithoutAt = matchText.removePrefix("@")
                 val (mBase, mSuffix) = splitSuffix(mentionWithoutAt)
                 
                 // Check if this mention targets current user
-                val isMentionToMe = mBase == currentUserNickname
-                val mentionColor = if (isMentionToMe) Color(0xFFFF9500) else baseColor
+                val isMentionToMe = mBase.equals(currentUserNickname, ignoreCase = true)
+                
+                // Resolve mention color based on mentioned user's actual color
+                val mentionColor = if (isMentionToMe) {
+                    Color(0xFFFF9500) // Orange for mentions to self
+                } else {
+                    val resolvedID = resolvePeerIDFromDisplayName(mentionWithoutAt, nicknameMap)
+                    colorForPeer(resolvedID, mentionWithoutAt, isDark)
+                }
                 
                 // "@" symbol
                 builder.pushStyle(SpanStyle(
@@ -479,7 +513,7 @@ private fun appendIOSFormattedContent(
                 builder.append("@")
                 builder.pop()
                 
-                // Base name (truncate for rendering)
+                // Base name
                 builder.pushStyle(SpanStyle(
                     color = mentionColor,
                     fontSize = BASE_FONT_SIZE.sp,
@@ -500,7 +534,6 @@ private fun appendIOSFormattedContent(
                 }
             }
             "hashtag" -> {
-                // Render general hashtags like normal content
                 builder.pushStyle(SpanStyle(
                     color = baseColor,
                     fontSize = BASE_FONT_SIZE.sp,
@@ -517,7 +550,6 @@ private fun appendIOSFormattedContent(
             }
             else -> {
                 if (type == "geohash") {
-                    // Style geohash in blue, underlined, and add click annotation
                     builder.pushStyle(SpanStyle(
                         color = Color(0xFF007AFF),
                         fontSize = BASE_FONT_SIZE.sp,
@@ -528,15 +560,9 @@ private fun appendIOSFormattedContent(
                     builder.append(matchText)
                     val end = builder.length
                     val geohash = matchText.removePrefix("#").lowercase()
-                    builder.addStringAnnotation(
-                        tag = "geohash_click",
-                        annotation = geohash,
-                        start = start,
-                        end = end
-                    )
+                    builder.addStringAnnotation(tag = "geohash_click", annotation = geohash, start = start, end = end)
                     builder.pop()
                 } else if (type == "url") {
-                    // Style URL in blue, underlined, and add click annotation with the raw text
                     builder.pushStyle(SpanStyle(
                         color = Color(0xFF007AFF),
                         fontSize = BASE_FONT_SIZE.sp,
@@ -546,15 +572,9 @@ private fun appendIOSFormattedContent(
                     val start = builder.length
                     builder.append(matchText)
                     val end = builder.length
-                    builder.addStringAnnotation(
-                        tag = "url_click",
-                        annotation = matchText,
-                        start = start,
-                        end = end
-                    )
+                    builder.addStringAnnotation(tag = "url_click", annotation = matchText, start = start, end = end)
                     builder.pop()
                 } else {
-                    // Fallback: treat as normal text
                     builder.pushStyle(SpanStyle(
                         color = baseColor,
                         fontSize = BASE_FONT_SIZE.sp,

@@ -130,6 +130,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             )
 
             // Messages area - takes up available space, will compress when keyboard appears
+            val peerNicknames by viewModel.peerNicknames.collectAsStateWithLifecycle()
             MessagesList(
                 messages = displayMessages,
                 currentUserNickname = nickname,
@@ -137,6 +138,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 modifier = Modifier.weight(1f),
                 forceScrollToBottom = forceScrollToBottom,
                 onScrolledUpChanged = { isUp -> isScrolledUp = isUp },
+                peerNicknames = peerNicknames,
                 onNicknameClick = { fullSenderName ->
                     // Single click - mention user in text input
                     val currentText = messageText.text

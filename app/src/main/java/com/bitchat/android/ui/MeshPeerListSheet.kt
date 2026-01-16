@@ -839,7 +839,8 @@ fun PrivateChatSheet(
                         onNicknameClick = { /* handle mention */ },
                         onMessageLongPress = { /* handle long press */ },
                         onCancelTransfer = { msg -> viewModel.cancelMediaSend(msg.id) },
-                        onImageClick = { _, _, _ -> /* handle image click */ }
+                        onImageClick = { _, _, _ -> /* handle image click */ },
+                        peerNicknames = peerNicknames
                     )
 
                     HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
