@@ -65,6 +65,7 @@ class SecurityManager(
         // 1. Timestamp Validation (Skipped for valid RSR packets)
         val isRSR = packet.isRSR
         val isLegacyRSR = packet.ttl.toUInt() == com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS.toUInt()
+            && messageType != MessageType.REQUEST_SYNC
         var skipTimestampCheck = false
 
         if (isRSR || isLegacyRSR) {
@@ -73,22 +74,9 @@ class SecurityManager(
             if (requestSyncManager.isValidResponse(peerID, isRSR = true)) {
                 Log.d(TAG, "Valid RSR packet (legacy=$isLegacyRSR) from $peerID - skipping timestamp check")
                 skipTimestampCheck = true
-            } else {
-                // Only strict reject if it was EXPLICITLY marked RSR
-                // The requirement is "ignore RSR packets incoming from peer we didn't request it from"
-                // And we want to enforce timestamp on normal packets.
-                // If a legacy packet has TTL=0 and is OLD, it MUST be a sync response. 
-                // If it's NEW, it passes timestamp check anyway.
-                // So if it fails here (unsolicited), we fall through to timestamp check.
-                // If it's old and unsolicited, it will be rejected by timestamp check.
-                // If it's explicit RSR, we MUST reject it to prevent spoofing/flooding.
-                
-                if (isRSR) {
-                    Log.w(TAG, "Invalid or unsolicited RSR packet from $peerID - rejecting")
-                    return false
-                }
-                // For legacy RSR (TTL=0), if it's unsolicited, we just treat it as a normal packet.
-                // It will likely fail timestamp check if it's an old sync packet.
+            } else {                
+                Log.w(TAG, "Invalid or unsolicited RSR packet from $peerID - rejecting")
+                return false
             }
         }
 
