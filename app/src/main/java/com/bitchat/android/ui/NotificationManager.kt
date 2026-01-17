@@ -183,21 +183,42 @@ class NotificationManager(
         val currentTime = System.currentTimeMillis()
         val timeSinceLast = currentTime - notificationIntervalManager.lastNetworkNotificationTime
         val activePeerNotificationIntervalExceeded = timeSinceLast > ACTIVE_PEERS_NOTIFICATION_TIME_INTERVAL
-        val newPeers = peers - notificationIntervalManager.recentlySeenPeers
+        
+        val isFreshStart = notificationIntervalManager.recentlySeenPeers.isEmpty()
 
-        if (isAppInBackground) {
-            if (activePeerNotificationIntervalExceeded && newPeers.isNotEmpty()) {
-                Log.d(TAG, "Showing NEW notification for active peers")
-                showNotificationForActivePeers(peers.size, onlyAlertOnce = false)
-                notificationIntervalManager.setLastNetworkNotificationTime(currentTime)
-                notificationIntervalManager.recentlySeenPeers.addAll(newPeers)
-            } else if (timeSinceLast <= ACTIVE_PEERS_NOTIFICATION_TIME_INTERVAL) {
-                // Update existing notification silently to reflect live count
-                Log.d(TAG, "Updating active peers count silently")
-                showNotificationForActivePeers(peers.size, onlyAlertOnce = true)
-                notificationIntervalManager.recentlySeenPeers.addAll(newPeers)
-            }
+        // Check if we should alert (Heads-up / Sound)
+        // Only alert if we are in Background AND (it's a fresh start OR enough time passed)
+        val shouldAlert = isAppInBackground && (isFreshStart || activePeerNotificationIntervalExceeded)
+
+        // Check if we should update an existing notification (Silent)
+        // If alerting, we definitely update.
+        // If not alerting:
+        // - If Background: Update silently (create or update).
+        // - If Foreground: Update silently ONLY IF notification is already active (don't create new banner over UI).
+        var shouldUpdate = shouldAlert || isAppInBackground
+        
+        if (!shouldUpdate && !isAppInBackground && Build.VERSION.SDK_INT >= 23) {
+             // Check if the notification is currently active
+             shouldUpdate = systemNotificationManager.activeNotifications.any { it.id == ACTIVE_PEERS_NOTIFICATION_ID }
         }
+
+        if (shouldUpdate) {
+             // If we are alerting, use onlyAlertOnce = false (Sound/Vib).
+             // If we are just updating/silently posting, use onlyAlertOnce = true.
+             val onlyAlertOnce = !shouldAlert
+             
+             if (shouldAlert) {
+                 Log.d(TAG, "Showing NEW notification for active peers (Heads-up)")
+                 notificationIntervalManager.setLastNetworkNotificationTime(currentTime)
+             } else {
+                 Log.d(TAG, "Updating active peers notification silently (inBackground=$isAppInBackground)")
+             }
+
+             showNotificationForActivePeers(peers.size, onlyAlertOnce = onlyAlertOnce)
+        }
+
+        // Always update tracking
+        notificationIntervalManager.recentlySeenPeers.addAll(peers)
     }
 
     private fun showNotificationForSender(senderPeerID: String) {
