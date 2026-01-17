@@ -489,7 +489,7 @@ class ChatViewModel(
                     // Default: route via mesh
                     meshService.sendMessage(messageContent, mentions, channel)
                 }
-            })
+            }, this)
             return
         }
         
