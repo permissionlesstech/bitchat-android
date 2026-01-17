@@ -167,6 +167,7 @@ fun MessageInput(
     onSendVoiceNote: (String?, String?, String) -> Unit,
     onSendImageNote: (String?, String?, String) -> Unit,
     onSendFileNote: (String?, String?, String) -> Unit,
+    onGifClick: () -> Unit,
     selectedPrivatePeer: String?,
     currentChannel: String?,
     nickname: String,
@@ -278,6 +279,33 @@ fun MessageInput(
                             onSendImageNote(latestSelectedPeer.value, latestChannel.value, outPath)
                         }
                     )
+
+                    Spacer(Modifier.width(1.dp))
+
+                    // GIF Button
+                    IconButton(
+                        onClick = onGifClick,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(30.dp)
+                                .background(
+                                    color = if (colorScheme.background == Color.Black) Color(0xFF333333) else Color(0xFFE0E0E0),
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "GIF",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 10.sp
+                                ),
+                                color = colorScheme.primary
+                            )
+                        }
+                    }
                 }
             }
 

@@ -45,6 +45,8 @@ import com.bitchat.android.services.VerificationService
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+import com.bitchat.android.util.AppConstants
+
 class MainActivity : OrientationAwareActivity() {
 
     private lateinit var permissionManager: PermissionManager
@@ -111,6 +113,8 @@ class MainActivity : OrientationAwareActivity() {
 
         // Initialize permission management
         permissionManager = PermissionManager(this)
+
+
         // Ensure foreground service is running and get mesh instance from holder
         try { com.bitchat.android.service.MeshForegroundService.start(applicationContext) } catch (_: Exception) { }
         meshService = com.bitchat.android.service.MeshServiceHolder.getOrCreate(applicationContext)

@@ -894,6 +894,7 @@ fun PrivateChatSheet(
                         onSendFileNote = { peer, channel, path ->
                             viewModel.sendFileNote(peer, channel, path)
                         },
+                        onGifClick = { },
                         showCommandSuggestions = false,
                         commandSuggestions = emptyList(),
                         showMentionSuggestions = false,

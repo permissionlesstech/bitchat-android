@@ -34,6 +34,12 @@ kotlinx-coroutines = "1.10.2"
 # Bluetooth
 nordic-ble = "2.6.1"
 
+# Giphy
+giphy = "2.1.9"
+
+# Coil
+coil = "2.6.0"
+
 # WebSocket
 okhttp = "4.12.0"
 tor-android-binary = "0.4.4.6"
@@ -101,6 +107,13 @@ kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutine
 
 # Bluetooth
 nordic-ble = { module = "no.nordicsemi.android:ble", version.ref = "nordic-ble" }
+
+# Giphy
+giphy-ui = { module = "com.giphy.sdk:ui", version.ref = "giphy" }
+
+# Coil
+coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil" }
+coil-gif = { module = "io.coil-kt:coil-gif", version.ref = "coil" }
 
 # WebSocket
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
