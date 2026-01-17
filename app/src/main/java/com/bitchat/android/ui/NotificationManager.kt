@@ -176,21 +176,27 @@ class NotificationManager(
     fun showActiveUserNotification(peers: List<String>) {
         if (peers.isEmpty()) {
             notificationIntervalManager.recentlySeenPeers.clear()
+            notificationManager.cancel(ACTIVE_PEERS_NOTIFICATION_ID)
             return
         }
 
         val currentTime = System.currentTimeMillis()
-        val activePeerNotificationIntervalExceeded =
-          (currentTime - notificationIntervalManager.lastNetworkNotificationTime) > ACTIVE_PEERS_NOTIFICATION_TIME_INTERVAL
+        val timeSinceLast = currentTime - notificationIntervalManager.lastNetworkNotificationTime
+        val activePeerNotificationIntervalExceeded = timeSinceLast > ACTIVE_PEERS_NOTIFICATION_TIME_INTERVAL
         val newPeers = peers - notificationIntervalManager.recentlySeenPeers
-        if (isAppInBackground && activePeerNotificationIntervalExceeded && newPeers.isNotEmpty()) {
-            Log.d(TAG, "Showing notification for active peers")
-            showNotificationForActivePeers(peers.size)
-            notificationIntervalManager.setLastNetworkNotificationTime(currentTime)
-            notificationIntervalManager.recentlySeenPeers.addAll(newPeers)
-        } else {
-            Log.d(TAG, "Skipping notification - app in foreground or it has been less than 5 minutes since last active peer notification")
-            return
+
+        if (isAppInBackground) {
+            if (activePeerNotificationIntervalExceeded && newPeers.isNotEmpty()) {
+                Log.d(TAG, "Showing NEW notification for active peers")
+                showNotificationForActivePeers(peers.size, onlyAlertOnce = false)
+                notificationIntervalManager.setLastNetworkNotificationTime(currentTime)
+                notificationIntervalManager.recentlySeenPeers.addAll(newPeers)
+            } else if (timeSinceLast <= ACTIVE_PEERS_NOTIFICATION_TIME_INTERVAL) {
+                // Update existing notification silently to reflect live count
+                Log.d(TAG, "Updating active peers count silently")
+                showNotificationForActivePeers(peers.size, onlyAlertOnce = true)
+                notificationIntervalManager.recentlySeenPeers.addAll(newPeers)
+            }
         }
     }
 
@@ -316,7 +322,7 @@ class NotificationManager(
         notificationManager.notify((System.currentTimeMillis() and 0x7FFFFFFF).toInt(), builder.build())
     }
 
-    private fun showNotificationForActivePeers(peersSize: Int) {
+    private fun showNotificationForActivePeers(peersSize: Int, onlyAlertOnce: Boolean) {
         // Create intent to open the app
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -346,10 +352,11 @@ class NotificationManager(
           .setPriority(NotificationCompat.PRIORITY_MAX)
           .setCategory(NotificationCompat.CATEGORY_MESSAGE)
           .setShowWhen(true)
+          .setOnlyAlertOnce(onlyAlertOnce)
           .setWhen(System.currentTimeMillis())
 
         notificationManager.notify(ACTIVE_PEERS_NOTIFICATION_ID, builder.build())
-        Log.d(TAG, "Displayed notification for $contentTitle with ID $ACTIVE_PEERS_NOTIFICATION_ID")
+        Log.d(TAG, "Displayed notification for $contentTitle with ID $ACTIVE_PEERS_NOTIFICATION_ID (onlyAlertOnce=$onlyAlertOnce)")
     }
     private fun showSummaryNotification() {
         if (pendingNotifications.isEmpty()) return
