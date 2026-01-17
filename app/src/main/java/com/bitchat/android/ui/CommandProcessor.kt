@@ -578,11 +578,10 @@ class CommandProcessor(
     private fun resolvePeerIDForNickname(targetName: String, meshService: BluetoothMeshService): PeerResolutionResult {
         val nicknames = meshService.getPeerNicknames()
         
-        val parts = targetName.split("#")
-        val baseName = parts[0]
-        val suffix = if (parts.size > 1) parts[1] else null
+        val (baseName, suffixWithHash) = splitSuffix(targetName)
         
-        if (suffix != null) {
+        if (suffixWithHash.isNotEmpty()) {
+            val suffix = suffixWithHash.removePrefix("#")
             val peerID = nicknames.entries.find { (id, nick) -> 
                 nick.equals(baseName, ignoreCase = true) && id.takeLast(4).equals(suffix, ignoreCase = true)
             }?.key
