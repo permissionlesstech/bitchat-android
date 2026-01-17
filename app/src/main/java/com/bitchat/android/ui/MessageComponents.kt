@@ -384,9 +384,12 @@ fun MessageItem(
         )
         
         // Check if this message was sent by self to avoid click interactions on own nickname
-        val isSelf = message.senderPeerID == meshService.myPeerID || 
-                     message.sender == currentUserNickname ||
-                     message.sender.startsWith("$currentUserNickname#")
+        val isSelf = if (message.senderPeerID != null) {
+            message.senderPeerID == meshService.myPeerID
+        } else {
+            message.sender == currentUserNickname ||
+            message.sender.startsWith("$currentUserNickname#")
+        }
         
         val haptic = LocalHapticFeedback.current
         val context = LocalContext.current

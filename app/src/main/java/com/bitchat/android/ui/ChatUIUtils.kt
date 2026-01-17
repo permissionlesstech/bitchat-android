@@ -51,9 +51,12 @@ fun formatMessageAsAnnotatedString(
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
     
     // Determine if this message was sent by self
-    val isSelf = message.senderPeerID == meshService.myPeerID || 
-                 message.sender == currentUserNickname ||
-                 message.sender.startsWith("$currentUserNickname#")
+    val isSelf = if (message.senderPeerID != null) {
+        message.senderPeerID == meshService.myPeerID
+    } else {
+        message.sender == currentUserNickname ||
+        message.sender.startsWith("$currentUserNickname#")
+    }
     
     if (message.sender != "system") {
         // Resolve disambiguated sender name if it's a mesh message
@@ -183,9 +186,12 @@ fun formatMessageHeaderAnnotatedString(
     val builder = AnnotatedString.Builder()
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
 
-    val isSelf = message.senderPeerID == meshService.myPeerID ||
-            message.sender == currentUserNickname ||
-            message.sender.startsWith("$currentUserNickname#")
+    val isSelf = if (message.senderPeerID != null) {
+        message.senderPeerID == meshService.myPeerID
+    } else {
+        message.sender == currentUserNickname ||
+        message.sender.startsWith("$currentUserNickname#")
+    }
 
     if (message.sender != "system") {
         // Resolve disambiguated sender name if it's a mesh message
@@ -493,14 +499,14 @@ private fun appendIOSFormattedContent(
                 val mentionWithoutAt = matchText.removePrefix("@")
                 val (mBase, mSuffix) = splitSuffix(mentionWithoutAt)
                 
-                // Check if this mention targets current user
-                val isMentionToMe = mBase.equals(currentUserNickname, ignoreCase = true)
+                // Resolve PeerID to check strict identity match
+                val resolvedID = resolvePeerIDFromDisplayName(mentionWithoutAt, nicknameMap)
+                val isMentionToMe = resolvedID == meshService.myPeerID
                 
                 // Resolve mention color based on mentioned user's actual color
                 val mentionColor = if (isMentionToMe) {
                     Color(0xFFFF9500) // Orange for mentions to self
                 } else {
-                    val resolvedID = resolvePeerIDFromDisplayName(mentionWithoutAt, nicknameMap)
                     colorForPeer(resolvedID, mentionWithoutAt, isDark)
                 }
                 
