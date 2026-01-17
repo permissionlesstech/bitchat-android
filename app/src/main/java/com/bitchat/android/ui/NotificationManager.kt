@@ -174,6 +174,11 @@ class NotificationManager(
     }
 
     fun showActiveUserNotification(peers: List<String>) {
+        if (peers.isEmpty()) {
+            notificationIntervalManager.recentlySeenPeers.clear()
+            return
+        }
+
         val currentTime = System.currentTimeMillis()
         val activePeerNotificationIntervalExceeded =
           (currentTime - notificationIntervalManager.lastNetworkNotificationTime) > ACTIVE_PEERS_NOTIFICATION_TIME_INTERVAL
