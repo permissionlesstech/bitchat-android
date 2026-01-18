@@ -108,13 +108,24 @@ fun GeohashPeopleList(
                 }
             }
             
-            // Sort people: me first, then by lastSeen (matches iOS exactly)
+            // Sort people: me first, then named users, then anons (by lastSeen within groups)
             val orderedPeople = remember(geohashPeople, myHex) {
                 geohashPeople.sortedWith { a, b ->
+                    // Check if display name indicates an "anon" (shortened hex)
+                    val aIsAnon = a.displayName == "${a.id.take(8)}..."
+                    val bIsAnon = b.displayName == "${b.id.take(8)}..."
+
                     when {
+                        // 1. Me always first
                         myHex != null && a.id == myHex && b.id != myHex -> -1
                         myHex != null && b.id == myHex && a.id != myHex -> 1
-                        else -> b.lastSeen.compareTo(a.lastSeen) // Most recent first
+                        
+                        // 2. Named users before anon users
+                        !aIsAnon && bIsAnon -> -1
+                        aIsAnon && !bIsAnon -> 1
+                        
+                        // 3. Otherwise sort by recency
+                        else -> b.lastSeen.compareTo(a.lastSeen) 
                     }
                 }
             }
