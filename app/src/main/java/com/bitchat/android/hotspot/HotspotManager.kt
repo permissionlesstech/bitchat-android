@@ -56,6 +56,7 @@ class HotspotManager(private val context: Context) {
     private var callback: HotspotCallback? = null
     private var isStarting = false
     private var hasNotifiedStarted = false // Track if we've notified the callback
+    private var isReceiverRegistered = false // Track receiver registration to prevent leaks
 
     // Saved credentials for reconnection
     private var savedSsid: String? = null
@@ -97,12 +98,16 @@ class HotspotManager(private val context: Context) {
 
         Log.d(TAG, "Starting Wi-Fi P2P hotspot")
 
-        // Register broadcast receiver
-        val intentFilter = IntentFilter().apply {
-            addAction(WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION)
-            addAction(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION)
+        // Register broadcast receiver (only if not already registered)
+        if (!isReceiverRegistered) {
+            val intentFilter = IntentFilter().apply {
+                addAction(WIFI_P2P_STATE_CHANGED_ACTION)
+                addAction(WIFI_P2P_CONNECTION_CHANGED_ACTION)
+            }
+            context.registerReceiver(broadcastReceiver, intentFilter)
+            isReceiverRegistered = true
+            Log.d(TAG, "Broadcast receiver registered")
         }
-        context.registerReceiver(broadcastReceiver, intentFilter)
 
         // Acquire locks
         acquireLocks()
@@ -147,11 +152,16 @@ class HotspotManager(private val context: Context) {
         // Release locks
         releaseLocks()
 
-        // Unregister receiver
-        try {
-            context.unregisterReceiver(broadcastReceiver)
-        } catch (e: Exception) {
-            Log.w(TAG, "Error unregistering receiver", e)
+        // Unregister receiver (only if registered)
+        if (isReceiverRegistered) {
+            try {
+                context.unregisterReceiver(broadcastReceiver)
+                isReceiverRegistered = false
+                Log.d(TAG, "Broadcast receiver unregistered")
+            } catch (e: IllegalArgumentException) {
+                Log.w(TAG, "Receiver was not registered", e)
+                isReceiverRegistered = false
+            }
         }
 
         currentGroup = null
@@ -325,7 +335,7 @@ class HotspotManager(private val context: Context) {
                 PowerManager.FULL_WAKE_LOCK,
                 "BitChat:HotspotWakeLock"
             )
-            wakeLock?.acquire(10 * 60 * 1000L) // 10 minutes max
+            wakeLock?.acquire()
 
             val wifiManager = context.getSystemService(Context.WIFI_SERVICE) as android.net.wifi.WifiManager
             val lockType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

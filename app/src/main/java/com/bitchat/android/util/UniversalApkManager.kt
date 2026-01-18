@@ -124,6 +124,24 @@ class UniversalApkManager(private val context: Context) {
     }
 
     /**
+     * Check if there's enough disk space to download the APK.
+     * Requires 1.5x the file size for safety margin (temp + final file).
+     * @throws IOException if insufficient space
+     */
+    private fun checkDiskSpace(requiredSize: Long) {
+        val availableSpace = cacheDir.usableSpace
+        val requiredWithMargin = (requiredSize * 1.5).toLong()
+
+        if (availableSpace < requiredWithMargin) {
+            val requiredMB = requiredWithMargin / 1024 / 1024
+            val availableMB = availableSpace / 1024 / 1024
+            val error = "Insufficient storage: need ${requiredMB}MB, have ${availableMB}MB"
+            Log.e(TAG, error)
+            throw IOException(error)
+        }
+    }
+
+    /**
      * Download the universal APK from GitHub.
      * @param progressCallback Called with progress percentage (0-100)
      * @return Result with File on success, or error message
@@ -143,6 +161,9 @@ class UniversalApkManager(private val context: Context) {
 
             Log.d(TAG, "Downloading from: $url")
             Log.d(TAG, "Expected size: ${expectedSize / 1024 / 1024}MB")
+
+            // Check available disk space before downloading
+            checkDiskSpace(expectedSize)
 
             // Download to temporary file first
             val tempFile = File(cacheDir, "download_temp.apk")
@@ -218,7 +239,14 @@ class UniversalApkManager(private val context: Context) {
             if (finalFile.exists()) {
                 finalFile.delete()
             }
-            tempFile.renameTo(finalFile)
+
+            // Try rename first (fast), fallback to copy if it fails (different partitions/filesystems)
+            val moved = tempFile.renameTo(finalFile)
+            if (!moved) {
+                Log.w(TAG, "Rename failed, falling back to copy")
+                tempFile.copyTo(finalFile, overwrite = true)
+                tempFile.delete()
+            }
 
             // Save metadata
             saveMetadata(

@@ -740,7 +740,7 @@ fun AboutSheet(
                                                 color = colorScheme.onSurface
                                             )
                                             Text(
-                                                text = "Create Wi-Fi hotspot to share offline",
+                                                text = stringResource(R.string.hotspot_share_via_subtitle),
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = colorScheme.onSurface.copy(alpha = 0.6f),
                                                 lineHeight = 16.sp
@@ -805,7 +805,7 @@ fun AboutSheet(
                                                 color = colorScheme.onSurface
                                             )
                                             Text(
-                                                text = "Use standard Android sharing",
+                                                text = stringResource(R.string.hotspot_share_other_subtitle),
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = colorScheme.onSurface.copy(alpha = 0.6f),
                                                 lineHeight = 16.sp
@@ -1199,8 +1199,14 @@ private suspend fun downloadUniversalApk(
     onResult: (ApkPreparationStatus) -> Unit
 ) {
     withContext(Dispatchers.IO) {
+        var lastUpdateTime = 0L
         val result = apkManager.downloadUniversalApk { progress ->
-            onProgress(progress)
+            // Throttle updates to max 10 per second (100ms interval) to avoid janky UI
+            val now = System.currentTimeMillis()
+            if (now - lastUpdateTime >= 100 || progress == 100) {
+                lastUpdateTime = now
+                onProgress(progress)
+            }
         }
 
         val status = if (result.isSuccess) {
