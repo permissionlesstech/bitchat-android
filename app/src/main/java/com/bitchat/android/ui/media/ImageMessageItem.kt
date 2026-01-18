@@ -46,6 +46,7 @@ fun ImageMessageItem(
     onMessageLongPress: ((BitchatMessage) -> Unit)?,
     onCancelTransfer: ((BitchatMessage) -> Unit)?,
     onImageClick: ((String, List<String>, Int) -> Unit)?,
+    peerNicknames: Map<String, String> = emptyMap(),
     modifier: Modifier = Modifier
 ) {
     val path = message.content.trim()
@@ -55,7 +56,8 @@ fun ImageMessageItem(
             currentUserNickname = currentUserNickname,
             meshService = meshService,
             colorScheme = colorScheme,
-            timeFormatter = timeFormatter
+            timeFormatter = timeFormatter,
+            peerNicknames = peerNicknames
         )
         val haptic = LocalHapticFeedback.current
         var headerLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
