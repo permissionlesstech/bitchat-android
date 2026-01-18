@@ -3,7 +3,12 @@ package com.bitchat.android.ui
 import android.content.Intent
 import android.util.Log
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,7 +32,6 @@ import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Security
@@ -83,7 +87,6 @@ import com.bitchat.android.net.TorPreferenceManager
 import com.bitchat.android.nostr.NostrProofOfWork
 import com.bitchat.android.nostr.PoWPreferenceManager
 import com.bitchat.android.util.UniversalApkManager
-import com.bitchat.android.util.ApkSharingUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -528,9 +531,13 @@ fun AboutSheet(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .clickable(enabled = apkStatus !is ApkPreparationStatus.Downloading) {
-                                                when (val status = apkStatus) {
-                                                    is ApkPreparationStatus.NotDownloaded -> showPrepareDialog = true
-                                                    is ApkPreparationStatus.UpdateAvailable -> showPrepareDialog = true
+                                                when (apkStatus) {
+                                                    is ApkPreparationStatus.NotDownloaded -> showPrepareDialog =
+                                                        true
+
+                                                    is ApkPreparationStatus.UpdateAvailable -> showPrepareDialog =
+                                                        true
+
                                                     else -> {}
                                                 }
                                             }
@@ -558,7 +565,7 @@ fun AboutSheet(
                                             )
                                             Text(
                                                 text = when (val status = apkStatus) {
-                                                    is ApkPreparationStatus.Loading -> "Checking..."
+                                                    is ApkPreparationStatus.Loading -> stringResource(R.string.checking)
                                                     is ApkPreparationStatus.NotDownloaded -> stringResource(R.string.prepare_apk_status_not_downloaded)
                                                     is ApkPreparationStatus.Ready -> stringResource(R.string.prepare_apk_status_ready) + " • ${status.version} • ${status.sizeMB} MB"
                                                     is ApkPreparationStatus.UpdateAvailable -> stringResource(R.string.prepare_apk_status_update_available) + " (${status.newVersion})"
@@ -576,7 +583,7 @@ fun AboutSheet(
                                         }
 
                                         // Action buttons
-                                        when (val status = apkStatus) {
+                                        when (apkStatus) {
                                             is ApkPreparationStatus.Downloading -> {
                                                 CircularProgressIndicator(
                                                     modifier = Modifier.size(20.dp),
@@ -696,30 +703,41 @@ fun AboutSheet(
                                         )
                                     }
 
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(start = 56.dp),
-                                        color = colorScheme.outline.copy(alpha = 0.12f)
-                                    )
+                                    // Show sharing rows only when APK is ready
+                                    val canShareAPK = apkStatus is ApkPreparationStatus.Ready ||
+                                            apkStatus is ApkPreparationStatus.UpdateAvailable
 
-                                    // === Share via Hotspot Row ===
-                                    var showHotspotRequiredDialog by remember { mutableStateOf(false) }
-
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable {
-                                                val cachedApk = apkManager.getCachedApk()
-                                                if (cachedApk != null) {
-                                                    val intent = Intent(context, HotspotActivity::class.java)
-                                                    intent.putExtra(HotspotActivity.EXTRA_APK_PATH, cachedApk.absolutePath)
-                                                    context.startActivity(intent)
-                                                } else {
-                                                    showHotspotRequiredDialog = true
-                                                }
-                                            }
-                                            .padding(horizontal = 16.dp, vertical = 14.dp),
-                                        verticalAlignment = Alignment.CenterVertically
+                                    AnimatedVisibility(
+                                        visible = canShareAPK,
+                                        enter = fadeIn() + expandVertically(),
+                                        exit = fadeOut() + shrinkVertically()
                                     ) {
+                                        Column {
+                                            HorizontalDivider(
+                                                modifier = Modifier.padding(start = 56.dp),
+                                                color = colorScheme.outline.copy(alpha = 0.12f)
+                                            )
+
+                                            // === Share via Hotspot Row ===
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clickable {
+                                                        // APK is guaranteed to exist (row only visible when ready)
+                                                        val cachedApk = apkManager.getCachedApk()!!
+                                                        val intent = Intent(
+                                                            context,
+                                                            HotspotActivity::class.java
+                                                        )
+                                                        intent.putExtra(
+                                                            HotspotActivity.EXTRA_APK_PATH,
+                                                            cachedApk.absolutePath
+                                                        )
+                                                        context.startActivity(intent)
+                                                    }
+                                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
                                         Icon(
                                             imageVector = Icons.Default.Wifi,
                                             contentDescription = null,
@@ -753,24 +771,9 @@ fun AboutSheet(
                                             tint = colorScheme.onSurface.copy(alpha = 0.4f),
                                             modifier = Modifier.size(20.dp)
                                         )
-                                    }
+                                            }
 
-                                    // Required Dialog
-                                    if (showHotspotRequiredDialog) {
-                                        AlertDialog(
-                                            onDismissRequest = { showHotspotRequiredDialog = false },
-                                            title = { Text("APK Not Ready") },
-                                            text = { Text(stringResource(R.string.prepare_apk_required)) },
-                                            confirmButton = {
-                                                Button(onClick = { showHotspotRequiredDialog = false }) {
-                                                    Text("OK")
-                                                }
-                                            },
-                                            containerColor = colorScheme.surface
-                                        )
-                                    }
-
-                                    HorizontalDivider(
+                                            HorizontalDivider(
                                         modifier = Modifier.padding(start = 56.dp),
                                         color = colorScheme.outline.copy(alpha = 0.12f)
                                     )
@@ -820,17 +823,19 @@ fun AboutSheet(
                                         )
                                     }
 
-                                    // APK Share Dialog
-                                    ApkShareExplanationDialog(
-                                        show = showShareApkDialog,
-                                        onConfirm = {
-                                            showShareApkDialog = false
-                                            scope.launch {
-                                                shareApk(context)
-                                            }
-                                        },
-                                        onDismiss = { showShareApkDialog = false }
-                                    )
+                                            // APK Share Dialog
+                                            ApkShareExplanationDialog(
+                                                show = showShareApkDialog,
+                                                onConfirm = {
+                                                    showShareApkDialog = false
+                                                    scope.launch {
+                                                        shareUniversalApk(context, apkManager)
+                                                    }
+                                                },
+                                                onDismiss = { showShareApkDialog = false }
+                                            )
+                                        }
+                                    }
 
                                 }
                             }
@@ -1323,52 +1328,42 @@ private fun ApkShareExplanationDialog(
 }
 
 /**
- * Shares the installed APK via standard Android share mechanisms
+ * Shares the universal APK via standard Android share mechanisms (Bluetooth/Email/etc).
+ * Uses the same universal APK that was downloaded for hotspot sharing.
  */
-private suspend fun shareApk(context: android.content.Context) = withContext(Dispatchers.IO) {
+private suspend fun shareUniversalApk(
+    context: android.content.Context,
+    apkManager: UniversalApkManager
+) = withContext(Dispatchers.IO) {
     try {
-        val apkFiles = ApkSharingUtils.prepareApksForSharing(context) ?: run {
+        // Get the cached universal APK
+        val apkFile = apkManager.getCachedApk()
+        if (apkFile == null || !apkFile.exists()) {
             withContext(Dispatchers.Main) {
                 Toast.makeText(
                     context,
-                    context.getString(R.string.share_apk_error),
+                    context.getString(R.string.apk_not_ready_please_prepare_it_first),
                     Toast.LENGTH_SHORT
                 ).show()
             }
             return@withContext
         }
 
-        val uris = apkFiles.map { file ->
-            FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                file
-            )
-        }
+        // Get URI using FileProvider
+        val uri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            apkFile
+        )
 
         withContext(Dispatchers.Main) {
-            val intent = if (uris.size == 1) {
-                // Single APK
-                Intent(Intent.ACTION_SEND).apply {
-                    type = "application/vnd.android.package-archive"
-                    putExtra(Intent.EXTRA_STREAM, uris[0])
-                    // Use ClipData for proper URI permission granting on Android 10+
-                    clipData = android.content.ClipData.newRawUri("", uris[0])
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }
-            } else {
-                // Multiple split APKs
-                Intent(Intent.ACTION_SEND_MULTIPLE).apply {
-                    type = "application/vnd.android.package-archive"
-                    putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
-                    // Use ClipData for proper URI permission granting
-                    clipData = android.content.ClipData.newRawUri("", uris[0]).apply {
-                        uris.drop(1).forEach { uri ->
-                            addItem(android.content.ClipData.Item(uri))
-                        }
-                    }
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }
+            // Single universal APK - always use ACTION_SEND
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "application/vnd.android.package-archive"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                // Use ClipData for proper URI permission granting on Android 10+
+                clipData = android.content.ClipData.newRawUri("", uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
 
             val chooser = Intent.createChooser(
@@ -1380,15 +1375,9 @@ private suspend fun shareApk(context: android.content.Context) = withContext(Dis
             }
 
             context.startActivity(chooser)
-
-            // Cleanup after a longer delay to allow share to complete
-            // Files remain available during the share process
-            // TEMPORARY: Disabled for debugging - check cached APK validity
-            // delay(60000) // 60 seconds - enough time for Bluetooth/Nearby Share
-            // ApkSharingUtils.cleanupSharedApks(context)
         }
     } catch (e: Exception) {
-        Log.e("AboutSheet", "Error sharing APK", e)
+        Log.e("AboutSheet", "Error sharing universal APK", e)
         withContext(Dispatchers.Main) {
             Toast.makeText(
                 context,
