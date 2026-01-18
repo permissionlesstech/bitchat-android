@@ -185,6 +185,28 @@ class ChatViewModel(
     val teleportedGeo: StateFlow<Set<String>> = state.teleportedGeo
     val geohashParticipantCounts: StateFlow<Map<String, Int>> = state.geohashParticipantCounts
 
+    // Disambiguation state for handling duplicate nicknames
+    private val _showDisambiguationDialog = MutableStateFlow(false)
+    val showDisambiguationDialog: StateFlow<Boolean> = _showDisambiguationDialog.asStateFlow()
+
+    private val _disambiguationNickname = MutableStateFlow<String?>(null)
+    val disambiguationNickname: StateFlow<String?> = _disambiguationNickname.asStateFlow()
+
+    private val _disambiguationCandidates = MutableStateFlow<List<String>>(emptyList())
+    val disambiguationCandidates: StateFlow<List<String>> = _disambiguationCandidates.asStateFlow()
+
+    private var _disambiguationCallback: ((String) -> Unit)? = null
+
+    // Duplicate nickname warning state
+    private val _showDuplicateNicknameWarning = MutableStateFlow(false)
+    val showDuplicateNicknameWarning: StateFlow<Boolean> = _showDuplicateNicknameWarning.asStateFlow()
+
+    private val _duplicateNicknameCandidates = MutableStateFlow<List<String>>(emptyList())
+    val duplicateNicknameCandidates: StateFlow<List<String>> = _duplicateNicknameCandidates.asStateFlow()
+
+    private val _pendingNickname = MutableStateFlow<String?>(null)
+    val pendingNickname: StateFlow<String?> = _pendingNickname.asStateFlow()
+
     init {
         // Note: Mesh service delegate is now set by MainActivity
         loadAndInitialize()
@@ -313,11 +335,35 @@ class ChatViewModel(
     }
     
     // MARK: - Nickname Management
-    
+
     fun setNickname(newNickname: String) {
+        // Just update the state immediately for live editing (no validation)
         state.setNickname(newNickname)
-        dataManager.saveNickname(newNickname)
-        meshService.sendBroadcastAnnounce()
+    }
+
+    fun commitNicknameChange(newNickname: String) {
+        val trimmed = newNickname.trim()
+        if (trimmed.isEmpty()) {
+            // Restore previous nickname if empty
+            val previousNickname = dataManager.loadNickname()
+            state.setNickname(previousNickname)
+            return
+        }
+
+        // Check for duplicates among connected peers
+        val duplicates = meshService.getPeerNicknames().entries
+            .filter { it.value == trimmed && it.key != meshService.myPeerID }
+            .map { it.key }
+
+        if (duplicates.isNotEmpty()) {
+            // Show warning dialog
+            _showDuplicateNicknameWarning.value = true
+            _duplicateNicknameCandidates.value = duplicates
+            _pendingNickname.value = trimmed
+        } else {
+            // No duplicates, proceed
+            applyNicknameChange(trimmed)
+        }
     }
     
     /**
@@ -467,7 +513,52 @@ class ChatViewModel(
 
     // END - Open Latest Unread Private Chat
 
-    
+
+    fun requestPeerDisambiguation(
+        nickname: String,
+        candidatePeerIDs: List<String>,
+        onSelect: (String) -> Unit
+    ) {
+        _disambiguationNickname.value = nickname
+        _disambiguationCandidates.value = candidatePeerIDs
+        _disambiguationCallback = onSelect
+        _showDisambiguationDialog.value = true
+    }
+
+    fun selectDisambiguatedPeer(peerID: String) {
+        _disambiguationCallback?.invoke(peerID)
+        dismissDisambiguationDialog()
+    }
+
+    fun dismissDisambiguationDialog() {
+        _showDisambiguationDialog.value = false
+        _disambiguationNickname.value = null
+        _disambiguationCandidates.value = emptyList()
+        _disambiguationCallback = null
+    }
+
+
+    fun confirmDuplicateNickname() {
+        _pendingNickname.value?.let { applyNicknameChange(it) }
+        dismissDuplicateNicknameWarning()
+    }
+
+    fun dismissDuplicateNicknameWarning() {
+        _showDuplicateNicknameWarning.value = false
+        _duplicateNicknameCandidates.value = emptyList()
+        _pendingNickname.value = null
+        // Revert to previously saved nickname
+        val savedNickname = dataManager.loadNickname()
+        state.setNickname(savedNickname)
+
+    }
+
+    private fun applyNicknameChange(nickname: String) {
+        state.setNickname(nickname)
+        dataManager.saveNickname(nickname)
+        meshService.sendBroadcastAnnounce()
+    }
+
     // MARK: - Message Sending
     
     fun sendMessage(content: String) {
@@ -476,20 +567,29 @@ class ChatViewModel(
         // Check for commands
         if (content.startsWith("/")) {
             val selectedLocationForCommand = state.selectedLocationChannel.value
-            commandProcessor.processCommand(content, meshService, meshService.myPeerID, { messageContent, mentions, channel ->
-                if (selectedLocationForCommand is com.bitchat.android.geohash.ChannelID.Location) {
-                    // Route command-generated public messages via Nostr in geohash channels
-                    geohashViewModel.sendGeohashMessage(
-                        messageContent,
-                        selectedLocationForCommand.channel,
-                        meshService.myPeerID,
-                        state.getNicknameValue()
-                    )
-                } else {
-                    // Default: route via mesh
-                    meshService.sendMessage(messageContent, mentions, channel)
+            commandProcessor.processCommand(
+                command = content,
+                meshService = meshService,
+                myPeerID = meshService.myPeerID,
+                onSendMessage = { messageContent, mentions, channel ->
+                    if (selectedLocationForCommand is com.bitchat.android.geohash.ChannelID.Location) {
+                        // Route command-generated public messages via Nostr in geohash channels
+                        geohashViewModel.sendGeohashMessage(
+                            messageContent,
+                            selectedLocationForCommand.channel,
+                            meshService.myPeerID,
+                            state.getNicknameValue()
+                        )
+                    } else {
+                        // Default: route via mesh
+                        meshService.sendMessage(messageContent, mentions, channel)
+                    }
+                },
+                viewModel = this,
+                onRequestDisambiguation = { nickname, candidates, callback ->
+                    requestPeerDisambiguation(nickname, candidates, callback)
                 }
-            })
+            )
             return
         }
         
