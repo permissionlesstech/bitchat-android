@@ -182,7 +182,9 @@
 
   <!-- Hotspot Sharing -->
   <string name="hotspot_share_via">Share via Hotspot</string>
+  <string name="hotspot_share_via_subtitle">Create Wi-Fi hotspot to share offline</string>
   <string name="hotspot_share_other">Share via Bluetooth/Email</string>
+  <string name="hotspot_share_other_subtitle">Use standard Android sharing</string>
 
   <!-- APK Installation -->
   <string name="install_bitchat_title">Install Received APK</string>

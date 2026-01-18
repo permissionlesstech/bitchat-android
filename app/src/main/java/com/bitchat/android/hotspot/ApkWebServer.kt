@@ -30,6 +30,11 @@ class ApkWebServer(
         }
     }
 
+    // Cache the HTML landing page (generated once, reused for all requests)
+    private val cachedHtml: String by lazy {
+        generateLandingPageHtml()
+    }
+
     override fun serve(session: IHTTPSession): Response {
         val uri = session.uri ?: "/"
 
@@ -90,11 +95,10 @@ class ApkWebServer(
      * Serve the HTML landing page.
      */
     private fun serveLandingPage(): Response {
-        val html = generateLandingPageHtml()
         return newFixedLengthResponse(
             Response.Status.OK,
             "text/html",
-            html
+            cachedHtml
         )
     }
 

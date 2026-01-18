@@ -46,49 +46,55 @@ class HotspotViewModel(application: Application) : AndroidViewModel(application)
 
                 manager.startHotspot(object : HotspotManager.HotspotCallback {
                     override fun onHotspotStarted() {
-                        Log.d(TAG, "Hotspot started successfully")
+                        viewModelScope.launch {
+                            Log.d(TAG, "Hotspot started successfully")
 
-                        // Get connection info
-                        val info = manager.getConnectionInfo()
-                        if (info == null) {
-                            _state.value = HotspotState.Error("Failed to get hotspot connection info")
-                            return
-                        }
+                            // Get connection info
+                            val info = manager.getConnectionInfo()
+                            if (info == null) {
+                                _state.value = HotspotState.Error("Failed to get hotspot connection info")
+                                return@launch
+                            }
 
-                        // Start web server
-                        try {
-                            val server = ApkWebServer(context, apkFile)
-                            server.startServer()
-                            webServer = server
+                            // Start web server
+                            try {
+                                val server = ApkWebServer(context, apkFile)
+                                server.startServer()
+                                webServer = server
 
-                            Log.d(TAG, "Web server started on port ${ApkWebServer.DEFAULT_PORT}")
+                                Log.d(TAG, "Web server started on port ${ApkWebServer.DEFAULT_PORT}")
 
-                            // Update state with connection info
-                            _state.value = HotspotState.Active(
-                                ssid = info.ssid,
-                                password = info.password,
-                                ipAddress = info.ipAddress,
-                                port = ApkWebServer.DEFAULT_PORT,
-                                connectedPeers = info.connectedPeers
-                            )
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Failed to start web server", e)
-                            manager.stopHotspot()
-                            _state.value = HotspotState.Error("Failed to start web server: ${e.message}")
+                                // Update state with connection info
+                                _state.value = HotspotState.Active(
+                                    ssid = info.ssid,
+                                    password = info.password,
+                                    ipAddress = info.ipAddress,
+                                    port = ApkWebServer.DEFAULT_PORT,
+                                    connectedPeers = info.connectedPeers
+                                )
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Failed to start web server", e)
+                                manager.stopHotspot()
+                                _state.value = HotspotState.Error("Failed to start web server: ${e.message}")
+                            }
                         }
                     }
 
                     override fun onConnectionInfoUpdated(info: HotspotManager.ConnectionInfo?) {
-                        // Update peer count if we're active
-                        val currentState = _state.value
-                        if (currentState is HotspotState.Active && info != null) {
-                            _state.value = currentState.copy(connectedPeers = info.connectedPeers)
+                        viewModelScope.launch {
+                            // Update peer count if we're active
+                            val currentState = _state.value
+                            if (currentState is HotspotState.Active && info != null) {
+                                _state.value = currentState.copy(connectedPeers = info.connectedPeers)
+                            }
                         }
                     }
 
                     override fun onError(message: String) {
-                        Log.e(TAG, "Hotspot error: $message")
-                        _state.value = HotspotState.Error(message)
+                        viewModelScope.launch {
+                            Log.e(TAG, "Hotspot error: $message")
+                            _state.value = HotspotState.Error(message)
+                        }
                     }
                 })
 

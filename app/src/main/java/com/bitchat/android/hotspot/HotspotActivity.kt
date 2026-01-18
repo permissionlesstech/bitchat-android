@@ -169,7 +169,13 @@ fun IntroScreen(onStartHotspot: () -> Unit) {
         else -> null // No runtime permission needed on Android < 10
     }
 
-    val permissionState = requiredPermission?.let { rememberPermissionState(it) }
+    val permissionState = requiredPermission?.let {
+        rememberPermissionState(it) { granted ->
+            if (granted) {
+                onStartHotspot()
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -280,7 +286,7 @@ fun IntroScreen(onStartHotspot: () -> Unit) {
                     // No permission needed or already granted
                     onStartHotspot()
                 } else {
-                    // Request permission
+                    // Request permission (auto-start handled by onPermissionResult callback)
                     permissionState.launchPermissionRequest()
                 }
             },
