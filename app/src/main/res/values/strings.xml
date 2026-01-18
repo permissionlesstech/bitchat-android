@@ -183,7 +183,7 @@
   <!-- Hotspot Sharing -->
   <string name="hotspot_share_via">Share via Hotspot</string>
   <string name="hotspot_share_via_subtitle">Create Wi-Fi hotspot to share offline</string>
-  <string name="hotspot_share_other">Share via Bluetooth/Email</string>
+  <string name="hotspot_share_other">Share via Quick Share</string>
   <string name="hotspot_share_other_subtitle">Use standard Android sharing</string>
 
   <!-- APK Installation -->
@@ -494,6 +494,8 @@
   <string name="join">Join</string>
   <string name="cancel">Cancel</string>
     <string name="tor_not_available_in_this_build">Tor not available in this build</string>
+    <string name="checking">Checking...</string>
+    <string name="apk_not_ready_please_prepare_it_first">APK not ready. Please prepare it first.</string>
 
     <!-- Plurals -->
   <plurals name="notification_and_more">
