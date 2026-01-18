@@ -43,6 +43,10 @@ class GeohashRepository(
         }?.key
     }
 
+    fun findPubkeyByShortId(shortId: String): String? {
+        return geoNicknames.keys.firstOrNull { it.startsWith(shortId, ignoreCase = true) }
+    }
+
     // peerID alias -> nostr pubkey mapping for geohash DMs and temp aliases
     private val nostrKeyMapping: MutableMap<String, String> = mutableMapOf()
 
