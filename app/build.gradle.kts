@@ -13,8 +13,8 @@ android {
         applicationId = "com.bitchat.droid"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 30
-        versionName = "1.6.0"
+        versionCode = 31
+        versionName = "1.7.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -48,9 +48,16 @@ android {
 
     // APK splits for GitHub releases - creates arm64, x86_64, and universal APKs
     // AAB for Play Store handles architecture distribution automatically
+    // Auto-detects: splits enabled for assemble tasks, disabled for bundle tasks
+    // Works in Android Studio GUI and CLI without needing extra properties
+    val enableSplits = gradle.startParameter.taskNames.any { taskName ->
+        taskName.contains("assemble", ignoreCase = true) &&
+        !taskName.contains("bundle", ignoreCase = true)
+    }
+
     splits {
         abi {
-            isEnable = true
+            isEnable = enableSplits
             reset()
             include("arm64-v8a", "x86_64", "armeabi-v7a", "x86")
             isUniversalApk = true  // For F-Droid and fallback

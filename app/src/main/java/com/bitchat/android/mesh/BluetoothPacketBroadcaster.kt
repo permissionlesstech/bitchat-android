@@ -42,7 +42,8 @@ import kotlinx.coroutines.channels.actor
 class BluetoothPacketBroadcaster(
     private val connectionScope: CoroutineScope,
     private val connectionTracker: BluetoothConnectionTracker,
-    private val fragmentManager: FragmentManager?
+    private val fragmentManager: FragmentManager?,
+    private val myPeerID: String
 ) {
     
     companion object {
@@ -349,11 +350,50 @@ class BluetoothPacketBroadcaster(
         val senderNick = senderPeerID.let { pid -> nicknameResolver?.invoke(pid) }
         val route = packet.route
         val routeInfo = if (!route.isNullOrEmpty()) "routed: ${route.size} hops" else null
+
+        // Source Routing for Originating Packets
+        // If we are the sender and a source route is defined, we must send ONLY to the first hop.
+        if (packet.senderID.toHexString() == myPeerID && !packet.route.isNullOrEmpty()) {
+            val firstHop = packet.route!![0].toHexString()
+            Log.d(TAG, "Source Routing: Packet has explicit route, attempting to send to first hop: $firstHop")
+
+            var sent = false
+
+            // Try to find first hop in server connections (subscribedDevices)
+            val serverTarget = connectionTracker.getSubscribedDevices()
+                .firstOrNull { connectionTracker.addressPeerMap[it.address] == firstHop }
+            
+            if (serverTarget != null) {
+                Log.d(TAG, "Source Routing: sending directly to first hop (server conn) $firstHop: ${serverTarget.address}")
+                if (notifyDevice(serverTarget, data, gattServer, characteristic)) {
+                    val toPeer = connectionTracker.addressPeerMap[serverTarget.address]
+                    logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, toPeer, serverTarget.address, packet.ttl, packet.version, routeInfo)
+                    sent = true
+                }
+            }
+
+            // Try to find first hop in client connections if not sent yet
+            if (!sent) {
+                val clientTarget = connectionTracker.getConnectedDevices().values
+                    .firstOrNull { connectionTracker.addressPeerMap[it.device.address] == firstHop }
+                
+                if (clientTarget != null) {
+                    Log.d(TAG, "Source Routing: sending directly to first hop (client conn) $firstHop: ${clientTarget.device.address}")
+                    if (writeToDeviceConn(clientTarget, data)) {
+                        val toPeer = connectionTracker.addressPeerMap[clientTarget.device.address]
+                        logPacketRelay(typeName, senderPeerID, senderNick, incomingPeer, incomingAddr, toPeer, clientTarget.device.address, packet.ttl, packet.version, routeInfo)
+                        sent = true
+                    }
+                }
+            }
+
+            if (sent) return
+            
+            Log.w(TAG, "Source Routing: First hop $firstHop not connected. Falling back to standard broadcast logic.")
+        }
         
         if (packet.recipientID != SpecialRecipients.BROADCAST) {
-            val recipientID = packet.recipientID?.let {
-                String(it).replace("\u0000", "").trim()
-            } ?: ""
+            val recipientID = packet.recipientID?.toHexString() ?: ""
 
             // Try to find the recipient in server connections (subscribedDevices)
             val targetDevice = connectionTracker.getSubscribedDevices()
@@ -390,7 +430,7 @@ class BluetoothPacketBroadcaster(
         
         Log.i(TAG, "Broadcasting packet v${packet.version} type ${packet.type} to ${subscribedDevices.size} server + ${connectedDevices.size} client connections")
 
-        val senderID = String(packet.senderID).replace("\u0000", "")        
+        val senderID = packet.senderID.toHexString()
         
         // Send to server connections (devices connected to our GATT server)
         subscribedDevices.forEach { device ->

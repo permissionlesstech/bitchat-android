@@ -60,6 +60,7 @@ class GeohashViewModel(
     private var geoTimer: Job? = null
     private var globalPresenceJob: Job? = null
     private var locationChannelManager: com.bitchat.android.geohash.LocationChannelManager? = null
+    private val activeSamplingGeohashes = mutableSetOf<String>()
 
     val geohashPeople: StateFlow<List<GeoPerson>> = state.geohashPeople
     val geohashParticipantCounts: StateFlow<Map<String, Int>> = state.geohashParticipantCounts
@@ -211,25 +212,49 @@ class GeohashViewModel(
     }
 
     fun beginGeohashSampling(geohashes: List<String>) {
-        if (geohashes.isEmpty()) return
-        Log.d(TAG, "🌍 Beginning geohash sampling for ${geohashes.size} geohashes")
+        if (geohashes.isEmpty()) {
+            endGeohashSampling()
+            return
+        }
         
-        // Subscribe to events
-        viewModelScope.launch {
-            geohashes.forEach { geohash ->
-                subscriptionManager.subscribeGeohash(
-                    geohash = geohash,
-                    sinceMs = System.currentTimeMillis() - 86400000L,
-                    limit = 200,
-                    id = "sampling-$geohash",
-                    handler = { event -> geohashMessageHandler.onEvent(event, geohash) }
-                )
-            }
+        // Diffing logic to avoid redundant REQ and leaks
+        val currentSet = activeSamplingGeohashes.toSet()
+        val newSet = geohashes.toSet()
+
+        val toRemove = currentSet - newSet
+        val toAdd = newSet - currentSet
+
+        if (toAdd.isEmpty() && toRemove.isEmpty()) return
+
+        Log.d(TAG, "🌍 Updating sampling: +${toAdd.size} new, -${toRemove.size} removed")
+        
+        // Remove old subscriptions
+        toRemove.forEach { geohash ->
+            subscriptionManager.unsubscribe("sampling-$geohash")
+            activeSamplingGeohashes.remove(geohash)
+        }
+
+        // Add new subscriptions
+        toAdd.forEach { geohash ->
+            subscriptionManager.subscribeGeohash(
+                geohash = geohash,
+                sinceMs = System.currentTimeMillis() - 86400000L,
+                limit = 200,
+                id = "sampling-$geohash",
+                handler = { event -> geohashMessageHandler.onEvent(event, geohash) }
+            )
+            activeSamplingGeohashes.add(geohash)
         }
     }
 
     fun endGeohashSampling() { 
-        Log.d(TAG, "🌍 Ending geohash sampling")
+        if (activeSamplingGeohashes.isEmpty()) return
+        Log.d(TAG, "🌍 Ending geohash sampling (cleaning up ${activeSamplingGeohashes.size} subs)")
+        
+        activeSamplingGeohashes.toList().forEach { geohash ->
+            subscriptionManager.unsubscribe("sampling-$geohash")
+        }
+        activeSamplingGeohashes.clear()
     }
     fun geohashParticipantCount(geohash: String): Int = repo.geohashParticipantCount(geohash)
     fun isPersonTeleported(pubkeyHex: String): Boolean = repo.isPersonTeleported(pubkeyHex)

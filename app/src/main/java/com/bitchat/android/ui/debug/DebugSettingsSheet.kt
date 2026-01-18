@@ -5,8 +5,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.BugReport
@@ -34,6 +36,8 @@ import androidx.compose.ui.res.stringResource
 import com.bitchat.android.R
 import androidx.compose.ui.platform.LocalContext
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
+import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
+import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
 
 @Composable
 fun MeshTopologySection() {
@@ -111,6 +115,16 @@ fun DebugSettingsSheet(
     val gcsFpr by manager.gcsFprPercent.collectAsState()
     val context = LocalContext.current
     // Persistent notification is now controlled solely by MeshServicePreferences.isBackgroundEnabled
+    val listState = rememberLazyListState()
+    val isScrolled by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0
+        }
+    }
+    val topBarAlpha by animateFloatAsState(
+        targetValue = if (isScrolled) 0.95f else 0f,
+        label = "topBarAlpha"
+    )
 
     // Push live connected devices from mesh service whenever sheet is visible
     LaunchedEffect(isPresented) {
@@ -151,26 +165,23 @@ fun DebugSettingsSheet(
         DisposableEffect(Unit) {
             onDispose { DebugSettingsManager.getInstance().setDebugSheetVisible(false) }
         }
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(top = 80.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Filled.BugReport, contentDescription = null, tint = Color(0xFFFF9500))
-                    Text(stringResource(R.string.debug_tools), fontFamily = FontFamily.Monospace, fontSize = 18.sp, fontWeight = FontWeight.Medium)
+        Box(modifier = Modifier.fillMaxWidth()) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                contentPadding = PaddingValues(top = 80.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                item {
+                    Text(
+                        text = stringResource(R.string.debug_tools_desc),
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 12.sp,
+                        color = colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
                 }
-                Text(
-                    text = stringResource(R.string.debug_tools_desc),
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp,
-                    color = colorScheme.onSurface.copy(alpha = 0.7f)
-                )
-            }
-
             // Verbose logging toggle
             item {
                 Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
@@ -627,7 +638,29 @@ fun DebugSettingsSheet(
                 }
             }
 
-            item { Spacer(Modifier.height(16.dp)) }
+                item { Spacer(Modifier.height(16.dp)) }
+            }
+
+            BitchatSheetTopBar(
+                onClose = onDismiss,
+                modifier = Modifier.align(Alignment.TopCenter),
+                backgroundAlpha = topBarAlpha,
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.BugReport,
+                            contentDescription = null,
+                            tint = Color(0xFFFF9500)
+                        )
+                        BitchatSheetTitle(
+                            text = stringResource(R.string.debug_tools)
+                        )
+                    }
+                }
+            )
         }
     }
 }

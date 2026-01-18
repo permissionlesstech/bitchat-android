@@ -1,7 +1,11 @@
 package com.bitchat.android.crypto
 
 import android.content.Context
+import android.content.SharedPreferences
+import android.util.Base64
 import android.util.Log
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 import com.bitchat.android.noise.NoiseEncryptionService
 import org.bouncycastle.crypto.AsymmetricCipherKeyPair
 import org.bouncycastle.crypto.generators.Ed25519KeyPairGenerator
@@ -11,6 +15,7 @@ import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters
 import org.bouncycastle.crypto.signers.Ed25519Signer
 import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
+import androidx.core.content.edit
 
 /**
  * Encryption service that now uses NoiseEncryptionService internally
@@ -24,6 +29,8 @@ open class EncryptionService(private val context: Context) {
     companion object {
         private const val TAG = "EncryptionService"
         private const val ED25519_PRIVATE_KEY_PREF = "ed25519_signing_private_key"
+        private const val OLD_PREFS_NAME = "bitchat_crypto"
+        private const val SECURE_PREFS_NAME = "bitchat_crypto_secure"
     }
     
     // Core Noise encryption service
@@ -40,15 +47,32 @@ open class EncryptionService(private val context: Context) {
     var onSessionEstablished: ((String) -> Unit)? = null // peerID
     var onSessionLost: ((String) -> Unit)? = null // peerID
     var onHandshakeRequired: ((String) -> Unit)? = null // peerID
+    private lateinit var prefs: SharedPreferences
     
     init {
         initialize()
+    }
+
+    private fun setUpEncryptedPrefs() {
+        val masterKey = MasterKey.Builder(context, MasterKey.DEFAULT_MASTER_KEY_ALIAS)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+
+        // Create encrypted shared preferences
+        prefs = EncryptedSharedPreferences.create(
+            context,
+            SECURE_PREFS_NAME,
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
     }
 
     /**
      * Initialization logic moved to method to allow overriding in tests
      */
     protected open fun initialize() {
+        setUpEncryptedPrefs()
         // Initialize or load Ed25519 signing keys
         val keyPair = loadOrCreateEd25519KeyPair()
         ed25519PrivateKey = keyPair.private as Ed25519PrivateKeyParameters
@@ -142,9 +166,14 @@ open class EncryptionService(private val context: Context) {
         
         // Clear Ed25519 signing key from preferences
         try {
-            val prefs = context.getSharedPreferences("bitchat_crypto", Context.MODE_PRIVATE)
-            prefs.edit().remove(ED25519_PRIVATE_KEY_PREF).apply()
+            prefs.edit { remove(ED25519_PRIVATE_KEY_PREF) }
             Log.d(TAG, "🗑️ Cleared Ed25519 signing keys from preferences")
+
+            // Generate new keys immediately
+            val keyPair = loadOrCreateEd25519KeyPair()
+            ed25519PrivateKey = keyPair.private as Ed25519PrivateKeyParameters
+            ed25519PublicKey = keyPair.public as Ed25519PublicKeyParameters
+            Log.d(TAG, "✅ Rotated Ed25519 signing keys in memory")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Failed to clear Ed25519 keys: ${e.message}")
         }
@@ -384,13 +413,14 @@ open class EncryptionService(private val context: Context) {
      * Load existing Ed25519 key pair from preferences or create a new one
      */
     private fun loadOrCreateEd25519KeyPair(): AsymmetricCipherKeyPair {
+        // Migrate legacy plaintext Ed25519 key to encrypted storage if present
+        migrateOldEd25519KeyIfNeeded()
         try {
-            val prefs = context.getSharedPreferences("bitchat_crypto", Context.MODE_PRIVATE)
             val storedKey = prefs.getString(ED25519_PRIVATE_KEY_PREF, null)
-            
+
             if (storedKey != null) {
                 // Load existing key
-                val privateKeyBytes = android.util.Base64.decode(storedKey, android.util.Base64.DEFAULT)
+                val privateKeyBytes = Base64.decode(storedKey, Base64.DEFAULT)
                 val privateKey = Ed25519PrivateKeyParameters(privateKeyBytes, 0)
                 val publicKey = privateKey.generatePublicKey()
                 Log.d(TAG, "✅ Loaded existing Ed25519 signing key pair")
@@ -401,23 +431,47 @@ open class EncryptionService(private val context: Context) {
         }
         
         // Create new key pair
+        return generateAndSaveEd25519KeyPair()
+    }
+
+    fun generateAndSaveEd25519KeyPair(): AsymmetricCipherKeyPair {
         val keyGen = Ed25519KeyPairGenerator()
         keyGen.init(Ed25519KeyGenerationParameters(SecureRandom()))
         val keyPair = keyGen.generateKeyPair()
-        
+
         // Store private key in preferences
         try {
             val privateKey = keyPair.private as Ed25519PrivateKeyParameters
             val privateKeyBytes = privateKey.encoded
-            val encodedKey = android.util.Base64.encodeToString(privateKeyBytes, android.util.Base64.DEFAULT)
-            
-            val prefs = context.getSharedPreferences("bitchat_crypto", Context.MODE_PRIVATE)
-            prefs.edit().putString(ED25519_PRIVATE_KEY_PREF, encodedKey).apply()
+            val encodedKey = Base64.encodeToString(privateKeyBytes, Base64.DEFAULT)
+
+            prefs.edit { putString(ED25519_PRIVATE_KEY_PREF, encodedKey) }
             Log.d(TAG, "✅ Created and stored new Ed25519 signing key pair")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Failed to store Ed25519 private key: ${e.message}")
         }
         
         return keyPair
+    }
+
+    private fun migrateOldEd25519KeyIfNeeded() {
+        try {
+            // old existing plain text preference
+            val oldPrefs = context.getSharedPreferences(OLD_PREFS_NAME, Context.MODE_PRIVATE)
+
+            val oldKey = oldPrefs.getString(ED25519_PRIVATE_KEY_PREF, null)
+
+            if (oldKey != null && !prefs.contains(ED25519_PRIVATE_KEY_PREF)) {
+                prefs.edit {
+                    putString(ED25519_PRIVATE_KEY_PREF, oldKey)
+                }
+                oldPrefs.edit {
+                    remove(ED25519_PRIVATE_KEY_PREF)
+                }
+                Log.d(TAG, "🔁 Migrated Ed25519 key to EncryptedSharedPreferences")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "⚠️ Failed to migrate Ed25519 key; generating new identity: ${e.message}")
+        }
     }
 }

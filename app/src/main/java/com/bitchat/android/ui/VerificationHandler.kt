@@ -26,12 +26,15 @@ import java.util.concurrent.ConcurrentHashMap
 class VerificationHandler(
     private val context: Context,
     private val scope: CoroutineScope,
-    private val meshService: BluetoothMeshService,
+    private val getMeshService: () -> BluetoothMeshService,
     private val identityManager: SecureIdentityStateManager,
     private val state: ChatState,
     private val notificationManager: NotificationManager,
     private val messageManager: MessageManager
 ) {
+    // Helper to get current mesh service (may change after panic clear)
+    private val meshService: BluetoothMeshService
+        get() = getMeshService()
 
     private val _verifiedFingerprints = MutableStateFlow<Set<String>>(emptySet())
     val verifiedFingerprints: StateFlow<Set<String>> = _verifiedFingerprints.asStateFlow()
