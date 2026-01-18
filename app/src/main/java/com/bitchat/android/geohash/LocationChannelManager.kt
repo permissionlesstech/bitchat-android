@@ -131,8 +131,13 @@ class LocationChannelManager private constructor(private val context: Context) {
         checkAndSyncPermission()
         // Initialize DataManager and load persisted settings
         dataManager = com.bitchat.android.ui.DataManager(context)
-        loadPersistedChannelSelection()
-        loadLocationServicesState()
+        scope.launch(Dispatchers.IO) {
+            dataManager?.initialize()
+            withContext(Dispatchers.Main) {
+                loadPersistedChannelSelection()
+                loadLocationServicesState()
+            }
+        }
 
         // Register for system location changes
         context.registerReceiver(locationStateReceiver, IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION))
