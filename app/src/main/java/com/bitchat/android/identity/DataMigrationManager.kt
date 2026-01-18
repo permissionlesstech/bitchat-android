@@ -9,7 +9,7 @@ import com.bitchat.android.crypto.TinkAeadProvider
 import com.bitchat.android.crypto.TinkSecurePreferences
 import java.io.IOException
 import java.security.GeneralSecurityException
-import androidx.core.content.edit
+import java.security.KeyStoreException
 
 object DataMigrationManager {
     private const val TAG = "DataMigrationManager"
@@ -25,27 +25,38 @@ object DataMigrationManager {
         try {
             val oldPrefs = openOldEncryptedPrefs(context)
             if (oldPrefs.all.isEmpty()) {
-                markerPrefs.edit { putBoolean(MIGRATION_FLAG, true) }
+                markerPrefs.edit().putBoolean(MIGRATION_FLAG, true).apply()
                 return
             }
 
             val aead = TinkAeadProvider.getAead(context)
             val newPrefs = context.getSharedPreferences(NEW_PREFS_NAME, Context.MODE_PRIVATE)
             val tinkPrefs = TinkSecurePreferences(newPrefs, aead)
+            val editor = newPrefs.edit()
 
             for ((key, value) in oldPrefs.all) {
                 when (value) {
-                    is String -> tinkPrefs.putString(key, value)
+                    is String -> {
+                        val encoded = tinkPrefs.encryptStringForStorage(key, value)
+                        editor.putString(key, encoded)
+                    }
                     is Set<*> -> {
                         val set = value.filterIsInstance<String>().toSet()
-                        tinkPrefs.putStringSet(key, set)
+                        val encoded = tinkPrefs.encryptStringSetForStorage(key, set)
+                        editor.putString(key, encoded)
                     }
                     else -> Log.w(TAG, "Skipping unsupported type for key: $key")
                 }
             }
 
+            val committed = editor.commit()
+            if (!committed) {
+                Log.e(TAG, "Failed to persist Tink migration; leaving legacy prefs intact")
+                return
+            }
+
             context.deleteSharedPreferences(OLD_PREFS_NAME)
-            markerPrefs.edit { putBoolean(MIGRATION_FLAG, true) }
+            markerPrefs.edit().putBoolean(MIGRATION_FLAG, true).apply()
             Log.i(TAG, "EncryptedSharedPreferences migrated to Tink")
         } catch (e: Exception) {
             handleMigrationFailure(context, e)
@@ -70,7 +81,8 @@ object DataMigrationManager {
         Log.e(TAG, "Migration failed: ${error.message}", error)
         when (error) {
             is GeneralSecurityException,
-            is IOException -> {
+            is IOException,
+            is KeyStoreException -> {
                 context.deleteSharedPreferences(OLD_PREFS_NAME)
             }
             else -> Unit

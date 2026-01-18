@@ -14,9 +14,7 @@ class TinkSecurePreferences(
     private val gson = Gson()
 
     fun putString(key: String, value: String) {
-        val aad = key.toByteArray(Charsets.UTF_8)
-        val ciphertext = aead.encrypt(value.toByteArray(Charsets.UTF_8), aad)
-        val encoded = Base64.encodeToString(ciphertext, Base64.NO_WRAP)
+        val encoded = encryptStringForStorage(key, value)
         prefs.edit { putString(key, encoded) }
     }
 
@@ -29,8 +27,8 @@ class TinkSecurePreferences(
     }
 
     fun putStringSet(key: String, values: Set<String>) {
-        val json = gson.toJson(values)
-        putString(key, json)
+        val encoded = encryptStringSetForStorage(key, values)
+        prefs.edit { putString(key, encoded) }
     }
 
     fun getStringSet(key: String): Set<String>? {
@@ -47,5 +45,16 @@ class TinkSecurePreferences(
 
     fun clear() {
         prefs.edit { clear() }
+    }
+
+    fun encryptStringForStorage(key: String, value: String): String {
+        val aad = key.toByteArray(Charsets.UTF_8)
+        val ciphertext = aead.encrypt(value.toByteArray(Charsets.UTF_8), aad)
+        return Base64.encodeToString(ciphertext, Base64.NO_WRAP)
+    }
+
+    fun encryptStringSetForStorage(key: String, values: Set<String>): String {
+        val json = gson.toJson(values)
+        return encryptStringForStorage(key, json)
     }
 }
