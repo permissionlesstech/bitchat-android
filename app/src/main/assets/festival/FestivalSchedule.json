@@ -11,6 +11,38 @@
     "musicEnd": "22:00",
     "timezone": "America/Los_Angeles"
   },
+  "tabs": [
+    {
+      "id": "schedule",
+      "name": "Schedule",
+      "icon": "calendar",
+      "type": "schedule"
+    },
+    {
+      "id": "channels",
+      "name": "Channels",
+      "icon": "antenna.radiowaves.left.and.right",
+      "type": "channels"
+    },
+    {
+      "id": "chat",
+      "name": "Mesh Chat",
+      "icon": "bubble.left.and.bubble.right",
+      "type": "chat"
+    },
+    {
+      "id": "map",
+      "name": "Map",
+      "icon": "map",
+      "type": "map"
+    },
+    {
+      "id": "info",
+      "name": "Info",
+      "icon": "info.circle",
+      "type": "info"
+    }
+  ],
   "stages": [
     {
       "id": "lands-end",
