@@ -1,0 +1,237 @@
+{
+  "festival": {
+    "name": "Festivus Mestivus 2026",
+    "location": "Golden Gate Park, San Francisco",
+    "dates": {
+      "start": "2026-08-07",
+      "end": "2026-08-09"
+    },
+    "gatesOpen": "11:00",
+    "musicStart": "12:00",
+    "musicEnd": "22:00",
+    "timezone": "America/Los_Angeles"
+  },
+  "stages": [
+    {
+      "id": "lands-end",
+      "name": "Lands End",
+      "description": "Main Stage",
+      "color": "#FF6B6B",
+      "geohash": "9q8yyk2",
+      "latitude": 37.7694,
+      "longitude": -122.4862
+    },
+    {
+      "id": "twin-peaks",
+      "name": "Twin Peaks",
+      "description": "Second Stage",
+      "color": "#4ECDC4",
+      "geohash": "9q8yym1",
+      "latitude": 37.7701,
+      "longitude": -122.4831
+    },
+    {
+      "id": "sutro",
+      "name": "Sutro",
+      "description": "Electronic/Dance",
+      "color": "#9B59B6",
+      "geohash": "9q8yyk8",
+      "latitude": 37.7688,
+      "longitude": -122.4855
+    },
+    {
+      "id": "panhandle",
+      "name": "Panhandle",
+      "description": "Indie/Alternative", 
+      "color": "#F39C12",
+      "geohash": "9q8yyn3",
+      "latitude": 37.7712,
+      "longitude": -122.4820
+    },
+    {
+      "id": "grass-lands",
+      "name": "Grass Lands",
+      "description": "Cannabis & Chill",
+      "color": "#27AE60",
+      "geohash": "9q8yym5",
+      "latitude": 37.7705,
+      "longitude": -122.4845
+    }
+  ],
+  "customChannels": [
+    {
+      "id": "meetup",
+      "name": "#meetup",
+      "description": "Find your friends, coordinate meetups",
+      "icon": "person.2.fill",
+      "color": "#3498DB"
+    },
+    {
+      "id": "lost-found",
+      "name": "#lost-found",
+      "description": "Lost items, found items",
+      "icon": "magnifyingglass",
+      "color": "#E74C3C"
+    },
+    {
+      "id": "rideshare",
+      "name": "#rideshare",
+      "description": "Share rides to/from the festival",
+      "icon": "car.fill",
+      "color": "#9B59B6"
+    },
+    {
+      "id": "food-tips",
+      "name": "#food-tips",
+      "description": "Best food vendors, short lines",
+      "icon": "fork.knife",
+      "color": "#F39C12"
+    },
+    {
+      "id": "setlist",
+      "name": "#setlist",
+      "description": "What's playing now, song IDs",
+      "icon": "music.note.list",
+      "color": "#1ABC9C"
+    }
+  ],
+  "sets": [
+    {
+      "id": "1",
+      "artist": "Headliner Friday",
+      "stage": "lands-end",
+      "day": "2026-08-07",
+      "start": "20:30",
+      "end": "22:00",
+      "genre": "Hip-Hop"
+    },
+    {
+      "id": "2", 
+      "artist": "Indie Band",
+      "stage": "twin-peaks",
+      "day": "2026-08-07",
+      "start": "19:00",
+      "end": "20:15",
+      "genre": "Indie Rock"
+    },
+    {
+      "id": "3",
+      "artist": "Electronic Act",
+      "stage": "sutro",
+      "day": "2026-08-07",
+      "start": "18:00",
+      "end": "19:30",
+      "genre": "Electronic"
+    },
+    {
+      "id": "4",
+      "artist": "Alt Band",
+      "stage": "panhandle",
+      "day": "2026-08-07",
+      "start": "17:00",
+      "end": "18:00",
+      "genre": "Alternative"
+    },
+    {
+      "id": "5",
+      "artist": "Chill Vibes",
+      "stage": "grass-lands",
+      "day": "2026-08-07",
+      "start": "14:00",
+      "end": "16:00",
+      "genre": "Ambient"
+    },
+    {
+      "id": "6",
+      "artist": "Headliner Saturday",
+      "stage": "lands-end",
+      "day": "2026-08-08",
+      "start": "20:30",
+      "end": "22:00",
+      "genre": "Pop"
+    },
+    {
+      "id": "7",
+      "artist": "DJ Set",
+      "stage": "sutro",
+      "day": "2026-08-08",
+      "start": "21:00",
+      "end": "22:00",
+      "genre": "House"
+    },
+    {
+      "id": "8",
+      "artist": "Rock Band",
+      "stage": "twin-peaks",
+      "day": "2026-08-08",
+      "start": "19:00",
+      "end": "20:15",
+      "genre": "Rock"
+    },
+    {
+      "id": "9",
+      "artist": "Headliner Sunday",
+      "stage": "lands-end",
+      "day": "2026-08-09",
+      "start": "20:00",
+      "end": "22:00",
+      "genre": "R&B"
+    },
+    {
+      "id": "10",
+      "artist": "Closing Act",
+      "stage": "twin-peaks", 
+      "day": "2026-08-09",
+      "start": "18:30",
+      "end": "19:45",
+      "genre": "Soul"
+    }
+  ],
+  "mapBounds": {
+    "northEast": {
+      "latitude": 37.7725,
+      "longitude": -122.4800
+    },
+    "southWest": {
+      "latitude": 37.7675,
+      "longitude": -122.4880
+    }
+  },
+  "pointsOfInterest": [
+    {
+      "id": "entrance-main",
+      "name": "Main Entrance",
+      "icon": "door.left.hand.open",
+      "latitude": 37.7690,
+      "longitude": -122.4870
+    },
+    {
+      "id": "entrance-fulton",
+      "name": "Fulton Entrance",
+      "icon": "door.left.hand.open",
+      "latitude": 37.7720,
+      "longitude": -122.4815
+    },
+    {
+      "id": "medical",
+      "name": "Medical Tent",
+      "icon": "cross.case.fill",
+      "latitude": 37.7698,
+      "longitude": -122.4840
+    },
+    {
+      "id": "info-booth",
+      "name": "Info Booth",
+      "icon": "info.circle.fill",
+      "latitude": 37.7695,
+      "longitude": -122.4850
+    },
+    {
+      "id": "water-station",
+      "name": "Water Station",
+      "icon": "drop.fill",
+      "latitude": 37.7702,
+      "longitude": -122.4835
+    }
+  ]
+}
