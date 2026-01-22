@@ -1,478 +1,508 @@
-package com.bitchat.android.features.festival
+package com.bitchat.android.features.festival.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.bitchat.android.features.festival.FestivalTab
+import com.bitchat.android.features.festival.FestivalScheduleManager
 
 /**
- * FestivalScreen - Main festival mode screen with bottom navigation
- * 
- * This is the main entry point for festival mode UI.
- * It contains four tabs: Schedule, Chat, Map, and Info.
- * 
- * Android equivalent of iOS FestivalContentView.swift
+ * Main festival screen with configurable bottom tab navigation
+ * Tabs are defined in FestivalSchedule.json
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FestivalScreen(
-    festivalViewModel: FestivalScheduleManager = viewModel(),
-    // Pass your existing ChatViewModel here for the chat tab
-    // chatViewModel: ChatViewModel,
-    modifier: Modifier = Modifier
+    scheduleManager: FestivalScheduleManager = viewModel(),
+    onExitFestivalMode: () -> Unit = {},
+    chatContent: @Composable () -> Unit = {}
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Schedule", "Chat", "Map", "Info")
+    val festivalData by scheduleManager.festivalData.collectAsState()
+    val tabs = festivalData?.configuredTabs ?: FestivalTab.defaultTabs
+    var selectedTabId by remember { mutableStateOf(tabs.firstOrNull()?.id ?: "schedule") }
     
-    val festivalData by festivalViewModel.festivalData.collectAsState()
+    // Ensure selected tab is valid
+    LaunchedEffect(tabs) {
+        if (tabs.none { it.id == selectedTabId }) {
+            selectedTabId = tabs.firstOrNull()?.id ?: "schedule"
+        }
+    }
     
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { 
-                    Text(
-                        text = festivalData?.festival?.name ?: "Festival",
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
-            )
-        },
-        bottomBar = {
-            NavigationBar {
-                tabs.forEachIndexed { index, title ->
-                    NavigationBarItem(
-                        icon = {
-                            Icon(
-                                imageVector = when (index) {
-                                    0 -> Icons.Default.Schedule
-                                    1 -> Icons.Default.Chat
-                                    2 -> Icons.Default.Map
-                                    else -> Icons.Default.Info
-                                },
-                                contentDescription = title
-                            )
-                        },
-                        label = { Text(title) },
-                        selected = selectedTab == index,
-                        onClick = { selectedTab = index }
-                    )
-                }
-            }
-        },
-        modifier = modifier
-    ) { paddingValues ->
+    val selectedTab = tabs.find { it.id == selectedTabId }
+    
+    val backgroundColor = MaterialTheme.colorScheme.background
+    val textColor = MaterialTheme.colorScheme.primary
+    
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(backgroundColor)
+    ) {
+        // Festival banner
+        FestivalBanner(
+            festivalName = festivalData?.festival?.name ?: "Festival Mode",
+            textColor = textColor,
+            onExit = onExitFestivalMode
+        )
+        
+        // Content based on selected tab
         Box(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
+                .weight(1f)
+                .fillMaxWidth()
         ) {
-            when (selectedTab) {
-                0 -> FestivalScheduleTab(festivalViewModel)
-                1 -> FestivalChatTab() // Integrate existing ChatScreen here
-                2 -> FestivalMapTab(festivalViewModel)
-                3 -> FestivalInfoTab(festivalViewModel)
-            }
-        }
-    }
-}
-
-// ============================================================================
-// MARK: - Schedule Tab
-// ============================================================================
-
-/**
- * FestivalScheduleTab - Shows the festival schedule by day
- * 
- * Android equivalent of iOS FestivalScheduleView.swift
- */
-@Composable
-fun FestivalScheduleTab(
-    viewModel: FestivalScheduleManager,
-    modifier: Modifier = Modifier
-) {
-    val selectedDay by viewModel.selectedDay.collectAsState()
-    val selectedStage by viewModel.selectedStage.collectAsState()
-    val nowPlaying by viewModel.nowPlaying.collectAsState()
-    val upcomingSoon by viewModel.upcomingSoon.collectAsState()
-    
-    Column(modifier = modifier.fillMaxSize()) {
-        // Day selector
-        DaySelector(
-            days = viewModel.days,
-            selectedDay = selectedDay,
-            onDaySelected = { viewModel.selectDay(it) },
-            formatDay = { viewModel.shortDayName(it) }
-        )
-        
-        // Stage filter chips
-        StageFilterChips(
-            stages = viewModel.stages,
-            selectedStage = selectedStage,
-            onStageSelected = { viewModel.selectStage(it) }
-        )
-        
-        // Schedule list
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Now Playing section
-            if (nowPlaying.isNotEmpty()) {
-                item {
-                    SectionHeader(
-                        title = "Now Playing",
-                        icon = Icons.Default.PlayCircle
-                    )
-                }
-                items(nowPlaying) { set ->
-                    ScheduleSetCard(
-                        set = set,
-                        stage = viewModel.stageById(set.stage),
-                        isNowPlaying = true
-                    )
-                }
-            }
-            
-            // Up Next section
-            if (upcomingSoon.isNotEmpty()) {
-                item {
-                    SectionHeader(
-                        title = "Up Next (30 min)",
-                        icon = Icons.Default.Schedule
-                    )
-                }
-                items(upcomingSoon) { set ->
-                    ScheduleSetCard(
-                        set = set,
-                        stage = viewModel.stageById(set.stage),
-                        isUpcoming = true
-                    )
-                }
-            }
-            
-            // Full schedule for selected day
-            item {
-                SectionHeader(
-                    title = selectedDay?.let { viewModel.formatDayForDisplay(it) } ?: "Schedule",
-                    icon = Icons.Default.CalendarToday
-                )
-            }
-            
-            items(viewModel.filteredSets()) { set ->
-                ScheduleSetCard(
-                    set = set,
-                    stage = viewModel.stageById(set.stage)
+            selectedTab?.let { tab ->
+                FestivalTabContent(
+                    tab = tab,
+                    scheduleManager = scheduleManager,
+                    chatContent = chatContent
                 )
             }
         }
+        
+        HorizontalDivider()
+        
+        // Dynamic tab bar
+        FestivalTabBar(
+            tabs = tabs,
+            selectedTabId = selectedTabId,
+            textColor = textColor,
+            onTabSelected = { selectedTabId = it }
+        )
     }
 }
 
-// ============================================================================
-// MARK: - UI Components
-// ============================================================================
-
 @Composable
-fun DaySelector(
-    days: List<String>,
-    selectedDay: String?,
-    onDaySelected: (String) -> Unit,
-    formatDay: (String) -> String,
-    modifier: Modifier = Modifier
+private fun FestivalBanner(
+    festivalName: String,
+    textColor: Color,
+    onExit: () -> Unit
 ) {
     Row(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
+            .background(textColor.copy(alpha = 0.1f))
             .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        days.forEach { day ->
-            FilterChip(
-                selected = day == selectedDay,
-                onClick = { onDaySelected(day) },
-                label = { Text(formatDay(day)) }
-            )
-        }
-    }
-}
-
-@Composable
-fun StageFilterChips(
-    stages: List<Stage>,
-    selectedStage: String?,
-    onStageSelected: (String?) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        // "All" chip
-        FilterChip(
-            selected = selectedStage == null,
-            onClick = { onStageSelected(null) },
-            label = { Text("All") }
-        )
-        
-        // Stage chips
-        stages.forEach { stage ->
-            FilterChip(
-                selected = stage.id == selectedStage,
-                onClick = { onStageSelected(stage.id) },
-                label = { Text(stage.name) },
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = stage.composeColor.copy(alpha = 0.3f)
-                )
-            )
-        }
-    }
-}
-
-@Composable
-fun SectionHeader(
-    title: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
-            imageVector = icon,
+            imageVector = Icons.Default.Festival,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary
+            tint = textColor,
+            modifier = Modifier.size(20.dp)
         )
+        
+        Spacer(modifier = Modifier.width(8.dp))
+        
         Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold
+            text = festivalName,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp,
+            color = textColor
         )
+        
+        Spacer(modifier = Modifier.weight(1f))
+        
+        TextButton(onClick = onExit) {
+            Text(
+                text = "Exit",
+                fontFamily = FontFamily.Monospace,
+                fontSize = 12.sp
+            )
+        }
     }
 }
 
 @Composable
-fun ScheduleSetCard(
-    set: ScheduledSet,
-    stage: Stage?,
-    isNowPlaying: Boolean = false,
-    isUpcoming: Boolean = false,
-    modifier: Modifier = Modifier
+private fun FestivalTabContent(
+    tab: FestivalTab,
+    scheduleManager: FestivalScheduleManager,
+    chatContent: @Composable () -> Unit
 ) {
-    val backgroundColor = when {
-        isNowPlaying -> MaterialTheme.colorScheme.primaryContainer
-        isUpcoming -> MaterialTheme.colorScheme.secondaryContainer
-        else -> MaterialTheme.colorScheme.surfaceVariant
+    when (tab.type) {
+        FestivalTab.TabType.SCHEDULE -> {
+            FestivalScheduleTab(scheduleManager = scheduleManager)
+        }
+        FestivalTab.TabType.CHANNELS -> {
+            FestivalChannelsTab(scheduleManager = scheduleManager)
+        }
+        FestivalTab.TabType.CHAT -> {
+            chatContent()
+        }
+        FestivalTab.TabType.MAP -> {
+            FestivalMapTab(scheduleManager = scheduleManager)
+        }
+        FestivalTab.TabType.INFO -> {
+            FestivalInfoTab(scheduleManager = scheduleManager)
+        }
+        FestivalTab.TabType.FRIENDS -> {
+            FriendMapTab()
+        }
+        FestivalTab.TabType.CUSTOM -> {
+            CustomTab(tabName = tab.name)
+        }
     }
-    
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = backgroundColor)
+}
+
+@Composable
+private fun FestivalTabBar(
+    tabs: List<FestivalTab>,
+    selectedTabId: String,
+    textColor: Color,
+    onTabSelected: (String) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = set.artist,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+        tabs.forEach { tab ->
+            val isSelected = tab.id == selectedTabId
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onTabSelected(tab.id) }
+                    .padding(vertical = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    imageVector = mapIconName(tab.icon),
+                    contentDescription = tab.name,
+                    tint = if (isSelected) textColor else Color.Gray,
+                    modifier = Modifier.size(24.dp)
                 )
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = set.timeRangeString,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = tab.name,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 10.sp,
+                    color = if (isSelected) textColor else Color.Gray
                 )
-                set.genre?.let { genre ->
-                    Text(
-                        text = genre,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            
-            // Stage indicator
-            stage?.let { s ->
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(s.composeColor)
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = s.name,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color.White
-                    )
-                }
             }
         }
     }
 }
 
-// ============================================================================
-// MARK: - Placeholder Tabs (to be expanded)
-// ============================================================================
+/** Map iOS SF Symbol names to Material icons */
+private fun mapIconName(sfSymbol: String): ImageVector {
+    return when (sfSymbol) {
+        "calendar" -> Icons.Default.CalendarMonth
+        "antenna.radiowaves.left.and.right" -> Icons.Default.CellTower
+        "bubble.left.and.bubble.right" -> Icons.Default.Forum
+        "map" -> Icons.Default.Map
+        "info.circle" -> Icons.Default.Info
+        "person.2" -> Icons.Default.People
+        "sparkles" -> Icons.Default.AutoAwesome
+        else -> Icons.Default.Circle
+    }
+}
+
+// MARK: - Tab Content Views
 
 @Composable
-fun FestivalChatTab(modifier: Modifier = Modifier) {
-    // TODO: Integrate existing ChatScreen here
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Text("Chat tab - integrate existing ChatScreen")
+fun FestivalScheduleTab(scheduleManager: FestivalScheduleManager) {
+    val festivalData by scheduleManager.festivalData.collectAsState()
+    val selectedDay by scheduleManager.selectedDay.collectAsState()
+    val nowPlaying by scheduleManager.nowPlaying.collectAsState()
+    
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        // Day selector
+        val days = scheduleManager.days
+        if (days.isNotEmpty()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                days.forEach { day ->
+                    FilterChip(
+                        selected = day == selectedDay,
+                        onClick = { scheduleManager.selectDay(day) },
+                        label = { Text(scheduleManager.formatDayForDisplay(day)) }
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+        
+        // Now playing section
+        if (nowPlaying.isNotEmpty()) {
+            Text(
+                text = "Now Playing",
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            nowPlaying.forEach { set ->
+                val stage = scheduleManager.stage(set.stage)
+                SetCard(set = set, stageColor = stage?.composeColor ?: Color.Gray)
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+        
+        // Full schedule
+        Text(
+            text = "Full Schedule",
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Bold,
+            fontSize = 16.sp
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        selectedDay?.let { day ->
+            scheduleManager.sets(day).forEach { set ->
+                val stage = scheduleManager.stage(set.stage)
+                SetCard(set = set, stageColor = stage?.composeColor ?: Color.Gray)
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
     }
 }
 
 @Composable
-fun FestivalMapTab(
-    viewModel: FestivalScheduleManager,
-    modifier: Modifier = Modifier
+fun SetCard(
+    set: com.bitchat.android.features.festival.ScheduledSet,
+    stageColor: Color
 ) {
-    // TODO: Implement Google Maps with stage markers and POIs
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = stageColor.copy(alpha = 0.1f))
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = set.artist,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp
+            )
+            Text(
+                text = "${set.timeRangeString} • ${set.stage}",
+                fontSize = 12.sp,
+                color = Color.Gray
+            )
+            set.genre?.let {
+                Text(
+                    text = it,
+                    fontSize = 11.sp,
+                    color = stageColor
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun FestivalChannelsTab(scheduleManager: FestivalScheduleManager) {
+    val festivalData by scheduleManager.festivalData.collectAsState()
+    
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Text(
+            text = "Stage Channels",
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Bold,
+            fontSize = 16.sp
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        festivalData?.stages?.forEach { stage ->
+            ChannelRow(
+                name = stage.channelName,
+                description = stage.description,
+                color = stage.composeColor
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Text(
+            text = "Custom Channels",
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Bold,
+            fontSize = 16.sp
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        festivalData?.customChannels?.forEach { channel ->
+            ChannelRow(
+                name = channel.name,
+                description = channel.description,
+                color = channel.composeColor
+            )
+        }
+    }
+}
+
+@Composable
+fun ChannelRow(name: String, description: String, color: Color) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(12.dp)
+                .background(color, shape = androidx.compose.foundation.shape.CircleShape)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Column {
+            Text(text = name, fontWeight = FontWeight.Medium)
+            Text(text = description, fontSize = 12.sp, color = Color.Gray)
+        }
+    }
+}
+
+@Composable
+fun FestivalMapTab(scheduleManager: FestivalScheduleManager) {
+    // Placeholder - integrate Google Maps or MapBox here
     Box(
-        modifier = modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(
                 imageVector = Icons.Default.Map,
                 contentDescription = null,
-                modifier = Modifier.size(64.dp)
+                modifier = Modifier.size(48.dp),
+                tint = Color.Gray
             )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("Map tab - implement with Google Maps Compose")
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Stages: ${viewModel.stages.size}, POIs: ${viewModel.pointsOfInterest.size}",
-                style = MaterialTheme.typography.bodySmall
+                text = "Map Coming Soon",
+                fontFamily = FontFamily.Monospace,
+                color = Color.Gray
             )
         }
     }
 }
 
 @Composable
-fun FestivalInfoTab(
-    viewModel: FestivalScheduleManager,
-    modifier: Modifier = Modifier
-) {
-    val festivalData by viewModel.festivalData.collectAsState()
+fun FestivalInfoTab(scheduleManager: FestivalScheduleManager) {
+    val festivalData by scheduleManager.festivalData.collectAsState()
     
-    LazyColumn(
-        modifier = modifier
+    Column(
+        modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        item {
-            // Festival info card
-            festivalData?.festival?.let { info ->
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = info.name,
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = "📍 ${info.location}")
-                        Text(text = "📅 ${info.dates.start} to ${info.dates.end}")
-                        Text(text = "🚪 Gates open: ${info.gatesOpen}")
-                        Text(text = "🎵 Music: ${info.musicStart} - ${info.musicEnd}")
-                    }
-                }
-            }
-        }
-        
-        // Custom channels section
-        item {
-            SectionHeader(
-                title = "Festival Channels",
-                icon = Icons.Default.Tag
+        festivalData?.festival?.let { festival ->
+            Text(
+                text = festival.name,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = festival.location,
+                fontSize = 14.sp,
+                color = Color.Gray
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Gates: ${festival.gatesOpen} • Music: ${festival.musicStart} - ${festival.musicEnd}",
+                fontSize = 12.sp,
+                color = Color.Gray
             )
         }
         
-        items(viewModel.customChannels) { channel ->
-            ChannelCard(channel = channel)
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Text(
+            text = "Festival Tips",
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Bold,
+            fontSize = 16.sp
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        TipRow(icon = Icons.Default.WifiOff, text = "Mesh chat works without cell service")
+        TipRow(icon = Icons.Default.People, text = "Add friends as favorites to find them later")
+        TipRow(icon = Icons.Default.BatteryFull, text = "BLE mesh is battery efficient")
+    }
+}
+
+@Composable
+fun TipRow(icon: ImageVector, text: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+            tint = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(text = text, fontSize = 14.sp)
+    }
+}
+
+@Composable
+fun FriendMapTab() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                imageVector = Icons.Default.People,
+                contentDescription = null,
+                modifier = Modifier.size(48.dp),
+                tint = Color.Gray
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Friend Locations",
+                fontFamily = FontFamily.Monospace,
+                color = Color.Gray
+            )
+            Text(
+                text = "Coming Soon",
+                fontSize = 12.sp,
+                color = Color.Gray
+            )
         }
     }
 }
 
 @Composable
-fun ChannelCard(
-    channel: CustomChannel,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable { /* TODO: Join channel */ }
+fun CustomTab(tabName: String) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(channel.composeColor),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Tag,
-                    contentDescription = null,
-                    tint = Color.White
-                )
-            }
-            Column {
-                Text(
-                    text = channel.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = channel.description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                imageVector = Icons.Default.AutoAwesome,
+                contentDescription = null,
+                modifier = Modifier.size(48.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = tabName,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
