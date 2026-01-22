@@ -306,3 +306,49 @@ Contributions are welcome! Key areas for enhancement:
 - **iOS Compatibility**: Cross-reference with [original iOS repo](https://github.com/jackjackbits/bitchat)
 
 For iOS-specific issues, please refer to the [original iOS bitchat repository](https://github.com/jackjackbits/bitchat).
+
+---
+
+## 🎪 Festivus Mestivus - Festival Mode
+
+This fork adds festival companion features for **Festivus Mestivus 2026**.
+
+### Festival Features
+
+- **Schedule View** - Browse lineup by day and stage
+- **Now Playing** - See what's on right now
+- **Stage Channels** - Auto-join chat for the stage you're near
+- **Custom Channels** - #meetup, #lost-found, #rideshare, #food-tips, #setlist
+- **Friend Map** - See where your friends are (with permission)
+- **Points of Interest** - Find entrances, medical tents, water stations
+
+### Enabling Festival Mode
+
+1. Build and run the app
+2. Go to Settings
+3. Toggle "Festival Mode" on
+
+### Files Added
+
+```
+app/src/main/java/com/bitchat/android/features/festival/
+├── FestivalModels.kt           # Data classes (same JSON as iOS)
+├── FestivalScheduleManager.kt  # ViewModel
+├── FestivalModeManager.kt      # Persistence
+└── ui/
+    └── FestivalScreen.kt       # Compose UI
+
+app/src/main/assets/festival/
+└── FestivalSchedule.json       # Festival data (sync with iOS)
+
+docs/
+├── FESTIVAL_INTEGRATION_GUIDE.md
+└── BITCHAT_LIMITATIONS_AND_RANGE.md
+```
+
+### iOS Version
+
+The iOS version lives at [MDunitz/bitchat](https://github.com/MDunitz/bitchat). Both versions share the same `FestivalSchedule.json` format.
+
+---
+
