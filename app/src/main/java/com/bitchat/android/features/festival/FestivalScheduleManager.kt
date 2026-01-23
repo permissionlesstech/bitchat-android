@@ -79,7 +79,7 @@ class FestivalScheduleManager(application: Application) : AndroidViewModel(appli
      * Festival timezone identifier
      */
     val timezone: String
-        get() = _festivalData.value?.festival?.timezoneIdentifier ?: "America/Los_Angeles"
+        get() = _festivalData.value?.festival?.timezone ?: "America/Los_Angeles"
     
     /**
      * All unique days from the schedule, sorted
@@ -278,4 +278,5 @@ class FestivalScheduleManager(application: Application) : AndroidViewModel(appli
         }
     }
 }
+
 
