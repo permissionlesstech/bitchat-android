@@ -2,6 +2,7 @@
 # Android and Kotlin
 agp = "8.10.1"
 kotlin = "2.2.0"
+kotlinx-serialization = "1.6.3"
 compileSdk = "35"
 minSdk = "26" # API 26 for proper BLE support
 targetSdk = "35"
@@ -95,6 +96,7 @@ google-tink-android = { module = "com.google.crypto.tink:tink-android", version.
 
 # JSON
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 
 # Coroutines
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
@@ -140,6 +142,7 @@ android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-parcelize = { id = "kotlin-parcelize" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 
 [bundles]
 compose = [
@@ -174,3 +177,4 @@ compose-testing = [
     "androidx-compose-ui-test-junit4",
     "androidx-compose-ui-test-manifest"
 ] 
+
