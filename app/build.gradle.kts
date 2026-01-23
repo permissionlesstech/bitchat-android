@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.parcelize)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -121,6 +122,9 @@ dependencies {
     // JSON
     implementation(libs.gson)
     
+    // Kotlinx Serialization (for festival JSON)
+    implementation(libs.kotlinx.serialization.json)
+    
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
     
@@ -151,3 +155,4 @@ dependencies {
     androidTestImplementation(libs.bundles.compose.testing)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
+
