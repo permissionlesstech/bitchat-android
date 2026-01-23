@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Celebration
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.*
@@ -35,6 +36,7 @@ import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 import com.bitchat.android.net.TorMode
 import com.bitchat.android.net.TorPreferenceManager
 import com.bitchat.android.net.ArtiTorManager
+import com.bitchat.android.features.festival.FestivalModeManager
 
 /**
  * Feature row for displaying app capabilities
@@ -369,6 +371,8 @@ fun AboutSheet(
                         val powEnabled by PoWPreferenceManager.powEnabled.collectAsState()
                         val powDifficulty by PoWPreferenceManager.powDifficulty.collectAsState()
                         var backgroundEnabled by remember { mutableStateOf(com.bitchat.android.service.MeshServicePreferences.isBackgroundEnabled(true)) }
+                        val festivalModeManager = remember { FestivalModeManager.getInstance(context) }
+                        val isFestivalMode by festivalModeManager.isFestivalModeEnabled.collectAsState()
                         val torMode = remember { mutableStateOf(TorPreferenceManager.get(context)) }
                         val torProvider = remember { ArtiTorManager.getInstance() }
                         val torStatus by torProvider.statusFlow.collectAsState()
@@ -451,6 +455,20 @@ fun AboutSheet(
                                                 ) {}
                                             }
                                         } else null
+                                    )
+                                    
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(start = 56.dp),
+                                        color = colorScheme.outline.copy(alpha = 0.12f)
+                                    )
+                                    
+                                    // Festival Mode Toggle
+                                    SettingsToggleRow(
+                                        icon = Icons.Filled.Celebration,
+                                        title = "Festival Mode",
+                                        subtitle = "Enable Festivus Mestivus companion features",
+                                        checked = isFestivalMode,
+                                        onCheckedChange = { festivalModeManager.setFestivalModeEnabled(it) }
                                     )
                                 }
                             }
@@ -741,3 +759,4 @@ fun PasswordPromptDialog(
         )
     }
 }
+
