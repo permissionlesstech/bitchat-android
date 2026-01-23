@@ -37,6 +37,8 @@ import com.bitchat.android.onboarding.OnboardingState
 import com.bitchat.android.onboarding.PermissionExplanationScreen
 import com.bitchat.android.onboarding.PermissionManager
 import com.bitchat.android.ui.ChatScreen
+import com.bitchat.android.features.festival.FestivalModeManager
+import com.bitchat.android.features.festival.ui.FestivalScreen
 import com.bitchat.android.ui.ChatViewModel
 import com.bitchat.android.ui.OrientationAwareActivity
 import com.bitchat.android.ui.theme.BitchatTheme
@@ -304,7 +306,18 @@ class MainActivity : OrientationAwareActivity() {
 
                 // Add the callback - this will be automatically removed when the activity is destroyed
                 onBackPressedDispatcher.addCallback(this, backCallback)
-                ChatScreen(viewModel = chatViewModel)
+                // Festival mode integration
+                val festivalModeManager = remember { FestivalModeManager.getInstance(context) }
+                val isFestivalMode by festivalModeManager.isFestivalModeEnabled.collectAsState()
+                
+                if (isFestivalMode) {
+                    FestivalScreen(
+                        onExitFestivalMode = { festivalModeManager.setFestivalModeEnabled(false) },
+                        chatContent = { ChatScreen(viewModel = chatViewModel) }
+                    )
+                } else {
+                    ChatScreen(viewModel = chatViewModel)
+                }
             }
             
             OnboardingState.ERROR -> {
@@ -840,3 +853,4 @@ class MainActivity : OrientationAwareActivity() {
         // Do not stop mesh here; ForegroundService owns lifecycle for background reliability
     }
 }
+
