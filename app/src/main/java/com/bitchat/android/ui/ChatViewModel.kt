@@ -1065,6 +1065,18 @@ class ChatViewModel(
         }
     }
 
+    fun startGeohashDMByNickname(nickname: String) {
+        geohashViewModel.startGeohashDMByNickname(nickname) { convKey ->
+            showPrivateChatSheet(convKey)
+        }
+    }
+
+    fun startGeohashDMByShortId(shortId: String) {
+        geohashViewModel.startGeohashDMByShortId(shortId) { convKey ->
+            showPrivateChatSheet(convKey)
+        }
+    }
+
     fun selectLocationChannel(channel: com.bitchat.android.geohash.ChannelID) {
         geohashViewModel.selectLocationChannel(channel)
     }

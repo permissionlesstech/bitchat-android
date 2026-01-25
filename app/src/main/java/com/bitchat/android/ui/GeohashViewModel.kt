@@ -273,6 +273,25 @@ class GeohashViewModel(
         Log.d(TAG, "🗨️ Started geohash DM with ${pubkeyHex} -> ${convKey} (geohash=${gh})")
     }
 
+    fun startGeohashDMByNickname(nickname: String, onStartPrivateChat: (String) -> Unit) {
+        val pubkey = repo.findPubkeyByNickname(nickname)
+        if (pubkey != null) {
+            startGeohashDM(pubkey, onStartPrivateChat)
+        } else {
+            Log.w(TAG, "Cannot start geohash DM: nickname '$nickname' not found in repo")
+            // Optionally notify user
+        }
+    }
+
+    fun startGeohashDMByShortId(shortId: String, onStartPrivateChat: (String) -> Unit) {
+        val pubkey = repo.findPubkeyByShortId(shortId)
+        if (pubkey != null) {
+            startGeohashDM(pubkey, onStartPrivateChat)
+        } else {
+             Log.w(TAG, "Cannot start geohash DM: shortId '$shortId' not found in repo")
+        }
+    }
+
     fun getNostrKeyMapping(): Map<String, String> = repo.getNostrKeyMapping()
 
     fun blockUserInGeohash(targetNickname: String) {
