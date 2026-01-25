@@ -257,6 +257,15 @@ class NostrRelayManager private constructor() {
     }
     
     /**
+     * Connect to additional relays (e.g., for profile lookups).
+     * These are added to the relay list and connections are established if not already connected.
+     */
+    fun connectToAdditionalRelays(relayUrls: List<String>) {
+        Log.d(TAG, "📡 Connecting to ${relayUrls.size} additional relays for profile lookup")
+        ensureConnectionsFor(relayUrls.toSet())
+    }
+
+    /**
      * Disconnect from all relays
      */
     fun disconnect() {
