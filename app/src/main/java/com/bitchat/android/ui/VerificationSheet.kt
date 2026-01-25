@@ -77,12 +77,13 @@ import com.bitchat.android.services.VerificationService
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
-import com.google.mlkit.vision.barcode.BarcodeScannerOptions
-import com.google.mlkit.vision.barcode.BarcodeScanning
-import com.google.mlkit.vision.barcode.common.Barcode
-import com.google.mlkit.vision.common.InputImage
 import com.google.zxing.BarcodeFormat
+import com.google.zxing.BinaryBitmap
+import com.google.zxing.DecodeHintType
+import com.google.zxing.MultiFormatReader
+import com.google.zxing.PlanarYUVLuminanceSource
 import com.google.zxing.common.BitMatrix
+import com.google.zxing.common.HybridBinarizer
 import com.google.zxing.qrcode.QRCodeWriter
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.util.concurrent.ExecutorService
@@ -515,11 +516,12 @@ private fun bitmapFromMatrix(matrix: BitMatrix): Bitmap {
 private class QRCodeAnalyzer(
     private val onCode: (String) -> Unit
 ) : ImageAnalysis.Analyzer {
-    private val scanner = BarcodeScanning.getClient(
-        BarcodeScannerOptions.Builder()
-            .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
-            .build()
-    )
+    private val reader = MultiFormatReader().apply {
+        val hints = mapOf(
+            DecodeHintType.POSSIBLE_FORMATS to listOf(BarcodeFormat.QR_CODE)
+        )
+        setHints(hints)
+    }
 
     @ExperimentalGetImage
     override fun analyze(imageProxy: ImageProxy) {
@@ -527,12 +529,51 @@ private class QRCodeAnalyzer(
             imageProxy.close()
             return
         }
-        val input = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
-        scanner.process(input)
-            .addOnSuccessListener { barcodes ->
-                val text = barcodes.firstOrNull()?.rawValue
-                if (!text.isNullOrBlank()) onCode(text)
+
+        try {
+            val width = mediaImage.width
+            val height = mediaImage.height
+            val yPlane = mediaImage.planes[0]
+            val yBuffer = yPlane.buffer
+            val rowStride = yPlane.rowStride
+            val pixelStride = yPlane.pixelStride
+            val yData = ByteArray(width * height)
+            if (rowStride == width && pixelStride == 1) {
+                yBuffer.get(yData)
+            } else {
+                var offset = 0
+                for (row in 0 until height) {
+                    yBuffer.position(row * rowStride)
+                    if (pixelStride == 1) {
+                        yBuffer.get(yData, offset, width)
+                    } else {
+                        for (col in 0 until width) {
+                            yData[offset + col] = yBuffer.get(row * rowStride + col * pixelStride)
+                        }
+                    }
+                    offset += width
+                }
             }
-            .addOnCompleteListener { imageProxy.close() }
+            val source = PlanarYUVLuminanceSource(
+                yData,
+                width,
+                height,
+                0,
+                0,
+                width,
+                height,
+                false
+            )
+            val bitmap = BinaryBitmap(HybridBinarizer(source))
+            val result = reader.decodeWithState(bitmap)
+            val text = result?.text
+            if (!text.isNullOrBlank()) {
+                onCode(text)
+            }
+        } catch (_: Exception) {
+            // ignoring it if qr code scan failed or something happened
+        } finally {
+            imageProxy.close()
+        }
     }
 }

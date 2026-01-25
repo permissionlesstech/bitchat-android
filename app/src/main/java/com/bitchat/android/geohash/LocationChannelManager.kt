@@ -10,8 +10,6 @@ import android.location.LocationManager
 import android.os.Bundle
 import android.util.Log
 import androidx.core.app.ActivityCompat
-import com.google.android.gms.common.ConnectionResult
-import com.google.android.gms.common.GoogleApiAvailability
 import kotlinx.coroutines.*
 import java.util.*
 import com.google.gson.Gson
@@ -118,15 +116,9 @@ class LocationChannelManager private constructor(private val context: Context) {
 
 
     init {
-        // Choose the best location provider
-        val availability = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context)
-        locationProvider = if (availability == ConnectionResult.SUCCESS) {
-            Log.i(TAG, "Using FusedLocationProvider (Google Play Services)")
-            FusedLocationProvider(context)
-        } else {
-            Log.i(TAG, "Using SystemLocationProvider (Native LocationManager)")
-            SystemLocationProvider(context)
-        }
+        // Use the native Android location provider
+        Log.i(TAG, "Using SystemLocationProvider (Native LocationManager)")
+        locationProvider = SystemLocationProvider(context)
 
         checkAndSyncPermission()
         // Initialize DataManager and load persisted settings
