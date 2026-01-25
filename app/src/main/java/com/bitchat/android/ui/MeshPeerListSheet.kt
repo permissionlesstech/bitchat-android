@@ -641,6 +641,20 @@ private fun PeerItem(
                         overflow = TextOverflow.Ellipsis
                     )
 
+                    // Fingerprint (first 8 chars) with middle dot separator
+                    val peerFingerprints by viewModel.peerFingerprints.collectAsStateWithLifecycle()
+                    val fingerprint = peerFingerprints[peerID]
+                    if (fingerprint != null) {
+                        Text(
+                            text = "·${fingerprint.take(8)}",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = (BASE_FONT_SIZE - 1).sp
+                            ),
+                            color = baseColor.copy(alpha = 0.5f)
+                        )
+                    }
+
                     // Hashtag suffix in lighter shade (iOS-style)
                     if (suffix.isNotEmpty()) {
                         Text(
