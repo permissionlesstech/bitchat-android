@@ -110,6 +110,13 @@ fun ChatScreen(viewModel: ChatViewModel) {
 
     // Determine whether to show media buttons (enabled for all channels)
     val showMediaButtons = true
+    
+    // Determine whether to allow binary media (Voice/Images) - restricted to Mesh
+    val allowBinaryMedia = when {
+        currentChannel != null -> true // Mesh channels support media
+        selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location -> false // Nostr/Geohash does not support binary media yet
+        else -> true // Mesh timeline supports media
+    }
 
     // Use WindowInsets to handle keyboard properly
     Box(
@@ -266,7 +273,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 currentChannel = currentChannel,
                 nickname = nickname,
                 colorScheme = colorScheme,
-                showMediaButtons = showMediaButtons
+                showMediaButtons = showMediaButtons,
+                allowBinaryMedia = allowBinaryMedia
             )
         }
 
@@ -395,7 +403,8 @@ fun ChatInputSection(
     currentChannel: String?,
     nickname: String,
     colorScheme: ColorScheme,
-    showMediaButtons: Boolean
+    showMediaButtons: Boolean,
+    allowBinaryMedia: Boolean = true
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -433,6 +442,7 @@ fun ChatInputSection(
                 currentChannel = currentChannel,
                 nickname = nickname,
                 showMediaButtons = showMediaButtons,
+                allowBinaryMedia = allowBinaryMedia,
                 modifier = Modifier.fillMaxWidth()
             )
         }

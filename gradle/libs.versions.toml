@@ -35,7 +35,7 @@ kotlinx-coroutines = "1.10.2"
 nordic-ble = "2.6.1"
 
 # Giphy
-giphy = "2.1.9"
+giphy = "2.3.13"
 
 # Coil
 coil = "2.6.0"

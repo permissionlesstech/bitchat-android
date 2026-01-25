@@ -172,6 +172,7 @@ fun MessageInput(
     currentChannel: String?,
     nickname: String,
     showMediaButtons: Boolean,
+    allowBinaryMedia: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -274,11 +275,13 @@ fun MessageInput(
                     //        onSendFileNote(latestSelectedPeer.value, latestChannel.value, path)
                     //    }
                     //)
-                    ImagePickerButton(
-                        onImageReady = { outPath ->
-                            onSendImageNote(latestSelectedPeer.value, latestChannel.value, outPath)
-                        }
-                    )
+                    if (allowBinaryMedia) {
+                        ImagePickerButton(
+                            onImageReady = { outPath ->
+                                onSendImageNote(latestSelectedPeer.value, latestChannel.value, outPath)
+                            }
+                        )
+                    }
 
                     Spacer(Modifier.width(1.dp))
 
@@ -311,36 +314,44 @@ fun MessageInput(
 
             Spacer(Modifier.width(1.dp))
 
-            VoiceRecordButton(
-                backgroundColor = bg,
-                onStart = {
-                    isRecording = true
-                    elapsedMs = 0L
-                    // Keep existing focus to avoid IME collapse, but do not force-show keyboard
-                    if (isFocused.value) {
-                        try { focusRequester.requestFocus() } catch (_: Exception) {}
-                    }
-                },
-                onAmplitude = { amp, ms ->
-                    amplitude = amp
-                    elapsedMs = ms
-                },
-                onFinish = { path ->
-                    isRecording = false
-                    // Extract and cache waveform from the actual audio file to match receiver rendering
-                    AudioWaveformExtractor.extractAsync(path, sampleCount = 120) { arr ->
-                        if (arr != null) {
-                            try { com.bitchat.android.features.voice.VoiceWaveformCache.put(path, arr) } catch (_: Exception) {}
+            if (allowBinaryMedia) {
+                VoiceRecordButton(
+                    backgroundColor = bg,
+                    onStart = {
+                        isRecording = true
+                        elapsedMs = 0L
+                        // Keep existing focus to avoid IME collapse, but do not force-show keyboard
+                        if (isFocused.value) {
+                            try {
+                                focusRequester.requestFocus()
+                            } catch (_: Exception) {
+                            }
                         }
+                    },
+                    onAmplitude = { amp, ms ->
+                        amplitude = amp
+                        elapsedMs = ms
+                    },
+                    onFinish = { path ->
+                        isRecording = false
+                        // Extract and cache waveform from the actual audio file to match receiver rendering
+                        AudioWaveformExtractor.extractAsync(path, sampleCount = 120) { arr ->
+                            if (arr != null) {
+                                try {
+                                    com.bitchat.android.features.voice.VoiceWaveformCache.put(path, arr)
+                                } catch (_: Exception) {
+                                }
+                            }
+                        }
+                        // BLE path (private or public) — use latest values to avoid stale captures
+                        latestOnSendVoiceNote.value(
+                            latestSelectedPeer.value,
+                            latestChannel.value,
+                            path
+                        )
                     }
-                    // BLE path (private or public) — use latest values to avoid stale captures
-                    latestOnSendVoiceNote.value(
-                        latestSelectedPeer.value,
-                        latestChannel.value,
-                        path
-                    )
-                }
-            )
+                )
+            }
             
         } else {
             // Send button with enabled/disabled state

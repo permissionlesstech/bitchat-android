@@ -905,7 +905,8 @@ fun PrivateChatSheet(
                         currentChannel = null,
                         nickname = nickname,
                         colorScheme = colorScheme,
-                        showMediaButtons = true
+                        showMediaButtons = true,
+                        allowBinaryMedia = !isNostrPeer
                     )
                 }
 
