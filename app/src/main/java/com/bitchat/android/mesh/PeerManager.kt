@@ -336,6 +336,13 @@ class PeerManager {
             .toList()
             .sorted()
     }
+
+    /**
+     * Get list of active peer IDs (alias for getActivePeerIDs for consistency)
+     */
+    fun getActivePeers(): List<String> {
+        return getActivePeerIDs()
+    }
     
     /**
      * Get active peer count
