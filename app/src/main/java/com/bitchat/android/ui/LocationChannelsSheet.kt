@@ -542,6 +542,13 @@ fun LocationChannelsSheet(
             viewModel.endGeohashSampling()
         }
     }
+
+    // Ensure cleanup when the composable is destroyed (e.g. removed from parent composition)
+    DisposableEffect(Unit) {
+        onDispose {
+            viewModel.endGeohashSampling()
+        }
+    }
 }
 
 @Composable
