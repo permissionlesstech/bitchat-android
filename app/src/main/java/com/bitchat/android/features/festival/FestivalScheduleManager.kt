@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.ZoneId
 
 /**
  * FestivalScheduleManager - ViewModel for festival schedule data
@@ -78,8 +79,8 @@ class FestivalScheduleManager(application: Application) : AndroidViewModel(appli
     /**
      * Festival timezone identifier
      */
-    val timezone: String
-        get() = _festivalData.value?.festival?.timezone ?: "America/Los_Angeles"
+    val timezoneId: ZoneId
+        get() = _festivalData.value?.festival?.timezoneId ?: ZoneId.of("America/Los_Angeles")
     
     /**
      * All unique days from the schedule, sorted
@@ -146,7 +147,7 @@ class FestivalScheduleManager(application: Application) : AndroidViewModel(appli
     fun setsForDay(day: String): List<ScheduledSet> {
         return _festivalData.value?.sets
             ?.filter { it.day == day }
-            ?.sortedBy { it.startDateTime(timezone) }
+            ?.sortedBy { it.startDateTime(timezoneId) }
             ?: emptyList()
     }
     
@@ -191,11 +192,11 @@ class FestivalScheduleManager(application: Application) : AndroidViewModel(appli
         val now = LocalDateTime.now()
         
         _nowPlaying.value = data.sets
-            .filter { it.isNowPlaying(now, timezone) }
+            .filter { it.isNowPlaying(now, timezoneId) }
         
         _upcomingSoon.value = data.sets
-            .filter { it.isUpcoming(30, now, timezone) }
-            .sortedBy { it.startDateTime(timezone) }
+            .filter { it.isUpcoming(30, now, timezoneId) }
+            .sortedBy { it.startDateTime(timezoneId) }
     }
     
     // ========================================================================
@@ -278,5 +279,6 @@ class FestivalScheduleManager(application: Application) : AndroidViewModel(appli
         }
     }
 }
+
 
 
