@@ -98,6 +98,20 @@ data class Stage(
     /** Channel name for this stage (e.g., "#lands-end") */
     val channelName: String
         get() = "#$id"
+    
+    /** Check if stage has valid coordinates */
+    val hasCoordinates: Boolean
+        get() = latitude != null && longitude != null
+    
+    /** Calculate distance to a location in meters */
+    fun distanceTo(location: android.location.Location): Float? {
+        if (!hasCoordinates) return null
+        val stageLocation = android.location.Location("").apply {
+            latitude = this@Stage.latitude!!
+            longitude = this@Stage.longitude!!
+        }
+        return location.distanceTo(stageLocation)
+    }
 }
 
 @Serializable
@@ -222,3 +236,4 @@ fun loadFestivalData(context: Context): FestivalData? {
         null
     }
 }
+
