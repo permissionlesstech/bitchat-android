@@ -173,8 +173,9 @@ class GeohashViewModel(
             val identity = NostrIdentityBridge.deriveIdentity(geohash, getApplication())
             val event = NostrProtocol.createGeohashPresenceEvent(geohash, identity)
             val relayManager = NostrRelayManager.getInstance(getApplication())
-            // Presence is lightweight, send to geohash relays
-            relayManager.sendEventToGeohash(event, geohash, includeDefaults = false, nRelays = 5)
+            // Presence is lightweight, send to geohash relays with optimal relay count
+            val optimalRelays = NostrRelayManager.optimalRelayCount(geohash)
+            relayManager.sendEventToGeohash(event, geohash, includeDefaults = false, nRelays = optimalRelays)
             Log.v(TAG, "💓 Sent presence heartbeat for $geohash")
         } catch (e: Exception) {
             Log.w(TAG, "Failed to send presence for $geohash: ${e.message}")
@@ -206,7 +207,8 @@ class GeohashViewModel(
                     val teleported = state.isTeleported.value
                     val event = NostrProtocol.createEphemeralGeohashEvent(content, channel.geohash, identity, nickname, teleported)
                     val relayManager = NostrRelayManager.getInstance(getApplication())
-                    relayManager.sendEventToGeohash(event, channel.geohash, includeDefaults = false, nRelays = 5)
+                    val optimalRelays = NostrRelayManager.optimalRelayCount(channel.geohash)
+                    relayManager.sendEventToGeohash(event, channel.geohash, includeDefaults = false, nRelays = optimalRelays)
                 } finally {
                     // Ensure we stop the per-message mining animation regardless of success/failure
                     if (startedMining) {
