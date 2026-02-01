@@ -47,6 +47,19 @@ class NostrRelayManager private constructor() {
         private const val BACKOFF_MULTIPLIER = com.bitchat.android.util.AppConstants.Nostr.BACKOFF_MULTIPLIER
         private const val MAX_RECONNECT_ATTEMPTS = com.bitchat.android.util.AppConstants.Nostr.MAX_RECONNECT_ATTEMPTS
         
+        /**
+         * Calculate optimal relay count based on geohash precision
+         * Broad geohashes (1-2 chars) have high activity → need fewer relays
+         * Narrow geohashes (5+ chars) have low activity → need more relays for coverage
+         */
+        fun optimalRelayCount(geohash: String): Int {
+            return when (geohash.length) {
+                1, 2 -> 2  // Broad: continent/country (e.g., "u", "u0", "sy") - high activity
+                3, 4 -> 3  // Medium: province/state - moderate activity
+                else -> 5  // Narrow: city/neighborhood (5+ chars) - low activity, need coverage
+            }
+        }
+
         // Track gift-wraps we initiated for logging
         private val pendingGiftWrapIDs = ConcurrentHashMap.newKeySet<String>()
         
@@ -123,6 +136,10 @@ class NostrRelayManager private constructor() {
     // Per-geohash relay selection
     private val geohashToRelays = ConcurrentHashMap<String, Set<String>>() // geohash -> relay URLs
 
+    // Metrics and diagnostics - delegated to specialized classes
+    internal val metricsCollector = NostrMetricsCollector()
+    private lateinit var diagnosticsReporter: NostrDiagnosticsReporter
+
     // --- Public API for geohash-specific operation ---
 
     /**
@@ -162,7 +179,7 @@ class NostrRelayManager private constructor() {
         id: String = generateSubscriptionId(),
         handler: (NostrEvent) -> Unit,
         includeDefaults: Boolean = false,
-        nRelays: Int = 5
+    nRelays: Int = 5
     ): String {
         ensureGeohashRelaysConnected(geohash, nRelays, includeDefaults)
         val relayUrls = getRelaysForGeohash(geohash)
@@ -229,6 +246,16 @@ class NostrRelayManager private constructor() {
             relaysList.addAll(defaultRelayUrls.map { Relay(it) })
             _relays.value = relaysList.toList()
             updateConnectionStatus()
+
+            // Initialize diagnostics reporter
+            diagnosticsReporter = NostrDiagnosticsReporter(
+                metricsCollector = metricsCollector,
+                scope = scope,
+                getActiveSubscriptions = { activeSubscriptions.toMap() },
+                getConnections = { connections.toMap() },
+                getSubscriptions = { subscriptions.toMap() }
+            )
+
             Log.d(TAG, "✅ NostrRelayManager initialized with ${relaysList.size} default relays")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize NostrRelayManager: ${e.message}", e)
@@ -318,8 +345,27 @@ class NostrRelayManager private constructor() {
         
         activeSubscriptions[id] = subscriptionInfo
         messageHandlers[id] = handler
-        
-        Log.d(TAG, "📡 Subscribing to Nostr filter id=$id ${filter.getDebugDescription()}")
+
+        // Diagnostic logging with stack trace to identify subscription source
+        if (diagnosticsReporter.diagnosticLoggingEnabled) {
+            val stackTrace = Thread.currentThread().stackTrace
+                .take(8)
+                .drop(2) // Skip Thread.getStackTrace() and this method
+                .joinToString("\n") { "    at $it" }
+            Log.d(
+                TAG, """
+                ➕ SUBSCRIPTION CREATED
+                   ID: $id
+                   Filter: ${filter.getDebugDescription()}
+                   Targets: ${targetRelayUrls?.size ?: "all"} relays
+                   Total active: ${activeSubscriptions.size}
+                   Stack trace:
+                $stackTrace
+            """.trimIndent()
+            )
+        } else {
+            Log.d(TAG, "📡 Subscribing to Nostr filter id=$id ${filter.getDebugDescription()}")
+        }
         
         // Send subscription to appropriate relays
         sendSubscriptionToRelays(subscriptionInfo)
@@ -344,12 +390,16 @@ class NostrRelayManager private constructor() {
                 val webSocket = connections[relayUrl]
                 if (webSocket != null) {
                     try {
+                        // Track bytes sent
+                        val messageSize = message.length.toLong()
+                        metricsCollector.recordBytesSent(relayUrl, messageSize)
+
                         val success = webSocket.send(message)
                         if (success) {
                             // Track subscription for this relay
                             val currentSubs = subscriptions[relayUrl] ?: emptySet()
                             subscriptions[relayUrl] = currentSubs + subscriptionInfo.id
-                            
+
                             Log.v(TAG, "✅ Subscription '${subscriptionInfo.id}' sent to relay: $relayUrl")
                         } else {
                             Log.w(TAG, "❌ Failed to send subscription to $relayUrl: WebSocket send failed")
@@ -380,8 +430,29 @@ class NostrRelayManager private constructor() {
             Log.w(TAG, "⚠️ Attempted to unsubscribe from unknown subscription: $id")
             return
         }
-        
-        Log.d(TAG, "🚫 Unsubscribing from subscription: $id")
+
+        // Diagnostic logging
+        val subscriptionAge = System.currentTimeMillis() - subscriptionInfo.createdAt
+        val eventCount = metricsCollector.getMetrics().eventsReceivedPerSubscription[id] ?: 0
+        metricsCollector.removeSubscription(id)
+
+        if (diagnosticsReporter.diagnosticLoggingEnabled) {
+            val stackTrace = Thread.currentThread().stackTrace
+                .take(8)
+                .drop(2)
+                .joinToString("\n") { "    at $it" }
+            Log.d(TAG, """
+                ➖ SUBSCRIPTION CLOSED
+                   ID: $id
+                   Age: ${subscriptionAge / 60000} minutes
+                   Events received: $eventCount
+                   Total active: ${activeSubscriptions.size - 1}
+                   Stack trace:
+                $stackTrace
+            """.trimIndent())
+        } else {
+            Log.d(TAG, "🚫 Unsubscribing from subscription: $id (age: ${subscriptionAge / 60000}min, events: $eventCount)")
+        }
         
         val request = NostrRequest.Close(id)
         val message = gson.toJson(request, NostrRequest::class.java)
@@ -391,6 +462,10 @@ class NostrRelayManager private constructor() {
                 val currentSubs = subscriptions[relayUrl]
                 if (currentSubs?.contains(id) == true) {
                     try {
+                        // Track bytes sent
+                        val messageSize = message.length.toLong()
+                        metricsCollector.recordBytesSent(relayUrl, messageSize)
+
                         webSocket.send(message)
                         subscriptions[relayUrl] = currentSubs - id
                         Log.v(TAG, "Unsubscribed '$id' from relay: $relayUrl")
@@ -514,48 +589,35 @@ class NostrRelayManager private constructor() {
     fun getActiveSubscriptions(): Map<String, SubscriptionInfo> {
         return activeSubscriptions.toMap()
     }
+
+    /**
+     * Enable or disable diagnostic logging
+     */
+    fun setDiagnosticLogging(enabled: Boolean) {
+        diagnosticsReporter.diagnosticLoggingEnabled = enabled
+        if (enabled) {
+            Log.i(TAG, "🔍 Diagnostic logging ENABLED - detailed logs will be generated")
+            diagnosticsReporter.startHealthCheck()
+        } else {
+            Log.i(TAG, "🔍 Diagnostic logging DISABLED")
+            diagnosticsReporter.stopHealthCheck()
+        }
+    }
+
+    /**
+     * Generate comprehensive diagnostics report for data usage debugging
+     */
+    fun generateDiagnosticsReport(): String {
+        return diagnosticsReporter.generateDiagnosticsReport()
+    }
     
     /**
      * Validate subscription consistency across all relays
      * Returns a report of any inconsistencies found
      */
     fun validateSubscriptionConsistency(): SubscriptionConsistencyReport {
-        val expectedSubs = activeSubscriptions.keys
-        val actualSubsByRelay = subscriptions.toMap()
-        val inconsistencies = mutableListOf<String>()
-        
-        connections.keys.forEach { relayUrl ->
-            val actualSubs = actualSubsByRelay[relayUrl] ?: emptySet()
-            val expectedForRelay = expectedSubs.filter { subId ->
-                val subInfo = activeSubscriptions[subId]
-                subInfo?.targetRelayUrls == null || subInfo.targetRelayUrls.contains(relayUrl)
-            }.toSet()
-            
-            val missing = expectedForRelay - actualSubs
-            val extra = actualSubs - expectedForRelay
-            
-            if (missing.isNotEmpty()) {
-                inconsistencies.add("Relay $relayUrl missing subscriptions: $missing")
-            }
-            if (extra.isNotEmpty()) {
-                inconsistencies.add("Relay $relayUrl has extra subscriptions: $extra")
-            }
-        }
-        
-        return SubscriptionConsistencyReport(
-            isConsistent = inconsistencies.isEmpty(),
-            inconsistencies = inconsistencies,
-            totalActiveSubscriptions = activeSubscriptions.size,
-            connectedRelayCount = connections.size
-        )
+        return diagnosticsReporter.validateSubscriptionConsistency()
     }
-    
-    data class SubscriptionConsistencyReport(
-        val isConsistent: Boolean,
-        val inconsistencies: List<String>,
-        val totalActiveSubscriptions: Int,
-        val connectedRelayCount: Int
-    )
     
     /**
      * Start periodic subscription validation to ensure robustness
@@ -573,17 +635,36 @@ class NostrRelayManager private constructor() {
                         Log.w(TAG, "⚠️ Subscription inconsistencies detected: ${report.inconsistencies}")
                         
                         // Auto-repair: re-establish subscriptions for relays with missing ones
+                        // AND clean up extra subscriptions that shouldn't be there
                         connections.forEach { (relayUrl, webSocket) ->
                             val currentSubs = subscriptions[relayUrl] ?: emptySet()
                             val expectedSubs = activeSubscriptions.keys.filter { subId ->
                                 val subInfo = activeSubscriptions[subId]
                                 subInfo?.targetRelayUrls == null || subInfo.targetRelayUrls.contains(relayUrl)
                             }.toSet()
-                            
+
+                            // Fix missing subscriptions
                             val missingSubs = expectedSubs - currentSubs
                             if (missingSubs.isNotEmpty()) {
                                 Log.i(TAG, "🔧 Auto-repairing ${missingSubs.size} missing subscriptions for $relayUrl")
                                 restoreSubscriptionsForRelay(relayUrl, webSocket)
+                            }
+
+                            // Clean up extra subscriptions (leaked/orphaned)
+                            val extraSubs = currentSubs - expectedSubs
+                            if (extraSubs.isNotEmpty()) {
+                                Log.i(TAG, "🧹 Auto-cleaning ${extraSubs.size} extra subscriptions from $relayUrl: $extraSubs")
+                                extraSubs.forEach { subId ->
+                                    try {
+                                        val closeRequest = NostrRequest.Close(subId)
+                                        val closeMessage = gson.toJson(closeRequest, NostrRequest::class.java)
+                                        webSocket.send(closeMessage)
+                                        subscriptions[relayUrl] = subscriptions[relayUrl]?.minus(subId) ?: emptySet()
+                                        Log.v(TAG, "Cleaned up orphaned subscription '$subId' from $relayUrl")
+                                    } catch (e: Exception) {
+                                        Log.w(TAG, "Failed to clean up subscription $subId from $relayUrl: ${e.message}")
+                                    }
+                                }
                             }
                         }
                     }
@@ -604,6 +685,7 @@ class NostrRelayManager private constructor() {
         subscriptionValidationJob = null
         Log.v(TAG, "⏹️ Stopped subscription validation")
     }
+
     
     // MARK: - Private Methods
     
@@ -633,9 +715,13 @@ class NostrRelayManager private constructor() {
         try {
             val request = NostrRequest.Event(event)
             val message = gson.toJson(request, NostrRequest::class.java)
-            
+
+            // Track bytes sent
+            val messageSize = message.length.toLong()
+            metricsCollector.recordBytesSent(relayUrl, messageSize)
+
             Log.v(TAG, "📤 Sending Nostr event (kind: ${event.kind}) to relay: $relayUrl")
-            
+
             val success = webSocket.send(message)
             if (success) {
                 // Update relay stats
@@ -651,17 +737,24 @@ class NostrRelayManager private constructor() {
     }
     
     private fun handleMessage(message: String, relayUrl: String) {
+        // Track data received
+        val messageSize = message.length.toLong()
+        metricsCollector.recordBytesReceived(relayUrl, messageSize)
+
         try {
             val jsonElement = JsonParser.parseString(message)
             if (!jsonElement.isJsonArray) {
                 Log.w(TAG, "Received non-array message from $relayUrl")
                 return
             }
-            
+
             val response = NostrResponse.fromJsonArray(jsonElement.asJsonArray)
             
             when (response) {
                 is NostrResponse.Event -> {
+                    // Track event statistics
+                    metricsCollector.recordEventReceived(response.subscriptionId, messageSize)
+
                     // Update relay stats
                     val relay = relaysList.find { it.url == relayUrl }
                     relay?.messagesReceived = (relay?.messagesReceived ?: 0) + 1
@@ -736,7 +829,14 @@ class NostrRelayManager private constructor() {
         connections.remove(relayUrl)
         // NOTE: Don't remove subscriptions here - keep them for restoration on reconnection
         // subscriptions.remove(relayUrl)  // REMOVED - this was causing subscription loss
-        
+
+        metricsCollector.recordReconnection()
+
+        if (diagnosticsReporter.diagnosticLoggingEnabled) {
+            val metrics = metricsCollector.getMetrics()
+            Log.d(TAG, "🔌 DISCONNECTION #${metrics.reconnectionCount} from $relayUrl: ${error.message}")
+        }
+
         updateRelayStatus(relayUrl, false, error)
         
         // Check if this is a DNS error
@@ -830,13 +930,17 @@ class NostrRelayManager private constructor() {
             try {
                 val request = NostrRequest.Subscribe(subscriptionInfo.id, listOf(subscriptionInfo.filter))
                 val message = gson.toJson(request, NostrRequest::class.java)
-                
+
+                // Track bytes sent
+                val messageSize = message.length.toLong()
+                metricsCollector.recordBytesSent(relayUrl, messageSize)
+
                 val success = webSocket.send(message)
                 if (success) {
                     // Track subscription for this relay
                     val currentSubs = subscriptions[relayUrl] ?: emptySet()
                     subscriptions[relayUrl] = currentSubs + subscriptionInfo.id
-                    
+
                     Log.v(TAG, "✅ Restored subscription '${subscriptionInfo.id}' to relay: $relayUrl")
                 } else {
                     Log.w(TAG, "❌ Failed to restore subscription '${subscriptionInfo.id}' to $relayUrl: WebSocket send failed")
