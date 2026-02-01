@@ -89,6 +89,11 @@ fun LocationNotesSheet(
         label = "topBarAlpha"
     )
 
+    // Refresh location when sheet opens
+    LaunchedEffect(Unit) {
+        locationManager.refreshChannels()
+    }
+
     // Effect to set geohash when sheet opens
     LaunchedEffect(geohash) {
         notesManager.setGeohash(geohash)

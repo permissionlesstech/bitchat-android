@@ -3,6 +3,10 @@ package com.bitchat.android.ui
 import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.viewModelScope
 import com.bitchat.android.nostr.GeohashMessageHandler
 import com.bitchat.android.nostr.GeohashRepository
@@ -31,7 +35,7 @@ class GeohashViewModel(
     private val meshDelegateHandler: MeshDelegateHandler,
     private val dataManager: DataManager,
     private val notificationManager: NotificationManager
-) : AndroidViewModel(application) {
+) : AndroidViewModel(application), DefaultLifecycleObserver {
 
     companion object { private const val TAG = "GeohashViewModel" }
 
@@ -60,6 +64,7 @@ class GeohashViewModel(
     private var geoTimer: Job? = null
     private var globalPresenceJob: Job? = null
     private var locationChannelManager: com.bitchat.android.geohash.LocationChannelManager? = null
+    private val activeSamplingGeohashes = mutableSetOf<String>()
 
     val geohashPeople: StateFlow<List<GeoPerson>> = state.geohashPeople
     val geohashParticipantCounts: StateFlow<Map<String, Int>> = state.geohashParticipantCounts
@@ -67,6 +72,10 @@ class GeohashViewModel(
 
     fun initialize() {
         subscriptionManager.connect()
+        // Observe process lifecycle to manage background sampling
+        kotlin.runCatching {
+            ProcessLifecycleOwner.get().lifecycle.addObserver(this)
+        }
         val identity = NostrIdentityBridge.getCurrentNostrIdentity(getApplication())
         if (identity != null) {
             // Use global chat-messages only for full account DMs (mesh context). For geohash DMs, subscribe per-geohash below.
@@ -211,25 +220,45 @@ class GeohashViewModel(
     }
 
     fun beginGeohashSampling(geohashes: List<String>) {
-        if (geohashes.isEmpty()) return
-        Log.d(TAG, "🌍 Beginning geohash sampling for ${geohashes.size} geohashes")
+        if (geohashes.isEmpty()) {
+            endGeohashSampling()
+            return
+        }
         
-        // Subscribe to events
-        viewModelScope.launch {
-            geohashes.forEach { geohash ->
-                subscriptionManager.subscribeGeohash(
-                    geohash = geohash,
-                    sinceMs = System.currentTimeMillis() - 86400000L,
-                    limit = 200,
-                    id = "sampling-$geohash",
-                    handler = { event -> geohashMessageHandler.onEvent(event, geohash) }
-                )
+        // Diffing logic to avoid redundant REQ and leaks
+        val currentSet = activeSamplingGeohashes.toSet()
+        val newSet = geohashes.toSet()
+
+        val toRemove = currentSet - newSet
+        val toAdd = newSet - currentSet
+
+        if (toAdd.isEmpty() && toRemove.isEmpty()) return
+
+        Log.d(TAG, "🌍 Updating sampling: +${toAdd.size} new, -${toRemove.size} removed")
+        
+        // Remove old subscriptions
+        toRemove.forEach { geohash ->
+            subscriptionManager.unsubscribe("sampling-$geohash")
+            activeSamplingGeohashes.remove(geohash)
+        }
+
+        // Add new subscriptions
+        activeSamplingGeohashes.addAll(toAdd)
+        if (isAppInForeground()) {
+            toAdd.forEach { geohash ->
+                performSubscribeSampling(geohash)
             }
         }
     }
 
     fun endGeohashSampling() { 
-        Log.d(TAG, "🌍 Ending geohash sampling")
+        if (activeSamplingGeohashes.isEmpty()) return
+        Log.d(TAG, "🌍 Ending geohash sampling (cleaning up ${activeSamplingGeohashes.size} subs)")
+        
+        activeSamplingGeohashes.toList().forEach { geohash ->
+            subscriptionManager.unsubscribe("sampling-$geohash")
+        }
+        activeSamplingGeohashes.clear()
     }
     fun geohashParticipantCount(geohash: String): Int = repo.geohashParticipantCount(geohash)
     fun isPersonTeleported(pubkeyHex: String): Boolean = repo.isPersonTeleported(pubkeyHex)
@@ -353,5 +382,36 @@ class GeohashViewModel(
                 repo.refreshGeohashPeople()
             }
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        kotlin.runCatching {
+            ProcessLifecycleOwner.get().lifecycle.removeObserver(this)
+        }
+    }
+
+    override fun onStart(owner: LifecycleOwner) {
+        Log.d(TAG, "🌍 App foregrounded: Resuming sampling for ${activeSamplingGeohashes.size} geohashes")
+        activeSamplingGeohashes.forEach { performSubscribeSampling(it) }
+    }
+
+    override fun onStop(owner: LifecycleOwner) {
+        Log.d(TAG, "🌍 App backgrounded: Pausing sampling for ${activeSamplingGeohashes.size} geohashes")
+        activeSamplingGeohashes.forEach { subscriptionManager.unsubscribe("sampling-$it") }
+    }
+
+    private fun performSubscribeSampling(geohash: String) {
+        subscriptionManager.subscribeGeohash(
+            geohash = geohash,
+            sinceMs = System.currentTimeMillis() - 86400000L,
+            limit = 200,
+            id = "sampling-$geohash",
+            handler = { event -> geohashMessageHandler.onEvent(event, geohash) }
+        )
+    }
+
+    private fun isAppInForeground(): Boolean {
+        return ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
     }
 }

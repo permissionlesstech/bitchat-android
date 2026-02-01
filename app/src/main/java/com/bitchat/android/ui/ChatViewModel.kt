@@ -1046,7 +1046,7 @@ class ChatViewModel(
      * End geohash sampling
      */
     fun endGeohashSampling() {
-        // No-op in refactored architecture; sampling subscriptions are short-lived
+        geohashViewModel.endGeohashSampling()
     }
 
     /**
