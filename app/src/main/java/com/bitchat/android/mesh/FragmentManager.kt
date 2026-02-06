@@ -193,7 +193,8 @@ class FragmentManager {
 
             val maxTotalBytes = com.bitchat.android.util.AppConstants.Fragmentation.MAX_FRAGMENT_TOTAL_BYTES
             val currentSize = fragmentCumulativeSize[fragmentIDString] ?: 0
-            val newSize = currentSize + fragmentPayload.data.size
+            val oldEntrySize = incomingFragments[fragmentIDString]?.get(fragmentPayload.index)?.size ?: 0
+            val newSize = currentSize - oldEntrySize + fragmentPayload.data.size
             if (newSize > maxTotalBytes) {
                 Log.w(TAG, "Rejecting fragment for $fragmentIDString: cumulative size $newSize exceeds cap $maxTotalBytes")
                 incomingFragments.remove(fragmentIDString)
