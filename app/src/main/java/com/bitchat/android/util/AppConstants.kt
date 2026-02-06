@@ -41,6 +41,8 @@ object AppConstants {
         const val MAX_FRAGMENT_SIZE: Int = 469
         const val FRAGMENT_TIMEOUT_MS: Long = 30_000L
         const val CLEANUP_INTERVAL_MS: Long = 10_000L
+        const val MAX_FRAGMENTS_PER_ID: Int = 256
+        const val MAX_FRAGMENT_TOTAL_BYTES: Int = 1_048_576
     }
 
     object Security {
@@ -64,6 +66,7 @@ object AppConstants {
 
     object Protocol {
         const val COMPRESSION_THRESHOLD_BYTES: Int = 100
+        const val MAX_PAYLOAD_LENGTH: Int = 10_485_760
     }
 
     object StoreForward {
