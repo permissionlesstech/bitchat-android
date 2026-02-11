@@ -8,7 +8,10 @@ bitchat is designed with privacy as its foundation. We believe private communica
 
 ## Summary
 
+**WE DO NOT COLLECT ANY INFORMATION.**
+
 - **No personal data collection** - We don't collect names, emails, or phone numbers
+- **No location data collection** - Location is accessed only for local processing (BLE/Geohash) and is never collected or sent to us
 - **Hybrid Functionality** - bitchat offers two modes of communication:
   - **Bluetooth Mesh Chat**: This mode is completely offline, using peer-to-peer Bluetooth connections. It does not use any servers or internet connection.
   - **Geohash Chat**: This mode uses an internet connection to communicate with others in a specific geographic area. It relies on Nostr relays for message transport.
@@ -68,7 +71,8 @@ When you join a password-protected room:
 
 bitchat **never**:
 - Collects personal information
-- Tracks your location
+- Collects location history
+- Transmits any data to us (the developers)
 - Stores data on servers
 - Shares data with third parties
 - Uses analytics or telemetry
@@ -91,13 +95,24 @@ You have complete control:
 - **No Account**: Nothing to delete from servers because there are none
 - **Portability**: Your data never leaves your device unless you export it
 
-## Bluetooth & Permissions
+## Location Data & Permissions
 
-bitchat requires Bluetooth permission to function:
-- Used only for peer-to-peer communication
-- No location data is accessed or stored
-- Bluetooth is not used for tracking
-- You can revoke this permission at any time in system settings
+To provide the core functionality of bitchat, we access your device's location data. This access is necessary for the following specific purposes:
+
+### 1. Bluetooth Low Energy (BLE) Scanning
+- **Why we need it:** The Android operating system requires Location permission to scan for nearby Bluetooth LE devices (especially on Android 11 and lower). This is a system-level requirement because Bluetooth scans can theoretically be used to derive location.
+- **How we use it:** We use this permission strictly to discover other bitchat peers nearby for the "Bluetooth Mesh Chat" mode.
+- **Privacy protection:** We do not record or store your location during this process. The data is processed instantaneously by the Android system to facilitate the connection.
+
+### 2. Geohash Chat Functionality
+- **Why we need it:** The "Geohash Chat" mode allows you to communicate with others in your approximate geographic area.
+- **How we use it:** If you enable this mode, we access your location to calculate a "geohash" (a short alphanumeric string representing a geographic region). This geohash is used to find and subscribe to relevant channels on decentralized Nostr relays.
+- **Privacy protection:** 
+  - Your precise GPS coordinates are **never** sent to any server or peer.
+  - Only the coarse geohash (representing an area, not a pinpoint) is shared with the Nostr network.
+  - You can use the "Bluetooth Mesh Chat" mode without this feature if you prefer.
+
+**We do not collect, store, or share your location history.** Location data is processed locally on your device to enable these specific features.
 
 ## Children's Privacy
 
