@@ -333,6 +333,7 @@ class GeohashViewModel(
         currentGeohashSubId?.let { subscriptionManager.unsubscribe(it); currentGeohashSubId = null }
         currentPresenceSubId?.let { subscriptionManager.unsubscribe(it); currentPresenceSubId = null }
         currentDmSubId?.let { subscriptionManager.unsubscribe(it); currentDmSubId = null }
+        currentActiveGeohash = null
 
         when (channel) {
             is com.bitchat.android.geohash.ChannelID.Mesh -> {
