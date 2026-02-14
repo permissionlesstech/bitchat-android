@@ -46,19 +46,8 @@ class NostrRelayManager private constructor() {
         private const val MAX_BACKOFF_INTERVAL = com.bitchat.android.util.AppConstants.Nostr.MAX_BACKOFF_INTERVAL_MS    // 5 minutes
         private const val BACKOFF_MULTIPLIER = com.bitchat.android.util.AppConstants.Nostr.BACKOFF_MULTIPLIER
         private const val MAX_RECONNECT_ATTEMPTS = com.bitchat.android.util.AppConstants.Nostr.MAX_RECONNECT_ATTEMPTS
-        
-        /**
-         * Calculate optimal relay count based on geohash precision
-         * Broad geohashes (1-2 chars) have high activity → need fewer relays
-         * Narrow geohashes (5+ chars) have low activity → need more relays for coverage
-         */
-        fun optimalRelayCount(geohash: String): Int {
-            return when (geohash.length) {
-                1, 2 -> 2  // Broad: continent/country (e.g., "u", "u0", "sy") - high activity
-                3, 4 -> 3  // Medium: province/state - moderate activity
-                else -> 5  // Narrow: city/neighborhood (5+ chars) - low activity, need coverage
-            }
-        }
+
+        fun optimalRelayCount(geohash: String): Int = 3
 
         // Track gift-wraps we initiated for logging
         private val pendingGiftWrapIDs = ConcurrentHashMap.newKeySet<String>()

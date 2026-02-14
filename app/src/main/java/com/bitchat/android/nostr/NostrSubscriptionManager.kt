@@ -36,5 +36,23 @@ class NostrSubscriptionManager(
         }
     }
 
+    fun subscribeGeohashMessages(geohash: String, sinceMs: Long, limit: Int, id: String, handler: (NostrEvent) -> Unit) {
+        scope.launch {
+            val filter = NostrFilter.geohashMessages(geohash, sinceMs, limit)
+            val optimalRelays = NostrRelayManager.optimalRelayCount(geohash)
+            Log.d(TAG, "📡 Subscribing to $geohash MESSAGES with $optimalRelays relays")
+            relayManager.subscribeForGeohash(geohash, filter, id, handler, includeDefaults = false, nRelays = optimalRelays)
+        }
+    }
+
+    fun subscribeGeohashPresence(geohash: String, sinceMs: Long, limit: Int, id: String, handler: (NostrEvent) -> Unit) {
+        scope.launch {
+            val filter = NostrFilter.geohashPresence(geohash, sinceMs, limit)
+            val optimalRelays = NostrRelayManager.optimalRelayCount(geohash)
+            Log.d(TAG, "📡 Subscribing to $geohash PRESENCE with $optimalRelays relays")
+            relayManager.subscribeForGeohash(geohash, filter, id, handler, includeDefaults = false, nRelays = optimalRelays)
+        }
+    }
+
     fun unsubscribe(id: String) { scope.launch { runCatching { relayManager.unsubscribe(id) } } }
 }
