@@ -32,7 +32,8 @@ class FragmentManager {
     private val incomingFragments = ConcurrentHashMap<String, MutableMap<Int, ByteArray>>()
     // iOS equivalent: fragmentMetadata: [String: (type: UInt8, total: Int, timestamp: Date)]
     private val fragmentMetadata = ConcurrentHashMap<String, Triple<UByte, Int, Long>>() // originalType, totalFragments, timestamp
-    
+    private val fragmentCumulativeSize = ConcurrentHashMap<String, Int>()
+
     // Delegate for callbacks
     var delegate: FragmentManagerDelegate? = null
     
@@ -172,17 +173,37 @@ class FragmentManager {
             val fragmentIDString = fragmentPayload.getFragmentIDString()
             
             Log.d(TAG, "Received fragment ${fragmentPayload.index}/${fragmentPayload.total} for fragmentID: $fragmentIDString, originalType: ${fragmentPayload.originalType}")
-            
+
+            val maxFragments = com.bitchat.android.util.AppConstants.Fragmentation.MAX_FRAGMENTS_PER_ID
+            if (fragmentPayload.total > maxFragments) {
+                Log.w(TAG, "Rejecting fragment with excessive total count: ${fragmentPayload.total} > $maxFragments")
+                return null
+            }
+
             // iOS: if incomingFragments[fragmentID] == nil
             if (!incomingFragments.containsKey(fragmentIDString)) {
                 incomingFragments[fragmentIDString] = mutableMapOf()
                 fragmentMetadata[fragmentIDString] = Triple(
-                    fragmentPayload.originalType, 
-                    fragmentPayload.total, 
+                    fragmentPayload.originalType,
+                    fragmentPayload.total,
                     System.currentTimeMillis()
                 )
+                fragmentCumulativeSize[fragmentIDString] = 0
             }
-            
+
+            val maxTotalBytes = com.bitchat.android.util.AppConstants.Fragmentation.MAX_FRAGMENT_TOTAL_BYTES
+            val currentSize = fragmentCumulativeSize[fragmentIDString] ?: 0
+            val oldEntrySize = incomingFragments[fragmentIDString]?.get(fragmentPayload.index)?.size ?: 0
+            val newSize = currentSize - oldEntrySize + fragmentPayload.data.size
+            if (newSize > maxTotalBytes) {
+                Log.w(TAG, "Rejecting fragment for $fragmentIDString: cumulative size $newSize exceeds cap $maxTotalBytes")
+                incomingFragments.remove(fragmentIDString)
+                fragmentMetadata.remove(fragmentIDString)
+                fragmentCumulativeSize.remove(fragmentIDString)
+                return null
+            }
+            fragmentCumulativeSize[fragmentIDString] = newSize
+
             // iOS: incomingFragments[fragmentID]?[index] = Data(fragmentData)
             incomingFragments[fragmentIDString]?.put(fragmentPayload.index, fragmentPayload.data)
             
@@ -205,7 +226,8 @@ class FragmentManager {
                     // iOS cleanup: incomingFragments.removeValue(forKey: fragmentID)
                     incomingFragments.remove(fragmentIDString)
                     fragmentMetadata.remove(fragmentIDString)
-                    
+                    fragmentCumulativeSize.remove(fragmentIDString)
+
                     // Suppress re-broadcast of the reassembled packet by zeroing TTL.
                     // We already relayed the incoming fragments; setting TTL=0 ensures
                     // PacketRelayManager will skip relaying this reconstructed packet.
@@ -257,6 +279,7 @@ class FragmentManager {
         for (fragmentID in oldFragments) {
             incomingFragments.remove(fragmentID)
             fragmentMetadata.remove(fragmentID)
+            fragmentCumulativeSize.remove(fragmentID)
         }
         
         if (oldFragments.isNotEmpty()) {
