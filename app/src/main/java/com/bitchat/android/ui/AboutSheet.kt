@@ -427,7 +427,7 @@ fun AboutSheet(
                                     // Tor Toggle
                                     SettingsToggleRow(
                                         icon = Icons.Filled.Security,
-                                        title = "Tor Network",
+                                        title = stringResource(R.string.tor_network),
                                         subtitle = stringResource(R.string.about_tor_route),
                                         checked = torMode.value == TorMode.ON,
                                         onCheckedChange = { enabled ->
@@ -490,7 +490,7 @@ fun AboutSheet(
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Text(
-                                                text = "Difficulty",
+                                                text = stringResource(R.string.pow_difficulty),
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 fontWeight = FontWeight.Medium,
                                                 color = colorScheme.onSurface
@@ -562,7 +562,7 @@ fun AboutSheet(
                                             }
                                             Surface(color = statusColor, shape = CircleShape, modifier = Modifier.size(10.dp)) {}
                                             Text(
-                                                text = if (torStatus.running) "Connected (${torStatus.bootstrapPercent}%)" else "Disconnected",
+                                                text = if (torStatus.running) stringResource(R.string.tor_connected, torStatus.bootstrapPercent.toString() + "%") else stringResource(R.string.tor_disconnected),
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 fontWeight = FontWeight.Medium,
                                                 color = colorScheme.onSurface

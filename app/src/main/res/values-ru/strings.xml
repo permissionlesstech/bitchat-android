@@ -14,6 +14,7 @@
     <string name="back">Назад</string>
     <string name="people">Люди</string>
     <string name="channels">Каналы</string>
+    <string name="none">никто</string>
     <string name="online_users">Пользователи онлайн</string>
     <string name="no_one_connected">Нет подключённых</string>
     <string name="emergency_clear_hint">Тройной тап для удаления всех данных</string>
@@ -57,6 +58,7 @@
     <string name="notification_mesh_mention_title_singular">Упоминание в Mesh‑чате</string>
     <string name="notification_mesh_mention_title_plural">%1$d упоминаний в Mesh‑чате</string>
     <string name="notification_more_locations">и ещё %1$d локаций</string>
+    <string name="tor_not_available_in_this_build">Tor недоступен в этой сборке</string>
     <string name="notification_and_more">и ещё %1$d</string>
 
     <string name="cd_add_favorite">В избранное</string>
@@ -69,6 +71,7 @@
     <string name="cd_nostr_reachable">Доступен через Nostr</string>
     <string name="cd_unread_private_messages">Непрочитанные личные</string>
     <string name="cd_toggle_bookmark">Переключить закладку</string>
+    <string name="cd_location_notes">Заметки к этому месту</string>
     <string name="cd_teleported">Телепортировано</string>
     <string name="cd_tor_status">Статус Tor</string>
     <string name="cd_connected_peers">Подключённые узлы</string>
@@ -86,6 +89,7 @@
     <string name="close_with_emoji">❌ Закрыть</string>
     <string name="pick_image">Выбрать изображение</string>
 
+    <string name="cd_pick_file">Выбрать файл</string>
     <string name="about_tagline">децентрализованный mesh‑чат со сквозным шифрованием</string>
     <string name="about_offline_mesh_title">Оффлайн Mesh‑чат</string>
     <string name="about_offline_mesh_desc">Общение напрямую по Bluetooth LE без интернета и серверов. Сообщения ретранслируются близлежащими устройствами.</string>
@@ -113,7 +117,7 @@
     <string name="about_network">сеть</string>
     <string name="about_tor_off">tor выкл</string>
     <string name="about_tor_on">tor вкл</string>
-    <string name="about_tor_route">направляй интернет через Tor для приватности.</string>
+    <string name="about_tor_route">направляет интернет через Tor для приватности.</string>
     <string name="about_tor_status">статус Tor: %1$s, загрузка %2$d%%</string>
     <string name="about_last">Последнее: %1$s</string>
     <string name="about_emergency_title">Экстренное удаление данных</string>
@@ -121,6 +125,7 @@
     <string name="about_debug_settings">Настройки отладки</string>
     <string name="about_footer">Open Source • Privacy First • Децентрализация</string>
     <string name="close_plain">Закрыть</string>
+    <string name="cd_privacy_protected">Ваша приватность защищена</string>
     <string name="cancel_lower">отмена</string>
 
     <string name="cd_warning">Предупреждение</string>
@@ -137,6 +142,7 @@
     <string name="cd_remove_bookmark">Удалить закладку</string>
     <string name="cd_teleport">Телепорт</string>
     <string name="cd_selected">Выбрано</string>
+    <string name="about_background_desc">поддерживает активность сети при закрытии приложения (в фоновом режиме).</string>
     <string name="cd_leave_channel">Покинуть канал</string>
     <string name="cd_reachable_via_nostr">Доступен через Nostr</string>
     <string name="cd_offline_favorite">Избранное (оффлайн)</string>
@@ -150,6 +156,10 @@
     <string name="cd_link">Ссылка</string>
     <string name="cd_pick_media">Выбрать медиа</string>
     <string name="cd_record_voice">Записать голос</string>
+    <string name="cd_pow_enabled">PoW Включен</string>
+    <string name="cd_proof_of_work">Proof of Work</string>
+    <string name="pow_mining_ellipsis">вычисление...</string>
+    <string name="pow_label_format">pow: %1$dbit</string>
     <string name="cd_offline_mesh_chat">Оффлайн Mesh‑чат</string>
     <string name="cd_online_geohash_channels">Онлайн‑каналы Geohash</string>
     <string name="cd_end_to_end_encryption">Сквозное шифрование</string>
@@ -196,7 +206,9 @@
     <string name="location_level_region">регион</string>
 
     <string name="debug_tools">инструменты отладки</string>
+    <string name="debug_tools_desc">утилиты для разработчиков для диагностики и управления</string>
     <string name="debug_verbose_logging">подробное логирование</string>
+    <string name="debug_verbose_hint">регистрирует присоединение/отключение узлов, направление соединения, маршрутизацию пакетов и ретрансляцию.</string>
     <string name="debug_bluetooth_roles">роли Bluetooth</string>
     <string name="debug_gatt_server">сервер GATT</string>
     <string name="debug_connections_fmt">подключения: %1$d / %2$d</string>
@@ -206,13 +218,19 @@
     <string name="debug_overall_connections_fmt">подключения: %1$d / %2$d</string>
     <string name="debug_max_overall">макс. всего</string>
     <string name="debug_packet_relay">ретрансляция пакетов</string>
+    <string name="graph_type_overall">Общий</string>
+    <string name="graph_type_device">Соедин.</string>
+    <string name="graph_type_peer">Устройства</string>
+    <string name="incoming_data">Входящий трафик</string>
+    <string name="outgoing_data">Исходящий трафик</string>
     <string name="debug_since_start_fmt">с начала: %1$d</string>
+    <string name="debug_roles_hint">переключает роли в сети и закрывает все соединения, когда выключен</string>
     <string name="debug_sync_settings">настройки синхр.</string>
     <string name="debug_max_packets_per_sync_fmt">макс. пакетов на синхр.: %1$d</string>
     <string name="debug_max_gcs_filter_size_fmt">макс. размер фильтра GCS: %1$d байт (128–1024)</string>
     <string name="debug_target_fpr_fmt">целевой FPR: %1$.2f%%</string>
     <string name="debug_connected_devices">подключённые устройства</string>
-    <string name="debug_our_device_id_fmt">ID нашего устройства: %1$s</string>
+    <string name="debug_our_device_id_fmt">ID устройства: %1$s</string>
     <string name="debug_none">нет</string>
     <string name="debug_disconnect">отключить</string>
     <string name="debug_recent_scan_results">последние результаты сканирования</string>
@@ -222,6 +240,7 @@
     <string name="debug_relays_window_fmt">посл. 10с: %1$d • 1м: %2$d • 15м: %3$d</string>
     <string name="debug_derived_p_fmt">выведенный P: %1$s • оцен. макс. элементов: %2$s</string>
     <string name="debug_direct_suffix"> • напрямую</string>
+    <string name="debug_rssi_fmt">RSSI: %1$s</string>
     <string name="debug_question_mark">?</string>
     <string name="debug_role_server">как сервер (мы хостим)</string>
     <string name="debug_role_client">как клиент (мы подключаемся)</string>
@@ -231,6 +250,7 @@
     <string name="location_explanation">bitchat НЕ отслеживает вашу геопозицию.\n\nСлужбы локации нужны для сканирования Bluetooth и функции чата Geohash.</string>
     <string name="location_needs_for">bitchat нужны службы локации для:</string>
     <string name="location_needs_bullets">• Сканирования устройств Bluetooth\n• Поиска ближайших пользователей в mesh\n• Функции чата Geohash\n• Без отслеживания и сбора геоданных</string>
+    <string name="skip_background_location">Продолжить без фоновой геолокации</string>
     <string name="open_location_settings">Открыть настройки локации</string>
     <string name="check_again">Проверить снова</string>
     <string name="location_services_unavailable">Службы локации недоступны</string>
@@ -311,6 +331,7 @@
     <string name="perm_nearby_devices_system">Разрешить bitchat подключаться к ближайшим устройствам</string>
     <string name="perm_location_desc">Требуется Android для поиска по Bluetooth</string>
     <string name="perm_location_system">bitchat нужно для сканирования ближайших устройств</string>
+    <string name="perm_background_location_system">Разрешить доступ к фоновому местоположению</string>
     <string name="perm_notifications_desc">Получать уведомления о личных сообщениях</string>
     <string name="perm_notifications_system">Разрешить bitchat отправлять вам уведомления</string>
     <string name="perm_battery_desc">Отключить оптимизацию, чтобы bitchat работал в фоне и поддерживал mesh‑связь</string>
@@ -318,6 +339,7 @@
 
     <string name="perm_type_nearby_devices">Ближайшие устройства</string>
     <string name="perm_type_precise_location">Точная геопозиция</string>
+    <string name="perm_type_background_location">Фоновая геолокация</string>
     <string name="perm_type_microphone">Микрофон</string>
     <string name="perm_type_notifications">Уведомления</string>
     <string name="perm_type_battery_optimization">Оптимизация батареи</string>
@@ -352,6 +374,7 @@
   <string name="location_notes_empty_desc">станьте первым, кто добавит заметку для этого места.</string>
   <string name="dismiss">закрыть</string>
   <string name="location_notes_input_placeholder">добавьте заметку для этого места</string>
+    <string name="mesh_service_channel_desc">Поддерживать Bluetooth сеть в фоне</string>
     <string name="mesh_service_notification_content">Mesh запущен — %1$d пиров</string>
 
   <string name="verify_title">проверить</string>
@@ -389,4 +412,30 @@
   <string name="verify_success_title">Проверено</string>
   <string name="verify_success_body">Вы проверили %1$s</string>
   <string name="verify_success_system_message">проверен %1$s</string>
+    <string name="mesh_service_channel_name">Фоновый сервис сети</string>
+    <string name="cd_save_current_image">Сохранить изображение</string>
+    <string name="cd_close">Закрыть</string>
+    <string name="toast_image_saved">Изображение сохранено в загрузки</string>
+    <string name="toast_failed_to_save_image">Ошибка сохранения изображения</string>
+    <string name="cd_image_index_of">Изображение %1$d из %2$d</string>
+    <string name="background_location_required_title">Рекомендуется фоновая геолокация</string>
+    <string name="background_location_required_subtitle">опционально, улучшает работу сети</string>
+    <string name="background_location_explanation">Андроид рекомендует использовать фоновую геолокацию для того, чтобы bitchat мог искать устройства поблизости, когда приложение закрыто. Это поддерживает сеть после перезагрузки.</string>
+    <string name="background_location_settings_tip">Когда откроются настройки, выберите \"Разрешить в любом режиме\".</string>
+    <string name="background_location_needs_for">bitchat использует фоновую геолокацию для:</string>
+    <string name="background_location_needs_bullets">- сканирования устройств поблизости, когда приложение закрыто\n- переподключения после перезагрузки\n- поддержания mesh точки, когда запущено в фоне</string>
+    <string name="background_location_privacy_note">мы НИКОГДА не собираем вашу геолокацию. Ваши данные защищены.</string>
+    <string name="grant_background_location">Разрешить фоновую геолокацию</string>
+    <string name="perm_background_location_desc">Рекомендуется сканировать наличие находящихся поблизости устройств, пока приложение работает в фоновом режиме.</string>
+    <string name="cd_mining_pow">Вычисление PoW</string>
+    <string name="notification_action_quit_bitchat">Остановить</string>
+    <string name="about_background_title">работа в фоне</string>
+
+    <string name="tor_network">Tor сеть</string>
+    <string name="mesh_topology">строение сети</string>
+    <string name="sync_settings">настройки синхронизации</string>
+    <string name="mesh_graph_not_found">пока ничего нет</string>
+    <string name="pow_difficulty">Сложность</string>
+    <string name="tor_connected">Подключен. %s</string>
+    <string name="tor_disconnected">Отключен.</string>
 </resources>

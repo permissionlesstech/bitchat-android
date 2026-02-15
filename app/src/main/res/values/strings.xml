@@ -14,6 +14,7 @@
     <string name="back">Back</string>
     <string name="people">People</string>
     <string name="channels">Channels</string>
+    <string name="none">none</string>
     <string name="online_users">Online Users</string>
     <string name="no_one_connected">No one connected</string>
     <string name="emergency_clear_hint">Triple tap to clear all data</string>
@@ -139,7 +140,7 @@
   <string name="about_debug_settings">Debug Settings</string>
   <string name="about_footer">Open Source • Privacy First • Decentralized</string>
   <string name="close_plain">Close</string>
-  <string name="cd_privacy_protected">Privacy Protected</string>
+  <string name="cd_privacy_protected">Privacy protected</string>
   <string name="cancel_lower">cancel</string>
 
   <!-- Generic content descriptions -->
@@ -254,6 +255,11 @@
   <string name="debug_overall_connections_fmt">connections: %1$d / %2$d</string>
   <string name="debug_max_overall">max overall</string>
   <string name="debug_packet_relay">packet relay</string>
+  <string name="graph_type_overall">Оverall</string>
+  <string name="graph_type_device">Per device</string>
+  <string name="graph_type_peer">Per peer</string>
+  <string name="incoming_data">Incoming</string>
+  <string name="outgoing_data">Outgoing</string>
   <string name="debug_since_start_fmt">since start: %1$d</string>
   <string name="debug_roles_hint">turn roles on/off and close all connections when disabled</string>
   <string name="debug_sync_settings">sync settings</string>
@@ -448,5 +454,12 @@
     <item quantity="one">1 person</item>
     <item quantity="other">%d people</item>
   </plurals>
+    <string name="tor_network">Tor Network</string>
+    <string name="mesh_topology">mesh topology</string>
+    <string name="sync_settings">sync settings</string>
+    <string name="mesh_graph_not_found">no gossip yet</string>
+    <string name="pow_difficulty">Difficulty</string>
+    <string name="tor_connected">Connected. %s</string>
+    <string name="tor_disconnected">Disconnected.</string>
 
 </resources>
