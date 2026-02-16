@@ -5,6 +5,7 @@ import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.model.IdentityAnnouncement
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
+import com.bitchat.android.sync.RequestSyncManager
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -23,6 +24,7 @@ class SecurityManagerTest {
     private lateinit var securityManager: SecurityManager
     private lateinit var fakeEncryptionService: FakeEncryptionService
     private lateinit var mockDelegate: SecurityManagerDelegate
+    private lateinit var requestSyncManager: RequestSyncManager
     
     private val myPeerID = "1111222233334444"
     private val otherPeerID = "aaaabbbbccccdddd"
@@ -63,8 +65,9 @@ class SecurityManagerTest {
     fun setup() {
         fakeEncryptionService = FakeEncryptionService()
         mockDelegate = mock()
+        requestSyncManager = RequestSyncManager()
         
-        securityManager = SecurityManager(fakeEncryptionService, myPeerID)
+        securityManager = SecurityManager(fakeEncryptionService, myPeerID, requestSyncManager)
         securityManager.delegate = mockDelegate
     }
 
@@ -282,5 +285,74 @@ class SecurityManagerTest {
             lastSeen = System.currentTimeMillis()
         )
         whenever(mockDelegate.getPeerInfo(peerID)).thenReturn(info)
+    }
+
+    @Test
+    fun `validatePacket - rejects unsolicited RSR packet`() {
+        setupKnownPeer(otherPeerID, otherSigningKey)
+        
+        val basePacket = BitchatPacket(
+            type = MessageType.MESSAGE.value,
+            ttl = 10u,
+            senderID = otherPeerID,
+            payload = dummyPayload
+        )
+        // Copy to set isRSR
+        val packet = basePacket.copy(isRSR = true)
+        packet.signature = validSignature
+
+        // No request registered in requestSyncManager
+
+        val result = securityManager.validatePacket(packet, otherPeerID)
+        
+        assertFalse("Unsolicited RSR packet should be rejected", result)
+    }
+
+    @Test
+    fun `validatePacket - accepts solicited RSR packet with old timestamp`() {
+        setupKnownPeer(otherPeerID, otherSigningKey)
+        
+        // Register request
+        requestSyncManager.registerRequest(otherPeerID)
+        
+        val basePacket = BitchatPacket(
+            type = MessageType.MESSAGE.value,
+            ttl = 10u,
+            senderID = otherPeerID,
+            payload = dummyPayload
+        )
+        
+        // Old timestamp
+        val oldTimestamp = (System.currentTimeMillis() - 3_600_000).toULong()
+        
+        val packet = basePacket.copy(
+            isRSR = true,
+            timestamp = oldTimestamp
+        )
+        packet.signature = validSignature
+
+        val result = securityManager.validatePacket(packet, otherPeerID)
+        
+        assertTrue("Solicited RSR packet with old timestamp should be accepted", result)
+    }
+
+    @Test
+    fun `validatePacket - rejects normal packet with old timestamp`() {
+        setupKnownPeer(otherPeerID, otherSigningKey)
+        
+        val basePacket = BitchatPacket(
+            type = MessageType.MESSAGE.value,
+            ttl = 10u,
+            senderID = otherPeerID,
+            payload = dummyPayload
+        )
+        
+        val oldTimestamp = (System.currentTimeMillis() - 3_600_000).toULong()
+        val packet = basePacket.copy(timestamp = oldTimestamp, isRSR = false)
+        packet.signature = validSignature
+
+        val result = securityManager.validatePacket(packet, otherPeerID)
+        
+        assertFalse("Normal packet with old timestamp should be rejected", result)
     }
 }
