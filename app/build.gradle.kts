@@ -127,6 +127,13 @@ dependencies {
     // Bluetooth
     implementation(libs.nordic.ble)
 
+    // Giphy
+    implementation(libs.giphy.ui)
+
+    // Coil
+    implementation(libs.coil.compose)
+    implementation(libs.coil.gif)
+
     // WebSocket
     implementation(libs.okhttp)
 
