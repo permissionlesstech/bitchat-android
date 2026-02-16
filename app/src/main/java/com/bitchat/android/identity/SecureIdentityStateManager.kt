@@ -2,13 +2,14 @@ package com.bitchat.android.identity
 
 import android.content.Context
 import android.content.SharedPreferences
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
 import java.security.MessageDigest
 import android.util.Base64
 import android.util.Log
 import com.bitchat.android.util.hexEncodedString
-import androidx.core.content.edit
+import com.bitchat.android.crypto.TinkAeadProvider
+import com.bitchat.android.crypto.TinkSecurePreferences
+import java.io.IOException
+import java.security.GeneralSecurityException
 
 /**
  * Manages persistent identity storage and peer ID rotation - 100% compatible with iOS implementation
@@ -22,7 +23,7 @@ class SecureIdentityStateManager(private val context: Context) {
     
     companion object {
         private const val TAG = "SecureIdentityStateManager"
-        private const val PREFS_NAME = "bitchat_identity"
+        private const val PREFS_NAME = "bitchat_identity_tink"
         private const val KEY_STATIC_PRIVATE_KEY = "static_private_key"
         private const val KEY_STATIC_PUBLIC_KEY = "static_public_key"
         private const val KEY_SIGNING_PRIVATE_KEY = "signing_private_key"
@@ -34,23 +35,13 @@ class SecureIdentityStateManager(private val context: Context) {
         private const val KEY_CACHED_FINGERPRINT_NICKNAMES = "cached_fingerprint_nicknames"
     }
     
-    private val prefs: SharedPreferences
+    private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val securePrefs: TinkSecurePreferences
     private val lock = Any()
     
     init {
-        // Create master key for encryption
-        val masterKey = MasterKey.Builder(context, MasterKey.DEFAULT_MASTER_KEY_ALIAS)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-        
-        // Create encrypted shared preferences
-        prefs = EncryptedSharedPreferences.create(
-            context,
-            PREFS_NAME,
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        )
+        val aead = TinkAeadProvider.getAead(context)
+        securePrefs = TinkSecurePreferences(prefs, aead)
     }
     
     // MARK: - Static Key Management
@@ -61,12 +52,12 @@ class SecureIdentityStateManager(private val context: Context) {
      */
     fun loadStaticKey(): Pair<ByteArray, ByteArray>? {
         return try {
-            val privateKeyString = prefs.getString(KEY_STATIC_PRIVATE_KEY, null)
-            val publicKeyString = prefs.getString(KEY_STATIC_PUBLIC_KEY, null)
+            val privateKeyString = safeGetString(KEY_STATIC_PRIVATE_KEY)
+            val publicKeyString = safeGetString(KEY_STATIC_PUBLIC_KEY)
             
             if (privateKeyString != null && publicKeyString != null) {
-                val privateKey = android.util.Base64.decode(privateKeyString, android.util.Base64.DEFAULT)
-                val publicKey = android.util.Base64.decode(publicKeyString, android.util.Base64.DEFAULT)
+                val privateKey = Base64.decode(privateKeyString, Base64.DEFAULT)
+                val publicKey = Base64.decode(publicKeyString, Base64.DEFAULT)
                 
                 // Validate key sizes
                 if (privateKey.size == 32 && publicKey.size == 32) {
@@ -96,13 +87,11 @@ class SecureIdentityStateManager(private val context: Context) {
                 throw IllegalArgumentException("Invalid key sizes: private=${privateKey.size}, public=${publicKey.size}")
             }
             
-            val privateKeyString = android.util.Base64.encodeToString(privateKey, android.util.Base64.DEFAULT)
-            val publicKeyString = android.util.Base64.encodeToString(publicKey, android.util.Base64.DEFAULT)
+            val privateKeyString = Base64.encodeToString(privateKey, Base64.DEFAULT)
+            val publicKeyString = Base64.encodeToString(publicKey, Base64.DEFAULT)
             
-            prefs.edit()
-                .putString(KEY_STATIC_PRIVATE_KEY, privateKeyString)
-                .putString(KEY_STATIC_PUBLIC_KEY, publicKeyString)
-                .apply()
+            securePrefs.putString(KEY_STATIC_PRIVATE_KEY, privateKeyString)
+            securePrefs.putString(KEY_STATIC_PUBLIC_KEY, publicKeyString)
             
             Log.d(TAG, "Saved static identity key to secure storage")
         } catch (e: Exception) {
@@ -119,12 +108,12 @@ class SecureIdentityStateManager(private val context: Context) {
      */
     fun loadSigningKey(): Pair<ByteArray, ByteArray>? {
         return try {
-            val privateKeyString = prefs.getString(KEY_SIGNING_PRIVATE_KEY, null)
-            val publicKeyString = prefs.getString(KEY_SIGNING_PUBLIC_KEY, null)
+            val privateKeyString = safeGetString(KEY_SIGNING_PRIVATE_KEY)
+            val publicKeyString = safeGetString(KEY_SIGNING_PUBLIC_KEY)
             
             if (privateKeyString != null && publicKeyString != null) {
-                val privateKey = android.util.Base64.decode(privateKeyString, android.util.Base64.DEFAULT)
-                val publicKey = android.util.Base64.decode(publicKeyString, android.util.Base64.DEFAULT)
+                val privateKey = Base64.decode(privateKeyString, Base64.DEFAULT)
+                val publicKey = Base64.decode(publicKeyString, Base64.DEFAULT)
                 
                 // Validate key sizes
                 if (privateKey.size == 32 && publicKey.size == 32) {
@@ -154,13 +143,11 @@ class SecureIdentityStateManager(private val context: Context) {
                 throw IllegalArgumentException("Invalid signing key sizes: private=${privateKey.size}, public=${publicKey.size}")
             }
             
-            val privateKeyString = android.util.Base64.encodeToString(privateKey, android.util.Base64.DEFAULT)
-            val publicKeyString = android.util.Base64.encodeToString(publicKey, android.util.Base64.DEFAULT)
+            val privateKeyString = Base64.encodeToString(privateKey, Base64.DEFAULT)
+            val publicKeyString = Base64.encodeToString(publicKey, Base64.DEFAULT)
             
-            prefs.edit()
-                .putString(KEY_SIGNING_PRIVATE_KEY, privateKeyString)
-                .putString(KEY_SIGNING_PUBLIC_KEY, publicKeyString)
-                .apply()
+            securePrefs.putString(KEY_SIGNING_PRIVATE_KEY, privateKeyString)
+            securePrefs.putString(KEY_SIGNING_PUBLIC_KEY, publicKeyString)
             
             Log.d(TAG, "Saved Ed25519 signing key to secure storage")
         } catch (e: Exception) {
@@ -191,7 +178,7 @@ class SecureIdentityStateManager(private val context: Context) {
     // MARK: - Verified Fingerprints
 
     fun getVerifiedFingerprints(): Set<String> {
-        return prefs.getStringSet(KEY_VERIFIED_FINGERPRINTS, emptySet())?.toSet() ?: emptySet()
+        return safeGetStringSet(KEY_VERIFIED_FINGERPRINTS) ?: emptySet()
     }
 
     fun isVerifiedFingerprint(fingerprint: String): Boolean {
@@ -201,13 +188,13 @@ class SecureIdentityStateManager(private val context: Context) {
     fun setVerifiedFingerprint(fingerprint: String, verified: Boolean) {
         if (!isValidFingerprint(fingerprint)) return
         synchronized(lock) {
-            val current = prefs.getStringSet(KEY_VERIFIED_FINGERPRINTS, emptySet())?.toMutableSet() ?: mutableSetOf()
+            val current = safeGetStringSet(KEY_VERIFIED_FINGERPRINTS)?.toMutableSet() ?: mutableSetOf()
             if (verified) {
                 current.add(fingerprint)
             } else {
                 current.remove(fingerprint)
             }
-            prefs.edit { putStringSet(KEY_VERIFIED_FINGERPRINTS, current) }
+            securePrefs.putStringSet(KEY_VERIFIED_FINGERPRINTS, current)
         }
     }
 
@@ -217,7 +204,7 @@ class SecureIdentityStateManager(private val context: Context) {
         // if we are paranoid, but SharedPreferences is generally thread-safe for reads.
         // However, to ensure we don't read a partial update (unlikely with SP), we can leave it.
         // The critical part is the write.
-        val entries = prefs.getStringSet(KEY_CACHED_PEER_FINGERPRINTS, emptySet()) ?: return null
+        val entries = safeGetStringSet(KEY_CACHED_PEER_FINGERPRINTS) ?: return null
         val entry = entries.firstOrNull { it.startsWith("$pid:") } ?: return null
         return entry.substringAfter(':').takeIf { isValidFingerprint(it) }
     }
@@ -226,16 +213,16 @@ class SecureIdentityStateManager(private val context: Context) {
         if (!isValidFingerprint(fingerprint)) return
         val pid = peerID.lowercase()
         synchronized(lock) {
-            val current = prefs.getStringSet(KEY_CACHED_PEER_FINGERPRINTS, emptySet())?.toMutableSet() ?: mutableSetOf()
+            val current = safeGetStringSet(KEY_CACHED_PEER_FINGERPRINTS)?.toMutableSet() ?: mutableSetOf()
             current.removeAll { it.startsWith("$pid:") }
             current.add("$pid:$fingerprint")
-            prefs.edit { putStringSet(KEY_CACHED_PEER_FINGERPRINTS, current) }
+            securePrefs.putStringSet(KEY_CACHED_PEER_FINGERPRINTS, current)
         }
     }
 
     fun getCachedNoiseKey(peerID: String): String? {
         val pid = peerID.lowercase()
-        val entries = prefs.getStringSet(KEY_CACHED_PEER_NOISE_KEYS, emptySet()) ?: return null
+        val entries = safeGetStringSet(KEY_CACHED_PEER_NOISE_KEYS) ?: return null
         val entry = entries.firstOrNull { it.startsWith("$pid=") } ?: return null
         return entry.substringAfter('=').takeIf { it.matches(Regex("^[a-fA-F0-9]{64}$")) }
     }
@@ -244,16 +231,16 @@ class SecureIdentityStateManager(private val context: Context) {
         if (!noiseKeyHex.matches(Regex("^[a-fA-F0-9]{64}$"))) return
         val pid = peerID.lowercase()
         synchronized(lock) {
-            val current = prefs.getStringSet(KEY_CACHED_PEER_NOISE_KEYS, emptySet())?.toMutableSet() ?: mutableSetOf()
+            val current = safeGetStringSet(KEY_CACHED_PEER_NOISE_KEYS)?.toMutableSet() ?: mutableSetOf()
             current.removeAll { it.startsWith("$pid=") }
             current.add("$pid=${noiseKeyHex.lowercase()}")
-            prefs.edit { putStringSet(KEY_CACHED_PEER_NOISE_KEYS, current) }
+            securePrefs.putStringSet(KEY_CACHED_PEER_NOISE_KEYS, current)
         }
     }
 
     fun getCachedNoiseFingerprint(noiseKeyHex: String): String? {
         val key = noiseKeyHex.lowercase()
-        val entries = prefs.getStringSet(KEY_CACHED_NOISE_FINGERPRINTS, emptySet()) ?: return null
+        val entries = safeGetStringSet(KEY_CACHED_NOISE_FINGERPRINTS) ?: return null
         val entry = entries.firstOrNull { it.startsWith("$key=") } ?: return null
         return entry.substringAfter('=').takeIf { isValidFingerprint(it) }
     }
@@ -263,17 +250,17 @@ class SecureIdentityStateManager(private val context: Context) {
         if (!noiseKeyHex.matches(Regex("^[a-fA-F0-9]{64}$"))) return
         val key = noiseKeyHex.lowercase()
         synchronized(lock) {
-            val current = prefs.getStringSet(KEY_CACHED_NOISE_FINGERPRINTS, emptySet())?.toMutableSet() ?: mutableSetOf()
+            val current = safeGetStringSet(KEY_CACHED_NOISE_FINGERPRINTS)?.toMutableSet() ?: mutableSetOf()
             current.removeAll { it.startsWith("$key=") }
             current.add("$key=$fingerprint")
-            prefs.edit { putStringSet(KEY_CACHED_NOISE_FINGERPRINTS, current) }
+            securePrefs.putStringSet(KEY_CACHED_NOISE_FINGERPRINTS, current)
         }
     }
 
     fun getCachedFingerprintNickname(fingerprint: String): String? {
         if (!isValidFingerprint(fingerprint)) return null
         val key = fingerprint.lowercase()
-        val entries = prefs.getStringSet(KEY_CACHED_FINGERPRINT_NICKNAMES, emptySet()) ?: return null
+        val entries = safeGetStringSet(KEY_CACHED_FINGERPRINT_NICKNAMES) ?: return null
         val entry = entries.firstOrNull { it.startsWith("$key=") } ?: return null
         val encoded = entry.substringAfter('=')
         return runCatching {
@@ -287,10 +274,10 @@ class SecureIdentityStateManager(private val context: Context) {
         val key = fingerprint.lowercase()
         val encoded = Base64.encodeToString(nickname.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
         synchronized(lock) {
-            val current = prefs.getStringSet(KEY_CACHED_FINGERPRINT_NICKNAMES, emptySet())?.toMutableSet() ?: mutableSetOf()
+            val current = safeGetStringSet(KEY_CACHED_FINGERPRINT_NICKNAMES)?.toMutableSet() ?: mutableSetOf()
             current.removeAll { it.startsWith("$key=") }
             current.add("$key=$encoded")
-            prefs.edit { putStringSet(KEY_CACHED_FINGERPRINT_NICKNAMES, current) }
+            securePrefs.putStringSet(KEY_CACHED_FINGERPRINT_NICKNAMES, current)
         }
     }
     
@@ -370,7 +357,7 @@ class SecureIdentityStateManager(private val context: Context) {
      */
     fun clearIdentityData() {
         try {
-            prefs.edit().clear().apply()
+            securePrefs.clear()
             Log.w(TAG, "All identity data cleared")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to clear identity data: ${e.message}")
@@ -390,38 +377,63 @@ class SecureIdentityStateManager(private val context: Context) {
      * Store a string value in secure preferences
      */
     fun storeSecureValue(key: String, value: String) {
-        prefs.edit().putString(key, value).apply()
+        securePrefs.putString(key, value)
     }
     
     /**
      * Retrieve a string value from secure preferences
      */
     fun getSecureValue(key: String): String? {
-        return prefs.getString(key, null)
+        return safeGetString(key)
     }
     
     /**
      * Remove a value from secure preferences
      */
     fun removeSecureValue(key: String) {
-        prefs.edit().remove(key).apply()
+        securePrefs.remove(key)
     }
     
     /**
      * Check if a key exists in secure preferences
      */
     fun hasSecureValue(key: String): Boolean {
-        return prefs.contains(key)
+        return securePrefs.contains(key)
     }
     
     /**
      * Clear specific keys from secure preferences
      */
     fun clearSecureValues(vararg keys: String) {
-        val editor = prefs.edit()
-        keys.forEach { key ->
-            editor.remove(key)
+        keys.forEach { key -> securePrefs.remove(key) }
+    }
+
+    private fun safeGetString(key: String): String? {
+        return try {
+            securePrefs.getString(key)
+        } catch (e: Exception) {
+            handleCryptoFailure(e, key)
+            null
         }
-        editor.apply()
+    }
+
+    private fun safeGetStringSet(key: String): Set<String>? {
+        return try {
+            securePrefs.getStringSet(key)
+        } catch (e: Exception) {
+            handleCryptoFailure(e, key)
+            null
+        }
+    }
+
+    private fun handleCryptoFailure(error: Exception, key: String) {
+        when (error) {
+            is GeneralSecurityException,
+            is IOException -> {
+                Log.e(TAG, "Crypto failure for key=$key, clearing secure prefs", error)
+                securePrefs.clear()
+            }
+            else -> Log.e(TAG, "Unexpected error for key=$key: ${error.message}", error)
+        }
     }
 }
