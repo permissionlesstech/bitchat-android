@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PinDrop
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.*
@@ -73,6 +74,9 @@ fun LocationChannelsSheet(
 
     // Observe reactive participant counts
     val geohashParticipantCounts by viewModel.geohashParticipantCounts.collectAsStateWithLifecycle()
+    
+    // Observe current channel for #me selection state
+    val currentChannel by viewModel.currentChannel.collectAsStateWithLifecycle()
 
     // UI state
     var customGeohash by remember { mutableStateOf("") }
@@ -187,7 +191,31 @@ fun LocationChannelsSheet(
                         }
                     }
 
-                    // Mesh option first
+                    // #me - Personal Nostr profile channel (first option)
+                    item(key = "me") {
+                        val isMeSelected = currentChannel == "#me"
+                        ChannelRow(
+                            title = "#me",
+                            subtitle = stringResource(R.string.me_channel_description),
+                            isSelected = isMeSelected,
+                            titleColor = Color(0xFFAF52DE), // iOS purple
+                            titleBold = isMeSelected,
+                            trailingContent = {
+                                Icon(
+                                    imageVector = Icons.Filled.Person,
+                                    contentDescription = null,
+                                    tint = Color(0xFFAF52DE).copy(alpha = 0.7f),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            },
+                            onClick = {
+                                viewModel.switchToChannel("#me")
+                                onDismiss()
+                            }
+                        )
+                    }
+
+                    // Mesh option
                     item(key = "mesh") {
                         ChannelRow(
                             title = meshTitleWithCount(viewModel),

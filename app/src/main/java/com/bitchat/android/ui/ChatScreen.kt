@@ -504,16 +504,31 @@ private fun ChatDialogs(
 
     // About sheet
     var showDebugSheet by remember { mutableStateOf(false) }
+    var showNostrAccountSheet by remember { mutableStateOf(false) }
     AboutSheet(
         isPresented = showAppInfo,
         onDismiss = onAppInfoDismiss,
-        onShowDebug = { showDebugSheet = true }
+        onShowDebug = { showDebugSheet = true },
+        onShowNostrAccount = { showNostrAccountSheet = true }
     )
     if (showDebugSheet) {
         com.bitchat.android.ui.debug.DebugSettingsSheet(
             isPresented = showDebugSheet,
             onDismiss = { showDebugSheet = false },
             meshService = viewModel.meshService
+        )
+    }
+    if (showNostrAccountSheet) {
+        NostrAccountSheet(
+            isPresented = showNostrAccountSheet,
+            onDismiss = { showNostrAccountSheet = false },
+            onIdentityChanged = {
+                // Reconnect to relays with new identity if needed
+            },
+            onNostrNameFound = { nostrName ->
+                // Update the user's nickname with the name from their Nostr profile
+                viewModel.setNickname(nostrName)
+            }
         )
     }
     

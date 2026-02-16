@@ -73,6 +73,17 @@ data class NostrFilter(
         fun forEvents(ids: List<String>): NostrFilter {
             return NostrFilter(ids = ids)
         }
+        
+        /**
+         * Create filter for user metadata (kind 0) - profile information
+         */
+        fun profileMetadata(pubkey: String): NostrFilter {
+            return NostrFilter(
+                kinds = listOf(NostrKind.METADATA),
+                authors = listOf(pubkey),
+                limit = 1
+            )
+        }
     }
     
     /**

@@ -184,6 +184,13 @@ class ChannelManager(
             dataManager.addChannelMember(channel, peerID)
         }
     }
+
+    /**
+     * Update the content of a message in a channel (used for async content resolution)
+     */
+    fun updateChannelMessageContent(channel: String, messageId: String, newContent: String) {
+        messageManager.updateChannelMessageContent(channel, messageId, newContent)
+    }
     
     fun removeChannelMember(channel: String, peerID: String) {
         dataManager.removeChannelMember(channel, peerID)

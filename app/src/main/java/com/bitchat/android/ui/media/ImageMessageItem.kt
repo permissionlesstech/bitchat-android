@@ -149,3 +149,97 @@ fun ImageMessageItem(
         }
     }
 }
+
+/**
+ * Displays an image loaded from a URL using Coil.
+ * Used for inline image previews in text messages containing image URLs.
+ */
+@Composable
+fun UrlImageItem(
+    url: String,
+    onImageClick: ((String) -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
+    var isLoading by remember { mutableStateOf(true) }
+    var isError by remember { mutableStateOf(false) }
+    
+    Box(
+        modifier = modifier
+            .widthIn(max = 300.dp)
+            .heightIn(max = 300.dp)
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+    ) {
+        coil.compose.AsyncImage(
+            model = coil.request.ImageRequest.Builder(LocalContext.current)
+                .data(url)
+                .crossfade(true)
+                .build(),
+            contentDescription = "Image",
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onImageClick?.invoke(url) },
+            contentScale = ContentScale.Fit,
+            onLoading = { isLoading = true; isError = false },
+            onSuccess = { isLoading = false; isError = false },
+            onError = { isLoading = false; isError = true }
+        )
+        
+        // Loading indicator
+        if (isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Gray.copy(alpha = 0.3f)),
+                contentAlignment = Alignment.Center
+            ) {
+                androidx.compose.material3.CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    strokeWidth = 2.dp,
+                    color = Color.White
+                )
+            }
+        }
+        
+        // Error state - show placeholder
+        if (isError) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(100.dp)
+                    .background(Color.Gray.copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Failed to load image",
+                    color = Color.Gray,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Displays multiple URL images in a vertical column.
+ * Used when a message contains multiple image URLs.
+ */
+@Composable
+fun UrlImagesColumn(
+    urls: List<String>,
+    onImageClick: ((String, List<String>, Int) -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        urls.forEachIndexed { index, url ->
+            UrlImageItem(
+                url = url,
+                onImageClick = { clickedUrl ->
+                    onImageClick?.invoke(clickedUrl, urls, index)
+                }
+            )
+        }
+    }
+}

@@ -185,6 +185,7 @@
 
   <string name="image_page_of">Image %1$d of %2$d</string>
   <string name="image_unavailable">Image unavailable</string>
+  <string name="image_load_failed">Failed to load image</string>
   <string name="image_saved_to_downloads">Image saved to Downloads</string>
   <string name="image_save_failed">Failed to save image</string>
   <string name="pick_file">Pick file</string>
@@ -219,6 +220,7 @@
   <string name="disable_location_services">disable location services</string>
   <string name="enable_location_services">enable location services</string>
   <string name="mesh_label">mesh</string>
+  <string name="me_channel_description">Your personal Nostr feed synced across devices</string>
   <string name="location_level_block">block</string>
   <string name="location_level_neighborhood">neighborhood</string>
   <string name="location_level_city">city</string>
