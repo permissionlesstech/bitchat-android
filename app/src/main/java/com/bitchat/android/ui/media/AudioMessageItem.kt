@@ -36,6 +36,7 @@ fun AudioMessageItem(
     onNicknameClick: ((String) -> Unit)?,
     onMessageLongPress: ((BitchatMessage) -> Unit)?,
     onCancelTransfer: ((BitchatMessage) -> Unit)?,
+    peerNicknames: Map<String, String> = emptyMap(),
     modifier: Modifier = Modifier
 ) {
     val path = message.content.trim()
@@ -55,7 +56,8 @@ fun AudioMessageItem(
             currentUserNickname = currentUserNickname,
             meshService = meshService,
             colorScheme = colorScheme,
-            timeFormatter = timeFormatter
+            timeFormatter = timeFormatter,
+            peerNicknames = peerNicknames
         )
         val haptic = LocalHapticFeedback.current
         var headerLayout by remember { mutableStateOf<TextLayoutResult?>(null) }

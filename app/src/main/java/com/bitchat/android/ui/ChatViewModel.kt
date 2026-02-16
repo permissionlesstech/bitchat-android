@@ -317,7 +317,7 @@ class ChatViewModel(
     fun setNickname(newNickname: String) {
         state.setNickname(newNickname)
         dataManager.saveNickname(newNickname)
-        meshService.sendBroadcastAnnounce()
+        meshService.updateSelfNickname(newNickname)
     }
     
     /**
@@ -519,7 +519,7 @@ class ChatViewModel(
                 }
             }
             // Send private message
-            val recipientNickname = meshService.getPeerNicknames()[selectedPeer]
+            val recipientNickname = meshService.getDisambiguatedNickname(selectedPeer)
             privateChatManager.sendPrivateMessage(
                 content, 
                 selectedPeer, 
@@ -580,10 +580,6 @@ class ChatViewModel(
     }
 
     // MARK: - Utility Functions
-    
-    fun getPeerIDForNickname(nickname: String): String? {
-        return meshService.getPeerNicknames().entries.find { it.value == nickname }?.key
-    }
     
     fun toggleFavorite(peerID: String) {
         Log.d("ChatViewModel", "toggleFavorite called for peerID: $peerID")

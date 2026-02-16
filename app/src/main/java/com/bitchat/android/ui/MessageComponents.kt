@@ -65,7 +65,8 @@ fun MessagesList(
     onNicknameClick: ((String) -> Unit)? = null,
     onMessageLongPress: ((BitchatMessage) -> Unit)? = null,
     onCancelTransfer: ((BitchatMessage) -> Unit)? = null,
-    onImageClick: ((String, List<String>, Int) -> Unit)? = null
+    onImageClick: ((String, List<String>, Int) -> Unit)? = null,
+    peerNicknames: Map<String, String> = emptyMap()
 ) {
     val listState = rememberLazyListState()
     
@@ -126,7 +127,8 @@ fun MessagesList(
                     onNicknameClick = onNicknameClick,
                     onMessageLongPress = onMessageLongPress,
                     onCancelTransfer = onCancelTransfer,
-                    onImageClick = onImageClick
+                    onImageClick = onImageClick,
+                    peerNicknames = peerNicknames
                 )
         }
     }
@@ -142,7 +144,8 @@ fun MessageItem(
     onNicknameClick: ((String) -> Unit)? = null,
     onMessageLongPress: ((BitchatMessage) -> Unit)? = null,
     onCancelTransfer: ((BitchatMessage) -> Unit)? = null,
-    onImageClick: ((String, List<String>, Int) -> Unit)? = null
+    onImageClick: ((String, List<String>, Int) -> Unit)? = null,
+    peerNicknames: Map<String, String> = emptyMap()
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val timeFormatter = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
@@ -171,6 +174,7 @@ fun MessageItem(
                     onMessageLongPress = onMessageLongPress,
                     onCancelTransfer = onCancelTransfer,
                     onImageClick = onImageClick,
+                    peerNicknames = peerNicknames,
                     modifier = Modifier
                         .weight(1f)
                         .padding(end = endPad)
@@ -208,6 +212,7 @@ fun MessageItem(
         onMessageLongPress: ((BitchatMessage) -> Unit)?,
         onCancelTransfer: ((BitchatMessage) -> Unit)?,
         onImageClick: ((String, List<String>, Int) -> Unit)?,
+        peerNicknames: Map<String, String> = emptyMap(),
         modifier: Modifier = Modifier
     ) {
     // Image special rendering
@@ -223,6 +228,7 @@ fun MessageItem(
             onMessageLongPress = onMessageLongPress,
             onCancelTransfer = onCancelTransfer,
             onImageClick = onImageClick,
+            peerNicknames = peerNicknames,
             modifier = modifier
         )
         return
@@ -239,6 +245,7 @@ fun MessageItem(
             onNicknameClick = onNicknameClick,
             onMessageLongPress = onMessageLongPress,
             onCancelTransfer = onCancelTransfer,
+            peerNicknames = peerNicknames,
             modifier = modifier
         )
         return
@@ -263,7 +270,8 @@ fun MessageItem(
                 currentUserNickname = currentUserNickname,
                 meshService = meshService,
                 colorScheme = colorScheme,
-                timeFormatter = timeFormatter
+                timeFormatter = timeFormatter,
+                peerNicknames = peerNicknames
             )
             val haptic = LocalHapticFeedback.current
             var headerLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
@@ -371,13 +379,17 @@ fun MessageItem(
             currentUserNickname = currentUserNickname,
             meshService = meshService,
             colorScheme = colorScheme,
-            timeFormatter = timeFormatter
+            timeFormatter = timeFormatter,
+            peerNicknames = peerNicknames
         )
         
         // Check if this message was sent by self to avoid click interactions on own nickname
-        val isSelf = message.senderPeerID == meshService.myPeerID || 
-                     message.sender == currentUserNickname ||
-                     message.sender.startsWith("$currentUserNickname#")
+        val isSelf = if (message.senderPeerID != null) {
+            message.senderPeerID == meshService.myPeerID
+        } else {
+            message.sender == currentUserNickname ||
+            message.sender.startsWith("$currentUserNickname#")
+        }
         
         val haptic = LocalHapticFeedback.current
         val context = LocalContext.current
