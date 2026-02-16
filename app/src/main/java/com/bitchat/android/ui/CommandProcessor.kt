@@ -29,19 +29,26 @@ class CommandProcessor(
     
     // MARK: - Command Processing
     
-    fun processCommand(command: String, meshService: BluetoothMeshService, myPeerID: String, onSendMessage: (String, List<String>, String?) -> Unit, viewModel: ChatViewModel? = null): Boolean {
+    fun processCommand(
+        command: String,
+        meshService: BluetoothMeshService,
+        myPeerID: String,
+        onSendMessage: (String, List<String>, String?) -> Unit,
+        viewModel: ChatViewModel? = null,
+        onRequestDisambiguation: ((String, List<String>, (String) -> Unit) -> Unit)? = null
+    ): Boolean {
         if (!command.startsWith("/")) return false
         
         val parts = command.split(" ")
         val cmd = parts.first().lowercase()
         when (cmd) {
             "/j", "/join" -> handleJoinCommand(parts, myPeerID)
-            "/m", "/msg" -> handleMessageCommand(parts, meshService)
+            "/m", "/msg" -> handleMessageCommand(parts, meshService, onRequestDisambiguation)
             "/w" -> handleWhoCommand(meshService, viewModel)
             "/clear" -> handleClearCommand()
             "/pass" -> handlePassCommand(parts, myPeerID)
-            "/block" -> handleBlockCommand(parts, meshService)
-            "/unblock" -> handleUnblockCommand(parts, meshService)
+            "/block" -> handleBlockCommand(parts, meshService, onRequestDisambiguation)
+            "/unblock" -> handleUnblockCommand(parts, meshService, onRequestDisambiguation)
             "/hug" -> handleActionCommand(parts, "gives", "a warm hug 🫂", meshService, myPeerID, onSendMessage)
             "/slap" -> handleActionCommand(parts, "slaps", "around a bit with a large trout 🐟", meshService, myPeerID, onSendMessage)
             "/channels" -> handleChannelsCommand()
@@ -77,46 +84,97 @@ class CommandProcessor(
         }
     }
     
-    private fun handleMessageCommand(parts: List<String>, meshService: BluetoothMeshService) {
+    private fun handleMessageCommand(
+        parts: List<String>,
+        meshService: BluetoothMeshService,
+        onRequestDisambiguation: ((String, List<String>, (String) -> Unit) -> Unit)?
+    ) {
         if (parts.size > 1) {
             val targetName = parts[1].removePrefix("@")
-            val peerID = getPeerIDForNickname(targetName, meshService)
-            
-            if (peerID != null) {
-                val success = privateChatManager.startPrivateChat(peerID, meshService)
-                
-                if (success) {
-                    if (parts.size > 2) {
-                        val messageContent = parts.drop(2).joinToString(" ")
-                        val recipientNickname = getPeerNickname(peerID, meshService)
-                        privateChatManager.sendPrivateMessage(
-                            messageContent, 
-                            peerID, 
-                            recipientNickname,
-                            state.getNicknameValue(),
-                            getMyPeerID(meshService)
-                        ) { content, peerIdParam, recipientNicknameParam, messageId ->
-                            // This would trigger the actual mesh service send
-                            sendPrivateMessageVia(meshService, content, peerIdParam, recipientNicknameParam, messageId)
+            val matchingPeerIDs = getPeerIDsForNickname(targetName, meshService)
+
+            when (matchingPeerIDs.size) {
+                0 -> {
+                    // No matches found
+                    val systemMessage = BitchatMessage(
+                        sender = "system",
+                        content = "user '$targetName' not found. they may be offline or using a different nickname.",
+                        timestamp = Date(),
+                        isRelay = false
+                    )
+                    messageManager.addMessage(systemMessage)
+                }
+                1 -> {
+                    // Single match: proceed normally
+                    val peerID = matchingPeerIDs.first()
+                    val success = privateChatManager.startPrivateChat(peerID, meshService)
+
+                    if (success) {
+                        if (parts.size > 2) {
+                            val messageContent = parts.drop(2).joinToString(" ")
+                            val recipientNickname = getPeerNickname(peerID, meshService)
+                            privateChatManager.sendPrivateMessage(
+                                messageContent,
+                                peerID,
+                                recipientNickname,
+                                state.getNicknameValue(),
+                                getMyPeerID(meshService)
+                            ) { content, peerIdParam, recipientNicknameParam, messageId ->
+                                sendPrivateMessageVia(meshService, content, peerIdParam, recipientNicknameParam, messageId)
+                            }
+                        } else {
+                            val systemMessage = BitchatMessage(
+                                sender = "system",
+                                content = "started private chat with $targetName",
+                                timestamp = Date(),
+                                isRelay = false
+                            )
+                            messageManager.addMessage(systemMessage)
+                        }
+                    }
+                }
+                else -> {
+                    // Multiple matches: request disambiguation
+                    if (onRequestDisambiguation != null) {
+                        onRequestDisambiguation(targetName, matchingPeerIDs) { selectedPeerID ->
+                            // Retry message command with selected peer
+                            val success = privateChatManager.startPrivateChat(selectedPeerID, meshService)
+
+                            if (success) {
+                                if (parts.size > 2) {
+                                    val messageContent = parts.drop(2).joinToString(" ")
+                                    val recipientNickname = getPeerNickname(selectedPeerID, meshService)
+                                    privateChatManager.sendPrivateMessage(
+                                        messageContent,
+                                        selectedPeerID,
+                                        recipientNickname,
+                                        state.getNicknameValue(),
+                                        getMyPeerID(meshService)
+                                    ) { content, peerIdParam, recipientNicknameParam, messageId ->
+                                        sendPrivateMessageVia(meshService, content, peerIdParam, recipientNicknameParam, messageId)
+                                    }
+                                } else {
+                                    val systemMessage = BitchatMessage(
+                                        sender = "system",
+                                        content = "started private chat with $targetName",
+                                        timestamp = Date(),
+                                        isRelay = false
+                                    )
+                                    messageManager.addMessage(systemMessage)
+                                }
+                            }
                         }
                     } else {
+                        // Fallback: show error message
                         val systemMessage = BitchatMessage(
                             sender = "system",
-                            content = "started private chat with $targetName",
+                            content = "multiple users named '$targetName' found. please use the peer list to select the correct peer.",
                             timestamp = Date(),
                             isRelay = false
                         )
                         messageManager.addMessage(systemMessage)
                     }
                 }
-            } else {
-                val systemMessage = BitchatMessage(
-                    sender = "system",
-                    content = "user '$targetName' not found. they may be offline or using a different nickname.",
-                    timestamp = Date(),
-                    isRelay = false
-                )
-                messageManager.addMessage(systemMessage)
             }
         } else {
             val systemMessage = BitchatMessage(
@@ -248,10 +306,44 @@ class CommandProcessor(
         }
     }
     
-    private fun handleBlockCommand(parts: List<String>, meshService: BluetoothMeshService) {
+    private fun handleBlockCommand(
+        parts: List<String>,
+        meshService: BluetoothMeshService,
+        onRequestDisambiguation: ((String, List<String>, (String) -> Unit) -> Unit)?
+    ) {
         if (parts.size > 1) {
             val targetName = parts[1].removePrefix("@")
-            privateChatManager.blockPeerByNickname(targetName, meshService)
+            val matchingPeerIDs = getPeerIDsForNickname(targetName, meshService)
+
+            when (matchingPeerIDs.size) {
+                0 -> {
+                    val systemMessage = BitchatMessage(
+                        sender = "system",
+                        content = "user '$targetName' not found.",
+                        timestamp = Date(),
+                        isRelay = false
+                    )
+                    messageManager.addMessage(systemMessage)
+                }
+                1 -> {
+                    privateChatManager.blockPeer(matchingPeerIDs.first(), meshService)
+                }
+                else -> {
+                    if (onRequestDisambiguation != null) {
+                        onRequestDisambiguation(targetName, matchingPeerIDs) { selectedPeerID ->
+                            privateChatManager.blockPeer(selectedPeerID, meshService)
+                        }
+                    } else {
+                        val systemMessage = BitchatMessage(
+                            sender = "system",
+                            content = "multiple users named '$targetName' found. please use the peer list to block the correct peer.",
+                            timestamp = Date(),
+                            isRelay = false
+                        )
+                        messageManager.addMessage(systemMessage)
+                    }
+                }
+            }
         } else {
             // List blocked users
             val blockedInfo = privateChatManager.listBlockedUsers()
@@ -265,10 +357,44 @@ class CommandProcessor(
         }
     }
     
-    private fun handleUnblockCommand(parts: List<String>, meshService: BluetoothMeshService) {
+    private fun handleUnblockCommand(
+        parts: List<String>,
+        meshService: BluetoothMeshService,
+        onRequestDisambiguation: ((String, List<String>, (String) -> Unit) -> Unit)?
+    ) {
         if (parts.size > 1) {
             val targetName = parts[1].removePrefix("@")
-            privateChatManager.unblockPeerByNickname(targetName, meshService)
+            val matchingPeerIDs = getPeerIDsForNickname(targetName, meshService)
+
+            when (matchingPeerIDs.size) {
+                0 -> {
+                    val systemMessage = BitchatMessage(
+                        sender = "system",
+                        content = "user '$targetName' not found.",
+                        timestamp = Date(),
+                        isRelay = false
+                    )
+                    messageManager.addMessage(systemMessage)
+                }
+                1 -> {
+                    privateChatManager.unblockPeer(matchingPeerIDs.first(), meshService)
+                }
+                else -> {
+                    if (onRequestDisambiguation != null) {
+                        onRequestDisambiguation(targetName, matchingPeerIDs) { selectedPeerID ->
+                            privateChatManager.unblockPeer(selectedPeerID, meshService)
+                        }
+                    } else {
+                        val systemMessage = BitchatMessage(
+                            sender = "system",
+                            content = "multiple users named '$targetName' found. please use the peer list to unblock the correct peer.",
+                            timestamp = Date(),
+                            isRelay = false
+                        )
+                        messageManager.addMessage(systemMessage)
+                    }
+                }
+            }
         } else {
             val systemMessage = BitchatMessage(
                 sender = "system",
@@ -503,8 +629,10 @@ class CommandProcessor(
     
     // MARK: - Utility Functions
     
-    private fun getPeerIDForNickname(nickname: String, meshService: BluetoothMeshService): String? {
-        return meshService.getPeerNicknames().entries.find { it.value == nickname }?.key
+    private fun getPeerIDsForNickname(nickname: String, meshService: BluetoothMeshService): List<String> {
+        return meshService.getPeerNicknames().entries
+            .filter { it.value == nickname }
+            .map { it.key }
     }
     
     private fun getPeerNickname(peerID: String, meshService: BluetoothMeshService): String {

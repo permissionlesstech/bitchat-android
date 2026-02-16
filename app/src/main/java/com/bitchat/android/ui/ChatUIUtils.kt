@@ -3,13 +3,9 @@ package com.bitchat.android.ui
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.sp
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Shield
-import androidx.compose.ui.graphics.vector.ImageVector
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.mesh.BluetoothMeshService
 import androidx.compose.material3.ColorScheme
@@ -50,10 +46,11 @@ fun formatMessageAsAnnotatedString(
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
     
     // Determine if this message was sent by self
-    val isSelf = message.senderPeerID == meshService.myPeerID || 
-                 message.sender == currentUserNickname ||
-                 message.sender.startsWith("$currentUserNickname#")
-    
+    // For mesh messages, check senderPeerID against myPeerID
+    // For geohash/location messages, check if senderPeerID starts with "geohash:" AND sender matches current user
+    val isSelf = message.senderPeerID == meshService.myPeerID ||
+                 (message.senderPeerID?.startsWith("geohash:") == true && message.sender == currentUserNickname)
+
     if (message.sender != "system") {
         // Get base color for this peer (iOS-style color assignment)
         val baseColor = if (isSelf) {
@@ -64,7 +61,18 @@ fun formatMessageAsAnnotatedString(
         
         // Split sender into base name and hashtag suffix
         val (baseName, suffix) = splitSuffix(message.sender)
-        
+
+        val suffixToShow = if (isSelf) {
+            ""
+        } else if (suffix.isNotEmpty()) {
+            suffix // Use existing #abcd suffix from nickname
+        } else if (message.senderPeerID != null && message.senderPeerID.length >= 4) {
+            // Derive suffix from last 4 chars of senderPeerID as fingerprint
+            "#${message.senderPeerID.takeLast(4)}"
+        } else {
+            "" // No suffix available
+        }
+
         // Sender prefix "<@"
         builder.pushStyle(SpanStyle(
             color = baseColor,
@@ -96,14 +104,25 @@ fun formatMessageAsAnnotatedString(
         }
         builder.pop()
         
-        // Hashtag suffix in lighter color (iOS style)
-        if (suffix.isNotEmpty()) {
+        // Hashtag suffix in lighter color (iOS style) - always show for identification
+        if (suffixToShow.isNotEmpty()) {
             builder.pushStyle(SpanStyle(
                 color = baseColor.copy(alpha = 0.6f),
                 fontSize = BASE_FONT_SIZE.sp,
                 fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
             ))
-            builder.append(suffix)
+            builder.append(suffixToShow)
+            builder.pop()
+        }
+
+        // Add (you) marker for current user's messages
+        if (isSelf) {
+            builder.pushStyle(SpanStyle(
+                color = baseColor.copy(alpha = 0.5f),
+                fontSize = (BASE_FONT_SIZE - 2).sp,
+                fontWeight = FontWeight.Normal
+            ))
+            builder.append(" (you)")
             builder.pop()
         }
         
@@ -164,18 +183,33 @@ fun formatMessageHeaderAnnotatedString(
     currentUserNickname: String,
     meshService: BluetoothMeshService,
     colorScheme: ColorScheme,
-    timeFormatter: SimpleDateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+    timeFormatter: SimpleDateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault()),
+    duplicateBaseNames: Set<String> = emptySet()
 ): AnnotatedString {
     val builder = AnnotatedString.Builder()
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
 
+    // Determine if this message was sent by self
+    // For mesh messages, check senderPeerID against myPeerID
+    // For geohash/location messages, check if senderPeerID starts with "geohash:" AND sender matches current user
     val isSelf = message.senderPeerID == meshService.myPeerID ||
-            message.sender == currentUserNickname ||
-            message.sender.startsWith("$currentUserNickname#")
+                 (message.senderPeerID?.startsWith("geohash:") == true && message.sender == currentUserNickname)
 
     if (message.sender != "system") {
         val baseColor = if (isSelf) Color(0xFFFF9500) else getPeerColor(message, isDark)
         val (baseName, suffix) = splitSuffix(message.sender)
+
+        // Show suffix for others, skip for self (since we have "(you)" marker)
+        val suffixToShow = if (isSelf) {
+            "" // Skip suffix for own messages
+        } else if (suffix.isNotEmpty()) {
+            suffix // Use existing #abcd suffix from nickname
+        } else if (message.senderPeerID != null && message.senderPeerID.length >= 4) {
+            // Derive suffix from last 4 chars of senderPeerID as fingerprint
+            "#${message.senderPeerID.takeLast(4)}"
+        } else {
+            "" // No suffix available
+        }
 
         // "<@"
         builder.pushStyle(SpanStyle(
@@ -205,14 +239,25 @@ fun formatMessageHeaderAnnotatedString(
         }
         builder.pop()
 
-        // Hashtag suffix
-        if (suffix.isNotEmpty()) {
+        // Hashtag suffix - always show for identification
+        if (suffixToShow.isNotEmpty()) {
             builder.pushStyle(SpanStyle(
                 color = baseColor.copy(alpha = 0.6f),
                 fontSize = BASE_FONT_SIZE.sp,
                 fontWeight = if (isSelf) FontWeight.Bold else FontWeight.Medium
             ))
-            builder.append(suffix)
+            builder.append(suffixToShow)
+            builder.pop()
+        }
+
+        // Add (you) marker for current user's messages
+        if (isSelf) {
+            builder.pushStyle(SpanStyle(
+                color = baseColor.copy(alpha = 0.5f),
+                fontSize = (BASE_FONT_SIZE - 2).sp,
+                fontWeight = FontWeight.Normal
+            ))
+            builder.append(" (you)")
             builder.pop()
         }
 
