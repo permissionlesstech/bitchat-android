@@ -43,6 +43,20 @@ class GeohashRepository(
         }?.key
     }
 
+    fun findPubkeyByShortId(shortId: String): String? {
+        // First check cached nicknames (fastest)
+        var found = geoNicknames.keys.firstOrNull { it.startsWith(shortId, ignoreCase = true) }
+        if (found != null) return found
+
+        // If not found in nicknames (e.g. anon user), check all known participants across all geohashes
+        for (participants in geohashParticipants.values) {
+            found = participants.keys.firstOrNull { it.startsWith(shortId, ignoreCase = true) }
+            if (found != null) return found
+        }
+        
+        return null
+    }
+
     // peerID alias -> nostr pubkey mapping for geohash DMs and temp aliases
     private val nostrKeyMapping: MutableMap<String, String> = mutableMapOf()
 

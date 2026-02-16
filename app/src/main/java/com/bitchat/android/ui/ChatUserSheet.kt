@@ -40,6 +40,7 @@ fun ChatUserSheet(
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
     val standardGreen = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D) // iOS green
     val standardBlue = Color(0xFF007AFF) // iOS blue
+    val standardPurple = if (isDark) Color(0xFFBF5AF2) else Color(0xFFAF52DE) // iOS purple
     val standardRed = Color(0xFFFF3B30) // iOS red
     val standardGrey = if (isDark) Color(0xFF8E8E93) else Color(0xFF6D6D70) // iOS grey
     
@@ -92,6 +93,33 @@ fun ChatUserSheet(
                     
                     // Only show user actions for other users' messages or when no message is selected
                     if (selectedMessage?.sender != viewModel.nickname.value) {
+                        // Send private message action
+                        item {
+                            UserActionRow(
+                                title = stringResource(R.string.action_private_message_title, targetNickname),
+                                subtitle = stringResource(R.string.action_private_message_subtitle),
+                                titleColor = standardPurple,
+                                onClick = {
+                                    val selectedLocationChannel = viewModel.selectedLocationChannel.value
+                                    if (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location) {
+                                        if (selectedMessage?.senderPeerID?.startsWith("nostr:") == true) {
+                                            val shortId = selectedMessage.senderPeerID!!.substring(6)
+                                            viewModel.startGeohashDMByShortId(shortId)
+                                        } else {
+                                            viewModel.startGeohashDMByNickname(targetNickname)
+                                        }
+                                    } else {
+                                        // Mesh chat
+                                        val peerID = selectedMessage?.senderPeerID ?: viewModel.getPeerIDForNickname(targetNickname)
+                                        if (peerID != null) {
+                                            viewModel.showPrivateChatSheet(peerID)
+                                        }
+                                    }
+                                    onDismiss()
+                                }
+                            )
+                        }
+
                         // Slap action
                         item {
                             UserActionRow(
