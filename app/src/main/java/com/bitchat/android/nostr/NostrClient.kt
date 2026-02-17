@@ -285,11 +285,15 @@ class NostrClient private constructor(private val context: Context) {
             // Check Proof of Work validation for incoming geohash events
             val powSettings = PoWPreferenceManager.getCurrentSettings()
             if (powSettings.enabled && powSettings.difficulty > 0) {
-                if (!NostrProofOfWork.validateDifficulty(event, powSettings.difficulty)) {
-                    Log.w(TAG, "🚫 Rejecting geohash event ${event.id.take(8)}... due to insufficient PoW (required: ${powSettings.difficulty})")
-                    return
+                if (NostrProofOfWork.hasNonce(event)) {
+                    if (!NostrProofOfWork.validateDifficulty(event, powSettings.difficulty)) {
+                        Log.w(TAG, "🚫 Rejecting geohash event ${event.id.take(8)}... due to insufficient PoW (required: ${powSettings.difficulty})")
+                        return
+                    }
+                    Log.v(TAG, "✅ PoW validation passed for geohash event ${event.id.take(8)}...")
+                } else {
+                    Log.v(TAG, "Skipping PoW validation for event without nonce: ${event.id.take(8)}...")
                 }
-                Log.v(TAG, "✅ PoW validation passed for geohash event ${event.id.take(8)}...")
             }
             
             // Extract nickname from tags

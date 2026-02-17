@@ -3,7 +3,7 @@ package com.bitchat.android.ui
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
-import com.google.gson.Gson
+import com.bitchat.android.serialization.JsonConfig
 import kotlin.random.Random
 
 /**
@@ -16,8 +16,6 @@ class DataManager(private val context: Context) {
     }
     
     private val prefs: SharedPreferences = context.getSharedPreferences("bitchat_prefs", Context.MODE_PRIVATE)
-    private val gson = Gson()
-    
     // Channel-related maps that need to persist state
     private val _channelCreators = mutableMapOf<String, String>()
     private val _favoritePeers = mutableSetOf<String>()
@@ -83,10 +81,10 @@ class DataManager(private val context: Context) {
         val savedProtectedChannels = prefs.getStringSet("password_protected_channels", emptySet()) ?: emptySet()
         
         // Load channel creators
-        val creatorsJson = prefs.getString("channel_creators", "{}")
+        val creatorsJson = prefs.getString("channel_creators", "{}") ?: "{}"
         try {
-            val creatorsMap = gson.fromJson(creatorsJson, Map::class.java) as? Map<String, String>
-            creatorsMap?.let { _channelCreators.putAll(it) }
+            val creatorsMap = JsonConfig.json.decodeFromString<Map<String, String>>(creatorsJson)
+            _channelCreators.putAll(creatorsMap)
         } catch (e: Exception) {
             // Ignore parsing errors
         }
@@ -105,7 +103,7 @@ class DataManager(private val context: Context) {
         prefs.edit().apply {
             putStringSet("joined_channels", joinedChannels)
             putStringSet("password_protected_channels", passwordProtectedChannels)
-            putString("channel_creators", gson.toJson(_channelCreators))
+            putString("channel_creators", JsonConfig.json.encodeToString(_channelCreators))
             apply()
         }
     }

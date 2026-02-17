@@ -26,7 +26,7 @@ bouncycastle = "1.70"
 tink-android = "1.10.0"
 
 # JSON
-gson = "2.13.1"
+kotlinx-serialization = "1.9.0"
 
 # Coroutines
 kotlinx-coroutines = "1.10.2"
@@ -94,7 +94,7 @@ bouncycastle-bcprov = { module = "org.bouncycastle:bcprov-jdk15on", version.ref 
 google-tink-android = { module = "com.google.crypto.tink:tink-android", version.ref = "tink-android" }
 
 # JSON
-gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 
 # Coroutines
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
@@ -138,8 +138,8 @@ kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-t
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
-kotlin-parcelize = { id = "kotlin-parcelize" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 
 [bundles]
 compose = [
