@@ -6,9 +6,7 @@ import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.ui.ChatState
 import com.bitchat.android.ui.MessageManager
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.util.Date
 
 /**
@@ -44,7 +42,7 @@ class GeohashMessageHandler(
     }
 
     fun onEvent(event: NostrEvent, subscribedGeohash: String) {
-        scope.launch(Dispatchers.Default) {
+        scope.launch {
             try {
                 if (event.kind != NostrKind.EPHEMERAL_EVENT && event.kind != NostrKind.GEOHASH_PRESENCE) return@launch
                 val tagGeo = event.tags.firstOrNull { it.size >= 2 && it[0] == "g" }?.getOrNull(1)
@@ -62,9 +60,6 @@ class GeohashMessageHandler(
                 // Blocked users check (use injected DataManager which has loaded state)
                 if (dataManager.isGeohashUserBlocked(event.pubkey)) return@launch
 
-                // Update repository (participants, nickname, teleport)
-                // Update repository on a background-safe path; repository will post updates to LiveData
-                
                 // Update participant count (last seen) on BOTH Presence (20001) and Chat (20000) events
                 if (event.kind == NostrKind.GEOHASH_PRESENCE || event.kind == NostrKind.EPHEMERAL_EVENT) {
                     repo.updateParticipant(subscribedGeohash, event.pubkey, Date(event.createdAt * 1000L))
@@ -104,7 +99,7 @@ class GeohashMessageHandler(
                         if (hasNonce) NostrProofOfWork.calculateDifficulty(event.id).takeIf { it > 0 } else null
                     } catch (_: Exception) { null }
                 )
-                withContext(Dispatchers.Main) { messageManager.addChannelMessage("geo:$subscribedGeohash", msg) }
+                messageManager.addChannelMessage("geo:$subscribedGeohash", msg)
             } catch (e: Exception) {
                 Log.e(TAG, "onEvent error: ${e.message}")
             }

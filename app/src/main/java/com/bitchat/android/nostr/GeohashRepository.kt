@@ -89,7 +89,16 @@ class GeohashRepository(
 
     fun updateParticipant(geohash: String, participantId: String, lastSeen: Date) {
         val participants = geohashParticipants.getOrPut(geohash) { mutableMapOf() }
-        participants[participantId] = lastSeen
+        // Cap to now: prevents future-timestamped events (clock skew / malicious created_at)
+        // from pinning lastSeen and blocking subsequent normal heartbeats.
+        // Also keeps max: relays send events newest-first, so subsequent older events for
+        // the same user must not overwrite a fresher lastSeen.
+        val now = Date()
+        val effective = if (lastSeen.after(now)) now else lastSeen
+        val existing = participants[participantId]
+        if (existing == null || effective.after(existing)) {
+            participants[participantId] = effective
+        }
         if (currentGeohash == geohash) refreshGeohashPeople()
         updateReactiveParticipantCounts()
     }
