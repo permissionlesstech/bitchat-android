@@ -423,7 +423,7 @@ class GeohashViewModel(
     }
 
     override fun onStart(owner: LifecycleOwner) {
-        Log.d(TAG, "🌍 App foregrounded: Resuming sampling, presence heartbeat, and presence subscription")
+        Log.d(TAG, "🌍 App foregrounded: Resuming sampling and presence subscription")
         activeSamplingGeohashes.forEach { performSubscribeSampling(it) }
         startGlobalPresenceHeartbeat()
         // Reopen presence subscription for active channel
@@ -441,10 +441,8 @@ class GeohashViewModel(
     }
 
     override fun onStop(owner: LifecycleOwner) {
-        Log.d(TAG, "🌍 App backgrounded: Pausing sampling, presence heartbeat, and presence subscription")
+        Log.d(TAG, "🌍 App backgrounded: Pausing sampling and presence subscription")
         activeSamplingGeohashes.forEach { subscriptionManager.unsubscribe("sampling-$it") }
-        globalPresenceJob?.cancel()
-        globalPresenceJob = null
         currentPresenceSubId?.let { subscriptionManager.unsubscribe(it); currentPresenceSubId = null }
     }
 

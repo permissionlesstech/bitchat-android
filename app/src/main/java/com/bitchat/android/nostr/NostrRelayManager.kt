@@ -168,7 +168,7 @@ class NostrRelayManager private constructor() {
         id: String = generateSubscriptionId(),
         handler: (NostrEvent) -> Unit,
         includeDefaults: Boolean = false,
-    nRelays: Int = 5
+        nRelays: Int = 5
     ): String {
         ensureGeohashRelaysConnected(geohash, nRelays, includeDefaults)
         val relayUrls = getRelaysForGeohash(geohash)
