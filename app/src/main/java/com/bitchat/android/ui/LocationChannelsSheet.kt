@@ -534,13 +534,9 @@ fun LocationChannelsSheet(
     }
 
     // Sampling management: update sampling when channels/bookmarks change
-    LaunchedEffect(isPresented, availableChannels, bookmarks) {
-        if (isPresented) {
-            val geohashes = (availableChannels.map { it.geohash } + bookmarks).toSet().toList()
-            viewModel.beginGeohashSampling(geohashes)
-        } else {
-            viewModel.endGeohashSampling()
-        }
+    LaunchedEffect(availableChannels, bookmarks) {
+        val geohashes = (availableChannels.map { it.geohash } + bookmarks).toSet().toList()
+        viewModel.beginGeohashSampling(geohashes)
     }
 
     // Ensure cleanup when the composable is destroyed (e.g. removed from parent composition)
