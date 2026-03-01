@@ -1082,63 +1082,65 @@ class BluetoothMeshService(private val context: Context) {
      */
     fun sendAnnouncementToPeer(peerID: String) {
         if (peerManager.hasAnnouncedToPeer(peerID)) return
-        
-        val nickname = try { com.bitchat.android.services.NicknameProvider.getNickname(context, myPeerID) } catch (_: Exception) { myPeerID }
-        
-        // Get the static public key for the announcement
-        val staticKey = encryptionService.getStaticPublicKey()
-        if (staticKey == null) {
-            Log.e(TAG, "No static public key available for peer announcement")
-            return
-        }
-        
-        // Get the signing public key for the announcement
-        val signingKey = encryptionService.getSigningPublicKey()
-        if (signingKey == null) {
-            Log.e(TAG, "No signing public key available for peer announcement")
-            return
-        }
-        
-        // Create iOS-compatible IdentityAnnouncement with TLV encoding
-        val announcement = IdentityAnnouncement(nickname, staticKey, signingKey)
-        var tlvPayload = announcement.encode()
-        if (tlvPayload == null) {
-            Log.e(TAG, "Failed to encode peer announcement as TLV")
-            return
-        }
 
-        // Append gossip TLV containing up to 10 direct neighbors (compact IDs)
-        try {
-            val directPeers = getDirectPeerIDsForGossip()
-            if (directPeers.isNotEmpty()) {
-                val gossip = com.bitchat.android.services.meshgraph.GossipTLV.encodeNeighbors(directPeers)
-                tlvPayload = tlvPayload + gossip
+        serviceScope.launch {
+            val nickname = try { com.bitchat.android.services.NicknameProvider.getNickname(context, myPeerID) } catch (_: Exception) { myPeerID }
+
+            // Get the static public key for the announcement
+            val staticKey = encryptionService.getStaticPublicKey()
+            if (staticKey == null) {
+                Log.e(TAG, "No static public key available for peer announcement")
+                return@launch
             }
-            // Always update our own node in the mesh graph with the neighbor list we used
-            try {
-                com.bitchat.android.services.meshgraph.MeshGraphService.getInstance()
-                    .updateFromAnnouncement(myPeerID, nickname, directPeers, System.currentTimeMillis().toULong())
-            } catch (_: Exception) { }
-        } catch (_: Exception) { }
-        
-        val packet = BitchatPacket(
-            type = MessageType.ANNOUNCE.value,
-            ttl = MAX_TTL,
-            senderID = myPeerID,
-            payload = tlvPayload
-        )
-        
-        // Sign the packet using our signing key (exactly like iOS)
-        val signedPacket = encryptionService.signData(packet.toBinaryDataForSigning()!!)?.let { signature ->
-            packet.copy(signature = signature)
-        } ?: packet
-        
-        connectionManager.broadcastPacket(RoutedPacket(signedPacket))
-        peerManager.markPeerAsAnnouncedTo(peerID)
-        Log.d(TAG, "Sent iOS-compatible signed TLV peer announce to $peerID (${tlvPayload.size} bytes)")
 
-        // Track announce for sync
-        try { gossipSyncManager.onPublicPacketSeen(signedPacket) } catch (_: Exception) { }
+            // Get the signing public key for the announcement
+            val signingKey = encryptionService.getSigningPublicKey()
+            if (signingKey == null) {
+                Log.e(TAG, "No signing public key available for peer announcement")
+                return@launch
+            }
+
+            // Create iOS-compatible IdentityAnnouncement with TLV encoding
+            val announcement = IdentityAnnouncement(nickname, staticKey, signingKey)
+            var tlvPayload = announcement.encode()
+            if (tlvPayload == null) {
+                Log.e(TAG, "Failed to encode peer announcement as TLV")
+                return@launch
+            }
+
+            // Append gossip TLV containing up to 10 direct neighbors (compact IDs)
+            try {
+                val directPeers = getDirectPeerIDsForGossip()
+                if (directPeers.isNotEmpty()) {
+                    val gossip = com.bitchat.android.services.meshgraph.GossipTLV.encodeNeighbors(directPeers)
+                    tlvPayload = tlvPayload + gossip
+                }
+                // Always update our own node in the mesh graph with the neighbor list we used
+                try {
+                    com.bitchat.android.services.meshgraph.MeshGraphService.getInstance()
+                        .updateFromAnnouncement(myPeerID, nickname, directPeers, System.currentTimeMillis().toULong())
+                } catch (_: Exception) { }
+            } catch (_: Exception) { }
+
+            val packet = BitchatPacket(
+                type = MessageType.ANNOUNCE.value,
+                ttl = MAX_TTL,
+                senderID = myPeerID,
+                payload = tlvPayload
+            )
+
+            // Sign the packet using our signing key (exactly like iOS)
+            val signedPacket = encryptionService.signData(packet.toBinaryDataForSigning()!!)?.let { signature ->
+                packet.copy(signature = signature)
+            } ?: packet
+
+            connectionManager.broadcastPacket(RoutedPacket(signedPacket))
+            peerManager.markPeerAsAnnouncedTo(peerID)
+            Log.d(TAG, "Sent iOS-compatible signed TLV peer announce to $peerID (${tlvPayload.size} bytes)")
+
+            // Track announce for sync
+            try { gossipSyncManager.onPublicPacketSeen(signedPacket) } catch (_: Exception) { }
+        }
     }
 
     /**
