@@ -1,14 +1,14 @@
 package com.bitchat.android.model
 
-import android.os.Parcelable
-import com.google.gson.GsonBuilder
-import kotlinx.parcelize.Parcelize
+import com.bitchat.android.serialization.DateSerializer
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.*
 
-@Parcelize
-enum class BitchatMessageType : Parcelable {
+@Serializable
+enum class BitchatMessageType {
     Message,
     Audio,
     Image,
@@ -18,23 +18,36 @@ enum class BitchatMessageType : Parcelable {
 /**
  * Delivery status for messages - exact same as iOS version
  */
-sealed class DeliveryStatus : Parcelable {
-    @Parcelize
+@Serializable
+sealed class DeliveryStatus {
+    @Serializable
+    @SerialName("sending")
     object Sending : DeliveryStatus()
 
-    @Parcelize
+    @Serializable
+    @SerialName("sent")
     object Sent : DeliveryStatus()
 
-    @Parcelize
-    data class Delivered(val to: String, val at: Date) : DeliveryStatus()
+    @Serializable
+    @SerialName("delivered")
+    data class Delivered(
+        val to: String,
+        @Serializable(with = DateSerializer::class) val at: Date
+    ) : DeliveryStatus()
 
-    @Parcelize
-    data class Read(val by: String, val at: Date) : DeliveryStatus()
+    @Serializable
+    @SerialName("read")
+    data class Read(
+        val by: String,
+        @Serializable(with = DateSerializer::class) val at: Date
+    ) : DeliveryStatus()
 
-    @Parcelize
+    @Serializable
+    @SerialName("failed")
     data class Failed(val reason: String) : DeliveryStatus()
 
-    @Parcelize
+    @Serializable
+    @SerialName("partial")
     data class PartiallyDelivered(val reached: Int, val total: Int) : DeliveryStatus()
 
     fun getDisplayText(): String {
@@ -52,13 +65,13 @@ sealed class DeliveryStatus : Parcelable {
 /**
  * BitchatMessage - 100% compatible with iOS version
  */
-@Parcelize
+@Serializable
 data class BitchatMessage(
     val id: String = UUID.randomUUID().toString().uppercase(),
     val sender: String,
     val content: String,
     val type: BitchatMessageType = BitchatMessageType.Message,
-    val timestamp: Date,
+    @Serializable(with = DateSerializer::class) val timestamp: Date,
     val isRelay: Boolean = false,
     val originalSender: String? = null,
     val isPrivate: Boolean = false,
@@ -70,7 +83,7 @@ data class BitchatMessage(
     val isEncrypted: Boolean = false,
     val deliveryStatus: DeliveryStatus? = null,
     val powDifficulty: Int? = null
-) : Parcelable {
+) {
 
     /**
      * Convert message to binary payload format - exactly same as iOS version

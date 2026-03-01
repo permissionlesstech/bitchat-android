@@ -12,10 +12,10 @@ import android.util.Log
 import androidx.core.app.ActivityCompat
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
+import com.bitchat.android.serialization.JsonConfig
 import kotlinx.coroutines.*
+import kotlinx.serialization.Serializable
 import java.util.*
-import com.google.gson.Gson
-import com.google.gson.JsonSyntaxException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -52,7 +52,8 @@ class LocationChannelManager private constructor(private val context: Context) {
     private val geocoderProvider: GeocoderProvider = GeocoderFactory.get(context)
     private var lastLocation: Location? = null
     private var geocodingJob: Job? = null
-    private val gson = Gson()
+    private var refreshTimer: Job? = null
+    private var isGeocoding: Boolean = false
     private var dataManager: com.bitchat.android.ui.DataManager? = null
 
     private fun checkSystemLocationEnabled(): Boolean {
@@ -195,7 +196,7 @@ class LocationChannelManager private constructor(private val context: Context) {
             minDistanceMeters = 5f,
             callback = locationUpdateCallback
         )
-        
+
         // Prime state immediately with last known / current location
         requestOneShotLocation()
     }
@@ -301,7 +302,7 @@ class LocationChannelManager private constructor(private val context: Context) {
         Log.d(TAG, "Requesting one-shot location")
         // Set loading state initially
         _isLoadingLocation.value = true
-        
+
         locationProvider.getLastKnownLocation { cached ->
             // If we have a cached location and it's reasonably recent (e.g. < 5 mins), use it
             // For now, we just use it if it exists, similar to previous logic
@@ -465,21 +466,23 @@ class LocationChannelManager private constructor(private val context: Context) {
     }
 
     // MARK: - Channel Persistence
-    
+
     /**
      * Save current channel selection to persistent storage
      */
     private fun saveChannelSelection(channel: ChannelID) {
         try {
             val channelData = when (channel) {
-                is ChannelID.Mesh -> gson.toJson(PersistedChannel(mesh = true))
-                is ChannelID.Location -> gson.toJson(
-                    PersistedChannel(
-                        mesh = false,
-                        level = channel.channel.level.name,
-                        geohash = channel.channel.geohash
+                is ChannelID.Mesh -> JsonConfig.json.encodeToString(PersistedChannel(mesh = true))
+                is ChannelID.Location -> {
+                    JsonConfig.json.encodeToString(
+                        PersistedChannel(
+                            mesh = false,
+                            level = channel.channel.level.name,
+                            geohash = channel.channel.geohash,
+                        )
                     )
-                )
+                }
             }
             dataManager?.saveLastGeohashChannel(channelData)
             Log.d(TAG, "Saved channel selection: ${channel.displayName}")
@@ -495,8 +498,8 @@ class LocationChannelManager private constructor(private val context: Context) {
         try {
             val channelData = dataManager?.loadLastGeohashChannel()
             if (!channelData.isNullOrBlank()) {
-                val persisted = gson.fromJson(channelData, PersistedChannel::class.java)
-                val channel = persisted?.toChannel()
+                val persisted = JsonConfig.json.decodeFromString<PersistedChannel>(channelData)
+                val channel = persisted.toChannel()
                 if (channel != null) {
                     _selectedChannel.value = channel
                     Log.d(TAG, "Restored persisted channel: ${channel.displayName}")
@@ -508,15 +511,13 @@ class LocationChannelManager private constructor(private val context: Context) {
                 Log.d(TAG, "No persisted channel found, defaulting to Mesh")
                 _selectedChannel.value = ChannelID.Mesh
             }
-        } catch (e: JsonSyntaxException) {
-            Log.e(TAG, "Failed to parse persisted channel data: ${e.message}")
-            _selectedChannel.value = ChannelID.Mesh
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load persisted channel: ${e.message}")
             _selectedChannel.value = ChannelID.Mesh
         }
     }
 
+    @Serializable
     data class PersistedChannel(
         val mesh: Boolean,
         val level: String? = null,
@@ -577,10 +578,10 @@ class LocationChannelManager private constructor(private val context: Context) {
         Log.d(TAG, "Cleaning up LocationChannelManager")
         endLiveRefresh()
         locationProvider.cancel()
-        
+
         geocodingJob?.cancel()
         geocodingJob = null
-        
+
         // Unregister receiver
         try { context.unregisterReceiver(locationStateReceiver) } catch (_: Exception) {}
     }

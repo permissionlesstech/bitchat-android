@@ -1,14 +1,14 @@
 package com.bitchat.android.protocol
 
-import android.os.Parcelable
-import kotlinx.parcelize.Parcelize
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import android.util.Log
+import kotlinx.serialization.Serializable
 
 /**
  * Message types - exact same as iOS version with Noise Protocol support
  */
+@Serializable
 enum class MessageType(val value: UByte) {
     ANNOUNCE(0x01u),
     MESSAGE(0x02u),  // All user messages (private and broadcast)
@@ -50,7 +50,7 @@ object SpecialRecipients {
  * - Payload: Variable length (includes original size if compressed)
  * - Signature: 64 bytes (if hasSignature flag set)
  */
-@Parcelize
+@Serializable
 data class BitchatPacket(
     val version: UByte = 1u,
     val type: UByte,
@@ -61,7 +61,7 @@ data class BitchatPacket(
     var signature: ByteArray? = null,  // Changed from val to var for packet signing
     var ttl: UByte,
     var route: List<ByteArray>? = null // Optional source route: ordered list of peerIDs (8 bytes each), not including sender and final recipient
-) : Parcelable {
+) {
 
     constructor(
         type: UByte,
@@ -283,7 +283,7 @@ object BinaryProtocol {
                     cleaned.take(count).forEach { hop -> buffer.put(hop) }
                 }
             }
-            
+
             // Payload (with original size prepended if compressed)
             if (isCompressed) {
                 val originalSize = originalPayloadSize
@@ -419,7 +419,7 @@ object BinaryProtocol {
             val payload = if (isCompressed) {
                 val lengthFieldBytes = if (version >= 2u.toUByte()) 4 else 2
                 if (payloadLength.toInt() < lengthFieldBytes) return null
-                
+
                 val originalSize = if (version >= 2u.toUByte()) {
                     buffer.getInt()
                 } else {
@@ -439,7 +439,7 @@ object BinaryProtocol {
                         return null
                     }
                 }
-                
+
                 // Decompress
                 CompressionUtil.decompress(compressedPayload, originalSize) ?: return null
             } else {
