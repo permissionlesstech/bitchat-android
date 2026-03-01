@@ -8,6 +8,7 @@ import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
 import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.random.Random
 
 /**
  * Gossip-based synchronization manager using on-demand GCS filters.
@@ -17,12 +18,14 @@ import java.util.concurrent.ConcurrentHashMap
 class GossipSyncManager(
     private val myPeerID: String,
     private val scope: CoroutineScope,
-    private val configProvider: ConfigProvider
+    private val configProvider: ConfigProvider,
+    private val requestSyncManager: RequestSyncManager
 ) {
     interface Delegate {
         fun sendPacket(packet: BitchatPacket)
         fun sendPacketToPeer(peerID: String, packet: BitchatPacket)
         fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket
+        fun getConnectedPeers(): List<String>
     }
 
     interface ConfigProvider {
@@ -55,7 +58,7 @@ class GossipSyncManager(
             while (isActive) {
                 try {
                     delay(30_000)
-                    sendRequestSync()
+                    sendPeriodicSync()
                 } catch (e: CancellationException) { throw e }
                 catch (e: Exception) { Log.e(TAG, "Periodic sync error: ${e.message}") }
             }
@@ -68,6 +71,8 @@ class GossipSyncManager(
                 try {
                     delay(com.bitchat.android.util.AppConstants.Sync.CLEANUP_INTERVAL_MS)
                     pruneStaleAnnouncements()
+                    // Cleanup expired sync requests as well
+                    requestSyncManager.cleanup()
                 } catch (e: CancellationException) { throw e }
                 catch (e: Exception) { Log.e(TAG, "Periodic cleanup error: ${e.message}") }
             }
@@ -82,7 +87,7 @@ class GossipSyncManager(
     fun scheduleInitialSync(delayMs: Long = 5_000L) {
         scope.launch(Dispatchers.IO) {
             delay(delayMs)
-            sendRequestSync()
+            sendPeriodicSync()
         }
     }
 
@@ -133,8 +138,28 @@ class GossipSyncManager(
         }
     }
 
-    private fun sendRequestSync() {
-        val payload = buildGcsPayload()
+    private fun sendPeriodicSync() {
+        // Instead of blind broadcast, iterate over connected peers and send unicast sync requests
+        // This allows us to attribute responses to specific peers (RSR)
+        val peers = delegate?.getConnectedPeers() ?: emptyList()
+        if (peers.isNotEmpty()) {
+            Log.d(TAG, "Sending periodic sync to ${peers.size} connected peers")
+            for (peerID in peers) {
+                sendRequestSyncToPeer(peerID)
+            }
+        } else {
+            // Fallback to broadcast if no connected peers known (discovery phase)
+            // But note: RSR validation might fail if we don't know who responds
+            sendBroadcastSync()
+        }
+    }
+
+    private fun sendBroadcastSync() {
+        // Legacy broadcast sync (blind)
+        // Responses to this won't be attributed unless we register "BROADCAST" or something,
+        // but RequestSyncManager works by peerID. 
+        // This is mainly for initial discovery where we might not know peerIDs yet.
+        val payload = buildGcsPayload() // no requestId
 
         val packet = BitchatPacket(
             type = MessageType.REQUEST_SYNC.value,
@@ -149,6 +174,9 @@ class GossipSyncManager(
     }
 
     private fun sendRequestSyncToPeer(peerID: String) {
+        // Register the request for RSR validation (no requestId needed)
+        requestSyncManager.registerRequest(peerID)
+        
         val payload = buildGcsPayload()
 
         val packet = BitchatPacket(
@@ -159,7 +187,7 @@ class GossipSyncManager(
             payload = payload,
             ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS // neighbor only
         )
-        Log.d(TAG, "Sending sync request to $peerID (${payload.size} bytes)")
+        Log.d(TAG, "Sending sync request to $peerID (size: ${payload.size})")
         // Sign and send directly to peer
         val signed = delegate?.signPacketForBroadcast(packet) ?: packet
         delegate?.sendPacketToPeer(peerID, signed)
@@ -185,9 +213,13 @@ class GossipSyncManager(
             val idBytes = hexToBytes(id)
             if (!mightContain(idBytes)) {
                 // Send original packet unchanged to requester only (keep local TTL)
-                val toSend = pkt.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS)
+                // MARK AS RSR so the requester knows it's a solicited response
+                val toSend = pkt.copy(
+                    ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS,
+                    isRSR = true
+                )
                 delegate?.sendPacketToPeer(fromPeerID, toSend)
-                Log.d(TAG, "Sent sync announce: Type ${toSend.type} from ${toSend.senderID.toHexString()} to $fromPeerID packet id ${idBytes.toHexString()}")
+                Log.d(TAG, "Sent sync announce (RSR): Type ${toSend.type} from ${toSend.senderID.toHexString()} to $fromPeerID packet id ${idBytes.toHexString()}")
             }
         }
 
@@ -196,9 +228,12 @@ class GossipSyncManager(
         for (pkt in toSendMsgs) {
             val idBytes = PacketIdUtil.computeIdBytes(pkt)
             if (!mightContain(idBytes)) {
-                val toSend = pkt.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS)
+                val toSend = pkt.copy(
+                    ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS,
+                    isRSR = true
+                )
                 delegate?.sendPacketToPeer(fromPeerID, toSend)
-                Log.d(TAG, "Sent sync message: Type ${toSend.type} to $fromPeerID packet id ${idBytes.toHexString()}")
+                Log.d(TAG, "Sent sync message (RSR): Type ${toSend.type} to $fromPeerID packet id ${idBytes.toHexString()}")
             }
         }
     }
