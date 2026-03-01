@@ -4,6 +4,8 @@ import android.app.Application
 import com.bitchat.android.nostr.RelayDirectory
 import com.bitchat.android.ui.theme.ThemePreferenceManager
 import com.bitchat.android.net.ArtiTorManager
+import com.giphy.sdk.ui.Giphy
+import com.bitchat.android.util.AppConstants
 
 /**
  * Main application class for bitchat Android
@@ -52,6 +54,9 @@ class BitchatApplication : Application() {
 
         // Proactively start the foreground service to keep mesh alive
         try { com.bitchat.android.service.MeshForegroundService.start(this) } catch (_: Exception) { }
+
+        // Initialize GIPHY SDK
+        Giphy.configure(this, AppConstants.API.GIPHY_API_KEY)
 
         // TorManager already initialized above
     }
