@@ -62,7 +62,8 @@ class NostrDirectMessageHandler(
                     return@launch
                 }
 
-                val (content, senderPubkey, rumorTimestamp) = decryptResult
+                val (content, rawSenderPubkey, rumorTimestamp) = decryptResult
+                val senderPubkey = rawSenderPubkey.lowercase()
 
                 // If sender is blocked for geohash contexts, drop any events from this pubkey
                 // Applies to both geohash DMs (geohash != "") and account DMs (geohash == "")
