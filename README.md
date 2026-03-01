@@ -211,6 +211,9 @@ bitchat uses an efficient binary protocol optimized for Bluetooth LE:
 - **Lifecycle-Aware**: Proper handling of Android app lifecycle
 - **Battery Optimization**: Foreground service and adaptive scanning
 
+## Bitchat Nigeria
+For details on the Nigerian location-based features and deployment instructions, see [README_NIGERIA.md](README_NIGERIA.md).
+
 ## Android Technical Architecture
 
 ### Core Components

@@ -118,7 +118,7 @@ class ChatViewModel(
     val verifiedFingerprints = verificationHandler.verifiedFingerprints
 
     // Media file sending manager
-    private val mediaSendingManager = MediaSendingManager(state, messageManager, channelManager) { meshService }
+    private val mediaSendingManager = MediaSendingManager(state, messageManager, channelManager, getApplication()) { meshService }
     
     // Delegate handler for mesh callbacks
     private val meshDelegateHandler = MeshDelegateHandler(
@@ -1078,6 +1078,25 @@ class ChatViewModel(
 
     // MARK: - Navigation Management
     
+    // Nigeria Dashboard states
+    private val _showNigeriaDashboard = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val showNigeriaDashboard: kotlinx.coroutines.flow.StateFlow<Boolean> = _showNigeriaDashboard.asStateFlow()
+
+    private val _showProfilingSheet = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val showProfilingSheet: kotlinx.coroutines.flow.StateFlow<Boolean> = _showProfilingSheet.asStateFlow()
+
+    private val _showSuperAdminDashboard = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val showSuperAdminDashboard: kotlinx.coroutines.flow.StateFlow<Boolean> = _showSuperAdminDashboard.asStateFlow()
+
+    fun showSuperAdminDashboard() { _showSuperAdminDashboard.value = true }
+    fun hideSuperAdminDashboard() { _showSuperAdminDashboard.value = false }
+
+    fun showNigeriaDashboard() { _showNigeriaDashboard.value = true }
+    fun hideNigeriaDashboard() { _showNigeriaDashboard.value = false }
+
+    fun showProfilingSheet() { _showProfilingSheet.value = true }
+    fun hideProfilingSheet() { _showProfilingSheet.value = false }
+
     fun showAppInfo() {
         state.setShowAppInfo(true)
     }
