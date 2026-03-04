@@ -674,6 +674,9 @@ class MainActivity : OrientationAwareActivity() {
                     return@launch
                 }
 
+                // Retry foreground-service startup now that runtime permissions are available.
+                try { com.bitchat.android.service.MeshForegroundService.start(applicationContext) } catch (_: Exception) { }
+
                 // Set up mesh service delegate and start services
                 meshService.delegate = chatViewModel
                 meshService.startServices()
