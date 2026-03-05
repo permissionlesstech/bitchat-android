@@ -899,8 +899,11 @@ class BinaryProtocolTest {
      */
     @Test
     fun `v2 compression bomb is rejected`() {
-        val compressedData = byteArrayOf(0x01, 0x02, 0x03) // 3 bytes of fake compressed data
-        val declaredOriginalSize = 200_000 // 200KB claimed from 3 bytes = 66,666:1 ratio
+        // Valid raw deflate final empty stored block (1 byte).
+        // Claim a huge original size to exceed the 50,000:1 ratio guard.
+        // ratio = 10,000,000 / 1 = 10,000,000:1
+        val compressedData = byteArrayOf(0x03)
+        val declaredOriginalSize = 10_000_000
 
         val buffer = ByteBuffer.allocate(256).apply { order(ByteOrder.BIG_ENDIAN) }
 
@@ -913,7 +916,7 @@ class BinaryProtocolTest {
         // Flags: IS_COMPRESSED set
         buffer.put(BinaryProtocol.Flags.IS_COMPRESSED.toByte())
 
-        // Payload length (4 bytes for v2): original-size field (4 bytes) + compressed data (3 bytes) = 7
+        // Payload length (4 bytes for v2): original-size field (4 bytes) + compressed data
         val payloadFieldSize = 4 + compressedData.size
         buffer.putInt(payloadFieldSize)
 
@@ -950,10 +953,11 @@ class BinaryProtocolTest {
      */
     @Test
     fun `compression bomb is rejected`() {
-        // Build a minimal valid v1 packet with IS_COMPRESSED flag set,
-        // a tiny compressed payload, and an absurdly large declared original size.
-        val compressedData = byteArrayOf(0x01, 0x02, 0x03) // 3 bytes of fake compressed data
-        val declaredOriginalSize = 200_000 // 200KB claimed from 3 bytes = 66,666:1 ratio
+        // Valid raw deflate final empty stored block (1 byte).
+        // v1 uses a 2-byte (UShort) original-size field, so declared size
+        // must fit in 0..65535. ratio = 60,000 / 1 = 60,000:1 > 50,000:1
+        val tinyCompressed = byteArrayOf(0x03)
+        val declaredOriginalSize = 60_000
 
         val buffer = ByteBuffer.allocate(256).apply { order(ByteOrder.BIG_ENDIAN) }
 
@@ -966,8 +970,8 @@ class BinaryProtocolTest {
         // Flags: IS_COMPRESSED set
         buffer.put(BinaryProtocol.Flags.IS_COMPRESSED.toByte())
 
-        // Payload length: original-size field (2 bytes) + compressed data (3 bytes) = 5
-        val payloadFieldSize = 2 + compressedData.size
+        // Payload length: original-size field (2 bytes) + compressed data (1 byte) = 3
+        val payloadFieldSize = 2 + tinyCompressed.size
         buffer.putShort(payloadFieldSize.toShort())
 
         // SenderID (8 bytes)
@@ -975,7 +979,7 @@ class BinaryProtocolTest {
 
         // Compressed payload section: original size (2 bytes) + compressed data
         buffer.putShort(declaredOriginalSize.toShort())
-        buffer.put(compressedData)
+        buffer.put(tinyCompressed)
 
         val raw = ByteArray(buffer.position())
         buffer.rewind()
