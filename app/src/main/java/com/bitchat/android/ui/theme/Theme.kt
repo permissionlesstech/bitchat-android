@@ -27,7 +27,8 @@ private val DarkColorScheme = darkColorScheme(
     surface = Color(0xFF111111),        // Very dark gray
     onSurface = Color(0xFF39FF14),      // Green text
     error = Color(0xFFFF5555),          // Red for errors
-    onError = Color.Black
+    onError = Color.Black,
+    tertiary = Color(0x99EBEBF5),
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -40,7 +41,8 @@ private val LightColorScheme = lightColorScheme(
     surface = Color(0xFFF8F8F8),        // Very light gray
     onSurface = Color(0xFF008000),      // Dark green text
     error = Color(0xFFCC0000),          // Dark red for errors
-    onError = Color.White
+    onError = Color.White,
+    tertiary = Color(0x993C3C43)
 )
 
 @Composable
