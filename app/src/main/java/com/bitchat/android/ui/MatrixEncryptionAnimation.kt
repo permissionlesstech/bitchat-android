@@ -251,7 +251,8 @@ private fun formatMessageAsAnnotatedStringWithoutTimestamp(
         currentUserNickname = currentUserNickname,
         meshService = meshService,
         colorScheme = colorScheme,
-        timeFormatter = timeFormatter
+        timeFormatter = timeFormatter,
+        peerNicknames = emptyMap() // Can't easily get map here without refactoring AnimatedMessageDisplay
     )
     
     // Find and remove the timestamp and PoW badge at the end
