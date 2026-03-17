@@ -2,22 +2,24 @@ package com.bitchat.android.ui.media
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Camera
-import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -34,6 +36,16 @@ fun ImagePickerButton(
 ) {
     val context = LocalContext.current
     var capturedImagePath by remember { mutableStateOf<String?>(null) }
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    val backgroundColor by animateColorAsState(
+        targetValue = if(isPressed) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+        } else {
+            MaterialTheme.colorScheme.primary
+        }
+    )
     
     val imagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -89,7 +101,13 @@ fun ImagePickerButton(
     Box(
         modifier = modifier
             .size(32.dp)
+            .background(
+                color = backgroundColor,
+                shape = CircleShape
+            )
             .combinedClickable(
+                interactionSource = interactionSource,
+                indication = null,
                 onClick = { imagePicker.launch("image/*") },
                 onLongClick = {
                     if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
@@ -104,7 +122,7 @@ fun ImagePickerButton(
         Icon(
             imageVector = Icons.Filled.PhotoCamera,
             contentDescription = stringResource(com.bitchat.android.R.string.pick_image),
-            tint = Color.Gray,
+            tint = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier.size(20.dp)
         )
     }
