@@ -202,6 +202,8 @@
   <string name="action_hug_subtitle">send a friendly hug message</string>
   <string name="action_block_title">block %1$s</string>
   <string name="action_block_subtitle">block all messages from this user</string>
+  <string name="action_delete_note_title">delete note</string>
+  <string name="action_delete_note_subtitle">sends a nostr deletion request to relays</string>
 
   <!-- Location channels sheet -->
   <string name="location_channels_title">#location channels</string>
