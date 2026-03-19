@@ -69,6 +69,9 @@ class LocationNotesManager private constructor() {
     // Published state (StateFlow for Android)
     private val _notes = MutableStateFlow<List<Note>>(emptyList())
     val notes: StateFlow<List<Note>> = _notes.asStateFlow()
+
+    private val _localPubkey = MutableStateFlow<String?>(null)
+    val localPubkey: StateFlow<String?> = _localPubkey.asStateFlow()
     
     private val _geohash = MutableStateFlow<String?>(null)
     val geohash: StateFlow<String?> = _geohash.asStateFlow()
@@ -159,6 +162,14 @@ class LocationNotesManager private constructor() {
         noteIDs.clear()
         _geohash.value = normalized
         
+        // Derive and cache local pubkey for ownership checks
+        scope.launch {
+            runCatching {
+                val identity = withContext(Dispatchers.IO) { deriveIdentityFunc?.invoke(normalized) }
+                if (identity != null) _localPubkey.value = identity.publicKeyHex
+            }
+        }
+
         // Compute target geohashes: center + neighbors (±1)
         val neighbors = try {
             com.bitchat.android.geohash.Geohash.neighborsSamePrecision(normalized)
@@ -321,6 +332,67 @@ class LocationNotesManager private constructor() {
     }
     
     /**
+     * Delete a location note by sending a NIP-09 kind:5 deletion event to relays.
+     * Removes the note locally immediately for optimistic UI, then broadcasts the
+     * deletion event. Only notes authored by the local user can be deleted.
+     */
+    fun deleteNote(noteId: String) {
+        val token = LiveLocationPrivacyGate.captureToken() ?: run {
+            stop()
+            return
+        }
+        val currentGeohash = _geohash.value ?: run {
+            Log.w(TAG, "Cannot delete note - no geohash set")
+            return
+        }
+        val deriveIdentity = deriveIdentityFunc ?: run {
+            Log.e(TAG, "Cannot delete note - deriveIdentity not initialized")
+            return
+        }
+        var relays: List<String> = emptyList()
+        try {
+            LiveLocationPrivacyGate.runIfAllowed(token) {
+                relays = RelayDirectory.closestRelaysForGeohash(currentGeohash, 5)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to lookup relays for location-note deletion")
+        }
+        if (!LiveLocationPrivacyGate.accepts(token)) {
+            stop()
+            return
+        }
+
+        scope.launch {
+            try {
+                val identity = withContext(Dispatchers.IO) { deriveIdentity(currentGeohash) }
+
+                val deletionEvent = withContext(Dispatchers.IO) {
+                    NostrProtocol.createDeletionEvent(
+                        targetEventId = noteId,
+                        senderIdentity = identity
+                    )
+                }
+                if (!LiveLocationPrivacyGate.accepts(token)) return@launch
+
+                // Optimistic local removal
+                _notes.value = _notes.value.filter { it.id != noteId }
+                noteIDs.remove(noteId)
+
+                // Broadcast to geo relays
+                withContext(Dispatchers.IO) {
+                    LiveLocationPrivacyGate.runIfAllowed(token) {
+                        sendEventFunc?.invoke(deletionEvent, relays.ifEmpty { null }, token)
+                    }
+                }
+
+                Log.d(TAG, "✅ Note deleted: ${noteId.take(16)}...")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to delete note: ${e.message}")
+            }
+        }
+    }
+
+    /**
      * Subscribe to location notes for current geohash
      */
     private fun subscribeAll(token: Long) {
@@ -374,9 +446,11 @@ class LocationNotesManager private constructor() {
         // Subscribe for each geohash in the ±1 set
         subscribedGeohashes.forEach { gh ->
             if (!LiveLocationPrivacyGate.accepts(token)) return
-            val filter = NostrFilter.geohashNotes(
-                geohash = gh,
-                since = null,
+            // Include kind:5 (NIP-09 deletion) alongside kind:1 notes so remote
+            // deletions are reflected in real time for all subscribers
+            val filter = NostrFilter(
+                kinds = listOf(NostrKind.TEXT_NOTE, NostrKind.DELETION),
+                tagFilters = mapOf("g" to listOf(gh)),
                 limit = 200
             )
             val subId = "location-notes-${UUID.randomUUID()}"
@@ -411,7 +485,31 @@ class LocationNotesManager private constructor() {
         val token = liveLocationToken
         if (token == null || !LiveLocationPrivacyGate.accepts(token)) return
 
-        // Validate event
+        // Handle NIP-09 deletion events: remove notes authored by the sender.
+        if (event.kind == NostrKind.DELETION) {
+            // Verify the Schnorr signature before trusting event.pubkey.
+            // Without this check any relay or client could forge a kind:5 event with
+            // someone else's pubkey and silently hide that user's notes.
+            if (!event.isValidSignature()) {
+                Log.w(TAG, "Ignoring kind:5 with invalid signature from ${event.pubkey.take(8)}")
+                return
+            }
+            val targetIds = event.tags
+                .filter { it.size >= 2 && it[0] == "e" }
+                .map { it[1] }.toSet()
+            if (targetIds.isNotEmpty()) {
+                val before = _notes.value
+                val removed = before.filter { it.id in targetIds && it.pubkey == event.pubkey }
+                if (removed.isNotEmpty()) {
+                    _notes.value = before.filter { it.id !in targetIds || it.pubkey != event.pubkey }
+                    removed.forEach { noteIDs.remove(it.id) }
+                    Log.d(TAG, "🗑️ Removed ${removed.size} note(s) via kind:5 from ${event.pubkey.take(8)}")
+                }
+            }
+            return
+        }
+
+        // Validate event — only TEXT_NOTE beyond this point
         if (event.kind != NostrKind.TEXT_NOTE) {
             Log.v(TAG, "Ignoring non-text-note event: kind=${event.kind}")
             return

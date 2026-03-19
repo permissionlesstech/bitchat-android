@@ -227,6 +227,8 @@
   <string name="action_block_subtitle">屏蔽此用户的所有消息</string>
   <string name="action_private_message_title">私信 %1$s</string>
   <string name="action_private_message_subtitle">发送一条私信</string>
+  <string name="action_delete_note_title">删除笔记</string>
+  <string name="action_delete_note_subtitle">向中继发送 nostr 删除请求</string>
   <string name="location_channels_title">#位置频道</string>
   <string name="location_channels_desc">使用 Geohash 频道与你附近的人聊天。仅分享粗略的 Geohash，绝不分享精确的 GPS 位置。请勿截图或分享此屏幕，以保护你的隐私。</string>
   <string name="grant_location_permission">授予位置权限</string>

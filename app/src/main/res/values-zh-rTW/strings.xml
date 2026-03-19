@@ -227,6 +227,8 @@
   <string name="action_block_subtitle">封鎖來自此使用者的所有訊息</string>
   <string name="action_private_message_title">傳訊給 %1$s</string>
   <string name="action_private_message_subtitle">傳送一則私訊</string>
+  <string name="action_delete_note_title">刪除筆記</string>
+  <string name="action_delete_note_subtitle">向中繼發送 nostr 刪除請求</string>
   <string name="location_channels_title">#位置頻道</string>
   <string name="location_channels_desc">使用地理雜湊頻道與你附近的人聊天。僅分享粗略的地理雜湊，絕不分享精確的 GPS 位置。請勿對此畫面截圖或分享，以保護你的隱私。</string>
   <string name="grant_location_permission">授予位置權限</string>
