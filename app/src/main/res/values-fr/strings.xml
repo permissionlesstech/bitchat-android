@@ -185,6 +185,8 @@
     <string name="action_hug_subtitle">envoyer une accolade amicale</string>
     <string name="action_block_title">bloquer %1$s</string>
     <string name="action_block_subtitle">bloquer tous les messages de cet utilisateur</string>
+  <string name="action_delete_note_title">supprimer la note</string>
+  <string name="action_delete_note_subtitle">envoie une demande de suppression nostr aux relais</string>
 
     <!-- Feuille des canaux de lieu -->
     <string name="location_channels_title">#canaux de lieu</string>

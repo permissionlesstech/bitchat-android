@@ -172,6 +172,8 @@
     <string name="action_hug_subtitle">skicka en vänlig kram</string>
     <string name="action_block_title">blockera %1$s</string>
     <string name="action_block_subtitle">blockera alla meddelanden från den här användaren</string>
+  <string name="action_delete_note_title">ta bort anteckning</string>
+  <string name="action_delete_note_subtitle">skickar en nostr-borttagningsbegäran till reläer</string>
 
     <string name="location_channels_title">#platskanaler</string>
     <string name="location_channels_desc">chatta med folk nära dig via geohash‑kanaler. endast en grov geohash delas, aldrig exakt gps. ta inte skärmdumpar eller dela skärmen för att skydda din integritet.</string>

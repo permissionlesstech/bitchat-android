@@ -185,6 +185,8 @@
     <string name="action_hug_subtitle">मैत्रीपूर्ण अँगालो पठाउनुहोस्</string>
     <string name="action_block_title">%1$s लाई ब्लक गर्नुहोस्</string>
     <string name="action_block_subtitle">यस प्रयोगकर्ताबाट सबै सन्देश ब्लक गर्नुहोस्</string>
+  <string name="action_delete_note_title">नोट मेट्नुहोस्</string>
+  <string name="action_delete_note_subtitle">रिलेहरूमा nostr मेटाउने अनुरोध पठाउँछ</string>
 
     <!-- स्थान च्यानल शीट -->
     <string name="location_channels_title">#स्थान च्यानल</string>

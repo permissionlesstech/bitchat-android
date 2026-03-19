@@ -192,6 +192,8 @@
     <string name="action_hug_subtitle">handefasa hafatra honofinofy sariaka</string>
     <string name="action_block_title">hanorina %1$s</string>
     <string name="action_block_subtitle">hanorina ny hafatra rehetra avy amin\'ity mpampiasa ity</string>
+  <string name="action_delete_note_title">fafao ny fanamarihana</string>
+  <string name="action_delete_note_subtitle">mandefa fangatahana fafana nostr any amin\'ny relay</string>
 
     <!-- Takelaka fantsona toerana -->
     <string name="location_channels_title">#fantsona toerana</string>

@@ -192,6 +192,8 @@
     <string name="action_hug_subtitle">フレンドリーなハグを送る</string>
     <string name="action_block_title">%1$s をブロック</string>
     <string name="action_block_subtitle">このユーザーからのすべてのメッセージをブロック</string>
+  <string name="action_delete_note_title">ノートを削除</string>
+  <string name="action_delete_note_subtitle">nostr の削除リクエストをリレーに送信します</string>
 
     <!-- Geohash チャンネル シート -->
     <string name="location_channels_title">#ロケーション・チャンネル</string>

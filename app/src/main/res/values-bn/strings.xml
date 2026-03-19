@@ -192,6 +192,8 @@
     <string name="action_hug_subtitle">একটি বন্ধুত্বপূর্ণ আলিঙ্গন পাঠান</string>
     <string name="action_block_title">%1$s কে ব্লক করুন</string>
     <string name="action_block_subtitle">এই ব্যবহারকারীর সমস্ত বার্তা ব্লক করুন</string>
+  <string name="action_delete_note_title">নোট মুছুন</string>
+  <string name="action_delete_note_subtitle">রিলেতে nostr মুছে ফেলার অনুরোধ পাঠায়</string>
 
     <!-- জিওহ্যাশ চ্যানেল শিট -->
     <string name="location_channels_title">#অবস্থান চ্যানেল</string>

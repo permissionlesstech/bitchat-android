@@ -192,6 +192,8 @@
     <string name="action_hug_subtitle">Kirim pelukan yang ramah</string>
     <string name="action_block_title">Blokir %1$s</string>
     <string name="action_block_subtitle">Blokir semua pesan dari pengguna ini</string>
+  <string name="action_delete_note_title">hapus catatan</string>
+  <string name="action_delete_note_subtitle">mengirim permintaan penghapusan nostr ke relay</string>
 
     <!-- Sheet channel geohash -->
     <string name="location_channels_title">#Channel lokasi</string>

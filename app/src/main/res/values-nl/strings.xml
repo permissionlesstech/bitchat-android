@@ -192,6 +192,8 @@
     <string name="action_hug_subtitle">stuur een vriendelijke knuffel</string>
     <string name="action_block_title">%1$s blokkeren</string>
     <string name="action_block_subtitle">blokkeer alle berichten van deze gebruiker</string>
+  <string name="action_delete_note_title">notitie verwijderen</string>
+  <string name="action_delete_note_subtitle">stuurt een nostr-verwijderverzoek naar relays</string>
 
     <!-- Locatiekanalen sheet -->
     <string name="location_channels_title">#locatiekanalen</string>

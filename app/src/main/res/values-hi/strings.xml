@@ -192,6 +192,8 @@
     <string name="action_hug_subtitle">दोस्ताना आलिंगन भेजें</string>
     <string name="action_block_title">%1$s को ब्लॉक करें</string>
     <string name="action_block_subtitle">इस उपयोगकर्ता के सभी संदेश ब्लॉक करें</string>
+  <string name="action_delete_note_title">नोट हटाएं</string>
+  <string name="action_delete_note_subtitle">रिले को nostr हटाने का अनुरोध भेजता है</string>
 
     <!-- geohash चैनल शीट -->
     <string name="location_channels_title">#स्थान चैनल</string>

@@ -192,6 +192,8 @@
     <string name="action_hug_subtitle">Gửi một cái ôm thân thiện</string>
     <string name="action_block_title">Chặn %1$s</string>
     <string name="action_block_subtitle">Chặn tất cả tin nhắn từ người dùng này</string>
+  <string name="action_delete_note_title">xóa ghi chú</string>
+  <string name="action_delete_note_subtitle">gửi yêu cầu xóa nostr tới các relay</string>
 
     <!-- Sheet kênh geohash -->
     <string name="location_channels_title">#Kênh vị trí</string>
