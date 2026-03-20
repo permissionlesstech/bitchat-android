@@ -17,7 +17,7 @@ class LocationNotesManager private constructor() {
     companion object {
         private const val TAG = "LocationNotesManager"
         private const val MAX_NOTES_IN_MEMORY = 500
-        
+        private const val DELETIONS_THROTTLE_MS = 500L
         @Volatile
         private var INSTANCE: LocationNotesManager? = null
         
@@ -97,7 +97,9 @@ class LocationNotesManager private constructor() {
     
     // Coroutine scope for background operations
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
-    
+    private var lastDeletionsSubscribeTime = 0L
+
+
     /**
      * Initialize dependencies
      */
@@ -383,12 +385,13 @@ class LocationNotesManager private constructor() {
 
         _state.value = State.LOADING
         
-        // Subscribe for each geohash in the ±1 set
+        // Subscribe for each geohash in the ±1 set — kind:1 only.
+        // kind:5 deletion events carry an #e tag (referencing the deleted event ID) but
+        // NOT a #g tag, so they would always fail this filter's matches() check.
+        // A separate deletion subscription is opened after initial notes load (below).
         subscribedGeohashes.forEach { gh ->
-            // Include kind:5 (NIP-09 deletion) alongside kind:1 notes so remote
-            // deletions are reflected in real time for all subscribers
             val filter = NostrFilter(
-                kinds = listOf(NostrKind.TEXT_NOTE, NostrKind.DELETION),
+                kinds = listOf(NostrKind.TEXT_NOTE),
                 tagFilters = mapOf("g" to listOf(gh)),
                 limit = 200
             )
@@ -401,8 +404,9 @@ class LocationNotesManager private constructor() {
                 Log.e(TAG, "Failed to subscribe for $gh: ${e.message}")
             }
         }
-        
-        // Mark initial load complete after brief delay to allow relay responses
+
+        // Mark initial load complete after brief delay to allow relay responses,
+        // then open a kind:5 subscription filtered by the IDs of the notes we loaded.
         scope.launch {
             delay(2000) // Wait 2 seconds for initial batch
             if (!_initialLoadComplete.value!!) {
@@ -410,15 +414,56 @@ class LocationNotesManager private constructor() {
                 _state.value = State.READY
                 Log.d(TAG, "Initial load complete for geohash: $currentGeohash (${noteIDs.size} notes)")
             }
+            subscribeDeletions()
         }
     }
     
     /**
+     * Open (or refresh) a kind:5 subscription covering the notes currently in memory.
+     *
+     * NIP-09 deletion events do not carry a #g (geohash) tag — they only reference the
+     * target event via an #e tag — so we cannot reuse the geohash-scoped subscription.
+     * Instead we build a filter keyed on the #e values of every note we already hold.
+     *
+     * This is called once after initial note load and re-called whenever new notes arrive
+     * (see [handleEvent]), so deletions published after the initial batch are also caught.
+     */
+    private fun subscribeDeletions() {
+        val subscribe = subscribeFunc ?: return
+        val ids = noteIDs.toList()
+        if (ids.isEmpty()) return
+
+        // Cancel any previous deletion subscription before re-subscribing with updated IDs.
+        subscriptionIDs["__deletions__"]?.let {
+            try { unsubscribeFunc?.invoke(it) } catch (_: Exception) {}
+        }
+
+        val filter = NostrFilter(
+            kinds = listOf(NostrKind.DELETION),
+            tagFilters = mapOf("e" to ids)
+        )
+        try {
+            val id = subscribe(filter, "location-deletions") { event -> handleEvent(event) }
+            subscriptionIDs["__deletions__"] = id
+            Log.d(TAG, "📡 Subscribed to kind:5 deletions for ${ids.size} note(s)")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to subscribe for deletions: ${e.message}")
+        }
+    }
+
+    /**
      * Handle incoming event from subscription
      */
     private fun handleEvent(event: NostrEvent) {
-        // Handle NIP-09 deletion events: remove notes authored by the sender
+        // Handle NIP-09 deletion events: remove notes authored by the sender.
         if (event.kind == NostrKind.DELETION) {
+            // Verify the Schnorr signature before trusting event.pubkey.
+            // Without this check any relay or client could forge a kind:5 event with
+            // someone else's pubkey and silently hide that user's notes.
+            if (!event.isValidSignature()) {
+                Log.w(TAG, "Ignoring kind:5 with invalid signature from ${event.pubkey.take(8)}")
+                return
+            }
             val targetIds = event.tags
                 .filter { it.size >= 2 && it[0] == "e" }
                 .map { it[1] }.toSet()
@@ -476,21 +521,34 @@ class LocationNotesManager private constructor() {
         noteIDs.add(event.id)
         val currentNotes = _notes.value ?: emptyList()
         _notes.value = (currentNotes + note).sortedByDescending { it.createdAt }
-        
+
         Log.d(TAG, "📥 Added note: ${note.displayName} - ${note.content.take(50)}")
-        
+
         // Trim if exceeds max
         if (noteIDs.size > MAX_NOTES_IN_MEMORY) {
             trimOldestNotes()
         }
-        
+
+        // Refresh the kind:5 deletion subscription to include this newly arrived note,
+        // so deletions published after initial load are also streamed in real-time.
+        maybeResubscribeDeletions()
+
         // Update state
         if (!_initialLoadComplete.value!!) {
             _initialLoadComplete.value = true
         }
         _state.value = State.READY
     }
-    
+
+
+    private fun maybeResubscribeDeletions() {
+        val now = System.currentTimeMillis()
+        if (now - lastDeletionsSubscribeTime > DELETIONS_THROTTLE_MS) {
+            lastDeletionsSubscribeTime = now
+            subscribeDeletions()
+        }
+    }
+
     /**
      * Trim oldest notes to stay within memory limit
      */
