@@ -16,11 +16,16 @@ import java.util.concurrent.TimeUnit
 /**
  * Unit tests for [LocationNotesManager] covering:
  *  - Incoming kind:1 (text note) events — adding, deduplication, geohash filtering
- *  - Incoming kind:5 (NIP-09 deletion) events — pubkey-gated removal
+ *  - Incoming kind:5 (NIP-09 deletion) events — signature-verified, pubkey-gated removal
  *  - [LocationNotesManager.deleteNote] — optimistic local removal + relay broadcast
  *
  * The manager's private [handleEvent] method is exercised through the event-handler
- * callback captured from the [subscribe] lambda injected in [initialize].
+ * callbacks captured from the [subscribe] lambda injected in [initialize].
+ *
+ * Two subscriptions are created:
+ *  - kind:1 handler stored under "location-notes-<geohash>"
+ *  - kind:5 deletion handler stored under "location-deletions", registered
+ *    synchronously the first time a kind:1 note arrives (via maybeResubscribeDeletions)
  *
  * No Robolectric is required because [NostrCrypto] / [NostrIdentity] depend only on
  * BouncyCastle (pure JVM), and [android.util.Log] is stubbed by the project-level
@@ -31,8 +36,20 @@ class LocationNotesManagerTest {
 
     private lateinit var manager: LocationNotesManager
 
-    /** Callback captured from the subscribe lambda — lets us inject events directly. */
-    private var capturedEventHandler: ((NostrEvent) -> Unit)? = null
+    /**
+     * All event handlers registered via subscribe(), keyed by subscription ID.
+     * The kind:1 text-note handler is stored under "location-notes-<geohash>".
+     * The kind:5 deletion handler is stored under "location-deletions".
+     */
+    private val capturedHandlers = mutableMapOf<String, (NostrEvent) -> Unit>()
+
+    /** Convenience accessor for the kind:1 note subscription handler. */
+    private val capturedEventHandler: ((NostrEvent) -> Unit)?
+        get() = capturedHandlers["location-notes-$testGeohash"]
+
+    /** Convenience accessor for the kind:5 deletion subscription handler. */
+    private val capturedDeletionHandler: ((NostrEvent) -> Unit)?
+        get() = capturedHandlers["location-deletions"]
 
     /** Mutable hook so individual tests can install their own send-event spy. */
     @Volatile
@@ -49,36 +66,36 @@ class LocationNotesManagerTest {
 
     @Before
     fun setup() {
-        // Replace the Main dispatcher with Dispatchers.Unconfined so that after a
-        // withContext(IO) block completes, the continuation resumes inline on the IO
-        // thread without being posted back to a TestCoroutineScheduler (which would
-        // require explicit advanceUntilIdle() pumping to drain).
+        // Dispatchers.Unconfined has isDispatchNeeded()=false — continuations that resume
+        // after withContext(IO) run inline on the IO thread without being posted back to a
+        // TestCoroutineScheduler, so deleteNote's latch-based sync works without pumping.
+        // No virtual-clock control is needed: maybeResubscribeDeletions() is synchronous.
         Dispatchers.setMain(Dispatchers.Unconfined)
 
         // Create a brand-new manager instance via reflection, bypassing the singleton.
         // This guarantees a fresh, non-cancelled CoroutineScope for every test,
         // regardless of what any previous test (or its @After) did to the singleton.
         manager = createFreshInstance()
-        capturedEventHandler = null
 
         manager.initialize(
             relayManager = { error("relayManager should not be called in these tests") },
             subscribe = { _, subId, handler ->
-                capturedEventHandler = handler
+                capturedHandlers[subId] = handler
                 subId
             },
-            unsubscribe = { /* no-op */ },
+            unsubscribe = { subId -> capturedHandlers.remove(subId) },
             sendEvent = { event, relays -> sendEventCallback(event, relays) },
             deriveIdentity = { _ -> authorIdentity },
         )
 
-        // Triggers subscribeAll() synchronously, which populates capturedEventHandler.
+        // Triggers subscribeAll() synchronously, which populates capturedHandlers.
         manager.setGeohash(testGeohash)
     }
 
     @After
     fun teardown() {
         manager.cleanup()
+        capturedHandlers.clear()
         Dispatchers.resetMain()
     }
 
@@ -150,6 +167,11 @@ class LocationNotesManagerTest {
     }
 
     // ─── handleEvent: kind:5 (NIP-09 deletion) ───────────────────────────────
+    //
+    // maybeResubscribeDeletions() is synchronous — capturedDeletionHandler is
+    // populated immediately when the first kind:1 note arrives, no time-advancement
+    // needed. Deletion events must be properly signed; handleEvent() calls
+    // isValidSignature() before honouring any kind:5 request.
 
     @Test
     fun `kind 5 removes the matching note authored by the same pubkey`() {
@@ -158,8 +180,8 @@ class LocationNotesManagerTest {
         )
         assertEquals(1, manager.notes.value.size)
 
-        capturedEventHandler!!.invoke(
-            makeDeletionEvent(targetId = "del-target", pubkey = authorIdentity.publicKeyHex)
+        capturedDeletionHandler!!.invoke(
+            makeDeletionEvent(targetId = "del-target", identity = authorIdentity)
         )
 
         assertEquals("Note must be removed by kind:5 from the same author", 0, manager.notes.value.size)
@@ -173,8 +195,8 @@ class LocationNotesManagerTest {
         assertEquals(1, manager.notes.value.size)
 
         // Deletion request from a *different* identity — must be rejected
-        capturedEventHandler!!.invoke(
-            makeDeletionEvent(targetId = "protected", pubkey = attackerIdentity.publicKeyHex)
+        capturedDeletionHandler!!.invoke(
+            makeDeletionEvent(targetId = "protected", identity = attackerIdentity)
         )
 
         assertEquals("Note must survive a deletion attempt from a different pubkey", 1, manager.notes.value.size)
@@ -185,13 +207,16 @@ class LocationNotesManagerTest {
         capturedEventHandler!!.invoke(
             makeTextNoteEvent(id = "note-A", pubkey = authorIdentity.publicKeyHex, content = "Note A")
         )
+        // note-A arrival registers capturedDeletionHandler synchronously (throttle window opens).
+        // note-B arrival is throttled (< 1000 ms), but handleEvent() still processes all e-tags
+        // regardless of which IDs were in the subscription filter at registration time.
         capturedEventHandler!!.invoke(
             makeTextNoteEvent(id = "note-B", pubkey = authorIdentity.publicKeyHex, content = "Note B")
         )
         assertEquals(2, manager.notes.value.size)
 
-        capturedEventHandler!!.invoke(
-            makeDeletionEvent(targetId = "note-A", pubkey = authorIdentity.publicKeyHex)
+        capturedDeletionHandler!!.invoke(
+            makeDeletionEvent(targetId = "note-A", identity = authorIdentity)
         )
 
         assertEquals("Only the referenced note should be removed", 1, manager.notes.value.size)
@@ -205,15 +230,16 @@ class LocationNotesManagerTest {
         )
         assertEquals(1, manager.notes.value.size)
 
+        // A properly signed kind:5 with no e-tags — passes the signature guard but
+        // targetIds will be empty so no note should be removed.
         val malformed = NostrEvent(
-            id = "bad-del",
             pubkey = authorIdentity.publicKeyHex,
-            createdAt = 1_700_000_001,
+            createdAt = (System.currentTimeMillis() / 1000).toInt(),
             kind = NostrKind.DELETION,
             tags = emptyList(),
             content = "",
-        )
-        capturedEventHandler!!.invoke(malformed)
+        ).sign(authorIdentity.privateKeyHex)
+        capturedDeletionHandler!!.invoke(malformed)
 
         assertEquals("Malformed kind:5 with no e-tags must not remove any note", 1, manager.notes.value.size)
     }
@@ -225,15 +251,15 @@ class LocationNotesManagerTest {
         capturedEventHandler!!.invoke(makeTextNoteEvent(id = "keep-C",  pubkey = authorIdentity.publicKeyHex, content = "C"))
         assertEquals(3, manager.notes.value.size)
 
+        // A single kind:5 event referencing two note IDs simultaneously.
         val batchDeletion = NostrEvent(
-            id = "batch-del",
             pubkey = authorIdentity.publicKeyHex,
-            createdAt = 1_700_000_002,
+            createdAt = (System.currentTimeMillis() / 1000).toInt(),
             kind = NostrKind.DELETION,
             tags = listOf(listOf("e", "batch-A"), listOf("e", "batch-B")),
             content = "",
-        )
-        capturedEventHandler!!.invoke(batchDeletion)
+        ).sign(authorIdentity.privateKeyHex)
+        capturedDeletionHandler!!.invoke(batchDeletion)
 
         assertEquals("Both referenced notes must be removed", 1, manager.notes.value.size)
         assertEquals("keep-C", manager.notes.value[0].id)
@@ -299,7 +325,7 @@ class LocationNotesManagerTest {
 
     /**
      * Build a minimal kind:1 text-note event for a given geohash cell.
-     * Left unsigned — [LocationNotesManager.handleEvent] does not verify signatures.
+     * Left unsigned — [LocationNotesManager.handleEvent] does not verify signatures on kind:1.
      */
     private fun makeTextNoteEvent(
         id: String,
@@ -316,20 +342,21 @@ class LocationNotesManagerTest {
     )
 
     /**
-     * Build a minimal kind:5 deletion event targeting [targetId], authored by [pubkey].
-     * Left unsigned — [handleEvent] trusts the pubkey field for ownership checks.
+     * Build a properly signed kind:5 deletion event targeting [targetId], authored by [identity].
+     *
+     * The event is signed via BIP-340 Schnorr because [LocationNotesManager.handleEvent]
+     * calls [NostrEvent.isValidSignature] before honouring any kind:5 request.
      */
     private fun makeDeletionEvent(
         targetId: String,
-        pubkey: String,
+        identity: NostrIdentity,
     ) = NostrEvent(
-        id = "del-${targetId.take(8)}",
-        pubkey = pubkey,
-        createdAt = 1_700_000_001,
+        pubkey = identity.publicKeyHex,
+        createdAt = (System.currentTimeMillis() / 1000).toInt(),
         kind = NostrKind.DELETION,
         tags = listOf(listOf("e", targetId)),
         content = "",
-    )
+    ).sign(identity.privateKeyHex)
 
     /**
      * Create a fresh [LocationNotesManager] instance by invoking its private constructor
