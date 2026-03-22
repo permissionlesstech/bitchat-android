@@ -10,6 +10,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 class MainViewModel : ViewModel() {
+    private val _selectedLocation = MutableStateFlow<com.bitchat.android.location.NigeriaLocation?>(null)
+    val selectedLocation: StateFlow<com.bitchat.android.location.NigeriaLocation?> = _selectedLocation.asStateFlow()
+
+    private val _extendedProfile = MutableStateFlow<com.bitchat.android.profiling.UserExtendedProfile?>(null)
+    val extendedProfile: StateFlow<com.bitchat.android.profiling.UserExtendedProfile?> = _extendedProfile.asStateFlow()
 
     private val _onboardingState = MutableStateFlow(OnboardingState.CHECKING)
     val onboardingState: StateFlow<OnboardingState> = _onboardingState.asStateFlow()
@@ -66,5 +71,12 @@ class MainViewModel : ViewModel() {
 
     fun updateBatteryOptimizationLoading(loading: Boolean) {
         _isBatteryOptimizationLoading.value = loading
+    }
+    fun updateSelectedLocation(location: com.bitchat.android.location.NigeriaLocation) {
+        _selectedLocation.value = location
+    }
+
+    fun updateExtendedProfile(profile: com.bitchat.android.profiling.UserExtendedProfile) {
+        _extendedProfile.value = profile
     }
 }

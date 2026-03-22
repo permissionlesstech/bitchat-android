@@ -16,6 +16,7 @@ class MediaSendingManager(
     private val state: ChatState,
     private val messageManager: MessageManager,
     private val channelManager: ChannelManager,
+    private val context: android.content.Context,
     private val getMeshService: () -> BluetoothMeshService
 ) {
     // Helper to get current mesh service (may change after panic clear)
@@ -68,6 +69,8 @@ class MediaSendingManager(
      * Send an image file
      */
     fun sendImageNote(toPeerIDOrNull: String?, channelOrNull: String?, filePath: String) {
+        val resizedPath = com.bitchat.android.features.file.FileUtils.resizeImage(context, filePath) ?: filePath
+        val finalPath = resizedPath
         try {
             Log.d(TAG, "🔄 Starting image send: $filePath")
             val file = java.io.File(filePath)
