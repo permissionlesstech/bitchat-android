@@ -26,6 +26,8 @@ import java.util.Date
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.Dispatchers
+import java.security.SecureRandom
+import kotlin.random.asKotlinRandom
 
 class GeohashViewModel(
     application: Application,
@@ -37,7 +39,10 @@ class GeohashViewModel(
     private val notificationManager: NotificationManager
 ) : AndroidViewModel(application), DefaultLifecycleObserver {
 
-    companion object { private const val TAG = "GeohashViewModel" }
+    companion object { 
+        private const val TAG = "GeohashViewModel" 
+        private val secureRandom = SecureRandom().asKotlinRandom()
+    }
 
     private val repo = GeohashRepository(application, state, dataManager)
     private val subscriptionManager = NostrSubscriptionManager(application, viewModelScope)
@@ -123,14 +128,14 @@ class GeohashViewModel(
                     // If channels change (e.g. user moves), collectLatest cancels this loop and starts a new one immediately
                     while (true) {
                         // Randomize loop interval (40-80s, average 60s)
-                        val loopInterval = kotlin.random.Random.nextLong(40000L, 80000L)
+                        val loopInterval = secureRandom.nextLong(40000L, 80000L)
                         var timeSpent = 0L
 
                         try {
                             Log.v(TAG, "💓 Broadcasting global presence to ${targetGeohashes.size} channels")
                             targetGeohashes.forEach { geohash ->
                                 // Decorrelate individual broadcasts with random delay (1s-5s)
-                                val stepDelay = kotlin.random.Random.nextLong(1000L, 10000L)
+                                val stepDelay = secureRandom.nextLong(1000L, 10000L)
                                 delay(stepDelay)
                                 timeSpent += stepDelay
                                 
