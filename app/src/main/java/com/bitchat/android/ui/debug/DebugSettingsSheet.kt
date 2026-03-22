@@ -49,13 +49,13 @@ fun MeshTopologySection() {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(Icons.Filled.SettingsEthernet, contentDescription = null, tint = Color(0xFF8E8E93))
-                Text("mesh topology", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                Text(stringResource(R.string.mesh_topology), fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
             }
             val nodes = snapshot.nodes
             val edges = snapshot.edges
             val empty = nodes.isEmpty()
             if (empty) {
-                Text("no gossip yet", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
+                Text(stringResource(R.string.mesh_graph_not_found), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
             } else {
                 ForceDirectedMeshGraph(
                     nodes = nodes,
@@ -320,19 +320,19 @@ fun DebugSettingsSheet(
                                 FilterChip(
                                     selected = graphMode == GraphMode.OVERALL,
                                     onClick = { graphMode = GraphMode.OVERALL },
-                                    label = { Text("Overall") }
+                                    label = { Text(stringResource(R.string.graph_type_overall)) }
                                 )
                                 FilterChip(
                                     selected = graphMode == GraphMode.PER_DEVICE,
                                     onClick = { graphMode = GraphMode.PER_DEVICE },
-                                    label = { Text("Per Device") },
-                                    leadingIcon = { Icon(Icons.Filled.Devices, contentDescription = null) }
+                                    label = { Text(stringResource(R.string.graph_type_device))},
+                                    leadingIcon = { Icon(Icons.Filled.SettingsEthernet, contentDescription = null) }
                                 )
                                 FilterChip(
                                     selected = graphMode == GraphMode.PER_PEER,
                                     onClick = { graphMode = GraphMode.PER_PEER },
-                                    label = { Text("Per Peer") },
-                                    leadingIcon = { Icon(Icons.Filled.SettingsEthernet, contentDescription = null) }
+                                    label = { Text(stringResource(R.string.graph_type_peer)) },
+                                    leadingIcon = { Icon(Icons.Filled.Devices, contentDescription = null) }
                                 )
                             }
 
@@ -420,13 +420,13 @@ fun DebugSettingsSheet(
                             // Helper functions moved to top-level composable below to avoid scope issues
 
                             // Render two blocks: Incoming and Outgoing
-                            Text("Incoming", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                            Text(stringResource(R.string.incoming_data), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                             Text(
                                 "${relayStats.lastSecondIncoming}/s • ${relayStats.lastMinuteIncoming}/m • ${relayStats.last15MinuteIncoming}/15m • total ${relayStats.totalIncomingCount}",
                                 fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = colorScheme.onSurface.copy(alpha = 0.6f)
                             )
                             DrawGraphBlock(
-                                title = "Incoming",
+                                title = stringResource(R.string.incoming_data),
                                 stackedKeys = stackedKeysIncoming,
                                 stackedSeries = stackedSeriesIncoming,
                                 overallSeries = if (graphMode == GraphMode.OVERALL) overallSeriesIncoming else null,
@@ -476,13 +476,13 @@ fun DebugSettingsSheet(
                             if (graphMode != GraphMode.OVERALL && stackedKeysIncoming.isNotEmpty()) { /* legend printed inside DrawGraphBlock */ }
 
                             Spacer(Modifier.height(8.dp))
-                            Text("Outgoing", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                            Text(stringResource(R.string.outgoing_data), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                             Text(
                                 "${relayStats.lastSecondOutgoing}/s • ${relayStats.lastMinuteOutgoing}/m • ${relayStats.last15MinuteOutgoing}/15m • total ${relayStats.totalOutgoingCount}",
                                 fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = colorScheme.onSurface.copy(alpha = 0.6f)
                             )
                             DrawGraphBlock(
-                                title = "Outgoing",
+                                title = stringResource(R.string.outgoing_data),
                                 stackedKeys = stackedKeysOutgoing,
                                 stackedSeries = stackedSeriesOutgoing,
                                 overallSeries = if (graphMode == GraphMode.OVERALL) overallSeriesOutgoing else null,
@@ -541,7 +541,7 @@ fun DebugSettingsSheet(
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(Icons.Filled.SettingsEthernet, contentDescription = null, tint = Color(0xFF9C27B0))
-                            Text("sync settings", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Text(stringResource(R.string.sync_settings), fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         }
                         Text(stringResource(R.string.debug_max_packets_per_sync_fmt, seenCapacity), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         Slider(value = seenCapacity.toFloat(), onValueChange = { manager.setSeenPacketCapacity(it.toInt()) }, valueRange = 10f..1000f, steps = 99)
@@ -567,7 +567,7 @@ fun DebugSettingsSheet(
                         val localAddr = remember { meshService.connectionManager.getLocalAdapterAddress() }
                         Text(stringResource(R.string.debug_our_device_id_fmt, localAddr ?: stringResource(R.string.unknown)), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         if (connectedDevices.isEmpty()) {
-                            Text("none", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
+                            Text(stringResource(R.string.none), fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
                         } else {
                             connectedDevices.forEach { dev ->
                                 Surface(shape = RoundedCornerShape(8.dp), color = colorScheme.surface.copy(alpha = 0.6f)) {
