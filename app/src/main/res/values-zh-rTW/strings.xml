@@ -51,5 +51,7 @@
   <string name="verify_success_title">已验证</string>
   <string name="verify_success_body">你已验证 %1$s</string>
   <string name="verify_success_system_message">已验证 %1$s</string>
+  <string name="action_delete_note_title">刪除筆記</string>
+  <string name="action_delete_note_subtitle">向中繼發送 nostr 刪除請求</string>
 </resources>
 

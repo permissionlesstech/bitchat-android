@@ -192,6 +192,8 @@
     <string name="action_hug_subtitle">یک بغل دوستانه ارسال کن</string>
     <string name="action_block_title">%1$s را مسدود کن</string>
     <string name="action_block_subtitle">همهٔ پیام‌های این کاربر را مسدود کن</string>
+  <string name="action_delete_note_title">حذف یادداشت</string>
+  <string name="action_delete_note_subtitle">درخواست حذف nostr را به رله‌ها ارسال می‌کند</string>
 
     <!-- برگهٔ کانال‌های geohash -->
     <string name="location_channels_title">#کانال‌های مکانی</string>

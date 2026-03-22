@@ -192,6 +192,8 @@
     <string name="action_hug_subtitle">친근한 포옹 보내기</string>
     <string name="action_block_title">%1$s 차단</string>
     <string name="action_block_subtitle">이 사용자의 모든 메시지 차단</string>
+  <string name="action_delete_note_title">노트 삭제</string>
+  <string name="action_delete_note_subtitle">nostr 삭제 요청을 릴레이에 전송합니다</string>
 
     <!-- geohash 채널 시트 -->
     <string name="location_channels_title">#위치 채널</string>
