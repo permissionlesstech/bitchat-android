@@ -64,12 +64,12 @@ class GeohashMessageHandler(
 
                 // Update repository (participants, nickname, teleport)
                 // Update repository on a background-safe path; repository will post updates to LiveData
-                
+
                 // Update participant count (last seen) on BOTH Presence (20001) and Chat (20000) events
                 if (event.kind == NostrKind.GEOHASH_PRESENCE || event.kind == NostrKind.EPHEMERAL_EVENT) {
                     repo.updateParticipant(subscribedGeohash, event.pubkey, Date(event.createdAt * 1000L))
                 }
-                
+
                 event.tags.find { it.size >= 2 && it[0] == "n" }?.let { repo.cacheNickname(event.pubkey, it[1]) }
                 event.tags.find { it.size >= 2 && it[0] == "t" && it[1] == "teleport" }?.let { repo.markTeleported(event.pubkey) }
                 // Register a geohash DM alias for this participant so MessageRouter can route DMs via Nostr
