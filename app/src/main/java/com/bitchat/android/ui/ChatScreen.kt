@@ -60,6 +60,21 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val showVerificationSheet by viewModel.showVerificationSheet.collectAsStateWithLifecycle()
     val showSecurityVerificationSheet by viewModel.showSecurityVerificationSheet.collectAsStateWithLifecycle()
 
+    // Disambiguation dialog state
+    val showDisambiguationDialog by viewModel.showDisambiguationDialog.collectAsStateWithLifecycle()
+    val disambiguationNickname by viewModel.disambiguationNickname.collectAsStateWithLifecycle()
+    val disambiguationCandidates by viewModel.disambiguationCandidates.collectAsStateWithLifecycle()
+    val peerNicknames by viewModel.peerNicknames.collectAsStateWithLifecycle()
+    val peerFingerprints by viewModel.peerFingerprints.collectAsStateWithLifecycle()
+    val verifiedFingerprints by viewModel.verifiedFingerprints.collectAsStateWithLifecycle()
+    val favoritePeers by viewModel.favoritePeers.collectAsStateWithLifecycle()
+    val peerDirect by viewModel.peerDirect.collectAsStateWithLifecycle()
+
+    // Duplicate nickname warning state
+    val showDuplicateNicknameWarning by viewModel.showDuplicateNicknameWarning.collectAsStateWithLifecycle()
+    val duplicateNicknameCandidates by viewModel.duplicateNicknameCandidates.collectAsStateWithLifecycle()
+    val pendingNickname by viewModel.pendingNickname.collectAsStateWithLifecycle()
+
     var messageText by remember { mutableStateOf(TextFieldValue("")) }
     var showPasswordPrompt by remember { mutableStateOf(false) }
     var showPasswordDialog by remember { mutableStateOf(false) }
@@ -87,7 +102,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
 
     // Determine what messages to show based on current context (unified timelines)
-    // Legacy private chat timeline removed - private chats now exclusively use PrivateChatSheet
     val displayMessages = when {
         currentChannel != null -> channelMessages[currentChannel] ?: emptyList()
         else -> {
@@ -343,6 +357,18 @@ fun ChatScreen(viewModel: ChatViewModel) {
         onSecurityVerificationSheetDismiss = viewModel::hideSecurityVerificationSheet,
         showMeshPeerListSheet = showMeshPeerListSheet,
         onMeshPeerListDismiss = viewModel::hideMeshPeerList,
+        showDisambiguationDialog = showDisambiguationDialog,
+        disambiguationNickname = disambiguationNickname,
+        disambiguationCandidates = disambiguationCandidates,
+        peerNicknames = peerNicknames,
+        peerFingerprints = peerFingerprints,
+        verifiedFingerprints = verifiedFingerprints,
+        favoritePeers = favoritePeers,
+        connectedPeers = connectedPeers,
+        peerDirect = peerDirect,
+        showDuplicateNicknameWarning = showDuplicateNicknameWarning,
+        duplicateNicknameCandidates = duplicateNicknameCandidates,
+        pendingNickname = pendingNickname,
     )
 }
 
@@ -489,6 +515,18 @@ private fun ChatDialogs(
     onSecurityVerificationSheetDismiss: () -> Unit,
     showMeshPeerListSheet: Boolean,
     onMeshPeerListDismiss: () -> Unit,
+    showDisambiguationDialog: Boolean,
+    disambiguationNickname: String?,
+    disambiguationCandidates: List<String>,
+    peerNicknames: Map<String, String>,
+    peerFingerprints: Map<String, String>,
+    verifiedFingerprints: Set<String>,
+    favoritePeers: Set<String>,
+    connectedPeers: List<String>,
+    peerDirect: Map<String, Boolean>,
+    showDuplicateNicknameWarning: Boolean,
+    duplicateNicknameCandidates: List<String>,
+    pendingNickname: String?,
 ) {
     val privateChatSheetPeer by viewModel.privateChatSheetPeer.collectAsStateWithLifecycle()
 
@@ -582,6 +620,33 @@ private fun ChatDialogs(
                 viewModel.hidePrivateChatSheet()
                 viewModel.endPrivateChat()
             }
+        )
+    }
+
+    // Peer disambiguation dialog
+    if (showDisambiguationDialog && disambiguationNickname != null) {
+        PeerDisambiguationDialog(
+            nickname = disambiguationNickname,
+            candidatePeerIDs = disambiguationCandidates,
+            peerNicknames = peerNicknames,
+            peerFingerprints = peerFingerprints,
+            verifiedFingerprints = verifiedFingerprints,
+            favoritePeers = favoritePeers,
+            connectedPeers = connectedPeers,
+            peerDirect = peerDirect,
+            onSelect = { peerID -> viewModel.selectDisambiguatedPeer(peerID) },
+            onDismiss = { viewModel.dismissDisambiguationDialog() }
+        )
+    }
+
+    // Duplicate nickname warning dialog
+    if (showDuplicateNicknameWarning && pendingNickname != null) {
+        DuplicateNicknameWarningDialog(
+            nickname = pendingNickname,
+            existingPeerIDs = duplicateNicknameCandidates,
+            peerFingerprints = peerFingerprints,
+            onConfirm = { viewModel.confirmDuplicateNickname() },
+            onCancel = { viewModel.dismissDuplicateNicknameWarning() }
         )
     }
 }
