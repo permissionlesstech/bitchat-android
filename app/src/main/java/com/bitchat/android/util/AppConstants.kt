@@ -127,6 +127,11 @@ object AppConstants {
         const val MAX_FILE_SIZE_BYTES: Long = 50L * 1024 * 1024
     }
 
+    object API {
+        // Placeholder GIPHY API Key - Replace with real key for production
+        const val GIPHY_API_KEY = "k45gJuYKZxUMfBg5KzjXDyMYBTFdpl8L" 
+    }
+
     object Services {
         const val SEEN_MESSAGE_MAX_IDS: Int = 10_000
     }
