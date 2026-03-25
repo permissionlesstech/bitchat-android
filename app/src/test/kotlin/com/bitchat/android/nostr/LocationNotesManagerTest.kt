@@ -321,6 +321,23 @@ class LocationNotesManagerTest {
         bare.cleanup()
     }
 
+    @Test
+    fun `deleteNote does not delete or broadcast when note is not owned by local identity`() {
+        capturedEventHandler!!.invoke(
+            makeTextNoteEvent(id = "foreign-note", pubkey = attackerIdentity.publicKeyHex, content = "Not mine")
+        )
+        assertEquals(1, manager.notes.value.size)
+
+        var sendCalled = false
+        sendEventCallback = { _, _ -> sendCalled = true }
+
+        manager.deleteNote("foreign-note")
+
+        assertEquals("Foreign note must remain", 1, manager.notes.value.size)
+        assertEquals("foreign-note", manager.notes.value[0].id)
+        assertTrue("Deletion event must not be broadcast for non-owned note", !sendCalled)
+    }
+
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
     /**

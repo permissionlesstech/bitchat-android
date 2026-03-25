@@ -308,6 +308,10 @@ class LocationNotesManager private constructor() {
             Log.w(TAG, "Cannot delete note - no geohash set")
             return
         }
+        val targetNote = _notes.value.firstOrNull { it.id == noteId } ?: run {
+            Log.w(TAG, "Cannot delete note - note not found: ${noteId.take(16)}")
+            return
+        }
         val deriveIdentity = deriveIdentityFunc ?: run {
             Log.e(TAG, "Cannot delete note - deriveIdentity not initialized")
             return
@@ -322,6 +326,10 @@ class LocationNotesManager private constructor() {
         scope.launch {
             try {
                 val identity = withContext(Dispatchers.IO) { deriveIdentity(currentGeohash) }
+                if (targetNote.pubkey != identity.publicKeyHex) {
+                    Log.w(TAG, "Blocked delete for non-owned note: ${noteId.take(16)}")
+                    return@launch
+                }
 
                 val deletionEvent = withContext(Dispatchers.IO) {
                     NostrProtocol.createDeletionEvent(
@@ -336,7 +344,7 @@ class LocationNotesManager private constructor() {
 
                 // Broadcast to geo relays
                 withContext(Dispatchers.IO) {
-                    sendEventFunc?.invoke(deletionEvent, relays.ifEmpty { null })
+                    sendEventFunc?.invoke(deletionEvent, relays)
                 }
 
                 Log.d(TAG, "✅ Note deleted: ${noteId.take(16)}...")
