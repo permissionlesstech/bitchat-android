@@ -284,7 +284,6 @@ fun MessageInput(
             Spacer(Modifier.width(1.dp))
 
             VoiceRecordButton(
-                backgroundColor = bg,
                 onStart = {
                     isRecording = true
                     elapsedMs = 0L

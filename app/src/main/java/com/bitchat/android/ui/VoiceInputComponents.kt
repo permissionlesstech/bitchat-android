@@ -1,6 +1,7 @@
 package com.bitchat.android.ui
 
 import android.Manifest
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
@@ -9,10 +10,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -32,7 +34,6 @@ import kotlinx.coroutines.launch
 @Composable
 fun VoiceRecordButton(
     modifier: Modifier = Modifier,
-    backgroundColor: Color,
     onStart: () -> Unit,
     onAmplitude: (amplitude: Int, elapsedMs: Long) -> Unit,
     onFinish: (filePath: String) -> Unit
@@ -54,10 +55,21 @@ fun VoiceRecordButton(
     val latestOnAmplitude = rememberUpdatedState(onAmplitude)
     val latestOnFinish = rememberUpdatedState(onFinish)
 
+    val backgroundColor by animateColorAsState(
+        targetValue = if (isRecording) {
+            MaterialTheme.colorScheme.error.copy(alpha = 0.4f)
+        } else {
+            MaterialTheme.colorScheme.error
+        }
+    )
+
     Box(
         modifier = modifier
             .size(32.dp)
-            .background(backgroundColor, CircleShape)
+            .background(
+                color = backgroundColor,
+                shape = CircleShape,
+            )
             .pointerInput(Unit) {
                 detectTapGestures(
                     onPress = {
@@ -131,7 +143,7 @@ fun VoiceRecordButton(
         Icon(
             imageVector = Icons.Filled.Mic,
             contentDescription = stringResource(com.bitchat.android.R.string.cd_record_voice),
-            tint = Color.Black,
+            tint = MaterialTheme.colorScheme.onError,
             modifier = Modifier.size(20.dp)
         )
     }
