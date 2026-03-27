@@ -356,6 +356,7 @@ class GeohashViewModel(
             is com.bitchat.android.geohash.ChannelID.Location -> {
                 Log.d(TAG, "📍 Switching to geohash channel: ${channel.channel.geohash}")
                 repo.setCurrentGeohash(channel.channel.geohash)
+                repo.refreshGeohashPeople()
                 notificationManager.setCurrentGeohash(channel.channel.geohash)
                 notificationManager.clearNotificationsForGeohash(channel.channel.geohash)
                 try { messageManager.clearChannelUnreadCount("geo:${channel.channel.geohash}") } catch (_: Exception) { }
