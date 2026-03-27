@@ -10,6 +10,9 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.material.icons.filled.PersonSearch
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -344,6 +347,7 @@ private fun MainHeader(
 
     // Bookmarks store for current geohash toggle (iOS parity)
     val context = androidx.compose.ui.platform.LocalContext.current
+    val roleManager = remember { com.bitchat.android.identity.RoleManager(context) }
     val bookmarksStore = remember { com.bitchat.android.geohash.GeohashBookmarksStore.getInstance(context) }
     val bookmarks by bookmarksStore.bookmarks.collectAsStateWithLifecycle()
 
@@ -421,6 +425,47 @@ private fun MainHeader(
                             modifier = Modifier.size(16.dp)
                         )
                     }
+                }
+            }
+
+            // Super Admin Dashboard
+            if (roleManager.isSuperAdmin()) {
+                IconButton(
+                    onClick = { viewModel.showSuperAdminDashboard() },
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.Analytics,
+                        contentDescription = "Super Admin Dashboard",
+                        tint = MaterialTheme.colorScheme.secondary
+                    )
+                }
+            }
+
+            // Nigeria Dashboard
+            IconButton(
+                onClick = { viewModel.showNigeriaDashboard() },
+                modifier = Modifier.size(24.dp)
+            ) {
+                Icon(
+                    imageVector = androidx.compose.material.icons.Icons.Default.Flag,
+                    contentDescription = "Nigeria Dashboard",
+                    tint = androidx.compose.ui.graphics.Color(0xFF008751)
+                )
+            }
+
+            // Profiling/Scouting
+            val roleManager = com.bitchat.android.identity.RoleManager(context)
+            if (roleManager.canScout()) {
+                IconButton(
+                    onClick = { viewModel.showProfilingSheet() },
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.PersonSearch,
+                        contentDescription = "Profiling/Scouting",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
 
