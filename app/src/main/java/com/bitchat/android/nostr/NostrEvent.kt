@@ -1,19 +1,35 @@
 package com.bitchat.android.nostr
 
-import com.google.gson.Gson
-import com.google.gson.GsonBuilder
-import com.google.gson.annotations.SerializedName
+import com.bitchat.android.serialization.JsonConfig
+import kotlinx.serialization.InternalSerializationApi
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.descriptors.buildSerialDescriptor
+import kotlinx.serialization.descriptors.StructureKind
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonDecoder
+import kotlinx.serialization.json.JsonEncoder
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.jsonPrimitive
 import java.security.MessageDigest
 
 /**
  * Nostr Event structure following NIP-01
  * Compatible with iOS implementation
  */
+@Serializable
 data class NostrEvent(
     var id: String = "",
     val pubkey: String,
-    @SerializedName("created_at") val createdAt: Int,
+    @SerialName("created_at") val createdAt: Int,
     val kind: Int,
+    @Serializable(with = TagListSerializer::class)
     val tags: List<List<String>>,
     val content: String,
     var sig: String? = null
@@ -44,8 +60,7 @@ data class NostrEvent(
          */
         fun fromJsonString(jsonString: String): NostrEvent? {
             return try {
-                val gson = Gson()
-                gson.fromJson(jsonString, NostrEvent::class.java)
+                JsonConfig.json.decodeFromString(serializer(), jsonString)
             } catch (e: Exception) {
                 null
             }
@@ -121,18 +136,22 @@ data class NostrEvent(
      */
     private fun calculateEventId(): Pair<String, ByteArray> {
         // Create serialized array for hashing according to NIP-01
-        val serialized = listOf(
-            0,
-            pubkey,
-            createdAt,
-            kind,
-            tags,
-            content
-        )
-        
         // Convert to JSON without escaping slashes (compact format)
-        val gson = GsonBuilder().disableHtmlEscaping().create()
-        val jsonString = gson.toJson(serialized)
+        val jsonArray = buildJsonArray {
+            add(JsonPrimitive(0))
+            add(JsonPrimitive(pubkey))
+            add(JsonPrimitive(createdAt))
+            add(JsonPrimitive(kind))
+            add(
+                JsonArray(
+                    tags.map { tag ->
+                        JsonArray(tag.map { JsonPrimitive(it) })
+                    }
+                )
+            )
+            add(JsonPrimitive(content))
+        }
+        val jsonString = JsonConfig.json.encodeToString(JsonArray.serializer(), jsonArray)
         
         // SHA256 hash of the JSON string
         val digest = MessageDigest.getInstance("SHA-256")
@@ -161,8 +180,7 @@ data class NostrEvent(
      * Convert to JSON string
      */
     fun toJsonString(): String {
-        val gson = Gson()
-        return gson.toJson(this)
+        return JsonConfig.json.encodeToString(serializer(), this)
     }
     
     /**
@@ -229,3 +247,35 @@ fun String.hexToByteArray(): ByteArray {
 }
 
 fun ByteArray.toHexString(): String = joinToString("") { "%02x".format(it) }
+
+private object TagListSerializer : KSerializer<List<List<String>>> {
+    @OptIn(InternalSerializationApi::class)
+    override val descriptor: SerialDescriptor =
+        buildSerialDescriptor("TagList", StructureKind.LIST)
+
+    override fun serialize(encoder: Encoder, value: List<List<String>>) {
+        val jsonEncoder = encoder as? JsonEncoder
+            ?: throw SerializationException("TagListSerializer only supports JSON")
+        val jsonArray = JsonArray(
+            value.map { tag ->
+                JsonArray(tag.map { JsonPrimitive(it) })
+            }
+        )
+        jsonEncoder.encodeJsonElement(jsonArray)
+    }
+
+    override fun deserialize(decoder: Decoder): List<List<String>> {
+        val jsonDecoder = decoder as? JsonDecoder
+            ?: throw SerializationException("TagListSerializer only supports JSON")
+        val element = jsonDecoder.decodeJsonElement()
+        val jsonArray = element as? JsonArray
+            ?: throw SerializationException("Expected JsonArray for tags")
+
+        return jsonArray.mapNotNull { tagElement ->
+            val tagArray = tagElement as? JsonArray ?: return@mapNotNull null
+            tagArray.map { item ->
+                item.jsonPrimitive.content
+            }
+        }
+    }
+}
