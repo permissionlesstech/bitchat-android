@@ -121,6 +121,10 @@ class GeohashRepository(
         return participants.keys.count { !dataManager.isGeohashUserBlocked(it) }
     }
 
+    private fun formatAnonName(pubkeyHex: String): String {
+        return "${pubkeyHex.take(8)}..."
+    }
+
     fun refreshGeohashPeople() {
         val geohash = currentGeohash
         if (geohash == null) {
@@ -144,11 +148,11 @@ class GeohashRepository(
             val base = try {
                 val myHex = currentGeohash?.let { NostrIdentityBridge.deriveIdentity(it, application).publicKeyHex }
                 if (myHex != null && myHex.equals(pubkeyHex, true)) {
-                    state.getNicknameValue() ?: "anon"
+                    state.getNicknameValue().ifEmpty { formatAnonName(pubkeyHex) }
                 } else {
-                    getCachedNickname(pubkeyHex) ?: "anon"
+                    getCachedNickname(pubkeyHex) ?: formatAnonName(pubkeyHex)
                 }
-            } catch (_: Exception) { getCachedNickname(pubkeyHex) ?: "anon" }
+            } catch (_: Exception) { getCachedNickname(pubkeyHex) ?: formatAnonName(pubkeyHex) }
             GeoPerson(
                 id = pubkeyHex.lowercase(),
                 displayName = base, // UI can add #hash if necessary
@@ -186,11 +190,12 @@ class GeohashRepository(
             try {
                 val my = NostrIdentityBridge.deriveIdentity(current, application)
                 if (my.publicKeyHex.equals(lower, true)) {
-                    return "${state.getNicknameValue()}#$suffix"
+                    val selfNick = state.getNicknameValue()
+                    return if (selfNick.isNotEmpty()) "$selfNick#$suffix" else "${formatAnonName(lower)}#$suffix"
                 }
             } catch (_: Exception) {}
         }
-        val nick = geoNicknames[lower] ?: "anon"
+        val nick = geoNicknames[lower] ?: formatAnonName(lower)
         return "$nick#$suffix"
     }
 
@@ -202,10 +207,10 @@ class GeohashRepository(
             if (current != null) {
                 val my = NostrIdentityBridge.deriveIdentity(current, application)
                 if (my.publicKeyHex.equals(lower, true)) {
-                    state.getNicknameValue() ?: "anon"
-                } else geoNicknames[lower] ?: "anon"
-            } else geoNicknames[lower] ?: "anon"
-        } catch (_: Exception) { geoNicknames[lower] ?: "anon" }
+                    state.getNicknameValue().ifEmpty { formatAnonName(lower) }
+                } else geoNicknames[lower] ?: formatAnonName(lower)
+            } else geoNicknames[lower] ?: formatAnonName(lower)
+        } catch (_: Exception) { geoNicknames[lower] ?: formatAnonName(lower) }
         if (current == null) return base
         return try {
             val cutoff = Date(System.currentTimeMillis() - 5 * 60 * 1000)
@@ -214,7 +219,7 @@ class GeohashRepository(
             for ((k, t) in participants) {
                 if (dataManager.isGeohashUserBlocked(k)) continue
                 if (t.before(cutoff)) continue
-                val name = if (k.equals(lower, true)) base else (geoNicknames[k.lowercase()] ?: "anon")
+                val name = if (k.equals(lower, true)) base else (geoNicknames[k.lowercase()] ?: formatAnonName(k))
                 if (name.equals(base, true)) { count++; if (count > 1) break }
             }
             if (!participants.containsKey(lower)) count += 1
@@ -228,7 +233,7 @@ class GeohashRepository(
     fun displayNameForGeohashConversation(pubkeyHex: String, sourceGeohash: String): String {
         val lower = pubkeyHex.lowercase()
         val suffix = pubkeyHex.takeLast(4)
-        val base = geoNicknames[lower] ?: "anon"
+        val base = geoNicknames[lower] ?: formatAnonName(lower)
         return try {
             val cutoff = Date(System.currentTimeMillis() - 5 * 60 * 1000)
             val participants = geohashParticipants[sourceGeohash] ?: emptyMap()
@@ -236,7 +241,7 @@ class GeohashRepository(
             for ((k, t) in participants) {
                 if (dataManager.isGeohashUserBlocked(k)) continue
                 if (t.before(cutoff)) continue
-                val name = if (k.equals(lower, true)) base else (geoNicknames[k.lowercase()] ?: "anon")
+                val name = if (k.equals(lower, true)) base else (geoNicknames[k.lowercase()] ?: formatAnonName(k))
                 if (name.equals(base, true)) { count++; if (count > 1) break }
             }
             if (!participants.containsKey(lower)) count += 1
