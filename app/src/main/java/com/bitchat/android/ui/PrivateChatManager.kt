@@ -193,7 +193,7 @@ class PrivateChatManager(
         if (fingerprint != null) {
             dataManager.addBlockedUser(fingerprint)
 
-            val peerNickname = getPeerNickname(peerID, meshService)
+            val peerNickname = meshService.getDisambiguatedNickname(peerID)
             val systemMessage = BitchatMessage(
                 sender = "system",
                 content = "blocked user $peerNickname",
@@ -217,7 +217,7 @@ class PrivateChatManager(
         if (fingerprint != null && dataManager.isUserBlocked(fingerprint)) {
             dataManager.removeBlockedUser(fingerprint)
 
-            val peerNickname = getPeerNickname(peerID, meshService)
+            val peerNickname = meshService.getDisambiguatedNickname(peerID)
             val systemMessage = BitchatMessage(
                 sender = "system",
                 content = "unblocked user $peerNickname",
@@ -228,52 +228,6 @@ class PrivateChatManager(
             return true
         }
         return false
-    }
-
-    fun blockPeerByNickname(targetName: String, meshService: BluetoothMeshService): Boolean {
-        val peerID = getPeerIDForNickname(targetName, meshService)
-
-        if (peerID != null) {
-            return blockPeer(peerID, meshService)
-        } else {
-            val systemMessage = BitchatMessage(
-                sender = "system",
-                content = "user '$targetName' not found",
-                timestamp = Date(),
-                isRelay = false
-            )
-            messageManager.addMessage(systemMessage)
-            return false
-        }
-    }
-
-    fun unblockPeerByNickname(targetName: String, meshService: BluetoothMeshService): Boolean {
-        val peerID = getPeerIDForNickname(targetName, meshService)
-
-        if (peerID != null) {
-            val fingerprint = fingerprintManager.getFingerprintForPeer(peerID)
-            if (fingerprint != null && dataManager.isUserBlocked(fingerprint)) {
-                return unblockPeer(peerID, meshService)
-            } else {
-                val systemMessage = BitchatMessage(
-                    sender = "system",
-                    content = "user '$targetName' is not blocked",
-                    timestamp = Date(),
-                    isRelay = false
-                )
-                messageManager.addMessage(systemMessage)
-                return false
-            }
-        } else {
-            val systemMessage = BitchatMessage(
-                sender = "system",
-                content = "user '$targetName' not found",
-                timestamp = Date(),
-                isRelay = false
-            )
-            messageManager.addMessage(systemMessage)
-            return false
-        }
     }
 
     fun listBlockedUsers(): String {
@@ -413,12 +367,8 @@ class PrivateChatManager(
 
     // MARK: - Utility Functions
 
-    private fun getPeerIDForNickname(nickname: String, meshService: BluetoothMeshService): String? {
-        return meshService.getPeerNicknames().entries.find { it.value == nickname }?.key
-    }
-
     private fun getPeerNickname(peerID: String, meshService: BluetoothMeshService): String {
-        return meshService.getPeerNicknames()[peerID] ?: peerID
+        return meshService.getDisambiguatedNickname(peerID)
     }
 
     // MARK: - Consolidation
