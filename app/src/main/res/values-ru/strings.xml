@@ -172,6 +172,8 @@
     <string name="action_hug_subtitle">отправить дружеские объятия</string>
     <string name="action_block_title">заблокировать %1$s</string>
     <string name="action_block_subtitle">заблокировать все сообщения от этого пользователя</string>
+  <string name="action_delete_note_title">удалить заметку</string>
+  <string name="action_delete_note_subtitle">отправляет запрос на удаление nostr в ретрансляторы</string>
 
     <string name="location_channels_title">#каналы локации</string>
     <string name="location_channels_desc">общайся с людьми рядом через каналы geohash. делится только грубый geohash, никогда точный gps. не делай скриншоты и не делись экраном для защиты приватности.</string>

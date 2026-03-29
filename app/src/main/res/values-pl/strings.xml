@@ -51,5 +51,7 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+  <string name="action_delete_note_title">usuń notatkę</string>
+  <string name="action_delete_note_subtitle">wysyła żądanie usunięcia nostr do przekaźników</string>
 </resources>
 

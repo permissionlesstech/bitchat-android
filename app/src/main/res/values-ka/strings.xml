@@ -192,6 +192,8 @@
     <string name="action_hug_subtitle">გაგზავნეთ მეგობრული ჩახუტება</string>
     <string name="action_block_title">%1$s-ის დაბლოკვა</string>
     <string name="action_block_subtitle">ამ მომხმარებლის ყველა შეტყობინების დაბლოკვა</string>
+  <string name="action_delete_note_title">ჩანაწერის წაშლა</string>
+  <string name="action_delete_note_subtitle">nostr-ის წაშლის მოთხოვნას გზავნის relay-ებზე</string>
 
     <!-- geohash არხების შიტი -->
     <string name="location_channels_title">#მდებარეობის არხები</string>
