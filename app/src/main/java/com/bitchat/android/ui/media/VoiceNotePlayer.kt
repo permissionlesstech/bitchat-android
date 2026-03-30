@@ -1,16 +1,15 @@
 package com.bitchat.android.ui.media
 
 import android.media.MediaPlayer
-import androidx.compose.foundation.border
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -33,8 +32,6 @@ fun VoiceNotePlayer(
     var progress by remember { mutableStateOf(0f) }
     var durationMs by remember { mutableStateOf(0) }
     val player = remember { MediaPlayer() }
-
-    val borderOpacity = if (isSystemInDarkTheme()) 0.3f else 0.2f
 
     // Seek function - position is a fraction from 0.0 to 1.0
     val seekTo: (Float) -> Unit = { position ->
@@ -89,34 +86,20 @@ fun VoiceNotePlayer(
     DisposableEffect(Unit) { onDispose { try { player.release() } catch (_: Exception) {} } }
 
     Row(
-        modifier = Modifier.fillMaxWidth()
-            .border(
-                color = MaterialTheme.colorScheme.primary.copy(alpha = borderOpacity),
-                width = 1.0.dp,
-                shape = RoundedCornerShape(14.dp)
-            )
-            .padding(12.dp),
+        modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         // Disable play/pause while showing send progress override (optional UX choice)
         val controlsEnabled = isPrepared && !isError && progressOverride == null
-        FilledTonalIconButton(
-            onClick = { if (controlsEnabled) isPlaying = !isPlaying },
-            enabled = controlsEnabled,
-            modifier = Modifier.size(28.dp),
-            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            ),
-        ) {
+        FilledTonalIconButton(onClick = { if (controlsEnabled) isPlaying = !isPlaying }, enabled = controlsEnabled, modifier = Modifier.size(28.dp)) {
             Icon(
                 imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                 contentDescription = if (isPlaying) "Pause" else "Play"
             )
         }
-
-        WaveformPreview(
+        val progressBarColor = progressColor ?: MaterialTheme.colorScheme.primary
+        com.bitchat.android.ui.media.WaveformPreview(
             modifier = Modifier
                 .height(24.dp)
                 .weight(1f)
@@ -127,12 +110,7 @@ fun VoiceNotePlayer(
             onSeek = seekTo
         )
         val durText = if (durationMs > 0) String.format("%02d:%02d", (durationMs / 1000) / 60, (durationMs / 1000) % 60) else "--:--"
-        Text(
-            color = MaterialTheme.colorScheme.tertiary,
-            text = durText,
-            fontFamily = FontFamily.Monospace,
-            fontSize = 12.sp,
-        )
+        Text(text = durText, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
     }
 }
 

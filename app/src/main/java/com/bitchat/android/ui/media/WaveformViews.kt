@@ -11,7 +11,6 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -75,10 +74,10 @@ fun WaveformPreview(
         modifier = modifier,
         samples = stateSamples,
         fillProgress = if (stateSamples.isEmpty()) 0f else progress,
-        baseColor = Color.Gray.copy(alpha = 0.35f),
+        baseColor = Color(0x2200FF7F),
         fillColor = when {
             sendProgress != null -> Color(0xFF1E88E5) // blue while sending
-            else -> MaterialTheme.colorScheme.primary // green during playback
+            else -> Color(0xFF00C851) // green during playback
         },
         onSeek = onSeek
     )
