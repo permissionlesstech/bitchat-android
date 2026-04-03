@@ -464,7 +464,7 @@ private fun LocationNotesInputSection(
             .background(color = colorScheme.background)
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
-        if (nickname != null) {
+        if (!nickname.isNullOrBlank()) {
             val baseName = nickname.split("#", limit = 2).firstOrNull() ?: nickname
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
