@@ -192,6 +192,8 @@
     <string name="action_hug_subtitle">invia un abbraccio amichevole</string>
     <string name="action_block_title">blocca %1$s</string>
     <string name="action_block_subtitle">blocca tutti i messaggi da questo utente</string>
+  <string name="action_delete_note_title">elimina nota</string>
+  <string name="action_delete_note_subtitle">invia una richiesta di eliminazione nostr ai relay</string>
 
     <!-- Schermata canali di posizione -->
     <string name="location_channels_title">#canali di posizione</string>

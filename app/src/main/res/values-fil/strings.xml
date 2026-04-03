@@ -185,6 +185,8 @@
     <string name="action_hug_subtitle">magpadala ng magiliw na yakap</string>
     <string name="action_block_title">harangan si %1$s</string>
     <string name="action_block_subtitle">harangan ang lahat ng mensahe mula sa user na ito</string>
+  <string name="action_delete_note_title">tanggalin ang tala</string>
+  <string name="action_delete_note_subtitle">nagpapadala ng kahilingan sa pagtanggal ng nostr sa mga relay</string>
 
     <!-- Location channels sheet -->
     <string name="location_channels_title">#mga channel sa lokasyon</string>
