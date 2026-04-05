@@ -202,6 +202,7 @@ fun LocationNotesSheet(
                         onDraftChange = { draft = it },
                         sendButtonEnabled = sendButtonEnabled,
                         accentGreen = accentGreen,
+                        nickname = nickname,
                         onSend = {
                             val content = draft.trim()
                             if (content.isNotEmpty()) {
@@ -451,19 +452,38 @@ private fun LocationNotesInputSection(
     onDraftChange: (String) -> Unit,
     sendButtonEnabled: Boolean,
     accentGreen: Color,
+    nickname: String?,
     onSend: () -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
     val colorScheme = MaterialTheme.colorScheme
-    
-    Row(
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(color = colorScheme.background)
-            .padding(horizontal = 12.dp, vertical = 8.dp), // Match main chat padding
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp) // Match main chat spacing
+            .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
+        if (!nickname.isNullOrBlank()) {
+            val baseName = nickname.split("#", limit = 2).firstOrNull() ?: nickname
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "@$baseName",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
         // Text input with placeholder overlay (matches main chat exactly)
         Box(
             modifier = Modifier.weight(1f)
@@ -531,6 +551,7 @@ private fun LocationNotesInputSection(
                 )
             }
         }
+    }
     }
 }
 
