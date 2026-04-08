@@ -398,10 +398,10 @@ private fun appendIOSFormattedContent(
         val iterator = allMatches.listIterator()
         while (iterator.hasNext()) {
             val (range, type) = iterator.next()
-            // Remove generic hashtags that overlap with geohashes, and geohashes that overlap with URLs
+            // Remove generic hashtags that overlap with geohashes or URLs, and geohashes that overlap with URLs
             val overlapsGeo = geoRanges.any { rangesOverlap(range, it) }
             val overlapsUrl = urlRanges.any { rangesOverlap(range, it) }
-            if ((type == "hashtag" && overlapsGeo) || (type == "geohash" && overlapsUrl)) iterator.remove()
+            if ((type == "hashtag" && (overlapsGeo || overlapsUrl)) || (type == "geohash" && overlapsUrl)) iterator.remove()
         }
     }
     
