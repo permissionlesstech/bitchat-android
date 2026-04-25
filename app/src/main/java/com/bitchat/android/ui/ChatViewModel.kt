@@ -14,6 +14,9 @@ import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
+import com.bitchat.android.nostr.NdrBootstrapAction
+import com.bitchat.android.nostr.NdrBootstrapDecider
+import com.bitchat.android.nostr.NdrNostrService
 import com.bitchat.android.nostr.NostrIdentityBridge
 import com.bitchat.android.protocol.BitchatPacket
 
@@ -143,6 +146,9 @@ class ChatViewModel(
         dataManager = dataManager,
         notificationManager = notificationManager
     )
+    private val ndrService by lazy { NdrNostrService.getInstance(getApplication()) }
+    private val ndrBootstrapAttemptMs = mutableMapOf<String, Long>()
+    private val ndrNoiseHandshakeAttemptMs = mutableMapOf<String, Long>()
 
 
 
@@ -627,8 +633,9 @@ class ChatViewModel(
                 try {
                     val myNostr = com.bitchat.android.nostr.NostrIdentityBridge.getCurrentNostrIdentity(getApplication())
                     val announcementContent = if (isNowFavorite) "[FAVORITED]:${myNostr?.npub ?: ""}" else "[UNFAVORITED]:${myNostr?.npub ?: ""}"
-                    // Prefer mesh if session established, else try Nostr
-                    if (meshService.hasEstablishedSession(peerID)) {
+                    // Prefer mesh whenever the peer is connected; BluetoothMeshService will
+                    // queue the notification until the Noise session finishes handshaking.
+                    if (meshService.getPeerInfo(peerID)?.isConnected == true) {
                         // Reuse existing private message path for notifications
                         meshService.sendPrivateMessage(
                             announcementContent,
@@ -727,6 +734,7 @@ class ChatViewModel(
             if (meshService.getSessionState(peerID) is NoiseSession.NoiseSessionState.Established) {
                 verificationHandler.sendPendingVerificationIfNeeded(peerID)
             }
+            maybeBootstrapDoubleRatchetIfNeeded(peerID)
         }
     }
 
@@ -887,6 +895,36 @@ class ChatViewModel(
     override fun didReceiveVerifyResponse(peerID: String, payload: ByteArray, timestampMs: Long) {
         verificationHandler.didReceiveVerifyResponse(peerID, payload)
     }
+
+    override fun didReceiveNdrEvent(peerID: String, payload: ByteArray, timestampMs: Long) {
+        val eventJson = payload.toString(Charsets.UTF_8)
+        if (eventJson.isBlank()) return
+
+        val peerInfo = meshService.getPeerInfo(peerID) ?: return
+        val noiseKey = peerInfo.noisePublicKey ?: return
+        val relationship = FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)
+        if (relationship?.isMutual != true) {
+            Log.d(TAG, "Ignoring NDR OOB event from $peerID without mutual favorite")
+            return
+        }
+
+        val identity = NostrIdentityBridge.getCurrentNostrIdentity(getApplication()) ?: return
+        ndrService.configureIfNeeded(identity)
+        val expectedPeerPubkeyHex = FavoritesPersistenceService.shared.findNdrSessionPubkeyHex(noiseKey)
+        val result = ndrService.processOutOfBandEventJson(eventJson, expectedPeerPubkeyHex)
+        val sessionLookupPubkeyHex = listOfNotNull(
+            result.sessionLookupPubkeyHex,
+            expectedPeerPubkeyHex
+        ).firstOrNull { ndrService.hasActiveSession(it) }
+        if (sessionLookupPubkeyHex != null && ndrService.hasActiveSession(sessionLookupPubkeyHex)) {
+            FavoritesPersistenceService.shared.updateNdrSessionPubkeyHex(noiseKey, sessionLookupPubkeyHex)
+            ndrBootstrapAttemptMs.remove(peerID)
+            ndrNoiseHandshakeAttemptMs.remove(peerID)
+        }
+        result.outboundPayloads.forEach { response ->
+            meshService.sendNdrEvent(peerID, response)
+        }
+    }
     
     override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {
         return meshDelegateHandler.decryptChannelMessage(encryptedContent, channel)
@@ -899,7 +937,52 @@ class ChatViewModel(
     override fun isFavorite(peerID: String): Boolean {
         return meshDelegateHandler.isFavorite(peerID)
     }
-    
+
+    private fun maybeBootstrapDoubleRatchetIfNeeded(peerID: String) {
+        val peerInfo = meshService.getPeerInfo(peerID) ?: return
+        val noiseKey = peerInfo.noisePublicKey ?: return
+        val relationship = FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey) ?: return
+        if (!relationship.isMutual) return
+
+        val peerPubkeyHex = FavoritesPersistenceService.shared.findNdrSessionPubkeyHex(noiseKey) ?: return
+        val identity = NostrIdentityBridge.getCurrentNostrIdentity(getApplication()) ?: return
+
+        ndrService.configureIfNeeded(identity)
+        val hasActiveSession = ndrService.hasActiveSession(peerPubkeyHex)
+        if (hasActiveSession) {
+            ndrBootstrapAttemptMs.remove(peerID)
+            ndrNoiseHandshakeAttemptMs.remove(peerID)
+            return
+        }
+
+        val now = System.currentTimeMillis()
+        val hasEstablishedNoiseSession =
+            meshService.getSessionState(peerID) is NoiseSession.NoiseSessionState.Established
+
+        when (NdrBootstrapDecider.decide(
+            hasActiveDoubleRatchet = hasActiveSession,
+            hasEstablishedNoiseSession = hasEstablishedNoiseSession,
+            nowMs = now,
+            lastInviteAttemptMs = ndrBootstrapAttemptMs[peerID] ?: 0L,
+            lastHandshakeAttemptMs = ndrNoiseHandshakeAttemptMs[peerID] ?: 0L
+        )) {
+            NdrBootstrapAction.NONE -> return
+            NdrBootstrapAction.START_NOISE_HANDSHAKE -> {
+                ndrNoiseHandshakeAttemptMs[peerID] = now
+                meshService.initiateNoiseHandshake(peerID)
+                Log.d(TAG, "Initiating Noise handshake before NDR bootstrap for $peerID")
+                return
+            }
+            NdrBootstrapAction.SEND_OOB_INVITE -> Unit
+        }
+
+        val inviteJson = ndrService.currentInviteEventJson() ?: return
+        ndrNoiseHandshakeAttemptMs.remove(peerID)
+        ndrBootstrapAttemptMs[peerID] = now
+        meshService.sendNdrEvent(peerID, inviteJson)
+        Log.d(TAG, "Sent NDR bootstrap invite to $peerID for ${peerPubkeyHex.take(8)}...")
+    }
+
     // registerPeerPublicKey REMOVED - fingerprints now handled centrally in PeerManager
     
     // MARK: - Emergency Clear

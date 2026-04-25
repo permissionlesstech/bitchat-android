@@ -20,6 +20,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
     
     companion object {
         private const val TAG = "MessageHandler"
+        private const val MAX_PENDING_NOISE_ENCRYPTED_PER_PEER = 16
     }
     
     // Delegate for callbacks
@@ -30,6 +31,8 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
     
     // Coroutines
     private val handlerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val pendingNoiseEncryptedLock = Any()
+    private val pendingNoiseEncrypted = mutableMapOf<String, java.util.ArrayDeque<RoutedPacket>>()
     
     /**
      * Handle Noise encrypted transport message - SIMPLIFIED iOS-compatible version
@@ -56,6 +59,9 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
             val decryptedData = delegate?.decryptFromPeer(packet.payload, peerID)
             if (decryptedData == null) {
                 Log.w(TAG, "Failed to decrypt Noise message from $peerID - may need handshake")
+                if (delegate?.hasNoiseSession(peerID) != true) {
+                    queuePendingNoiseEncrypted(peerID, routed)
+                }
                 return
             }
             
@@ -165,11 +171,36 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     Log.d(TAG, "🔐 Verify response received from $peerID (${noisePayload.data.size} bytes)")
                     delegate?.onVerifyResponseReceived(peerID, noisePayload.data, packet.timestamp.toLong())
                 }
+                com.bitchat.android.model.NoisePayloadType.NDR_EVENT -> {
+                    Log.d(TAG, "🔐 NDR OOB event received from $peerID (${noisePayload.data.size} bytes)")
+                    delegate?.onNdrEventReceived(peerID, noisePayload.data, packet.timestamp.toLong())
+                }
             }
             
         } catch (e: Exception) {
             Log.e(TAG, "Error processing Noise encrypted message from $peerID: ${e.message}")
         }
+    }
+
+    private fun queuePendingNoiseEncrypted(peerID: String, routed: RoutedPacket) {
+        synchronized(pendingNoiseEncryptedLock) {
+            val queue = pendingNoiseEncrypted.getOrPut(peerID) { java.util.ArrayDeque() }
+            if (queue.size >= MAX_PENDING_NOISE_ENCRYPTED_PER_PEER) {
+                queue.removeFirst()
+            }
+            queue.addLast(routed)
+            Log.d(TAG, "🕒 Queued encrypted Noise packet from $peerID until handshake completes (pending=${queue.size})")
+        }
+    }
+
+    suspend fun flushPendingNoiseEncrypted(peerID: String) {
+        val queued = synchronized(pendingNoiseEncryptedLock) {
+            pendingNoiseEncrypted.remove(peerID)?.toList().orEmpty()
+        }
+        if (queued.isEmpty()) return
+
+        Log.d(TAG, "🔓 Replaying ${queued.size} queued encrypted Noise packet(s) from $peerID after handshake")
+        queued.forEach { handleNoiseEncrypted(it) }
     }
     
     /**
@@ -628,4 +659,5 @@ interface MessageHandlerDelegate {
     fun onReadReceiptReceived(messageID: String, peerID: String)
     fun onVerifyChallengeReceived(peerID: String, payload: ByteArray, timestampMs: Long)
     fun onVerifyResponseReceived(peerID: String, payload: ByteArray, timestampMs: Long)
+    fun onNdrEventReceived(peerID: String, payload: ByteArray, timestampMs: Long)
 }

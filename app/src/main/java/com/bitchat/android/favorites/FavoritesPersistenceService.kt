@@ -15,6 +15,7 @@ import java.util.*
 data class FavoriteRelationship(
     val peerNoisePublicKey: ByteArray,    // Noise static public key (32 bytes)
     val peerNostrPublicKey: String?,      // npub bech32 string
+    val peerNdrSessionPubkeyHex: String? = null, // Session lookup key used by nostr-double-ratchet
     val peerNickname: String,
     val isFavorite: Boolean,              // We favorited them
     val theyFavoritedUs: Boolean,         // They favorited us
@@ -31,6 +32,7 @@ data class FavoriteRelationship(
 
         if (!peerNoisePublicKey.contentEquals(other.peerNoisePublicKey)) return false
         if (peerNostrPublicKey != other.peerNostrPublicKey) return false
+        if (peerNdrSessionPubkeyHex != other.peerNdrSessionPubkeyHex) return false
         if (peerNickname != other.peerNickname) return false
         if (isFavorite != other.isFavorite) return false
         if (theyFavoritedUs != other.theyFavoritedUs) return false
@@ -41,6 +43,7 @@ data class FavoriteRelationship(
     override fun hashCode(): Int {
         var result = peerNoisePublicKey.contentHashCode()
         result = 31 * result + (peerNostrPublicKey?.hashCode() ?: 0)
+        result = 31 * result + (peerNdrSessionPubkeyHex?.hashCode() ?: 0)
         result = 31 * result + peerNickname.hashCode()
         result = 31 * result + isFavorite.hashCode()
         result = 31 * result + theyFavoritedUs.hashCode()
@@ -124,6 +127,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
             val relationship = FavoriteRelationship(
                 peerNoisePublicKey = noisePublicKey,
                 peerNostrPublicKey = nostrPubkey,
+                peerNdrSessionPubkeyHex = null,
                 peerNickname = "Unknown",
                 isFavorite = false,
                 theyFavoritedUs = false,
@@ -166,7 +170,10 @@ class FavoritesPersistenceService private constructor(private val context: Conte
         val targetHex = normalizeNostrKeyToHex(nostrPubkey)
         if (targetHex != null) {
             // Find relationship with matching nostr pubkey (normalized to hex) and then try to map to current peerID via noise key prefix
-            val rel = favorites.values.firstOrNull { it.peerNostrPublicKey?.let { stored -> normalizeNostrKeyToHex(stored) } == targetHex }
+            val rel = favorites.values.firstOrNull {
+                it.peerNostrPublicKey?.let { stored -> normalizeNostrKeyToHex(stored) } == targetHex ||
+                    it.peerNdrSessionPubkeyHex == targetHex
+            }
             if (rel != null) {
                 val noiseHex = rel.peerNoisePublicKey.joinToString("") { "%02x".format(it) }
                 // Return 16-hex prefix as best-effort if no explicit mapping exists
@@ -193,6 +200,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
             FavoriteRelationship(
                 peerNoisePublicKey = noisePublicKey,
                 peerNostrPublicKey = null,
+                peerNdrSessionPubkeyHex = null,
                 peerNickname = nickname,
                 isFavorite = isFavorite,
                 theyFavoritedUs = false,
@@ -242,7 +250,8 @@ class FavoritesPersistenceService private constructor(private val context: Conte
     fun findNoiseKey(forNostrPubkey: String): ByteArray? {
         val targetHex = normalizeNostrKeyToHex(forNostrPubkey) ?: return null
         return favorites.values.firstOrNull { rel ->
-            rel.peerNostrPublicKey?.let { stored -> normalizeNostrKeyToHex(stored) } == targetHex
+            rel.peerNostrPublicKey?.let { stored -> normalizeNostrKeyToHex(stored) } == targetHex ||
+                rel.peerNdrSessionPubkeyHex == targetHex
         }?.peerNoisePublicKey
     }
 
@@ -250,6 +259,30 @@ class FavoritesPersistenceService private constructor(private val context: Conte
     fun findNostrPubkey(forNoiseKey: ByteArray): String? {
         val keyHex = forNoiseKey.joinToString("") { "%02x".format(it) }
         return favorites[keyHex]?.peerNostrPublicKey
+    }
+
+    /** Update the session lookup key used by nostr-double-ratchet for a peer. */
+    fun updateNdrSessionPubkeyHex(noisePublicKey: ByteArray, peerPubkeyHex: String) {
+        val normalized = normalizeNostrKeyToHex(peerPubkeyHex) ?: return
+        val keyHex = noisePublicKey.joinToString("") { "%02x".format(it) }
+        val existing = favorites[keyHex] ?: return
+        if (existing.peerNdrSessionPubkeyHex == normalized) return
+
+        favorites[keyHex] = existing.copy(
+            peerNdrSessionPubkeyHex = normalized,
+            lastUpdated = Date()
+        )
+        saveFavorites()
+        notifyChanged(keyHex)
+        Log.d(TAG, "Updated NDR session pubkey for ${keyHex.take(16)}... -> ${normalized.take(16)}...")
+    }
+
+    /** Resolve the best lookup key for NDR session status/sending for a given peer. */
+    fun findNdrSessionPubkeyHex(forNoiseKey: ByteArray): String? {
+        val keyHex = forNoiseKey.joinToString("") { "%02x".format(it) }
+        val relationship = favorites[keyHex] ?: return null
+        return relationship.peerNdrSessionPubkeyHex
+            ?: relationship.peerNostrPublicKey?.let(::normalizeNostrKeyToHex)
     }
 
     // MARK: - Persistence
@@ -339,6 +372,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
 private data class FavoriteRelationshipData(
     val peerNoisePublicKeyHex: String,
     val peerNostrPublicKey: String?,
+    val peerNdrSessionPubkeyHex: String? = null,
     val peerNickname: String,
     val isFavorite: Boolean,
     val theyFavoritedUs: Boolean,
@@ -350,6 +384,7 @@ private data class FavoriteRelationshipData(
             return FavoriteRelationshipData(
                 peerNoisePublicKeyHex = relationship.peerNoisePublicKey.joinToString("") { "%02x".format(it) },
                 peerNostrPublicKey = relationship.peerNostrPublicKey,
+                peerNdrSessionPubkeyHex = relationship.peerNdrSessionPubkeyHex,
                 peerNickname = relationship.peerNickname,
                 isFavorite = relationship.isFavorite,
                 theyFavoritedUs = relationship.theyFavoritedUs,
@@ -364,6 +399,7 @@ private data class FavoriteRelationshipData(
         return FavoriteRelationship(
             peerNoisePublicKey = noiseKeyBytes,
             peerNostrPublicKey = peerNostrPublicKey,
+            peerNdrSessionPubkeyHex = peerNdrSessionPubkeyHex,
             peerNickname = peerNickname,
             isFavorite = isFavorite,
             theyFavoritedUs = theyFavoritedUs,

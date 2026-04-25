@@ -224,6 +224,10 @@ class MeshDelegateHandler(
     override fun didReceiveVerifyResponse(peerID: String, payload: ByteArray, timestampMs: Long) {
         // Handled by ChatViewModel for verification flow
     }
+
+    override fun didReceiveNdrEvent(peerID: String, payload: ByteArray, timestampMs: Long) {
+        // Handled by ChatViewModel for double-ratchet bootstrap flow
+    }
     
     override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {
         return channelManager.decryptChannelMessage(encryptedContent, channel)

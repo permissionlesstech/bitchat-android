@@ -15,7 +15,6 @@ android {
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = 33
         versionName = "1.7.2"
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
@@ -129,6 +128,7 @@ dependencies {
 
     // WebSocket
     implementation(libs.okhttp)
+    implementation("net.java.dev.jna:jna:5.13.0@aar")
 
     // Arti (Tor in Rust) Android bridge - custom build from latest source
     // Built with rustls, 16KB page size support, and onio//un service client

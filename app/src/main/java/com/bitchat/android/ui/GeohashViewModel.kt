@@ -83,6 +83,7 @@ class GeohashViewModel(
         }
         val identity = NostrIdentityBridge.getCurrentNostrIdentity(getApplication())
         if (identity != null) {
+            dmHandler.configureDoubleRatchet(identity)
             // Use global chat-messages only for full account DMs (mesh context). For geohash DMs, subscribe per-geohash below.
             subscriptionManager.subscribeGiftWraps(
                 pubkey = identity.publicKeyHex,
