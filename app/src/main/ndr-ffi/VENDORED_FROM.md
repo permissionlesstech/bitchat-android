@@ -12,9 +12,9 @@ Source:
 
 - Repository: `https://github.com/mmalmi/nostr-double-ratchet.git`
 - Crate: `rust/crates/ndr-ffi`
-- Version: `v0.0.124`
-- Source revision: `v0.0.100-37-g3555991`
-- Commit: `35559918bda142793b8ec9de0fd6a5deb460da24`
+- Version: `v0.0.135`
+- Source revision: `v0.0.100-58-g8d324ed`
+- Commit: `8d324edac835fd3b69471340af8bd05525310dfe`
 - Android build script: `scripts/mobile/build-android.sh`
 - Android NDK used for the vendored refresh: `28.2.13676358`
 - Release builds strip non-runtime symbol tables with the NDK `llvm-strip --strip-unneeded` tool.
@@ -26,4 +26,4 @@ Refresh procedure:
 3. Copy `rust/target/android/jniLibs/*/libndr_ffi.so` into this module's `app/src/main/jniLibs/`.
 4. Copy the generated Kotlin binding from `rust/target/android/bindings/` into `app/src/main/java/uniffi/ndr_ffi/ndr_ffi.kt`.
 
-Recorded on `2026-04-29T23:10:01Z`.
+Recorded on `2026-05-02T17:49:50Z`.
