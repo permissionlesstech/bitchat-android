@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">bitchat</string>
+    <string name="app_name">campchat</string>
     <string name="permission_bluetooth_rationale">İnternetsiz eşler arası mesajlaşma için Bluetooth izni gerekir.</string>
     <string name="permission_location_rationale">Bluetooth ile yakın cihazları bulmak için konum izni gerekir.</string>
     <string name="permission_notification_rationale">Yeni mesajlarda bildirim gönderebilmek için izin gerekir.</string>

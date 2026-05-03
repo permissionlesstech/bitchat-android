@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">bitchat</string>
+    <string name="app_name">campchat</string>
 
     <!-- ნებართვების ახსნა -->
     <string name="permission_bluetooth_rationale">Bluetooth-ის ნებართვა საჭიროა, რომ ინტერნეტის გარეშე პირდაპირ ისაუბროთ სხვებთან.</string>

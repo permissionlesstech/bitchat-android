@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">bitchat</string>
+    <string name="app_name">campchat</string>
 
     <!-- अनुमति कारणहरू -->
     <string name="permission_bluetooth_rationale">इन्टरनेट बिना प्रत्यक्ष कुराकानीका लागि ब्लुटुथ अनुमति आवश्यक हुन्छ।</string>

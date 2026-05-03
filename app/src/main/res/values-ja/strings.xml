@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">bitchat</string>
+    <string name="app_name">campchat</string>
 
     <!-- 権限の説明 -->
     <string name="permission_bluetooth_rationale">Bluetooth の許可は、インターネットなしで他の人と直接チャットするために必要です。</string>

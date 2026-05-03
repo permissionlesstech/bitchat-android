@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">bitchat</string>
+    <string name="app_name">campchat</string>
 
     <!-- 권한 안내 -->
     <string name="permission_bluetooth_rationale">인터넷 없이 다른 사람과 직접 채팅하려면 블루투스 권한이 필요합니다.</string>

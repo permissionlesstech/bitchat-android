@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">bitchat</string>
+    <string name="app_name">campchat</string>
 
     <!-- Alasan izin -->
     <string name="permission_bluetooth_rationale">Izin Bluetooth diperlukan untuk chatting langsung dengan orang lain tanpa Internet.</string>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">bitchat</string>
+    <string name="app_name">campchat</string>
 
     <!-- Fanazavana momba ny alalana -->
     <string name="permission_bluetooth_rationale">Ilaina ny alalana Bluetooth mba hifandraisan-davitra tsy misy Internet.</string>
