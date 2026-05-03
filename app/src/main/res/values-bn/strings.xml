@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">bitchat</string>
+    <string name="app_name">campchat</string>
 
     <!-- অনুমতির যৌক্তিকতা -->
     <string name="permission_bluetooth_rationale">ইন্টারনেট ছাড়াই অন্যদের সাথে সরাসরি চ্যাট করার জন্য ব্লুটুথ অনুমতি প্রয়োজন।</string>

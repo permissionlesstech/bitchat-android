@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">bitchat</string>
+    <string name="app_name">campchat</string>
 
     <!-- 权限说明 -->
     <string name="permission_bluetooth_rationale">需要蓝牙权限以在无网络时进行点对点聊天。</string>

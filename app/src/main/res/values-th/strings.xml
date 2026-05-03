@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">bitchat</string>
+    <string name="app_name">campchat</string>
 
     <!-- คำอธิบายสิทธิ์ -->
     <string name="permission_bluetooth_rationale">จำเป็นต้องมีสิทธิ์บลูทูธเพื่อแชทโดยตรงกับผู้อื่นโดยไม่ใช้อินเทอร์เน็ต</string>
