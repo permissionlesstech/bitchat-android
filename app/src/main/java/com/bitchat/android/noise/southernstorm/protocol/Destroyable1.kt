@@ -20,7 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-package com.bitchat.android.noise.southernstorm.protocol;
+package com.bitchat.android.noise.southernstorm.protocol
 
 /**
  * Interface for objects that implement destroying.
@@ -34,10 +34,9 @@ package com.bitchat.android.noise.southernstorm.protocol;
  * The Noise.destroy() function can help with destroying byte arrays
  * that hold sensitive values.
  */
-public interface Destroyable {
-
-	/**
-	 * Destroys all sensitive state in the current object.
-	 */
-	void destroy();
+interface Destroyable {
+    /**
+     * Destroys all sensitive state in the current object.
+     */
+    fun destroy()
 }
