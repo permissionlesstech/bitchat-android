@@ -80,7 +80,7 @@ class ChaChaPolyCipherState implements CipherState {
 
 	@Override
 	public void initializeKey(byte[] key, int offset) {
-		ChaChaCore.initKey256(input, key, offset);
+		ChaChaCore.INSTANCE.initKey256(input, key, offset);
 		n = 0;
 		haskey = true;
 	}
@@ -138,8 +138,8 @@ class ChaChaPolyCipherState implements CipherState {
 	{
 		if (n == -1L)
 			throw new IllegalStateException("Nonce has wrapped around");
-		ChaChaCore.initIV(input, n++);
-		ChaChaCore.hash(output, input);
+		ChaChaCore.INSTANCE.initIV(input, n++);
+		ChaChaCore.INSTANCE.hash(output, input);
 		Arrays.fill(polyKey, (byte)0);
 		xorBlock(polyKey, 0, polyKey, 0, 32, output);
 		poly.reset(polyKey, 0);
@@ -200,7 +200,7 @@ class ChaChaPolyCipherState implements CipherState {
 			int tempLen = 64;
 			if (tempLen > length)
 				tempLen = length;
-			ChaChaCore.hash(output, input);
+			ChaChaCore.INSTANCE.hash(output, input);
 			xorBlock(plaintext, plaintextOffset, ciphertext, ciphertextOffset, tempLen, output);
 			if (++(input[12]) == 0)
 				++(input[13]);
