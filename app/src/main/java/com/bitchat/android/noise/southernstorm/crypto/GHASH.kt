@@ -19,186 +19,166 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
+package com.bitchat.android.noise.southernstorm.crypto
 
-package com.bitchat.android.noise.southernstorm.crypto;
-
-import java.util.Arrays;
-
-import com.bitchat.android.noise.southernstorm.protocol.Destroyable;
+import com.bitchat.android.noise.southernstorm.protocol.Destroyable
 
 /**
  * Implementation of the GHASH primitive for GCM.
  */
-public final class GHASH implements Destroyable {
+class GHASH : Destroyable {
+    private val h = LongArray(2)
+    private val y = ByteArray(16)
+    private var posn: Int = 0
 
-	private long[] H;
-	private byte[] Y;
-	int posn;
-	
-	/**
-	 * Constructs a new GHASH object.
-	 */
-	public GHASH()
-	{
-		H = new long [2];
-		Y = new byte [16];
-		posn = 0;
-	}
+    /**
+     * Resets this GHASH object with a new key.
+     * 
+     * @param key The key, which must contain at least 16 bytes.
+     * @param offset The offset of the first key byte.
+     */
+    fun reset(key: ByteArray, offset: Int) {
+        h[0] = readBigEndian(key, offset)
+        h[1] = readBigEndian(key, offset + 8)
+        y.fill(0)
+        posn = 0
+    }
 
-	/**
-	 * Resets this GHASH object with a new key.
-	 * 
-	 * @param key The key, which must contain at least 16 bytes.
-	 * @param offset The offset of the first key byte.
-	 */
-	public void reset(byte[] key, int offset)
-	{
-		H[0] = readBigEndian(key, offset);
-		H[1] = readBigEndian(key, offset + 8);
-		Arrays.fill(Y, (byte)0);
-		posn = 0;
-	}
+    /**
+     * Resets the GHASH object but retains the previous key.
+     */
+    fun reset() {
+        y.fill(0)
+        posn = 0
+    }
 
-	/**
-	 * Resets the GHASH object but retains the previous key.
-	 */
-	public void reset()
-	{
-		Arrays.fill(Y, (byte)0);
-		posn = 0;
-	}
+    /**
+     * Updates this GHASH object with more data.
+     * 
+     * @param data Buffer containing the data.
+     * @param offset Offset of the first data byte in the buffer.
+     * @param length The number of bytes from the buffer to hash.
+     */
+    fun update(data: ByteArray, offset: Int, length: Int) {
+        var currentOffset = offset
+        var remainingLength = length
+        while (remainingLength > 0) {
+            var size = 16 - posn
+            if (size > remainingLength) size = remainingLength
+            for (index in 0 until size) {
+                y[posn + index] = (y[posn + index].toInt() xor data[currentOffset + index].toInt()).toByte()
+            }
+            posn += size
+            remainingLength -= size
+            currentOffset += size
+            if (posn == 16) {
+                gf128Mul(y, h)
+                posn = 0
+            }
+        }
+    }
 
-	/**
-	 * Updates this GHASH object with more data.
-	 * 
-	 * @param data Buffer containing the data.
-	 * @param offset Offset of the first data byte in the buffer.
-	 * @param length The number of bytes from the buffer to hash.
-	 */
-	public void update(byte[] data, int offset, int length)
-	{
-		while (length > 0) {
-			int size = 16 - posn;
-			if (size > length)
-				size = length;
-			for (int index = 0; index < size; ++index)
-				Y[posn + index] ^= data[offset + index];
-			posn += size;
-			length -= size;
-			offset += size;
-			if (posn == 16) {
-				GF128_mul(Y, H);
-				posn = 0;
-			}
-		}
-	}
-	
-	/**
-	 * Finishes the GHASH process and returns the tag.
-	 * 
-	 * @param tag Buffer to receive the tag.
-	 * @param offset Offset of the first byte of the tag.
-	 * @param length The length of the tag, which must be less
-	 * than or equal to 16.
-	 */
-	public void finish(byte[] tag, int offset, int length)
-	{
-		pad();
-		System.arraycopy(Y, 0, tag, offset, length);
-	}
-	
-	/**
-	 * Pads the input to a 16-byte boundary.
-	 */
-	public void pad()
-	{
-	    if (posn != 0) {
-	        // Padding involves XOR'ing the rest of state->Y with zeroes,
-	        // which does nothing.  Immediately process the next chunk.
-	        GF128_mul(Y, H);
-	        posn = 0;
-	    }
-	}
+    /**
+     * Finishes the GHASH process and returns the tag.
+     * 
+     * @param tag Buffer to receive the tag.
+     * @param offset Offset of the first byte of the tag.
+     * @param length The length of the tag, which must be less
+     * than or equal to 16.
+     */
+    fun finish(tag: ByteArray, offset: Int, length: Int) {
+        pad()
+        y.copyInto(tag, destinationOffset = offset, startIndex = 0, endIndex = length)
+    }
 
-	/**
-	 * Pads the input to a 16-byte boundary and then adds a block
-	 * containing the AD and data lengths.
-	 * 
-	 * @param adLen Length of the associated data in bytes.
-	 * @param dataLen Length of the data in bytes.
-	 */
-	public void pad(long adLen, long dataLen)
-	{
-		byte[] temp = new byte [16];
-		try {
-			pad();
-			writeBigEndian(temp, 0, adLen * 8);
-			writeBigEndian(temp, 8, dataLen * 8);
-			update(temp, 0, 16);
-		} finally {
-			Arrays.fill(temp, (byte)0);
-		}
-	}
+    /**
+     * Pads the input to a 16-byte boundary.
+     */
+    fun pad() {
+        if (posn != 0) {
+            // Padding involves XOR'ing the rest of state->Y with zeroes,
+            // which does nothing.  Immediately process the next chunk.
+            gf128Mul(y, h)
+            posn = 0
+        }
+    }
 
-	@Override
-	public void destroy() {
-		Arrays.fill(H, 0L);
-		Arrays.fill(Y, (byte)0);
-	}
+    /**
+     * Pads the input to a 16-byte boundary and then adds a block
+     * containing the AD and data lengths.
+     * 
+     * @param adLen Length of the associated data in bytes.
+     * @param dataLen Length of the data in bytes.
+     */
+    fun pad(adLen: Long, dataLen: Long) {
+        val temp = ByteArray(16)
+        try {
+            pad()
+            writeBigEndian(temp, 0, adLen * 8)
+            writeBigEndian(temp, 8, dataLen * 8)
+            update(temp, 0, 16)
+        } finally {
+            temp.fill(0)
+        }
+    }
 
-	private static long readBigEndian(byte[] buf, int offset)
-	{
-		return ((buf[offset] & 0xFFL) << 56) |
-			   ((buf[offset + 1] & 0xFFL) << 48) |
-			   ((buf[offset + 2] & 0xFFL) << 40) |
-			   ((buf[offset + 3] & 0xFFL) << 32) |
-			   ((buf[offset + 4] & 0xFFL) << 24) |
-			   ((buf[offset + 5] & 0xFFL) << 16) |
-			   ((buf[offset + 6] & 0xFFL) << 8)  |
-			    (buf[offset + 7] & 0xFFL);
-	}
+    override fun destroy() {
+        h.fill(0L)
+        y.fill(0)
+    }
 
-	private static void writeBigEndian(byte[] buf, int offset, long value)
-	{
-		buf[offset]     = (byte)(value >> 56);
-		buf[offset + 1] = (byte)(value >> 48);
-		buf[offset + 2] = (byte)(value >> 40);
-		buf[offset + 3] = (byte)(value >> 32);
-		buf[offset + 4] = (byte)(value >> 24);
-		buf[offset + 5] = (byte)(value >> 16);
-		buf[offset + 6] = (byte)(value >> 8);
-		buf[offset + 7] = (byte)value;
-	}
+    companion object {
+        private fun readBigEndian(buf: ByteArray, offset: Int): Long {
+            return ((buf[offset].toLong() and 0xFFL) shl 56) or
+                    ((buf[offset + 1].toLong() and 0xFFL) shl 48) or
+                    ((buf[offset + 2].toLong() and 0xFFL) shl 40) or
+                    ((buf[offset + 3].toLong() and 0xFFL) shl 32) or
+                    ((buf[offset + 4].toLong() and 0xFFL) shl 24) or
+                    ((buf[offset + 5].toLong() and 0xFFL) shl 16) or
+                    ((buf[offset + 6].toLong() and 0xFFL) shl 8) or
+                    (buf[offset + 7].toLong() and 0xFFL)
+        }
 
-	private static void GF128_mul(byte[] Y, long[] H)
-	{
-	    long Z0 = 0;		// Z = 0
-	    long Z1 = 0;
-	    long V0 = H[0];		// V = H
-	    long V1 = H[1];
+        private fun writeBigEndian(buf: ByteArray, offset: Int, value: Long) {
+            buf[offset] = (value shr 56).toByte()
+            buf[offset + 1] = (value shr 48).toByte()
+            buf[offset + 2] = (value shr 40).toByte()
+            buf[offset + 3] = (value shr 32).toByte()
+            buf[offset + 4] = (value shr 24).toByte()
+            buf[offset + 5] = (value shr 16).toByte()
+            buf[offset + 6] = (value shr 8).toByte()
+            buf[offset + 7] = value.toByte()
+        }
 
-	    // Multiply Z by V for the set bits in Y, starting at the top.
-	    // This is a very simple bit by bit version that may not be very
-	    // fast but it should be resistant to cache timing attacks.
-	    for (int posn = 0; posn < 16; ++posn) {
-	        int value = Y[posn] & 0xFF;
-	        for (int bit = 7; bit >= 0; --bit) {
-	            // Extract the high bit of "value" and turn it into a mask.
-	            long mask = -((long)((value >> bit) & 0x01));
+        private fun gf128Mul(y: ByteArray, h: LongArray) {
+            var z0: Long = 0 // Z = 0
+            var z1: Long = 0
+            var v0 = h[0] // V = H
+            var v1 = h[1]
 
-	            // XOR V with Z if the bit is 1.
-	            Z0 ^= (V0 & mask);
-	            Z1 ^= (V1 & mask);
+            // Multiply Z by V for the set bits in Y, starting at the top.
+            // This is a very simple bit by bit version that may not be very
+            // fast but it should be resistant to cache timing attacks.
+            for (pos in 0..15) {
+                val value = y[pos].toInt() and 0xFF
+                for (bit in 7 downTo 0) {
+                    // Extract the high bit of "value" and turn it into a mask.
+                    var mask = -(((value shr bit) and 0x01).toLong())
 
-	            // Rotate V right by 1 bit.
-	            mask = ((~(V1 & 0x01)) + 1) & 0xE100000000000000L;
-	            V1 = (V1 >>> 1) | (V0 << 63);
-	            V0 = (V0 >>> 1) ^ mask;
-	        }
-	    }
+                    // XOR V with Z if the bit is 1.
+                    z0 = z0 xor (v0 and mask)
+                    z1 = z1 xor (v1 and mask)
 
-	    // We have finished the block so copy Z into Y and byte-swap.
-	    writeBigEndian(Y, 0, Z0);
-	    writeBigEndian(Y, 8, Z1);
-	}
+                    // Rotate V right by 1 bit.
+                    mask = (((v1 and 0x01L).inv()) + 1) and -0x1f00000000000000L
+                    v1 = (v1 ushr 1) or (v0 shl 63)
+                    v0 = (v0 ushr 1) xor mask
+                }
+            }
+
+            // We have finished the block so copy Z into Y and byte-swap.
+            writeBigEndian(y, 0, z0)
+            writeBigEndian(y, 8, z1)
+        }
+    }
 }
