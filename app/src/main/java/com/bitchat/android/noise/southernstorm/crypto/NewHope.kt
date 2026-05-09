@@ -5,11 +5,10 @@
  * Original authors: Erdem Alkim, Léo Ducas, Thomas Pöppelmann, Peter Schwabe
  * Java port: Rhys Weatherley
  */
+package com.bitchat.android.noise.southernstorm.crypto
 
-package com.bitchat.android.noise.southernstorm.crypto;
+import java.security.SecureRandom
 
-import java.security.SecureRandom;
-import java.util.Arrays;
 
 /**
  * NewHope key exchange algorithm.
@@ -19,1587 +18,814 @@ import java.util.Arrays;
  * 
  * @see NewHopeTor
  */
-public class NewHope {
-
-	// -------------- params.h --------------
-	
-	static final int PARAM_N = 1024;
-	static final int PARAM_Q = 12289;
-	static final int POLY_BYTES = 1792;
-	static final int SEEDBYTES = 32;
-	static final int RECBYTES = 256;
-
-	/**
-	 * Number of bytes in the public key value sent by Alice.
-	 */
-	public static final int SENDABYTES = POLY_BYTES + SEEDBYTES;
-	
-	/**
-	 * Number of bytes in the public key value sent by Bob.
-	 */
-	public static final int SENDBBYTES = POLY_BYTES + RECBYTES;
-	
-	/**
-	 * Number of bytes in shared secret values computed by shareda() and sharedb().
-	 */
-	public static final int SHAREDBYTES = 32;
-
-	// -------------- newhope.c --------------
-
-	private Poly sk;
-
-	/**
-	 * Constructs a NewHope object.
-	 */
-	public NewHope()
-	{
-		sk = null;
-	}
-
-	@Override
-	protected void finalize()
-	{
-		destroy();
-	}
-
-	/**
-	 * Destroys sensitive material in this object.
-	 * 
-	 * This function should be called once the application has finished
-	 * with the private key contained in this object.  This function
-	 * will also be called when the object is finalized, but the point
-	 * of finalization is unpredictable.  This function provides a more
-	 * predictable place where the sensitive data is destroyed.
-	 */
-	public void destroy()
-	{
-		if (sk != null) {
-			sk.destroy();
-			sk = null;
-		}
-	}
-
-	/**
-	 * Generates the keypair for Alice.
-	 * 
-	 * @param send Buffer to place the public key for Alice in, to be sent to Bob.
-	 * @param sendOffset Offset of the first byte in the send buffer to populate.
-	 * 
-	 * The send buffer must have space for at least NewHope.SENDABYTES bytes
-	 * starting at sendOffset.
-	 * 
-	 * @see #sharedb(byte[], int, byte[], int, byte[], int)
-   * @see #shareda(byte[], int, byte[], int)
-	 */
-	public void keygen(byte[] send, int sendOffset)
-	{
-	  Poly a = new Poly();
-	  Poly e = new Poly();
-	  Poly r = new Poly();
-	  Poly pk = new Poly();
-	  byte[] seed = new byte [SEEDBYTES + 32];
-	  byte[] noiseseed = new byte [32];
-
-	  try {
-		  randombytes(seed);
-		  sha3256(seed, 0, seed, 0, SEEDBYTES); /* Don't send output of system RNG */
-		  System.arraycopy(seed, SEEDBYTES, noiseseed, 0, 32);
-	
-		  uniform(a.coeffs, seed);
-	
-		  if (sk == null)
-			  sk = new Poly();
-		  sk.getnoise(noiseseed,(byte)0);
-		  sk.ntt();
-	
-		  e.getnoise(noiseseed,(byte)1);
-		  e.ntt();
-	
-		  r.pointwise(sk,a);
-		  pk.add(e,r);
-	
-		  encode_a(send, sendOffset, pk, seed);
-	  } finally {
-		  a.destroy();
-		  e.destroy();
-		  r.destroy();
-		  pk.destroy();
-		  Arrays.fill(seed, (byte)0);
-		  Arrays.fill(noiseseed, (byte)0);
-	  }
-	}
-
-	/**
-	 * Generates the public key and shared secret for Bob.
-	 * 
-	 * @param sharedkey Buffer to place the shared secret for Bob in.
-	 * @param sharedkeyOffset Offset of the first byte in the sharedkey buffer to populate.
-	 * @param send Buffer to place the public key for Bob in to be sent to Alice.
-	 * @param sendOffset Offset of the first byte in the send buffer to populate.
-	 * @param received Buffer containing the public key value received from Alice.
-	 * @param receivedOffset Offset of the first byte of the value received from Alice.
-	 * 
-	 * The sharedkey buffer must have space for at least NewHope.SHAREDBYTES
-	 * bytes starting at sharedkeyOffset.
-	 * 
-	 * The send buffer must have space for at least NewHope.SENDBBYTES bytes
-	 * starting at sendOffset.
-	 * 
-	 * The received buffer must have space for at least NewHope.SENDABYTES
-	 * bytes starting at receivedOffset.
-	 * 
-	 * @see #shareda(byte[], int, byte[], int)
-   * @see #keygen(byte[], int)
-	 */
-	public void sharedb(byte[] sharedkey, int sharedkeyOffset,
-						byte[] send, int sendOffset,
-						byte[] received, int receivedOffset)
-	{
-	  Poly sp = new Poly();
-	  Poly ep = new Poly();
-	  Poly v = new Poly();
-	  Poly a = new Poly();
-	  Poly pka = new Poly();
-	  Poly c = new Poly();
-	  Poly epp = new Poly();
-	  Poly bp = new Poly();
-	  byte[] seed = new byte [SEEDBYTES];
-	  byte[] noiseseed = new byte [32];
-	  byte[] skey = new byte [32];
-
-	  try {
-		  randombytes(noiseseed);
-	
-		  decode_a(pka, seed, received, receivedOffset);
-		  uniform(a.coeffs, seed);
-	
-		  sp.getnoise(noiseseed,(byte)0);
-		  sp.ntt();
-		  ep.getnoise(noiseseed,(byte)1);
-		  ep.ntt();
-	
-		  bp.pointwise(a, sp);
-		  bp.add(bp, ep);
-	
-		  v.pointwise(pka, sp);
-		  v.invntt();
-	
-		  epp.getnoise(noiseseed,(byte)2);
-		  v.add(v, epp);
-	
-		  helprec(c, v, noiseseed, (byte)3);
-	
-		  encode_b(send, sendOffset, bp, c);
-	
-		  rec(skey, v, c);
-	
-		  sha3256(sharedkey, sharedkeyOffset, skey, 0, 32);
-	  } finally {
-		  sp.destroy();
-		  ep.destroy();
-		  v.destroy();
-		  a.destroy();
-		  pka.destroy();
-		  c.destroy();
-		  epp.destroy();
-		  bp.destroy();
-		  Arrays.fill(seed, (byte)0);
-		  Arrays.fill(noiseseed, (byte)0);
-		  Arrays.fill(skey, (byte)0);
-	  }
-	}
-
-	/**
-	 * Generates the shared secret for Alice.
-	 * 
-	 * @param sharedkey Buffer to place the shared secret for Alice in.
-	 * @param sharedkeyOffset Offset of the first byte in the sharedkey buffer to populate.
-	 * @param received Buffer containing the public key value received from Bob.
-	 * @param receivedOffset Offset of the first byte of the value received from Bob.
-	 * 
-	 * The sharedkey buffer must have space for at least NewHope.SHAREDBYTES
-	 * bytes starting at sharedkeyOffset.
-	 * 
-	 * The received buffer must have space for at least NewHope.SENDBBYTES bytes
-	 * starting at receivedOffset.
-	 * 
-	 * @see #shareda(byte[], int, byte[], int)
-   * @see #keygen(byte[], int)
-	 */
-	public void shareda(byte[] sharedkey, int sharedkeyOffset,
-						byte[] received, int receivedOffset)
-	{
-	  Poly v = new Poly();
-	  Poly bp = new Poly();
-	  Poly c = new Poly();
-	  byte[] skey = new byte [32];
-
-	  try {
-		  decode_b(bp, c, received, receivedOffset);
-	
-		  v.pointwise(sk,bp);
-		  v.invntt();
-	
-		  rec(skey, v, c);
-		  
-		  sha3256(sharedkey, sharedkeyOffset, skey, 0, 32);
-	  } finally {
-		  v.destroy();
-		  bp.destroy();
-		  c.destroy();
-		  Arrays.fill(skey, (byte)0);
-	  }
-	}
-
-	/**
-	 * Generates random bytes for use in the NewHope implementation.
-	 * 
-	 * @param buffer The buffer to fill with random bytes.
-	 * 
-	 * This function may be overridden in subclasses to provide a better
-	 * random number generator or to provide static data for test vectors.
-	 */
-	protected void randombytes(byte[] buffer)
-	{
-		SecureRandom random = new SecureRandom();
-		random.nextBytes(buffer);
-	}
-
-	private static void encode_a(byte[] r, int roffset, Poly pk, byte[] seed)
-	{
-	  int i;
-	  pk.tobytes(r, roffset);
-	  for(i=0;i<SEEDBYTES;i++)
-	    r[POLY_BYTES+roffset+i] = seed[i];
-	}
-
-	private static void decode_a(Poly pk, byte[] seed, byte[] r, int roffset)
-	{
-	  int i;
-	  pk.frombytes(r, roffset);
-	  for(i=0;i<SEEDBYTES;i++)
-	    seed[i] = r[POLY_BYTES+roffset+i];
-	}
-
-	private static void encode_b(byte[] r, int roffset, Poly b, Poly c)
-	{
-	  int i;
-	  b.tobytes(r,roffset);
-	  for(i=0;i<PARAM_N/4;i++)
-	    r[POLY_BYTES+roffset+i] = (byte)(c.coeffs[4*i] | (c.coeffs[4*i+1] << 2) | (c.coeffs[4*i+2] << 4) | (c.coeffs[4*i+3] << 6));
-	}
-
-	private static void decode_b(Poly b, Poly c, byte[] r, int roffset)
-	{
-	  int i;
-	  b.frombytes(r, roffset);
-	  for(i=0;i<PARAM_N/4;i++)
-	  {
-	    c.coeffs[4*i+0] = (char)( r[POLY_BYTES+roffset+i]       & 0x03);
-	    c.coeffs[4*i+1] = (char)((r[POLY_BYTES+roffset+i] >> 2) & 0x03);
-	    c.coeffs[4*i+2] = (char)((r[POLY_BYTES+roffset+i] >> 4) & 0x03);
-	    c.coeffs[4*i+3] = (char)(((r[POLY_BYTES+roffset+i] & 0xff) >> 6));
-	  }
-	}
-
-	// -------------- poly.c --------------
-	
-	private class Poly
-	{
-		public char[] coeffs;
-
-		public Poly()
-		{
-			coeffs = new char [PARAM_N];
-		}
-		
-		protected void finalize()
-		{
-			destroy();
-		}
-		
-		public void destroy()
-		{
-			Arrays.fill(coeffs, (char)0);
-		}
-		
-		public void frombytes(byte[] a, int offset)
-		{
-			int i;
-			for (i = 0; i < PARAM_N/4; i++)
-			{
-			    coeffs[4*i+0] = (char)(                                   (a[offset+7*i+0] & 0xff)       | ((a[offset+7*i+1] & 0x3f) << 8));
-			    coeffs[4*i+1] = (char)(((a[offset+7*i+1] & 0xc0) >> 6) | ((a[offset+7*i+2] & 0xff) << 2) | ((a[offset+7*i+3] & 0x0f) << 10));
-			    coeffs[4*i+2] = (char)(((a[offset+7*i+3] & 0xf0) >> 4) | ((a[offset+7*i+4] & 0xff) << 4) | ((a[offset+7*i+5] & 0x03) << 12));
-			    coeffs[4*i+3] = (char)(((a[offset+7*i+5] & 0xfc) >> 2) | ((a[offset+7*i+6] & 0xff) << 6));
-			}
-		}
-
-		public void tobytes(byte[] r, int offset)
-		{
-			int i;
-			int t0,t1,t2,t3,m;
-			int c;
-			for (i = 0; i < PARAM_N/4; i++)
-			{
-			    t0 = barrett_reduce(coeffs[4*i+0]); //Make sure that coefficients have only 14 bits
-			    t1 = barrett_reduce(coeffs[4*i+1]);
-			    t2 = barrett_reduce(coeffs[4*i+2]);
-			    t3 = barrett_reduce(coeffs[4*i+3]);
-			
-			    m = t0 - PARAM_Q;
-			    c = m;
-			    c >>= 15;
-			    t0 = m ^ ((t0^m)&c); // <Make sure that coefficients are in [0,q]
-			
-			    m = t1 - PARAM_Q;
-			    c = m;
-			    c >>= 15;
-			    t1 = m ^ ((t1^m)&c); // <Make sure that coefficients are in [0,q]
-			
-			    m = t2 - PARAM_Q;
-			    c = m;
-			    c >>= 15;
-			    t2 = m ^ ((t2^m)&c); // <Make sure that coefficients are in [0,q]
-			
-			    m = t3 - PARAM_Q;
-			    c = m;
-			    c >>= 15;
-			    t3 = m ^ ((t3^m)&c); // <Make sure that coefficients are in [0,q]
-			
-			    r[offset+7*i+0] = (byte)(t0 & 0xff);
-			    r[offset+7*i+1] = (byte)((t0 >> 8) | (t1 << 6));
-			    r[offset+7*i+2] = (byte)(t1 >> 2);
-			    r[offset+7*i+3] = (byte)((t1 >> 10) | (t2 << 4));
-			    r[offset+7*i+4] = (byte)(t2 >> 4);
-			    r[offset+7*i+5] = (byte)((t2 >> 12) | (t3 << 2));
-			    r[offset+7*i+6] = (byte)(t3 >> 6);
-			}
-		}
-
-		public void getnoise(byte[] seed, byte nonce)
-		{
-		  byte[] buf = new byte [4*PARAM_N];
-		  int /*t, d,*/ a, b;
-		  int i/*,j*/;
-
-		  try {
-			  crypto_stream_chacha20(buf,0,4*PARAM_N,nonce,seed);
-	
-			  for(i=0;i<PARAM_N;i++)
-			  {
-				/*
-				The original C reference code:
-				
-			    t = (buf[4*i] & 0xff) | (((buf[4*i+1]) & 0xff) << 8) | (((buf[4*i+2]) & 0xff) << 16) | (((buf[4*i+3]) & 0xff) << 24);
-			    d = 0;
-			    for(j=0;j<8;j++)
-			      d += (t >>> j) & 0x01010101;
-			    a = ((d >>> 8) & 0xff) + (d & 0xff);
-			    b = (d >>> 24) + ((d >>> 16) & 0xff);
-			    
-			    What the above is doing is reading 32-bit words from buf and then
-			    setting a and b to the number of 1 bits in the low and high 16 bits.
-			    We instead use the following technique from "Bit Twiddling Hacks",
-			    modified for 16-bit quantities:
-			    
-			    https://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
-			    */
-				a = (buf[4*i] & 0xff) | (((buf[4*i+1]) & 0xff) << 8);
-				a = a - ((a >> 1) & 0x5555);
-				a = (a & 0x3333) + ((a >> 2) & 0x3333);
-				a = ((a >> 4) + a) & 0x0F0F;
-				a = ((a >> 8) + a) & 0x00FF;
-
-				b = (buf[4*i+2] & 0xff) | (((buf[4*i+3]) & 0xff) << 8);
-				b = b - ((b >> 1) & 0x5555);
-				b = (b & 0x3333) + ((b >> 2) & 0x3333);
-				b = ((b >> 4) + b) & 0x0F0F;
-				b = ((b >> 8) + b) & 0x00FF;
-
-				coeffs[i] = (char)(a + PARAM_Q - b);
-			  }
-		  } finally {
-			  Arrays.fill(buf, (byte)0);
-		  }
-		}
-		
-		public void pointwise(Poly a, Poly b)
-		{
-		  int i;
-		  int t;
-		  for(i=0;i<PARAM_N;i++)
-		  {
-		    t       = montgomery_reduce(3186*b.coeffs[i]); /* t is now in Montgomery domain */
-		    coeffs[i] = (char)montgomery_reduce(a.coeffs[i] * t); /* coeffs[i] is back in normal domain */
-		  }
-		}
-
-		public void add(Poly a, Poly b)
-		{
-		  int i;
-		  for(i=0;i<PARAM_N;i++)
-		    coeffs[i] = (char)barrett_reduce(a.coeffs[i] + b.coeffs[i]);
-		}
-
-		public void ntt()
-		{
-		  mul_coefficients(coeffs, psis_bitrev_montgomery);
-		  ntt_global(coeffs, omegas_montgomery);
-		}
-
-		public void invntt()
-		{
-		  bitrev_vector(coeffs);
-		  ntt_global(coeffs, omegas_inv_montgomery);
-		  mul_coefficients(coeffs, psis_inv_montgomery);
-		}
-	}
-
-	/**
-	 * Derives the public "a" value from a 32-byte seed.
-	 *  
-	 * @param coeffs The 1024 16-bit coefficients of "a" on exit.
-	 * @param seed The 32-byte seed to use to generate "a".
-	 * 
-	 * The base class implementation is not constant-time but usually
-	 * this doesn't matter for the public "a" value.  However, as
-	 * described in the New Hope paper, non constant-time generation
-	 * of "a" can be a problem in anonymity networks like Tor.
-	 * 
-	 * This function can be overridden in subclasses to provide a
-	 * different method for generating "a".  The NewHopeTor class
-	 * provides such an example.
-	 * 
-	 * Reference: https://cryptojedi.org/papers/newhope-20160803.pdf
-	 */
-	protected void uniform(char[] coeffs, byte[] seed)
-	{
-	  int pos=0, ctr=0;
-	  int val;
-	  long[] state = new long [25];
-	  int nblocks=14;
-	  byte[] buf = new byte [SHAKE128_RATE*nblocks];
-
-	  try {
-		  shake128_absorb(state, seed, 0, SEEDBYTES);
-
-		  shake128_squeezeblocks(buf, 0, nblocks, state);
-
-		  while(ctr < PARAM_N)
-		  {
-		    val = ((buf[pos] & 0xff) | ((buf[pos+1] & 0xff) << 8));
-		    if(val < 5*PARAM_Q)
-		      coeffs[ctr++] = (char)val;
-		    pos += 2;
-		    if(pos > SHAKE128_RATE*nblocks-2)
-		    {
-		      nblocks=1;
-		      shake128_squeezeblocks(buf,0,nblocks,state);
-		      pos = 0;
-		    }
-		  }
-	  } finally {
-		  Arrays.fill(state, 0);
-		  Arrays.fill(buf, (byte)0);
-	  }
-	}
-
-	// -------------- reduce.c --------------
-
-	private static final int qinv = 12287; // -inverse_mod(p,2^18)
-	private static final int rlog = 18;
-
-	private static int montgomery_reduce(int a)
-	{
-	  int u;
-
-	  u = (a * qinv);
-	  u &= ((1<<rlog)-1);
-	  u *= PARAM_Q;
-	  a = a + u;
-	  return a >>> 18;
-	}
-
-	private static int barrett_reduce(int a)
-	{
-	  int u;
-	  a &= 0xffff;
-	  u = (a * 5) >> 16;
-	  u *= PARAM_Q;
-	  a -= u;
-	  return a & 0xffff;
-	}
-	
-	// -------------- error_correction.c --------------
-
-	private static int abs(int v)
-	{
-	  int mask = v >> 31;
-	  return (v ^ mask) - mask;
-	}
-
-	private static int f(int[] v0, int v0offset, int[] v1, int v1offset, int x)
-	{
-	  int xit, t, r, b;
-
-	  // Next 6 lines compute t = x/PARAM_Q;
-	  b = x*2730;
-	  t = b >> 25;
-	  b = x - t*12289;
-	  b = 12288 - b;
-	  b >>= 31;
-	  t -= b;
-
-	  r = t & 1;
-	  xit = (t>>1);
-	  v0[v0offset] = xit+r; // v0 = round(x/(2*PARAM_Q))
-
-	  t -= 1;
-	  r = t & 1;
-	  v1[v1offset] = (t>>1)+r;
-
-	  return abs(x-((v0[v0offset])*2*PARAM_Q));
-	}
-
-	private static int g(int x)
-	{
-	  int t,c,b;
-
-	  // Next 6 lines compute t = x/(4*PARAM_Q);
-	  b = x*2730;
-	  t = b >> 27;
-	  b = x - t*49156;
-	  b = 49155 - b;
-	  b >>= 31;
-	  t -= b;
-
-	  c = t & 1;
-	  t = (t >> 1) + c; // t = round(x/(8*PARAM_Q))
-
-	  t *= 8*PARAM_Q;
-
-	  return abs(t - x);
-	}
-
-	private static int LDDecode(int xi0, int xi1, int xi2, int xi3)
-	{
-	  int t;
-
-	  t  = g(xi0);
-	  t += g(xi1);
-	  t += g(xi2);
-	  t += g(xi3);
-
-	  t -= 8*PARAM_Q;
-	  t >>= 31;
-	  return t&1;
-	}
-
-	private static void helprec(Poly c, Poly v, byte[] seed, byte nonce)
-	{
-	  int[] v0 = new int [8];
-	  int v_tmp0,v_tmp1,v_tmp2,v_tmp3;
-	  int k;
-	  int rbit;
-	  byte[] rand = new byte [32];
-	  int i;
-
-	  try {
-		  crypto_stream_chacha20(rand,0,32,((long)nonce) << 56,seed);
-	
-		  for(i=0; i<256; i++)
-		  {
-		    rbit = (rand[i>>3] >> (i&7)) & 1;
-	
-		    k  = f(v0,0, v0,4, 8*v.coeffs[  0+i] + 4*rbit);
-		    k += f(v0,1, v0,5, 8*v.coeffs[256+i] + 4*rbit);
-		    k += f(v0,2, v0,6, 8*v.coeffs[512+i] + 4*rbit);
-		    k += f(v0,3, v0,7, 8*v.coeffs[768+i] + 4*rbit);
-	
-		    k = (2*PARAM_Q-1-k) >> 31;
-	
-		    v_tmp0 = ((~k) & v0[0]) ^ (k & v0[4]);
-		    v_tmp1 = ((~k) & v0[1]) ^ (k & v0[5]);
-		    v_tmp2 = ((~k) & v0[2]) ^ (k & v0[6]);
-		    v_tmp3 = ((~k) & v0[3]) ^ (k & v0[7]);
-	
-		    c.coeffs[  0+i] = (char)((v_tmp0 -   v_tmp3) & 3);
-		    c.coeffs[256+i] = (char)((v_tmp1 -   v_tmp3) & 3);
-		    c.coeffs[512+i] = (char)((v_tmp2 -   v_tmp3) & 3);
-		    c.coeffs[768+i] = (char)((   -k  + 2*v_tmp3) & 3);
-		  }
-	  } finally {
-		  Arrays.fill(v0, 0);
-		  Arrays.fill(rand, (byte)0);
-	  }
-	}
-
-	private static void rec(byte[] key, Poly v, Poly c)
-	{
-	  int i;
-	  int tmp0,tmp1,tmp2,tmp3;
-
-	  for(i=0;i<32;i++)
-	    key[i] = 0;
-
-	  for(i=0; i<256; i++)
-	  {
-		char c768 = c.coeffs[768+i];
-	    tmp0 = 16*PARAM_Q + 8*(int)v.coeffs[  0+i] - PARAM_Q * (2*c.coeffs[  0+i]+c768);
-	    tmp1 = 16*PARAM_Q + 8*(int)v.coeffs[256+i] - PARAM_Q * (2*c.coeffs[256+i]+c768);
-	    tmp2 = 16*PARAM_Q + 8*(int)v.coeffs[512+i] - PARAM_Q * (2*c.coeffs[512+i]+c768);
-	    tmp3 = 16*PARAM_Q + 8*(int)v.coeffs[768+i] - PARAM_Q * (                  c768);
-
-	    key[i>>3] |= LDDecode(tmp0, tmp1, tmp2, tmp3) << (i & 7);
-	  }
-	}
-	
-	// -------------- ntt.c --------------
-
-	private static final int bitrev_table_combined[/*496*/] = {
-		524289,262146,786435,131076,655365,393222,917511,65544,
-		589833,327690,851979,196620,720909,458766,983055,32784,
-		557073,294930,819219,163860,688149,426006,950295,98328,
-		622617,360474,884763,229404,753693,491550,1015839,540705,
-		278562,802851,147492,671781,409638,933927,81960,606249,
-		344106,868395,213036,737325,475182,999471,573489,311346,
-		835635,180276,704565,442422,966711,114744,639033,376890,
-		901179,245820,770109,507966,1032255,532545,270402,794691,
-		139332,663621,401478,925767,598089,335946,860235,204876,
-		729165,467022,991311,565329,303186,827475,172116,696405,
-		434262,958551,106584,630873,368730,893019,237660,761949,
-		499806,1024095,548961,286818,811107,155748,680037,417894,
-		942183,614505,352362,876651,221292,745581,483438,1007727,
-		581745,319602,843891,188532,712821,450678,974967,647289,
-		385146,909435,254076,778365,516222,1040511,528513,266370,
-		790659,659589,397446,921735,594057,331914,856203,200844,
-		725133,462990,987279,561297,299154,823443,168084,692373,
-		430230,954519,626841,364698,888987,233628,757917,495774,
-		1020063,544929,282786,807075,676005,413862,938151,610473,
-		348330,872619,217260,741549,479406,1003695,577713,315570,
-		839859,708789,446646,970935,643257,381114,905403,250044,
-		774333,512190,1036479,536769,274626,798915,667845,405702,
-		929991,602313,340170,864459,733389,471246,995535,569553,
-		307410,831699,700629,438486,962775,635097,372954,897243,
-		241884,766173,504030,1028319,553185,291042,815331,684261,
-		422118,946407,618729,356586,880875,749805,487662,1011951,
-		585969,323826,848115,717045,454902,979191,651513,389370,
-		913659,782589,520446,1044735,526593,788739,657669,395526,
-		919815,592137,329994,854283,723213,461070,985359,559377,
-		297234,821523,690453,428310,952599,624921,362778,887067,
-		755997,493854,1018143,543009,805155,674085,411942,936231,
-		608553,346410,870699,739629,477486,1001775,575793,837939,
-		706869,444726,969015,641337,379194,903483,772413,510270,
-		1034559,534849,796995,665925,403782,928071,600393,862539,
-		731469,469326,993615,567633,829779,698709,436566,960855,
-		633177,371034,895323,764253,502110,1026399,551265,813411,
-		682341,420198,944487,616809,878955,747885,485742,1010031,
-		584049,846195,715125,452982,977271,649593,911739,780669,
-		518526,1042815,530817,792963,661893,924039,596361,858507,
-		727437,465294,989583,563601,825747,694677,432534,956823,
-		629145,891291,760221,498078,1022367,547233,809379,678309,
-		940455,612777,874923,743853,481710,1005999,580017,842163,
-		711093,973239,645561,907707,776637,514494,1038783,539073,
-		801219,670149,932295,604617,866763,735693,997839,571857,
-		834003,702933,965079,637401,899547,768477,506334,1030623,
-		555489,817635,686565,948711,621033,883179,752109,1014255,
-		588273,850419,719349,981495,653817,915963,784893,1047039,
-		787971,656901,919047,591369,853515,722445,984591,558609,
-		820755,689685,951831,624153,886299,755229,1017375,804387,
-		673317,935463,607785,869931,738861,1001007,837171,706101,
-		968247,640569,902715,771645,1033791,796227,665157,927303,
-		861771,730701,992847,829011,697941,960087,632409,894555,
-		763485,1025631,812643,681573,943719,878187,747117,1009263,
-		845427,714357,976503,910971,779901,1042047,792195,923271,
-		857739,726669,988815,824979,693909,956055,890523,759453,
-		1021599,808611,939687,874155,743085,1005231,841395,972471,
-		906939,775869,1038015,800451,931527,865995,997071,833235,
-		964311,898779,767709,1029855,816867,947943,882411,1013487,
-		849651,980727,915195,1046271,921351,855819,986895,823059,
-		954135,888603,1019679,937767,872235,1003311,970551,905019,
-		1036095,929607,995151,962391,896859,1027935,946023,1011567,
-		978807,1044351,991119,958359,1023903,1007535,1040319,1032159
-	};
-
-	// Modified version of bitrev_vector() from the C reference code
-	// that reduces the number of array bounds checks on the bitrev_table
-	// from 1024 to 496.  The values in the combined table are encoded
-	// as (i + (r * PARAM_N)) where i and r are the indices to swap.
-	// The pseudo-code to generate this combined table is:
-    //     p = 0;
-    //     for (i = 0; i < PARAM_N; i++) {
-    //         r = bitrev_table[i];
-    //         if (i < r)
-    //             bitrev_table_combined[p++] = i + (r * PARAM_N);
-    //     }
-	private static void bitrev_vector(char[] poly)
-	{
-	    int i,r,p;
-	    char tmp;
-
-	    for(p = 0; p < 496; ++p)
-	    {
-	    	int indices = bitrev_table_combined[p];
-	    	i = indices & 0x03FF;
-	    	r = indices >> 10;
-        	tmp = poly[i];
-        	poly[i] = poly[r];
-        	poly[r] = tmp;
-	    }
-	}
-
-	private static void mul_coefficients(char[] poly, char[] factors)
-	{
-	    int i;
-
-	    for(i = 0; i < PARAM_N; i++)
-	      poly[i] = (char)montgomery_reduce((poly[i] * factors[i]));
-	}
-	
-	/* GS_bo_to_no; omegas need to be in Montgomery domain */
-	private static void ntt_global(char[] a, char[] omega)
-	{
-	  int i, start, j, jTwiddle, distance;
-	  char temp, W;
-
-
-	  for(i=0;i<10;i+=2)
-	  {
-	    // Even level
-	    distance = (1<<i);
-	    for(start = 0; start < distance;start++)
-	    {
-	      jTwiddle = 0;
-	      for(j=start;j<PARAM_N-1;j+=2*distance)
-	      {
-	        W = omega[jTwiddle++];
-	        temp = a[j];
-	        a[j] = (char)(temp + a[j + distance]); // Omit reduction (be lazy)
-	        a[j + distance] = (char)montgomery_reduce((W * ((int)temp + 3*PARAM_Q - a[j + distance])));
-	      }
-	    }
-
-	    // Odd level
-	    distance <<= 1;
-	    for(start = 0; start < distance;start++)
-	    {
-	      jTwiddle = 0;
-	      for(j=start;j<PARAM_N-1;j+=2*distance)
-	      {
-	        W = omega[jTwiddle++];
-	        temp = a[j];
-	        a[j] = (char)barrett_reduce((temp + a[j + distance]));
-	        a[j + distance] = (char)montgomery_reduce((W * ((int)temp + 3*PARAM_Q - a[j + distance])));
-	      }
-	    }
-	  }
-	}
-
-	// -------------- fips202.c --------------
-
-	/* Based on the public domain implementation in
-	 * crypto_hash/keccakc512/simple/ from http://bench.cr.yp.to/supercop.html
-	 * by Ronny Van Keer 
-	 * and the public domain "TweetFips202" implementation
-	 * from https://twitter.com/tweetfips202
-	 * by Gilles Van Assche, Daniel J. Bernstein, and Peter Schwabe */
-
-	private static long ROL(long a, int offset)
-	{
-		return (a << offset) ^ (a >>> (64 - offset));
-	}
-
-	private static long load64(byte[] x, int offset)
-	{
-	  long r = 0;
-
-	  for (int i = 0; i < 8; ++i) {
-	    r |= ((long)(x[offset+i] & 0xff)) << (8 * i);
-	  }
-	  return r;
-	}
-
-	private static void store64(byte[] x, int offset, long u)
-	{
-	  int i;
-
-	  for(i=0; i<8; ++i) {
-	    x[offset+i] = (byte)u;
-	    u >>= 8;
-	  }
-	}
-
-	private static final long[] KeccakF_RoundConstants =
-		{
-		    0x0000000000000001L,
-		    0x0000000000008082L,
-		    0x800000000000808aL,
-		    0x8000000080008000L,
-		    0x000000000000808bL,
-		    0x0000000080000001L,
-		    0x8000000080008081L,
-		    0x8000000000008009L,
-		    0x000000000000008aL,
-		    0x0000000000000088L,
-		    0x0000000080008009L,
-		    0x000000008000000aL,
-		    0x000000008000808bL,
-		    0x800000000000008bL,
-		    0x8000000000008089L,
-		    0x8000000000008003L,
-		    0x8000000000008002L,
-		    0x8000000000000080L,
-		    0x000000000000800aL,
-		    0x800000008000000aL,
-		    0x8000000080008081L,
-		    0x8000000000008080L,
-		    0x0000000080000001L,
-		    0x8000000080008008L
-		};
-
-	
-	private static void KeccakF1600_StatePermute(long[] state)
-	{
-	    int round;
-
-        long Aba, Abe, Abi, Abo, Abu;
-        long Aga, Age, Agi, Ago, Agu;
-        long Aka, Ake, Aki, Ako, Aku;
-        long Ama, Ame, Ami, Amo, Amu;
-        long Asa, Ase, Asi, Aso, Asu;
-        long BCa, BCe, BCi, BCo, BCu;
-        long Da, De, Di, Do, Du;
-        long Eba, Ebe, Ebi, Ebo, Ebu;
-        long Ega, Ege, Egi, Ego, Egu;
-        long Eka, Eke, Eki, Eko, Eku;
-        long Ema, Eme, Emi, Emo, Emu;
-        long Esa, Ese, Esi, Eso, Esu;
-
-        //copyFromState(A, state)
-        Aba = state[ 0];
-        Abe = state[ 1];
-        Abi = state[ 2];
-        Abo = state[ 3];
-        Abu = state[ 4];
-        Aga = state[ 5];
-        Age = state[ 6];
-        Agi = state[ 7];
-        Ago = state[ 8];
-        Agu = state[ 9];
-        Aka = state[10];
-        Ake = state[11];
-        Aki = state[12];
-        Ako = state[13];
-        Aku = state[14];
-        Ama = state[15];
-        Ame = state[16];
-        Ami = state[17];
-        Amo = state[18];
-        Amu = state[19];
-        Asa = state[20];
-        Ase = state[21];
-        Asi = state[22];
-        Aso = state[23];
-        Asu = state[24];
-
-        for( round = 0; round < 24; round += 2 )
-        {
-            //    prepareTheta
-            BCa = Aba^Aga^Aka^Ama^Asa;
-            BCe = Abe^Age^Ake^Ame^Ase;
-            BCi = Abi^Agi^Aki^Ami^Asi;
-            BCo = Abo^Ago^Ako^Amo^Aso;
-            BCu = Abu^Agu^Aku^Amu^Asu;
-
-            //thetaRhoPiChiIotaPrepareTheta(round  , A, E)
-            Da = BCu^ROL(BCe, 1);
-            De = BCa^ROL(BCi, 1);
-            Di = BCe^ROL(BCo, 1);
-            Do = BCi^ROL(BCu, 1);
-            Du = BCo^ROL(BCa, 1);
-
-            Aba ^= Da;
-            BCa = Aba;
-            Age ^= De;
-            BCe = ROL(Age, 44);
-            Aki ^= Di;
-            BCi = ROL(Aki, 43);
-            Amo ^= Do;
-            BCo = ROL(Amo, 21);
-            Asu ^= Du;
-            BCu = ROL(Asu, 14);
-            Eba =   BCa ^((~BCe)&  BCi );
-            Eba ^= KeccakF_RoundConstants[round];
-            Ebe =   BCe ^((~BCi)&  BCo );
-            Ebi =   BCi ^((~BCo)&  BCu );
-            Ebo =   BCo ^((~BCu)&  BCa );
-            Ebu =   BCu ^((~BCa)&  BCe );
-
-            Abo ^= Do;
-            BCa = ROL(Abo, 28);
-            Agu ^= Du;
-            BCe = ROL(Agu, 20);
-            Aka ^= Da;
-            BCi = ROL(Aka,  3);
-            Ame ^= De;
-            BCo = ROL(Ame, 45);
-            Asi ^= Di;
-            BCu = ROL(Asi, 61);
-            Ega =   BCa ^((~BCe)&  BCi );
-            Ege =   BCe ^((~BCi)&  BCo );
-            Egi =   BCi ^((~BCo)&  BCu );
-            Ego =   BCo ^((~BCu)&  BCa );
-            Egu =   BCu ^((~BCa)&  BCe );
-
-            Abe ^= De;
-            BCa = ROL(Abe,  1);
-            Agi ^= Di;
-            BCe = ROL(Agi,  6);
-            Ako ^= Do;
-            BCi = ROL(Ako, 25);
-            Amu ^= Du;
-            BCo = ROL(Amu,  8);
-            Asa ^= Da;
-            BCu = ROL(Asa, 18);
-            Eka =   BCa ^((~BCe)&  BCi );
-            Eke =   BCe ^((~BCi)&  BCo );
-            Eki =   BCi ^((~BCo)&  BCu );
-            Eko =   BCo ^((~BCu)&  BCa );
-            Eku =   BCu ^((~BCa)&  BCe );
-
-            Abu ^= Du;
-            BCa = ROL(Abu, 27);
-            Aga ^= Da;
-            BCe = ROL(Aga, 36);
-            Ake ^= De;
-            BCi = ROL(Ake, 10);
-            Ami ^= Di;
-            BCo = ROL(Ami, 15);
-            Aso ^= Do;
-            BCu = ROL(Aso, 56);
-            Ema =   BCa ^((~BCe)&  BCi );
-            Eme =   BCe ^((~BCi)&  BCo );
-            Emi =   BCi ^((~BCo)&  BCu );
-            Emo =   BCo ^((~BCu)&  BCa );
-            Emu =   BCu ^((~BCa)&  BCe );
-
-            Abi ^= Di;
-            BCa = ROL(Abi, 62);
-            Ago ^= Do;
-            BCe = ROL(Ago, 55);
-            Aku ^= Du;
-            BCi = ROL(Aku, 39);
-            Ama ^= Da;
-            BCo = ROL(Ama, 41);
-            Ase ^= De;
-            BCu = ROL(Ase,  2);
-            Esa =   BCa ^((~BCe)&  BCi );
-            Ese =   BCe ^((~BCi)&  BCo );
-            Esi =   BCi ^((~BCo)&  BCu );
-            Eso =   BCo ^((~BCu)&  BCa );
-            Esu =   BCu ^((~BCa)&  BCe );
-
-            //    prepareTheta
-            BCa = Eba^Ega^Eka^Ema^Esa;
-            BCe = Ebe^Ege^Eke^Eme^Ese;
-            BCi = Ebi^Egi^Eki^Emi^Esi;
-            BCo = Ebo^Ego^Eko^Emo^Eso;
-            BCu = Ebu^Egu^Eku^Emu^Esu;
-
-            //thetaRhoPiChiIotaPrepareTheta(round+1, E, A)
-            Da = BCu^ROL(BCe, 1);
-            De = BCa^ROL(BCi, 1);
-            Di = BCe^ROL(BCo, 1);
-            Do = BCi^ROL(BCu, 1);
-            Du = BCo^ROL(BCa, 1);
-
-            Eba ^= Da;
-            BCa = Eba;
-            Ege ^= De;
-            BCe = ROL(Ege, 44);
-            Eki ^= Di;
-            BCi = ROL(Eki, 43);
-            Emo ^= Do;
-            BCo = ROL(Emo, 21);
-            Esu ^= Du;
-            BCu = ROL(Esu, 14);
-            Aba =   BCa ^((~BCe)&  BCi );
-            Aba ^= KeccakF_RoundConstants[round+1];
-            Abe =   BCe ^((~BCi)&  BCo );
-            Abi =   BCi ^((~BCo)&  BCu );
-            Abo =   BCo ^((~BCu)&  BCa );
-            Abu =   BCu ^((~BCa)&  BCe );
-
-            Ebo ^= Do;
-            BCa = ROL(Ebo, 28);
-            Egu ^= Du;
-            BCe = ROL(Egu, 20);
-            Eka ^= Da;
-            BCi = ROL(Eka, 3);
-            Eme ^= De;
-            BCo = ROL(Eme, 45);
-            Esi ^= Di;
-            BCu = ROL(Esi, 61);
-            Aga =   BCa ^((~BCe)&  BCi );
-            Age =   BCe ^((~BCi)&  BCo );
-            Agi =   BCi ^((~BCo)&  BCu );
-            Ago =   BCo ^((~BCu)&  BCa );
-            Agu =   BCu ^((~BCa)&  BCe );
-
-            Ebe ^= De;
-            BCa = ROL(Ebe, 1);
-            Egi ^= Di;
-            BCe = ROL(Egi, 6);
-            Eko ^= Do;
-            BCi = ROL(Eko, 25);
-            Emu ^= Du;
-            BCo = ROL(Emu, 8);
-            Esa ^= Da;
-            BCu = ROL(Esa, 18);
-            Aka =   BCa ^((~BCe)&  BCi );
-            Ake =   BCe ^((~BCi)&  BCo );
-            Aki =   BCi ^((~BCo)&  BCu );
-            Ako =   BCo ^((~BCu)&  BCa );
-            Aku =   BCu ^((~BCa)&  BCe );
-
-            Ebu ^= Du;
-            BCa = ROL(Ebu, 27);
-            Ega ^= Da;
-            BCe = ROL(Ega, 36);
-            Eke ^= De;
-            BCi = ROL(Eke, 10);
-            Emi ^= Di;
-            BCo = ROL(Emi, 15);
-            Eso ^= Do;
-            BCu = ROL(Eso, 56);
-            Ama =   BCa ^((~BCe)&  BCi );
-            Ame =   BCe ^((~BCi)&  BCo );
-            Ami =   BCi ^((~BCo)&  BCu );
-            Amo =   BCo ^((~BCu)&  BCa );
-            Amu =   BCu ^((~BCa)&  BCe );
-
-            Ebi ^= Di;
-            BCa = ROL(Ebi, 62);
-            Ego ^= Do;
-            BCe = ROL(Ego, 55);
-            Eku ^= Du;
-            BCi = ROL(Eku, 39);
-            Ema ^= Da;
-            BCo = ROL(Ema, 41);
-            Ese ^= De;
-            BCu = ROL(Ese, 2);
-            Asa =   BCa ^((~BCe)&  BCi );
-            Ase =   BCe ^((~BCi)&  BCo );
-            Asi =   BCi ^((~BCo)&  BCu );
-            Aso =   BCo ^((~BCu)&  BCa );
-            Asu =   BCu ^((~BCa)&  BCe );
+open class NewHope {
+    // -------------- newhope.c --------------
+    private var sk: Poly? = null
+
+    /**
+     * Destroys sensitive material in this object.
+     */
+    fun destroy() {
+        sk?.destroy()
+        sk = null
+    }
+
+    /**
+     * Generates the keypair for Alice.
+     */
+    fun keygen(send: ByteArray, sendOffset: Int) {
+        val a = Poly()
+        val e = Poly()
+        val r = Poly()
+        val pk = Poly()
+        val seed = ByteArray(SEEDBYTES + 32)
+        val noiseseed = ByteArray(32)
+
+        try {
+            randombytes(seed)
+            sha3256(seed, 0, seed, 0, SEEDBYTES) /* Don't send output of system RNG */
+            seed.copyInto(noiseseed, 0, SEEDBYTES, SEEDBYTES + 32)
+
+            uniform(a.coeffs, seed)
+
+            val currentSk = sk ?: Poly().also { sk = it }
+            currentSk.getnoise(noiseseed, 0.toByte())
+            currentSk.ntt()
+
+            e.getnoise(noiseseed, 1.toByte())
+            e.ntt()
+
+            r.pointwise(currentSk, a)
+            pk.add(e, r)
+
+            encode_a(send, sendOffset, pk, seed)
+        } finally {
+            a.destroy()
+            e.destroy()
+            r.destroy()
+            pk.destroy()
+            seed.fill(0)
+            noiseseed.fill(0)
+        }
+    }
+
+    /**
+     * Generates the public key and shared secret for Bob.
+     *
+     * @param sharedkey Buffer to place the shared secret for Bob in.
+     * @param sharedkeyOffset Offset of the first byte in the sharedkey buffer to populate.
+     * @param send Buffer to place the public key for Bob in to be sent to Alice.
+     * @param sendOffset Offset of the first byte in the send buffer to populate.
+     * @param received Buffer containing the public key value received from Alice.
+     * @param receivedOffset Offset of the first byte of the value received from Alice.
+     */
+    fun sharedb(
+        sharedkey: ByteArray, sharedkeyOffset: Int,
+        send: ByteArray, sendOffset: Int,
+        received: ByteArray, receivedOffset: Int
+    ) {
+        val sp = Poly()
+        val ep = Poly()
+        val v = Poly()
+        val a = Poly()
+        val pka = Poly()
+        val c = Poly()
+        val epp = Poly()
+        val bp = Poly()
+        val seed = ByteArray(SEEDBYTES)
+        val noiseseed = ByteArray(32)
+        val skey = ByteArray(32)
+
+        try {
+            randombytes(noiseseed)
+
+            decode_a(pka, seed, received, receivedOffset)
+            uniform(a.coeffs, seed)
+
+            sp.getnoise(noiseseed, 0.toByte())
+            sp.ntt()
+            ep.getnoise(noiseseed, 1.toByte())
+            ep.ntt()
+
+            bp.pointwise(a, sp)
+            bp.add(bp, ep)
+
+            v.pointwise(pka, sp)
+            v.invntt()
+
+            epp.getnoise(noiseseed, 2.toByte())
+            v.add(v, epp)
+
+            helprec(c, v, noiseseed, 3.toByte())
+
+            encode_b(send, sendOffset, bp, c)
+
+            rec(skey, v, c)
+
+            sha3256(sharedkey, sharedkeyOffset, skey, 0, 32)
+        } finally {
+            sp.destroy()
+            ep.destroy()
+            v.destroy()
+            a.destroy()
+            pka.destroy()
+            c.destroy()
+            epp.destroy()
+            bp.destroy()
+            seed.fill(0)
+            noiseseed.fill(0)
+            skey.fill(0)
+        }
+    }
+
+    /**
+     * Generates the shared secret for Alice.
+     */
+    fun shareda(
+        sharedkey: ByteArray, sharedkeyOffset: Int,
+        received: ByteArray, receivedOffset: Int
+    ) {
+        val v = Poly()
+        val bp = Poly()
+        val c = Poly()
+        val skey = ByteArray(32)
+
+        try {
+            decode_b(bp, c, received, receivedOffset)
+
+            val currentSk = sk ?: throw IllegalStateException("Private key not initialized")
+            v.pointwise(currentSk, bp)
+            v.invntt()
+
+            rec(skey, v, c)
+
+            sha3256(sharedkey, sharedkeyOffset, skey, 0, 32)
+        } finally {
+            v.destroy()
+            bp.destroy()
+            c.destroy()
+            skey.fill(0)
+        }
+    }
+
+    protected open fun randombytes(buffer: ByteArray) {
+        SecureRandom().nextBytes(buffer)
+    }
+
+    // -------------- poly.c --------------
+    inner class Poly {
+        val coeffs = CharArray(PARAM_N)
+
+        fun destroy() {
+            coeffs.fill(0.toChar())
         }
 
-        //copyToState(state, A)
-        state[ 0] = Aba;
-        state[ 1] = Abe;
-        state[ 2] = Abi;
-        state[ 3] = Abo;
-        state[ 4] = Abu;
-        state[ 5] = Aga;
-        state[ 6] = Age;
-        state[ 7] = Agi;
-        state[ 8] = Ago;
-        state[ 9] = Agu;
-        state[10] = Aka;
-        state[11] = Ake;
-        state[12] = Aki;
-        state[13] = Ako;
-        state[14] = Aku;
-        state[15] = Ama;
-        state[16] = Ame;
-        state[17] = Ami;
-        state[18] = Amo;
-        state[19] = Amu;
-        state[20] = Asa;
-        state[21] = Ase;
-        state[22] = Asi;
-        state[23] = Aso;
-        state[24] = Asu;
-	}
+        fun frombytes(a: ByteArray, offset: Int) {
+            for (i in 0 until PARAM_N / 4) {
+                coeffs[4 * i + 0] = ((a[offset + 7 * i + 0].toInt() and 0xff) or ((a[offset + 7 * i + 1].toInt() and 0x3f) shl 8)).toChar()
+                coeffs[4 * i + 1] = (((a[offset + 7 * i + 1].toInt() and 0xc0) shr 6) or ((a[offset + 7 * i + 2].toInt() and 0xff) shl 2) or ((a[offset + 7 * i + 3].toInt() and 0x0f) shl 10)).toChar()
+                coeffs[4 * i + 2] = (((a[offset + 7 * i + 3].toInt() and 0xf0) shr 4) or ((a[offset + 7 * i + 4].toInt() and 0xff) shl 4) or ((a[offset + 7 * i + 5].toInt() and 0x03) shl 12)).toChar()
+                coeffs[4 * i + 3] = (((a[offset + 7 * i + 5].toInt() and 0xfc) shr 2) or ((a[offset + 7 * i + 6].toInt() and 0xff) shl 6)).toChar()
+            }
+        }
 
-	private static void keccak_absorb(long[] s, int r, byte[] m, int offset, int mlen, byte p)
-	{
-	  int i;
-	  byte[] t = new byte [200];
+        fun tobytes(r: ByteArray, offset: Int) {
+            for (i in 0 until PARAM_N / 4) {
+                var t0 = barrett_reduce(coeffs[4 * i + 0].code)
+                var t1 = barrett_reduce(coeffs[4 * i + 1].code)
+                var t2 = barrett_reduce(coeffs[4 * i + 2].code)
+                var t3 = barrett_reduce(coeffs[4 * i + 3].code)
 
-	  try {
-		  for (i = 0; i < 25; ++i)
-		    s[i] = 0;
+                var m = t0 - PARAM_Q
+                var mask = m shr 15
+                t0 = m xor ((t0 xor m) and mask)
 
-		  while (mlen >= r)
-		  {
-		    for (i = 0; i < r / 8; ++i)
-		      s[i] ^= load64(m, offset + 8 * i);
+                m = t1 - PARAM_Q
+                mask = m shr 15
+                t1 = m xor ((t1 xor m) and mask)
 
-		    KeccakF1600_StatePermute(s);
-		    mlen -= r;
-		    offset += r;
-		  }
+                m = t2 - PARAM_Q
+                mask = m shr 15
+                t2 = m xor ((t2 xor m) and mask)
 
-		  for (i = 0; i < r; ++i)
-		    t[i] = 0;
-		  for (i = 0; i < mlen; ++i)
-		    t[i] = m[offset + i];
-		  t[i] = p;
-		  t[r - 1] |= 128;
-		  for (i = 0; i < r / 8; ++i)
-		    s[i] ^= load64(t, 8 * i);
-	  } finally {
-		  Arrays.fill(t, (byte)0);
-	  }
-	}
+                m = t3 - PARAM_Q
+                mask = m shr 15
+                t3 = m xor ((t3 xor m) and mask)
 
-	private static void keccak_squeezeblocks(byte[] h, int offset, int nblocks, long [] s, int r)
-	{
-	  int i;
-	  while(nblocks > 0)
-	  {
-	    KeccakF1600_StatePermute(s);
-	    for(i=0;i<(r>>3);i++)
-	    {
-	      store64(h, offset+8*i, s[i]);
-	    }
-	    offset += r;
-	    nblocks--;
-	  }
-	}
+                r[offset + 7 * i + 0] = (t0 and 0xff).toByte()
+                r[offset + 7 * i + 1] = ((t0 shr 8) or (t1 shl 6)).toByte()
+                r[offset + 7 * i + 2] = (t1 shr 2).toByte()
+                r[offset + 7 * i + 3] = ((t1 shr 10) or (t2 shl 4)).toByte()
+                r[offset + 7 * i + 4] = (t2 shr 4).toByte()
+                r[offset + 7 * i + 5] = ((t2 shr 12) or (t3 shl 2)).toByte()
+                r[offset + 7 * i + 6] = (t3 shr 6).toByte()
+            }
+        }
 
-	static final int SHAKE128_RATE = 168;
-	
-	static void shake128_absorb(long[] s, byte[] input, int inputOffset, int inputByteLen)
-	{
-	  keccak_absorb(s, SHAKE128_RATE, input, inputOffset, inputByteLen, (byte)0x1F);
-	}
+        fun getnoise(seed: ByteArray, nonce: Byte) {
+            val buf = ByteArray(4 * PARAM_N)
+            try {
+                crypto_stream_chacha20(buf, 0, 4 * PARAM_N, nonce.toLong(), seed)
+                for (i in 0 until PARAM_N) {
+                    var a = (buf[4 * i].toInt() and 0xff) or ((buf[4 * i + 1].toInt() and 0xff) shl 8)
+                    a = a - ((a shr 1) and 0x5555)
+                    a = (a and 0x3333) + ((a shr 2) and 0x3333)
+                    a = ((a shr 4) + a) and 0x0F0F
+                    a = ((a shr 8) + a) and 0x00FF
 
-	static void shake128_squeezeblocks(byte[] output, int outputOffset, int nblocks, long[] s)
-	{
-	  keccak_squeezeblocks(output, outputOffset, nblocks, s, SHAKE128_RATE);
-	}
+                    var b = (buf[4 * i + 2].toInt() and 0xff) or ((buf[4 * i + 3].toInt() and 0xff) shl 8)
+                    b = b - ((b shr 1) and 0x5555)
+                    b = (b and 0x3333) + ((b shr 2) and 0x3333)
+                    b = ((b shr 4) + b) and 0x0F0F
+                    b = ((b shr 8) + b) and 0x00FF
 
-	private static final int SHA3_256_RATE = 136;
-	
-	private static void sha3256(byte[] output, int outputOffset, byte[] input, int inputOffset, int inputByteLen)
-	{
-	  long[] s = new long [25];
-	  byte[] t = new byte [SHA3_256_RATE];
-	  int i;
+                    coeffs[i] = (a + PARAM_Q - b).toChar()
+                }
+            } finally {
+                buf.fill(0)
+            }
+        }
 
-	  try {
-		  keccak_absorb(s, SHA3_256_RATE, input, inputOffset, inputByteLen, (byte)0x06);
-		  keccak_squeezeblocks(t, 0, 1, s, SHA3_256_RATE);
-		  for(i=0;i<32;i++)
-		    output[i] = t[i];
-	  } finally {
-		  Arrays.fill(s, 0);
-		  Arrays.fill(t, (byte)0);
-	  }
-	}
+        fun pointwise(a: Poly, b: Poly) {
+            for (i in 0 until PARAM_N) {
+                val t = montgomery_reduce(3186 * b.coeffs[i].code)
+                coeffs[i] = montgomery_reduce(a.coeffs[i].code * t).toChar()
+            }
+        }
 
-	// -------------- crypto_stream_chacha20.c --------------
+        fun add(a: Poly, b: Poly) {
+            for (i in 0 until PARAM_N) {
+                coeffs[i] = barrett_reduce(a.coeffs[i].code + b.coeffs[i].code).toChar()
+            }
+        }
 
-	/* Based on the public domain implemntation in
-	 * crypto_stream/chacha20/e/ref from http://bench.cr.yp.to/supercop.html
-	 * by Daniel J. Bernstein */
+        fun ntt() {
+            mul_coefficients(coeffs, psis_bitrev_montgomery)
+            ntt_global(coeffs, omegas_montgomery)
+        }
 
-	private static int load_littleendian(byte[] x, int offset)
-	{
-	  return
-	      (int) (x[offset + 0] & 0xff)
-	  | (((int) (x[offset + 1] & 0xff)) << 8)
-	  | (((int) (x[offset + 2] & 0xff)) << 16)
-	  | (((int) (x[offset + 3] & 0xff)) << 24);
-	}
+        fun invntt() {
+            bitrev_vector(coeffs)
+            ntt_global(coeffs, omegas_inv_montgomery)
+            mul_coefficients(coeffs, psis_inv_montgomery)
+        }
+    }
 
-	private static void store_littleendian(byte[] x, int offset, int u)
-	{
-	  x[offset + 0] = (byte)u; u >>= 8;
-	  x[offset + 1] = (byte)u; u >>= 8;
-	  x[offset + 2] = (byte)u; u >>= 8;
-	  x[offset + 3] = (byte)u;
-	}
-	
-	// Note: This version is limited to a maximum of 2^32 blocks or 2^38 bytes
-	// because the block number counter is 32-bit instead of 64-bit.  This isn't
-	// a problem for New Hope because the maximum required output is 4096 bytes.
-	private static void crypto_core_chacha20(byte[] out, int outOffset, long nonce, int blknum, byte[] k)
-	{
-	  int x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15;
-	  int j0, j1, j2, j3, j4, j5, j6, j7, j8, j9, j10, j11, j12, j13, j14, j15;
-	  int i;
+    /**
+     * Derives the public "a" value from a 32-byte seed.
+     */
+    protected open fun uniform(coeffs: CharArray, seed: ByteArray) {
+        var pos = 0
+        var ctr = 0
+        val state = LongArray(25)
+        var nblocks = 14
+        val buf = ByteArray(SHAKE128_RATE * nblocks)
 
-	  j0  = x0  = 0x61707865;				// "expa"
-	  j1  = x1  = 0x3320646e;				// "nd 3"
-	  j2  = x2  = 0x79622d32;				// "2-by"
-	  j3  = x3  = 0x6b206574;				// "te k"
-	  j4  = x4  = load_littleendian(k,  0);
-	  j5  = x5  = load_littleendian(k,  4);
-	  j6  = x6  = load_littleendian(k,  8);
-	  j7  = x7  = load_littleendian(k, 12);
-	  j8  = x8  = load_littleendian(k, 16);
-	  j9  = x9  = load_littleendian(k, 20);
-	  j10 = x10 = load_littleendian(k, 24);
-	  j11 = x11 = load_littleendian(k, 28);
-	  j12 = x12 = blknum;
-	  j13 = x13 = 0;
-	  j14 = x14 = (int)nonce;
-	  j15 = x15 = (int)(nonce >>> 32);
+        try {
+            shake128_absorb(state, seed, 0, SEEDBYTES)
+            shake128_squeezeblocks(buf, 0, nblocks, state)
 
-	  for (i = 20;i > 0;i -= 2) {
-		  x0  += x4 ; x12 ^= x0 ; x12 = (x12 << 16) | (x12 >>> 16);
-		  x8  += x12; x4  ^= x8 ; x4  = (x4  << 12) | (x4  >>> 20);
-		  x0  += x4 ; x12 ^= x0 ; x12 = (x12 <<  8) | (x12 >>> 24);
-		  x8  += x12; x4  ^= x8 ; x4  = (x4  <<  7) | (x4  >>> 25);
-		  x1  += x5 ; x13 ^= x1 ; x13 = (x13 << 16) | (x13 >>> 16);
-		  x9  += x13; x5  ^= x9 ; x5  = (x5  << 12) | (x5  >>> 20);
-		  x1  += x5 ; x13 ^= x1 ; x13 = (x13 <<  8) | (x13 >>> 24);
-		  x9  += x13; x5  ^= x9 ; x5  = (x5  <<  7) | (x5  >>> 25);
-		  x2  += x6 ; x14 ^= x2 ; x14 = (x14 << 16) | (x14 >>> 16);
-		  x10 += x14; x6  ^= x10; x6  = (x6  << 12) | (x6  >>> 20);
-		  x2  += x6 ; x14 ^= x2 ; x14 = (x14 <<  8) | (x14 >>> 24);
-		  x10 += x14; x6  ^= x10; x6  = (x6  <<  7) | (x6  >>> 25);
-		  x3  += x7 ; x15 ^= x3 ; x15 = (x15 << 16) | (x15 >>> 16);
-		  x11 += x15; x7  ^= x11; x7  = (x7  << 12) | (x7  >>> 20);
-		  x3  += x7 ; x15 ^= x3 ; x15 = (x15 <<  8) | (x15 >>> 24);
-		  x11 += x15; x7  ^= x11; x7  = (x7  <<  7) | (x7  >>> 25);
-		  x0  += x5 ; x15 ^= x0 ; x15 = (x15 << 16) | (x15 >>> 16);
-		  x10 += x15; x5  ^= x10; x5  = (x5  << 12) | (x5  >>> 20);
-		  x0  += x5 ; x15 ^= x0 ; x15 = (x15 <<  8) | (x15 >>> 24);
-		  x10 += x15; x5  ^= x10; x5  = (x5  <<  7) | (x5  >>> 25);
-		  x1  += x6 ; x12 ^= x1 ; x12 = (x12 << 16) | (x12 >>> 16);
-		  x11 += x12; x6  ^= x11; x6  = (x6  << 12) | (x6  >>> 20);
-		  x1  += x6 ; x12 ^= x1 ; x12 = (x12 <<  8) | (x12 >>> 24);
-		  x11 += x12; x6  ^= x11; x6  = (x6  <<  7) | (x6  >>> 25);
-		  x2  += x7 ; x13 ^= x2 ; x13 = (x13 << 16) | (x13 >>> 16);
-		  x8  += x13; x7  ^= x8 ; x7  = (x7  << 12) | (x7  >>> 20);
-		  x2  += x7 ; x13 ^= x2 ; x13 = (x13 <<  8) | (x13 >>> 24);
-		  x8  += x13; x7  ^= x8 ; x7  = (x7  <<  7) | (x7  >>> 25);
-		  x3  += x4 ; x14 ^= x3 ; x14 = (x14 << 16) | (x14 >>> 16);
-		  x9  += x14; x4  ^= x9 ; x4  = (x4  << 12) | (x4  >>> 20);
-		  x3  += x4 ; x14 ^= x3 ; x14 = (x14 <<  8) | (x14 >>> 24);
-		  x9  += x14; x4  ^= x9 ; x4  = (x4  <<  7) | (x4  >>> 25);
-	  }
+            while (ctr < PARAM_N) {
+                val value = (buf[pos].toInt() and 0xff) or ((buf[pos + 1].toInt() and 0xff) shl 8)
+                if (value < 5 * PARAM_Q) coeffs[ctr++] = value.toChar()
+                pos += 2
+                if (pos > SHAKE128_RATE * nblocks - 2) {
+                    nblocks = 1
+                    shake128_squeezeblocks(buf, 0, nblocks, state)
+                    pos = 0
+                }
+            }
+        } finally {
+            state.fill(0)
+            buf.fill(0)
+        }
+    }
 
-	  x0 += j0;
-	  x1 += j1;
-	  x2 += j2;
-	  x3 += j3;
-	  x4 += j4;
-	  x5 += j5;
-	  x6 += j6;
-	  x7 += j7;
-	  x8 += j8;
-	  x9 += j9;
-	  x10 += j10;
-	  x11 += j11;
-	  x12 += j12;
-	  x13 += j13;
-	  x14 += j14;
-	  x15 += j15;
+    companion object {
+        // -------------- params.h --------------
+        const val PARAM_N = 1024
+        const val PARAM_Q = 12289
+        const val POLY_BYTES = 1792
+        const val SEEDBYTES = 32
+        const val RECBYTES = 256
+        const val SHAKE128_RATE = 168
+        const val SHAREDBYTES = 32
+        const val SENDABYTES = POLY_BYTES + SEEDBYTES
+        const val SENDBBYTES = POLY_BYTES + RECBYTES
 
-	  store_littleendian(out, outOffset + 0,x0);
-	  store_littleendian(out, outOffset + 4,x1);
-	  store_littleendian(out, outOffset + 8,x2);
-	  store_littleendian(out, outOffset + 12,x3);
-	  store_littleendian(out, outOffset + 16,x4);
-	  store_littleendian(out, outOffset + 20,x5);
-	  store_littleendian(out, outOffset + 24,x6);
-	  store_littleendian(out, outOffset + 28,x7);
-	  store_littleendian(out, outOffset + 32,x8);
-	  store_littleendian(out, outOffset + 36,x9);
-	  store_littleendian(out, outOffset + 40,x10);
-	  store_littleendian(out, outOffset + 44,x11);
-	  store_littleendian(out, outOffset + 48,x12);
-	  store_littleendian(out, outOffset + 52,x13);
-	  store_littleendian(out, outOffset + 56,x14);
-	  store_littleendian(out, outOffset + 60,x15);
-	}
+        private fun encode_a(r: ByteArray, roffset: Int, pk: Poly, seed: ByteArray) {
+            pk.tobytes(r, roffset)
+            seed.copyInto(r, POLY_BYTES + roffset, 0, SEEDBYTES)
+        }
 
-	private static void crypto_stream_chacha20(byte[] c, int coffset, int clen, long n, byte[] k)
-	{
-	  int blknum = 0;
+        private fun decode_a(pk: Poly, seed: ByteArray, r: ByteArray, roffset: Int) {
+            pk.frombytes(r, roffset)
+            r.copyInto(seed, 0, POLY_BYTES + roffset, POLY_BYTES + roffset + SEEDBYTES)
+        }
 
-	  if (clen <= 0) return;
+        private fun encode_b(r: ByteArray, roffset: Int, b: Poly, c: Poly) {
+            b.tobytes(r, roffset)
+            for (i in 0 until PARAM_N / 4) {
+                r[POLY_BYTES + roffset + i] = (c.coeffs[4 * i].code or (c.coeffs[4 * i + 1].code shl 2) or (c.coeffs[4 * i + 2].code shl 4) or (c.coeffs[4 * i + 3].code shl 6)).toByte()
+            }
+        }
 
-	  while (clen >= 64) {
-	    crypto_core_chacha20(c,coffset,n,blknum,k);
-	    ++blknum;
-	    clen -= 64;
-	    coffset += 64;
-	  }
+        private fun decode_b(b: Poly, c: Poly, r: ByteArray, roffset: Int) {
+            b.frombytes(r, roffset)
+            for (i in 0 until PARAM_N / 4) {
+                val v = r[POLY_BYTES + roffset + i].toInt()
+                c.coeffs[4 * i + 0] = (v and 0x03).toChar()
+                c.coeffs[4 * i + 1] = ((v shr 2) and 0x03).toChar()
+                c.coeffs[4 * i + 2] = ((v shr 4) and 0x03).toChar()
+                c.coeffs[4 * i + 3] = ((v shr 6) and 0x03).toChar()
+            }
+        }
 
-	  if (clen != 0) {
-		byte[] block = new byte [64];
-		try {
-		    crypto_core_chacha20(block,0,n,blknum,k);
-		    for (int i = 0;i < clen;++i) c[coffset+i] = block[i];
-		} finally {
-			Arrays.fill(block, (byte)0);
-		}
-	  }
-	}
+        private fun montgomery_reduce(a: Int): Int {
+            val u = (a * 12287) and ((1 shl 18) - 1)
+            return (a + u * PARAM_Q) ushr 18
+        }
 
-	// -------------- precomp.c --------------
+        private fun barrett_reduce(a: Int): Int {
+            val a16 = a and 0xffff
+            val u = (a16 * 5) shr 16
+            return (a16 - u * PARAM_Q) and 0xffff
+        }
 
-	private static final char[/*PARAM_N/2*/] omegas_montgomery = {
-		4075,6974,7373,7965,3262,5079,522,2169,6364,1018,1041,8775,2344,
-		11011,5574,1973,4536,1050,6844,3860,3818,6118,2683,1190,4789,7822,
-		7540,6752,5456,4449,3789,12142,11973,382,3988,468,6843,5339,6196,
-		3710,11316,1254,5435,10930,3998,10256,10367,3879,11889,1728,6137,
-		4948,5862,6136,3643,6874,8724,654,10302,1702,7083,6760,56,3199,9987,
-		605,11785,8076,5594,9260,6403,4782,6212,4624,9026,8689,4080,11868,
-		6221,3602,975,8077,8851,9445,5681,3477,1105,142,241,12231,1003,
-		3532,5009,1956,6008,11404,7377,2049,10968,12097,7591,5057,3445,
-		4780,2920,7048,3127,8120,11279,6821,11502,8807,12138,2127,2839,
-		3957,431,1579,6383,9784,5874,677,3336,6234,2766,1323,9115,12237,
-		2031,6956,6413,2281,3969,3991,12133,9522,4737,10996,4774,5429,11871,
-		3772,453,5908,2882,1805,2051,1954,11713,3963,2447,6142,8174,3030,
-		1843,2361,12071,2908,3529,3434,3202,7796,2057,5369,11939,1512,6906,
-		10474,11026,49,10806,5915,1489,9789,5942,10706,10431,7535,426,8974,
-		3757,10314,9364,347,5868,9551,9634,6554,10596,9280,11566,174,2948,
-		2503,6507,10723,11606,2459,64,3656,8455,5257,5919,7856,1747,9166,
-		5486,9235,6065,835,3570,4240,11580,4046,10970,9139,1058,8210,11848,
-		922,7967,1958,10211,1112,3728,4049,11130,5990,1404,325,948,11143,
-		6190,295,11637,5766,8212,8273,2919,8527,6119,6992,8333,1360,2555,
-		6167,1200,7105,7991,3329,9597,12121,5106,5961,10695,10327,3051,9923,
-		4896,9326,81,3091,1000,7969,4611,726,1853,12149,4255,11112,2768,
-		10654,1062,2294,3553,4805,2747,4846,8577,9154,1170,2319,790,11334,
-		9275,9088,1326,5086,9094,6429,11077,10643,3504,3542,8668,9744,1479,
-		1,8246,7143,11567,10984,4134,5736,4978,10938,5777,8961,4591,5728,
-		6461,5023,9650,7468,949,9664,2975,11726,2744,9283,10092,5067,12171,
-		2476,3748,11336,6522,827,9452,5374,12159,7935,3296,3949,9893,4452,
-		10908,2525,3584,8112,8011,10616,4989,6958,11809,9447,12280,1022,
-		11950,9821,11745,5791,5092,2089,9005,2881,3289,2013,9048,729,7901,
-		1260,5755,4632,11955,2426,10593,1428,4890,5911,3932,9558,8830,3637,
-		5542,145,5179,8595,3707,10530,355,3382,4231,9741,1207,9041,7012,1168,
-		10146,11224,4645,11885,10911,10377,435,7952,4096,493,9908,6845,6039,
-		2422,2187,9723,8643,9852,9302,6022,7278,1002,4284,5088,1607,7313,
-		875,8509,9430,1045,2481,5012,7428,354,6591,9377,11847,2401,1067,
-		7188,11516,390,8511,8456,7270,545,8585,9611,12047,1537,4143,4714,
-		4885,1017,5084,1632,3066,27,1440,8526,9273,12046,11618,9289,3400,
-		9890,3136,7098,8758,11813,7384,3985,11869,6730,10745,10111,2249,
-		4048,2884,11136,2126,1630,9103,5407,2686,9042,2969,8311,9424,
-		9919,8779,5332,10626,1777,4654,10863,7351,3636,9585,5291,8374,
-		2166,4919,12176,9140,12129,7852,12286,4895,10805,2780,5195,2305,
-		7247,9644,4053,10600,3364,3271,4057,4414,9442,7917,2174
-	};
+        // -------------- error_correction.c --------------
+        private fun abs(v: Int): Int {
+            val mask = v shr 31
+            return (v xor mask) - mask
+        }
 
-	private static final char[/*PARAM_N/2*/] omegas_inv_montgomery = {
-		4075,5315,4324,4916,10120,11767,7210,9027,10316,6715,1278,9945,
-		3514,11248,11271,5925,147,8500,7840,6833,5537,4749,4467,7500,11099,
-		9606,6171,8471,8429,5445,11239,7753,9090,12233,5529,5206,10587,
-		1987,11635,3565,5415,8646,6153,6427,7341,6152,10561,400,8410,1922,
-		2033,8291,1359,6854,11035,973,8579,6093,6950,5446,11821,8301,11907,
-		316,52,3174,10966,9523,6055,8953,11612,6415,2505,5906,10710,11858,
-		8332,9450,10162,151,3482,787,5468,1010,4169,9162,5241,9369,7509,
-		8844,7232,4698,192,1321,10240,4912,885,6281,10333,7280,8757,11286,
-		58,12048,12147,11184,8812,6608,2844,3438,4212,11314,8687,6068,421,
-		8209,3600,3263,7665,6077,7507,5886,3029,6695,4213,504,11684,2302,
-		1962,1594,6328,7183,168,2692,8960,4298,5184,11089,6122,9734,10929,
-		3956,5297,6170,3762,9370,4016,4077,6523,652,11994,6099,1146,11341,
-		11964,10885,6299,1159,8240,8561,11177,2078,10331,4322,11367,441,
-		4079,11231,3150,1319,8243,709,8049,8719,11454,6224,3054,6803,3123,
-		10542,4433,6370,7032,3834,8633,12225,9830,683,1566,5782,9786,9341,
-		12115,723,3009,1693,5735,2655,2738,6421,11942,2925,1975,8532,3315,
-		11863,4754,1858,1583,6347,2500,10800,6374,1483,12240,1263,1815,
-		5383,10777,350,6920,10232,4493,9087,8855,8760,9381,218,9928,10446,
-		9259,4115,6147,9842,8326,576,10335,10238,10484,9407,6381,11836,8517,
-		418,6860,7515,1293,7552,2767,156,8298,8320,10008,5876,5333,10258,
-		10115,4372,2847,7875,8232,9018,8925,1689,8236,2645,5042,9984,7094,
-		9509,1484,7394,3,4437,160,3149,113,7370,10123,3915,6998,2704,8653,
-		4938,1426,7635,10512,1663,6957,3510,2370,2865,3978,9320,3247,9603,
-		6882,3186,10659,10163,1153,9405,8241,10040,2178,1544,5559,420,8304,
-		4905,476,3531,5191,9153,2399,8889,3000,671,243,3016,3763,10849,12262,
-		9223,10657,7205,11272,7404,7575,8146,10752,242,2678,3704,11744,
-		5019,3833,3778,11899,773,5101,11222,9888,442,2912,5698,11935,4861,
-		7277,9808,11244,2859,3780,11414,4976,10682,7201,8005,11287,5011,
-		6267,2987,2437,3646,2566,10102,9867,6250,5444,2381,11796,8193,4337,
-		11854,1912,1378,404,7644,1065,2143,11121,5277,3248,11082,2548,8058,
-		8907,11934,1759,8582,3694,7110,12144,6747,8652,3459,2731,8357,6378,
-		7399,10861,1696,9863,334,7657,6534,11029,4388,11560,3241,10276,9000,
-		9408,3284,10200,7197,6498,544,2468,339,11267,9,2842,480,5331,7300,
-		1673,4278,4177,8705,9764,1381,7837,2396,8340,8993,4354,130,6915,
-		2837,11462,5767,953,8541,9813,118,7222,2197,3006,9545,563,9314,
-		2625,11340,4821,2639,7266,5828,6561,7698,3328,6512,1351,7311,6553,
-		8155,1305,722,5146,4043,12288,10810,2545,3621,8747,8785,1646,1212,
-		5860,3195,7203,10963,3201,3014,955,11499,9970,11119,3135,3712,7443,
-		9542,7484,8736,9995,11227,1635,9521,1177,8034,140,10436,11563,7678,
-		4320,11289,9198,12208,2963,7393,2366,9238
-	};
+        private fun f(v0: IntArray, v0offset: Int, v1: IntArray, v1offset: Int, x: Int): Int {
+            var b = x * 2730
+            var t = b shr 25
+            b = x - t * 12289
+            b = 12288 - b
+            t -= (b shr 31)
+            v0[v0offset] = (t shr 1) + (t and 1)
+            t -= 1
+            v1[v1offset] = (t shr 1) + (t and 1)
+            return abs(x - (v0[v0offset] * 2 * PARAM_Q))
+        }
 
-	private static final char[/*PARAM_N*/] psis_bitrev_montgomery = {
-		4075,6974,7373,7965,3262,5079,522,2169,6364,1018,1041,8775,2344,
-		11011,5574,1973,4536,1050,6844,3860,3818,6118,2683,1190,4789,7822,
-		7540,6752,5456,4449,3789,12142,11973,382,3988,468,6843,5339,6196,3710,
-		11316,1254,5435,10930,3998,10256,10367,3879,11889,1728,6137,4948,
-		5862,6136,3643,6874,8724,654,10302,1702,7083,6760,56,3199,9987,605,
-		11785,8076,5594,9260,6403,4782,6212,4624,9026,8689,4080,11868,6221,
-		3602,975,8077,8851,9445,5681,3477,1105,142,241,12231,1003,3532,5009,
-		1956,6008,11404,7377,2049,10968,12097,7591,5057,3445,4780,2920,
-		7048,3127,8120,11279,6821,11502,8807,12138,2127,2839,3957,431,1579,
-		6383,9784,5874,677,3336,6234,2766,1323,9115,12237,2031,6956,6413,
-		2281,3969,3991,12133,9522,4737,10996,4774,5429,11871,3772,453,
-		5908,2882,1805,2051,1954,11713,3963,2447,6142,8174,3030,1843,2361,
-		12071,2908,3529,3434,3202,7796,2057,5369,11939,1512,6906,10474,
-		11026,49,10806,5915,1489,9789,5942,10706,10431,7535,426,8974,3757,
-		10314,9364,347,5868,9551,9634,6554,10596,9280,11566,174,2948,2503,
-		6507,10723,11606,2459,64,3656,8455,5257,5919,7856,1747,9166,5486,
-		9235,6065,835,3570,4240,11580,4046,10970,9139,1058,8210,11848,922,
-		7967,1958,10211,1112,3728,4049,11130,5990,1404,325,948,11143,6190,
-		295,11637,5766,8212,8273,2919,8527,6119,6992,8333,1360,2555,6167,
-		1200,7105,7991,3329,9597,12121,5106,5961,10695,10327,3051,9923,
-		4896,9326,81,3091,1000,7969,4611,726,1853,12149,4255,11112,2768,
-		10654,1062,2294,3553,4805,2747,4846,8577,9154,1170,2319,790,11334,
-		9275,9088,1326,5086,9094,6429,11077,10643,3504,3542,8668,9744,1479,
-		1,8246,7143,11567,10984,4134,5736,4978,10938,5777,8961,4591,5728,
-		6461,5023,9650,7468,949,9664,2975,11726,2744,9283,10092,5067,12171,
-		2476,3748,11336,6522,827,9452,5374,12159,7935,3296,3949,9893,4452,
-		10908,2525,3584,8112,8011,10616,4989,6958,11809,9447,12280,1022,
-		11950,9821,11745,5791,5092,2089,9005,2881,3289,2013,9048,729,7901,
-		1260,5755,4632,11955,2426,10593,1428,4890,5911,3932,9558,8830,3637,
-		5542,145,5179,8595,3707,10530,355,3382,4231,9741,1207,9041,7012,
-		1168,10146,11224,4645,11885,10911,10377,435,7952,4096,493,9908,6845,
-		6039,2422,2187,9723,8643,9852,9302,6022,7278,1002,4284,5088,1607,
-		7313,875,8509,9430,1045,2481,5012,7428,354,6591,9377,11847,2401,
-		1067,7188,11516,390,8511,8456,7270,545,8585,9611,12047,1537,4143,
-		4714,4885,1017,5084,1632,3066,27,1440,8526,9273,12046,11618,9289,
-		3400,9890,3136,7098,8758,11813,7384,3985,11869,6730,10745,10111,
-		2249,4048,2884,11136,2126,1630,9103,5407,2686,9042,2969,8311,9424,
-		9919,8779,5332,10626,1777,4654,10863,7351,3636,9585,5291,8374,
-		2166,4919,12176,9140,12129,7852,12286,4895,10805,2780,5195,2305,
-		7247,9644,4053,10600,3364,3271,4057,4414,9442,7917,2174,3947,
-		11951,2455,6599,10545,10975,3654,2894,7681,7126,7287,12269,4119,
-		3343,2151,1522,7174,7350,11041,2442,2148,5959,6492,8330,8945,5598,
-		3624,10397,1325,6565,1945,11260,10077,2674,3338,3276,11034,506,
-		6505,1392,5478,8778,1178,2776,3408,10347,11124,2575,9489,12096,
-		6092,10058,4167,6085,923,11251,11912,4578,10669,11914,425,10453,
-		392,10104,8464,4235,8761,7376,2291,3375,7954,8896,6617,7790,1737,
-		11667,3982,9342,6680,636,6825,7383,512,4670,2900,12050,7735,994,
-		1687,11883,7021,146,10485,1403,5189,6094,2483,2054,3042,10945,
-		3981,10821,11826,8882,8151,180,9600,7684,5219,10880,6780,204,
-		11232,2600,7584,3121,3017,11053,7814,7043,4251,4739,11063,6771,
-		7073,9261,2360,11925,1928,11825,8024,3678,3205,3359,11197,5209,
-		8581,3238,8840,1136,9363,1826,3171,4489,7885,346,2068,1389,8257,
-		3163,4840,6127,8062,8921,612,4238,10763,8067,125,11749,10125,5416,
-		2110,716,9839,10584,11475,11873,3448,343,1908,4538,10423,7078,
-		4727,1208,11572,3589,2982,1373,1721,10753,4103,2429,4209,5412,
-		5993,9011,438,3515,7228,1218,8347,5232,8682,1327,7508,4924,448,
-		1014,10029,12221,4566,5836,12229,2717,1535,3200,5588,5845,412,
-		5102,7326,3744,3056,2528,7406,8314,9202,6454,6613,1417,10032,7784,
-		1518,3765,4176,5063,9828,2275,6636,4267,6463,2065,7725,3495,8328,
-		8755,8144,10533,5966,12077,9175,9520,5596,6302,8400,579,6781,11014,
-		5734,11113,11164,4860,1131,10844,9068,8016,9694,3837,567,9348,7000,
-		6627,7699,5082,682,11309,5207,4050,7087,844,7434,3769,293,9057,
-		6940,9344,10883,2633,8190,3944,5530,5604,3480,2171,9282,11024,2213,
-		8136,3805,767,12239,216,11520,6763,10353,7,8566,845,7235,3154,4360,
-		3285,10268,2832,3572,1282,7559,3229,8360,10583,6105,3120,6643,6203,
-		8536,8348,6919,3536,9199,10891,11463,5043,1658,5618,8787,5789,4719,
-		751,11379,6389,10783,3065,7806,6586,2622,5386,510,7628,6921,578,
-		10345,11839,8929,4684,12226,7154,9916,7302,8481,3670,11066,2334,
-		1590,7878,10734,1802,1891,5103,6151,8820,3418,7846,9951,4693,417,
-		9996,9652,4510,2946,5461,365,881,1927,1015,11675,11009,1371,12265,
-		2485,11385,5039,6742,8449,1842,12217,8176,9577,4834,7937,9461,2643,
-		11194,3045,6508,4094,3451,7911,11048,5406,4665,3020,6616,11345,
-		7519,3669,5287,1790,7014,5410,11038,11249,2035,6125,10407,4565,
-		7315,5078,10506,2840,2478,9270,4194,9195,4518,7469,1160,6878,2730,
-		10421,10036,1734,3815,10939,5832,10595,10759,4423,8420,9617,7119,
-		11010,11424,9173,189,10080,10526,3466,10588,7592,3578,11511,7785,
-		9663,530,12150,8957,2532,3317,9349,10243,1481,9332,3454,3758,7899,
-		4218,2593,11410,2276,982,6513,1849,8494,9021,4523,7988,8,457,648,
-		150,8000,2307,2301,874,5650,170,9462,2873,9855,11498,2535,11169,
-		5808,12268,9687,1901,7171,11787,3846,1573,6063,3793,466,11259,
-		10608,3821,6320,4649,6263,2929
-	};
+        private fun g(x: Int): Int {
+            var b = x * 2730
+            var t = b shr 27
+            b = x - t * 49156
+            b = 49155 - b
+            t -= (b shr 31)
+            t = (t shr 1) + (t and 1)
+            return abs(t * 8 * PARAM_Q - x)
+        }
 
-	private static final char[/*PARAM_N*/] psis_inv_montgomery = {
-		256,10570,1510,7238,1034,7170,6291,7921,11665,3422,4000,2327,
-		2088,5565,795,10647,1521,5484,2539,7385,1055,7173,8047,11683,
-		1669,1994,3796,5809,4341,9398,11876,12230,10525,12037,12253,
-		3506,4012,9351,4847,2448,7372,9831,3160,2207,5582,2553,7387,6322,
-		9681,1383,10731,1533,219,5298,4268,7632,6357,9686,8406,4712,9451,
-		10128,4958,5975,11387,8649,11769,6948,11526,12180,1740,10782,
-		6807,2728,7412,4570,4164,4106,11120,12122,8754,11784,3439,5758,
-		11356,6889,9762,11928,1704,1999,10819,12079,12259,7018,11536,
-		1648,1991,2040,2047,2048,10826,12080,8748,8272,8204,1172,1923,
-		7297,2798,7422,6327,4415,7653,6360,11442,12168,7005,8023,9924,
-		8440,8228,2931,7441,1063,3663,5790,9605,10150,1450,8985,11817,
-		10466,10273,12001,3470,7518,1074,1909,7295,9820,4914,702,5367,
-		7789,8135,9940,1420,3714,11064,12114,12264,1752,5517,9566,11900,
-		1700,3754,5803,829,1874,7290,2797,10933,5073,7747,8129,6428,
-		6185,11417,1631,233,5300,9535,10140,11982,8734,8270,2937,10953,
-		8587,8249,2934,9197,4825,5956,4362,9401,1343,3703,529,10609,
-		12049,6988,6265,895,3639,4031,4087,4095,585,10617,8539,4731,
-		4187,9376,3095,9220,10095,10220,1460,10742,12068,1724,5513,
-		11321,6884,2739,5658,6075,4379,11159,10372,8504,4726,9453,3106,
-		7466,11600,10435,8513,9994,8450,9985,3182,10988,8592,2983,9204,
-		4826,2445,5616,6069,867,3635,5786,11360,5134,2489,10889,12089,
-		1727,7269,2794,9177,1311,5454,9557,6632,2703,9164,10087,1441,
-		3717,531,3587,2268,324,5313,759,1864,5533,2546,7386,9833,8427,
-		4715,11207,1601,7251,4547,11183,12131,1733,10781,10318,1474,
-		10744,5046,4232,11138,10369,6748,964,7160,4534,7670,8118,8182,
-		4680,11202,6867,981,8918,1274,182,26,7026,8026,11680,12202,
-		10521,1503,7237,4545,5916,9623,8397,11733,10454,3249,9242,6587,
-		941,1890,270,10572,6777,9746,6659,6218,6155,6146,878,1881,7291,
-		11575,12187,1741,7271,8061,11685,6936,4502,9421,4857,4205,7623,
-		1089,10689,1527,8996,10063,11971,10488,6765,2722,3900,9335,11867,
-		6962,11528,5158,4248,4118,5855,2592,5637,6072,2623,7397,8079,
-		9932,4930,5971,853,3633,519,8852,11798,3441,11025,1575,225,8810,
-		11792,12218,3501,9278,3081,9218,4828,7712,8124,11694,12204,3499,
-		4011,573,3593,5780,7848,9899,10192,1456,208,7052,2763,7417,11593,
-		10434,12024,8740,11782,10461,3250,5731,7841,9898,1414,202,3540,
-		7528,2831,2160,10842,5060,4234,4116,588,84,12,7024,2759,9172,6577,
-		11473,1639,9012,3043,7457,6332,11438,1634,1989,9062,11828,8712,
-		11778,12216,10523,6770,9745,10170,4964,9487,6622,946,8913,6540,
-		6201,4397,9406,8366,9973,8447,8229,11709,8695,10020,3187,5722,
-		2573,10901,6824,4486,4152,9371,8361,2950,2177,311,1800,9035,
-		8313,11721,3430,490,70,10,1757,251,3547,7529,11609,3414,7510,
-		4584,4166,9373,1339,5458,7802,11648,1664,7260,9815,10180,6721,
-		9738,10169,8475,8233,9954,1422,8981,1283,5450,11312,1616,3742,
-		11068,10359,4991,713,3613,9294,8350,4704,672,96,7036,9783,11931,
-		3460,5761,823,10651,12055,10500,1500,5481,783,3623,11051,8601,
-		8251,8201,11705,10450,5004,4226,7626,2845,2162,3820,7568,9859,
-		3164,452,10598,1514,5483,6050,6131,4387,7649,8115,6426,918,8909,
-		8295,1185,5436,11310,8638,1234,5443,11311,5127,2488,2111,10835,
-		5059,7745,2862,3920,560,80,1767,2008,3798,11076,6849,2734,10924,
-		12094,8750,1250,10712,6797,971,7161,1023,8924,4786,7706,4612,4170,
-		7618,6355,4419,5898,11376,10403,10264,6733,4473,639,5358,2521,
-		9138,3061,5704,4326,618,5355,765,5376,768,7132,4530,9425,3102,
-		9221,6584,11474,10417,10266,12000,6981,6264,4406,2385,7363,4563,
-		4163,7617,9866,3165,9230,11852,10471,5007,5982,11388,5138,734,
-		3616,11050,12112,6997,11533,12181,10518,12036,3475,2252,7344,
-		9827,4915,9480,6621,4457,7659,9872,6677,4465,4149,7615,4599,657,
-		3605,515,10607,6782,4480,640,1847,3775,5806,2585,5636,9583,1369,
-		10729,8555,10000,11962,5220,7768,8132,8184,9947,1421,203,29,8782,
-		11788,1684,10774,10317,4985,9490,8378,4708,11206,5112,5997,7879,
-		11659,12199,8765,10030,4944,5973,6120,6141,6144,7900,11662,1666,
-		238,34,3516,5769,9602,8394,9977,6692,956,10670,6791,9748,11926,
-		8726,11780,5194,742,106,8793,10034,3189,10989,5081,4237,5872,4350,
-		2377,10873,6820,6241,11425,10410,10265,3222,5727,9596,4882,2453,
-		2106,3812,11078,12116,5242,4260,11142,8614,11764,12214,5256,4262,
-		4120,11122,5100,11262,5120,2487,5622,9581,8391,8221,2930,10952,
-		12098,6995,6266,9673,4893,699,3611,4027,5842,11368,1624,232,8811,
-		8281,1183,169,8802,3013,2186,5579,797,3625,4029,11109,1587,7249,
-		11569,8675,6506,2685,10917,12093,12261,12285,1755,7273,1039,1904,
-		272,3550,9285,3082,5707,6082,4380,7648,11626,5172,4250,9385,8363,
-		8217,4685,5936,848,8899,6538,934,1889,3781,9318,10109,10222,6727,
-		961,5404,772,5377,9546,8386,1198,8949,3034,2189,7335,4559,5918,2601,
-		10905,5069,9502,3113,7467,8089,11689,5181,9518,8382,2953,3933,4073,
-		4093,7607,8109,2914,5683,4323,11151,1593,10761,6804,972,3650,2277,
-		5592,4310,7638,9869,4921,703,1856,9043,4803,9464,1352,8971,11815,
-		5199,7765,6376,4422,7654,2849,407,8836,6529,7955,2892,9191,1313,
-		10721,12065,12257,1751,9028,8312,2943,2176,3822,546,78,8789,11789,
-		10462,12028,6985,4509,9422,1346,5459,4291,613,10621,6784,9747,3148,
-		7472,2823,5670,810,7138,8042,4660,7688,6365,6176,6149,2634,5643,
-		9584,10147,11983,5223,9524,11894,10477,8519,1217,3685,2282,326,
-		10580,3267,7489,4581,2410,5611,11335,6886,8006,8166,11700,3427,
-		11023,8597,10006,3185,455,65,5276,7776,4622,5927,7869,9902,11948,
-		5218,2501,5624,2559,10899,1557,1978,10816,10323,8497,4725,675,1852,
-		10798,12076,10503,3256,9243,3076,2195,10847,12083,10504,12034,10497
-	};
+        private fun helprec(c: Poly, v: Poly, seed: ByteArray, nonce: Byte) {
+            val v0 = IntArray(8)
+            val rand = ByteArray(32)
+            try {
+                crypto_stream_chacha20(rand, 0, 32, nonce.toLong() shl 56, seed)
+                for (i in 0 until 256) {
+                    val rbit = (rand[i shr 3].toInt() shr (i and 7)) and 1
+                    var k = f(v0, 0, v0, 4, 8 * v.coeffs[i].code + 4 * rbit)
+                    k += f(v0, 1, v0, 5, 8 * v.coeffs[256 + i].code + 4 * rbit)
+                    k += f(v0, 2, v0, 6, 8 * v.coeffs[512 + i].code + 4 * rbit)
+                    k += f(v0, 3, v0, 7, 8 * v.coeffs[768 + i].code + 4 * rbit)
+                    k = (2 * PARAM_Q - 1 - k) shr 31
+                    val vt0 = (k.inv() and v0[0]) xor (k and v0[4])
+                    val vt1 = (k.inv() and v0[1]) xor (k and v0[5])
+                    val vt2 = (k.inv() and v0[2]) xor (k and v0[6])
+                    val vt3 = (k.inv() and v0[3]) xor (k and v0[7])
+                    c.coeffs[i] = ((vt0 - vt3) and 3).toChar()
+                    c.coeffs[256 + i] = ((vt1 - vt3) and 3).toChar()
+                    c.coeffs[512 + i] = ((vt2 - vt3) and 3).toChar()
+                    c.coeffs[768 + i] = ((-k + 2 * vt3) and 3).toChar()
+                }
+            } finally {
+                v0.fill(0); rand.fill(0)
+            }
+        }
+
+        private fun rec(key: ByteArray, v: Poly, c: Poly) {
+            key.fill(0)
+            for (i in 0 until 256) {
+                val c768 = c.coeffs[768 + i].code
+                val t0 = 16 * PARAM_Q + 8 * v.coeffs[i].code - PARAM_Q * (2 * c.coeffs[i].code + c768)
+                val t1 = 16 * PARAM_Q + 8 * v.coeffs[256 + i].code - PARAM_Q * (2 * c.coeffs[256 + i].code + c768)
+                val t2 = 16 * PARAM_Q + 8 * v.coeffs[512 + i].code - PARAM_Q * (2 * c.coeffs[512 + i].code + c768)
+                val t3 = 16 * PARAM_Q + 8 * v.coeffs[768 + i].code - PARAM_Q * c768
+                key[i shr 3] = (key[i shr 3].toInt() or (LDDecode(t0, t1, t2, t3) shl (i and 7))).toByte()
+            }
+        }
+
+        private fun LDDecode(xi0: Int, xi1: Int, xi2: Int, xi3: Int): Int {
+            var t = g(xi0) + g(xi1) + g(xi2) + g(xi3)
+            return ((t - 8 * PARAM_Q) shr 31) and 1
+        }
+
+        private fun bitrev_vector(poly: CharArray) {
+            for (p in 0 until 496) {
+                val indices = bitrev_table_combined[p]
+                val i = indices and 0x03FF
+                val r = indices shr 10
+                val tmp = poly[i]
+                poly[i] = poly[r]
+                poly[r] = tmp
+            }
+        }
+
+        private fun mul_coefficients(poly: CharArray, factors: CharArray) {
+            for (i in 0 until PARAM_N) {
+                poly[i] = montgomery_reduce(poly[i].code * factors[i].code).toChar()
+            }
+        }
+
+        private fun ntt_global(a: CharArray, omega: CharArray) {
+            for (i in 0 until 10 step 2) {
+                var dist = 1 shl i
+                repeat(dist) { start ->
+                    var tw = 0
+                    var j = start
+                    while (j < PARAM_N - 1) {
+                        val w = omega[tw++]; val tmp = a[j]
+                        a[j] = (tmp.code + a[j + dist].code).toChar()
+                        a[j + dist] = montgomery_reduce(w.code * (tmp.code + 3 * PARAM_Q - a[dist + j].code)).toChar()
+                        j += 2 * dist
+                    }
+                }
+                dist = dist shl 1
+                repeat(dist) { start ->
+                    var tw = 0
+                    var j = start
+                    while (j < PARAM_N - 1) {
+                        val w = omega[tw++]; val tmp = a[j]
+                        a[j] = barrett_reduce(tmp.code + a[j + dist].code).toChar()
+                        a[j + dist] = montgomery_reduce(w.code * (tmp.code + 3 * PARAM_Q - a[dist + j].code)).toChar()
+                        j += 2 * dist
+                    }
+                }
+            }
+        }
+
+        private fun crypto_stream_chacha20(c: ByteArray, coffset: Int, clen: Int, n: Long, k: ByteArray) {
+            if (clen <= 0) return
+            var off = coffset; var len = clen; var blk = 0
+            while (len >= 64) {
+                crypto_core_chacha20(c, off, n, blk++, k)
+                len -= 64; off += 64
+            }
+            if (len > 0) {
+                val block = ByteArray(64)
+                try {
+                    crypto_core_chacha20(block, 0, n, blk, k)
+                    block.copyInto(c, off, 0, len)
+                } finally { block.fill(0) }
+            }
+        }
+
+        private fun crypto_core_chacha20(out: ByteArray, outOffset: Int, nonce: Long, blknum: Int, k: ByteArray) {
+            val state = IntArray(16)
+            state[0] = 0x61707865; state[1] = 0x3320646e; state[2] = 0x79622d32; state[3] = 0x6b206574
+            for (i in 0 until 8) state[4 + i] = (k[4 * i].toInt() and 0xff) or ((k[4 * i + 1].toInt() and 0xff) shl 8) or ((k[4 * i + 2].toInt() and 0xff) shl 16) or ((k[4 * i + 3].toInt() and 0xff) shl 24)
+            state[12] = blknum; state[13] = 0; state[14] = nonce.toInt(); state[15] = (nonce ushr 32).toInt()
+            val working = state.copyOf()
+            for (i in 0 until 20 step 2) {
+                qr(working, 0, 4, 8, 12); qr(working, 1, 5, 9, 13); qr(working, 2, 6, 10, 14); qr(working, 3, 7, 11, 15)
+                qr(working, 0, 5, 10, 15); qr(working, 1, 6, 11, 12); qr(working, 2, 7, 8, 13); qr(working, 3, 4, 9, 14)
+            }
+            for (i in 0 until 16) {
+                val v = working[i] + state[i]
+                out[outOffset + 4 * i] = v.toByte()
+                out[outOffset + 4 * i + 1] = (v shr 8).toByte()
+                out[outOffset + 4 * i + 2] = (v shr 16).toByte()
+                out[outOffset + 4 * i + 3] = (v shr 24).toByte()
+            }
+        }
+        private fun qr(v: IntArray, a: Int, b: Int, c: Int, d: Int) {
+            v[a] += v[b]; v[d] = rotl(v[d] xor v[a], 16)
+            v[c] += v[d]; v[b] = rotl(v[b] xor v[c], 12)
+            v[a] += v[b]; v[d] = rotl(v[d] xor v[a], 8)
+            v[c] += v[d]; v[b] = rotl(v[b] xor v[c], 7)
+        }
+        private fun rotl(v: Int, n: Int) = (v shl n) or (v ushr (32 - n))
+
+        fun shake128_absorb(s: LongArray, input: ByteArray, offset: Int, len: Int) {
+            keccak_absorb(s, SHAKE128_RATE, input, offset, len, 0x1F.toByte())
+        }
+
+        fun shake128_squeezeblocks(output: ByteArray, offset: Int, nblocks: Int, s: LongArray) {
+            keccak_squeezeblocks(output, offset, nblocks, s, SHAKE128_RATE)
+        }
+
+        private fun keccak_absorb(s: LongArray, r: Int, m: ByteArray, offset: Int, mlen: Int, p: Byte) {
+            var off = offset; var len = mlen
+            s.fill(0L)
+            while (len >= r) {
+                for (i in 0 until r / 8) s[i] = s[i] xor load64(m, off + 8 * i)
+                KeccakF1600_StatePermute(s)
+                len -= r; off += r
+            }
+            val t = ByteArray(200)
+            try {
+                for (i in 0 until len) t[i] = m[off + i]
+                t[len] = p; t[r - 1] = (t[r - 1].toInt() or 128).toByte()
+                for (i in 0 until r / 8) s[i] = s[i] xor load64(t, 8 * i)
+            } finally { t.fill(0) }
+        }
+
+        private fun keccak_squeezeblocks(h: ByteArray, offset: Int, nblocks: Int, s: LongArray, r: Int) {
+            var off = offset
+            repeat(nblocks) {
+                KeccakF1600_StatePermute(s)
+                for (i in 0 until (r shr 3)) store64(h, off + 8 * i, s[i])
+                off += r
+            }
+        }
+
+        private fun load64(x: ByteArray, off: Int): Long {
+            var r = 0L
+            for (i in 0..7) r = r or ((x[off + i].toLong() and 0xffL) shl (8 * i))
+            return r
+        }
+
+        private fun store64(x: ByteArray, off: Int, u: Long) {
+            var v = u
+            for (i in 0..7) { x[off + i] = v.toByte(); v = v shr 8 }
+        }
+
+        private fun KeccakF1600_StatePermute(s: LongArray) {
+            // Minimal Keccak-f[1600] implementation
+            repeat(24) { r ->
+                val bc = LongArray(5)
+                for (i in 0..4) bc[i] = s[i] xor s[i + 5] xor s[i + 10] xor s[i + 15] xor s[i + 20]
+                for (i in 0..4) {
+                    val t = bc[(i + 4) % 5] xor rol64(bc[(i + 1) % 5], 1)
+                    for (j in 0..20 step 5) s[i + j] = s[i + j] xor t
+                }
+                var cur = s[1]; var last = 0L
+                for (i in 0..23) {
+                    val next = s[keccak_pi[i]]; s[keccak_pi[i]] = rol64(cur, keccak_rho[i])
+                    cur = next
+                }
+                for (j in 0..20 step 5) {
+                    for (i in 0..4) bc[i] = s[i + j]
+                    for (i in 0..4) s[i + j] = bc[i] xor (bc[(i + 1) % 5].inv() and bc[(i + 2) % 5])
+                }
+                s[0] = s[0] xor KeccakF_RoundConstants[r]
+            }
+        }
+        private fun rol64(a: Long, n: Int) = if (n == 0) a else (a shl n) or (a ushr (64 - n))
+        private val keccak_rho = intArrayOf(1, 62, 28, 27, 36, 44, 6, 55, 20, 3, 10, 43, 25, 39, 41, 45, 15, 21, 8, 18, 2, 61, 56, 14)
+        private val keccak_pi = intArrayOf(10, 7, 11, 17, 18, 3, 5, 16, 8, 21, 24, 4, 15, 23, 19, 13, 12, 2, 20, 14, 22, 9, 6, 1)
+        private val KeccakF_RoundConstants = longArrayOf(
+            0x0000000000000001L, 0x0000000000008082L, -0x7FFFFFFFFFFF7F76L, -0x7FFFFFFF7FFF8000L,
+            0x000000000000808BL, 0x0000000080000001L, -0x7FFFFFFF7FFF7F7FL, -0x7FFFFFFFFFFF7FF7L,
+            0x000000000000008AL, 0x0000000000000088L, 0x0000000080008009L, 0x000000008000000AL,
+            0x000000008000808BL, -0x7FFFFFFFFFFFFF75L, -0x7FFFFFFFFFFF7F77L, -0x7FFFFFFFFFFF7FFDL,
+            -0x7FFFFFFFFFFF7FFEL, -0x7FFFFFFFFFFFFF80L, 0x000000000000800AL, -0x7FFFFFFF7FFFFFF6L,
+            -0x7FFFFFFF7FFF7F7FL, -0x7FFFFFFFFFFF7F80L, 0x0000000080000001L, -0x7FFFFFFF7FFF7FF8L
+        )
+
+        private fun sha3256(output: ByteArray, outOffset: Int, input: ByteArray, inOffset: Int, len: Int) {
+            val s = LongArray(25)
+            keccak_absorb(s, 136, input, inOffset, len, 0x06.toByte())
+            val t = ByteArray(136)
+            keccak_squeezeblocks(t, 0, 1, s, 136)
+            t.copyInto(output, outOffset, 0, 32)
+        }
+
+        private val omegas_montgomery = charArrayOf(
+            4075.toChar(), 6974.toChar(), 7373.toChar(), 7965.toChar(), 3262.toChar(), 5079.toChar(), 522.toChar(), 2169.toChar(), 6364.toChar(), 1018.toChar(), 1041.toChar(), 8775.toChar(), 2344.toChar(), 11011.toChar(), 5574.toChar(), 1973.toChar(),
+            4536.toChar(), 1050.toChar(), 6844.toChar(), 3860.toChar(), 3818.toChar(), 6118.toChar(), 2683.toChar(), 1190.toChar(), 4789.toChar(), 7822.toChar(), 7540.toChar(), 6752.toChar(), 5456.toChar(), 4449.toChar(), 3789.toChar(), 12142.toChar(),
+            11973.toChar(), 382.toChar(), 3988.toChar(), 468.toChar(), 6843.toChar(), 5339.toChar(), 6196.toChar(), 3710.toChar(), 11316.toChar(), 1254.toChar(), 5435.toChar(), 10930.toChar(), 3998.toChar(), 10256.toChar(), 10367.toChar(), 3879.toChar(),
+            11889.toChar(), 1728.toChar(), 6137.toChar(), 4948.toChar(), 5862.toChar(), 6136.toChar(), 3643.toChar(), 6874.toChar(), 8724.toChar(), 654.toChar(), 10302.toChar(), 1702.toChar(), 7083.toChar(), 6760.toChar(), 56.toChar(), 3199.toChar(),
+            9987.toChar(), 605.toChar(), 11785.toChar(), 8076.toChar(), 5594.toChar(), 9260.toChar(), 6403.toChar(), 4782.toChar(), 6212.toChar(), 4624.toChar(), 9026.toChar(), 8689.toChar(), 4080.toChar(), 11868.toChar(), 6221.toChar(), 3602.toChar(),
+            975.toChar(), 8077.toChar(), 8851.toChar(), 9445.toChar(), 5681.toChar(), 3477.toChar(), 1105.toChar(), 142.toChar(), 241.toChar(), 12231.toChar(), 1003.toChar(), 3532.toChar(), 5009.toChar(), 1956.toChar(), 6008.toChar(), 11404.toChar(),
+            7377.toChar(), 2049.toChar(), 10968.toChar(), 12097.toChar(), 7591.toChar(), 5057.toChar(), 3445.toChar(), 4780.toChar(), 2920.toChar(), 7048.toChar(), 3127.toChar(), 8120.toChar(), 11279.toChar(), 6821.toChar(), 11502.toChar(), 8807.toChar(),
+            12138.toChar(), 2127.toChar(), 2839.toChar(), 3957.toChar(), 431.toChar(), 1579.toChar(), 6383.toChar(), 9784.toChar(), 5874.toChar(), 677.toChar(), 3336.toChar(), 6234.toChar(), 2766.toChar(), 1323.toChar(), 9115.toChar(), 12237.toChar(),
+            2031.toChar(), 6956.toChar(), 6413.toChar(), 2281.toChar(), 3969.toChar(), 3991.toChar(), 12133.toChar(), 9522.toChar(), 4737.toChar(), 10996.toChar(), 4774.toChar(), 5429.toChar(), 11871.toChar(), 3772.toChar(), 453.toChar(), 5908.toChar(),
+            2882.toChar(), 1805.toChar(), 2051.toChar(), 1954.toChar(), 11713.toChar(), 3963.toChar(), 2447.toChar(), 6142.toChar(), 8174.toChar(), 3030.toChar(), 1843.toChar(), 2361.toChar(), 12071.toChar(), 2908.toChar(), 3529.toChar(), 3434.toChar(),
+            3202.toChar(), 7796.toChar(), 2057.toChar(), 5369.toChar(), 11939.toChar(), 1512.toChar(), 6906.toChar(), 10474.toChar(), 11026.toChar(), 49.toChar(), 10806.toChar(), 5915.toChar(), 1489.toChar(), 9789.toChar(), 5942.toChar(), 10706.toChar(),
+            10431.toChar(), 7535.toChar(), 426.toChar(), 8974.toChar(), 3757.toChar(), 10314.toChar(), 9364.toChar(), 347.toChar(), 5868.toChar(), 9551.toChar(), 9634.toChar(), 6554.toChar(), 10596.toChar(), 9280.toChar(), 11566.toChar(), 174.toChar(),
+            2948.toChar(), 2503.toChar(), 6507.toChar(), 10723.toChar(), 11606.toChar(), 2459.toChar(), 64.toChar(), 3656.toChar(), 8455.toChar(), 5257.toChar(), 5919.toChar(), 7856.toChar(), 1747.toChar(), 9166.toChar(), 5486.toChar(), 9235.toChar(),
+            6065.toChar(), 835.toChar(), 3570.toChar(), 4240.toChar(), 11580.toChar(), 4046.toChar(), 10970.toChar(), 9139.toChar(), 1058.toChar(), 8210.toChar(), 11848.toChar(), 922.toChar(), 7967.toChar(), 1958.toChar(), 10211.toChar(), 1112.toChar(),
+            3728.toChar(), 4049.toChar(), 11130.toChar(), 5990.toChar(), 1404.toChar(), 325.toChar(), 948.toChar(), 11143.toChar(), 6190.toChar(), 295.toChar(), 11637.toChar(), 5766.toChar(), 8212.toChar(), 8273.toChar(), 2919.toChar(), 8527.toChar(),
+            6119.toChar(), 6992.toChar(), 8333.toChar(), 1360.toChar(), 2555.toChar(), 6167.toChar(), 1200.toChar(), 7105.toChar(), 7991.toChar(), 3329.toChar(), 9597.toChar(), 12121.toChar(), 5106.toChar(), 5961.toChar(), 10695.toChar(), 10327.toChar(),
+            3051.toChar(), 9923.toChar(), 4896.toChar(), 9326.toChar(), 81.toChar(), 3091.toChar(), 1000.toChar(), 7969.toChar(), 4611.toChar(), 726.toChar(), 1853.toChar(), 12149.toChar(), 4255.toChar(), 11112.toChar(), 2768.toChar(), 10654.toChar(),
+            1062.toChar(), 2294.toChar(), 3553.toChar(), 4805.toChar(), 2747.toChar(), 4846.toChar(), 8577.toChar(), 9154.toChar(), 1170.toChar(), 2319.toChar(), 790.toChar(), 11334.toChar(), 9275.toChar(), 9088.toChar(), 1326.toChar(), 5086.toChar(),
+            9094.toChar(), 6429.toChar(), 11077.toChar(), 10643.toChar(), 3504.toChar(), 3542.toChar(), 8668.toChar(), 9744.toChar(), 1479.toChar(), 1.toChar(), 8246.toChar(), 7143.toChar(), 11567.toChar(), 10984.toChar(), 4134.toChar(), 5736.toChar(),
+            4978.toChar(), 10938.toChar(), 5777.toChar(), 8961.toChar(), 4591.toChar(), 5728.toChar(), 6461.toChar(), 5023.toChar(), 9650.toChar(), 7468.toChar(), 949.toChar(), 9664.toChar(), 2975.toChar(), 11726.toChar(), 2744.toChar(), 9283.toChar(),
+            10092.toChar(), 5067.toChar(), 12171.toChar(), 2476.toChar(), 3748.toChar(), 11336.toChar(), 6522.toChar(), 827.toChar(), 9452.toChar(), 5374.toChar(), 12159.toChar(), 7935.toChar(), 3296.toChar(), 3949.toChar(), 9893.toChar(), 4452.toChar(),
+            10908.toChar(), 2525.toChar(), 3584.toChar(), 8112.toChar(), 8011.toChar(), 10616.toChar(), 4989.toChar(), 6958.toChar(), 11809.toChar(), 9447.toChar(), 12280.toChar(), 1022.toChar(), 11950.toChar(), 9821.toChar(), 11745.toChar(), 5791.toChar(),
+            5092.toChar(), 2089.toChar(), 9005.toChar(), 2881.toChar(), 3289.toChar(), 2013.toChar(), 9048.toChar(), 729.toChar(), 7901.toChar(), 1260.toChar(), 5755.toChar(), 4632.toChar(), 11955.toChar(), 2426.toChar(), 10593.toChar(), 1428.toChar(),
+            4890.toChar(), 5911.toChar(), 3932.toChar(), 9558.toChar(), 8830.toChar(), 3637.toChar(), 5542.toChar(), 145.toChar(), 5179.toChar(), 8595.toChar(), 3707.toChar(), 10530.toChar(), 355.toChar(), 3382.toChar(), 4231.toChar(), 9741.toChar(),
+            1207.toChar(), 9041.toChar(), 7012.toChar(), 1168.toChar(), 10146.toChar(), 11224.toChar(), 4645.toChar(), 11885.toChar(), 10911.toChar(), 10377.toChar(), 435.toChar(), 7952.toChar(), 4096.toChar(), 493.toChar(), 9908.toChar(), 6845.toChar(),
+            6039.toChar(), 2422.toChar(), 2187.toChar(), 9723.toChar(), 8643.toChar(), 9852.toChar(), 9302.toChar(), 6022.toChar(), 7278.toChar(), 1002.toChar(), 4284.toChar(), 5088.toChar(), 1607.toChar(), 7313.toChar(), 875.toChar(), 8509.toChar(),
+            9430.toChar(), 1045.toChar(), 2481.toChar(), 5012.toChar(), 7428.toChar(), 354.toChar(), 6591.toChar(), 9377.toChar(), 11847.toChar(), 2401.toChar(), 1067.toChar(), 7188.toChar(), 11516.toChar(), 390.toChar(), 8511.toChar(), 8456.toChar(),
+            7270.toChar(), 545.toChar(), 8585.toChar(), 9611.toChar(), 12047.toChar(), 1537.toChar(), 4143.toChar(), 4714.toChar(), 4885.toChar(), 1017.toChar(), 5084.toChar(), 1632.toChar(), 3066.toChar(), 27.toChar(), 1440.toChar(), 8526.toChar(),
+            9273.toChar(), 12046.toChar(), 11618.toChar(), 9289.toChar(), 3400.toChar(), 9890.toChar(), 3136.toChar(), 7098.toChar(), 8758.toChar(), 11813.toChar(), 7384.toChar(), 3985.toChar(), 11869.toChar(), 6730.toChar(), 10745.toChar(), 10111.toChar(),
+            2249.toChar(), 4048.toChar(), 2884.toChar(), 11136.toChar(), 2126.toChar(), 1630.toChar(), 9103.toChar(), 5407.toChar(), 2686.toChar(), 9042.toChar(), 2969.toChar(), 8311.toChar(), 9424.toChar(), 9919.toChar(), 8779.toChar(), 5332.toChar(),
+            10626.toChar(), 1777.toChar(), 4654.toChar(), 10863.toChar(), 7351.toChar(), 3636.toChar(), 9585.toChar(), 5291.toChar(), 8374.toChar(), 2166.toChar(), 4919.toChar(), 12176.toChar(), 9140.toChar(), 12129.toChar(), 7852.toChar(), 12286.toChar(),
+            4895.toChar(), 10805.toChar(), 2780.toChar(), 5195.toChar(), 2305.toChar(), 7247.toChar(), 9644.toChar(), 4053.toChar(), 10600.toChar(), 3364.toChar(), 3271.toChar(), 4057.toChar(), 4414.toChar(), 9442.toChar(), 7917.toChar(), 2174.toChar()
+        )
+        private val omegas_inv_montgomery = charArrayOf(
+            4075.toChar(), 5315.toChar(), 4324.toChar(), 4916.toChar(), 10120.toChar(), 11767.toChar(), 7210.toChar(), 9027.toChar(), 10316.toChar(), 6715.toChar(), 1278.toChar(), 9945.toChar(), 3514.toChar(), 11248.toChar(), 11271.toChar(), 5925.toChar(),
+            147.toChar(), 8500.toChar(), 7840.toChar(), 6833.toChar(), 5537.toChar(), 4749.toChar(), 4467.toChar(), 7500.toChar(), 11099.toChar(), 9606.toChar(), 6171.toChar(), 8471.toChar(), 8429.toChar(), 5445.toChar(), 11239.toChar(), 7753.toChar(),
+            9090.toChar(), 12233.toChar(), 5529.toChar(), 5206.toChar(), 10587.toChar(), 1987.toChar(), 11635.toChar(), 3565.toChar(), 5415.toChar(), 8646.toChar(), 6153.toChar(), 6427.toChar(), 7341.toChar(), 6152.toChar(), 10561.toChar(), 400.toChar(),
+            8410.toChar(), 1922.toChar(), 2033.toChar(), 8291.toChar(), 1359.toChar(), 6854.toChar(), 11035.toChar(), 973.toChar(), 8579.toChar(), 6093.toChar(), 6950.toChar(), 5446.toChar(), 11821.toChar(), 8301.toChar(), 11907.toChar(), 316.toChar(),
+            52.toChar(), 3174.toChar(), 10966.toChar(), 9523.toChar(), 6055.toChar(), 8953.toChar(), 11612.toChar(), 6415.toChar(), 2505.toChar(), 5906.toChar(), 10710.toChar(), 11858.toChar(), 8332.toChar(), 9450.toChar(), 10162.toChar(), 151.toChar(),
+            3482.toChar(), 787.toChar(), 5468.toChar(), 1010.toChar(), 4169.toChar(), 9162.toChar(), 5241.toChar(), 9369.toChar(), 7509.toChar(), 8844.toChar(), 7232.toChar(), 4698.toChar(), 192.toChar(), 1321.toChar(), 10240.toChar(), 4912.toChar(),
+            885.toChar(), 6281.toChar(), 10333.toChar(), 7280.toChar(), 8757.toChar(), 11286.toChar(), 58.toChar(), 12048.toChar(), 12147.toChar(), 11184.toChar(), 8812.toChar(), 6608.toChar(), 2844.toChar(), 3438.toChar(), 4212.toChar(), 11314.toChar(),
+            8687.toChar(), 6068.toChar(), 421.toChar(), 8209.toChar(), 3600.toChar(), 3263.toChar(), 7665.toChar(), 6077.toChar(), 7507.toChar(), 5886.toChar(), 3029.toChar(), 6695.toChar(), 4213.toChar(), 504.toChar(), 11684.toChar(), 2302.toChar(),
+            1962.toChar(), 1594.toChar(), 6328.toChar(), 7183.toChar(), 168.toChar(), 2692.toChar(), 8960.toChar(), 4298.toChar(), 5184.toChar(), 11089.toChar(), 6122.toChar(), 9734.toChar(), 10929.toChar(), 3956.toChar(), 5297.toChar(), 6170.toChar(),
+            3762.toChar(), 9370.toChar(), 4016.toChar(), 4077.toChar(), 6523.toChar(), 652.toChar(), 11994.toChar(), 6099.toChar(), 1146.toChar(), 11341.toChar(), 11964.toChar(), 10885.toChar(), 6299.toChar(), 1159.toChar(), 8240.toChar(), 8561.toChar(),
+            11177.toChar(), 2078.toChar(), 10331.toChar(), 4322.toChar(), 11367.toChar(), 441.toChar(), 4079.toChar(), 11231.toChar(), 3150.toChar(), 1319.toChar(), 8243.toChar(), 709.toChar(), 8049.toChar(), 8719.toChar(), 11454.toChar(), 6224.toChar(),
+            3054.toChar(), 6803.toChar(), 3123.toChar(), 10542.toChar(), 4433.toChar(), 6370.toChar(), 7032.toChar(), 3834.toChar(), 8633.toChar(), 12225.toChar(), 9830.toChar(), 683.toChar(), 1566.toChar(), 5782.toChar(), 9786.toChar(), 9341.toChar(),
+            12115.toChar(), 723.toChar(), 3009.toChar(), 1693.toChar(), 5735.toChar(), 2655.toChar(), 2738.toChar(), 6421.toChar(), 11942.toChar(), 2925.toChar(), 1975.toChar(), 8532.toChar(), 3315.toChar(), 11863.toChar(), 4754.toChar(), 1858.toChar(),
+            1583.toChar(), 6347.toChar(), 2500.toChar(), 10800.toChar(), 6374.toChar(), 1483.toChar(), 12240.toChar(), 1263.toChar(), 1815.toChar(), 5383.toChar(), 10777.toChar(), 350.toChar(), 6920.toChar(), 10232.toChar(), 4493.toChar(), 9087.toChar(),
+            8855.toChar(), 8760.toChar(), 9381.toChar(), 218.toChar(), 9928.toChar(), 10446.toChar(), 9259.toChar(), 4115.toChar(), 6147.toChar(), 9842.toChar(), 8326.toChar(), 576.toChar(), 10335.toChar(), 10238.toChar(), 10484.toChar(), 9407.toChar(),
+            6381.toChar(), 11836.toChar(), 8517.toChar(), 418.toChar(), 6860.toChar(), 7515.toChar(), 1293.toChar(), 7552.toChar(), 2767.toChar(), 156.toChar(), 8298.toChar(), 8320.toChar(), 10008.toChar(), 5876.toChar(), 5333.toChar(), 10258.toChar(),
+            10115.toChar(), 4372.toChar(), 2847.toChar(), 7875.toChar(), 8232.toChar(), 9018.toChar(), 8925.toChar(), 1689.toChar(), 8236.toChar(), 2645.toChar(), 5042.toChar(), 9984.toChar(), 7094.toChar(), 9509.toChar(), 1484.toChar(), 7394.toChar(),
+            3.toChar(), 4437.toChar(), 160.toChar(), 3149.toChar(), 113.toChar(), 7370.toChar(), 10123.toChar(), 3915.toChar(), 6998.toChar(), 2704.toChar(), 8653.toChar(), 4938.toChar(), 1426.toChar(), 7635.toChar(), 10512.toChar(), 1663.toChar(),
+            6957.toChar(), 3510.toChar(), 2370.toChar(), 2865.toChar(), 3978.toChar(), 9320.toChar(), 3247.toChar(), 9603.toChar(), 6882.toChar(), 3186.toChar(), 10659.toChar(), 10163.toChar(), 1153.toChar(), 9405.toChar(), 8241.toChar(), 10040.toChar(),
+            2178.toChar(), 1544.toChar(), 5559.toChar(), 420.toChar(), 8304.toChar(), 4905.toChar(), 476.toChar(), 3531.toChar(), 5191.toChar(), 9153.toChar(), 2399.toChar(), 8889.toChar(), 3000.toChar(), 671.toChar(), 243.toChar(), 3016.toChar(),
+            3763.toChar(), 10849.toChar(), 12262.toChar(), 9223.toChar(), 10657.toChar(), 7205.toChar(), 11272.toChar(), 7404.toChar(), 7575.toChar(), 8146.toChar(), 10752.toChar(), 242.toChar(), 2678.toChar(), 3704.toChar(), 11744.toChar(), 5019.toChar(),
+            3833.toChar(), 3778.toChar(), 11899.toChar(), 773.toChar(), 5101.toChar(), 11222.toChar(), 9888.toChar(), 442.toChar(), 2912.toChar(), 5698.toChar(), 11935.toChar(), 4861.toChar(), 7277.toChar(), 9808.toChar(), 11244.toChar(), 2859.toChar(),
+            3780.toChar(), 11414.toChar(), 4976.toChar(), 10682.toChar(), 7201.toChar(), 8005.toChar(), 11287.toChar(), 5011.toChar(), 6267.toChar(), 2987.toChar(), 2437.toChar(), 3646.toChar(), 2566.toChar(), 10102.toChar(), 9867.toChar(), 6250.toChar(),
+            5444.toChar(), 2381.toChar(), 11796.toChar(), 8193.toChar(), 4337.toChar(), 11854.toChar(), 1912.toChar(), 1378.toChar(), 404.toChar(), 7644.toChar(), 1065.toChar(), 2143.toChar(), 11121.toChar(), 5277.toChar(), 3248.toChar(), 11082.toChar(),
+            2548.toChar(), 8058.toChar(), 8907.toChar(), 11934.toChar(), 1759.toChar(), 8582.toChar(), 3694.toChar(), 7110.toChar(), 12144.toChar(), 6747.toChar(), 8652.toChar(), 3459.toChar(), 2731.toChar(), 8357.toChar(), 6378.toChar(), 7399.toChar(),
+            10861.toChar(), 1696.toChar(), 9863.toChar(), 334.toChar(), 7657.toChar(), 6534.toChar(), 11029.toChar(), 4388.toChar(), 11560.toChar(), 3241.toChar(), 10276.toChar(), 9000.toChar(), 9408.toChar(), 3284.toChar(), 10200.toChar(), 7197.toChar(),
+            6498.toChar(), 544.toChar(), 2468.toChar(), 339.toChar(), 11267.toChar(), 9.toChar(), 2842.toChar(), 480.toChar(), 5331.toChar(), 7300.toChar(), 1673.toChar(), 4278.toChar(), 4177.toChar(), 8705.toChar(), 9764.toChar(), 1381.toChar(),
+            7837.toChar(), 2396.toChar(), 8340.toChar(), 8993.toChar(), 4354.toChar(), 130.toChar(), 6915.toChar(), 2837.toChar(), 11462.toChar(), 5767.toChar(), 953.toChar(), 8541.toChar(), 9813.toChar(), 118.toChar(), 7222.toChar(), 2197.toChar(),
+            3006.toChar(), 9545.toChar(), 563.toChar(), 9314.toChar(), 2625.toChar(), 11340.toChar(), 4821.toChar(), 2639.toChar(), 7266.toChar(), 5828.toChar(), 6561.toChar(), 7698.toChar(), 3328.toChar(), 6512.toChar(), 1351.toChar(), 7311.toChar(),
+            6553.toChar(), 8155.toChar(), 1305.toChar(), 722.toChar(), 5146.toChar(), 4043.toChar(), 12288.toChar(), 10810.toChar(), 2545.toChar(), 3621.toChar(), 8747.toChar(), 8785.toChar(), 1646.toChar(), 1212.toChar(), 5860.toChar(), 3195.toChar(),
+            7203.toChar(), 10963.toChar(), 3201.toChar(), 3014.toChar(), 955.toChar(), 11499.toChar(), 9970.toChar(), 11119.toChar(), 3135.toChar(), 3712.toChar(), 7443.toChar(), 9542.toChar(), 7484.toChar(), 8736.toChar(), 9995.toChar(), 11227.toChar(),
+            1635.toChar(), 9521.toChar(), 1177.toChar(), 8034.toChar(), 140.toChar(), 10436.toChar(), 11563.toChar(), 7678.toChar(), 4320.toChar(), 11289.toChar(), 9198.toChar(), 12208.toChar(), 2963.toChar(), 7393.toChar(), 2366.toChar(), 9238.toChar()
+        )
+        private val psis_bitrev_montgomery = charArrayOf(
+            4075.toChar(), 6974.toChar(), 7373.toChar(), 7965.toChar(), 3262.toChar(), 5079.toChar(), 522.toChar(), 2169.toChar(), 6364.toChar(), 1018.toChar(), 1041.toChar(), 8775.toChar(), 2344.toChar(), 11011.toChar(), 5574.toChar(), 1973.toChar(),
+            4536.toChar(), 1050.toChar(), 6844.toChar(), 3860.toChar(), 3818.toChar(), 6118.toChar(), 2683.toChar(), 1190.toChar(), 4789.toChar(), 7822.toChar(), 7540.toChar(), 6752.toChar(), 5456.toChar(), 4449.toChar(), 3789.toChar(), 12142.toChar(),
+            11973.toChar(), 382.toChar(), 3988.toChar(), 468.toChar(), 6843.toChar(), 5339.toChar(), 6196.toChar(), 3710.toChar(), 11316.toChar(), 1254.toChar(), 5435.toChar(), 10930.toChar(), 3998.toChar(), 10256.toChar(), 10367.toChar(), 3879.toChar(),
+            11889.toChar(), 1728.toChar(), 6137.toChar(), 4948.toChar(), 5862.toChar(), 6136.toChar(), 3643.toChar(), 6874.toChar(), 8724.toChar(), 654.toChar(), 10302.toChar(), 1702.toChar(), 7083.toChar(), 6760.toChar(), 56.toChar(), 3199.toChar(),
+            9987.toChar(), 605.toChar(), 11785.toChar(), 8076.toChar(), 5594.toChar(), 9260.toChar(), 6403.toChar(), 4782.toChar(), 6212.toChar(), 4624.toChar(), 9026.toChar(), 8689.toChar(), 4080.toChar(), 11868.toChar(), 6221.toChar(), 3602.toChar(),
+            975.toChar(), 8077.toChar(), 8851.toChar(), 9445.toChar(), 5681.toChar(), 3477.toChar(), 1105.toChar(), 142.toChar(), 241.toChar(), 12231.toChar(), 1003.toChar(), 3532.toChar(), 5009.toChar(), 1956.toChar(), 6008.toChar(), 11404.toChar(),
+            7377.toChar(), 2049.toChar(), 10968.toChar(), 12097.toChar(), 7591.toChar(), 5057.toChar(), 3445.toChar(), 4780.toChar(), 2920.toChar(), 7048.toChar(), 3127.toChar(), 8120.toChar(), 11279.toChar(), 6821.toChar(), 11502.toChar(), 8807.toChar(),
+            12138.toChar(), 2127.toChar(), 2839.toChar(), 3957.toChar(), 431.toChar(), 1579.toChar(), 6383.toChar(), 9784.toChar(), 5874.toChar(), 677.toChar(), 3336.toChar(), 6234.toChar(), 2766.toChar(), 1323.toChar(), 9115.toChar(), 12237.toChar(),
+            2031.toChar(), 6956.toChar(), 6413.toChar(), 2281.toChar(), 3969.toChar(), 3991.toChar(), 12133.toChar(), 9522.toChar(), 4737.toChar(), 10996.toChar(), 4774.toChar(), 5429.toChar(), 11871.toChar(), 3772.toChar(), 453.toChar(), 5908.toChar(),
+            2882.toChar(), 1805.toChar(), 2051.toChar(), 1954.toChar(), 11713.toChar(), 3963.toChar(), 2447.toChar(), 6142.toChar(), 8174.toChar(), 3030.toChar(), 1843.toChar(), 2361.toChar(), 12071.toChar(), 2908.toChar(), 3529.toChar(), 3434.toChar(),
+            3202.toChar(), 7796.toChar(), 2057.toChar(), 5369.toChar(), 11939.toChar(), 1512.toChar(), 6906.toChar(), 10474.toChar(), 11026.toChar(), 49.toChar(), 10806.toChar(), 5915.toChar(), 1489.toChar(), 9789.toChar(), 5942.toChar(), 10706.toChar(),
+            10431.toChar(), 7535.toChar(), 426.toChar(), 8974.toChar(), 3757.toChar(), 10314.toChar(), 9364.toChar(), 347.toChar(), 5868.toChar(), 9551.toChar(), 9634.toChar(), 6554.toChar(), 10596.toChar(), 9280.toChar(), 11566.toChar(), 174.toChar(),
+            2948.toChar(), 2503.toChar(), 6507.toChar(), 10723.toChar(), 11606.toChar(), 2459.toChar(), 64.toChar(), 3656.toChar(), 8455.toChar(), 5257.toChar(), 5919.toChar(), 7856.toChar(), 1747.toChar(), 9166.toChar(), 5486.toChar(), 9235.toChar(),
+            6065.toChar(), 835.toChar(), 3570.toChar(), 4240.toChar(), 11580.toChar(), 4046.toChar(), 10970.toChar(), 9139.toChar(), 1058.toChar(), 8210.toChar(), 11848.toChar(), 922.toChar(), 7967.toChar(), 1958.toChar(), 10211.toChar(), 1112.toChar(),
+            3728.toChar(), 4049.toChar(), 11130.toChar(), 5990.toChar(), 1404.toChar(), 325.toChar(), 948.toChar(), 11143.toChar(), 6190.toChar(), 295.toChar(), 11637.toChar(), 5766.toChar(), 8212.toChar(), 8273.toChar(), 2919.toChar(), 8527.toChar(),
+            6119.toChar(), 6992.toChar(), 8333.toChar(), 1360.toChar(), 2555.toChar(), 6167.toChar(), 1200.toChar(), 7105.toChar(), 7991.toChar(), 3329.toChar(), 9597.toChar(), 12121.toChar(), 5106.toChar(), 5961.toChar(), 10695.toChar(), 10327.toChar(),
+            3051.toChar(), 9923.toChar(), 4896.toChar(), 9326.toChar(), 81.toChar(), 3091.toChar(), 1000.toChar(), 7969.toChar(), 4611.toChar(), 726.toChar(), 1853.toChar(), 12149.toChar(), 4255.toChar(), 11112.toChar(), 2768.toChar(), 10654.toChar(),
+            1062.toChar(), 2294.toChar(), 3553.toChar(), 4805.toChar(), 2747.toChar(), 4846.toChar(), 8577.toChar(), 9154.toChar(), 1170.toChar(), 2319.toChar(), 790.toChar(), 11334.toChar(), 9275.toChar(), 9088.toChar(), 1326.toChar(), 5086.toChar(),
+            9094.toChar(), 6429.toChar(), 11077.toChar(), 10643.toChar(), 3504.toChar(), 3542.toChar(), 8668.toChar(), 9744.toChar(), 1479.toChar(), 1.toChar(), 8246.toChar(), 7143.toChar(), 11567.toChar(), 10984.toChar(), 4134.toChar(), 5736.toChar(),
+            4978.toChar(), 10938.toChar(), 5777.toChar(), 8961.toChar(), 4591.toChar(), 5728.toChar(), 6461.toChar(), 5023.toChar(), 9650.toChar(), 7468.toChar(), 949.toChar(), 9664.toChar(), 2975.toChar(), 11726.toChar(), 2744.toChar(), 9283.toChar(),
+            10092.toChar(), 5067.toChar(), 12171.toChar(), 2476.toChar(), 3748.toChar(), 11336.toChar(), 6522.toChar(), 827.toChar(), 9452.toChar(), 5374.toChar(), 12159.toChar(), 7935.toChar(), 3296.toChar(), 3949.toChar(), 9893.toChar(), 4452.toChar(),
+            10908.toChar(), 2525.toChar(), 3584.toChar(), 8112.toChar(), 8011.toChar(), 10616.toChar(), 4989.toChar(), 6958.toChar(), 11809.toChar(), 9447.toChar(), 12280.toChar(), 1022.toChar(), 11950.toChar(), 9821.toChar(), 11745.toChar(), 5791.toChar(),
+            5092.toChar(), 2089.toChar(), 9005.toChar(), 2881.toChar(), 3289.toChar(), 2013.toChar(), 9048.toChar(), 729.toChar(), 7901.toChar(), 1260.toChar(), 5755.toChar(), 4632.toChar(), 11955.toChar(), 2426.toChar(), 10593.toChar(), 1428.toChar(),
+            4890.toChar(), 5911.toChar(), 3932.toChar(), 9558.toChar(), 8830.toChar(), 3637.toChar(), 5542.toChar(), 145.toChar(), 5179.toChar(), 8595.toChar(), 3707.toChar(), 10530.toChar(), 355.toChar(), 3382.toChar(), 4231.toChar(), 9741.toChar(),
+            1207.toChar(), 9041.toChar(), 7012.toChar(), 1168.toChar(), 10146.toChar(), 11224.toChar(), 4645.toChar(), 11885.toChar(), 10911.toChar(), 10377.toChar(), 435.toChar(), 7952.toChar(), 4096.toChar(), 493.toChar(), 9908.toChar(), 6845.toChar(),
+            6039.toChar(), 2422.toChar(), 2187.toChar(), 9723.toChar(), 8643.toChar(), 9852.toChar(), 9302.toChar(), 6022.toChar(), 7278.toChar(), 1002.toChar(), 4284.toChar(), 5088.toChar(), 1607.toChar(), 7313.toChar(), 875.toChar(), 8509.toChar(),
+            9430.toChar(), 1045.toChar(), 2481.toChar(), 5012.toChar(), 7428.toChar(), 354.toChar(), 6591.toChar(), 9377.toChar(), 11847.toChar(), 2401.toChar(), 1067.toChar(), 7188.toChar(), 11516.toChar(), 390.toChar(), 8511.toChar(), 8456.toChar(),
+            7270.toChar(), 545.toChar(), 8585.toChar(), 9611.toChar(), 12047.toChar(), 1537.toChar(), 4143.toChar(), 4714.toChar(), 4885.toChar(), 1017.toChar(), 5084.toChar(), 1632.toChar(), 3066.toChar(), 27.toChar(), 1440.toChar(), 8526.toChar(),
+            9273.toChar(), 12046.toChar(), 11618.toChar(), 9289.toChar(), 3400.toChar(), 9890.toChar(), 3136.toChar(), 7098.toChar(), 8758.toChar(), 11813.toChar(), 7384.toChar(), 3985.toChar(), 11869.toChar(), 6730.toChar(), 10745.toChar(), 10111.toChar(),
+            2249.toChar(), 4048.toChar(), 2884.toChar(), 11136.toChar(), 2126.toChar(), 1630.toChar(), 9103.toChar(), 5407.toChar(), 2686.toChar(), 9042.toChar(), 2969.toChar(), 8311.toChar(), 9424.toChar(), 9919.toChar(), 8779.toChar(), 5332.toChar(),
+            10626.toChar(), 1777.toChar(), 4654.toChar(), 10863.toChar(), 7351.toChar(), 3636.toChar(), 9585.toChar(), 5291.toChar(), 8374.toChar(), 2166.toChar(), 4919.toChar(), 12176.toChar(), 9140.toChar(), 12129.toChar(), 7852.toChar(), 12286.toChar(),
+            4895.toChar(), 10805.toChar(), 2780.toChar(), 5195.toChar(), 2305.toChar(), 7247.toChar(), 9644.toChar(), 4053.toChar(), 10600.toChar(), 3364.toChar(), 3271.toChar(), 4057.toChar(), 4414.toChar(), 9442.toChar(), 7917.toChar(), 2174.toChar(),
+            3947.toChar(), 11951.toChar(), 2455.toChar(), 6599.toChar(), 10545.toChar(), 10975.toChar(), 3654.toChar(), 2894.toChar(), 7681.toChar(), 7126.toChar(), 7287.toChar(), 12269.toChar(), 4119.toChar(), 3343.toChar(), 2151.toChar(), 1522.toChar(),
+            7174.toChar(), 7350.toChar(), 11041.toChar(), 2442.toChar(), 2148.toChar(), 5959.toChar(), 6492.toChar(), 8330.toChar(), 8945.toChar(), 5598.toChar(), 3624.toChar(), 10397.toChar(), 1325.toChar(), 6565.toChar(), 1945.toChar(), 11260.toChar(),
+            10077.toChar(), 2674.toChar(), 3338.toChar(), 3276.toChar(), 11034.toChar(), 506.toChar(), 6505.toChar(), 1392.toChar(), 5478.toChar(), 8778.toChar(), 1178.toChar(), 2776.toChar(), 3408.toChar(), 10347.toChar(), 11124.toChar(), 2575.toChar(),
+            9489.toChar(), 12096.toChar(), 6092.toChar(), 10058.toChar(), 4167.toChar(), 6085.toChar(), 923.toChar(), 11251.toChar(), 11912.toChar(), 4578.toChar(), 10669.toChar(), 11914.toChar(), 425.toChar(), 10453.toChar(), 392.toChar(), 10104.toChar(),
+            8464.toChar(), 4235.toChar(), 8761.toChar(), 7376.toChar(), 2291.toChar(), 3375.toChar(), 7954.toChar(), 8896.toChar(), 6617.toChar(), 7790.toChar(), 1737.toChar(), 11667.toChar(), 3982.toChar(), 9342.toChar(), 6680.toChar(), 636.toChar(),
+            6825.toChar(), 7383.toChar(), 512.toChar(), 4670.toChar(), 2900.toChar(), 12050.toChar(), 7735.toChar(), 994.toChar(), 1687.toChar(), 11883.toChar(), 7021.toChar(), 146.toChar(), 10485.toChar(), 1403.toChar(), 5189.toChar(), 6094.toChar(),
+            2483.toChar(), 2054.toChar(), 3042.toChar(), 10945.toChar(), 3981.toChar(), 10821.toChar(), 11826.toChar(), 8882.toChar(), 8151.toChar(), 180.toChar(), 9600.toChar(), 7684.toChar(), 5219.toChar(), 10880.toChar(), 6780.toChar(), 204.toChar(),
+            11232.toChar(), 2600.toChar(), 7584.toChar(), 3121.toChar(), 3017.toChar(), 11053.toChar(), 7814.toChar(), 7043.toChar(), 4251.toChar(), 4739.toChar(), 11063.toChar(), 6771.toChar(), 7073.toChar(), 9261.toChar(), 2360.toChar(), 11925.toChar(),
+            1928.toChar(), 11825.toChar(), 8024.toChar(), 3678.toChar(), 3205.toChar(), 3359.toChar(), 11197.toChar(), 5209.toChar(), 8581.toChar(), 3238.toChar(), 8840.toChar(), 1136.toChar(), 9363.toChar(), 1826.toChar(), 3171.toChar(), 4489.toChar(),
+            7885.toChar(), 346.toChar(), 2068.toChar(), 1389.toChar(), 8257.toChar(), 3163.toChar(), 4840.toChar(), 6127.toChar(), 8062.toChar(), 8921.toChar(), 612.toChar(), 4238.toChar(), 10763.toChar(), 8067.toChar(), 125.toChar(), 11749.toChar(),
+            10125.toChar(), 5416.toChar(), 2110.toChar(), 716.toChar(), 9839.toChar(), 10584.toChar(), 11475.toChar(), 11873.toChar(), 3448.toChar(), 343.toChar(), 1908.toChar(), 4538.toChar(), 10423.toChar(), 7078.toChar(), 4727.toChar(), 1208.toChar(),
+            11572.toChar(), 3589.toChar(), 2982.toChar(), 1373.toChar(), 1721.toChar(), 10753.toChar(), 4103.toChar(), 2429.toChar(), 4209.toChar(), 5412.toChar(), 5993.toChar(), 9011.toChar(), 438.toChar(), 3515.toChar(), 7228.toChar(), 1218.toChar(),
+            8347.toChar(), 5232.toChar(), 8682.toChar(), 1327.toChar(), 7508.toChar(), 4924.toChar(), 448.toChar(), 1014.toChar(), 10029.toChar(), 12221.toChar(), 4566.toChar(), 5836.toChar(), 12229.toChar(), 2717.toChar(), 1535.toChar(), 3200.toChar(),
+            5588.toChar(), 5845.toChar(), 412.toChar(), 5102.toChar(), 7326.toChar(), 3744.toChar(), 3056.toChar(), 2528.toChar(), 7406.toChar(), 8314.toChar(), 9202.toChar(), 6454.toChar(), 6613.toChar(), 1417.toChar(), 10032.toChar(), 7784.toChar(),
+            1518.toChar(), 3765.toChar(), 4176.toChar(), 5063.toChar(), 9828.toChar(), 2275.toChar(), 6636.toChar(), 4267.toChar(), 6463.toChar(), 2065.toChar(), 7725.toChar(), 3495.toChar(), 8328.toChar(), 8755.toChar(), 8144.toChar(), 10533.toChar(),
+            5966.toChar(), 12077.toChar(), 9175.toChar(), 9520.toChar(), 5596.toChar(), 6302.toChar(), 8400.toChar(), 579.toChar(), 6781.toChar(), 11014.toChar(), 5734.toChar(), 11113.toChar(), 11164.toChar(), 4860.toChar(), 1131.toChar(), 10844.toChar(),
+            9068.toChar(), 8016.toChar(), 9694.toChar(), 3837.toChar(), 567.toChar(), 9348.toChar(), 7000.toChar(), 6627.toChar(), 7699.toChar(), 5082.toChar(), 682.toChar(), 11309.toChar(), 5207.toChar(), 4050.toChar(), 7087.toChar(), 844.toChar(),
+            7434.toChar(), 3769.toChar(), 293.toChar(), 9057.toChar(), 6940.toChar(), 9344.toChar(), 10883.toChar(), 2633.toChar(), 8190.toChar(), 3944.toChar(), 5530.toChar(), 5604.toChar(), 3480.toChar(), 2171.toChar(), 9282.toChar(), 11024.toChar(),
+            2213.toChar(), 8136.toChar(), 3805.toChar(), 767.toChar(), 12239.toChar(), 216.toChar(), 11520.toChar(), 6763.toChar(), 10353.toChar(), 7.toChar(), 8566.toChar(), 845.toChar(), 7235.toChar(), 3154.toChar(), 4360.toChar(), 3285.toChar(),
+            10268.toChar(), 2832.toChar(), 3572.toChar(), 1282.toChar(), 7559.toChar(), 3229.toChar(), 8360.toChar(), 10583.toChar(), 6105.toChar(), 3120.toChar(), 6643.toChar(), 6203.toChar(), 8536.toChar(), 8348.toChar(), 6919.toChar(), 3536.toChar(),
+            9199.toChar(), 10891.toChar(), 11463.toChar(), 5043.toChar(), 1658.toChar(), 5618.toChar(), 8787.toChar(), 5789.toChar(), 4719.toChar(), 751.toChar(), 11379.toChar(), 6389.toChar(), 10783.toChar(), 3065.toChar(), 7806.toChar(), 6586.toChar(),
+            2622.toChar(), 5386.toChar(), 510.toChar(), 7628.toChar(), 6921.toChar(), 578.toChar(), 10345.toChar(), 11839.toChar(), 8929.toChar(), 4684.toChar(), 12226.toChar(), 7154.toChar(), 9916.toChar(), 7302.toChar(), 8481.toChar(), 3670.toChar(),
+            11066.toChar(), 2334.toChar(), 1590.toChar(), 7878.toChar(), 10734.toChar(), 1802.toChar(), 1891.toChar(), 5103.toChar(), 6151.toChar(), 8820.toChar(), 3418.toChar(), 7846.toChar(), 9951.toChar(), 4693.toChar(), 417.toChar(), 9996.toChar(),
+            9652.toChar(), 4510.toChar(), 2946.toChar(), 5461.toChar(), 365.toChar(), 881.toChar(), 1927.toChar(), 1015.toChar(), 11675.toChar(), 11009.toChar(), 1371.toChar(), 12265.toChar(), 2485.toChar(), 11385.toChar(), 5039.toChar(), 6742.toChar(),
+            8449.toChar(), 1842.toChar(), 12217.toChar(), 8176.toChar(), 9577.toChar(), 4834.toChar(), 7937.toChar(), 9461.toChar(), 2643.toChar(), 11194.toChar(), 3045.toChar(), 6508.toChar(), 4094.toChar(), 3451.toChar(), 7911.toChar(), 11048.toChar(),
+            5406.toChar(), 4665.toChar(), 3020.toChar(), 6616.toChar(), 11345.toChar(), 7519.toChar(), 3669.toChar(), 5287.toChar(), 1790.toChar(), 7014.toChar(), 5410.toChar(), 11038.toChar(), 11249.toChar(), 2035.toChar(), 6125.toChar(), 10407.toChar(),
+            4565.toChar(), 7315.toChar(), 5078.toChar(), 10506.toChar(), 2840.toChar(), 2478.toChar(), 9270.toChar(), 4194.toChar(), 9195.toChar(), 4518.toChar(), 7469.toChar(), 1160.toChar(), 6878.toChar(), 2730.toChar(), 10421.toChar(), 10036.toChar(),
+            1734.toChar(), 3815.toChar(), 10939.toChar(), 5832.toChar(), 10595.toChar(), 10759.toChar(), 4423.toChar(), 8420.toChar(), 9617.toChar(), 7119.toChar(), 11010.toChar(), 11424.toChar(), 9173.toChar(), 189.toChar(), 10080.toChar(), 10526.toChar(),
+            3466.toChar(), 10588.toChar(), 7592.toChar(), 3578.toChar(), 11511.toChar(), 7785.toChar(), 9663.toChar(), 530.toChar(), 12150.toChar(), 8957.toChar(), 2532.toChar(), 3317.toChar(), 9349.toChar(), 10243.toChar(), 1481.toChar(), 9332.toChar(),
+            3454.toChar(), 3758.toChar(), 7899.toChar(), 4218.toChar(), 2593.toChar(), 11410.toChar(), 2276.toChar(), 982.toChar(), 6513.toChar(), 1849.toChar(), 8494.toChar(), 9021.toChar(), 4523.toChar(), 7988.toChar(), 8.toChar(), 457.toChar(),
+            648.toChar(), 150.toChar(), 8000.toChar(), 2307.toChar(), 2301.toChar(), 874.toChar(), 5650.toChar(), 170.toChar(), 9462.toChar(), 2873.toChar(), 9855.toChar(), 11498.toChar(), 2535.toChar(), 11169.toChar(), 5808.toChar(), 12268.toChar(),
+            9687.toChar(), 1901.toChar(), 7171.toChar(), 11787.toChar(), 3846.toChar(), 1573.toChar(), 6063.toChar(), 3793.toChar(), 466.toChar(), 11259.toChar(), 10608.toChar(), 3821.toChar(), 6320.toChar(), 4649.toChar(), 6263.toChar(), 2929.toChar()
+        )
+        private val psis_inv_montgomery = charArrayOf(
+            256.toChar(), 10570.toChar(), 1510.toChar(), 7238.toChar(), 1034.toChar(), 7170.toChar(), 6291.toChar(), 7921.toChar(), 11665.toChar(), 3422.toChar(), 4000.toChar(), 2327.toChar(), 2088.toChar(), 5565.toChar(), 795.toChar(), 10647.toChar(),
+            1521.toChar(), 5484.toChar(), 2539.toChar(), 7385.toChar(), 1055.toChar(), 7173.toChar(), 8047.toChar(), 11683.toChar(), 1669.toChar(), 1994.toChar(), 3796.toChar(), 5809.toChar(), 4341.toChar(), 9398.toChar(), 11876.toChar(), 12230.toChar(),
+            10525.toChar(), 12037.toChar(), 12253.toChar(), 3506.toChar(), 4012.toChar(), 9351.toChar(), 4847.toChar(), 2448.toChar(), 7372.toChar(), 9831.toChar(), 3160.toChar(), 2207.toChar(), 5582.toChar(), 2553.toChar(), 7387.toChar(), 6322.toChar(),
+            9681.toChar(), 1383.toChar(), 10731.toChar(), 1533.toChar(), 219.toChar(), 5298.toChar(), 4268.toChar(), 7632.toChar(), 6357.toChar(), 9686.toChar(), 8406.toChar(), 4712.toChar(), 9451.toChar(), 10128.toChar(), 4958.toChar(), 5975.toChar(),
+            11387.toChar(), 8649.toChar(), 11769.toChar(), 6948.toChar(), 11526.toChar(), 12180.toChar(), 1740.toChar(), 10782.toChar(), 6807.toChar(), 2728.toChar(), 7412.toChar(), 4570.toChar(), 4164.toChar(), 4106.toChar(), 11120.toChar(), 12122.toChar(),
+            8754.toChar(), 11784.toChar(), 3439.toChar(), 5758.toChar(), 11356.toChar(), 6889.toChar(), 9762.toChar(), 11928.toChar(), 1704.toChar(), 1999.toChar(), 10819.toChar(), 12079.toChar(), 12259.toChar(), 7018.toChar(), 11536.toChar(), 1648.toChar(),
+            1991.toChar(), 2040.toChar(), 2047.toChar(), 2048.toChar(), 10826.toChar(), 12080.toChar(), 8748.toChar(), 8272.toChar(), 8204.toChar(), 1172.toChar(), 1923.toChar(), 7297.toChar(), 2798.toChar(), 7422.toChar(), 6327.toChar(), 4415.toChar(),
+            7653.toChar(), 6360.toChar(), 11442.toChar(), 12168.toChar(), 7005.toChar(), 8023.toChar(), 9924.toChar(), 8440.toChar(), 8228.toChar(), 2931.toChar(), 7441.toChar(), 1063.toChar(), 3663.toChar(), 5790.toChar(), 9605.toChar(), 10150.toChar(),
+            1450.toChar(), 8985.toChar(), 11817.toChar(), 10466.toChar(), 10273.toChar(), 12001.toChar(), 3470.toChar(), 7518.toChar(), 1074.toChar(), 1909.toChar(), 7295.toChar(), 9820.toChar(), 4914.toChar(), 702.toChar(), 5367.toChar(), 7789.toChar(),
+            8135.toChar(), 9940.toChar(), 1420.toChar(), 3714.toChar(), 11064.toChar(), 12114.toChar(), 12264.toChar(), 1752.toChar(), 5517.toChar(), 9566.toChar(), 11900.toChar(), 1700.toChar(), 3754.toChar(), 5803.toChar(), 829.toChar(), 1874.toChar(),
+            7290.toChar(), 2797.toChar(), 10933.toChar(), 5073.toChar(), 7747.toChar(), 8129.toChar(), 6428.toChar(), 6185.toChar(), 11417.toChar(), 1631.toChar(), 233.toChar(), 5300.toChar(), 9535.toChar(), 10140.toChar(), 11982.toChar(), 8734.toChar(),
+            8270.toChar(), 2937.toChar(), 10953.toChar(), 8587.toChar(), 8249.toChar(), 2934.toChar(), 9197.toChar(), 4825.toChar(), 5956.toChar(), 4362.toChar(), 9401.toChar(), 1343.toChar(), 3703.toChar(), 529.toChar(), 10609.toChar(), 12049.toChar(),
+            6988.toChar(), 6265.toChar(), 895.toChar(), 3639.toChar(), 4031.toChar(), 4087.toChar(), 4095.toChar(), 585.toChar(), 10617.toChar(), 8539.toChar(), 4731.toChar(), 4187.toChar(), 9376.toChar(), 3095.toChar(), 9220.toChar(), 10095.toChar(),
+            10220.toChar(), 1460.toChar(), 10742.toChar(), 12068.toChar(), 1724.toChar(), 5513.toChar(), 11321.toChar(), 6884.toChar(), 2739.toChar(), 5658.toChar(), 6075.toChar(), 4379.toChar(), 11159.toChar(), 10372.toChar(), 8504.toChar(), 4726.toChar(),
+            9453.toChar(), 3106.toChar(), 7466.toChar(), 11600.toChar(), 10435.toChar(), 8513.toChar(), 9994.toChar(), 8450.toChar(), 9985.toChar(), 3182.toChar(), 10988.toChar(), 8592.toChar(), 2983.toChar(), 9204.toChar(), 4826.toChar(), 2445.toChar(),
+            5616.toChar(), 6069.toChar(), 867.toChar(), 3635.toChar(), 5786.toChar(), 11360.toChar(), 5134.toChar(), 2489.toChar(), 10889.toChar(), 12089.toChar(), 1727.toChar(), 7269.toChar(), 2794.toChar(), 9177.toChar(), 1311.toChar(), 5454.toChar(),
+            9557.toChar(), 6632.toChar(), 2703.toChar(), 9164.toChar(), 10087.toChar(), 1441.toChar(), 3717.toChar(), 531.toChar(), 3587.toChar(), 2268.toChar(), 324.toChar(), 5313.toChar(), 759.toChar(), 1864.toChar(), 5533.toChar(), 2546.toChar(),
+            7386.toChar(), 9833.toChar(), 8427.toChar(), 4715.toChar(), 11207.toChar(), 1601.toChar(), 7251.toChar(), 4547.toChar(), 11183.toChar(), 12131.toChar(), 1733.toChar(), 10781.toChar(), 10318.toChar(), 1474.toChar(), 10744.toChar(), 5046.toChar(),
+            4232.toChar(), 11138.toChar(), 10369.toChar(), 6748.toChar(), 964.toChar(), 7160.toChar(), 4534.toChar(), 7670.toChar(), 8118.toChar(), 8182.toChar(), 4680.toChar(), 11202.toChar(), 6867.toChar(), 981.toChar(), 8918.toChar(), 1274.toChar(),
+            182.toChar(), 26.toChar(), 7026.toChar(), 8026.toChar(), 11680.toChar(), 12202.toChar(), 10521.toChar(), 1503.toChar(), 7237.toChar(), 4545.toChar(), 5916.toChar(), 9623.toChar(), 8397.toChar(), 11733.toChar(), 10454.toChar(), 3249.toChar(),
+            9242.toChar(), 6587.toChar(), 941.toChar(), 1890.toChar(), 270.toChar(), 10572.toChar(), 6777.toChar(), 9746.toChar(), 6659.toChar(), 6218.toChar(), 6155.toChar(), 6146.toChar(), 878.toChar(), 1881.toChar(), 7291.toChar(), 11575.toChar(),
+            12187.toChar(), 1741.toChar(), 7271.toChar(), 8061.toChar(), 11685.toChar(), 6936.toChar(), 4502.toChar(), 9421.toChar(), 4857.toChar(), 4205.toChar(), 7623.toChar(), 1089.toChar(), 10689.toChar(), 1527.toChar(), 8996.toChar(), 10063.toChar(),
+            11971.toChar(), 10488.toChar(), 6765.toChar(), 2722.toChar(), 3900.toChar(), 9335.toChar(), 11867.toChar(), 6962.toChar(), 11528.toChar(), 5158.toChar(), 4248.toChar(), 4118.toChar(), 5855.toChar(), 2592.toChar(), 5637.toChar(), 6072.toChar(),
+            2623.toChar(), 7397.toChar(), 8079.toChar(), 9932.toChar(), 4930.toChar(), 5971.toChar(), 853.toChar(), 3633.toChar(), 519.toChar(), 8852.toChar(), 11798.toChar(), 3441.toChar(), 11025.toChar(), 1575.toChar(), 225.toChar(), 8810.toChar(),
+            11792.toChar(), 12218.toChar(), 3501.toChar(), 9278.toChar(), 3081.toChar(), 9218.toChar(), 4828.toChar(), 7712.toChar(), 8124.toChar(), 11694.toChar(), 12204.toChar(), 3499.toChar(), 4011.toChar(), 573.toChar(), 3593.toChar(), 5780.toChar(),
+            7848.toChar(), 9899.toChar(), 10192.toChar(), 1456.toChar(), 208.toChar(), 7052.toChar(), 2763.toChar(), 7417.toChar(), 11593.toChar(), 10434.toChar(), 12024.toChar(), 8740.toChar(), 11782.toChar(), 10461.toChar(), 3250.toChar(), 5731.toChar(),
+            7841.toChar(), 9898.toChar(), 1414.toChar(), 202.toChar(), 3540.toChar(), 7528.toChar(), 2831.toChar(), 2160.toChar(), 10842.toChar(), 5060.toChar(), 4234.toChar(), 4116.toChar(), 588.toChar(), 84.toChar(), 12.toChar(), 7024.toChar(),
+            2759.toChar(), 9172.toChar(), 6577.toChar(), 11473.toChar(), 1639.toChar(), 9012.toChar(), 3043.toChar(), 7457.toChar(), 6332.toChar(), 11438.toChar(), 1634.toChar(), 1989.toChar(), 9062.toChar(), 11828.toChar(), 8712.toChar(), 11778.toChar(),
+            12216.toChar(), 10523.toChar(), 6770.toChar(), 9745.toChar(), 10170.toChar(), 4964.toChar(), 9487.toChar(), 6622.toChar(), 946.toChar(), 8913.toChar(), 6540.toChar(), 6201.toChar(), 4397.toChar(), 9406.toChar(), 8366.toChar(), 9973.toChar(),
+            8447.toChar(), 8229.toChar(), 11709.toChar(), 8695.toChar(), 10020.toChar(), 3187.toChar(), 5722.toChar(), 2573.toChar(), 10901.toChar(), 6824.toChar(), 4486.toChar(), 4152.toChar(), 9371.toChar(), 8361.toChar(), 2950.toChar(), 2177.toChar(),
+            311.toChar(), 1800.toChar(), 9035.toChar(), 8313.toChar(), 11721.toChar(), 3430.toChar(), 490.toChar(), 70.toChar(), 10.toChar(), 1757.toChar(), 251.toChar(), 3547.toChar(), 7529.toChar(), 11609.toChar(), 3414.toChar(), 7510.toChar(),
+            4584.toChar(), 4166.toChar(), 9373.toChar(), 1339.toChar(), 5458.toChar(), 7802.toChar(), 11648.toChar(), 1664.toChar(), 7260.toChar(), 9815.toChar(), 10180.toChar(), 6721.toChar(), 9738.toChar(), 10169.toChar(), 8475.toChar(), 8233.toChar(),
+            9954.toChar(), 1422.toChar(), 8981.toChar(), 1283.toChar(), 5450.toChar(), 11312.toChar(), 1616.toChar(), 3742.toChar(), 11068.toChar(), 10359.toChar(), 4991.toChar(), 713.toChar(), 3613.toChar(), 9294.toChar(), 8350.toChar(), 4704.toChar(),
+            672.toChar(), 96.toChar(), 7036.toChar(), 9783.toChar(), 11931.toChar(), 3460.toChar(), 5761.toChar(), 823.toChar(), 10651.toChar(), 12055.toChar(), 10500.toChar(), 1500.toChar(), 5481.toChar(), 783.toChar(), 3623.toChar(), 11051.toChar(),
+            8601.toChar(), 8251.toChar(), 8201.toChar(), 11705.toChar(), 10450.toChar(), 5004.toChar(), 4226.toChar(), 7626.toChar(), 2845.toChar(), 2162.toChar(), 3820.toChar(), 7568.toChar(), 9859.toChar(), 3164.toChar(), 452.toChar(), 10598.toChar(),
+            1514.toChar(), 5483.toChar(), 6050.toChar(), 6131.toChar(), 4387.toChar(), 7649.toChar(), 8115.toChar(), 6426.toChar(), 918.toChar(), 8909.toChar(), 8295.toChar(), 1185.toChar(), 5436.toChar(), 11310.toChar(), 8638.toChar(), 1234.toChar(),
+            5443.toChar(), 11311.toChar(), 5127.toChar(), 2488.toChar(), 2111.toChar(), 10835.toChar(), 5059.toChar(), 7745.toChar(), 2862.toChar(), 3920.toChar(), 560.toChar(), 80.toChar(), 1767.toChar(), 2008.toChar(), 3798.toChar(), 11076.toChar(),
+            6849.toChar(), 2734.toChar(), 10924.toChar(), 12094.toChar(), 8750.toChar(), 1250.toChar(), 10712.toChar(), 6797.toChar(), 971.toChar(), 7161.toChar(), 1023.toChar(), 8924.toChar(), 4786.toChar(), 7706.toChar(), 4612.toChar(), 4170.toChar(),
+            7618.toChar(), 6355.toChar(), 4419.toChar(), 5898.toChar(), 11376.toChar(), 10403.toChar(), 10264.toChar(), 6733.toChar(), 4473.toChar(), 639.toChar(), 5358.toChar(), 2521.toChar(), 9138.toChar(), 3061.toChar(), 5704.toChar(), 4326.toChar(),
+            618.toChar(), 5355.toChar(), 765.toChar(), 5376.toChar(), 768.toChar(), 7132.toChar(), 4530.toChar(), 9425.toChar(), 3102.toChar(), 9221.toChar(), 6584.toChar(), 11474.toChar(), 10417.toChar(), 10266.toChar(), 12000.toChar(), 6981.toChar(),
+            6264.toChar(), 4406.toChar(), 2385.toChar(), 7363.toChar(), 4563.toChar(), 4163.toChar(), 7617.toChar(), 9866.toChar(), 3165.toChar(), 9230.toChar(), 11852.toChar(), 10471.toChar(), 5007.toChar(), 5982.toChar(), 11388.toChar(), 5138.toChar(),
+            734.toChar(), 3616.toChar(), 11050.toChar(), 12112.toChar(), 6997.toChar(), 11533.toChar(), 12181.toChar(), 10518.toChar(), 12036.toChar(), 3475.toChar(), 2252.toChar(), 7344.toChar(), 9827.toChar(), 4915.toChar(), 9480.toChar(), 6621.toChar(),
+            4457.toChar(), 7659.toChar(), 9872.toChar(), 6677.toChar(), 4465.toChar(), 4149.toChar(), 7615.toChar(), 4599.toChar(), 657.toChar(), 3605.toChar(), 515.toChar(), 10607.toChar(), 6782.toChar(), 4480.toChar(), 640.toChar(), 1847.toChar(),
+            3775.toChar(), 5806.toChar(), 2585.toChar(), 5636.toChar(), 9583.toChar(), 1369.toChar(), 10729.toChar(), 8555.toChar(), 10000.toChar(), 11962.toChar(), 5220.toChar(), 7768.toChar(), 8132.toChar(), 8184.toChar(), 9947.toChar(), 1421.toChar(),
+            203.toChar(), 29.toChar(), 8782.toChar(), 11788.toChar(), 1684.toChar(), 10774.toChar(), 10317.toChar(), 4985.toChar(), 9490.toChar(), 8378.toChar(), 4708.toChar(), 11206.toChar(), 5112.toChar(), 5997.toChar(), 7879.toChar(), 11659.toChar(),
+            12199.toChar(), 8765.toChar(), 10030.toChar(), 4944.toChar(), 5973.toChar(), 6120.toChar(), 6141.toChar(), 6144.toChar(), 7900.toChar(), 11662.toChar(), 1666.toChar(), 238.toChar(), 34.toChar(), 3516.toChar(), 5769.toChar(), 9602.toChar(),
+            8394.toChar(), 9977.toChar(), 6692.toChar(), 956.toChar(), 10670.toChar(), 6791.toChar(), 9748.toChar(), 11926.toChar(), 8726.toChar(), 11780.toChar(), 5194.toChar(), 742.toChar(), 106.toChar(), 8793.toChar(), 10034.toChar(), 3189.toChar(),
+            10989.toChar(), 5081.toChar(), 4237.toChar(), 5872.toChar(), 4350.toChar(), 2377.toChar(), 10873.toChar(), 6820.toChar(), 6241.toChar(), 11425.toChar(), 10410.toChar(), 10265.toChar(), 3222.toChar(), 5727.toChar(), 9596.toChar(), 4882.toChar(),
+            2453.toChar(), 2106.toChar(), 3812.toChar(), 11078.toChar(), 12116.toChar(), 5242.toChar(), 4260.toChar(), 11142.toChar(), 8614.toChar(), 11764.toChar(), 12214.toChar(), 5256.toChar(), 4262.toChar(), 4120.toChar(), 11122.toChar(), 5100.toChar(),
+            11262.toChar(), 5120.toChar(), 2487.toChar(), 5622.toChar(), 9581.toChar(), 8391.toChar(), 8221.toChar(), 2930.toChar(), 10952.toChar(), 12098.toChar(), 6995.toChar(), 6266.toChar(), 9673.toChar(), 4893.toChar(), 699.toChar(), 3611.toChar(),
+            4027.toChar(), 5842.toChar(), 11368.toChar(), 1624.toChar(), 232.toChar(), 8811.toChar(), 8281.toChar(), 1183.toChar(), 169.toChar(), 8802.toChar(), 3013.toChar(), 2186.toChar(), 5579.toChar(), 797.toChar(), 3625.toChar(), 4029.toChar(),
+            11109.toChar(), 1587.toChar(), 7249.toChar(), 11569.toChar(), 8675.toChar(), 6506.toChar(), 2685.toChar(), 10917.toChar(), 12093.toChar(), 12261.toChar(), 12285.toChar(), 1755.toChar(), 7273.toChar(), 1039.toChar(), 1904.toChar(), 272.toChar(),
+            3550.toChar(), 9285.toChar(), 3082.toChar(), 5707.toChar(), 6082.toChar(), 4380.toChar(), 7648.toChar(), 11626.toChar(), 5172.toChar(), 4250.toChar(), 9385.toChar(), 8363.toChar(), 8217.toChar(), 4685.toChar(), 5936.toChar(), 848.toChar(),
+            8899.toChar(), 6538.toChar(), 934.toChar(), 1889.toChar(), 3781.toChar(), 9318.toChar(), 10109.toChar(), 10222.toChar(), 6727.toChar(), 961.toChar(), 5404.toChar(), 772.toChar(), 5377.toChar(), 9546.toChar(), 8386.toChar(), 1198.toChar(),
+            8949.toChar(), 3034.toChar(), 2189.toChar(), 7335.toChar(), 4559.toChar(), 5918.toChar(), 2601.toChar(), 10905.toChar(), 5069.toChar(), 9502.toChar(), 3113.toChar(), 7467.toChar(), 8089.toChar(), 11689.toChar(), 5181.toChar(), 9518.toChar(),
+            8382.toChar(), 2953.toChar(), 3933.toChar(), 4073.toChar(), 4093.toChar(), 7607.toChar(), 8109.toChar(), 2914.toChar(), 5683.toChar(), 4323.toChar(), 11151.toChar(), 1593.toChar(), 10761.toChar(), 6804.toChar(), 972.toChar(), 3650.toChar(),
+            2277.toChar(), 5592.toChar(), 4310.toChar(), 7638.toChar(), 9869.toChar(), 4921.toChar(), 703.toChar(), 1856.toChar(), 9043.toChar(), 4803.toChar(), 9464.toChar(), 1352.toChar(), 8971.toChar(), 11815.toChar(), 5199.toChar(), 7765.toChar(),
+            6376.toChar(), 4422.toChar(), 7654.toChar(), 2849.toChar(), 407.toChar(), 8836.toChar(), 6529.toChar(), 7955.toChar(), 2892.toChar(), 9191.toChar(), 1313.toChar(), 10721.toChar(), 12065.toChar(), 12257.toChar(), 1751.toChar(), 9028.toChar(),
+            8312.toChar(), 2943.toChar(), 2176.toChar(), 3822.toChar(), 546.toChar(), 78.toChar(), 8789.toChar(), 11789.toChar(), 10462.toChar(), 12028.toChar(), 6985.toChar(), 4509.toChar(), 9422.toChar(), 1346.toChar(), 5459.toChar(), 4291.toChar(),
+            613.toChar(), 10621.toChar(), 6784.toChar(), 9747.toChar(), 3148.toChar(), 7472.toChar(), 2823.toChar(), 5670.toChar(), 810.toChar(), 7138.toChar(), 8042.toChar(), 4660.toChar(), 7688.toChar(), 6365.toChar(), 6176.toChar(), 6149.toChar(),
+            2634.toChar(), 5643.toChar(), 9584.toChar(), 10147.toChar(), 11983.toChar(), 5223.toChar(), 9524.toChar(), 11894.toChar(), 10477.toChar(), 8519.toChar(), 1217.toChar(), 3685.toChar(), 2282.toChar(), 326.toChar(), 10580.toChar(), 3267.toChar(),
+            7489.toChar(), 4581.toChar(), 2410.toChar(), 5611.toChar(), 11335.toChar(), 6886.toChar(), 8006.toChar(), 8166.toChar(), 11700.toChar(), 3427.toChar(), 11023.toChar(), 8597.toChar(), 10006.toChar(), 3185.toChar(), 455.toChar(), 65.toChar(),
+            5276.toChar(), 7776.toChar(), 4622.toChar(), 5927.toChar(), 7869.toChar(), 9902.toChar(), 11948.toChar(), 5218.toChar(), 2501.toChar(), 5624.toChar(), 2559.toChar(), 10899.toChar(), 1557.toChar(), 1978.toChar(), 10816.toChar(), 10323.toChar(),
+            8497.toChar(), 4725.toChar(), 675.toChar(), 1852.toChar(), 10798.toChar(), 12076.toChar(), 10503.toChar(), 3256.toChar(), 9243.toChar(), 3076.toChar(), 2195.toChar(), 10847.toChar(), 12083.toChar(), 10504.toChar(), 12034.toChar(), 10497.toChar()
+        )
+        private val bitrev_table_combined = intArrayOf(
+            524289, 262146, 786435, 131076, 655365, 393222, 917511, 65544, 589833, 327690, 851979, 196620, 720909, 458766, 983055, 32784,
+            557073, 294930, 819219, 163860, 688149, 426006, 950295, 98328, 622617, 360474, 884763, 229404, 753693, 491550, 1015839, 540705,
+            278562, 802851, 147492, 671781, 409638, 933927, 81960, 606249, 344106, 868395, 213036, 737325, 475182, 999471, 573489, 311346,
+            835635, 180276, 704565, 442422, 966711, 114744, 639033, 376890, 901179, 245820, 770109, 507966, 1032255, 532545, 270402, 794691,
+            139332, 663621, 401478, 925767, 598089, 335946, 860235, 204876, 729165, 467022, 991311, 565329, 303186, 827475, 172116, 696405,
+            434262, 958551, 106584, 630873, 368730, 893019, 237660, 761949, 499806, 1024095, 548961, 286818, 811107, 155748, 680037, 417894,
+            942183, 614505, 352362, 876651, 221292, 745581, 483438, 1007727, 581745, 319602, 843891, 188532, 712821, 450678, 974967, 647289,
+            385146, 909435, 254076, 778365, 516222, 1040511, 528513, 266370, 790659, 659589, 397446, 921735, 594057, 331914, 856203, 200844,
+            725133, 462990, 987279, 561297, 299154, 823443, 168084, 692373, 430230, 954519, 626841, 364698, 888987, 233628, 757917, 495774,
+            1020063, 544929, 282786, 807075, 676005, 413862, 938151, 610473, 348330, 872619, 217260, 741549, 479406, 1003695, 577713, 315570,
+            839859, 708789, 446646, 970935, 643257, 381114, 905403, 250044, 774333, 512190, 1036479, 536769, 274626, 798915, 667845, 405702,
+            929991, 602313, 340170, 864459, 733389, 471246, 995535, 569553, 307410, 831699, 700629, 438486, 962775, 635097, 372954, 897243,
+            241884, 766173, 504030, 1028319, 553185, 291042, 815331, 684261, 422118, 946407, 618729, 356586, 880875, 749805, 487662, 1011951,
+            585969, 323826, 848115, 717045, 454902, 979191, 651513, 389370, 913659, 782589, 520446, 1044735, 526593, 788739, 657669, 395526,
+            919815, 592137, 329994, 854283, 723213, 461070, 985359, 559377, 297234, 821523, 690453, 428310, 952599, 624921, 362778, 887067,
+            755997, 493854, 1018143, 543009, 805155, 674085, 411942, 936231, 608553, 346410, 870699, 739629, 477486, 1001775, 575793, 837939,
+            706869, 444726, 969015, 641337, 379194, 903483, 772413, 510270, 1034559, 534849, 796995, 665925, 403782, 928071, 600393, 862539,
+            731469, 469326, 993615, 567633, 829779, 698709, 436566, 960855, 633177, 371034, 895323, 764253, 502110, 1026399, 551265, 813411,
+            682341, 420198, 944487, 616809, 878955, 747885, 485742, 1010031, 584049, 846195, 715125, 452982, 977271, 649593, 911739, 780669,
+            518526, 1042815, 530817, 792963, 661893, 924039, 596361, 858507, 727437, 465294, 989583, 563601, 825747, 694677, 432534, 956823,
+            629145, 891291, 760221, 498078, 1022367, 547233, 809379, 678309, 940455, 612777, 874923, 743853, 481710, 1005999, 580017, 842163,
+            711093, 973239, 645561, 907707, 776637, 514494, 1038783, 539073, 801219, 670149, 932295, 604617, 866763, 735693, 997839, 571857,
+            834003, 702933, 965079, 637401, 899547, 768477, 506334, 1030623, 555489, 817635, 686565, 948711, 621033, 883179, 752109, 1014255,
+            588273, 850419, 719349, 981495, 653817, 915963, 784893, 1047039, 787971, 656901, 919047, 591369, 853515, 722445, 984591, 558609,
+            820755, 689685, 951831, 624153, 886299, 755229, 1017375, 804387, 673317, 935463, 607785, 869931, 738861, 1001007, 837171, 706101,
+            968247, 640569, 902715, 771645, 1033791, 796227, 665157, 927303, 861771, 730701, 992847, 829011, 697941, 960087, 632409, 894555,
+            763485, 1025631, 812643, 681573, 943719, 878187, 747117, 1009263, 845427, 714357, 976503, 910971, 779901, 1042047, 792195, 923271,
+            857739, 726669, 988815, 824979, 693909, 956055, 890523, 759453, 1021599, 808611, 939687, 874155, 743085, 1005231, 841395, 972471,
+            906939, 775869, 1038015, 800451, 931527, 865995, 997071, 833235, 964311, 898779, 767709, 1029855, 816867, 947943, 882411, 1013487,
+            849651, 980727, 915195, 1046271, 921351, 855819, 986895, 823059, 954135, 888603, 1019679, 937767, 872235, 1003311, 970551, 905019,
+            1036095, 929607, 995151, 962391, 896859, 1027935, 946023, 1011567, 978807, 1044351, 991119, 958359, 1023903, 1007535, 1040319, 1032159
+        )
+    }
 }
