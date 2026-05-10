@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary Colors - Dark Mode (Black) -->
+    <color name="primary">#000000</color>
+    <color name="primary_dark">#1A1A1A</color>
+    <color name="primary_light">#333333</color>
+    
+    <!-- Accent Colors - Light (White) -->
+    <color name="accent">#FFFFFF</color>
+    <color name="accent_light">#F5F5F5</color>
+    <color name="accent_dark">#E0E0E0</color>
+    
+    <!-- Background Colors -->
+    <color name="background">#000000</color>
+    <color name="background_secondary">#1A1A1A</color>
+    <color name="background_tertiary">#333333</color>
+    
+    <!-- Text Colors -->
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#CCCCCC</color>
+    <color name="text_tertiary">#999999</color>
+    <color name="text_inverse">#000000</color>
+    
+    <!-- Border and Divider Colors -->
+    <color name="border">#404040</color>
+    <color name="divider">#555555</color>
+    
+    <!-- Status Colors -->
+    <color name="success">#66BB6A</color>
+    <color name="error">#EF5350</color>
+    <color name="warning">#FFA726</color>
+    <color name="info">#42A5F5</color>
+    
+    <!-- Chat Colors -->
+    <color name="chat_bubble_sent">#2A2A2A</color>
+    <color name="chat_bubble_received">#404040</color>
+    <color name="chat_text_sent">#FFFFFF</color>
+    <color name="chat_text_received">#FFFFFF</color>
+    
+    <!-- Mesh Network Colors -->
+    <color name="mesh_online">#66BB6A</color>
+    <color name="mesh_offline">#777777</color>
+    <color name="mesh_connecting">#FFD54F</color>
+    
+    <!-- UI Element Colors -->
+    <color name="button_primary">#FFFFFF</color>
+    <color name="button_secondary">#333333</color>
+    <color name="button_text_primary">#000000</color>
+    <color name="button_text_secondary">#FFFFFF</color>
+    
+    <!-- Additional Colors -->
+    <color name="transparent">#00000000</color>
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="gray_light">#E0E0E0</color>
+    <color name="gray_medium">#777777</color>
+    <color name="gray_dark">#1A1A1A</color>
+</resources>
