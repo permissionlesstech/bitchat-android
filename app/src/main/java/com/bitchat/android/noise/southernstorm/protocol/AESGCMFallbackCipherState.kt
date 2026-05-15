@@ -25,7 +25,6 @@ import com.bitchat.android.noise.southernstorm.crypto.GHASH
 import com.bitchat.android.noise.southernstorm.crypto.RijndaelAES
 import com.bitchat.android.noise.southernstorm.protocol.Noise.destroy
 import com.bitchat.android.noise.southernstorm.protocol.Noise.throwBadTagException
-import java.util.Arrays
 import javax.crypto.BadPaddingException
 import javax.crypto.ShortBufferException
 
@@ -34,26 +33,13 @@ import javax.crypto.ShortBufferException
  * the JCA/JCE does not have a suitable GCM or CTR provider.
  */
 internal class AESGCMFallbackCipherState : CipherState {
-    private val aes: RijndaelAES
-    private var n: Long
-    private val iv: ByteArray
-    private val enciv: ByteArray
-    private val hashKey: ByteArray
-    private val ghash: GHASH
-    private var haskey: Boolean
-
-    /**
-     * Constructs a new cipher state for the "AESGCM" algorithm.
-     */
-    init {
-        aes = RijndaelAES()
-        n = 0
-        iv = ByteArray(16)
-        enciv = ByteArray(16)
-        hashKey = ByteArray(16)
-        ghash = GHASH()
-        haskey = false
-    }
+    private val aes: RijndaelAES = RijndaelAES()
+    private var n: Long = 0
+    private val iv: ByteArray = ByteArray(16)
+    private val enciv: ByteArray = ByteArray(16)
+    private val hashKey: ByteArray = ByteArray(16)
+    private val ghash: GHASH = GHASH()
+    private var haskey: Boolean = false
 
     override fun destroy() {
         aes.destroy()
@@ -63,14 +49,9 @@ internal class AESGCMFallbackCipherState : CipherState {
         destroy(enciv)
     }
 
-    val cipherName: String
-        get() = "AESGCM"
-
-    val keyLength: Int
-        get() = 32
-
-    val mACLength: Int
-        get() = if (haskey) 16 else 0
+    override val cipherName: String get() = "AESGCM"
+    override val keyLength: Int get() = 32
+    override val macLength: Int get() = if (haskey) 16 else 0
 
     override fun initializeKey(key: ByteArray, offset: Int) {
         // Set up the AES key.
@@ -78,7 +59,7 @@ internal class AESGCMFallbackCipherState : CipherState {
         haskey = true
 
         // Generate the hashing key by encrypting a block of zeroes.
-        Arrays.fill(hashKey, 0.toByte())
+        hashKey.fill(0)
         aes.encrypt(hashKey, 0, hashKey, 0)
         ghash.reset(hashKey, 0)
 
@@ -123,7 +104,7 @@ internal class AESGCMFallbackCipherState : CipherState {
 
         // Encrypt a block of zeroes to generate the hash key to XOR
         // the GHASH tag with at the end of the encrypt/decrypt operation.
-        Arrays.fill(hashKey, 0.toByte())
+        hashKey.fill(0)
         aes.encrypt(iv, 0, hashKey, 0)
 
 
@@ -157,8 +138,18 @@ internal class AESGCMFallbackCipherState : CipherState {
         var ciphertextOffset = ciphertextOffset
         var length = length
         while (length > 0) {
-            // Increment the IV and encrypt it to get the next keystream block.
-            if ((++(iv[15])).toInt() == 0) if ((++(iv[14])).toInt() == 0) if ((++(iv[13])).toInt() == 0) ++(iv[12])
+            // Increment the IV (big-endian 4-byte counter at iv[12..15])
+            // and encrypt it to get the next keystream block.
+            iv[15] = (iv[15] + 1).toByte()
+            if (iv[15].toInt() == 0) {
+                iv[14] = (iv[14] + 1).toByte()
+                if (iv[14].toInt() == 0) {
+                    iv[13] = (iv[13] + 1).toByte()
+                    if (iv[13].toInt() == 0) {
+                        iv[12] = (iv[12] + 1).toByte()
+                    }
+                }
+            }
             aes.encrypt(iv, 0, enciv, 0)
 
 
@@ -203,8 +194,10 @@ internal class AESGCMFallbackCipherState : CipherState {
         ghash.update(ciphertext, ciphertextOffset, length)
         ghash.pad((if (ad != null) ad.size else 0).toLong(), length.toLong())
         ghash.finish(ciphertext, ciphertextOffset + length, 16)
-        for (index in 0..15) ciphertext[ciphertextOffset + length + index] =
-            ciphertext[ciphertextOffset + length + index].toInt() xor hashKey[index].toInt()
+        for (index in 0..15) {
+            ciphertext[ciphertextOffset + length + index] =
+                (ciphertext[ciphertextOffset + length + index].toInt() xor hashKey[index].toInt()).toByte()
+        }
         return length + 16
     }
 
