@@ -122,7 +122,7 @@ class SymmetricState implements Destroyable {
 	 */
 	public int getMACLength()
 	{
-		return cipher.getMACLength();
+		return cipher.mACLength;
 	}
 
 	/**
@@ -142,7 +142,7 @@ class SymmetricState implements Destroyable {
 		Log.d(TAG, "Current CK: " + bytesToHex(ck));
 		Log.d(TAG, "Current Hash: " + bytesToHex(h));
 		
-		int keyLength = cipher.getKeyLength();
+		int keyLength = cipher.keyLength;
 		byte[] tempKey = new byte [keyLength];
 		try {
 			hkdf(ck, 0, ck.length, data, offset, length, ck, 0, ck.length, tempKey, 0, keyLength);
@@ -155,7 +155,7 @@ class SymmetricState implements Destroyable {
 		Log.d(TAG, "*** Android mixKey() AFTER ***");
 		Log.d(TAG, "New CK: " + bytesToHex(ck));
 		Log.d(TAG, "Hash unchanged: " + bytesToHex(h));
-		Log.d(TAG, "Cipher now has key: " + (cipher.getMACLength() > 0));
+		Log.d(TAG, "Cipher now has key: " + (cipher.mACLength > 0));
 	}
 
 	/**
@@ -314,7 +314,7 @@ class SymmetricState implements Destroyable {
 	{
 		if (length != 0 && length != 32)
 			throw new IllegalArgumentException("Secondary keys must be 0 or 32 bytes in length");
-		int keyLength = cipher.getKeyLength();
+		int keyLength = cipher.keyLength;
 		byte[] k1 = new byte [keyLength];
 		byte[] k2 = new byte [keyLength];
 		try {
