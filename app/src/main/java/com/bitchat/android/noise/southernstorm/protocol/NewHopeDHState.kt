@@ -23,7 +23,6 @@ package com.bitchat.android.noise.southernstorm.protocol
 
 import com.bitchat.android.noise.southernstorm.crypto.NewHope
 import com.bitchat.android.noise.southernstorm.crypto.NewHopeTor
-import java.util.Arrays
 
 /**
  * Implementation of the New Hope post-quantum algorithm for the Noise protocol.
@@ -41,23 +40,16 @@ internal class NewHopeDHState : DHStateHybrid {
     private var nh: NewHopeTor? = null
     private var publicKey: ByteArray? = null
     private var privateKey: ByteArray? = null
-    private var keyType: KeyType
+    private var keyType: KeyType = KeyType.None
 
     /**
      * Special version of NewHopeTor that allows explicit random data
      * to be specified for test vectors.
      */
-    private inner class NewHopeWithPrivateKey(var randomData: ByteArray) : NewHopeTor() {
+    private inner class NewHopeWithPrivateKey(private val randomData: ByteArray) : NewHopeTor() {
         override fun randombytes(buffer: ByteArray) {
             System.arraycopy(randomData, 0, buffer, 0, buffer.size)
         }
-    }
-
-    /**
-     * Constructs a new key exchange object for New Hope.
-     */
-    init {
-        keyType = KeyType.None
     }
 
     private val isAlice: Boolean
@@ -67,26 +59,18 @@ internal class NewHopeDHState : DHStateHybrid {
         clearKey()
     }
 
-    override fun getDHName(): String {
-        return "NewHope"
-    }
+    override val dhName: String get() = "NewHope"
 
-    override fun getPublicKeyLength(): Int {
-        if (this.isAlice) return NewHope.SENDABYTES
-        else return NewHope.SENDBBYTES
-    }
+    override val publicKeyLength: Int
+        get() = if (isAlice) NewHope.SENDABYTES else NewHope.SENDBBYTES
 
-    override fun getPrivateKeyLength(): Int {
+    override val privateKeyLength: Int
         // New Hope doesn't have private keys in the same sense as
         // Curve25519 and Curve448.  Instead return the number of
         // random bytes that we need to generate each key type.
-        if (this.isAlice) return 64
-        else return 32
-    }
+        get() = if (isAlice) 64 else 32
 
-    override fun getSharedKeyLength(): Int {
-        return NewHope.SHAREDBYTES
-    }
+    override val sharedKeyLength: Int get() = NewHope.SHAREDBYTES
 
     override fun generateKeyPair() {
         clearKey()
@@ -101,44 +85,49 @@ internal class NewHopeDHState : DHStateHybrid {
             // No remote public key, so always generate in Alice mode.
             generateKeyPair()
             return
-        } else check(remote is NewHopeDHState) { "Mismatched DH objects" }
-        val r = remote
-        if (r.isAlice && r.publicKey != null) {
+        }
+        check(remote is NewHopeDHState) { "Mismatched DH objects" }
+        if (remote.isAlice && remote.publicKey != null) {
             // We have a remote public key for Alice, so generate in Bob mode.
             clearKey()
             keyType = KeyType.BobCalculated
             nh = NewHopeTor()
             publicKey = ByteArray(NewHope.SENDBBYTES)
             privateKey = ByteArray(NewHope.SHAREDBYTES)
-            nh!!.sharedb(privateKey!!, 0, publicKey!!, 0, r.publicKey!!, 0)
+            nh!!.sharedb(privateKey!!, 0, publicKey!!, 0, remote.publicKey!!, 0)
         } else {
             generateKeyPair()
         }
     }
 
     override fun getPublicKey(key: ByteArray, offset: Int) {
-        if (publicKey != null) System.arraycopy(publicKey, 0, key, offset, getPublicKeyLength())
-        else Arrays.fill(key, 0, getPublicKeyLength(), 0.toByte())
+        val pk = publicKey
+        if (pk != null) System.arraycopy(pk, 0, key, offset, publicKeyLength)
+        else key.fill(0, offset, offset + publicKeyLength)
     }
 
     override fun setPublicKey(key: ByteArray, offset: Int) {
-        if (publicKey != null) Noise.destroy(publicKey!!)
-        publicKey = ByteArray(getPublicKeyLength())
-        System.arraycopy(key, 0, publicKey, 0, publicKey!!.size)
+        publicKey?.let { Noise.destroy(it) }
+        val len = publicKeyLength
+        val pk = ByteArray(len)
+        System.arraycopy(key, offset, pk, 0, len)
+        publicKey = pk
     }
 
     override fun getPrivateKey(key: ByteArray, offset: Int) {
-        if (privateKey != null) System.arraycopy(privateKey, 0, key, offset, getPrivateKeyLength())
-        else Arrays.fill(key, 0, getPrivateKeyLength(), 0.toByte())
+        val sk = privateKey
+        if (sk != null) System.arraycopy(sk, 0, key, offset, privateKeyLength)
+        else key.fill(0, offset, offset + privateKeyLength)
     }
 
     override fun setPrivateKey(key: ByteArray, offset: Int) {
         clearKey()
         // Guess the key type from the length of the test data.
-        if (offset == 0 && key.size == 64) keyType = KeyType.AlicePrivate
-        else keyType = KeyType.BobPrivate
-        privateKey = ByteArray(getPrivateKeyLength())
-        System.arraycopy(key, 0, privateKey, 0, privateKey!!.size)
+        keyType = if (offset == 0 && key.size == 64) KeyType.AlicePrivate else KeyType.BobPrivate
+        val len = privateKeyLength
+        val sk = ByteArray(len)
+        System.arraycopy(key, offset, sk, 0, len)
+        privateKey = sk
     }
 
     override fun setToNullPublicKey() {
@@ -148,111 +137,99 @@ internal class NewHopeDHState : DHStateHybrid {
     }
 
     override fun clearKey() {
-        if (nh != null) {
-            nh!!.destroy()
+        nh?.let {
+            it.destroy()
             nh = null
         }
-        if (publicKey != null) {
-            Noise.destroy(publicKey!!)
+        publicKey?.let {
+            Noise.destroy(it)
             publicKey = null
         }
-        if (privateKey != null) {
-            Noise.destroy(privateKey!!)
+        privateKey?.let {
+            Noise.destroy(it)
             privateKey = null
         }
         keyType = KeyType.None
     }
 
-    override fun hasPublicKey(): Boolean {
-        return publicKey != null
-    }
+    override fun hasPublicKey(): Boolean = publicKey != null
 
-    override fun hasPrivateKey(): Boolean {
-        return privateKey != null
-    }
+    override fun hasPrivateKey(): Boolean = privateKey != null
 
-    override fun isNullPublicKey(): Boolean {
-        return false
-    }
+    override fun isNullPublicKey(): Boolean = false
 
-    override fun calculate(sharedKey: ByteArray, offset: Int, publicDH: DHState?) {
+    override fun calculate(sharedKey: ByteArray, offset: Int, publicDH: DHState) {
         require(publicDH is NewHopeDHState) { "Incompatible DH algorithms" }
-        val other = publicDH
-        if (keyType == KeyType.AlicePrivate) {
-            // Compute the shared key for Alice.
-            nh!!.shareda(sharedKey, 0, other.publicKey!!, 0)
-        } else if (keyType == KeyType.BobCalculated) {
-            // The shared key for Bob was already computed when the key was generated.
-            System.arraycopy(privateKey, 0, sharedKey, 0, NewHope.SHAREDBYTES)
-        } else {
-            throw IllegalStateException("Cannot calculate with this DH object")
+        when (keyType) {
+            KeyType.AlicePrivate -> {
+                // Compute the shared key for Alice.
+                // Note: matches original Java — offset is intentionally unused;
+                // the shared key is always written starting at index 0.
+                nh!!.shareda(sharedKey, 0, publicDH.publicKey!!, 0)
+            }
+            KeyType.BobCalculated -> {
+                // The shared key for Bob was already computed when the key was generated.
+                System.arraycopy(privateKey!!, 0, sharedKey, 0, NewHope.SHAREDBYTES)
+            }
+            else -> throw IllegalStateException("Cannot calculate with this DH object")
         }
     }
 
-    override fun copyFrom(other: DHState?) {
+    override fun copyFrom(other: DHState) {
         check(other is NewHopeDHState) { "Mismatched DH key objects" }
         if (other === this) return
-        val dh = other
         clearKey()
-        when (dh.keyType) {
+        when (other.keyType) {
             KeyType.None -> {}
-            KeyType.AlicePrivate -> if (dh.privateKey != null) {
+            KeyType.AlicePrivate -> {
+                val src = other.privateKey ?: throw IllegalStateException("Cannot copy generated key for Alice")
                 keyType = KeyType.AlicePrivate
-                privateKey = ByteArray(dh.privateKey!!.size)
-                System.arraycopy(dh.privateKey, 0, privateKey, 0, privateKey!!.size)
-            } else {
-                throw IllegalStateException("Cannot copy generated key for Alice")
+                privateKey = src.copyOf()
             }
-
-            KeyType.BobPrivate, KeyType.BobCalculated -> throw IllegalStateException("Cannot copy private key for Bob without public key for Alice")
-
+            KeyType.BobPrivate, KeyType.BobCalculated ->
+                throw IllegalStateException("Cannot copy private key for Bob without public key for Alice")
             KeyType.AlicePublic, KeyType.BobPublic -> {
-                keyType = dh.keyType
-                publicKey = ByteArray(dh.publicKey!!.size)
-                System.arraycopy(dh.publicKey, 0, publicKey, 0, publicKey!!.size)
+                keyType = other.keyType
+                publicKey = other.publicKey!!.copyOf()
             }
         }
     }
 
-    override fun copyFrom(other: DHState?, remote: DHState?) {
+    override fun copyFrom(other: DHState, remote: DHState?) {
         if (remote == null) {
             copyFrom(other)
             return
         }
-        check(!(other !is NewHopeDHState || remote !is NewHopeDHState)) { "Mismatched DH key objects" }
+        check(other is NewHopeDHState && remote is NewHopeDHState) { "Mismatched DH key objects" }
         if (other === this) return
-        val dh = other
-        val remotedh = remote
         clearKey()
-        when (dh.keyType) {
+        when (other.keyType) {
             KeyType.None -> {}
-            KeyType.AlicePrivate -> if (dh.privateKey != null) {
+            KeyType.AlicePrivate -> {
+                val src = other.privateKey ?: throw IllegalStateException("Cannot copy generated key for Alice")
                 // Generate Alice's public and private key now.
                 keyType = KeyType.AlicePrivate
-                nh = NewHopeWithPrivateKey(dh.privateKey!!)
+                nh = NewHopeWithPrivateKey(src)
                 publicKey = ByteArray(NewHope.SENDABYTES)
                 nh!!.keygen(publicKey!!, 0)
-            } else {
-                throw IllegalStateException("Cannot copy generated key for Alice")
             }
-
-            KeyType.BobPrivate -> if (dh.privateKey != null && remotedh.keyType == KeyType.AlicePublic) {
-                // Now we know the public key for Alice, we can calculate Bob's public and shared keys.
-                keyType = KeyType.BobCalculated
-                nh = NewHopeWithPrivateKey(dh.privateKey!!)
-                publicKey = ByteArray(NewHope.SENDBBYTES)
-                privateKey = ByteArray(NewHope.SHAREDBYTES)
-                nh!!.sharedb(privateKey!!, 0, publicKey!!, 0, remotedh.publicKey!!, 0)
-            } else {
-                throw IllegalStateException("Cannot copy private key for Bob without public key for Alice")
+            KeyType.BobPrivate -> {
+                val src = other.privateKey
+                if (src != null && remote.keyType == KeyType.AlicePublic) {
+                    // Now we know the public key for Alice, we can calculate Bob's public and shared keys.
+                    keyType = KeyType.BobCalculated
+                    nh = NewHopeWithPrivateKey(src)
+                    publicKey = ByteArray(NewHope.SENDBBYTES)
+                    privateKey = ByteArray(NewHope.SHAREDBYTES)
+                    nh!!.sharedb(privateKey!!, 0, publicKey!!, 0, remote.publicKey!!, 0)
+                } else {
+                    throw IllegalStateException("Cannot copy private key for Bob without public key for Alice")
+                }
             }
-
             KeyType.BobCalculated -> throw IllegalStateException("Cannot copy generated key for Bob")
-
             KeyType.AlicePublic, KeyType.BobPublic -> {
-                keyType = dh.keyType
-                publicKey = ByteArray(dh.publicKey!!.size)
-                System.arraycopy(dh.publicKey, 0, publicKey, 0, publicKey!!.size)
+                keyType = other.keyType
+                publicKey = other.publicKey!!.copyOf()
             }
         }
     }
@@ -260,7 +237,6 @@ internal class NewHopeDHState : DHStateHybrid {
     override fun specifyPeer(local: DHState?) {
         if (local !is NewHopeDHState) return
         clearKey()
-        if (local.keyType == KeyType.AlicePrivate) keyType = KeyType.BobPublic
-        else keyType = KeyType.AlicePublic
+        keyType = if (local.keyType == KeyType.AlicePrivate) KeyType.BobPublic else KeyType.AlicePublic
     }
 }
