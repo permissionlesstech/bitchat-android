@@ -101,9 +101,9 @@ internal class SymmetricState(protocolName: String, cipherName: String, hashName
         // LOGGING: Initial symmetric state after protocol name initialization (matching iOS)
         Log.d(TAG, "=== ANDROID SYMMETRIC STATE INITIALIZED ===")
         Log.d(TAG, "Protocol: $protocolName")
-        Log.d(TAG, "Initial hash (h): " + bytesToHex(initialHash))
-        Log.d(TAG, "Initial chaining key (ck): " + bytesToHex(ck!!))
-        Log.d(TAG, "Hash length: " + initialHash.size)
+        Log.d(TAG, "Initial hash (h): ${bytesToHex(initialHash)}")
+        Log.d(TAG, "Initial chaining key (ck): ${bytesToHex(ck!!)}")
+        Log.d(TAG, "Hash length: ${initialHash.size}")
         Log.d(TAG, "=========================================")
     }
 
@@ -126,9 +126,9 @@ internal class SymmetricState(protocolName: String, cipherName: String, hashName
         val inputData = ByteArray(length)
         data.copyInto(inputData, 0, offset, offset + length)
         Log.d(TAG, "*** Android mixKey() BEFORE ***")
-        Log.d(TAG, "Input data ($length bytes): " + bytesToHex(inputData))
-        Log.d(TAG, "Current CK: " + bytesToHex(ck!!))
-        Log.d(TAG, "Current Hash: " + bytesToHex(this.handshakeHash!!))
+        Log.d(TAG, "Input data ($length bytes): ${bytesToHex(inputData)}")
+        Log.d(TAG, "Current CK: ${bytesToHex(ck!!)}")
+        Log.d(TAG, "Current Hash: ${bytesToHex(handshakeHash!!)}")
 
         val keyLength = cipher!!.keyLength
         val tempKey = ByteArray(keyLength)
@@ -155,9 +155,9 @@ internal class SymmetricState(protocolName: String, cipherName: String, hashName
 
         // LOGGING: After mixKey operation (matching iOS)
         Log.d(TAG, "*** Android mixKey() AFTER ***")
-        Log.d(TAG, "New CK: " + bytesToHex(ck!!))
-        Log.d(TAG, "Hash unchanged: " + bytesToHex(this.handshakeHash!!))
-        Log.d(TAG, "Cipher now has key: " + (cipher!!.macLength > 0))
+        Log.d(TAG, "New CK: ${bytesToHex(ck!!)}")
+        Log.d(TAG, "Hash unchanged: ${bytesToHex(handshakeHash!!)}")
+        Log.d(TAG, "Cipher now has key: ${cipher!!.macLength > 0}")
     }
 
     /**
@@ -172,8 +172,8 @@ internal class SymmetricState(protocolName: String, cipherName: String, hashName
         val inputData = ByteArray(length)
         data.copyInto(inputData, 0, offset, offset + length)
         Log.d(TAG, "*** Android mixHash() BEFORE ***")
-        Log.d(TAG, "Input data ($length bytes): " + bytesToHex(inputData))
-        Log.d(TAG, "Current Hash: " + bytesToHex(this.handshakeHash!!))
+        Log.d(TAG, "Input data ($length bytes): ${bytesToHex(inputData)}")
+        Log.d(TAG, "Current Hash: ${bytesToHex(handshakeHash!!)}")
 
         val h = handshakeHash!!
         hashTwo(
@@ -184,7 +184,7 @@ internal class SymmetricState(protocolName: String, cipherName: String, hashName
 
         // LOGGING: After mixHash operation (matching iOS)
         Log.d(TAG, "*** Android mixHash() AFTER ***")
-        Log.d(TAG, "New Hash: " + bytesToHex(this.handshakeHash!!))
+        Log.d(TAG, "New Hash: ${bytesToHex(handshakeHash!!)}")
     }
 
     /**
