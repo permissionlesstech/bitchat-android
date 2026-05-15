@@ -27,7 +27,6 @@ import com.bitchat.android.noise.southernstorm.crypto.ChaChaCore.initKey256
 import com.bitchat.android.noise.southernstorm.crypto.Poly1305
 import com.bitchat.android.noise.southernstorm.protocol.Noise.destroy
 import com.bitchat.android.noise.southernstorm.protocol.Noise.throwBadTagException
-import java.util.Arrays
 import javax.crypto.BadPaddingException
 import javax.crypto.ShortBufferException
 
@@ -35,38 +34,23 @@ import javax.crypto.ShortBufferException
  * Implements the ChaChaPoly cipher for Noise.
  */
 internal class ChaChaPolyCipherState : CipherState {
-    private val poly: Poly1305
-    private val input: IntArray
-    private val output: IntArray
-    private val polyKey: ByteArray
-    var n: Long = 0
+    private val poly: Poly1305 = Poly1305()
+    private val input: IntArray = IntArray(16)
+    private val output: IntArray = IntArray(16)
+    private val polyKey: ByteArray = ByteArray(32)
+    private var n: Long = 0
     private var haskey = false
-
-    /**
-     * Constructs a new cipher state for the "ChaChaPoly" algorithm.
-     */
-    init {
-        poly = Poly1305()
-        input = IntArray(16)
-        output = IntArray(16)
-        polyKey = ByteArray(32)
-    }
 
     override fun destroy() {
         poly.destroy()
-        Arrays.fill(input, 0)
-        Arrays.fill(output, 0)
+        input.fill(0)
+        output.fill(0)
         destroy(polyKey)
     }
 
-    val cipherName: String
-        get() = "ChaChaPoly"
-
-    val keyLength: Int
-        get() = 32
-
-    val mACLength: Int
-        get() = if (haskey) 16 else 0
+    override val cipherName: String get() = "ChaChaPoly"
+    override val keyLength: Int get() = 32
+    override val macLength: Int get() = if (haskey) 16 else 0
 
     override fun initializeKey(key: ByteArray, offset: Int) {
         initKey256(input, key, offset)
@@ -87,14 +71,14 @@ internal class ChaChaPolyCipherState : CipherState {
         check(n != -1L) { "Nonce has wrapped around" }
         initIV(input, n++)
         hash(output, input)
-        Arrays.fill(polyKey, 0.toByte())
+        polyKey.fill(0)
         xorBlock(polyKey, 0, polyKey, 0, 32, output)
         poly.reset(polyKey, 0)
         if (ad != null) {
             poly.update(ad, 0, ad.size)
             poly.pad()
         }
-        if (++(input[12]) == 0) ++(input[13])
+        if (++input[12] == 0) ++input[13]
     }
 
     /**
@@ -132,7 +116,7 @@ internal class ChaChaPolyCipherState : CipherState {
             if (tempLen > length) tempLen = length
             hash(output, input)
             xorBlock(plaintext, plaintextOffset, ciphertext, ciphertextOffset, tempLen, output)
-            if (++(input[12]) == 0) ++(input[13])
+            if (++input[12] == 0) ++input[13]
             plaintextOffset += tempLen
             ciphertextOffset += tempLen
             length -= tempLen
