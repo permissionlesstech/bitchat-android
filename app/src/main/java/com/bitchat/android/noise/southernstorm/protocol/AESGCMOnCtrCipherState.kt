@@ -45,7 +45,12 @@ import javax.crypto.spec.SecretKeySpec
 internal class AESGCMOnCtrCipherState
 @Throws(NoSuchAlgorithmException::class)
 constructor() : CipherState {
-    private val cipher: Cipher
+    private val cipher: Cipher  = try {
+        Cipher.getInstance("AES/CTR/NoPadding")
+    } catch (e: NoSuchPaddingException) {
+        // AES/CTR is available, but not the unpadded version?  Huh?
+        throw NoSuchAlgorithmException("AES/CTR/NoPadding not available", e)
+    }
     private var keySpec: SecretKeySpec? = null
     private var n: Long = 0
     private val iv: ByteArray = ByteArray(16)
@@ -53,13 +58,6 @@ constructor() : CipherState {
     private val ghash: GHASH = GHASH()
 
     init {
-        cipher = try {
-            Cipher.getInstance("AES/CTR/NoPadding")
-        } catch (e: NoSuchPaddingException) {
-            // AES/CTR is available, but not the unpadded version?  Huh?
-            throw NoSuchAlgorithmException("AES/CTR/NoPadding not available", e)
-        }
-
         // Try to set a 256-bit key on the cipher.  Some JCE's are
         // configured to disallow 256-bit AES if an extra policy
         // file has not been installed.
@@ -85,9 +83,9 @@ constructor() : CipherState {
         val params = IvParameterSpec(iv)
         try {
             cipher.init(Cipher.ENCRYPT_MODE, keySpec, params)
-        } catch (e: InvalidKeyException) {
+        } catch (_: InvalidKeyException) {
             // Shouldn't happen.
-        } catch (e: InvalidAlgorithmParameterException) {
+        } catch (_: InvalidAlgorithmParameterException) {
             // Shouldn't happen.
         }
     }
@@ -196,14 +194,13 @@ constructor() : CipherState {
         ad: ByteArray?, plaintext: ByteArray, plaintextOffset: Int,
         ciphertext: ByteArray, ciphertextOffset: Int, length: Int
     ): Int {
-        val space: Int
         require(!(ciphertextOffset < 0 || ciphertextOffset > ciphertext.size))
         require(!(length < 0 || plaintextOffset < 0 || plaintextOffset > plaintext.size || length > plaintext.size || (plaintext.size - plaintextOffset) < length))
-        space = ciphertext.size - ciphertextOffset
+        val space: Int = ciphertext.size - ciphertextOffset
         if (keySpec == null) {
             // The key is not set yet - return the plaintext as-is.
             if (length > space) throw ShortBufferException()
-            if (plaintext != ciphertext || plaintextOffset != ciphertextOffset) System.arraycopy(
+            if (plaintext !== ciphertext || plaintextOffset != ciphertextOffset) System.arraycopy(
                 plaintext,
                 plaintextOffset,
                 ciphertext,
@@ -259,7 +256,7 @@ constructor() : CipherState {
         if (keySpec == null) {
             // The key is not set yet - return the ciphertext as-is.
             if (length > space) throw ShortBufferException()
-            if (plaintext != ciphertext || plaintextOffset != ciphertextOffset) System.arraycopy(
+            if (plaintext !== ciphertext || plaintextOffset != ciphertextOffset) System.arraycopy(
                 ciphertext,
                 ciphertextOffset,
                 plaintext,
@@ -281,7 +278,7 @@ constructor() : CipherState {
             throw IllegalStateException(e)
         }
         ghash.update(ciphertext, ciphertextOffset, dataLen)
-        ghash.pad((if (ad != null) ad.size else 0).toLong(), dataLen.toLong())
+        ghash.pad((ad?.size ?: 0).toLong(), dataLen.toLong())
         ghash.finish(iv, 0, 16)
         var temp = 0
         for (index in 0..15) temp =

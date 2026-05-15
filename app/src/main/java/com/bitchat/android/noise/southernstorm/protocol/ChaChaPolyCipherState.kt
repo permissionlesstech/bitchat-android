@@ -89,7 +89,7 @@ internal class ChaChaPolyCipherState : CipherState {
      */
     private fun finish(ad: ByteArray?, length: Int) {
         poly.pad()
-        putLittleEndian64(polyKey, 0, (if (ad != null) ad.size else 0).toLong())
+        putLittleEndian64(polyKey, 0, (ad?.size ?: 0).toLong())
         putLittleEndian64(polyKey, 8, length.toLong())
         poly.update(polyKey, 0, 16)
         poly.finish(polyKey, 0)
@@ -128,14 +128,13 @@ internal class ChaChaPolyCipherState : CipherState {
         ad: ByteArray?, plaintext: ByteArray, plaintextOffset: Int,
         ciphertext: ByteArray, ciphertextOffset: Int, length: Int
     ): Int {
-        val space: Int
         require(!(ciphertextOffset < 0 || ciphertextOffset > ciphertext.size))
         require(!(length < 0 || plaintextOffset < 0 || plaintextOffset > plaintext.size || length > plaintext.size || (plaintext.size - plaintextOffset) < length))
-        space = ciphertext.size - ciphertextOffset
+        val space: Int = ciphertext.size - ciphertextOffset
         if (!haskey) {
             // The key is not set yet - return the plaintext as-is.
             if (length > space) throw ShortBufferException()
-            if (plaintext != ciphertext || plaintextOffset != ciphertextOffset) System.arraycopy(
+            if (plaintext !== ciphertext || plaintextOffset != ciphertextOffset) System.arraycopy(
                 plaintext,
                 plaintextOffset,
                 ciphertext,
@@ -162,16 +161,15 @@ internal class ChaChaPolyCipherState : CipherState {
         plaintextOffset: Int,
         length: Int
     ): Int {
-        var space: Int
         require(!(ciphertextOffset < 0 || ciphertextOffset > ciphertext.size))
-        space = ciphertext.size - ciphertextOffset
+        var space: Int = ciphertext.size - ciphertextOffset
         if (length > space) throw ShortBufferException()
         require(!(length < 0 || plaintextOffset < 0 || plaintextOffset > plaintext.size || length > ciphertext.size || (ciphertext.size - ciphertextOffset) < length))
         space = plaintext.size - plaintextOffset
         if (!haskey) {
             // The key is not set yet - return the ciphertext as-is.
             if (length > space) throw ShortBufferException()
-            if (plaintext != ciphertext || plaintextOffset != ciphertextOffset) System.arraycopy(
+            if (plaintext !== ciphertext || plaintextOffset != ciphertextOffset) System.arraycopy(
                 ciphertext,
                 ciphertextOffset,
                 plaintext,
@@ -241,21 +239,25 @@ internal class ChaChaPolyCipherState : CipherState {
                 outputOffset += 4
                 length -= 4
             }
-            if (length == 3) {
-                value = block[posn]
-                output[outputOffset] = (input[inputOffset].toInt() xor value).toByte()
-                output[outputOffset + 1] =
-                    (input[inputOffset + 1].toInt() xor (value shr 8)).toByte()
-                output[outputOffset + 2] =
-                    (input[inputOffset + 2].toInt() xor (value shr 16)).toByte()
-            } else if (length == 2) {
-                value = block[posn]
-                output[outputOffset] = (input[inputOffset].toInt() xor value).toByte()
-                output[outputOffset + 1] =
-                    (input[inputOffset + 1].toInt() xor (value shr 8)).toByte()
-            } else if (length == 1) {
-                value = block[posn]
-                output[outputOffset] = (input[inputOffset].toInt() xor value).toByte()
+            when (length) {
+                3 -> {
+                    value = block[posn]
+                    output[outputOffset] = (input[inputOffset].toInt() xor value).toByte()
+                    output[outputOffset + 1] =
+                        (input[inputOffset + 1].toInt() xor (value shr 8)).toByte()
+                    output[outputOffset + 2] =
+                        (input[inputOffset + 2].toInt() xor (value shr 16)).toByte()
+                }
+                2 -> {
+                    value = block[posn]
+                    output[outputOffset] = (input[inputOffset].toInt() xor value).toByte()
+                    output[outputOffset + 1] =
+                        (input[inputOffset + 1].toInt() xor (value shr 8)).toByte()
+                }
+                1 -> {
+                    value = block[posn]
+                    output[outputOffset] = (input[inputOffset].toInt() xor value).toByte()
+                }
             }
         }
 

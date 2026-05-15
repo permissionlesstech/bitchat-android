@@ -28,7 +28,6 @@ import com.bitchat.android.noise.southernstorm.protocol.Noise.destroy
 import java.io.UnsupportedEncodingException
 import java.security.DigestException
 import java.security.MessageDigest
-import java.util.Arrays
 import javax.crypto.BadPaddingException
 import javax.crypto.ShortBufferException
 
@@ -57,7 +56,7 @@ internal class SymmetricState(protocolName: String, cipherName: String, hashName
      */
     var handshakeHash: ByteArray?
         private set
-    private var prev_h: ByteArray?
+    private var prevH: ByteArray?
 
     /**
      * Constructs a new symmetric state object.
@@ -73,50 +72,38 @@ internal class SymmetricState(protocolName: String, cipherName: String, hashName
         this.protocolName = protocolName
         cipher = createCipher(cipherName)
         hash = createHash(hashName)
-        val hashLength = hash!!.getDigestLength()
+        val hashLength = hash!!.digestLength
         ck = ByteArray(hashLength)
-        this.handshakeHash = ByteArray(hashLength)
-        prev_h = ByteArray(hashLength)
+        val initialHash = ByteArray(hashLength)
+        this.handshakeHash = initialHash
+        prevH = ByteArray(hashLength)
 
-        val protocolNameBytes: ByteArray
-        try {
-            protocolNameBytes = protocolName.toByteArray(charset("UTF-8"))
-        } catch (e: UnsupportedEncodingException) {
+        val protocolNameBytes: ByteArray = try {
+            protocolName.toByteArray(charset("UTF-8"))
+        } catch (_: UnsupportedEncodingException) {
             // If UTF-8 is not supported, then we are definitely in trouble!
             throw UnsupportedOperationException("UTF-8 encoding is not supported")
         }
 
         if (protocolNameBytes.size <= hashLength) {
-            System.arraycopy(
-                protocolNameBytes, 0,
-                this.handshakeHash, 0, protocolNameBytes.size
-            )
-            Arrays.fill(
-                this.handshakeHash,
-                protocolNameBytes.size,
-                handshakeHash!!.size,
-                0.toByte()
-            )
+            protocolNameBytes.copyInto(initialHash, 0, 0, protocolNameBytes.size)
+            initialHash.fill(0, protocolNameBytes.size, initialHash.size)
         } else {
             hashOne(
                 protocolNameBytes, 0, protocolNameBytes.size,
-                this.handshakeHash!!, 0, handshakeHash!!.size
+                initialHash, 0, initialHash.size
             )
         }
 
-        System.arraycopy(this.handshakeHash, 0, ck, 0, hashLength)
+        initialHash.copyInto(ck!!, 0, 0, hashLength)
 
 
         // LOGGING: Initial symmetric state after protocol name initialization (matching iOS)
         Log.d(TAG, "=== ANDROID SYMMETRIC STATE INITIALIZED ===")
-        Log.d(TAG, "Protocol: " + protocolName)
-        Log.d(
-            TAG, "Initial hash (h): " + Companion.bytesToHex(
-                this.handshakeHash!!
-            )
-        )
-        Log.d(TAG, "Initial chaining key (ck): " + Companion.bytesToHex(ck!!))
-        Log.d(TAG, "Hash length: " + handshakeHash!!.size)
+        Log.d(TAG, "Protocol: $protocolName")
+        Log.d(TAG, "Initial hash (h): " + bytesToHex(initialHash))
+        Log.d(TAG, "Initial chaining key (ck): " + bytesToHex(ck!!))
+        Log.d(TAG, "Hash length: " + initialHash.size)
         Log.d(TAG, "=========================================")
     }
 
@@ -137,15 +124,11 @@ internal class SymmetricState(protocolName: String, cipherName: String, hashName
     fun mixKey(data: ByteArray, offset: Int, length: Int) {
         // LOGGING: Before mixKey operation (matching iOS)
         val inputData = ByteArray(length)
-        System.arraycopy(data, offset, inputData, 0, length)
+        data.copyInto(inputData, 0, offset, offset + length)
         Log.d(TAG, "*** Android mixKey() BEFORE ***")
-        Log.d(TAG, "Input data (" + length + " bytes): " + bytesToHex(inputData))
-        Log.d(TAG, "Current CK: " + Companion.bytesToHex(ck!!))
-        Log.d(
-            TAG, "Current Hash: " + Companion.bytesToHex(
-                this.handshakeHash!!
-            )
-        )
+        Log.d(TAG, "Input data ($length bytes): " + bytesToHex(inputData))
+        Log.d(TAG, "Current CK: " + bytesToHex(ck!!))
+        Log.d(TAG, "Current Hash: " + bytesToHex(this.handshakeHash!!))
 
         val keyLength = cipher!!.keyLength
         val tempKey = ByteArray(keyLength)
@@ -172,12 +155,8 @@ internal class SymmetricState(protocolName: String, cipherName: String, hashName
 
         // LOGGING: After mixKey operation (matching iOS)
         Log.d(TAG, "*** Android mixKey() AFTER ***")
-        Log.d(TAG, "New CK: " + Companion.bytesToHex(ck!!))
-        Log.d(
-            TAG, "Hash unchanged: " + Companion.bytesToHex(
-                this.handshakeHash!!
-            )
-        )
+        Log.d(TAG, "New CK: " + bytesToHex(ck!!))
+        Log.d(TAG, "Hash unchanged: " + bytesToHex(this.handshakeHash!!))
         Log.d(TAG, "Cipher now has key: " + (cipher!!.macLength > 0))
     }
 
@@ -191,28 +170,21 @@ internal class SymmetricState(protocolName: String, cipherName: String, hashName
     fun mixHash(data: ByteArray, offset: Int, length: Int) {
         // LOGGING: Before mixHash operation (matching iOS)
         val inputData = ByteArray(length)
-        System.arraycopy(data, offset, inputData, 0, length)
+        data.copyInto(inputData, 0, offset, offset + length)
         Log.d(TAG, "*** Android mixHash() BEFORE ***")
-        Log.d(TAG, "Input data (" + length + " bytes): " + bytesToHex(inputData))
-        Log.d(
-            TAG, "Current Hash: " + Companion.bytesToHex(
-                this.handshakeHash!!
-            )
-        )
+        Log.d(TAG, "Input data ($length bytes): " + bytesToHex(inputData))
+        Log.d(TAG, "Current Hash: " + bytesToHex(this.handshakeHash!!))
 
+        val h = handshakeHash!!
         hashTwo(
-            this.handshakeHash!!, 0, handshakeHash!!.size, data, offset, length,
-            this.handshakeHash!!, 0, handshakeHash!!.size
+            h, 0, h.size, data, offset, length,
+            h, 0, h.size
         )
 
 
         // LOGGING: After mixHash operation (matching iOS)
         Log.d(TAG, "*** Android mixHash() AFTER ***")
-        Log.d(
-            TAG, "New Hash: " + Companion.bytesToHex(
-                this.handshakeHash!!
-            )
-        )
+        Log.d(TAG, "New Hash: " + bytesToHex(this.handshakeHash!!))
     }
 
     /**
@@ -221,7 +193,7 @@ internal class SymmetricState(protocolName: String, cipherName: String, hashName
      * @param key The pre-shared key value.
      */
     fun mixPreSharedKey(key: ByteArray) {
-        val temp = ByteArray(hash!!.getDigestLength())
+        val temp = ByteArray(hash!!.digestLength)
         try {
             hkdf(ck!!, 0, ck!!.size, key, 0, key.size, ck!!, 0, ck!!.size, temp, 0, temp.size)
             mixHash(temp, 0, temp.size)
@@ -333,10 +305,11 @@ internal class SymmetricState(protocolName: String, cipherName: String, hashName
         plaintextOffset: Int,
         length: Int
     ): Int {
-        System.arraycopy(this.handshakeHash, 0, prev_h, 0, handshakeHash!!.size)
+        val h = handshakeHash!!
+        h.copyInto(prevH!!, 0, 0, h.size)
         mixHash(ciphertext, ciphertextOffset, length)
         return cipher!!.decryptWithAd(
-            prev_h,
+            prevH,
             ciphertext,
             ciphertextOffset,
             plaintext,
@@ -348,19 +321,14 @@ internal class SymmetricState(protocolName: String, cipherName: String, hashName
     /**
      * Splits the symmetric state into two ciphers for session encryption,
      * and optionally mixes in a secondary symmetric key.
-     * 
+     *
      * @param secondaryKey The buffer containing the secondary key.
      * @param offset The offset of the first secondary key byte.
      * @param length The length of the secondary key in bytes, which
      * must be either 0 or 32.
      * @return The pair of ciphers for sending and receiving.
-     * 
+     *
      * @throws IllegalArgumentException The length is not 0 or 32.
-     */
-    /**
-     * Splits the symmetric state into two ciphers for session encryption.
-     * 
-     * @return The pair of ciphers for sending and receiving.
      */
     @JvmOverloads
     fun split(
@@ -388,8 +356,8 @@ internal class SymmetricState(protocolName: String, cipherName: String, hashName
                 if (c1 == null || c2 == null || pair == null) {
                     // Could not create some of the objects.  Clean up the others
                     // to avoid accidental leakage of k1 or k2.
-                    if (c1 != null) c1.destroy()
-                    if (c2 != null) c2.destroy()
+                    c1?.destroy()
+                    c2?.destroy()
                     pair = null
                 }
             }
@@ -420,9 +388,9 @@ internal class SymmetricState(protocolName: String, cipherName: String, hashName
             Noise.destroy(this.handshakeHash!!)
             this.handshakeHash = null
         }
-        if (prev_h != null) {
-            Noise.destroy(prev_h!!)
-            prev_h = null
+        if (prevH != null) {
+            Noise.destroy(prevH!!)
+            prevH = null
         }
     }
 
@@ -450,8 +418,8 @@ internal class SymmetricState(protocolName: String, cipherName: String, hashName
         hash!!.update(data, offset, length)
         try {
             hash!!.digest(output, outputOffset, outputLength)
-        } catch (e: DigestException) {
-            Arrays.fill(output, outputOffset, outputLength, 0.toByte())
+        } catch (_: DigestException) {
+            output.fill(0, outputOffset, outputLength)
         }
     }
 
@@ -480,8 +448,8 @@ internal class SymmetricState(protocolName: String, cipherName: String, hashName
         hash!!.update(data2, offset2, length2)
         try {
             hash!!.digest(output, outputOffset, outputLength)
-        } catch (e: DigestException) {
-            Arrays.fill(output, outputOffset, outputLength, 0.toByte())
+        } catch (_: DigestException) {
+            output.fill(0, outputOffset, outputLength)
         }
     }
 
@@ -505,19 +473,18 @@ internal class SymmetricState(protocolName: String, cipherName: String, hashName
     ) {
         // In all of the algorithms of interest to us, the block length
         // is twice the size of the hash length.
-        val hashLength = hash!!.getDigestLength()
+        val hashLength = hash!!.digestLength
         val blockLength = hashLength * 2
         val block = ByteArray(blockLength)
-        var index: Int
         try {
             if (keyLength <= blockLength) {
                 System.arraycopy(key, keyOffset, block, 0, keyLength)
-                Arrays.fill(block, keyLength, blockLength, 0.toByte())
+                block.fill(0, keyLength, blockLength)
             } else {
                 hash!!.reset()
                 hash!!.update(key, keyOffset, keyLength)
                 hash!!.digest(block, 0, hashLength)
-                Arrays.fill(block, hashLength, blockLength, 0.toByte())
+                block.fill(0, hashLength, blockLength)
             }
             for (i in 0 until blockLength) {
                 block[i] = (block[i].toInt() xor 0x36).toByte()
@@ -533,8 +500,8 @@ internal class SymmetricState(protocolName: String, cipherName: String, hashName
             hash!!.update(block, 0, blockLength)
             hash!!.update(output, outputOffset, hashLength)
             hash!!.digest(output, outputOffset, outputLength)
-        } catch (e: DigestException) {
-            Arrays.fill(output, outputOffset, outputLength, 0.toByte())
+        } catch (_: DigestException) {
+            output.fill(0, outputOffset, outputLength)
         } finally {
             destroy(block)
         }
@@ -564,7 +531,7 @@ internal class SymmetricState(protocolName: String, cipherName: String, hashName
         output1: ByteArray, output1Offset: Int, output1Length: Int,
         output2: ByteArray, output2Offset: Int, output2Length: Int
     ) {
-        val hashLength = hash!!.getDigestLength()
+        val hashLength = hash!!.digestLength
         val tempKey = ByteArray(hashLength)
         val tempHash = ByteArray(hashLength + 1)
         try {
@@ -590,7 +557,7 @@ internal class SymmetricState(protocolName: String, cipherName: String, hashName
         private fun bytesToHex(bytes: ByteArray): String {
             val sb = StringBuilder()
             for (b in bytes) {
-                sb.append(String.format("%02x", b))
+                sb.append("%02x".format(b))
             }
             return sb.toString()
         }

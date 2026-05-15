@@ -49,21 +49,21 @@ internal class Curve25519DHState : DHState {
     }
 
     override fun getPublicKey(key: ByteArray, offset: Int) {
-        System.arraycopy(publicKey, 0, key, offset, 32)
+        publicKey.copyInto(key, offset, 0, 32)
     }
 
     override fun setPublicKey(key: ByteArray, offset: Int) {
-        System.arraycopy(key, offset, publicKey, 0, 32)
+        key.copyInto(publicKey, 0, offset, offset + 32)
         privateKey.fill(0)
         mode = 0x01
     }
 
     override fun getPrivateKey(key: ByteArray, offset: Int) {
-        System.arraycopy(privateKey, 0, key, offset, 32)
+        privateKey.copyInto(key, offset, 0, 32)
     }
 
     override fun setPrivateKey(key: ByteArray, offset: Int) {
-        System.arraycopy(key, offset, privateKey, 0, 32)
+        key.copyInto(privateKey, 0, offset, offset + 32)
         Curve25519.eval(publicKey, 0, privateKey, null)
         mode = 0x03
     }
@@ -99,8 +99,8 @@ internal class Curve25519DHState : DHState {
     override fun copyFrom(other: DHState) {
         check(other is Curve25519DHState) { "Mismatched DH key objects" }
         if (other === this) return
-        System.arraycopy(other.privateKey, 0, privateKey, 0, 32)
-        System.arraycopy(other.publicKey, 0, publicKey, 0, 32)
+        other.privateKey.copyInto(privateKey, 0, 0, 32)
+        other.publicKey.copyInto(publicKey, 0, 0, 32)
         mode = other.mode
     }
 }

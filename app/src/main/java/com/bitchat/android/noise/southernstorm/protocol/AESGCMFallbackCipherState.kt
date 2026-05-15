@@ -172,14 +172,13 @@ internal class AESGCMFallbackCipherState : CipherState {
         ad: ByteArray?, plaintext: ByteArray, plaintextOffset: Int,
         ciphertext: ByteArray, ciphertextOffset: Int, length: Int
     ): Int {
-        val space: Int
         require(!(ciphertextOffset < 0 || ciphertextOffset > ciphertext.size))
         require(!(length < 0 || plaintextOffset < 0 || plaintextOffset > plaintext.size || length > plaintext.size || (plaintext.size - plaintextOffset) < length))
-        space = ciphertext.size - ciphertextOffset
+        val space: Int = ciphertext.size - ciphertextOffset
         if (!haskey) {
             // The key is not set yet - return the plaintext as-is.
             if (length > space) throw ShortBufferException()
-            if (plaintext != ciphertext || plaintextOffset != ciphertextOffset) System.arraycopy(
+            if (plaintext !== ciphertext || plaintextOffset != ciphertextOffset) System.arraycopy(
                 plaintext,
                 plaintextOffset,
                 ciphertext,
@@ -219,7 +218,7 @@ internal class AESGCMFallbackCipherState : CipherState {
         if (!haskey) {
             // The key is not set yet - return the ciphertext as-is.
             if (length > space) throw ShortBufferException()
-            if (plaintext != ciphertext || plaintextOffset != ciphertextOffset) System.arraycopy(
+            if (plaintext !== ciphertext || plaintextOffset != ciphertextOffset) System.arraycopy(
                 ciphertext,
                 ciphertextOffset,
                 plaintext,
@@ -244,8 +243,7 @@ internal class AESGCMFallbackCipherState : CipherState {
     }
 
     override fun fork(key: ByteArray, offset: Int): CipherState {
-        val cipher: CipherState
-        cipher = AESGCMFallbackCipherState()
+        val cipher: CipherState = AESGCMFallbackCipherState()
         cipher.initializeKey(key, offset)
         return cipher
     }

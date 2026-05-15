@@ -28,7 +28,6 @@ import com.bitchat.android.noise.southernstorm.protocol.Noise.destroy
 import com.bitchat.android.noise.southernstorm.protocol.Pattern.lookup
 import com.bitchat.android.noise.southernstorm.protocol.Pattern.reverseFlags
 import java.security.NoSuchAlgorithmException
-import java.util.Arrays
 import javax.crypto.BadPaddingException
 import javax.crypto.ShortBufferException
 
@@ -97,8 +96,8 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
      * @return true if a pre-shared key is needed; false if not.
      */
     fun needsPreSharedKey(): Boolean {
-        if (preSharedKey != null) return false
-        else return (requirements and PSK_REQUIRED) != 0
+        return if (preSharedKey != null) false
+        else (requirements and PSK_REQUIRED) != 0
     }
 
     /**
@@ -168,8 +167,8 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
      * will return false.
      */
     fun needsLocalKeyPair(): Boolean {
-        if (localKeyPair != null) return !localKeyPair!!.hasPrivateKey()
-        else return false
+        return if (localKeyPair != null) !localKeyPair!!.hasPrivateKey()
+        else false
     }
 
     /**
@@ -180,8 +179,8 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
      * false if not.
      */
     fun hasLocalKeyPair(): Boolean {
-        if (localKeyPair != null) return localKeyPair!!.hasPrivateKey()
-        else return false
+        return if (localKeyPair != null) localKeyPair!!.hasPrivateKey()
+        else false
     }
 
     /**
@@ -193,8 +192,8 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
      * will return false.
      */
     fun needsRemotePublicKey(): Boolean {
-        if (remotePublicKey != null) return !remotePublicKey!!.hasPublicKey()
-        else return false
+        return if (remotePublicKey != null) !remotePublicKey!!.hasPublicKey()
+        else false
     }
 
     /**
@@ -205,8 +204,8 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
      * false if not.
      */
     fun hasRemotePublicKey(): Boolean {
-        if (remotePublicKey != null) return remotePublicKey!!.hasPublicKey()
-        else return false
+        return if (remotePublicKey != null) remotePublicKey!!.hasPublicKey()
+        else false
     }
 
     val fixedEphemeralKey: DHState?
@@ -227,7 +226,7 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
             try {
                 fixedEphemeral =
                     createDH(localEphemeral!!.dhName)
-            } catch (e: NoSuchAlgorithmException) {
+            } catch (_: NoSuchAlgorithmException) {
                 // This shouldn't happen - the local ephemeral key would
                 // have already been created with the same name!
                 fixedEphemeral = null
@@ -253,7 +252,7 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
             try {
                 fixedHybrid =
                     createDH(localHybrid!!.dhName)
-            } catch (e: NoSuchAlgorithmException) {
+            } catch (_: NoSuchAlgorithmException) {
                 // This shouldn't happen - the local hybrid key would
                 // have already been created with the same name!
                 fixedHybrid = null
@@ -320,21 +319,21 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
         if ((flags.toInt() and Pattern.FLAG_LOCAL_EPHEMERAL.toInt()) != 0) localEphemeral =
             createDH(dh)
         if ((flags.toInt() and Pattern.FLAG_LOCAL_HYBRID.toInt()) != 0) localHybrid =
-            Noise.createDH(hybrid!!)
+            createDH(hybrid!!)
         if ((flags.toInt() and Pattern.FLAG_REMOTE_STATIC.toInt()) != 0) remotePublicKey =
             createDH(dh)
         if ((flags.toInt() and Pattern.FLAG_REMOTE_EPHEMERAL.toInt()) != 0) remoteEphemeral =
             createDH(dh)
         if ((flags.toInt() and Pattern.FLAG_REMOTE_HYBRID.toInt()) != 0) remoteHybrid =
-            Noise.createDH(hybrid!!)
+            createDH(hybrid!!)
 
 
         // We cannot use hybrid algorithms like New Hope for ephemeral or static keys,
         // as the unbalanced nature of the algorithm only works with "f" and "ff" tokens.
-        if (localKeyPair is DHStateHybrid) throw NoSuchAlgorithmException("Cannot use '" + localKeyPair!!.dhName + "' for static keys")
-        if (localEphemeral is DHStateHybrid) throw NoSuchAlgorithmException("Cannot use '" + localEphemeral!!.dhName + "' for ephemeral keys")
-        if (remotePublicKey is DHStateHybrid) throw NoSuchAlgorithmException("Cannot use '" + remotePublicKey!!.dhName + "' for static keys")
-        if (remoteEphemeral is DHStateHybrid) throw NoSuchAlgorithmException("Cannot use '" + remoteEphemeral!!.dhName + "' for ephemeral keys")
+        if (localKeyPair is DHStateHybrid) throw NoSuchAlgorithmException("Cannot use '${localKeyPair!!.dhName}' for static keys")
+        if (localEphemeral is DHStateHybrid) throw NoSuchAlgorithmException("Cannot use '${localEphemeral!!.dhName}' for ephemeral keys")
+        if (remotePublicKey is DHStateHybrid) throw NoSuchAlgorithmException("Cannot use '${remotePublicKey!!.dhName}' for static keys")
+        if (remoteEphemeral is DHStateHybrid) throw NoSuchAlgorithmException("Cannot use '${remoteEphemeral!!.dhName}' for ephemeral keys")
     }
 
     /**
@@ -379,9 +378,9 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
 
         // Log the symmetric state BEFORE any mixing operations (matching iOS)
         Log.d(TAG, "=== ANDROID HANDSHAKE START - INITIAL STATE ===")
-        Log.d(TAG, "Protocol: " + symmetric!!.protocolName)
-        Log.d(TAG, "Role: " + (if (isInitiator) "INITIATOR" else "RESPONDER"))
-        Log.d(TAG, "Initial symmetric hash: " + bytesToHex(symmetric!!.handshakeHash!!))
+        Log.d(TAG, "Protocol: ${symmetric!!.protocolName}")
+        Log.d(TAG, "Role: ${if (isInitiator) "INITIATOR" else "RESPONDER"}")
+        Log.d(TAG, "Initial symmetric hash: ${bytesToHex(symmetric!!.handshakeHash!!)}")
 
 
         // Hash the prologue value.
@@ -389,7 +388,7 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
         val p = prologue
         if (p != null) symmetric!!.mixHash(p, 0, p.size)
         else symmetric!!.mixHash(emptyPrologue, 0, 0)
-        Log.d(TAG, "Hash after empty prologue: " + bytesToHex(symmetric!!.handshakeHash!!))
+        Log.d(TAG, "Hash after empty prologue: ${bytesToHex(symmetric!!.handshakeHash!!)}")
 
 
         // Hash the pre-shared key into the chaining key and handshake hash.
@@ -421,13 +420,12 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
         Log.d(TAG, "=== ANDROID HANDSHAKE START - FINAL STATE ===")
         Log.d(
             TAG,
-            "Final symmetric hash after mixPreMessageKeys(): " + bytesToHex(symmetric!!.handshakeHash!!)
+            "Final symmetric hash after mixPreMessageKeys(): ${bytesToHex(symmetric!!.handshakeHash!!)}"
         )
         Log.d(TAG, "===========================================")
 
         // The handshake has officially started - set the first action.
-        if (isInitiator) action = WRITE_MESSAGE
-        else action = READ_MESSAGE
+        action = if (isInitiator) WRITE_MESSAGE else READ_MESSAGE
     }
 
     /**
@@ -579,7 +577,6 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
      * @param remote Remote public key object.
      */
     private fun mixDH(local: DHState, remote: DHState) {
-        check(!(local == null || remote == null)) { "Pattern definition error" }
         val len = local.sharedKeyLength
         val shared = ByteArray(len)
         try {
@@ -750,7 +747,7 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
                     else -> {
                         // Unknown token code.  Abort.
                         throw IllegalStateException(
-                            "Unknown handshake token " + token.toInt().toString()
+                            "Unknown handshake token ${token.toInt()}"
                         )
                     }
                 }
@@ -777,7 +774,7 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
             // If we failed, then clear any sensitive data that may have
             // already been written to the message buffer.
             if (!success) {
-                Arrays.fill(message, messageOffset, message.size - messageOffset, 0.toByte())
+                message.fill(0, messageOffset, message.size - messageOffset)
                 action = FAILED
             }
         }
@@ -817,7 +814,7 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
         payload: ByteArray,
         payloadOffset: Int
     ): Int {
-        var messageOffset = messageOffset
+        @Suppress("NAME_SHADOWING") var messageOffset = messageOffset
         var success = false
         val messageEnd = messageOffset + messageLength
 
@@ -955,7 +952,7 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
                     else -> {
                         // Unknown token code.  Abort.
                         throw IllegalStateException(
-                            "Unknown handshake token " + token.toInt().toString()
+                            "Unknown handshake token ${token.toInt()}"
                         )
                     }
                 }
@@ -976,7 +973,7 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
             // If we failed, then clear any sensitive data that may have
             // already been written to the payload buffer.
             if (!success) {
-                Arrays.fill(payload, payloadOffset, payload.size - payloadOffset, 0.toByte())
+                payload.fill(0, payloadOffset, payload.size - payloadOffset)
                 action = FAILED
             }
         }
@@ -1143,7 +1140,7 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
         private fun bytesToHex(bytes: ByteArray): String {
             val sb = StringBuilder()
             for (b in bytes) {
-                sb.append(String.format("%02x", b))
+                sb.append("%02x".format(b))
             }
             return sb.toString()
         }

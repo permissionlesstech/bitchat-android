@@ -48,7 +48,7 @@ internal class NewHopeDHState : DHStateHybrid {
      */
     private inner class NewHopeWithPrivateKey(private val randomData: ByteArray) : NewHopeTor() {
         override fun randombytes(buffer: ByteArray) {
-            System.arraycopy(randomData, 0, buffer, 0, buffer.size)
+            randomData.copyInto(buffer, 0, 0, buffer.size)
         }
     }
 
@@ -102,21 +102,19 @@ internal class NewHopeDHState : DHStateHybrid {
 
     override fun getPublicKey(key: ByteArray, offset: Int) {
         val pk = publicKey
-        if (pk != null) System.arraycopy(pk, 0, key, offset, publicKeyLength)
+        if (pk != null) pk.copyInto(key, offset, 0, publicKeyLength)
         else key.fill(0, offset, offset + publicKeyLength)
     }
 
     override fun setPublicKey(key: ByteArray, offset: Int) {
         publicKey?.let { Noise.destroy(it) }
         val len = publicKeyLength
-        val pk = ByteArray(len)
-        System.arraycopy(key, offset, pk, 0, len)
-        publicKey = pk
+        publicKey = key.copyOfRange(offset, offset + len)
     }
 
     override fun getPrivateKey(key: ByteArray, offset: Int) {
         val sk = privateKey
-        if (sk != null) System.arraycopy(sk, 0, key, offset, privateKeyLength)
+        if (sk != null) sk.copyInto(key, offset, 0, privateKeyLength)
         else key.fill(0, offset, offset + privateKeyLength)
     }
 
@@ -125,9 +123,7 @@ internal class NewHopeDHState : DHStateHybrid {
         // Guess the key type from the length of the test data.
         keyType = if (offset == 0 && key.size == 64) KeyType.AlicePrivate else KeyType.BobPrivate
         val len = privateKeyLength
-        val sk = ByteArray(len)
-        System.arraycopy(key, offset, sk, 0, len)
-        privateKey = sk
+        privateKey = key.copyOfRange(offset, offset + len)
     }
 
     override fun setToNullPublicKey() {
@@ -169,7 +165,7 @@ internal class NewHopeDHState : DHStateHybrid {
             }
             KeyType.BobCalculated -> {
                 // The shared key for Bob was already computed when the key was generated.
-                System.arraycopy(privateKey!!, 0, sharedKey, 0, NewHope.SHAREDBYTES)
+                privateKey!!.copyInto(sharedKey, 0, 0, NewHope.SHAREDBYTES)
             }
             else -> throw IllegalStateException("Cannot calculate with this DH object")
         }
