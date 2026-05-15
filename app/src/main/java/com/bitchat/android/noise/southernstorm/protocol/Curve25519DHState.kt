@@ -24,43 +24,23 @@ package com.bitchat.android.noise.southernstorm.protocol
 import com.bitchat.android.noise.southernstorm.crypto.Curve25519
 import com.bitchat.android.noise.southernstorm.protocol.Noise.destroy
 import com.bitchat.android.noise.southernstorm.protocol.Noise.random
-import java.util.Arrays
 
 /**
  * Implementation of the Curve25519 algorithm for the Noise protocol.
  */
 internal class Curve25519DHState : DHState {
-    private val publicKey: ByteArray
-    private val privateKey: ByteArray
+    private val publicKey: ByteArray = ByteArray(32)
+    private val privateKey: ByteArray = ByteArray(32)
     private var mode = 0
-
-    /**
-     * Constructs a new Diffie-Hellman object for Curve25519.
-     */
-    init {
-        publicKey = ByteArray(32)
-        privateKey = ByteArray(32)
-    }
 
     override fun destroy() {
         clearKey()
     }
 
-    override fun getDHName(): String {
-        return "25519"
-    }
-
-    override fun getPublicKeyLength(): Int {
-        return 32
-    }
-
-    override fun getPrivateKeyLength(): Int {
-        return 32
-    }
-
-    override fun getSharedKeyLength(): Int {
-        return 32
-    }
+    override val dhName: String get() = "25519"
+    override val publicKeyLength: Int get() = 32
+    override val privateKeyLength: Int get() = 32
+    override val sharedKeyLength: Int get() = 32
 
     override fun generateKeyPair() {
         random(privateKey)
@@ -74,7 +54,7 @@ internal class Curve25519DHState : DHState {
 
     override fun setPublicKey(key: ByteArray, offset: Int) {
         System.arraycopy(key, offset, publicKey, 0, 32)
-        Arrays.fill(privateKey, 0.toByte())
+        privateKey.fill(0)
         mode = 0x01
     }
 
@@ -89,8 +69,8 @@ internal class Curve25519DHState : DHState {
     }
 
     override fun setToNullPublicKey() {
-        Arrays.fill(publicKey, 0.toByte())
-        Arrays.fill(privateKey, 0.toByte())
+        publicKey.fill(0)
+        privateKey.fill(0)
         mode = 0x01
     }
 
@@ -100,13 +80,9 @@ internal class Curve25519DHState : DHState {
         mode = 0
     }
 
-    override fun hasPublicKey(): Boolean {
-        return (mode and 0x01) != 0
-    }
+    override fun hasPublicKey(): Boolean = (mode and 0x01) != 0
 
-    override fun hasPrivateKey(): Boolean {
-        return (mode and 0x02) != 0
-    }
+    override fun hasPrivateKey(): Boolean = (mode and 0x02) != 0
 
     override fun isNullPublicKey(): Boolean {
         if ((mode and 0x01) == 0) return false
@@ -115,17 +91,16 @@ internal class Curve25519DHState : DHState {
         return temp == 0
     }
 
-    override fun calculate(sharedKey: ByteArray, offset: Int, publicDH: DHState?) {
+    override fun calculate(sharedKey: ByteArray, offset: Int, publicDH: DHState) {
         require(publicDH is Curve25519DHState) { "Incompatible DH algorithms" }
         Curve25519.eval(sharedKey, offset, privateKey, publicDH.publicKey)
     }
 
-    override fun copyFrom(other: DHState?) {
+    override fun copyFrom(other: DHState) {
         check(other is Curve25519DHState) { "Mismatched DH key objects" }
         if (other === this) return
-        val dh = other
-        System.arraycopy(dh.privateKey, 0, privateKey, 0, 32)
-        System.arraycopy(dh.publicKey, 0, publicKey, 0, 32)
-        mode = dh.mode
+        System.arraycopy(other.privateKey, 0, privateKey, 0, 32)
+        System.arraycopy(other.publicKey, 0, publicKey, 0, 32)
+        mode = other.mode
     }
 }
