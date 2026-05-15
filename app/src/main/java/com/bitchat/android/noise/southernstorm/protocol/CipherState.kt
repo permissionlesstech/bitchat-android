@@ -53,9 +53,6 @@ interface CipherState : Destroyable {
      * @return The length of MAC values in bytes, or zero if the
      * key has not yet been initialized.
      */
-    // JvmName preserved so existing Java impls/callers (getMACLength) keep
-    // resolving — Kotlin would otherwise expose this as getMacLength.
-    @get:JvmName("getMACLength")
     val macLength: Int
 
     /**

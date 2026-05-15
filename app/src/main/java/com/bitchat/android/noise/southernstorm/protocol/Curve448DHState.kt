@@ -1,0 +1,131 @@
+/*
+ * Copyright (C) 2016 Southern Storm Software, Pty Ltd.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ */
+package com.bitchat.android.noise.southernstorm.protocol
+
+import com.bitchat.android.noise.southernstorm.crypto.Curve448
+import com.bitchat.android.noise.southernstorm.protocol.Noise.destroy
+import com.bitchat.android.noise.southernstorm.protocol.Noise.random
+import java.util.Arrays
+
+/**
+ * Implementation of the Curve448 algorithm for the Noise protocol.
+ */
+internal class Curve448DHState : DHState {
+    private val publicKey: ByteArray
+    private val privateKey: ByteArray
+    private var mode = 0
+
+    /**
+     * Constructs a new Diffie-Hellman object for Curve448.
+     */
+    init {
+        publicKey = ByteArray(56)
+        privateKey = ByteArray(56)
+    }
+
+    override fun destroy() {
+        clearKey()
+    }
+
+    override fun getDHName(): String {
+        return "448"
+    }
+
+    override fun getPublicKeyLength(): Int {
+        return 56
+    }
+
+    override fun getPrivateKeyLength(): Int {
+        return 56
+    }
+
+    override fun getSharedKeyLength(): Int {
+        return 56
+    }
+
+    override fun generateKeyPair() {
+        random(privateKey)
+        Curve448.eval(publicKey, 0, privateKey, null)
+        mode = 0x03
+    }
+
+    override fun getPublicKey(key: ByteArray, offset: Int) {
+        System.arraycopy(publicKey, 0, key, offset, 56)
+    }
+
+    override fun setPublicKey(key: ByteArray, offset: Int) {
+        System.arraycopy(key, offset, publicKey, 0, 56)
+        Arrays.fill(privateKey, 0.toByte())
+        mode = 0x01
+    }
+
+    override fun getPrivateKey(key: ByteArray, offset: Int) {
+        System.arraycopy(privateKey, 0, key, offset, 56)
+    }
+
+    override fun setPrivateKey(key: ByteArray, offset: Int) {
+        System.arraycopy(key, offset, privateKey, 0, 56)
+        Curve448.eval(publicKey, 0, privateKey, null)
+        mode = 0x03
+    }
+
+    override fun setToNullPublicKey() {
+        Arrays.fill(publicKey, 0.toByte())
+        Arrays.fill(privateKey, 0.toByte())
+        mode = 0x01
+    }
+
+    override fun clearKey() {
+        destroy(publicKey)
+        destroy(privateKey)
+        mode = 0
+    }
+
+    override fun hasPublicKey(): Boolean {
+        return (mode and 0x01) != 0
+    }
+
+    override fun hasPrivateKey(): Boolean {
+        return (mode and 0x02) != 0
+    }
+
+    override fun isNullPublicKey(): Boolean {
+        if ((mode and 0x01) == 0) return false
+        var temp = 0
+        for (index in 0..55) temp = temp or publicKey[index].toInt()
+        return temp == 0
+    }
+
+    override fun calculate(sharedKey: ByteArray, offset: Int, publicDH: DHState?) {
+        require(publicDH is Curve448DHState) { "Incompatible DH algorithms" }
+        Curve448.eval(sharedKey, offset, privateKey, publicDH.publicKey)
+    }
+
+    override fun copyFrom(other: DHState?) {
+        check(other is Curve448DHState) { "Mismatched DH key objects" }
+        if (other === this) return
+        val dh = other
+        System.arraycopy(dh.privateKey, 0, privateKey, 0, 56)
+        System.arraycopy(dh.publicKey, 0, publicKey, 0, 56)
+        mode = dh.mode
+    }
+}
