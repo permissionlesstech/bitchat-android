@@ -37,6 +37,9 @@ interface DHStateHybrid : DHState {
      */
     fun generateKeyPair(remote: DHState?)
 
+    // Note: copyFrom(other) is inherited from DHState; the two-arg overload
+    // below adds the remote-peer parameter required by hybrid algorithms.
+
     /**
      * Copies the key values from another DH object of the same type.
      * 
@@ -46,7 +49,7 @@ interface DHStateHybrid : DHState {
      * @throws IllegalStateException The other or remote DH object does not have
      * the same type as this object.
      */
-    fun copyFrom(other: DHState?, remote: DHState?)
+    fun copyFrom(other: DHState, remote: DHState?)
 
     /**
      * Specifies the local peer object prior to setting a public key
