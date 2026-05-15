@@ -73,18 +73,14 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
     var action: Int
         private set
     private var requirements: Int
-    private var pattern: ShortArray?
-    private var patternIndex: Int
-    private var preSharedKey: ByteArray?
-    private var prologue: ByteArray?
+    private var pattern: ShortArray
+    private var patternIndex: Int = 1
+    private var preSharedKey: ByteArray? = null
+    private var prologue: ByteArray? = null
 
-    val protocolName: String?
-        /**
-         * Gets the name of the Noise protocol.
-         * 
-         * @return The protocol name.
-         */
-        get() = symmetric!!.getProtocolName()
+    /** Name of the Noise protocol. */
+    val protocolName: String
+        get() = symmetric!!.protocolName
 
     val role: Int
         /**
@@ -230,7 +226,7 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
             if (localEphemeral == null) return null
             try {
                 fixedEphemeral =
-                    createDH(localEphemeral!!.getDHName())
+                    createDH(localEphemeral!!.dhName)
             } catch (e: NoSuchAlgorithmException) {
                 // This shouldn't happen - the local ephemeral key would
                 // have already been created with the same name!
@@ -256,7 +252,7 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
             if (localHybrid == null) return null
             try {
                 fixedHybrid =
-                    createDH(localHybrid!!.getDHName())
+                    createDH(localHybrid!!.dhName)
             } catch (e: NoSuchAlgorithmException) {
                 // This shouldn't happen - the local hybrid key would
                 // have already been created with the same name!
@@ -286,12 +282,11 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
         val patternId = components[1]
         var dh = components[2]
         var hybrid: String? = null
-        val cipher: String? = components[3]
-        val hash: String? = components[4]
+        val cipher: String = components[3]
+        val hash: String = components[4]
         require(!(prefix != "Noise" && prefix != "NoisePSK")) { "Prefix must be Noise or NoisePSK" }
-        pattern = lookup(patternId)
-        requireNotNull(pattern) { "Handshake pattern is not recognized" }
-        var flags = pattern!![0]
+        pattern = requireNotNull(lookup(patternId)) { "Handshake pattern is not recognized" }
+        var flags = pattern[0]
         var extraReqs = 0
         if ((flags.toInt() and Pattern.FLAG_REMOTE_REQUIRED.toInt()) != 0 && patternId.length > 1) extraReqs =
             extraReqs or FALLBACK_POSSIBLE
@@ -336,10 +331,10 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
 
         // We cannot use hybrid algorithms like New Hope for ephemeral or static keys,
         // as the unbalanced nature of the algorithm only works with "f" and "ff" tokens.
-        if (localKeyPair is DHStateHybrid) throw NoSuchAlgorithmException("Cannot use '" + localKeyPair!!.getDHName() + "' for static keys")
-        if (localEphemeral is DHStateHybrid) throw NoSuchAlgorithmException("Cannot use '" + localEphemeral!!.getDHName() + "' for ephemeral keys")
-        if (remotePublicKey is DHStateHybrid) throw NoSuchAlgorithmException("Cannot use '" + remotePublicKey!!.getDHName() + "' for static keys")
-        if (remoteEphemeral is DHStateHybrid) throw NoSuchAlgorithmException("Cannot use '" + remoteEphemeral!!.getDHName() + "' for ephemeral keys")
+        if (localKeyPair is DHStateHybrid) throw NoSuchAlgorithmException("Cannot use '" + localKeyPair!!.dhName + "' for static keys")
+        if (localEphemeral is DHStateHybrid) throw NoSuchAlgorithmException("Cannot use '" + localEphemeral!!.dhName + "' for ephemeral keys")
+        if (remotePublicKey is DHStateHybrid) throw NoSuchAlgorithmException("Cannot use '" + remotePublicKey!!.dhName + "' for static keys")
+        if (remoteEphemeral is DHStateHybrid) throw NoSuchAlgorithmException("Cannot use '" + remoteEphemeral!!.dhName + "' for ephemeral keys")
     }
 
     /**
@@ -364,7 +359,7 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
      */
     fun start() {
         check(action == NO_ACTION) { "Handshake has already started; cannot start again" }
-        if ((pattern!![0].toInt() and Pattern.FLAG_REMOTE_EPHEM_REQ.toInt()) != 0 &&
+        if ((pattern[0].toInt() and Pattern.FLAG_REMOTE_EPHEM_REQ.toInt()) != 0 &&
             (requirements and FALLBACK_PREMSG) == 0
         ) {
             throw UnsupportedOperationException("Cannot start a fallback pattern")
@@ -384,48 +379,49 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
 
         // Log the symmetric state BEFORE any mixing operations (matching iOS)
         Log.d(TAG, "=== ANDROID HANDSHAKE START - INITIAL STATE ===")
-        Log.d(TAG, "Protocol: " + symmetric!!.getProtocolName())
+        Log.d(TAG, "Protocol: " + symmetric!!.protocolName)
         Log.d(TAG, "Role: " + (if (isInitiator) "INITIATOR" else "RESPONDER"))
-        Log.d(TAG, "Initial symmetric hash: " + bytesToHex(symmetric!!.getHandshakeHash()))
+        Log.d(TAG, "Initial symmetric hash: " + bytesToHex(symmetric!!.handshakeHash!!))
 
 
         // Hash the prologue value.
         Log.d(TAG, "Mixing empty prologue")
-        if (prologue != null) symmetric!!.mixHash(prologue, 0, prologue!!.size)
+        val p = prologue
+        if (p != null) symmetric!!.mixHash(p, 0, p.size)
         else symmetric!!.mixHash(emptyPrologue, 0, 0)
-        Log.d(TAG, "Hash after empty prologue: " + bytesToHex(symmetric!!.getHandshakeHash()))
+        Log.d(TAG, "Hash after empty prologue: " + bytesToHex(symmetric!!.handshakeHash!!))
 
 
         // Hash the pre-shared key into the chaining key and handshake hash.
-        if (preSharedKey != null) symmetric!!.mixPreSharedKey(preSharedKey)
+        preSharedKey?.let { symmetric!!.mixPreSharedKey(it) }
 
 
         // Mix the pre-supplied public keys into the handshake hash.
         if (isInitiator) {
             Log.d(TAG, "XX pattern - no pre-message keys to mix")
-            if ((requirements and LOCAL_PREMSG) != 0) symmetric!!.mixPublicKey(localKeyPair)
+            if ((requirements and LOCAL_PREMSG) != 0) symmetric!!.mixPublicKey(localKeyPair!!)
             if ((requirements and FALLBACK_PREMSG) != 0) {
-                symmetric!!.mixPublicKey(remoteEphemeral)
-                if (remoteHybrid != null) symmetric!!.mixPublicKey(remoteHybrid)
-                if (preSharedKey != null) symmetric!!.mixPublicKeyIntoCK(remoteEphemeral)
+                symmetric!!.mixPublicKey(remoteEphemeral!!)
+                remoteHybrid?.let { symmetric!!.mixPublicKey(it) }
+                if (preSharedKey != null) symmetric!!.mixPublicKeyIntoCK(remoteEphemeral!!)
             }
-            if ((requirements and REMOTE_PREMSG) != 0) symmetric!!.mixPublicKey(remotePublicKey)
+            if ((requirements and REMOTE_PREMSG) != 0) symmetric!!.mixPublicKey(remotePublicKey!!)
         } else {
             Log.d(TAG, "XX pattern - no pre-message keys to mix")
-            if ((requirements and REMOTE_PREMSG) != 0) symmetric!!.mixPublicKey(remotePublicKey)
+            if ((requirements and REMOTE_PREMSG) != 0) symmetric!!.mixPublicKey(remotePublicKey!!)
             if ((requirements and FALLBACK_PREMSG) != 0) {
-                symmetric!!.mixPublicKey(localEphemeral)
-                if (localHybrid != null) symmetric!!.mixPublicKey(localHybrid)
-                if (preSharedKey != null) symmetric!!.mixPublicKeyIntoCK(localEphemeral)
+                symmetric!!.mixPublicKey(localEphemeral!!)
+                localHybrid?.let { symmetric!!.mixPublicKey(it) }
+                if (preSharedKey != null) symmetric!!.mixPublicKeyIntoCK(localEphemeral!!)
             }
-            if ((requirements and LOCAL_PREMSG) != 0) symmetric!!.mixPublicKey(localKeyPair)
+            if ((requirements and LOCAL_PREMSG) != 0) symmetric!!.mixPublicKey(localKeyPair!!)
         }
 
         // Log final state after all initialization (matching iOS)
         Log.d(TAG, "=== ANDROID HANDSHAKE START - FINAL STATE ===")
         Log.d(
             TAG,
-            "Final symmetric hash after mixPreMessageKeys(): " + bytesToHex(symmetric!!.getHandshakeHash())
+            "Final symmetric hash after mixPreMessageKeys(): " + bytesToHex(symmetric!!.handshakeHash!!)
         )
         Log.d(TAG, "===========================================")
 
@@ -533,7 +529,7 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
         // Format a new protocol name for the fallback variant
         // and recreate the SymmetricState object.
         val components =
-            symmetric!!.getProtocolName().split("_".toRegex()).dropLastWhile { it.isEmpty() }
+            symmetric!!.protocolName.split("_".toRegex()).dropLastWhile { it.isEmpty() }
                 .toTypedArray()
         components[1] = patternName
         val builder = StringBuilder()
@@ -563,7 +559,7 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
         action = NO_ACTION
         pattern = newPattern
         patternIndex = 1
-        var flags = pattern!![0]
+        var flags = pattern[0]
         if (!isInitiator) {
             // Reverse the pattern flags so that the responder is "local".
             flags = reverseFlags(flags)
@@ -584,7 +580,7 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
      */
     private fun mixDH(local: DHState, remote: DHState) {
         check(!(local == null || remote == null)) { "Pattern definition error" }
-        val len = local.getSharedKeyLength()
+        val len = local.sharedKeyLength
         val shared = ByteArray(len)
         try {
             local.calculate(shared, 0, remote)
@@ -643,12 +639,12 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
         try {
             // Process tokens until the direction changes or the patten ends.
             while (true) {
-                if (patternIndex >= pattern!!.size) {
+                if (patternIndex >= pattern.size) {
                     // The pattern has finished, so the next action is "split".
                     action = SPLIT
                     break
                 }
-                val token = pattern!![patternIndex++]
+                val token = pattern[patternIndex++]
                 if (token == Pattern.FLIP_DIR) {
                     // Change directions, so this message is complete and the
                     // next action is "read message".
@@ -664,9 +660,10 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
                         // key to the message.  If we are running fixed vector tests,
                         // then the ephemeral key may have already been provided.
                         checkNotNull(localEphemeral) { "Pattern definition error" }
-                        if (fixedEphemeral == null) localEphemeral!!.generateKeyPair()
-                        else localEphemeral!!.copyFrom(fixedEphemeral)
-                        len = localEphemeral!!.getPublicKeyLength()
+                        val fe = fixedEphemeral
+                        if (fe == null) localEphemeral!!.generateKeyPair()
+                        else localEphemeral!!.copyFrom(fe)
+                        len = localEphemeral!!.publicKeyLength
                         if (space < len) throw ShortBufferException()
                         localEphemeral!!.getPublicKey(message, messagePosn)
                         symmetric!!.mixHash(message, messagePosn, len)
@@ -680,8 +677,8 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
                     Pattern.S -> {
                         // Encrypt the local static public key and add it to the message.
                         checkNotNull(localKeyPair) { "Pattern definition error" }
-                        len = localKeyPair!!.getPublicKeyLength()
-                        macLen = symmetric!!.getMACLength()
+                        len = localKeyPair!!.publicKeyLength
+                        macLen = symmetric!!.macLength
                         if (space < (len + macLen)) throw ShortBufferException()
                         localKeyPair!!.getPublicKey(message, messagePosn)
                         messagePosn += symmetric!!.encryptAndHash(
@@ -720,19 +717,20 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
                         // key to the message.  If we are running fixed vector tests,
                         // then a fixed hybrid key may have already been provided.
                         checkNotNull(localHybrid) { "Pattern definition error" }
-                        if (localHybrid is DHStateHybrid) {
+                        val fh = fixedHybrid
+                        val lh = localHybrid!!
+                        if (lh is DHStateHybrid) {
                             // The DH object is something like New Hope which needs to
                             // generate keys relative to the other party's public key.
-                            val hybrid = localHybrid as DHStateHybrid
-                            if (fixedHybrid == null) hybrid.generateKeyPair(remoteHybrid)
-                            else hybrid.copyFrom(fixedHybrid, remoteHybrid)
+                            if (fh == null) lh.generateKeyPair(remoteHybrid)
+                            else lh.copyFrom(fh, remoteHybrid)
                         } else {
-                            if (fixedHybrid == null) localHybrid!!.generateKeyPair()
-                            else localHybrid!!.copyFrom(fixedHybrid)
+                            if (fh == null) lh.generateKeyPair()
+                            else lh.copyFrom(fh)
                         }
-                        len = localHybrid!!.getPublicKeyLength()
+                        len = localHybrid!!.publicKeyLength
                         if (space < len) throw ShortBufferException()
-                        macLen = symmetric!!.getMACLength()
+                        macLen = symmetric!!.macLength
                         if (space < (len + macLen)) throw ShortBufferException()
                         localHybrid!!.getPublicKey(message, messagePosn)
                         messagePosn += symmetric!!.encryptAndHash(
@@ -838,12 +836,12 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
         try {
             // Process tokens until the direction changes or the patten ends.
             while (true) {
-                if (patternIndex >= pattern!!.size) {
+                if (patternIndex >= pattern.size) {
                     // The pattern has finished, so the next action is "split".
                     action = SPLIT
                     break
                 }
-                val token = pattern!![patternIndex++]
+                val token = pattern[patternIndex++]
                 if (token == Pattern.FLIP_DIR) {
                     // Change directions, so this message is complete and the
                     // next action is "write message".
@@ -857,7 +855,7 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
                     Pattern.E -> {
                         // Save the remote ephemeral key and hash it.
                         checkNotNull(remoteEphemeral) { "Pattern definition error" }
-                        len = remoteEphemeral!!.getPublicKeyLength()
+                        len = remoteEphemeral!!.publicKeyLength
                         if (space < len) throw ShortBufferException()
                         symmetric!!.mixHash(message, messageOffset, len)
                         remoteEphemeral!!.setPublicKey(message, messageOffset)
@@ -878,8 +876,8 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
                     Pattern.S -> {
                         // Decrypt and read the remote static key.
                         checkNotNull(remotePublicKey) { "Pattern definition error" }
-                        len = remotePublicKey!!.getPublicKeyLength()
-                        macLen = symmetric!!.getMACLength()
+                        len = remotePublicKey!!.publicKeyLength
+                        macLen = symmetric!!.macLength
                         if (space < (len + macLen)) throw ShortBufferException()
                         val temp = ByteArray(len)
                         try {
@@ -929,8 +927,8 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
                             // generated a local hybrid keypair or not.
                             (remoteHybrid as DHStateHybrid).specifyPeer(localHybrid)
                         }
-                        len = remoteHybrid!!.getPublicKeyLength()
-                        macLen = symmetric!!.getMACLength()
+                        len = remoteHybrid!!.publicKeyLength
+                        macLen = symmetric!!.macLength
                         if (space < (len + macLen)) throw ShortBufferException()
                         val temp = ByteArray(len)
                         try {
@@ -1026,17 +1024,15 @@ class HandshakeState(protocolName: String, role: Int) : Destroyable {
         return pair
     }
 
+    /**
+     * Current value of the handshake hash, which must not be modified by the caller.
+     *
+     * @throws IllegalStateException The action is not SPLIT or COMPLETE.
+     */
     val handshakeHash: ByteArray?
-        /**
-         * Gets the current value of the handshake hash.
-         * 
-         * @return The handshake hash.  This must not be modified by the caller.
-         * 
-         * @throws IllegalStateException The action is not SPLIT or COMPLETE.
-         */
         get() {
-            check(!(action != SPLIT && action != COMPLETE)) { "Handshake has not completed" }
-            return symmetric!!.getHandshakeHash()
+            check(action == SPLIT || action == COMPLETE) { "Handshake has not completed" }
+            return symmetric!!.handshakeHash
         }
 
     override fun destroy() {
