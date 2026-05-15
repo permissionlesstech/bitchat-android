@@ -27,7 +27,6 @@ import com.bitchat.android.noise.southernstorm.protocol.Noise.throwBadTagExcepti
 import java.security.InvalidAlgorithmParameterException
 import java.security.InvalidKeyException
 import java.security.NoSuchAlgorithmException
-import java.util.Arrays
 import javax.crypto.BadPaddingException
 import javax.crypto.Cipher
 import javax.crypto.IllegalBlockSizeException
@@ -43,33 +42,23 @@ import javax.crypto.spec.SecretKeySpec
  * This class is used on platforms that don't have "AES/GCM/NoPadding",
  * but which do have the older "AES/CTR/NoPadding".
  */
-internal class AESGCMOnCtrCipherState : CipherState {
-    private val cipher: Cipher? = null
-    private var keySpec: SecretKeySpec?
-    private var n: Long
-    private val iv: ByteArray
-    private val hashKey: ByteArray
-    private val ghash: GHASH
+internal class AESGCMOnCtrCipherState
+@Throws(NoSuchAlgorithmException::class)
+constructor() : CipherState {
+    private val cipher: Cipher
+    private var keySpec: SecretKeySpec? = null
+    private var n: Long = 0
+    private val iv: ByteArray = ByteArray(16)
+    private val hashKey: ByteArray = ByteArray(16)
+    private val ghash: GHASH = GHASH()
 
-    /**
-     * Constructs a new cipher state for the "AESGCM" algorithm.
-     * 
-     * @throws NoSuchAlgorithmException The system does not have a
-     * provider for this algorithm.
-     */
     init {
-        try {
-            cipher = Cipher.getInstance("AES/CTR/NoPadding")
+        cipher = try {
+            Cipher.getInstance("AES/CTR/NoPadding")
         } catch (e: NoSuchPaddingException) {
             // AES/CTR is available, but not the unpadded version?  Huh?
             throw NoSuchAlgorithmException("AES/CTR/NoPadding not available", e)
         }
-        keySpec = null
-        n = 0
-        iv = ByteArray(16)
-        hashKey = ByteArray(16)
-        ghash = GHASH()
-
 
         // Try to set a 256-bit key on the cipher.  Some JCE's are
         // configured to disallow 256-bit AES if an extra policy
@@ -95,7 +84,7 @@ internal class AESGCMOnCtrCipherState : CipherState {
         keySpec = SecretKeySpec(ByteArray(32), "AES")
         val params = IvParameterSpec(iv)
         try {
-            cipher!!.init(Cipher.ENCRYPT_MODE, keySpec, params)
+            cipher.init(Cipher.ENCRYPT_MODE, keySpec, params)
         } catch (e: InvalidKeyException) {
             // Shouldn't happen.
         } catch (e: InvalidAlgorithmParameterException) {
@@ -103,25 +92,20 @@ internal class AESGCMOnCtrCipherState : CipherState {
         }
     }
 
-    val cipherName: String
-        get() = "AESGCM"
+    override val cipherName: String get() = "AESGCM"
+    override val keyLength: Int get() = 32
+    override val macLength: Int get() = if (keySpec != null) 16 else 0
 
-    val keyLength: Int
-        get() = 32
-
-    val mACLength: Int
-        get() = if (keySpec != null) 16 else 0
-
-    override fun initializeKey(key: ByteArray?, offset: Int) {
+    override fun initializeKey(key: ByteArray, offset: Int) {
         // Set the encryption key.
         keySpec = SecretKeySpec(key, offset, 32, "AES")
 
 
         // Generate the hashing key by encrypting a block of zeroes.
-        Arrays.fill(iv, 0.toByte())
-        Arrays.fill(hashKey, 0.toByte())
+        iv.fill(0)
+        hashKey.fill(0)
         try {
-            cipher!!.init(Cipher.ENCRYPT_MODE, keySpec, IvParameterSpec(iv))
+            cipher.init(Cipher.ENCRYPT_MODE, keySpec, IvParameterSpec(iv))
         } catch (e: InvalidKeyException) {
             // Shouldn't happen.
             throw IllegalStateException(e)
@@ -185,12 +169,12 @@ internal class AESGCMOnCtrCipherState : CipherState {
 
 
         // Initialize the CTR mode cipher with the key and IV.
-        cipher!!.init(Cipher.ENCRYPT_MODE, keySpec, IvParameterSpec(iv))
+        cipher.init(Cipher.ENCRYPT_MODE, keySpec, IvParameterSpec(iv))
 
 
         // Encrypt a block of zeroes to generate the hash key to XOR
         // the GHASH tag with at the end of the encrypt/decrypt operation.
-        Arrays.fill(hashKey, 0.toByte())
+        hashKey.fill(0)
         try {
             cipher.update(hashKey, 0, 16, hashKey, 0)
         } catch (e: ShortBufferException) {
@@ -232,7 +216,7 @@ internal class AESGCMOnCtrCipherState : CipherState {
         try {
             setup(ad)
             val result =
-                cipher!!.update(plaintext, plaintextOffset, length, ciphertext, ciphertextOffset)
+                cipher.update(plaintext, plaintextOffset, length, ciphertext, ciphertextOffset)
             cipher.doFinal(ciphertext, ciphertextOffset + result)
         } catch (e: InvalidKeyException) {
             // Shouldn't happen.
@@ -250,8 +234,10 @@ internal class AESGCMOnCtrCipherState : CipherState {
         ghash.update(ciphertext, ciphertextOffset, length)
         ghash.pad((if (ad != null) ad.size else 0).toLong(), length.toLong())
         ghash.finish(ciphertext, ciphertextOffset + length, 16)
-        for (index in 0..15) ciphertext[ciphertextOffset + length + index] =
-            ciphertext[ciphertextOffset + length + index].toInt() xor hashKey[index].toInt()
+        for (index in 0..15) {
+            ciphertext[ciphertextOffset + length + index] =
+                (ciphertext[ciphertextOffset + length + index].toInt() xor hashKey[index].toInt()).toByte()
+        }
         return length + 16
     }
 
@@ -303,7 +289,7 @@ internal class AESGCMOnCtrCipherState : CipherState {
         if ((temp and 0xFF) != 0) throwBadTagException()
         try {
             val result =
-                cipher!!.update(ciphertext, ciphertextOffset, dataLen, plaintext, plaintextOffset)
+                cipher.update(ciphertext, ciphertextOffset, dataLen, plaintext, plaintextOffset)
             cipher.doFinal(plaintext, plaintextOffset + result)
         } catch (e: IllegalBlockSizeException) {
             // Shouldn't happen.
@@ -316,12 +302,11 @@ internal class AESGCMOnCtrCipherState : CipherState {
     }
 
     override fun fork(key: ByteArray, offset: Int): CipherState {
-        val cipher: CipherState
-        try {
-            cipher = AESGCMOnCtrCipherState()
+        val cipher: CipherState = try {
+            AESGCMOnCtrCipherState()
         } catch (e: NoSuchAlgorithmException) {
-            // Shouldn't happen.
-            return null
+            // Shouldn't happen — this state already exists, so the algorithm is available.
+            throw IllegalStateException(e)
         }
         cipher.initializeKey(key, offset)
         return cipher
