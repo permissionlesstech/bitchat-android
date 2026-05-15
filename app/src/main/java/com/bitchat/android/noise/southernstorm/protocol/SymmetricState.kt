@@ -42,7 +42,7 @@ internal class SymmetricState(protocolName: String, cipherName: String, hashName
      * 
      * @return The protocol name.
      */
-    val protocolName: String?
+    val protocolName: String
     private var cipher: CipherState?
     private var hash: MessageDigest?
     private var ck: ByteArray?
@@ -120,14 +120,12 @@ internal class SymmetricState(protocolName: String, cipherName: String, hashName
         Log.d(TAG, "=========================================")
     }
 
-    val mACLength: Int
-        /**
-         * Gets the length of MAC values in the current state.
-         * 
-         * @return The length of the MAC value for the underlying cipher
-         * or zero if the cipher has not yet been initialized with a key.
-         */
-        get() = cipher.mACLength
+    /**
+     * Length of MAC values in the current state, or zero if the cipher
+     * has not yet been initialized with a key.
+     */
+    val macLength: Int
+        get() = cipher!!.macLength
 
     /**
      * Mixes data into the chaining key.
@@ -180,7 +178,7 @@ internal class SymmetricState(protocolName: String, cipherName: String, hashName
                 this.handshakeHash!!
             )
         )
-        Log.d(TAG, "Cipher now has key: " + (cipher.mACLength > 0))
+        Log.d(TAG, "Cipher now has key: " + (cipher!!.macLength > 0))
     }
 
     /**
@@ -238,7 +236,7 @@ internal class SymmetricState(protocolName: String, cipherName: String, hashName
      * @param dh The object containing the public key.
      */
     fun mixPublicKey(dh: DHState) {
-        val temp = ByteArray(dh.getPublicKeyLength())
+        val temp = ByteArray(dh.publicKeyLength)
         try {
             dh.getPublicKey(temp, 0)
             mixHash(temp, 0, temp.size)
@@ -253,7 +251,7 @@ internal class SymmetricState(protocolName: String, cipherName: String, hashName
      * @param dh The object containing the public key.
      */
     fun mixPublicKeyIntoCK(dh: DHState) {
-        val temp = ByteArray(dh.getPublicKeyLength())
+        val temp = ByteArray(dh.publicKeyLength)
         try {
             dh.getPublicKey(temp, 0)
             mixKey(temp, 0, temp.size)
@@ -366,7 +364,7 @@ internal class SymmetricState(protocolName: String, cipherName: String, hashName
      */
     @JvmOverloads
     fun split(
-        secondaryKey: ByteArray = ByteArray(0),
+        secondaryKey: ByteArray? = ByteArray(0),
         offset: Int = 0,
         length: Int = 0
     ): CipherStatePair {
@@ -375,7 +373,10 @@ internal class SymmetricState(protocolName: String, cipherName: String, hashName
         val k1 = ByteArray(keyLength)
         val k2 = ByteArray(keyLength)
         try {
-            hkdf(ck!!, 0, ck!!.size, secondaryKey, offset, length, k1, 0, k1.size, k2, 0, k2.size)
+            // When length == 0 the buffer is unused by HKDF; substitute an
+            // empty array so the helper signature can stay non-null.
+            val sk = secondaryKey ?: ByteArray(0)
+            hkdf(ck!!, 0, ck!!.size, sk, offset, length, k1, 0, k1.size, k2, 0, k2.size)
             var c1: CipherState? = null
             var c2: CipherState? = null
             var pair: CipherStatePair? = null
@@ -518,19 +519,15 @@ internal class SymmetricState(protocolName: String, cipherName: String, hashName
                 hash!!.digest(block, 0, hashLength)
                 Arrays.fill(block, hashLength, blockLength, 0.toByte())
             }
-            index = 0
-            while (index < blockLength) {
-                block[index] = block[index].toInt() xor 0x36.toByte().toInt()
-                ++index
+            for (i in 0 until blockLength) {
+                block[i] = (block[i].toInt() xor 0x36).toByte()
             }
             hash!!.reset()
             hash!!.update(block, 0, blockLength)
             hash!!.update(data, dataOffset, dataLength)
             hash!!.digest(output, outputOffset, hashLength)
-            index = 0
-            while (index < blockLength) {
-                block[index] = block[index].toInt() xor (0x36 xor 0x5C).toByte().toInt()
-                ++index
+            for (i in 0 until blockLength) {
+                block[i] = (block[i].toInt() xor (0x36 xor 0x5C)).toByte()
             }
             hash!!.reset()
             hash!!.update(block, 0, blockLength)
