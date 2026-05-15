@@ -19,219 +19,182 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
+package com.bitchat.android.noise.southernstorm.protocol
 
-package com.bitchat.android.noise.southernstorm.protocol;
-
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
-import java.util.Arrays;
-
-import javax.crypto.BadPaddingException;
-
-import com.bitchat.android.noise.southernstorm.crypto.Blake2bMessageDigest;
-import com.bitchat.android.noise.southernstorm.crypto.Blake2sMessageDigest;
-import com.bitchat.android.noise.southernstorm.crypto.SHA256MessageDigest;
-import com.bitchat.android.noise.southernstorm.crypto.SHA512MessageDigest;
+import com.bitchat.android.noise.southernstorm.crypto.Blake2bMessageDigest
+import com.bitchat.android.noise.southernstorm.crypto.Blake2sMessageDigest
+import com.bitchat.android.noise.southernstorm.crypto.SHA256MessageDigest
+import com.bitchat.android.noise.southernstorm.crypto.SHA512MessageDigest
+import java.security.MessageDigest
+import java.security.NoSuchAlgorithmException
+import java.security.SecureRandom
+import javax.crypto.BadPaddingException
 
 /**
  * Utility functions for the Noise protocol library.
  */
-public final class Noise {
+object Noise {
+    /**
+     * Maximum length for Noise packets.
+     */
+    const val MAX_PACKET_LEN: Int = 65535
 
-	/**
-	 * Maximum length for Noise packets.
-	 */
-	public static final int MAX_PACKET_LEN = 65535;
-	
-	private static SecureRandom random = new SecureRandom();
-	
-	/**
-	 * Generates random data using the system random number generator.
-	 * 
-	 * @param data The data buffer to fill with random data.
-	 */
-	public static void random(byte[] data)
-	{
-		random.nextBytes(data);
-	}
+    private val random = SecureRandom()
 
-	private static boolean forceFallbacks = false;
-	
-	/**
-	 * Force the use of plain Java fallback crypto implementations.
-	 * 
-	 * @param force Set to true for force fallbacks, false to
-	 * try to use the system implementation before falling back.
-	 * 
-	 * This function is intended for testing purposes to toggle between
-	 * the system JCA/JCE implementations and the plain Java fallback
-	 * reference implementations.
-	 */
-	public static void setForceFallbacks(boolean force)
-	{
-		forceFallbacks = force;
-	}
+    private var forceFallbacks = false
 
-	/**
-	 * Creates a Diffie-Hellman object from its Noise protocol name.
-	 * 
-	 * @param name The name of the DH algorithm; e.g. "25519", "448", etc.
-	 * 
-	 * @return The Diffie-Hellman object if the name is recognized.
-	 * 
-	 * @throws NoSuchAlgorithmException The name is not recognized as a
-	 * valid Noise protocol name, or there is no cryptography provider
-	 * in the system that implements the algorithm.
-	 */
-	public static DHState createDH(String name) throws NoSuchAlgorithmException
-	{
-		if (name.equals("25519"))
-			return new Curve25519DHState();
-		if (name.equals("448"))
-			return new Curve448DHState();
-		if (name.equals("NewHope"))
-			return new NewHopeDHState();
-		throw new NoSuchAlgorithmException("Unknown Noise DH algorithm name: " + name);
-	}
+    /**
+     * Generates random data using the system random number generator.
+     *
+     * @param data The data buffer to fill with random data.
+     */
+    @JvmStatic
+    fun random(data: ByteArray) {
+        random.nextBytes(data)
+    }
 
-	/**
-	 * Creates a cipher object from its Noise protocol name.
-	 * 
-	 * @param name The name of the cipher algorithm; e.g. "AESGCM", "ChaChaPoly", etc.
-	 * 
-	 * @return The cipher object if the name is recognized.
-	 * 
-	 * @throws NoSuchAlgorithmException The name is not recognized as a
-	 * valid Noise protocol name, or there is no cryptography provider
-	 * in the system that implements the algorithm.
-	 */
-	public static CipherState createCipher(String name) throws NoSuchAlgorithmException
-	{
-		if (name.equals("AESGCM")) {
-			if (forceFallbacks)
-				return new AESGCMFallbackCipherState();
-			// "AES/GCM/NoPadding" exists in some recent JDK's but it is flaky
-			// to use and not easily back-portable to older Android versions.
-			// We instead emulate AESGCM on top of "AES/CTR/NoPadding".
-			try {
-				return new AESGCMOnCtrCipherState();
-			} catch (NoSuchAlgorithmException e1) {
-				// Could not find anything useful in the JCA/JCE so
-				// use the pure Java fallback implementation instead.
-				return new AESGCMFallbackCipherState();
-			}
-		} else if (name.equals("ChaChaPoly")) {
-			return new ChaChaPolyCipherState();
-		}
-		throw new NoSuchAlgorithmException("Unknown Noise cipher algorithm name: " + name);
-	}
-	
-	/**
-	 * Creates a hash object from its Noise protocol name.
-	 * 
-	 * @param name The name of the hash algorithm; e.g. "SHA256", "BLAKE2s", etc.
-	 * 
-	 * @return The hash object if the name is recognized.
-	 * 
-	 * @throws NoSuchAlgorithmException The name is not recognized as a
-	 * valid Noise protocol name, or there is no cryptography provider
-	 * in the system that implements the algorithm.
-	 */
-	public static MessageDigest createHash(String name) throws NoSuchAlgorithmException
-	{
-		// Look for a JCA/JCE provider first and if that doesn't work,
-		// use the fallback implementations in this library instead.
-		// The only algorithm that is required to be implemented by a
-		// JDK is "SHA-256", although "SHA-512" is fairly common as well.
-		if (name.equals("SHA256")) {
-			if (forceFallbacks)
-				return new SHA256MessageDigest();
-			try {
-				return MessageDigest.getInstance("SHA-256");
-			} catch (NoSuchAlgorithmException e) {
-				return new SHA256MessageDigest();
-			}
-		} else if (name.equals("SHA512")) {
-			if (forceFallbacks)
-				return new SHA512MessageDigest();
-			try {
-				return MessageDigest.getInstance("SHA-512");
-			} catch (NoSuchAlgorithmException e) {
-				return new SHA512MessageDigest();
-			}
-		} else if (name.equals("BLAKE2b")) {
-			// Bouncy Castle registers the BLAKE2b variant we
-			// want under the name "BLAKE2B-512".
-			if (forceFallbacks)
-				return new Blake2bMessageDigest();
-			try {
-				return MessageDigest.getInstance("BLAKE2B-512");
-			} catch (NoSuchAlgorithmException e) {
-				return new Blake2bMessageDigest();
-			}
-		} else if (name.equals("BLAKE2s")) {
-			// Bouncy Castle doesn't currently (June 2016) have an
-			// implementation of BLAKE2s, but look for the most
-			// obvious provider name in case one is added in the future.
-			if (forceFallbacks)
-				return new Blake2sMessageDigest();
-			try {
-				return MessageDigest.getInstance("BLAKE2S-256");
-			} catch (NoSuchAlgorithmException e) {
-				return new Blake2sMessageDigest();
-			}
-		}
-		throw new NoSuchAlgorithmException("Unknown Noise hash algorithm name: " + name);
-	}
+    /**
+     * Force the use of plain Java fallback crypto implementations.
+     * 
+     * @param force Set to true for force fallbacks, false to
+     * try to use the system implementation before falling back.
+     * 
+     * This function is intended for testing purposes to toggle between
+     * the system JCA/JCE implementations and the plain Java fallback
+     * reference implementations.
+     */
+    fun setForceFallbacks(force: Boolean) {
+        forceFallbacks = force
+    }
 
-	// The rest of this class consists of internal utility functions
-	// that are not part of the public API.
+    /**
+     * Creates a Diffie-Hellman object from its Noise protocol name.
+     * 
+     * @param name The name of the DH algorithm; e.g. "25519", "448", etc.
+     * 
+     * @return The Diffie-Hellman object if the name is recognized.
+     * 
+     * @throws NoSuchAlgorithmException The name is not recognized as a
+     * valid Noise protocol name, or there is no cryptography provider
+     * in the system that implements the algorithm.
+     */
+    @JvmStatic
+    @Throws(NoSuchAlgorithmException::class)
+    fun createDH(name: String): DHState = when (name) {
+        "25519" -> Curve25519DHState()
+        "448" -> Curve448DHState()
+        "NewHope" -> NewHopeDHState()
+        else -> throw NoSuchAlgorithmException("Unknown Noise DH algorithm name: $name")
+    }
 
-	/**
-	 * Destroys the contents of a byte array.
-	 * 
-	 * @param array The array whose contents should be destroyed.
-	 */
-	static void destroy(byte[] array)
-	{
-		Arrays.fill(array, (byte)0);
-	}
+    /**
+     * Creates a cipher object from its Noise protocol name.
+     * 
+     * @param name The name of the cipher algorithm; e.g. "AESGCM", "ChaChaPoly", etc.
+     * 
+     * @return The cipher object if the name is recognized.
+     * 
+     * @throws NoSuchAlgorithmException The name is not recognized as a
+     * valid Noise protocol name, or there is no cryptography provider
+     * in the system that implements the algorithm.
+     */
+    @JvmStatic
+    @Throws(NoSuchAlgorithmException::class)
+    fun createCipher(name: String): CipherState = when (name) {
+        "AESGCM" -> {
+            if (forceFallbacks) {
+                AESGCMFallbackCipherState()
+            } else {
+                // "AES/GCM/NoPadding" exists in some recent JDK's but it is flaky
+                // to use and not easily back-portable to older Android versions.
+                // We instead emulate AESGCM on top of "AES/CTR/NoPadding".
+                try {
+                    AESGCMOnCtrCipherState()
+                } catch (_: NoSuchAlgorithmException) {
+                    AESGCMFallbackCipherState()
+                }
+            }
+        }
+        "ChaChaPoly" -> ChaChaPolyCipherState()
+        else -> throw NoSuchAlgorithmException("Unknown Noise cipher algorithm name: $name")
+    }
 
-	/**
-	 * Makes a copy of part of an array.
-	 * 
-	 * @param data The buffer containing the data to copy.
-	 * @param offset Offset of the first byte to copy.
-	 * @param length The number of bytes to copy.
-	 * 
-	 * @return A new array with a copy of the sub-array.
-	 */
-	static byte[] copySubArray(byte[] data, int offset, int length)
-	{
-		byte[] copy = new byte [length];
-		System.arraycopy(data, offset, copy, 0, length);
-		return copy;
-	}
-	
-	/**
-	 * Throws an instance of AEADBadTagException.
-	 * 
-	 * @throws BadPaddingException The AEAD exception.
-	 * 
-	 * If the underlying JDK does not have the AEADBadTagException
-	 * class, then this function will instead throw an instance of
-	 * the superclass BadPaddingException.
-	 */
-	static void throwBadTagException() throws BadPaddingException
-	{
-		try {
-			Class<?> c = Class.forName("javax.crypto.AEADBadTagException");
-			throw (BadPaddingException)(c.newInstance());
-		} catch (ClassNotFoundException e) {
-		} catch (InstantiationException e) {
-		} catch (IllegalAccessException e) {
-		}
-		throw new BadPaddingException();
-	}
+    /**
+     * Creates a hash object from its Noise protocol name.
+     * 
+     * @param name The name of the hash algorithm; e.g. "SHA256", "BLAKE2s", etc.
+     * 
+     * @return The hash object if the name is recognized.
+     * 
+     * @throws NoSuchAlgorithmException The name is not recognized as a
+     * valid Noise protocol name, or there is no cryptography provider
+     * in the system that implements the algorithm.
+     */
+    @JvmStatic
+    @Throws(NoSuchAlgorithmException::class)
+    fun createHash(name: String): MessageDigest {
+        // Look for a JCA/JCE provider first and if that doesn't work,
+        // use the fallback implementations in this library instead.
+        // The only algorithm that is required to be implemented by a
+        // JDK is "SHA-256", although "SHA-512" is fairly common as well.
+        val (jcaName, fallback) = when (name) {
+            "SHA256" -> "SHA-256" to ::SHA256MessageDigest
+            "SHA512" -> "SHA-512" to ::SHA512MessageDigest
+            "BLAKE2b" -> "BLAKE2B-512" to ::Blake2bMessageDigest
+            "BLAKE2s" -> "BLAKE2S-256" to ::Blake2sMessageDigest
+            else -> throw NoSuchAlgorithmException("Unknown Noise hash algorithm name: $name")
+        }
+        if (forceFallbacks) return fallback()
+        return try {
+            MessageDigest.getInstance(jcaName)
+        } catch (_: NoSuchAlgorithmException) {
+            fallback()
+        }
+    }
+
+    // The rest of this class consists of internal utility functions
+    // that are not part of the public API.
+    /**
+     * Destroys the contents of a byte array.
+     * 
+     * @param array The array whose contents should be destroyed.
+     */
+    @JvmStatic
+    fun destroy(array: ByteArray) {
+        array.fill(0)
+    }
+
+    /**
+     * Makes a copy of part of an array.
+     * 
+     * @param data The buffer containing the data to copy.
+     * @param offset Offset of the first byte to copy.
+     * @param length The number of bytes to copy.
+     * 
+     * @return A new array with a copy of the sub-array.
+     */
+    @JvmStatic
+    fun copySubArray(data: ByteArray, offset: Int, length: Int): ByteArray =
+        data.copyOfRange(offset, offset + length)
+
+    /**
+     * Throws an instance of AEADBadTagException.
+     * 
+     * @throws BadPaddingException The AEAD exception.
+     * 
+     * If the underlying JDK does not have the AEADBadTagException
+     * class, then this function will instead throw an instance of
+     * the superclass BadPaddingException.
+     */
+    @JvmStatic
+    @Throws(BadPaddingException::class)
+    fun throwBadTagException() {
+        val aead = try {
+            val c = Class.forName("javax.crypto.AEADBadTagException")
+            c.getDeclaredConstructor().newInstance() as BadPaddingException
+        } catch (_: ReflectiveOperationException) {
+            null
+        }
+        throw aead ?: BadPaddingException()
+    }
 }
