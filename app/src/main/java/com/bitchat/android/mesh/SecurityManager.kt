@@ -5,17 +5,23 @@ import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.model.RoutedPacket
+import com.bitchat.android.sync.RequestSyncManager
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.*
 import java.util.*
 import kotlin.collections.mutableSetOf
+import kotlin.math.abs
 
 /**
  * Manages security aspects of the mesh network including duplicate detection,
  * replay attack protection, and key exchange handling
  * Extracted from BluetoothMeshService for better separation of concerns
  */
-class SecurityManager(private val encryptionService: EncryptionService, private val myPeerID: String) {
+class SecurityManager(
+    private val encryptionService: EncryptionService,
+    private val myPeerID: String,
+    private val requestSyncManager: RequestSyncManager
+) {
     
     companion object {
         private const val TAG = "SecurityManager"
@@ -23,6 +29,9 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         private const val CLEANUP_INTERVAL = com.bitchat.android.util.AppConstants.Security.CLEANUP_INTERVAL_MS // 5 minutes
         private const val MAX_PROCESSED_MESSAGES = com.bitchat.android.util.AppConstants.Security.MAX_PROCESSED_MESSAGES
         private const val MAX_PROCESSED_KEY_EXCHANGES = com.bitchat.android.util.AppConstants.Security.MAX_PROCESSED_KEY_EXCHANGES
+        
+        // Max allowed timestamp skew (2 minutes)
+        private const val MAX_TIMESTAMP_SKEW_MS = 120_000L
     }
     
     // Security tracking
@@ -50,9 +59,40 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
             return false
         }
         
-        // Replay attack protection (same 5-minute window as iOS)
         val currentTime = System.currentTimeMillis()
         val messageType = MessageType.fromValue(packet.type)
+
+        // 1. Timestamp Validation (Skipped for valid RSR packets)
+        val isRSR = packet.isRSR
+        val isLegacyRSR = packet.ttl.toUInt() == com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS.toUInt()
+            && messageType != MessageType.REQUEST_SYNC
+        var skipTimestampCheck = false
+
+        if (isRSR || isLegacyRSR) {
+            // We check both explicit RSR flag AND legacy TTL=0 packets
+            // Legacy clients send responses with TTL=0 (neighbor only) but no flag
+            if (requestSyncManager.isValidResponse(peerID, isRSR = true)) {
+                Log.d(TAG, "Valid RSR packet (legacy=$isLegacyRSR) from $peerID - skipping timestamp check")
+                skipTimestampCheck = true
+            } else {                
+                Log.w(TAG, "Invalid or unsolicited RSR packet from $peerID - rejecting")
+                return false
+            }
+        }
+
+        if (!skipTimestampCheck) {
+            // Enforce timestamp check for normal packets
+            val packetTime = packet.timestamp.toLong()
+            val skew = abs(currentTime - packetTime)
+            if (skew > MAX_TIMESTAMP_SKEW_MS) {
+                // Allow leeway for ANNOUNCE packets? iOS does, but "less blind" implies strictness.
+                // However, ANNOUNCE is often used to sync time roughly or discover.
+                // For now, strict enforcement as requested.
+                // "enforce the timestamp validation on normal packets... that we currently have disabled"
+                Log.w(TAG, "Packet timestamp skewed by ${skew}ms (max allowed ${MAX_TIMESTAMP_SKEW_MS}ms) from $peerID")
+                return false
+            }
+        }
 
         // Duplicate detection
         val messageID = generateMessageID(packet, peerID)
