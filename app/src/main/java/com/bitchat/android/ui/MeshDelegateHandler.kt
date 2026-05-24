@@ -54,8 +54,8 @@ class MeshDelegateHandler(
                 
                 // Show notification with enhanced information - now includes senderPeerID 
                 message.senderPeerID?.let { senderPeerID ->
-                    // Use nickname if available, fall back to sender or senderPeerID
-                    val senderNickname = message.sender.takeIf { it != senderPeerID } ?: senderPeerID
+                    // Use disambiguated nickname for notifications
+                    val senderNickname = getMeshService().getDisambiguatedNickname(senderPeerID)
                     val preview = NotificationTextUtils.buildPrivateMessagePreview(message)
                     notificationManager.showPrivateMessageNotification(
                         senderPeerID = senderPeerID,
@@ -250,10 +250,11 @@ class MeshDelegateHandler(
             val isMention = checkForMeshMention(message.content, currentNickname)
 
             if (isMention) {
-                android.util.Log.d("MeshDelegateHandler", "🔔 Triggering mesh mention notification from ${message.sender}")
+                val senderNickname = message.senderPeerID?.let { getMeshService().getDisambiguatedNickname(it) } ?: message.sender
+                android.util.Log.d("MeshDelegateHandler", "🔔 Triggering mesh mention notification from $senderNickname")
 
                 notificationManager.showMeshMentionNotification(
-                    senderNickname = message.sender,
+                    senderNickname = senderNickname,
                     messageContent = message.content,
                     senderPeerID = message.senderPeerID
                 )

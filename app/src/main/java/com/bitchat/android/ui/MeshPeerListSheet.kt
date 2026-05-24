@@ -34,6 +34,7 @@ import com.bitchat.android.geohash.ChannelID
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.nostr.GeohashConversationRegistry
+import com.bitchat.android.util.toHexString
 
 
 /**
@@ -367,7 +368,7 @@ fun PeopleSection(
         // Offline favorites (exclude ones mapped to connected)
         val offlineFavorites = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getOurFavorites()
         offlineFavorites.forEach { fav ->
-            val favPeerID = fav.peerNoisePublicKey.joinToString("") { b -> "%02x".format(b) }
+            val favPeerID = fav.peerNoisePublicKey.toHexString()
             val isMappedToConnected = noiseHexByPeerID.values.any { it.equals(favPeerID, ignoreCase = true) }
             if (!isMappedToConnected) {
                 val dn = peerNicknames[favPeerID] ?: fav.peerNickname
@@ -435,7 +436,7 @@ fun PeopleSection(
 
         // Append offline favorites we actively favorite (and not currently connected)
         offlineFavorites.forEach { fav ->
-            val favPeerID = fav.peerNoisePublicKey.joinToString("") { b -> "%02x".format(b) }
+            val favPeerID = fav.peerNoisePublicKey.toHexString()
             // If any connected peer maps to this noise key, skip showing the offline entry
             val isMappedToConnected = noiseHexByPeerID.values.any { it.equals(favPeerID, ignoreCase = true) }
             if (isMappedToConnected) return@forEach
@@ -560,7 +561,7 @@ private fun PeerItem(
     // Split display name for hashtag suffix support (iOS-compatible)
     val (baseNameRaw, suffixRaw) = splitSuffix(displayName)
     val baseName = truncateNickname(baseNameRaw)
-    val suffix = if (showHashSuffix) suffixRaw else ""
+    val suffix = if (showHashSuffix && suffixRaw.isEmpty()) "#${peerID.takeLast(4)}" else if (showHashSuffix) suffixRaw else ""
     val isMe = displayName == "You" || peerID == currentNickname
 
     // Get consistent peer color (iOS-compatible)
@@ -838,7 +839,8 @@ fun PrivateChatSheet(
                         onNicknameClick = { /* handle mention */ },
                         onMessageLongPress = { /* handle long press */ },
                         onCancelTransfer = { msg -> viewModel.cancelMediaSend(msg.id) },
-                        onImageClick = { _, _, _ -> /* handle image click */ }
+                        onImageClick = { _, _, _ -> /* handle image click */ },
+                        peerNicknames = peerNicknames
                     )
 
                     HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))

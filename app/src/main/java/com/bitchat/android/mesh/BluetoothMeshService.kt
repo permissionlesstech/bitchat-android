@@ -47,7 +47,7 @@ class BluetoothMeshService(private val context: Context) {
 
     // My peer identification - derived from persisted Noise identity fingerprint (first 16 hex chars)
     val myPeerID: String = encryptionService.getIdentityFingerprint().take(16)
-    private val peerManager = PeerManager()
+    private val peerManager = PeerManager().apply { myPeerID = this@BluetoothMeshService.myPeerID }
     private val fragmentManager = FragmentManager()
     private val securityManager = SecurityManager(encryptionService, myPeerID)
     private val storeForwardManager = StoreForwardManager()
@@ -636,6 +636,10 @@ class BluetoothMeshService(private val context: Context) {
         if (connectionManager.startServices()) {
             isActive = true
             
+            // Add ourselves to peer manager for collision detection
+            val myNickname = try { com.bitchat.android.services.NicknameProvider.getNickname(context, myPeerID) } catch (_: Exception) { myPeerID }
+            peerManager.addOrUpdatePeer(myPeerID, myNickname)
+
             // Start periodic announcements for peer discovery and connectivity
             sendPeriodicBroadcastAnnounce()
             Log.d(TAG, "Started periodic broadcast announcements (every 30 seconds)")
@@ -697,6 +701,14 @@ class BluetoothMeshService(private val context: Context) {
         return reusable
     }
     
+    /**
+     * Update our own nickname in peer manager and announce it
+     */
+    fun updateSelfNickname(newNickname: String) {
+        peerManager.addOrUpdatePeer(myPeerID, newNickname)
+        sendBroadcastAnnounce()
+    }
+
     /**
      * Send public message
      */
@@ -1175,6 +1187,11 @@ class BluetoothMeshService(private val context: Context) {
      * Get peer nicknames
      */
     fun getPeerNicknames(): Map<String, String> = peerManager.getAllPeerNicknames()
+
+    /**
+     * Get disambiguated peer nickname (nickname#suffix if collisions exist)
+     */
+    fun getDisambiguatedNickname(peerID: String): String = peerManager.getDisambiguatedNickname(peerID)
     
     /**
      * Get peer RSSI values  
