@@ -41,17 +41,20 @@ class MeshForegroundService : Service() {
             // On API >= 26, avoid background-service start restrictions by using startForegroundService
             // only when we can actually post a notification (Android 13+ requires runtime notif permission)
             val bgEnabled = MeshServicePreferences.isBackgroundEnabled(true)
+            val hasBtPerms = hasBluetoothPermissionsStatic(context)
             val hasNotifPerm = hasNotificationPermissionStatic(context)
+            val canStartAsForeground = bgEnabled && hasBtPerms && hasNotifPerm
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                if (bgEnabled && hasNotifPerm) {
+                if (canStartAsForeground) {
                     context.startForegroundService(intent)
                 } else {
                     // Do not attempt to start a background service from headless context without notif permission
-                    // or when background is disabled, to avoid BackgroundServiceStartNotAllowedException.
+                    // or when background is disabled / bluetooth permission is missing,
+                    // to avoid BackgroundServiceStartNotAllowedException and FGS start timeout crashes.
                     android.util.Log.i(
                         "MeshForegroundService",
-                        "Not starting service on API>=26 (bgEnabled=$bgEnabled, hasNotifPerm=$hasNotifPerm)"
+                        "Not starting service on API>=26 (bgEnabled=$bgEnabled, hasBtPerms=$hasBtPerms, hasNotifPerm=$hasNotifPerm)"
                     )
                 }
             } else {
@@ -68,9 +71,8 @@ class MeshForegroundService : Service() {
          * promoting/starting the foreground service immediately without polling.
          */
         fun onNotificationPermissionGranted(context: Context) {
-            // If background is enabled and permission now granted, start/promo service
-            val hasNotifPerm = hasNotificationPermissionStatic(context)
-            if (!MeshServicePreferences.isBackgroundEnabled(true) || !hasNotifPerm) return
+            // If we can now fully run as foreground, start/promote immediately.
+            if (!shouldStartAsForeground(context)) return
 
             val intent = Intent(context, MeshForegroundService::class.java).apply { action = ACTION_UPDATE_NOTIFICATION }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -124,16 +126,6 @@ class MeshForegroundService : Service() {
         super.onCreate()
         notificationManager = NotificationManagerCompat.from(this)
         createChannel()
-
-        // Ensure mesh service exists in holder (create if needed)
-        val existing = MeshServiceHolder.meshService
-        if (existing != null) {
-            Log.d("MeshForegroundService", "Using existing BluetoothMeshService from holder")
-        } else {
-            val created = MeshServiceHolder.getOrCreate(applicationContext)
-            Log.i("MeshForegroundService", "Created new BluetoothMeshService via holder")
-            MeshServiceHolder.attach(created)
-        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -176,27 +168,20 @@ class MeshForegroundService : Service() {
                 return START_NOT_STICKY
             }
             ACTION_UPDATE_NOTIFICATION -> {
-                // If we became eligible and are not in foreground yet, promote once
-                if (MeshServicePreferences.isBackgroundEnabled(true) && hasAllRequiredPermissions() && !isInForeground) {
-                    val n = buildNotification(meshService?.getActivePeerCount() ?: 0)
-                    startForegroundCompat(n)
-                    isInForeground = true
-                } else {
-                    updateNotification(force = true)
-                }
+                updateNotification(force = true)
             }
             else -> { /* ACTION_START or null */ }
         }
 
-        // Ensure mesh is running (only after permissions are granted)
-        ensureMeshStarted()
-
-        // Promote exactly once when eligible, otherwise stay background (or stop)
+        // Promote as early as possible after startForegroundService() to avoid timeout.
         if (MeshServicePreferences.isBackgroundEnabled(true) && hasAllRequiredPermissions() && !isInForeground) {
             val notification = buildNotification(meshService?.getActivePeerCount() ?: 0)
             startForegroundCompat(notification)
             isInForeground = true
         }
+
+        // Ensure mesh is running (only after permissions are granted)
+        ensureMeshStarted()
 
         // Periodically refresh the notification with live network size
         if (updateJob == null) {
