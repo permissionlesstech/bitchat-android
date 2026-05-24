@@ -724,6 +724,18 @@ class BluetoothMeshService(private val context: Context) {
     }
 
     /**
+     * Broadcast a pre-built BitchatPacket (signs it before sending).
+     * Used by NostrProfileManager for mesh fallback when relays are unavailable.
+     */
+    fun broadcastPacket(packet: BitchatPacket) {
+        serviceScope.launch {
+            val signedPacket = signPacketBeforeBroadcast(packet)
+            connectionManager.broadcastPacket(RoutedPacket(signedPacket))
+            try { gossipSyncManager.onPublicPacketSeen(signedPacket) } catch (_: Exception) { }
+        }
+    }
+
+    /**
      * Send a file over mesh as a broadcast MESSAGE (public mesh timeline/channels).
      */
     fun sendFileBroadcast(file: com.bitchat.android.model.BitchatFilePacket) {

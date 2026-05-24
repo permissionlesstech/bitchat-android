@@ -145,6 +145,9 @@ dependencies {
     // EXIF orientation handling for images
     implementation("androidx.exifinterface:exifinterface:1.3.7")
     
+    // Async image loading from URLs (Coil)
+    implementation(libs.coil.compose)
+    
     // Testing
     testImplementation(libs.bundles.testing)
     androidTestImplementation(platform(libs.androidx.compose.bom))

@@ -383,6 +383,18 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         val packet = routed.packet
         val peerID = routed.peerID ?: "unknown"
         
+        // Check if this is a Nostr relay request packet (should be forwarded to relays, not displayed)
+        if (packet.payload.isNotEmpty()) {
+            val header = packet.payload[0]
+            if (header == com.bitchat.android.nostr.NostrMeshSerializer.TYPE_NOSTR_RELAY_REQUEST ||
+                header == com.bitchat.android.nostr.NostrMeshSerializer.TYPE_NOSTR_PLAINTEXT) {
+                Log.d(TAG, "📡 Received Nostr relay request via mesh from ${peerID.take(8)}, routing to gateway")
+                // Route to NostrMeshGateway for relay publishing (if we have internet)
+                com.bitchat.android.nostr.NostrMeshGateway.meshPacketReceived(appContext, packet.payload, null)
+                return  // Don't display Nostr relay packets as chat messages
+            }
+        }
+        
         // Enforce: only accept public messages from verified peers we know
         val peerInfo = delegate?.getPeerInfo(peerID)
         if (peerInfo == null || !peerInfo.isVerifiedNickname) {
