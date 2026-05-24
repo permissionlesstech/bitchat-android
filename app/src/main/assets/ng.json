@@ -1,0 +1,46 @@
+{
+  "states": [
+    {
+      "name": "Lagos",
+      "regions": [
+        {
+          "name": "Lagos West",
+          "lgas": [
+            {
+              "name": "Ikeja",
+              "wards": [
+                {
+                  "name": "Anifowoshe",
+                  "constituencies": ["Ikeja I", "Ikeja II"]
+                },
+                {
+                  "name": "Oregun",
+                  "constituencies": ["Ikeja I"]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Kano",
+      "regions": [
+        {
+          "name": "Kano Central",
+          "lgas": [
+            {
+              "name": "Fagge",
+              "wards": [
+                {
+                  "name": "Fagge A",
+                  "constituencies": ["Fagge Federal"]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

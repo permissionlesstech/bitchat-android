@@ -1,4 +1,6 @@
 [versions]
+ksp = "2.1.10-1.0.30"
+room = "2.7.0-alpha13"
 # Android and Kotlin
 agp = "8.10.1"
 kotlin = "2.2.0"
@@ -64,6 +66,9 @@ kotlinx-coroutines-test = "1.6"
 lifecycle-process = "2.8.7"
 
 [libraries]
+androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
+androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
+androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 # AndroidX Core
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "core-ktx" }
 androidx-lifecycle-process = { module = "androidx.lifecycle:lifecycle-process", version.ref = "lifecycle-process" }

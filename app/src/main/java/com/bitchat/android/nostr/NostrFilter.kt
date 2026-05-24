@@ -1,4 +1,5 @@
 package com.bitchat.android.nostr
+import com.bitchat.android.location.NigeriaLocation
 
 import com.google.gson.*
 import com.google.gson.annotations.SerializedName
@@ -67,6 +68,58 @@ data class NostrFilter(
             )
         }
         
+        /**
+         * Create a batched filter for multiple admin locations
+         */
+        fun batchedNigeriaNotes(
+            locations: List<NigeriaLocation>,
+            since: Long? = null,
+            limit: Int = 500
+        ): NostrFilter {
+            val states = locations.map { it.state }.distinct()
+            val lgas = locations.map { it.lga }.distinct()
+            val wards = locations.map { it.ward }.distinct()
+
+            val tags = mutableMapOf<String, List<String>>()
+            tags["ng_state"] = states
+            tags["ng_lga"] = lgas
+            tags["ng_ward"] = wards
+
+            return NostrFilter(
+                kinds = listOf(NostrKind.TEXT_NOTE),
+                since = since?.let { (it / 1000).toInt() },
+                tagFilters = tags,
+                limit = limit
+            )
+        }
+
+        /**
+         * Create filter for Nigeria admin level scoped text notes
+         */
+        fun nigeriaNotes(
+            state: String? = null,
+            region: String? = null,
+            lga: String? = null,
+            ward: String? = null,
+            constituency: String? = null,
+            since: Long? = null,
+            limit: Int = 200
+        ): NostrFilter {
+            val tags = mutableMapOf<String, List<String>>()
+            state?.let { tags["ng_state"] = listOf(it) }
+            region?.let { tags["ng_region"] = listOf(it) }
+            lga?.let { tags["ng_lga"] = listOf(it) }
+            ward?.let { tags["ng_ward"] = listOf(it) }
+            constituency?.let { tags["ng_constituency"] = listOf(it) }
+
+            return NostrFilter(
+                kinds = listOf(NostrKind.TEXT_NOTE),
+                since = since?.let { (it / 1000).toInt() },
+                tagFilters = tags,
+                limit = limit
+            )
+        }
+
         /**
          * Create filter for specific event IDs
          */

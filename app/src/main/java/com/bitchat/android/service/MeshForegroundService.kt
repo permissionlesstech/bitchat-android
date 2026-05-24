@@ -5,6 +5,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import com.bitchat.android.location.LocationHierarchyManager
+import com.google.android.gms.location.LocationServices
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -198,10 +200,28 @@ class MeshForegroundService : Service() {
             isInForeground = true
         }
 
-        // Periodically refresh the notification with live network size
+        // Periodically refresh the notification and record location footprint
         if (updateJob == null) {
+            val locationHierarchyManager = com.bitchat.android.location.LocationHierarchyManager(this)
+            val fusedLocationProviderClient = com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(this)
+
             updateJob = scope.launch {
                 while (isActive) {
+                    // Record movement if location permission is granted
+                    if (hasLocationPermission()) {
+                        try {
+                            fusedLocationProviderClient.lastLocation.addOnSuccessListener { location ->
+                                if (location != null) {
+                                    scope.launch {
+                                        locationHierarchyManager.recordMovement(location.latitude, location.longitude)
+                                    }
+                                }
+                            }
+                        } catch (e: SecurityException) {
+                            android.util.Log.e("MeshForegroundService", "SecurityException during location capture: ${e.message}")
+                        }
+                    }
+
                     // Retry enabling mesh/foreground once permissions become available
                     ensureMeshStarted()
                     val eligible = MeshServicePreferences.isBackgroundEnabled(true) && hasAllRequiredPermissions()

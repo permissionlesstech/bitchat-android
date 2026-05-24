@@ -34,6 +34,8 @@ import com.bitchat.android.onboarding.LocationStatus
 import com.bitchat.android.onboarding.LocationStatusManager
 import com.bitchat.android.onboarding.OnboardingCoordinator
 import com.bitchat.android.onboarding.OnboardingState
+import com.bitchat.android.location.NigeriaLocation
+import com.bitchat.android.profiling.UserExtendedProfile
 import com.bitchat.android.onboarding.PermissionExplanationScreen
 import com.bitchat.android.onboarding.PermissionManager
 import com.bitchat.android.ui.ChatScreen
@@ -286,6 +288,24 @@ class MainActivity : OrientationAwareActivity() {
                 )
             }
 
+            OnboardingState.LOCATION_SELECTION -> {
+                com.bitchat.android.onboarding.NigeriaLocationSelectionScreen(
+                    modifier = modifier,
+                    onLocationSelected = { location ->
+                        handleLocationSelected(location)
+                    }
+                )
+            }
+
+            OnboardingState.PROFILE_SETUP -> {
+                com.bitchat.android.onboarding.ProfileSetupScreen(
+                    modifier = modifier,
+                    onComplete = { profile ->
+                        handleProfileSetupComplete(profile)
+                    }
+                )
+            }
+
             OnboardingState.CHECKING, OnboardingState.INITIALIZING, OnboardingState.COMPLETE -> {
                 // Set up back navigation handling for the chat screen
                 val backCallback = object : OnBackPressedCallback(true) {
@@ -407,8 +427,15 @@ class MainActivity : OrientationAwareActivity() {
                 ) {
                     mainViewModel.updateOnboardingState(OnboardingState.BACKGROUND_LOCATION_EXPLANATION)
                 } else {
+                // Both are enabled, proceed to location selection if not already done
+                Log.d("MainActivity", "Both Bluetooth and Location services are enabled, checking location selection")
+                val identityManager = com.bitchat.android.identity.SecureIdentityStateManager(this@MainActivity)
+                if (identityManager.hasSecureValue("user_location")) {
                     mainViewModel.updateOnboardingState(OnboardingState.INITIALIZING)
                     initializeApp()
+                } else {
+                    mainViewModel.updateOnboardingState(OnboardingState.LOCATION_SELECTION)
+                }
                 }
             } else {
                 Log.d("MainActivity", "Existing user missing permissions, showing explanation")
@@ -565,12 +592,40 @@ class MainActivity : OrientationAwareActivity() {
             else -> {
                 // Both are enabled, proceed to app initialization
                 Log.d("MainActivity", "Both Bluetooth and Location services are enabled, proceeding to initialization")
-                mainViewModel.updateOnboardingState(OnboardingState.INITIALIZING)
-                initializeApp()
+                // Both are enabled, proceed to location selection if not already done
+                Log.d("MainActivity", "Both Bluetooth and Location services are enabled, checking location selection")
+                val identityManager = com.bitchat.android.identity.SecureIdentityStateManager(this@MainActivity)
+                if (identityManager.hasSecureValue("user_location")) {
+                    mainViewModel.updateOnboardingState(OnboardingState.INITIALIZING)
+                    initializeApp()
+                } else {
+                    mainViewModel.updateOnboardingState(OnboardingState.LOCATION_SELECTION)
+                }
             }
         }
     }
     
+    private fun handleLocationSelected(location: com.bitchat.android.location.NigeriaLocation) {
+        mainViewModel.updateSelectedLocation(location)
+        mainViewModel.updateOnboardingState(OnboardingState.PROFILE_SETUP)
+    }
+
+    private fun handleProfileSetupComplete(profile: com.bitchat.android.profiling.UserExtendedProfile) {
+        mainViewModel.updateExtendedProfile(profile)
+
+        // Save these to SecureIdentityStateManager
+        val identityManager = com.bitchat.android.identity.SecureIdentityStateManager(this@MainActivity)
+        val gson = com.google.gson.Gson()
+        identityManager.storeSecureValue("user_location", gson.toJson(mainViewModel.selectedLocation.value))
+        identityManager.storeSecureValue("user_profile_extended", gson.toJson(profile))
+
+        // Also set the nickname in the standard Bitchat state
+        chatViewModel.setNickname(profile.name)
+
+        mainViewModel.updateOnboardingState(OnboardingState.INITIALIZING)
+        initializeApp()
+    }
+
     private fun handleOnboardingFailed(message: String) {
         Log.e("MainActivity", "Onboarding failed: $message")
         mainViewModel.updateErrorMessage(message)
@@ -659,6 +714,9 @@ class MainActivity : OrientationAwareActivity() {
                 
                 Log.d("MainActivity", "Permissions verified, initializing chat system")
                 
+                // Seed administrative database if needed
+                com.bitchat.android.location.AdminDataSeeder.seedIfNeeded(this@MainActivity)
+
                 // Initialize PoW preferences early in the initialization process
                 PoWPreferenceManager.init(this@MainActivity)
                 Log.d("MainActivity", "PoW preferences initialized")

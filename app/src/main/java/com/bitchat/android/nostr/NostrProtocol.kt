@@ -1,4 +1,5 @@
 package com.bitchat.android.nostr
+import com.bitchat.android.profiling.ScoutedProfile
 
 import android.util.Log
 import com.google.gson.Gson
@@ -91,6 +92,101 @@ object NostrProtocol {
     }
     
     /**
+     * Create a decentralized vouch event (kind 30007)
+     */
+    suspend fun createVouchEvent(
+        targetPubkey: String,
+        reason: String,
+        senderIdentity: NostrIdentity
+    ): NostrEvent = withContext(Dispatchers.Default) {
+        val tags = listOf(
+            listOf("p", targetPubkey),
+            listOf("reason", reason)
+        )
+
+        val event = NostrEvent(
+            pubkey = senderIdentity.publicKeyHex,
+            createdAt = (System.currentTimeMillis() / 1000).toInt(),
+            kind = 30007, // Custom kind for Vouching
+            tags = tags,
+            content = "Vouched for $targetPubkey: $reason"
+        )
+        return@withContext senderIdentity.signEvent(event)
+    }
+
+    /**
+     * Create a decentralized alert (custom kind)
+     */
+    suspend fun createNigeriaAlert(
+        content: String,
+        location: com.bitchat.android.location.NigeriaLocation,
+        scopeLevel: String,
+        senderIdentity: NostrIdentity
+    ): NostrEvent = withContext(Dispatchers.Default) {
+        val tags = mutableListOf<List<String>>()
+        tags.add(listOf("ng_state", location.state))
+        tags.add(listOf("ng_lga", location.lga))
+        tags.add(listOf("ng_ward", location.ward))
+        tags.add(listOf("ng_scope", scopeLevel))
+        tags.add(listOf("type", "alert"))
+
+        val event = NostrEvent(
+            pubkey = senderIdentity.publicKeyHex,
+            createdAt = (System.currentTimeMillis() / 1000).toInt(),
+            kind = 30006, // Custom kind for Alerts
+            tags = tags,
+            content = content
+        )
+        return@withContext senderIdentity.signEvent(event)
+    }
+
+    /**
+     * Create a database merge event (custom kind)
+     */
+    suspend fun createMergeRequest(
+        profiles: List<ScoutedProfile>,
+        adminPubkey: String,
+        senderIdentity: NostrIdentity
+    ): NostrEvent = withContext(Dispatchers.Default) {
+        val event = NostrEvent(
+            pubkey = senderIdentity.publicKeyHex,
+            createdAt = (System.currentTimeMillis() / 1000).toInt(),
+            kind = 30005, // Custom kind for database merge
+            tags = listOf(listOf("p", adminPubkey)),
+            content = gson.toJson(profiles)
+        )
+        return@withContext senderIdentity.signEvent(event)
+    }
+
+    /**
+     * Create a Nigerian administrative level scoped repost (kind 6)
+     */
+    suspend fun createNigeriaScopedRepost(
+        originalEvent: NostrEvent,
+        location: com.bitchat.android.location.NigeriaLocation,
+        scopeLevel: String,
+        senderIdentity: NostrIdentity
+    ): NostrEvent = withContext(Dispatchers.Default) {
+        val tags = mutableListOf<List<String>>()
+        tags.add(listOf("e", originalEvent.id))
+        tags.add(listOf("p", originalEvent.pubkey))
+        tags.add(listOf("ng_state", location.state))
+        tags.add(listOf("ng_lga", location.lga))
+        tags.add(listOf("ng_ward", location.ward))
+        tags.add(listOf("ng_scope", scopeLevel))
+
+        val event = NostrEvent(
+            pubkey = senderIdentity.publicKeyHex,
+            createdAt = (System.currentTimeMillis() / 1000).toInt(),
+            kind = 6, // Repost
+            tags = tags,
+            content = gson.toJson(originalEvent)
+        )
+
+        return@withContext senderIdentity.signEvent(event)
+    }
+
+    /**
      * Create a geohash-scoped text note (kind 1) with optional nickname
      * This creates a persistent text note that can be retrieved later
      */
@@ -115,6 +211,39 @@ object NostrProtocol {
             content = content
         )
         
+        return@withContext senderIdentity.signEvent(event)
+    }
+
+    /**
+     * Create a Nigerian administrative level scoped text note
+     */
+    suspend fun createNigeriaScopedNote(
+        content: String,
+        location: com.bitchat.android.location.NigeriaLocation,
+        scopeLevel: String, // "state", "region", "lga", "ward", or "constituency"
+        senderIdentity: NostrIdentity,
+        nickname: String? = null
+    ): NostrEvent = withContext(Dispatchers.Default) {
+        val tags = mutableListOf<List<String>>()
+        tags.add(listOf("ng_state", location.state))
+        tags.add(listOf("ng_region", location.region))
+        tags.add(listOf("ng_lga", location.lga))
+        tags.add(listOf("ng_ward", location.ward))
+        tags.add(listOf("ng_constituency", location.constituency))
+        tags.add(listOf("ng_scope", scopeLevel))
+
+        if (!nickname.isNullOrEmpty()) {
+            tags.add(listOf("n", nickname))
+        }
+
+        val event = NostrEvent(
+            pubkey = senderIdentity.publicKeyHex,
+            createdAt = (System.currentTimeMillis() / 1000).toInt(),
+            kind = NostrKind.TEXT_NOTE,
+            tags = tags,
+            content = content
+        )
+
         return@withContext senderIdentity.signEvent(event)
     }
 

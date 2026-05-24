@@ -127,6 +127,43 @@ object FileUtils {
     }
 
     /**
+     * Resizes an image for low-bandwidth environments
+     */
+    fun resizeImage(context: Context, filePath: String, maxWidth: Int = 1024, maxHeight: Int = 1024): String? {
+        return try {
+            val options = android.graphics.BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+            }
+            android.graphics.BitmapFactory.decodeFile(filePath, options)
+
+            var inSampleSize = 1
+            if (options.outHeight > maxHeight || options.outWidth > maxWidth) {
+                val halfHeight = options.outHeight / 2
+                val halfWidth = options.outWidth / 2
+                while (halfHeight / inSampleSize >= maxHeight && halfWidth / inSampleSize >= maxWidth) {
+                    inSampleSize *= 2
+                }
+            }
+
+            options.inJustDecodeBounds = false
+            options.inSampleSize = inSampleSize
+
+            val bitmap = android.graphics.BitmapFactory.decodeFile(filePath, options) ?: return null
+
+            val resizedFile = File(context.cacheDir, "resized_${System.currentTimeMillis()}.jpg")
+            val out = FileOutputStream(resizedFile)
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, out)
+            out.flush()
+            out.close()
+
+            resizedFile.absolutePath
+        } catch (e: Exception) {
+            Log.e("FileUtils", "Failed to resize image", e)
+            null
+        }
+    }
+
+    /**
      * Get MIME type for a file based on extension
      */
     fun getMimeTypeFromExtension(fileName: String): String {
