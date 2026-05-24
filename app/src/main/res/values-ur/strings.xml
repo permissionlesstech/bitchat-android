@@ -192,6 +192,8 @@
     <string name="action_hug_subtitle">دوستانہ آلنگن بھیجیں</string>
     <string name="action_block_title">%1$s کو بلاک کریں</string>
     <string name="action_block_subtitle">اس صارف کے تمام پیغامات بلاک کریں</string>
+  <string name="action_delete_note_title">نوٹ حذف کریں</string>
+  <string name="action_delete_note_subtitle">ریلے پر nostr حذف کی درخواست بھیجتا ہے</string>
 
     <!-- geohash چینلز شیٹ -->
     <string name="location_channels_title">#مقام چینلز</string>

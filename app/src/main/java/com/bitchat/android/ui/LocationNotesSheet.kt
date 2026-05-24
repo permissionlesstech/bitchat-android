@@ -3,6 +3,7 @@ package com.bitchat.android.ui
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,21 +18,25 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.pluralStringResource
-import com.bitchat.android.R
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bitchat.android.R
 import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
-import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
+import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
 import com.bitchat.android.geohash.GeohashChannelLevel
 import com.bitchat.android.geohash.LocationChannelManager
 import com.bitchat.android.nostr.LocationNotesManager
+import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.Calendar
@@ -47,36 +52,40 @@ fun LocationNotesSheet(
     locationName: String?,
     nickname: String?,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
+    onNoteLongClick: (LocationNotesManager.Note) -> Unit = {},
+    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val isDark = isSystemInDarkTheme()
-    
+
     // iOS color scheme
-    val accentGreen = if (isDark) Color.Green else Color(0xFF008000) // dark: green, light: dark green (0, 0.5, 0)
-    
+    val accentGreen =
+        if (isDark) Color.Green else Color(0xFF008000) // dark: green, light: dark green (0, 0.5, 0)
+
     // Managers
     val notesManager = remember { LocationNotesManager.getInstance() }
     val locationManager = remember { LocationChannelManager.getInstance(context) }
-    
+
     // State
     val notes by notesManager.notes.collectAsStateWithLifecycle()
     val state by notesManager.state.collectAsStateWithLifecycle(LocationNotesManager.State.IDLE)
     val errorMessage by notesManager.errorMessage.collectAsStateWithLifecycle()
     val initialLoadComplete by notesManager.initialLoadComplete.collectAsStateWithLifecycle(false)
-    
+
     // SIMPLIFIED: Get count directly from notes list (no separate counter needed)
     val count = notes.size
-    
+
     // Get location name (building or block) - matches iOS locationNames lookup
     val locationNames by locationManager.locationNames.collectAsStateWithLifecycle()
-    val displayLocationName = locationNames[GeohashChannelLevel.BUILDING]?.takeIf { it.isNotEmpty() }
-        ?: locationNames[GeohashChannelLevel.BLOCK]?.takeIf { it.isNotEmpty() }
-    
+    val displayLocationName =
+        locationNames[GeohashChannelLevel.BUILDING]?.takeIf { it.isNotEmpty() }
+            ?: locationNames[GeohashChannelLevel.BLOCK]?.takeIf { it.isNotEmpty() }
+
     // Input field state
     var draft by remember { mutableStateOf("") }
-    val sendButtonEnabled = draft.trim().isNotEmpty() && state != LocationNotesManager.State.NO_RELAYS
-    
+    val sendButtonEnabled =
+        draft.trim().isNotEmpty() && state != LocationNotesManager.State.NO_RELAYS
+
     // Scroll state
     val listState = rememberLazyListState()
     val isScrolled by remember {
@@ -86,7 +95,7 @@ fun LocationNotesSheet(
     }
     val topBarAlpha by animateFloatAsState(
         targetValue = if (isScrolled) 0.95f else 0f,
-        label = "topBarAlpha"
+        label = "topBarAlpha",
     )
 
     // Refresh location when sheet opens
@@ -98,7 +107,7 @@ fun LocationNotesSheet(
     LaunchedEffect(geohash) {
         notesManager.setGeohash(geohash)
     }
-    
+
     // Cleanup when sheet closes
     DisposableEffect(Unit) {
         onDispose {
@@ -113,8 +122,11 @@ fun LocationNotesSheet(
         Box(modifier = Modifier.fillMaxWidth()) {
             LazyColumn(
                 state = listState,
-                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                contentPadding = PaddingValues(top = 64.dp, bottom = 20.dp)
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                contentPadding = PaddingValues(top = 64.dp, bottom = 20.dp),
             ) {
                 item(key = "notes_header") {
                     LocationNotesHeader(
@@ -129,23 +141,29 @@ fun LocationNotesSheet(
                     state == LocationNotesManager.State.NO_RELAYS -> {
                         item {
                             NoRelaysRow(
-                                onRetry = { notesManager.refresh() }
+                                onRetry = { notesManager.refresh() },
                             )
                         }
                     }
+
                     state == LocationNotesManager.State.LOADING && !initialLoadComplete -> {
                         item {
                             LoadingRow()
                         }
                     }
+
                     notes.isEmpty() -> {
                         item {
                             EmptyRow()
                         }
                     }
+
                     else -> {
                         items(notes, key = { it.id }) { note ->
-                            NoteRow(note = note)
+                            NoteRow(
+                                note = note,
+                                onLongClick = onNoteLongClick,
+                            )
                             Spacer(modifier = Modifier.height(24.dp))
                         }
                         item {
@@ -160,7 +178,7 @@ fun LocationNotesSheet(
                         item {
                             ErrorRow(
                                 message = error,
-                                onDismiss = { notesManager.clearError() }
+                                onDismiss = { notesManager.clearError() },
                             )
                         }
                     }
@@ -173,27 +191,29 @@ fun LocationNotesSheet(
                 modifier = Modifier.align(Alignment.TopCenter),
                 title = {
                     BitchatSheetTitle(
-                        text = pluralStringResource(
-                            id = R.plurals.location_notes_title,
-                            count = count,
-                            geohash,
-                            count
-                        )
+                        text =
+                            pluralStringResource(
+                                id = R.plurals.location_notes_title,
+                                count = count,
+                                geohash,
+                                count,
+                            ),
                     )
-                }
+                },
             )
 
             Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-            ){
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth(),
+            ) {
                 Column {
                     // Divider before input (matches iOS overlay)
                     HorizontalDivider(
                         modifier = Modifier.fillMaxWidth(),
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
-                        thickness = 1.dp
+                        thickness = 1.dp,
                     )
 
                     // Input section (matches iOS inputSection)
@@ -208,7 +228,7 @@ fun LocationNotesSheet(
                                 notesManager.send(content, nickname)
                                 draft = ""
                             }
-                        }
+                        },
                     )
                 }
             }
@@ -227,10 +247,11 @@ private fun LocationNotesHeader(
     accentGreen: Color,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .padding(bottom = 12.dp)
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 12.dp),
     ) {
         // Location name in green (building or block)
         locationName?.let { name ->
@@ -239,20 +260,20 @@ private fun LocationNotesHeader(
                     text = name,
                     fontFamily = FontFamily.Monospace,
                     fontSize = 12.sp,
-                    color = accentGreen
+                    color = accentGreen,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
             }
         }
-        
+
         // Description
         Text(
             text = stringResource(R.string.location_notes_description),
             fontFamily = FontFamily.Monospace,
             fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
         )
-        
+
         // Relays paused message if no relays
         if (state == LocationNotesManager.State.NO_RELAYS) {
             Spacer(modifier = Modifier.height(4.dp))
@@ -260,7 +281,7 @@ private fun LocationNotesHeader(
                 text = stringResource(R.string.location_notes_relays_unavailable),
                 fontFamily = FontFamily.Monospace,
                 fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             )
         }
     }
@@ -271,28 +292,40 @@ private fun LocationNotesHeader(
  * Shows @basename then timestamp, then content below
  */
 @Composable
-private fun NoteRow(note: LocationNotesManager.Note) {
+private fun NoteRow(
+    note: LocationNotesManager.Note,
+    onLongClick: (LocationNotesManager.Note) -> Unit,
+) {
     // Extract baseName (before #suffix like iOS)
     val baseName = note.displayName.split("#", limit = 2).firstOrNull() ?: note.displayName
     val ts = timestampText(note.createdAt)
-    
+    val haptic = LocalHapticFeedback.current
+
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .pointerInput(note.id) {
+                    detectTapGestures(
+                        onLongPress = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onLongClick(note)
+                        },
+                    )
+                }.padding(vertical = 4.dp),
     ) {
         // First row: @nickname and timestamp
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Start,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = "@$baseName",
                 fontFamily = FontFamily.Monospace,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
             )
             if (ts.isNotEmpty()) {
                 Spacer(modifier = Modifier.width(6.dp))
@@ -300,19 +333,19 @@ private fun NoteRow(note: LocationNotesManager.Note) {
                     text = ts,
                     fontFamily = FontFamily.Monospace,
                     fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.height(2.dp))
-        
+
         // Second row: content
         Text(
             text = note.content,
             fontFamily = FontFamily.Monospace,
             fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }
@@ -323,23 +356,24 @@ private fun NoteRow(note: LocationNotesManager.Note) {
 @Composable
 private fun NoRelaysRow(onRetry: () -> Unit) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp)
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 6.dp),
     ) {
         Text(
             text = stringResource(R.string.location_notes_no_relays_title),
             fontFamily = FontFamily.Monospace,
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = stringResource(R.string.location_notes_no_relays_desc),
             fontFamily = FontFamily.Monospace,
             fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
@@ -347,7 +381,7 @@ private fun NoRelaysRow(onRetry: () -> Unit) {
             fontFamily = FontFamily.Monospace,
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.clickable(onClick = onRetry)
+            modifier = Modifier.clickable(onClick = onRetry),
         )
     }
 }
@@ -358,22 +392,23 @@ private fun NoRelaysRow(onRetry: () -> Unit) {
 @Composable
 private fun LoadingRow() {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.Start,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         CircularProgressIndicator(
             modifier = Modifier.size(16.dp),
-            strokeWidth = 2.dp
+            strokeWidth = 2.dp,
         )
         Spacer(modifier = Modifier.width(10.dp))
         Text(
             text = stringResource(R.string.loading_location_notes),
             fontFamily = FontFamily.Monospace,
             fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
         )
     }
 }
@@ -384,23 +419,24 @@ private fun LoadingRow() {
 @Composable
 private fun EmptyRow() {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp)
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 6.dp),
     ) {
         Text(
             text = stringResource(R.string.location_notes_empty_title),
             fontFamily = FontFamily.Monospace,
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = stringResource(R.string.location_notes_empty_desc),
             fontFamily = FontFamily.Monospace,
             fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
         )
     }
 }
@@ -409,26 +445,30 @@ private fun EmptyRow() {
  * Error row - matches iOS errorRow
  */
 @Composable
-private fun ErrorRow(message: String, onDismiss: () -> Unit) {
+private fun ErrorRow(
+    message: String,
+    onDismiss: () -> Unit,
+) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp)
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 6.dp),
     ) {
         Row(
             horizontalArrangement = Arrangement.Start,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = "⚠",
-                fontSize = 12.sp
+                fontSize = 12.sp,
             )
             Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = message,
                 fontFamily = FontFamily.Monospace,
                 fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
             )
         }
         Spacer(modifier = Modifier.height(4.dp))
@@ -437,7 +477,7 @@ private fun ErrorRow(message: String, onDismiss: () -> Unit) {
             fontFamily = FontFamily.Monospace,
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.clickable(onClick = onDismiss)
+            modifier = Modifier.clickable(onClick = onDismiss),
         )
     }
 }
@@ -451,85 +491,208 @@ private fun LocationNotesInputSection(
     onDraftChange: (String) -> Unit,
     sendButtonEnabled: Boolean,
     accentGreen: Color,
-    onSend: () -> Unit
+    onSend: () -> Unit,
 ) {
     val isDark = isSystemInDarkTheme()
     val colorScheme = MaterialTheme.colorScheme
-    
+
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(color = colorScheme.background)
-            .padding(horizontal = 12.dp, vertical = 8.dp), // Match main chat padding
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(color = colorScheme.background)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+        // Match main chat padding
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp) // Match main chat spacing
+        horizontalArrangement = Arrangement.spacedBy(8.dp), // Match main chat spacing
     ) {
         // Text input with placeholder overlay (matches main chat exactly)
         Box(
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
         ) {
             androidx.compose.foundation.text.BasicTextField(
                 value = draft,
                 onValueChange = onDraftChange,
-                textStyle = MaterialTheme.typography.bodyMedium.copy(
-                    color = colorScheme.primary,
-                    fontFamily = FontFamily.Monospace
-                ),
-                cursorBrush = androidx.compose.ui.graphics.SolidColor(colorScheme.primary),
-                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                    imeAction = androidx.compose.ui.text.input.ImeAction.Send
-                ),
-                keyboardActions = androidx.compose.foundation.text.KeyboardActions(
-                    onSend = { if (sendButtonEnabled) onSend() }
-                ),
-                modifier = Modifier.fillMaxWidth()
+                textStyle =
+                    MaterialTheme.typography.bodyMedium.copy(
+                        color = colorScheme.primary,
+                        fontFamily = FontFamily.Monospace,
+                    ),
+                cursorBrush =
+                    androidx.compose.ui.graphics
+                        .SolidColor(colorScheme.primary),
+                keyboardOptions =
+                    androidx.compose.foundation.text.KeyboardOptions(
+                        imeAction = androidx.compose.ui.text.input.ImeAction.Send,
+                    ),
+                keyboardActions =
+                    androidx.compose.foundation.text.KeyboardActions(
+                        onSend = { if (sendButtonEnabled) onSend() },
+                    ),
+                modifier = Modifier.fillMaxWidth(),
             )
-            
+
             // Placeholder when empty (matches main chat)
             if (draft.isEmpty()) {
                 Text(
                     text = stringResource(R.string.location_notes_input_placeholder),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = FontFamily.Monospace
-                    ),
+                    style =
+                        MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = FontFamily.Monospace,
+                        ),
                     color = colorScheme.onSurface.copy(alpha = 0.5f),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         }
-        
+
         // Send button - circular with icon (matches main chat exactly)
         IconButton(
             onClick = { if (sendButtonEnabled) onSend() },
             enabled = sendButtonEnabled,
-            modifier = Modifier.size(32.dp)
+            modifier = Modifier.size(32.dp),
         ) {
             Box(
-                modifier = Modifier
-                    .size(30.dp)
-                    .background(
-                        color = if (!sendButtonEnabled) {
-                            colorScheme.onSurface.copy(alpha = 0.3f)
-                        } else {
-                            accentGreen.copy(alpha = 0.75f)
-                        },
-                        shape = CircleShape
-                    ),
-                contentAlignment = Alignment.Center
+                modifier =
+                    Modifier
+                        .size(30.dp)
+                        .background(
+                            color =
+                                if (!sendButtonEnabled) {
+                                    colorScheme.onSurface.copy(alpha = 0.3f)
+                                } else {
+                                    accentGreen.copy(alpha = 0.75f)
+                                },
+                            shape = CircleShape,
+                        ),
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = Icons.Filled.ArrowUpward,
                     contentDescription = stringResource(R.string.send_message),
                     modifier = Modifier.size(20.dp),
-                    tint = if (!sendButtonEnabled) {
-                        colorScheme.onSurface.copy(alpha = 0.5f)
-                    } else if (isDark) {
-                        Color.Black // Black arrow on green in dark theme
-                    } else {
-                        Color.White // White arrow on green in light theme
-                    }
+                    tint =
+                        if (!sendButtonEnabled) {
+                            colorScheme.onSurface.copy(alpha = 0.5f)
+                        } else if (isDark) {
+                            Color.Black // Black arrow on green in dark theme
+                        } else {
+                            Color.White // White arrow on green in light theme
+                        },
                 )
             }
+        }
+    }
+}
+
+/**
+ * Note Actions Sheet - shown on long-press of a note
+ * Reuses BitchatBottomSheet pattern from ChatUserSheet
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun NoteActionsSheet(
+    note: LocationNotesManager.Note,
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val isDark =
+        colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
+    val standardRed = Color(0xFFFF3B30) // iOS red
+
+    BitchatBottomSheet(
+        onDismissRequest = onDismiss,
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            // Header: note author
+            val baseName = note.displayName.split("#", limit = 2).firstOrNull() ?: note.displayName
+            Text(
+                text = "@$baseName",
+                fontSize = 18.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+
+            // Action list
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                item {
+                    NoteActionRow(
+                        title = stringResource(R.string.action_delete_note_title),
+                        subtitle = stringResource(R.string.action_delete_note_subtitle),
+                        titleColor = standardRed,
+                        onClick = onDelete,
+                    )
+                }
+            }
+
+            // Cancel button
+            Button(
+                onClick = onDismiss,
+                colors =
+                    ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                    ),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    text = stringResource(R.string.cancel_lower),
+                    fontSize = BASE_FONT_SIZE.sp,
+                    fontFamily = FontFamily.Monospace,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Single action row inside NoteActionsSheet
+ * Matches UserActionRow pattern from ChatUserSheet
+ */
+@Composable
+private fun NoteActionRow(
+    title: String,
+    subtitle: String,
+    titleColor: Color,
+    onClick: () -> Unit,
+) {
+    // iOS-style list row (plain button, no card background)
+    Surface(
+        onClick = onClick,
+        color = Color.Transparent,
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = title,
+                fontSize = BASE_FONT_SIZE.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Medium,
+                color = titleColor,
+            )
+            Text(
+                text = subtitle,
+                fontSize = 12.sp,
+                fontFamily = FontFamily.Monospace,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            )
         }
     }
 }
@@ -541,40 +704,47 @@ private fun LocationNotesInputSection(
 private fun timestampText(createdAt: Int): String {
     val date = Date(createdAt * 1000L)
     val now = Date()
-    
+
     // Calculate days difference
     val calendar = Calendar.getInstance()
     calendar.time = date
     val dateDay = calendar.get(Calendar.DAY_OF_YEAR)
     val dateYear = calendar.get(Calendar.YEAR)
-    
+
     calendar.time = now
     val nowDay = calendar.get(Calendar.DAY_OF_YEAR)
     val nowYear = calendar.get(Calendar.YEAR)
-    
-    val daysDiff = if (dateYear == nowYear) {
-        nowDay - dateDay
-    } else {
-        // Simplified: just check if less than 7 days by timestamp
-        val diff = (now.time - date.time) / (1000 * 60 * 60 * 24)
-        diff.toInt()
-    }
-    
+
+    val daysDiff =
+        if (dateYear == nowYear) {
+            nowDay - dateDay
+        } else {
+            // Simplified: just check if less than 7 days by timestamp
+            val diff = (now.time - date.time) / (1000 * 60 * 60 * 24)
+            diff.toInt()
+        }
+
     return if (daysDiff < 7) {
         // Relative formatting (abbreviated)
         val diffMillis = now.time - date.time
         val diffSeconds = diffMillis / 1000
-        
+
         when {
-            diffSeconds < 60 -> "" // Don't show "just now" in iOS
+            diffSeconds < 60 -> {
+                ""
+            }
+
+            // Don't show "just now" in iOS
             diffSeconds < 3600 -> {
                 val minutes = (diffSeconds / 60).toInt()
                 "${minutes}m ago"
             }
+
             diffSeconds < 86400 -> {
                 val hours = (diffSeconds / 3600).toInt()
                 "${hours}h ago"
             }
+
             else -> {
                 val days = (diffSeconds / 86400).toInt()
                 "${days}d ago"
@@ -583,11 +753,12 @@ private fun timestampText(createdAt: Int): String {
     } else {
         // Absolute date formatting
         val sameYear = dateYear == nowYear
-        val formatter = if (sameYear) {
-            SimpleDateFormat("MMM d", Locale.getDefault())
-        } else {
-            SimpleDateFormat("MMM d, y", Locale.getDefault())
-        }
+        val formatter =
+            if (sameYear) {
+                SimpleDateFormat("MMM d", Locale.getDefault())
+            } else {
+                SimpleDateFormat("MMM d, y", Locale.getDefault())
+            }
         formatter.format(date)
     }
 }

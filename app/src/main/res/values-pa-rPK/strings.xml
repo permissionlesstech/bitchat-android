@@ -192,6 +192,8 @@
     <string name="action_hug_subtitle">دوستانہ گلے ملنا پھجو</string>
     <string name="action_block_title">%1$s نوں بلاک کرو</string>
     <string name="action_block_subtitle">اس یوزر دے سارے پیغام بلاک کرو</string>
+  <string name="action_delete_note_title">ਨੋਟ ਮਿਟਾਓ</string>
+  <string name="action_delete_note_subtitle">ਰਿਲੇਅਾਂ ਨੂੰ nostr ਮਿਟਾਉਣ ਦੀ ਬੇਨਤੀ ਭੇਜਦਾ ਹੈ</string>
 
     <!-- geohash چینل شیٹ -->
     <string name="location_channels_title">#لوکیشن چینل</string>

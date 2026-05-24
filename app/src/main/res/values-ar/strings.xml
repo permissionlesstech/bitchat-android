@@ -192,6 +192,8 @@
     <string name="action_hug_subtitle">إرسال عناق ودي</string>
     <string name="action_block_title">حظر %1$s</string>
     <string name="action_block_subtitle">حظر جميع رسائل هذا المستخدم</string>
+  <string name="action_delete_note_title">حذف الملاحظة</string>
+  <string name="action_delete_note_subtitle">يرسل طلب حذف nostr إلى المرحلات</string>
 
     <!-- ورقة قنوات geohash -->
     <string name="location_channels_title">#قنوات الموقع</string>

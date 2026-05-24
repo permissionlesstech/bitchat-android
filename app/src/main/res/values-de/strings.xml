@@ -192,6 +192,8 @@
     <string name="action_hug_subtitle">Eine freundliche Umarmung senden</string>
     <string name="action_block_title">%1$s blockieren</string>
     <string name="action_block_subtitle">Alle Nachrichten dieses Benutzers blockieren</string>
+  <string name="action_delete_note_title">Notiz löschen</string>
+  <string name="action_delete_note_subtitle">sendet eine nostr-Löschanfrage an Relays</string>
 
     <!-- Geohash‑Kanäle Sheet -->
     <string name="location_channels_title">#Standort‑Kanäle</string>

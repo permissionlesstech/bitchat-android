@@ -38,5 +38,7 @@
   <string name="verify_success_title">Verified</string>
   <string name="verify_success_body">You verified %1$s</string>
   <string name="verify_success_system_message">verified %1$s</string>
+  <string name="action_delete_note_title">видалити нотатку</string>
+  <string name="action_delete_note_subtitle">надсилає запит на видалення nostr до ретрансляторів</string>
 </resources>
 

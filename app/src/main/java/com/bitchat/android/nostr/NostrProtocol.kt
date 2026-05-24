@@ -119,6 +119,24 @@ object NostrProtocol {
     }
 
     /**
+     * Create a NIP-09 deletion event (kind 5) for a given note
+     * Signals to relays and other clients that the note should be removed
+     */
+    suspend fun createDeletionEvent(
+        targetEventId: String,
+        senderIdentity: NostrIdentity
+    ): NostrEvent = withContext(Dispatchers.Default) {
+        val event = NostrEvent(
+            pubkey = senderIdentity.publicKeyHex,
+            createdAt = (System.currentTimeMillis() / 1000).toInt(),
+            kind = NostrKind.DELETION,
+            tags = listOf(listOf("e", targetEventId)),
+            content = ""
+        )
+        return@withContext senderIdentity.signEvent(event)
+    }
+
+    /**
      * Create a geohash-scoped presence event (kind 20001)
      * Has no content and no nickname, used for participant counting
      */

@@ -192,6 +192,8 @@
     <string name="action_hug_subtitle">ส่งกอดแบบเป็นมิตร</string>
     <string name="action_block_title">บล็อก %1$s</string>
     <string name="action_block_subtitle">บล็อกข้อความทั้งหมดจากผู้ใช้นี้</string>
+  <string name="action_delete_note_title">ลบบันทึก</string>
+  <string name="action_delete_note_subtitle">ส่งคำขอลบ nostr ไปยัง relay</string>
 
     <!-- แผ่นช่อง geohash -->
     <string name="location_channels_title">#ช่องตามตำแหน่ง</string>

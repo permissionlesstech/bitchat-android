@@ -192,6 +192,8 @@
     <string name="action_hug_subtitle">Enviar un abrazo amistoso</string>
     <string name="action_block_title">Bloquear a %1$s</string>
     <string name="action_block_subtitle">Bloquear todos los mensajes de este usuario</string>
+  <string name="action_delete_note_title">eliminar nota</string>
+  <string name="action_delete_note_subtitle">envía una solicitud de eliminación de nostr a los relays</string>
 
     <!-- Hoja de canales geohash -->
     <string name="location_channels_title">#Canales de ubicación</string>

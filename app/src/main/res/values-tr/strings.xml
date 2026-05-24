@@ -172,6 +172,8 @@
     <string name="action_hug_subtitle">samimi bir sarılma gönder</string>
     <string name="action_block_title">%1$s kişisini engelle</string>
     <string name="action_block_subtitle">bu kullanıcıdan gelen tüm mesajları engelle</string>
+  <string name="action_delete_note_title">notu sil</string>
+  <string name="action_delete_note_subtitle">rölelere bir nostr silme isteği gönderir</string>
 
     <string name="location_channels_title">#konum kanalları</string>
     <string name="location_channels_desc">yakındaki insanlarla geohash kanallarıyla sohbet et. yalnızca kabaca geohash paylaşılır, kesin gps asla değil. gizliliğin için ekran görüntüsü alma ve paylaşma.</string>

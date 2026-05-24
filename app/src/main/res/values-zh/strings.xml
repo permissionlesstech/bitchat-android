@@ -185,6 +185,8 @@
     <string name="action_hug_subtitle">发送一个友好的拥抱</string>
     <string name="action_block_title">屏蔽 %1$s</string>
     <string name="action_block_subtitle">屏蔽该用户的所有消息</string>
+  <string name="action_delete_note_title">删除笔记</string>
+  <string name="action_delete_note_subtitle">向中继发送 nostr 删除请求</string>
 
     <!-- 地点频道面板 -->
     <string name="location_channels_title">#地点频道</string>
