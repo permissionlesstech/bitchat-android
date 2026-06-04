@@ -168,6 +168,19 @@ class BluetoothConnectionTracker(
     }
 
     /**
+     * Update device peer ID binding
+     */
+    fun setDevicePeerID(deviceAddress: String, peerID: String) {
+        connectedDevices[deviceAddress]?.let { deviceConn ->
+            val updatedConn = deviceConn.copy(peerID = peerID)
+            connectedDevices[deviceAddress] = updatedConn
+            // Also update the address map
+            addressPeerMap[deviceAddress] = peerID
+            Log.d(TAG, "Bound device $deviceAddress to peerID $peerID")
+        }
+    }
+    
+    /**
      * Check if a peer is already connected (by PeerID)
      */
     fun isPeerConnected(peerID: String): Boolean {

@@ -234,6 +234,42 @@ class BluetoothGattServerManager(
                     if (responseNeeded) {
                         gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, null)
                     }
+                } else if (characteristic.uuid == AppConstants.Mesh.Gatt.IDENTITY_CHARACTERISTIC_UUID) {
+                    val peerID = value.joinToString("") { "%02x".format(it) }
+                    Log.i(TAG, "Server: Received Identity signal from ${device.address}: $peerID")
+                    
+                    if (value.size >= 8) {
+                        // 1. Update tracker with the declared identity
+                        connectionTracker.setDevicePeerID(device.address, peerID)
+                        
+                        // 2. Check for duplicates (same peerID, different MAC)
+                        // Note: If we just set it above, we look for *others*
+                        val duplicate = connectionTracker.getConnectedDevices().values.firstOrNull { 
+                            it.peerID == peerID && it.device.address != device.address 
+                        }
+                        
+                        if (duplicate != null) {
+                            Log.w(TAG, "Server: Deduplication - Peer $peerID is already connected via ${duplicate.device.address}. Rejecting new connection ${device.address}.")
+                            
+                            // Send success response first to be polite before killing the connection?
+                            // Or fail it?
+                            if (responseNeeded) {
+                                gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, null)
+                            }
+                            
+                            // Disconnect the NEW connection (this one)
+                            disconnectDevice(device)
+                            return
+                        } else {
+                            Log.d(TAG, "Server: Identity accepted for $peerID at ${device.address}")
+                        }
+                    } else {
+                        Log.w(TAG, "Server: Invalid Identity length from ${device.address}: ${value.size}")
+                    }
+
+                    if (responseNeeded) {
+                        gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, null)
+                    }
                 }
             }
             
@@ -310,6 +346,15 @@ class BluetoothGattServerManager(
         
         val service = BluetoothGattService(AppConstants.Mesh.Gatt.SERVICE_UUID, BluetoothGattService.SERVICE_TYPE_PRIMARY)
         service.addCharacteristic(characteristic)
+
+        // Create identity characteristic for direct client ID signaling
+        val identityCharacteristic = BluetoothGattCharacteristic(
+            AppConstants.Mesh.Gatt.IDENTITY_CHARACTERISTIC_UUID,
+            BluetoothGattCharacteristic.PROPERTY_WRITE or
+            BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE,
+            BluetoothGattCharacteristic.PERMISSION_WRITE
+        )
+        service.addCharacteristic(identityCharacteristic)
         
         gattServer?.addService(service)
         
