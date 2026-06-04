@@ -766,91 +766,111 @@ internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+// For large crates we prevent `MethodTooLargeException` (see #2340)
+// N.B. the name of the extension is very misleading, since it is 
+// rather `InterfaceTooLargeException`, caused by too many methods 
+// in the interface for large crates.
+//
+// By splitting the otherwise huge interface into two parts
+// * UniffiLib 
+// * IntegrityCheckingUniffiLib (this)
+// we allow for ~2x as many methods in the UniffiLib interface.
+// 
+// The `ffi_uniffi_contract_version` method and all checksum methods are put 
+// into `IntegrityCheckingUniffiLib` and these methods are called only once,
+// when the library is loaded.
+internal interface IntegrityCheckingUniffiLib : Library {
+    // Integrity check functions only
+    fun uniffi_ndr_ffi_checksum_func_derive_public_key(
+): Short
+fun uniffi_ndr_ffi_checksum_func_generate_keypair(
+): Short
+fun uniffi_ndr_ffi_checksum_func_version(
+): Short
+fun uniffi_ndr_ffi_checksum_method_invitehandle_get_inviter_pubkey_hex(
+): Short
+fun uniffi_ndr_ffi_checksum_method_invitehandle_to_url(
+): Short
+fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_accept_invite_from_event_json(
+): Short
+fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_accept_invite_from_url(
+): Short
+fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_drain_events(
+): Short
+fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_active_session_state(
+): Short
+fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_device_id(
+): Short
+fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_message_push_author_pubkeys(
+): Short
+fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_message_push_session_states(
+): Short
+fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_our_pubkey_hex(
+): Short
+fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_owner_pubkey_hex(
+): Short
+fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_total_sessions(
+): Short
+fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_init(
+): Short
+fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_known_peer_owner_pubkeys(
+): Short
+fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_process_event(
+): Short
+fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_send_text(
+): Short
+fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_send_text_with_inner_id(
+): Short
+fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_setup_user(
+): Short
+fun uniffi_ndr_ffi_checksum_constructor_invitehandle_from_event_json(
+): Short
+fun uniffi_ndr_ffi_checksum_constructor_invitehandle_from_url(
+): Short
+fun uniffi_ndr_ffi_checksum_constructor_sessionmanagerhandle_new(
+): Short
+fun uniffi_ndr_ffi_checksum_constructor_sessionmanagerhandle_new_with_storage_path(
+): Short
+fun ffi_ndr_ffi_uniffi_contract_version(
+): Int
+
+}
 
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
-
 internal interface UniffiLib : Library {
     companion object {
         internal val INSTANCE: UniffiLib by lazy {
-            loadIndirect<UniffiLib>(componentName = "ndr_ffi")
-            .also { lib: UniffiLib ->
-                uniffiCheckContractApiVersion(lib)
-                uniffiCheckApiChecksums(lib)
+            val componentName = "ndr_ffi"
+            // For large crates we prevent `MethodTooLargeException` (see #2340)
+            // N.B. the name of the extension is very misleading, since it is 
+            // rather `InterfaceTooLargeException`, caused by too many methods 
+            // in the interface for large crates.
+            //
+            // By splitting the otherwise huge interface into two parts
+            // * UniffiLib (this)
+            // * IntegrityCheckingUniffiLib
+            // And all checksum methods are put into `IntegrityCheckingUniffiLib`
+            // we allow for ~2x as many methods in the UniffiLib interface.
+            // 
+            // Thus we first load the library with `loadIndirect` as `IntegrityCheckingUniffiLib`
+            // so that we can (optionally!) call `uniffiCheckApiChecksums`...
+            loadIndirect<IntegrityCheckingUniffiLib>(componentName)
+                .also { lib: IntegrityCheckingUniffiLib ->
+                    uniffiCheckContractApiVersion(lib)
+                    uniffiCheckApiChecksums(lib)
                 }
+            // ... and then we load the library as `UniffiLib`
+            // N.B. we cannot use `loadIndirect` once and then try to cast it to `UniffiLib`
+            // => results in `java.lang.ClassCastException: com.sun.proxy.$Proxy cannot be cast to ...`
+            // error. So we must call `loadIndirect` twice. For crates large enough
+            // to trigger this issue, the performance impact is negligible, running on
+            // a macOS M1 machine the `loadIndirect` call takes ~50ms.
+            val lib = loadIndirect<UniffiLib>(componentName)
+            // No need to check the contract version and checksums, since 
+            // we already did that with `IntegrityCheckingUniffiLib` above.
+            // Loading of library with integrity check done.
+            lib
         }
         
         // The Cleaner for the whole library
@@ -859,574 +879,273 @@ internal interface UniffiLib : Library {
         }
     }
 
+    // FFI functions
     fun uniffi_ndr_ffi_fn_clone_invitehandle(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-    ): Pointer
-    fun uniffi_ndr_ffi_fn_free_invitehandle(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-    ): Unit
-    fun uniffi_ndr_ffi_fn_constructor_invitehandle_create_new(`inviterPubkeyHex`: RustBuffer.ByValue,`deviceId`: RustBuffer.ByValue,`maxUses`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): Pointer
-    fun uniffi_ndr_ffi_fn_constructor_invitehandle_deserialize(`json`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): Pointer
-    fun uniffi_ndr_ffi_fn_constructor_invitehandle_from_event_json(`eventJson`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): Pointer
-    fun uniffi_ndr_ffi_fn_constructor_invitehandle_from_url(`url`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): Pointer
-    fun uniffi_ndr_ffi_fn_method_invitehandle_accept(`ptr`: Pointer,`inviteePubkeyHex`: RustBuffer.ByValue,`inviteePrivkeyHex`: RustBuffer.ByValue,`deviceId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_invitehandle_accept_with_owner(`ptr`: Pointer,`inviteePubkeyHex`: RustBuffer.ByValue,`inviteePrivkeyHex`: RustBuffer.ByValue,`deviceId`: RustBuffer.ByValue,`ownerPubkeyHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_invitehandle_get_inviter_pubkey_hex(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_invitehandle_get_shared_secret_hex(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_invitehandle_process_response(`ptr`: Pointer,`eventJson`: RustBuffer.ByValue,`inviterPrivkeyHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_invitehandle_serialize(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_invitehandle_set_owner_pubkey_hex(`ptr`: Pointer,`ownerPubkeyHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): Unit
-    fun uniffi_ndr_ffi_fn_method_invitehandle_set_purpose(`ptr`: Pointer,`purpose`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): Unit
-    fun uniffi_ndr_ffi_fn_method_invitehandle_to_event_json(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_invitehandle_to_url(`ptr`: Pointer,`root`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_clone_sessionhandle(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-    ): Pointer
-    fun uniffi_ndr_ffi_fn_free_sessionhandle(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-    ): Unit
-    fun uniffi_ndr_ffi_fn_constructor_sessionhandle_from_state_json(`stateJson`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): Pointer
-    fun uniffi_ndr_ffi_fn_constructor_sessionhandle_init(`theirEphemeralPubkeyHex`: RustBuffer.ByValue,`ourEphemeralPrivkeyHex`: RustBuffer.ByValue,`isInitiator`: Byte,`sharedSecretHex`: RustBuffer.ByValue,`name`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): Pointer
-    fun uniffi_ndr_ffi_fn_method_sessionhandle_can_send(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-    ): Byte
-    fun uniffi_ndr_ffi_fn_method_sessionhandle_decrypt_event(`ptr`: Pointer,`outerEventJson`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_sessionhandle_is_dr_message(`ptr`: Pointer,`eventJson`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): Byte
-    fun uniffi_ndr_ffi_fn_method_sessionhandle_send_text(`ptr`: Pointer,`text`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_sessionhandle_state_json(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_clone_sessionmanagerhandle(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-    ): Pointer
-    fun uniffi_ndr_ffi_fn_free_sessionmanagerhandle(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-    ): Unit
-    fun uniffi_ndr_ffi_fn_constructor_sessionmanagerhandle_new(`ourPubkeyHex`: RustBuffer.ByValue,`ourIdentityPrivkeyHex`: RustBuffer.ByValue,`deviceId`: RustBuffer.ByValue,`ownerPubkeyHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): Pointer
-    fun uniffi_ndr_ffi_fn_constructor_sessionmanagerhandle_new_with_storage_path(`ourPubkeyHex`: RustBuffer.ByValue,`ourIdentityPrivkeyHex`: RustBuffer.ByValue,`deviceId`: RustBuffer.ByValue,`storagePath`: RustBuffer.ByValue,`ownerPubkeyHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): Pointer
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_accept_invite_from_event_json(`ptr`: Pointer,`eventJson`: RustBuffer.ByValue,`ownerPubkeyHintHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_accept_invite_from_url(`ptr`: Pointer,`inviteUrl`: RustBuffer.ByValue,`ownerPubkeyHintHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_drain_events(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_get_active_session_state(`ptr`: Pointer,`peerPubkeyHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_get_device_id(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_get_message_push_author_pubkeys(`ptr`: Pointer,`peerOwnerPubkeyHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_get_message_push_session_states(`ptr`: Pointer,`peerOwnerPubkeyHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_get_our_pubkey_hex(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_get_owner_pubkey_hex(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_get_stored_user_record_json(`ptr`: Pointer,`peerOwnerPubkeyHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_get_total_sessions(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-    ): Long
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_group_create(`ptr`: Pointer,`name`: RustBuffer.ByValue,`memberOwnerPubkeys`: RustBuffer.ByValue,`fanoutMetadata`: RustBuffer.ByValue,`nowMs`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_group_handle_incoming_session_event(`ptr`: Pointer,`eventJson`: RustBuffer.ByValue,`fromOwnerPubkeyHex`: RustBuffer.ByValue,`fromSenderDevicePubkeyHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_group_handle_outer_event(`ptr`: Pointer,`eventJson`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_group_known_sender_event_pubkeys(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_group_outer_subscription_plan(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_group_remove(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): Unit
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_group_send_event(`ptr`: Pointer,`groupId`: RustBuffer.ByValue,`kind`: Int,`content`: RustBuffer.ByValue,`tagsJson`: RustBuffer.ByValue,`nowMs`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_group_upsert(`ptr`: Pointer,`group`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): Unit
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_import_session_state(`ptr`: Pointer,`peerPubkeyHex`: RustBuffer.ByValue,`stateJson`: RustBuffer.ByValue,`deviceId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): Unit
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_init(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-    ): Unit
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_known_peer_owner_pubkeys(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_process_event(`ptr`: Pointer,`eventJson`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): Unit
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_send_event_with_inner_id(`ptr`: Pointer,`recipientPubkeyHex`: RustBuffer.ByValue,`kind`: Int,`content`: RustBuffer.ByValue,`tagsJson`: RustBuffer.ByValue,`createdAtSeconds`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_send_reaction(`ptr`: Pointer,`recipientPubkeyHex`: RustBuffer.ByValue,`messageId`: RustBuffer.ByValue,`emoji`: RustBuffer.ByValue,`expiresAtSeconds`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_send_receipt(`ptr`: Pointer,`recipientPubkeyHex`: RustBuffer.ByValue,`receiptType`: RustBuffer.ByValue,`messageIds`: RustBuffer.ByValue,`expiresAtSeconds`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_send_rumor_json(`ptr`: Pointer,`recipientPubkeyHex`: RustBuffer.ByValue,`rumorJson`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_send_text(`ptr`: Pointer,`recipientPubkeyHex`: RustBuffer.ByValue,`text`: RustBuffer.ByValue,`expiresAtSeconds`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_send_text_with_inner_id(`ptr`: Pointer,`recipientPubkeyHex`: RustBuffer.ByValue,`text`: RustBuffer.ByValue,`expiresAtSeconds`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_send_typing(`ptr`: Pointer,`recipientPubkeyHex`: RustBuffer.ByValue,`expiresAtSeconds`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_setup_user(`ptr`: Pointer,`userPubkeyHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): Unit
-    fun uniffi_ndr_ffi_fn_func_create_signed_app_keys_event(`ownerPubkeyHex`: RustBuffer.ByValue,`ownerPrivkeyHex`: RustBuffer.ByValue,`devices`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_func_derive_public_key(`privkeyHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_func_generate_keypair(uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_func_parse_app_keys_event(`eventJson`: RustBuffer.ByValue,`ownerPrivkeyHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_func_resolve_conversation_candidate_pubkeys(`ownerPubkeyHex`: RustBuffer.ByValue,`rumorPubkeyHex`: RustBuffer.ByValue,`rumorTags`: RustBuffer.ByValue,`senderPubkeyHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_func_resolve_latest_app_keys_devices(`eventJsons`: RustBuffer.ByValue,`ownerPrivkeyHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun uniffi_ndr_ffi_fn_func_version(uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun ffi_ndr_ffi_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun ffi_ndr_ffi_rustbuffer_from_bytes(`bytes`: ForeignBytes.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun ffi_ndr_ffi_rustbuffer_free(`buf`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): Unit
-    fun ffi_ndr_ffi_rustbuffer_reserve(`buf`: RustBuffer.ByValue,`additional`: Long,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun ffi_ndr_ffi_rust_future_poll_u8(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_cancel_u8(`handle`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_free_u8(`handle`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_complete_u8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
-    ): Byte
-    fun ffi_ndr_ffi_rust_future_poll_i8(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_cancel_i8(`handle`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_free_i8(`handle`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_complete_i8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
-    ): Byte
-    fun ffi_ndr_ffi_rust_future_poll_u16(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_cancel_u16(`handle`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_free_u16(`handle`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_complete_u16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
-    ): Short
-    fun ffi_ndr_ffi_rust_future_poll_i16(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_cancel_i16(`handle`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_free_i16(`handle`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_complete_i16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
-    ): Short
-    fun ffi_ndr_ffi_rust_future_poll_u32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_cancel_u32(`handle`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_free_u32(`handle`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_complete_u32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
-    ): Int
-    fun ffi_ndr_ffi_rust_future_poll_i32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_cancel_i32(`handle`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_free_i32(`handle`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_complete_i32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
-    ): Int
-    fun ffi_ndr_ffi_rust_future_poll_u64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_cancel_u64(`handle`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_free_u64(`handle`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_complete_u64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
-    ): Long
-    fun ffi_ndr_ffi_rust_future_poll_i64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_cancel_i64(`handle`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_free_i64(`handle`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_complete_i64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
-    ): Long
-    fun ffi_ndr_ffi_rust_future_poll_f32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_cancel_f32(`handle`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_free_f32(`handle`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_complete_f32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
-    ): Float
-    fun ffi_ndr_ffi_rust_future_poll_f64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_cancel_f64(`handle`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_free_f64(`handle`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_complete_f64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
-    ): Double
-    fun ffi_ndr_ffi_rust_future_poll_pointer(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_cancel_pointer(`handle`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_free_pointer(`handle`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_complete_pointer(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
-    ): Pointer
-    fun ffi_ndr_ffi_rust_future_poll_rust_buffer(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_cancel_rust_buffer(`handle`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_free_rust_buffer(`handle`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_complete_rust_buffer(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    fun ffi_ndr_ffi_rust_future_poll_void(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_cancel_void(`handle`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_free_void(`handle`: Long,
-    ): Unit
-    fun ffi_ndr_ffi_rust_future_complete_void(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
-    ): Unit
-    fun uniffi_ndr_ffi_checksum_func_create_signed_app_keys_event(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_func_derive_public_key(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_func_generate_keypair(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_func_parse_app_keys_event(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_func_resolve_conversation_candidate_pubkeys(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_func_resolve_latest_app_keys_devices(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_func_version(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_invitehandle_accept(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_invitehandle_accept_with_owner(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_invitehandle_get_inviter_pubkey_hex(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_invitehandle_get_shared_secret_hex(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_invitehandle_process_response(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_invitehandle_serialize(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_invitehandle_set_owner_pubkey_hex(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_invitehandle_set_purpose(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_invitehandle_to_event_json(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_invitehandle_to_url(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionhandle_can_send(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionhandle_decrypt_event(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionhandle_is_dr_message(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionhandle_send_text(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionhandle_state_json(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_accept_invite_from_event_json(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_accept_invite_from_url(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_drain_events(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_active_session_state(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_device_id(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_message_push_author_pubkeys(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_message_push_session_states(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_our_pubkey_hex(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_owner_pubkey_hex(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_stored_user_record_json(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_total_sessions(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_group_create(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_group_handle_incoming_session_event(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_group_handle_outer_event(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_group_known_sender_event_pubkeys(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_group_outer_subscription_plan(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_group_remove(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_group_send_event(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_group_upsert(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_import_session_state(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_init(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_known_peer_owner_pubkeys(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_process_event(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_send_event_with_inner_id(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_send_reaction(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_send_receipt(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_send_rumor_json(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_send_text(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_send_text_with_inner_id(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_send_typing(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_setup_user(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_constructor_invitehandle_create_new(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_constructor_invitehandle_deserialize(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_constructor_invitehandle_from_event_json(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_constructor_invitehandle_from_url(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_constructor_sessionhandle_from_state_json(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_constructor_sessionhandle_init(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_constructor_sessionmanagerhandle_new(
-    ): Short
-    fun uniffi_ndr_ffi_checksum_constructor_sessionmanagerhandle_new_with_storage_path(
-    ): Short
-    fun ffi_ndr_ffi_uniffi_contract_version(
-    ): Int
-    
+): Pointer
+fun uniffi_ndr_ffi_fn_free_invitehandle(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+): Unit
+fun uniffi_ndr_ffi_fn_constructor_invitehandle_from_event_json(`eventJson`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Pointer
+fun uniffi_ndr_ffi_fn_constructor_invitehandle_from_url(`url`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Pointer
+fun uniffi_ndr_ffi_fn_method_invitehandle_get_inviter_pubkey_hex(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_ndr_ffi_fn_method_invitehandle_to_url(`ptr`: Pointer,`root`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_ndr_ffi_fn_clone_sessionmanagerhandle(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+): Pointer
+fun uniffi_ndr_ffi_fn_free_sessionmanagerhandle(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+): Unit
+fun uniffi_ndr_ffi_fn_constructor_sessionmanagerhandle_new(`ourPubkeyHex`: RustBuffer.ByValue,`ourIdentityPrivkeyHex`: RustBuffer.ByValue,`deviceId`: RustBuffer.ByValue,`ownerPubkeyHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Pointer
+fun uniffi_ndr_ffi_fn_constructor_sessionmanagerhandle_new_with_storage_path(`ourPubkeyHex`: RustBuffer.ByValue,`ourIdentityPrivkeyHex`: RustBuffer.ByValue,`deviceId`: RustBuffer.ByValue,`storagePath`: RustBuffer.ByValue,`ownerPubkeyHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Pointer
+fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_accept_invite_from_event_json(`ptr`: Pointer,`eventJson`: RustBuffer.ByValue,`ownerPubkeyHintHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_accept_invite_from_url(`ptr`: Pointer,`inviteUrl`: RustBuffer.ByValue,`ownerPubkeyHintHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_drain_events(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_get_active_session_state(`ptr`: Pointer,`peerPubkeyHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_get_device_id(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_get_message_push_author_pubkeys(`ptr`: Pointer,`peerOwnerPubkeyHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_get_message_push_session_states(`ptr`: Pointer,`peerOwnerPubkeyHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_get_our_pubkey_hex(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_get_owner_pubkey_hex(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_get_total_sessions(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_init(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+): Unit
+fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_known_peer_owner_pubkeys(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_process_event(`ptr`: Pointer,`eventJson`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Unit
+fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_send_text(`ptr`: Pointer,`recipientPubkeyHex`: RustBuffer.ByValue,`text`: RustBuffer.ByValue,`expiresAtSeconds`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_send_text_with_inner_id(`ptr`: Pointer,`recipientPubkeyHex`: RustBuffer.ByValue,`text`: RustBuffer.ByValue,`expiresAtSeconds`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_ndr_ffi_fn_method_sessionmanagerhandle_setup_user(`ptr`: Pointer,`userPubkeyHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Unit
+fun uniffi_ndr_ffi_fn_func_derive_public_key(`privkeyHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_ndr_ffi_fn_func_generate_keypair(uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun uniffi_ndr_ffi_fn_func_version(uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun ffi_ndr_ffi_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun ffi_ndr_ffi_rustbuffer_from_bytes(`bytes`: ForeignBytes.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun ffi_ndr_ffi_rustbuffer_free(`buf`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Unit
+fun ffi_ndr_ffi_rustbuffer_reserve(`buf`: RustBuffer.ByValue,`additional`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun ffi_ndr_ffi_rust_future_poll_u8(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_cancel_u8(`handle`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_free_u8(`handle`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_complete_u8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Byte
+fun ffi_ndr_ffi_rust_future_poll_i8(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_cancel_i8(`handle`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_free_i8(`handle`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_complete_i8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Byte
+fun ffi_ndr_ffi_rust_future_poll_u16(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_cancel_u16(`handle`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_free_u16(`handle`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_complete_u16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Short
+fun ffi_ndr_ffi_rust_future_poll_i16(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_cancel_i16(`handle`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_free_i16(`handle`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_complete_i16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Short
+fun ffi_ndr_ffi_rust_future_poll_u32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_cancel_u32(`handle`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_free_u32(`handle`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_complete_u32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Int
+fun ffi_ndr_ffi_rust_future_poll_i32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_cancel_i32(`handle`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_free_i32(`handle`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_complete_i32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Int
+fun ffi_ndr_ffi_rust_future_poll_u64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_cancel_u64(`handle`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_free_u64(`handle`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_complete_u64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+fun ffi_ndr_ffi_rust_future_poll_i64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_cancel_i64(`handle`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_free_i64(`handle`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_complete_i64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Long
+fun ffi_ndr_ffi_rust_future_poll_f32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_cancel_f32(`handle`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_free_f32(`handle`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_complete_f32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Float
+fun ffi_ndr_ffi_rust_future_poll_f64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_cancel_f64(`handle`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_free_f64(`handle`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_complete_f64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Double
+fun ffi_ndr_ffi_rust_future_poll_pointer(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_cancel_pointer(`handle`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_free_pointer(`handle`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_complete_pointer(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Pointer
+fun ffi_ndr_ffi_rust_future_poll_rust_buffer(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_cancel_rust_buffer(`handle`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_free_rust_buffer(`handle`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_complete_rust_buffer(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): RustBuffer.ByValue
+fun ffi_ndr_ffi_rust_future_poll_void(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_cancel_void(`handle`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_free_void(`handle`: Long,
+): Unit
+fun ffi_ndr_ffi_rust_future_complete_void(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+): Unit
+
 }
 
-private fun uniffiCheckContractApiVersion(lib: UniffiLib) {
+private fun uniffiCheckContractApiVersion(lib: IntegrityCheckingUniffiLib) {
     // Get the bindings contract version from our ComponentInterface
-    val bindings_contract_version = 26
+    val bindings_contract_version = 29
     // Get the scaffolding contract version by calling the into the dylib
     val scaffolding_contract_version = lib.ffi_ndr_ffi_uniffi_contract_version()
     if (bindings_contract_version != scaffolding_contract_version) {
         throw RuntimeException("UniFFI contract version mismatch: try cleaning and rebuilding your project")
     }
 }
-
 @Suppress("UNUSED_PARAMETER")
-private fun uniffiCheckApiChecksums(lib: UniffiLib) {
-    if (lib.uniffi_ndr_ffi_checksum_func_create_signed_app_keys_event() != 62391.toShort()) {
+private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
+    if (lib.uniffi_ndr_ffi_checksum_func_derive_public_key() != 46297.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_ndr_ffi_checksum_func_derive_public_key() != 23373.toShort()) {
+    if (lib.uniffi_ndr_ffi_checksum_func_generate_keypair() != 57537.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_ndr_ffi_checksum_func_generate_keypair() != 56100.toShort()) {
+    if (lib.uniffi_ndr_ffi_checksum_func_version() != 35402.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_ndr_ffi_checksum_func_parse_app_keys_event() != 24603.toShort()) {
+    if (lib.uniffi_ndr_ffi_checksum_method_invitehandle_get_inviter_pubkey_hex() != 62322.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_ndr_ffi_checksum_func_resolve_conversation_candidate_pubkeys() != 3184.toShort()) {
+    if (lib.uniffi_ndr_ffi_checksum_method_invitehandle_to_url() != 41511.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_ndr_ffi_checksum_func_resolve_latest_app_keys_devices() != 24185.toShort()) {
+    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_accept_invite_from_event_json() != 39696.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_ndr_ffi_checksum_func_version() != 58200.toShort()) {
+    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_accept_invite_from_url() != 49858.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_ndr_ffi_checksum_method_invitehandle_accept() != 50404.toShort()) {
+    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_drain_events() != 31848.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_ndr_ffi_checksum_method_invitehandle_accept_with_owner() != 19609.toShort()) {
+    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_active_session_state() != 4999.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_ndr_ffi_checksum_method_invitehandle_get_inviter_pubkey_hex() != 17047.toShort()) {
+    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_device_id() != 8402.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_ndr_ffi_checksum_method_invitehandle_get_shared_secret_hex() != 42269.toShort()) {
+    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_message_push_author_pubkeys() != 45983.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_ndr_ffi_checksum_method_invitehandle_process_response() != 8323.toShort()) {
+    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_message_push_session_states() != 64635.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_ndr_ffi_checksum_method_invitehandle_serialize() != 6090.toShort()) {
+    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_our_pubkey_hex() != 19398.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_ndr_ffi_checksum_method_invitehandle_set_owner_pubkey_hex() != 988.toShort()) {
+    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_owner_pubkey_hex() != 49647.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_ndr_ffi_checksum_method_invitehandle_set_purpose() != 14438.toShort()) {
+    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_total_sessions() != 21120.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_ndr_ffi_checksum_method_invitehandle_to_event_json() != 25504.toShort()) {
+    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_init() != 25634.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_ndr_ffi_checksum_method_invitehandle_to_url() != 21533.toShort()) {
+    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_known_peer_owner_pubkeys() != 31004.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionhandle_can_send() != 64471.toShort()) {
+    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_process_event() != 18483.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionhandle_decrypt_event() != 61795.toShort()) {
+    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_send_text() != 56962.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionhandle_is_dr_message() != 39495.toShort()) {
+    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_send_text_with_inner_id() != 55155.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionhandle_send_text() != 53814.toShort()) {
+    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_setup_user() != 41291.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionhandle_state_json() != 62261.toShort()) {
+    if (lib.uniffi_ndr_ffi_checksum_constructor_invitehandle_from_event_json() != 46387.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_accept_invite_from_event_json() != 10447.toShort()) {
+    if (lib.uniffi_ndr_ffi_checksum_constructor_invitehandle_from_url() != 28197.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_accept_invite_from_url() != 1488.toShort()) {
+    if (lib.uniffi_ndr_ffi_checksum_constructor_sessionmanagerhandle_new() != 47765.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_drain_events() != 33023.toShort()) {
+    if (lib.uniffi_ndr_ffi_checksum_constructor_sessionmanagerhandle_new_with_storage_path() != 5699.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_active_session_state() != 34884.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_device_id() != 27863.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_message_push_author_pubkeys() != 25521.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_message_push_session_states() != 52859.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_our_pubkey_hex() != 15248.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_owner_pubkey_hex() != 38134.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_stored_user_record_json() != 54503.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_get_total_sessions() != 54736.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_group_create() != 41536.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_group_handle_incoming_session_event() != 45714.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_group_handle_outer_event() != 9485.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_group_known_sender_event_pubkeys() != 34048.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_group_outer_subscription_plan() != 65323.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_group_remove() != 33157.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_group_send_event() != 4165.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_group_upsert() != 12505.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_import_session_state() != 57446.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_init() != 12215.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_known_peer_owner_pubkeys() != 12569.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_process_event() != 55445.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_send_event_with_inner_id() != 35167.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_send_reaction() != 32190.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_send_receipt() != 34112.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_send_rumor_json() != 27697.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_send_text() != 39171.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_send_text_with_inner_id() != 49408.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_send_typing() != 11765.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_method_sessionmanagerhandle_setup_user() != 27115.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_constructor_invitehandle_create_new() != 4301.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_constructor_invitehandle_deserialize() != 552.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_constructor_invitehandle_from_event_json() != 46752.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_constructor_invitehandle_from_url() != 7682.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_constructor_sessionhandle_from_state_json() != 2882.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_constructor_sessionhandle_init() != 28461.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_constructor_sessionmanagerhandle_new() != 8939.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_ndr_ffi_checksum_constructor_sessionmanagerhandle_new_with_storage_path() != 33050.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
+}
+
+/**
+ * @suppress
+ */
+public fun uniffiEnsureInitialized() {
+    UniffiLib.INSTANCE
 }
 
 // Async support
@@ -1446,8 +1165,33 @@ interface Disposable {
     fun destroy()
     companion object {
         fun destroy(vararg args: Any?) {
-            args.filterIsInstance<Disposable>()
-                .forEach(Disposable::destroy)
+            for (arg in args) {
+                when (arg) {
+                    is Disposable -> arg.destroy()
+                    is ArrayList<*> -> {
+                        for (idx in arg.indices) {
+                            val element = arg[idx]
+                            if (element is Disposable) {
+                                element.destroy()
+                            }
+                        }
+                    }
+                    is Map<*, *> -> {
+                        for (element in arg.values) {
+                            if (element is Disposable) {
+                                element.destroy()
+                            }
+                        }
+                    }
+                    is Iterable<*> -> {
+                        for (element in arg) {
+                            if (element is Disposable) {
+                                element.destroy()
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -1473,28 +1217,69 @@ inline fun <T : Disposable?, R> T.use(block: (T) -> R) =
  * @suppress
  * */
 object NoPointer
-
 /**
+ * The cleaner interface for Object finalization code to run.
+ * This is the entry point to any implementation that we're using.
+ *
+ * The cleaner registers objects and returns cleanables, so now we are
+ * defining a `UniffiCleaner` with a `UniffiClenaer.Cleanable` to abstract the
+ * different implmentations available at compile time.
+ *
  * @suppress
  */
-public object FfiConverterUInt: FfiConverter<UInt, Int> {
-    override fun lift(value: Int): UInt {
-        return value.toUInt()
+interface UniffiCleaner {
+    interface Cleanable {
+        fun clean()
     }
 
-    override fun read(buf: ByteBuffer): UInt {
-        return lift(buf.getInt())
+    fun register(value: Any, cleanUpTask: Runnable): UniffiCleaner.Cleanable
+
+    companion object
+}
+
+// The fallback Jna cleaner, which is available for both Android, and the JVM.
+private class UniffiJnaCleaner : UniffiCleaner {
+    private val cleaner = com.sun.jna.internal.Cleaner.getCleaner()
+
+    override fun register(value: Any, cleanUpTask: Runnable): UniffiCleaner.Cleanable =
+        UniffiJnaCleanable(cleaner.register(value, cleanUpTask))
+}
+
+private class UniffiJnaCleanable(
+    private val cleanable: com.sun.jna.internal.Cleaner.Cleanable,
+) : UniffiCleaner.Cleanable {
+    override fun clean() = cleanable.clean()
+}
+
+
+// We decide at uniffi binding generation time whether we were
+// using Android or not.
+// There are further runtime checks to chose the correct implementation
+// of the cleaner.
+private fun UniffiCleaner.Companion.create(): UniffiCleaner =
+    try {
+        // For safety's sake: if the library hasn't been run in android_cleaner = true
+        // mode, but is being run on Android, then we still need to think about
+        // Android API versions.
+        // So we check if java.lang.ref.Cleaner is there, and use that…
+        java.lang.Class.forName("java.lang.ref.Cleaner")
+        JavaLangRefCleaner()
+    } catch (e: ClassNotFoundException) {
+        // … otherwise, fallback to the JNA cleaner.
+        UniffiJnaCleaner()
     }
 
-    override fun lower(value: UInt): Int {
-        return value.toInt()
-    }
+private class JavaLangRefCleaner : UniffiCleaner {
+    val cleaner = java.lang.ref.Cleaner.create()
 
-    override fun allocationSize(value: UInt) = 4UL
+    override fun register(value: Any, cleanUpTask: Runnable): UniffiCleaner.Cleanable =
+        JavaLangRefCleanable(cleaner.register(value, cleanUpTask))
+}
 
-    override fun write(value: UInt, buf: ByteBuffer) {
-        buf.putInt(value.toInt())
-    }
+private class JavaLangRefCleanable(
+    val cleanable: java.lang.ref.Cleaner.Cleanable
+) : UniffiCleaner.Cleanable {
+    override fun clean() = cleanable.clean()
 }
 
 /**
@@ -1699,133 +1484,17 @@ public object FfiConverterString: FfiConverter<String, RustBuffer.ByValue> {
 //
 
 
-/**
- * The cleaner interface for Object finalization code to run.
- * This is the entry point to any implementation that we're using.
- *
- * The cleaner registers objects and returns cleanables, so now we are
- * defining a `UniffiCleaner` with a `UniffiClenaer.Cleanable` to abstract the
- * different implmentations available at compile time.
- *
- * @suppress
- */
-interface UniffiCleaner {
-    interface Cleanable {
-        fun clean()
-    }
-
-    fun register(value: Any, cleanUpTask: Runnable): UniffiCleaner.Cleanable
-
-    companion object
-}
-
-// The fallback Jna cleaner, which is available for both Android, and the JVM.
-private class UniffiJnaCleaner : UniffiCleaner {
-    private val cleaner = com.sun.jna.internal.Cleaner.getCleaner()
-
-    override fun register(value: Any, cleanUpTask: Runnable): UniffiCleaner.Cleanable =
-        UniffiJnaCleanable(cleaner.register(value, cleanUpTask))
-}
-
-private class UniffiJnaCleanable(
-    private val cleanable: com.sun.jna.internal.Cleaner.Cleanable,
-) : UniffiCleaner.Cleanable {
-    override fun clean() = cleanable.clean()
-}
-
-// We decide at uniffi binding generation time whether we were
-// using Android or not.
-// There are further runtime checks to chose the correct implementation
-// of the cleaner.
-private fun UniffiCleaner.Companion.create(): UniffiCleaner =
-    try {
-        // For safety's sake: if the library hasn't been run in android_cleaner = true
-        // mode, but is being run on Android, then we still need to think about
-        // Android API versions.
-        // So we check if java.lang.ref.Cleaner is there, and use that…
-        java.lang.Class.forName("java.lang.ref.Cleaner")
-        JavaLangRefCleaner()
-    } catch (e: ClassNotFoundException) {
-        // … otherwise, fallback to the JNA cleaner.
-        UniffiJnaCleaner()
-    }
-
-private class JavaLangRefCleaner : UniffiCleaner {
-    val cleaner = java.lang.ref.Cleaner.create()
-
-    override fun register(value: Any, cleanUpTask: Runnable): UniffiCleaner.Cleanable =
-        JavaLangRefCleanable(cleaner.register(value, cleanUpTask))
-}
-
-private class JavaLangRefCleanable(
-    val cleanable: java.lang.ref.Cleaner.Cleanable
-) : UniffiCleaner.Cleanable {
-    override fun clean() = cleanable.clean()
-}
-/**
- * FFI wrapper for Invite.
- */
 public interface InviteHandleInterface {
     
-    /**
-     * Accept the invite and create a session.
-     */
-    fun `accept`(`inviteePubkeyHex`: kotlin.String, `inviteePrivkeyHex`: kotlin.String, `deviceId`: kotlin.String?): InviteAcceptResult
-    
-    /**
-     * Accept the invite as an owner and include the owner pubkey in the response payload.
-     */
-    fun `acceptWithOwner`(`inviteePubkeyHex`: kotlin.String, `inviteePrivkeyHex`: kotlin.String, `deviceId`: kotlin.String?, `ownerPubkeyHex`: kotlin.String?): InviteAcceptResult
-    
-    /**
-     * Get the inviter's public key as hex.
-     */
     fun `getInviterPubkeyHex`(): kotlin.String
     
-    /**
-     * Get the shared secret as hex.
-     */
-    fun `getSharedSecretHex`(): kotlin.String
-    
-    /**
-     * Process an invite response event and create a session (inviter side).
-     *
-     * Returns `None` if the event is not a valid response for this invite.
-     */
-    fun `processResponse`(`eventJson`: kotlin.String, `inviterPrivkeyHex`: kotlin.String): InviteProcessResult?
-    
-    /**
-     * Serialize the invite to JSON for persistence.
-     */
-    fun `serialize`(): kotlin.String
-    
-    /**
-     * Update the owner pubkey embedded in invite URLs.
-     */
-    fun `setOwnerPubkeyHex`(`ownerPubkeyHex`: kotlin.String?)
-    
-    /**
-     * Update the invite purpose (e.g. \"link\").
-     */
-    fun `setPurpose`(`purpose`: kotlin.String?)
-    
-    /**
-     * Convert the invite to a Nostr event JSON.
-     */
-    fun `toEventJson`(): kotlin.String
-    
-    /**
-     * Convert the invite to a shareable URL.
-     */
     fun `toUrl`(`root`: kotlin.String): kotlin.String
     
     companion object
 }
 
-/**
- * FFI wrapper for Invite.
- */
-open class InviteHandle: Disposable, AutoCloseable, InviteHandleInterface {
+open class InviteHandle: Disposable, AutoCloseable, InviteHandleInterface
+{
 
     constructor(pointer: Pointer) {
         this.pointer = pointer
@@ -1906,42 +1575,7 @@ open class InviteHandle: Disposable, AutoCloseable, InviteHandleInterface {
         }
     }
 
-    
-    /**
-     * Accept the invite and create a session.
-     */
-    @Throws(NdrException::class)override fun `accept`(`inviteePubkeyHex`: kotlin.String, `inviteePrivkeyHex`: kotlin.String, `deviceId`: kotlin.String?): InviteAcceptResult {
-            return FfiConverterTypeInviteAcceptResult.lift(
-    callWithPointer {
-    uniffiRustCallWithError(NdrException) { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_method_invitehandle_accept(
-        it, FfiConverterString.lower(`inviteePubkeyHex`),FfiConverterString.lower(`inviteePrivkeyHex`),FfiConverterOptionalString.lower(`deviceId`),_status)
-}
-    }
-    )
-    }
-    
-
-    
-    /**
-     * Accept the invite as an owner and include the owner pubkey in the response payload.
-     */
-    @Throws(NdrException::class)override fun `acceptWithOwner`(`inviteePubkeyHex`: kotlin.String, `inviteePrivkeyHex`: kotlin.String, `deviceId`: kotlin.String?, `ownerPubkeyHex`: kotlin.String?): InviteAcceptResult {
-            return FfiConverterTypeInviteAcceptResult.lift(
-    callWithPointer {
-    uniffiRustCallWithError(NdrException) { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_method_invitehandle_accept_with_owner(
-        it, FfiConverterString.lower(`inviteePubkeyHex`),FfiConverterString.lower(`inviteePrivkeyHex`),FfiConverterOptionalString.lower(`deviceId`),FfiConverterOptionalString.lower(`ownerPubkeyHex`),_status)
-}
-    }
-    )
-    }
-    
-
-    
-    /**
-     * Get the inviter's public key as hex.
-     */override fun `getInviterPubkeyHex`(): kotlin.String {
+    override fun `getInviterPubkeyHex`(): kotlin.String {
             return FfiConverterString.lift(
     callWithPointer {
     uniffiRustCall() { _status ->
@@ -1954,103 +1588,6 @@ open class InviteHandle: Disposable, AutoCloseable, InviteHandleInterface {
     
 
     
-    /**
-     * Get the shared secret as hex.
-     */override fun `getSharedSecretHex`(): kotlin.String {
-            return FfiConverterString.lift(
-    callWithPointer {
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_method_invitehandle_get_shared_secret_hex(
-        it, _status)
-}
-    }
-    )
-    }
-    
-
-    
-    /**
-     * Process an invite response event and create a session (inviter side).
-     *
-     * Returns `None` if the event is not a valid response for this invite.
-     */
-    @Throws(NdrException::class)override fun `processResponse`(`eventJson`: kotlin.String, `inviterPrivkeyHex`: kotlin.String): InviteProcessResult? {
-            return FfiConverterOptionalTypeInviteProcessResult.lift(
-    callWithPointer {
-    uniffiRustCallWithError(NdrException) { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_method_invitehandle_process_response(
-        it, FfiConverterString.lower(`eventJson`),FfiConverterString.lower(`inviterPrivkeyHex`),_status)
-}
-    }
-    )
-    }
-    
-
-    
-    /**
-     * Serialize the invite to JSON for persistence.
-     */
-    @Throws(NdrException::class)override fun `serialize`(): kotlin.String {
-            return FfiConverterString.lift(
-    callWithPointer {
-    uniffiRustCallWithError(NdrException) { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_method_invitehandle_serialize(
-        it, _status)
-}
-    }
-    )
-    }
-    
-
-    
-    /**
-     * Update the owner pubkey embedded in invite URLs.
-     */
-    @Throws(NdrException::class)override fun `setOwnerPubkeyHex`(`ownerPubkeyHex`: kotlin.String?)
-        = 
-    callWithPointer {
-    uniffiRustCallWithError(NdrException) { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_method_invitehandle_set_owner_pubkey_hex(
-        it, FfiConverterOptionalString.lower(`ownerPubkeyHex`),_status)
-}
-    }
-    
-    
-
-    
-    /**
-     * Update the invite purpose (e.g. \"link\").
-     */override fun `setPurpose`(`purpose`: kotlin.String?)
-        = 
-    callWithPointer {
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_method_invitehandle_set_purpose(
-        it, FfiConverterOptionalString.lower(`purpose`),_status)
-}
-    }
-    
-    
-
-    
-    /**
-     * Convert the invite to a Nostr event JSON.
-     */
-    @Throws(NdrException::class)override fun `toEventJson`(): kotlin.String {
-            return FfiConverterString.lift(
-    callWithPointer {
-    uniffiRustCallWithError(NdrException) { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_method_invitehandle_to_event_json(
-        it, _status)
-}
-    }
-    )
-    }
-    
-
-    
-    /**
-     * Convert the invite to a shareable URL.
-     */
     @Throws(NdrException::class)override fun `toUrl`(`root`: kotlin.String): kotlin.String {
             return FfiConverterString.lift(
     callWithPointer {
@@ -2068,37 +1605,6 @@ open class InviteHandle: Disposable, AutoCloseable, InviteHandleInterface {
     
     companion object {
         
-    /**
-     * Create a new invite.
-     */
-    @Throws(NdrException::class) fun `createNew`(`inviterPubkeyHex`: kotlin.String, `deviceId`: kotlin.String?, `maxUses`: kotlin.UInt?): InviteHandle {
-            return FfiConverterTypeInviteHandle.lift(
-    uniffiRustCallWithError(NdrException) { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_constructor_invitehandle_create_new(
-        FfiConverterString.lower(`inviterPubkeyHex`),FfiConverterOptionalString.lower(`deviceId`),FfiConverterOptionalUInt.lower(`maxUses`),_status)
-}
-    )
-    }
-    
-
-        
-    /**
-     * Deserialize an invite from JSON.
-     */
-    @Throws(NdrException::class) fun `deserialize`(`json`: kotlin.String): InviteHandle {
-            return FfiConverterTypeInviteHandle.lift(
-    uniffiRustCallWithError(NdrException) { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_constructor_invitehandle_deserialize(
-        FfiConverterString.lower(`json`),_status)
-}
-    )
-    }
-    
-
-        
-    /**
-     * Parse an invite from a Nostr event JSON.
-     */
     @Throws(NdrException::class) fun `fromEventJson`(`eventJson`: kotlin.String): InviteHandle {
             return FfiConverterTypeInviteHandle.lift(
     uniffiRustCallWithError(NdrException) { _status ->
@@ -2110,9 +1616,6 @@ open class InviteHandle: Disposable, AutoCloseable, InviteHandleInterface {
     
 
         
-    /**
-     * Parse an invite from a URL.
-     */
     @Throws(NdrException::class) fun `fromUrl`(`url`: kotlin.String): InviteHandle {
             return FfiConverterTypeInviteHandle.lift(
     uniffiRustCallWithError(NdrException) { _status ->
@@ -2255,549 +1758,45 @@ public object FfiConverterTypeInviteHandle: FfiConverter<InviteHandle, Pointer> 
 //
 
 
-/**
- * FFI wrapper for Session.
- */
-public interface SessionHandleInterface {
-    
-    /**
-     * Check if the session is ready to send messages.
-     */
-    fun `canSend`(): kotlin.Boolean
-    
-    /**
-     * Decrypt a received event.
-     */
-    fun `decryptEvent`(`outerEventJson`: kotlin.String): DecryptResult
-    
-    /**
-     * Check if an event is a double-ratchet message.
-     */
-    fun `isDrMessage`(`eventJson`: kotlin.String): kotlin.Boolean
-    
-    /**
-     * Send a text message.
-     */
-    fun `sendText`(`text`: kotlin.String): SendResult
-    
-    /**
-     * Serialize the session state to JSON.
-     */
-    fun `stateJson`(): kotlin.String
-    
-    companion object
-}
-
-/**
- * FFI wrapper for Session.
- */
-open class SessionHandle: Disposable, AutoCloseable, SessionHandleInterface {
-
-    constructor(pointer: Pointer) {
-        this.pointer = pointer
-        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
-    }
-
-    /**
-     * This constructor can be used to instantiate a fake object. Only used for tests. Any
-     * attempt to actually use an object constructed this way will fail as there is no
-     * connected Rust object.
-     */
-    @Suppress("UNUSED_PARAMETER")
-    constructor(noPointer: NoPointer) {
-        this.pointer = null
-        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
-    }
-
-    protected val pointer: Pointer?
-    protected val cleanable: UniffiCleaner.Cleanable
-
-    private val wasDestroyed = AtomicBoolean(false)
-    private val callCounter = AtomicLong(1)
-
-    override fun destroy() {
-        // Only allow a single call to this method.
-        // TODO: maybe we should log a warning if called more than once?
-        if (this.wasDestroyed.compareAndSet(false, true)) {
-            // This decrement always matches the initial count of 1 given at creation time.
-            if (this.callCounter.decrementAndGet() == 0L) {
-                cleanable.clean()
-            }
-        }
-    }
-
-    @Synchronized
-    override fun close() {
-        this.destroy()
-    }
-
-    internal inline fun <R> callWithPointer(block: (ptr: Pointer) -> R): R {
-        // Check and increment the call counter, to keep the object alive.
-        // This needs a compare-and-set retry loop in case of concurrent updates.
-        do {
-            val c = this.callCounter.get()
-            if (c == 0L) {
-                throw IllegalStateException("${this.javaClass.simpleName} object has already been destroyed")
-            }
-            if (c == Long.MAX_VALUE) {
-                throw IllegalStateException("${this.javaClass.simpleName} call counter would overflow")
-            }
-        } while (! this.callCounter.compareAndSet(c, c + 1L))
-        // Now we can safely do the method call without the pointer being freed concurrently.
-        try {
-            return block(this.uniffiClonePointer())
-        } finally {
-            // This decrement always matches the increment we performed above.
-            if (this.callCounter.decrementAndGet() == 0L) {
-                cleanable.clean()
-            }
-        }
-    }
-
-    // Use a static inner class instead of a closure so as not to accidentally
-    // capture `this` as part of the cleanable's action.
-    private class UniffiCleanAction(private val pointer: Pointer?) : Runnable {
-        override fun run() {
-            pointer?.let { ptr ->
-                uniffiRustCall { status ->
-                    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_free_sessionhandle(ptr, status)
-                }
-            }
-        }
-    }
-
-    fun uniffiClonePointer(): Pointer {
-        return uniffiRustCall() { status ->
-            UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_clone_sessionhandle(pointer!!, status)
-        }
-    }
-
-    
-    /**
-     * Check if the session is ready to send messages.
-     */override fun `canSend`(): kotlin.Boolean {
-            return FfiConverterBoolean.lift(
-    callWithPointer {
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_method_sessionhandle_can_send(
-        it, _status)
-}
-    }
-    )
-    }
-    
-
-    
-    /**
-     * Decrypt a received event.
-     */
-    @Throws(NdrException::class)override fun `decryptEvent`(`outerEventJson`: kotlin.String): DecryptResult {
-            return FfiConverterTypeDecryptResult.lift(
-    callWithPointer {
-    uniffiRustCallWithError(NdrException) { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_method_sessionhandle_decrypt_event(
-        it, FfiConverterString.lower(`outerEventJson`),_status)
-}
-    }
-    )
-    }
-    
-
-    
-    /**
-     * Check if an event is a double-ratchet message.
-     */override fun `isDrMessage`(`eventJson`: kotlin.String): kotlin.Boolean {
-            return FfiConverterBoolean.lift(
-    callWithPointer {
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_method_sessionhandle_is_dr_message(
-        it, FfiConverterString.lower(`eventJson`),_status)
-}
-    }
-    )
-    }
-    
-
-    
-    /**
-     * Send a text message.
-     */
-    @Throws(NdrException::class)override fun `sendText`(`text`: kotlin.String): SendResult {
-            return FfiConverterTypeSendResult.lift(
-    callWithPointer {
-    uniffiRustCallWithError(NdrException) { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_method_sessionhandle_send_text(
-        it, FfiConverterString.lower(`text`),_status)
-}
-    }
-    )
-    }
-    
-
-    
-    /**
-     * Serialize the session state to JSON.
-     */
-    @Throws(NdrException::class)override fun `stateJson`(): kotlin.String {
-            return FfiConverterString.lift(
-    callWithPointer {
-    uniffiRustCallWithError(NdrException) { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_method_sessionhandle_state_json(
-        it, _status)
-}
-    }
-    )
-    }
-    
-
-    
-
-    
-    companion object {
-        
-    /**
-     * Restore a session from serialized state JSON.
-     */
-    @Throws(NdrException::class) fun `fromStateJson`(`stateJson`: kotlin.String): SessionHandle {
-            return FfiConverterTypeSessionHandle.lift(
-    uniffiRustCallWithError(NdrException) { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_constructor_sessionhandle_from_state_json(
-        FfiConverterString.lower(`stateJson`),_status)
-}
-    )
-    }
-    
-
-        
-    /**
-     * Initialize a new session.
-     */
-    @Throws(NdrException::class) fun `init`(`theirEphemeralPubkeyHex`: kotlin.String, `ourEphemeralPrivkeyHex`: kotlin.String, `isInitiator`: kotlin.Boolean, `sharedSecretHex`: kotlin.String, `name`: kotlin.String?): SessionHandle {
-            return FfiConverterTypeSessionHandle.lift(
-    uniffiRustCallWithError(NdrException) { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_constructor_sessionhandle_init(
-        FfiConverterString.lower(`theirEphemeralPubkeyHex`),FfiConverterString.lower(`ourEphemeralPrivkeyHex`),FfiConverterBoolean.lower(`isInitiator`),FfiConverterString.lower(`sharedSecretHex`),FfiConverterOptionalString.lower(`name`),_status)
-}
-    )
-    }
-    
-
-        
-    }
-    
-}
-
-/**
- * @suppress
- */
-public object FfiConverterTypeSessionHandle: FfiConverter<SessionHandle, Pointer> {
-
-    override fun lower(value: SessionHandle): Pointer {
-        return value.uniffiClonePointer()
-    }
-
-    override fun lift(value: Pointer): SessionHandle {
-        return SessionHandle(value)
-    }
-
-    override fun read(buf: ByteBuffer): SessionHandle {
-        // The Rust code always writes pointers as 8 bytes, and will
-        // fail to compile if they don't fit.
-        return lift(Pointer(buf.getLong()))
-    }
-
-    override fun allocationSize(value: SessionHandle) = 8UL
-
-    override fun write(value: SessionHandle, buf: ByteBuffer) {
-        // The Rust code always expects pointers written as 8 bytes,
-        // and will fail to compile if they don't fit.
-        buf.putLong(Pointer.nativeValue(lower(value)))
-    }
-}
-
-
-// This template implements a class for working with a Rust struct via a Pointer/Arc<T>
-// to the live Rust struct on the other side of the FFI.
-//
-// Each instance implements core operations for working with the Rust `Arc<T>` and the
-// Kotlin Pointer to work with the live Rust struct on the other side of the FFI.
-//
-// There's some subtlety here, because we have to be careful not to operate on a Rust
-// struct after it has been dropped, and because we must expose a public API for freeing
-// theq Kotlin wrapper object in lieu of reliable finalizers. The core requirements are:
-//
-//   * Each instance holds an opaque pointer to the underlying Rust struct.
-//     Method calls need to read this pointer from the object's state and pass it in to
-//     the Rust FFI.
-//
-//   * When an instance is no longer needed, its pointer should be passed to a
-//     special destructor function provided by the Rust FFI, which will drop the
-//     underlying Rust struct.
-//
-//   * Given an instance, calling code is expected to call the special
-//     `destroy` method in order to free it after use, either by calling it explicitly
-//     or by using a higher-level helper like the `use` method. Failing to do so risks
-//     leaking the underlying Rust struct.
-//
-//   * We can't assume that calling code will do the right thing, and must be prepared
-//     to handle Kotlin method calls executing concurrently with or even after a call to
-//     `destroy`, and to handle multiple (possibly concurrent!) calls to `destroy`.
-//
-//   * We must never allow Rust code to operate on the underlying Rust struct after
-//     the destructor has been called, and must never call the destructor more than once.
-//     Doing so may trigger memory unsafety.
-//
-//   * To mitigate many of the risks of leaking memory and use-after-free unsafety, a `Cleaner`
-//     is implemented to call the destructor when the Kotlin object becomes unreachable.
-//     This is done in a background thread. This is not a panacea, and client code should be aware that
-//      1. the thread may starve if some there are objects that have poorly performing
-//     `drop` methods or do significant work in their `drop` methods.
-//      2. the thread is shared across the whole library. This can be tuned by using `android_cleaner = true`,
-//         or `android = true` in the [`kotlin` section of the `uniffi.toml` file](https://mozilla.github.io/uniffi-rs/kotlin/configuration.html).
-//
-// If we try to implement this with mutual exclusion on access to the pointer, there is the
-// possibility of a race between a method call and a concurrent call to `destroy`:
-//
-//    * Thread A starts a method call, reads the value of the pointer, but is interrupted
-//      before it can pass the pointer over the FFI to Rust.
-//    * Thread B calls `destroy` and frees the underlying Rust struct.
-//    * Thread A resumes, passing the already-read pointer value to Rust and triggering
-//      a use-after-free.
-//
-// One possible solution would be to use a `ReadWriteLock`, with each method call taking
-// a read lock (and thus allowed to run concurrently) and the special `destroy` method
-// taking a write lock (and thus blocking on live method calls). However, we aim not to
-// generate methods with any hidden blocking semantics, and a `destroy` method that might
-// block if called incorrectly seems to meet that bar.
-//
-// So, we achieve our goals by giving each instance an associated `AtomicLong` counter to track
-// the number of in-flight method calls, and an `AtomicBoolean` flag to indicate whether `destroy`
-// has been called. These are updated according to the following rules:
-//
-//    * The initial value of the counter is 1, indicating a live object with no in-flight calls.
-//      The initial value for the flag is false.
-//
-//    * At the start of each method call, we atomically check the counter.
-//      If it is 0 then the underlying Rust struct has already been destroyed and the call is aborted.
-//      If it is nonzero them we atomically increment it by 1 and proceed with the method call.
-//
-//    * At the end of each method call, we atomically decrement and check the counter.
-//      If it has reached zero then we destroy the underlying Rust struct.
-//
-//    * When `destroy` is called, we atomically flip the flag from false to true.
-//      If the flag was already true we silently fail.
-//      Otherwise we atomically decrement and check the counter.
-//      If it has reached zero then we destroy the underlying Rust struct.
-//
-// Astute readers may observe that this all sounds very similar to the way that Rust's `Arc<T>` works,
-// and indeed it is, with the addition of a flag to guard against multiple calls to `destroy`.
-//
-// The overall effect is that the underlying Rust struct is destroyed only when `destroy` has been
-// called *and* all in-flight method calls have completed, avoiding violating any of the expectations
-// of the underlying Rust code.
-//
-// This makes a cleaner a better alternative to _not_ calling `destroy()` as
-// and when the object is finished with, but the abstraction is not perfect: if the Rust object's `drop`
-// method is slow, and/or there are many objects to cleanup, and it's on a low end Android device, then the cleaner
-// thread may be starved, and the app will leak memory.
-//
-// In this case, `destroy`ing manually may be a better solution.
-//
-// The cleaner can live side by side with the manual calling of `destroy`. In the order of responsiveness, uniffi objects
-// with Rust peers are reclaimed:
-//
-// 1. By calling the `destroy` method of the object, which calls `rustObject.free()`. If that doesn't happen:
-// 2. When the object becomes unreachable, AND the Cleaner thread gets to call `rustObject.free()`. If the thread is starved then:
-// 3. The memory is reclaimed when the process terminates.
-//
-// [1] https://stackoverflow.com/questions/24376768/can-java-finalize-an-object-when-it-is-still-in-scope/24380219
-//
-
-
-/**
- * FFI wrapper for SessionManager.
- */
 public interface SessionManagerHandleInterface {
     
-    /**
-     * Accept an invite event JSON using SessionManager's owner-aware routing/auth checks.
-     */
     fun `acceptInviteFromEventJson`(`eventJson`: kotlin.String, `ownerPubkeyHintHex`: kotlin.String?): SessionManagerAcceptInviteResult
     
-    /**
-     * Accept an invite URL using SessionManager's owner-aware routing/auth checks.
-     *
-     * This flow also emits the signed invite response via SessionManager pubsub events,
-     * so hosts should continue draining and publishing `publish_signed` events.
-     */
     fun `acceptInviteFromUrl`(`inviteUrl`: kotlin.String, `ownerPubkeyHintHex`: kotlin.String?): SessionManagerAcceptInviteResult
     
-    /**
-     * Drain pending pubsub events from the internal queue.
-     */
     fun `drainEvents`(): List<PubSubEvent>
     
-    /**
-     * Export the active session state for a peer.
-     */
     fun `getActiveSessionState`(`peerPubkeyHex`: kotlin.String): kotlin.String?
     
-    /**
-     * Get our device id.
-     */
     fun `getDeviceId`(): kotlin.String
     
-    /**
-     * Return the tracked message-push author pubkeys for a peer owner.
-     */
     fun `getMessagePushAuthorPubkeys`(`peerOwnerPubkeyHex`: kotlin.String): List<kotlin.String>
     
-    /**
-     * Return pairwise session snapshots used for message-push routing for a peer owner.
-     */
     fun `getMessagePushSessionStates`(`peerOwnerPubkeyHex`: kotlin.String): List<MessagePushSessionStateResult>
     
-    /**
-     * Get our public key as hex.
-     */
     fun `getOurPubkeyHex`(): kotlin.String
     
-    /**
-     * Get owner public key as hex.
-     */
     fun `getOwnerPubkeyHex`(): kotlin.String
     
-    /**
-     * Return the persisted user-record snapshot JSON for a peer owner, if present.
-     */
-    fun `getStoredUserRecordJson`(`peerOwnerPubkeyHex`: kotlin.String): kotlin.String?
-    
-    /**
-     * Get total active sessions.
-     */
     fun `getTotalSessions`(): kotlin.ULong
     
-    /**
-     * Create a group through the embedded GroupManager, with optional metadata fanout.
-     */
-    fun `groupCreate`(`name`: kotlin.String, `memberOwnerPubkeys`: List<kotlin.String>, `fanoutMetadata`: kotlin.Boolean?, `nowMs`: kotlin.ULong?): GroupCreateResult
-    
-    /**
-     * Handle a decrypted pairwise session rumor that may carry sender-key distribution.
-     */
-    fun `groupHandleIncomingSessionEvent`(`eventJson`: kotlin.String, `fromOwnerPubkeyHex`: kotlin.String, `fromSenderDevicePubkeyHex`: kotlin.String?): List<GroupDecryptedResult>
-    
-    /**
-     * Handle an incoming relay event that may be an encrypted one-to-many group outer event.
-     */
-    fun `groupHandleOuterEvent`(`eventJson`: kotlin.String): GroupDecryptedResult?
-    
-    /**
-     * Return known sender-event pubkeys used for one-to-many group transport.
-     */
-    fun `groupKnownSenderEventPubkeys`(): List<kotlin.String>
-    
-    /**
-     * Return the current group outer authors and which ones were newly added
-     * since the last sync plan request for this handle.
-     */
-    fun `groupOuterSubscriptionPlan`(): GroupOuterSubscriptionPlanResult
-    
-    /**
-     * Remove a group from the embedded GroupManager.
-     */
-    fun `groupRemove`(`groupId`: kotlin.String)
-    
-    /**
-     * Send a group event through GroupManager.
-     *
-     * Pairwise sender-key distribution rumors are sent through SessionManager sessions.
-     * The encrypted one-to-many outer event is emitted via the SessionManager pubsub queue.
-     */
-    fun `groupSendEvent`(`groupId`: kotlin.String, `kind`: kotlin.UInt, `content`: kotlin.String, `tagsJson`: kotlin.String, `nowMs`: kotlin.ULong?): GroupSendResult
-    
-    /**
-     * Upsert group metadata into the embedded GroupManager.
-     */
-    fun `groupUpsert`(`group`: FfiGroupData)
-    
-    /**
-     * Import a session state for a peer.
-     */
-    fun `importSessionState`(`peerPubkeyHex`: kotlin.String, `stateJson`: kotlin.String, `deviceId`: kotlin.String?)
-    
-    /**
-     * Initialize the session manager (loads state, creates device invite, subscribes).
-     */
     fun `init`()
     
-    /**
-     * List peer owner pubkeys known from loaded state or persisted storage.
-     */
     fun `knownPeerOwnerPubkeys`(): List<kotlin.String>
     
-    /**
-     * Process a received Nostr event JSON.
-     */
     fun `processEvent`(`eventJson`: kotlin.String)
     
-    /**
-     * Send an arbitrary inner rumor event to a recipient, returning stable inner id + outer ids.
-     *
-     * This is used for group chats where we need custom kinds/tags (e.g. group metadata kind 40,
-     * group-tagged chat messages kind 14, reactions kind 7, typing kind 25).
-     *
-     * The caller controls the inner rumor tags via `tags_json` (JSON array of string arrays).
-     * For group fan-out, do NOT include recipient-specific tags like `["p", <recipient>]` so
-     * the inner rumor id stays stable across all recipients.
-     */
-    fun `sendEventWithInnerId`(`recipientPubkeyHex`: kotlin.String, `kind`: kotlin.UInt, `content`: kotlin.String, `tagsJson`: kotlin.String, `createdAtSeconds`: kotlin.ULong?): SendTextResult
-    
-    /**
-     * Send an emoji reaction (kind 7) to a specific message id.
-     */
-    fun `sendReaction`(`recipientPubkeyHex`: kotlin.String, `messageId`: kotlin.String, `emoji`: kotlin.String, `expiresAtSeconds`: kotlin.ULong?): List<kotlin.String>
-    
-    /**
-     * Send a delivery/read receipt for messages.
-     */
-    fun `sendReceipt`(`recipientPubkeyHex`: kotlin.String, `receiptType`: kotlin.String, `messageIds`: List<kotlin.String>, `expiresAtSeconds`: kotlin.ULong?): List<kotlin.String>
-    
-    /**
-     * Send an already-built rumor JSON to a recipient without rebuilding it.
-     *
-     * This preserves the original rumor pubkey, timestamp, tags, and id.
-     */
-    fun `sendRumorJson`(`recipientPubkeyHex`: kotlin.String, `rumorJson`: kotlin.String): SendTextResult
-    
-    /**
-     * Send a text message to a recipient.
-     */
     fun `sendText`(`recipientPubkeyHex`: kotlin.String, `text`: kotlin.String, `expiresAtSeconds`: kotlin.ULong?): List<kotlin.String>
     
-    /**
-     * Send a text message and return both the stable inner (rumor) id and the
-     * list of outer message event ids that were published.
-     */
     fun `sendTextWithInnerId`(`recipientPubkeyHex`: kotlin.String, `text`: kotlin.String, `expiresAtSeconds`: kotlin.ULong?): SendTextResult
     
-    /**
-     * Send a typing indicator.
-     */
-    fun `sendTyping`(`recipientPubkeyHex`: kotlin.String, `expiresAtSeconds`: kotlin.ULong?): List<kotlin.String>
-    
-    /**
-     * Subscribe to a user's AppKeys/device-invite streams and converge sessions.
-     */
     fun `setupUser`(`userPubkeyHex`: kotlin.String)
     
     companion object
 }
 
-/**
- * FFI wrapper for SessionManager.
- */
-open class SessionManagerHandle: Disposable, AutoCloseable, SessionManagerHandleInterface {
+open class SessionManagerHandle: Disposable, AutoCloseable, SessionManagerHandleInterface
+{
 
     constructor(pointer: Pointer) {
         this.pointer = pointer
@@ -2814,9 +1813,6 @@ open class SessionManagerHandle: Disposable, AutoCloseable, SessionManagerHandle
         this.pointer = null
         this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
     }
-    /**
-     * Create a new session manager with an internal event queue.
-     */
     constructor(`ourPubkeyHex`: kotlin.String, `ourIdentityPrivkeyHex`: kotlin.String, `deviceId`: kotlin.String, `ownerPubkeyHex`: kotlin.String?) :
         this(
     uniffiRustCallWithError(NdrException) { _status ->
@@ -2889,9 +1885,6 @@ open class SessionManagerHandle: Disposable, AutoCloseable, SessionManagerHandle
     }
 
     
-    /**
-     * Accept an invite event JSON using SessionManager's owner-aware routing/auth checks.
-     */
     @Throws(NdrException::class)override fun `acceptInviteFromEventJson`(`eventJson`: kotlin.String, `ownerPubkeyHintHex`: kotlin.String?): SessionManagerAcceptInviteResult {
             return FfiConverterTypeSessionManagerAcceptInviteResult.lift(
     callWithPointer {
@@ -2905,12 +1898,6 @@ open class SessionManagerHandle: Disposable, AutoCloseable, SessionManagerHandle
     
 
     
-    /**
-     * Accept an invite URL using SessionManager's owner-aware routing/auth checks.
-     *
-     * This flow also emits the signed invite response via SessionManager pubsub events,
-     * so hosts should continue draining and publishing `publish_signed` events.
-     */
     @Throws(NdrException::class)override fun `acceptInviteFromUrl`(`inviteUrl`: kotlin.String, `ownerPubkeyHintHex`: kotlin.String?): SessionManagerAcceptInviteResult {
             return FfiConverterTypeSessionManagerAcceptInviteResult.lift(
     callWithPointer {
@@ -2924,9 +1911,6 @@ open class SessionManagerHandle: Disposable, AutoCloseable, SessionManagerHandle
     
 
     
-    /**
-     * Drain pending pubsub events from the internal queue.
-     */
     @Throws(NdrException::class)override fun `drainEvents`(): List<PubSubEvent> {
             return FfiConverterSequenceTypePubSubEvent.lift(
     callWithPointer {
@@ -2940,9 +1924,6 @@ open class SessionManagerHandle: Disposable, AutoCloseable, SessionManagerHandle
     
 
     
-    /**
-     * Export the active session state for a peer.
-     */
     @Throws(NdrException::class)override fun `getActiveSessionState`(`peerPubkeyHex`: kotlin.String): kotlin.String? {
             return FfiConverterOptionalString.lift(
     callWithPointer {
@@ -2955,10 +1936,7 @@ open class SessionManagerHandle: Disposable, AutoCloseable, SessionManagerHandle
     }
     
 
-    
-    /**
-     * Get our device id.
-     */override fun `getDeviceId`(): kotlin.String {
+    override fun `getDeviceId`(): kotlin.String {
             return FfiConverterString.lift(
     callWithPointer {
     uniffiRustCall() { _status ->
@@ -2971,9 +1949,6 @@ open class SessionManagerHandle: Disposable, AutoCloseable, SessionManagerHandle
     
 
     
-    /**
-     * Return the tracked message-push author pubkeys for a peer owner.
-     */
     @Throws(NdrException::class)override fun `getMessagePushAuthorPubkeys`(`peerOwnerPubkeyHex`: kotlin.String): List<kotlin.String> {
             return FfiConverterSequenceString.lift(
     callWithPointer {
@@ -2987,9 +1962,6 @@ open class SessionManagerHandle: Disposable, AutoCloseable, SessionManagerHandle
     
 
     
-    /**
-     * Return pairwise session snapshots used for message-push routing for a peer owner.
-     */
     @Throws(NdrException::class)override fun `getMessagePushSessionStates`(`peerOwnerPubkeyHex`: kotlin.String): List<MessagePushSessionStateResult> {
             return FfiConverterSequenceTypeMessagePushSessionStateResult.lift(
     callWithPointer {
@@ -3002,10 +1974,7 @@ open class SessionManagerHandle: Disposable, AutoCloseable, SessionManagerHandle
     }
     
 
-    
-    /**
-     * Get our public key as hex.
-     */override fun `getOurPubkeyHex`(): kotlin.String {
+    override fun `getOurPubkeyHex`(): kotlin.String {
             return FfiConverterString.lift(
     callWithPointer {
     uniffiRustCall() { _status ->
@@ -3017,10 +1986,7 @@ open class SessionManagerHandle: Disposable, AutoCloseable, SessionManagerHandle
     }
     
 
-    
-    /**
-     * Get owner public key as hex.
-     */override fun `getOwnerPubkeyHex`(): kotlin.String {
+    override fun `getOwnerPubkeyHex`(): kotlin.String {
             return FfiConverterString.lift(
     callWithPointer {
     uniffiRustCall() { _status ->
@@ -3032,26 +1998,7 @@ open class SessionManagerHandle: Disposable, AutoCloseable, SessionManagerHandle
     }
     
 
-    
-    /**
-     * Return the persisted user-record snapshot JSON for a peer owner, if present.
-     */
-    @Throws(NdrException::class)override fun `getStoredUserRecordJson`(`peerOwnerPubkeyHex`: kotlin.String): kotlin.String? {
-            return FfiConverterOptionalString.lift(
-    callWithPointer {
-    uniffiRustCallWithError(NdrException) { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_method_sessionmanagerhandle_get_stored_user_record_json(
-        it, FfiConverterString.lower(`peerOwnerPubkeyHex`),_status)
-}
-    }
-    )
-    }
-    
-
-    
-    /**
-     * Get total active sessions.
-     */override fun `getTotalSessions`(): kotlin.ULong {
+    override fun `getTotalSessions`(): kotlin.ULong {
             return FfiConverterULong.lift(
     callWithPointer {
     uniffiRustCall() { _status ->
@@ -3064,151 +2011,6 @@ open class SessionManagerHandle: Disposable, AutoCloseable, SessionManagerHandle
     
 
     
-    /**
-     * Create a group through the embedded GroupManager, with optional metadata fanout.
-     */
-    @Throws(NdrException::class)override fun `groupCreate`(`name`: kotlin.String, `memberOwnerPubkeys`: List<kotlin.String>, `fanoutMetadata`: kotlin.Boolean?, `nowMs`: kotlin.ULong?): GroupCreateResult {
-            return FfiConverterTypeGroupCreateResult.lift(
-    callWithPointer {
-    uniffiRustCallWithError(NdrException) { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_method_sessionmanagerhandle_group_create(
-        it, FfiConverterString.lower(`name`),FfiConverterSequenceString.lower(`memberOwnerPubkeys`),FfiConverterOptionalBoolean.lower(`fanoutMetadata`),FfiConverterOptionalULong.lower(`nowMs`),_status)
-}
-    }
-    )
-    }
-    
-
-    
-    /**
-     * Handle a decrypted pairwise session rumor that may carry sender-key distribution.
-     */
-    @Throws(NdrException::class)override fun `groupHandleIncomingSessionEvent`(`eventJson`: kotlin.String, `fromOwnerPubkeyHex`: kotlin.String, `fromSenderDevicePubkeyHex`: kotlin.String?): List<GroupDecryptedResult> {
-            return FfiConverterSequenceTypeGroupDecryptedResult.lift(
-    callWithPointer {
-    uniffiRustCallWithError(NdrException) { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_method_sessionmanagerhandle_group_handle_incoming_session_event(
-        it, FfiConverterString.lower(`eventJson`),FfiConverterString.lower(`fromOwnerPubkeyHex`),FfiConverterOptionalString.lower(`fromSenderDevicePubkeyHex`),_status)
-}
-    }
-    )
-    }
-    
-
-    
-    /**
-     * Handle an incoming relay event that may be an encrypted one-to-many group outer event.
-     */
-    @Throws(NdrException::class)override fun `groupHandleOuterEvent`(`eventJson`: kotlin.String): GroupDecryptedResult? {
-            return FfiConverterOptionalTypeGroupDecryptedResult.lift(
-    callWithPointer {
-    uniffiRustCallWithError(NdrException) { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_method_sessionmanagerhandle_group_handle_outer_event(
-        it, FfiConverterString.lower(`eventJson`),_status)
-}
-    }
-    )
-    }
-    
-
-    
-    /**
-     * Return known sender-event pubkeys used for one-to-many group transport.
-     */override fun `groupKnownSenderEventPubkeys`(): List<kotlin.String> {
-            return FfiConverterSequenceString.lift(
-    callWithPointer {
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_method_sessionmanagerhandle_group_known_sender_event_pubkeys(
-        it, _status)
-}
-    }
-    )
-    }
-    
-
-    
-    /**
-     * Return the current group outer authors and which ones were newly added
-     * since the last sync plan request for this handle.
-     */override fun `groupOuterSubscriptionPlan`(): GroupOuterSubscriptionPlanResult {
-            return FfiConverterTypeGroupOuterSubscriptionPlanResult.lift(
-    callWithPointer {
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_method_sessionmanagerhandle_group_outer_subscription_plan(
-        it, _status)
-}
-    }
-    )
-    }
-    
-
-    
-    /**
-     * Remove a group from the embedded GroupManager.
-     */override fun `groupRemove`(`groupId`: kotlin.String)
-        = 
-    callWithPointer {
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_method_sessionmanagerhandle_group_remove(
-        it, FfiConverterString.lower(`groupId`),_status)
-}
-    }
-    
-    
-
-    
-    /**
-     * Send a group event through GroupManager.
-     *
-     * Pairwise sender-key distribution rumors are sent through SessionManager sessions.
-     * The encrypted one-to-many outer event is emitted via the SessionManager pubsub queue.
-     */
-    @Throws(NdrException::class)override fun `groupSendEvent`(`groupId`: kotlin.String, `kind`: kotlin.UInt, `content`: kotlin.String, `tagsJson`: kotlin.String, `nowMs`: kotlin.ULong?): GroupSendResult {
-            return FfiConverterTypeGroupSendResult.lift(
-    callWithPointer {
-    uniffiRustCallWithError(NdrException) { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_method_sessionmanagerhandle_group_send_event(
-        it, FfiConverterString.lower(`groupId`),FfiConverterUInt.lower(`kind`),FfiConverterString.lower(`content`),FfiConverterString.lower(`tagsJson`),FfiConverterOptionalULong.lower(`nowMs`),_status)
-}
-    }
-    )
-    }
-    
-
-    
-    /**
-     * Upsert group metadata into the embedded GroupManager.
-     */
-    @Throws(NdrException::class)override fun `groupUpsert`(`group`: FfiGroupData)
-        = 
-    callWithPointer {
-    uniffiRustCallWithError(NdrException) { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_method_sessionmanagerhandle_group_upsert(
-        it, FfiConverterTypeFfiGroupData.lower(`group`),_status)
-}
-    }
-    
-    
-
-    
-    /**
-     * Import a session state for a peer.
-     */
-    @Throws(NdrException::class)override fun `importSessionState`(`peerPubkeyHex`: kotlin.String, `stateJson`: kotlin.String, `deviceId`: kotlin.String?)
-        = 
-    callWithPointer {
-    uniffiRustCallWithError(NdrException) { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_method_sessionmanagerhandle_import_session_state(
-        it, FfiConverterString.lower(`peerPubkeyHex`),FfiConverterString.lower(`stateJson`),FfiConverterOptionalString.lower(`deviceId`),_status)
-}
-    }
-    
-    
-
-    
-    /**
-     * Initialize the session manager (loads state, creates device invite, subscribes).
-     */
     @Throws(NdrException::class)override fun `init`()
         = 
     callWithPointer {
@@ -3220,10 +2022,7 @@ open class SessionManagerHandle: Disposable, AutoCloseable, SessionManagerHandle
     
     
 
-    
-    /**
-     * List peer owner pubkeys known from loaded state or persisted storage.
-     */override fun `knownPeerOwnerPubkeys`(): List<kotlin.String> {
+    override fun `knownPeerOwnerPubkeys`(): List<kotlin.String> {
             return FfiConverterSequenceString.lift(
     callWithPointer {
     uniffiRustCall() { _status ->
@@ -3236,9 +2035,6 @@ open class SessionManagerHandle: Disposable, AutoCloseable, SessionManagerHandle
     
 
     
-    /**
-     * Process a received Nostr event JSON.
-     */
     @Throws(NdrException::class)override fun `processEvent`(`eventJson`: kotlin.String)
         = 
     callWithPointer {
@@ -3251,82 +2047,6 @@ open class SessionManagerHandle: Disposable, AutoCloseable, SessionManagerHandle
     
 
     
-    /**
-     * Send an arbitrary inner rumor event to a recipient, returning stable inner id + outer ids.
-     *
-     * This is used for group chats where we need custom kinds/tags (e.g. group metadata kind 40,
-     * group-tagged chat messages kind 14, reactions kind 7, typing kind 25).
-     *
-     * The caller controls the inner rumor tags via `tags_json` (JSON array of string arrays).
-     * For group fan-out, do NOT include recipient-specific tags like `["p", <recipient>]` so
-     * the inner rumor id stays stable across all recipients.
-     */
-    @Throws(NdrException::class)override fun `sendEventWithInnerId`(`recipientPubkeyHex`: kotlin.String, `kind`: kotlin.UInt, `content`: kotlin.String, `tagsJson`: kotlin.String, `createdAtSeconds`: kotlin.ULong?): SendTextResult {
-            return FfiConverterTypeSendTextResult.lift(
-    callWithPointer {
-    uniffiRustCallWithError(NdrException) { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_method_sessionmanagerhandle_send_event_with_inner_id(
-        it, FfiConverterString.lower(`recipientPubkeyHex`),FfiConverterUInt.lower(`kind`),FfiConverterString.lower(`content`),FfiConverterString.lower(`tagsJson`),FfiConverterOptionalULong.lower(`createdAtSeconds`),_status)
-}
-    }
-    )
-    }
-    
-
-    
-    /**
-     * Send an emoji reaction (kind 7) to a specific message id.
-     */
-    @Throws(NdrException::class)override fun `sendReaction`(`recipientPubkeyHex`: kotlin.String, `messageId`: kotlin.String, `emoji`: kotlin.String, `expiresAtSeconds`: kotlin.ULong?): List<kotlin.String> {
-            return FfiConverterSequenceString.lift(
-    callWithPointer {
-    uniffiRustCallWithError(NdrException) { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_method_sessionmanagerhandle_send_reaction(
-        it, FfiConverterString.lower(`recipientPubkeyHex`),FfiConverterString.lower(`messageId`),FfiConverterString.lower(`emoji`),FfiConverterOptionalULong.lower(`expiresAtSeconds`),_status)
-}
-    }
-    )
-    }
-    
-
-    
-    /**
-     * Send a delivery/read receipt for messages.
-     */
-    @Throws(NdrException::class)override fun `sendReceipt`(`recipientPubkeyHex`: kotlin.String, `receiptType`: kotlin.String, `messageIds`: List<kotlin.String>, `expiresAtSeconds`: kotlin.ULong?): List<kotlin.String> {
-            return FfiConverterSequenceString.lift(
-    callWithPointer {
-    uniffiRustCallWithError(NdrException) { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_method_sessionmanagerhandle_send_receipt(
-        it, FfiConverterString.lower(`recipientPubkeyHex`),FfiConverterString.lower(`receiptType`),FfiConverterSequenceString.lower(`messageIds`),FfiConverterOptionalULong.lower(`expiresAtSeconds`),_status)
-}
-    }
-    )
-    }
-    
-
-    
-    /**
-     * Send an already-built rumor JSON to a recipient without rebuilding it.
-     *
-     * This preserves the original rumor pubkey, timestamp, tags, and id.
-     */
-    @Throws(NdrException::class)override fun `sendRumorJson`(`recipientPubkeyHex`: kotlin.String, `rumorJson`: kotlin.String): SendTextResult {
-            return FfiConverterTypeSendTextResult.lift(
-    callWithPointer {
-    uniffiRustCallWithError(NdrException) { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_method_sessionmanagerhandle_send_rumor_json(
-        it, FfiConverterString.lower(`recipientPubkeyHex`),FfiConverterString.lower(`rumorJson`),_status)
-}
-    }
-    )
-    }
-    
-
-    
-    /**
-     * Send a text message to a recipient.
-     */
     @Throws(NdrException::class)override fun `sendText`(`recipientPubkeyHex`: kotlin.String, `text`: kotlin.String, `expiresAtSeconds`: kotlin.ULong?): List<kotlin.String> {
             return FfiConverterSequenceString.lift(
     callWithPointer {
@@ -3340,10 +2060,6 @@ open class SessionManagerHandle: Disposable, AutoCloseable, SessionManagerHandle
     
 
     
-    /**
-     * Send a text message and return both the stable inner (rumor) id and the
-     * list of outer message event ids that were published.
-     */
     @Throws(NdrException::class)override fun `sendTextWithInnerId`(`recipientPubkeyHex`: kotlin.String, `text`: kotlin.String, `expiresAtSeconds`: kotlin.ULong?): SendTextResult {
             return FfiConverterTypeSendTextResult.lift(
     callWithPointer {
@@ -3357,25 +2073,6 @@ open class SessionManagerHandle: Disposable, AutoCloseable, SessionManagerHandle
     
 
     
-    /**
-     * Send a typing indicator.
-     */
-    @Throws(NdrException::class)override fun `sendTyping`(`recipientPubkeyHex`: kotlin.String, `expiresAtSeconds`: kotlin.ULong?): List<kotlin.String> {
-            return FfiConverterSequenceString.lift(
-    callWithPointer {
-    uniffiRustCallWithError(NdrException) { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_method_sessionmanagerhandle_send_typing(
-        it, FfiConverterString.lower(`recipientPubkeyHex`),FfiConverterOptionalULong.lower(`expiresAtSeconds`),_status)
-}
-    }
-    )
-    }
-    
-
-    
-    /**
-     * Subscribe to a user's AppKeys/device-invite streams and converge sessions.
-     */
     @Throws(NdrException::class)override fun `setupUser`(`userPubkeyHex`: kotlin.String)
         = 
     callWithPointer {
@@ -3392,9 +2089,6 @@ open class SessionManagerHandle: Disposable, AutoCloseable, SessionManagerHandle
     
     companion object {
         
-    /**
-     * Create a new session manager with file-backed storage.
-     */
     @Throws(NdrException::class) fun `newWithStoragePath`(`ourPubkeyHex`: kotlin.String, `ourIdentityPrivkeyHex`: kotlin.String, `deviceId`: kotlin.String, `storagePath`: kotlin.String, `ownerPubkeyHex`: kotlin.String?): SessionManagerHandle {
             return FfiConverterTypeSessionManagerHandle.lift(
     uniffiRustCallWithError(NdrException) { _status ->
@@ -3440,150 +2134,6 @@ public object FfiConverterTypeSessionManagerHandle: FfiConverter<SessionManagerH
 
 
 
-/**
- * Result of decrypting a message.
- */
-data class DecryptResult (
-    var `plaintext`: kotlin.String, 
-    var `innerEventJson`: kotlin.String
-) {
-    
-    companion object
-}
-
-/**
- * @suppress
- */
-public object FfiConverterTypeDecryptResult: FfiConverterRustBuffer<DecryptResult> {
-    override fun read(buf: ByteBuffer): DecryptResult {
-        return DecryptResult(
-            FfiConverterString.read(buf),
-            FfiConverterString.read(buf),
-        )
-    }
-
-    override fun allocationSize(value: DecryptResult) = (
-            FfiConverterString.allocationSize(value.`plaintext`) +
-            FfiConverterString.allocationSize(value.`innerEventJson`)
-    )
-
-    override fun write(value: DecryptResult, buf: ByteBuffer) {
-            FfiConverterString.write(value.`plaintext`, buf)
-            FfiConverterString.write(value.`innerEventJson`, buf)
-    }
-}
-
-
-
-/**
- * FFI-friendly device entry for AppKeys.
- */
-data class FfiDeviceEntry (
-    var `identityPubkeyHex`: kotlin.String, 
-    var `createdAt`: kotlin.ULong, 
-    var `deviceLabel`: kotlin.String?, 
-    var `clientLabel`: kotlin.String?
-) {
-    
-    companion object
-}
-
-/**
- * @suppress
- */
-public object FfiConverterTypeFfiDeviceEntry: FfiConverterRustBuffer<FfiDeviceEntry> {
-    override fun read(buf: ByteBuffer): FfiDeviceEntry {
-        return FfiDeviceEntry(
-            FfiConverterString.read(buf),
-            FfiConverterULong.read(buf),
-            FfiConverterOptionalString.read(buf),
-            FfiConverterOptionalString.read(buf),
-        )
-    }
-
-    override fun allocationSize(value: FfiDeviceEntry) = (
-            FfiConverterString.allocationSize(value.`identityPubkeyHex`) +
-            FfiConverterULong.allocationSize(value.`createdAt`) +
-            FfiConverterOptionalString.allocationSize(value.`deviceLabel`) +
-            FfiConverterOptionalString.allocationSize(value.`clientLabel`)
-    )
-
-    override fun write(value: FfiDeviceEntry, buf: ByteBuffer) {
-            FfiConverterString.write(value.`identityPubkeyHex`, buf)
-            FfiConverterULong.write(value.`createdAt`, buf)
-            FfiConverterOptionalString.write(value.`deviceLabel`, buf)
-            FfiConverterOptionalString.write(value.`clientLabel`, buf)
-    }
-}
-
-
-
-/**
- * FFI-friendly group metadata payload.
- */
-data class FfiGroupData (
-    var `id`: kotlin.String, 
-    var `name`: kotlin.String, 
-    var `description`: kotlin.String?, 
-    var `picture`: kotlin.String?, 
-    var `members`: List<kotlin.String>, 
-    var `admins`: List<kotlin.String>, 
-    var `createdAtMs`: kotlin.ULong, 
-    var `secret`: kotlin.String?, 
-    var `accepted`: kotlin.Boolean?
-) {
-    
-    companion object
-}
-
-/**
- * @suppress
- */
-public object FfiConverterTypeFfiGroupData: FfiConverterRustBuffer<FfiGroupData> {
-    override fun read(buf: ByteBuffer): FfiGroupData {
-        return FfiGroupData(
-            FfiConverterString.read(buf),
-            FfiConverterString.read(buf),
-            FfiConverterOptionalString.read(buf),
-            FfiConverterOptionalString.read(buf),
-            FfiConverterSequenceString.read(buf),
-            FfiConverterSequenceString.read(buf),
-            FfiConverterULong.read(buf),
-            FfiConverterOptionalString.read(buf),
-            FfiConverterOptionalBoolean.read(buf),
-        )
-    }
-
-    override fun allocationSize(value: FfiGroupData) = (
-            FfiConverterString.allocationSize(value.`id`) +
-            FfiConverterString.allocationSize(value.`name`) +
-            FfiConverterOptionalString.allocationSize(value.`description`) +
-            FfiConverterOptionalString.allocationSize(value.`picture`) +
-            FfiConverterSequenceString.allocationSize(value.`members`) +
-            FfiConverterSequenceString.allocationSize(value.`admins`) +
-            FfiConverterULong.allocationSize(value.`createdAtMs`) +
-            FfiConverterOptionalString.allocationSize(value.`secret`) +
-            FfiConverterOptionalBoolean.allocationSize(value.`accepted`)
-    )
-
-    override fun write(value: FfiGroupData, buf: ByteBuffer) {
-            FfiConverterString.write(value.`id`, buf)
-            FfiConverterString.write(value.`name`, buf)
-            FfiConverterOptionalString.write(value.`description`, buf)
-            FfiConverterOptionalString.write(value.`picture`, buf)
-            FfiConverterSequenceString.write(value.`members`, buf)
-            FfiConverterSequenceString.write(value.`admins`, buf)
-            FfiConverterULong.write(value.`createdAtMs`, buf)
-            FfiConverterOptionalString.write(value.`secret`, buf)
-            FfiConverterOptionalBoolean.write(value.`accepted`, buf)
-    }
-}
-
-
-
-/**
- * FFI-friendly keypair with hex-encoded keys.
- */
 data class FfiKeyPair (
     var `publicKeyHex`: kotlin.String, 
     var `privateKeyHex`: kotlin.String
@@ -3616,336 +2166,6 @@ public object FfiConverterTypeFfiKeyPair: FfiConverterRustBuffer<FfiKeyPair> {
 
 
 
-/**
- * Metadata fanout summary for group creation.
- */
-data class GroupCreateFanout (
-    var `enabled`: kotlin.Boolean, 
-    var `attempted`: kotlin.ULong, 
-    var `succeeded`: List<kotlin.String>, 
-    var `failed`: List<kotlin.String>
-) {
-    
-    companion object
-}
-
-/**
- * @suppress
- */
-public object FfiConverterTypeGroupCreateFanout: FfiConverterRustBuffer<GroupCreateFanout> {
-    override fun read(buf: ByteBuffer): GroupCreateFanout {
-        return GroupCreateFanout(
-            FfiConverterBoolean.read(buf),
-            FfiConverterULong.read(buf),
-            FfiConverterSequenceString.read(buf),
-            FfiConverterSequenceString.read(buf),
-        )
-    }
-
-    override fun allocationSize(value: GroupCreateFanout) = (
-            FfiConverterBoolean.allocationSize(value.`enabled`) +
-            FfiConverterULong.allocationSize(value.`attempted`) +
-            FfiConverterSequenceString.allocationSize(value.`succeeded`) +
-            FfiConverterSequenceString.allocationSize(value.`failed`)
-    )
-
-    override fun write(value: GroupCreateFanout, buf: ByteBuffer) {
-            FfiConverterBoolean.write(value.`enabled`, buf)
-            FfiConverterULong.write(value.`attempted`, buf)
-            FfiConverterSequenceString.write(value.`succeeded`, buf)
-            FfiConverterSequenceString.write(value.`failed`, buf)
-    }
-}
-
-
-
-/**
- * Result of creating a group through GroupManager.
- */
-data class GroupCreateResult (
-    var `group`: FfiGroupData, 
-    var `metadataRumorJson`: kotlin.String?, 
-    var `fanout`: GroupCreateFanout
-) {
-    
-    companion object
-}
-
-/**
- * @suppress
- */
-public object FfiConverterTypeGroupCreateResult: FfiConverterRustBuffer<GroupCreateResult> {
-    override fun read(buf: ByteBuffer): GroupCreateResult {
-        return GroupCreateResult(
-            FfiConverterTypeFfiGroupData.read(buf),
-            FfiConverterOptionalString.read(buf),
-            FfiConverterTypeGroupCreateFanout.read(buf),
-        )
-    }
-
-    override fun allocationSize(value: GroupCreateResult) = (
-            FfiConverterTypeFfiGroupData.allocationSize(value.`group`) +
-            FfiConverterOptionalString.allocationSize(value.`metadataRumorJson`) +
-            FfiConverterTypeGroupCreateFanout.allocationSize(value.`fanout`)
-    )
-
-    override fun write(value: GroupCreateResult, buf: ByteBuffer) {
-            FfiConverterTypeFfiGroupData.write(value.`group`, buf)
-            FfiConverterOptionalString.write(value.`metadataRumorJson`, buf)
-            FfiConverterTypeGroupCreateFanout.write(value.`fanout`, buf)
-    }
-}
-
-
-
-/**
- * Decrypted group event returned by GroupManager.
- */
-data class GroupDecryptedResult (
-    var `groupId`: kotlin.String, 
-    var `senderEventPubkeyHex`: kotlin.String, 
-    var `senderDevicePubkeyHex`: kotlin.String, 
-    var `senderOwnerPubkeyHex`: kotlin.String?, 
-    var `outerEventId`: kotlin.String, 
-    var `outerCreatedAt`: kotlin.ULong, 
-    var `keyId`: kotlin.UInt, 
-    var `messageNumber`: kotlin.UInt, 
-    var `innerEventJson`: kotlin.String, 
-    var `innerEventId`: kotlin.String
-) {
-    
-    companion object
-}
-
-/**
- * @suppress
- */
-public object FfiConverterTypeGroupDecryptedResult: FfiConverterRustBuffer<GroupDecryptedResult> {
-    override fun read(buf: ByteBuffer): GroupDecryptedResult {
-        return GroupDecryptedResult(
-            FfiConverterString.read(buf),
-            FfiConverterString.read(buf),
-            FfiConverterString.read(buf),
-            FfiConverterOptionalString.read(buf),
-            FfiConverterString.read(buf),
-            FfiConverterULong.read(buf),
-            FfiConverterUInt.read(buf),
-            FfiConverterUInt.read(buf),
-            FfiConverterString.read(buf),
-            FfiConverterString.read(buf),
-        )
-    }
-
-    override fun allocationSize(value: GroupDecryptedResult) = (
-            FfiConverterString.allocationSize(value.`groupId`) +
-            FfiConverterString.allocationSize(value.`senderEventPubkeyHex`) +
-            FfiConverterString.allocationSize(value.`senderDevicePubkeyHex`) +
-            FfiConverterOptionalString.allocationSize(value.`senderOwnerPubkeyHex`) +
-            FfiConverterString.allocationSize(value.`outerEventId`) +
-            FfiConverterULong.allocationSize(value.`outerCreatedAt`) +
-            FfiConverterUInt.allocationSize(value.`keyId`) +
-            FfiConverterUInt.allocationSize(value.`messageNumber`) +
-            FfiConverterString.allocationSize(value.`innerEventJson`) +
-            FfiConverterString.allocationSize(value.`innerEventId`)
-    )
-
-    override fun write(value: GroupDecryptedResult, buf: ByteBuffer) {
-            FfiConverterString.write(value.`groupId`, buf)
-            FfiConverterString.write(value.`senderEventPubkeyHex`, buf)
-            FfiConverterString.write(value.`senderDevicePubkeyHex`, buf)
-            FfiConverterOptionalString.write(value.`senderOwnerPubkeyHex`, buf)
-            FfiConverterString.write(value.`outerEventId`, buf)
-            FfiConverterULong.write(value.`outerCreatedAt`, buf)
-            FfiConverterUInt.write(value.`keyId`, buf)
-            FfiConverterUInt.write(value.`messageNumber`, buf)
-            FfiConverterString.write(value.`innerEventJson`, buf)
-            FfiConverterString.write(value.`innerEventId`, buf)
-    }
-}
-
-
-
-/**
- * Shared outer-subscription sync plan for group sender-event authors.
- */
-data class GroupOuterSubscriptionPlanResult (
-    var `authors`: List<kotlin.String>, 
-    var `addedAuthors`: List<kotlin.String>
-) {
-    
-    companion object
-}
-
-/**
- * @suppress
- */
-public object FfiConverterTypeGroupOuterSubscriptionPlanResult: FfiConverterRustBuffer<GroupOuterSubscriptionPlanResult> {
-    override fun read(buf: ByteBuffer): GroupOuterSubscriptionPlanResult {
-        return GroupOuterSubscriptionPlanResult(
-            FfiConverterSequenceString.read(buf),
-            FfiConverterSequenceString.read(buf),
-        )
-    }
-
-    override fun allocationSize(value: GroupOuterSubscriptionPlanResult) = (
-            FfiConverterSequenceString.allocationSize(value.`authors`) +
-            FfiConverterSequenceString.allocationSize(value.`addedAuthors`)
-    )
-
-    override fun write(value: GroupOuterSubscriptionPlanResult, buf: ByteBuffer) {
-            FfiConverterSequenceString.write(value.`authors`, buf)
-            FfiConverterSequenceString.write(value.`addedAuthors`, buf)
-    }
-}
-
-
-
-/**
- * Result of sending a group event through GroupManager.
- */
-data class GroupSendResult (
-    var `outerEventJson`: kotlin.String, 
-    var `innerEventJson`: kotlin.String, 
-    var `outerEventId`: kotlin.String, 
-    var `innerEventId`: kotlin.String
-) {
-    
-    companion object
-}
-
-/**
- * @suppress
- */
-public object FfiConverterTypeGroupSendResult: FfiConverterRustBuffer<GroupSendResult> {
-    override fun read(buf: ByteBuffer): GroupSendResult {
-        return GroupSendResult(
-            FfiConverterString.read(buf),
-            FfiConverterString.read(buf),
-            FfiConverterString.read(buf),
-            FfiConverterString.read(buf),
-        )
-    }
-
-    override fun allocationSize(value: GroupSendResult) = (
-            FfiConverterString.allocationSize(value.`outerEventJson`) +
-            FfiConverterString.allocationSize(value.`innerEventJson`) +
-            FfiConverterString.allocationSize(value.`outerEventId`) +
-            FfiConverterString.allocationSize(value.`innerEventId`)
-    )
-
-    override fun write(value: GroupSendResult, buf: ByteBuffer) {
-            FfiConverterString.write(value.`outerEventJson`, buf)
-            FfiConverterString.write(value.`innerEventJson`, buf)
-            FfiConverterString.write(value.`outerEventId`, buf)
-            FfiConverterString.write(value.`innerEventId`, buf)
-    }
-}
-
-
-
-/**
- * Result of accepting an invite.
- */
-data class InviteAcceptResult (
-    var `session`: SessionHandle, 
-    var `responseEventJson`: kotlin.String
-) : Disposable {
-    
-    @Suppress("UNNECESSARY_SAFE_CALL") // codegen is much simpler if we unconditionally emit safe calls here
-    override fun destroy() {
-        
-        Disposable.destroy(this.`session`)
-    
-        Disposable.destroy(this.`responseEventJson`)
-    
-    }
-    
-    companion object
-}
-
-/**
- * @suppress
- */
-public object FfiConverterTypeInviteAcceptResult: FfiConverterRustBuffer<InviteAcceptResult> {
-    override fun read(buf: ByteBuffer): InviteAcceptResult {
-        return InviteAcceptResult(
-            FfiConverterTypeSessionHandle.read(buf),
-            FfiConverterString.read(buf),
-        )
-    }
-
-    override fun allocationSize(value: InviteAcceptResult) = (
-            FfiConverterTypeSessionHandle.allocationSize(value.`session`) +
-            FfiConverterString.allocationSize(value.`responseEventJson`)
-    )
-
-    override fun write(value: InviteAcceptResult, buf: ByteBuffer) {
-            FfiConverterTypeSessionHandle.write(value.`session`, buf)
-            FfiConverterString.write(value.`responseEventJson`, buf)
-    }
-}
-
-
-
-/**
- * Result of processing an invite response.
- */
-data class InviteProcessResult (
-    var `session`: SessionHandle, 
-    var `inviteePubkeyHex`: kotlin.String, 
-    var `deviceId`: kotlin.String?, 
-    var `ownerPubkeyHex`: kotlin.String?
-) : Disposable {
-    
-    @Suppress("UNNECESSARY_SAFE_CALL") // codegen is much simpler if we unconditionally emit safe calls here
-    override fun destroy() {
-        
-        Disposable.destroy(this.`session`)
-    
-        Disposable.destroy(this.`inviteePubkeyHex`)
-    
-        Disposable.destroy(this.`deviceId`)
-    
-        Disposable.destroy(this.`ownerPubkeyHex`)
-    
-    }
-    
-    companion object
-}
-
-/**
- * @suppress
- */
-public object FfiConverterTypeInviteProcessResult: FfiConverterRustBuffer<InviteProcessResult> {
-    override fun read(buf: ByteBuffer): InviteProcessResult {
-        return InviteProcessResult(
-            FfiConverterTypeSessionHandle.read(buf),
-            FfiConverterString.read(buf),
-            FfiConverterOptionalString.read(buf),
-            FfiConverterOptionalString.read(buf),
-        )
-    }
-
-    override fun allocationSize(value: InviteProcessResult) = (
-            FfiConverterTypeSessionHandle.allocationSize(value.`session`) +
-            FfiConverterString.allocationSize(value.`inviteePubkeyHex`) +
-            FfiConverterOptionalString.allocationSize(value.`deviceId`) +
-            FfiConverterOptionalString.allocationSize(value.`ownerPubkeyHex`)
-    )
-
-    override fun write(value: InviteProcessResult, buf: ByteBuffer) {
-            FfiConverterTypeSessionHandle.write(value.`session`, buf)
-            FfiConverterString.write(value.`inviteePubkeyHex`, buf)
-            FfiConverterOptionalString.write(value.`deviceId`, buf)
-            FfiConverterOptionalString.write(value.`ownerPubkeyHex`, buf)
-    }
-}
-
-
-
-/**
- * Session-state snapshot used to inspect message-push routing without reading storage files.
- */
 data class MessagePushSessionStateResult (
     var `stateJson`: kotlin.String, 
     var `trackedSenderPubkeys`: List<kotlin.String>, 
@@ -3982,9 +2202,6 @@ public object FfiConverterTypeMessagePushSessionStateResult: FfiConverterRustBuf
 
 
 
-/**
- * Event emitted by SessionManager for external publish/subscribe handling.
- */
 data class PubSubEvent (
     var `kind`: kotlin.String, 
     var `subid`: kotlin.String?, 
@@ -4037,44 +2254,6 @@ public object FfiConverterTypePubSubEvent: FfiConverterRustBuffer<PubSubEvent> {
 
 
 
-/**
- * Result of sending a message.
- */
-data class SendResult (
-    var `outerEventJson`: kotlin.String, 
-    var `innerEventJson`: kotlin.String
-) {
-    
-    companion object
-}
-
-/**
- * @suppress
- */
-public object FfiConverterTypeSendResult: FfiConverterRustBuffer<SendResult> {
-    override fun read(buf: ByteBuffer): SendResult {
-        return SendResult(
-            FfiConverterString.read(buf),
-            FfiConverterString.read(buf),
-        )
-    }
-
-    override fun allocationSize(value: SendResult) = (
-            FfiConverterString.allocationSize(value.`outerEventJson`) +
-            FfiConverterString.allocationSize(value.`innerEventJson`)
-    )
-
-    override fun write(value: SendResult, buf: ByteBuffer) {
-            FfiConverterString.write(value.`outerEventJson`, buf)
-            FfiConverterString.write(value.`innerEventJson`, buf)
-    }
-}
-
-
-
-/**
- * Result of sending a text message including stable inner id.
- */
 data class SendTextResult (
     var `innerId`: kotlin.String, 
     var `outerEventIds`: List<kotlin.String>
@@ -4107,9 +2286,6 @@ public object FfiConverterTypeSendTextResult: FfiConverterRustBuffer<SendTextRes
 
 
 
-/**
- * Result of accepting an invite through SessionManager.
- */
 data class SessionManagerAcceptInviteResult (
     var `ownerPubkeyHex`: kotlin.String, 
     var `inviterDevicePubkeyHex`: kotlin.String, 
@@ -4152,9 +2328,6 @@ public object FfiConverterTypeSessionManagerAcceptInviteResult: FfiConverterRust
 
 
 
-/**
- * FFI-friendly error type.
- */
 sealed class NdrException: kotlin.Exception() {
     
     class InvalidKey(
@@ -4342,38 +2515,6 @@ public object FfiConverterTypeNdrError : FfiConverterRustBuffer<NdrException> {
 /**
  * @suppress
  */
-public object FfiConverterOptionalUInt: FfiConverterRustBuffer<kotlin.UInt?> {
-    override fun read(buf: ByteBuffer): kotlin.UInt? {
-        if (buf.get().toInt() == 0) {
-            return null
-        }
-        return FfiConverterUInt.read(buf)
-    }
-
-    override fun allocationSize(value: kotlin.UInt?): ULong {
-        if (value == null) {
-            return 1UL
-        } else {
-            return 1UL + FfiConverterUInt.allocationSize(value)
-        }
-    }
-
-    override fun write(value: kotlin.UInt?, buf: ByteBuffer) {
-        if (value == null) {
-            buf.put(0)
-        } else {
-            buf.put(1)
-            FfiConverterUInt.write(value, buf)
-        }
-    }
-}
-
-
-
-
-/**
- * @suppress
- */
 public object FfiConverterOptionalULong: FfiConverterRustBuffer<kotlin.ULong?> {
     override fun read(buf: ByteBuffer): kotlin.ULong? {
         if (buf.get().toInt() == 0) {
@@ -4396,38 +2537,6 @@ public object FfiConverterOptionalULong: FfiConverterRustBuffer<kotlin.ULong?> {
         } else {
             buf.put(1)
             FfiConverterULong.write(value, buf)
-        }
-    }
-}
-
-
-
-
-/**
- * @suppress
- */
-public object FfiConverterOptionalBoolean: FfiConverterRustBuffer<kotlin.Boolean?> {
-    override fun read(buf: ByteBuffer): kotlin.Boolean? {
-        if (buf.get().toInt() == 0) {
-            return null
-        }
-        return FfiConverterBoolean.read(buf)
-    }
-
-    override fun allocationSize(value: kotlin.Boolean?): ULong {
-        if (value == null) {
-            return 1UL
-        } else {
-            return 1UL + FfiConverterBoolean.allocationSize(value)
-        }
-    }
-
-    override fun write(value: kotlin.Boolean?, buf: ByteBuffer) {
-        if (value == null) {
-            buf.put(0)
-        } else {
-            buf.put(1)
-            FfiConverterBoolean.write(value, buf)
         }
     }
 }
@@ -4470,70 +2579,6 @@ public object FfiConverterOptionalString: FfiConverterRustBuffer<kotlin.String?>
 /**
  * @suppress
  */
-public object FfiConverterOptionalTypeGroupDecryptedResult: FfiConverterRustBuffer<GroupDecryptedResult?> {
-    override fun read(buf: ByteBuffer): GroupDecryptedResult? {
-        if (buf.get().toInt() == 0) {
-            return null
-        }
-        return FfiConverterTypeGroupDecryptedResult.read(buf)
-    }
-
-    override fun allocationSize(value: GroupDecryptedResult?): ULong {
-        if (value == null) {
-            return 1UL
-        } else {
-            return 1UL + FfiConverterTypeGroupDecryptedResult.allocationSize(value)
-        }
-    }
-
-    override fun write(value: GroupDecryptedResult?, buf: ByteBuffer) {
-        if (value == null) {
-            buf.put(0)
-        } else {
-            buf.put(1)
-            FfiConverterTypeGroupDecryptedResult.write(value, buf)
-        }
-    }
-}
-
-
-
-
-/**
- * @suppress
- */
-public object FfiConverterOptionalTypeInviteProcessResult: FfiConverterRustBuffer<InviteProcessResult?> {
-    override fun read(buf: ByteBuffer): InviteProcessResult? {
-        if (buf.get().toInt() == 0) {
-            return null
-        }
-        return FfiConverterTypeInviteProcessResult.read(buf)
-    }
-
-    override fun allocationSize(value: InviteProcessResult?): ULong {
-        if (value == null) {
-            return 1UL
-        } else {
-            return 1UL + FfiConverterTypeInviteProcessResult.allocationSize(value)
-        }
-    }
-
-    override fun write(value: InviteProcessResult?, buf: ByteBuffer) {
-        if (value == null) {
-            buf.put(0)
-        } else {
-            buf.put(1)
-            FfiConverterTypeInviteProcessResult.write(value, buf)
-        }
-    }
-}
-
-
-
-
-/**
- * @suppress
- */
 public object FfiConverterSequenceString: FfiConverterRustBuffer<List<kotlin.String>> {
     override fun read(buf: ByteBuffer): List<kotlin.String> {
         val len = buf.getInt()
@@ -4552,62 +2597,6 @@ public object FfiConverterSequenceString: FfiConverterRustBuffer<List<kotlin.Str
         buf.putInt(value.size)
         value.iterator().forEach {
             FfiConverterString.write(it, buf)
-        }
-    }
-}
-
-
-
-
-/**
- * @suppress
- */
-public object FfiConverterSequenceTypeFfiDeviceEntry: FfiConverterRustBuffer<List<FfiDeviceEntry>> {
-    override fun read(buf: ByteBuffer): List<FfiDeviceEntry> {
-        val len = buf.getInt()
-        return List<FfiDeviceEntry>(len) {
-            FfiConverterTypeFfiDeviceEntry.read(buf)
-        }
-    }
-
-    override fun allocationSize(value: List<FfiDeviceEntry>): ULong {
-        val sizeForLength = 4UL
-        val sizeForItems = value.map { FfiConverterTypeFfiDeviceEntry.allocationSize(it) }.sum()
-        return sizeForLength + sizeForItems
-    }
-
-    override fun write(value: List<FfiDeviceEntry>, buf: ByteBuffer) {
-        buf.putInt(value.size)
-        value.iterator().forEach {
-            FfiConverterTypeFfiDeviceEntry.write(it, buf)
-        }
-    }
-}
-
-
-
-
-/**
- * @suppress
- */
-public object FfiConverterSequenceTypeGroupDecryptedResult: FfiConverterRustBuffer<List<GroupDecryptedResult>> {
-    override fun read(buf: ByteBuffer): List<GroupDecryptedResult> {
-        val len = buf.getInt()
-        return List<GroupDecryptedResult>(len) {
-            FfiConverterTypeGroupDecryptedResult.read(buf)
-        }
-    }
-
-    override fun allocationSize(value: List<GroupDecryptedResult>): ULong {
-        val sizeForLength = 4UL
-        val sizeForItems = value.map { FfiConverterTypeGroupDecryptedResult.allocationSize(it) }.sum()
-        return sizeForLength + sizeForItems
-    }
-
-    override fun write(value: List<GroupDecryptedResult>, buf: ByteBuffer) {
-        buf.putInt(value.size)
-        value.iterator().forEach {
-            FfiConverterTypeGroupDecryptedResult.write(it, buf)
         }
     }
 }
@@ -4667,50 +2656,6 @@ public object FfiConverterSequenceTypePubSubEvent: FfiConverterRustBuffer<List<P
         }
     }
 }
-
-
-
-
-/**
- * @suppress
- */
-public object FfiConverterSequenceSequenceString: FfiConverterRustBuffer<List<List<kotlin.String>>> {
-    override fun read(buf: ByteBuffer): List<List<kotlin.String>> {
-        val len = buf.getInt()
-        return List<List<kotlin.String>>(len) {
-            FfiConverterSequenceString.read(buf)
-        }
-    }
-
-    override fun allocationSize(value: List<List<kotlin.String>>): ULong {
-        val sizeForLength = 4UL
-        val sizeForItems = value.map { FfiConverterSequenceString.allocationSize(it) }.sum()
-        return sizeForLength + sizeForItems
-    }
-
-    override fun write(value: List<List<kotlin.String>>, buf: ByteBuffer) {
-        buf.putInt(value.size)
-        value.iterator().forEach {
-            FfiConverterSequenceString.write(it, buf)
-        }
-    }
-}
-        /**
-         * Create a signed AppKeys event JSON for publishing to relays.
-         */
-    @Throws(NdrException::class) fun `createSignedAppKeysEvent`(`ownerPubkeyHex`: kotlin.String, `ownerPrivkeyHex`: kotlin.String, `devices`: List<FfiDeviceEntry>): kotlin.String {
-            return FfiConverterString.lift(
-    uniffiRustCallWithError(NdrException) { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_func_create_signed_app_keys_event(
-        FfiConverterString.lower(`ownerPubkeyHex`),FfiConverterString.lower(`ownerPrivkeyHex`),FfiConverterSequenceTypeFfiDeviceEntry.lower(`devices`),_status)
-}
-    )
-    }
-    
-
-        /**
-         * Derive a public key from a hex-encoded private key.
-         */
     @Throws(NdrException::class) fun `derivePublicKey`(`privkeyHex`: kotlin.String): kotlin.String {
             return FfiConverterString.lift(
     uniffiRustCallWithError(NdrException) { _status ->
@@ -4720,10 +2665,7 @@ public object FfiConverterSequenceSequenceString: FfiConverterRustBuffer<List<Li
     )
     }
     
-
-        /**
-         * Generate a new keypair.
-         */ fun `generateKeypair`(): FfiKeyPair {
+ fun `generateKeypair`(): FfiKeyPair {
             return FfiConverterTypeFfiKeyPair.lift(
     uniffiRustCall() { _status ->
     UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_func_generate_keypair(
@@ -4732,48 +2674,7 @@ public object FfiConverterSequenceSequenceString: FfiConverterRustBuffer<List<Li
     )
     }
     
-
-        /**
-         * Parse an AppKeys event JSON and return the contained device entries.
-         */
-    @Throws(NdrException::class) fun `parseAppKeysEvent`(`eventJson`: kotlin.String, `ownerPrivkeyHex`: kotlin.String?): List<FfiDeviceEntry> {
-            return FfiConverterSequenceTypeFfiDeviceEntry.lift(
-    uniffiRustCallWithError(NdrException) { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_func_parse_app_keys_event(
-        FfiConverterString.lower(`eventJson`),FfiConverterOptionalString.lower(`ownerPrivkeyHex`),_status)
-}
-    )
-    }
-    
-
-        /**
-         * Resolve conversation routing candidates for a decrypted rumor.
-         */ fun `resolveConversationCandidatePubkeys`(`ownerPubkeyHex`: kotlin.String, `rumorPubkeyHex`: kotlin.String, `rumorTags`: List<List<kotlin.String>>, `senderPubkeyHex`: kotlin.String): List<kotlin.String> {
-            return FfiConverterSequenceString.lift(
-    uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_func_resolve_conversation_candidate_pubkeys(
-        FfiConverterString.lower(`ownerPubkeyHex`),FfiConverterString.lower(`rumorPubkeyHex`),FfiConverterSequenceSequenceString.lower(`rumorTags`),FfiConverterString.lower(`senderPubkeyHex`),_status)
-}
-    )
-    }
-    
-
-        /**
-         * Resolve the latest authorized device list from a set of AppKeys event JSON strings.
-         */
-    @Throws(NdrException::class) fun `resolveLatestAppKeysDevices`(`eventJsons`: List<kotlin.String>, `ownerPrivkeyHex`: kotlin.String?): List<FfiDeviceEntry> {
-            return FfiConverterSequenceTypeFfiDeviceEntry.lift(
-    uniffiRustCallWithError(NdrException) { _status ->
-    UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_func_resolve_latest_app_keys_devices(
-        FfiConverterSequenceString.lower(`eventJsons`),FfiConverterOptionalString.lower(`ownerPrivkeyHex`),_status)
-}
-    )
-    }
-    
-
-        /**
-         * Returns the version of the ndr-ffi crate.
-         */ fun `version`(): kotlin.String {
+ fun `version`(): kotlin.String {
             return FfiConverterString.lift(
     uniffiRustCall() { _status ->
     UniffiLib.INSTANCE.uniffi_ndr_ffi_fn_func_version(
