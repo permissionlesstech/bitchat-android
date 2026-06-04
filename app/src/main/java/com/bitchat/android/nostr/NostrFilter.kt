@@ -42,7 +42,31 @@ data class NostrFilter(
                 limit = limit
             )
         }
-        
+
+        /**
+         * Create filter for geohash chat messages only (kind 20000)
+         */
+        fun geohashMessages(geohash: String, since: Long? = null, limit: Int = 200): NostrFilter {
+            return NostrFilter(
+                kinds = listOf(NostrKind.EPHEMERAL_EVENT),
+                since = since?.let { (it / 1000).toInt() },
+                tagFilters = mapOf("g" to listOf(geohash)),
+                limit = limit
+            )
+        }
+
+        /**
+         * Create filter for geohash presence heartbeats only (kind 20001)
+         */
+        fun geohashPresence(geohash: String, since: Long? = null, limit: Int = 100): NostrFilter {
+            return NostrFilter(
+                kinds = listOf(NostrKind.GEOHASH_PRESENCE),
+                since = since?.let { (it / 1000).toInt() },
+                tagFilters = mapOf("g" to listOf(geohash)),
+                limit = limit
+            )
+        }
+
         /**
          * Create filter for text notes from specific authors
          */

@@ -29,14 +29,15 @@ object LocationNotesInitializer {
                     }
                     
                     Log.d(TAG, "📍 Location Notes subscribing to geohash: $geohashFromFilter")
-                    
+
+                    val optimalRelays = NostrRelayManager.optimalRelayCount(geohashFromFilter)
                     NostrRelayManager.getInstance(context).subscribeForGeohash(
                         geohash = geohashFromFilter,
                         filter = filter,
                         id = id,
                         handler = handler,
                         includeDefaults = true,
-                        nRelays = 5
+                        nRelays = optimalRelays
                     )
                 },
                 unsubscribe = { id ->
