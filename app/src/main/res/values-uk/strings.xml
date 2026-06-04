@@ -1,42 +1,457 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- TODO: Ukrainian translations -->
-    <string name="mesh_service_notification_content">Mesh працює — %1$d пірів</string>
+    <string name="app_name">bitchat</string>
+    <string name="permission_bluetooth_rationale">Дозвіл Bluetooth необхідний для однорангових повідомлень без інтернету.</string>
+    <string name="permission_location_rationale">Дозвіл на місцезнаходження необхідний для виявлення пристроїв поблизу через Bluetooth.</string>
+    <string name="permission_notification_rationale">Дозвіл на сповіщення необхідний для оповіщення про нові повідомлення.</string>
+    <string name="nickname_hint">псевдонім</string>
+    <string name="message_hint">написати повідомлення…</string>
+    <string name="channel_password_hint">Пароль</string>
+    <string name="join_channel">Приєднатися до каналу</string>
+    <string name="leave_channel">Вийти</string>
+    <string name="send_message">Надіслати</string>
+    <string name="show_commands">Показати команди</string>
+    <string name="back">Назад</string>
+    <string name="people">Люди</string>
+    <string name="channels">Канали</string>
+    <string name="online_users">Онлайн-користувачі</string>
+    <string name="no_one_connected">Нікого немає</string>
+    <string name="emergency_clear_hint">Потрійне натискання для видалення всіх даних</string>
+    <string name="your_network">Мережа</string>
 
-  <string name="verify_title">verify</string>
-  <string name="verify_my_qr_title">scan to verify me</string>
-  <string name="verify_scan_prompt_friend">scan someone elses qr</string>
-  <string name="verify_scan_someone">scan someone elses qr</string>
-  <string name="verify_show_my_qr">show my qr</string>
-  <string name="verify_remove">remove verification</string>
-  <string name="verify_qr_unavailable">qr unavailable</string>
-  <string name="verify_camera_permission">camera permission is needed to scan qr codes</string>
-  <string name="verify_request_camera">enable camera</string>
-  <string name="verify_paste_label">paste verification url</string>
-  <string name="verify_validate">validate</string>
-  <string name="verify_scanned">verification requested</string>
-  <string name="security_verification_title">security verification</string>
-  <string name="fingerprint_their">their fingerprint</string>
-  <string name="fingerprint_yours">your fingerprint</string>
-  <string name="fingerprint_pending">handshake pending</string>
-  <string name="fingerprint_no_peer">open a private chat to view fingerprints</string>
-  <string name="fingerprint_status_verified">encrypted &amp; verified</string>
-  <string name="fingerprint_status_encrypted">encrypted</string>
-  <string name="fingerprint_status_handshaking">handshaking</string>
-  <string name="fingerprint_status_failed">handshake failed</string>
-  <string name="fingerprint_status_uninitialized">not encrypted</string>
-  <string name="fingerprint_verified_label">verified</string>
-  <string name="fingerprint_verified_message">you have verified this persons identity.</string>
-  <string name="fingerprint_not_verified_label">not verified</string>
-  <string name="fingerprint_not_verified_message_fmt">compare these fingerprints with %1$s using a secure channel.</string>
-  <string name="fingerprint_mark_verified">mark as verified</string>
-  <string name="fingerprint_start_handshake">start handshake</string>
-  <string name="fingerprint_copy">copy</string>
-  <string name="verify_mutual_match_title">Mutual verification</string>
-  <string name="verify_mutual_match_body">You and %1$s verified each other</string>
-  <string name="verify_mutual_system_message">mutual verification with %1$s</string>
-  <string name="verify_success_title">Verified</string>
-  <string name="verify_success_body">You verified %1$s</string>
-  <string name="verify_success_system_message">verified %1$s</string>
+    <!-- Battery Optimization Strings -->
+    <string name="battery_optimization_detected">Виявлено оптимізацію батареї</string>
+    <string name="battery_optimization_disabled">Оптимізацію батареї вимкнено</string>
+    <string name="battery_optimization_not_required">Оптимізація батареї не потрібна</string>
+    <string name="battery_optimization_checking">Перевірка оптимізації батареї</string>
+    <string name="battery_optimization_why_disable">Навіщо вимикати оптимізацію батареї?</string>
+    <string name="battery_optimization_explanation">bitchat працює у фоновому режимі для підтримки з\'єднань мережевого мешу з пристроями поблизу. Оптимізація батареї може переривати ці з\'єднання, спричиняючи затримку або втрату повідомлень.\n\nВимкнення оптимізації батареї забезпечує надійний обмін повідомленнями між пристроями.</string>
+    <string name="battery_optimization_disable_button">Вимкнути оптимізацію батареї</string>
+    <string name="battery_optimization_note">Примітка: Ви можете змінити це налаштування пізніше у Налаштуваннях Android > Програми > bitchat > Батарея</string>
+    <string name="battery_optimization_not_supported_explanation">Ваш пристрій не потребує налаштувань оптимізації батареї. bitchat працюватиме нормально.</string>
+    <string name="battery_optimization_not_supported_message">Ваш пристрій не потребує налаштувань оптимізації батареї. bitchat працюватиме нормально.</string>
+    <string name="battery_optimization_success_message">bitchat може надійно працювати у фоновому режимі</string>
+    <string name="battery_optimization_benefits">• Забезпечує надійну доставку повідомлень\n• Підтримує з\'єднання мережевого мешу\n• Дозволяє ретрансляцію повідомлень у фоні\n• Запобігає обривам з\'єднання</string>
+    <string name="battery_optimization_check_again">Перевірити знову</string>
+    <string name="battery_optimization_skip">Пропустити</string>
+    <string name="battery_optimization_continue">Продовжити</string>
+    <string name="retry">Повторити</string>
+    <string name="skip">Пропустити</string>
+
+    <!-- Notifications -->
+    <string name="notification_summary_more">і ще %1$d</string>
+    <string name="notification_messages_from_people">%1$d повідомлень від %2$d людей</string>
+    <string name="notification_more_conversations">і ще %1$d розмов</string>
+    <string name="notification_active_peers_title">👥 bitchat-користувачі поряд!</string>
+    <string name="notification_active_peers_one">1 людина поряд</string>
+    <string name="notification_active_peers_many">%1$d людей поряд</string>
+    <string name="notification_new_messages">Нові повідомлення</string>
+    <string name="notification_new_location_messages">Нові повідомлення про місцезнаходження</string>
+    <string name="notification_mentions_in">Згадано у %1$s</string>
+    <string name="notification_mentions_in_more">Згадано у %1$s (+%2$d ще)</string>
+    <string name="notification_mentions_in_plural">%1$d згадок у %2$s</string>
+    <string name="notification_new_activity_in">Нова активність у %1$s</string>
+    <string name="notification_messages_in">Повідомлення у %1$s</string>
+    <string name="notification_joined_conversation">%1$s приєднався до розмови</string>
+    <string name="notification_geohash_summary_title_mentions">bitchat — %1$d згадок</string>
+    <string name="notification_geohash_summary_title">bitchat — геолокаційні чати</string>
+    <string name="notification_geohash_summary_text">%1$d повідомлень з %2$d місць</string>
+    <string name="notification_mesh_mention_title_singular">Згадано у Mesh-чаті</string>
+    <string name="notification_mesh_mention_title_plural">%1$d згадок у Mesh-чаті</string>
+    <string name="notification_more_locations">і ще %1$d місць</string>
+    <string name="notification_and_more">і ще %1$d</string>
+
+    <!-- Mesh Service Foreground Notification -->
+    <string name="mesh_service_channel_name">Фоновий сервіс мешу</string>
+    <string name="mesh_service_channel_desc">Підтримує роботу Bluetooth-мешу у фоновому режимі</string>
+    <string name="mesh_service_notification_content">Меш працює — %1$d пірів</string>
+
+    <!-- Favorites accessibility -->
+    <string name="cd_add_favorite">Додати до вибраного</string>
+    <string name="cd_remove_favorite">Видалити з вибраного</string>
+    <string name="cd_add_bookmark">Додати закладку</string>
+
+    <!-- Chat header &amp; accessibility -->
+    <string name="chat_back">назад</string>
+    <string name="chat_channel_prefix">канал: %1$s</string>
+    <string name="chat_leave">вийти</string>
+    <string name="cd_nostr_reachable">Доступний через Nostr</string>
+    <string name="cd_unread_private_messages">Непрочитані приватні повідомлення</string>
+    <string name="cd_toggle_bookmark">Перемкнути закладку</string>
+    <string name="cd_location_notes">Нотатки про місцезнаходження</string>
+    <string name="cd_teleported">Телепортовано</string>
+    <string name="cd_tor_status">Статус Tor</string>
+    <string name="cd_connected_peers">Підключені піри</string>
+    <string name="cd_geohash_participants">Учасники геохешу</string>
+    <string name="cd_ready_for_handshake">Готовий до рукостискання</string>
+    <string name="cd_handshake_in_progress">Рукостискання виконується</string>
+    <string name="cd_encrypted">Наскрізне шифрування</string>
+    <string name="cd_handshake_failed">Рукостискання не вдалося</string>
+
+    <!-- File viewer dialog -->
+    <string name="file_viewer_title">📎 Файл отримано</string>
+    <string name="file_viewer_name">📄 %1$s</string>
+    <string name="file_viewer_size">📏 Розмір: %1$s</string>
+    <string name="file_viewer_type">🏷️ Тип: %1$s</string>
+    <string name="file_viewer_open_save">📂 Відкрити / Зберегти</string>
+    <string name="close_with_emoji">❌ Закрити</string>
+    <string name="pick_image">Вибрати зображення</string>
+    <string name="cd_save_current_image">Зберегти поточне зображення</string>
+    <string name="cd_close">Закрити</string>
+    <string name="toast_image_saved">Зображення збережено у завантаженнях</string>
+    <string name="toast_failed_to_save_image">Не вдалося зберегти зображення</string>
+    <string name="cd_image_index_of">Зображення %1$d з %2$d</string>
+    <string name="cd_pick_file">Вибрати файл</string>
+
+    <!-- About sheet -->
+    <string name="about_tagline">децентралізований меш-месенджер з наскрізним шифруванням</string>
+    <string name="about_offline_mesh_title">Офлайн Mesh-чат</string>
+    <string name="about_offline_mesh_desc">Спілкуйтеся безпосередньо через Bluetooth LE без інтернету або серверів. Повідомлення ретранслюються через пристрої поблизу для збільшення дальності.</string>
+    <string name="about_online_geohash_title">Онлайн-канали геохешу</string>
+    <string name="about_online_geohash_desc">З\'єднуйтеся з людьми у вашому районі через канали на основі геохешу. Розширюйте меш за допомогою публічних інтернет-ретрансляторів.</string>
+    <string name="about_e2e_title">Наскрізне шифрування</string>
+    <string name="about_e2e_desc">Приватні повідомлення зашифровані. Повідомлення в каналах є публічними.</string>
+    <string name="about_appearance">зовнішній вигляд</string>
+    <string name="about_system">система</string>
+    <string name="about_light">світла</string>
+    <string name="about_dark">темна</string>
+    <string name="about_pow">підтвердження роботи</string>
+    <string name="about_pow_off">pow вимкнено</string>
+    <string name="about_pow_on">pow увімкнено</string>
+    <string name="about_pow_tip">додайте підтвердження роботи до геохеш-повідомлень для захисту від спаму.</string>
+    <string name="about_pow_difficulty">складність: %1$d біт (~%2$s)</string>
+    <string name="about_pow_difficulty_attempts">складність %1$d вимагає ~%2$s спроб хешування</string>
+    <string name="about_pow_desc_none">підтвердження роботи не потрібне</string>
+    <string name="about_pow_desc_very_low">дуже низька — мінімальний захист від спаму</string>
+    <string name="about_pow_desc_low">низька — базовий захист від спаму</string>
+    <string name="about_pow_desc_medium">середня — хороший захист від спаму</string>
+    <string name="about_pow_desc_high">висока — надійний захист від спаму</string>
+    <string name="about_pow_desc_very_high">дуже висока — можливі затримки</string>
+    <string name="about_pow_desc_extreme">екстремальна — значні обчислення</string>
+    <string name="about_network">мережа</string>
+    <string name="about_tor_off">tor вимкнено</string>
+    <string name="about_tor_on">tor увімкнено</string>
+    <string name="about_tor_route">маршрутизуйте інтернет через tor для підвищеної конфіденційності.</string>
+    <string name="about_tor_status">статус tor: %1$s, завантаження %2$d%%</string>
+    <string name="about_last">Останнє: %1$s</string>
+    <string name="about_emergency_title">Екстрене видалення даних</string>
+    <string name="about_emergency_tip">Порада: Потрійне натискання на назву програми для екстреного видалення всіх збережених даних, включаючи повідомлення, ключі та налаштування.</string>
+    <string name="about_debug_settings">Налаштування налагодження</string>
+    <string name="about_footer">Відкритий код • Конфіденційність понад усе • Децентралізовано</string>
+    <string name="close_plain">Закрити</string>
+    <string name="cd_privacy_protected">Конфіденційність захищена</string>
+    <string name="cancel_lower">скасувати</string>
+
+    <!-- Generic content descriptions -->
+    <string name="cd_warning">Попередження</string>
+    <string name="cd_location_services">Служби геолокації</string>
+    <string name="cd_privacy">Конфіденційність</string>
+    <string name="cd_error">Помилка</string>
+    <string name="cd_battery_optimization">Оптимізація батареї</string>
+    <string name="cd_benefits">Переваги</string>
+    <string name="cd_checking_battery_optimization">Перевірка оптимізації батареї</string>
+    <string name="cd_not_supported_battery_optimization">Оптимізація батареї не підтримується</string>
+    <string name="cd_bluetooth">Bluetooth</string>
+    <string name="cd_unread_message">Непрочитане повідомлення</string>
+    <string name="cd_open_map">Відкрити карту</string>
+    <string name="cd_remove_bookmark">Видалити закладку</string>
+    <string name="cd_teleport">Телепортуватися</string>
+    <string name="cd_selected">Вибрано</string>
+    <string name="notification_action_quit_bitchat">Вийти з bitchat</string>
+    <string name="about_background_title">запуск у фоні</string>
+    <string name="about_background_desc">тримати меш активним при закритій програмі (служба переднього плану)</string>
+    <string name="cd_leave_channel">Покинути канал</string>
+    <string name="cd_reachable_via_nostr">Доступний через Nostr</string>
+    <string name="cd_offline_favorite">Офлайн-вибране</string>
+    <string name="cd_decrease_precision">Зменшити точність</string>
+    <string name="cd_increase_precision">Збільшити точність</string>
+    <string name="cd_select_geohash">Вибрати геохеш</string>
+    <string name="cd_scroll_to_bottom">Прокрутити донизу</string>
+    <string name="cd_file">Файл</string>
+    <string name="cd_image">Зображення</string>
+    <string name="cd_cancel">Скасувати</string>
+    <string name="cd_link">Посилання</string>
+    <string name="cd_record_voice">Записати голосове повідомлення</string>
+    <string name="cd_pick_media">Вибрати медіа</string>
+    <string name="cd_mining_pow">Майнінг PoW</string>
+    <string name="cd_pow_enabled">PoW увімкнено</string>
+    <string name="cd_proof_of_work">Підтвердження роботи</string>
+    <string name="pow_mining_ellipsis">майниться…</string>
+    <string name="pow_label_format">pow: %1$dбіт</string>
+    <string name="cd_offline_mesh_chat">Офлайн Mesh-чат</string>
+    <string name="cd_online_geohash_channels">Онлайн-канали геохешу</string>
+    <string name="cd_end_to_end_encryption">Наскрізне шифрування</string>
+    <string name="location_bluetooth_subtitle">#bluetooth • %1$s</string>
+
+    <string name="image_page_of">Зображення %1$d з %2$d</string>
+    <string name="image_unavailable">Зображення недоступне</string>
+    <string name="image_saved_to_downloads">Зображення збережено у завантаженнях</string>
+    <string name="image_save_failed">Не вдалося зберегти зображення</string>
+    <string name="pick_file">Вибрати файл</string>
+    <string name="file_unavailable">[файл недоступний]</string>
+    <string name="unknown">невідомо</string>
+
+    <!-- Chat user sheet actions -->
+    <string name="choose_action_message_or_user">виберіть дію для цього повідомлення або користувача</string>
+    <string name="choose_action_user">виберіть дію для цього користувача</string>
+    <string name="action_copy_message_title">копіювати повідомлення</string>
+    <string name="action_copy_message_subtitle">копіювати це повідомлення до буфера обміну</string>
+    <string name="action_slap_title">дати ляпаса %1$s</string>
+    <string name="action_slap_subtitle">надіслати жартівливе повідомлення-ляпас</string>
+    <string name="action_hug_title">обійняти %1$s</string>
+    <string name="action_hug_subtitle">надіслати дружнє повідомлення-обійми</string>
+    <string name="action_block_title">заблокувати %1$s</string>
+    <string name="action_block_subtitle">заблокувати всі повідомлення від цього користувача</string>
+
+    <!-- Location channels sheet -->
+    <string name="location_channels_title">#канали-геолокації</string>
+    <string name="location_channels_desc">спілкуйтеся з людьми поруч через канали геохешу. передається лише грубий геохеш, точний GPS — ніколи. не робіть знімок екрана та не поширюйте цей екран для захисту вашої конфіденційності.</string>
+    <string name="grant_location_permission">надати дозвіл на геолокацію</string>
+    <string name="location_permission_denied">дозвіл на геолокацію відхилено. увімкніть у налаштуваннях для використання каналів геолокації.</string>
+    <string name="location_permission_granted">\u2713 дозвіл на геолокацію надано</string>
+    <string name="checking_permissions">перевірка дозволів…</string>
+    <string name="finding_nearby_channels">пошук каналів поблизу…</string>
+    <string name="bookmarked">збережено у закладках</string>
+    <string name="geohash_placeholder">геохеш</string>
+    <string name="invalid_geohash">невірний геохеш</string>
+    <string name="teleport">телепорт</string>
+    <string name="disable_location_services">вимкнути служби геолокації</string>
+    <string name="enable_location_services">увімкнути служби геолокації</string>
+    <string name="mesh_label">меш</string>
+    <string name="location_level_block">квартал</string>
+    <string name="location_level_neighborhood">район</string>
+    <string name="location_level_city">місто</string>
+    <string name="location_level_province">область</string>
+    <string name="location_level_region">регіон</string>
+
+    <!-- Location notes sheet -->
+    <plurals name="location_notes_title">
+        <item quantity="one">#%1$s ± 1 • %2$d нотатка</item>
+        <item quantity="few">#%1$s ± 1 • %2$d нотатки</item>
+        <item quantity="many">#%1$s ± 1 • %2$d нотаток</item>
+        <item quantity="other">#%1$s ± 1 • %2$d нотаток</item>
+    </plurals>
+    <string name="location_notes_description">додайте короткі постійні нотатки до цього місця для інших відвідувачів.</string>
+    <string name="location_notes_relays_unavailable">георетранслятори недоступні; нотатки призупинено</string>
+    <string name="location_notes_no_relays_title">немає георетрансляторів поруч</string>
+    <string name="location_notes_no_relays_desc">нотатки залежать від георетрансляторів. перевірте з\'єднання та спробуйте знову.</string>
+    <string name="loading_location_notes">завантаження нотаток…</string>
+    <string name="location_notes_empty_title">нотаток ще немає</string>
+    <string name="location_notes_empty_desc">будьте першим, хто додасть нотатку для цього місця.</string>
+    <string name="dismiss">відхилити</string>
+    <string name="location_notes_input_placeholder">додати нотатку для цього місця</string>
+
+    <!-- Debug / Diagnostics -->
+    <string name="debug_tools">інструменти налагодження</string>
+    <string name="debug_tools_desc">утиліти розробника для діагностики та керування</string>
+    <string name="debug_verbose_logging">докладне журналювання</string>
+    <string name="debug_verbose_hint">фіксує підключення/відключення пірів, напрямок з\'єднання, маршрутизацію пакетів та ретрансляцію</string>
+    <string name="debug_bluetooth_roles">ролі Bluetooth</string>
+    <string name="debug_gatt_server">GATT-сервер</string>
+    <string name="debug_connections_fmt">з\'єднання: %1$d / %2$d</string>
+    <string name="debug_max_server">макс. сервер</string>
+    <string name="debug_gatt_client">GATT-клієнт</string>
+    <string name="debug_max_client">макс. клієнт</string>
+    <string name="debug_overall_connections_fmt">з\'єднання: %1$d / %2$d</string>
+    <string name="debug_max_overall">макс. загалом</string>
+    <string name="debug_packet_relay">ретрансляція пакетів</string>
+    <string name="debug_since_start_fmt">з початку: %1$d</string>
+    <string name="debug_roles_hint">вмикати/вимикати ролі та закривати всі з\'єднання при вимкненні</string>
+    <string name="debug_sync_settings">налаштування синхронізації</string>
+    <string name="debug_max_packets_per_sync_fmt">макс. пакетів за синхронізацію: %1$d</string>
+    <string name="debug_max_gcs_filter_size_fmt">макс. розмір GCS-фільтра: %1$d байт (128–1024)</string>
+    <string name="debug_target_fpr_fmt">цільовий FPR: %1$.2f%%</string>
+    <string name="debug_connected_devices">підключені пристрої</string>
+    <string name="debug_our_device_id_fmt">ідентифікатор нашого пристрою: %1$s</string>
+    <string name="debug_none">немає</string>
+    <string name="debug_disconnect">відключити</string>
+    <string name="debug_recent_scan_results">останні результати сканування</string>
+
+    <string name="verify_title">перевірка</string>
+    <string name="verify_my_qr_title">скануйте для підтвердження мене</string>
+    <string name="verify_scan_prompt_friend">скануйте QR іншої людини</string>
+    <string name="verify_scan_someone">скануйте QR іншої людини</string>
+    <string name="verify_show_my_qr">показати мій QR</string>
+    <string name="verify_remove">видалити підтвердження</string>
+    <string name="verify_qr_unavailable">QR недоступний</string>
+    <string name="verify_camera_permission">для сканування QR-кодів потрібен дозвіл на камеру</string>
+    <string name="verify_request_camera">увімкнути камеру</string>
+    <string name="verify_paste_label">вставити URL підтвердження</string>
+    <string name="verify_validate">підтвердити</string>
+    <string name="verify_scanned">підтвердження запрошено</string>
+    <string name="security_verification_title">перевірка безпеки</string>
+    <string name="fingerprint_their">їх відбиток</string>
+    <string name="fingerprint_yours">ваш відбиток</string>
+    <string name="fingerprint_pending">рукостискання очікується</string>
+    <string name="fingerprint_no_peer">відкрийте приватний чат для перегляду відбитків</string>
+    <string name="fingerprint_status_verified">зашифровано &amp; підтверджено</string>
+    <string name="fingerprint_status_encrypted">зашифровано</string>
+    <string name="fingerprint_status_handshaking">рукостискання</string>
+    <string name="fingerprint_status_failed">рукостискання не вдалося</string>
+    <string name="fingerprint_status_uninitialized">не зашифровано</string>
+    <string name="fingerprint_verified_label">підтверджено</string>
+    <string name="fingerprint_verified_message">ви підтвердили особу цієї людини.</string>
+    <string name="fingerprint_not_verified_label">не підтверджено</string>
+    <string name="fingerprint_not_verified_message_fmt">порівняйте ці відбитки з %1$s, використовуючи захищений канал.</string>
+    <string name="fingerprint_mark_verified">позначити як підтверджений</string>
+    <string name="fingerprint_start_handshake">почати рукостискання</string>
+    <string name="fingerprint_copy">копіювати</string>
+
+    <string name="verify_mutual_match_title">Взаємне підтвердження</string>
+    <string name="verify_mutual_match_body">Ви і %1$s підтвердили один одного</string>
+    <string name="verify_mutual_system_message">взаємне підтвердження з %1$s</string>
+    <string name="verify_success_title">Підтверджено</string>
+    <string name="verify_success_body">Ви підтвердили %1$s</string>
+    <string name="verify_success_system_message">підтверджено %1$s</string>
+
+    <string name="debug_connect">підключити</string>
+    <string name="debug_debug_console">консоль налагодження</string>
+    <string name="debug_clear">очистити</string>
+    <string name="debug_relays_window_fmt">останні 10с: %1$d • 1хв: %2$d • 15хв: %3$d</string>
+    <string name="debug_derived_p_fmt">отримано P: %1$s • оцін. макс. елементів: %2$s</string>
+    <string name="debug_direct_suffix"> • прямо</string>
+    <string name="debug_rssi_fmt">RSSI: %1$s</string>
+    <string name="debug_question_mark">?</string>
+    <string name="debug_role_server">як сервер (ми хостимо)</string>
+    <string name="debug_role_client">як клієнт (ми підключаємося)</string>
+
+    <!-- Onboarding screens -->
+    <string name="location_services_required">Необхідні служби геолокації</string>
+    <string name="privacy_first">Конфіденційність понад усе</string>
+    <string name="location_explanation">bitchat НЕ відстежує ваше місцезнаходження.\n\nСлужби геолокації необхідні для сканування Bluetooth та функції Геохеш-чату.</string>
+    <string name="location_needs_for">bitchat потребує служби геолокації для:</string>
+    <string name="location_needs_bullets">• Сканування пристроїв Bluetooth\n• Виявлення користувачів поблизу у мережевому меші\n• Функції геохеш-чату\n• Без відстеження або збору даних про місцезнаходження</string>
+    <string name="background_location_required_title">Рекомендовано фонове місцезнаходження</string>
+    <string name="background_location_required_subtitle">необов\'язково, покращує надійність мешу</string>
+    <string name="background_location_explanation">Android рекомендує фонове місцезнаходження, щоб bitchat міг сканувати пристрої поблизу, коли програма не відкрита. Це підтримує роботу мешу після перезавантаження.</string>
+    <string name="background_location_settings_tip">Коли відкриються налаштування, виберіть «Дозволити весь час».</string>
+    <string name="background_location_needs_for">bitchat використовує фонове місцезнаходження для:</string>
+    <string name="background_location_needs_bullets">- сканування пристроїв поблизу, коли програма закрита\n- повторного підключення після перезавантаження\n- підтримки роботи мешу у фоновому режимі</string>
+    <string name="background_location_privacy_note">Ми НІКОЛИ не збираємо та не зберігаємо ваше місцезнаходження. Ваша конфіденційність у безпеці.</string>
+    <string name="grant_background_location">Дозволити фонове місцезнаходження</string>
+    <string name="skip_background_location">Продовжити без фонового місцезнаходження</string>
+    <string name="open_location_settings">Відкрити налаштування геолокації</string>
+    <string name="check_again">Перевірити знову</string>
+    <string name="location_services_unavailable">Служби геолокації недоступні</string>
+    <string name="location_unavailable_explanation">Служби геолокації недоступні на цьому пристрої. Це незвично, оскільки служби геолокації є стандартними для пристроїв Android.\n\nbitchat потребує служби геолокації для коректної роботи сканування Bluetooth (вимога Android). Без цього програма не може виявляти користувачів поблизу.</string>
+    <string name="checking_location_services">Перевірка служб геолокації…</string>
+    <string name="bluetooth_required">Необхідний Bluetooth</string>
+    <string name="bluetooth_needs_for">bitchat потребує Bluetooth для:</string>
+    <string name="bluetooth_needs_bullets">• Виявлення користувачів поблизу\n• Створення з\'єднань мережевого мешу\n• Надсилання та отримання повідомлень\n• Роботи без інтернету або серверів</string>
+    <string name="enable_bluetooth">Увімкнути Bluetooth</string>
+    <string name="bluetooth_not_supported">Bluetooth не підтримується</string>
+    <string name="bluetooth_unsupported_explanation">Цей пристрій не підтримує Bluetooth Low Energy (BLE), необхідний для роботи bitchat.\n\nbitchat потребує BLE для створення мережевих мешів та спілкування з пристроями поблизу без інтернету.</string>
+    <string name="checking_bluetooth_status">Перевірка стану Bluetooth…</string>
+    <string name="battery_optimization_detected_title">виявлено оптимізацію батареї</string>
+    <string name="battery_optimization_enabled_title">Оптимізацію батареї увімкнено</string>
+    <string name="battery_optimization_explanation_short">bitchat потребує роботи у фоні для підтримки з\'єднань мешу. оптимізація батареї може переривати ці з\'єднання.</string>
+    <string name="benefits_of_disabling">Переваги вимкнення</string>
+    <string name="battery_benefits_short">• надійна доставка повідомлень\n• підтримка з\'єднань мешу\n• запобігання обривам з\'єднання</string>
+    <string name="disable_battery_optimization">Вимкнути оптимізацію батареї</string>
+    <string name="battery_optimization_disabled_title">оптимізацію батареї вимкнено</string>
+    <string name="continue_btn">Продовжити</string>
+    <string name="initializing_mesh_network">Ініціалізація мережевого мешу</string>
+    <string name="dot">.</string>
+    <string name="setting_up_bluetooth">Налаштування Bluetooth мережевого мешу…</string>
+    <string name="should_take_seconds">Це займе лише кілька секунд</string>
+    <string name="warning_emoji">⚠️</string>
+    <string name="setup_not_complete">Налаштування не завершено</string>
+    <string name="try_again">Спробувати знову</string>
+    <string name="open_settings">Відкрити налаштування</string>
+    <string name="privacy_protected">Ваша конфіденційність захищена</string>
+    <string name="privacy_bullets">• без відстеження або збору даних\n• Bluetooth mesh-чати повністю офлайн\n• Геохеш-чати використовують інтернет</string>
+    <string name="permissions_header">дозволи</string>
+    <string name="grant_permissions">Надати дозволи</string>
+    <string name="location_tracking_warning">bitchat НЕ відстежує ваше місцезнаходження</string>
+    <string name="at_symbol">@</string>
+    <string name="app_brand">bitchat/</string>
+    <string name="channel_count_prefix"> · ⧉ </string>
+    <string name="geohash_people_header">ЛЮДИ</string>
+    <string name="nobody_around">нікого поряд...</string>
+    <string name="you_suffix"> (ти)</string>
+    <string name="pan_zoom_instruction">перетягніть та збільшіть для вибору геохешу</string>
+    <string name="select">вибрати</string>
+    <string name="type_a_message_placeholder">написати повідомлення...</string>
+    <string name="mention_suggestion_at">@%1$s</string>
+    <string name="mention">згадати</string>
+    <string name="image_counter">%1$d / %2$d</string>
+    <string name="pow_time_estimate">(~%1$s)</string>
+    <string name="at_nickname">@%1$s</string>
+    <string name="version_prefix">v%1$s</string>
+    <string name="hash_symbol">#</string>
+    <string name="underscore">_</string>
+    <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
+    <string name="progress_filled">█</string>
+    <string name="progress_empty">░</string>
+    <string name="image_star">image/*</string>
+    <string name="media_type_image">Зображення</string>
+    <string name="media_type_file">Файл</string>
+
+    <!-- Message status icons -->
+    <string name="status_sending">○</string>
+    <string name="status_pending">○</string>
+    <string name="status_sent">✓</string>
+    <string name="status_delivered">✓✓</string>
+    <string name="status_failed">⚠</string>
+    <string name="status_read">✓</string>
+
+    <!-- Notification text helpers -->
+    <string name="notification_sent_image">📷 надіслав(ла) зображення</string>
+    <string name="notification_sent_voice">🎤 надіслав(ла) голосове повідомлення</string>
+    <string name="notification_sent_file">📎 надіслав(ла) файл</string>
+    <string name="notification_file_pdf">📄</string>
+    <string name="notification_file_zip">🗜️</string>
+    <string name="notification_file_doc">📄</string>
+    <string name="notification_file_xls">📊</string>
+    <string name="notification_file_ppt">📈</string>
+    <string name="notification_file_generic">📎</string>
+
+    <!-- Voice player accessibility -->
+    <string name="cd_play_voice">Відтворити</string>
+    <string name="cd_pause_voice">Пауза</string>
+
+    <!-- Permission descriptions -->
+    <string name="perm_nearby_devices_desc">Необхідний для виявлення користувачів bitchat через Bluetooth</string>
+    <string name="perm_nearby_devices_system">Дозволити bitchat підключатися до пристроїв поблизу</string>
+    <string name="perm_location_desc">Необхідний Android для виявлення користувачів bitchat поблизу через Bluetooth</string>
+    <string name="perm_location_system">bitchat потребує це для сканування пристроїв поблизу</string>
+    <string name="perm_background_location_desc">Рекомендовано для сканування пристроїв поблизу, коли програма знаходиться у фоні</string>
+    <string name="perm_background_location_system">Дозволити доступ до фонового місцезнаходження</string>
+    <string name="perm_notifications_desc">Отримувати сповіщення, коли ви отримуєте приватні повідомлення</string>
+    <string name="perm_notifications_system">Дозволити bitchat надсилати вам сповіщення</string>
+    <string name="perm_battery_desc">Вимкніть оптимізацію батареї, щоб забезпечити надійну роботу bitchat у фоновому режимі та підтримку з\'єднань мережевого мешу</string>
+    <string name="perm_battery_system">Дозволити bitchat працювати без обмежень батареї</string>
+
+    <!-- Permission types -->
+    <string name="perm_type_nearby_devices">Пристрої поблизу</string>
+    <string name="perm_type_precise_location">Точне місцезнаходження</string>
+    <string name="perm_type_background_location">Фонове місцезнаходження</string>
+    <string name="perm_type_microphone">Мікрофон</string>
+    <string name="perm_type_notifications">Сповіщення</string>
+    <string name="perm_type_battery_optimization">Оптимізація батареї</string>
+    <string name="perm_type_other">Інше</string>
+
+    <!-- Password prompt dialog -->
+    <string name="pwd_prompt_title">Введіть пароль каналу</string>
+    <string name="pwd_prompt_message">Канал %1$s захищений паролем. Введіть пароль для приєднання.</string>
+    <string name="pwd_label">Пароль</string>
+    <string name="join">Приєднатися</string>
+    <string name="cancel">Скасувати</string>
+    <string name="tor_not_available_in_this_build">Tor недоступний у цій збірці</string>
+
+    <!-- Plurals -->
+    <plurals name="notification_and_more">
+        <item quantity="one">і ще %d</item>
+        <item quantity="few">і ще %d</item>
+        <item quantity="many">і ще %d</item>
+        <item quantity="other">і ще %d</item>
+    </plurals>
+
+    <plurals name="people_count">
+        <item quantity="one">1 людина</item>
+        <item quantity="few">%d людини</item>
+        <item quantity="many">%d людей</item>
+        <item quantity="other">%d людей</item>
+    </plurals>
+
 </resources>
-
