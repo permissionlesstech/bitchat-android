@@ -226,6 +226,12 @@ class MeshForegroundService : Service() {
 
     private fun ensureMeshStarted() {
         if (isShuttingDown) return
+        try {
+            com.bitchat.android.wifiaware.WifiAwareController.startIfPossible()
+        } catch (e: Exception) {
+            android.util.Log.e("MeshForegroundService", "Failed to ensure Wi-Fi Aware transport: ${e.message}")
+        }
+
         val bleEnabled = try {
             com.bitchat.android.ui.debug.DebugPreferenceManager.getBleEnabled(true)
         } catch (_: Exception) {

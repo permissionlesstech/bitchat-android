@@ -465,7 +465,7 @@ class MeshCore(
                 val np = NoisePayload(type = NoisePayloadType.FILE_TRANSFER, data = tlv).encode()
                 val enc = encryptionService.encrypt(np, recipientPeerID)
                 val packet = BitchatPacket(
-                    version = 1u,
+                    version = if (enc.size > 0xFFFF) 2u else 1u,
                     type = MessageType.NOISE_ENCRYPTED.value,
                     senderID = MeshPacketUtils.hexStringToByteArray(myPeerID),
                     recipientID = MeshPacketUtils.hexStringToByteArray(recipientPeerID),

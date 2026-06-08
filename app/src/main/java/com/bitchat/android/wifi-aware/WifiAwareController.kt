@@ -23,6 +23,8 @@ object WifiAwareController {
 
     private var service: WifiAwareMeshService? = null
     private var appContext: Context? = null
+    private val lifecycleLock = Any()
+    private var starting = false
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -71,23 +73,33 @@ object WifiAwareController {
     }
 
     fun startIfPossible() {
-        if (_running.value) {
+        val reusableService = synchronized(lifecycleLock) {
             if (!_enabled.value) return
-            // If already marked running but we are calling this (e.g. after a drop), 
-            // ensure we clean up the old service before restarting.
-            stop()
+            val existing = service
+            if (existing?.isRunning() == true) {
+                _running.value = true
+                return
+            }
+            if (starting) return
+            starting = true
+            existing
         }
-        if (!_enabled.value) return
-        val ctx = appContext ?: return
+
+        val ctx = appContext ?: run {
+            synchronized(lifecycleLock) { starting = false }
+            return
+        }
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             Log.w(TAG, "Wi‑Fi Aware requires Android 10 (Q)+; disabled.")
             try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware not supported on this device (requires Android 10+)")) } catch (_: Exception) {}
+            synchronized(lifecycleLock) { starting = false }
             return
         }
         val awareManager = ctx.getSystemService(android.net.wifi.aware.WifiAwareManager::class.java)
         if (awareManager == null || !awareManager.isAvailable) {
             Log.w(TAG, "Wi-Fi Aware is not currently available; not starting")
             try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware is not available on this device right now")) } catch (_: Exception) {}
+            synchronized(lifecycleLock) { starting = false }
             return
         }
 
@@ -104,6 +116,7 @@ object WifiAwareController {
         if (!locationEnabled) {
             Log.w(TAG, "Location services are disabled; Wi-Fi Aware cannot start.")
             try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Enable Location Services to start Wi-Fi Aware")) } catch (_: Exception) {}
+            synchronized(lifecycleLock) { starting = false }
             return
         }
 
@@ -113,34 +126,54 @@ object WifiAwareController {
             if (!granted) {
                 Log.w(TAG, "Missing NEARBY_WIFI_DEVICES permission; not starting Wi‑Fi Aware")
                 try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Grant Nearby Wi‑Fi Devices to start Wi‑Fi Aware")) } catch (_: Exception) {}
+                synchronized(lifecycleLock) { starting = false }
                 return
             }
         }
+        if (!_enabled.value) {
+            synchronized(lifecycleLock) { starting = false }
+            return
+        }
         try {
-            Log.i(TAG, "Instantiating WifiAwareMeshService...")
-            val startedService = WifiAwareMeshService(ctx)
+            val startedService = reusableService ?: run {
+                Log.i(TAG, "Instantiating WifiAwareMeshService...")
+                WifiAwareMeshService(ctx)
+            }
             startedService.startServices()
             if (startedService.isRunning()) {
-                service = startedService
-                _running.value = true
+                synchronized(lifecycleLock) {
+                    service = startedService
+                    _running.value = true
+                }
                 try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware started")) } catch (_: Exception) {}
             } else {
-                try { startedService.stopServices() } catch (_: Exception) { }
-                service = null
-                _running.value = false
+                if (reusableService == null) {
+                    try { startedService.stopServices() } catch (_: Exception) { }
+                }
+                synchronized(lifecycleLock) {
+                    if (service === startedService) service = null
+                    _running.value = false
+                }
                 try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware did not start")) } catch (_: Exception) {}
             }
         } catch (e: Throwable) {
             Log.e(TAG, "Failed to start WifiAwareMeshService", e)
             _running.value = false
             try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware failed to start: ${e.message}")) } catch (_: Exception) {}
+        } finally {
+            synchronized(lifecycleLock) { starting = false }
         }
     }
 
     fun stop() {
-        try { service?.stopServices() } catch (_: Exception) { }
-        service = null
-        _running.value = false
+        val stopped = synchronized(lifecycleLock) {
+            val current = service
+            service = null
+            starting = false
+            _running.value = false
+            current
+        }
+        try { stopped?.stopServices() } catch (_: Exception) { }
         try { com.bitchat.android.services.AppStateStore.clearTransportPeers("WIFI") } catch (_: Exception) { }
         _connectedPeers.value = emptyMap()
         _knownPeers.value = emptyMap()
@@ -149,7 +182,8 @@ object WifiAwareController {
     }
 
     internal fun onServiceStopped(stoppedService: WifiAwareMeshService) {
-        if (service === stoppedService) {
+        synchronized(lifecycleLock) {
+            if (service !== stoppedService) return
             service = null
             _running.value = false
             try { com.bitchat.android.services.AppStateStore.clearTransportPeers("WIFI") } catch (_: Exception) { }

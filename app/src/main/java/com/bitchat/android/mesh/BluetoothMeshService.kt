@@ -869,7 +869,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                         
                         // Create NOISE_ENCRYPTED packet (not FILE_TRANSFER!)
                         val packet = BitchatPacket(
-                            version = 1u,
+                            version = if (encrypted.size > 0xFFFF) 2u else 1u,
                             type = MessageType.NOISE_ENCRYPTED.value,
                             senderID = hexStringToByteArray(myPeerID),
                             recipientID = hexStringToByteArray(recipientPeerID),

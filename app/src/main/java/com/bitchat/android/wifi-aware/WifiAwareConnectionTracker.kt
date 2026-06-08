@@ -48,17 +48,20 @@ class WifiAwareConnectionTracker(
 
         // Ensure any pending/active network request is explicitly released
         releaseNetworkRequest(canonicalId)
+        removePendingConnection(id)
+        removePendingConnection(canonicalId)
     }
 
     fun releaseNetworkRequest(id: String) {
-        if (!networkCallbacks.containsKey(id)) return
+        val canonicalId = resolveCanonicalPeerId(id)
+        if (!networkCallbacks.containsKey(canonicalId)) return
         
         // 3. Unregister network callback properly from ConnectivityManager
-        networkCallbacks.remove(id)?.let {
+        networkCallbacks.remove(canonicalId)?.let {
             try { 
-                Log.d(TAG, "Unregistering network callback for $id")
+                Log.d(TAG, "Unregistering network callback for $canonicalId")
                 cm.unregisterNetworkCallback(it) 
-            } catch (e: Exception) { Log.w(TAG, "Error unregistering callback for $id: ${e.message}") }
+            } catch (e: Exception) { Log.w(TAG, "Error unregistering callback for $canonicalId: ${e.message}") }
         }
     }
 
@@ -125,11 +128,37 @@ class WifiAwareConnectionTracker(
     }
 
     fun addServerSocket(peerId: String, socket: ServerSocket) {
-        serverSockets[peerId] = socket
+        val canonicalId = resolveCanonicalPeerId(peerId)
+        serverSockets.put(canonicalId, socket)?.let {
+            try { it.close() } catch (e: Exception) { Log.w(TAG, "Error closing replaced server socket for $peerId: ${e.message}") }
+        }
+    }
+
+    fun hasOpenServerSocket(peerId: String): Boolean {
+        val canonicalId = resolveCanonicalPeerId(peerId)
+        val socket = serverSockets[canonicalId] ?: return false
+        if (!socket.isClosed) return true
+        serverSockets.remove(canonicalId)
+        return false
+    }
+
+    fun closeServerSocket(peerId: String) {
+        val canonicalId = resolveCanonicalPeerId(peerId)
+        serverSockets.remove(canonicalId)?.let {
+            try { it.close() } catch (e: Exception) { Log.w(TAG, "Error closing server socket for $peerId: ${e.message}") }
+        }
     }
 
     fun addNetworkCallback(peerId: String, callback: ConnectivityManager.NetworkCallback) {
-        networkCallbacks[peerId] = callback
+        val canonicalId = resolveCanonicalPeerId(peerId)
+        networkCallbacks.put(canonicalId, callback)?.let {
+            try {
+                Log.d(TAG, "Replacing network callback for $canonicalId")
+                cm.unregisterNetworkCallback(it)
+            } catch (e: Exception) {
+                Log.w(TAG, "Error unregistering replaced callback for $canonicalId: ${e.message}")
+            }
+        }
     }
     
     /**

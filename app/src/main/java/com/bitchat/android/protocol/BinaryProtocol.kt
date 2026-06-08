@@ -255,6 +255,10 @@ object BinaryProtocol {
             if (packet.version >= 2u.toUByte()) {
                 buffer.putInt(payloadDataSize)  // 4 bytes for v2+
             } else {
+                if (payloadDataSize > 0xFFFF || (originalPayloadSize ?: 0) > 0xFFFF) {
+                    Log.w("BinaryProtocol", "Cannot encode oversized v1 packet payload: $payloadDataSize bytes")
+                    return null
+                }
                 buffer.putShort(payloadDataSize.toShort())  // 2 bytes for v1
             }
             
