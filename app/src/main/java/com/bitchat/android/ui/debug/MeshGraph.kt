@@ -4,6 +4,11 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -14,6 +19,7 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.services.meshgraph.MeshGraphService
@@ -212,6 +218,8 @@ private class Simulation {
 fun ForceDirectedMeshGraph(
     nodes: List<MeshGraphService.GraphNode>,
     edges: List<MeshGraphService.GraphEdge>,
+    wifiAwarePeerIDs: Set<String> = emptySet(),
+    localPeerID: String? = null,
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
@@ -404,6 +412,47 @@ fun ForceDirectedMeshGraph(
                     textPaint
                 )
             }
+        }
+
+        val iconSize = 16.dp
+        val iconSizePx = with(density) { iconSize.toPx() }
+        val halfIconSizePx = iconSizePx / 2f
+        val localID = localPeerID
+        val shouldMarkWifiEdge: (MeshGraphService.GraphEdge) -> Boolean = { edge ->
+            if (localID != null) {
+                (edge.a == localID && edge.b in wifiAwarePeerIDs) ||
+                    (edge.b == localID && edge.a in wifiAwarePeerIDs)
+            } else {
+                edge.a in wifiAwarePeerIDs || edge.b in wifiAwarePeerIDs
+            }
+        }
+
+        val wifiEdgeMidpoints = tick.let {
+            simulation.edges.mapNotNull { edge ->
+                val n1 = simulation.nodes[edge.a]
+                val n2 = simulation.nodes[edge.b]
+                if (n1 != null && n2 != null && shouldMarkWifiEdge(edge)) {
+                    ((n1.x + n2.x) / 2f) to ((n1.y + n2.y) / 2f)
+                } else {
+                    null
+                }
+            }
+        }
+
+        wifiEdgeMidpoints.forEach { (midX, midY) ->
+            Icon(
+                imageVector = Icons.Filled.Wifi,
+                contentDescription = null,
+                tint = Color(0xFF9C27B0).copy(alpha = 0.82f),
+                modifier = Modifier
+                    .offset {
+                        IntOffset(
+                            x = (midX - halfIconSizePx).roundToInt(),
+                            y = (midY - halfIconSizePx).roundToInt()
+                        )
+                    }
+                    .size(iconSize)
+            )
         }
     }
 }

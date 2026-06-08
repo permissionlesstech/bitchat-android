@@ -23,6 +23,23 @@ class PermissionManager(private val context: Context) {
 
     private val sharedPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
+    private fun shouldRequireWifiAwarePermission(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
+        val enabled = try {
+            com.bitchat.android.ui.debug.DebugPreferenceManager.getWifiAwareEnabled(false)
+        } catch (_: Exception) {
+            false
+        }
+        if (!enabled) return false
+
+        val hasFeature = try {
+            context.packageManager.hasSystemFeature(PackageManager.FEATURE_WIFI_AWARE)
+        } catch (_: Exception) {
+            false
+        }
+        return hasFeature
+    }
+
     /**
      * Check if this is the first time the user is launching the app
      */
@@ -70,7 +87,7 @@ class PermissionManager(private val context: Context) {
         ))
 
         // Wi‑Fi Aware: Android 13+ requires NEARBY_WIFI_DEVICES runtime permission
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        if (shouldRequireWifiAwarePermission()) {
             permissions.add(Manifest.permission.NEARBY_WIFI_DEVICES)
         }
 
@@ -215,7 +232,7 @@ class PermissionManager(private val context: Context) {
         )
 
         // Wi‑Fi Aware category (Android 13+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        if (shouldRequireWifiAwarePermission()) {
             val wifiAwarePermissions = listOf(Manifest.permission.NEARBY_WIFI_DEVICES)
             categories.add(
                 PermissionCategory(

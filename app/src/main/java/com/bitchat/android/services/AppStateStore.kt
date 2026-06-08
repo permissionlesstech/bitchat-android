@@ -14,6 +14,7 @@ object AppStateStore {
     // Global de-dup set by message id to avoid duplicate keys in Compose lists
     private val seenMessageIds = mutableSetOf<String>()
     private val seenPublicMessageKeys = mutableSetOf<String>()
+    private val peerIdsByTransport = mutableMapOf<String, Set<String>>()
     // Connected peer IDs (mesh ephemeral IDs)
     private val _peers = MutableStateFlow<List<String>>(emptyList())
     val peers: StateFlow<List<String>> = _peers.asStateFlow()
@@ -31,7 +32,31 @@ object AppStateStore {
     val channelMessages: StateFlow<Map<String, List<BitchatMessage>>> = _channelMessages.asStateFlow()
 
     fun setPeers(ids: List<String>) {
-        _peers.value = ids
+        synchronized(this) {
+            _peers.value = ids.distinct()
+        }
+    }
+
+    fun setTransportPeers(transportId: String, ids: List<String>) {
+        synchronized(this) {
+            peerIdsByTransport[transportId] = ids.toSet()
+            publishTransportPeersLocked()
+        }
+    }
+
+    fun clearTransportPeers(transportId: String) {
+        synchronized(this) {
+            peerIdsByTransport.remove(transportId)
+            publishTransportPeersLocked()
+        }
+    }
+
+    private fun publishTransportPeersLocked() {
+        _peers.value = peerIdsByTransport.values
+            .asSequence()
+            .flatten()
+            .distinct()
+            .toList()
     }
 
     fun addPublicMessage(msg: BitchatMessage) {
@@ -104,6 +129,7 @@ object AppStateStore {
         synchronized(this) {
             seenMessageIds.clear()
             seenPublicMessageKeys.clear()
+            peerIdsByTransport.clear()
             _peers.value = emptyList()
             _publicMessages.value = emptyList()
             _privateMessages.value = emptyMap()

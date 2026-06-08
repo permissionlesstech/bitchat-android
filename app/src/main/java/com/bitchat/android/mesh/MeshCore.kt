@@ -16,6 +16,7 @@ import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
 import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.sync.GossipSyncManager
+import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -144,12 +145,14 @@ class MeshCore(
     private fun setupDelegates() {
         peerManager.delegate = object : PeerManagerDelegate {
             override fun onPeerListUpdated(peerIDs: List<String>) {
+                try { com.bitchat.android.services.AppStateStore.setTransportPeers(transport.id, peerIDs) } catch (_: Exception) { }
                 delegate?.didUpdatePeerList(peerIDs)
             }
 
             override fun onPeerRemoved(peerID: String) {
                 try { gossipSyncManager.removeAnnouncementForPeer(peerID) } catch (_: Exception) { }
                 try { encryptionService.removePeer(peerID) } catch (_: Exception) { }
+                try { peerManager.refreshPeerList() } catch (_: Exception) { }
             }
         }
 
@@ -395,9 +398,9 @@ class MeshCore(
             }
 
             override fun sendToPeer(peerID: String, routed: RoutedPacket): Boolean {
-                transport.sendPacketToPeer(peerID, routed.packet)
+                val sent = transport.sendPacketToPeer(peerID, routed.packet)
                 TransportBridgeService.sendToPeer(transport.id, peerID, routed.packet)
-                return true
+                return sent
             }
 
             override fun handleRequestSync(routed: RoutedPacket) {
@@ -560,7 +563,7 @@ class MeshCore(
                 return@launch
             }
             val announcement = IdentityAnnouncement(nickname, staticKey, signingKey)
-            val tlvPayload = announcement.encode() ?: return@launch
+            val tlvPayload = buildAnnouncementPayload(announcement, nickname) ?: return@launch
             val announcePacket = BitchatPacket(
                 type = MessageType.ANNOUNCE.value,
                 ttl = maxTtl,
@@ -581,7 +584,7 @@ class MeshCore(
         val staticKey = encryptionService.getStaticPublicKey() ?: return
         val signingKey = encryptionService.getSigningPublicKey() ?: return
         val announcement = IdentityAnnouncement(nickname, staticKey, signingKey)
-        val tlvPayload = announcement.encode() ?: return
+        val tlvPayload = buildAnnouncementPayload(announcement, nickname) ?: return
         val packet = BitchatPacket(
             type = MessageType.ANNOUNCE.value,
             ttl = maxTtl,
@@ -592,6 +595,30 @@ class MeshCore(
         dispatchGlobal(RoutedPacket(signedPacket))
         peerManager.markPeerAsAnnouncedTo(peerID)
         try { gossipSyncManager.onPublicPacketSeen(signedPacket) } catch (_: Exception) { }
+    }
+
+    private fun buildAnnouncementPayload(announcement: IdentityAnnouncement, nickname: String): ByteArray? {
+        var tlvPayload = announcement.encode() ?: return null
+        val directPeersForGossip = getDirectPeerIDsForGossip()
+        try {
+            if (directPeersForGossip.isNotEmpty()) {
+                tlvPayload += com.bitchat.android.services.meshgraph.GossipTLV.encodeNeighbors(directPeersForGossip)
+            }
+            com.bitchat.android.services.meshgraph.MeshGraphService.getInstance()
+                .updateFromAnnouncement(myPeerID, nickname, directPeersForGossip, System.currentTimeMillis().toULong())
+        } catch (_: Exception) { }
+        return tlvPayload
+    }
+
+    private fun getDirectPeerIDsForGossip(): List<String> {
+        return try {
+            val verifiedDirect = peerManager.getVerifiedPeers()
+                .filter { it.value.isDirectConnection }
+                .keys
+            (verifiedDirect + directPeers).distinct().take(10)
+        } catch (_: Exception) {
+            directPeers.toList().take(10)
+        }
     }
 
     fun sendLeaveAnnouncement() {
@@ -734,12 +761,33 @@ class MeshCore(
 
     private fun signPacketBeforeBroadcast(packet: BitchatPacket): BitchatPacket {
         return try {
-            val packetDataForSigning = packet.toBinaryDataForSigning() ?: return packet
+            val withRoute = try {
+                val recipient = packet.recipientID
+                if (recipient != null && !recipient.contentEquals(SpecialRecipients.BROADCAST)) {
+                    val destination = recipient.toHexString()
+                    val path = com.bitchat.android.services.meshgraph.RoutePlanner.shortestPath(myPeerID, destination)
+                    if (path != null && path.size >= 3) {
+                        val intermediates = path.subList(1, path.size - 1)
+                        packet.copy(
+                            route = intermediates.map { MeshPacketUtils.hexStringToByteArray(it) },
+                            version = 2u
+                        )
+                    } else {
+                        packet.copy(route = null)
+                    }
+                } else {
+                    packet
+                }
+            } catch (_: Exception) {
+                packet
+            }
+
+            val packetDataForSigning = withRoute.toBinaryDataForSigning() ?: return withRoute
             val signature = encryptionService.signData(packetDataForSigning)
             if (signature != null) {
-                packet.copy(signature = signature)
+                withRoute.copy(signature = signature)
             } else {
-                packet
+                withRoute
             }
         } catch (_: Exception) {
             packet

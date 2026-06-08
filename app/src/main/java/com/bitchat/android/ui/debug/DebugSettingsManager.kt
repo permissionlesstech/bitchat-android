@@ -285,6 +285,9 @@ class DebugSettingsManager private constructor() {
         DebugPreferenceManager.setBleEnabled(enabled)
         _bleEnabled.value = enabled
         addDebugMessage(DebugMessage.SystemMessage(if (enabled) "🟢 BLE enabled" else "🔴 BLE disabled"))
+        try {
+            com.bitchat.android.service.MeshServiceHolder.meshService?.setBleTransportEnabled(enabled)
+        } catch (_: Exception) { }
     }
 
     fun setWifiAwareEnabled(enabled: Boolean) {

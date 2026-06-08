@@ -22,29 +22,32 @@ class WifiAwareConnectionTracker(
 
     // Active resources per peer
     val peerSockets = ConcurrentHashMap<String, SyncedSocket>()
+    private val socketAliases = ConcurrentHashMap<String, String>()
     val serverSockets = ConcurrentHashMap<String, ServerSocket>()
     val networkCallbacks = ConcurrentHashMap<String, ConnectivityManager.NetworkCallback>()
 
     override fun isConnected(id: String): Boolean {
         // We consider it connected if we have a client socket to them
-        return peerSockets.containsKey(id)
+        return getSocketForPeer(id) != null
     }
 
     override fun disconnect(id: String) {
         Log.d(TAG, "Disconnecting peer $id")
+        val canonicalId = resolveCanonicalPeerId(id)
         
         // 1. Close client socket
-        peerSockets.remove(id)?.let {
+        peerSockets.remove(canonicalId)?.let {
             try { it.close() } catch (e: Exception) { Log.w(TAG, "Error closing socket for $id: ${e.message}") }
         }
+        socketAliases.entries.removeIf { it.key == id || it.key == canonicalId || it.value == canonicalId }
 
         // 2. Close server socket
-        serverSockets.remove(id)?.let {
+        serverSockets.remove(canonicalId)?.let {
             try { it.close() } catch (e: Exception) { Log.w(TAG, "Error closing server socket for $id: ${e.message}") }
         }
 
         // Ensure any pending/active network request is explicitly released
-        releaseNetworkRequest(id)
+        releaseNetworkRequest(canonicalId)
     }
 
     fun releaseNetworkRequest(id: String) {
@@ -73,6 +76,54 @@ class WifiAwareConnectionTracker(
         removePendingConnection(peerId) // Clear retry state on success
     }
 
+    fun getSocketForPeer(peerId: String): SyncedSocket? {
+        val canonicalId = resolveCanonicalPeerId(peerId)
+        return peerSockets[canonicalId]
+    }
+
+    fun canonicalPeerId(peerId: String): String = resolveCanonicalPeerId(peerId)
+
+    fun rebindPeerId(previousPeerId: String, resolvedPeerId: String, socket: SyncedSocket): String {
+        if (previousPeerId == resolvedPeerId) {
+            peerSockets[resolvedPeerId] = socket
+            return resolvedPeerId
+        }
+
+        val previousCanonical = resolveCanonicalPeerId(previousPeerId)
+        val existing = peerSockets[previousCanonical]
+        if (existing === socket) {
+            peerSockets.remove(previousCanonical)
+        }
+
+        peerSockets[resolvedPeerId]?.let { current ->
+            if (current !== socket) {
+                try { current.close() } catch (_: Exception) { }
+            }
+        }
+        peerSockets[resolvedPeerId] = socket
+        serverSockets.remove(previousCanonical)?.let { serverSockets[resolvedPeerId] = it }
+        networkCallbacks.remove(previousCanonical)?.let { networkCallbacks[resolvedPeerId] = it }
+        socketAliases[previousPeerId] = resolvedPeerId
+        if (previousCanonical != previousPeerId) {
+            socketAliases[previousCanonical] = resolvedPeerId
+        }
+        removePendingConnection(previousPeerId)
+        removePendingConnection(resolvedPeerId)
+
+        Log.i(TAG, "Rebound Wi-Fi Aware socket ${previousPeerId.take(8)} -> ${resolvedPeerId.take(8)}")
+        return resolvedPeerId
+    }
+
+    private fun resolveCanonicalPeerId(peerId: String): String {
+        var current = peerId
+        val visited = mutableSetOf<String>()
+        while (visited.add(current)) {
+            val next = socketAliases[current] ?: return current
+            current = next
+        }
+        return current
+    }
+
     fun addServerSocket(peerId: String, socket: ServerSocket) {
         serverSockets[peerId] = socket
     }
@@ -95,6 +146,12 @@ class WifiAwareConnectionTracker(
             appendLine("Aware Connections: ${getConnectionCount()}")
             peerSockets.keys.forEach { pid ->
                 appendLine("  - $pid (Socket)")
+            }
+            if (socketAliases.isNotEmpty()) {
+                appendLine("Socket aliases:")
+                socketAliases.forEach { (alias, canonical) ->
+                    appendLine("  - $alias -> $canonical")
+                }
             }
             appendLine("Server Sockets: ${serverSockets.size}")
             serverSockets.keys.forEach { pid ->

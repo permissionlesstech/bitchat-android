@@ -55,4 +55,16 @@ class AppStateStoreTest {
 
         assertEquals(listOf(first, second), AppStateStore.publicMessages.value)
     }
+
+    @Test
+    fun `peer list merges transport updates instead of overwriting`() {
+        AppStateStore.setTransportPeers("WIFI", listOf("wifi-peer"))
+        AppStateStore.setTransportPeers("BLE", emptyList())
+
+        assertEquals(listOf("wifi-peer"), AppStateStore.peers.value)
+
+        AppStateStore.setTransportPeers("BLE", listOf("ble-peer"))
+
+        assertEquals(listOf("wifi-peer", "ble-peer"), AppStateStore.peers.value)
+    }
 }

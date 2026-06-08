@@ -61,6 +61,8 @@ fun MeshPeerListSheet(
     val peerNicknames by viewModel.peerNicknames.collectAsStateWithLifecycle()
     val peerRSSI by viewModel.peerRSSI.collectAsStateWithLifecycle()
     val selectedLocationChannel by viewModel.selectedLocationChannel.collectAsStateWithLifecycle()
+    val wifiAwareConnected by com.bitchat.android.wifiaware.WifiAwareController.connectedPeers.collectAsStateWithLifecycle()
+    val wifiAwarePeerIDs = remember(wifiAwareConnected) { wifiAwareConnected.keys.toSet() }
 
     // Bottom sheet state
     val sheetState = rememberModalBottomSheetState(
@@ -163,11 +165,12 @@ fun MeshPeerListSheet(
                                     nickname = nickname,
                                     colorScheme = colorScheme,
                                     selectedPrivatePeer = selectedPrivatePeer,
+                                    wifiAwarePeerIDs = wifiAwarePeerIDs,
                                     viewModel = viewModel,
-                                     onPrivateChatStart = { peerID ->
-                                         viewModel.showPrivateChatSheet(peerID)
-                                         onDismiss()
-                                     }
+                                    onPrivateChatStart = { peerID ->
+                                        viewModel.showPrivateChatSheet(peerID)
+                                        onDismiss()
+                                    }
                                 )
                             }
                         }
@@ -279,6 +282,7 @@ fun PeopleSection(
     nickname: String,
     colorScheme: ColorScheme,
     selectedPrivatePeer: String?,
+    wifiAwarePeerIDs: Set<String> = emptySet(),
     viewModel: ChatViewModel,
     onPrivateChatStart: (String) -> Unit
 ) {
@@ -416,6 +420,7 @@ fun PeopleSection(
                 peerID = peerID,
                 displayName = displayName,
                 isDirect = isDirectLive,
+                isWifiAware = peerID in wifiAwarePeerIDs,
                 isSelected = peerID == selectedPrivatePeer,
                 isFavorite = isFavorite,
                 isVerified = isVerified,
@@ -544,6 +549,7 @@ private fun PeerItem(
     peerID: String,
     displayName: String,
     isDirect: Boolean,
+    isWifiAware: Boolean = false,
     isSelected: Boolean,
     isFavorite: Boolean,
     isVerified: Boolean,
@@ -619,10 +625,18 @@ private fun PeerItem(
                     )
                 } else {
                     Icon(
-                        imageVector = if (isDirect) Icons.Outlined.Bluetooth else Icons.Filled.Route,
-                        contentDescription = if (isDirect) "Direct Bluetooth" else "Routed",
+                        imageVector = when {
+                            isWifiAware -> Icons.Filled.Wifi
+                            isDirect -> Icons.Outlined.Bluetooth
+                            else -> Icons.Filled.Route
+                        },
+                        contentDescription = when {
+                            isWifiAware -> "Direct Wi-Fi Aware"
+                            isDirect -> "Direct Bluetooth"
+                            else -> "Routed"
+                        },
                         modifier = Modifier.size(16.dp),
-                        tint = colorScheme.onSurface.copy(alpha = 0.6f)
+                        tint = if (isWifiAware) Color(0xFF9C27B0) else colorScheme.onSurface.copy(alpha = 0.6f)
                     )
                 }
 
@@ -650,6 +664,16 @@ private fun PeerItem(
                                 fontSize = BASE_FONT_SIZE.sp
                             ),
                             color = baseColor.copy(alpha = 0.6f)
+                        )
+                    }
+
+                    if (isWifiAware && hasUnreadDM) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.Filled.Wifi,
+                            contentDescription = "Direct Wi-Fi Aware",
+                            modifier = Modifier.size(13.dp),
+                            tint = Color(0xFF9C27B0).copy(alpha = 0.8f)
                         )
                     }
                 }

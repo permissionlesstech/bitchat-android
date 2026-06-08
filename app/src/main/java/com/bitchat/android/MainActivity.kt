@@ -793,7 +793,8 @@ class MainActivity : OrientationAwareActivity() {
 
             // Check if Bluetooth was disabled while app was backgrounded
             val currentBluetoothStatus = bluetoothStatusManager.checkBluetoothStatus()
-            if (currentBluetoothStatus != BluetoothStatus.ENABLED && !mainViewModel.isBluetoothCheckSkipped.value) {
+            val bleRequired = try { com.bitchat.android.ui.debug.DebugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true }
+            if (bleRequired && currentBluetoothStatus != BluetoothStatus.ENABLED && !mainViewModel.isBluetoothCheckSkipped.value) {
                 Log.w("MainActivity", "Bluetooth disabled while app was backgrounded")
                 mainViewModel.updateBluetoothStatus(currentBluetoothStatus)
                 mainViewModel.updateOnboardingState(OnboardingState.BLUETOOTH_CHECK)

@@ -39,11 +39,28 @@ class BluetoothGattClientManager(
         context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
     private val bluetoothAdapter: BluetoothAdapter? = bluetoothManager.adapter
     private val bleScanner: BluetoothLeScanner? = bluetoothAdapter?.bluetoothLeScanner
+
+    private fun isBleTransportEnabled(): Boolean {
+        return try {
+            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().bleEnabled.value
+        } catch (_: Exception) {
+            try { com.bitchat.android.ui.debug.DebugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true }
+        }
+    }
+
+    private fun isClientRoleEnabled(): Boolean {
+        return isBleTransportEnabled() &&
+            (try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattClientEnabled.value } catch (_: Exception) { true })
+    }
     
     /**
      * Public: Connect to a device by MAC address (for debug UI)
      */
     fun connectToAddress(deviceAddress: String): Boolean {
+        if (!isClientRoleEnabled()) {
+            Log.i(TAG, "connectToAddress skipped: BLE client disabled")
+            return false
+        }
         val device = bluetoothAdapter?.getRemoteDevice(deviceAddress)
         return if (device != null) {
             val rssi = connectionTracker.getBestRSSI(deviceAddress) ?: -50
@@ -75,12 +92,10 @@ class BluetoothGattClientManager(
      */
     fun start(): Boolean {
         // Respect debug setting
-        try {
-            if (!com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattClientEnabled.value) {
-                Log.i(TAG, "Client start skipped: GATT Client disabled in debug settings")
-                return false
-            }
-        } catch (_: Exception) { }
+        if (!isClientRoleEnabled()) {
+            Log.i(TAG, "Client start skipped: BLE/GATT Client disabled in debug settings")
+            return false
+        }
 
         if (isActive) {
             Log.d(TAG, "GATT client already active; start is a no-op")
@@ -150,7 +165,7 @@ class BluetoothGattClientManager(
      * Handle scan state changes from power manager
      */
     fun onScanStateChanged(shouldScan: Boolean) {
-        val enabled = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattClientEnabled.value } catch (_: Exception) { true }
+        val enabled = isClientRoleEnabled()
         if (shouldScan && enabled) {
             startScanning()
         } else {
@@ -199,7 +214,7 @@ class BluetoothGattClientManager(
     @Suppress("DEPRECATION")
     private fun startScanning() {
         // Respect debug setting
-        val enabled = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattClientEnabled.value } catch (_: Exception) { true }
+        val enabled = isClientRoleEnabled()
         if (!permissionManager.hasBluetoothPermissions() || bleScanner == null || !isActive || !enabled) return
         
         // Rate limit scan starts to prevent "scanning too frequently" errors
@@ -217,7 +232,7 @@ class BluetoothGattClientManager(
             // Schedule delayed scan start
             connectionScope.launch {
                 delay(remainingWait)
-                if (isActive && !isCurrentlyScanning) {
+                if (isActive && !isCurrentlyScanning && isClientRoleEnabled()) {
                     startScanning()
                 }
             }
@@ -402,6 +417,7 @@ class BluetoothGattClientManager(
      */
     @Suppress("DEPRECATION")
     private fun connectToDevice(device: BluetoothDevice, rssi: Int, peerID: String? = null) {
+        if (!isClientRoleEnabled()) return
         if (!permissionManager.hasBluetoothPermissions()) return
 
         val deviceAddress = device.address
@@ -562,7 +578,7 @@ class BluetoothGattClientManager(
      */
     fun restartScanning() {
         // Respect debug setting
-        val enabled = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattClientEnabled.value } catch (_: Exception) { true }
+        val enabled = isClientRoleEnabled()
         if (!isActive || !enabled) return
         
         connectionScope.launch {

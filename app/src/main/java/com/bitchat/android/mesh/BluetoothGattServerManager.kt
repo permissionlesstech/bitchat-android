@@ -46,6 +46,19 @@ class BluetoothGattServerManager(
     // State management
     private var isActive = false
 
+    private fun isBleTransportEnabled(): Boolean {
+        return try {
+            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().bleEnabled.value
+        } catch (_: Exception) {
+            try { com.bitchat.android.ui.debug.DebugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true }
+        }
+    }
+
+    private fun isServerRoleEnabled(): Boolean {
+        return isBleTransportEnabled() &&
+            (try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattServerEnabled.value } catch (_: Exception) { true })
+    }
+
     /**
      * Disconnect a specific device (used by ConnectionManager to enforce overall limits)
      */
@@ -62,12 +75,10 @@ class BluetoothGattServerManager(
      */
     fun start(): Boolean {
         // Respect debug setting
-        try {
-            if (!com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattServerEnabled.value) {
-                Log.i(TAG, "Server start skipped: GATT Server disabled in debug settings")
-                return false
-            }
-        } catch (_: Exception) { }
+        if (!isServerRoleEnabled()) {
+            Log.i(TAG, "Server start skipped: BLE/GATT Server disabled in debug settings")
+            return false
+        }
 
         if (isActive) {
             Log.d(TAG, "GATT server already active; start is a no-op")
@@ -322,7 +333,7 @@ class BluetoothGattServerManager(
     @Suppress("DEPRECATION")
     private fun startAdvertising() {
         // Respect debug setting
-        val enabled = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattServerEnabled.value } catch (_: Exception) { true }
+        val enabled = isServerRoleEnabled()
 
         // Guard conditions – never throw here to avoid crashing the app from a background coroutine
         if (!permissionManager.hasBluetoothPermissions()) {
@@ -412,7 +423,7 @@ class BluetoothGattServerManager(
      */
     fun restartAdvertising() {
         // Respect debug setting
-        val enabled = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattServerEnabled.value } catch (_: Exception) { true }
+        val enabled = isServerRoleEnabled()
         if (!isActive || !enabled) {
             stopAdvertising()
             return

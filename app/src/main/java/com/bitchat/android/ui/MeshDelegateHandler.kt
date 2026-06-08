@@ -100,6 +100,7 @@ class MeshDelegateHandler(
     override fun didUpdatePeerList(peers: List<String>) {
         coroutineScope.launch {
             blePeers = peers.toSet()
+            try { com.bitchat.android.services.AppStateStore.setTransportPeers("BLE", peers) } catch (_: Exception) { }
             processPeerUpdate()
         }
     }
@@ -107,16 +108,15 @@ class MeshDelegateHandler(
     fun onWifiPeersUpdated(peers: List<String>) {
         coroutineScope.launch {
             wifiPeers = peers.toSet()
+            try { com.bitchat.android.services.AppStateStore.setTransportPeers("WIFI", peers) } catch (_: Exception) { }
             processPeerUpdate()
         }
     }
 
     private suspend fun processPeerUpdate() {
         // Merge peers from multiple transports
-        val mergedPeers = (blePeers + wifiPeers).toList()
-        
-        // Update process-wide state as source of truth
-        try { com.bitchat.android.services.AppStateStore.setPeers(mergedPeers) } catch (_: Exception) { }
+        val mergedPeers = com.bitchat.android.services.AppStateStore.peers.value
+            .ifEmpty { (blePeers + wifiPeers).toList() }
 
         state.setConnectedPeers(mergedPeers)
         state.setIsConnected(mergedPeers.isNotEmpty())

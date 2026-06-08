@@ -71,6 +71,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     
     // Coroutines
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var announceJob: Job? = null
     // Tracks whether this instance has been terminated via stopServices()
     private var terminated = false
     
@@ -114,7 +115,9 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         }
 
         com.bitchat.android.service.MeshServiceHolder.setGossipManager(gossipSyncManager)
-        TransportBridgeService.register("BLE", this)
+        if (isBleTransportEnabled()) {
+            TransportBridgeService.register("BLE", this)
+        }
         
         // Inject dynamic direct connection check into PeerManager
         // Matches iOS logic: checks if we have an active hardware mapping for this peer
@@ -126,22 +129,34 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     }
 
     override fun send(packet: RoutedPacket) {
+        if (!isBleTransportEnabled()) return
         connectionManager.broadcastPacket(packet)
     }
 
     override fun sendToPeer(peerID: String, packet: BitchatPacket) {
+        if (!isBleTransportEnabled()) return
         connectionManager.sendPacketToPeer(peerID, packet)
     }
 
     private fun broadcastRoutedPacket(routed: RoutedPacket) {
+        if (!isBleTransportEnabled()) return
         connectionManager.broadcastPacket(routed)
         TransportBridgeService.broadcast("BLE", routed)
     }
 
     private fun sendPacketToPeerAcrossTransports(peerID: String, packet: BitchatPacket): Boolean {
+        if (!isBleTransportEnabled()) return false
         val sentOverBle = connectionManager.sendPacketToPeer(peerID, packet)
         TransportBridgeService.sendToPeer("BLE", peerID, packet)
         return sentOverBle
+    }
+
+    private fun isBleTransportEnabled(): Boolean {
+        return try {
+            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().bleEnabled.value
+        } catch (_: Exception) {
+            try { com.bitchat.android.ui.debug.DebugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true }
+        }
     }
     
     /**
@@ -169,7 +184,8 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
      * Send broadcast announcement every 30 seconds
      */
     private fun sendPeriodicBroadcastAnnounce() {
-        serviceScope.launch {
+        announceJob?.cancel()
+        announceJob = serviceScope.launch {
             Log.d(TAG, "Starting periodic announce loop")
             while (isActive) {
                 try {
@@ -198,7 +214,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         peerManager.delegate = object : PeerManagerDelegate {
             override fun onPeerListUpdated(peerIDs: List<String>) {
                 // Update process-wide state first
-                try { com.bitchat.android.services.AppStateStore.setPeers(peerIDs) } catch (_: Exception) { }
+                try { com.bitchat.android.services.AppStateStore.setTransportPeers("BLE", peerIDs) } catch (_: Exception) { }
                 // Then notify UI delegate if attached
                 delegate?.didUpdatePeerList(peerIDs)
             }
@@ -650,6 +666,13 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             Log.w(TAG, "Mesh service already active, ignoring duplicate start request")
             return
         }
+        if (!isBleTransportEnabled()) {
+            Log.i(TAG, "BLE transport disabled by debug settings; not starting mesh service")
+            connectionManager.disableTransport()
+            TransportBridgeService.unregister("BLE")
+            try { com.bitchat.android.services.AppStateStore.clearTransportPeers("BLE") } catch (_: Exception) { }
+            return
+        }
         if (terminated) {
             // This instance's scope was cancelled previously; refuse to start to avoid using dead scopes.
             Log.e(TAG, "Mesh service instance was terminated; create a new instance instead of restarting")
@@ -660,6 +683,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         
         if (connectionManager.startServices()) {
             isActive = true
+            TransportBridgeService.register("BLE", this)
             
             // Start periodic announcements for peer discovery and connectivity
             sendPeriodicBroadcastAnnounce()
@@ -670,6 +694,29 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         } else {
             Log.e(TAG, "Failed to start Bluetooth services")
         }
+    }
+
+    /**
+     * Apply the debug master transport toggle without destroying this mesh instance.
+     */
+    fun setBleTransportEnabled(enabled: Boolean) {
+        if (enabled) {
+            startServices()
+        } else {
+            pauseServicesForTransportDisable()
+        }
+    }
+
+    private fun pauseServicesForTransportDisable() {
+        Log.i(TAG, "Disabling BLE mesh transport")
+        isActive = false
+        announceJob?.cancel()
+        announceJob = null
+        try { gossipSyncManager.stop() } catch (_: Exception) { }
+        TransportBridgeService.unregister("BLE")
+        try { com.bitchat.android.services.AppStateStore.clearTransportPeers("BLE") } catch (_: Exception) { }
+        connectionManager.disableTransport()
+        try { peerManager.refreshPeerList() } catch (_: Exception) { }
     }
     
     /**
@@ -683,7 +730,10 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         
         Log.i(TAG, "Stopping Bluetooth mesh service")
         isActive = false
+        announceJob?.cancel()
+        announceJob = null
         TransportBridgeService.unregister("BLE")
+        try { com.bitchat.android.services.AppStateStore.clearTransportPeers("BLE") } catch (_: Exception) { }
         
         // Send leave announcement
         sendLeaveAnnouncement()

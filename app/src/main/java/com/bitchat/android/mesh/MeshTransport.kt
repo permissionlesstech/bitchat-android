@@ -11,7 +11,7 @@ interface MeshTransport {
 
     fun broadcastPacket(routed: RoutedPacket)
 
-    fun sendPacketToPeer(peerID: String, packet: BitchatPacket)
+    fun sendPacketToPeer(peerID: String, packet: BitchatPacket): Boolean
 
     fun cancelTransfer(transferId: String): Boolean = false
 

@@ -226,6 +226,15 @@ class MeshForegroundService : Service() {
 
     private fun ensureMeshStarted() {
         if (isShuttingDown) return
+        val bleEnabled = try {
+            com.bitchat.android.ui.debug.DebugPreferenceManager.getBleEnabled(true)
+        } catch (_: Exception) {
+            true
+        }
+        if (!bleEnabled) {
+            try { meshService?.setBleTransportEnabled(false) } catch (_: Exception) { }
+            return
+        }
         if (!hasBluetoothPermissions()) return
         try {
             android.util.Log.d("MeshForegroundService", "Ensuring mesh service is started")

@@ -42,10 +42,12 @@ import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
 
 @Composable
-fun MeshTopologySection() {
+fun MeshTopologySection(localPeerID: String? = null) {
     val colorScheme = MaterialTheme.colorScheme
     val graphService = remember { MeshGraphService.getInstance() }
     val snapshot by graphService.graphState.collectAsState()
+    val wifiAwareConnected by com.bitchat.android.wifiaware.WifiAwareController.connectedPeers.collectAsState()
+    val wifiAwarePeerIDs = remember(wifiAwareConnected) { wifiAwareConnected.keys.toSet() }
 
     Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -62,6 +64,8 @@ fun MeshTopologySection() {
                 ForceDirectedMeshGraph(
                     nodes = nodes,
                     edges = edges,
+                    wifiAwarePeerIDs = wifiAwarePeerIDs,
+                    localPeerID = localPeerID,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(300.dp)
@@ -221,7 +225,7 @@ fun DebugSettingsSheet(
 
             // Mesh topology visualization (moved below verbose logging)
             item {
-                MeshTopologySection()
+                MeshTopologySection(localPeerID = meshService.myPeerID)
             }
 
             // GATT controls
@@ -307,15 +311,6 @@ fun DebugSettingsSheet(
                             Text("BLE", fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
                             Switch(checked = bleEnabled, onCheckedChange = {
                                 manager.setBleEnabled(it)
-                                scope.launch {
-                                    if (it) {
-                                        if (gattServerEnabled) meshService.connectionManager.startServer()
-                                        if (gattClientEnabled) meshService.connectionManager.startClient()
-                                    } else {
-                                        meshService.connectionManager.stopServer()
-                                        meshService.connectionManager.stopClient()
-                                    }
-                                }
                             })
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -604,8 +599,8 @@ fun DebugSettingsSheet(
                             Text(if (running) "running" else "stopped", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            AssistChip(onClick = { com.bitchat.android.wifiaware.WifiAwareController.startIfPossible() }, label = { Text("Start") })
-                            AssistChip(onClick = { com.bitchat.android.wifiaware.WifiAwareController.stop() }, label = { Text("Stop") })
+                            AssistChip(onClick = { manager.setWifiAwareEnabled(true) }, label = { Text("Start") })
+                            AssistChip(onClick = { manager.setWifiAwareEnabled(false) }, label = { Text("Stop") })
                             AssistChip(onClick = { com.bitchat.android.wifiaware.WifiAwareController.getService()?.sendBroadcastAnnounce() }, label = { Text("Announce") })
                         }
                         Text("Discovered: ${wifiAwareDiscovered.size}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
