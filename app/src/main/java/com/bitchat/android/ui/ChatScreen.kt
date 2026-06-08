@@ -26,6 +26,12 @@ import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.ui.media.FullScreenImageViewer
+import com.giphy.sdk.ui.views.GiphyDialogFragment
+import com.giphy.sdk.ui.themes.GPHTheme
+import com.giphy.sdk.ui.GPHContentType
+import com.giphy.sdk.ui.GPHSettings
+import com.giphy.sdk.core.models.Media
+import androidx.appcompat.app.AppCompatActivity
 
 /**
  * Main ChatScreen - REFACTORED to use component-based architecture
@@ -39,6 +45,7 @@ import com.bitchat.android.ui.media.FullScreenImageViewer
  */
 @Composable
 fun ChatScreen(viewModel: ChatViewModel) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val colorScheme = MaterialTheme.colorScheme
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val connectedPeers by viewModel.connectedPeers.collectAsStateWithLifecycle()
@@ -101,10 +108,14 @@ fun ChatScreen(viewModel: ChatViewModel) {
         }
     }
 
-    // Determine whether to show media buttons (only hide in geohash location chats)
-    val showMediaButtons = when {
-        currentChannel != null -> true
-        else -> selectedLocationChannel !is com.bitchat.android.geohash.ChannelID.Location
+    // Determine whether to show media buttons (enabled for all channels)
+    val showMediaButtons = true
+    
+    // Determine whether to allow binary media (Voice/Images) - restricted to Mesh
+    val allowBinaryMedia = when {
+        currentChannel != null -> true // Mesh channels support media
+        selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location -> false // Nostr/Geohash does not support binary media yet
+        else -> true // Mesh timeline supports media
     }
 
     // Use WindowInsets to handle keyboard properly
@@ -213,6 +224,32 @@ fun ChatScreen(viewModel: ChatViewModel) {
         onSendFileNote = { peer, onionOrChannel, path ->
             viewModel.sendFileNote(peer, onionOrChannel, path)
         },
+        onGifClick = {
+            val activity = context as? AppCompatActivity
+            if (activity != null) {
+                val settings = GPHSettings(
+                    theme = if (colorScheme.background == Color.Black) GPHTheme.Dark else GPHTheme.Light,
+                    mediaTypeConfig = arrayOf(GPHContentType.gif, GPHContentType.sticker)
+                )
+                val picker = GiphyDialogFragment.newInstance(settings)
+                picker.gifSelectionListener = object : GiphyDialogFragment.GifSelectionListener {
+                    override fun onGifSelected(media: Media, searchTerm: String?, selectedContentType: GPHContentType) {
+                        val url = media.images.fixedHeight?.gifUrl
+                        if (url != null) {
+                            viewModel.sendMessage(url)
+                            // Force scroll to bottom on next frame
+                            forceScrollToBottom = !forceScrollToBottom
+                        }
+                        picker.dismiss()
+                    }
+                    override fun onDismissed(selectedContentType: GPHContentType) {
+                        // no-op
+                    }
+                    override fun didSearchTerm(term: String) {}
+                }
+                picker.show(activity.supportFragmentManager, "giphy_picker")
+            }
+        },
         
         showCommandSuggestions = showCommandSuggestions,
         commandSuggestions = commandSuggestions,
@@ -236,7 +273,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 currentChannel = currentChannel,
                 nickname = nickname,
                 colorScheme = colorScheme,
-                showMediaButtons = showMediaButtons
+                showMediaButtons = showMediaButtons,
+                allowBinaryMedia = allowBinaryMedia
             )
         }
 
@@ -354,6 +392,7 @@ fun ChatInputSection(
     onSendVoiceNote: (String?, String?, String) -> Unit,
     onSendImageNote: (String?, String?, String) -> Unit,
     onSendFileNote: (String?, String?, String) -> Unit,
+    onGifClick: () -> Unit,
     showCommandSuggestions: Boolean,
     commandSuggestions: List<CommandSuggestion>,
     showMentionSuggestions: Boolean,
@@ -364,7 +403,8 @@ fun ChatInputSection(
     currentChannel: String?,
     nickname: String,
     colorScheme: ColorScheme,
-    showMediaButtons: Boolean
+    showMediaButtons: Boolean,
+    allowBinaryMedia: Boolean = true
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -397,10 +437,12 @@ fun ChatInputSection(
                 onSendVoiceNote = onSendVoiceNote,
                 onSendImageNote = onSendImageNote,
                 onSendFileNote = onSendFileNote,
+                onGifClick = onGifClick,
                 selectedPrivatePeer = selectedPrivatePeer,
                 currentChannel = currentChannel,
                 nickname = nickname,
                 showMediaButtons = showMediaButtons,
+                allowBinaryMedia = allowBinaryMedia,
                 modifier = Modifier.fillMaxWidth()
             )
         }

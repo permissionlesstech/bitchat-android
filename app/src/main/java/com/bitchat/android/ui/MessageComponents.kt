@@ -42,6 +42,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
 import com.bitchat.android.ui.media.FileMessageItem
+import com.bitchat.android.ui.media.GiphyMessageItem
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.R
 import androidx.compose.ui.res.stringResource
@@ -239,6 +240,23 @@ fun MessageItem(
             onNicknameClick = onNicknameClick,
             onMessageLongPress = onMessageLongPress,
             onCancelTransfer = onCancelTransfer,
+            modifier = modifier
+        )
+        return
+    }
+
+    // GIPHY special rendering - robust check for various GIPHY URL formats
+    if (message.type == BitchatMessageType.Message && 
+        (message.content.contains("giphy.com/media") || message.content.contains("media.giphy.com")) && 
+        (message.content.contains(".gif") || message.content.contains(".webp"))) {
+        GiphyMessageItem(
+            message = message,
+            currentUserNickname = currentUserNickname,
+            meshService = meshService,
+            colorScheme = colorScheme,
+            timeFormatter = timeFormatter,
+            onNicknameClick = onNicknameClick,
+            onMessageLongPress = onMessageLongPress,
             modifier = modifier
         )
         return
