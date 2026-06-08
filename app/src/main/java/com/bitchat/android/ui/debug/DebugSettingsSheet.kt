@@ -42,7 +42,10 @@ import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
 
 @Composable
-fun MeshTopologySection(localPeerID: String? = null) {
+fun MeshTopologySection(
+    localPeerID: String? = null,
+    blePeerIDs: Set<String> = emptySet(),
+) {
     val colorScheme = MaterialTheme.colorScheme
     val graphService = remember { MeshGraphService.getInstance() }
     val snapshot by graphService.graphState.collectAsState()
@@ -65,6 +68,7 @@ fun MeshTopologySection(localPeerID: String? = null) {
                     nodes = nodes,
                     edges = edges,
                     wifiAwarePeerIDs = wifiAwarePeerIDs,
+                    blePeerIDs = blePeerIDs,
                     localPeerID = localPeerID,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -225,7 +229,13 @@ fun DebugSettingsSheet(
 
             // Mesh topology visualization (moved below verbose logging)
             item {
-                MeshTopologySection(localPeerID = meshService.myPeerID)
+                val blePeerIDs = remember(connectedDevices) {
+                    connectedDevices.mapNotNull { it.peerID }.toSet()
+                }
+                MeshTopologySection(
+                    localPeerID = meshService.myPeerID,
+                    blePeerIDs = blePeerIDs,
+                )
             }
 
             // GATT controls

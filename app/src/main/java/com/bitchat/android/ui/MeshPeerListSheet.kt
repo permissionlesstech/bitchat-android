@@ -636,7 +636,7 @@ private fun PeerItem(
                             else -> "Routed"
                         },
                         modifier = Modifier.size(16.dp),
-                        tint = if (isWifiAware) Color(0xFF9C27B0) else colorScheme.onSurface.copy(alpha = 0.6f)
+                        tint = colorScheme.onSurface.copy(alpha = 0.6f)
                     )
                 }
 
@@ -673,7 +673,7 @@ private fun PeerItem(
                             imageVector = Icons.Filled.Wifi,
                             contentDescription = "Direct Wi-Fi Aware",
                             modifier = Modifier.size(13.dp),
-                            tint = Color(0xFF9C27B0).copy(alpha = 0.8f)
+                            tint = colorScheme.onSurface.copy(alpha = 0.8f)
                         )
                     }
                 }
