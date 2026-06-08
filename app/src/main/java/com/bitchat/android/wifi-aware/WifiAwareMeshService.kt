@@ -107,9 +107,6 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
     private val handleToPeerId = ConcurrentHashMap<PeerHandle, String>() // discovery mapping
     private val discoveredTimestamps = ConcurrentHashMap<String, Long>() // peerID -> last seen time
 
-    // Timestamp dedupe
-    private val lastTimestamps = ConcurrentHashMap<String, ULong>()
-
     fun isRunning(): Boolean = isActive
 
     init {
@@ -922,12 +919,6 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                 Log.i(TAG, "RX: rebound Wi-Fi direct peer ${previousPeerId.take(8)} -> ${senderPeerHex.take(8)}")
             }
             
-            // Deduplicate based on timestamp + sender (standard flood fill protection)
-            val ts = pkt.timestamp
-            if (lastTimestamps.put(senderPeerHex, ts) == ts) {
-                continue
-            }
-
             // Route the packet: 
             // - peerID = Originator (who signed it)
             // - relayAddress = Neighbor (who sent it to us over this socket)
