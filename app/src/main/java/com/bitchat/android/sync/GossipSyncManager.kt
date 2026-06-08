@@ -170,7 +170,8 @@ class GossipSyncManager(
         val sorted = GCSFilter.decodeToSortedSet(request.p, request.m, request.data)
         fun mightContain(id: ByteArray): Boolean {
             val v = GCSFilter.h64(id) % request.m
-            return GCSFilter.contains(sorted, v)
+            val nonZeroV = if (v == 0L) 1L else v
+            return GCSFilter.contains(sorted, nonZeroV)
         }
 
         // 1) Announcements: send latest per peerID if remote doesn't have them

@@ -22,7 +22,8 @@ class GCSFilterTest {
 
         for (id in ids) {
             val v = GCSFilter.h64(id) % params.m
-            assertTrue("Filter should contain all encoded IDs", GCSFilter.contains(sorted, v))
+            val nonZeroV = if (v == 0L) 1L else v
+            assertTrue("Filter should contain all encoded IDs", GCSFilter.contains(sorted, nonZeroV))
         }
     }
 
@@ -52,10 +53,8 @@ class GCSFilterTest {
         val retainedIds = ids.take(trimmedN)
         for (id in retainedIds) {
             val v = GCSFilter.h64(id) % params.m
-            // An ID is only found if it didn't map to 0 (which is filtered out)
-            if (v > 0) {
-                assertTrue("Retained ID should be found in filter", GCSFilter.contains(sorted, v))
-            }
+            val nonZeroV = if (v == 0L) 1L else v
+            assertTrue("Retained ID should be found in filter", GCSFilter.contains(sorted, nonZeroV))
         }
     }
 
@@ -73,11 +72,12 @@ class GCSFilterTest {
         val params = GCSFilter.buildFilter(ids, maxBytes = 100, targetFpr = 0.05)
         val sorted = GCSFilter.decodeToSortedSet(params.p, params.m, params.data)
 
-        // Verify some elements are successfully stored and found
+        // Verify elements are successfully stored and found (including those mapping to 0)
         var foundCount = 0
         for (id in ids) {
             val v = GCSFilter.h64(id) % params.m
-            if (v > 0 && GCSFilter.contains(sorted, v)) {
+            val nonZeroV = if (v == 0L) 1L else v
+            if (GCSFilter.contains(sorted, nonZeroV)) {
                 foundCount++
             }
         }
