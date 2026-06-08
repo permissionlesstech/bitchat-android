@@ -48,7 +48,7 @@ object GCSFilter {
 
         var finalM = (trimmedN.toLong() shl p).coerceAtLeast(1L)
         var selected = ids.take(trimmedN)
-        var mapped = selected.map { id -> (h64(id) % finalM) }.sorted()
+        var mapped = selected.map { id -> (h64(id) % finalM) }.filter { it > 0 }.distinct().sorted()
         var encoded = encode(mapped, p)
 
         // If estimate was too optimistic, trim until it fits
@@ -56,7 +56,7 @@ object GCSFilter {
             trimmedN = (trimmedN * 9) / 10 // drop 10%
             finalM = (trimmedN.toLong() shl p).coerceAtLeast(1L)
             selected = ids.take(trimmedN)
-            mapped = selected.map { id -> (h64(id) % finalM) }.sorted()
+            mapped = selected.map { id -> (h64(id) % finalM) }.filter { it > 0 }.distinct().sorted()
             encoded = encode(mapped, p)
         }
 

@@ -52,7 +52,35 @@ class GCSFilterTest {
         val retainedIds = ids.take(trimmedN)
         for (id in retainedIds) {
             val v = GCSFilter.h64(id) % params.m
-            assertTrue("Retained ID should be found in filter", GCSFilter.contains(sorted, v))
+            // An ID is only found if it didn't map to 0 (which is filtered out)
+            if (v > 0) {
+                assertTrue("Retained ID should be found in filter", GCSFilter.contains(sorted, v))
+            }
         }
+    }
+
+    @Test
+    fun testGCSFilterHandlesCollisionsAndZeroBucket() {
+        val random = Random(42)
+        // Generate a large number of IDs to guarantee collisions (mapping to the same bucket) and some zero-bucket mapping
+        val ids = List(200) {
+            val bytes = ByteArray(16)
+            random.nextBytes(bytes)
+            bytes
+        }
+
+        // Build GCS filter - this should complete successfully without throwing repeat count exceptions or negative-count crashes
+        val params = GCSFilter.buildFilter(ids, maxBytes = 100, targetFpr = 0.05)
+        val sorted = GCSFilter.decodeToSortedSet(params.p, params.m, params.data)
+
+        // Verify some elements are successfully stored and found
+        var foundCount = 0
+        for (id in ids) {
+            val v = GCSFilter.h64(id) % params.m
+            if (v > 0 && GCSFilter.contains(sorted, v)) {
+                foundCount++
+            }
+        }
+        assertTrue("Should successfully decode and find elements after deduplication", foundCount > 0)
     }
 }
