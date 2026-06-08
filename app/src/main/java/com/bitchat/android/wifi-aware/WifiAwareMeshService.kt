@@ -113,6 +113,10 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
     private val connectionTracker = WifiAwareConnectionTracker(serviceScope, cm)
     private val handleToPeerId = ConcurrentHashMap<PeerHandle, String>() // discovery mapping
     private val discoveredTimestamps = ConcurrentHashMap<String, Long>() // peerID -> last seen time
+    // Subscribe-session-scoped handles only. PeerHandles are session-scoped, so a handle obtained
+    // from the publish session is NOT valid for subscribeSession.sendMessage(). Maintenance re-pings
+    // (subscriber -> publisher) must use a handle that originated from the subscribe session.
+    private val subscribeHandles = ConcurrentHashMap<String, PeerHandle>() // peerID -> latest subscribe handle
 
     fun isRunning(): Boolean = isActive
 
@@ -121,6 +125,14 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         // This avoids race conditions and ensures a single gossip source/delegate
         com.bitchat.android.service.MeshServiceHolder.getOrCreate(context)
         val shared = com.bitchat.android.service.MeshServiceHolder.sharedGossipSyncManager
+        encryptionService.onSessionEstablished = { peerID ->
+            Log.d(TAG, "Wi-Fi Aware Noise session established with ${peerID.take(8)}")
+            try {
+                com.bitchat.android.services.MessageRouter
+                    .tryGetInstance()
+                    ?.onSessionEstablished(peerID)
+            } catch (_: Exception) { }
+        }
         meshCore = MeshCore(
             context = context.applicationContext,
             scope = serviceScope,
@@ -414,6 +426,9 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                             if (!isCurrentSession(generation)) return
                             val peerId = try { String(serviceSpecificInfo) } catch (_: Exception) { "" }
                             handleToPeerId[peerHandle] = peerId
+                            // This handle came from the subscribe session, so it is valid for
+                            // subscribeSession.sendMessage() (used by maintenance reconnection).
+                            if (peerId.isNotBlank()) subscribeHandles[peerId] = peerHandle
                             val msgId = (System.nanoTime() and 0x7fffffff).toInt()
                             subscribeSession?.sendMessage(peerHandle, msgId, myPeerID.toByteArray())
                             if (peerId.isNotBlank()) discoveredTimestamps[peerId] = System.currentTimeMillis()
@@ -507,6 +522,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             wifiAwareSession?.close(); wifiAwareSession = null
 
             handleToPeerId.clear()
+            subscribeHandles.clear()
             discoveredTimestamps.clear()
 
             meshCore.shutdown()
@@ -548,6 +564,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                     if (subscribeSession === oldSubscribeSession) subscribeSession = null
                     if (wifiAwareSession === oldWifiAwareSession) wifiAwareSession = null
                     handleToPeerId.clear()
+                    subscribeHandles.clear()
                     discoveredTimestamps.clear()
                 }
             } finally {
@@ -582,6 +599,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                     if (staleIds.isNotEmpty()) {
                         staleIds.forEach { discoveredTimestamps.remove(it) }
                         handleToPeerId.entries.removeIf { it.value in staleIds }
+                        staleIds.forEach { subscribeHandles.remove(it) }
                         Log.d(TAG, "Maintenance: pruned ${staleIds.size} stale discovery entries")
                     }
 
@@ -597,8 +615,15 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
 
                     // 3. Attempt reconnection
                     for (peerId in disconnectedPeers) {
-                        // Find the PeerHandle for this peerId
-                        val handle = handleToPeerId.entries.find { it.value == peerId }?.key ?: continue
+                        // Reconnection is a subscriber -> publisher ping. It only succeeds when the
+                        // remote is the server for this pair (i.e. we are the client). Re-pinging a
+                        // peer we are the server for is dropped on their side, so skip it; that peer
+                        // must re-ping us instead.
+                        if (amIServerFor(peerId)) continue
+
+                        // Use a subscribe-session-scoped handle. A publish-scoped handle would be
+                        // invalid for subscribeSession.sendMessage() and silently fail.
+                        val handle = subscribeHandles[peerId] ?: continue
 
                         // Check tracker policy
                         if (!connectionTracker.isConnectionAttemptAllowed(peerId)) continue
@@ -635,6 +660,10 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         val peerId = handleToPeerId[peerHandle] ?: return
         if (!amIServerFor(peerId)) return
 
+        if (connectionTracker.isConnected(peerId)) {
+            Log.v(TAG, "↪ already connected to $peerId, skipping serve")
+            return
+        }
         if (connectionTracker.hasOpenServerSocket(peerId)) {
             Log.v(TAG, "↪ already serving $peerId, skipping")
             return
@@ -690,6 +719,11 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                         val synced = SyncedSocket(client)
                         activeSocket = synced
                         connectionTracker.onClientConnected(peerId, synced)
+                        // We only ever accept a single data socket per server request. Close the
+                        // listening ServerSocket now so it can't block a future re-serve (its
+                        // presence makes hasOpenServerSocket() true for the life of the process)
+                        // and so we free the fd/port promptly.
+                        connectionTracker.closeServerSocket(peerId)
                         try { meshCore.setDirectConnection(peerId, true) } catch (_: Exception) {}
                         try { meshCore.addOrUpdatePeer(peerId, peerId) } catch (_: Exception) {}
                         listenerExec.execute { listenToPeer(synced, peerId) }
@@ -762,7 +796,14 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             try {
                 while (connectionTracker.isConnected(peerId)) {
                     // write empty byte array effectively sends [4 bytes length=0] which is our ping
-                    try { client.write(ByteArray(0)) } catch (_: IOException) { break }
+                    try {
+                        client.write(ByteArray(0))
+                    } catch (_: IOException) {
+                        // The write side is dead. Don't just stop pinging: actively tear down so the
+                        // half-open socket stops counting as "connected" and maintenance can retry.
+                        handlePeerDisconnection(peerId, client)
+                        break
+                    }
                     delay(2_000)
                 }
             } catch (_: Exception) {}
@@ -907,7 +948,14 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         serviceScope.launch {
             try {
                 while (connectionTracker.isConnected(peerId)) {
-                    try { sock.write(ByteArray(0)) } catch (_: IOException) { break }
+                    try {
+                        sock.write(ByteArray(0))
+                    } catch (_: IOException) {
+                        // The write side is dead. Tear down so the half-open socket stops counting
+                        // as "connected" and maintenance can retry instead of silently stalling.
+                        handlePeerDisconnection(peerId, sock)
+                        break
+                    }
                     delay(2_000)
                 }
             } catch (_: Exception) {}
@@ -956,6 +1004,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                         handleToPeerId[handle] = senderPeerHex
                     }
                 }
+                subscribeHandles.remove(previousPeerId)?.let { subscribeHandles[senderPeerHex] = it }
                 discoveredTimestamps.remove(previousPeerId)
                 discoveredTimestamps[senderPeerHex] = System.currentTimeMillis()
                 try { meshCore.setDirectConnection(previousPeerId, false) } catch (_: Exception) { }

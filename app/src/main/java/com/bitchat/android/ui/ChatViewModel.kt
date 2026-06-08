@@ -93,8 +93,8 @@ class ChatViewModel(
 
     // Create Noise session delegate for clean dependency injection
     private val noiseSessionDelegate = object : NoiseSessionDelegate {
-        override fun hasEstablishedSession(peerID: String): Boolean = meshService.hasEstablishedSession(peerID)
-        override fun initiateHandshake(peerID: String) = meshService.initiateNoiseHandshake(peerID)
+        override fun hasEstablishedSession(peerID: String): Boolean = hasEstablishedSessionOnAnyLocalTransport(peerID)
+        override fun initiateHandshake(peerID: String) = initiateNoiseHandshakeOnBestLocalTransport(peerID)
         override fun getMyPeerID(): String = meshService.myPeerID
     }
 
@@ -490,7 +490,7 @@ class ChatViewModel(
                     meshService.sendMessage(messageContent, mentions, channel)
                     try { com.bitchat.android.wifiaware.WifiAwareController.getService()?.sendMessage(messageContent, mentions, channel) } catch (_: Exception) {}
                 }
-            })
+            }, this)
             return
         }
         
@@ -520,7 +520,7 @@ class ChatViewModel(
                 }
             }
             // Send private message
-            val recipientNickname = meshService.getPeerNicknames()[selectedPeer]
+            val recipientNickname = nicknameForPeer(selectedPeer)
             privateChatManager.sendPrivateMessage(
                 content, 
                 selectedPeer, 
@@ -661,6 +661,79 @@ class ChatViewModel(
         Log.i("ChatViewModel", "Peer fingerprints: ${privateChatManager.getAllPeerFingerprints()}")
         Log.i("ChatViewModel", "==============================")
     }
+
+    private fun getWifiAwareService(): com.bitchat.android.mesh.MeshService? {
+        return try { com.bitchat.android.wifiaware.WifiAwareController.getService() } catch (_: Exception) { null }
+    }
+
+    private fun isConnectedOnMesh(peerID: String): Boolean {
+        return try {
+            meshService.getPeerInfo(peerID)?.isConnected == true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun isConnectedOnService(service: com.bitchat.android.mesh.MeshService?, peerID: String): Boolean {
+        return try {
+            service != null && service.getPeerInfo(peerID)?.isConnected == true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun hasEstablishedSessionOnMesh(peerID: String): Boolean {
+        return try {
+            meshService.getPeerInfo(peerID)?.isConnected == true &&
+                meshService.hasEstablishedSession(peerID)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun hasEstablishedSessionOnService(service: com.bitchat.android.mesh.MeshService?, peerID: String): Boolean {
+        return try {
+            service != null &&
+                service.getPeerInfo(peerID)?.isConnected == true &&
+                service.hasEstablishedSession(peerID)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun hasEstablishedSessionOnAnyLocalTransport(peerID: String): Boolean {
+        return hasEstablishedSessionOnMesh(peerID) ||
+            hasEstablishedSessionOnService(getWifiAwareService(), peerID)
+    }
+
+    private fun initiateNoiseHandshakeOnBestLocalTransport(peerID: String) {
+        val aware = getWifiAwareService()
+        when {
+            isConnectedOnMesh(peerID) -> meshService.initiateNoiseHandshake(peerID)
+            isConnectedOnService(aware, peerID) -> aware?.initiateNoiseHandshake(peerID)
+            else -> meshService.initiateNoiseHandshake(peerID)
+        }
+    }
+
+    private fun nicknameForPeer(peerID: String): String? {
+        return state.peerNicknames.value[peerID]
+            ?: try { meshService.getPeerNicknames()[peerID] } catch (_: Exception) { null }
+            ?: try { getWifiAwareService()?.getPeerNicknames()?.get(peerID) } catch (_: Exception) { null }
+    }
+
+    private fun sessionStateForPeer(peerID: String): NoiseSession.NoiseSessionState {
+        val meshState = try { meshService.getSessionState(peerID) } catch (_: Exception) { NoiseSession.NoiseSessionState.Uninitialized }
+        val awareState = try { getWifiAwareService()?.getSessionState(peerID) } catch (_: Exception) { null }
+        return when {
+            meshState is NoiseSession.NoiseSessionState.Established -> meshState
+            awareState is NoiseSession.NoiseSessionState.Established -> awareState
+            meshState is NoiseSession.NoiseSessionState.Handshaking -> meshState
+            awareState is NoiseSession.NoiseSessionState.Handshaking -> awareState
+            meshState !is NoiseSession.NoiseSessionState.Uninitialized -> meshState
+            awareState != null -> awareState
+            else -> meshState
+        }
+    }
     
     /**
      * Initialize session state monitoring for reactive UI updates
@@ -685,7 +758,7 @@ class ChatViewModel(
         // Update session states
         val prevStates = state.getPeerSessionStatesValue()
         val sessionStates = currentPeers.associateWith { peerID ->
-            meshService.getSessionState(peerID).toString()
+            sessionStateForPeer(peerID).toString()
         }
         state.setPeerSessionStates(sessionStates)
         // Detect new established sessions and flush router outbox for them and their noiseHex aliases
@@ -736,7 +809,7 @@ class ChatViewModel(
 
         // Flush any pending QR verification once a Noise session is established
         currentPeers.forEach { peerID ->
-            if (meshService.getSessionState(peerID) is NoiseSession.NoiseSessionState.Established) {
+            if (sessionStateForPeer(peerID) is NoiseSession.NoiseSessionState.Established) {
                 verificationHandler.sendPendingVerificationIfNeeded(peerID)
             }
         }

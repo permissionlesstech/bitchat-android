@@ -3,11 +3,12 @@ package com.bitchat.android.services
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.mesh.BluetoothMeshService
+import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.ReadReceipt
 import com.bitchat.android.nostr.NostrTransport
 
 /**
- * Routes messages between BLE mesh and Nostr transports, matching iOS behavior.
+ * Routes messages between local mesh transports and Nostr, matching iOS behavior.
  */
 class MessageRouter private constructor(
     private val context: Context,
@@ -70,15 +71,13 @@ class MessageRouter private constructor(
             }
         }
 
-        val hasMesh = mesh.getPeerInfo(toPeerID)?.isConnected == true
-        val hasEstablished = mesh.hasEstablishedSession(toPeerID)
-        // Check Wi‑Fi Aware availability as a secondary transport
-        val aware = try { com.bitchat.android.wifiaware.WifiAwareController.getService() } catch (_: Exception) { null }
-        val hasAware = try { aware?.getPeerInfo(toPeerID)?.isConnected == true && aware.hasEstablishedSession(toPeerID) } catch (_: Exception) { false }
-        if (hasMesh && hasEstablished) {
+        val aware = getAwareService()
+        val hasMesh = isConnected(mesh, toPeerID)
+        val hasAwareConnection = isConnected(aware, toPeerID)
+        if (isReady(mesh, toPeerID)) {
             Log.d(TAG, "Routing PM via mesh to ${toPeerID} msg_id=${messageID.take(8)}…")
             mesh.sendPrivateMessage(content, toPeerID, recipientNickname, messageID)
-        } else if (hasAware) {
+        } else if (isReady(aware, toPeerID)) {
             Log.d(TAG, "Routing PM via Wi‑Fi Aware to ${toPeerID} msg_id=${messageID.take(8)}…")
             aware?.sendPrivateMessage(content, toPeerID, recipientNickname, messageID)
         } else if (canSendViaNostr(toPeerID)) {
@@ -89,18 +88,20 @@ class MessageRouter private constructor(
             val q = outbox.getOrPut(toPeerID) { mutableListOf() }
             q.add(Triple(content, recipientNickname, messageID))
             Log.d(TAG, "Initiating noise handshake after queueing PM for ${toPeerID.take(8)}…")
-            if (hasMesh) mesh.initiateNoiseHandshake(toPeerID) else aware?.initiateNoiseHandshake(toPeerID)
+            when {
+                hasMesh -> mesh.initiateNoiseHandshake(toPeerID)
+                hasAwareConnection -> aware?.initiateNoiseHandshake(toPeerID)
+                else -> aware?.initiateNoiseHandshake(toPeerID)
+            }
         }
     }
 
     fun sendReadReceipt(receipt: ReadReceipt, toPeerID: String) {
-        val aware = try { com.bitchat.android.wifiaware.WifiAwareController.getService() } catch (_: Exception) { null }
-        val viaMesh = (mesh.getPeerInfo(toPeerID)?.isConnected == true) && mesh.hasEstablishedSession(toPeerID)
-        val viaAware = try { aware?.getPeerInfo(toPeerID)?.isConnected == true && aware.hasEstablishedSession(toPeerID) } catch (_: Exception) { false }
-        if (viaMesh) {
+        val aware = getAwareService()
+        if (isReady(mesh, toPeerID)) {
             Log.d(TAG, "Routing READ via mesh to ${toPeerID.take(8)}… id=${receipt.originalMessageID.take(8)}…")
             mesh.sendReadReceipt(receipt.originalMessageID, toPeerID, mesh.getPeerNicknames()[toPeerID] ?: mesh.myPeerID)
-        } else if (viaAware) {
+        } else if (isReady(aware, toPeerID)) {
             Log.d(TAG, "Routing READ via Wi‑Fi Aware to ${toPeerID.take(8)}… id=${receipt.originalMessageID.take(8)}…")
             val me = try { aware?.myPeerID } catch (_: Exception) { null }
             aware?.sendReadReceipt(receipt.originalMessageID, toPeerID, me ?: "")
@@ -141,15 +142,23 @@ class MessageRouter private constructor(
         val queued = outbox[peerID] ?: return
         if (queued.isEmpty()) return
         Log.d(TAG, "Flushing outbox for ${peerID.take(8)}… count=${queued.size}")
+        val aware = getAwareService()
         val iterator = queued.iterator()
         while (iterator.hasNext()) {
             val (content, nickname, messageID) = iterator.next()
-            var hasMesh = mesh.getPeerInfo(peerID)?.isConnected == true && mesh.hasEstablishedSession(peerID)
+            val hasMesh = isReady(mesh, peerID)
+            val hasAware = isReady(aware, peerID)
             // If this is a noiseHex key, see if there is a connected mesh peer for this identity
-            if (!hasMesh && peerID.length == 64 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
-                val meshPeer = resolveMeshPeerForNoiseHex(peerID)
-                if (meshPeer != null && mesh.getPeerInfo(meshPeer)?.isConnected == true && mesh.hasEstablishedSession(meshPeer)) {
+            if (!hasMesh && !hasAware && peerID.length == 64 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
+                val meshPeer = resolvePeerForNoiseHex(peerID, mesh)
+                if (meshPeer != null && isReady(mesh, meshPeer)) {
                     mesh.sendPrivateMessage(content, meshPeer, nickname, messageID)
+                    iterator.remove()
+                    continue
+                }
+                val awarePeer = resolvePeerForNoiseHex(peerID, aware)
+                if (awarePeer != null && isReady(aware, awarePeer)) {
+                    aware?.sendPrivateMessage(content, awarePeer, nickname, messageID)
                     iterator.remove()
                     continue
                 }
@@ -157,6 +166,9 @@ class MessageRouter private constructor(
             val canNostr = canSendViaNostr(peerID)
             if (hasMesh) {
                 mesh.sendPrivateMessage(content, peerID, nickname, messageID)
+                iterator.remove()
+            } else if (hasAware) {
+                aware?.sendPrivateMessage(content, peerID, nickname, messageID)
                 iterator.remove()
             } else if (canNostr) {
                 nostr.sendPrivateMessage(content, peerID, nickname, messageID)
@@ -195,10 +207,60 @@ class MessageRouter private constructor(
         return clean.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
     }
 
-    private fun resolveMeshPeerForNoiseHex(noiseHex: String): String? {
+    private fun getAwareService(): MeshService? {
+        return try { com.bitchat.android.wifiaware.WifiAwareController.getService() } catch (_: Exception) { null }
+    }
+
+    private fun isConnected(service: BluetoothMeshService, peerID: String): Boolean {
         return try {
-            mesh.getPeerNicknames().keys.firstOrNull { pid ->
-                val info = mesh.getPeerInfo(pid)
+            service.getPeerInfo(peerID)?.isConnected == true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun isConnected(service: MeshService?, peerID: String): Boolean {
+        return try {
+            service != null && service.getPeerInfo(peerID)?.isConnected == true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun isReady(service: BluetoothMeshService, peerID: String): Boolean {
+        return try {
+            service.getPeerInfo(peerID)?.isConnected == true &&
+                service.hasEstablishedSession(peerID)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun isReady(service: MeshService?, peerID: String): Boolean {
+        return try {
+            service != null &&
+                service.getPeerInfo(peerID)?.isConnected == true &&
+                service.hasEstablishedSession(peerID)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun resolvePeerForNoiseHex(noiseHex: String, service: BluetoothMeshService): String? {
+        return try {
+            service.getPeerNicknames().keys.firstOrNull { pid ->
+                val info = service.getPeerInfo(pid)
+                val keyHex = info?.noisePublicKey?.joinToString("") { b -> "%02x".format(b) }
+                keyHex != null && keyHex.equals(noiseHex, ignoreCase = true)
+            }
+        } catch (_: Exception) { null }
+    }
+
+    private fun resolvePeerForNoiseHex(noiseHex: String, service: MeshService?): String? {
+        return try {
+            if (service == null) return null
+            service.getPeerNicknames().keys.firstOrNull { pid ->
+                val info = service.getPeerInfo(pid)
                 val keyHex = info?.noisePublicKey?.joinToString("") { b -> "%02x".format(b) }
                 keyHex != null && keyHex.equals(noiseHex, ignoreCase = true)
             }
@@ -213,6 +275,10 @@ class MessageRouter private constructor(
                 mesh.getPeerInfo(pid)?.noisePublicKey?.joinToString("") { b -> "%02x".format(b) }
             } catch (_: Exception) { null }
             noiseHex?.let { flushOutboxFor(it) }
+            val awareNoiseHex = try {
+                getAwareService()?.getPeerInfo(pid)?.noisePublicKey?.joinToString("") { b -> "%02x".format(b) }
+            } catch (_: Exception) { null }
+            awareNoiseHex?.let { flushOutboxFor(it) }
         }
     }
 
@@ -223,5 +289,9 @@ class MessageRouter private constructor(
             mesh.getPeerInfo(peerID)?.noisePublicKey?.joinToString("") { b -> "%02x".format(b) }
         } catch (_: Exception) { null }
         noiseHex?.let { flushOutboxFor(it) }
+        val awareNoiseHex = try {
+            getAwareService()?.getPeerInfo(peerID)?.noisePublicKey?.joinToString("") { b -> "%02x".format(b) }
+        } catch (_: Exception) { null }
+        awareNoiseHex?.let { flushOutboxFor(it) }
     }
 }
