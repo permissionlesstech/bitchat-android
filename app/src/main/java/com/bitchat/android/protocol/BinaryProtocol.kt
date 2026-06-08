@@ -36,7 +36,7 @@ object SpecialRecipients {
 /**
  * Binary packet format - 100% backward compatible with iOS version
  *
- * Header (13 bytes for v1, 15 bytes for v2):
+ * Header (14 bytes for v1, 16 bytes for v2):
  * - Version: 1 byte
  * - Type: 1 byte
  * - TTL: 1 byte
@@ -178,8 +178,8 @@ data class BitchatPacket(
  * Binary Protocol implementation - supports v1 and v2, backward compatible
  */
 object BinaryProtocol {
-    private const val HEADER_SIZE_V1 = 13
-    private const val HEADER_SIZE_V2 = 15
+    private const val HEADER_SIZE_V1 = 14
+    private const val HEADER_SIZE_V2 = 16
     private const val SENDER_ID_SIZE = 8
     private const val RECIPIENT_ID_SIZE = 8
     private const val SIGNATURE_SIZE = 64
