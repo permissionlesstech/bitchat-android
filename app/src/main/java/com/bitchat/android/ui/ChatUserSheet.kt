@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
@@ -16,7 +15,7 @@ import androidx.compose.ui.res.stringResource
 import com.bitchat.android.R
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
-import kotlinx.coroutines.launch
+import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 import com.bitchat.android.model.BitchatMessage
 
 /**
@@ -36,23 +35,18 @@ fun ChatUserSheet(
     val coroutineScope = rememberCoroutineScope()
     val clipboardManager = LocalClipboardManager.current
     
-    // Bottom sheet state
-    val sheetState = rememberModalBottomSheetState(
-        skipPartiallyExpanded = true
-    )
-    
     // iOS system colors (matches LocationChannelsSheet exactly)
     val colorScheme = MaterialTheme.colorScheme
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
     val standardGreen = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D) // iOS green
     val standardBlue = Color(0xFF007AFF) // iOS blue
+    val standardPurple = if (isDark) Color(0xFFBF5AF2) else Color(0xFFAF52DE) // iOS purple
     val standardRed = Color(0xFFFF3B30) // iOS red
     val standardGrey = if (isDark) Color(0xFF8E8E93) else Color(0xFF6D6D70) // iOS grey
     
     if (isPresented) {
-        ModalBottomSheet(
+        BitchatBottomSheet(
             onDismissRequest = onDismiss,
-            sheetState = sheetState,
             modifier = modifier
         ) {
             Column(
@@ -99,6 +93,33 @@ fun ChatUserSheet(
                     
                     // Only show user actions for other users' messages or when no message is selected
                     if (selectedMessage?.sender != viewModel.nickname.value) {
+                        // Send private message action
+                        item {
+                            UserActionRow(
+                                title = stringResource(R.string.action_private_message_title, targetNickname),
+                                subtitle = stringResource(R.string.action_private_message_subtitle),
+                                titleColor = standardPurple,
+                                onClick = {
+                                    val selectedLocationChannel = viewModel.selectedLocationChannel.value
+                                    if (selectedLocationChannel is com.bitchat.android.geohash.ChannelID.Location) {
+                                        if (selectedMessage?.senderPeerID?.startsWith("nostr:") == true) {
+                                            val shortId = selectedMessage.senderPeerID!!.substring(6)
+                                            viewModel.startGeohashDMByShortId(shortId)
+                                        } else {
+                                            viewModel.startGeohashDMByNickname(targetNickname)
+                                        }
+                                    } else {
+                                        // Mesh chat
+                                        val peerID = selectedMessage?.senderPeerID ?: viewModel.getPeerIDForNickname(targetNickname)
+                                        if (peerID != null) {
+                                            viewModel.showPrivateChatSheet(peerID)
+                                        }
+                                    }
+                                    onDismiss()
+                                }
+                            )
+                        }
+
                         // Slap action
                         item {
                             UserActionRow(

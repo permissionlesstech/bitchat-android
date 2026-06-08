@@ -15,5 +15,3 @@ interface MeshDelegate {
     fun getNickname(): String?
     fun isFavorite(peerID: String): Boolean
 }
-
-typealias BluetoothMeshDelegate = MeshDelegate

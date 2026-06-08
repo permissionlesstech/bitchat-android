@@ -298,6 +298,16 @@ class PrivateChatManager(
             if (!isPeerBlocked(senderPeerID)) {
                 // Ensure chat exists
                 messageManager.initializePrivateChat(senderPeerID)
+
+                // Exception: Nostr messages (nostr_ prefix) originate in Kotlin layer and MUST be added here.
+                if (senderPeerID.startsWith("nostr_")) {
+                    if (suppressUnread) {
+                        messageManager.addPrivateMessageNoUnread(senderPeerID, message)
+                    } else {
+                        messageManager.addPrivateMessage(senderPeerID, message)
+                    }
+                }
+
                 // Track as unread for read receipt purposes if not focused
                 if (!suppressUnread && state.getSelectedPrivateChatPeerValue() != senderPeerID) {
                     val unreadList = unreadReceivedMessages.getOrPut(senderPeerID) { mutableListOf() }
@@ -473,6 +483,12 @@ class PrivateChatManager(
             if (hadUnread) {
                 unread.add(targetPeerID)
                 state.setUnreadPrivateMessages(unread)
+            }
+
+            // If we're currently viewing one of the temp aliases in the sheet, switch to the permanent ID
+            val sheetPeer = state.getPrivateChatSheetPeerValue()
+            if (sheetPeer != null && tryMergeKeys.contains(sheetPeer)) {
+                state.setPrivateChatSheetPeer(targetPeerID)
             }
         }
     }

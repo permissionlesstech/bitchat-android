@@ -7,8 +7,10 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.bitchat.android.MainActivity
@@ -111,7 +113,8 @@ class MeshForegroundService : Service() {
 
     private lateinit var notificationManager: NotificationManagerCompat
     private var updateJob: Job? = null
-    private var meshService: BluetoothMeshService? = null
+    private val meshService: BluetoothMeshService?
+        get() = MeshServiceHolder.meshService
     private val serviceJob = Job()
     private val scope = CoroutineScope(Dispatchers.Default + serviceJob)
     private var isInForeground: Boolean = false
@@ -122,15 +125,15 @@ class MeshForegroundService : Service() {
         notificationManager = NotificationManagerCompat.from(this)
         createChannel()
 
-        // Adopt or create the mesh service
+        // Ensure mesh service exists in holder (create if needed)
         val existing = MeshServiceHolder.meshService
-        meshService = existing ?: MeshServiceHolder.getOrCreate(applicationContext)
         if (existing != null) {
-            android.util.Log.d("MeshForegroundService", "Adopted existing BluetoothMeshService from holder")
+            Log.d("MeshForegroundService", "Using existing BluetoothMeshService from holder")
         } else {
-            android.util.Log.i("MeshForegroundService", "Created/adopted new BluetoothMeshService via holder")
+            val created = MeshServiceHolder.getOrCreate(applicationContext)
+            Log.i("MeshForegroundService", "Created new BluetoothMeshService via holder")
+            MeshServiceHolder.attach(created)
         }
-        MeshServiceHolder.attach(meshService!!)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -176,7 +179,7 @@ class MeshForegroundService : Service() {
                 // If we became eligible and are not in foreground yet, promote once
                 if (MeshServicePreferences.isBackgroundEnabled(true) && hasAllRequiredPermissions() && !isInForeground) {
                     val n = buildNotification(meshService?.getActivePeerCount() ?: 0)
-                    startForeground(NOTIFICATION_ID, n)
+                    startForegroundCompat(n)
                     isInForeground = true
                 } else {
                     updateNotification(force = true)
@@ -191,7 +194,7 @@ class MeshForegroundService : Service() {
         // Promote exactly once when eligible, otherwise stay background (or stop)
         if (MeshServicePreferences.isBackgroundEnabled(true) && hasAllRequiredPermissions() && !isInForeground) {
             val notification = buildNotification(meshService?.getActivePeerCount() ?: 0)
-            startForeground(NOTIFICATION_ID, notification)
+            startForegroundCompat(notification)
             isInForeground = true
         }
 
@@ -226,7 +229,8 @@ class MeshForegroundService : Service() {
         if (!hasBluetoothPermissions()) return
         try {
             android.util.Log.d("MeshForegroundService", "Ensuring mesh service is started")
-            meshService?.startServices()
+            val service = MeshServiceHolder.getOrCreate(applicationContext)
+            service.startServices()
         } catch (e: Exception) {
             android.util.Log.e("MeshForegroundService", "Failed to start mesh service: ${e.message}")
         }
@@ -323,6 +327,35 @@ class MeshForegroundService : Service() {
             }
             (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
                 .createNotificationChannel(channel)
+        }
+    }
+
+    private fun hasLocationPermission(): Boolean {
+        val fine = androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        val coarse = androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        return fine || coarse
+    }
+
+    private fun startForegroundCompat(notification: Notification) {
+        if (Build.VERSION.SDK_INT >= 34) {
+            val type = if (hasLocationPermission()) {
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+            } else {
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+            }
+            try {
+                startForeground(NOTIFICATION_ID, notification, type)
+            } catch (e: SecurityException) {
+                // Fallback for cases where "While In Use" permission exists but background start is restricted
+                if (type and ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION != 0) {
+                     android.util.Log.w("MeshForegroundService", "Failed to start with LOCATION type, falling back to CONNECTED_DEVICE: ${e.message}")
+                     startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
+                } else {
+                    throw e
+                }
+            }
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
         }
     }
 

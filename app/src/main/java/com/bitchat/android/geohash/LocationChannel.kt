@@ -36,7 +36,18 @@ data class GeohashChannel(
  */
 sealed class ChannelID {
     object Mesh : ChannelID()
-    data class Location(val channel: GeohashChannel) : ChannelID()
+    data class Location(val channel: GeohashChannel) : ChannelID() {
+        companion object {
+            fun fromPersisted(levelName: String, geohash: String): Location? {
+                return try {
+                    val level = GeohashChannelLevel.valueOf(levelName)
+                    Location(GeohashChannel(level, geohash))
+                } catch (_: IllegalArgumentException) {
+                    null
+                }
+            }
+        }
+    }
     
     /**
      * Human readable name for UI.

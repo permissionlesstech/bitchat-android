@@ -7,6 +7,7 @@ import com.bitchat.android.model.IdentityAnnouncement
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
+import com.bitchat.android.sync.PacketIdUtil
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.*
 import java.util.*
@@ -157,6 +158,14 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                     // Simplified: Call delegate with messageID and peerID directly
                     delegate?.onReadReceiptReceived(messageID, peerID)
                 }
+                com.bitchat.android.model.NoisePayloadType.VERIFY_CHALLENGE -> {
+                    Log.d(TAG, "🔐 Verify challenge received from $peerID (${noisePayload.data.size} bytes)")
+                    delegate?.onVerifyChallengeReceived(peerID, noisePayload.data, packet.timestamp.toLong())
+                }
+                com.bitchat.android.model.NoisePayloadType.VERIFY_RESPONSE -> {
+                    Log.d(TAG, "🔐 Verify response received from $peerID (${noisePayload.data.size} bytes)")
+                    delegate?.onVerifyResponseReceived(peerID, noisePayload.data, packet.timestamp.toLong())
+                }
             }
             
         } catch (e: Exception) {
@@ -278,6 +287,13 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
             previousPeerID = null
         )
         
+        // Update mesh graph from gossip neighbors (only if TLV present)
+        try {
+            val neighborsOrNull = com.bitchat.android.services.meshgraph.GossipTLV.decodeNeighborsFromAnnouncementPayload(packet.payload)
+            com.bitchat.android.services.meshgraph.MeshGraphService.getInstance()
+                .updateFromAnnouncement(peerID, nickname, neighborsOrNull, packet.timestamp)
+        } catch (_: Exception) { }
+
         Log.d(TAG, "✅ Processed verified TLV announce: stored identity for $peerID")
         return isFirstAnnounce
     }
@@ -385,7 +401,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 }
                 val savedPath = com.bitchat.android.features.file.FileUtils.saveIncomingFile(appContext, file)
                 val message = BitchatMessage(
-                    id = java.util.UUID.randomUUID().toString().uppercase(),
+                    id = PacketIdUtil.computeIdHex(packet).uppercase(),
                     sender = delegate?.getPeerNickname(peerID) ?: "unknown",
                     content = savedPath,
                     type = com.bitchat.android.features.file.FileUtils.messageTypeForMime(file.mimeType),
@@ -401,6 +417,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
 
             // Fallback: plain text
             val message = BitchatMessage(
+                id = PacketIdUtil.computeIdHex(packet).uppercase(),
                 sender = delegate?.getPeerNickname(peerID) ?: "unknown",
                 content = String(packet.payload, Charsets.UTF_8),
                 senderPeerID = peerID,
@@ -611,4 +628,6 @@ interface MessageHandlerDelegate {
     fun onChannelLeave(channel: String, fromPeer: String)
     fun onDeliveryAckReceived(messageID: String, peerID: String)
     fun onReadReceiptReceived(messageID: String, peerID: String)
+    fun onVerifyChallengeReceived(peerID: String, payload: ByteArray, timestampMs: Long)
+    fun onVerifyResponseReceived(peerID: String, payload: ByteArray, timestampMs: Long)
 }

@@ -65,9 +65,40 @@ class PacketRelayManager(private val myPeerID: String) {
         val relayPacket = packet.copy(ttl = (packet.ttl - 1u).toUByte())
         Log.d(TAG, "Decremented TTL from ${packet.ttl} to ${relayPacket.ttl}")
         
+        // Source-based routing: if route is set and includes us, try targeted next-hop forwarding
+        val route = relayPacket.route
+        if (!route.isNullOrEmpty()) {
+            // Check for duplicate hops to prevent routing loops
+            if (route.map { it.toHexString() }.toSet().size < route.size) {
+                Log.w(TAG, "Packet with duplicate hops dropped")
+                return
+            }
+            val myIdBytes = hexStringToPeerBytes(myPeerID)
+            val index = route.indexOfFirst { it.contentEquals(myIdBytes) }
+            if (index >= 0) {
+                val nextHopIdHex: String? = run {
+                    val nextIndex = index + 1
+                    if (nextIndex < route.size) {
+                        route[nextIndex].toHexString()
+                    } else {
+                        // We are the last intermediate; try final recipient as next hop
+                        relayPacket.recipientID?.toHexString()
+                    }
+                }
+                if (nextHopIdHex != null) {
+                    val success = try { delegate?.sendToPeer(nextHopIdHex, RoutedPacket(relayPacket, peerID, routed.relayAddress)) } catch (_: Exception) { false } ?: false
+                    if (success) {
+                        Log.i(TAG, "📦 Source-route relay: ${peerID.take(8)} -> ${nextHopIdHex.take(8)} (type ${'$'}{packet.type}, TTL ${'$'}{relayPacket.ttl})")
+                        return
+                    } else {
+                        Log.w(TAG, "Source-route next hop ${nextHopIdHex.take(8)} not directly connected; falling back to broadcast")
+                    }
+                }
+            }
+        }
+
         // Apply relay logic based on packet type and debug switch
         val shouldRelay = isRelayEnabled() && shouldRelayPacket(relayPacket, peerID)
-        
         if (shouldRelay) {
             relayPacket(RoutedPacket(relayPacket, peerID, routed.relayAddress))
         } else {
@@ -170,4 +201,17 @@ interface PacketRelayManagerDelegate {
     
     // Packet operations
     fun broadcastPacket(routed: RoutedPacket)
+    fun sendToPeer(peerID: String, routed: RoutedPacket): Boolean
+}
+
+private fun hexStringToPeerBytes(hex: String): ByteArray {
+    val result = ByteArray(8)
+    var idx = 0
+    var out = 0
+    while (idx + 1 < hex.length && out < 8) {
+        val b = hex.substring(idx, idx + 2).toIntOrNull(16)?.toByte() ?: 0
+        result[out++] = b
+        idx += 2
+    }
+    return result
 }

@@ -320,6 +320,22 @@ class BluetoothGattClientManager(
             return
         }
 
+        // Try to extract peerID from Service Data (if available) for stable identity
+        val serviceData = scanRecord?.getServiceData(ParcelUuid(AppConstants.Mesh.Gatt.SERVICE_UUID))
+        val peerID = if (serviceData != null && serviceData.size >= 8) {
+            serviceData.joinToString("") { "%02x".format(it) }
+        } else {
+            null
+        }
+
+        if (peerID != null) {
+            // Log.v(TAG, "Found peerID $peerID in scan record for $deviceAddress")
+            if (connectionTracker.isPeerConnected(peerID)) {
+                 Log.d(TAG, "Deduplication: Peer $peerID is already connected (ignoring $deviceAddress)")
+                 return
+            }
+        }
+
         // Log.d(TAG, "Received scan result from $deviceAddress - already connected: ${connectionTracker.isDeviceConnected(deviceAddress)}")
         
         // Store RSSI from scan results for later use (especially for server connections)
@@ -332,7 +348,7 @@ class BluetoothGattClientManager(
                     deviceName = device.name,
                     deviceAddress = deviceAddress,
                     rssi = rssi,
-                    peerID = null // peerID unknown at scan time
+                    peerID = peerID // Use the discovered peerID if available
                 )
             )
         } catch (_: Exception) { }
@@ -342,13 +358,12 @@ class BluetoothGattClientManager(
             Log.d(TAG, "Skipping device $deviceAddress due to weak signal: $rssi < ${powerManager.getRSSIThreshold()}")
             // Even if we skip connecting, still publish scan result to debug UI
             try {
-                val pid: String? = null // We don't know peerID until packet exchange
                 DebugSettingsManager.getInstance().addScanResult(
                     DebugScanResult(
                         deviceName = device.name,
                         deviceAddress = deviceAddress,
                         rssi = rssi,
-                        peerID = pid
+                        peerID = peerID
                     )
                 )
             } catch (_: Exception) { }
@@ -366,14 +381,19 @@ class BluetoothGattClientManager(
             return
         }
         
-        if (connectionTracker.isConnectionLimitReached()) {
-            Log.d(TAG, "Connection limit reached (${powerManager.getMaxConnections()})")
+        // Check if connection limit is reached
+        val dbg = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (_: Exception) { null }
+        val maxOverall = dbg?.maxConnectionsOverall?.value ?: powerManager.getMaxConnections()
+        val maxClient = dbg?.maxClientConnections?.value ?: maxOverall
+
+        if (!connectionTracker.canConnectAsClient(maxOverall, maxClient)) {
+            Log.d(TAG, "Client connection limit reached (overall: $maxOverall, client: $maxClient)")
             return
         }
         
         // Add pending connection and start connection
         if (connectionTracker.addPendingConnection(deviceAddress)) {
-            connectToDevice(device, rssi)
+            connectToDevice(device, rssi, peerID)
         }
     }
     
@@ -381,11 +401,11 @@ class BluetoothGattClientManager(
      * Connect to a device as GATT client
      */
     @Suppress("DEPRECATION")
-    private fun connectToDevice(device: BluetoothDevice, rssi: Int) {
+    private fun connectToDevice(device: BluetoothDevice, rssi: Int, peerID: String? = null) {
         if (!permissionManager.hasBluetoothPermissions()) return
 
         val deviceAddress = device.address
-        Log.i(TAG, "Connecting to bitchat device: $deviceAddress")
+        Log.i(TAG, "Connecting to bitchat device: $deviceAddress (peerID: $peerID)")
         
         val gattCallback = object : BluetoothGattCallback() {
             override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
@@ -435,7 +455,8 @@ class BluetoothGattClientManager(
                         device = gatt.device,
                         gatt = gatt,
                         rssi = rssi,
-                        isClient = true
+                        isClient = true,
+                        peerID = peerID // Store the peerID discovered during scan
                     )
                     connectionTracker.addDeviceConnection(deviceAddress, deviceConn)
                     

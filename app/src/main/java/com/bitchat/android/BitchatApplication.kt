@@ -46,6 +46,13 @@ class BitchatApplication : Application() {
             val enabled = com.bitchat.android.ui.debug.DebugPreferenceManager.getWifiAwareEnabled(false)
             com.bitchat.android.wifiaware.WifiAwareController.initialize(this, enabled)
         } catch (_: Exception) { }
+
+        // Initialize Geohash Registries for persistence
+        try {
+            com.bitchat.android.nostr.GeohashAliasRegistry.initialize(this)
+            com.bitchat.android.nostr.GeohashConversationRegistry.initialize(this)
+        } catch (_: Exception) { }
+
         // Initialize mesh service preferences
         try { com.bitchat.android.service.MeshServicePreferences.init(this) } catch (_: Exception) { }
 

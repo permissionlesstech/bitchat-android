@@ -21,6 +21,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Shared mesh coordinator that wires all mesh-layer components and provides common APIs
@@ -53,6 +54,7 @@ class MeshCore(
     private val storeForwardManager = StoreForwardManager()
     private val messageHandler = MessageHandler(myPeerID, context.applicationContext)
     private val packetProcessor = PacketProcessor(myPeerID)
+    private val directPeers = ConcurrentHashMap.newKeySet<String>()
 
     val gossipSyncManager: GossipSyncManager =
         sharedGossipManager ?: GossipSyncManager(myPeerID = myPeerID, scope = scope, configProvider = gossipConfigProvider)
@@ -65,6 +67,7 @@ class MeshCore(
 
     init {
         messageHandler.packetProcessor = packetProcessor
+        peerManager.isPeerDirectlyConnected = { peerID -> directPeers.contains(peerID) }
         setupDelegates()
 
         if (sharedGossipManager == null) {
@@ -307,6 +310,14 @@ class MeshCore(
             override fun onReadReceiptReceived(messageID: String, peerID: String) {
                 delegate?.didReceiveReadReceipt(messageID, peerID)
             }
+
+            override fun onVerifyChallengeReceived(peerID: String, payload: ByteArray, timestampMs: Long) {
+                // MeshDelegate intentionally does not expose QR verification yet.
+            }
+
+            override fun onVerifyResponseReceived(peerID: String, payload: ByteArray, timestampMs: Long) {
+                // MeshDelegate intentionally does not expose QR verification yet.
+            }
         }
 
         packetProcessor.delegate = object : PacketProcessorDelegate {
@@ -381,6 +392,12 @@ class MeshCore(
 
             override fun relayPacket(routed: RoutedPacket) {
                 dispatchGlobal(routed)
+            }
+
+            override fun sendToPeer(peerID: String, routed: RoutedPacket): Boolean {
+                transport.sendPacketToPeer(peerID, routed.packet)
+                TransportBridgeService.sendToPeer(transport.id, peerID, routed.packet)
+                return true
             }
 
             override fun handleRequestSync(routed: RoutedPacket) {
@@ -604,7 +621,12 @@ class MeshCore(
     }
 
     fun setDirectConnection(peerID: String, isDirect: Boolean) {
-        peerManager.setDirectConnection(peerID, isDirect)
+        if (isDirect) {
+            directPeers.add(peerID)
+        } else {
+            directPeers.remove(peerID)
+        }
+        peerManager.refreshPeerList()
     }
 
     fun updatePeerRSSI(peerID: String, rssi: Int) {

@@ -1,78 +1,142 @@
-# Source-Based Routing for BitChat Packets
+# Source-Based Routing for BitChat Packets (v2)
 
-This document specifies an optional source-based routing extension to the BitChat packet format. A sender may attach a hop-by-hop route (list of peer IDs) to instruct relays on the intended path. Relays that support this feature will try to forward to the next hop directly; otherwise, they fall back to regular broadcast relaying.
+This document specifies the Source-Based Routing extension (v2) for the BitChat protocol. This upgrade enables efficient unicast routing across the mesh by allowing senders to specify an explicit path of intermediate relays.
 
-Status: optional and backward-compatible.
+**Status:** Implemented in Android and iOS. Backward compatible (v1 clients ignore routing data).
 
-## Layering Overview
+---
 
-- Outer packet: BitChat binary packet with unchanged fixed header (version/type/ttl/timestamp/flags/payloadLength).
-- Flags: adds a new bit `HAS_ROUTE (0x08)`.
-- Variable sections (when present, in order):
-  1) `SenderID` (8 bytes)
-  2) `RecipientID` (8 bytes) if `HAS_RECIPIENT`
-  3) `Route` (if `HAS_ROUTE`): `count` (1 byte) + `count * 8` bytes hop IDs
-  4) `Payload` (with optional compression preamble)
-  5) `Signature` (64 bytes) if `HAS_SIGNATURE`
+## 1. Protocol Versioning & Layering
 
-Unknown flags are ignored by older implementations (they will simply not see a route and continue broadcasting as before).
+To support source routing and larger payloads, the packet format has been upgraded to **Version 2**.
 
-## Route Field Encoding
+*   **Version 1 (Legacy):** 2-byte payload length limit. Ignores routing flags.
+*   **Version 2 (Current):** 4-byte payload length limit. Supports Source Routing.
 
-- Presence: Signaled by the `HAS_ROUTE (0x08)` bit in `flags`.
-- Layout (immediately after optional `RecipientID`):
-  - `count`: 1 byte (0..255)
-  - `hops`: concatenation of `count` peer IDs, each encoded as exactly 8 bytes
-- Peer ID encoding (8 bytes): same as used elsewhere in BitChat (16 hex chars → 8 bytes; left-to-right conversion; pad with `0x00` if shorter). This matches the on‑wire `senderID`/`recipientID` encoding.
-- Size impact: `1 + 8*N` bytes, where `N = count`.
-- Empty route: `HAS_ROUTE` with `count = 0` is treated as no route (relays ignore it).
+**Key Rule:** The `HAS_ROUTE (0x08)` flag is **only valid** if the packet `version >= 2`. Relays receiving a v1 packet must ignore this flag even if set.
 
-## Sender Behavior
+---
 
-- Applicability: Intended for addressed packets (i.e., where `recipientID` is set and is not the broadcast ID). For broadcast packets, omit the route.
-- Path computation: Use Dijkstra’s shortest path (unit weights) on your internal mesh topology to find a route from `src` (your peerID) to `dst` (recipient peerID). The hop list SHOULD include the full path `[src, ..., dst]`.
-- Encoding: Set `HAS_ROUTE`, write `count = path.length`, then the 8‑byte hop IDs in order. Keep `count <= 255`.
-- Signing: The route is covered by the Ed25519 signature (recommended):
-  - Signature input is the canonical encoding with `signature` omitted and `ttl = 0` (TTL excluded to allow relay decrement) — same rule as base protocol.
+## 2. Packet Structure Comparison
 
-## Relay Behavior
+The following diagram illustrates the structural differences between a standard v1 packet and a source-routed v2 packet.
 
-When receiving a packet that is not addressed to you:
+### V1 Packet (Legacy)
+```text
++-------------------+---------------------------------------------------------+
+| Fixed Header (14) | Variable Sections                                       |
++-------------------+----------+-------------+------------------+-------------+
+| Ver: 1 (1B)       | SenderID | RecipientID | Payload          | Signature   |
+| Type, TTL, etc.   | (8B)     | (8B)        | (Length in Head) | (64B)       |
+| Len: 2 Bytes      |          | (Optional)  |                  | (Optional)  |
++-------------------+----------+-------------+------------------+-------------+
+```
 
-1) If `HAS_ROUTE` is not set, or the route is empty, relay using your normal broadcast logic (subject to TTL/probability policies).
-2) If `HAS_ROUTE` is set and your peer ID appears at index `i` in the hop list:
-   - If there is a next hop at `i+1`, attempt a targeted unicast to that next hop if you have a direct connection to it.
-     - If successful, do NOT broadcast this packet further.
-     - If not directly connected (or the send fails), fall back to broadcast relaying.
-   - If you are the last hop (no `i+1`), proceed with standard handling (e.g., if not addressed to you, do not relay further).
+### V2 Packet (Source Routed)
+```text
++-------------------+-----------------------------------------------------------------------------+
+| Fixed Header (16) | Variable Sections                                                           |
++-------------------+----------+-------------+-----------------------+------------------+-------------+
+| Ver: 2 (1B)       | SenderID | RecipientID | SOURCE ROUTE          | Payload          | Signature   |
+| Type, TTL, etc.   | (8B)     | (8B)        | (Variable)            | (Length in Head) | (64B)       |
+| Len: 4 Bytes      |          | (Required*) | Only if HAS_ROUTE=1   |                  | (Optional)  |
++-------------------+----------+-------------+-----------------------+------------------+-------------+
+```
 
-TTL handling remains unchanged: relays decrement TTL by 1 before forwarding (whether targeted or broadcast). If TTL reaches 0, do not relay.
+**(*) Note:** A `Route` can be attached to **any** packet type that has a `RecipientID` (flag `HAS_RECIPIENT` set).
 
-## Receiver Behavior (Destination)
+### Fixed Header Differences
 
-- This extension does not change how addressed packets are handled by the final recipient. If the packet is addressed to you (`recipientID == myPeerID`), process it normally (e.g., decrypt Noise payload, verify signatures, etc.).
-- Signature verification MUST include the route field when present; route tampering will invalidate the signature.
+| Field | Size (v1) | Size (v2) | Description |
+|---|---|---|---|
+| **Version** | 1 byte | 1 byte | `0x01` vs `0x02` |
+| **Payload Length** | **2 bytes** | **4 bytes** | `UInt32` in v2 to support large files. **Excludes** route/IDs/sig. |
+| **Total Size** | **14 bytes** | **16 bytes** | V2 header is 2 bytes larger. |
 
-## Compatibility
+---
 
-- Omission: If `HAS_ROUTE` is omitted, legacy behavior applies. Relays that don’t implement this feature will ignore the route entirely, because they won’t set or check `HAS_ROUTE`.
-- Partial support: If any relay on the path cannot directly reach the next hop, it will fall back to broadcast relaying; delivery is still probabilistic like the base protocol.
+## 3. Source Route Specification
 
-## Minimal Example (conceptual)
+The `Source Route` field is a variable-length list of **intermediate hops** that the packet must traverse.
 
-- Header (fixed 13 bytes): unchanged.
-- Variable sections (ordered):
-  - `SenderID(8)`
-  - `RecipientID(8)` (if present)
-  - `HAS_ROUTE` set → `count=3`, `hops = [H0 H1 H2]` where each `Hk` is 8 bytes
-  - Payload (optionally compressed)
-  - Signature (64)
+*   **Location:** Immediately follows `RecipientID`.
+*   **Structure:**
+    *   `Count` (1 byte): Number of intermediate hops (`N`).
+    *   `Hops` (`N * 8` bytes): Sequence of Peer IDs.
 
-Where `H0` is the sender’s peer ID, `H2` is the recipient’s peer ID, and `H1` is an intermediate relay. The receiver verifies the signature over the packet encoding (with `ttl = 0` and `signature` omitted), which includes the `hops` when `HAS_ROUTE` is set.
+### Intermediate Hops Only
+The route list MUST contain **only** the intermediate relays between the sender and the recipient.
+*   **DO NOT** include the `SenderID` (it is already in the packet).
+*   **DO NOT** include the `RecipientID` (it is already in the packet).
 
-## Operational Notes
+**Example:**
+Topology: `Alice (Sender) -> Bob -> Charlie -> Dave (Recipient)`
+*   Packet `SenderID`: Alice
+*   Packet `RecipientID`: Dave
+*   Packet `Route`: `[Bob, Charlie]` (Count = 2)
 
-- Routing optimality depends on the freshness and completeness of the topology your implementation has learned (e.g., via gossip of direct neighbors). Recompute routes as needed.
-- Route length should be kept small to reduce overhead and the probability of missing a direct link at some hop.
-- Implementations may introduce policy controls (e.g., disable source routing, cap max route length).
+---
 
+## 4. Topology Discovery (Gossip)
+
+To calculate routes, nodes need a view of the network topology. This is achieved via a **Neighbor List** extension to the `IdentityAnnouncement` packet.
+
+*   **Mechanism:** `IdentityAnnouncement` packets contain a TLV (Type-Length-Value) payload.
+*   **New TLV Type:** `0x04` (Direct Neighbors).
+*   **Content:** A list of Peer IDs that the announcing node is directly connected to.
+
+**TLV Structure (Type 0x04):**
+```text
+[Type: 0x04] [Length: 1B] [Count: 1B] [NeighborID1 (8B)] [NeighborID2 (8B)] ...
+```
+Nodes receiving this TLV update their local mesh graph, linking the sender to the listed neighbors.
+
+### Edge Verification (Two-Way Handshake)
+
+To prevent spoofing and routing through stale connections, the Mesh Graph service implements a strict two-way handshake verification:
+
+*   **Unconfirmed Edge:** If Peer A announces Peer B, but Peer B does *not* announce Peer A, the connection is treated as **unconfirmed**. Unconfirmed edges are visualized as dotted lines in debug tools but are **excluded** from route calculations.
+*   **Confirmed Edge:** An edge is only valid for routing when **both** peers explicitly announce each other in their neighbor lists. This ensures that the connection is bidirectional and currently active from both perspectives.
+
+---
+
+## 5. Fragmentation & Source Routing
+
+When a large source-routed packet (e.g., File Transfer) exceeds the MTU and requires fragmentation:
+
+1.  **Version Inheritance:** All fragments MUST be marked as **Version 2**.
+2.  **Route Inheritance:** All fragments MUST contain the **exact same Route field** as the parent packet.
+
+**Why?** If fragments were sent as v1 packets or without routes, they would fall back to flooding, negating the bandwidth benefits of source routing for large data transfers.
+
+---
+
+## 6. Security & Signing
+
+Source routing is fully secured by the existing Ed25519 signature scheme.
+
+*   **Scope:** The signature covers the **entire packet structure** (Header + Sender + Recipient + Route + Payload).
+*   **Verification:** The receiver verifies the signature against the `SenderID`'s public key.
+*   **Integrity:** Any tampering with the route list by malicious relays will invalidate the signature, causing the packet to be dropped by the destination.
+
+**Signature Input Construction:**
+Serialize the packet exactly as transmitted, but temporarily set `TTL = 0` and remove the `Signature` bytes.
+
+---
+
+## 7. Relay Logic
+
+When a node receives a packet **not** addressed to itself:
+
+1.  **Check Route:**
+    *   Is `Version >= 2`?
+    *   Is `HAS_ROUTE` flag set?
+    *   Is the route list non-empty?
+2.  **If YES (Source Routed):**
+    *   Find local Peer ID in the route list at index `i`.
+    *   **Next Hop:** The peer at `i + 1`.
+    *   **Last Hop:** If `i` is the last index, the Next Hop is the `RecipientID`.
+    *   **Action:** Attempt to unicast (`sendToPeer`) to the Next Hop.
+    *   **Fallback:** If the Next Hop is unreachable, **fall back to broadcast/flood** to ensure delivery.
+3.  **If NO (Standard):**
+    *   Flood the packet to all connected neighbors (subject to TTL and probability rules).

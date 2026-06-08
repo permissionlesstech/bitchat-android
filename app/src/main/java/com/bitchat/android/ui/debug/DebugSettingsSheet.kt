@@ -5,15 +5,15 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.filled.WifiTethering
 import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.SettingsEthernet
@@ -29,12 +29,65 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.rotate
 import com.bitchat.android.mesh.BluetoothMeshService
+import com.bitchat.android.services.meshgraph.MeshGraphService
 import kotlinx.coroutines.launch
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.res.stringResource
 import com.bitchat.android.R
 import androidx.compose.ui.platform.LocalContext
-import com.bitchat.android.service.MeshServicePreferences
-import com.bitchat.android.service.MeshForegroundService
+import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
+import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
+import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
+
+@Composable
+fun MeshTopologySection() {
+    val colorScheme = MaterialTheme.colorScheme
+    val graphService = remember { MeshGraphService.getInstance() }
+    val snapshot by graphService.graphState.collectAsState()
+
+    Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Filled.SettingsEthernet, contentDescription = null, tint = Color(0xFF8E8E93))
+                Text("mesh topology", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            }
+            val nodes = snapshot.nodes
+            val edges = snapshot.edges
+            val empty = nodes.isEmpty()
+            if (empty) {
+                Text("no gossip yet", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
+            } else {
+                ForceDirectedMeshGraph(
+                    nodes = nodes,
+                    edges = edges,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(300.dp)
+                        .background(colorScheme.surface.copy(alpha = 0.4f))
+                )
+                
+                // Flexible peer list
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    nodes.forEach { node ->
+                        val label = "${node.peerID.take(8)} • ${node.nickname ?: "unknown"}"
+                        Text(
+                            text = label,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp,
+                            color = colorScheme.onSurface.copy(alpha = 0.85f)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
 
 private enum class GraphMode { OVERALL, PER_DEVICE, PER_PEER }
 
@@ -45,7 +98,6 @@ fun DebugSettingsSheet(
     onDismiss: () -> Unit,
     meshService: BluetoothMeshService
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
     val colorScheme = MaterialTheme.colorScheme
     val manager = remember { DebugSettingsManager.getInstance() }
 
@@ -71,6 +123,16 @@ fun DebugSettingsSheet(
     val wifiAwareDiscovered by manager.wifiAwareDiscovered.collectAsState()
     val wifiAwareConnected by manager.wifiAwareConnected.collectAsState()
     // Persistent notification is now controlled solely by MeshServicePreferences.isBackgroundEnabled
+    val listState = rememberLazyListState()
+    val isScrolled by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0
+        }
+    }
+    val topBarAlpha by animateFloatAsState(
+        targetValue = if (isScrolled) 0.95f else 0f,
+        label = "topBarAlpha"
+    )
 
     // Push live connected devices from mesh service whenever sheet is visible
     LaunchedEffect(isPresented) {
@@ -112,35 +174,31 @@ fun DebugSettingsSheet(
 
     if (!isPresented) return
 
-    ModalBottomSheet(
+    BitchatBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState
     ) {
         // Mark debug sheet visible/invisible to gate heavy work
         LaunchedEffect(Unit) { DebugSettingsManager.getInstance().setDebugSheetVisible(true) }
         DisposableEffect(Unit) {
             onDispose { DebugSettingsManager.getInstance().setDebugSheetVisible(false) }
         }
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .padding(bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Filled.BugReport, contentDescription = null, tint = Color(0xFFFF9500))
-                    Text(stringResource(R.string.debug_tools), fontFamily = FontFamily.Monospace, fontSize = 18.sp, fontWeight = FontWeight.Medium)
+        Box(modifier = Modifier.fillMaxWidth()) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                contentPadding = PaddingValues(top = 80.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                item {
+                    Text(
+                        text = stringResource(R.string.debug_tools_desc),
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 12.sp,
+                        color = colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
                 }
-                Text(
-                    text = stringResource(R.string.debug_tools_desc),
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp,
-                    color = colorScheme.onSurface.copy(alpha = 0.7f)
-                )
-            }
-
             // Verbose logging toggle
             item {
                 Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
@@ -159,6 +217,11 @@ fun DebugSettingsSheet(
                         )
                     }
                 }
+            }
+
+            // Mesh topology visualization (moved below verbose logging)
+            item {
+                MeshTopologySection()
             }
 
             // GATT controls
@@ -410,7 +473,7 @@ fun DebugSettingsSheet(
                                     kotlinx.coroutines.delay(1000)
                                 }
                             }
-
+                            
                             // Helper functions moved to top-level composable below to avoid scope issues
 
                             // Render two blocks: Incoming and Outgoing
@@ -587,9 +650,6 @@ fun DebugSettingsSheet(
                 }
             }
 
-
-
-
             // Connected devices
             item {
                 Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
@@ -672,7 +732,29 @@ fun DebugSettingsSheet(
                 }
             }
 
-            item { Spacer(Modifier.height(16.dp)) }
+                item { Spacer(Modifier.height(16.dp)) }
+            }
+
+            BitchatSheetTopBar(
+                onClose = onDismiss,
+                modifier = Modifier.align(Alignment.TopCenter),
+                backgroundAlpha = topBarAlpha,
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.BugReport,
+                            contentDescription = null,
+                            tint = Color(0xFFFF9500)
+                        )
+                        BitchatSheetTitle(
+                            text = stringResource(R.string.debug_tools)
+                        )
+                    }
+                }
+            )
         }
     }
 }
