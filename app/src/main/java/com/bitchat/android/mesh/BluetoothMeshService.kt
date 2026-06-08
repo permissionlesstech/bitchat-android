@@ -671,6 +671,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             connectionManager.disableTransport()
             TransportBridgeService.unregister("BLE")
             try { com.bitchat.android.services.AppStateStore.clearTransportPeers("BLE") } catch (_: Exception) { }
+        try { com.bitchat.android.services.AppStateStore.clearTransportDirectPeers("BLE") } catch (_: Exception) { }
             return
         }
         if (terminated) {
@@ -715,6 +716,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         try { gossipSyncManager.stop() } catch (_: Exception) { }
         TransportBridgeService.unregister("BLE")
         try { com.bitchat.android.services.AppStateStore.clearTransportPeers("BLE") } catch (_: Exception) { }
+        try { com.bitchat.android.services.AppStateStore.clearTransportDirectPeers("BLE") } catch (_: Exception) { }
         connectionManager.disableTransport()
         try { peerManager.refreshPeerList() } catch (_: Exception) { }
     }
@@ -734,6 +736,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         announceJob = null
         TransportBridgeService.unregister("BLE")
         try { com.bitchat.android.services.AppStateStore.clearTransportPeers("BLE") } catch (_: Exception) { }
+        try { com.bitchat.android.services.AppStateStore.clearTransportDirectPeers("BLE") } catch (_: Exception) { }
         
         // Send leave announcement
         sendLeaveAnnouncement()
@@ -1224,8 +1227,14 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         return try {
             // Prefer verified peers that are currently marked as direct
             val verified = peerManager.getVerifiedPeers()
-            val direct = verified.filter { it.value.isDirectConnection }.keys.toList()
-            direct.take(10)
+            val direct = verified.filter { it.value.isDirectConnection }.keys.toSet()
+            // Publish this transport's direct peers and gossip the cross-transport union so a
+            // node connected via multiple transports advertises a complete neighbor list.
+            try { com.bitchat.android.services.AppStateStore.setTransportDirectPeers("BLE", direct) } catch (_: Exception) { }
+            val union = try {
+                com.bitchat.android.services.AppStateStore.getDirectPeers().ifEmpty { direct }
+            } catch (_: Exception) { direct }
+            union.distinct().take(10)
         } catch (_: Exception) {
             emptyList()
         }

@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * WifiAwareController manages lifecycle and debug surfacing for the WifiAwareMeshService.
@@ -20,11 +21,15 @@ import kotlinx.coroutines.launch
  */
 object WifiAwareController {
     private const val TAG = "WifiAwareController"
+    private const val MAX_RESTART_ATTEMPTS = 15
+    private const val RESTART_RETRY_DELAY_MS = 2_000L
 
     private var service: WifiAwareMeshService? = null
     private var appContext: Context? = null
     private val lifecycleLock = Any()
     private var starting = false
+    private val restartInFlight = AtomicBoolean(false)
+    private var awareReceiverRegistered = false
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -46,6 +51,7 @@ object WifiAwareController {
 
     fun initialize(context: Context, enabledByDefault: Boolean) {
         appContext = context.applicationContext
+        registerAwareStateReceiver(appContext!!)
         setEnabled(enabledByDefault)
         // Start background poller for debug surfacing
         scope.launch {
@@ -193,10 +199,62 @@ object WifiAwareController {
         }
     }
 
+    /**
+     * Schedules a restart of the Wi-Fi Aware transport. Concurrent requests are coalesced into
+     * a single in-flight loop that retries with backoff. This is important because a single fixed
+     * delay can land while the service is still tearing down (recoveryInProgress), in which case
+     * startServices() defers and we must try again rather than give up.
+     */
     internal fun restartIfStillEnabled(delayMs: Long = 0L) {
+        if (!restartInFlight.compareAndSet(false, true)) {
+            Log.d(TAG, "Restart already in flight; coalescing request")
+            return
+        }
         scope.launch {
-            if (delayMs > 0L) delay(delayMs)
-            if (_enabled.value) startIfPossible()
+            try {
+                if (delayMs > 0L) delay(delayMs)
+                var attempt = 0
+                while (_enabled.value && !_running.value && attempt < MAX_RESTART_ATTEMPTS) {
+                    startIfPossible()
+                    if (_running.value) break
+                    attempt++
+                    delay(RESTART_RETRY_DELAY_MS)
+                }
+            } finally {
+                restartInFlight.set(false)
+            }
+        }
+    }
+
+    /**
+     * Listens for system Wi-Fi Aware availability changes. Aware can flip off/on at runtime
+     * (Wi-Fi toggling, hotspot/SoftAP, location changes); without this we would only recover on
+     * an unrelated trigger.
+     */
+    private fun registerAwareStateReceiver(ctx: Context) {
+        if (awareReceiverRegistered) return
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        try {
+            val filter = android.content.IntentFilter(
+                android.net.wifi.aware.WifiAwareManager.ACTION_WIFI_AWARE_STATE_CHANGED
+            )
+            ctx.registerReceiver(object : android.content.BroadcastReceiver() {
+                override fun onReceive(c: Context?, intent: android.content.Intent?) {
+                    val mgr = ctx.getSystemService(android.net.wifi.aware.WifiAwareManager::class.java)
+                    val available = mgr?.isAvailable == true
+                    Log.i(TAG, "Wi-Fi Aware availability changed: available=$available enabled=${_enabled.value} running=${_running.value}")
+                    if (available) {
+                        if (_enabled.value) restartIfStillEnabled(500)
+                    } else if (_running.value) {
+                        // Aware went away; tear down cleanly so we can re-attach when it returns.
+                        // Note: this does not change the enabled preference.
+                        stop()
+                    }
+                }
+            }, filter)
+            awareReceiverRegistered = true
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to register Wi-Fi Aware state receiver: ${e.message}")
         }
     }
 

@@ -615,7 +615,14 @@ class MeshCore(
             val verifiedDirect = peerManager.getVerifiedPeers()
                 .filter { it.value.isDirectConnection }
                 .keys
-            (verifiedDirect + directPeers).distinct().take(10)
+            val localDirect = (verifiedDirect + directPeers).toSet()
+            // Publish this transport's direct peers and gossip the cross-transport union so a
+            // node connected via multiple transports advertises a complete neighbor list.
+            try { com.bitchat.android.services.AppStateStore.setTransportDirectPeers(transport.id, localDirect) } catch (_: Exception) { }
+            val union = try {
+                com.bitchat.android.services.AppStateStore.getDirectPeers().ifEmpty { localDirect }
+            } catch (_: Exception) { localDirect }
+            union.distinct().take(10)
         } catch (_: Exception) {
             directPeers.toList().take(10)
         }

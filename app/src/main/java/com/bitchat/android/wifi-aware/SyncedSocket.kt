@@ -12,7 +12,10 @@ import android.util.Log
  * A synchronized wrapper around a raw Socket that implements a framed protocol:
  * [4 bytes length][N bytes payload]
  */
-class SyncedSocket(val rawSocket: Socket) {
+class SyncedSocket(
+    val rawSocket: Socket,
+    readTimeoutMs: Int = DEFAULT_READ_TIMEOUT_MS
+) {
     private val TAG = "SyncedSocket"
     private val writeLock = ReentrantLock()
     private val readLock = ReentrantLock()
@@ -20,7 +23,17 @@ class SyncedSocket(val rawSocket: Socket) {
     private val inputStream: DataInputStream
     private val outputStream: DataOutputStream
 
+    companion object {
+        // Both peers exchange keep-alive frames every ~2s while connected, so a read that
+        // stalls well beyond that means the link is dead (half-open). Time out so the read
+        // loop can detect it and trigger disconnection instead of blocking forever.
+        const val DEFAULT_READ_TIMEOUT_MS = 15_000
+    }
+
     init {
+        // A read timeout converts dead/half-open connections into a SocketTimeoutException
+        // (an IOException) so read() returns null and the peer is cleaned up.
+        try { rawSocket.soTimeout = readTimeoutMs } catch (_: Exception) {}
         // We wrap streams to create DataInput/Output helpers
         inputStream = DataInputStream(rawSocket.getInputStream())
         outputStream = DataOutputStream(rawSocket.getOutputStream())
