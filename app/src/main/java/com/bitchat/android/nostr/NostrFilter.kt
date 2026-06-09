@@ -42,6 +42,33 @@ data class NostrFilter(
                 limit = limit
             )
         }
+
+        /**
+         * Create filter for geohash-scoped chat messages only (kind 20000).
+         * Low-volume; kept subscribed in the background so messages keep arriving.
+         */
+        fun geohashMessages(geohash: String, since: Long? = null, limit: Int = 1000): NostrFilter {
+            return NostrFilter(
+                kinds = listOf(NostrKind.EPHEMERAL_EVENT),
+                since = since?.let { (it / 1000).toInt() },
+                tagFilters = mapOf("g" to listOf(geohash)),
+                limit = limit
+            )
+        }
+
+        /**
+         * Create filter for geohash-scoped presence heartbeats only (kind 20001).
+         * High-volume firehose (every participant rebroadcasts ~every 60s); only used
+         * to refresh the participant list, so it is paused while backgrounded.
+         */
+        fun geohashPresence(geohash: String, since: Long? = null, limit: Int = 1000): NostrFilter {
+            return NostrFilter(
+                kinds = listOf(NostrKind.GEOHASH_PRESENCE),
+                since = since?.let { (it / 1000).toInt() },
+                tagFilters = mapOf("g" to listOf(geohash)),
+                limit = limit
+            )
+        }
         
         /**
          * Create filter for text notes from specific authors
