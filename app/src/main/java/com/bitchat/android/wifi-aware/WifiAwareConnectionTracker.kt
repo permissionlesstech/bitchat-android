@@ -149,6 +149,50 @@ class WifiAwareConnectionTracker(
         }
     }
 
+    fun hasPendingDataPathRequest(exceptPeerId: String? = null): Boolean {
+        val exceptCanonical = exceptPeerId?.let { resolveCanonicalPeerId(it) }
+        return pendingDataPathPeerIds(exceptCanonical).isNotEmpty()
+    }
+
+    fun pendingDataPathPeerIds(exceptPeerId: String? = null): Set<String> {
+        val exceptCanonical = exceptPeerId?.let { resolveCanonicalPeerId(it) }
+        val pendingIds = linkedSetOf<String>()
+
+        pendingConnections.keys.forEach { peerId ->
+            val canonicalId = resolveCanonicalPeerId(peerId)
+            if (canonicalId != exceptCanonical && !isConnected(canonicalId)) {
+                pendingIds.add(canonicalId)
+            }
+        }
+
+        networkCallbacks.keys.forEach { peerId ->
+            val canonicalId = resolveCanonicalPeerId(peerId)
+            if (canonicalId != exceptCanonical && !isConnected(canonicalId)) {
+                pendingIds.add(canonicalId)
+            }
+        }
+
+        return pendingIds
+    }
+
+    fun pendingServerDataPathPeerIds(exceptPeerId: String? = null): Set<String> {
+        val exceptCanonical = exceptPeerId?.let { resolveCanonicalPeerId(it) }
+        return serverSockets.keys.map { resolveCanonicalPeerId(it) }
+            .filter { peerId ->
+                peerId != exceptCanonical &&
+                    !isConnected(peerId) &&
+                    networkCallbacks.containsKey(peerId) &&
+                    serverSockets[peerId]?.isClosed == false
+            }
+            .toSet()
+    }
+
+    fun cancelPendingServerDataPaths(exceptPeerId: String? = null): Set<String> {
+        val cancelled = pendingServerDataPathPeerIds(exceptPeerId)
+        cancelled.forEach { disconnect(it) }
+        return cancelled
+    }
+
     fun addNetworkCallback(peerId: String, callback: ConnectivityManager.NetworkCallback) {
         val canonicalId = resolveCanonicalPeerId(peerId)
         networkCallbacks.put(canonicalId, callback)?.let {

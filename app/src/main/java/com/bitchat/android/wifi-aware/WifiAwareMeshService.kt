@@ -8,6 +8,7 @@ import android.net.wifi.aware.*
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.system.OsConstants
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
@@ -69,6 +70,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         private const val CLIENT_CONNECT_TIMEOUT_MS = 7_000
         // Discovery freshness window for reconnection maintenance
         private const val DISCOVERY_STALE_MS = 5L * 60 * 1000
+        private const val ROLE_REVERSAL_PREFIX = "ROLE_SERVER:"
     }
 
     // Core crypto/services
@@ -117,6 +119,8 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
     // from the publish session is NOT valid for subscribeSession.sendMessage(). Maintenance re-pings
     // (subscriber -> publisher) must use a handle that originated from the subscribe session.
     private val subscribeHandles = ConcurrentHashMap<String, PeerHandle>() // peerID -> latest subscribe handle
+    private val forcedServerPeers = ConcurrentHashMap.newKeySet<String>()
+    private val forcedClientPeers = ConcurrentHashMap.newKeySet<String>()
 
     fun isRunning(): Boolean = isActive
 
@@ -380,6 +384,11 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                             if (!isCurrentSession(generation)) return
                             if (message.isEmpty()) return
                             val subscriberId = try { String(message) } catch (_: Exception) { "" }
+                            if (subscriberId.startsWith(ROLE_REVERSAL_PREFIX)) {
+                                val requesterId = subscriberId.removePrefix(ROLE_REVERSAL_PREFIX)
+                                handleRoleReversalRequest(peerHandle, requesterId)
+                                return
+                            }
                             if (subscriberId == myPeerID) return
 
                             handleToPeerId[peerHandle] = subscriberId
@@ -429,10 +438,8 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                             // This handle came from the subscribe session, so it is valid for
                             // subscribeSession.sendMessage() (used by maintenance reconnection).
                             if (peerId.isNotBlank()) subscribeHandles[peerId] = peerHandle
-                            val msgId = (System.nanoTime() and 0x7fffffff).toInt()
-                            subscribeSession?.sendMessage(peerHandle, msgId, myPeerID.toByteArray())
+                            sendSubscribePing(peerId, peerHandle, "discovery")
                             if (peerId.isNotBlank()) discoveredTimestamps[peerId] = System.currentTimeMillis()
-                            Log.d(TAG, "SUBSCRIBE: sent ping to '${peerId.take(16)}' (msgId=$msgId)")
                         }
 
                         @RequiresApi(Build.VERSION_CODES.Q)
@@ -629,13 +636,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                         if (!connectionTracker.isConnectionAttemptAllowed(peerId)) continue
 
                         Log.i(TAG, "🔄 Maintenance: attempting reconnect to ${peerId.take(8)}")
-                        // Resend ping to trigger a fresh server-ready/data-path attempt.
-                        val msgId = (System.nanoTime() and 0x7fffffff).toInt()
-                        try {
-                            subscribeSession?.sendMessage(handle, msgId, myPeerID.toByteArray())
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Failed to send maintenance ping to ${peerId.take(8)}: ${e.message}")
-                        }
+                        sendSubscribePing(peerId, handle, "maintenance")
                     }
                 } catch (e: CancellationException) {
                     break
@@ -643,6 +644,51 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                     Log.e(TAG, "Error in connection maintenance: ${e.message}")
                 }
             }
+        }
+    }
+
+    private fun sendSubscribePing(peerId: String, peerHandle: PeerHandle, reason: String) {
+        if (peerId.isBlank()) return
+        val msgId = (System.nanoTime() and 0x7fffffff).toInt()
+        try {
+            subscribeSession?.sendMessage(peerHandle, msgId, myPeerID.toByteArray())
+            Log.d(TAG, "SUBSCRIBE: sent $reason ping to '${peerId.take(16)}' (msgId=$msgId)")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to send $reason ping to ${peerId.take(8)}: ${e.message}")
+        }
+    }
+
+    private fun requestRoleReversal(peerId: String) {
+        if (peerId.isBlank() || forcedClientPeers.contains(peerId)) return
+        forcedServerPeers.add(peerId)
+        forcedClientPeers.remove(peerId)
+
+        val handle = subscribeHandles[peerId]
+        if (handle == null) {
+            Log.i(TAG, "CLIENT: role reversal queued for ${peerId.take(8)} until subscribe handle is available")
+            return
+        }
+
+        val msgId = (System.nanoTime() and 0x7fffffff).toInt()
+        val payload = "$ROLE_REVERSAL_PREFIX$myPeerID".toByteArray()
+        try {
+            subscribeSession?.sendMessage(handle, msgId, payload)
+            Log.i(TAG, "CLIENT: requested Wi-Fi Aware role reversal with ${peerId.take(8)} (msgId=$msgId)")
+        } catch (e: Exception) {
+            Log.w(TAG, "CLIENT: failed to request role reversal with ${peerId.take(8)}: ${e.message}")
+        }
+    }
+
+    private fun handleRoleReversalRequest(peerHandle: PeerHandle, requesterId: String) {
+        if (requesterId.isBlank() || requesterId == myPeerID) return
+        handleToPeerId[peerHandle] = requesterId
+        discoveredTimestamps[requesterId] = System.currentTimeMillis()
+        forcedClientPeers.add(requesterId)
+        forcedServerPeers.remove(requesterId)
+        Log.i(TAG, "PUBLISH: role reversal requested by ${requesterId.take(8)}; switching to client role")
+
+        subscribeHandles[requesterId]?.let { handle ->
+            sendSubscribePing(requesterId, handle, "role-reversal")
         }
     }
 
@@ -668,6 +714,11 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             Log.v(TAG, "↪ already serving $peerId, skipping")
             return
         }
+        if (connectionTracker.hasPendingDataPathRequest(peerId)) {
+            val pending = connectionTracker.pendingDataPathPeerIds(peerId).joinToString(", ") { it.take(8) }
+            Log.d(TAG, "SERVER: deferring serve for ${peerId.take(8)}; pending Aware data path(s): $pending")
+            return
+        }
         if (!connectionTracker.addPendingConnection(peerId)) {
             return
         }
@@ -690,6 +741,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         val spec = WifiAwareNetworkSpecifier.Builder(pubSession, peerHandle)
             .setPskPassphrase(PSK)
             .setPort(port)
+            .setTransportProtocol(OsConstants.IPPROTO_TCP)
             .build()
         // Default capabilities include NET_CAPABILITY_NOT_VPN.
         // Keeping defaults for hardware interface handle acquisition compatibility with global VPNs.
@@ -837,6 +889,16 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             Log.v(TAG, "↪ already client-connected to $peerId, skipping")
             return
         }
+        val cancelledServerOffers = connectionTracker.cancelPendingServerDataPaths(peerId)
+        if (cancelledServerOffers.isNotEmpty()) {
+            val cancelled = cancelledServerOffers.joinToString(", ") { it.take(8) }
+            Log.i(TAG, "CLIENT: preempted pending server offer(s) for $cancelled to connect ${peerId.take(8)}")
+        }
+        if (connectionTracker.hasPendingDataPathRequest(peerId)) {
+            val pending = connectionTracker.pendingDataPathPeerIds(peerId).joinToString(", ") { it.take(8) }
+            Log.d(TAG, "CLIENT: deferring server-ready for ${peerId.take(8)}; pending Aware data path(s): $pending")
+            return
+        }
         if (!connectionTracker.addPendingConnection(peerId)) {
             return
         }
@@ -863,6 +925,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             
             override fun onUnavailable() {
                 Log.e(TAG, "CLIENT: onUnavailable() - Failed to acquire Aware network for ${peerId.take(8)}")
+                requestRoleReversal(peerId)
                 handleNetworkFailure(peerId)
             }
 
@@ -870,9 +933,10 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                 if (connectionTracker.peerSockets.containsKey(peerId)) return
                 val info = (nc.transportInfo as? WifiAwareNetworkInfo) ?: return
                 val addr = info.peerIpv6Addr as? Inet6Address ?: return
+                val connectPort = if (info.port > 0) info.port else port
                 // onCapabilitiesChanged can fire multiple times; only connect once
                 if (!connectStarted.compareAndSet(false, true)) return
-                Log.i(TAG, "CLIENT: onCapabilitiesChanged() - Peer IPv6 discovered: $addr")
+                Log.i(TAG, "CLIENT: onCapabilitiesChanged() - Peer IPv6 discovered: $addr port=$connectPort")
 
                 val lp = cm.getLinkProperties(network)
                 val iface = lp?.interfaceName
@@ -880,8 +944,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                 // Offload the blocking connect() off the callback thread.
                 listenerExec.execute {
                     try {
-                        val sock = Socket()
-                        try { network.bindSocket(sock) } catch (e: Exception) { Log.w(TAG, "Client bindSocket EPERM: ${e.message}") }
+                        val sock = network.socketFactory.createSocket()
                         sock.tcpNoDelay = true
                         sock.keepAlive = true
 
@@ -896,8 +959,8 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                             addr
                         }
 
-                        sock.connect(java.net.InetSocketAddress(scopedAddr, port), CLIENT_CONNECT_TIMEOUT_MS)
-                        Log.i(TAG, "CLIENT: TCP connected to ${peerId.take(8)} at $scopedAddr:$port")
+                        sock.connect(java.net.InetSocketAddress(scopedAddr, connectPort), CLIENT_CONNECT_TIMEOUT_MS)
+                        Log.i(TAG, "CLIENT: TCP connected to ${peerId.take(8)} at $scopedAddr:$connectPort")
 
                         val synced = SyncedSocket(sock)
                         activeSocket = synced
@@ -916,6 +979,7 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
                         serviceScope.launch { delay(150); sendBroadcastAnnounce() }
                     } catch (ioe: IOException) {
                         Log.e(TAG, "CLIENT: socket connect failed to ${peerId.take(8)}", ioe)
+                        requestRoleReversal(peerId)
                         handleNetworkFailure(peerId)
                     }
                 }
@@ -973,7 +1037,11 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
     /**
      * Determines whether this device should act as the server in a given peer relationship.
      */
-    private fun amIServerFor(peerId: String) = myPeerID < peerId
+    private fun amIServerFor(peerId: String): Boolean = when {
+        forcedClientPeers.contains(peerId) -> false
+        forcedServerPeers.contains(peerId) -> true
+        else -> myPeerID < peerId
+    }
 
     /**
      * Listens for incoming packets from a connected peer and dispatches them through
