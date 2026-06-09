@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.bitchat.android"
+    namespace = "com.claus.android"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.bitchat.droid"
+        applicationId = "com.claus.android"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = 33
@@ -131,7 +131,7 @@ dependencies {
     implementation(libs.okhttp)
 
     // Arti (Tor in Rust) Android bridge - custom build from latest source
-    // Built with rustls, 16KB page size support, and onio//un service client
+    // Built with rustls, 16KB page size support, and onion service client
     // Native libraries are in src/tor/jniLibs/ (extracted from arti-custom.aar)
     // Only included in tor flavor to reduce APK size for standard builds
     // Note: AAR is kept in libs/ for reference, but libraries loaded from jniLibs/

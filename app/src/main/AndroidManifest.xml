@@ -21,7 +21,7 @@
     <!-- Notification permissions -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Signature permission for internal UI shutdown broadcasts -->
-    <uses-permission android:name="com.bitchat.android.permission.FORCE_FINISH" />
+    <uses-permission android:name="com.claus.android.permission.FORCE_FINISH" />
     <!-- Foreground service and boot permissions for long-running background mesh -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <!-- Connected device foreground service type for BLE operations (API 34+) -->
@@ -55,11 +55,11 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <permission
-        android:name="com.bitchat.android.permission.FORCE_FINISH"
+        android:name="com.claus.android.permission.FORCE_FINISH"
         android:protectionLevel="signature" />
 
     <application
-        android:name=".BitchatApplication"
+        android:name=".ClausApplication"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -67,7 +67,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.BitchatAndroid"
+        android:theme="@style/Theme.ClausAndroid"
         tools:targetApi="31">
         <!-- FileProvider for sharing temp/cache files with external viewers -->
         <provider
@@ -82,13 +82,13 @@
         <activity
             android:name=".ui.GeohashPickerActivity"
             android:exported="false"
-            android:theme="@style/Theme.BitchatAndroid"
+            android:theme="@style/Theme.ClausAndroid"
             android:windowSoftInputMode="adjustResize" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.BitchatAndroid"
+            android:theme="@style/Theme.ClausAndroid"
             android:windowSoftInputMode="adjustResize"
             android:launchMode="singleTop">
             <intent-filter>
@@ -99,7 +99,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="bitchat" android:host="verify" />
+                <data android:scheme="claus" android:host="verify" />
             </intent-filter>
         </activity>
 
@@ -117,7 +117,7 @@
             android:enabled="true"
             android:exported="false">
             <intent-filter>
-                <action android:name="com.bitchat.android.action.NOTIFICATION_PERMISSION_GRANTED" />
+                <action android:name="com.claus.android.action.NOTIFICATION_PERMISSION_GRANTED" />
             </intent-filter>
         </receiver>
 
