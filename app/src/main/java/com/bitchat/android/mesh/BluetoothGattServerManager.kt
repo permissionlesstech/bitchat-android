@@ -30,6 +30,9 @@ class BluetoothGattServerManager(
     
     companion object {
         private const val TAG = "BluetoothGattServerManager"
+        // Self-healing advertising recovery tuning
+        private const val ADVERTISE_RETRY_BASE_MS = 3_000L      // base backoff for transient advertise failures
+        private const val ADVERTISE_MAX_RETRY_DELAY_MS = 30_000L // cap on backoff delay
     }
     
     // Core Bluetooth components
@@ -42,6 +45,7 @@ class BluetoothGattServerManager(
     private var gattServer: BluetoothGattServer? = null
     private var characteristic: BluetoothGattCharacteristic? = null
     private var advertiseCallback: AdvertiseCallback? = null
+    private var advertiseRetryCount = 0
     
     // State management
     private var isActive = false
@@ -385,6 +389,7 @@ class BluetoothGattServerManager(
         
         advertiseCallback = object : AdvertiseCallback() {
             override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
+                advertiseRetryCount = 0
                 val mode = try {
                     powerManager.getPowerInfo().split("Current Mode: ")[1].split("\n")[0]
                 } catch (_: Exception) { "unknown" }
@@ -393,6 +398,28 @@ class BluetoothGattServerManager(
             
             override fun onStartFailure(errorCode: Int) {
                 Log.e(TAG, "Advertising failed: $errorCode")
+                // Previously this only logged, so if advertising failed this device became
+                // undiscoverable until a manual BLE toggle. Retry transient failures with backoff.
+                when (errorCode) {
+                    ADVERTISE_FAILED_ALREADY_STARTED ->
+                        Log.w(TAG, "ADVERTISE_FAILED_ALREADY_STARTED - already advertising, no retry")
+                    ADVERTISE_FAILED_DATA_TOO_LARGE ->
+                        Log.e(TAG, "ADVERTISE_FAILED_DATA_TOO_LARGE - config issue, not retrying")
+                    ADVERTISE_FAILED_FEATURE_UNSUPPORTED ->
+                        Log.e(TAG, "ADVERTISE_FAILED_FEATURE_UNSUPPORTED - unsupported, not retrying")
+                    ADVERTISE_FAILED_TOO_MANY_ADVERTISERS -> {
+                        Log.w(TAG, "ADVERTISE_FAILED_TOO_MANY_ADVERTISERS - will retry after backoff")
+                        scheduleAdvertiseRestart("too-many-advertisers")
+                    }
+                    ADVERTISE_FAILED_INTERNAL_ERROR -> {
+                        Log.w(TAG, "ADVERTISE_FAILED_INTERNAL_ERROR - will retry after backoff")
+                        scheduleAdvertiseRestart("internal-error")
+                    }
+                    else -> {
+                        Log.w(TAG, "Unknown advertise failure $errorCode - will retry after backoff")
+                        scheduleAdvertiseRestart("unknown-$errorCode")
+                    }
+                }
             }
         }
         
@@ -418,6 +445,23 @@ class BluetoothGattServerManager(
         }
     }
     
+    /**
+     * Schedule an advertising restart with incremental backoff after a transient failure.
+     */
+    private fun scheduleAdvertiseRestart(reason: String) {
+        advertiseRetryCount++
+        val delayMs = (ADVERTISE_RETRY_BASE_MS * advertiseRetryCount).coerceAtMost(ADVERTISE_MAX_RETRY_DELAY_MS)
+        Log.w(TAG, "Scheduling advertising restart in ${delayMs}ms (attempt $advertiseRetryCount, reason=$reason)")
+        connectionScope.launch {
+            delay(delayMs)
+            if (isActive && isServerRoleEnabled()) {
+                stopAdvertising()
+                delay(100)
+                startAdvertising()
+            }
+        }
+    }
+
     /**
      * Restart advertising (for power mode changes)
      */

@@ -1500,18 +1500,10 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
 }
 
 /**
- * Delegate interface for mesh service callbacks (maintains exact same interface)
+ * Delegate interface for BLE mesh callbacks. Extends the shared mesh delegate so
+ * transport-agnostic facades can receive the same callback stream.
  */
-interface BluetoothMeshDelegate {
-    fun didReceiveMessage(message: BitchatMessage)
-    fun didUpdatePeerList(peers: List<String>)
-    fun didReceiveChannelLeave(channel: String, fromPeer: String)
-    fun didReceiveDeliveryAck(messageID: String, recipientPeerID: String)
-    fun didReceiveReadReceipt(messageID: String, recipientPeerID: String)
-    fun didReceiveVerifyChallenge(peerID: String, payload: ByteArray, timestampMs: Long)
-    fun didReceiveVerifyResponse(peerID: String, payload: ByteArray, timestampMs: Long)
-    fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String?
-    fun getNickname(): String?
-    fun isFavorite(peerID: String): Boolean
-    // registerPeerPublicKey REMOVED - fingerprints now handled centrally in PeerManager
+interface BluetoothMeshDelegate : MeshDelegate {
+    override fun didReceiveVerifyChallenge(peerID: String, payload: ByteArray, timestampMs: Long)
+    override fun didReceiveVerifyResponse(peerID: String, payload: ByteArray, timestampMs: Long)
 }

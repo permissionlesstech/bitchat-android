@@ -2,6 +2,7 @@ package com.bitchat.android.service
 
 import android.content.Context
 import com.bitchat.android.mesh.BluetoothMeshService
+import com.bitchat.android.mesh.UnifiedMeshService
 
 /**
  * Process-wide holder to share a single BluetoothMeshService instance
@@ -17,6 +18,10 @@ object MeshServiceHolder {
 
     @Volatile
     var meshService: BluetoothMeshService? = null
+        private set
+
+    @Volatile
+    var unifiedMeshService: UnifiedMeshService? = null
         private set
 
     @Synchronized
@@ -37,18 +42,35 @@ object MeshServiceHolder {
                     val created = BluetoothMeshService(context.applicationContext)
                     android.util.Log.i(TAG, "Created new BluetoothMeshService (replacement)")
                     meshService = created
+                    unifiedMeshService = null
                     created
                 }
             } catch (e: Exception) {
                 android.util.Log.e(TAG, "Error checking service reusability; creating new instance: ${e.message}")
                 val created = BluetoothMeshService(context.applicationContext)
                 meshService = created
+                unifiedMeshService = null
                 created
             }
         }
         val created = BluetoothMeshService(context.applicationContext)
         android.util.Log.i(TAG, "Created new BluetoothMeshService (no existing instance)")
         meshService = created
+        unifiedMeshService = null
+        return created
+    }
+
+    @Synchronized
+    fun getUnifiedOrCreate(context: Context): UnifiedMeshService {
+        val bluetooth = getOrCreate(context)
+        val existing = unifiedMeshService
+        if (existing != null) {
+            existing.refreshDelegates()
+            return existing
+        }
+        val created = UnifiedMeshService(context.applicationContext, bluetooth)
+        unifiedMeshService = created
+        android.util.Log.i(TAG, "Created new UnifiedMeshService")
         return created
     }
 
@@ -56,11 +78,13 @@ object MeshServiceHolder {
     fun attach(service: BluetoothMeshService) {
         android.util.Log.d(TAG, "Attaching BluetoothMeshService to holder")
         meshService = service
+        unifiedMeshService = null
     }
 
     @Synchronized
     fun clear() {
         android.util.Log.d(TAG, "Clearing BluetoothMeshService from holder")
         meshService = null
+        unifiedMeshService = null
     }
 }

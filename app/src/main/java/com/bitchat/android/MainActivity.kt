@@ -19,6 +19,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.Lifecycle
 import com.bitchat.android.mesh.BluetoothMeshService
+import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.onboarding.BluetoothCheckScreen
 import com.bitchat.android.onboarding.BluetoothStatus
 import com.bitchat.android.onboarding.BluetoothStatusManager
@@ -41,7 +42,6 @@ import com.bitchat.android.ui.ChatViewModel
 import com.bitchat.android.ui.OrientationAwareActivity
 import com.bitchat.android.ui.theme.BitchatTheme
 import com.bitchat.android.wifiaware.WifiAwareController
-import com.bitchat.android.wifiaware.WifiAwareMeshDelegate
 import com.bitchat.android.nostr.PoWPreferenceManager
 import com.bitchat.android.services.VerificationService
 import kotlinx.coroutines.delay
@@ -57,43 +57,13 @@ class MainActivity : OrientationAwareActivity() {
     
     // Core mesh service - provided by the foreground service holder
     private lateinit var meshService: BluetoothMeshService
+    private lateinit var unifiedMeshService: MeshService
     private val mainViewModel: MainViewModel by viewModels()
     private val chatViewModel: ChatViewModel by viewModels { 
         object : ViewModelProvider.Factory {
             override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
                 @Suppress("UNCHECKED_CAST")
-                return ChatViewModel(application, meshService) as T
-            }
-        }
-    }
-
-    private val wifiAwareDelegate by lazy {
-        object : WifiAwareMeshDelegate {
-            override fun didReceiveMessage(message: com.bitchat.android.model.BitchatMessage) {
-                chatViewModel.didReceiveMessage(message)
-            }
-            override fun didUpdatePeerList(peers: List<String>) {
-                chatViewModel.onWifiPeersUpdated(peers)
-            }
-            override fun didReceiveChannelLeave(channel: String, fromPeer: String) {
-                chatViewModel.didReceiveChannelLeave(channel, fromPeer)
-            }
-            override fun didReceiveDeliveryAck(messageID: String, recipientPeerID: String) {
-                chatViewModel.didReceiveDeliveryAck(messageID, recipientPeerID)
-            }
-            override fun didReceiveReadReceipt(messageID: String, recipientPeerID: String) {
-                chatViewModel.didReceiveReadReceipt(messageID, recipientPeerID)
-            }
-            override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {
-                return chatViewModel.decryptChannelMessage(encryptedContent, channel)
-            }
-            override fun getNickname(): String? {
-                return chatViewModel.getNickname()
-            }
-            override fun isFavorite(peerID: String): Boolean {
-                return try {
-                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(peerID)?.isMutual == true
-                } catch (_: Exception) { false }
+                return ChatViewModel(application, meshService, unifiedMeshService) as T
             }
         }
     }
@@ -147,6 +117,7 @@ class MainActivity : OrientationAwareActivity() {
         // Ensure foreground service is running and get mesh instance from holder
         try { com.bitchat.android.service.MeshForegroundService.start(applicationContext) } catch (_: Exception) { }
         meshService = com.bitchat.android.service.MeshServiceHolder.getOrCreate(applicationContext)
+        unifiedMeshService = com.bitchat.android.service.MeshServiceHolder.getUnifiedOrCreate(applicationContext)
         // Expose BLE mesh to Wi‑Fi Aware controller for cross-transport relays - DEPRECATED
         // Bridging is now handled by TransportBridgeService automatically
         
@@ -201,13 +172,12 @@ class MainActivity : OrientationAwareActivity() {
             }
         }
 
-        // Bridge Wi‑Fi Aware callbacks into ChatViewModel (reusing BLE delegate methods)
+        // Keep the unified mesh delegate attached when Wi-Fi Aware starts after the UI.
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 WifiAwareController.running.collect { running ->
-                    val svc = WifiAwareController.getService()
-                    if (running && svc != null && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
-                        svc.delegate = wifiAwareDelegate
+                    if (running && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                        unifiedMeshService.delegate = chatViewModel
                     }
                 }
             }
@@ -742,9 +712,9 @@ class MainActivity : OrientationAwareActivity() {
                     return@launch
                 }
 
-                // Set up mesh service delegate and start services
-                meshService.delegate = chatViewModel
-                meshService.startServices()
+                // Set up unified mesh delegate and start enabled transports
+                unifiedMeshService.delegate = chatViewModel
+                unifiedMeshService.startServices()
                 
                 Log.d("MainActivity", "Mesh service started successfully")
                 
@@ -788,8 +758,7 @@ class MainActivity : OrientationAwareActivity() {
         // Check Bluetooth and Location status on resume and handle accordingly
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
             // Reattach mesh delegate to new ChatViewModel instance after Activity recreation
-            try { meshService.delegate = chatViewModel } catch (_: Exception) { }
-            try { WifiAwareController.getService()?.delegate = wifiAwareDelegate } catch (_: Exception) { }
+            try { unifiedMeshService.delegate = chatViewModel } catch (_: Exception) { }
 
             // Check if Bluetooth was disabled while app was backgrounded
             val currentBluetoothStatus = bluetoothStatusManager.checkBluetoothStatus()
@@ -821,8 +790,7 @@ class MainActivity : OrientationAwareActivity() {
         // Only set background state if app is fully initialized
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
             // Detach UI delegate so the foreground service can own DM notifications while UI is closed
-            try { meshService.delegate = null } catch (_: Exception) { }
-            try { WifiAwareController.getService()?.delegate = null } catch (_: Exception) { }
+            try { unifiedMeshService.delegate = null } catch (_: Exception) { }
         }
     }
     

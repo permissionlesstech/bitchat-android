@@ -656,7 +656,7 @@ private fun meshTitleWithCount(viewModel: ChatViewModel): String {
 }
 
 private fun meshCount(viewModel: ChatViewModel): Int {
-    val myID = viewModel.meshService.myPeerID
+    val myID = viewModel.myPeerID
     return viewModel.connectedPeers.value?.count { peerID ->
         peerID != myID
     } ?: 0

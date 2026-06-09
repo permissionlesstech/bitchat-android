@@ -337,7 +337,7 @@ fun PeopleSection(
         // Build mapping of connected peerID -> noise key hex to unify with offline favorites
         val noiseHexByPeerID: Map<String, String> = connectedPeers.associateWith { pid ->
             try {
-                viewModel.meshService.getPeerInfo(pid)?.noisePublicKey?.joinToString("") { b -> "%02x".format(b) }
+                viewModel.getMeshPeerInfo(pid)?.noisePublicKey?.joinToString("") { b -> "%02x".format(b) }
             } catch (_: Exception) { null }
         }.filterValues { it != null }.mapValues { it.value!! }
 
@@ -415,7 +415,7 @@ fun PeopleSection(
             val showHash = (baseNameCounts[bName] ?: 0) > 1
 
             val directMap by viewModel.peerDirect.collectAsStateWithLifecycle()
-            val isDirectLive = directMap[peerID] ?: try { viewModel.meshService.getPeerInfo(peerID)?.isDirectConnection == true } catch (_: Exception) { false }
+            val isDirectLive = directMap[peerID] ?: try { viewModel.getMeshPeerInfo(peerID)?.isDirectConnection == true } catch (_: Exception) { false }
             PeerItem(
                 peerID = peerID,
                 displayName = displayName,
@@ -787,6 +787,8 @@ fun PrivateChatSheet(
     val peerFingerprints by viewModel.peerFingerprints.collectAsStateWithLifecycle()
 
     val verifiedFingerprints by viewModel.verifiedFingerprints.collectAsStateWithLifecycle()
+    val wifiAwareConnected by com.bitchat.android.wifiaware.WifiAwareController.connectedPeers.collectAsStateWithLifecycle()
+    val isWifiAware = peerID in wifiAwareConnected.keys
 
     // Start private chat when screen opens
     LaunchedEffect(peerID) {
@@ -855,7 +857,7 @@ fun PrivateChatSheet(
                     MessagesList(
                         messages = messages,
                         currentUserNickname = nickname,
-                        meshService = viewModel.meshService,
+                        meshService = viewModel.meshServiceFacade,
                         modifier = Modifier.weight(1f),
                         forceScrollToBottom = forceScrollToBottom,
                         onScrolledUpChanged = { isUp -> isScrolledUp = isUp },
@@ -939,10 +941,26 @@ fun PrivateChatSheet(
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             when {
+                                isNostrPeer -> {
+                                    Icon(
+                                        imageVector = Icons.Filled.Public,
+                                        contentDescription = stringResource(R.string.cd_nostr_reachable),
+                                        modifier = Modifier.size(14.dp),
+                                        tint = Color(0xFF9C27B0)
+                                    )
+                                }
+                                isWifiAware -> {
+                                    Icon(
+                                        imageVector = Icons.Filled.Wifi,
+                                        contentDescription = "Direct Wi-Fi Aware",
+                                        modifier = Modifier.size(14.dp),
+                                        tint = colorScheme.onSurface.copy(alpha = 0.6f)
+                                    )
+                                }
                                 isDirect -> {
                                     Icon(
-                                        imageVector = Icons.Outlined.SettingsInputAntenna,
-                                        contentDescription = stringResource(R.string.cd_connected_peers),
+                                        imageVector = Icons.Outlined.Bluetooth,
+                                        contentDescription = "Direct Bluetooth",
                                         modifier = Modifier.size(14.dp),
                                         tint = colorScheme.onSurface.copy(alpha = 0.6f)
                                     )
@@ -950,17 +968,9 @@ fun PrivateChatSheet(
                                 isConnected -> {
                                     Icon(
                                         imageVector = Icons.Filled.Route,
-                                        contentDescription = stringResource(R.string.cd_ready_for_handshake),
+                                        contentDescription = "Routed",
                                         modifier = Modifier.size(14.dp),
                                         tint = colorScheme.onSurface.copy(alpha = 0.6f)
-                                    )
-                                }
-                                isNostrPeer -> {
-                                    Icon(
-                                        imageVector = Icons.Filled.Public,
-                                        contentDescription = stringResource(R.string.cd_nostr_reachable),
-                                        modifier = Modifier.size(14.dp),
-                                        tint = Color(0xFF9C27B0)
                                     )
                                 }
                             }

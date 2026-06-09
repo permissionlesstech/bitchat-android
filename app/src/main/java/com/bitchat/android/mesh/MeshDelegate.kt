@@ -11,6 +11,8 @@ interface MeshDelegate {
     fun didReceiveChannelLeave(channel: String, fromPeer: String)
     fun didReceiveDeliveryAck(messageID: String, recipientPeerID: String)
     fun didReceiveReadReceipt(messageID: String, recipientPeerID: String)
+    fun didReceiveVerifyChallenge(peerID: String, payload: ByteArray, timestampMs: Long) {}
+    fun didReceiveVerifyResponse(peerID: String, payload: ByteArray, timestampMs: Long) {}
     fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String?
     fun getNickname(): String?
     fun isFavorite(peerID: String): Boolean

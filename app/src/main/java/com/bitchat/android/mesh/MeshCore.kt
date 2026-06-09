@@ -315,11 +315,11 @@ class MeshCore(
             }
 
             override fun onVerifyChallengeReceived(peerID: String, payload: ByteArray, timestampMs: Long) {
-                // MeshDelegate intentionally does not expose QR verification yet.
+                delegate?.didReceiveVerifyChallenge(peerID, payload, timestampMs)
             }
 
             override fun onVerifyResponseReceived(peerID: String, payload: ByteArray, timestampMs: Long) {
-                // MeshDelegate intentionally does not expose QR verification yet.
+                delegate?.didReceiveVerifyResponse(peerID, payload, timestampMs)
             }
         }
 
@@ -549,6 +549,44 @@ class MeshCore(
         }
     }
 
+    fun sendVerifyChallenge(peerID: String, noiseKeyHex: String, nonceA: ByteArray) {
+        val payload = NoisePayload(
+            type = NoisePayloadType.VERIFY_CHALLENGE,
+            data = com.bitchat.android.services.VerificationService.buildVerifyChallenge(noiseKeyHex, nonceA)
+        )
+        sendNoisePayloadToPeer(payload, peerID)
+    }
+
+    fun sendVerifyResponse(peerID: String, noiseKeyHex: String, nonceA: ByteArray) {
+        val tlv = com.bitchat.android.services.VerificationService.buildVerifyResponse(noiseKeyHex, nonceA) ?: return
+        val payload = NoisePayload(
+            type = NoisePayloadType.VERIFY_RESPONSE,
+            data = tlv
+        )
+        sendNoisePayloadToPeer(payload, peerID)
+    }
+
+    private fun sendNoisePayloadToPeer(payload: NoisePayload, recipientPeerID: String) {
+        scope.launch {
+            try {
+                val encrypted = encryptionService.encrypt(payload.encode(), recipientPeerID)
+                val packet = BitchatPacket(
+                    version = 1u,
+                    type = MessageType.NOISE_ENCRYPTED.value,
+                    senderID = MeshPacketUtils.hexStringToByteArray(myPeerID),
+                    recipientID = MeshPacketUtils.hexStringToByteArray(recipientPeerID),
+                    timestamp = System.currentTimeMillis().toULong(),
+                    payload = encrypted,
+                    signature = null,
+                    ttl = maxTtl
+                )
+                dispatchGlobal(RoutedPacket(signPacketBeforeBroadcast(packet)))
+            } catch (e: Exception) {
+                Log.e("MeshCore", "Failed to send Noise payload to $recipientPeerID: ${e.message}")
+            }
+        }
+    }
+
     fun sendBroadcastAnnounce() {
         scope.launch {
             val nickname = hooks.announcementNicknameProvider?.invoke()
@@ -717,6 +755,8 @@ class MeshCore(
     ): Boolean = peerManager.updatePeerInfo(peerID, nickname, noisePublicKey, signingPublicKey, isVerified)
 
     fun getIdentityFingerprint(): String = encryptionService.getIdentityFingerprint()
+
+    fun getStaticNoisePublicKey(): ByteArray? = encryptionService.getStaticPublicKey()
 
     fun shouldShowEncryptionIcon(peerID: String): Boolean = encryptionService.hasEstablishedSession(peerID)
 

@@ -31,7 +31,7 @@ import android.content.Intent
 import android.net.Uri
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
-import com.bitchat.android.mesh.BluetoothMeshService
+import com.bitchat.android.mesh.MeshService
 import java.text.SimpleDateFormat
 import java.util.*
 import com.bitchat.android.ui.media.VoiceNotePlayer
@@ -58,7 +58,7 @@ import androidx.compose.ui.res.stringResource
 fun MessagesList(
     messages: List<BitchatMessage>,
     currentUserNickname: String,
-    meshService: BluetoothMeshService,
+    meshService: MeshService,
     modifier: Modifier = Modifier,
     forceScrollToBottom: Boolean = false,
     onScrolledUpChanged: ((Boolean) -> Unit)? = null,
@@ -137,7 +137,7 @@ fun MessagesList(
 fun MessageItem(
     message: BitchatMessage,
     currentUserNickname: String,
-    meshService: BluetoothMeshService,
+    meshService: MeshService,
     messages: List<BitchatMessage> = emptyList(),
     onNicknameClick: ((String) -> Unit)? = null,
     onMessageLongPress: ((BitchatMessage) -> Unit)? = null,
@@ -201,7 +201,7 @@ fun MessageItem(
         message: BitchatMessage,
         messages: List<BitchatMessage>,
         currentUserNickname: String,
-        meshService: BluetoothMeshService,
+        meshService: MeshService,
         colorScheme: ColorScheme,
         timeFormatter: SimpleDateFormat,
         onNicknameClick: ((String) -> Unit)?,

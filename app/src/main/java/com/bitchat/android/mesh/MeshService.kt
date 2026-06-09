@@ -15,6 +15,10 @@ interface MeshService {
     fun sendMessage(content: String, mentions: List<String> = emptyList(), channel: String? = null)
     fun sendPrivateMessage(content: String, recipientPeerID: String, recipientNickname: String, messageID: String? = null)
     fun sendReadReceipt(messageID: String, recipientPeerID: String, readerNickname: String)
+    fun sendDeliveryAck(messageID: String, recipientPeerID: String) {}
+    fun sendFavoriteNotification(peerID: String, isFavorite: Boolean) {}
+    fun sendVerifyChallenge(peerID: String, noiseKeyHex: String, nonceA: ByteArray)
+    fun sendVerifyResponse(peerID: String, noiseKeyHex: String, nonceA: ByteArray)
     fun sendFileBroadcast(file: BitchatFilePacket)
     fun sendFilePrivate(recipientPeerID: String, file: BitchatFilePacket)
     fun cancelFileTransfer(transferId: String): Boolean
@@ -38,6 +42,7 @@ interface MeshService {
         isVerified: Boolean
     ): Boolean
     fun getIdentityFingerprint(): String
+    fun getStaticNoisePublicKey(): ByteArray?
     fun shouldShowEncryptionIcon(peerID: String): Boolean
     fun getEncryptedPeers(): List<String>
 

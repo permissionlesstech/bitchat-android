@@ -1103,6 +1103,14 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
         meshCore.sendReadReceipt(messageID, recipientPeerID, readerNickname)
     }
 
+    override fun sendVerifyChallenge(peerID: String, noiseKeyHex: String, nonceA: ByteArray) {
+        meshCore.sendVerifyChallenge(peerID, noiseKeyHex, nonceA)
+    }
+
+    override fun sendVerifyResponse(peerID: String, noiseKeyHex: String, nonceA: ByteArray) {
+        meshCore.sendVerifyResponse(peerID, noiseKeyHex, nonceA)
+    }
+
     /**
      * Broadcasts a file (TLV payload) to all peers. Uses protocol version 2 to support
      * large payloads and generates a deterministic transferId (sha256 of payload) for UI/state.
@@ -1204,6 +1212,8 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
      * @return the local device’s long-term identity fingerprint (hex).
      */
     override fun getIdentityFingerprint(): String = meshCore.getIdentityFingerprint()
+
+    override fun getStaticNoisePublicKey(): ByteArray? = meshCore.getStaticNoisePublicKey()
 
     /**
      * @return true if the UI should show an “encrypted” indicator for this peer.

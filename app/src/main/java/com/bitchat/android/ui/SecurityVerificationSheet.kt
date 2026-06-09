@@ -134,7 +134,7 @@ fun SecurityVerificationSheet(
                     displayName = displayName,
                     accent = accent,
                     canStartHandshake = fingerprint == null && selectedPeerID.matches(peerHexRegex),
-                    onStartHandshake = { viewModel.meshService.initiateNoiseHandshake(selectedPeerID) },
+                    onStartHandshake = { viewModel.initiateMeshHandshake(selectedPeerID) },
                     onVerify = { fp -> viewModel.verifyFingerprintValue(fp) },
                     onUnverify = { fp -> viewModel.unverifyFingerprintValue(fp) }
                 )

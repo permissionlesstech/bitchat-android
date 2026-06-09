@@ -2,7 +2,7 @@ package com.bitchat.android.ui
 
 import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.ui.NotificationTextUtils
-import com.bitchat.android.mesh.BluetoothMeshService
+import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import kotlinx.coroutines.CoroutineScope
@@ -21,7 +21,7 @@ class MeshDelegateHandler(
     private val coroutineScope: CoroutineScope,
     private val onHapticFeedback: () -> Unit,
     private val getMyPeerID: () -> String,
-    private val getMeshService: () -> BluetoothMeshService
+    private val getMeshService: () -> MeshService
 ) : BluetoothMeshDelegate {
 
     override fun didReceiveMessage(message: BitchatMessage) {
@@ -94,30 +94,13 @@ class MeshDelegateHandler(
         }
     }
     
-    private var blePeers: Set<String> = emptySet()
-    private var wifiPeers: Set<String> = emptySet()
-
     override fun didUpdatePeerList(peers: List<String>) {
         coroutineScope.launch {
-            blePeers = peers.toSet()
-            try { com.bitchat.android.services.AppStateStore.setTransportPeers("BLE", peers) } catch (_: Exception) { }
-            processPeerUpdate()
+            processPeerUpdate(peers.distinct())
         }
     }
 
-    fun onWifiPeersUpdated(peers: List<String>) {
-        coroutineScope.launch {
-            wifiPeers = peers.toSet()
-            try { com.bitchat.android.services.AppStateStore.setTransportPeers("WIFI", peers) } catch (_: Exception) { }
-            processPeerUpdate()
-        }
-    }
-
-    private suspend fun processPeerUpdate() {
-        // Merge peers from multiple transports
-        val mergedPeers = com.bitchat.android.services.AppStateStore.peers.value
-            .ifEmpty { (blePeers + wifiPeers).toList() }
-
+    private suspend fun processPeerUpdate(mergedPeers: List<String>) {
         state.setConnectedPeers(mergedPeers)
         state.setIsConnected(mergedPeers.isNotEmpty())
         notificationManager.showActiveUserNotification(mergedPeers)
@@ -323,14 +306,7 @@ class MeshDelegateHandler(
                         mesh.sendReadReceipt(message.id, senderPeerID, nickname)
                         true
                     } else {
-                        val aware = try { com.bitchat.android.wifiaware.WifiAwareController.getService() } catch (_: Exception) { null }
-                        val hasAware = try { aware?.getPeerInfo(senderPeerID)?.isConnected == true && aware.hasEstablishedSession(senderPeerID) } catch (_: Exception) { false }
-                        if (hasAware) {
-                            aware?.sendReadReceipt(message.id, senderPeerID, nickname)
-                            true
-                        } else {
-                            false
-                        }
+                        false
                     }
                 } catch (_: Exception) {
                     false
