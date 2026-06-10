@@ -44,7 +44,7 @@ class DebugSettingsManager private constructor() {
     private val _bleEnabled = MutableStateFlow(true)
     val bleEnabled: StateFlow<Boolean> = _bleEnabled.asStateFlow()
 
-    private val _wifiAwareEnabled = MutableStateFlow(false)
+    private val _wifiAwareEnabled = MutableStateFlow(true)
     val wifiAwareEnabled: StateFlow<Boolean> = _wifiAwareEnabled.asStateFlow()
 
     // Master transport toggles
@@ -76,7 +76,7 @@ class DebugSettingsManager private constructor() {
             _maxClientConnections.value = DebugPreferenceManager.getMaxConnectionsClient(8)
             // Transport toggles
             _bleEnabled.value = DebugPreferenceManager.getBleEnabled(true)
-            _wifiAwareEnabled.value = DebugPreferenceManager.getWifiAwareEnabled(false)
+            _wifiAwareEnabled.value = DebugPreferenceManager.getWifiAwareEnabled(true)
             _wifiAwareVerbose.value = DebugPreferenceManager.getWifiAwareVerbose(false)
         } catch (_: Exception) {
             // Preferences not ready yet; keep defaults. They will be applied on first change.

@@ -318,6 +318,15 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             Log.i(TAG, "Wi-Fi Aware transport disabled by debug settings; not starting")
             return
         }
+        val supportStatus = com.bitchat.android.wifiaware.WifiAwareSupport.evaluate(context)
+        if (!supportStatus.supported) {
+            Log.i(TAG, "Wi-Fi Aware unsupported on this device; not starting (${supportStatus.reason})")
+            return
+        }
+        if (!supportStatus.available) {
+            Log.i(TAG, "Wi-Fi Aware unavailable right now; not starting (${supportStatus.reason})")
+            return
+        }
         if (recoveryInProgress) {
             Log.i(TAG, "Wi-Fi Aware recovery cleanup still in progress; deferring start")
             return

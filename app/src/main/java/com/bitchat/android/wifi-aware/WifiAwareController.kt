@@ -30,11 +30,21 @@ object WifiAwareController {
     private var starting = false
     private val restartInFlight = AtomicBoolean(false)
     private var awareReceiverRegistered = false
+    private var lastBlockedReason: String? = null
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private val _enabled = MutableStateFlow(false)
     val enabled: StateFlow<Boolean> = _enabled.asStateFlow()
+
+    private val _supported = MutableStateFlow(false)
+    val supported: StateFlow<Boolean> = _supported.asStateFlow()
+
+    private val _available = MutableStateFlow(false)
+    val available: StateFlow<Boolean> = _available.asStateFlow()
+
+    private val _supportStatus = MutableStateFlow<WifiAwareSupport.Status?>(null)
+    val supportStatus: StateFlow<WifiAwareSupport.Status?> = _supportStatus.asStateFlow()
 
     private val _running = MutableStateFlow(false)
     val running: StateFlow<Boolean> = _running.asStateFlow()
@@ -51,7 +61,12 @@ object WifiAwareController {
 
     fun initialize(context: Context, enabledByDefault: Boolean) {
         appContext = context.applicationContext
-        registerAwareStateReceiver(appContext!!)
+        val status = refreshSupportStatus(appContext!!)
+        if (status.supported) {
+            registerAwareStateReceiver(appContext!!)
+        } else {
+            Log.i(TAG, "Wi-Fi Aware unsupported: ${status.reason}")
+        }
         setEnabled(enabledByDefault)
         // Start background poller for debug surfacing
         scope.launch {
@@ -95,16 +110,20 @@ object WifiAwareController {
             synchronized(lifecycleLock) { starting = false }
             return
         }
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            Log.w(TAG, "Wi‑Fi Aware requires Android 10 (Q)+; disabled.")
-            try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware not supported on this device (requires Android 10+)")) } catch (_: Exception) {}
+
+        val status = refreshSupportStatus(ctx)
+        if (!status.supported) {
+            val reason = status.reason ?: "not supported"
+            Log.w(TAG, "Wi‑Fi Aware unsupported; not starting ($reason)")
+            addBlockedDebugMessage("unsupported:$reason", "Wi-Fi Aware not supported on this device ($reason)")
             synchronized(lifecycleLock) { starting = false }
             return
         }
-        val awareManager = ctx.getSystemService(android.net.wifi.aware.WifiAwareManager::class.java)
-        if (awareManager == null || !awareManager.isAvailable) {
+
+        val awareManager = WifiAwareSupport.getManager(ctx)
+        if (awareManager == null || !status.available) {
             Log.w(TAG, "Wi-Fi Aware is not currently available; not starting")
-            try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware is not available on this device right now")) } catch (_: Exception) {}
+            addBlockedDebugMessage("unavailable", "Wi-Fi Aware is not available right now")
             synchronized(lifecycleLock) { starting = false }
             return
         }
@@ -121,7 +140,7 @@ object WifiAwareController {
 
         if (!locationEnabled) {
             Log.w(TAG, "Location services are disabled; Wi-Fi Aware cannot start.")
-            try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Enable Location Services to start Wi-Fi Aware")) } catch (_: Exception) {}
+            addBlockedDebugMessage("location-disabled", "Enable Location Services to start Wi-Fi Aware")
             synchronized(lifecycleLock) { starting = false }
             return
         }
@@ -131,7 +150,7 @@ object WifiAwareController {
             val granted = androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.NEARBY_WIFI_DEVICES) == android.content.pm.PackageManager.PERMISSION_GRANTED
             if (!granted) {
                 Log.w(TAG, "Missing NEARBY_WIFI_DEVICES permission; not starting Wi‑Fi Aware")
-                try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Grant Nearby Wi‑Fi Devices to start Wi‑Fi Aware")) } catch (_: Exception) {}
+                addBlockedDebugMessage("missing-nearby-wifi", "Grant Nearby Wi-Fi Devices to start Wi-Fi Aware")
                 synchronized(lifecycleLock) { starting = false }
                 return
             }
@@ -152,6 +171,7 @@ object WifiAwareController {
                     _running.value = true
                 }
                 try { com.bitchat.android.service.MeshServiceHolder.unifiedMeshService?.refreshDelegates() } catch (_: Exception) { }
+                clearBlockedDebugMessage()
                 try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage("Wi‑Fi Aware started")) } catch (_: Exception) {}
             } else {
                 if (reusableService == null) {
@@ -216,6 +236,8 @@ object WifiAwareController {
                 if (delayMs > 0L) delay(delayMs)
                 var attempt = 0
                 while (_enabled.value && !_running.value && attempt < MAX_RESTART_ATTEMPTS) {
+                    val ctx = appContext
+                    if (ctx != null && !refreshSupportStatus(ctx).supported) break
                     startIfPossible()
                     if (_running.value) break
                     attempt++
@@ -234,17 +256,16 @@ object WifiAwareController {
      */
     private fun registerAwareStateReceiver(ctx: Context) {
         if (awareReceiverRegistered) return
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        if (!refreshSupportStatus(ctx).supported) return
         try {
             val filter = android.content.IntentFilter(
                 android.net.wifi.aware.WifiAwareManager.ACTION_WIFI_AWARE_STATE_CHANGED
             )
             ctx.registerReceiver(object : android.content.BroadcastReceiver() {
                 override fun onReceive(c: Context?, intent: android.content.Intent?) {
-                    val mgr = ctx.getSystemService(android.net.wifi.aware.WifiAwareManager::class.java)
-                    val available = mgr?.isAvailable == true
-                    Log.i(TAG, "Wi-Fi Aware availability changed: available=$available enabled=${_enabled.value} running=${_running.value}")
-                    if (available) {
+                    val status = refreshSupportStatus(ctx)
+                    Log.i(TAG, "Wi-Fi Aware availability changed: supported=${status.supported} available=${status.available} enabled=${_enabled.value} running=${_running.value}")
+                    if (status.available) {
                         if (_enabled.value) restartIfStillEnabled(500)
                     } else if (_running.value) {
                         // Aware went away; tear down cleanly so we can re-attach when it returns.
@@ -257,6 +278,27 @@ object WifiAwareController {
         } catch (e: Exception) {
             Log.w(TAG, "Failed to register Wi-Fi Aware state receiver: ${e.message}")
         }
+    }
+
+    private fun refreshSupportStatus(ctx: Context): WifiAwareSupport.Status {
+        val status = WifiAwareSupport.evaluate(ctx)
+        _supported.value = status.supported
+        _available.value = status.available
+        _supportStatus.value = status
+        return status
+    }
+
+    private fun addBlockedDebugMessage(key: String, message: String) {
+        if (lastBlockedReason == key) return
+        lastBlockedReason = key
+        try {
+            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
+                .addDebugMessage(com.bitchat.android.ui.debug.DebugMessage.SystemMessage(message))
+        } catch (_: Exception) { }
+    }
+
+    private fun clearBlockedDebugMessage() {
+        lastBlockedReason = null
     }
 
     fun getService(): WifiAwareMeshService? = service
