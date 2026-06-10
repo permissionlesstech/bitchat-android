@@ -1,6 +1,7 @@
 package com.bitchat.android.protocol
 
 import android.os.Parcelable
+import com.bitchat.android.util.PeerId
 import kotlinx.parcelize.Parcelize
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -71,7 +72,7 @@ data class BitchatPacket(
     ) : this(
         version = 1u,
         type = type,
-        senderID = hexStringToByteArray(senderID),
+        senderID = PeerId.toBytes(senderID),
         recipientID = null,
         timestamp = (System.currentTimeMillis()).toULong(),
         payload = payload,
@@ -107,27 +108,6 @@ data class BitchatPacket(
     companion object {
         fun fromBinaryData(data: ByteArray): BitchatPacket? {
             return BinaryProtocol.decode(data)
-        }
-        
-        /**
-         * Convert hex string peer ID to binary data (8 bytes) - exactly same as iOS
-         */
-        private fun hexStringToByteArray(hexString: String): ByteArray {
-            val result = ByteArray(8) { 0 } // Initialize with zeros, exactly 8 bytes
-            var tempID = hexString
-            var index = 0
-            
-            while (tempID.length >= 2 && index < 8) {
-                val hexByte = tempID.substring(0, 2)
-                val byte = hexByte.toIntOrNull(16)?.toByte()
-                if (byte != null) {
-                    result[index] = byte
-                }
-                tempID = tempID.substring(2)
-                index++
-            }
-            
-            return result
         }
     }
 

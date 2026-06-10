@@ -2,7 +2,6 @@ package com.bitchat.android.ui
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import java.security.MessageDigest
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec

@@ -5,6 +5,8 @@ import android.util.Log
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.ReadReceipt
 import com.bitchat.android.nostr.NostrTransport
+import com.bitchat.android.util.hexToByteArrayOrNull
+import com.bitchat.android.util.toHexString
 
 /**
  * Routes messages between BLE mesh and Nostr transports, matching iOS behavior.
@@ -164,7 +166,7 @@ class MessageRouter private constructor(
         return try {
             // Full Noise key hex
             if (peerID.length == 64 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
-                val noiseKey = hexToBytes(peerID)
+                val noiseKey = peerID.hexToByteArrayOrNull() ?: return false
                 val fav = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)
                 fav?.isMutual == true && fav.peerNostrPublicKey != null
             } else if (peerID.length == 16 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
@@ -177,16 +179,11 @@ class MessageRouter private constructor(
         } catch (_: Exception) { false }
     }
 
-    private fun hexToBytes(hex: String): ByteArray {
-        val clean = if (hex.length % 2 == 0) hex else "0$hex"
-        return clean.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
-    }
-
     private fun resolveMeshPeerForNoiseHex(noiseHex: String): String? {
         return try {
             mesh.getPeerNicknames().keys.firstOrNull { pid ->
                 val info = mesh.getPeerInfo(pid)
-                val keyHex = info?.noisePublicKey?.joinToString("") { b -> "%02x".format(b) }
+                val keyHex = info?.noisePublicKey?.toHexString()
                 keyHex != null && keyHex.equals(noiseHex, ignoreCase = true)
             }
         } catch (_: Exception) { null }
@@ -197,7 +194,7 @@ class MessageRouter private constructor(
         peers.forEach { pid ->
             flushOutboxFor(pid)
             val noiseHex = try {
-                mesh.getPeerInfo(pid)?.noisePublicKey?.joinToString("") { b -> "%02x".format(b) }
+                mesh.getPeerInfo(pid)?.noisePublicKey?.toHexString()
             } catch (_: Exception) { null }
             noiseHex?.let { flushOutboxFor(it) }
         }
@@ -207,7 +204,7 @@ class MessageRouter private constructor(
     fun onSessionEstablished(peerID: String) {
         flushOutboxFor(peerID)
         val noiseHex = try {
-            mesh.getPeerInfo(peerID)?.noisePublicKey?.joinToString("") { b -> "%02x".format(b) }
+            mesh.getPeerInfo(peerID)?.noisePublicKey?.toHexString()
         } catch (_: Exception) { null }
         noiseHex?.let { flushOutboxFor(it) }
     }

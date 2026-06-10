@@ -2,6 +2,7 @@ package com.bitchat.android.ui
 
 import com.bitchat.android.R
 import android.util.Log
+import com.bitchat.android.util.toHexString
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -333,7 +334,7 @@ fun PeopleSection(
         // Build mapping of connected peerID -> noise key hex to unify with offline favorites
         val noiseHexByPeerID: Map<String, String> = connectedPeers.associateWith { pid ->
             try {
-                viewModel.meshService.getPeerInfo(pid)?.noisePublicKey?.joinToString("") { b -> "%02x".format(b) }
+                viewModel.meshService.getPeerInfo(pid)?.noisePublicKey?.toHexString()
             } catch (_: Exception) { null }
         }.filterValues { it != null }.mapValues { it.value!! }
 
@@ -367,7 +368,7 @@ fun PeopleSection(
         // Offline favorites (exclude ones mapped to connected)
         val offlineFavorites = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getOurFavorites()
         offlineFavorites.forEach { fav ->
-            val favPeerID = fav.peerNoisePublicKey.joinToString("") { b -> "%02x".format(b) }
+            val favPeerID = fav.peerNoisePublicKey.toHexString()
             val isMappedToConnected = noiseHexByPeerID.values.any { it.equals(favPeerID, ignoreCase = true) }
             if (!isMappedToConnected) {
                 val dn = peerNicknames[favPeerID] ?: fav.peerNickname
@@ -435,7 +436,7 @@ fun PeopleSection(
 
         // Append offline favorites we actively favorite (and not currently connected)
         offlineFavorites.forEach { fav ->
-            val favPeerID = fav.peerNoisePublicKey.joinToString("") { b -> "%02x".format(b) }
+            val favPeerID = fav.peerNoisePublicKey.toHexString()
             // If any connected peer maps to this noise key, skip showing the offline entry
             val isMappedToConnected = noiseHexByPeerID.values.any { it.equals(favPeerID, ignoreCase = true) }
             if (isMappedToConnected) return@forEach
@@ -446,7 +447,7 @@ fun PeopleSection(
                 if (npubOrHex != null) {
                     val hex = if (npubOrHex.startsWith("npub")) {
                         val (hrp, data) = com.bitchat.android.nostr.Bech32.decode(npubOrHex)
-                        if (hrp == "npub") data.joinToString("") { "%02x".format(it) } else null
+                        if (hrp == "npub") data.toHexString() else null
                     } else {
                         npubOrHex.lowercase()
                     }

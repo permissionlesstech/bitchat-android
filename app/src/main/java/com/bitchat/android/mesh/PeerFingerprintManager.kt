@@ -1,7 +1,7 @@
 package com.bitchat.android.mesh
 
 import android.util.Log
-import java.security.MessageDigest
+import com.bitchat.android.util.Hashing
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -204,9 +204,7 @@ class PeerFingerprintManager private constructor() {
      * @return The hex-encoded SHA-256 hash
      */
     private fun calculateFingerprint(publicKey: ByteArray): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        val hash = digest.digest(publicKey)
-        return hash.joinToString("") { "%02x".format(it) }
+        return Hashing.sha256Hex(publicKey)
     }
     
     /**

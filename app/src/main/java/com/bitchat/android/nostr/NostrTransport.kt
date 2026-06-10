@@ -4,6 +4,8 @@ import android.content.Context
 import android.util.Log
 import com.bitchat.android.model.ReadReceipt
 import com.bitchat.android.model.NoisePayloadType
+import com.bitchat.android.util.PeerId
+import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.*
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -79,7 +81,7 @@ class NostrTransport(
                         Log.e(TAG, "NostrTransport: recipient key not npub (hrp=$hrp)")
                         return@launch
                     }
-                    data.joinToString("") { "%02x".format(it) }
+                    data.toHexString()
                 } catch (e: Exception) {
                     Log.e(TAG, "NostrTransport: failed to decode npub -> hex: $e")
                     return@launch
@@ -174,7 +176,7 @@ class NostrTransport(
                         scheduleNextReadAck()
                         return@launch
                     }
-                    data.joinToString("") { "%02x".format(it) }
+                    data.toHexString()
                 } catch (e: Exception) {
                     scheduleNextReadAck()
                     return@launch
@@ -248,7 +250,7 @@ class NostrTransport(
                 val recipientHex = try {
                     val (hrp, data) = Bech32.decode(recipientNostrPubkey)
                     if (hrp != "npub") return@launch
-                    data.joinToString("") { "%02x".format(it) }
+                    data.toHexString()
                 } catch (e: Exception) {
                     return@launch
                 }
@@ -306,7 +308,7 @@ class NostrTransport(
                 val recipientHex = try {
                     val (hrp, data) = Bech32.decode(recipientNostrPubkey)
                     if (hrp != "npub") return@launch
-                    data.joinToString("") { "%02x".format(it) }
+                    data.toHexString()
                 } catch (e: Exception) {
                     return@launch
                 }
@@ -486,7 +488,7 @@ class NostrTransport(
             com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNostrPubkeyForPeerID(peerID)?.let { return it }
 
             // 2) Legacy path: resolve by noise public key association
-            val noiseKey = hexStringToByteArray(peerID)
+            val noiseKey = PeerId.toBytes(peerID)
             val favoriteStatus = com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(noiseKey)
             if (favoriteStatus?.peerNostrPublicKey != null) return favoriteStatus.peerNostrPublicKey
 
@@ -501,14 +503,6 @@ class NostrTransport(
             Log.e(TAG, "Failed to resolve Nostr public key for $peerID: ${e.message}")
             return null
         }
-    }
-    
-    /**
-     * Convert full hex string to byte array
-     */
-    private fun hexStringToByteArray(hexString: String): ByteArray {
-        val clean = if (hexString.length % 2 == 0) hexString else "0$hexString"
-        return clean.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
     }
     
     fun cleanup() {

@@ -10,6 +10,7 @@ import android.os.ParcelUuid
 import android.util.Log
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.util.AppConstants
+import com.bitchat.android.util.PeerId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -323,7 +324,7 @@ class BluetoothGattClientManager(
         // Try to extract peerID from Service Data (if available) for stable identity
         val serviceData = scanRecord?.getServiceData(ParcelUuid(AppConstants.Mesh.Gatt.SERVICE_UUID))
         val peerID = if (serviceData != null && serviceData.size >= 8) {
-            serviceData.joinToString("") { "%02x".format(it) }
+            PeerId.fromBytes(serviceData)
         } else {
             null
         }
@@ -515,7 +516,7 @@ class BluetoothGattClientManager(
                 Log.i(TAG, "Client: Received packet from ${gatt.device.address}, size: ${value.size} bytes")
                 val packet = BitchatPacket.fromBinaryData(value)
                 if (packet != null) {
-                    val peerID = packet.senderID.take(8).toByteArray().joinToString("") { "%02x".format(it) }
+                    val peerID = PeerId.fromBytes(packet.senderID)
                     Log.d(TAG, "Client: Parsed packet type ${packet.type} from $peerID")
                     delegate?.onPacketReceived(packet, peerID, gatt.device)
                 } else {

@@ -5,8 +5,8 @@ import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatFilePacket
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
+import com.bitchat.android.util.Hashing
 import java.util.Date
-import java.security.MessageDigest
 
 /**
  * Handles media file sending operations (voice notes, images, generic files)
@@ -181,8 +181,8 @@ class MediaSendingManager(
         }
         Log.d(TAG, "🔒 Encoded private packet: ${payload.size} bytes")
 
-        val transferId = sha256Hex(payload)
-        val contentHash = sha256Hex(filePacket.content)
+        val transferId = Hashing.sha256Hex(payload)
+        val contentHash = Hashing.sha256Hex(filePacket.content)
 
         Log.d(TAG, "📤 FILE_TRANSFER send (private): name='${filePacket.fileName}', size=${filePacket.fileSize}, mime='${filePacket.mimeType}', sha256=$contentHash, to=${toPeerID.take(8)} transferId=${transferId.take(16)}…")
 
@@ -232,8 +232,8 @@ class MediaSendingManager(
         }
         Log.d(TAG, "🔓 Encoded broadcast packet: ${payload.size} bytes")
         
-        val transferId = sha256Hex(payload)
-        val contentHash = sha256Hex(filePacket.content)
+        val transferId = Hashing.sha256Hex(payload)
+        val contentHash = Hashing.sha256Hex(filePacket.content)
         
         Log.d(TAG, "📤 FILE_TRANSFER send (broadcast): name='${filePacket.fileName}', size=${filePacket.fileSize}, mime='${filePacket.mimeType}', sha256=$contentHash, transferId=${transferId.take(16)}…")
 
@@ -339,11 +339,4 @@ class MediaSendingManager(
         }
     }
 
-    private fun sha256Hex(bytes: ByteArray): String = try {
-        val md = MessageDigest.getInstance("SHA-256")
-        md.update(bytes)
-        md.digest().joinToString("") { "%02x".format(it) }
-    } catch (_: Exception) {
-        bytes.size.toString(16)
-    }
 }

@@ -1,5 +1,9 @@
 package com.bitchat.android.model
 
+import com.bitchat.android.protocol.TlvLengthSize
+import com.bitchat.android.protocol.TlvReader
+import com.bitchat.android.protocol.TlvWriter
+import com.bitchat.android.protocol.UnknownTlvPolicy
 import com.bitchat.android.sync.SyncDefaults
 
 /**
@@ -15,30 +19,21 @@ data class RequestSyncPacket(
     val data: ByteArray
 ) {
     fun encode(): ByteArray {
-        val out = ArrayList<Byte>()
-        fun putTLV(t: Int, v: ByteArray) {
-            out.add(t.toByte())
-            val len = v.size
-            out.add(((len ushr 8) and 0xFF).toByte())
-            out.add((len and 0xFF).toByte())
-            out.addAll(v.toList())
-        }
-        // P
-        putTLV(0x01, byteArrayOf(p.toByte()))
-        // M (uint32)
         val m32 = m.coerceAtMost(0xffff_ffffL)
-        putTLV(
-            0x02,
-            byteArrayOf(
-                ((m32 ushr 24) and 0xFF).toByte(),
-                ((m32 ushr 16) and 0xFF).toByte(),
-                ((m32 ushr 8) and 0xFF).toByte(),
-                (m32 and 0xFF).toByte()
+        return TlvWriter()
+            .put(0x01, byteArrayOf(p.toByte()), TlvLengthSize.TWO_BYTES)
+            .put(
+                0x02,
+                byteArrayOf(
+                    ((m32 ushr 24) and 0xFF).toByte(),
+                    ((m32 ushr 16) and 0xFF).toByte(),
+                    ((m32 ushr 8) and 0xFF).toByte(),
+                    (m32 and 0xFF).toByte()
+                ),
+                TlvLengthSize.TWO_BYTES
             )
-        )
-        // data
-        putTLV(0x03, data)
-        return out.toByteArray()
+            .put(0x03, data, TlvLengthSize.TWO_BYTES)
+            .toByteArray()
     }
 
     companion object {
@@ -46,28 +41,30 @@ data class RequestSyncPacket(
         const val MAX_ACCEPT_FILTER_BYTES: Int = SyncDefaults.MAX_ACCEPT_FILTER_BYTES
 
         fun decode(data: ByteArray): RequestSyncPacket? {
-            var off = 0
             var p: Int? = null
             var m: Long? = null
             var payload: ByteArray? = null
 
-            while (off + 3 <= data.size) {
-                val t = (data[off].toInt() and 0xFF); off += 1
-                val len = ((data[off].toInt() and 0xFF) shl 8) or (data[off+1].toInt() and 0xFF); off += 2
-                if (off + len > data.size) return null
-                val v = data.copyOfRange(off, off + len); off += len
-                when (t) {
-                    0x01 -> if (len == 1) p = (v[0].toInt() and 0xFF)
-                    0x02 -> if (len == 4) {
-                        val mm = ((v[0].toLong() and 0xFF) shl 24) or
-                                 ((v[1].toLong() and 0xFF) shl 16) or
-                                 ((v[2].toLong() and 0xFF) shl 8) or
-                                 (v[3].toLong() and 0xFF)
+            val fields = TlvReader.decode(
+                data = data,
+                defaultLengthSize = TlvLengthSize.TWO_BYTES,
+                unknownPolicy = UnknownTlvPolicy.SKIP,
+                knownTypes = setOf(0x01, 0x02, 0x03)
+            ) ?: return null
+
+            for (field in fields) {
+                when (field.type) {
+                    0x01 -> if (field.value.size == 1) p = (field.value[0].toInt() and 0xFF)
+                    0x02 -> if (field.value.size == 4) {
+                        val mm = ((field.value[0].toLong() and 0xFF) shl 24) or
+                                 ((field.value[1].toLong() and 0xFF) shl 16) or
+                                 ((field.value[2].toLong() and 0xFF) shl 8) or
+                                 (field.value[3].toLong() and 0xFF)
                         m = mm
                     }
                     0x03 -> {
-                        if (v.size > MAX_ACCEPT_FILTER_BYTES) return null
-                        payload = v
+                        if (field.value.size > MAX_ACCEPT_FILTER_BYTES) return null
+                        payload = field.value
                     }
                 }
             }

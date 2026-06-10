@@ -1,7 +1,8 @@
 package com.bitchat.android.sync
 
 import com.bitchat.android.protocol.BitchatPacket
-import java.security.MessageDigest
+import com.bitchat.android.util.Hashing
+import com.bitchat.android.util.toHexString
 
 /**
  * Deterministic packet ID helper for sync purposes.
@@ -11,21 +12,22 @@ import java.security.MessageDigest
  */
 object PacketIdUtil {
     fun computeIdBytes(packet: BitchatPacket): ByteArray {
-        val md = MessageDigest.getInstance("SHA-256")
-        md.update(packet.type.toByte())
-        md.update(packet.senderID)
-        // Timestamp as 8 bytes big-endian
+        val data = ByteArray(1 + packet.senderID.size + 8 + packet.payload.size)
+        var offset = 0
+        data[offset++] = packet.type.toByte()
+        packet.senderID.copyInto(data, destinationOffset = offset)
+        offset += packet.senderID.size
+
         val ts = packet.timestamp.toLong()
         for (i in 7 downTo 0) {
-            md.update(((ts ushr (i * 8)) and 0xFF).toByte())
+            data[offset++] = ((ts ushr (i * 8)) and 0xFF).toByte()
         }
-        md.update(packet.payload)
-        val digest = md.digest()
-        return digest.copyOf(16) // 128-bit ID
+        packet.payload.copyInto(data, destinationOffset = offset)
+
+        return Hashing.sha256(data).copyOf(16) // 128-bit ID
     }
 
     fun computeIdHex(packet: BitchatPacket): String {
-        return computeIdBytes(packet).joinToString("") { b -> "%02x".format(b) }
+        return computeIdBytes(packet).toHexString()
     }
 }
-

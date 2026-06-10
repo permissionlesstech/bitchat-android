@@ -30,7 +30,6 @@ import com.bitchat.android.noise.NoiseSession
 import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.util.dataFromHexString
 import com.bitchat.android.util.hexEncodedString
-import java.security.MessageDigest
 
 /**
  * Refactored ChatViewModel - Main coordinator for bitchat functionality

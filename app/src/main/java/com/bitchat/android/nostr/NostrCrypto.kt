@@ -1,5 +1,7 @@
 package com.bitchat.android.nostr
 
+import com.bitchat.android.util.hexToByteArray
+import com.bitchat.android.util.toHexString
 import org.bouncycastle.crypto.ec.CustomNamedCurves
 import org.bouncycastle.crypto.params.ECDomainParameters
 import org.bouncycastle.crypto.params.ECPrivateKeyParameters

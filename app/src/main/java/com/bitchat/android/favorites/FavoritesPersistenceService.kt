@@ -3,6 +3,7 @@ package com.bitchat.android.favorites
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.identity.SecureIdentityStateManager
+import com.bitchat.android.util.toHexString
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.util.*
@@ -95,7 +96,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
 
     /** Get favorite status for Noise public key */
     fun getFavoriteStatus(noisePublicKey: ByteArray): FavoriteRelationship? {
-        val keyHex = noisePublicKey.joinToString("") { "%02x".format(it) }
+        val keyHex = noisePublicKey.toHexString()
         return favorites[keyHex]
     }
 
@@ -103,7 +104,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
     fun getFavoriteStatus(peerID: String): FavoriteRelationship? {
         val pid = peerID.lowercase()
         for ((_, relationship) in favorites) {
-            val noiseKeyHex = relationship.peerNoisePublicKey.joinToString("") { "%02x".format(it) }
+            val noiseKeyHex = relationship.peerNoisePublicKey.toHexString()
             if (noiseKeyHex.startsWith(pid)) return relationship
         }
         return null
@@ -111,7 +112,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
 
     /** Update Nostr public key for a peer (indexed by Noise key) */
     fun updateNostrPublicKey(noisePublicKey: ByteArray, nostrPubkey: String) {
-        val keyHex = noisePublicKey.joinToString("") { "%02x".format(it) }
+        val keyHex = noisePublicKey.toHexString()
         val existing = favorites[keyHex]
 
         if (existing != null) {
@@ -168,7 +169,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
             // Find relationship with matching nostr pubkey (normalized to hex) and then try to map to current peerID via noise key prefix
             val rel = favorites.values.firstOrNull { it.peerNostrPublicKey?.let { stored -> normalizeNostrKeyToHex(stored) } == targetHex }
             if (rel != null) {
-                val noiseHex = rel.peerNoisePublicKey.joinToString("") { "%02x".format(it) }
+                val noiseHex = rel.peerNoisePublicKey.toHexString()
                 // Return 16-hex prefix as best-effort if no explicit mapping exists
                 return noiseHex.take(16)
             }
@@ -178,7 +179,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
 
     /** Update favorite status */
     fun updateFavoriteStatus(noisePublicKey: ByteArray, nickname: String, isFavorite: Boolean) {
-        val keyHex = noisePublicKey.joinToString("") { "%02x".format(it) }
+        val keyHex = noisePublicKey.toHexString()
 
         val existing = favorites[keyHex]
 
@@ -210,7 +211,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
 
     /** Update peer favorited-us flag */
     fun updatePeerFavoritedUs(noisePublicKey: ByteArray, theyFavoritedUs: Boolean) {
-        val keyHex = noisePublicKey.joinToString("") { "%02x".format(it) }
+        val keyHex = noisePublicKey.toHexString()
         val existing = favorites[keyHex]
 
         if (existing != null) {
@@ -248,7 +249,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
 
     /** Find Nostr pubkey by Noise key */
     fun findNostrPubkey(forNoiseKey: ByteArray): String? {
-        val keyHex = forNoiseKey.joinToString("") { "%02x".format(it) }
+        val keyHex = forNoiseKey.toHexString()
         return favorites[keyHex]?.peerNostrPublicKey
     }
 
@@ -330,7 +331,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
     private fun normalizeNostrKeyToHex(value: String): String? = try {
         if (value.startsWith("npub1")) {
             val (hrp, data) = com.bitchat.android.nostr.Bech32.decode(value)
-            if (hrp != "npub") null else data.joinToString("") { "%02x".format(it) }
+            if (hrp != "npub") null else data.toHexString()
         } else value.lowercase()
     } catch (_: Exception) { null }
 }
@@ -348,7 +349,7 @@ private data class FavoriteRelationshipData(
     companion object {
         fun fromFavoriteRelationship(relationship: FavoriteRelationship): FavoriteRelationshipData {
             return FavoriteRelationshipData(
-                peerNoisePublicKeyHex = relationship.peerNoisePublicKey.joinToString("") { "%02x".format(it) },
+                peerNoisePublicKeyHex = relationship.peerNoisePublicKey.toHexString(),
                 peerNostrPublicKey = relationship.peerNostrPublicKey,
                 peerNickname = relationship.peerNickname,
                 isFavorite = relationship.isFavorite,

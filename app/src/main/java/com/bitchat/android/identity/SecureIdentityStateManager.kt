@@ -4,10 +4,9 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import java.security.MessageDigest
 import android.util.Base64
 import android.util.Log
-import com.bitchat.android.util.hexEncodedString
+import com.bitchat.android.util.Hashing
 import androidx.core.content.edit
 
 /**
@@ -175,9 +174,7 @@ class SecureIdentityStateManager(private val context: Context) {
      * Generate fingerprint from public key (SHA-256 hash)
      */
     fun generateFingerprint(publicKeyData: ByteArray): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        val hash = digest.digest(publicKeyData)
-        return hash.hexEncodedString()
+        return Hashing.sha256Hex(publicKeyData)
     }
     
     /**

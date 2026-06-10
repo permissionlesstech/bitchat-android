@@ -3,7 +3,9 @@ package com.bitchat.android.nostr
 import android.content.Context
 import android.util.Log
 import com.bitchat.android.identity.SecureIdentityStateManager
-import java.security.MessageDigest
+import com.bitchat.android.util.Hashing
+import com.bitchat.android.util.hexToByteArray
+import com.bitchat.android.util.toHexString
 import java.security.SecureRandom
 
 /**
@@ -25,7 +27,7 @@ data class NostrIdentity(
          */
         fun generate(): NostrIdentity {
             val (privateKeyHex, publicKeyHex) = NostrCrypto.generateKeyPair()
-            val npub = Bech32.encode("npub", publicKeyHex.hexToByteArrayLocal())
+            val npub = Bech32.encode("npub", publicKeyHex.hexToByteArray())
             
             Log.d(TAG, "Generated new Nostr identity: npub=$npub")
             
@@ -46,7 +48,7 @@ data class NostrIdentity(
             }
             
             val publicKeyHex = NostrCrypto.derivePublicKey(privateKeyHex)
-            val npub = Bech32.encode("npub", publicKeyHex.hexToByteArrayLocal())
+            val npub = Bech32.encode("npub", publicKeyHex.hexToByteArray())
             
             return NostrIdentity(
                 privateKeyHex = privateKeyHex,
@@ -61,10 +63,8 @@ data class NostrIdentity(
          */
         fun fromSeed(seed: String): NostrIdentity {
             // Hash the seed to create a private key
-            val digest = MessageDigest.getInstance("SHA-256")
             val seedBytes = seed.toByteArray(Charsets.UTF_8)
-            val privateKeyBytes = digest.digest(seedBytes)
-            val privateKeyHex = privateKeyBytes.joinToString("") { "%02x".format(it) }
+            val privateKeyHex = Hashing.sha256Hex(seedBytes)
             
             return fromPrivateKey(privateKeyHex)
         }
@@ -149,7 +149,7 @@ object NostrIdentityBridge {
         // Try a few iterations to ensure a valid key can be formed (exactly like iOS)
         for (i in 0 until 10) {
             val candidateKey = candidateKey(seed, geohashBytes, i.toUInt())
-            val candidateKeyHex = candidateKey.toHexStringLocal()
+            val candidateKeyHex = candidateKey.toHexString()
             
             if (NostrCrypto.isValidPrivateKey(candidateKeyHex)) {
                 val identity = NostrIdentity.fromPrivateKey(candidateKeyHex)
@@ -164,10 +164,9 @@ object NostrIdentityBridge {
         
         // As a final fallback, hash the seed+msg and try again (exactly like iOS)
         val combined = seed + geohashBytes
-        val digest = MessageDigest.getInstance("SHA-256")
-        val fallbackKey = digest.digest(combined)
+        val fallbackKey = Hashing.sha256(combined)
         
-        val fallbackIdentity = NostrIdentity.fromPrivateKey(fallbackKey.toHexStringLocal())
+        val fallbackIdentity = NostrIdentity.fromPrivateKey(fallbackKey.toHexString())
         
         // Cache the fallback result too
         geohashIdentityCache[forGeohash] = fallbackIdentity
@@ -278,15 +277,6 @@ object NostrIdentityBridge {
         mac.init(secretKeySpec)
         return mac.doFinal(message)
     }
-}
-
-// Extension functions for data conversion
-private fun String.hexToByteArrayLocal(): ByteArray {
-    return chunked(2).map { it.toInt(16).toByte() }.toByteArray()
-}
-
-private fun ByteArray.toHexStringLocal(): String {
-    return joinToString("") { "%02x".format(it) }
 }
 
 private fun UInt.toLittleEndianBytes(): ByteArray {

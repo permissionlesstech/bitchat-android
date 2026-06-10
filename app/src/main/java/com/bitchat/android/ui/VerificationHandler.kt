@@ -9,6 +9,7 @@ import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.noise.NoiseSession
 import com.bitchat.android.nostr.GeohashAliasRegistry
 import com.bitchat.android.services.VerificationService
+import com.bitchat.android.util.Hashing
 import com.bitchat.android.util.dataFromHexString
 import com.bitchat.android.util.hexEncodedString
 import kotlinx.coroutines.CoroutineScope
@@ -16,7 +17,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.security.MessageDigest
 import java.util.Date
 import java.util.concurrent.ConcurrentHashMap
 
@@ -333,8 +333,7 @@ class VerificationHandler(
     }
 
     fun fingerprintFromNoiseBytes(bytes: ByteArray): String {
-        val hash = MessageDigest.getInstance("SHA-256").digest(bytes)
-        return hash.hexEncodedString()
+        return Hashing.sha256Hex(bytes)
     }
 
     private data class PendingVerification(

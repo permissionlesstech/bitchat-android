@@ -1,6 +1,10 @@
 package com.bitchat.android.model
 
 import android.os.Parcelable
+import com.bitchat.android.protocol.TlvLengthSize
+import com.bitchat.android.protocol.TlvReader
+import com.bitchat.android.protocol.TlvWriter
+import com.bitchat.android.protocol.UnknownTlvPolicy
 import kotlinx.parcelize.Parcelize
 
 /**
@@ -127,24 +131,14 @@ data class PrivateMessagePacket(
         val messageIDData = messageID.toByteArray(Charsets.UTF_8)
         val contentData = content.toByteArray(Charsets.UTF_8)
         
-        // Check size limits (TLV length field is 1 byte = max 255)
-        if (messageIDData.size > 255 || contentData.size > 255) {
-            return null
+        return try {
+            TlvWriter()
+                .put(TLVType.MESSAGE_ID.value.toInt(), messageIDData, TlvLengthSize.ONE_BYTE)
+                .put(TLVType.CONTENT.value.toInt(), contentData, TlvLengthSize.ONE_BYTE)
+                .toByteArray()
+        } catch (_: IllegalArgumentException) {
+            null
         }
-        
-        val result = mutableListOf<Byte>()
-        
-        // TLV for messageID
-        result.add(TLVType.MESSAGE_ID.value.toByte())
-        result.add(messageIDData.size.toByte())
-        result.addAll(messageIDData.toList())
-        
-        // TLV for content
-        result.add(TLVType.CONTENT.value.toByte())
-        result.add(contentData.size.toByte())
-        result.addAll(contentData.toList())
-        
-        return result.toByteArray()
     }
     
     companion object {
@@ -152,33 +146,25 @@ data class PrivateMessagePacket(
          * Decode from TLV binary data - exactly like iOS
          */
         fun decode(data: ByteArray): PrivateMessagePacket? {
-            var offset = 0
             var messageID: String? = null
             var content: String? = null
-            
-            while (offset + 2 <= data.size) {
-                // Read TLV type
-                val typeValue = data[offset].toUByte()
-                val type = TLVType.fromValue(typeValue) ?: return null
-                offset += 1
-                
-                // Read TLV length
-                val length = data[offset].toUByte().toInt()
-                offset += 1
-                
-                // Check bounds
-                if (offset + length > data.size) return null
-                
-                // Read TLV value
-                val value = data.copyOfRange(offset, offset + length)
-                offset += length
-                
+
+            val knownTypes = TLVType.values().map { it.value.toInt() }.toSet()
+            val fields = TlvReader.decode(
+                data = data,
+                defaultLengthSize = TlvLengthSize.ONE_BYTE,
+                unknownPolicy = UnknownTlvPolicy.FAIL,
+                knownTypes = knownTypes
+            ) ?: return null
+
+            for (field in fields) {
+                val type = TLVType.fromValue(field.type.toUByte()) ?: return null
                 when (type) {
                     TLVType.MESSAGE_ID -> {
-                        messageID = String(value, Charsets.UTF_8)
+                        messageID = String(field.value, Charsets.UTF_8)
                     }
                     TLVType.CONTENT -> {
-                        content = String(value, Charsets.UTF_8)
+                        content = String(field.value, Charsets.UTF_8)
                     }
                 }
             }

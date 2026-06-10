@@ -6,6 +6,9 @@ import com.bitchat.android.model.PrivateMessagePacket
 import com.bitchat.android.model.NoisePayloadType
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
+import com.bitchat.android.util.Hex
+import com.bitchat.android.util.PeerId
+import com.bitchat.android.util.toHexString
 import java.util.*
 
 /**
@@ -41,8 +44,8 @@ object NostrEmbeddedBitChat {
             val packet = BitchatPacket(
                 version = 1u,
                 type = MessageType.NOISE_ENCRYPTED.value,
-                senderID = hexStringToByteArray(senderPeerID),
-                recipientID = hexStringToByteArray(recipientIDHex),
+                senderID = PeerId.toBytes(senderPeerID),
+                recipientID = PeerId.toBytes(recipientIDHex),
                 timestamp = System.currentTimeMillis().toULong(),
                 payload = payload,
                 signature = null,
@@ -81,8 +84,8 @@ object NostrEmbeddedBitChat {
             val packet = BitchatPacket(
                 version = 1u,
                 type = MessageType.NOISE_ENCRYPTED.value,
-                senderID = hexStringToByteArray(senderPeerID),
-                recipientID = hexStringToByteArray(recipientIDHex),
+                senderID = PeerId.toBytes(senderPeerID),
+                recipientID = PeerId.toBytes(recipientIDHex),
                 timestamp = System.currentTimeMillis().toULong(),
                 payload = payload,
                 signature = null,
@@ -118,7 +121,7 @@ object NostrEmbeddedBitChat {
             val packet = BitchatPacket(
                 version = 1u,
                 type = MessageType.NOISE_ENCRYPTED.value,
-                senderID = hexStringToByteArray(senderPeerID),
+                senderID = PeerId.toBytes(senderPeerID),
                 recipientID = null, // No recipient for geohash DMs
                 timestamp = System.currentTimeMillis().toULong(),
                 payload = payload,
@@ -153,7 +156,7 @@ object NostrEmbeddedBitChat {
             val packet = BitchatPacket(
                 version = 1u,
                 type = MessageType.NOISE_ENCRYPTED.value,
-                senderID = hexStringToByteArray(senderPeerID),
+                senderID = PeerId.toBytes(senderPeerID),
                 recipientID = null, // No recipient for geohash DMs
                 timestamp = System.currentTimeMillis().toULong(),
                 payload = payload,
@@ -174,16 +177,16 @@ object NostrEmbeddedBitChat {
      */
     private fun normalizeRecipientPeerID(recipientPeerID: String): String {
         try {
-            val maybeData = hexStringToByteArray(recipientPeerID)
+            val maybeData = Hex.decode(recipientPeerID) ?: return recipientPeerID
             return when (maybeData.size) {
                 32 -> {
                     // Treat as Noise static public key; derive peerID from fingerprint
                     // For now, return first 8 bytes as hex (simplified)
-                    maybeData.take(8).joinToString("") { "%02x".format(it) }
+                    maybeData.copyOfRange(0, 8).toHexString()
                 }
                 8 -> {
                     // Already an 8-byte peer ID
-                    recipientPeerID
+                    PeerId.fromBytes(maybeData)
                 }
                 else -> {
                     // Fallback: return as-is (expecting 16 hex chars)
@@ -207,28 +210,4 @@ object NostrEmbeddedBitChat {
             .replace("=", "")
     }
     
-    /**
-     * Convert hex string to byte array
-     */
-    private fun hexStringToByteArray(hexString: String): ByteArray {
-        if (hexString.length % 2 != 0) {
-            return ByteArray(8) // Return 8-byte array filled with zeros
-        }
-        
-        val result = ByteArray(8) { 0 } // Exactly 8 bytes like iOS
-        var tempID = hexString
-        var index = 0
-        
-        while (tempID.length >= 2 && index < 8) {
-            val hexByte = tempID.substring(0, 2)
-            val byte = hexByte.toIntOrNull(16)?.toByte()
-            if (byte != null) {
-                result[index] = byte
-            }
-            tempID = tempID.substring(2)
-            index++
-        }
-        
-        return result
-    }
 }

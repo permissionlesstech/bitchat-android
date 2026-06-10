@@ -3,13 +3,13 @@ package com.bitchat.android.nostr
 import android.app.Application
 import android.content.SharedPreferences
 import android.util.Log
+import com.bitchat.android.util.Hashing
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.io.InputStreamReader
-import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 import kotlin.math.*
 import kotlinx.coroutines.CoroutineScope
@@ -284,20 +284,6 @@ object RelayDirectory {
     } catch (_: Exception) { "error" }
 
     private fun streamSha256Hex(input: InputStream): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        val buf = ByteArray(8192)
-        var read: Int
-        while (true) {
-            read = input.read(buf)
-            if (read <= 0) break
-            digest.update(buf, 0, read)
-        }
-        val bytes = digest.digest()
-        return bytes.joinToString("") { b ->
-            val v = b.toInt() and 0xff
-            val s = Integer.toHexString(v)
-            if (s.length == 1) "0$s" else s
-        }
+        return Hashing.sha256Hex(input)
     }
 }
-

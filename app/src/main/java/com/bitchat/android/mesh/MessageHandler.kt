@@ -8,6 +8,7 @@ import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.sync.PacketIdUtil
+import com.bitchat.android.util.PeerId
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.*
 import java.util.*
@@ -181,8 +182,8 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 val packet = BitchatPacket(
                     version = 1u,
                     type = MessageType.NOISE_ENCRYPTED.value,
-                    senderID = hexStringToByteArray(myPeerID),
-                    recipientID = hexStringToByteArray(senderPeerID),
+                    senderID = PeerId.toBytes(myPeerID),
+                    recipientID = PeerId.toBytes(senderPeerID),
                     timestamp = System.currentTimeMillis().toULong(),
                     payload = encryptedPayload,
                     signature = null,
@@ -302,8 +303,8 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                 val responsePacket = BitchatPacket(
                     version = 1u,
                     type = MessageType.NOISE_HANDSHAKE.value,
-                    senderID = hexStringToByteArray(myPeerID),
-                    recipientID = hexStringToByteArray(peerID),
+                    senderID = PeerId.toBytes(myPeerID),
+                    recipientID = PeerId.toBytes(peerID),
                     timestamp = System.currentTimeMillis().toULong(),
                     payload = response,
                     signature = null,
@@ -468,27 +469,6 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         }
     }
     
-    /**
-     * Convert hex string peer ID to binary data (8 bytes) - same as iOS implementation
-     */
-    private fun hexStringToByteArray(hexString: String): ByteArray {
-        val result = ByteArray(8) { 0 } // Initialize with zeros, exactly 8 bytes
-        var tempID = hexString
-        var index = 0
-        
-        while (tempID.length >= 2 && index < 8) {
-            val hexByte = tempID.substring(0, 2)
-            val byte = hexByte.toIntOrNull(16)?.toByte()
-            if (byte != null) {
-                result[index] = byte
-            }
-            tempID = tempID.substring(2)
-            index++
-        }
-        
-        return result
-    }
-
     /**
      * Shutdown the handler
      */

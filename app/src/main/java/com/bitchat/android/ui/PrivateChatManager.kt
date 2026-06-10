@@ -3,7 +3,9 @@ package com.bitchat.android.ui
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.mesh.PeerFingerprintManager
-import java.security.MessageDigest
+import com.bitchat.android.util.Hashing
+import com.bitchat.android.util.hexToByteArray
+import com.bitchat.android.util.toHexString
 
 import com.bitchat.android.mesh.BluetoothMeshService
 import java.util.*
@@ -131,10 +133,8 @@ class PrivateChatManager(
         // compute a synthetic fingerprint (SHA-256 of public key) to allow unfollowing offline peers
         if (fingerprint == null && peerID.length == 64 && peerID.matches(Regex("^[0-9a-fA-F]+$"))) {
             try {
-                val pubBytes = peerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
-                val digest = java.security.MessageDigest.getInstance("SHA-256")
-                val fpBytes = digest.digest(pubBytes)
-                fingerprint = fpBytes.joinToString("") { "%02x".format(it) }
+                val pubBytes = peerID.hexToByteArray()
+                fingerprint = Hashing.sha256Hex(pubBytes)
                 Log.d(TAG, "Computed fingerprint from noise key hex for offline toggle: $fingerprint")
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to compute fingerprint from noise key hex: ${e.message}")
@@ -432,13 +432,13 @@ class PrivateChatManager(
 
         // If we know the sender's Nostr pubkey for this peer via favorites, derive temp key
         try {
-            val noiseKeyBytes = targetPeerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+            val noiseKeyBytes = targetPeerID.hexToByteArray()
             val npub = com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNostrPubkey(noiseKeyBytes)
             if (npub != null) {
                 // Normalize to hex to match how we formed temp keys (nostr_<pub16>)
                 val (hrp, data) = com.bitchat.android.nostr.Bech32.decode(npub)
                 if (hrp == "npub") {
-                    val pubHex = data.joinToString("") { "%02x".format(it) }
+                    val pubHex = data.toHexString()
                     tryMergeKeys.add("nostr_${pubHex.take(16)}")
                 }
             }

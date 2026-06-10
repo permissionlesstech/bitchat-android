@@ -1,6 +1,8 @@
 package com.bitchat.android.services
 
 import com.bitchat.android.ui.ChatState
+import com.bitchat.android.util.hexToByteArray
+import com.bitchat.android.util.toHexString
 
 object ConversationAliasResolver {
 
@@ -19,7 +21,7 @@ object ConversationAliasResolver {
                 if (pubHex != null) {
                     val noiseKey = findNoiseKeyForNostr(pubHex)
                     if (noiseKey != null) {
-                        val noiseHex = noiseKey.joinToString("") { b -> "%02x".format(b) }
+                        val noiseHex = noiseKey.toHexString()
                         // Prefer a connected mesh peer that matches this noise key
                         val meshPeer = connectedPeers.firstOrNull { pid ->
                             meshNoiseKeyForPeer(pid)?.contentEquals(noiseKey) == true
@@ -29,7 +31,7 @@ object ConversationAliasResolver {
                 }
             } else if (peer.length == 64 && peer.matches(Regex("^[0-9a-fA-F]+$"))) {
                 // Peer is full noise key hex: upgrade to active mesh peer if available
-                val noiseKey = peer.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+                val noiseKey = peer.hexToByteArray()
                 val meshPeer = connectedPeers.firstOrNull { pid ->
                     meshNoiseKeyForPeer(pid)?.contentEquals(noiseKey) == true
                 }

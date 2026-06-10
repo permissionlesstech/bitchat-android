@@ -1,6 +1,7 @@
 package com.bitchat.android.model
 
 import com.bitchat.android.protocol.MessageType
+import com.bitchat.android.util.toHexString
 
 /**
  * FragmentPayload - 100% iOS-compatible fragment payload structure
@@ -111,7 +112,7 @@ data class FragmentPayload(
      * Get fragment ID as hex string for logging/debugging
      */
     fun getFragmentIDString(): String {
-        return fragmentID.joinToString("") { "%02x".format(it) }
+        return fragmentID.toHexString()
     }
     
     /**

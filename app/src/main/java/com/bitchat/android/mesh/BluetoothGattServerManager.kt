@@ -10,6 +10,7 @@ import android.os.ParcelUuid
 import android.util.Log
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.util.AppConstants
+import com.bitchat.android.util.PeerId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -223,7 +224,7 @@ class BluetoothGattServerManager(
                     Log.i(TAG, "Server: Received packet from ${device.address}, size: ${value.size} bytes")
                     val packet = BitchatPacket.fromBinaryData(value)
                     if (packet != null) {
-                        val peerID = packet.senderID.take(8).toByteArray().joinToString("") { "%02x".format(it) }
+                        val peerID = PeerId.fromBytes(packet.senderID)
                         Log.d(TAG, "Server: Parsed packet type ${packet.type} from $peerID")
                         delegate?.onPacketReceived(packet, peerID, device)
                     } else {
@@ -377,7 +378,7 @@ class BluetoothGattServerManager(
                 val mode = try {
                     powerManager.getPowerInfo().split("Current Mode: ")[1].split("\n")[0]
                 } catch (_: Exception) { "unknown" }
-                Log.i(TAG, "Advertising started (power mode: $mode) with stable ID: ${peerIDBytes.joinToString("") { "%02x".format(it) }}")
+                Log.i(TAG, "Advertising started (power mode: $mode) with stable ID: ${PeerId.fromBytes(peerIDBytes)}")
             }
             
             override fun onStartFailure(errorCode: Int) {

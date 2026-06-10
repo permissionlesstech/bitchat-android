@@ -9,6 +9,7 @@ import android.util.Log
 import com.bitchat.android.protocol.SpecialRecipients
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.MessageType
+import com.bitchat.android.util.Hashing
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -122,7 +123,7 @@ class BluetoothPacketBroadcaster(
         val packet = routed.packet
         val isFile = packet.type == MessageType.FILE_TRANSFER.value
         // Prefer caller-provided transferId (e.g., for encrypted media), else derive for FILE_TRANSFER
-        val transferId = routed.transferId ?: (if (isFile) sha256Hex(packet.payload) else null)
+        val transferId = routed.transferId ?: (if (isFile) Hashing.sha256Hex(packet.payload) else null)
         // Check if we need to fragment
         if (fragmentManager != null) {
             val fragments = try {
@@ -193,7 +194,7 @@ class BluetoothPacketBroadcaster(
         val data = packet.toBinaryData() ?: return false
         val isFile = packet.type == MessageType.FILE_TRANSFER.value
         // Prefer caller-provided transferId (e.g., for encrypted media), else derive for FILE_TRANSFER
-        val transferId = routed.transferId ?: (if (isFile) sha256Hex(packet.payload) else null)
+        val transferId = routed.transferId ?: (if (isFile) Hashing.sha256Hex(packet.payload) else null)
         if (transferId != null) {
             TransferProgressManager.start(transferId, 1)
         }
@@ -236,13 +237,6 @@ class BluetoothPacketBroadcaster(
         return false
     }
 
-    private fun sha256Hex(bytes: ByteArray): String = try {
-        val md = java.security.MessageDigest.getInstance("SHA-256")
-        md.update(bytes)
-        md.digest().joinToString("") { "%02x".format(it) }
-    } catch (_: Exception) { bytes.size.toString(16) }
-
-    
     /**
      * Public entry point for broadcasting - submits request to actor for serialization
      */

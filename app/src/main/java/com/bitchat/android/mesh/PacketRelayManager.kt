@@ -4,6 +4,7 @@ import com.bitchat.android.protocol.MessageType
 import android.util.Log
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
+import com.bitchat.android.util.PeerId
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.*
 import kotlin.random.Random
@@ -66,7 +67,7 @@ class PacketRelayManager(private val myPeerID: String) {
                 Log.w(TAG, "Packet with duplicate hops dropped")
                 return
             }
-            val myIdBytes = hexStringToPeerBytes(myPeerID)
+            val myIdBytes = PeerId.toBytes(myPeerID)
             val index = route.indexOfFirst { it.contentEquals(myIdBytes) }
             if (index >= 0) {
                 val nextHopIdHex: String? = run {
@@ -185,16 +186,4 @@ interface PacketRelayManagerDelegate {
     // Packet operations
     fun broadcastPacket(routed: RoutedPacket)
     fun sendToPeer(peerID: String, routed: RoutedPacket): Boolean
-}
-
-private fun hexStringToPeerBytes(hex: String): ByteArray {
-    val result = ByteArray(8)
-    var idx = 0
-    var out = 0
-    while (idx + 1 < hex.length && out < 8) {
-        val b = hex.substring(idx, idx + 2).toIntOrNull(16)?.toByte() ?: 0
-        result[out++] = b
-        idx += 2
-    }
-    return result
 }

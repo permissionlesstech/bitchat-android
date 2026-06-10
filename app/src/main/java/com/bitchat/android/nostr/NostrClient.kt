@@ -2,6 +2,8 @@ package com.bitchat.android.nostr
 
 import android.content.Context
 import android.util.Log
+import com.bitchat.android.util.hexToByteArray
+import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

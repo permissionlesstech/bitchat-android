@@ -1,6 +1,11 @@
 package com.bitchat.android.services.meshgraph
 
 import android.util.Log
+import com.bitchat.android.protocol.TlvLengthSize
+import com.bitchat.android.protocol.TlvReader
+import com.bitchat.android.protocol.TlvWriter
+import com.bitchat.android.protocol.UnknownTlvPolicy
+import com.bitchat.android.util.PeerId
 
 /**
  * Gossip TLV helpers for embedding direct neighbor peer IDs in ANNOUNCE payloads.
@@ -15,12 +20,14 @@ object GossipTLV {
      */
     fun encodeNeighbors(peerIDs: List<String>): ByteArray {
         val unique = peerIDs.distinct().take(10)
-        val valueBytes = unique.flatMap { id -> hexStringPeerIdTo8Bytes(id).toList() }.toByteArray()
+        val valueBytes = unique.flatMap { id -> PeerId.toBytes(id).toList() }.toByteArray()
         if (valueBytes.size > 255) {
             // Safety check, though 10*8 = 80 bytes, so well under 255
             Log.w("GossipTLV", "Neighbors value exceeds 255, truncating")
         }
-        return byteArrayOf(DIRECT_NEIGHBORS_TYPE.toByte(), valueBytes.size.toByte()) + valueBytes
+        return TlvWriter()
+            .put(DIRECT_NEIGHBORS_TYPE.toInt(), valueBytes, TlvLengthSize.ONE_BYTE)
+            .toByteArray()
     }
 
     /**
@@ -29,49 +36,26 @@ object GossipTLV {
      */
     fun decodeNeighborsFromAnnouncementPayload(payload: ByteArray): List<String>? {
         val result = mutableListOf<String>()
-        var offset = 0
-        while (offset + 2 <= payload.size) {
-            val type = payload[offset].toUByte()
-            val len = payload[offset + 1].toUByte().toInt()
-            offset += 2
-            if (offset + len > payload.size) break
-            val value = payload.sliceArray(offset until offset + len)
-            offset += len
+        val fields = TlvReader.decode(
+            data = payload,
+            defaultLengthSize = TlvLengthSize.ONE_BYTE,
+            unknownPolicy = UnknownTlvPolicy.SKIP,
+            knownTypes = setOf(DIRECT_NEIGHBORS_TYPE.toInt())
+        ) ?: return null
 
-            if (type == DIRECT_NEIGHBORS_TYPE) {
+        for (field in fields) {
+            if (field.type == DIRECT_NEIGHBORS_TYPE.toInt()) {
                 // Value is N*8 bytes of peer IDs
                 var pos = 0
-                while (pos + 8 <= value.size) {
-                    val idBytes = value.sliceArray(pos until pos + 8)
-                    result.add(bytesToPeerIdHex(idBytes))
-                    pos += 8
+                while (pos + PeerId.BYTE_LENGTH <= field.value.size) {
+                    val idBytes = field.value.sliceArray(pos until pos + PeerId.BYTE_LENGTH)
+                    result.add(PeerId.fromBytes(idBytes))
+                    pos += PeerId.BYTE_LENGTH
                 }
                 return result // present (possibly empty)
             }
         }
         // Not present
         return null
-    }
-
-    private fun hexStringPeerIdTo8Bytes(hexString: String): ByteArray {
-        val clean = hexString.lowercase().take(16)
-        val result = ByteArray(8) { 0 }
-        var idx = 0
-        var out = 0
-        while (idx + 1 < clean.length && out < 8) {
-            val byteStr = clean.substring(idx, idx + 2)
-            val b = byteStr.toIntOrNull(16)?.toByte() ?: 0
-            result[out++] = b
-            idx += 2
-        }
-        return result
-    }
-
-    private fun bytesToPeerIdHex(bytes: ByteArray): String {
-        val sb = StringBuilder()
-        for (b in bytes.take(8)) {
-            sb.append(String.format("%02x", b))
-        }
-        return sb.toString()
     }
 }

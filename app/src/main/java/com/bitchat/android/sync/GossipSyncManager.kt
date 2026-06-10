@@ -6,6 +6,9 @@ import com.bitchat.android.model.RequestSyncPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
+import com.bitchat.android.util.PeerId
+import com.bitchat.android.util.hexToByteArray
+import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentHashMap
 
@@ -101,7 +104,7 @@ class GossipSyncManager(
         if (!isBroadcastMessage && !isAnnouncement) return
 
         val idBytes = PacketIdUtil.computeIdBytes(packet)
-        val id = idBytes.joinToString("") { b -> "%02x".format(b) }
+        val id = idBytes.toHexString()
 
         if (isBroadcastMessage) {
             synchronized(messages) {
@@ -122,7 +125,7 @@ class GossipSyncManager(
                 return
             }
             // senderID is fixed-size 8 bytes; map to hex string for key
-            val sender = packet.senderID.joinToString("") { b -> "%02x".format(b) }
+            val sender = packet.senderID.toHexString()
             latestAnnouncementByPeer[sender] = id to packet
             // Enforce capacity (remove oldest when exceeded)
             val cap = configProvider.seenCapacity().coerceAtLeast(1)
@@ -138,7 +141,7 @@ class GossipSyncManager(
 
         val packet = BitchatPacket(
             type = MessageType.REQUEST_SYNC.value,
-            senderID = hexStringToByteArray(myPeerID),
+            senderID = PeerId.toBytes(myPeerID),
             timestamp = System.currentTimeMillis().toULong(),
             payload = payload,
             ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS // neighbors only
@@ -153,8 +156,8 @@ class GossipSyncManager(
 
         val packet = BitchatPacket(
             type = MessageType.REQUEST_SYNC.value,
-            senderID = hexStringToByteArray(myPeerID),
-            recipientID = hexStringToByteArray(peerID),
+            senderID = PeerId.toBytes(myPeerID),
+            recipientID = PeerId.toBytes(peerID),
             timestamp = System.currentTimeMillis().toULong(),
             payload = payload,
             ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS // neighbor only
@@ -177,7 +180,7 @@ class GossipSyncManager(
         // 1) Announcements: send latest per peerID if remote doesn't have them
         for ((_, pair) in latestAnnouncementByPeer.entries) {
             val (id, pkt) = pair
-            val idBytes = hexToBytes(id)
+            val idBytes = id.hexToByteArray()
             if (!mightContain(idBytes)) {
                 // Send original packet unchanged to requester only (keep local TTL)
                 val toSend = pkt.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS)
@@ -196,31 +199,6 @@ class GossipSyncManager(
                 Log.d(TAG, "Sent sync message: Type ${toSend.type} to $fromPeerID packet id ${idBytes.toHexString()}")
             }
         }
-    }
-
-    private fun hexStringToByteArray(hexString: String): ByteArray {
-        val result = ByteArray(8) { 0 }
-        var tempID = hexString
-        var index = 0
-        while (tempID.length >= 2 && index < 8) {
-            val hexByte = tempID.substring(0, 2)
-            val byte = hexByte.toIntOrNull(16)?.toByte()
-            if (byte != null) result[index] = byte
-            tempID = tempID.substring(2)
-            index++
-        }
-        return result
-    }
-
-    private fun hexToBytes(hex: String): ByteArray {
-        val clean = if (hex.length % 2 == 0) hex else "0$hex"
-        val out = ByteArray(clean.length / 2)
-        var i = 0
-        while (i < clean.length) {
-            out[i/2] = clean.substring(i, i+2).toInt(16).toByte()
-            i += 2
-        }
-        return out
     }
 
     private fun buildGcsPayload(): ByteArray {
@@ -276,7 +254,7 @@ class GossipSyncManager(
             val toRemove = mutableListOf<String>()
             synchronized(messages) {
                 for ((id, message) in messages) {
-                    val sender = message.senderID.joinToString("") { b -> "%02x".format(b) }
+                    val sender = message.senderID.toHexString()
                     if (sender == peerID) toRemove.add(id)
                 }
             }
@@ -300,7 +278,7 @@ class GossipSyncManager(
         val idsToRemove = mutableListOf<String>()
         synchronized(messages) {
             for ((id, message) in messages) {
-                val sender = message.senderID.joinToString("") { b -> "%02x".format(b) }
+                val sender = message.senderID.toHexString()
                 if (sender == key) {
                     idsToRemove.add(id)
                 }

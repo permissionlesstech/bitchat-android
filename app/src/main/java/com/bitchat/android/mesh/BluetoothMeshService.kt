@@ -14,6 +14,8 @@ import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
 import com.bitchat.android.model.RequestSyncPacket
 import com.bitchat.android.sync.GossipSyncManager
+import com.bitchat.android.util.Hashing
+import com.bitchat.android.util.PeerId
 import com.bitchat.android.util.toHexString
 import com.bitchat.android.services.VerificationService
 import kotlinx.coroutines.*
@@ -184,8 +186,8 @@ class BluetoothMeshService(private val context: Context) {
                 val responsePacket = BitchatPacket(
                     version = 1u,
                     type = MessageType.NOISE_HANDSHAKE.value,
-                    senderID = hexStringToByteArray(myPeerID),
-                    recipientID = hexStringToByteArray(peerID),
+                    senderID = PeerId.toBytes(myPeerID),
+                    recipientID = PeerId.toBytes(peerID),
                     timestamp = System.currentTimeMillis().toULong(),
                     payload = response,
                     ttl = MAX_TTL
@@ -296,8 +298,8 @@ class BluetoothMeshService(private val context: Context) {
                         val packet = BitchatPacket(
                             version = 1u,
                             type = MessageType.NOISE_HANDSHAKE.value,
-                            senderID = hexStringToByteArray(myPeerID),
-                            recipientID = hexStringToByteArray(peerID),
+                            senderID = PeerId.toBytes(myPeerID),
+                            recipientID = PeerId.toBytes(peerID),
                             timestamp = System.currentTimeMillis().toULong(),
                             payload = handshakeData,
                             ttl = MAX_TTL
@@ -662,7 +664,7 @@ class BluetoothMeshService(private val context: Context) {
             val packet = BitchatPacket(
                 version = 1u,
                 type = MessageType.MESSAGE.value,
-                senderID = hexStringToByteArray(myPeerID),
+                senderID = PeerId.toBytes(myPeerID),
                 recipientID = SpecialRecipients.BROADCAST,
                 timestamp = System.currentTimeMillis().toULong(),
                 payload = content.toByteArray(Charsets.UTF_8),
@@ -692,7 +694,7 @@ class BluetoothMeshService(private val context: Context) {
             val packet = BitchatPacket(
                 version = 2u,  // FILE_TRANSFER uses v2 for 4-byte payload length to support large files
                 type = MessageType.FILE_TRANSFER.value,
-                senderID = hexStringToByteArray(myPeerID),
+                senderID = PeerId.toBytes(myPeerID),
                 recipientID = SpecialRecipients.BROADCAST,
                 timestamp = System.currentTimeMillis().toULong(),
                 payload = payload,
@@ -701,7 +703,7 @@ class BluetoothMeshService(private val context: Context) {
             )
             val signed = signPacketBeforeBroadcast(packet)
             // Use a stable transferId based on the file TLV payload for progress tracking
-            val transferId = sha256Hex(payload)
+            val transferId = Hashing.sha256Hex(payload)
             connectionManager.broadcastPacket(RoutedPacket(signed, transferId = transferId))
             try { gossipSyncManager.onPublicPacketSeen(signed) } catch (_: Exception) { }
         }
@@ -744,8 +746,8 @@ class BluetoothMeshService(private val context: Context) {
                         val packet = BitchatPacket(
                             version = 1u,
                             type = MessageType.NOISE_ENCRYPTED.value,
-                            senderID = hexStringToByteArray(myPeerID),
-                            recipientID = hexStringToByteArray(recipientPeerID),
+                            senderID = PeerId.toBytes(myPeerID),
+                            recipientID = PeerId.toBytes(recipientPeerID),
                             timestamp = System.currentTimeMillis().toULong(),
                             payload = encrypted,
                             signature = null,
@@ -755,7 +757,7 @@ class BluetoothMeshService(private val context: Context) {
                         // Sign and send the encrypted packet
                         val signed = signPacketBeforeBroadcast(packet)
                         // Use a stable transferId based on the unencrypted file TLV payload for progress tracking
-                        val transferId = sha256Hex(filePayload)
+                        val transferId = Hashing.sha256Hex(filePayload)
                         connectionManager.broadcastPacket(RoutedPacket(signed, transferId = transferId))
                         
                     } catch (e: Exception) {
@@ -777,13 +779,6 @@ class BluetoothMeshService(private val context: Context) {
         return connectionManager.cancelTransfer(transferId)
     }
 
-    // Local helper to hash payloads to a stable hex ID for progress mapping
-    private fun sha256Hex(bytes: ByteArray): String = try {
-        val md = java.security.MessageDigest.getInstance("SHA-256")
-        md.update(bytes)
-        md.digest().joinToString("") { "%02x".format(it) }
-    } catch (_: Exception) { bytes.size.toString(16) }
-    
     /**
      * Send private message - SIMPLIFIED iOS-compatible version 
      * Uses NoisePayloadType system exactly like iOS SimplifiedBluetoothService
@@ -823,8 +818,8 @@ class BluetoothMeshService(private val context: Context) {
                     val packet = BitchatPacket(
                         version = 1u,
                         type = MessageType.NOISE_ENCRYPTED.value,
-                        senderID = hexStringToByteArray(myPeerID),
-                        recipientID = hexStringToByteArray(recipientPeerID),
+                        senderID = PeerId.toBytes(myPeerID),
+                        recipientID = PeerId.toBytes(recipientPeerID),
                         timestamp = System.currentTimeMillis().toULong(),
                         payload = encrypted,
                         signature = null,
@@ -889,8 +884,8 @@ class BluetoothMeshService(private val context: Context) {
                 val packet = BitchatPacket(
                     version = 1u,
                     type = MessageType.NOISE_ENCRYPTED.value,
-                    senderID = hexStringToByteArray(myPeerID),
-                    recipientID = hexStringToByteArray(recipientPeerID),
+                    senderID = PeerId.toBytes(myPeerID),
+                    recipientID = PeerId.toBytes(recipientPeerID),
                     timestamp = System.currentTimeMillis().toULong(),
                     payload = encrypted,
                     signature = null,
@@ -937,8 +932,8 @@ class BluetoothMeshService(private val context: Context) {
                 val packet = BitchatPacket(
                     version = 1u,
                     type = MessageType.NOISE_ENCRYPTED.value,
-                    senderID = hexStringToByteArray(myPeerID),
-                    recipientID = hexStringToByteArray(recipientPeerID),
+                    senderID = PeerId.toBytes(myPeerID),
+                    recipientID = PeerId.toBytes(recipientPeerID),
                     timestamp = System.currentTimeMillis().toULong(),
                     payload = encrypted,
                     signature = null,
@@ -1248,27 +1243,6 @@ class BluetoothMeshService(private val context: Context) {
     }
     
     /**
-     * Convert hex string peer ID to binary data (8 bytes) - exactly same as iOS
-     */
-    private fun hexStringToByteArray(hexString: String): ByteArray {
-        val result = ByteArray(8) { 0 } // Initialize with zeros, exactly 8 bytes
-        var tempID = hexString
-        var index = 0
-        
-        while (tempID.length >= 2 && index < 8) {
-            val hexByte = tempID.substring(0, 2)
-            val byte = hexByte.toIntOrNull(16)?.toByte()
-            if (byte != null) {
-                result[index] = byte
-            }
-            tempID = tempID.substring(2)
-            index++
-        }
-        
-        return result
-    }
-    
-    /**
      * Sign packet before broadcasting using our signing private key
      */
     private fun signPacketBeforeBroadcast(packet: BitchatPacket): BitchatPacket {
@@ -1277,12 +1251,12 @@ class BluetoothMeshService(private val context: Context) {
             val withRoute = try {
                 val rec = packet.recipientID
                 if (rec != null && !rec.contentEquals(SpecialRecipients.BROADCAST)) {
-                    val dest = rec.joinToString("") { b -> "%02x".format(b) }
+                    val dest = rec.toHexString()
                     val path = com.bitchat.android.services.meshgraph.RoutePlanner.shortestPath(myPeerID, dest)
                     if (path != null && path.size >= 3) {
                         // Exclude first (sender) and last (recipient); only intermediates
                         val intermediates = path.subList(1, path.size - 1)
-                        val hopsBytes = intermediates.map { hexStringToByteArray(it) }
+                        val hopsBytes = intermediates.map { PeerId.toBytes(it) }
                         // Attach route and upgrade to v2 (required for HAS_ROUTE flag)
                         packet.copy(route = hopsBytes, version = 2u)
                     } else packet.copy(route = null)

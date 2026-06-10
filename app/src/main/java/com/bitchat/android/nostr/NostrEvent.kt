@@ -3,7 +3,8 @@ package com.bitchat.android.nostr
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.annotations.SerializedName
-import java.security.MessageDigest
+import com.bitchat.android.util.Hashing
+import com.bitchat.android.util.toHexString
 
 /**
  * Nostr Event structure following NIP-01
@@ -134,13 +135,11 @@ data class NostrEvent(
         val gson = GsonBuilder().disableHtmlEscaping().create()
         val jsonString = gson.toJson(serialized)
         
-        // SHA256 hash of the JSON string
-        val digest = MessageDigest.getInstance("SHA-256")
         val jsonBytes = jsonString.toByteArray(Charsets.UTF_8)
-        val hash = digest.digest(jsonBytes)
+        val hash = Hashing.sha256(jsonBytes)
         
         // Convert to hex
-        val hexId = hash.joinToString("") { "%02x".format(it) }
+        val hexId = hash.toHexString()
         
         return Pair(hexId, hash)
     }
@@ -217,15 +216,3 @@ object NostrKind {
     const val EPHEMERAL_EVENT = 20000 // For geohash channels
     const val GEOHASH_PRESENCE = 20001 // For geohash presence heartbeat
 }
-
-/**
- * Extension functions for hex encoding/decoding
- */
-fun String.hexToByteArray(): ByteArray {
-    check(length % 2 == 0) { "Must have an even length" }
-    return chunked(2)
-        .map { it.toInt(16).toByte() }
-        .toByteArray()
-}
-
-fun ByteArray.toHexString(): String = joinToString("") { "%02x".format(it) }

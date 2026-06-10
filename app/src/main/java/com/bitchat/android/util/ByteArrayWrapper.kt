@@ -21,6 +21,6 @@ data class ByteArrayWrapper(val bytes: ByteArray) {
     }
 
     fun toHexString(): String {
-        return bytes.joinToString("") { "%02x".format(it) }
+        return Hex.encode(bytes)
     }
 }

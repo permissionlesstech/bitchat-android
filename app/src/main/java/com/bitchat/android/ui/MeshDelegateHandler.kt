@@ -5,6 +5,7 @@ import com.bitchat.android.ui.NotificationTextUtils
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
+import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.util.Date
@@ -130,7 +131,7 @@ class MeshDelegateHandler(
                                 favs.firstNotNullOfOrNull { rel ->
                                     rel.peerNostrPublicKey?.let { s ->
                                         runCatching { com.bitchat.android.nostr.Bech32.decode(s) }.getOrNull()?.let { dec ->
-                                            if (dec.first == "npub") dec.second.joinToString("") { b -> "%02x".format(b) } else null
+                                            if (dec.first == "npub") dec.second.toHexString() else null
                                         }
                                     }
                                 }?.takeIf { it.startsWith(prefix, ignoreCase = true) }
@@ -154,7 +155,7 @@ class MeshDelegateHandler(
                     } catch (_: Exception) { null }
 
                     if (favoriteRel?.isMutual == true) {
-                        val noiseHex = favoriteRel.peerNoisePublicKey.joinToString("") { b -> "%02x".format(b) }
+                        val noiseHex = favoriteRel.peerNoisePublicKey.toHexString()
                         if (noiseHex != currentPeer) {
                             com.bitchat.android.services.ConversationAliasResolver.unifyChatsIntoPeer(
                                 state = state,
@@ -175,14 +176,14 @@ class MeshDelegateHandler(
                 try {
                     val info = getPeerInfo(pid)
                     val noiseKey = info?.noisePublicKey ?: return@forEach
-                    val noiseHex = noiseKey.joinToString("") { b -> "%02x".format(b) }
+                    val noiseHex = noiseKey.toHexString()
 
                     // Derive temp nostr key from favorites npub
                     val npub = com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNostrPubkey(noiseKey)
                     val tempNostrKey: String? = try {
                         if (npub != null) {
                             val (hrp, data) = com.bitchat.android.nostr.Bech32.decode(npub)
-                            if (hrp == "npub") "nostr_${data.joinToString("") { b -> "%02x".format(b) }.take(16)}" else null
+                            if (hrp == "npub") "nostr_${data.toHexString().take(16)}" else null
                         } else null
                     } catch (_: Exception) { null }
 

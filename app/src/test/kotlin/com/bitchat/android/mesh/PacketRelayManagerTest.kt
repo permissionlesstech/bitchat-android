@@ -4,6 +4,7 @@ package com.bitchat.android.mesh
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
+import com.bitchat.android.util.PeerId
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
@@ -37,8 +38,8 @@ class PacketRelayManagerTest {
     private fun createPacket(route: List<ByteArray>?, recipient: String? = null): BitchatPacket {
         return BitchatPacket(
             type = MessageType.MESSAGE.value,
-            senderID = hexStringToPeerBytes(otherPeerID),
-            recipientID = recipient?.let { hexStringToPeerBytes(it) },
+            senderID = PeerId.toBytes(otherPeerID),
+            recipientID = recipient?.let { PeerId.toBytes(it) },
             timestamp = System.currentTimeMillis().toULong(),
             payload = "hello".toByteArray(),
             ttl = 5u,
@@ -49,8 +50,8 @@ class PacketRelayManagerTest {
     @Test
     fun `packet with duplicate hops is dropped`() = runTest {
         val route = listOf(
-            hexStringToPeerBytes(nextHopPeerID),
-            hexStringToPeerBytes(nextHopPeerID)
+            PeerId.toBytes(nextHopPeerID),
+            PeerId.toBytes(nextHopPeerID)
         )
         val packet = createPacket(route)
         val routedPacket = RoutedPacket(packet, otherPeerID)
@@ -64,8 +65,8 @@ class PacketRelayManagerTest {
     @Test
     fun `valid source-routed packet is relayed to next hop`() = runTest {
         val route = listOf(
-            hexStringToPeerBytes(myPeerID),
-            hexStringToPeerBytes(nextHopPeerID)
+            PeerId.toBytes(myPeerID),
+            PeerId.toBytes(nextHopPeerID)
         )
         val packet = createPacket(route, finalRecipientID)
         val routedPacket = RoutedPacket(packet, otherPeerID)
@@ -80,7 +81,7 @@ class PacketRelayManagerTest {
     @Test
     fun `last hop does not relay further`() = runTest {
         val route = listOf(
-            hexStringToPeerBytes(myPeerID)
+            PeerId.toBytes(myPeerID)
         )
         val packet = createPacket(route, finalRecipientID)
         val routedPacket = RoutedPacket(packet, otherPeerID)
@@ -103,15 +104,4 @@ class PacketRelayManagerTest {
         verify(delegate).broadcastPacket(any())
     }
 
-    private fun hexStringToPeerBytes(hex: String): ByteArray {
-        val result = ByteArray(8)
-        var idx = 0
-        var out = 0
-        while (idx + 1 < hex.length && out < 8) {
-            val b = hex.substring(idx, idx + 2).toIntOrNull(16)?.toByte() ?: 0
-            result[out++] = b
-            idx += 2
-        }
-        return result
-    }
 }

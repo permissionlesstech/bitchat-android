@@ -12,24 +12,11 @@ import java.util.*
 // MARK: - Hex Encoding/Decoding Extensions
 
 fun ByteArray.hexEncodedString(): String {
-    if (this.isEmpty()) {
-        return ""
-    }
-    return this.joinToString("") { "%02x".format(it) }
+    return Hex.encode(this)
 }
 
 fun String.dataFromHexString(): ByteArray? {
-    val len = this.length / 2
-    val data = ByteArray(len)
-    var index = 0
-    
-    for (i in 0 until len) {
-        val hexByte = this.substring(i * 2, i * 2 + 2)
-        val byte = hexByte.toIntOrNull(16)?.toByte() ?: return null
-        data[index++] = byte
-    }
-    
-    return data
+    return Hex.decode(this)
 }
 
 // MARK: - Binary Encoding Utilities
@@ -201,7 +188,7 @@ class BinaryDataReader(private val data: ByteArray) {
         offset += 16
         
         // Convert 16 bytes to UUID string format
-        val uuid = uuidData.joinToString("") { "%02x".format(it) }
+        val uuid = uuidData.toHexString()
         
         // Insert hyphens at proper positions: 8-4-4-4-12
         val result = StringBuilder()
@@ -340,7 +327,7 @@ fun ByteArray.readUUID(at: IntArray): String? {
     at[0] += 16
     
     // Convert 16 bytes to UUID string format
-    val uuid = uuidData.joinToString("") { "%02x".format(it) }
+    val uuid = uuidData.toHexString()
     
     // Insert hyphens at proper positions: 8-4-4-4-12
     val result = StringBuilder()

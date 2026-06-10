@@ -1,8 +1,12 @@
 package com.bitchat.android.model
 
 import android.os.Parcelable
+import com.bitchat.android.protocol.TlvLengthSize
+import com.bitchat.android.protocol.TlvReader
+import com.bitchat.android.protocol.TlvWriter
+import com.bitchat.android.protocol.UnknownTlvPolicy
+import com.bitchat.android.util.toHexString
 import kotlinx.parcelize.Parcelize
-import com.bitchat.android.util.*
 
 /**
  * Identity announcement structure with TLV encoding
@@ -36,29 +40,15 @@ data class IdentityAnnouncement(
     fun encode(): ByteArray? {
         val nicknameData = nickname.toByteArray(Charsets.UTF_8)
         
-        // Check size limits
-        if (nicknameData.size > 255 || noisePublicKey.size > 255 || signingPublicKey.size > 255) {
-            return null
+        return try {
+            TlvWriter()
+                .put(TLVType.NICKNAME.value.toInt(), nicknameData, TlvLengthSize.ONE_BYTE)
+                .put(TLVType.NOISE_PUBLIC_KEY.value.toInt(), noisePublicKey, TlvLengthSize.ONE_BYTE)
+                .put(TLVType.SIGNING_PUBLIC_KEY.value.toInt(), signingPublicKey, TlvLengthSize.ONE_BYTE)
+                .toByteArray()
+        } catch (_: IllegalArgumentException) {
+            null
         }
-        
-        val result = mutableListOf<Byte>()
-        
-        // TLV for nickname
-        result.add(TLVType.NICKNAME.value.toByte())
-        result.add(nicknameData.size.toByte())
-        result.addAll(nicknameData.toList())
-        
-        // TLV for noise public key
-        result.add(TLVType.NOISE_PUBLIC_KEY.value.toByte())
-        result.add(noisePublicKey.size.toByte())
-        result.addAll(noisePublicKey.toList())
-        
-        // TLV for signing public key
-        result.add(TLVType.SIGNING_PUBLIC_KEY.value.toByte())
-        result.add(signingPublicKey.size.toByte())
-        result.addAll(signingPublicKey.toList())
-        
-        return result.toByteArray()
     }
     
     companion object {
@@ -66,45 +56,29 @@ data class IdentityAnnouncement(
          * Decode from TLV binary data matching iOS implementation
          */
         fun decode(data: ByteArray): IdentityAnnouncement? {
-            // Create defensive copy
-            val dataCopy = data.copyOf()
-            
-            var offset = 0
             var nickname: String? = null
             var noisePublicKey: ByteArray? = null
             var signingPublicKey: ByteArray? = null
-            
-            while (offset + 2 <= dataCopy.size) {
-                // Read TLV type
-                val typeValue = dataCopy[offset].toUByte()
-                val type = TLVType.fromValue(typeValue)
-                offset += 1
-                
-                // Read TLV length
-                val length = dataCopy[offset].toUByte().toInt()
-                offset += 1
-                
-                // Check bounds
-                if (offset + length > dataCopy.size) return null
-                
-                // Read TLV value
-                val value = dataCopy.sliceArray(offset until offset + length)
-                offset += length
-                
-                // Process known TLV types, skip unknown ones for forward compatibility
+
+            val knownTypes = TLVType.values().map { it.value.toInt() }.toSet()
+            val fields = TlvReader.decode(
+                data = data,
+                defaultLengthSize = TlvLengthSize.ONE_BYTE,
+                unknownPolicy = UnknownTlvPolicy.SKIP,
+                knownTypes = knownTypes
+            ) ?: return null
+
+            for (field in fields) {
+                val type = TLVType.fromValue(field.type.toUByte()) ?: continue
                 when (type) {
                     TLVType.NICKNAME -> {
-                        nickname = String(value, Charsets.UTF_8)
+                        nickname = String(field.value, Charsets.UTF_8)
                     }
                     TLVType.NOISE_PUBLIC_KEY -> {
-                        noisePublicKey = value
+                        noisePublicKey = field.value
                     }
                     TLVType.SIGNING_PUBLIC_KEY -> {
-                        signingPublicKey = value
-                    }
-                    null -> {
-                        // Unknown TLV; skip (tolerant decoder for forward compatibility)
-                        continue
+                        signingPublicKey = field.value
                     }
                 }
             }
@@ -140,6 +114,6 @@ data class IdentityAnnouncement(
     }
     
     override fun toString(): String {
-        return "IdentityAnnouncement(nickname='$nickname', noisePublicKey=${noisePublicKey.joinToString("") { "%02x".format(it) }.take(16)}..., signingPublicKey=${signingPublicKey.joinToString("") { "%02x".format(it) }.take(16)}...)"
+        return "IdentityAnnouncement(nickname='$nickname', noisePublicKey=${noisePublicKey.toHexString().take(16)}..., signingPublicKey=${signingPublicKey.toHexString().take(16)}...)"
     }
 }

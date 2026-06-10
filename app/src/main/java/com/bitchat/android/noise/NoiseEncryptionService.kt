@@ -5,7 +5,7 @@ import android.util.Log
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.mesh.PeerFingerprintManager
 import com.bitchat.android.noise.southernstorm.protocol.Noise
-import java.security.MessageDigest
+import com.bitchat.android.util.Hashing
 import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
 
@@ -133,9 +133,7 @@ class NoiseEncryptionService(private val context: Context) {
      * Get our identity fingerprint (SHA-256 hash of static public key)
      */
     fun getIdentityFingerprint(): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        val hash = digest.digest(staticIdentityPublicKey)
-        return hash.joinToString("") { "%02x".format(it) }
+        return Hashing.sha256Hex(staticIdentityPublicKey)
     }
     
     /**
@@ -387,9 +385,7 @@ class NoiseEncryptionService(private val context: Context) {
      * Calculate fingerprint from public key (SHA-256 hash)
      */
     private fun calculateFingerprint(publicKey: ByteArray): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        val hash = digest.digest(publicKey)
-        return hash.joinToString("") { "%02x".format(it) }
+        return Hashing.sha256Hex(publicKey)
     }
     
     // MARK: - Packet Signing/Verification
