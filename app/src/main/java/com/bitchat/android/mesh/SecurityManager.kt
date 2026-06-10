@@ -5,6 +5,7 @@ import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.model.RoutedPacket
+import com.bitchat.android.ui.debug.DebugSettingsManager
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.*
 import java.util.*
@@ -23,6 +24,11 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         private const val CLEANUP_INTERVAL = com.bitchat.android.util.AppConstants.Security.CLEANUP_INTERVAL_MS // 5 minutes
         private const val MAX_PROCESSED_MESSAGES = com.bitchat.android.util.AppConstants.Security.MAX_PROCESSED_MESSAGES
         private const val MAX_PROCESSED_KEY_EXCHANGES = com.bitchat.android.util.AppConstants.Security.MAX_PROCESSED_KEY_EXCHANGES
+        private val SIGNATURE_REQUIRED_TYPES = setOf(
+            MessageType.ANNOUNCE,
+            MessageType.MESSAGE,
+            MessageType.FILE_TRANSFER
+        )
     }
     
     // Security tracking
@@ -32,6 +38,14 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
     
     // Delegate for callbacks
     var delegate: SecurityManagerDelegate? = null
+
+    private val debugManager by lazy {
+        try {
+            DebugSettingsManager.getInstance()
+        } catch (_: Exception) {
+            null
+        }
+    }
     
     // Coroutines
     private val managerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -46,12 +60,18 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
     fun validatePacket(packet: BitchatPacket, peerID: String): Boolean {
         // Skip validation for our own packets
         if (peerID == myPeerID) {
-            Log.d(TAG, "Skipping validation for our own packet")
             return false
         }
         
         // Replay attack protection (same 5-minute window as iOS)
         val currentTime = System.currentTimeMillis()
+        val timestampResult = validateTimestamp(packet, currentTime)
+        if (!timestampResult.isValid) {
+            logValidationFailure(packet, peerID, timestampResult.reason, timestampResult.detail)
+            Log.w(TAG, "Dropping packet from $peerID: ${timestampResult.reason}")
+            return false
+        }
+
         val messageType = MessageType.fromValue(packet.type)
 
         // Duplicate detection
@@ -65,23 +85,24 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
                     packet.ttl >= com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
 
             if (!isFreshAnnounce) {
-                Log.d(TAG, "Dropping duplicate packet: $messageID")
+                logValidationFailure(packet, peerID, "duplicate packet")
                 return false
             }
-            Log.d(TAG, "Allowing duplicate ANNOUNCE from direct neighbor: $messageID")
+        }
+        
+        // Enforce mandatory signature verification
+        val signatureResult = verifyPacketSignature(packet, peerID)
+        if (!signatureResult.isValid) {
+            logValidationFailure(packet, peerID, signatureResult.reason, signatureResult.detail)
+            Log.w(TAG, "Dropping packet from $peerID: ${signatureResult.reason}")
+            return false
         }
 
-        // Add to processed messages
+        // Add to processed messages only after validation succeeds so invalid packets
+        // cannot poison duplicate detection for a later valid retry.
         processedMessages.add(messageID)
         messageTimestamps[messageID] = currentTime
         
-        // Enforce mandatory signature verification
-        if (!verifyPacketSignature(packet, peerID)) {
-            Log.w(TAG, "Dropping packet from $peerID due to signature verification failure")
-            return false
-        }
-        
-        Log.d(TAG, "Packet validation passed for $peerID, messageID: $messageID")
         return true
     }
     
@@ -95,7 +116,6 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
 
         // Skip handshakes not addressed to us
         if (packet.recipientID?.toHexString() != myPeerID) {
-            Log.d(TAG, "Skipping handshake not addressed to us: $peerID")
             return false
         }
             
@@ -106,7 +126,7 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         // drop the existing session so we can re-establish cleanly.
         var forcedRehandshake = false
         if (encryptionService.hasEstablishedSession(peerID)) {
-            Log.d(TAG, "Received new Noise handshake from $peerID with an existing session. Dropping old session to re-handshake.")
+            Log.i(TAG, "Re-establishing Noise session with $peerID")
             try {
                 encryptionService.removePeer(peerID)
                 forcedRehandshake = true
@@ -124,10 +144,8 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         val exchangeKey = "$peerID-${packet.payload.sliceArray(0 until minOf(16, packet.payload.size)).contentHashCode()}"
         
         if (!forcedRehandshake && processedKeyExchanges.contains(exchangeKey)) {
-            Log.d(TAG, "Already processed handshake: $exchangeKey")
             return false
         }
-        Log.d(TAG, "Processing Noise handshake from $peerID (${packet.payload.size} bytes)")
         processedKeyExchanges.add(exchangeKey)
         
         try {
@@ -135,13 +153,11 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
             val response = encryptionService.processHandshakeMessage(packet.payload, peerID)
             
             if (response != null) {
-                Log.d(TAG, "Successfully processed Noise handshake from $peerID, sending response")
                 // Send handshake response through delegate
                 delegate?.sendHandshakeResponse(peerID, response)
             }
             // Check if session is now established (handshake complete)
             if (encryptionService.hasEstablishedSession(peerID)) {
-                Log.d(TAG, "✅ Noise handshake completed with $peerID")
                 delegate?.onKeyExchangeCompleted(peerID, packet.payload)
             }
             return true
@@ -235,32 +251,33 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
      * Verify packet signature using peer's signing public key
      * Returns true only if signature is present and valid
      */
-    private fun verifyPacketSignature(packet: BitchatPacket, peerID: String): Boolean {
+    private fun verifyPacketSignature(packet: BitchatPacket, peerID: String): ValidationResult {
         try {
-            // only verify ANNOUNCE, MESSAGE, and FILE_TRANSFER
-            if (MessageType.fromValue(packet.type) !in setOf(
-                    MessageType.ANNOUNCE,
-                    MessageType.MESSAGE,
-                    MessageType.FILE_TRANSFER
-                )) {
-                return true
+            val messageType = MessageType.fromValue(packet.type)
+            if (messageType !in SIGNATURE_REQUIRED_TYPES) {
+                return ValidationResult.valid()
             }
             // 1. Mandatory Signature Check
             if (packet.signature == null) {
-                Log.w(TAG, "❌ Signature check for $peerID: NO_SIGNATURE (packet type ${packet.type})")
-                return false
+                return ValidationResult.invalid(
+                    reason = "missing signature",
+                    detail = "${messageType?.name ?: packet.type.toString()} requires Ed25519 signature"
+                )
             }
             
             // 2. Get Signing Public Key
             var signingPublicKey: ByteArray? = null
             
-            if (MessageType.fromValue(packet.type) == MessageType.ANNOUNCE) {
+            if (messageType == MessageType.ANNOUNCE) {
                 // Special Case: ANNOUNCE packets carry their own signing key
                 try {
                     val announcement = com.bitchat.android.model.IdentityAnnouncement.decode(packet.payload)
                     signingPublicKey = announcement?.signingPublicKey
                 } catch (e: Exception) {
-                    Log.w(TAG, "Failed to decode announcement for key extraction: ${e.message}")
+                    return ValidationResult.invalid(
+                        reason = "invalid announcement signature key",
+                        detail = e.message
+                    )
                 }
             } else {
                 // Standard Case: Get key from known peer info
@@ -271,15 +288,19 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
             if (signingPublicKey == null) {
                 // If we don't have a key (and it's not an announce), we can't verify.
                 // For security, we must reject packets from unknown peers unless it's an announce.
-                Log.w(TAG, "❌ Signature check for $peerID: NO_SIGNING_KEY_AVAILABLE (packet type ${packet.type})")
-                return false
+                return ValidationResult.invalid(
+                    reason = "no signing key",
+                    detail = "cannot verify ${messageType?.name ?: packet.type.toString()} from unknown peer"
+                )
             }
             
             // 3. Get Canonical Data
             val packetDataForSigning = packet.toBinaryDataForSigning()
             if (packetDataForSigning == null) {
-                Log.w(TAG, "❌ Signature check for $peerID: ENCODING_ERROR (packet type ${packet.type})")
-                return false
+                return ValidationResult.invalid(
+                    reason = "packet encoding error",
+                    detail = "could not build canonical signing bytes"
+                )
             }
             
             // 4. Verify Signature
@@ -291,16 +312,54 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
             )
             
             if (isSignatureValid) {
-                // Log.v(TAG, "✅ Signature verified for $peerID (type ${packet.type})")
-                return true
+                return ValidationResult.valid()
             } else {
-                Log.w(TAG, "❌ Signature INVALID for $peerID (type ${packet.type})")
-                return false
+                return ValidationResult.invalid(
+                    reason = "invalid signature",
+                    detail = "Ed25519 verification failed"
+                )
             }
             
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Signature verification error for $peerID: ${e.message}")
-            return false
+            return ValidationResult.invalid(
+                reason = "signature verification error",
+                detail = e.message
+            )
+        }
+    }
+
+    private fun validateTimestamp(packet: BitchatPacket, currentTime: Long): ValidationResult {
+        val packetTime = packet.timestamp.toLong()
+        if (packetTime <= 0L) {
+            return ValidationResult.invalid("invalid timestamp", "timestamp=${packet.timestamp}")
+        }
+
+        val ageMs = currentTime - packetTime
+        return when {
+            ageMs > MESSAGE_TIMEOUT -> ValidationResult.invalid(
+                reason = "stale timestamp",
+                detail = "age=${ageMs / 1000}s exceeds ${MESSAGE_TIMEOUT / 1000}s"
+            )
+            ageMs < -MESSAGE_TIMEOUT -> ValidationResult.invalid(
+                reason = "future timestamp",
+                detail = "clock skew=${(-ageMs) / 1000}s exceeds ${MESSAGE_TIMEOUT / 1000}s"
+            )
+            else -> ValidationResult.valid()
+        }
+    }
+
+    private fun logValidationFailure(packet: BitchatPacket, peerID: String, reason: String, detail: String? = null) {
+        debugManager?.logPacketValidationFailure(packet, peerID, reason, detail)
+    }
+
+    private data class ValidationResult(
+        val isValid: Boolean,
+        val reason: String,
+        val detail: String? = null
+    ) {
+        companion object {
+            fun valid() = ValidationResult(true, "")
+            fun invalid(reason: String, detail: String? = null) = ValidationResult(false, reason, detail)
         }
     }
     
@@ -380,9 +439,6 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
             processedKeyExchanges.removeAll(toRemove.toSet())
         }
         
-        if (removedCount > 0) {
-            Log.d(TAG, "Cleaned up $removedCount old processed messages")
-        }
     }
     
     /**

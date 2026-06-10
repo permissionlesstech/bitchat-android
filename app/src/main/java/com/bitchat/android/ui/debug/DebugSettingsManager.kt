@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import java.util.Date
 import java.util.concurrent.ConcurrentLinkedQueue
 import com.bitchat.android.protocol.BitchatPacket
+import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.util.toHexString
 
 /**
@@ -378,97 +379,6 @@ class DebugSettingsManager private constructor() {
         }
     }
     
-    fun logIncomingPacket(senderPeerID: String, senderNickname: String?, messageType: String, viaDeviceId: String?) {
-        if (verboseLoggingEnabled.value) {
-            val who = if (!senderNickname.isNullOrBlank()) "$senderNickname ($senderPeerID)" else senderPeerID
-            val routeInfo = if (!viaDeviceId.isNullOrBlank()) " via $viaDeviceId" else " (direct)"
-            addDebugMessage(DebugMessage.PacketEvent(
-                "📦 Received $messageType from $who$routeInfo"
-            ))
-        }
-    }
-    fun logPacketRelay(
-        packetType: String,
-        originalPeerID: String,
-        originalNickname: String?,
-        viaDeviceId: String?
-    ) {
-        // Backward-compatible simple API; delegate to detailed formatter with best effort
-        logPacketRelayDetailed(
-            packetType = packetType,
-            senderPeerID = originalPeerID,
-            senderNickname = originalNickname,
-            fromPeerID = null,
-            fromNickname = null,
-            fromDeviceAddress = viaDeviceId,
-            toPeerID = null,
-            toNickname = null,
-            toDeviceAddress = null,
-            ttl = null,
-            isRelay = true
-        )
-    }
-    
-
-    // New, more detailed relay logger used by the mesh/broadcaster
-    fun logPacketRelayDetailed(
-        packetType: String,
-        senderPeerID: String?,
-        senderNickname: String?,
-        fromPeerID: String?,
-        fromNickname: String?,
-        fromDeviceAddress: String?,
-        toPeerID: String?,
-        toNickname: String?,
-        toDeviceAddress: String?,
-        ttl: UByte?,
-        isRelay: Boolean = true,
-        packetVersion: UByte = 1u,
-        routeInfo: String? = null
-    ) {
-        // Build message only if verbose logging is enabled, but always update stats
-        val senderLabel = when {
-            !senderNickname.isNullOrBlank() && !senderPeerID.isNullOrBlank() -> "$senderNickname ($senderPeerID)"
-            !senderNickname.isNullOrBlank() -> senderNickname
-            !senderPeerID.isNullOrBlank() -> senderPeerID
-            else -> "unknown"
-        }
-        val fromName = when {
-            !fromNickname.isNullOrBlank() -> fromNickname
-            !fromPeerID.isNullOrBlank() -> fromPeerID
-            else -> "unknown"
-        }
-        val toName = when {
-            !toNickname.isNullOrBlank() -> toNickname
-            !toPeerID.isNullOrBlank() -> toPeerID
-            else -> "unknown"
-        }
-
-        val fromAddr = fromDeviceAddress ?: "?"
-        val toAddr = toDeviceAddress ?: "?"
-        val ttlStr = ttl?.toString() ?: "?"
-        val routeStr = if (routeInfo != null) " $routeInfo" else ""
-
-        if (verboseLoggingEnabled.value) {
-            if (isRelay) {
-                // Relay: show [previousPeer] -> [nextPeer]
-                addDebugMessage(
-                    DebugMessage.RelayEvent(
-                        "♻️ Relayed v$packetVersion $packetType by $senderLabel from $fromName (${fromPeerID ?: "?"}, $fromAddr) to $toName (${toPeerID ?: "?"}, $toAddr) with TTL $ttlStr$routeStr"
-                    )
-                )
-            } else {
-                addDebugMessage(
-                    DebugMessage.PacketEvent(
-                        "📤 Sent v$packetVersion $packetType by $senderLabel to $toName (${toPeerID ?: "?"}, $toAddr) with TTL $ttlStr$routeStr"
-                    )
-                )
-            }
-        }
-
-        // Do not update counters here; this path is for readable logs only.
-    }
-
     // MARK: - Debug Events for Animation
     sealed class MeshVisualEvent {
         data class PacketActivity(val peerID: String) : MeshVisualEvent()
@@ -490,17 +400,30 @@ class DebugSettingsManager private constructor() {
     // Peer nickname resolver
     private var nicknameResolver: ((String) -> String?)? = null
     fun setNicknameResolver(resolver: (String) -> String?) { nicknameResolver = resolver }
+
+    private fun packetTypeName(type: UByte): String {
+        return MessageType.fromValue(type)?.name ?: "0x%02X".format(type.toInt())
+    }
+
+    private fun peerLabel(peerID: String?, nickname: String?): String {
+        return when {
+            !nickname.isNullOrBlank() && !peerID.isNullOrBlank() -> "$nickname ($peerID)"
+            !nickname.isNullOrBlank() -> nickname
+            !peerID.isNullOrBlank() -> peerID
+            else -> "unknown"
+        }
+    }
     
     // Explicit incoming/outgoing logging to avoid double counting
     fun logIncoming(packet: BitchatPacket, fromPeerID: String, fromNickname: String?, fromDeviceAddress: String?, myPeerID: String) {
-        val packetType = packet.type.toString()
+        val packetType = packetTypeName(packet.type)
         val packetVersion = packet.version
         val route = packet.route
         val routeInfo = if (!route.isNullOrEmpty()) "routed: ${route.size} hops" else null
 
         if (verboseLoggingEnabled.value) {
             val resolvedNick = fromNickname ?: nicknameResolver?.invoke(fromPeerID) ?: "unknown"
-            val who = if (resolvedNick != "unknown") "$resolvedNick ($fromPeerID)" else fromPeerID
+            val who = peerLabel(fromPeerID, resolvedNick.takeUnless { it == "unknown" })
             val routeStr = if (routeInfo != null) " $routeInfo" else ""
             addDebugMessage(DebugMessage.PacketEvent("📥 Incoming v$packetVersion $packetType from $who (${fromDeviceAddress ?: "?"})$routeStr"))
         }
@@ -537,11 +460,45 @@ class DebugSettingsManager private constructor() {
         if (visible) updateRelayStatsFromTimestamps()
     }
 
-    fun logOutgoing(packetType: String, toPeerID: String?, toNickname: String?, toDeviceAddress: String?, previousHopPeerID: String? = null, packetVersion: UByte = 1u, routeInfo: String? = null) {
+    fun logPacketValidationFailure(packet: BitchatPacket, fromPeerID: String, reason: String, detail: String? = null) {
+        if (!verboseLoggingEnabled.value) return
+
+        val packetType = packetTypeName(packet.type)
+        val detailText = detail?.takeIf { it.isNotBlank() }?.let { " - $it" } ?: ""
+        addDebugMessage(
+            DebugMessage.ValidationEvent(
+                "⚠️ Dropped v${packet.version} $packetType from $fromPeerID: $reason$detailText (ttl=${packet.ttl})"
+            )
+        )
+    }
+
+    fun logOutgoing(
+        packetType: String,
+        toPeerID: String?,
+        toNickname: String?,
+        toDeviceAddress: String?,
+        previousHopPeerID: String? = null,
+        packetVersion: UByte = 1u,
+        routeInfo: String? = null,
+        ttl: UByte? = null
+    ) {
         if (verboseLoggingEnabled.value) {
-            val who = toNickname ?: toPeerID ?: "unknown"
+            val who = peerLabel(toPeerID, toNickname)
             val routeStr = if (routeInfo != null) " $routeInfo" else ""
-            addDebugMessage(DebugMessage.PacketEvent("📤 Outgoing v$packetVersion $packetType to $who (${toPeerID ?: "?"}, ${toDeviceAddress ?: "?"})$routeStr"))
+            val ttlStr = ttl?.let { " ttl=$it" } ?: ""
+            if (!previousHopPeerID.isNullOrBlank()) {
+                addDebugMessage(
+                    DebugMessage.RelayEvent(
+                        "📤 Relay v$packetVersion $packetType from $previousHopPeerID to $who (${toDeviceAddress ?: "?"})$ttlStr$routeStr"
+                    )
+                )
+            } else {
+                addDebugMessage(
+                    DebugMessage.PacketEvent(
+                        "📤 Outgoing v$packetVersion $packetType to $who (${toDeviceAddress ?: "?"})$ttlStr$routeStr"
+                    )
+                )
+            }
         }
         val now = System.currentTimeMillis()
         val visible = _debugSheetVisible.value
@@ -577,6 +534,43 @@ class DebugSettingsManager private constructor() {
         _scanResults.value = emptyList()
         addDebugMessage(DebugMessage.SystemMessage("🗑️ Scan results cleared"))
     }
+
+    fun resetForTesting() {
+        _verboseLoggingEnabled.value = false
+        debugMessageQueue.clear()
+        scanResultsQueue.clear()
+        _debugMessages.value = emptyList()
+        _scanResults.value = emptyList()
+        _connectedDevices.value = emptyList()
+        _relayStats.value = PacketRelayStats()
+        relayTimestamps.clear()
+        incomingTimestamps.clear()
+        outgoingTimestamps.clear()
+        perDeviceRelayTimestamps.clear()
+        perPeerRelayTimestamps.clear()
+        perDeviceIncoming.clear()
+        perDeviceOutgoing.clear()
+        perPeerIncoming.clear()
+        perPeerOutgoing.clear()
+        deviceIncomingTotalsMap.clear()
+        deviceOutgoingTotalsMap.clear()
+        peerIncomingTotalsMap.clear()
+        peerOutgoingTotalsMap.clear()
+        _perDeviceLastSecond.value = emptyMap()
+        _perPeerLastSecond.value = emptyMap()
+        _perDeviceIncomingLastSecond.value = emptyMap()
+        _perDeviceOutgoingLastSecond.value = emptyMap()
+        _perPeerIncomingLastSecond.value = emptyMap()
+        _perPeerOutgoingLastSecond.value = emptyMap()
+        _perDeviceIncomingLastMinute.value = emptyMap()
+        _perDeviceOutgoingLastMinute.value = emptyMap()
+        _perPeerIncomingLastMinute.value = emptyMap()
+        _perPeerOutgoingLastMinute.value = emptyMap()
+        _perDeviceIncomingTotalsFlow.value = emptyMap()
+        _perDeviceOutgoingTotalsFlow.value = emptyMap()
+        _perPeerIncomingTotalsFlow.value = emptyMap()
+        _perPeerOutgoingTotalsFlow.value = emptyMap()
+    }
 }
 
 // MARK: - Data Models
@@ -589,6 +583,7 @@ sealed class DebugMessage(val content: String, val timestamp: Date = Date()) {
     class PeerEvent(content: String) : DebugMessage(content)
     class PacketEvent(content: String) : DebugMessage(content)
     class RelayEvent(content: String) : DebugMessage(content)
+    class ValidationEvent(content: String) : DebugMessage(content)
 }
 
 /**

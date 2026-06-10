@@ -5,6 +5,8 @@ import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.model.IdentityAnnouncement
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
+import com.bitchat.android.ui.debug.DebugMessage
+import com.bitchat.android.ui.debug.DebugSettingsManager
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -23,6 +25,7 @@ class SecurityManagerTest {
     private lateinit var securityManager: SecurityManager
     private lateinit var fakeEncryptionService: FakeEncryptionService
     private lateinit var mockDelegate: SecurityManagerDelegate
+    private lateinit var debugSettingsManager: DebugSettingsManager
     
     private val myPeerID = "1111222233334444"
     private val otherPeerID = "aaaabbbbccccdddd"
@@ -61,6 +64,10 @@ class SecurityManagerTest {
 
     @Before
     fun setup() {
+        debugSettingsManager = DebugSettingsManager.getInstance()
+        debugSettingsManager.resetForTesting()
+        debugSettingsManager.setVerboseLoggingEnabled(true)
+
         fakeEncryptionService = FakeEncryptionService()
         mockDelegate = mock()
         
@@ -72,6 +79,9 @@ class SecurityManagerTest {
     fun tearDown() {
         if (::securityManager.isInitialized) {
             securityManager.shutdown()
+        }
+        if (::debugSettingsManager.isInitialized) {
+            debugSettingsManager.resetForTesting()
         }
     }
 
@@ -88,6 +98,7 @@ class SecurityManagerTest {
         val result = securityManager.validatePacket(packet, otherPeerID)
         
         assertFalse("Packet without signature should be rejected", result)
+        assertValidationLogContains("missing signature")
     }
 
     @Test
@@ -105,6 +116,41 @@ class SecurityManagerTest {
         val result = securityManager.validatePacket(packet, otherPeerID)
         
         assertFalse("Packet with invalid signature should be rejected", result)
+        assertValidationLogContains("invalid signature")
+    }
+
+    @Test
+    fun `validatePacket - rejects stale timestamp and logs validation failure`() {
+        setupKnownPeer(otherPeerID, otherSigningKey)
+        val staleTimestamp = (System.currentTimeMillis() -
+                com.bitchat.android.util.AppConstants.Security.MESSAGE_TIMEOUT_MS -
+                1_000L).toULong()
+
+        val packet = packetWithTimestamp(staleTimestamp)
+        packet.signature = validSignature
+
+        val result = securityManager.validatePacket(packet, otherPeerID)
+
+        assertFalse("Packet with stale timestamp should be rejected", result)
+        assertValidationLogContains("stale timestamp")
+    }
+
+    @Test
+    fun `validatePacket - invalid signature does not poison duplicate cache`() {
+        setupKnownPeer(otherPeerID, otherSigningKey)
+
+        val packet = BitchatPacket(
+            type = MessageType.MESSAGE.value,
+            ttl = 10u,
+            senderID = otherPeerID,
+            payload = dummyPayload
+        )
+        packet.signature = invalidSignature
+
+        assertFalse("Invalid signed packet should be rejected", securityManager.validatePacket(packet, otherPeerID))
+
+        packet.signature = validSignature
+        assertTrue("Valid retry should not be rejected as a duplicate", securityManager.validatePacket(packet, otherPeerID))
     }
 
     @Test
@@ -282,5 +328,35 @@ class SecurityManagerTest {
             lastSeen = System.currentTimeMillis()
         )
         whenever(mockDelegate.getPeerInfo(peerID)).thenReturn(info)
+    }
+
+    private fun assertValidationLogContains(expected: String) {
+        val validationMessages = debugSettingsManager.debugMessages.value
+            .filterIsInstance<DebugMessage.ValidationEvent>()
+
+        assertTrue(
+            "Expected validation log containing '$expected', got ${validationMessages.map { it.content }}",
+            validationMessages.any { it.content.contains(expected, ignoreCase = true) }
+        )
+    }
+
+    private fun packetWithTimestamp(timestamp: ULong): BitchatPacket {
+        return BitchatPacket(
+            version = 1u,
+            type = MessageType.MESSAGE.value,
+            senderID = peerIDBytes(otherPeerID),
+            recipientID = null,
+            timestamp = timestamp,
+            payload = dummyPayload,
+            signature = null,
+            ttl = 10u
+        )
+    }
+
+    private fun peerIDBytes(peerID: String): ByteArray {
+        return peerID.chunked(2)
+            .take(8)
+            .map { it.toInt(16).toByte() }
+            .toByteArray()
     }
 }

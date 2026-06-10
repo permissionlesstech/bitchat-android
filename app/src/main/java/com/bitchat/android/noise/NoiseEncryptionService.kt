@@ -87,7 +87,6 @@ class NoiseEncryptionService(private val context: Context) {
         if (loadedKeyPair != null) {
             staticIdentityPrivateKey = loadedKeyPair.first
             staticIdentityPublicKey = loadedKeyPair.second
-            Log.d(TAG, "Loaded existing static identity key: ${calculateFingerprint(staticIdentityPublicKey)}")
         } else {
             // Generate new identity key pair
             val keyPair = generateKeyPair()
@@ -96,7 +95,6 @@ class NoiseEncryptionService(private val context: Context) {
             
             // Save to secure storage
             identityStateManager.saveStaticKey(staticIdentityPrivateKey, staticIdentityPublicKey)
-            Log.d(TAG, "Generated and saved new static identity key")
         }
         
         // Load or create Ed25519 signing key (persistent across sessions)
@@ -104,7 +102,6 @@ class NoiseEncryptionService(private val context: Context) {
         if (loadedSigningKeyPair != null) {
             signingPrivateKey = loadedSigningKeyPair.first
             signingPublicKey = loadedSigningKeyPair.second
-            Log.d(TAG, "Loaded existing Ed25519 signing key")
         } else {
             // Generate new Ed25519 signing key pair
             val signingKeyPair = generateEd25519KeyPair()
@@ -113,7 +110,6 @@ class NoiseEncryptionService(private val context: Context) {
             
             // Save to secure storage
             identityStateManager.saveSigningKey(signingPrivateKey, signingPublicKey)
-            Log.d(TAG, "Generated and saved new Ed25519 signing key")
         }
     }
 
@@ -169,7 +165,7 @@ class NoiseEncryptionService(private val context: Context) {
         // 4. Re-initialize SessionManager with new keys
         initializeSessionManager()
         
-        Log.d(TAG, "✅ Identity cleared and keys rotated")
+        Log.i(TAG, "Identity cleared and keys rotated")
     }
     
     // MARK: - Handshake Management
@@ -182,7 +178,6 @@ class NoiseEncryptionService(private val context: Context) {
         return try {
             sessionManager.initiateHandshake(peerID)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to initiate handshake with $peerID: ${e.message}")
             null
         }
     }
@@ -195,7 +190,6 @@ class NoiseEncryptionService(private val context: Context) {
         return try {
             sessionManager.processHandshakeMessage(peerID, data)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to process handshake from $peerID: ${e.message}")
             null
         }
     }
@@ -221,7 +215,7 @@ class NoiseEncryptionService(private val context: Context) {
      */
     fun encrypt(data: ByteArray, peerID: String): ByteArray? {
         if (!hasEstablishedSession(peerID)) {
-            Log.w(TAG, "No established session with $peerID, handshake required. TODO: IMPLEMENT HANDSHAKE INIT")
+            Log.i(TAG, "No established session with $peerID; requesting Noise handshake")
             onHandshakeRequired?.invoke(peerID)
             return null
         }
@@ -339,7 +333,7 @@ class NoiseEncryptionService(private val context: Context) {
      * Initiate rekey for a session (replaces old session with new handshake)
      */
     fun initiateRekey(peerID: String): ByteArray? {
-        Log.d(TAG, "Initiating rekey for session with $peerID")
+        Log.i(TAG, "Initiating Noise rekey with $peerID")
         
         // Remove old session
         sessionManager.removeSession(peerID)
@@ -384,8 +378,6 @@ class NoiseEncryptionService(private val context: Context) {
         
         // Calculate fingerprint for logging and callback
         val fingerprint = calculateFingerprint(remoteStaticKey)
-        
-        Log.d(TAG, "Session established with $peerID, fingerprint: ${fingerprint.take(16)}...")
         
         // Notify about authentication
         onPeerAuthenticated?.invoke(peerID, fingerprint)
