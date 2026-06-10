@@ -101,20 +101,9 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             }
         )
 
-        // Wire sync manager delegate
-        gossipSyncManager.delegate = object : GossipSyncManager.Delegate {
-            override fun sendPacket(packet: BitchatPacket) {
-                broadcastRoutedPacket(RoutedPacket(packet))
-            }
-            override fun sendPacketToPeer(peerID: String, packet: BitchatPacket) {
-                sendPacketToPeerAcrossTransports(peerID, packet)
-            }
-            override fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket {
-                return signPacketBeforeBroadcast(packet)
-            }
+        com.bitchat.android.service.MeshServiceHolder.setGossipManager(gossipSyncManager) { packet ->
+            signPacketBeforeBroadcast(packet)
         }
-
-        com.bitchat.android.service.MeshServiceHolder.setGossipManager(gossipSyncManager)
         if (isBleTransportEnabled()) {
             TransportBridgeService.register("BLE", this)
         }
@@ -142,13 +131,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         if (!isBleTransportEnabled()) return
         connectionManager.broadcastPacket(routed)
         TransportBridgeService.broadcast("BLE", routed)
-    }
-
-    private fun sendPacketToPeerAcrossTransports(peerID: String, packet: BitchatPacket): Boolean {
-        if (!isBleTransportEnabled()) return false
-        val sentOverBle = connectionManager.sendPacketToPeer(peerID, packet)
-        TransportBridgeService.sendToPeer("BLE", peerID, packet)
-        return sentOverBle
     }
 
     private fun isBleTransportEnabled(): Boolean {
@@ -670,8 +652,9 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             Log.i(TAG, "BLE transport disabled by debug settings; not starting mesh service")
             connectionManager.disableTransport()
             TransportBridgeService.unregister("BLE")
+            com.bitchat.android.service.MeshServiceHolder.stopSharedGossip("BLE")
             try { com.bitchat.android.services.AppStateStore.clearTransportPeers("BLE") } catch (_: Exception) { }
-        try { com.bitchat.android.services.AppStateStore.clearTransportDirectPeers("BLE") } catch (_: Exception) { }
+            try { com.bitchat.android.services.AppStateStore.clearTransportDirectPeers("BLE") } catch (_: Exception) { }
             return
         }
         if (terminated) {
@@ -690,7 +673,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             sendPeriodicBroadcastAnnounce()
             Log.d(TAG, "Started periodic broadcast announcements (every 30 seconds)")
             // Start periodic syncs
-            gossipSyncManager.start()
+            com.bitchat.android.service.MeshServiceHolder.startSharedGossip("BLE")
             Log.d(TAG, "GossipSyncManager started")
         } else {
             Log.e(TAG, "Failed to start Bluetooth services")
@@ -713,7 +696,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         isActive = false
         announceJob?.cancel()
         announceJob = null
-        try { gossipSyncManager.stop() } catch (_: Exception) { }
+        com.bitchat.android.service.MeshServiceHolder.stopSharedGossip("BLE")
         TransportBridgeService.unregister("BLE")
         try { com.bitchat.android.services.AppStateStore.clearTransportPeers("BLE") } catch (_: Exception) { }
         try { com.bitchat.android.services.AppStateStore.clearTransportDirectPeers("BLE") } catch (_: Exception) { }
@@ -746,7 +729,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             delay(200) // Give leave message time to send
             
             // Stop all components
-            gossipSyncManager.stop()
+            com.bitchat.android.service.MeshServiceHolder.stopSharedGossip("BLE")
             Log.d(TAG, "GossipSyncManager stopped")
             connectionManager.stopServices()
             Log.d(TAG, "BluetoothConnectionManager stop requested")

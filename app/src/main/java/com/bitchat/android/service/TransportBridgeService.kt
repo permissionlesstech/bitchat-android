@@ -105,6 +105,40 @@ object TransportBridgeService {
         }
     }
 
+    /**
+     * Send a locally originated packet to every active transport without applying relay TTL
+     * handling. This is used for neighbor-only packets such as REQUEST_SYNC whose TTL is
+     * intentionally zero on the first radio hop.
+     */
+    fun broadcastFromLocal(packet: RoutedPacket) {
+        val targets = transports.toMap()
+        if (targets.isEmpty()) return
+
+        targets.forEach { (id, layer) ->
+            try {
+                layer.send(packet)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send local packet to $id: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Send a locally originated packet directly to a peer on every active transport.
+     */
+    fun sendToPeerFromLocal(peerID: String, packet: BitchatPacket) {
+        val targets = transports.toMap()
+        if (targets.isEmpty()) return
+
+        targets.forEach { (id, layer) ->
+            try {
+                layer.sendToPeer(peerID, packet)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send local peer packet to $id: ${e.message}")
+            }
+        }
+    }
+
     private fun prepareForwardedPacket(kind: String, packet: BitchatPacket): BitchatPacket? {
         if (packet.ttl == 0u.toUByte()) {
             Log.d(TAG, "Dropping bridged packet type ${packet.type}: TTL expired")

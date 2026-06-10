@@ -3,6 +3,9 @@ package com.bitchat.android.service
 import android.content.Context
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.mesh.UnifiedMeshService
+import com.bitchat.android.model.RoutedPacket
+import com.bitchat.android.protocol.BitchatPacket
+import com.bitchat.android.sync.GossipSyncManager
 
 /**
  * Process-wide holder to share a single BluetoothMeshService instance
@@ -11,10 +14,59 @@ import com.bitchat.android.mesh.UnifiedMeshService
 object MeshServiceHolder {
     private const val TAG = "MeshServiceHolder"
     @Volatile
-    var sharedGossipSyncManager: com.bitchat.android.sync.GossipSyncManager? = null
+    var sharedGossipSyncManager: GossipSyncManager? = null
         private set
 
-    fun setGossipManager(mgr: com.bitchat.android.sync.GossipSyncManager) { sharedGossipSyncManager = mgr }
+    private val activeGossipOwners = mutableSetOf<String>()
+
+    @Synchronized
+    fun setGossipManager(
+        mgr: GossipSyncManager,
+        signer: (BitchatPacket) -> BitchatPacket
+    ) {
+        val previous = sharedGossipSyncManager
+        if (previous !== mgr) {
+            try { previous?.stop() } catch (_: Exception) { }
+        }
+        sharedGossipSyncManager = mgr
+        mgr.delegate = TransportGossipDelegate(signer)
+        if (activeGossipOwners.isNotEmpty()) {
+            mgr.start()
+        }
+    }
+
+    @Synchronized
+    fun startSharedGossip(owner: String) {
+        val wasIdle = activeGossipOwners.isEmpty()
+        activeGossipOwners.add(owner)
+        if (wasIdle) {
+            sharedGossipSyncManager?.start()
+        }
+    }
+
+    @Synchronized
+    fun stopSharedGossip(owner: String) {
+        activeGossipOwners.remove(owner)
+        if (activeGossipOwners.isEmpty()) {
+            sharedGossipSyncManager?.stop()
+        }
+    }
+
+    private class TransportGossipDelegate(
+        private val signer: (BitchatPacket) -> BitchatPacket
+    ) : GossipSyncManager.Delegate {
+        override fun sendPacket(packet: BitchatPacket) {
+            TransportBridgeService.broadcastFromLocal(RoutedPacket(packet))
+        }
+
+        override fun sendPacketToPeer(peerID: String, packet: BitchatPacket) {
+            TransportBridgeService.sendToPeerFromLocal(peerID, packet)
+        }
+
+        override fun signPacketForBroadcast(packet: BitchatPacket): BitchatPacket {
+            return signer(packet)
+        }
+    }
 
     @Volatile
     var meshService: BluetoothMeshService? = null
@@ -84,6 +136,9 @@ object MeshServiceHolder {
     @Synchronized
     fun clear() {
         android.util.Log.d(TAG, "Clearing BluetoothMeshService from holder")
+        try { sharedGossipSyncManager?.stop() } catch (_: Exception) { }
+        sharedGossipSyncManager = null
+        activeGossipOwners.clear()
         meshService = null
         unifiedMeshService = null
     }
