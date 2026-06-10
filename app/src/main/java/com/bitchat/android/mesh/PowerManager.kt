@@ -7,7 +7,13 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 import kotlinx.coroutines.*
 import kotlin.math.max
 
@@ -15,7 +21,7 @@ import kotlin.math.max
  * Power-aware Bluetooth management for bitchat
  * Adjusts scanning, advertising, and connection behavior based on battery state
  */
-class PowerManager(private val context: Context) {
+class PowerManager(private val context: Context) : LifecycleEventObserver {
     
     companion object {
         private const val TAG = "PowerManager"
@@ -49,7 +55,7 @@ class PowerManager(private val context: Context) {
     private var currentMode = PowerMode.BALANCED
     private var isCharging = false
     private var batteryLevel = 100
-    private var isAppInBackground = false
+    private var isAppInBackground = true
     
     private val powerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var dutyCycleJob: Job? = null
@@ -87,6 +93,16 @@ class PowerManager(private val context: Context) {
     
     init {
         registerBatteryReceiver()
+        
+        // Register for process lifecycle events on the main thread
+        Handler(Looper.getMainLooper()).post {
+            try {
+                ProcessLifecycleOwner.get().lifecycle.addObserver(this)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to register lifecycle observer: ${e.message}")
+            }
+        }
+        
         updatePowerMode()
     }
     
@@ -99,13 +115,30 @@ class PowerManager(private val context: Context) {
         Log.i(TAG, "Stopping power management")
         powerScope.cancel()
         unregisterBatteryReceiver()
+        
+        // Unregister lifecycle observer
+        Handler(Looper.getMainLooper()).post {
+            try {
+                ProcessLifecycleOwner.get().lifecycle.removeObserver(this)
+            } catch (e: Exception) {
+                 Log.e(TAG, "Failed to remove lifecycle observer: ${e.message}")
+            }
+        }
     }
     
-    fun setAppBackgroundState(inBackground: Boolean) {
-        if (isAppInBackground != inBackground) {
-            isAppInBackground = inBackground
-            Log.d(TAG, "App background state changed: $inBackground")
-            updatePowerMode()
+    override fun onStateChanged(source: LifecycleOwner, event: Lifecycle.Event) {
+        when (event) {
+            Lifecycle.Event.ON_START -> {
+                Log.d(TAG, "Process lifecycle: ON_START (App coming to foreground)")
+                isAppInBackground = false
+                updatePowerMode()
+            }
+            Lifecycle.Event.ON_STOP -> {
+                Log.d(TAG, "Process lifecycle: ON_STOP (App going to background)")
+                isAppInBackground = true
+                updatePowerMode()
+            }
+            else -> {}
         }
     }
     
@@ -133,7 +166,7 @@ class PowerManager(private val context: Context) {
                 .setNumOfMatches(ScanSettings.MATCH_NUM_ONE_ADVERTISEMENT)
 
             PowerMode.ULTRA_LOW_POWER -> builder
-                .setScanMode(ScanSettings.SCAN_MODE_OPPORTUNISTIC)
+                .setScanMode(ScanSettings.SCAN_MODE_LOW_POWER)
                 .setMatchMode(ScanSettings.MATCH_MODE_STICKY)
                 .setNumOfMatches(ScanSettings.MATCH_NUM_ONE_ADVERTISEMENT)
         }

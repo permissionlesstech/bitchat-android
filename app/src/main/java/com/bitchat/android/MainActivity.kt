@@ -19,6 +19,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.Lifecycle
 import com.bitchat.android.mesh.BluetoothMeshService
+import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.onboarding.BluetoothCheckScreen
 import com.bitchat.android.onboarding.BluetoothStatus
 import com.bitchat.android.onboarding.BluetoothStatusManager
@@ -26,6 +27,7 @@ import com.bitchat.android.onboarding.BatteryOptimizationManager
 import com.bitchat.android.onboarding.BatteryOptimizationPreferenceManager
 import com.bitchat.android.onboarding.BatteryOptimizationScreen
 import com.bitchat.android.onboarding.BatteryOptimizationStatus
+import com.bitchat.android.onboarding.BackgroundLocationPermissionScreen
 import com.bitchat.android.onboarding.InitializationErrorScreen
 import com.bitchat.android.onboarding.InitializingScreen
 import com.bitchat.android.onboarding.LocationCheckScreen
@@ -39,7 +41,9 @@ import com.bitchat.android.ui.ChatScreen
 import com.bitchat.android.ui.ChatViewModel
 import com.bitchat.android.ui.OrientationAwareActivity
 import com.bitchat.android.ui.theme.BitchatTheme
+import com.bitchat.android.wifiaware.WifiAwareController
 import com.bitchat.android.nostr.PoWPreferenceManager
+import com.bitchat.android.services.VerificationService
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -53,12 +57,13 @@ class MainActivity : OrientationAwareActivity() {
     
     // Core mesh service - provided by the foreground service holder
     private lateinit var meshService: BluetoothMeshService
+    private lateinit var unifiedMeshService: MeshService
     private val mainViewModel: MainViewModel by viewModels()
     private val chatViewModel: ChatViewModel by viewModels { 
         object : ViewModelProvider.Factory {
             override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
                 @Suppress("UNCHECKED_CAST")
-                return ChatViewModel(application, meshService) as T
+                return ChatViewModel(application, meshService, unifiedMeshService) as T
             }
         }
     }
@@ -112,6 +117,7 @@ class MainActivity : OrientationAwareActivity() {
         // Ensure foreground service is running and get mesh instance from holder
         try { com.bitchat.android.service.MeshForegroundService.start(applicationContext) } catch (_: Exception) { }
         meshService = com.bitchat.android.service.MeshServiceHolder.getOrCreate(applicationContext)
+        unifiedMeshService = com.bitchat.android.service.MeshServiceHolder.getUnifiedOrCreate(applicationContext)
         // Expose BLE mesh to Wi‑Fi Aware controller for cross-transport relays - DEPRECATED
         // Bridging is now handled by TransportBridgeService automatically
         
@@ -137,6 +143,9 @@ class MainActivity : OrientationAwareActivity() {
             activity = this,
             permissionManager = permissionManager,
             onOnboardingComplete = ::handleOnboardingComplete,
+            onBackgroundLocationRequired = {
+                mainViewModel.updateOnboardingState(OnboardingState.BACKGROUND_LOCATION_EXPLANATION)
+            },
             onOnboardingFailed = ::handleOnboardingFailed
         )
         
@@ -163,47 +172,12 @@ class MainActivity : OrientationAwareActivity() {
             }
         }
 
-        // Bridge Wi‑Fi Aware callbacks into ChatViewModel (reusing BLE delegate methods)
+        // Keep the unified mesh delegate attached when Wi-Fi Aware starts after the UI.
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                com.bitchat.android.wifiaware.WifiAwareController.running.collect { running ->
-                    val svc = com.bitchat.android.wifiaware.WifiAwareController.getService()
-                    if (running && svc != null) {
-                        svc.delegate = object : com.bitchat.android.wifiaware.WifiAwareMeshDelegate {
-                            override fun didReceiveMessage(message: com.bitchat.android.model.BitchatMessage) {
-                                if (message.isPrivate) {
-                                    message.senderPeerID?.let { pid -> com.bitchat.android.services.AppStateStore.addPrivateMessage(pid, message) }
-                                } else if (message.channel != null) {
-                                    com.bitchat.android.services.AppStateStore.addChannelMessage(message.channel, message)
-                                } else {
-                                    com.bitchat.android.services.AppStateStore.addPublicMessage(message)
-                                }
-                                chatViewModel.didReceiveMessage(message)
-                            }
-                            override fun didUpdatePeerList(peers: List<String>) {
-                                chatViewModel.onWifiPeersUpdated(peers)
-                            }
-                            override fun didReceiveChannelLeave(channel: String, fromPeer: String) {
-                                chatViewModel.didReceiveChannelLeave(channel, fromPeer)
-                            }
-                            override fun didReceiveDeliveryAck(messageID: String, recipientPeerID: String) {
-                                chatViewModel.didReceiveDeliveryAck(messageID, recipientPeerID)
-                            }
-                            override fun didReceiveReadReceipt(messageID: String, recipientPeerID: String) {
-                                chatViewModel.didReceiveReadReceipt(messageID, recipientPeerID)
-                            }
-                            override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {
-                                return chatViewModel.decryptChannelMessage(encryptedContent, channel)
-                            }
-                            override fun getNickname(): String? {
-                                return chatViewModel.getNickname()
-                            }
-                            override fun isFavorite(peerID: String): Boolean {
-                                return try {
-                                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.getFavoriteStatus(peerID)?.isMutual == true
-                                } catch (_: Exception) { false }
-                            }
-                        }
+                WifiAwareController.running.collect { running ->
+                    if (running && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                        unifiedMeshService.delegate = chatViewModel
                     }
                 }
             }
@@ -315,6 +289,21 @@ class MainActivity : OrientationAwareActivity() {
                     onContinue = {
                         mainViewModel.updateOnboardingState(OnboardingState.PERMISSION_REQUESTING)
                         onboardingCoordinator.requestPermissions()
+                    }
+                )
+            }
+
+            OnboardingState.BACKGROUND_LOCATION_EXPLANATION -> {
+                BackgroundLocationPermissionScreen(
+                    modifier = modifier,
+                    onContinue = {
+                        onboardingCoordinator.requestBackgroundLocation()
+                    },
+                    onRetry = {
+                        onboardingCoordinator.checkBackgroundLocationAndProceed()
+                    },
+                    onSkip = {
+                        onboardingCoordinator.skipBackgroundLocation()
                     }
                 )
             }
@@ -445,10 +434,17 @@ class MainActivity : OrientationAwareActivity() {
             if (permissionManager.isFirstTimeLaunch()) {
                 Log.d("MainActivity", "First time launch, showing permission explanation")
                 mainViewModel.updateOnboardingState(OnboardingState.PERMISSION_EXPLANATION)
-            } else if (permissionManager.areAllPermissionsGranted()) {
-                Log.d("MainActivity", "Existing user with permissions, initializing app")
-                mainViewModel.updateOnboardingState(OnboardingState.INITIALIZING)
-                initializeApp()
+            } else if (permissionManager.areRequiredPermissionsGranted()) {
+                Log.d("MainActivity", "Existing user with required permissions")
+                if (permissionManager.needsBackgroundLocationPermission() &&
+                    !permissionManager.isBackgroundLocationGranted() &&
+                    !com.bitchat.android.onboarding.BackgroundLocationPreferenceManager.isSkipped(this@MainActivity)
+                ) {
+                    mainViewModel.updateOnboardingState(OnboardingState.BACKGROUND_LOCATION_EXPLANATION)
+                } else {
+                    mainViewModel.updateOnboardingState(OnboardingState.INITIALIZING)
+                    initializeApp()
+                }
             } else {
                 Log.d("MainActivity", "Existing user missing permissions, showing explanation")
                 mainViewModel.updateOnboardingState(OnboardingState.PERMISSION_EXPLANATION)
@@ -511,6 +507,8 @@ class MainActivity : OrientationAwareActivity() {
         Log.d("MainActivity", "Location services enabled by user")
         mainViewModel.updateLocationLoading(false)
         mainViewModel.updateLocationStatus(LocationStatus.ENABLED)
+        // Ensure Wi-Fi Aware starts now that location is enabled
+        com.bitchat.android.wifiaware.WifiAwareController.startIfPossible()
         checkBatteryOptimizationAndProceed()
     }
 
@@ -714,14 +712,15 @@ class MainActivity : OrientationAwareActivity() {
                     return@launch
                 }
 
-                // Set up mesh service delegate and start services
-                meshService.delegate = chatViewModel
-                meshService.startServices()
+                // Set up unified mesh delegate and start enabled transports
+                unifiedMeshService.delegate = chatViewModel
+                unifiedMeshService.startServices()
                 
                 Log.d("MainActivity", "Mesh service started successfully")
                 
                 // Handle any notification intent
                 handleNotificationIntent(intent)
+                handleVerificationIntent(intent)
                 
                 // Small delay to ensure mesh service is fully initialized
                 delay(500)
@@ -750,6 +749,7 @@ class MainActivity : OrientationAwareActivity() {
         // Handle notification intents when app is already running
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
             handleNotificationIntent(intent)
+            handleVerificationIntent(intent)
         }
     }
     
@@ -758,14 +758,12 @@ class MainActivity : OrientationAwareActivity() {
         // Check Bluetooth and Location status on resume and handle accordingly
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
             // Reattach mesh delegate to new ChatViewModel instance after Activity recreation
-            try { meshService.delegate = chatViewModel } catch (_: Exception) { }
-            // Set app foreground state
-            meshService.connectionManager.setAppBackgroundState(false)
-            chatViewModel.setAppBackgroundState(false)
+            try { unifiedMeshService.delegate = chatViewModel } catch (_: Exception) { }
 
             // Check if Bluetooth was disabled while app was backgrounded
             val currentBluetoothStatus = bluetoothStatusManager.checkBluetoothStatus()
-            if (currentBluetoothStatus != BluetoothStatus.ENABLED && !mainViewModel.isBluetoothCheckSkipped.value) {
+            val bleRequired = try { com.bitchat.android.ui.debug.DebugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true }
+            if (bleRequired && currentBluetoothStatus != BluetoothStatus.ENABLED && !mainViewModel.isBluetoothCheckSkipped.value) {
                 Log.w("MainActivity", "Bluetooth disabled while app was backgrounded")
                 mainViewModel.updateBluetoothStatus(currentBluetoothStatus)
                 mainViewModel.updateOnboardingState(OnboardingState.BLUETOOTH_CHECK)
@@ -780,6 +778,9 @@ class MainActivity : OrientationAwareActivity() {
                 mainViewModel.updateLocationStatus(currentLocationStatus)
                 mainViewModel.updateOnboardingState(OnboardingState.LOCATION_CHECK)
                 mainViewModel.updateLocationLoading(false)
+            } else {
+                // If location is enabled, ensure Wi-Fi Aware starts if it was blocked by location earlier
+                com.bitchat.android.wifiaware.WifiAwareController.startIfPossible()
             }
         }
     }
@@ -788,11 +789,8 @@ class MainActivity : OrientationAwareActivity() {
         super.onPause()
         // Only set background state if app is fully initialized
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
-            // Set app background state
-            meshService.connectionManager.setAppBackgroundState(true)
-            chatViewModel.setAppBackgroundState(true)
             // Detach UI delegate so the foreground service can own DM notifications while UI is closed
-            try { meshService.delegate = null } catch (_: Exception) { }
+            try { unifiedMeshService.delegate = null } catch (_: Exception) { }
         }
     }
     
@@ -818,8 +816,9 @@ class MainActivity : OrientationAwareActivity() {
                 if (peerID != null) {
                     Log.d("MainActivity", "Opening private chat with $senderNickname (peerID: $peerID) from notification")
                     
-                    // Open the private chat with this peer
-                    chatViewModel.startPrivateChat(peerID)
+                    // Open the private chat sheet with this peer
+                    chatViewModel.showMeshPeerList()
+                    chatViewModel.showPrivateChatSheet(peerID)
                     
                     // Clear notifications for this sender since user is now viewing the chat
                     chatViewModel.clearNotificationsForSender(peerID)
@@ -852,6 +851,17 @@ class MainActivity : OrientationAwareActivity() {
                     chatViewModel.clearNotificationsForGeohash(geohash)
                 }
             }
+        }
+    }
+
+    private fun handleVerificationIntent(intent: Intent) {
+        val uri = intent.data ?: return
+        if (uri.scheme != "bitchat" || uri.host != "verify") return
+
+        chatViewModel.showVerificationSheet()
+        val qr = VerificationService.verifyScannedQR(uri.toString())
+        if (qr != null) {
+            chatViewModel.beginQRVerification(qr)
         }
     }
 

@@ -113,7 +113,7 @@ object DebugPreferenceManager {
         if (ready()) prefs.edit().putBoolean(KEY_BLE_ENABLED, value).apply()
     }
 
-    fun getWifiAwareEnabled(default: Boolean = false): Boolean =
+    fun getWifiAwareEnabled(default: Boolean = true): Boolean =
         if (ready()) prefs.getBoolean(KEY_WIFI_AWARE_ENABLED, default) else default
 
     fun setWifiAwareEnabled(value: Boolean) {

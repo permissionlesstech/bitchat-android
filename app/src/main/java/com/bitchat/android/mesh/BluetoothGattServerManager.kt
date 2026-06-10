@@ -24,11 +24,15 @@ class BluetoothGattServerManager(
     private val connectionTracker: BluetoothConnectionTracker,
     private val permissionManager: BluetoothPermissionManager,
     private val powerManager: PowerManager,
-    private val delegate: BluetoothConnectionManagerDelegate?
+    private val delegate: BluetoothConnectionManagerDelegate?,
+    private val myPeerID: String
 ) {
     
     companion object {
         private const val TAG = "BluetoothGattServerManager"
+        // Self-healing advertising recovery tuning
+        private const val ADVERTISE_RETRY_BASE_MS = 3_000L      // base backoff for transient advertise failures
+        private const val ADVERTISE_MAX_RETRY_DELAY_MS = 30_000L // cap on backoff delay
     }
     
     // Core Bluetooth components
@@ -41,22 +45,33 @@ class BluetoothGattServerManager(
     private var gattServer: BluetoothGattServer? = null
     private var characteristic: BluetoothGattCharacteristic? = null
     private var advertiseCallback: AdvertiseCallback? = null
+    private var advertiseRetryCount = 0
     
     // State management
     private var isActive = false
 
-    // Enforce a server connection limit by canceling the oldest connections (best-effort)
-    fun enforceServerLimit(maxServer: Int) {
-        if (maxServer <= 0) return
+    private fun isBleTransportEnabled(): Boolean {
+        return try {
+            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().bleEnabled.value
+        } catch (_: Exception) {
+            try { com.bitchat.android.ui.debug.DebugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true }
+        }
+    }
+
+    private fun isServerRoleEnabled(): Boolean {
+        return isBleTransportEnabled() &&
+            (try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattServerEnabled.value } catch (_: Exception) { true })
+    }
+
+    /**
+     * Disconnect a specific device (used by ConnectionManager to enforce overall limits)
+     */
+    fun disconnectDevice(device: BluetoothDevice) {
         try {
-            val subs = connectionTracker.getSubscribedDevices()
-            if (subs.size > maxServer) {
-                val excess = subs.size - maxServer
-                subs.take(excess).forEach { d ->
-                    try { gattServer?.cancelConnection(d) } catch (_: Exception) { }
-                }
-            }
-        } catch (_: Exception) { }
+            gattServer?.cancelConnection(device)
+        } catch (e: Exception) {
+            Log.w(TAG, "Error disconnecting device ${device.address}: ${e.message}")
+        }
     }
     
     /**
@@ -64,12 +79,10 @@ class BluetoothGattServerManager(
      */
     fun start(): Boolean {
         // Respect debug setting
-        try {
-            if (!com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattServerEnabled.value) {
-                Log.i(TAG, "Server start skipped: GATT Server disabled in debug settings")
-                return false
-            }
-        } catch (_: Exception) { }
+        if (!isServerRoleEnabled()) {
+            Log.i(TAG, "Server start skipped: BLE/GATT Server disabled in debug settings")
+            return false
+        }
 
         if (isActive) {
             Log.d(TAG, "GATT server already active; start is a no-op")
@@ -122,9 +135,10 @@ class BluetoothGattServerManager(
             
             // Try to cancel any active connections explicitly before closing
             try {
-                val devices = connectionTracker.getSubscribedDevices()
-                devices.forEach { d ->
-                    try { gattServer?.cancelConnection(d) } catch (_: Exception) { }
+                // Disconnect ALL server connections
+                val servers = connectionTracker.getConnectedDevices().values.filter { !it.isClient }
+                servers.forEach { d ->
+                    try { gattServer?.cancelConnection(d.device) } catch (_: Exception) { }
                 }
             } catch (_: Exception) { }
             
@@ -323,7 +337,7 @@ class BluetoothGattServerManager(
     @Suppress("DEPRECATION")
     private fun startAdvertising() {
         // Respect debug setting
-        val enabled = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattServerEnabled.value } catch (_: Exception) { true }
+        val enabled = isServerRoleEnabled()
 
         // Guard conditions – never throw here to avoid crashing the app from a background coroutine
         if (!permissionManager.hasBluetoothPermissions()) {
@@ -358,22 +372,59 @@ class BluetoothGattServerManager(
             .setIncludeTxPowerLevel(false)
             .setIncludeDeviceName(false)
             .build()
+            
+        // Add stable identity (first 8 bytes of peerID) to Scan Response
+        // This allows scanners to deduplicate devices even if MAC address rotates
+        val peerIDBytes = try {
+            myPeerID.chunked(2).map { it.toInt(16).toByte() }.toByteArray().take(8).toByteArray()
+        } catch (e: Exception) {
+            ByteArray(0)
+        }
+        
+        val scanResponse = AdvertiseData.Builder()
+            .addServiceData(ParcelUuid(AppConstants.Mesh.Gatt.SERVICE_UUID), peerIDBytes)
+            .setIncludeTxPowerLevel(false)
+            .setIncludeDeviceName(false)
+            .build()
         
         advertiseCallback = object : AdvertiseCallback() {
             override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
+                advertiseRetryCount = 0
                 val mode = try {
                     powerManager.getPowerInfo().split("Current Mode: ")[1].split("\n")[0]
                 } catch (_: Exception) { "unknown" }
-                Log.i(TAG, "Advertising started (power mode: $mode)")
+                Log.i(TAG, "Advertising started (power mode: $mode) with stable ID: ${peerIDBytes.joinToString("") { "%02x".format(it) }}")
             }
             
             override fun onStartFailure(errorCode: Int) {
                 Log.e(TAG, "Advertising failed: $errorCode")
+                // Previously this only logged, so if advertising failed this device became
+                // undiscoverable until a manual BLE toggle. Retry transient failures with backoff.
+                when (errorCode) {
+                    ADVERTISE_FAILED_ALREADY_STARTED ->
+                        Log.w(TAG, "ADVERTISE_FAILED_ALREADY_STARTED - already advertising, no retry")
+                    ADVERTISE_FAILED_DATA_TOO_LARGE ->
+                        Log.e(TAG, "ADVERTISE_FAILED_DATA_TOO_LARGE - config issue, not retrying")
+                    ADVERTISE_FAILED_FEATURE_UNSUPPORTED ->
+                        Log.e(TAG, "ADVERTISE_FAILED_FEATURE_UNSUPPORTED - unsupported, not retrying")
+                    ADVERTISE_FAILED_TOO_MANY_ADVERTISERS -> {
+                        Log.w(TAG, "ADVERTISE_FAILED_TOO_MANY_ADVERTISERS - will retry after backoff")
+                        scheduleAdvertiseRestart("too-many-advertisers")
+                    }
+                    ADVERTISE_FAILED_INTERNAL_ERROR -> {
+                        Log.w(TAG, "ADVERTISE_FAILED_INTERNAL_ERROR - will retry after backoff")
+                        scheduleAdvertiseRestart("internal-error")
+                    }
+                    else -> {
+                        Log.w(TAG, "Unknown advertise failure $errorCode - will retry after backoff")
+                        scheduleAdvertiseRestart("unknown-$errorCode")
+                    }
+                }
             }
         }
         
         try {
-            bleAdvertiser.startAdvertising(settings, data, advertiseCallback)
+            bleAdvertiser.startAdvertising(settings, data, scanResponse, advertiseCallback)
         } catch (se: SecurityException) {
             Log.e(TAG, "SecurityException starting advertising (missing permission?): ${se.message}")
         } catch (e: Exception) {
@@ -395,11 +446,28 @@ class BluetoothGattServerManager(
     }
     
     /**
+     * Schedule an advertising restart with incremental backoff after a transient failure.
+     */
+    private fun scheduleAdvertiseRestart(reason: String) {
+        advertiseRetryCount++
+        val delayMs = (ADVERTISE_RETRY_BASE_MS * advertiseRetryCount).coerceAtMost(ADVERTISE_MAX_RETRY_DELAY_MS)
+        Log.w(TAG, "Scheduling advertising restart in ${delayMs}ms (attempt $advertiseRetryCount, reason=$reason)")
+        connectionScope.launch {
+            delay(delayMs)
+            if (isActive && isServerRoleEnabled()) {
+                stopAdvertising()
+                delay(100)
+                startAdvertising()
+            }
+        }
+    }
+
+    /**
      * Restart advertising (for power mode changes)
      */
     fun restartAdvertising() {
         // Respect debug setting
-        val enabled = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattServerEnabled.value } catch (_: Exception) { true }
+        val enabled = isServerRoleEnabled()
         if (!isActive || !enabled) {
             stopAdvertising()
             return

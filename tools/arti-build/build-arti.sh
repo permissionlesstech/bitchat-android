@@ -129,15 +129,17 @@ done
 
 # Architectures to build
 if [ "$RELEASE_ONLY" = true ]; then
-  TARGETS=("aarch64-linux-android")
+  TARGETS=("aarch64-linux-android" "armv7-linux-androideabi")
 else
-  TARGETS=("aarch64-linux-android" "x86_64-linux-android")
+  TARGETS=("aarch64-linux-android" "x86_64-linux-android" "armv7-linux-androideabi" "i686-linux-android")
 fi
 
 # Map Rust targets to Android ABI names
 declare -A ABI_MAP=(
   ["aarch64-linux-android"]="arm64-v8a"
   ["x86_64-linux-android"]="x86_64"
+  ["armv7-linux-androideabi"]="armeabi-v7a"
+  ["i686-linux-android"]="x86"
 )
 
 # Toolchain placeholders (set in detect_ndk_host)
@@ -331,6 +333,18 @@ clone_or_update_arti() {
   git clean -ffdqx --quiet
 
   print_success "Arti source ready at version $VERSION"
+
+  # Apply patches
+  if [ -d "$SCRIPT_DIR/patches" ]; then
+    print_info "Applying patches..."
+    for patch in "$SCRIPT_DIR/patches"/*.patch; do
+        if [ -f "$patch" ]; then
+            print_info "Applying $(basename "$patch")"
+            git apply "$patch" || { print_error "Failed to apply $patch"; exit 1; }
+        fi
+    done
+  fi
+
   echo ""
 }
 

@@ -86,6 +86,9 @@ class PeerManager {
     // Delegate for callbacks
     var delegate: PeerManagerDelegate? = null
     
+    // Callback to check if a peer is directly connected (injected by BluetoothMeshService)
+    var isPeerDirectlyConnected: ((String) -> Boolean)? = null
+
     // Coroutines
     private val managerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
@@ -107,10 +110,21 @@ class PeerManager {
         isVerified: Boolean
     ): Boolean {
         if (peerID == "unknown") return false
+
+        fun keysMatch(a: ByteArray?, b: ByteArray?): Boolean {
+            if (a == null && b == null) return true
+            if (a == null || b == null) return false
+            return a.contentEquals(b)
+        }
         
         val now = System.currentTimeMillis()
         val existingPeer = peers[peerID]
         val isNewPeer = existingPeer == null
+        val wasVerified = existingPeer?.isVerifiedNickname == true
+        val nicknameChanged = existingPeer != null && existingPeer.nickname != nickname
+        val noiseKeyChanged = existingPeer != null && !keysMatch(existingPeer.noisePublicKey, noisePublicKey)
+        val signingKeyChanged = existingPeer != null && !keysMatch(existingPeer.signingPublicKey, signingPublicKey)
+        val connectedChanged = existingPeer != null && existingPeer.isConnected != true
         
         // Update or create peer info
         val peerInfo = PeerInfo(
@@ -130,25 +144,42 @@ class PeerManager {
         // No legacy maps; peers map is the single source of truth
         // Maintain announcedPeers for first-time announce semantics
         
+        val shouldNotify = when {
+            isNewPeer && isVerified -> true
+            wasVerified != isVerified -> true
+            nicknameChanged || noiseKeyChanged || signingKeyChanged || connectedChanged -> true
+            else -> false
+        }
+
         if (isNewPeer && isVerified) {
             announcedPeers.add(peerID)
-            notifyPeerListUpdate()
             Log.d(TAG, "🆕 New verified peer: $nickname ($peerID)")
-            return true
         } else if (isVerified) {
             Log.d(TAG, "🔄 Updated verified peer: $nickname ($peerID)")
         } else {
             Log.d(TAG, "⚠️ Unverified peer announcement from: $nickname ($peerID)")
         }
+
+        if (shouldNotify) {
+            notifyPeerListUpdate()
+        }
         
-        return false
+        return isNewPeer && isVerified
     }
 
     /**
-     * Get peer info
+     * Get peer info with dynamic direct connection status
      */
     fun getPeerInfo(peerID: String): PeerInfo? {
-        return peers[peerID]
+        return peers[peerID]?.let { info ->
+            // Dynamically check direct connection status from ConnectionManager
+            val isDirect = isPeerDirectlyConnected?.invoke(peerID) ?: false
+            if (info.isDirectConnection != isDirect) {
+                info.copy(isDirectConnection = isDirect)
+            } else {
+                info
+            }
+        }
     }
 
     /**
@@ -159,27 +190,12 @@ class PeerManager {
     }
 
     /**
-     * Get all verified peers
+     * Get all verified peers with dynamic direct connection status
      */
     fun getVerifiedPeers(): Map<String, PeerInfo> {
-        return peers.filterValues { it.isVerifiedNickname }
-    }
-
-    /**
-     * Set whether a peer is directly connected over Bluetooth.
-     * Triggers a peer list update to refresh UI badges.
-     */
-    fun setDirectConnection(peerID: String, isDirect: Boolean) {
-        peers[peerID]?.let { existing ->
-            if (existing.isDirectConnection != isDirect) {
-                peers[peerID] = existing.copy(isDirectConnection = isDirect)
-                notifyPeerListUpdate()
-                // NEW: notify UI state (if available via delegate path) about directness change
-                try {
-                    // Best-effort: delegate path flows up to ChatViewModel via didUpdatePeerList
-                    // No direct reference to UI layer here by design.
-                } catch (_: Exception) { }
-            }
+        return peers.filterValues { it.isVerifiedNickname }.mapValues { (_, info) ->
+            val isDirect = isPeerDirectlyConnected?.invoke(info.id) ?: false
+            if (info.isDirectConnection != isDirect) info.copy(isDirectConnection = isDirect) else info
         }
     }
 
@@ -299,8 +315,7 @@ class PeerManager {
      */
     fun isPeerActive(peerID: String): Boolean {
         val info = peers[peerID] ?: return false
-        val now = System.currentTimeMillis()
-        return (now - info.lastSeen) <= stalePeerTimeoutMs && info.isConnected
+        return info.isConnected
     }
     
     /**
@@ -328,8 +343,7 @@ class PeerManager {
      * Get list of active peer IDs
      */
     fun getActivePeerIDs(): List<String> {
-        val now = System.currentTimeMillis()
-        return peers.filterValues { (now - it.lastSeen) <= stalePeerTimeoutMs && it.isConnected }
+        return peers.filterValues { it.isConnected }
             .keys
             .toList()
             .sorted()
@@ -366,7 +380,11 @@ class PeerManager {
         return buildString {
             appendLine("=== Peer Manager Debug Info ===")
             appendLine("Active Peers: ${activeIds.size}")
-            peers.forEach { (peerID, info) ->
+            peers.forEach { (peerID, storedInfo) ->
+                // Use dynamic direct status for debug log accuracy
+                val isDirect = isPeerDirectlyConnected?.invoke(peerID) ?: false
+                val info = if (storedInfo.isDirectConnection != isDirect) storedInfo.copy(isDirectConnection = isDirect) else storedInfo
+                
                 val timeSince = (now - info.lastSeen) / 1000
                 val rssi = peerRSSI[peerID]?.let { "${it} dBm" } ?: "No RSSI"
                 val deviceAddress = addressPeerMap?.entries?.find { it.value == peerID }?.key
@@ -407,6 +425,10 @@ class PeerManager {
     private fun notifyPeerListUpdate() {
         val peerList = getActivePeerIDs()
         delegate?.onPeerListUpdated(peerList)
+    }
+
+    fun refreshPeerList() {
+        notifyPeerListUpdate()
     }
     
     /**

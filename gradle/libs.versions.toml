@@ -45,6 +45,13 @@ gms-location = "21.3.0"
 # Security
 security-crypto = "1.1.0-beta01"
 
+# QR
+zxing-core = "3.5.4"
+
+# CameraX / ML Kit
+camerax = "1.5.2"
+mlkit-barcode = "17.3.0"
+
 # Testing
 junit = "4.13.2"
 androidx-test-ext = "1.2.1"
@@ -54,9 +61,12 @@ mockito-inline = "4.1.0"
 roboelectric = "4.15"
 kotlinx-coroutines-test = "1.6"
 
+lifecycle-process = "2.8.7"
+
 [libraries]
 # AndroidX Core
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "core-ktx" }
+androidx-lifecycle-process = { module = "androidx.lifecycle:lifecycle-process", version.ref = "lifecycle-process" }
 androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycle-runtime" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
@@ -103,6 +113,15 @@ gms-location = { module = "com.google.android.gms:play-services-location", versi
 
 # Security
 androidx-security-crypto = { module = "androidx.security:security-crypto", version.ref = "security-crypto" }
+
+# QR
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxing-core" }
+
+# CameraX / ML Kit
+androidx-camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "camerax" }
+androidx-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camerax" }
+androidx-camera-compose = { module = "androidx.camera:camera-compose", version.ref = "camerax" }
+mlkit-barcode-scanning = { module = "com.google.mlkit:barcode-scanning", version.ref = "mlkit-barcode" }
 
 # Testing
 junit = { module = "junit:junit", version.ref = "junit" }

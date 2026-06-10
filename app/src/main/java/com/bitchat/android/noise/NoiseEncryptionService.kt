@@ -29,15 +29,15 @@ class NoiseEncryptionService(private val context: Context) {
     }
     
     // Static identity key (persistent across app restarts) - loaded from secure storage
-    private val staticIdentityPrivateKey: ByteArray
-    private val staticIdentityPublicKey: ByteArray
+    private var staticIdentityPrivateKey: ByteArray
+    private var staticIdentityPublicKey: ByteArray
     
     // Ed25519 signing key (persistent across app restarts) - loaded from secure storage
-    private val signingPrivateKey: ByteArray
-    private val signingPublicKey: ByteArray
+    private var signingPrivateKey: ByteArray
+    private var signingPublicKey: ByteArray
     
     // Session management
-    private val sessionManager: NoiseSessionManager
+    private lateinit var sessionManager: NoiseSessionManager
     
     // Channel encryption for password-protected channels
     private val channelEncryption = NoiseChannelEncryption()
@@ -56,6 +56,33 @@ class NoiseEncryptionService(private val context: Context) {
         // Initialize identity state manager for persistent storage
         identityStateManager = SecureIdentityStateManager(context)
         
+        // Load or create keys - temporary placeholders
+        staticIdentityPrivateKey = ByteArray(32)
+        staticIdentityPublicKey = ByteArray(32)
+        signingPrivateKey = ByteArray(32)
+        signingPublicKey = ByteArray(32)
+        
+        loadOrGenerateKeys()
+        
+        // Initialize session manager
+        initializeSessionManager()
+    }
+    
+    private fun initializeSessionManager() {
+        // Create new session manager with current keys
+        val localPeerID = calculateFingerprint(staticIdentityPublicKey).take(16)
+        sessionManager = NoiseSessionManager(staticIdentityPrivateKey, staticIdentityPublicKey, localPeerID)
+        
+        // Set up session callbacks
+        sessionManager.onSessionEstablished = { peerID, remoteStaticKey ->
+            handleSessionEstablished(peerID, remoteStaticKey)
+        }
+        
+        // Ensure any other callbacks are wired if needed
+        // sessionManager.onSessionFailed could be wired if we exposed it
+    }
+    
+    private fun loadOrGenerateKeys() {
         // Load or create static identity key (persistent across sessions)
         val loadedKeyPair = identityStateManager.loadStaticKey()
         if (loadedKeyPair != null) {
@@ -89,16 +116,8 @@ class NoiseEncryptionService(private val context: Context) {
             identityStateManager.saveSigningKey(signingPrivateKey, signingPublicKey)
             Log.d(TAG, "Generated and saved new Ed25519 signing key")
         }
-        
-        // Initialize session manager
-        sessionManager = NoiseSessionManager(staticIdentityPrivateKey, staticIdentityPublicKey)
-        
-        // Set up session callbacks
-        sessionManager.onSessionEstablished = { peerID, remoteStaticKey ->
-            handleSessionEstablished(peerID, remoteStaticKey)
-        }
     }
-    
+
     // MARK: - Public Interface
     
     /**
@@ -135,7 +154,23 @@ class NoiseEncryptionService(private val context: Context) {
      * Clear persistent identity (for panic mode)
      */
     fun clearPersistentIdentity() {
+        Log.w(TAG, "🚨 Panic Mode: Clearing persistent identity and rotating in-memory keys")
+        
+        // 1. Clear storage
         identityStateManager.clearIdentityData()
+        
+        // 2. Clear all sessions immediately
+        if (::sessionManager.isInitialized) {
+            sessionManager.shutdown()
+        }
+        
+        // 3. Regenerate keys immediately (in-memory rotation)
+        loadOrGenerateKeys()
+        
+        // 4. Re-initialize SessionManager with new keys
+        initializeSessionManager()
+        
+        Log.d(TAG, "✅ Identity cleared and keys rotated")
     }
     
     // MARK: - Handshake Management
@@ -478,7 +513,9 @@ class NoiseEncryptionService(private val context: Context) {
      * Clean shutdown
      */
     fun shutdown() {
-        sessionManager.shutdown()
+        if (::sessionManager.isInitialized) {
+            sessionManager.shutdown()
+        }
         channelEncryption.clear()
         // No need to clear fingerprints here - they are managed centrally
     }

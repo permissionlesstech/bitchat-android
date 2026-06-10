@@ -1,6 +1,7 @@
 package com.bitchat.android.mesh
 
 import android.util.Log
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -131,6 +132,8 @@ abstract class MeshConnectionTracker(
                     if (expired.isNotEmpty()) {
                         Log.d(tag, "Cleaned up ${expired.size} expired connection attempts")
                     }
+                } catch (e: CancellationException) {
+                    break
                 } catch (e: Exception) {
                     Log.w(tag, "Error in periodic cleanup: ${e.message}")
                 }

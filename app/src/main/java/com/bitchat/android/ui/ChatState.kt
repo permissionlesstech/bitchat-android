@@ -76,11 +76,7 @@ class ChatState(
     
     private val _passwordPromptChannel = MutableStateFlow<String?>(null)
     val passwordPromptChannel: StateFlow<String?> = _passwordPromptChannel.asStateFlow()
-    
-    // Sidebar state
-    private val _showSidebar = MutableStateFlow(false)
-    val showSidebar: StateFlow<Boolean> = _showSidebar.asStateFlow()
-    
+
     // Command autocomplete
     private val _showCommandSuggestions = MutableStateFlow(false)
     val showCommandSuggestions: StateFlow<Boolean> = _showCommandSuggestions.asStateFlow()
@@ -122,6 +118,18 @@ class ChatState(
     // Navigation state
     private val _showAppInfo = MutableStateFlow<Boolean>(false)
     val showAppInfo: StateFlow<Boolean> = _showAppInfo.asStateFlow()
+
+    private val _showMeshPeerList = MutableStateFlow(false)
+    val showMeshPeerList: StateFlow<Boolean> = _showMeshPeerList.asStateFlow()
+
+    private val _privateChatSheetPeer = MutableStateFlow<String?>(null)
+    val privateChatSheetPeer: StateFlow<String?> = _privateChatSheetPeer.asStateFlow()
+
+    private val _showVerificationSheet = MutableStateFlow(false)
+    val showVerificationSheet: StateFlow<Boolean> = _showVerificationSheet.asStateFlow()
+
+    private val _showSecurityVerificationSheet = MutableStateFlow(false)
+    val showSecurityVerificationSheet: StateFlow<Boolean> = _showSecurityVerificationSheet.asStateFlow()
     
     // Location channels state (for Nostr geohash features)
     private val _selectedLocationChannel = MutableStateFlow<com.bitchat.android.geohash.ChannelID?>(com.bitchat.android.geohash.ChannelID.Mesh)
@@ -149,7 +157,7 @@ class ChatState(
             started = WhileSubscribed(5_000),
             initialValue = false
         )
-    
+
     val hasUnreadPrivateMessages: StateFlow<Boolean> = _unreadPrivateMessages
         .map { unreadSet -> unreadSet.isNotEmpty() }
         .stateIn(
@@ -172,7 +180,6 @@ class ChatState(
     fun getPasswordProtectedChannelsValue() = _passwordProtectedChannels.value
     fun getShowPasswordPromptValue() = _showPasswordPrompt.value
     fun getPasswordPromptChannelValue() = _passwordPromptChannel.value
-    fun getShowSidebarValue() = _showSidebar.value
     fun getShowCommandSuggestionsValue() = _showCommandSuggestions.value
     fun getCommandSuggestionsValue() = _commandSuggestions.value
     fun getShowMentionSuggestionsValue() = _showMentionSuggestions.value
@@ -182,6 +189,10 @@ class ChatState(
     fun getPeerFingerprintsValue() = _peerFingerprints.value
     fun getShowAppInfoValue() = _showAppInfo.value
     fun getGeohashPeopleValue() = _geohashPeople.value
+
+    fun getShowMeshPeerListValue() = _showMeshPeerList.value
+    fun getPrivateChatSheetPeerValue() = _privateChatSheetPeer.value
+
     fun getTeleportedGeoValue() = _teleportedGeo.value
     fun getGeohashParticipantCountsValue() = _geohashParticipantCounts.value
     
@@ -245,11 +256,7 @@ class ChatState(
     fun setPasswordPromptChannel(channel: String?) {
         _passwordPromptChannel.value = channel
     }
-    
-    fun setShowSidebar(show: Boolean) {
-        _showSidebar.value = show
-    }
-    
+
     fun setShowCommandSuggestions(show: Boolean) {
         _showCommandSuggestions.value = show
     }
@@ -302,6 +309,14 @@ class ChatState(
     fun setShowAppInfo(show: Boolean) {
         _showAppInfo.value = show
     }
+
+    fun setShowVerificationSheet(show: Boolean) {
+        _showVerificationSheet.value = show
+    }
+
+    fun setShowSecurityVerificationSheet(show: Boolean) {
+        _showSecurityVerificationSheet.value = show
+    }
     
     fun setSelectedLocationChannel(channel: com.bitchat.android.geohash.ChannelID?) {
         _selectedLocationChannel.value = channel
@@ -323,4 +338,11 @@ class ChatState(
         _geohashParticipantCounts.value = counts
     }
 
+    fun setShowMeshPeerList(show: Boolean) {
+        _showMeshPeerList.value = show
+    }
+
+    fun setPrivateChatSheetPeer(peerID: String?) {
+        _privateChatSheetPeer.value = peerID
+    }
 }

@@ -117,6 +117,28 @@ object NostrProtocol {
         
         return@withContext senderIdentity.signEvent(event)
     }
+
+    /**
+     * Create a geohash-scoped presence event (kind 20001)
+     * Has no content and no nickname, used for participant counting
+     */
+    suspend fun createGeohashPresenceEvent(
+        geohash: String,
+        senderIdentity: NostrIdentity
+    ): NostrEvent = withContext(Dispatchers.Default) {
+        val tags = mutableListOf<List<String>>()
+        tags.add(listOf("g", geohash))
+
+        val event = NostrEvent(
+            pubkey = senderIdentity.publicKeyHex,
+            createdAt = (System.currentTimeMillis() / 1000).toInt(),
+            kind = NostrKind.GEOHASH_PRESENCE,
+            tags = tags,
+            content = ""
+        )
+
+        return@withContext senderIdentity.signEvent(event)
+    }
     
     /**
      * Create a geohash-scoped ephemeral public message (kind 20000)

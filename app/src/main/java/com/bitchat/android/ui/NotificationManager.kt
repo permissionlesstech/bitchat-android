@@ -280,6 +280,37 @@ class NotificationManager(
         Log.d(TAG, "Displayed notification for $contentTitle with ID $notificationId")
     }
 
+    fun showVerificationNotification(title: String, body: String, peerID: String? = null) {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            if (peerID != null) {
+                putExtra(EXTRA_OPEN_PRIVATE_CHAT, true)
+                putExtra(EXTRA_PEER_ID, peerID)
+                putExtra(EXTRA_SENDER_NICKNAME, body)
+            }
+        }
+
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            (System.currentTimeMillis() and 0x7FFFFFFF).toInt(),
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setShowWhen(true)
+            .setWhen(System.currentTimeMillis())
+
+        notificationManager.notify((System.currentTimeMillis() and 0x7FFFFFFF).toInt(), builder.build())
+    }
+
     private fun showNotificationForActivePeers(peersSize: Int) {
         // Create intent to open the app
         val intent = Intent(context, MainActivity::class.java).apply {

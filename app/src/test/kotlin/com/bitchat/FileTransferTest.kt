@@ -8,12 +8,14 @@ import org.junit.Assert.assertNotNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.ConscryptMode
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.Date
 
 @RunWith(RobolectricTestRunner::class)
+@ConscryptMode(ConscryptMode.Mode.OFF) // Disable Conscrypt to avoid native library loading issues
 class FileTransferTest {
 
     @Test

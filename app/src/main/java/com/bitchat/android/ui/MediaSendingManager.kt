@@ -1,7 +1,7 @@
 package com.bitchat.android.ui
 
 import android.util.Log
-import com.bitchat.android.mesh.BluetoothMeshService
+import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatFilePacket
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
@@ -16,8 +16,11 @@ class MediaSendingManager(
     private val state: ChatState,
     private val messageManager: MessageManager,
     private val channelManager: ChannelManager,
-    private val meshService: BluetoothMeshService
+    private val getMeshService: () -> MeshService
 ) {
+    // Helper to get current mesh service (may change after panic clear)
+    private val meshService: MeshService
+        get() = getMeshService()
     companion object {
         private const val TAG = "MediaSendingManager"
         private const val MAX_FILE_SIZE = com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES // 50MB limit
@@ -210,7 +213,6 @@ class MediaSendingManager(
         
         Log.d(TAG, "📤 Calling meshService.sendFilePrivate to $toPeerID")
         meshService.sendFilePrivate(toPeerID, filePacket)
-        try { com.bitchat.android.wifiaware.WifiAwareController.getService()?.sendFilePrivate(toPeerID, filePacket) } catch (_: Exception) {}
         Log.d(TAG, "✅ File send completed successfully")
     }
 
@@ -265,7 +267,6 @@ class MediaSendingManager(
         
         Log.d(TAG, "📤 Calling meshService.sendFileBroadcast")
         meshService.sendFileBroadcast(filePacket)
-        try { com.bitchat.android.wifiaware.WifiAwareController.getService()?.sendFileBroadcast(filePacket) } catch (_: Exception) {}
         Log.d(TAG, "✅ File broadcast completed successfully")
     }
 

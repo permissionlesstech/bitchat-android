@@ -41,6 +41,10 @@ object AppConstants {
         const val MAX_FRAGMENT_SIZE: Int = 469
         const val FRAGMENT_TIMEOUT_MS: Long = 30_000L
         const val CLEANUP_INTERVAL_MS: Long = 10_000L
+        const val MAX_FRAGMENTS_PER_ID: Int = 256
+        const val MAX_FRAGMENT_TOTAL_BYTES: Int = 1_048_576
+        const val MAX_ACTIVE_FRAGMENT_SETS: Int = 64
+        const val MAX_GLOBAL_FRAGMENT_TOTAL_BYTES: Long = 4L * 1_048_576L
     }
 
     object Security {
@@ -58,8 +62,13 @@ object AppConstants {
         const val HIGH_NONCE_WARNING_THRESHOLD: Long = 1_000_000_000L
     }
 
+    object Verification {
+        const val QR_MAX_AGE_SECONDS: Long = 300L // 5 minutes
+    }
+
     object Protocol {
         const val COMPRESSION_THRESHOLD_BYTES: Int = 100
+        const val MAX_PAYLOAD_LENGTH: Int = 10_485_760
     }
 
     object StoreForward {
@@ -76,9 +85,9 @@ object AppConstants {
         const val SCAN_ON_DURATION_NORMAL_MS: Long = 8_000L
         const val SCAN_OFF_DURATION_NORMAL_MS: Long = 2_000L
         const val SCAN_ON_DURATION_POWER_SAVE_MS: Long = 2_000L
-        const val SCAN_OFF_DURATION_POWER_SAVE_MS: Long = 8_000L
+        const val SCAN_OFF_DURATION_POWER_SAVE_MS: Long = 28_000L
         const val SCAN_ON_DURATION_ULTRA_LOW_MS: Long = 1_000L
-        const val SCAN_OFF_DURATION_ULTRA_LOW_MS: Long = 10_000L
+        const val SCAN_OFF_DURATION_ULTRA_LOW_MS: Long = 29_000L
         const val MAX_CONNECTIONS_NORMAL: Int = 8
         const val MAX_CONNECTIONS_POWER_SAVE: Int = 8
         const val MAX_CONNECTIONS_ULTRA_LOW: Int = 4

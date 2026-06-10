@@ -2,7 +2,7 @@ package com.bitchat.android.ui
 
 import com.bitchat.android.mesh.BluetoothMeshDelegate
 import com.bitchat.android.ui.NotificationTextUtils
-import com.bitchat.android.mesh.BluetoothMeshService
+import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import kotlinx.coroutines.CoroutineScope
@@ -21,7 +21,7 @@ class MeshDelegateHandler(
     private val coroutineScope: CoroutineScope,
     private val onHapticFeedback: () -> Unit,
     private val getMyPeerID: () -> String,
-    private val getMeshService: () -> BluetoothMeshService
+    private val getMeshService: () -> MeshService
 ) : BluetoothMeshDelegate {
 
     override fun didReceiveMessage(message: BitchatMessage) {
@@ -94,30 +94,13 @@ class MeshDelegateHandler(
         }
     }
     
-    private var blePeers: Set<String> = emptySet()
-    private var wifiPeers: Set<String> = emptySet()
-
     override fun didUpdatePeerList(peers: List<String>) {
         coroutineScope.launch {
-            blePeers = peers.toSet()
-            processPeerUpdate()
+            processPeerUpdate(peers.distinct())
         }
     }
 
-    fun onWifiPeersUpdated(peers: List<String>) {
-        coroutineScope.launch {
-            wifiPeers = peers.toSet()
-            processPeerUpdate()
-        }
-    }
-
-    private suspend fun processPeerUpdate() {
-        // Merge peers from multiple transports
-        val mergedPeers = (blePeers + wifiPeers).toList()
-        
-        // Update process-wide state as source of truth
-        try { com.bitchat.android.services.AppStateStore.setPeers(mergedPeers) } catch (_: Exception) { }
-
+    private suspend fun processPeerUpdate(mergedPeers: List<String>) {
         state.setConnectedPeers(mergedPeers)
         state.setIsConnected(mergedPeers.isNotEmpty())
         notificationManager.showActiveUserNotification(mergedPeers)
@@ -238,6 +221,14 @@ class MeshDelegateHandler(
             messageManager.updateMessageDeliveryStatus(messageID, DeliveryStatus.Read(recipientPeerID, Date()))
         }
     }
+
+    override fun didReceiveVerifyChallenge(peerID: String, payload: ByteArray, timestampMs: Long) {
+        // Handled by ChatViewModel for verification flow
+    }
+
+    override fun didReceiveVerifyResponse(peerID: String, payload: ByteArray, timestampMs: Long) {
+        // Handled by ChatViewModel for verification flow
+    }
     
     override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {
         return channelManager.decryptChannelMessage(encryptedContent, channel)
@@ -308,15 +299,27 @@ class MeshDelegateHandler(
             if (shouldSendReadReceipt) {
                 android.util.Log.d("MeshDelegateHandler", "Sending reactive read receipt for focused chat with $senderPeerID (message=${message.id})")
                 val nickname = state.getNicknameValue() ?: "unknown"
-                // Send directly for this message to avoid relying on unread queues
-                getMeshService().sendReadReceipt(message.id, senderPeerID!!, nickname)
-                // Ensure unread badge is cleared for this peer immediately
-                try {
-                    val current = state.getUnreadPrivateMessagesValue().toMutableSet()
-                    if (current.remove(senderPeerID)) {
-                        state.setUnreadPrivateMessages(current)
+                val mesh = getMeshService()
+                val sent = try {
+                    val hasMesh = mesh.getPeerInfo(senderPeerID!!)?.isConnected == true && mesh.hasEstablishedSession(senderPeerID)
+                    if (hasMesh) {
+                        mesh.sendReadReceipt(message.id, senderPeerID, nickname)
+                        true
+                    } else {
+                        false
                     }
-                } catch (_: Exception) { }
+                } catch (_: Exception) {
+                    false
+                }
+                if (sent) {
+                    // Ensure unread badge is cleared for this peer immediately
+                    try {
+                        val current = state.getUnreadPrivateMessagesValue().toMutableSet()
+                        if (current.remove(senderPeerID)) {
+                            state.setUnreadPrivateMessages(current)
+                        }
+                    } catch (_: Exception) { }
+                }
             } else {
                 android.util.Log.d("MeshDelegateHandler", "Skipping read receipt - chat not focused (background: $isAppInBackground, current peer: $currentPrivateChatPeer, sender: $senderPeerID)")
             }
