@@ -39,6 +39,7 @@ class BluetoothMeshService(private val context: Context) {
     
     companion object {
         private const val TAG = "BluetoothMeshService"
+        private const val HANDSHAKE_INIT_DELAY_MS = 300L
         private val MAX_TTL: UByte = com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
     }
     
@@ -72,6 +73,13 @@ class BluetoothMeshService(private val context: Context) {
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     // Tracks whether this instance has been terminated via stopServices()
     private var terminated = false
+    private val pendingPrivateMessagesLock = Any()
+    private val pendingPrivateMessages = mutableMapOf<String, MutableList<PendingPrivateMessage>>()
+
+    private data class PendingPrivateMessage(
+        val content: String,
+        val messageID: String
+    )
     
     init {
         Log.i(TAG, "Initializing BluetoothMeshService for peer=$myPeerID")
@@ -194,14 +202,24 @@ class BluetoothMeshService(private val context: Context) {
             }
         }
         
+        // Replay encrypted packets that arrived before the final handshake packet.
+        encryptionService.onSessionEstablished = { peerID ->
+            serviceScope.launch {
+                messageHandler.flushPendingNoiseEncrypted(peerID)
+                flushPendingPrivateMessages(peerID)
+            }
+        }
+
         // SecurityManager delegate for key exchange notifications
         securityManager.delegate = object : SecurityManagerDelegate {
             override fun onKeyExchangeCompleted(peerID: String, peerPublicKeyData: ByteArray) {
                 // Send announcement and cached messages after key exchange
                 serviceScope.launch {
                     Log.d(TAG, "Key exchange completed with $peerID; sending follow-ups")
+                    messageHandler.flushPendingNoiseEncrypted(peerID)
                     delay(100)
                     sendAnnouncementToPeer(peerID)
+                    flushPendingPrivateMessages(peerID)
                     
                     delay(1000)
                     storeForwardManager.sendCachedMessages(peerID)
@@ -437,6 +455,15 @@ class BluetoothMeshService(private val context: Context) {
 
             override fun onVerifyResponseReceived(peerID: String, payload: ByteArray, timestampMs: Long) {
                 delegate?.didReceiveVerifyResponse(peerID, payload, timestampMs)
+            }
+
+            override fun onNdrEventReceived(peerID: String, payload: ByteArray, timestampMs: Long) {
+                val currentDelegate = delegate
+                if (currentDelegate != null) {
+                    currentDelegate.didReceiveNdrEvent(peerID, payload, timestampMs)
+                } else {
+                    handleNdrEventWithoutUiDelegate(peerID, payload)
+                }
             }
         }
         
@@ -785,10 +812,6 @@ class BluetoothMeshService(private val context: Context) {
                         
                         // Encrypt the payload using Noise
                         val encrypted = encryptionService.encrypt(noisePayload.encode(), recipientPeerID)
-                        if (encrypted == null) {
-                            Log.e(TAG, "❌ Failed to encrypt file for $recipientPeerID")
-                            return@launch
-                        }
                         Log.d(TAG, "🔐 Encrypted file payload: ${encrypted.size} bytes")
                         
                         // Create NOISE_ENCRYPTED packet (not FILE_TRANSFER!)
@@ -898,13 +921,71 @@ class BluetoothMeshService(private val context: Context) {
                     Log.e(TAG, "Failed to encrypt private message for $recipientPeerID: ${e.message}")
                 }
             } else {
-                // Fire and forget - initiate handshake but don't queue exactly like iOS
-                Log.d(TAG, "🤝 No session with $recipientPeerID, initiating handshake")
-                messageHandler.delegate?.initiateNoiseHandshake(recipientPeerID)
+                val sessionState = encryptionService.getSessionState(recipientPeerID)
+                queuePrivateMessage(recipientPeerID, content, finalMessageID)
+                when (sessionState) {
+                    is com.bitchat.android.noise.NoiseSession.NoiseSessionState.Handshaking -> {
+                        Log.d(TAG, "🤝 Handshake already in progress with $recipientPeerID; queued PM behind it")
+                    }
+                    is com.bitchat.android.noise.NoiseSession.NoiseSessionState.Uninitialized,
+                    is com.bitchat.android.noise.NoiseSession.NoiseSessionState.Failed -> {
+                        Log.d(TAG, "🤝 No established session with $recipientPeerID, scheduling handshake")
+                        scheduleHandshakeIfNeeded(recipientPeerID)
+                    }
+                    is com.bitchat.android.noise.NoiseSession.NoiseSessionState.Established -> {
+                        Log.d(TAG, "🤝 Session became established while queueing PM for $recipientPeerID")
+                        flushPendingPrivateMessages(recipientPeerID)
+                    }
+                }
                 
                 // FIXED: Don't send didReceiveMessage for our own sent messages
                 // The UI will handle showing the message in the chat interface
             }
+        }
+    }
+
+    private fun scheduleHandshakeIfNeeded(recipientPeerID: String) {
+        serviceScope.launch {
+            delay(HANDSHAKE_INIT_DELAY_MS)
+            when (encryptionService.getSessionState(recipientPeerID)) {
+                is com.bitchat.android.noise.NoiseSession.NoiseSessionState.Handshaking -> {
+                    Log.d(TAG, "🤝 Handshake started by peer with $recipientPeerID; not sending competing init")
+                }
+                is com.bitchat.android.noise.NoiseSession.NoiseSessionState.Established -> {
+                    Log.d(TAG, "🤝 Session established before delayed init for $recipientPeerID")
+                    flushPendingPrivateMessages(recipientPeerID)
+                }
+                is com.bitchat.android.noise.NoiseSession.NoiseSessionState.Uninitialized,
+                is com.bitchat.android.noise.NoiseSession.NoiseSessionState.Failed -> {
+                    Log.d(TAG, "🤝 Delayed handshake init with $recipientPeerID")
+                    messageHandler.delegate?.initiateNoiseHandshake(recipientPeerID)
+                }
+            }
+        }
+    }
+
+    private fun queuePrivateMessage(recipientPeerID: String, content: String, messageID: String) {
+        synchronized(pendingPrivateMessagesLock) {
+            val queue = pendingPrivateMessages.getOrPut(recipientPeerID) { mutableListOf() }
+            queue += PendingPrivateMessage(content = content, messageID = messageID)
+            Log.d(TAG, "🕒 Queued PM for $recipientPeerID until handshake completes (pending=${queue.size})")
+        }
+    }
+
+    private suspend fun flushPendingPrivateMessages(recipientPeerID: String) {
+        val queued = synchronized(pendingPrivateMessagesLock) {
+            pendingPrivateMessages.remove(recipientPeerID)?.toList().orEmpty()
+        }
+        if (queued.isEmpty()) return
+
+        Log.d(TAG, "📤 Flushing ${queued.size} queued PM(s) for $recipientPeerID after handshake")
+        queued.forEach { pending ->
+            sendPrivateMessage(
+                content = pending.content,
+                recipientPeerID = recipientPeerID,
+                recipientNickname = peerManager.getPeerNickname(recipientPeerID) ?: recipientPeerID,
+                messageID = pending.messageID
+            )
         }
     }
     
@@ -988,6 +1069,54 @@ class BluetoothMeshService(private val context: Context) {
             data = tlv
         )
         sendNoisePayloadToPeer(payload, peerID, "verify response")
+    }
+
+    fun sendNdrEvent(peerID: String, eventJson: String) {
+        val data = eventJson.toByteArray(Charsets.UTF_8)
+        if (data.isEmpty()) return
+        val payload = NoisePayload(
+            type = NoisePayloadType.NDR_EVENT,
+            data = data
+        )
+        sendNoisePayloadToPeer(payload, peerID, "ndr event")
+    }
+
+    private fun handleNdrEventWithoutUiDelegate(peerID: String, payload: ByteArray) {
+        val eventJson = payload.toString(Charsets.UTF_8).takeIf { it.isNotBlank() } ?: return
+        val peerInfo = getPeerInfo(peerID) ?: run {
+            Log.d(TAG, "Dropping background NDR event from $peerID: no peer info")
+            return
+        }
+        val noiseKey = peerInfo.noisePublicKey ?: run {
+            Log.d(TAG, "Dropping background NDR event from $peerID: no noise key")
+            return
+        }
+
+        val appContext = context.applicationContext
+        com.bitchat.android.favorites.FavoritesPersistenceService.initialize(appContext)
+        val favorites = com.bitchat.android.favorites.FavoritesPersistenceService.shared
+        val relationship = favorites.getFavoriteStatus(noiseKey)
+        if (relationship?.isMutual != true) {
+            Log.d(TAG, "Ignoring background NDR event from $peerID without mutual favorite")
+            return
+        }
+
+        val identity = com.bitchat.android.nostr.NostrIdentityBridge.getCurrentNostrIdentity(appContext) ?: return
+        val ndrService = com.bitchat.android.nostr.NdrNostrService.getInstance(appContext)
+        ndrService.configureIfNeeded(identity)
+        val expectedPeerPubkeyHex = favorites.findNdrSessionPubkeyHex(noiseKey)
+        val result = ndrService.processOutOfBandEventJson(eventJson, expectedPeerPubkeyHex)
+        val sessionLookupPubkeyHex = listOfNotNull(
+            result.sessionLookupPubkeyHex,
+            expectedPeerPubkeyHex
+        ).firstOrNull { ndrService.hasActiveSession(it) }
+
+        if (sessionLookupPubkeyHex != null && ndrService.hasActiveSession(sessionLookupPubkeyHex)) {
+            favorites.updateNdrSessionPubkeyHex(noiseKey, sessionLookupPubkeyHex)
+        }
+        result.outboundPayloads.forEach { response ->
+            sendNdrEvent(peerID, response)
+        }
     }
 
     private fun sendNoisePayloadToPeer(payload: NoisePayload, recipientPeerID: String, label: String) {
@@ -1425,6 +1554,7 @@ interface BluetoothMeshDelegate {
     fun didReceiveReadReceipt(messageID: String, recipientPeerID: String)
     fun didReceiveVerifyChallenge(peerID: String, payload: ByteArray, timestampMs: Long)
     fun didReceiveVerifyResponse(peerID: String, payload: ByteArray, timestampMs: Long)
+    fun didReceiveNdrEvent(peerID: String, payload: ByteArray, timestampMs: Long)
     fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String?
     fun getNickname(): String?
     fun isFavorite(peerID: String): Boolean

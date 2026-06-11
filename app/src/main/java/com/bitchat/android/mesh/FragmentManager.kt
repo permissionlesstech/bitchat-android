@@ -51,7 +51,10 @@ class FragmentManager {
      * Create fragments from a large packet - 100% iOS Compatible
      * Matches iOS sendFragmentedPacket() implementation exactly
      */
-    fun createFragments(packet: BitchatPacket): List<BitchatPacket> {
+    fun createFragments(
+        packet: BitchatPacket,
+        maxPacketSize: Int = FRAGMENT_SIZE_THRESHOLD
+    ): List<BitchatPacket> {
         try {
             Log.d(TAG, "🔀 Creating fragments for packet type ${packet.type}, payload: ${packet.payload.size} bytes")
         val encoded = packet.toBinaryData()
@@ -71,7 +74,7 @@ class FragmentManager {
             Log.d(TAG, "📏 Unpadded to ${fullData.size} bytes")
         
         // iOS logic: if data.count > 512 && packet.type != MessageType.fragment.rawValue
-        if (fullData.size <= FRAGMENT_SIZE_THRESHOLD) {
+        if (fullData.size <= maxPacketSize) {
             return listOf(packet) // No fragmentation needed
         }
         
@@ -93,9 +96,10 @@ class FragmentManager {
         val fragmentHeaderSize = 13 // FragmentPayload header
         val paddingBuffer = 16 // MessagePadding.optimalBlockSize adds 16 bytes overhead
 
-        // 512 - Overhead
+        // Match the iOS BLE send path: fragment based on the current link budget.
         val packetOverhead = headerSize + senderSize + recipientSize + routeSize + fragmentHeaderSize + paddingBuffer
-        val maxDataSize = (512 - packetOverhead).coerceAtMost(MAX_FRAGMENT_SIZE)
+        val maxDataSize = (maxPacketSize - packetOverhead)
+            .coerceAtMost(MAX_FRAGMENT_SIZE)
         
         if (maxDataSize <= 0) {
             Log.e(TAG, "❌ Calculated maxDataSize is non-positive ($maxDataSize). Route too large?")

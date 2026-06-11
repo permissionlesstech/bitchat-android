@@ -23,6 +23,7 @@ enum class NoisePayloadType(val value: UByte) {
     DELIVERED(0x03u),           // Message was delivered
     VERIFY_CHALLENGE(0x10u),    // Verification challenge
     VERIFY_RESPONSE(0x11u),     // Verification response
+    NDR_EVENT(0x12u),           // UTF-8 Nostr event JSON for double-ratchet OOB bootstrap
     FILE_TRANSFER(0x20u);
 
 

@@ -51,6 +51,7 @@ class NoiseEncryptionService(private val context: Context) {
     // Callbacks
     var onPeerAuthenticated: ((String, String) -> Unit)? = null // (peerID, fingerprint)
     var onHandshakeRequired: ((String) -> Unit)? = null // peerID needs handshake
+    var onSessionEstablished: ((String) -> Unit)? = null // peerID established transport session
     
     init {
         // Initialize identity state manager for persistent storage
@@ -181,6 +182,9 @@ class NoiseEncryptionService(private val context: Context) {
     fun initiateHandshake(peerID: String): ByteArray? {
         return try {
             sessionManager.initiateHandshake(peerID)
+        } catch (e: NoiseSessionError.HandshakeAlreadyInProgress) {
+            Log.d(TAG, "Handshake already in progress with $peerID; not sending a competing init")
+            null
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initiate handshake with $peerID: ${e.message}")
             null
@@ -389,6 +393,7 @@ class NoiseEncryptionService(private val context: Context) {
         
         // Notify about authentication
         onPeerAuthenticated?.invoke(peerID, fingerprint)
+        onSessionEstablished?.invoke(peerID)
     }
     
     /**

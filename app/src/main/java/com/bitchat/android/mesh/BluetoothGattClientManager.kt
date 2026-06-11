@@ -448,6 +448,7 @@ class BluetoothGattClientManager(
                 Log.i(TAG, "Client: MTU changed for $deviceAddress to $mtu with status $status")
 
                 if (status == BluetoothGatt.GATT_SUCCESS) {
+                    connectionTracker.updateDeviceMtu(deviceAddress, mtu)
                     Log.i(TAG, "MTU successfully negotiated for $deviceAddress. Discovering services.")
                     
                     // Now that MTU is set, connection is fully ready.

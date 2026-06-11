@@ -4,10 +4,12 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCharacteristic
 import android.util.Log
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -30,6 +32,9 @@ class BluetoothConnectionTracker(
     private val connectedDevices = ConcurrentHashMap<String, DeviceConnection>()
     private val subscribedDevices = CopyOnWriteArrayList<BluetoothDevice>()
     val addressPeerMap = ConcurrentHashMap<String, String>()
+    private val deviceMtus = ConcurrentHashMap<String, Int>()
+    private val pendingNotificationAcks =
+        ConcurrentHashMap<String, ConcurrentLinkedQueue<CompletableDeferred<Int>>>()
     // RSSI tracking from scan results (for devices we discover but may connect as servers)
     private val scanRSSI = ConcurrentHashMap<String, Int>()
     
@@ -232,6 +237,56 @@ class BluetoothConnectionTracker(
      * Get connected device count
      */
     fun getConnectedDeviceCount(): Int = connectedDevices.size
+
+    fun updateDeviceMtu(deviceAddress: String, mtu: Int) {
+        if (mtu > 0) {
+            deviceMtus[deviceAddress] = mtu
+        }
+    }
+
+    fun enqueueNotificationAck(deviceAddress: String): CompletableDeferred<Int> {
+        val deferred = CompletableDeferred<Int>()
+        pendingNotificationAcks
+            .getOrPut(deviceAddress) { ConcurrentLinkedQueue() }
+            .add(deferred)
+        return deferred
+    }
+
+    fun completeNotificationAck(deviceAddress: String, status: Int) {
+        val queue = pendingNotificationAcks[deviceAddress] ?: return
+        while (true) {
+            val deferred = queue.poll() ?: break
+            if (deferred.complete(status)) {
+                break
+            }
+        }
+        if (queue.isEmpty()) {
+            pendingNotificationAcks.remove(deviceAddress, queue)
+        }
+    }
+
+    fun cancelNotificationAck(
+        deviceAddress: String,
+        deferred: CompletableDeferred<Int>,
+        removeImmediately: Boolean = false
+    ) {
+        deferred.cancel()
+        val queue = pendingNotificationAcks[deviceAddress] ?: return
+        if (removeImmediately) {
+            queue.remove(deferred)
+        }
+        if (queue.isEmpty()) {
+            pendingNotificationAcks.remove(deviceAddress, queue)
+        }
+    }
+
+    fun clearNotificationAcks(deviceAddress: String) {
+        pendingNotificationAcks.remove(deviceAddress)?.forEach { it.cancel() }
+    }
+
+    fun getDevicePacketLimit(deviceAddress: String): Int {
+        return BlePacketBudget.packetLimitBytesForMtu(deviceMtus[deviceAddress])
+    }
     
     /**
      * Check if connection limit is reached
@@ -301,6 +356,8 @@ class BluetoothConnectionTracker(
             subscribedDevices.removeAll { it.address == deviceAddress }
             addressPeerMap.remove(deviceAddress)
         }
+        deviceMtus.remove(deviceAddress)
+        clearNotificationAcks(deviceAddress)
         Log.d(TAG, "Cleaned up device connection for $deviceAddress")
     }
     
@@ -332,6 +389,9 @@ class BluetoothConnectionTracker(
         connectedDevices.clear()
         subscribedDevices.clear()
         addressPeerMap.clear()
+        deviceMtus.clear()
+        pendingNotificationAcks.values.forEach { queue -> queue.forEach { it.cancel() } }
+        pendingNotificationAcks.clear()
         pendingConnections.clear()
         scanRSSI.clear()
     }

@@ -21,6 +21,8 @@ object AppConstants {
         const val CONNECTION_CLEANUP_DELAY_MS: Long = 500L
         const val CONNECTION_CLEANUP_INTERVAL_MS: Long = 30_000L
         const val BROADCAST_CLEANUP_DELAY_MS: Long = 500L
+        const val FRAGMENT_SEND_DELAY_MS: Long = 30L
+        const val NOTIFICATION_ACK_TIMEOUT_MS: Long = 1_000L
 
         // GATT client RSSI updates
         const val RSSI_UPDATE_INTERVAL_MS: Long = 5_000L

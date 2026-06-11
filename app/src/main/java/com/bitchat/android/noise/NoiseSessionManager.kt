@@ -13,6 +13,7 @@ class NoiseSessionManager(
     
     companion object {
         private const val TAG = "NoiseSessionManager"
+        private const val INITIAL_XX_MESSAGE_SIZE = 32
     }
     
     private val sessions = ConcurrentHashMap<String, NoiseSession>()
@@ -51,8 +52,15 @@ class NoiseSessionManager(
     /**
      * SIMPLIFIED: Initiate handshake - no tie breaker, just start
      */
+    @Synchronized
     fun initiateHandshake(peerID: String): ByteArray {
         Log.d(TAG, "initiateHandshake($peerID)")
+
+        val existing = getSession(peerID)
+        if (existing?.isHandshaking() == true) {
+            Log.d(TAG, "Handshake already in progress with $peerID; not restarting")
+            throw NoiseSessionError.HandshakeAlreadyInProgress
+        }
 
         // Remove any existing session first
         removeSession(peerID)
@@ -80,12 +88,26 @@ class NoiseSessionManager(
     /**
      * Handle incoming handshake message
      */
+    @Synchronized
     fun processHandshakeMessage(peerID: String, message: ByteArray): ByteArray? {
         Log.d(TAG, "processHandshakeMessage($peerID, ${message.size} bytes)")
         
         try {
             var session = getSession(peerID)
             
+            // If both peers initiate at the same time, the inbound 32-byte XX
+            // message is the peer's first message. Yield to it so one side can
+            // become responder instead of trying to read it as message 2.
+            if (
+                session?.isInitiatorSession() == true &&
+                session.isHandshaking() &&
+                message.size == INITIAL_XX_MESSAGE_SIZE
+            ) {
+                Log.d(TAG, "Simultaneous initiator collision with $peerID; switching to RESPONDER")
+                removeSession(peerID)
+                session = null
+            }
+
             // If no session exists, create one as responder
             if (session == null) {
                 Log.d(TAG, "Creating new RESPONDER session for $peerID")
@@ -222,5 +244,6 @@ sealed class NoiseSessionError(message: String, cause: Throwable? = null) : Exce
     object SessionNotEstablished : NoiseSessionError("Session not established")
     object InvalidState : NoiseSessionError("Session in invalid state")
     object HandshakeFailed : NoiseSessionError("Handshake failed")
+    object HandshakeAlreadyInProgress : NoiseSessionError("Handshake already in progress")
     object AlreadyEstablished : NoiseSessionError("Session already established")
 }

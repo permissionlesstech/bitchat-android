@@ -8,7 +8,6 @@ import android.bluetooth.le.BluetoothLeAdvertiser
 import android.content.Context
 import android.os.ParcelUuid
 import android.util.Log
-import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.util.AppConstants
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -45,6 +44,7 @@ class BluetoothGattServerManager(
     
     // State management
     private var isActive = false
+    private val writeAccumulator = BleWriteAccumulator()
 
     /**
      * Disconnect a specific device (used by ConnectionManager to enforce overall limits)
@@ -109,6 +109,7 @@ class BluetoothGattServerManager(
             // Ensure server is closed if present
             gattServer?.close()
             gattServer = null
+            writeAccumulator.clearAll()
             Log.i(TAG, "GATT server stopped (already inactive)")
             return
         }
@@ -130,6 +131,7 @@ class BluetoothGattServerManager(
             // Close GATT server
             gattServer?.close()
             gattServer = null
+            writeAccumulator.clearAll()
             
             Log.i(TAG, "GATT server stopped")
         }
@@ -183,6 +185,7 @@ class BluetoothGattServerManager(
                     }
                     BluetoothProfile.STATE_DISCONNECTED -> {
                         Log.i(TAG, "Server: Device disconnected ${device.address}")
+                        writeAccumulator.clear(device.address)
                         connectionTracker.cleanupDeviceConnection(device.address)
                         // Notify delegate about device disconnection so higher layers can update direct flags
                         delegate?.onDeviceDisconnected(device)
@@ -220,15 +223,20 @@ class BluetoothGattServerManager(
                 }
                 
                 if (characteristic.uuid == AppConstants.Mesh.Gatt.CHARACTERISTIC_UUID) {
-                    Log.i(TAG, "Server: Received packet from ${device.address}, size: ${value.size} bytes")
-                    val packet = BitchatPacket.fromBinaryData(value)
+                    Log.i(
+                        TAG,
+                        "Server: Received write from ${device.address}, size=${value.size} bytes offset=$offset prepared=$preparedWrite"
+                    )
+                    val packet = writeAccumulator.append(device.address, offset, value)
                     if (packet != null) {
                         val peerID = packet.senderID.take(8).toByteArray().joinToString("") { "%02x".format(it) }
                         Log.d(TAG, "Server: Parsed packet type ${packet.type} from $peerID")
                         delegate?.onPacketReceived(packet, peerID, device)
                     } else {
-                        Log.w(TAG, "Server: Failed to parse packet from ${device.address}, size: ${value.size} bytes")
-                        Log.w(TAG, "Server: Packet data: ${value.joinToString(" ") { "%02x".format(it) }}")
+                        Log.d(
+                            TAG,
+                            "Server: Buffered partial write from ${device.address}, size=${value.size} bytes offset=$offset"
+                        )
                     }
                     
                     if (responseNeeded) {
@@ -267,6 +275,25 @@ class BluetoothGattServerManager(
                 if (responseNeeded) {
                     gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, null)
                 }
+            }
+
+            override fun onMtuChanged(device: BluetoothDevice, mtu: Int) {
+                if (!isActive) {
+                    Log.d(TAG, "Server: Ignoring MTU update after shutdown")
+                    return
+                }
+
+                Log.i(TAG, "Server: MTU changed for ${device.address} to $mtu")
+                connectionTracker.updateDeviceMtu(device.address, mtu)
+            }
+
+            override fun onNotificationSent(device: BluetoothDevice, status: Int) {
+                connectionTracker.completeNotificationAck(device.address, status)
+                if (!isActive) {
+                    Log.d(TAG, "Server: Notification callback after shutdown for ${device.address} status=$status")
+                    return
+                }
+                Log.d(TAG, "Server: Notification delivered to ${device.address} with status $status")
             }
         }
         
