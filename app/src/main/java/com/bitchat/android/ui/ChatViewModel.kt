@@ -19,6 +19,8 @@ import com.bitchat.android.protocol.BitchatPacket
 
 
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.bitchat.android.util.NotificationIntervalManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -239,36 +241,40 @@ class ChatViewModel(
     }
     
     private fun loadAndInitialize() {
-        // Load nickname
-        val nickname = dataManager.loadNickname()
-        state.setNickname(nickname)
-        
-        // Load data
-        val (joinedChannels, protectedChannels) = channelManager.loadChannelData()
-        state.setJoinedChannels(joinedChannels)
-        state.setPasswordProtectedChannels(protectedChannels)
-        
-        // Initialize channel messages
-        joinedChannels.forEach { channel ->
-            if (!state.getChannelMessagesValue().containsKey(channel)) {
-                val updatedChannelMessages = state.getChannelMessagesValue().toMutableMap()
-                updatedChannelMessages[channel] = emptyList()
-                state.setChannelMessages(updatedChannelMessages)
-            }
-        }
-        
-        // Load other data
-        dataManager.loadFavorites()
-        state.setFavoritePeers(dataManager.favoritePeers.toSet())
-        dataManager.loadBlockedUsers()
-        dataManager.loadGeohashBlockedUsers()
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { dataManager.initialize() }
 
-        // Log all favorites at startup
-        dataManager.logAllFavorites()
-        logCurrentFavoriteState()
-        
-        // Initialize session state monitoring
-        initializeSessionStateMonitoring()
+            // Load nickname
+            val nickname = dataManager.loadNickname()
+            state.setNickname(nickname)
+
+            // Load data
+            val (joinedChannels, protectedChannels) = channelManager.loadChannelData()
+            state.setJoinedChannels(joinedChannels)
+            state.setPasswordProtectedChannels(protectedChannels)
+
+            // Initialize channel messages
+            joinedChannels.forEach { channel ->
+                if (!state.getChannelMessagesValue().containsKey(channel)) {
+                    val updatedChannelMessages = state.getChannelMessagesValue().toMutableMap()
+                    updatedChannelMessages[channel] = emptyList()
+                    state.setChannelMessages(updatedChannelMessages)
+                }
+            }
+
+            // Load other data
+            dataManager.loadFavorites()
+            state.setFavoritePeers(dataManager.favoritePeers.toSet())
+            dataManager.loadBlockedUsers()
+            dataManager.loadGeohashBlockedUsers()
+
+            // Log all favorites at startup
+            dataManager.logAllFavorites()
+            logCurrentFavoriteState()
+
+            // Initialize session state monitoring
+            initializeSessionStateMonitoring()
+        }
 
         // Bridge DebugSettingsManager -> Chat messages when verbose logging is on
         viewModelScope.launch {
