@@ -103,6 +103,19 @@
             </intent-filter>
         </activity>
 
+        <!-- OpenClaw Pairing Activity -->
+        <activity
+            android:name=".features.openclaw.OpenClawPairingActivity"
+            android:exported="false"
+            android:label="OpenClaw Pairing"
+            android:theme="@style/Theme.BitchatAndroid" />
+
+        <!-- OpenClaw Service for AI-human secure collaboration -->
+        <service
+            android:name=".features.openclaw.OpenClawService"
+            android:enabled="true"
+            android:exported="false" />
+
         <!-- Persistent foreground service to run the mesh in background -->
         <service
             android:name=".service.MeshForegroundService"
