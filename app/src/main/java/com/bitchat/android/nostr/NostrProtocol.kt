@@ -73,14 +73,24 @@ object NostrProtocol {
                 }
             
             Log.v(TAG, "Successfully unwrapped gift wrap from: ${seal.pubkey.take(16)}...")
-            
+
+            if (seal.kind != NostrKind.SEAL || !seal.isValidSignature()) {
+                Log.w(TAG, "❌ Invalid NIP-17 seal signature")
+                return null
+            }
+
             // 2. Open the seal
             val rumor = openSeal(seal, recipientIdentity.privateKeyHex)
                 ?: run {
                     Log.w(TAG, "❌ Failed to open seal")
                     return null
                 }
-            
+
+            if (seal.pubkey != rumor.pubkey) {
+                Log.w(TAG, "❌ NIP-17 seal pubkey does not match rumor pubkey")
+                return null
+            }
+
             Log.v(TAG, "Successfully opened seal")
             
             Triple(rumor.content, rumor.pubkey, rumor.createdAt)
@@ -227,7 +237,7 @@ object NostrProtocol {
             content = encrypted
         )
         
-        // Sign with the ephemeral key
+        // NIP-17 requires the seal to be signed by the sender identity key.
         return seal.sign(senderPrivateKey)
     }
     
