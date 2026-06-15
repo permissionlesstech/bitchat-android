@@ -938,6 +938,11 @@ class ChatViewModel(
                 store.clearAll()
             } catch (_: Exception) { }
 
+            try {
+                val locationManager = com.bitchat.android.geohash.LocationChannelManager.getInstance(getApplication())
+                locationManager.clearPersistedChannel()
+            } catch (_: Exception) { }
+
             geohashViewModel.panicReset()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to reset Nostr/geohash: ${e.message}")

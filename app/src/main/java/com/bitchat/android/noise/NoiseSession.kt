@@ -572,7 +572,12 @@ class NoiseSession(
                 }
                 
                 val (extractedNonce, ciphertext) = nonceAndCiphertext
-                
+
+                if (ciphertext.size < receiveCipher!!.macLength) {
+                    Log.w(TAG, "Ciphertext too short: ${ciphertext.size} < ${receiveCipher!!.macLength}")
+                    throw SessionError.DecryptionFailed
+                }
+
                 // Validate nonce with sliding window replay protection
                 if (!isValidNonce(extractedNonce, highestReceivedNonce, replayWindow)) {
                     Log.w(TAG, "Replay attack detected: nonce $extractedNonce rejected for $peerID")
