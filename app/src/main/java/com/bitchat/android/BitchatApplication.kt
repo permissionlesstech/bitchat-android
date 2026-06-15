@@ -30,6 +30,10 @@ class BitchatApplication : Application() {
             com.bitchat.android.favorites.FavoritesPersistenceService.initialize(this)
         } catch (_: Exception) { }
 
+        try {
+            com.bitchat.android.storage.StorageModule.registerKnownPanicStores(this)
+        } catch (_: Exception) { }
+
         // Warm up Nostr identity to ensure npub is available for favorite notifications
         try {
             com.bitchat.android.nostr.NostrIdentityBridge.getCurrentNostrIdentity(this)

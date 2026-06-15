@@ -2,9 +2,10 @@ package com.bitchat.android.favorites
 
 import android.content.Context
 import android.util.Log
-import com.bitchat.android.identity.SecureIdentityStateManager
+import com.bitchat.android.storage.PanicClearRegistry
+import com.bitchat.android.storage.StorageDefinitions
+import com.bitchat.android.storage.StorageModule
 import com.bitchat.android.util.toHexString
-import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.util.*
 
@@ -82,14 +83,14 @@ class FavoritesPersistenceService private constructor(private val context: Conte
         }
     }
 
-    private val stateManager = SecureIdentityStateManager(context)
-    private val gson = Gson()
+    private val storage = StorageModule.repository(context, StorageDefinitions.Favorites)
     private val favorites = mutableMapOf<String, FavoriteRelationship>() // noiseHex -> relationship
     // NEW: Index by current mesh peerID (16-hex) for direct lookup when sending Nostr DMs from mesh context
     private val peerIdIndex = mutableMapOf<String, String>() // peerID (lowercase 16-hex) -> npub
     private val listeners = mutableListOf<FavoritesChangeListener>()
 
     init {
+        PanicClearRegistry.register(StorageDefinitions.Favorites) { clearAllFavorites() }
         loadFavorites()
         loadPeerIdIndex()
     }
@@ -232,9 +233,8 @@ class FavoritesPersistenceService private constructor(private val context: Conte
 
     fun clearAllFavorites() {
         favorites.clear()
-        saveFavorites()
         peerIdIndex.clear()
-        savePeerIdIndex()
+        storage.clearForPanic()
         Log.i(TAG, "Cleared all favorites")
         notifyAllCleared()
     }
@@ -257,11 +257,9 @@ class FavoritesPersistenceService private constructor(private val context: Conte
 
     private fun loadFavorites() {
         try {
-            val favoritesJson = stateManager.getSecureValue(FAVORITES_KEY)
-            if (favoritesJson != null) {
-                val type = object : TypeToken<Map<String, FavoriteRelationshipData>>() {}.type
-                val data: Map<String, FavoriteRelationshipData> = gson.fromJson(favoritesJson, type)
-
+            val type = object : TypeToken<Map<String, FavoriteRelationshipData>>() {}.type
+            val data: Map<String, FavoriteRelationshipData>? = storage.getJson(FAVORITES_KEY, type)
+            if (data != null) {
                 favorites.clear()
                 data.forEach { (key, relationshipData) ->
                     favorites[key] = relationshipData.toFavoriteRelationship()
@@ -278,8 +276,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
             val data = favorites.mapValues { (_, relationship) ->
                 FavoriteRelationshipData.fromFavoriteRelationship(relationship)
             }
-            val favoritesJson = gson.toJson(data)
-            stateManager.storeSecureValue(FAVORITES_KEY, favoritesJson)
+            storage.putJson(FAVORITES_KEY, data)
             Log.d(TAG, "Saved ${favorites.size} favorite relationships")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save favorites: ${e.message}")
@@ -288,10 +285,9 @@ class FavoritesPersistenceService private constructor(private val context: Conte
 
     private fun loadPeerIdIndex() {
         try {
-            val json = stateManager.getSecureValue(PEERID_INDEX_KEY)
-            if (json != null) {
-                val type = object : TypeToken<Map<String, String>>() {}.type
-                val data: Map<String, String> = gson.fromJson(json, type)
+            val type = object : TypeToken<Map<String, String>>() {}.type
+            val data: Map<String, String>? = storage.getJson(PEERID_INDEX_KEY, type)
+            if (data != null) {
                 peerIdIndex.clear()
                 peerIdIndex.putAll(data)
                 Log.d(TAG, "Loaded ${peerIdIndex.size} peerID→npub mappings")
@@ -303,8 +299,7 @@ class FavoritesPersistenceService private constructor(private val context: Conte
 
     private fun savePeerIdIndex() {
         try {
-            val json = gson.toJson(peerIdIndex)
-            stateManager.storeSecureValue(PEERID_INDEX_KEY, json)
+            storage.putJson(PEERID_INDEX_KEY, peerIdIndex)
             Log.d(TAG, "Saved ${peerIdIndex.size} peerID→npub mappings")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save peerID index: ${e.message}")

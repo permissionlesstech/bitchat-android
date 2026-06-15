@@ -5,7 +5,6 @@ import android.util.Log
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.bitchat.android.favorites.FavoritesPersistenceService
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,13 +20,13 @@ import com.bitchat.android.protocol.BitchatPacket
 import kotlinx.coroutines.launch
 import com.bitchat.android.util.NotificationIntervalManager
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import java.util.Date
 import kotlin.random.Random
 import com.bitchat.android.services.VerificationService
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.noise.NoiseSession
-import com.bitchat.android.nostr.GeohashAliasRegistry
+import com.bitchat.android.storage.PanicClearRegistry
+import com.bitchat.android.storage.StorageModule
 import com.bitchat.android.util.dataFromHexString
 import com.bitchat.android.util.hexEncodedString
 
@@ -910,12 +909,18 @@ class ChatViewModel(
         messageManager.clearAllMessages()
         channelManager.clearAllChannels()
         privateChatManager.clearAllPrivateChats()
-        dataManager.clearAllData()
-        
-        // Clear seen message store
         try {
-            com.bitchat.android.services.SeenMessageStore.getInstance(getApplication()).clear()
-        } catch (_: Exception) { }
+            StorageModule.registerKnownPanicStores(getApplication())
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to register all panic stores: ${e.message}")
+        }
+        PanicClearRegistry.clearAll().forEach { result ->
+            if (result.success) {
+                Log.d(TAG, "✅ Panic-cleared ${result.owner} (${result.id})")
+            } else {
+                Log.e(TAG, "❌ Panic clear failed for ${result.owner} (${result.id}): ${result.errorMessage}")
+            }
+        }
         
         // Clear all mesh service data
         clearAllMeshServiceData()
@@ -929,14 +934,8 @@ class ChatViewModel(
         // Clear all media files
         com.bitchat.android.features.file.FileUtils.clearAllMedia(getApplication())
         
-        // Clear Nostr/geohash state, keys, connections, bookmarks, and reinitialize from scratch
+        // Reset Nostr/geohash runtime state and reinitialize from scratch
         try {
-            // Clear geohash bookmarks too (panic should remove everything)
-            try {
-                val store = com.bitchat.android.geohash.GeohashBookmarksStore.getInstance(getApplication())
-                store.clearAll()
-            } catch (_: Exception) { }
-
             geohashViewModel.panicReset()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to reset Nostr/geohash: ${e.message}")
@@ -1006,20 +1005,10 @@ class ChatViewModel(
             try {
                 val identityManager = SecureIdentityStateManager(getApplication())
                 identityManager.clearIdentityData()
-                // Also clear secure values used by FavoritesPersistenceService (favorites + peerID index)
-                try {
-                    identityManager.clearSecureValues("favorite_relationships", "favorite_peerid_index")
-                } catch (_: Exception) { }
-                Log.d(TAG, "✅ Cleared secure identity state and secure favorites store")
+                Log.d(TAG, "✅ Cleared secure identity state")
             } catch (e: Exception) {
                 Log.d(TAG, "SecureIdentityStateManager not available or already cleared: ${e.message}")
             }
-
-            // Clear FavoritesPersistenceService persistent relationships
-            try {
-                FavoritesPersistenceService.shared.clearAllFavorites()
-                Log.d(TAG, "✅ Cleared FavoritesPersistenceService relationships")
-            } catch (_: Exception) { }
             
             Log.d(TAG, "✅ Cleared all cryptographic data")
         } catch (e: Exception) {

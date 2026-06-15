@@ -381,7 +381,7 @@ class SecureIdentityStateManager(private val context: Context) {
         return prefs.contains(KEY_STATIC_PRIVATE_KEY) && prefs.contains(KEY_STATIC_PUBLIC_KEY)
     }
     
-    // MARK: - Public SharedPreferences Access (for favorites and Nostr data)
+    // MARK: - Public Secure Key-Value Access
     
     /**
      * Store a string value in secure preferences

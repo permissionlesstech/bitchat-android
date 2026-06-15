@@ -5,6 +5,9 @@ import android.location.Geocoder
 import android.location.Location
 import android.location.LocationManager
 import android.util.Log
+import com.bitchat.android.storage.PanicClearRegistry
+import com.bitchat.android.storage.StorageDefinitions
+import com.bitchat.android.storage.StorageModule
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.CoroutineScope
@@ -17,7 +20,6 @@ import java.util.Locale
 
 /**
  * Stores a user-maintained list of bookmarked geohash channels.
- * - Persistence: SharedPreferences (JSON string array)
  * - Semantics: geohashes are normalized to lowercase base32 and de-duplicated
  */
 class GeohashBookmarksStore private constructor(private val context: Context) {
@@ -43,7 +45,7 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
     }
 
     private val gson = Gson()
-    private val prefs = context.getSharedPreferences("geohash_prefs", Context.MODE_PRIVATE)
+    private val storage = StorageModule.repository(context, StorageDefinitions.GeohashBookmarks)
 
     private val membership = mutableSetOf<String>()
 
@@ -56,7 +58,10 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
     // For throttling / preventing duplicate geocode lookups
     private val resolving = mutableSetOf<String>()
 
-    init { load() }
+    init {
+        PanicClearRegistry.register(StorageDefinitions.GeohashBookmarks) { clearAll() }
+        load()
+    }
 
     fun isBookmarked(geohash: String): Boolean = membership.contains(normalize(geohash))
 
@@ -95,7 +100,7 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
 
     private fun load() {
         try {
-            val arrJson = prefs.getString(STORE_KEY, null)
+            val arrJson = storage.getString(STORE_KEY, null)
             if (!arrJson.isNullOrEmpty()) {
                 val listType = object : TypeToken<List<String>>() {}.type
                 val arr = gson.fromJson<List<String>>(arrJson, listType)
@@ -115,7 +120,7 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
             Log.e(TAG, "Failed to load bookmarks: ${e.message}")
         }
         try {
-            val namesJson = prefs.getString(NAMES_STORE_KEY, null)
+            val namesJson = storage.getString(NAMES_STORE_KEY, null)
             if (!namesJson.isNullOrEmpty()) {
                 val mapType = object : TypeToken<Map<String, String>>() {}.type
                 val dict = gson.fromJson<Map<String, String>>(namesJson, mapType)
@@ -129,14 +134,14 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
     private fun persist() {
         try {
             val json = gson.toJson(_bookmarks.value)
-            prefs.edit().putString(STORE_KEY, json).apply()
+            storage.putString(STORE_KEY, json)
         } catch (_: Exception) {}
     }
 
     private fun persistNames() {
         try {
             val json = gson.toJson(_bookmarkNames.value)
-            prefs.edit().putString(NAMES_STORE_KEY, json).apply()
+            storage.putString(NAMES_STORE_KEY, json)
         } catch (_: Exception) {}
     }
 
@@ -147,10 +152,7 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
             membership.clear()
             _bookmarks.value = emptyList()
             _bookmarkNames.value = emptyMap()
-            prefs.edit()
-                .remove(STORE_KEY)
-                .remove(NAMES_STORE_KEY)
-                .apply()
+            storage.clearForPanic()
             // Clear any in-flight resolutions to avoid repopulating
             resolving.clear()
             Log.i(TAG, "Cleared all geohash bookmarks and names")
@@ -234,14 +236,14 @@ class GeohashBookmarksStore private constructor(private val context: Context) {
     private fun persist(list: List<String>) {
         try {
             val json = gson.toJson(list)
-            prefs.edit().putString(STORE_KEY, json).apply()
+            storage.putString(STORE_KEY, json)
         } catch (_: Exception) {}
     }
 
     private fun persistNames(map: Map<String, String>) {
         try {
             val json = gson.toJson(map)
-            prefs.edit().putString(NAMES_STORE_KEY, json).apply()
+            storage.putString(NAMES_STORE_KEY, json)
         } catch (_: Exception) {}
     }
 }

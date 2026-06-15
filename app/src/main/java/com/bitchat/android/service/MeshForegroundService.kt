@@ -125,14 +125,20 @@ class MeshForegroundService : Service() {
         notificationManager = NotificationManagerCompat.from(this)
         createChannel()
 
-        // Ensure mesh service exists in holder (create if needed)
+        // Avoid creating or holding a mesh instance unless this service can own
+        // the foreground/background lifecycle.
         val existing = MeshServiceHolder.meshService
         if (existing != null) {
             Log.d("MeshForegroundService", "Using existing BluetoothMeshService from holder")
-        } else {
+        } else if (isForegroundMeshEligible()) {
             val created = MeshServiceHolder.getOrCreate(applicationContext)
             Log.i("MeshForegroundService", "Created new BluetoothMeshService via holder")
             MeshServiceHolder.attach(created)
+        } else {
+            Log.i(
+                "MeshForegroundService",
+                "Mesh not created; foreground mesh is not eligible (background=${isBackgroundMeshEnabled()}, notification=${hasNotificationPermission()}, bluetooth=${hasBluetoothPermissions()})"
+            )
         }
     }
 
@@ -147,11 +153,10 @@ class MeshForegroundService : Service() {
         when (intent?.action) {
             ACTION_STOP -> {
                 // Stop FGS and mesh cleanly
-                try { meshService?.stopServices() } catch (_: Exception) { }
-                try { MeshServiceHolder.clear() } catch (_: Exception) { }
-                try { stopForeground(true) } catch (_: Exception) { }
-                notificationManager.cancel(NOTIFICATION_ID)
-                isInForeground = false
+                updateJob?.cancel()
+                updateJob = null
+                ensureMeshStopped("stop requested")
+                clearForegroundNotification(removeNotification = true)
                 stopSelf()
                 return START_NOT_STICKY
             }
@@ -177,7 +182,7 @@ class MeshForegroundService : Service() {
             }
             ACTION_UPDATE_NOTIFICATION -> {
                 // If we became eligible and are not in foreground yet, promote once
-                if (MeshServicePreferences.isBackgroundEnabled(true) && hasAllRequiredPermissions() && !isInForeground) {
+                if (isForegroundMeshEligible() && !isInForeground) {
                     val n = buildNotification(meshService?.getActivePeerCount() ?: 0)
                     startForegroundCompat(n)
                     isInForeground = true
@@ -188,11 +193,18 @@ class MeshForegroundService : Service() {
             else -> { /* ACTION_START or null */ }
         }
 
+        if (!isForegroundMeshEligible()) {
+            ensureMeshStopped("foreground mesh no longer eligible")
+            clearForegroundNotification(removeNotification = true)
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
         // Ensure mesh is running (only after permissions are granted)
         ensureMeshStarted()
 
         // Promote exactly once when eligible, otherwise stay background (or stop)
-        if (MeshServicePreferences.isBackgroundEnabled(true) && hasAllRequiredPermissions() && !isInForeground) {
+        if (isForegroundMeshEligible() && !isInForeground) {
             val notification = buildNotification(meshService?.getActivePeerCount() ?: 0)
             startForegroundCompat(notification)
             isInForeground = true
@@ -203,18 +215,16 @@ class MeshForegroundService : Service() {
             updateJob = scope.launch {
                 while (isActive) {
                     // Retry enabling mesh/foreground once permissions become available
-                    ensureMeshStarted()
-                    val eligible = MeshServicePreferences.isBackgroundEnabled(true) && hasAllRequiredPermissions()
+                    val eligible = isForegroundMeshEligible()
                     if (eligible) {
+                        ensureMeshStarted()
                         // Only update the notification; do not re-call startForeground()
                         updateNotification(force = false)
                     } else {
-                        // If disabled or perms missing, ensure we are not in foreground and clear notif
-                        if (isInForeground) {
-                            try { stopForeground(false) } catch (_: Exception) { }
-                            isInForeground = false
-                        }
-                        notificationManager.cancel(NOTIFICATION_ID)
+                        ensureMeshStopped("foreground mesh eligibility lost")
+                        clearForegroundNotification(removeNotification = true)
+                        stopSelf()
+                        break
                     }
                     delay(5000)
                 }
@@ -226,13 +236,32 @@ class MeshForegroundService : Service() {
 
     private fun ensureMeshStarted() {
         if (isShuttingDown) return
-        if (!hasBluetoothPermissions()) return
+        if (!isForegroundMeshEligible()) {
+            ensureMeshStopped("foreground mesh not eligible")
+            return
+        }
         try {
             android.util.Log.d("MeshForegroundService", "Ensuring mesh service is started")
             val service = MeshServiceHolder.getOrCreate(applicationContext)
             service.startServices()
         } catch (e: Exception) {
             android.util.Log.e("MeshForegroundService", "Failed to start mesh service: ${e.message}")
+        }
+    }
+
+    private fun ensureMeshStopped(reason: String) {
+        val service = meshService ?: return
+        try {
+            android.util.Log.i("MeshForegroundService", "Stopping mesh service: $reason")
+            service.stopServices()
+        } catch (e: Exception) {
+            android.util.Log.w("MeshForegroundService", "Failed to stop mesh service: ${e.message}")
+        } finally {
+            try {
+                if (MeshServiceHolder.meshService === service) {
+                    MeshServiceHolder.clear()
+                }
+            } catch (_: Exception) { }
         }
     }
 
@@ -243,14 +272,21 @@ class MeshForegroundService : Service() {
         }
         val count = meshService?.getActivePeerCount() ?: 0
         val notification = buildNotification(count)
-        if (MeshServicePreferences.isBackgroundEnabled(true) && hasAllRequiredPermissions()) {
+        if (isForegroundMeshEligible()) {
             notificationManager.notify(NOTIFICATION_ID, notification)
         } else if (force) {
             // If disabled and forced, make sure to remove any prior foreground state
-            try { stopForeground(false) } catch (_: Exception) { }
-            notificationManager.cancel(NOTIFICATION_ID)
-            isInForeground = false
+            ensureMeshStopped("notification update while ineligible")
+            clearForegroundNotification(removeNotification = true)
         }
+    }
+
+    private fun isForegroundMeshEligible(): Boolean {
+        return isBackgroundMeshEnabled() && hasAllRequiredPermissions()
+    }
+
+    private fun isBackgroundMeshEnabled(): Boolean {
+        return MeshServicePreferences.isBackgroundEnabled(true)
     }
 
     private fun hasAllRequiredPermissions(): Boolean {
@@ -278,6 +314,16 @@ class MeshForegroundService : Service() {
         return if (Build.VERSION.SDK_INT >= 33) {
             androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
         } else true
+    }
+
+    private fun clearForegroundNotification(removeNotification: Boolean) {
+        if (isInForeground) {
+            try { stopForeground(removeNotification) } catch (_: Exception) { }
+            isInForeground = false
+        }
+        if (removeNotification) {
+            notificationManager.cancel(NOTIFICATION_ID)
+        }
     }
 
     private fun buildNotification(activePeers: Int): Notification {
@@ -362,13 +408,13 @@ class MeshForegroundService : Service() {
     override fun onDestroy() {
         updateJob?.cancel()
         updateJob = null
+        if (isShuttingDown || !isForegroundMeshEligible()) {
+            ensureMeshStopped("service destroyed")
+        }
         // Cancel the service coroutine scope to prevent leaks
         try { serviceJob.cancel() } catch (_: Exception) { }
         // Best-effort ensure we are not marked foreground
-        if (isInForeground) {
-            try { stopForeground(true) } catch (_: Exception) { }
-            isInForeground = false
-        }
+        clearForegroundNotification(removeNotification = true)
         super.onDestroy()
     }
 

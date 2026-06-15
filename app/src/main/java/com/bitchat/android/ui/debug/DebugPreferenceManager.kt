@@ -1,14 +1,11 @@
 package com.bitchat.android.ui.debug
 
 import android.content.Context
-import android.content.SharedPreferences
+import com.bitchat.android.storage.StorageDefinitions
+import com.bitchat.android.storage.StorageModule
+import com.bitchat.android.storage.StorageRepository
 
-/**
- * SharedPreferences-backed persistence for debug settings.
- * Keeps the DebugSettingsManager stateless with regard to Android Context.
- */
 object DebugPreferenceManager {
-    private const val PREFS_NAME = "bitchat_debug_settings"
     private const val KEY_VERBOSE = "verbose_logging"
     private const val KEY_GATT_SERVER = "gatt_server_enabled"
     private const val KEY_GATT_CLIENT = "gatt_client_enabled"
@@ -20,87 +17,82 @@ object DebugPreferenceManager {
     // GCS keys (no migration/back-compat)
     private const val KEY_GCS_MAX_BYTES = "gcs_max_filter_bytes"
     private const val KEY_GCS_FPR = "gcs_filter_fpr_percent"
-    // Removed: persistent notification toggle is now governed by MeshServicePreferences.isBackgroundEnabled
 
-    private lateinit var prefs: SharedPreferences
+    private lateinit var storage: StorageRepository
 
     fun init(context: Context) {
-        prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        storage = StorageModule.repository(context, StorageDefinitions.DebugPreferences)
     }
 
-    private fun ready(): Boolean = ::prefs.isInitialized
+    private fun ready(): Boolean = ::storage.isInitialized
 
     fun getVerboseLogging(default: Boolean = false): Boolean =
-        if (ready()) prefs.getBoolean(KEY_VERBOSE, default) else default
+        if (ready()) storage.getBoolean(KEY_VERBOSE, default) else default
 
     fun setVerboseLogging(value: Boolean) {
-        if (ready()) prefs.edit().putBoolean(KEY_VERBOSE, value).apply()
+        if (ready()) storage.putBoolean(KEY_VERBOSE, value)
     }
 
     fun getGattServerEnabled(default: Boolean = true): Boolean =
-        if (ready()) prefs.getBoolean(KEY_GATT_SERVER, default) else default
+        if (ready()) storage.getBoolean(KEY_GATT_SERVER, default) else default
 
     fun setGattServerEnabled(value: Boolean) {
-        if (ready()) prefs.edit().putBoolean(KEY_GATT_SERVER, value).apply()
+        if (ready()) storage.putBoolean(KEY_GATT_SERVER, value)
     }
 
     fun getGattClientEnabled(default: Boolean = true): Boolean =
-        if (ready()) prefs.getBoolean(KEY_GATT_CLIENT, default) else default
+        if (ready()) storage.getBoolean(KEY_GATT_CLIENT, default) else default
 
     fun setGattClientEnabled(value: Boolean) {
-        if (ready()) prefs.edit().putBoolean(KEY_GATT_CLIENT, value).apply()
+        if (ready()) storage.putBoolean(KEY_GATT_CLIENT, value)
     }
 
     fun getPacketRelayEnabled(default: Boolean = true): Boolean =
-        if (ready()) prefs.getBoolean(KEY_PACKET_RELAY, default) else default
+        if (ready()) storage.getBoolean(KEY_PACKET_RELAY, default) else default
 
     fun setPacketRelayEnabled(value: Boolean) {
-        if (ready()) prefs.edit().putBoolean(KEY_PACKET_RELAY, value).apply()
+        if (ready()) storage.putBoolean(KEY_PACKET_RELAY, value)
     }
 
-    // Optional connection limits (0 or missing => use defaults)
     fun getMaxConnectionsOverall(default: Int = 8): Int =
-        if (ready()) prefs.getInt(KEY_MAX_CONN_OVERALL, default) else default
+        if (ready()) storage.getInt(KEY_MAX_CONN_OVERALL, default) else default
 
     fun setMaxConnectionsOverall(value: Int) {
-        if (ready()) prefs.edit().putInt(KEY_MAX_CONN_OVERALL, value).apply()
+        if (ready()) storage.putInt(KEY_MAX_CONN_OVERALL, value)
     }
 
     fun getMaxConnectionsServer(default: Int = 8): Int =
-        if (ready()) prefs.getInt(KEY_MAX_CONN_SERVER, default) else default
+        if (ready()) storage.getInt(KEY_MAX_CONN_SERVER, default) else default
 
     fun setMaxConnectionsServer(value: Int) {
-        if (ready()) prefs.edit().putInt(KEY_MAX_CONN_SERVER, value).apply()
+        if (ready()) storage.putInt(KEY_MAX_CONN_SERVER, value)
     }
 
     fun getMaxConnectionsClient(default: Int = 8): Int =
-        if (ready()) prefs.getInt(KEY_MAX_CONN_CLIENT, default) else default
+        if (ready()) storage.getInt(KEY_MAX_CONN_CLIENT, default) else default
 
     fun setMaxConnectionsClient(value: Int) {
-        if (ready()) prefs.edit().putInt(KEY_MAX_CONN_CLIENT, value).apply()
+        if (ready()) storage.putInt(KEY_MAX_CONN_CLIENT, value)
     }
 
-    // Sync/GCS settings
     fun getSeenPacketCapacity(default: Int = 500): Int =
-        if (ready()) prefs.getInt(KEY_SEEN_PACKET_CAP, default) else default
+        if (ready()) storage.getInt(KEY_SEEN_PACKET_CAP, default) else default
 
     fun setSeenPacketCapacity(value: Int) {
-        if (ready()) prefs.edit().putInt(KEY_SEEN_PACKET_CAP, value).apply()
+        if (ready()) storage.putInt(KEY_SEEN_PACKET_CAP, value)
     }
 
     fun getGcsMaxFilterBytes(default: Int = 400): Int =
-        if (ready()) prefs.getInt(KEY_GCS_MAX_BYTES, default) else default
+        if (ready()) storage.getInt(KEY_GCS_MAX_BYTES, default) else default
 
     fun setGcsMaxFilterBytes(value: Int) {
-        if (ready()) prefs.edit().putInt(KEY_GCS_MAX_BYTES, value).apply()
+        if (ready()) storage.putInt(KEY_GCS_MAX_BYTES, value)
     }
 
     fun getGcsFprPercent(default: Double = 1.0): Double =
-        if (ready()) java.lang.Double.longBitsToDouble(prefs.getLong(KEY_GCS_FPR, java.lang.Double.doubleToRawLongBits(default))) else default
+        if (ready()) java.lang.Double.longBitsToDouble(storage.getLong(KEY_GCS_FPR, java.lang.Double.doubleToRawLongBits(default))) else default
 
     fun setGcsFprPercent(value: Double) {
-        if (ready()) prefs.edit().putLong(KEY_GCS_FPR, java.lang.Double.doubleToRawLongBits(value)).apply()
+        if (ready()) storage.putLong(KEY_GCS_FPR, java.lang.Double.doubleToRawLongBits(value))
     }
-
-    // No longer storing persistent notification in debug prefs.
 }

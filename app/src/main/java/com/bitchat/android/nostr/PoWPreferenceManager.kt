@@ -1,7 +1,9 @@
 package com.bitchat.android.nostr
 
 import android.content.Context
-import android.content.SharedPreferences
+import com.bitchat.android.storage.StorageDefinitions
+import com.bitchat.android.storage.StorageModule
+import com.bitchat.android.storage.StorageRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -11,7 +13,6 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 object PoWPreferenceManager {
     
-    private const val PREFS_NAME = "pow_preferences"
     private const val KEY_POW_ENABLED = "pow_enabled"
     private const val KEY_POW_DIFFICULTY = "pow_difficulty"
     
@@ -30,7 +31,7 @@ object PoWPreferenceManager {
     private val _isMining = MutableStateFlow(false)
     val isMining: StateFlow<Boolean> = _isMining.asStateFlow()
     
-    private lateinit var sharedPrefs: SharedPreferences
+    private lateinit var storage: StorageRepository
     private var isInitialized = false
     
     /**
@@ -40,11 +41,11 @@ object PoWPreferenceManager {
     fun init(context: Context) {
         if (isInitialized) return
         
-        sharedPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        storage = StorageModule.repository(context, StorageDefinitions.PowPreferences)
         
         // Load current values
-        _powEnabled.value = sharedPrefs.getBoolean(KEY_POW_ENABLED, DEFAULT_POW_ENABLED)
-        _powDifficulty.value = sharedPrefs.getInt(KEY_POW_DIFFICULTY, DEFAULT_POW_DIFFICULTY)
+        _powEnabled.value = storage.getBoolean(KEY_POW_ENABLED, DEFAULT_POW_ENABLED)
+        _powDifficulty.value = storage.getInt(KEY_POW_DIFFICULTY, DEFAULT_POW_DIFFICULTY)
         
         isInitialized = true
     }
@@ -61,8 +62,8 @@ object PoWPreferenceManager {
      */
     fun setPowEnabled(enabled: Boolean) {
         _powEnabled.value = enabled
-        if (::sharedPrefs.isInitialized) {
-            sharedPrefs.edit().putBoolean(KEY_POW_ENABLED, enabled).apply()
+        if (::storage.isInitialized) {
+            storage.putBoolean(KEY_POW_ENABLED, enabled)
         }
     }
     
@@ -79,8 +80,8 @@ object PoWPreferenceManager {
     fun setPowDifficulty(difficulty: Int) {
         val clampedDifficulty = difficulty.coerceIn(0, 32)
         _powDifficulty.value = clampedDifficulty
-        if (::sharedPrefs.isInitialized) {
-            sharedPrefs.edit().putInt(KEY_POW_DIFFICULTY, clampedDifficulty).apply()
+        if (::storage.isInitialized) {
+            storage.putInt(KEY_POW_DIFFICULTY, clampedDifficulty)
         }
     }
     

@@ -8,6 +8,8 @@ import android.os.PowerManager
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.bitchat.android.R
+import com.bitchat.android.storage.StorageDefinitions
+import com.bitchat.android.storage.StorageModule
 
 /**
  * Centralized permission management for bitchat app
@@ -17,26 +19,23 @@ class PermissionManager(private val context: Context) {
 
     companion object {
         private const val TAG = "PermissionManager"
-        private const val PREFS_NAME = "bitchat_permissions"
         private const val KEY_FIRST_TIME_COMPLETE = "first_time_onboarding_complete"
     }
 
-    private val sharedPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val storage = StorageModule.repository(context, StorageDefinitions.OnboardingPermissions)
 
     /**
      * Check if this is the first time the user is launching the app
      */
     fun isFirstTimeLaunch(): Boolean {
-        return !sharedPrefs.getBoolean(KEY_FIRST_TIME_COMPLETE, false)
+        return !storage.getBoolean(KEY_FIRST_TIME_COMPLETE, false)
     }
 
     /**
      * Mark the first-time onboarding as complete
      */
     fun markOnboardingComplete() {
-        sharedPrefs.edit()
-            .putBoolean(KEY_FIRST_TIME_COMPLETE, true)
-            .apply()
+        storage.putBoolean(KEY_FIRST_TIME_COMPLETE, true)
         Log.d(TAG, "First-time onboarding marked as complete")
     }
 

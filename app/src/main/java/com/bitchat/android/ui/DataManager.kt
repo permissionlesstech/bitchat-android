@@ -1,8 +1,10 @@
 package com.bitchat.android.ui
 
 import android.content.Context
-import android.content.SharedPreferences
 import android.util.Log
+import com.bitchat.android.storage.PanicClearRegistry
+import com.bitchat.android.storage.StorageDefinitions
+import com.bitchat.android.storage.StorageModule
 import com.google.gson.Gson
 import kotlin.random.Random
 
@@ -15,7 +17,7 @@ class DataManager(private val context: Context) {
         private const val TAG = "DataManager"
     }
     
-    private val prefs: SharedPreferences = context.getSharedPreferences("bitchat_prefs", Context.MODE_PRIVATE)
+    private val storage = StorageModule.repository(context, StorageDefinitions.Chat)
     private val gson = Gson()
     
     // Channel-related maps that need to persist state
@@ -28,11 +30,15 @@ class DataManager(private val context: Context) {
     val favoritePeers: Set<String> get() = _favoritePeers
     val blockedUsers: Set<String> get() = _blockedUsers
     val channelMembers: Map<String, MutableSet<String>> get() = _channelMembers
+
+    init {
+        PanicClearRegistry.register(StorageDefinitions.Chat) { clearAllData() }
+    }
     
     // MARK: - Nickname Management
     
     fun loadNickname(): String {
-        val savedNickname = prefs.getString("nickname", null)
+        val savedNickname = storage.getString("nickname", null)
         return if (savedNickname != null) {
             savedNickname
         } else {
@@ -43,47 +49,47 @@ class DataManager(private val context: Context) {
     }
     
     fun saveNickname(nickname: String) {
-        prefs.edit().putString("nickname", nickname).apply()
+        storage.putString("nickname", nickname)
     }
     
     // MARK: - Geohash Channel Persistence
     
     fun loadLastGeohashChannel(): String? {
-        return prefs.getString("last_geohash_channel", null)
+        return storage.getString("last_geohash_channel", null)
     }
     
     fun saveLastGeohashChannel(channelData: String) {
-        prefs.edit().putString("last_geohash_channel", channelData).apply()
+        storage.putString("last_geohash_channel", channelData)
         Log.d(TAG, "Saved last geohash channel: $channelData")
     }
     
     fun clearLastGeohashChannel() {
-        prefs.edit().remove("last_geohash_channel").apply()
+        storage.remove("last_geohash_channel")
         Log.d(TAG, "Cleared last geohash channel")
     }
 
     // MARK: - Location Services State
     
     fun saveLocationServicesEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean("location_services_enabled", enabled).apply()
+        storage.putBoolean("location_services_enabled", enabled)
         Log.d(TAG, "Saved location services enabled state: $enabled")
     }
     
     fun isLocationServicesEnabled(): Boolean {
-        return prefs.getBoolean("location_services_enabled", true) // Default to enabled
+        return storage.getBoolean("location_services_enabled", true) // Default to enabled
     }
     
     // MARK: - Channel Data Management
     
     fun loadChannelData(): Pair<Set<String>, Set<String>> {
         // Load joined channels
-        val savedChannels = prefs.getStringSet("joined_channels", emptySet()) ?: emptySet()
+        val savedChannels = storage.getStringSet("joined_channels", emptySet())
         
         // Load password protected channels
-        val savedProtectedChannels = prefs.getStringSet("password_protected_channels", emptySet()) ?: emptySet()
+        val savedProtectedChannels = storage.getStringSet("password_protected_channels", emptySet())
         
         // Load channel creators
-        val creatorsJson = prefs.getString("channel_creators", "{}")
+        val creatorsJson = storage.getString("channel_creators", "{}")
         try {
             val creatorsMap = gson.fromJson(creatorsJson, Map::class.java) as? Map<String, String>
             creatorsMap?.let { _channelCreators.putAll(it) }
@@ -102,12 +108,9 @@ class DataManager(private val context: Context) {
     }
     
     fun saveChannelData(joinedChannels: Set<String>, passwordProtectedChannels: Set<String>) {
-        prefs.edit().apply {
-            putStringSet("joined_channels", joinedChannels)
-            putStringSet("password_protected_channels", passwordProtectedChannels)
-            putString("channel_creators", gson.toJson(_channelCreators))
-            apply()
-        }
+        storage.putStringSet("joined_channels", joinedChannels)
+        storage.putStringSet("password_protected_channels", passwordProtectedChannels)
+        storage.putString("channel_creators", gson.toJson(_channelCreators))
     }
     
     fun addChannelCreator(channel: String, creatorID: String) {
@@ -156,13 +159,13 @@ class DataManager(private val context: Context) {
     // MARK: - Favorites Management
     
     fun loadFavorites() {
-        val savedFavorites = prefs.getStringSet("favorites", emptySet()) ?: emptySet()
+        val savedFavorites = storage.getStringSet("favorites", emptySet())
         _favoritePeers.addAll(savedFavorites)
         Log.d(TAG, "Loaded ${savedFavorites.size} favorite users from storage: $savedFavorites")
     }
     
     fun saveFavorites() {
-        prefs.edit().putStringSet("favorites", _favoritePeers).apply()
+        storage.putStringSet("favorites", _favoritePeers)
         Log.d(TAG, "Saved ${_favoritePeers.size} favorite users to storage: $_favoritePeers")
     }
     
@@ -198,12 +201,12 @@ class DataManager(private val context: Context) {
     // MARK: - Blocked Users Management
     
     fun loadBlockedUsers() {
-        val savedBlockedUsers = prefs.getStringSet("blocked_users", emptySet()) ?: emptySet()
+        val savedBlockedUsers = storage.getStringSet("blocked_users", emptySet())
         _blockedUsers.addAll(savedBlockedUsers)
     }
     
     fun saveBlockedUsers() {
-        prefs.edit().putStringSet("blocked_users", _blockedUsers).apply()
+        storage.putStringSet("blocked_users", _blockedUsers)
     }
     
     fun addBlockedUser(fingerprint: String) {
@@ -226,12 +229,12 @@ class DataManager(private val context: Context) {
     val geohashBlockedUsers: Set<String> get() = _geohashBlockedUsers.toSet()
     
     fun loadGeohashBlockedUsers() {
-        val savedGeohashBlockedUsers = prefs.getStringSet("geohash_blocked_users", emptySet()) ?: emptySet()
+        val savedGeohashBlockedUsers = storage.getStringSet("geohash_blocked_users", emptySet())
         _geohashBlockedUsers.addAll(savedGeohashBlockedUsers)
     }
     
     fun saveGeohashBlockedUsers() {
-        prefs.edit().putStringSet("geohash_blocked_users", _geohashBlockedUsers).apply()
+        storage.putStringSet("geohash_blocked_users", _geohashBlockedUsers)
     }
     
     fun addGeohashBlockedUser(pubkeyHex: String) {
@@ -256,6 +259,6 @@ class DataManager(private val context: Context) {
         _blockedUsers.clear()
         _geohashBlockedUsers.clear()
         _channelMembers.clear()
-        prefs.edit().clear().apply()
+        storage.clearForPanic()
     }
 }

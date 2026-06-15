@@ -160,8 +160,6 @@ class GeohashViewModel(
 
     fun panicReset() {
         repo.clearAll()
-        GeohashAliasRegistry.clear()
-        GeohashConversationRegistry.clear()
         subscriptionManager.disconnect()
         currentGeohashSubId = null
         currentDmSubId = null
