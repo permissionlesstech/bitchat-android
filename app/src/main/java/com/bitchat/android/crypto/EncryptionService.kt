@@ -415,21 +415,19 @@ open class EncryptionService(private val context: Context) {
     private fun loadOrCreateEd25519KeyPair(): AsymmetricCipherKeyPair {
         // Migrate legacy plaintext Ed25519 key to encrypted storage if present
         migrateOldEd25519KeyIfNeeded()
-        try {
-            val storedKey = prefs.getString(ED25519_PRIVATE_KEY_PREF, null)
 
-            if (storedKey != null) {
-                // Load existing key
-                val privateKeyBytes = Base64.decode(storedKey, Base64.DEFAULT)
-                val privateKey = Ed25519PrivateKeyParameters(privateKeyBytes, 0)
-                val publicKey = privateKey.generatePublicKey()
-                Log.d(TAG, "✅ Loaded existing Ed25519 signing key pair")
-                return AsymmetricCipherKeyPair(publicKey, privateKey)
+        val storedKey = prefs.getString(ED25519_PRIVATE_KEY_PREF, null)
+        if (storedKey != null) {
+            val privateKeyBytes = Base64.decode(storedKey, Base64.DEFAULT)
+            check(privateKeyBytes.size == 32) {
+                "Invalid Ed25519 private key size: ${privateKeyBytes.size}"
             }
-        } catch (e: Exception) {
-            Log.w(TAG, "⚠️ Failed to load existing Ed25519 key, creating new one: ${e.message}")
+            val privateKey = Ed25519PrivateKeyParameters(privateKeyBytes, 0)
+            val publicKey = privateKey.generatePublicKey()
+            Log.d(TAG, "✅ Loaded existing Ed25519 signing key pair")
+            return AsymmetricCipherKeyPair(publicKey, privateKey)
         }
-        
+
         // Create new key pair
         return generateAndSaveEd25519KeyPair()
     }
@@ -445,10 +443,14 @@ open class EncryptionService(private val context: Context) {
             val privateKeyBytes = privateKey.encoded
             val encodedKey = Base64.encodeToString(privateKeyBytes, Base64.DEFAULT)
 
-            prefs.edit { putString(ED25519_PRIVATE_KEY_PREF, encodedKey) }
+            val saved = prefs.edit()
+                .putString(ED25519_PRIVATE_KEY_PREF, encodedKey)
+                .commit()
+            check(saved) { "Failed to commit Ed25519 private key" }
             Log.d(TAG, "✅ Created and stored new Ed25519 signing key pair")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Failed to store Ed25519 private key: ${e.message}")
+            throw e
         }
         
         return keyPair
@@ -471,7 +473,8 @@ open class EncryptionService(private val context: Context) {
                 Log.d(TAG, "🔁 Migrated Ed25519 key to EncryptedSharedPreferences")
             }
         } catch (e: Exception) {
-            Log.w(TAG, "⚠️ Failed to migrate Ed25519 key; generating new identity: ${e.message}")
+            Log.e(TAG, "❌ Failed to migrate Ed25519 key: ${e.message}")
+            throw e
         }
     }
 }

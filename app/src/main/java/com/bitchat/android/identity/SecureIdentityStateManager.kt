@@ -60,30 +60,11 @@ class SecureIdentityStateManager(private val context: Context) {
      * Returns (privateKey, publicKey) or null if none exists
      */
     fun loadStaticKey(): Pair<ByteArray, ByteArray>? {
-        return try {
-            val privateKeyString = prefs.getString(KEY_STATIC_PRIVATE_KEY, null)
-            val publicKeyString = prefs.getString(KEY_STATIC_PUBLIC_KEY, null)
-            
-            if (privateKeyString != null && publicKeyString != null) {
-                val privateKey = android.util.Base64.decode(privateKeyString, android.util.Base64.DEFAULT)
-                val publicKey = android.util.Base64.decode(publicKeyString, android.util.Base64.DEFAULT)
-                
-                // Validate key sizes
-                if (privateKey.size == 32 && publicKey.size == 32) {
-                    Log.d(TAG, "Loaded static identity key from secure storage")
-                    Pair(privateKey, publicKey)
-                } else {
-                    Log.w(TAG, "Invalid key sizes in storage, returning null")
-                    null
-                }
-            } else {
-                Log.d(TAG, "No static identity key found in storage")
-                null
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to load static key: ${e.message}")
-            null
-        }
+        return loadKeyPair(
+            privateKeyName = KEY_STATIC_PRIVATE_KEY,
+            publicKeyName = KEY_STATIC_PUBLIC_KEY,
+            keyDescription = "static identity key"
+        )
     }
     
     /**
@@ -99,10 +80,11 @@ class SecureIdentityStateManager(private val context: Context) {
             val privateKeyString = android.util.Base64.encodeToString(privateKey, android.util.Base64.DEFAULT)
             val publicKeyString = android.util.Base64.encodeToString(publicKey, android.util.Base64.DEFAULT)
             
-            prefs.edit()
+            val saved = prefs.edit()
                 .putString(KEY_STATIC_PRIVATE_KEY, privateKeyString)
                 .putString(KEY_STATIC_PUBLIC_KEY, publicKeyString)
-                .apply()
+                .commit()
+            check(saved) { "Failed to commit static identity key" }
             
             Log.d(TAG, "Saved static identity key to secure storage")
         } catch (e: Exception) {
@@ -118,30 +100,39 @@ class SecureIdentityStateManager(private val context: Context) {
      * Returns (privateKey, publicKey) or null if none exists
      */
     fun loadSigningKey(): Pair<ByteArray, ByteArray>? {
-        return try {
-            val privateKeyString = prefs.getString(KEY_SIGNING_PRIVATE_KEY, null)
-            val publicKeyString = prefs.getString(KEY_SIGNING_PUBLIC_KEY, null)
-            
-            if (privateKeyString != null && publicKeyString != null) {
-                val privateKey = android.util.Base64.decode(privateKeyString, android.util.Base64.DEFAULT)
-                val publicKey = android.util.Base64.decode(publicKeyString, android.util.Base64.DEFAULT)
-                
-                // Validate key sizes
-                if (privateKey.size == 32 && publicKey.size == 32) {
-                    Log.d(TAG, "Loaded Ed25519 signing key from secure storage")
-                    Pair(privateKey, publicKey)
-                } else {
-                    Log.w(TAG, "Invalid signing key sizes in storage, returning null")
-                    null
-                }
-            } else {
-                Log.d(TAG, "No Ed25519 signing key found in storage")
-                null
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to load signing key: ${e.message}")
-            null
+        return loadKeyPair(
+            privateKeyName = KEY_SIGNING_PRIVATE_KEY,
+            publicKeyName = KEY_SIGNING_PUBLIC_KEY,
+            keyDescription = "Ed25519 signing key"
+        )
+    }
+
+    private fun loadKeyPair(
+        privateKeyName: String,
+        publicKeyName: String,
+        keyDescription: String
+    ): Pair<ByteArray, ByteArray>? {
+        val privateKeyString = prefs.getString(privateKeyName, null)
+        val publicKeyString = prefs.getString(publicKeyName, null)
+
+        if (privateKeyString == null && publicKeyString == null) {
+            Log.d(TAG, "No $keyDescription found in storage")
+            return null
         }
+
+        val privateEncoded = privateKeyString
+            ?: error("Incomplete $keyDescription in secure storage")
+        val publicEncoded = publicKeyString
+            ?: error("Incomplete $keyDescription in secure storage")
+
+        val privateKey = Base64.decode(privateEncoded, Base64.DEFAULT)
+        val publicKey = Base64.decode(publicEncoded, Base64.DEFAULT)
+        check(privateKey.size == 32 && publicKey.size == 32) {
+            "Invalid $keyDescription sizes: private=${privateKey.size}, public=${publicKey.size}"
+        }
+
+        Log.d(TAG, "Loaded $keyDescription from secure storage")
+        return Pair(privateKey, publicKey)
     }
 
     /**
@@ -157,10 +148,11 @@ class SecureIdentityStateManager(private val context: Context) {
             val privateKeyString = android.util.Base64.encodeToString(privateKey, android.util.Base64.DEFAULT)
             val publicKeyString = android.util.Base64.encodeToString(publicKey, android.util.Base64.DEFAULT)
             
-            prefs.edit()
+            val saved = prefs.edit()
                 .putString(KEY_SIGNING_PRIVATE_KEY, privateKeyString)
                 .putString(KEY_SIGNING_PUBLIC_KEY, publicKeyString)
-                .apply()
+                .commit()
+            check(saved) { "Failed to commit Ed25519 signing key" }
             
             Log.d(TAG, "Saved Ed25519 signing key to secure storage")
         } catch (e: Exception) {
