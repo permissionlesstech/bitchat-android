@@ -1,6 +1,7 @@
 package com.bitchat.android
 
 import android.app.Application
+import com.bitchat.android.identity.DataMigrationManager
 import com.bitchat.android.nostr.RelayDirectory
 import com.bitchat.android.ui.theme.ThemePreferenceManager
 import com.bitchat.android.net.ArtiTorManager
@@ -12,6 +13,8 @@ class BitchatApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+
+        try { DataMigrationManager.migrateIfNeeded(this) } catch (_: Exception) { }
 
         // Initialize Tor first so any early network goes over Tor
         try {

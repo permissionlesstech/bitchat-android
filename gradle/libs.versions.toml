@@ -44,6 +44,7 @@ gms-location = "21.3.0"
 
 # Security
 security-crypto = "1.1.0-beta01"
+datastore = "1.2.0"
 
 # QR
 zxing-core = "3.5.4"
@@ -113,6 +114,7 @@ gms-location = { module = "com.google.android.gms:play-services-location", versi
 
 # Security
 androidx-security-crypto = { module = "androidx.security:security-crypto", version.ref = "security-crypto" }
+androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
 
 # QR
 zxing-core = { module = "com.google.zxing:core", version.ref = "zxing-core" }
