@@ -8,11 +8,14 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class NoiseSessionManager(
     private val localStaticPrivateKey: ByteArray,
-    private val localStaticPublicKey: ByteArray
+    private val localStaticPublicKey: ByteArray,
+    private val localPeerID: String
 ) {
     
     companion object {
         private const val TAG = "NoiseSessionManager"
+        private const val HANDSHAKE_TIMEOUT_MS = 20_000L
+        private const val HANDSHAKE_MESSAGE_1_SIZE = 32
     }
     
     private val sessions = ConcurrentHashMap<String, NoiseSession>()
@@ -51,11 +54,30 @@ class NoiseSessionManager(
     /**
      * SIMPLIFIED: Initiate handshake - no tie breaker, just start
      */
-    fun initiateHandshake(peerID: String): ByteArray {
+    fun initiateHandshake(peerID: String): ByteArray? {
         Log.d(TAG, "initiateHandshake($peerID)")
 
-        // Remove any existing session first
-        removeSession(peerID)
+        val now = System.currentTimeMillis()
+        val existing = getSession(peerID)
+        if (existing != null) {
+            when {
+                existing.isEstablished() -> {
+                    Log.d(TAG, "Handshake already established with $peerID, skipping initiate")
+                    return null
+                }
+                existing.isHandshaking() -> {
+                    if (!isHandshakeStale(existing, now)) {
+                        Log.d(TAG, "Handshake already in progress with $peerID, not restarting")
+                        return null
+                    }
+                    Log.d(TAG, "Handshake with $peerID is stale; restarting")
+                    removeSession(peerID)
+                }
+                else -> {
+                    removeSession(peerID)
+                }
+            }
+        }
         
         // Create new session as initiator
         val session = NoiseSession(
@@ -85,6 +107,23 @@ class NoiseSessionManager(
         
         try {
             var session = getSession(peerID)
+
+            // Collision handling: both sides initiated and we received message 1
+            if (session != null &&
+                session.isHandshaking() &&
+                session.isInitiatorRole() &&
+                message.size == HANDSHAKE_MESSAGE_1_SIZE
+            ) {
+                val shouldYield = localPeerID > peerID
+                if (shouldYield) {
+                    Log.d(TAG, "Handshake collision with $peerID; yielding to responder role")
+                    removeSession(peerID)
+                    session = null
+                } else {
+                    Log.d(TAG, "Handshake collision with $peerID; keeping initiator role")
+                    return null
+                }
+            }
             
             // If no session exists, create one as responder
             if (session == null) {
@@ -118,6 +157,12 @@ class NoiseSessionManager(
             onSessionFailed?.invoke(peerID, e)
             throw e
         }
+    }
+
+    private fun isHandshakeStale(session: NoiseSession, nowMs: Long): Boolean {
+        val lastActivity = session.getLastHandshakeActivityMs() ?: session.getHandshakeStartMs()
+        if (lastActivity == null) return false
+        return (nowMs - lastActivity) > HANDSHAKE_TIMEOUT_MS
     }
     
     /**

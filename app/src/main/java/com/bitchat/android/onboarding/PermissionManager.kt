@@ -23,6 +23,22 @@ class PermissionManager(private val context: Context) {
 
     private val sharedPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
+    private fun shouldRequireWifiAwarePermission(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
+        val enabled = try {
+            com.bitchat.android.ui.debug.DebugPreferenceManager.getWifiAwareEnabled(true)
+        } catch (_: Exception) {
+            true
+        }
+        if (!enabled) return false
+
+        return try {
+            com.bitchat.android.wifiaware.WifiAwareSupport.isSupported(context)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     /**
      * Check if this is the first time the user is launching the app
      */
@@ -68,6 +84,11 @@ class PermissionManager(private val context: Context) {
             Manifest.permission.ACCESS_COARSE_LOCATION,
             Manifest.permission.ACCESS_FINE_LOCATION
         ))
+
+        // Wi‑Fi Aware: Android 13+ requires NEARBY_WIFI_DEVICES runtime permission
+        if (shouldRequireWifiAwarePermission()) {
+            permissions.add(Manifest.permission.NEARBY_WIFI_DEVICES)
+        }
 
         // Notification permission intentionally excluded to keep it optional
 
@@ -209,6 +230,20 @@ class PermissionManager(private val context: Context) {
             )
         )
 
+        // Wi‑Fi Aware category (Android 13+)
+        if (shouldRequireWifiAwarePermission()) {
+            val wifiAwarePermissions = listOf(Manifest.permission.NEARBY_WIFI_DEVICES)
+            categories.add(
+                PermissionCategory(
+                    type = PermissionType.WIFI_AWARE,
+                    description = "Enable Wi‑Fi Aware to discover and connect to nearby bitchat users over Wi‑Fi.",
+                    permissions = wifiAwarePermissions,
+                    isGranted = wifiAwarePermissions.all { isPermissionGranted(it) },
+                    systemDescription = "Allow bitchat to discover nearby Wi‑Fi devices"
+                )
+            )
+        }
+
         if (needsBackgroundLocationPermission()) {
             val backgroundPermission = listOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
             categories.add(
@@ -308,6 +343,7 @@ enum class PermissionType(val nameValue: String) {
     BACKGROUND_LOCATION("Background Location"),
     MICROPHONE("Microphone"),
     NOTIFICATIONS("Notifications"),
+    WIFI_AWARE("Wi‑Fi Aware"),
     BATTERY_OPTIMIZATION("Battery Optimization"),
     OTHER("Other")
 }

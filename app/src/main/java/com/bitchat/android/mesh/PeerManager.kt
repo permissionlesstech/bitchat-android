@@ -110,10 +110,21 @@ class PeerManager {
         isVerified: Boolean
     ): Boolean {
         if (peerID == "unknown") return false
+
+        fun keysMatch(a: ByteArray?, b: ByteArray?): Boolean {
+            if (a == null && b == null) return true
+            if (a == null || b == null) return false
+            return a.contentEquals(b)
+        }
         
         val now = System.currentTimeMillis()
         val existingPeer = peers[peerID]
         val isNewPeer = existingPeer == null
+        val wasVerified = existingPeer?.isVerifiedNickname == true
+        val nicknameChanged = existingPeer != null && existingPeer.nickname != nickname
+        val noiseKeyChanged = existingPeer != null && !keysMatch(existingPeer.noisePublicKey, noisePublicKey)
+        val signingKeyChanged = existingPeer != null && !keysMatch(existingPeer.signingPublicKey, signingPublicKey)
+        val connectedChanged = existingPeer != null && existingPeer.isConnected != true
         
         // Update or create peer info
         val peerInfo = PeerInfo(
@@ -133,18 +144,27 @@ class PeerManager {
         // No legacy maps; peers map is the single source of truth
         // Maintain announcedPeers for first-time announce semantics
         
+        val shouldNotify = when {
+            isNewPeer && isVerified -> true
+            wasVerified != isVerified -> true
+            nicknameChanged || noiseKeyChanged || signingKeyChanged || connectedChanged -> true
+            else -> false
+        }
+
         if (isNewPeer && isVerified) {
             announcedPeers.add(peerID)
-            notifyPeerListUpdate()
             Log.d(TAG, "🆕 New verified peer: $nickname ($peerID)")
-            return true
         } else if (isVerified) {
             Log.d(TAG, "🔄 Updated verified peer: $nickname ($peerID)")
         } else {
             Log.d(TAG, "⚠️ Unverified peer announcement from: $nickname ($peerID)")
         }
+
+        if (shouldNotify) {
+            notifyPeerListUpdate()
+        }
         
-        return false
+        return isNewPeer && isVerified
     }
 
     /**
@@ -177,14 +197,6 @@ class PeerManager {
             val isDirect = isPeerDirectlyConnected?.invoke(info.id) ?: false
             if (info.isDirectConnection != isDirect) info.copy(isDirectConnection = isDirect) else info
         }
-    }
-
-    /**
-     * Force a peer list update notification.
-     * Call this when connection state changes to refresh UI badges.
-     */
-    fun refreshPeerList() {
-        notifyPeerListUpdate()
     }
 
     // MARK: - Legacy Methods (maintained for compatibility)
@@ -413,6 +425,10 @@ class PeerManager {
     private fun notifyPeerListUpdate() {
         val peerList = getActivePeerIDs()
         delegate?.onPeerListUpdated(peerList)
+    }
+
+    fun refreshPeerList() {
+        notifyPeerListUpdate()
     }
     
     /**

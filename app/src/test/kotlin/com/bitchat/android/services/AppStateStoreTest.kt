@@ -55,4 +55,45 @@ class AppStateStoreTest {
 
         assertEquals(listOf(first, second), AppStateStore.publicMessages.value)
     }
+
+    @Test
+    fun `peer list merges transport updates instead of overwriting`() {
+        AppStateStore.setTransportPeers("WIFI", listOf("wifi-peer"))
+        AppStateStore.setTransportPeers("BLE", emptyList())
+
+        assertEquals(listOf("wifi-peer"), AppStateStore.peers.value)
+
+        AppStateStore.setTransportPeers("BLE", listOf("ble-peer"))
+
+        assertEquals(listOf("wifi-peer", "ble-peer"), AppStateStore.peers.value)
+    }
+
+    @Test
+    fun `direct peers union across transports`() {
+        AppStateStore.setTransportDirectPeers("BLE", listOf("ble-1", "shared"))
+        AppStateStore.setTransportDirectPeers("WIFI", listOf("wifi-1", "shared"))
+
+        assertEquals(
+            setOf("ble-1", "wifi-1", "shared"),
+            AppStateStore.getDirectPeers()
+        )
+    }
+
+    @Test
+    fun `clearing one transport keeps the other transport direct peers`() {
+        AppStateStore.setTransportDirectPeers("BLE", listOf("ble-1"))
+        AppStateStore.setTransportDirectPeers("WIFI", listOf("wifi-1"))
+
+        AppStateStore.clearTransportDirectPeers("WIFI")
+
+        assertEquals(setOf("ble-1"), AppStateStore.getDirectPeers())
+    }
+
+    @Test
+    fun `latest direct peer set replaces previous set for same transport`() {
+        AppStateStore.setTransportDirectPeers("WIFI", listOf("wifi-1", "wifi-2"))
+        AppStateStore.setTransportDirectPeers("WIFI", listOf("wifi-3"))
+
+        assertEquals(setOf("wifi-3"), AppStateStore.getDirectPeers())
+    }
 }

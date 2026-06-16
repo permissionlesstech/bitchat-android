@@ -32,6 +32,11 @@ class BluetoothGattClientManager(
     
     companion object {
         private const val TAG = "BluetoothGattClientManager"
+        // Self-healing scan recovery tuning
+        private const val SCAN_RETRY_BASE_MS = 3_000L          // base backoff for transient scan failures
+        private const val SCAN_MAX_RETRY_DELAY_MS = 30_000L    // cap on backoff delay
+        private const val SCAN_WATCHDOG_INTERVAL_MS = 30_000L  // how often to verify the scanner is alive
+        private const val SCAN_STALE_RESULT_MS = 120_000L      // force a scan restart if no results for this long
     }
     
     // Core Bluetooth components
@@ -39,11 +44,28 @@ class BluetoothGattClientManager(
         context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
     private val bluetoothAdapter: BluetoothAdapter? = bluetoothManager.adapter
     private val bleScanner: BluetoothLeScanner? = bluetoothAdapter?.bluetoothLeScanner
+
+    private fun isBleTransportEnabled(): Boolean {
+        return try {
+            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().bleEnabled.value
+        } catch (_: Exception) {
+            try { com.bitchat.android.ui.debug.DebugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true }
+        }
+    }
+
+    private fun isClientRoleEnabled(): Boolean {
+        return isBleTransportEnabled() &&
+            (try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattClientEnabled.value } catch (_: Exception) { true })
+    }
     
     /**
      * Public: Connect to a device by MAC address (for debug UI)
      */
     fun connectToAddress(deviceAddress: String): Boolean {
+        if (!isClientRoleEnabled()) {
+            Log.i(TAG, "connectToAddress skipped: BLE client disabled")
+            return false
+        }
         val device = bluetoothAdapter?.getRemoteDevice(deviceAddress)
         return if (device != null) {
             val rssi = connectionTracker.getBestRSSI(deviceAddress) ?: -50
@@ -61,8 +83,16 @@ class BluetoothGattClientManager(
     // Scan rate limiting to prevent "scanning too frequently" errors
     private var lastScanStartTime = 0L
     private var lastScanStopTime = 0L
-    private var isCurrentlyScanning = false
+    @Volatile private var isCurrentlyScanning = false
     private val scanRateLimit = 5000L // Minimum 5 seconds between scan start attempts
+
+    // Self-healing scan state.
+    // scanningDesired distinguishes "we want to be scanning but it isn't running" (a fault to recover
+    // from) from "scanning is intentionally off" (e.g. duty-cycle OFF window or client disabled).
+    @Volatile private var scanningDesired = false
+    @Volatile private var lastScanResultTime = 0L
+    private var scanRetryCount = 0
+    private var scanWatchdogJob: Job? = null
     
     // RSSI monitoring state
     private var rssiMonitoringJob: Job? = null
@@ -75,12 +105,10 @@ class BluetoothGattClientManager(
      */
     fun start(): Boolean {
         // Respect debug setting
-        try {
-            if (!com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattClientEnabled.value) {
-                Log.i(TAG, "Client start skipped: GATT Client disabled in debug settings")
-                return false
-            }
-        } catch (_: Exception) { }
+        if (!isClientRoleEnabled()) {
+            Log.i(TAG, "Client start skipped: BLE/GATT Client disabled in debug settings")
+            return false
+        }
 
         if (isActive) {
             Log.d(TAG, "GATT client already active; start is a no-op")
@@ -106,12 +134,16 @@ class BluetoothGattClientManager(
         connectionScope.launch {
             if (powerManager.shouldUseDutyCycle()) {
                 Log.i(TAG, "Using power-aware duty cycling")
+                // Duty cycle drives onScanStateChanged(true/false); scanningDesired follows that.
             } else {
+                scanningDesired = true
                 startScanning()
             }
             
             // Start RSSI monitoring
             startRSSIMonitoring()
+            // Start the scan watchdog so a silently-dead or wedged scanner self-heals.
+            startScanWatchdog()
         }
         
         return true
@@ -121,6 +153,8 @@ class BluetoothGattClientManager(
      * Stop client manager
      */
     fun stop() {
+        scanningDesired = false
+        stopScanWatchdog()
         if (!isActive) {
             // Idempotent stop
             stopScanning()
@@ -150,7 +184,8 @@ class BluetoothGattClientManager(
      * Handle scan state changes from power manager
      */
     fun onScanStateChanged(shouldScan: Boolean) {
-        val enabled = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattClientEnabled.value } catch (_: Exception) { true }
+        val enabled = isClientRoleEnabled()
+        scanningDesired = shouldScan && enabled
         if (shouldScan && enabled) {
             startScanning()
         } else {
@@ -199,7 +234,7 @@ class BluetoothGattClientManager(
     @Suppress("DEPRECATION")
     private fun startScanning() {
         // Respect debug setting
-        val enabled = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattClientEnabled.value } catch (_: Exception) { true }
+        val enabled = isClientRoleEnabled()
         if (!permissionManager.hasBluetoothPermissions() || bleScanner == null || !isActive || !enabled) return
         
         // Rate limit scan starts to prevent "scanning too frequently" errors
@@ -217,7 +252,7 @@ class BluetoothGattClientManager(
             // Schedule delayed scan start
             connectionScope.launch {
                 delay(remainingWait)
-                if (isActive && !isCurrentlyScanning) {
+                if (isActive && !isCurrentlyScanning && isClientRoleEnabled()) {
                     startScanning()
                 }
             }
@@ -251,22 +286,39 @@ class BluetoothGattClientManager(
                 lastScanStopTime = System.currentTimeMillis()
                 
                 when (errorCode) {
-                    1 -> Log.e(TAG, "SCAN_FAILED_ALREADY_STARTED")
-                    2 -> Log.e(TAG, "SCAN_FAILED_APPLICATION_REGISTRATION_FAILED") 
-                    3 -> Log.e(TAG, "SCAN_FAILED_INTERNAL_ERROR")
-                    4 -> Log.e(TAG, "SCAN_FAILED_FEATURE_UNSUPPORTED")
-                    5 -> Log.e(TAG, "SCAN_FAILED_OUT_OF_HARDWARE_RESOURCES")
+                    1 -> {
+                        // Already started: the stack thinks a scan is running. Re-arm from a clean
+                        // state so we don't stay wedged (stop then restart with backoff).
+                        Log.e(TAG, "SCAN_FAILED_ALREADY_STARTED")
+                        stopScanning()
+                        scheduleScanRestart("already-started", SCAN_RETRY_BASE_MS)
+                    }
+                    2 -> {
+                        // App registration failed: common transient stack fault. Previously had NO
+                        // retry, which left discovery dead until a manual BLE toggle.
+                        Log.e(TAG, "SCAN_FAILED_APPLICATION_REGISTRATION_FAILED")
+                        scheduleScanRestart("registration-failed", SCAN_RETRY_BASE_MS)
+                    }
+                    3 -> {
+                        Log.e(TAG, "SCAN_FAILED_INTERNAL_ERROR")
+                        scheduleScanRestart("internal-error", SCAN_RETRY_BASE_MS)
+                    }
+                    4 -> Log.e(TAG, "SCAN_FAILED_FEATURE_UNSUPPORTED") // permanent: don't retry
+                    5 -> {
+                        // Out of hardware resources: back off longer so other scanners/connections
+                        // can free up before we try again.
+                        Log.e(TAG, "SCAN_FAILED_OUT_OF_HARDWARE_RESOURCES")
+                        scheduleScanRestart("out-of-resources", SCAN_RETRY_BASE_MS * 3)
+                    }
                     6 -> {
                         Log.e(TAG, "SCAN_FAILED_SCANNING_TOO_FREQUENTLY")
                         Log.w(TAG, "Scan failed due to rate limiting - will retry after delay")
-                        connectionScope.launch {
-                            delay(10000) // Wait 10 seconds before retrying
-                            if (isActive) {
-                                startScanning()
-                            }
-                        }
+                        scheduleScanRestart("too-frequently", 10_000L)
                     }
-                    else -> Log.e(TAG, "Unknown scan failure code: $errorCode")
+                    else -> {
+                        Log.e(TAG, "Unknown scan failure code: $errorCode")
+                        scheduleScanRestart("unknown-$errorCode", SCAN_RETRY_BASE_MS)
+                    }
                 }
             }
         }
@@ -304,6 +356,76 @@ class BluetoothGattClientManager(
             lastScanStopTime = System.currentTimeMillis()
         }
     }
+
+    /**
+     * Schedule a scan restart with incremental backoff. Used to recover from transient scan
+     * failures that previously had no retry path (codes 2/3/5), leaving discovery dead until a
+     * manual BLE toggle.
+     */
+    private fun scheduleScanRestart(reason: String, baseDelayMs: Long) {
+        scanRetryCount++
+        val delayMs = (baseDelayMs * scanRetryCount).coerceAtMost(SCAN_MAX_RETRY_DELAY_MS)
+        Log.w(TAG, "Scheduling scan restart in ${delayMs}ms (attempt $scanRetryCount, reason=$reason)")
+        connectionScope.launch {
+            delay(delayMs)
+            if (isActive && scanningDesired && isClientRoleEnabled() && !isCurrentlyScanning) {
+                startScanning()
+            }
+        }
+    }
+
+    /**
+     * Periodic watchdog that self-heals the scanner. Android can stop a scan without ever invoking
+     * onScanFailed (internal stack reset, Doze, background throttling), which leaves the app
+     * believing it is scanning while it is not. This re-arms the scanner in those cases.
+     */
+    private fun startScanWatchdog() {
+        scanWatchdogJob?.cancel()
+        scanWatchdogJob = connectionScope.launch {
+            while (isActive) {
+                delay(SCAN_WATCHDOG_INTERVAL_MS)
+                try {
+                    // Only act when we are supposed to be scanning. Honors duty-cycle OFF windows
+                    // and the client-disabled state via scanningDesired.
+                    if (!isActive || !scanningDesired || !isClientRoleEnabled()) continue
+                    if (!permissionManager.hasBluetoothPermissions() || bluetoothAdapter?.isEnabled != true) continue
+
+                    val now = System.currentTimeMillis()
+                    if (!isCurrentlyScanning) {
+                        Log.w(TAG, "Watchdog: scan desired but not running -> restarting scan")
+                        startScanning()
+                    } else if (lastScanResultTime > 0L &&
+                        now - lastScanResultTime > SCAN_STALE_RESULT_MS &&
+                        now - lastScanStartTime > SCAN_STALE_RESULT_MS) {
+                        // We think we're scanning but haven't seen anything for a long time. The scan
+                        // may have silently died (flag wedged true). Force a clean re-arm.
+                        Log.w(TAG, "Watchdog: no scan results for ${(now - lastScanResultTime) / 1000}s -> forcing scan restart")
+                        forceRestartScan()
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Scan watchdog error: ${e.message}")
+                }
+            }
+        }
+    }
+
+    private fun stopScanWatchdog() {
+        scanWatchdogJob?.cancel()
+        scanWatchdogJob = null
+    }
+
+    /**
+     * Force a clean scan restart, clearing a possibly-wedged isCurrentlyScanning flag.
+     */
+    private fun forceRestartScan() {
+        stopScanning()
+        connectionScope.launch {
+            delay(500)
+            if (isActive && scanningDesired && isClientRoleEnabled() && !isCurrentlyScanning) {
+                startScanning()
+            }
+        }
+    }
     
     /**
      * Handle scan result and initiate connection if appropriate
@@ -319,6 +441,10 @@ class BluetoothGattClientManager(
         if (!hasOurService) {
             return
         }
+
+        // Proof the scanner is alive and finding our network: refresh liveness and clear backoff.
+        lastScanResultTime = System.currentTimeMillis()
+        scanRetryCount = 0
 
         // Try to extract peerID from Service Data (if available) for stable identity
         val serviceData = scanRecord?.getServiceData(ParcelUuid(AppConstants.Mesh.Gatt.SERVICE_UUID))
@@ -402,6 +528,7 @@ class BluetoothGattClientManager(
      */
     @Suppress("DEPRECATION")
     private fun connectToDevice(device: BluetoothDevice, rssi: Int, peerID: String? = null) {
+        if (!isClientRoleEnabled()) return
         if (!permissionManager.hasBluetoothPermissions()) return
 
         val deviceAddress = device.address
@@ -562,7 +689,7 @@ class BluetoothGattClientManager(
      */
     fun restartScanning() {
         // Respect debug setting
-        val enabled = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattClientEnabled.value } catch (_: Exception) { true }
+        val enabled = isClientRoleEnabled()
         if (!isActive || !enabled) return
         
         connectionScope.launch {

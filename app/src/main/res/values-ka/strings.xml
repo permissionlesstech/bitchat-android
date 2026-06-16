@@ -349,6 +349,7 @@
         <item quantity="other">%d ადამიანი</item>
     </plurals>
 
+    <string name="bluetooth_recommended">Bluetooth Recommended</string>
     <string name="mesh_service_notification_content">Mesh გაშვებულია — %1$d პირები</string>
 
   <string name="verify_title">verify</string>

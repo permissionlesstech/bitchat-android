@@ -88,22 +88,49 @@ class BluetoothConnectionManager(
     // Public property for address-peer mapping
     val addressPeerMap get() = connectionTracker.addressPeerMap
 
+    private fun isBleTransportEnabled(): Boolean {
+        return try {
+            com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().bleEnabled.value
+        } catch (_: Exception) {
+            try { com.bitchat.android.ui.debug.DebugPreferenceManager.getBleEnabled(true) } catch (_: Exception) { true }
+        }
+    }
+
+    private fun isGattServerEnabled(): Boolean {
+        return isBleTransportEnabled() &&
+            (try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattServerEnabled.value } catch (_: Exception) { true })
+    }
+
+    private fun isGattClientEnabled(): Boolean {
+        return isBleTransportEnabled() &&
+            (try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattClientEnabled.value } catch (_: Exception) { true })
+    }
+
     init {
         powerManager.delegate = this
         // Observe debug settings to enforce role state while active
         try {
             val dbg = com.bitchat.android.ui.debug.DebugSettingsManager.getInstance()
+            // Master transport enable/disable
+            connectionScope.launch {
+                dbg.bleEnabled.collect { enabled ->
+                    if (enabled) return@collect
+                    if (isActive) {
+                        disableTransport()
+                    }
+                }
+            }
             // Role enable/disable
             connectionScope.launch {
                 dbg.gattServerEnabled.collect { enabled ->
                     if (!isActive) return@collect
-                    if (enabled) startServer() else stopServer()
+                    if (enabled && isBleTransportEnabled()) startServer() else stopServer()
                 }
             }
             connectionScope.launch {
                 dbg.gattClientEnabled.collect { enabled ->
                     if (!isActive) return@collect
-                    if (enabled) startClient() else stopClient()
+                    if (enabled && isBleTransportEnabled()) startClient() else stopClient()
                 }
             }
             
@@ -163,6 +190,12 @@ class BluetoothConnectionManager(
      */
     fun startServices(): Boolean {
         Log.i(TAG, "Starting power-optimized Bluetooth services...")
+
+        if (!isBleTransportEnabled()) {
+            Log.i(TAG, "BLE transport disabled by debug settings; not starting Bluetooth services")
+            disableTransport()
+            return false
+        }
         
         if (!permissionManager.hasBluetoothPermissions()) {
             Log.e(TAG, "Missing Bluetooth permissions")
@@ -197,9 +230,8 @@ class BluetoothConnectionManager(
                 powerManager.start()
                 
                 // Start server/client based on debug settings
-                val dbg = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (_: Exception) { null }
-                val startServer = dbg?.gattServerEnabled?.value != false
-                val startClient = dbg?.gattClientEnabled?.value != false
+                val startServer = isGattServerEnabled()
+                val startClient = isGattClientEnabled()
 
                 if (startServer) {
                     if (!serverManager.start()) {
@@ -232,6 +264,19 @@ class BluetoothConnectionManager(
             Log.e(TAG, "Failed to start Bluetooth services: ${e.message}")
             isActive = false
             return false
+        }
+    }
+
+    /**
+     * Disable BLE without cancelling this manager's coroutine scope, so it can be re-enabled.
+     */
+    fun disableTransport() {
+        Log.i(TAG, "Disabling BLE transport")
+        isActive = false
+        connectionScope.launch {
+            clientManager.stop()
+            serverManager.stop()
+            connectionTracker.stop()
         }
     }
     
@@ -279,7 +324,7 @@ class BluetoothConnectionManager(
      * Automatically fragments large packets to fit within BLE MTU limits
      */
     fun broadcastPacket(routed: RoutedPacket) {
-        if (!isActive) return
+        if (!isActive || !isBleTransportEnabled()) return
         
         packetBroadcaster.broadcastPacket(
             routed,
@@ -289,7 +334,7 @@ class BluetoothConnectionManager(
     }
 
     fun sendToPeer(peerID: String, routed: RoutedPacket): Boolean {
-        if (!isActive) return false
+        if (!isActive || !isBleTransportEnabled()) return false
         return packetBroadcaster.sendToPeer(
             peerID,
             routed,
@@ -306,7 +351,7 @@ class BluetoothConnectionManager(
      * Send a packet directly to a specific peer, without broadcasting to others.
      */
     fun sendPacketToPeer(peerID: String, packet: BitchatPacket): Boolean {
-        if (!isActive) return false
+        if (!isActive || !isBleTransportEnabled()) return false
         return packetBroadcaster.sendPacketToPeer(
             RoutedPacket(packet),
             peerID,
@@ -317,9 +362,15 @@ class BluetoothConnectionManager(
     
 
     // Expose role controls for debug UI
-    fun startServer() { connectionScope.launch { serverManager.start() } }
+    fun startServer() {
+        if (!isActive || !isBleTransportEnabled()) return
+        connectionScope.launch { if (isGattServerEnabled()) serverManager.start() }
+    }
     fun stopServer() { connectionScope.launch { serverManager.stop() } }
-    fun startClient() { connectionScope.launch { clientManager.start() } }
+    fun startClient() {
+        if (!isActive || !isBleTransportEnabled()) return
+        connectionScope.launch { if (isGattClientEnabled()) clientManager.start() }
+    }
     fun stopClient() { connectionScope.launch { clientManager.stop() } }
 
     // Inject nickname resolver for broadcaster logs
@@ -347,7 +398,10 @@ class BluetoothConnectionManager(
     /**
      * Public: connect/disconnect helpers for debug UI
      */
-    fun connectToAddress(address: String): Boolean = clientManager.connectToAddress(address)
+    fun connectToAddress(address: String): Boolean {
+        if (!isActive || !isBleTransportEnabled()) return false
+        return clientManager.connectToAddress(address)
+    }
     fun disconnectAddress(address: String) { connectionTracker.disconnectDevice(address) }
 
 
@@ -358,10 +412,10 @@ class BluetoothConnectionManager(
             clientManager.stop()
             serverManager.stop()
             delay(200)
-            if (isActive) {
+            if (isActive && isBleTransportEnabled()) {
                 // Restart managers if service is active
-                serverManager.start()
-                clientManager.start()
+                if (isGattServerEnabled()) serverManager.start()
+                if (isGattClientEnabled()) clientManager.start()
             }
         }
     }
@@ -396,11 +450,17 @@ class BluetoothConnectionManager(
         Log.i(TAG, "Power mode changed to: $newMode")
         
         connectionScope.launch {
+            if (!isActive || !isBleTransportEnabled()) {
+                serverManager.stop()
+                clientManager.stop()
+                return@launch
+            }
+
             // Avoid rapid scan restarts by checking if we need to change scan behavior
             val wasUsingDutyCycle = powerManager.shouldUseDutyCycle()
             
             // Update advertising with new power settings if server enabled
-            val serverEnabled = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattServerEnabled.value } catch (_: Exception) { true }
+            val serverEnabled = isGattServerEnabled()
             if (serverEnabled) {
                 serverManager.restartAdvertising()
             } else {
@@ -411,7 +471,7 @@ class BluetoothConnectionManager(
             val nowUsingDutyCycle = powerManager.shouldUseDutyCycle()
             if (wasUsingDutyCycle != nowUsingDutyCycle) {
                 Log.d(TAG, "Duty cycle behavior changed (${wasUsingDutyCycle} -> ${nowUsingDutyCycle}), restarting scan")
-                val clientEnabled = try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance().gattClientEnabled.value } catch (_: Exception) { true }
+                val clientEnabled = isGattClientEnabled()
                 if (clientEnabled) {
                     clientManager.restartScanning()
                 } else {
@@ -427,6 +487,10 @@ class BluetoothConnectionManager(
     }
     
     override fun onScanStateChanged(shouldScan: Boolean) {
+        if (!isActive || !isBleTransportEnabled()) {
+            clientManager.onScanStateChanged(false)
+            return
+        }
         clientManager.onScanStateChanged(shouldScan)
     }
     

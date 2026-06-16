@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- TODO: Malay translations -->
+    <string name="skip">Skip</string>
+    <string name="bluetooth_recommended">Bluetooth Recommended</string>
     <string name="mesh_service_notification_content">Mesh sedang berjalan — %1$d rakan</string>
 
   <string name="verify_title">verify</string>

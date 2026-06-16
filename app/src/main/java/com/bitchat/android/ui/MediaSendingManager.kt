@@ -1,7 +1,7 @@
 package com.bitchat.android.ui
 
 import android.util.Log
-import com.bitchat.android.mesh.BluetoothMeshService
+import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatFilePacket
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
@@ -16,10 +16,10 @@ class MediaSendingManager(
     private val state: ChatState,
     private val messageManager: MessageManager,
     private val channelManager: ChannelManager,
-    private val getMeshService: () -> BluetoothMeshService
+    private val getMeshService: () -> MeshService
 ) {
     // Helper to get current mesh service (may change after panic clear)
-    private val meshService: BluetoothMeshService
+    private val meshService: MeshService
         get() = getMeshService()
     companion object {
         private const val TAG = "MediaSendingManager"

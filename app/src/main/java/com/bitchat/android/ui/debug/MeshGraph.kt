@@ -4,6 +4,12 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material.icons.outlined.Bluetooth
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -14,6 +20,7 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.services.meshgraph.MeshGraphService
@@ -31,6 +38,44 @@ private const val DAMPING = 0.85f
 private const val MAX_VELOCITY = 30f
 private const val PULSE_DECAY = 0.05f
 private const val ROUTE_DECAY = 0.02f
+private val EDGE_ICON_OFFSET = 14.dp
+
+private enum class EdgeTransport { WIFI, BLE }
+
+private data class EdgeMarker(val x: Float, val y: Float, val transport: EdgeTransport)
+
+private fun shouldMarkDirectEdge(
+    edge: MeshGraphService.GraphEdge,
+    transportPeerIDs: Set<String>,
+    localID: String?
+): Boolean {
+    if (transportPeerIDs.isEmpty()) return false
+    return if (localID != null) {
+        (edge.a == localID && edge.b in transportPeerIDs) ||
+            (edge.b == localID && edge.a in transportPeerIDs)
+    } else {
+        edge.a in transportPeerIDs || edge.b in transportPeerIDs
+    }
+}
+
+private fun edgeMarkerPosition(
+    x1: Float,
+    y1: Float,
+    x2: Float,
+    y2: Float,
+    offsetPx: Float,
+    sideSign: Float
+): Pair<Float, Float> {
+    val midX = (x1 + x2) / 2f
+    val midY = (y1 + y2) / 2f
+    val dx = x2 - x1
+    val dy = y2 - y1
+    val len = sqrt(dx * dx + dy * dy)
+    if (len < 0.1f) return midX to midY
+    val px = -dy / len * offsetPx * sideSign
+    val py = dx / len * offsetPx * sideSign
+    return (midX + px) to (midY + py)
+}
 
 private class GraphNodeState(
     val id: String,
@@ -212,6 +257,9 @@ private class Simulation {
 fun ForceDirectedMeshGraph(
     nodes: List<MeshGraphService.GraphNode>,
     edges: List<MeshGraphService.GraphEdge>,
+    wifiAwarePeerIDs: Set<String> = emptySet(),
+    blePeerIDs: Set<String> = emptySet(),
+    localPeerID: String? = null,
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
@@ -404,6 +452,55 @@ fun ForceDirectedMeshGraph(
                     textPaint
                 )
             }
+        }
+
+        val iconSize = 16.dp
+        val iconSizePx = with(density) { iconSize.toPx() }
+        val halfIconSizePx = iconSizePx / 2f
+        val iconOffsetPx = with(density) { EDGE_ICON_OFFSET.toPx() }
+        val localID = localPeerID
+
+        val edgeMarkers = tick.let {
+            simulation.edges.flatMap { edge ->
+                val n1 = simulation.nodes[edge.a]
+                val n2 = simulation.nodes[edge.b]
+                if (n1 == null || n2 == null) return@flatMap emptyList()
+
+                val isWifi = shouldMarkDirectEdge(edge, wifiAwarePeerIDs, localID)
+                val isBle = shouldMarkDirectEdge(edge, blePeerIDs, localID)
+                if (!isWifi && !isBle) return@flatMap emptyList()
+
+                val markers = mutableListOf<EdgeMarker>()
+                if (isWifi) {
+                    val (x, y) = edgeMarkerPosition(n1.x, n1.y, n2.x, n2.y, iconOffsetPx, sideSign = 1f)
+                    markers.add(EdgeMarker(x, y, EdgeTransport.WIFI))
+                }
+                if (isBle) {
+                    val side = if (isWifi) -1f else 1f
+                    val (x, y) = edgeMarkerPosition(n1.x, n1.y, n2.x, n2.y, iconOffsetPx, sideSign = side)
+                    markers.add(EdgeMarker(x, y, EdgeTransport.BLE))
+                }
+                markers
+            }
+        }
+
+        edgeMarkers.forEach { marker ->
+            Icon(
+                imageVector = when (marker.transport) {
+                    EdgeTransport.WIFI -> Icons.Filled.Wifi
+                    EdgeTransport.BLE -> Icons.Outlined.Bluetooth
+                },
+                contentDescription = null,
+                tint = colorScheme.onSurface.copy(alpha = 0.82f),
+                modifier = Modifier
+                    .offset {
+                        IntOffset(
+                            x = (marker.x - halfIconSizePx).roundToInt(),
+                            y = (marker.y - halfIconSizePx).roundToInt()
+                        )
+                    }
+                    .size(iconSize)
+            )
         }
     }
 }

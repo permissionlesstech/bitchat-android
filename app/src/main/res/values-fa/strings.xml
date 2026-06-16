@@ -349,6 +349,7 @@
         <item quantity="other">%d نفر</item>
     </plurals>
 
+    <string name="bluetooth_recommended">بلوتوث توصیه می شود</string>
     <string name="mesh_service_notification_content">مش در حال اجرا — %1$d همتا</string>
 
   <string name="verify_title">verify</string>

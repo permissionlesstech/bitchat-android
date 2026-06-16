@@ -362,6 +362,7 @@
         <item quantity="other">%d जना</item>
     </plurals>
 
+    <string name="bluetooth_recommended">ब्लुटुथ सिफारिस गरिएको</string>
     <string name="mesh_service_notification_content">मेश चलिरहेको छ — %1$d पियर्स</string>
 
   <string name="verify_title">verify</string>

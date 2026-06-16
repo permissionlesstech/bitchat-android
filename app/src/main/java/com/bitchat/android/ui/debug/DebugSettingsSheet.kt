@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material.icons.filled.WifiTethering
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.PowerSettingsNew
@@ -40,10 +42,15 @@ import com.bitchat.android.core.ui.component.sheet.BitchatSheetTopBar
 import com.bitchat.android.core.ui.component.sheet.BitchatSheetTitle
 
 @Composable
-fun MeshTopologySection() {
+fun MeshTopologySection(
+    localPeerID: String? = null,
+    blePeerIDs: Set<String> = emptySet(),
+) {
     val colorScheme = MaterialTheme.colorScheme
     val graphService = remember { MeshGraphService.getInstance() }
     val snapshot by graphService.graphState.collectAsState()
+    val wifiAwareConnected by com.bitchat.android.wifiaware.WifiAwareController.connectedPeers.collectAsState()
+    val wifiAwarePeerIDs = remember(wifiAwareConnected) { wifiAwareConnected.keys.toSet() }
 
     Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -60,6 +67,9 @@ fun MeshTopologySection() {
                 ForceDirectedMeshGraph(
                     nodes = nodes,
                     edges = edges,
+                    wifiAwarePeerIDs = wifiAwarePeerIDs,
+                    blePeerIDs = blePeerIDs,
+                    localPeerID = localPeerID,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(300.dp)
@@ -102,7 +112,7 @@ fun DebugSettingsSheet(
     val verboseLogging by manager.verboseLoggingEnabled.collectAsState()
     val gattServerEnabled by manager.gattServerEnabled.collectAsState()
     val gattClientEnabled by manager.gattClientEnabled.collectAsState()
-    val packetRelayEnabled by manager.packetRelayEnabled.collectAsState()
+    val packetRelayed by manager.packetRelayEnabled.collectAsState()
     val maxOverall by manager.maxConnectionsOverall.collectAsState()
     val maxServer by manager.maxServerConnections.collectAsState()
     val maxClient by manager.maxClientConnections.collectAsState()
@@ -114,6 +124,15 @@ fun DebugSettingsSheet(
     val gcsMaxBytes by manager.gcsMaxBytes.collectAsState()
     val gcsFpr by manager.gcsFprPercent.collectAsState()
     val context = LocalContext.current
+
+    val bleEnabled by manager.bleEnabled.collectAsState()
+    val wifiAwareEnabled by manager.wifiAwareEnabled.collectAsState()
+    val wifiAwareVerbose by manager.wifiAwareVerbose.collectAsState()
+    val wifiAwareDiscovered by manager.wifiAwareDiscovered.collectAsState()
+    val wifiAwareConnected by manager.wifiAwareConnected.collectAsState()
+    val wifiAwareSupported by com.bitchat.android.wifiaware.WifiAwareController.supported.collectAsState()
+    val wifiAwareAvailable by com.bitchat.android.wifiaware.WifiAwareController.available.collectAsState()
+    val wifiAwareSupportStatus by com.bitchat.android.wifiaware.WifiAwareController.supportStatus.collectAsState()
     // Persistent notification is now controlled solely by MeshServicePreferences.isBackgroundEnabled
     val listState = rememberLazyListState()
     val isScrolled by remember {
@@ -148,6 +167,15 @@ fun DebugSettingsSheet(
                     )
                 }
                 manager.updateConnectedDevices(devices)
+                // Also surface Wi‑Fi Aware status
+                try {
+                    val ctrl = com.bitchat.android.wifiaware.WifiAwareController
+                    val known = ctrl.knownPeers.value
+                    val discovered = ctrl.discoveredPeers.value
+                    val discoveredMap = discovered.associateWith { pid -> known[pid] ?: "" }
+                    manager.updateWifiAwareDiscovered(discoveredMap)
+                    manager.updateWifiAwareConnected(ctrl.connectedPeers.value)
+                } catch (_: Exception) { }
                 kotlinx.coroutines.delay(1000)
             }
         }
@@ -204,7 +232,13 @@ fun DebugSettingsSheet(
 
             // Mesh topology visualization (moved below verbose logging)
             item {
-                MeshTopologySection()
+                val blePeerIDs = remember(connectedDevices) {
+                    connectedDevices.mapNotNull { it.peerID }.toSet()
+                }
+                MeshTopologySection(
+                    localPeerID = meshService.myPeerID,
+                    blePeerIDs = blePeerIDs,
+                )
             }
 
             // GATT controls
@@ -276,6 +310,53 @@ fun DebugSettingsSheet(
                 }
             }
 
+            // Transport toggles (BLE + Wi‑Fi Aware)
+            item {
+                Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Filled.Devices, contentDescription = null, tint = Color(0xFF4CAF50))
+                            Text("Transports", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Bluetooth, contentDescription = null, tint = Color(0xFF007AFF))
+                            Spacer(Modifier.width(8.dp))
+                            Text("BLE", fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
+                            Switch(checked = bleEnabled, onCheckedChange = {
+                                manager.setBleEnabled(it)
+                            })
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Wifi, contentDescription = null, tint = Color(0xFF9C27B0))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Wi‑Fi Aware", fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
+                            val wifiSwitchEnabled = wifiAwareSupported
+                            Text(
+                                when {
+                                    !wifiAwareSupported -> "unsupported"
+                                    wifiAwareAvailable -> "available"
+                                    else -> "unavailable"
+                                },
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 11.sp,
+                                color = colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Switch(
+                                checked = wifiAwareEnabled && wifiAwareSupported,
+                                enabled = wifiSwitchEnabled,
+                                onCheckedChange = { manager.setWifiAwareEnabled(it) }
+                            )
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Spacer(Modifier.width(24.dp))
+                            Text("Wi‑Fi Aware verbose", fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1f))
+                            Switch(checked = wifiAwareVerbose, onCheckedChange = { manager.setWifiAwareVerbose(it) })
+                        }
+                    }
+                }
+            }
+
             // Packet relay controls and stats
             item {
                 Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
@@ -286,7 +367,7 @@ fun DebugSettingsSheet(
                             Icon(Icons.Filled.PowerSettingsNew, contentDescription = null, tint = Color(0xFFFF9500))
                             Text(stringResource(R.string.debug_packet_relay), fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                             Spacer(Modifier.weight(1f))
-                            Switch(checked = packetRelayEnabled, onCheckedChange = { manager.setPacketRelayEnabled(it) })
+                            Switch(checked = packetRelayed, onCheckedChange = { manager.setPacketRelayEnabled(it) })
                         }
                         // Removed aggregate labels; we will show per-direction compact labels below titles
                         // Toggle: overall vs per-connection vs per-peer
@@ -530,6 +611,65 @@ fun DebugSettingsSheet(
                                 }
                             )
                             if (graphMode != GraphMode.OVERALL && stackedKeysOutgoing.isNotEmpty()) { /* legend printed inside DrawGraphBlock */ }
+                        }
+                    }
+                }
+            }
+
+            // Wi‑Fi Aware controls and status
+            item {
+                Surface(shape = RoundedCornerShape(12.dp), color = colorScheme.surfaceVariant.copy(alpha = 0.2f)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        val running by com.bitchat.android.wifiaware.WifiAwareController.running.collectAsState()
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Filled.WifiTethering, contentDescription = null, tint = Color(0xFF9C27B0))
+                            Text("Wi‑Fi Aware", fontFamily = FontFamily.Monospace, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Spacer(Modifier.weight(1f))
+                            val wifiStatusText = when {
+                                !wifiAwareSupported -> "unsupported"
+                                running -> "running"
+                                !wifiAwareAvailable -> "unavailable"
+                                else -> "stopped"
+                            }
+                            Text(wifiStatusText, fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = colorScheme.onSurface.copy(alpha = 0.7f))
+                        }
+                        if (!wifiAwareSupported) {
+                            Text(
+                                wifiAwareSupportStatus?.reason ?: "Wi-Fi Aware is not supported on this device",
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 11.sp,
+                                color = colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            AssistChip(
+                                onClick = { manager.setWifiAwareEnabled(true) },
+                                enabled = wifiAwareSupported,
+                                label = { Text("Start") }
+                            )
+                            AssistChip(onClick = { manager.setWifiAwareEnabled(false) }, label = { Text("Stop") })
+                            AssistChip(
+                                onClick = { com.bitchat.android.wifiaware.WifiAwareController.getService()?.sendBroadcastAnnounce() },
+                                enabled = running,
+                                label = { Text("Announce") }
+                            )
+                        }
+                        Text("Discovered: ${wifiAwareDiscovered.size}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                        if (wifiAwareDiscovered.isEmpty()) {
+                            Text("No discoveries yet", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
+                        } else {
+                            wifiAwareDiscovered.entries.take(50).forEach { (peer, nick) ->
+                                Text("• ${if (nick.isBlank()) peer.take(8) + "…" else nick} (${peer.take(8)}…) ", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                            }
+                        }
+                        Divider()
+                        Text("Connected: ${wifiAwareConnected.size}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                        if (wifiAwareConnected.isEmpty()) {
+                            Text("No active sockets", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = colorScheme.onSurface.copy(alpha = 0.6f))
+                        } else {
+                            wifiAwareConnected.entries.take(50).forEach { (peer, ip) ->
+                                Text("• ${peer.take(8)}… @ $ip", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                            }
                         }
                     }
                 }

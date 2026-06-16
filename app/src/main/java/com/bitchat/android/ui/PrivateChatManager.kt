@@ -3,9 +3,9 @@ package com.bitchat.android.ui
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.mesh.PeerFingerprintManager
+import com.bitchat.android.mesh.MeshService
 import java.security.MessageDigest
 
-import com.bitchat.android.mesh.BluetoothMeshService
 import java.util.*
 import android.util.Log
 
@@ -42,7 +42,7 @@ class PrivateChatManager(
 
     // MARK: - Private Chat Lifecycle
 
-    fun startPrivateChat(peerID: String, meshService: BluetoothMeshService): Boolean {
+    fun startPrivateChat(peerID: String, meshService: MeshService): Boolean {
         if (isPeerBlocked(peerID)) {
             val peerNickname = getPeerNickname(peerID, meshService)
             val systemMessage = BitchatMessage(
@@ -188,7 +188,7 @@ class PrivateChatManager(
 
     // MARK: - Block/Unblock Operations
 
-    fun blockPeer(peerID: String, meshService: BluetoothMeshService): Boolean {
+    fun blockPeer(peerID: String, meshService: MeshService): Boolean {
         val fingerprint = fingerprintManager.getFingerprintForPeer(peerID)
         if (fingerprint != null) {
             dataManager.addBlockedUser(fingerprint)
@@ -212,7 +212,7 @@ class PrivateChatManager(
         return false
     }
 
-    fun unblockPeer(peerID: String, meshService: BluetoothMeshService): Boolean {
+    fun unblockPeer(peerID: String, meshService: MeshService): Boolean {
         val fingerprint = fingerprintManager.getFingerprintForPeer(peerID)
         if (fingerprint != null && dataManager.isUserBlocked(fingerprint)) {
             dataManager.removeBlockedUser(fingerprint)
@@ -230,7 +230,7 @@ class PrivateChatManager(
         return false
     }
 
-    fun blockPeerByNickname(targetName: String, meshService: BluetoothMeshService): Boolean {
+    fun blockPeerByNickname(targetName: String, meshService: MeshService): Boolean {
         val peerID = getPeerIDForNickname(targetName, meshService)
 
         if (peerID != null) {
@@ -247,7 +247,7 @@ class PrivateChatManager(
         }
     }
 
-    fun unblockPeerByNickname(targetName: String, meshService: BluetoothMeshService): Boolean {
+    fun unblockPeerByNickname(targetName: String, meshService: MeshService): Boolean {
         val peerID = getPeerIDForNickname(targetName, meshService)
 
         if (peerID != null) {
@@ -333,7 +333,7 @@ class PrivateChatManager(
      * Send read receipts for all unread messages from a specific peer
      * Called when the user focuses on a private chat
      */
-    fun sendReadReceiptsForPeer(peerID: String, meshService: BluetoothMeshService) {
+    fun sendReadReceiptsForPeer(peerID: String, meshService: MeshService) {
         // Collect candidate messages: all incoming messages from this peer in the conversation
         val chats = try { state.getPrivateChatsValue() } catch (_: Exception) { emptyMap<String, List<BitchatMessage>>() }
         val messages = chats[peerID].orEmpty()
@@ -343,13 +343,16 @@ class PrivateChatManager(
         }
 
         val myNickname = state.getNicknameValue() ?: "unknown"
+        val hasMesh = try { meshService.getPeerInfo(peerID)?.isConnected == true && meshService.hasEstablishedSession(peerID) } catch (_: Exception) { false }
         var sentCount = 0
         messages.forEach { msg ->
             // Only for incoming messages from this peer
             if (msg.senderPeerID == peerID) {
                 try {
-                    meshService.sendReadReceipt(msg.id, peerID, myNickname)
-                    sentCount += 1
+                    if (hasMesh) {
+                        meshService.sendReadReceipt(msg.id, peerID, myNickname)
+                        sentCount += 1
+                    }
                 } catch (e: Exception) {
                     Log.w(TAG, "Failed to send read receipt for message ${msg.id}: ${e.message}")
                 }
@@ -380,7 +383,7 @@ class PrivateChatManager(
      * Establish Noise session if needed before starting private chat
      * Uses same lexicographical logic as MessageHandler.handleNoiseIdentityAnnouncement
      */
-    private fun establishNoiseSessionIfNeeded(peerID: String, meshService: BluetoothMeshService) {
+    private fun establishNoiseSessionIfNeeded(peerID: String, meshService: MeshService) {
         if (noiseSessionDelegate.hasEstablishedSession(peerID)) {
             Log.d(TAG, "Noise session already established with $peerID")
             return
@@ -413,11 +416,11 @@ class PrivateChatManager(
 
     // MARK: - Utility Functions
 
-    private fun getPeerIDForNickname(nickname: String, meshService: BluetoothMeshService): String? {
+    private fun getPeerIDForNickname(nickname: String, meshService: MeshService): String? {
         return meshService.getPeerNicknames().entries.find { it.value == nickname }?.key
     }
 
-    private fun getPeerNickname(peerID: String, meshService: BluetoothMeshService): String {
+    private fun getPeerNickname(peerID: String, meshService: MeshService): String {
         return meshService.getPeerNicknames()[peerID] ?: peerID
     }
 

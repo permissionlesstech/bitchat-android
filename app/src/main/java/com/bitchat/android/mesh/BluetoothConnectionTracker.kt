@@ -16,28 +16,21 @@ import java.util.concurrent.CopyOnWriteArrayList
 class BluetoothConnectionTracker(
     private val connectionScope: CoroutineScope,
     private val powerManager: PowerManager
-) {
+) : MeshConnectionTracker(connectionScope, TAG) {
     
     companion object {
         private const val TAG = "BluetoothConnectionTracker"
-        private const val CONNECTION_RETRY_DELAY = com.bitchat.android.util.AppConstants.Mesh.CONNECTION_RETRY_DELAY_MS
-        private const val MAX_CONNECTION_ATTEMPTS = com.bitchat.android.util.AppConstants.Mesh.MAX_CONNECTION_ATTEMPTS
         private const val CLEANUP_DELAY = com.bitchat.android.util.AppConstants.Mesh.CONNECTION_CLEANUP_DELAY_MS
-        private const val CLEANUP_INTERVAL = com.bitchat.android.util.AppConstants.Mesh.CONNECTION_CLEANUP_INTERVAL_MS // 30 seconds
     }
     
     // Connection tracking - reduced memory footprint
     private val connectedDevices = ConcurrentHashMap<String, DeviceConnection>()
     private val subscribedDevices = CopyOnWriteArrayList<BluetoothDevice>()
     val addressPeerMap = ConcurrentHashMap<String, String>()
+    // Track whether we have seen the first ANNOUNCE on a given device connection
+    private val firstAnnounceSeen = ConcurrentHashMap<String, Boolean>()
     // RSSI tracking from scan results (for devices we discover but may connect as servers)
     private val scanRSSI = ConcurrentHashMap<String, Int>()
-    
-    // Connection attempt tracking with automatic cleanup
-    private val pendingConnections = ConcurrentHashMap<String, ConnectionAttempt>()
-    
-    // State management
-    private var isActive = false
     
     /**
      * Consolidated device connection information
@@ -52,37 +45,28 @@ class BluetoothConnectionTracker(
         val peerID: String? = null
     )
     
-    /**
-     * Connection attempt tracking with automatic expiry
-     */
-    data class ConnectionAttempt(
-        val attempts: Int,
-        val lastAttempt: Long = System.currentTimeMillis()
-    ) {
-        fun isExpired(): Boolean = 
-            System.currentTimeMillis() - lastAttempt > CONNECTION_RETRY_DELAY * 2
-        
-        fun shouldRetry(): Boolean = 
-            attempts < MAX_CONNECTION_ATTEMPTS && 
-            System.currentTimeMillis() - lastAttempt > CONNECTION_RETRY_DELAY
+    override fun start() {
+        super.start()
     }
     
-    /**
-     * Start the connection tracker
-     */
-    fun start() {
-        isActive = true
-        startPeriodicCleanup()
-    }
-    
-    /**
-     * Stop the connection tracker
-     */
-    fun stop() {
-        isActive = false
+    override fun stop() {
+        super.stop()
         cleanupAllConnections()
         clearAllConnections()
     }
+
+    // Abstract implementations
+    override fun isConnected(id: String): Boolean = connectedDevices.containsKey(id)
+    
+    override fun disconnect(id: String) {
+        connectedDevices[id]?.gatt?.let {
+            try { it.disconnect() } catch (_: Exception) { }
+        }
+        cleanupDeviceConnection(id)
+        Log.d(TAG, "Requested disconnect for $id")
+    }
+
+    override fun getConnectionCount(): Int = connectedDevices.size
     
     /**
      * Add a device connection
@@ -90,7 +74,9 @@ class BluetoothConnectionTracker(
     fun addDeviceConnection(deviceAddress: String, deviceConn: DeviceConnection) {
         Log.d(TAG, "Tracker: Adding device connection for $deviceAddress (isClient: ${deviceConn.isClient}")
         connectedDevices[deviceAddress] = deviceConn
-        pendingConnections.remove(deviceAddress)
+        removePendingConnection(deviceAddress)
+        // Mark as awaiting first ANNOUNCE on this connection
+        firstAnnounceSeen[deviceAddress] = false
     }
     
     /**
@@ -163,9 +149,7 @@ class BluetoothConnectionTracker(
     /**
      * Check if device is already connected
      */
-    fun isDeviceConnected(deviceAddress: String): Boolean {
-        return connectedDevices.containsKey(deviceAddress)
-    }
+    fun isDeviceConnected(deviceAddress: String): Boolean = isConnected(deviceAddress)
 
     /**
      * Check if a peer is already connected (by PeerID)
@@ -176,62 +160,14 @@ class BluetoothConnectionTracker(
     }
     
     /**
-     * Check if connection attempt is allowed
-     */
-    fun isConnectionAttemptAllowed(deviceAddress: String): Boolean {
-        val existingAttempt = pendingConnections[deviceAddress]
-        return existingAttempt?.let { 
-            it.isExpired() || it.shouldRetry() 
-        } ?: true
-    }
-    
-    /**
-     * Add a pending connection attempt
-     */
-    fun addPendingConnection(deviceAddress: String): Boolean {
-        Log.d(TAG, "Tracker: Adding pending connection for $deviceAddress")
-        synchronized(pendingConnections) {
-            // Double-check inside synchronized block
-            val currentAttempt = pendingConnections[deviceAddress]
-            if (currentAttempt != null && !currentAttempt.isExpired() && !currentAttempt.shouldRetry()) {
-                Log.d(TAG, "Tracker: Connection attempt already in progress for $deviceAddress")
-                return false
-            }
-            if (currentAttempt != null) {
-                Log.d(TAG, "Tracker: current attempt: $currentAttempt")
-            }
-            
-            // Update connection attempt atomically
-            // If the previous attempt window expired, reset backoff to 1; otherwise increment
-            val attempts = if (currentAttempt?.isExpired() == true) 1 else (currentAttempt?.attempts ?: 0) + 1
-            pendingConnections[deviceAddress] = ConnectionAttempt(attempts)
-            Log.d(TAG, "Tracker: Added pending connection for $deviceAddress (attempts: $attempts)")
-            return true
-        }
-    }
-    
-    /**
      * Disconnect a specific device (by MAC address)
      */
-    fun disconnectDevice(deviceAddress: String) {
-        connectedDevices[deviceAddress]?.gatt?.let {
-            try { it.disconnect() } catch (_: Exception) { }
-        }
-        cleanupDeviceConnection(deviceAddress)
-        Log.d(TAG, "Requested disconnect for $deviceAddress")
-    }
-
-    /**
-     * Remove a pending connection
-     */
-    fun removePendingConnection(deviceAddress: String) {
-        pendingConnections.remove(deviceAddress)
-    }
+    fun disconnectDevice(deviceAddress: String) = disconnect(deviceAddress)
     
     /**
      * Get connected device count
      */
-    fun getConnectedDeviceCount(): Int = connectedDevices.size
+    fun getConnectedDeviceCount(): Int = getConnectionCount()
     
     /**
      * Check if connection limit is reached
@@ -301,6 +237,7 @@ class BluetoothConnectionTracker(
             subscribedDevices.removeAll { it.address == deviceAddress }
             addressPeerMap.remove(deviceAddress)
         }
+        firstAnnounceSeen.remove(deviceAddress)
         Log.d(TAG, "Cleaned up device connection for $deviceAddress")
     }
     
@@ -334,36 +271,21 @@ class BluetoothConnectionTracker(
         addressPeerMap.clear()
         pendingConnections.clear()
         scanRSSI.clear()
+        firstAnnounceSeen.clear()
     }
 
     /**
-     * Start periodic cleanup of expired connections
+     * Mark that we have received the first ANNOUNCE over this device connection.
      */
-    private fun startPeriodicCleanup() {
-        connectionScope.launch {
-            while (isActive) {
-                delay(CLEANUP_INTERVAL)
-                
-                if (!isActive) break
-                
-                try {
-                    // Clean up expired pending connections
-                    val expiredConnections = pendingConnections.filter { it.value.isExpired() }
-                    expiredConnections.keys.forEach { pendingConnections.remove(it) }
-                    
-                    // Log cleanup if any
-                    if (expiredConnections.isNotEmpty()) {
-                        Log.d(TAG, "Cleaned up ${expiredConnections.size} expired connection attempts")
-                    }
-                    
-                    // Log current state
-                    Log.d(TAG, "Periodic cleanup: ${connectedDevices.size} connections, ${pendingConnections.size} pending")
-                    
-                } catch (e: Exception) {
-                    Log.w(TAG, "Error in periodic cleanup: ${e.message}")
-                }
-            }
-        }
+    fun noteAnnounceReceived(deviceAddress: String) {
+        firstAnnounceSeen[deviceAddress] = true
+    }
+
+    /**
+     * Check whether the first ANNOUNCE has been seen for a device connection.
+     */
+    fun hasSeenFirstAnnounce(deviceAddress: String): Boolean {
+        return firstAnnounceSeen[deviceAddress] == true
     }
     
     /**

@@ -362,6 +362,7 @@
         <item quantity="other">%d tao</item>
     </plurals>
 
+    <string name="bluetooth_recommended">Bluetooth Recommended</string>
     <string name="mesh_service_notification_content">Tumatakbo ang Mesh — %1$d na peer</string>
 
   <string name="verify_title">verify</string>

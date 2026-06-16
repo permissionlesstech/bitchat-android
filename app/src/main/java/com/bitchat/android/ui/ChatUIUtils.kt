@@ -11,7 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.bitchat.android.model.BitchatMessage
-import com.bitchat.android.mesh.BluetoothMeshService
+import com.bitchat.android.mesh.MeshService
 import androidx.compose.material3.ColorScheme
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import java.text.SimpleDateFormat
@@ -42,7 +42,7 @@ fun getRSSIColor(rssi: Int): Color {
 fun formatMessageAsAnnotatedString(
     message: BitchatMessage,
     currentUserNickname: String,
-    meshService: BluetoothMeshService,
+    meshService: MeshService,
     colorScheme: ColorScheme,
     timeFormatter: SimpleDateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 ): AnnotatedString {
@@ -162,7 +162,7 @@ fun formatMessageAsAnnotatedString(
 fun formatMessageHeaderAnnotatedString(
     message: BitchatMessage,
     currentUserNickname: String,
-    meshService: BluetoothMeshService,
+    meshService: MeshService,
     colorScheme: ColorScheme,
     timeFormatter: SimpleDateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 ): AnnotatedString {

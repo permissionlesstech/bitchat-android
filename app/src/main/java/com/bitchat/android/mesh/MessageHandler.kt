@@ -21,6 +21,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
     
     companion object {
         private const val TAG = "MessageHandler"
+        private const val ANNOUNCE_CLOCK_SKEW_TOLERANCE_MS = 10 * 60 * 1000L
     }
     
     // Delegate for callbacks
@@ -220,12 +221,15 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
 
         if (peerID == myPeerID) return false
 
-        // Ignore stale announcements older than STALE_PEER_TIMEOUT
+        // Peers use wall-clock packet timestamps; tolerate moderate device clock skew
+        // during identity learning, or later signed messages cannot be verified.
         val now = System.currentTimeMillis()
-        val age = now - packet.timestamp.toLong()
-        if (age > com.bitchat.android.util.AppConstants.Mesh.STALE_PEER_TIMEOUT_MS) {
-            Log.w(TAG, "Ignoring stale ANNOUNCE from ${peerID.take(8)} (age=${age}ms > ${com.bitchat.android.util.AppConstants.Mesh.STALE_PEER_TIMEOUT_MS}ms)")
+        val clockSkewMs = kotlin.math.abs(now - packet.timestamp.toLong())
+        if (clockSkewMs > ANNOUNCE_CLOCK_SKEW_TOLERANCE_MS) {
+            Log.w(TAG, "Ignoring ANNOUNCE from ${peerID.take(8)} with excessive clock skew (${clockSkewMs}ms > ${ANNOUNCE_CLOCK_SKEW_TOLERANCE_MS}ms)")
             return false
+        } else if (clockSkewMs > com.bitchat.android.util.AppConstants.Mesh.STALE_PEER_TIMEOUT_MS) {
+            Log.w(TAG, "Accepting ANNOUNCE from ${peerID.take(8)} within clock skew tolerance (${clockSkewMs}ms)")
         }
         
         // Try to decode as iOS-compatible IdentityAnnouncement with TLV format
