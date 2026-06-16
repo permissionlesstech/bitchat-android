@@ -715,7 +715,15 @@ class MainActivity : OrientationAwareActivity() {
                 // Set up unified mesh delegate and start enabled transports
                 unifiedMeshService.delegate = chatViewModel
                 unifiedMeshService.startServices()
-                com.bitchat.android.service.MeshForegroundService.start(applicationContext)
+                if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+                    try {
+                        com.bitchat.android.service.MeshForegroundService.start(applicationContext)
+                    } catch (e: Exception) {
+                        Log.w("MainActivity", "Unable to start foreground mesh service; continuing initialization", e)
+                    }
+                } else {
+                    Log.i("MainActivity", "Skipping foreground mesh service start while activity is not started")
+                }
                 
                 Log.d("MainActivity", "Mesh service started successfully")
                 
