@@ -38,24 +38,20 @@ class MeshForegroundService : Service() {
         fun start(context: Context) {
             val intent = Intent(context, MeshForegroundService::class.java).apply { action = ACTION_START }
 
-            // On API >= 26, avoid background-service start restrictions by using startForegroundService
-            // only when we can actually post a notification (Android 13+ requires runtime notif permission)
-            val bgEnabled = MeshServicePreferences.isBackgroundEnabled(true)
-            val hasNotifPerm = hasNotificationPermissionStatic(context)
+            // Only launch as an FGS when onStartCommand can promote immediately.
+            val shouldStartForeground = shouldStartAsForeground(context)
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                if (bgEnabled && hasNotifPerm) {
+                if (shouldStartForeground) {
                     context.startForegroundService(intent)
                 } else {
-                    // Do not attempt to start a background service from headless context without notif permission
-                    // or when background is disabled, to avoid BackgroundServiceStartNotAllowedException.
                     android.util.Log.i(
                         "MeshForegroundService",
-                        "Not starting service on API>=26 (bgEnabled=$bgEnabled, hasNotifPerm=$hasNotifPerm)"
+                        "Not starting service on API>=26 (shouldStartForeground=$shouldStartForeground)"
                     )
                 }
             } else {
-                if (bgEnabled) {
+                if (MeshServicePreferences.isBackgroundEnabled(true)) {
                     context.startService(intent)
                 } else {
                     android.util.Log.i("MeshForegroundService", "Background disabled; not starting service (pre-O)")
@@ -69,12 +65,10 @@ class MeshForegroundService : Service() {
          */
         fun onNotificationPermissionGranted(context: Context) {
             // If background is enabled and permission now granted, start/promo service
-            val hasNotifPerm = hasNotificationPermissionStatic(context)
-            if (!MeshServicePreferences.isBackgroundEnabled(true) || !hasNotifPerm) return
+            if (!shouldStartAsForeground(context)) return
 
             val intent = Intent(context, MeshForegroundService::class.java).apply { action = ACTION_UPDATE_NOTIFICATION }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                // Safe now that we can show a notification
                 context.startForegroundService(intent)
             } else {
                 context.startService(intent)
