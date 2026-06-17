@@ -59,6 +59,7 @@ class MainActivity : OrientationAwareActivity() {
     private lateinit var meshService: BluetoothMeshService
     private lateinit var unifiedMeshService: MeshService
     private val mainViewModel: MainViewModel by viewModels()
+    private var pendingMeshForegroundServiceStart = false
     private val chatViewModel: ChatViewModel by viewModels { 
         object : ViewModelProvider.Factory {
             override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
@@ -114,8 +115,8 @@ class MainActivity : OrientationAwareActivity() {
 
         // Initialize permission management
         permissionManager = PermissionManager(this)
-        // Ensure foreground service is running and get mesh instance from holder
-        try { com.bitchat.android.service.MeshForegroundService.start(applicationContext) } catch (_: Exception) { }
+        // Start the foreground service when allowed, then get mesh instances from the holder.
+        startMeshForegroundServiceBestEffort()
         meshService = com.bitchat.android.service.MeshServiceHolder.getOrCreate(applicationContext)
         unifiedMeshService = com.bitchat.android.service.MeshServiceHolder.getUnifiedOrCreate(applicationContext)
         // Expose BLE mesh to Wi‑Fi Aware controller for cross-transport relays - DEPRECATED
@@ -614,6 +615,22 @@ class MainActivity : OrientationAwareActivity() {
         mainViewModel.updateErrorMessage(message)
         mainViewModel.updateOnboardingState(OnboardingState.ERROR)
     }
+
+    private fun startMeshForegroundServiceBestEffort() {
+        if (!lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+            pendingMeshForegroundServiceStart = true
+            Log.i("MainActivity", "Deferring foreground mesh service start until activity is started")
+            return
+        }
+
+        try {
+            com.bitchat.android.service.MeshForegroundService.start(applicationContext)
+            pendingMeshForegroundServiceStart = false
+        } catch (e: Exception) {
+            pendingMeshForegroundServiceStart = true
+            Log.w("MainActivity", "Unable to start foreground mesh service; will retry when activity is started", e)
+        }
+    }
     
     /**
      * Check Battery Optimization status and proceed with onboarding flow
@@ -715,15 +732,7 @@ class MainActivity : OrientationAwareActivity() {
                 // Set up unified mesh delegate and start enabled transports
                 unifiedMeshService.delegate = chatViewModel
                 unifiedMeshService.startServices()
-                if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
-                    try {
-                        com.bitchat.android.service.MeshForegroundService.start(applicationContext)
-                    } catch (e: Exception) {
-                        Log.w("MainActivity", "Unable to start foreground mesh service; continuing initialization", e)
-                    }
-                } else {
-                    Log.i("MainActivity", "Skipping foreground mesh service start while activity is not started")
-                }
+                startMeshForegroundServiceBestEffort()
                 
                 Log.d("MainActivity", "Mesh service started successfully")
                 
@@ -759,6 +768,13 @@ class MainActivity : OrientationAwareActivity() {
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
             handleNotificationIntent(intent)
             handleVerificationIntent(intent)
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        if (pendingMeshForegroundServiceStart) {
+            startMeshForegroundServiceBestEffort()
         }
     }
     
