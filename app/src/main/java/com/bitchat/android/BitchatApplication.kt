@@ -46,7 +46,7 @@ class BitchatApplication : Application() {
 
         // Initialize Wi‑Fi Aware controller with persisted default
         try {
-            val enabled = com.bitchat.android.ui.debug.DebugPreferenceManager.getWifiAwareEnabled(true)
+            val enabled = com.bitchat.android.ui.debug.DebugPreferenceManager.getWifiAwareEnabled(false)
             com.bitchat.android.wifiaware.WifiAwareController.initialize(this, enabled)
         } catch (_: Exception) { }
 
