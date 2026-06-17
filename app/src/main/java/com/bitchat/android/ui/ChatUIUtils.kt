@@ -256,6 +256,35 @@ fun formatMessageHeaderAnnotatedString(
 }
 
 /**
+ * Build ONLY the message body (no sender prefix, no trailing timestamp) for use inside
+ * Material Expressive chat bubbles. Colors are supplied by the caller so the text contrasts
+ * with the bubble container, while mentions/links keep their accent treatment.
+ */
+fun formatMessageContentAnnotatedString(
+    message: BitchatMessage,
+    currentUserNickname: String,
+    textColor: Color,
+    linkColor: Color,
+    mentionColor: Color,
+    selfMentionColor: Color
+): AnnotatedString {
+    val builder = AnnotatedString.Builder()
+    appendIOSFormattedContent(
+        builder = builder,
+        content = message.content,
+        mentions = message.mentions,
+        currentUserNickname = currentUserNickname,
+        baseColor = textColor,
+        isSelf = false,
+        isDark = false,
+        linkColor = linkColor,
+        selfMentionColor = selfMentionColor,
+        otherMentionColor = mentionColor
+    )
+    return builder.toAnnotatedString()
+}
+
+/**
  * iOS-style peer color assignment using djb2 hash algorithm
  * Avoids orange (~30°) reserved for self messages
  */
@@ -338,7 +367,10 @@ private fun appendIOSFormattedContent(
     currentUserNickname: String,
     baseColor: Color,
     isSelf: Boolean,
-    isDark: Boolean
+    isDark: Boolean,
+    linkColor: Color = Color(0xFF007AFF),
+    selfMentionColor: Color = Color(0xFFFF9500),
+    otherMentionColor: Color = baseColor
 ) {
     // iOS-style patterns: allow optional '#abcd' suffix in mentions
     val hashtagPattern = "#([a-zA-Z0-9_]+)".toRegex()
@@ -442,7 +474,7 @@ private fun appendIOSFormattedContent(
                 
                 // Check if this mention targets current user
                 val isMentionToMe = mBase == currentUserNickname
-                val mentionColor = if (isMentionToMe) Color(0xFFFF9500) else baseColor
+                val mentionColor = if (isMentionToMe) selfMentionColor else otherMentionColor
                 
                 // "@" symbol
                 builder.pushStyle(SpanStyle(
@@ -493,7 +525,7 @@ private fun appendIOSFormattedContent(
                 if (type == "geohash") {
                     // Style geohash in blue, underlined, and add click annotation
                     builder.pushStyle(SpanStyle(
-                        color = Color(0xFF007AFF),
+                        color = linkColor,
                         fontSize = BASE_FONT_SIZE.sp,
                         fontWeight = if (isSelf) FontWeight.Bold else FontWeight.SemiBold,
                         textDecoration = TextDecoration.Underline
@@ -512,7 +544,7 @@ private fun appendIOSFormattedContent(
                 } else if (type == "url") {
                     // Style URL in blue, underlined, and add click annotation with the raw text
                     builder.pushStyle(SpanStyle(
-                        color = Color(0xFF007AFF),
+                        color = linkColor,
                         fontSize = BASE_FONT_SIZE.sp,
                         fontWeight = if (isSelf) FontWeight.Bold else FontWeight.SemiBold,
                         textDecoration = TextDecoration.Underline

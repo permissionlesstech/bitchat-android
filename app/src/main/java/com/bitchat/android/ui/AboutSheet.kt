@@ -35,6 +35,16 @@ import com.bitchat.android.core.ui.component.sheet.BitchatBottomSheet
 import com.bitchat.android.net.TorMode
 import com.bitchat.android.net.TorPreferenceManager
 import com.bitchat.android.net.ArtiTorManager
+import com.bitchat.android.ui.theme.AppSkin
+import com.bitchat.android.ui.theme.AppSkinPreferenceManager
+import com.bitchat.android.ui.theme.LocalAppSkin
+import com.bitchat.android.ui.theme.LocalThemeAccents
+import com.bitchat.android.ui.theme.isExpressiveSkin
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 
 /**
  * Feature row for displaying app capabilities
@@ -90,14 +100,16 @@ private fun ThemeChip(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
-    
+    val expressive = isExpressiveSkin()
+    val accents = LocalThemeAccents.current
+    val selectedColor = if (expressive) colorScheme.primary else accents.success
+
     Surface(
         modifier = modifier,
         onClick = onClick,
-        shape = RoundedCornerShape(10.dp),
+        shape = if (expressive) RoundedCornerShape(20.dp) else RoundedCornerShape(10.dp),
         color = if (selected) {
-            if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
+            if (expressive) colorScheme.secondaryContainer else selectedColor
         } else {
             colorScheme.surfaceVariant.copy(alpha = 0.5f)
         }
@@ -105,14 +117,86 @@ private fun ThemeChip(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 10.dp),
+                .padding(vertical = if (expressive) 14.dp else 10.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = label,
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.labelLarge,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                color = if (selected) Color.White else colorScheme.onSurface.copy(alpha = 0.8f)
+                color = when {
+                    selected && expressive -> colorScheme.onSecondaryContainer
+                    selected -> Color.White
+                    else -> colorScheme.onSurface.copy(alpha = 0.8f)
+                }
+            )
+        }
+    }
+}
+
+/**
+ * Large, bold selectable card used to switch the entire design language (skin).
+ * Expressive flagship component for the appearance section.
+ */
+@Composable
+private fun SkinCard(
+    icon: ImageVector,
+    title: String,
+    description: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val expressive = isExpressiveSkin()
+    val shape = if (expressive) RoundedCornerShape(24.dp) else RoundedCornerShape(14.dp)
+
+    Surface(
+        modifier = modifier,
+        onClick = onClick,
+        shape = shape,
+        color = if (selected) colorScheme.primaryContainer else colorScheme.surfaceVariant.copy(alpha = 0.45f),
+        border = if (selected) BorderStroke(2.dp, colorScheme.primary) else null
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (selected) colorScheme.onPrimaryContainer else colorScheme.onSurface.copy(alpha = 0.7f),
+                    modifier = Modifier.size(26.dp)
+                )
+                if (selected) {
+                    Surface(color = colorScheme.primary, shape = CircleShape, modifier = Modifier.size(22.dp)) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Filled.Check,
+                                contentDescription = null,
+                                tint = colorScheme.onPrimary,
+                                modifier = Modifier.size(15.dp)
+                            )
+                        }
+                    }
+                }
+            }
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (selected) colorScheme.onPrimaryContainer else colorScheme.onSurface
+            )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = (if (selected) colorScheme.onPrimaryContainer else colorScheme.onSurface).copy(alpha = 0.7f),
+                lineHeight = 16.sp
             )
         }
     }
@@ -133,8 +217,10 @@ private fun SettingsToggleRow(
     statusIndicator: (@Composable () -> Unit)? = null
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
-    
+    val expressive = isExpressiveSkin()
+    val accents = LocalThemeAccents.current
+    val trackColor = if (expressive) colorScheme.primary else accents.success
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -181,9 +267,9 @@ private fun SettingsToggleRow(
             onCheckedChange = { if (enabled) onCheckedChange(it) },
             enabled = enabled,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.White,
-                checkedTrackColor = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D),
-                uncheckedThumbColor = Color.White,
+                checkedThumbColor = if (expressive) colorScheme.onPrimary else Color.White,
+                checkedTrackColor = trackColor,
+                uncheckedThumbColor = if (expressive) colorScheme.outline else Color.White,
                 uncheckedTrackColor = colorScheme.surfaceVariant
             )
         )
@@ -225,7 +311,9 @@ fun AboutSheet(
     )
 
     val colorScheme = MaterialTheme.colorScheme
+    val expressive = isExpressiveSkin()
     val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
+    val headerFont = if (expressive) FontFamily.Default else FontFamily.Monospace
     
     if (isPresented) {
         BitchatBottomSheet(
@@ -251,23 +339,23 @@ fun AboutSheet(
                             Text(
                                 text = stringResource(R.string.app_name),
                                 style = TextStyle(
-                                    fontFamily = FontFamily.Monospace,
+                                    fontFamily = headerFont,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 28.sp,
-                                    letterSpacing = 1.sp
+                                    fontSize = if (expressive) 40.sp else 28.sp,
+                                    letterSpacing = if (expressive) (-0.5).sp else 1.sp
                                 ),
-                                color = colorScheme.onBackground
+                                color = if (expressive) colorScheme.primary else colorScheme.onBackground
                             )
                             Text(
                                 text = stringResource(R.string.version_prefix, versionName ?: ""),
                                 fontSize = 13.sp,
-                                fontFamily = FontFamily.Monospace,
+                                fontFamily = headerFont,
                                 color = colorScheme.onBackground.copy(alpha = 0.5f)
                             )
                             Text(
                                 text = stringResource(R.string.about_tagline),
                                 fontSize = 13.sp,
-                                fontFamily = FontFamily.Monospace,
+                                fontFamily = headerFont,
                                 color = colorScheme.onBackground.copy(alpha = 0.6f),
                                 modifier = Modifier.padding(top = 4.dp)
                             )
@@ -318,11 +406,46 @@ fun AboutSheet(
                         }
                     }
 
-                    // Appearance Section
+                    // Style (design language / skin) Section
+                    item(key = "style") {
+                        val currentSkin by AppSkinPreferenceManager.skinFlow.collectAsState()
+                        Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                            Text(
+                                text = stringResource(R.string.about_style).uppercase(),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = colorScheme.onBackground.copy(alpha = 0.5f),
+                                letterSpacing = 0.5.sp,
+                                modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                SkinCard(
+                                    icon = Icons.Filled.Terminal,
+                                    title = stringResource(R.string.theme_matrix),
+                                    description = stringResource(R.string.theme_matrix_desc),
+                                    selected = currentSkin == AppSkin.MATRIX,
+                                    onClick = { AppSkinPreferenceManager.set(context, AppSkin.MATRIX) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                                SkinCard(
+                                    icon = Icons.Filled.AutoAwesome,
+                                    title = stringResource(R.string.theme_expressive),
+                                    description = stringResource(R.string.theme_expressive_desc),
+                                    selected = currentSkin == AppSkin.EXPRESSIVE,
+                                    onClick = { AppSkinPreferenceManager.set(context, AppSkin.EXPRESSIVE) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                    }
+
+                    // Appearance Section (light / dark within the active skin)
                     item(key = "appearance") {
                         Column(modifier = Modifier.padding(horizontal = 20.dp)) {
                             Text(
-                                text = "THEME",
+                                text = stringResource(R.string.about_brightness).uppercase(),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = colorScheme.onBackground.copy(alpha = 0.5f),
                                 letterSpacing = 0.5.sp,
@@ -509,8 +632,8 @@ fun AboutSheet(
                                             valueRange = 0f..32f,
                                             steps = 31,
                                             colors = SliderDefaults.colors(
-                                                thumbColor = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D),
-                                                activeTrackColor = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
+                                                thumbColor = if (expressive) colorScheme.primary else (if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)),
+                                                activeTrackColor = if (expressive) colorScheme.primary else (if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D))
                                             )
                                         )
                                         

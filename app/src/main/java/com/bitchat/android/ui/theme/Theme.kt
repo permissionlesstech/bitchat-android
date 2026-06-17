@@ -7,17 +7,23 @@ import android.view.WindowInsetsController
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 
-// Colors that match the iOS bitchat theme
-private val DarkColorScheme = darkColorScheme(
+// ============================================================================
+// MATRIX skin — the original terminal-inspired identity (iOS parity)
+// ============================================================================
+private val MatrixDarkColorScheme = darkColorScheme(
     primary = Color(0xFF39FF14),        // Bright green (terminal-like)
     onPrimary = Color.Black,
     secondary = Color(0xFF2ECB10),      // Darker green
@@ -30,7 +36,7 @@ private val DarkColorScheme = darkColorScheme(
     onError = Color.Black
 )
 
-private val LightColorScheme = lightColorScheme(
+private val MatrixLightColorScheme = lightColorScheme(
     primary = Color(0xFF008000),        // Dark green
     onPrimary = Color.White,
     secondary = Color(0xFF006600),      // Even darker green
@@ -43,13 +49,29 @@ private val LightColorScheme = lightColorScheme(
     onError = Color.White
 )
 
+/**
+ * Root theme for bitchat. Resolves two independent axes:
+ *
+ *  1. [AppSkin] (via [AppSkinPreferenceManager]) — the entire design language
+ *     (Matrix terminal vs. Material 3 Expressive).
+ *  2. light/dark (via [ThemePreferenceManager], or [darkTheme] override) — applied within a skin.
+ *
+ * For the Expressive skin we prefer wallpaper-based dynamic color (Material You) on Android 12+,
+ * falling back to the bitchat brand palette below that.
+ *
+ * The resolved [AppSkin] and [ThemeAccents] are published via composition locals so any
+ * composable can branch its layout and pull semantic accent colors centrally.
+ */
 @Composable
 fun BitchatTheme(
     darkTheme: Boolean? = null,
     content: @Composable () -> Unit
 ) {
-    // App-level override from ThemePreferenceManager
+    val context = LocalContext.current
+
+    val skin by AppSkinPreferenceManager.skinFlow.collectAsState(initial = AppSkin.MATRIX)
     val themePref by ThemePreferenceManager.themeFlow.collectAsState(initial = ThemePreference.System)
+
     val shouldUseDark = when (darkTheme) {
         true -> true
         false -> false
@@ -60,7 +82,21 @@ fun BitchatTheme(
         }
     }
 
-    val colorScheme = if (shouldUseDark) DarkColorScheme else LightColorScheme
+    val dynamicColorAvailable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+
+    val colorScheme = when (skin) {
+        AppSkin.EXPRESSIVE -> when {
+            dynamicColorAvailable && shouldUseDark -> dynamicDarkColorScheme(context)
+            dynamicColorAvailable -> dynamicLightColorScheme(context)
+            shouldUseDark -> ExpressiveDarkColorScheme
+            else -> ExpressiveLightColorScheme
+        }
+        AppSkin.MATRIX -> if (shouldUseDark) MatrixDarkColorScheme else MatrixLightColorScheme
+    }
+
+    val typography = if (skin.isExpressive) ExpressiveTypography else Typography
+    val shapes = if (skin.isExpressive) ExpressiveShapes else MatrixShapes
+    val accents = if (skin.isExpressive) expressiveAccents(colorScheme, shouldUseDark) else MatrixAccents
 
     val view = LocalView.current
     SideEffect {
@@ -83,9 +119,15 @@ fun BitchatTheme(
         }
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+    CompositionLocalProvider(
+        LocalAppSkin provides skin,
+        LocalThemeAccents provides accents
+    ) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = typography,
+            shapes = shapes,
+            content = content
+        )
+    }
 }

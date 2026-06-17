@@ -40,6 +40,8 @@ import com.bitchat.android.ui.media.FullScreenImageViewer
 @Composable
 fun ChatScreen(viewModel: ChatViewModel) {
     val colorScheme = MaterialTheme.colorScheme
+    val expressive = com.bitchat.android.ui.theme.isExpressiveSkin()
+    val accents = com.bitchat.android.ui.theme.LocalThemeAccents.current
     val messages by viewModel.messages.collectAsStateWithLifecycle()
     val connectedPeers by viewModel.connectedPeers.collectAsStateWithLifecycle()
     val nickname by viewModel.nickname.collectAsStateWithLifecycle()
@@ -113,7 +115,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             .fillMaxSize()
             .background(colorScheme.background) // Extend background to fill entire screen including status bar
     ) {
-        val headerHeight = 42.dp
+        val headerHeight = if (expressive) 64.dp else 42.dp
         
         // Main content area that responds to keyboard/window insets
         Column(
@@ -277,19 +279,34 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .windowInsetsPadding(WindowInsets.ime)
         ) {
-            Surface(
-                shape = CircleShape,
-                color = colorScheme.background,
-                tonalElevation = 3.dp,
-                shadowElevation = 6.dp,
-                border = BorderStroke(2.dp, Color(0xFF00C851))
-            ) {
-                IconButton(onClick = { forceScrollToBottom = !forceScrollToBottom }) {
+            if (expressive) {
+                FloatingActionButton(
+                    onClick = { forceScrollToBottom = !forceScrollToBottom },
+                    containerColor = colorScheme.primaryContainer,
+                    contentColor = colorScheme.onPrimaryContainer,
+                    shape = CircleShape,
+                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 6.dp)
+                ) {
                     Icon(
                         imageVector = Icons.Filled.ArrowDownward,
-                        contentDescription = stringResource(com.bitchat.android.R.string.cd_scroll_to_bottom),
-                        tint = Color(0xFF00C851)
+                        contentDescription = stringResource(com.bitchat.android.R.string.cd_scroll_to_bottom)
                     )
+                }
+            } else {
+                Surface(
+                    shape = CircleShape,
+                    color = colorScheme.background,
+                    tonalElevation = 3.dp,
+                    shadowElevation = 6.dp,
+                    border = BorderStroke(2.dp, accents.success)
+                ) {
+                    IconButton(onClick = { forceScrollToBottom = !forceScrollToBottom }) {
+                        Icon(
+                            imageVector = Icons.Filled.ArrowDownward,
+                            contentDescription = stringResource(com.bitchat.android.R.string.cd_scroll_to_bottom),
+                            tint = accents.success
+                        )
+                    }
                 }
             }
         }
