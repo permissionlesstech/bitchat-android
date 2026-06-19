@@ -330,6 +330,30 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             Log.i(TAG, "Wi-Fi Aware transport disabled by debug settings; not starting")
             return
         }
+
+        // Require ACCESS_FINE_LOCATION runtime permission
+        val fineLocationGranted = androidx.core.content.ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+        if (!fineLocationGranted) {
+            Log.w(TAG, "Missing ACCESS_FINE_LOCATION permission; aborting startServices")
+            return
+        }
+
+        // Android 13+: require NEARBY_WIFI_DEVICES runtime permission
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val nearbyGranted = androidx.core.content.ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.NEARBY_WIFI_DEVICES
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            if (!nearbyGranted) {
+                Log.w(TAG, "Missing NEARBY_WIFI_DEVICES permission; aborting startServices")
+                return
+            }
+        }
+
         val supportStatus = com.bitchat.android.wifiaware.WifiAwareSupport.evaluate(context)
         if (!supportStatus.supported) {
             Log.i(TAG, "Wi-Fi Aware unsupported on this device; not starting (${supportStatus.reason})")
