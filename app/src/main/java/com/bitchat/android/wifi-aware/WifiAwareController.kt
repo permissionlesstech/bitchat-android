@@ -145,6 +145,19 @@ object WifiAwareController {
             return
         }
 
+        // Require ACCESS_FINE_LOCATION runtime permission
+        val locationPermissionGranted = androidx.core.content.ContextCompat.checkSelfPermission(
+            ctx,
+            android.Manifest.permission.ACCESS_FINE_LOCATION
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+        if (!locationPermissionGranted) {
+            Log.w(TAG, "Missing ACCESS_FINE_LOCATION permission; not starting Wi‑Fi Aware")
+            addBlockedDebugMessage("missing-fine-location", "Grant Location permission to start Wi-Fi Aware")
+            synchronized(lifecycleLock) { starting = false }
+            return
+        }
+
         // Android 13+: require NEARBY_WIFI_DEVICES runtime permission
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val granted = androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.NEARBY_WIFI_DEVICES) == android.content.pm.PackageManager.PERMISSION_GRANTED
