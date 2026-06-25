@@ -75,8 +75,6 @@ class GeohashViewModel(
     private val activeSamplingGeohashes = mutableSetOf<String>()
 
     // Geohash of the currently selected Location channel (null for Mesh/none).
-    // Tracked so the live channel stream can be torn down in the background and
-    // restored on foreground without losing the user's channel selection.
     private var activeChannelGeohash: String? = null
 
     val geohashPeople: StateFlow<List<GeoPerson>> = state.geohashPeople
