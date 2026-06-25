@@ -170,7 +170,9 @@ class BluetoothPacketBroadcaster(
         characteristic: BluetoothGattCharacteristic?
     ): Boolean {
         val packet = routed.packet
-        val data = packet.toBinaryData() ?: return false
+        // iOS-compatible: Use selective padding policy for BLE
+        val padForBLE = BLEPacketPaddingPolicy.shouldPadForBLE(packet.type)
+        val data = packet.toBinaryData(padding = padForBLE) ?: return false
         val isFile = packet.type == MessageType.FILE_TRANSFER.value
         if (isFile) {
             Log.d(TAG, "📤 Broadcasting FILE_TRANSFER: ${packet.payload.size} bytes")
@@ -261,7 +263,9 @@ class BluetoothPacketBroadcaster(
         characteristic: BluetoothGattCharacteristic?
     ) {
         val packet = routed.packet
-        val data = packet.toBinaryData() ?: return
+        // iOS-compatible: Use selective padding policy for BLE
+        val padForBLE = BLEPacketPaddingPolicy.shouldPadForBLE(packet.type)
+        val data = packet.toBinaryData(padding = padForBLE) ?: return
         val typeName = MessageType.fromValue(packet.type)?.name ?: packet.type.toString()
         val senderPeerID = routed.peerID ?: packet.senderID.toHexString()
         val incomingAddr = routed.relayAddress
