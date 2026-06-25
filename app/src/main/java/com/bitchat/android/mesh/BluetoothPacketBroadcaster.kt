@@ -57,17 +57,6 @@ class BluetoothPacketBroadcaster(
     }
     
     /**
-     * iOS-compatible padding policy: only pad encrypted messages for BLE transmission
-     * Announce, message, leave, sync, fragment, and file transfer are sent unpadded over BLE
-     */
-    private fun shouldPadForBLE(type: UByte): Boolean {
-        return when (MessageType.fromValue(type)) {
-            MessageType.NOISE_ENCRYPTED, MessageType.NOISE_HANDSHAKE -> true
-            else -> false
-        }
-    }
-
-    /**
      * Debug logging helper - can be easily removed/disabled for production
      */
     private fun logPacketRelay(
@@ -182,7 +171,7 @@ class BluetoothPacketBroadcaster(
     ): Boolean {
         val packet = routed.packet
         // iOS-compatible: Use selective padding policy for BLE
-        val padForBLE = shouldPadForBLE(packet.type)
+        val padForBLE = BLEPacketPaddingPolicy.shouldPadForBLE(packet.type)
         val data = packet.toBinaryData(padding = padForBLE) ?: return false
         val isFile = packet.type == MessageType.FILE_TRANSFER.value
         if (isFile) {
@@ -275,7 +264,7 @@ class BluetoothPacketBroadcaster(
     ) {
         val packet = routed.packet
         // iOS-compatible: Use selective padding policy for BLE
-        val padForBLE = shouldPadForBLE(packet.type)
+        val padForBLE = BLEPacketPaddingPolicy.shouldPadForBLE(packet.type)
         val data = packet.toBinaryData(padding = padForBLE) ?: return
         val typeName = MessageType.fromValue(packet.type)?.name ?: packet.type.toString()
         val senderPeerID = routed.peerID ?: packet.senderID.toHexString()
