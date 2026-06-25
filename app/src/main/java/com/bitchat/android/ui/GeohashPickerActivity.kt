@@ -10,6 +10,7 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
+import android.webkit.WebResourceRequest
 import android.webkit.WebViewClient
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
@@ -104,10 +105,16 @@ class GeohashPickerActivity : OrientationAwareActivity() {
                                     settings.javaScriptEnabled = true
                                     settings.domStorageEnabled = true
                                     settings.cacheMode = WebSettings.LOAD_DEFAULT
+                                    settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
                                     settings.allowFileAccess = true
                                     settings.allowContentAccess = true
                                     webChromeClient = WebChromeClient()
                                     webViewClient = object : WebViewClient() {
+                                        override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                                            val url = request?.url?.toString() ?: return true
+                                            // Block navigation away from the local geohash picker asset
+                                            return !url.startsWith("file:///android_asset/geohash_picker.html")
+                                        }
                                         override fun onPageFinished(view: WebView?, url: String?) {
                                             super.onPageFinished(view, url)
                                             // Initialize to last/initial geohash if provided, otherwise center
