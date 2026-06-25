@@ -133,8 +133,8 @@ class GossipSyncManager(
         }
     }
 
-    private fun sendRequestSync() {
-        val payload = buildGcsPayload()
+    fun sendRequestSync(wantedTypes: List<UByte>? = null, minTimestamp: ULong? = null) {
+        val payload = buildGcsPayload(wantedTypes, minTimestamp)
 
         val packet = BitchatPacket(
             type = MessageType.REQUEST_SYNC.value,
@@ -148,8 +148,8 @@ class GossipSyncManager(
         delegate?.sendPacket(signed)
     }
 
-    private fun sendRequestSyncToPeer(peerID: String) {
-        val payload = buildGcsPayload()
+    fun sendRequestSyncToPeer(peerID: String, wantedTypes: List<UByte>? = null, minTimestamp: ULong? = null) {
+        val payload = buildGcsPayload(wantedTypes, minTimestamp)
 
         val packet = BitchatPacket(
             type = MessageType.REQUEST_SYNC.value,
@@ -174,26 +174,40 @@ class GossipSyncManager(
             return GCSFilter.contains(sorted, nonZeroV)
         }
 
+        // Determine types to include (default: ANNOUNCE and MESSAGE if wantedTypes is null or empty)
+        val targetTypes = if (request.wantedTypes == null || request.wantedTypes.isEmpty()) {
+            listOf(MessageType.ANNOUNCE.value, MessageType.MESSAGE.value)
+        } else {
+            request.wantedTypes
+        }
+        val minTs = request.minTimestamp ?: 0uL
+
         // 1) Announcements: send latest per peerID if remote doesn't have them
-        for ((_, pair) in latestAnnouncementByPeer.entries) {
-            val (id, pkt) = pair
-            val idBytes = hexToBytes(id)
-            if (!mightContain(idBytes)) {
-                // Send original packet unchanged to requester only (keep local TTL)
-                val toSend = pkt.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS)
-                delegate?.sendPacketToPeer(fromPeerID, toSend)
-                Log.d(TAG, "Sent sync announce: Type ${toSend.type} from ${toSend.senderID.toHexString()} to $fromPeerID packet id ${idBytes.toHexString()}")
+        if (targetTypes.contains(MessageType.ANNOUNCE.value)) {
+            for ((_, pair) in latestAnnouncementByPeer.entries) {
+                val (id, pkt) = pair
+                if (pkt.timestamp < minTs) continue
+                val idBytes = hexToBytes(id)
+                if (!mightContain(idBytes)) {
+                    // Send original packet unchanged to requester only (keep local TTL)
+                    val toSend = pkt.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS)
+                    delegate?.sendPacketToPeer(fromPeerID, toSend)
+                    Log.d(TAG, "Sent sync announce: Type ${toSend.type} from ${toSend.senderID.toHexString()} to $fromPeerID packet id ${idBytes.toHexString()}")
+                }
             }
         }
 
         // 2) Broadcast messages: send all they lack
-        val toSendMsgs = synchronized(messages) { messages.values.toList() }
-        for (pkt in toSendMsgs) {
-            val idBytes = PacketIdUtil.computeIdBytes(pkt)
-            if (!mightContain(idBytes)) {
-                val toSend = pkt.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS)
-                delegate?.sendPacketToPeer(fromPeerID, toSend)
-                Log.d(TAG, "Sent sync message: Type ${toSend.type} to $fromPeerID packet id ${idBytes.toHexString()}")
+        if (targetTypes.contains(MessageType.MESSAGE.value)) {
+            val toSendMsgs = synchronized(messages) { messages.values.toList() }
+            for (pkt in toSendMsgs) {
+                if (pkt.timestamp < minTs) continue
+                val idBytes = PacketIdUtil.computeIdBytes(pkt)
+                if (!mightContain(idBytes)) {
+                    val toSend = pkt.copy(ttl = com.bitchat.android.util.AppConstants.SYNC_TTL_HOPS)
+                    delegate?.sendPacketToPeer(fromPeerID, toSend)
+                    Log.d(TAG, "Sent sync message: Type ${toSend.type} to $fromPeerID packet id ${idBytes.toHexString()}")
+                }
             }
         }
     }
@@ -223,16 +237,35 @@ class GossipSyncManager(
         return out
     }
 
-    private fun buildGcsPayload(): ByteArray {
+    private fun buildGcsPayload(wantedTypes: List<UByte>? = null, minTimestamp: ULong? = null): ByteArray {
         // Collect candidates: latest announcement per peer + recent broadcast messages
         val list = ArrayList<BitchatPacket>()
+        // Determine types to include (default: ANNOUNCE and MESSAGE if wantedTypes is null or empty)
+        val targetTypes = if (wantedTypes == null || wantedTypes.isEmpty()) {
+            listOf(MessageType.ANNOUNCE.value, MessageType.MESSAGE.value)
+        } else {
+            wantedTypes
+        }
+        val minTs = minTimestamp ?: 0uL
+
         // announcements
-        for ((_, pair) in latestAnnouncementByPeer) {
-            list.add(pair.second)
+        if (targetTypes.contains(MessageType.ANNOUNCE.value)) {
+            for ((_, pair) in latestAnnouncementByPeer) {
+                val pkt = pair.second
+                if (pkt.timestamp >= minTs) {
+                    list.add(pkt)
+                }
+            }
         }
         // messages
-        synchronized(messages) {
-            list.addAll(messages.values)
+        if (targetTypes.contains(MessageType.MESSAGE.value)) {
+            synchronized(messages) {
+                for (pkt in messages.values) {
+                    if (pkt.timestamp >= minTs) {
+                        list.add(pkt)
+                    }
+                }
+            }
         }
         // sort by timestamp desc, then take up to min(seenCapacity, fit capacity)
         list.sortByDescending { it.timestamp.toLong() }
@@ -245,12 +278,12 @@ class GossipSyncManager(
         val takeN = minOf(nMax, cap, list.size)
         if (takeN <= 0) {
             val p0 = GCSFilter.deriveP(fpr)
-            return RequestSyncPacket(p = p0, m = 1, data = ByteArray(0)).encode()
+            return RequestSyncPacket(p = p0, m = 1, data = ByteArray(0), wantedTypes = wantedTypes, minTimestamp = minTimestamp).encode()
         }
         val ids = list.take(takeN).map { pkt -> PacketIdUtil.computeIdBytes(pkt) }
         val params = GCSFilter.buildFilter(ids, maxBytes, fpr)
         val mVal = if (params.m <= 0L) 1 else params.m
-        return RequestSyncPacket(p = params.p, m = mVal, data = params.data).encode()
+        return RequestSyncPacket(p = params.p, m = mVal, data = params.data, wantedTypes = wantedTypes, minTimestamp = minTimestamp).encode()
     }
 
     // Periodically remove stale announcements and all their messages
