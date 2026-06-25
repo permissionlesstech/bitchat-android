@@ -51,7 +51,17 @@ class MessageManager(private val state: ChatState) {
         }
         
         val channelMessageList = currentChannelMessages[channel]?.toMutableList() ?: mutableListOf()
+        
+        // Deduplicate by message ID to prevent duplicates from multiple relay responses
+        if (channelMessageList.any { it.id == message.id }) {
+            return // Already have this message
+        }
+        
         channelMessageList.add(message)
+        
+        // Sort by timestamp (oldest first) for chat-style display
+        channelMessageList.sortBy { it.timestamp }
+        
         currentChannelMessages[channel] = channelMessageList
         state.setChannelMessages(currentChannelMessages)
         // Reflect into process-wide store
@@ -95,6 +105,22 @@ class MessageManager(private val state: ChatState) {
         val currentUnread = state.getUnreadChannelMessagesValue().toMutableMap()
         currentUnread.remove(channel)
         state.setUnreadChannelMessages(currentUnread)
+    }
+
+    /**
+     * Update the content of a specific message in a channel by its ID.
+     * Used for async content resolution (e.g., resolving nostr: URIs to usernames).
+     */
+    fun updateChannelMessageContent(channel: String, messageId: String, newContent: String) {
+        val channelMessages = state.getChannelMessagesValue().toMutableMap()
+        val messages = channelMessages[channel]?.toMutableList() ?: return
+        
+        val index = messages.indexOfFirst { it.id == messageId }
+        if (index >= 0) {
+            messages[index] = messages[index].copy(content = newContent)
+            channelMessages[channel] = messages
+            state.setChannelMessages(channelMessages)
+        }
     }
     
     // MARK: - Private Message Management

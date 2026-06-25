@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -20,6 +21,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -33,8 +36,22 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.res.stringResource
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.bitchat.android.R
 import java.io.File
+import java.net.URL
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+/**
+ * Check if a path is a URL (http/https)
+ */
+private fun isUrl(path: String): Boolean {
+    return path.startsWith("http://", ignoreCase = true) || 
+           path.startsWith("https://", ignoreCase = true)
+}
 
 /**
  * Fullscreen image viewer with swipe navigation between multiple images
@@ -72,18 +89,57 @@ fun FullScreenImageViewer(imagePaths: List<String>, initialIndex: Int = 0, onClo
                     modifier = Modifier.fillMaxSize()
                 ) { page ->
                     val currentPath = imagePaths[page]
-                    val bmp = remember(currentPath) { try { android.graphics.BitmapFactory.decodeFile(currentPath) } catch (_: Exception) { null } }
-
-                    bmp?.let {
-                        androidx.compose.foundation.Image(
-                            bitmap = it.asImageBitmap(),
-                            contentDescription = stringResource(R.string.cd_image_index_of, page + 1, imagePaths.size),
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit
-                        )
-                    } ?: run {
+                    
+                    if (isUrl(currentPath)) {
+                        // Load from URL using Coil
+                        var isLoading by remember { mutableStateOf(true) }
+                        var isError by remember { mutableStateOf(false) }
+                        
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(text = stringResource(R.string.image_unavailable), color = Color.White)
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data(currentPath)
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = stringResource(R.string.cd_image_index_of, page + 1, imagePaths.size),
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Fit,
+                                onLoading = { isLoading = true; isError = false },
+                                onSuccess = { isLoading = false; isError = false },
+                                onError = { isLoading = false; isError = true }
+                            )
+                            
+                            if (isLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(48.dp),
+                                    color = Color.White
+                                )
+                            }
+                            
+                            if (isError) {
+                                Text(
+                                    text = stringResource(R.string.image_load_failed),
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    } else {
+                        // Load from local file
+                        val bmp = remember(currentPath) { 
+                            try { android.graphics.BitmapFactory.decodeFile(currentPath) } catch (_: Exception) { null } 
+                        }
+
+                        bmp?.let {
+                            androidx.compose.foundation.Image(
+                                bitmap = it.asImageBitmap(),
+                                contentDescription = stringResource(R.string.cd_image_index_of, page + 1, imagePaths.size),
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Fit
+                            )
+                        } ?: run {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text(text = stringResource(R.string.image_unavailable), color = Color.White)
+                            }
                         }
                     }
                 }
@@ -139,34 +195,66 @@ fun FullScreenImageViewer(imagePaths: List<String>, initialIndex: Int = 0, onClo
 }
 
 private fun saveToDownloads(context: android.content.Context, path: String) {
-    runCatching {
-        val name = File(path).name
-        val mime = when {
-            name.endsWith(".png", true) -> "image/png"
-            name.endsWith(".webp", true) -> "image/webp"
-            else -> "image/jpeg"
-        }
-        val values = ContentValues().apply {
-            put(MediaStore.Downloads.DISPLAY_NAME, name)
-            put(MediaStore.Downloads.MIME_TYPE, mime)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                put(MediaStore.Downloads.IS_PENDING, 1)
+    // Launch in background thread for URL downloads
+    kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+        runCatching {
+            val isUrlPath = isUrl(path)
+            
+            // Determine filename and mime type
+            val name = if (isUrlPath) {
+                // Extract filename from URL, fallback to timestamp-based name
+                val urlPath = path.substringBefore('?').substringBefore('#')
+                val urlName = urlPath.substringAfterLast('/')
+                if (urlName.isNotEmpty() && urlName.contains('.')) {
+                    urlName
+                } else {
+                    "image_${System.currentTimeMillis()}.jpg"
+                }
+            } else {
+                File(path).name
+            }
+            
+            val mime = when {
+                name.endsWith(".png", true) -> "image/png"
+                name.endsWith(".webp", true) -> "image/webp"
+                name.endsWith(".gif", true) -> "image/gif"
+                name.endsWith(".avif", true) -> "image/avif"
+                else -> "image/jpeg"
+            }
+            
+            val values = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, name)
+                put(MediaStore.Downloads.MIME_TYPE, mime)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    put(MediaStore.Downloads.IS_PENDING, 1)
+                }
+            }
+            
+            val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            if (uri != null) {
+                context.contentResolver.openOutputStream(uri)?.use { out ->
+                    if (isUrlPath) {
+                        // Download from URL
+                        URL(path).openStream().use { it.copyTo(out) }
+                    } else {
+                        // Copy from local file
+                        File(path).inputStream().use { it.copyTo(out) }
+                    }
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    val v2 = ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }
+                    context.contentResolver.update(uri, v2, null, null)
+                }
+                // Show toast message indicating the image has been saved (on main thread)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, context.getString(R.string.toast_image_saved), Toast.LENGTH_SHORT).show()
+                }
+            }
+        }.onFailure {
+            // Show error toast on main thread
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, context.getString(R.string.toast_failed_to_save_image), Toast.LENGTH_SHORT).show()
             }
         }
-        val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-        if (uri != null) {
-            context.contentResolver.openOutputStream(uri)?.use { out ->
-                File(path).inputStream().use { it.copyTo(out) }
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val v2 = ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }
-                context.contentResolver.update(uri, v2, null, null)
-            }
-            // Show toast message indicating the image has been saved
-            Toast.makeText(context, context.getString(R.string.toast_image_saved), Toast.LENGTH_SHORT).show()
-        }
-    }.onFailure {
-        // Optionally handle failure case (e.g., show error toast)
-        Toast.makeText(context, context.getString(R.string.toast_failed_to_save_image), Toast.LENGTH_SHORT).show()
     }
 }
