@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">BitChat</string>
+    <string name="permission_bluetooth_rationale">Oprávnění Bluetooth je nezbytné pro funkci odesílání zpráv skrze BitChat.</string>
+    <string name="permission_location_rationale">Je třeba povolit polohu, aby bylo možné vyhledávat okolní zařízení přes Bluetooth.</string>
+    <string name="permission_notification_rationale">Oprávnění pro zasílání oznámení je nutné pro upozornění na nové zprávy.</string>
+    <string name="nickname_hint">Přezdívka</string>
+    <string name="message_hint">Napište zprávu…</string>
+    <string name="channel_password_hint">Heslo</string>
+    <string name="join_channel">Připojit se ke kanálu</string>
+    <string name="leave_channel">Odejít</string>
+    <string name="send_message">Odeslat</string>
+    <string name="back">Zpět</string>
+    <string name="people">Lidé</string>
+    <string name="channels">Kanály</string>
+    <string name="online_users">Online uživatelé</string>
+    <string name="no_one_connected">Nikdo není připojen</string>
+    <string name="emergency_clear_hint">Klepněte třikrát pro smazání všech dat</string>
+</resources>
