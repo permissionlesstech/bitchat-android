@@ -174,19 +174,51 @@ class NotificationManager(
     }
 
     fun showActiveUserNotification(peers: List<String>) {
-        val currentTime = System.currentTimeMillis()
-        val activePeerNotificationIntervalExceeded =
-          (currentTime - notificationIntervalManager.lastNetworkNotificationTime) > ACTIVE_PEERS_NOTIFICATION_TIME_INTERVAL
-        val newPeers = peers - notificationIntervalManager.recentlySeenPeers
-        if (isAppInBackground && activePeerNotificationIntervalExceeded && newPeers.isNotEmpty()) {
-            Log.d(TAG, "Showing notification for active peers")
-            showNotificationForActivePeers(peers.size)
-            notificationIntervalManager.setLastNetworkNotificationTime(currentTime)
-            notificationIntervalManager.recentlySeenPeers.addAll(newPeers)
-        } else {
-            Log.d(TAG, "Skipping notification - app in foreground or it has been less than 5 minutes since last active peer notification")
+        if (peers.isEmpty()) {
+            notificationIntervalManager.recentlySeenPeers.clear()
+            notificationManager.cancel(ACTIVE_PEERS_NOTIFICATION_ID)
             return
         }
+
+        val currentTime = System.currentTimeMillis()
+        val timeSinceLast = currentTime - notificationIntervalManager.lastNetworkNotificationTime
+        val activePeerNotificationIntervalExceeded = timeSinceLast > ACTIVE_PEERS_NOTIFICATION_TIME_INTERVAL
+        
+        val isFreshStart = notificationIntervalManager.recentlySeenPeers.isEmpty()
+
+        // Check if we should alert (Heads-up / Sound)
+        // Only alert if we are in Background AND (it's a fresh start OR enough time passed)
+        val shouldAlert = isAppInBackground && (isFreshStart || activePeerNotificationIntervalExceeded)
+
+        // Check if we should update an existing notification (Silent)
+        // If alerting, we definitely update.
+        // If not alerting:
+        // - If Background: Update silently (create or update).
+        // - If Foreground: Update silently ONLY IF notification is already active (don't create new banner over UI).
+        var shouldUpdate = shouldAlert || isAppInBackground
+        
+        if (!shouldUpdate && !isAppInBackground && Build.VERSION.SDK_INT >= 23) {
+             // Check if the notification is currently active
+             shouldUpdate = systemNotificationManager.activeNotifications.any { it.id == ACTIVE_PEERS_NOTIFICATION_ID }
+        }
+
+        if (shouldUpdate) {
+             // If we are alerting, use onlyAlertOnce = false (Sound/Vib).
+             // If we are just updating/silently posting, use onlyAlertOnce = true.
+             val onlyAlertOnce = !shouldAlert
+             
+             if (shouldAlert) {
+                 Log.d(TAG, "Showing NEW notification for active peers (Heads-up)")
+                 notificationIntervalManager.setLastNetworkNotificationTime(currentTime)
+             } else {
+                 Log.d(TAG, "Updating active peers notification silently (inBackground=$isAppInBackground)")
+             }
+
+             showNotificationForActivePeers(peers.size, onlyAlertOnce = onlyAlertOnce)
+        }
+
+        // Always update tracking
+        notificationIntervalManager.recentlySeenPeers.addAll(peers)
     }
 
     private fun showNotificationForSender(senderPeerID: String) {
@@ -236,7 +268,7 @@ class NotificationManager(
             .setContentText(contentText)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .addPerson(person)
             .setShowWhen(true)
@@ -311,7 +343,7 @@ class NotificationManager(
         notificationManager.notify((System.currentTimeMillis() and 0x7FFFFFFF).toInt(), builder.build())
     }
 
-    private fun showNotificationForActivePeers(peersSize: Int) {
+    private fun showNotificationForActivePeers(peersSize: Int, onlyAlertOnce: Boolean) {
         // Create intent to open the app
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -338,13 +370,14 @@ class NotificationManager(
           .setContentText(contentText)
           .setContentIntent(pendingIntent)
           .setAutoCancel(true)
-          .setPriority(NotificationCompat.PRIORITY_MIN)
+          .setPriority(NotificationCompat.PRIORITY_MAX)
           .setCategory(NotificationCompat.CATEGORY_MESSAGE)
           .setShowWhen(true)
+          .setOnlyAlertOnce(onlyAlertOnce)
           .setWhen(System.currentTimeMillis())
 
         notificationManager.notify(ACTIVE_PEERS_NOTIFICATION_ID, builder.build())
-        Log.d(TAG, "Displayed notification for $contentTitle with ID $ACTIVE_PEERS_NOTIFICATION_ID")
+        Log.d(TAG, "Displayed notification for $contentTitle with ID $ACTIVE_PEERS_NOTIFICATION_ID (onlyAlertOnce=$onlyAlertOnce)")
     }
     private fun showSummaryNotification() {
         if (pendingNotifications.isEmpty()) return

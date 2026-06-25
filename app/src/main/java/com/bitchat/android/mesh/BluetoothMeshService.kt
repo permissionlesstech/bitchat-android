@@ -199,6 +199,14 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 try { com.bitchat.android.services.AppStateStore.setTransportPeers("BLE", peerIDs) } catch (_: Exception) { }
                 // Then notify UI delegate if attached
                 delegate?.didUpdatePeerList(peerIDs)
+
+                // If UI is detached (background), update notification manager directly
+                if (delegate == null) {
+                    try {
+                        serviceNotificationManager.setAppBackgroundState(true)
+                        serviceNotificationManager.showActiveUserNotification(peerIDs)
+                    } catch (_: Exception) { }
+                }
             }
             override fun onPeerRemoved(peerID: String) {
                 try { gossipSyncManager.removeAnnouncementForPeer(peerID) } catch (_: Exception) { }
