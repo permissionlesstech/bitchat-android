@@ -324,21 +324,36 @@ object BinaryProtocol {
         }
     }
     
-    fun decode(data: ByteArray): BitchatPacket? {
+    fun decode(data: ByteArray): BitchatPacket? =
+        decode(data, CompressionUtil::decompress)
+
+    /** Test seam used to prove rejected expansion sizes never reach inflation. */
+    internal fun decodeForTesting(
+        data: ByteArray,
+        decompress: (ByteArray, Int) -> ByteArray?
+    ): BitchatPacket? = decode(data, decompress)
+
+    private fun decode(
+        data: ByteArray,
+        decompress: (ByteArray, Int) -> ByteArray?
+    ): BitchatPacket? {
         // Try decode as-is first (robust when padding wasn't applied) - iOS fix
-        decodeCore(data)?.let { return it }
+        decodeCore(data, decompress)?.let { return it }
         
         // If that fails, try after removing padding
         val unpadded = MessagePadding.unpad(data)
         if (unpadded.contentEquals(data)) return null // No padding was removed, already failed
         
-        return decodeCore(unpadded)
+        return decodeCore(unpadded, decompress)
     }
     
     /**
      * Core decoding implementation used by decode() with and without padding removal - iOS fix
      */
-    private fun decodeCore(raw: ByteArray): BitchatPacket? {
+    private fun decodeCore(
+        raw: ByteArray,
+        decompress: (ByteArray, Int) -> ByteArray?
+    ): BitchatPacket? {
         try {
             if (raw.size < HEADER_SIZE_V1 + SENDER_ID_SIZE) return null
 
@@ -435,23 +450,42 @@ object BinaryProtocol {
                 } else {
                     buffer.getShort().toUShort().toInt()
                 }
+
+                val maxExpandedSize = com.bitchat.android.util.AppConstants.Protocol.MAX_PAYLOAD_LENGTH
+                if (originalSize <= 0 || originalSize > maxExpandedSize) {
+                    Log.w(
+                        "BinaryProtocol",
+                        "Expanded payload size $originalSize is outside the allowed range 1..$maxExpandedSize"
+                    )
+                    return null
+                }
                 
                 // Compressed payload
                 val compressedSize = payloadLength.toInt() - lengthFieldBytes
+                if (compressedSize == 0) {
+                    Log.w("BinaryProtocol", "Compressed payload has no deflate bytes")
+                    return null
+                }
                 val compressedPayload = ByteArray(compressedSize)
                 buffer.get(compressedPayload)
 
                 // Security check: Compression bomb protection
-                if (compressedSize > 0) {
-                    val ratio = originalSize.toDouble() / compressedSize.toDouble()
-                    if (ratio > 50_000.0) {
-                        Log.w("BinaryProtocol", "🚫 Suspicious compression ratio: ${ratio}:1")
-                        return null
-                    }
+                val ratio = originalSize.toDouble() / compressedSize.toDouble()
+                if (ratio > 50_000.0) {
+                    Log.w("BinaryProtocol", "🚫 Suspicious compression ratio: ${ratio}:1")
+                    return null
                 }
                 
                 // Decompress
-                CompressionUtil.decompress(compressedPayload, originalSize) ?: return null
+                val expandedPayload = decompress(compressedPayload, originalSize) ?: return null
+                if (expandedPayload.size != originalSize) {
+                    Log.w(
+                        "BinaryProtocol",
+                        "Expanded payload size ${expandedPayload.size} did not match declared size $originalSize"
+                    )
+                    return null
+                }
+                expandedPayload
             } else {
                 val payloadBytes = ByteArray(payloadLength.toInt())
                 buffer.get(payloadBytes)

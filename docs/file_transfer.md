@@ -91,6 +91,26 @@ PayloadLength: 4 bytes (big-endian, max ~4 GiB)
 - Clients sending file transfers should preferentially use v2 format.
 - Fragmentation still applies: large files are split into fragments that fit within BLE MTU constraints (~128 KiB per fragment).
 
+#### Compressed expansion rollout gate (draft/HOLD)
+
+Android's bounded decoder applies the same 10 MiB expanded-payload ceiling to every outer
+message type. It also requires a non-empty compressed body, an exact declared output size, and a
+complete deflate stream. The `FILE_TRANSFER (0x22)` byte cannot safely grant a larger ceiling: it is
+attacker-controlled before packet signature verification, and the current receive pipeline must
+inflate before it can perform that verification.
+
+This intentionally means a legacy Android sender can produce a highly compressible public file
+between 10 MiB and the UI's 50 MiB send limit that the bounded decoder rejects. The hardening must
+therefore remain a rollout HOLD rather than silently ship as backward compatible. Grandfathering
+50 MiB also is not safe after only a type check: inflation allocates the declared payload and
+`BitchatFilePacket.decode` currently copies the content again, creating a greater than 100 MiB peak
+for a maximum-size transfer.
+
+Before enabling that legacy range, receive processing needs an authenticated admission decision
+made before large allocation plus streaming inflation/TLV parsing into a bounded temporary file (or
+another ownership-preserving design that avoids the second full-size copy). The sender limit and a
+wire capability/version transition must then be coordinated so old and new clients fail predictably.
+
 ### 1.3 File Transfer TLV payload (BitchatFilePacket)
 
 The file payload is a TLV structure with mixed length field sizes to support large contents efficiently.
