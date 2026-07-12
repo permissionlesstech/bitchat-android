@@ -234,8 +234,12 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
         
         // SecurityManager delegate for key exchange notifications
         securityManager.delegate = object : SecurityManagerDelegate {
-            override fun onKeyExchangeCompleted(peerID: String, peerPublicKeyData: ByteArray) {
-                privateMediaSecurity.refreshAuthenticatedCapability(peerID)
+            override fun onKeyExchangeCompleted(
+                peerID: String,
+                authenticatedRemoteStaticKey: ByteArray,
+                directRelayAddress: String?,
+                ingressLinkID: String?
+            ) {
                 // Send announcement and cached messages after key exchange
                 serviceScope.launch {
                     Log.d(TAG, "Key exchange completed with $peerID; sending follow-ups")
@@ -405,31 +409,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 }
             }
             
-            override fun updatePeerIDBinding(newPeerID: String, nickname: String,
-                                           publicKey: ByteArray, previousPeerID: String?) {
-
-                Log.d(TAG, "Updating peer ID binding: $newPeerID (was: $previousPeerID) with nickname: $nickname and public key: ${publicKey.toHexString().take(16)}...")
-                // Update peer mapping in the PeerManager for peer ID rotation support
-                peerManager.addOrUpdatePeer(newPeerID, nickname)
-                
-                // Store fingerprint for the peer via centralized fingerprint manager
-                val fingerprint = peerManager.storeFingerprintForPeer(newPeerID, publicKey)
-
-                // Index existing Nostr mapping by the new peerID if we have it
-                try {
-                    com.bitchat.android.favorites.FavoritesPersistenceService.shared.findNostrPubkey(publicKey)?.let { npub ->
-                        com.bitchat.android.favorites.FavoritesPersistenceService.shared.updateNostrPublicKeyForPeerID(newPeerID, npub)
-                    }
-                } catch (_: Exception) { }
-                
-                // If there was a previous peer ID, remove it to avoid duplicates
-                previousPeerID?.let { oldPeerID ->
-                    peerManager.removePeer(oldPeerID)
-                }
-                
-                Log.d(TAG, "Updated peer ID binding: $newPeerID (was: $previousPeerID), fingerprint: ${fingerprint.take(16)}...")
-            }
-            
             // Message operations  
             override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {
                 return delegate?.decryptChannelMessage(encryptedContent, channel)
@@ -521,35 +500,25 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 serviceScope.launch { messageHandler.handleNoiseEncrypted(routed) }
             }
             
-            override fun handleAnnounce(routed: RoutedPacket) {
-                serviceScope.launch {
-                    // Process the announce
-                    val isFirst = messageHandler.handleAnnounce(routed)
+            override suspend fun handleAnnounce(routed: RoutedPacket): Boolean {
+                val result = messageHandler.handleAnnounceWithResult(routed)
+                if (result !is AnnounceHandlingResult.Accepted) return false
 
-                    // Map device address -> peerID based on TTL (max TTL = direct neighbor)
-                    // Matches iOS logic: any announce with max TTL on a link defines the direct peer
-                    val deviceAddress = routed.relayAddress
-                    val pid = routed.peerID
-                    if (deviceAddress != null && pid != null) {
-                        // Check if this is a direct connection (MAX TTL)
-                        // Note: packet.ttl is UByte, compare with AppConstants.MESSAGE_TTL_HOPS
-                        val isDirect = routed.packet.ttl == com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
-                        
-                        if (isDirect) {
-                            // Bind or rebind this device address to the announcing peer
-                            connectionManager.addressPeerMap[deviceAddress] = pid
-                            Log.d(TAG, "Mapped device $deviceAddress to peer $pid (TTL=${routed.packet.ttl})")
-
-                            // Mark as directly connected - refresh UI state
-                            try { peerManager.refreshPeerList() } catch (_: Exception) { }
-
-                            // Initial sync for this direct peer
-                            try { gossipSyncManager.scheduleInitialSyncToPeer(pid, 1_000) } catch (_: Exception) { }
-                        }
+                // Map device address -> peerID only after identity binding, signature, freshness,
+                // and peer replacement policy have all accepted the announce.
+                val deviceAddress = routed.relayAddress
+                val pid = routed.peerID
+                if (deviceAddress != null && pid != null) {
+                    val isDirect = routed.packet.ttl == com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
+                    if (isDirect) {
+                        connectionManager.addressPeerMap[deviceAddress] = pid
+                        Log.d(TAG, "Mapped device $deviceAddress to peer $pid (TTL=${routed.packet.ttl})")
+                        try { peerManager.refreshPeerList() } catch (_: Exception) { }
+                        try { gossipSyncManager.scheduleInitialSyncToPeer(pid, 1_000) } catch (_: Exception) { }
                     }
-                    // Track for sync
-                    try { gossipSyncManager.onPublicPacketSeen(routed.packet) } catch (_: Exception) { }
                 }
+                try { gossipSyncManager.onPublicPacketSeen(routed.packet) } catch (_: Exception) { }
+                return true
             }
             
             override fun handleMessage(routed: RoutedPacket) {

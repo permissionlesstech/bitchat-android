@@ -3,8 +3,13 @@ package com.bitchat.android.mesh
 import android.os.Build
 import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.model.IdentityAnnouncement
+import com.bitchat.android.model.RoutedPacket
+import com.bitchat.android.noise.NoiseHandshakeProcessingResult
+import com.bitchat.android.noise.NoisePeerIdentity
+import com.bitchat.android.noise.NoiseSessionError
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -26,15 +31,14 @@ class SecurityManagerTest {
     
     private val myPeerID = "1111222233334444"
     private val otherPeerID = "aaaabbbbccccdddd"
-    private val unknownPeerID = "9999888877776666"
+    // Key pairs (using dummy bytes for mock verification)
+    private val otherSigningKey = ByteArray(32) { 0xA }
+    private val otherNoiseKey = ByteArray(32) { 0xB }
+    private val unknownPeerID = NoisePeerIdentity.derivePeerID(otherNoiseKey)!!
 
     private val dummyPayload = "Hello World".toByteArray()
     private val validSignature = ByteArray(64) { 1 }
     private val invalidSignature = ByteArray(64) { 0 }
-    
-    // Key pairs (using dummy bytes for mock verification)
-    private val otherSigningKey = ByteArray(32) { 0xA }
-    private val otherNoiseKey = ByteArray(32) { 0xB }
 
     // Fake implementation to bypass initialization issues in tests
     open class FakeEncryptionService : EncryptionService(RuntimeEnvironment.getApplication()) {
@@ -42,6 +46,10 @@ class SecurityManagerTest {
         var lastVerifySignature: ByteArray? = null
         var lastVerifyData: ByteArray? = null
         var lastVerifyKey: ByteArray? = null
+        var handshakeResult = NoiseHandshakeProcessingResult(null, false)
+        var handshakeError: Exception? = null
+        var handshakeCalls = 0
+        var removePeerCalls = 0
 
         override fun initialize() {
             // Do nothing to avoid KeyStore access in tests
@@ -58,6 +66,19 @@ class SecurityManagerTest {
                  return signature.contentEquals(byteArrayOf(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1))
             }
             return false
+        }
+
+        override fun processHandshakeMessageWithResult(
+            data: ByteArray,
+            peerID: String
+        ): NoiseHandshakeProcessingResult {
+            handshakeCalls += 1
+            handshakeError?.let { throw it }
+            return handshakeResult
+        }
+
+        override fun removePeer(peerID: String) {
+            removePeerCalls += 1
         }
     }
 
@@ -198,6 +219,41 @@ class SecurityManagerTest {
     }
 
     @Test
+    fun `validatePacket rejects unsigned and invalidly signed LEAVE packets`() {
+        setupKnownPeer(otherPeerID, otherSigningKey)
+
+        val unsigned = BitchatPacket(
+            type = MessageType.LEAVE.value,
+            ttl = 7u,
+            senderID = otherPeerID,
+            payload = byteArrayOf()
+        )
+        assertFalse("Unsigned LEAVE must not evict or relay the claimed peer", securityManager.validatePacket(unsigned, otherPeerID))
+
+        val invalid = BitchatPacket(
+            type = MessageType.LEAVE.value,
+            ttl = 7u,
+            senderID = otherPeerID,
+            payload = "forged".toByteArray()
+        ).also { it.signature = invalidSignature }
+        assertFalse("Bad LEAVE signature must be rejected", securityManager.validatePacket(invalid, otherPeerID))
+    }
+
+    @Test
+    fun `validatePacket accepts signed LEAVE from known peer`() {
+        setupKnownPeer(otherPeerID, otherSigningKey)
+        val packet = BitchatPacket(
+            type = MessageType.LEAVE.value,
+            ttl = 7u,
+            senderID = otherPeerID,
+            payload = byteArrayOf()
+        ).also { it.signature = validSignature }
+
+        assertTrue("A valid signed LEAVE remains wire-compatible", securityManager.validatePacket(packet, otherPeerID))
+        assertTrue(fakeEncryptionService.lastVerifyKey.contentEquals(otherSigningKey))
+    }
+
+    @Test
     fun `validatePacket - accepts ANNOUNCE packet from unknown peer (extracts key)`() {
         val announcement = IdentityAnnouncement(
             nickname = "New User",
@@ -259,6 +315,33 @@ class SecurityManagerTest {
         val result = securityManager.validatePacket(packet, unknownPeerID)
         
         assertFalse("ANNOUNCE with malformed payload should be rejected (cannot extract key)", result)
+    }
+
+    @Test
+    fun `validatePacket rejects self-signed announce whose Noise key derives another sender ID`() {
+        val attackerNoiseKey = ByteArray(32) { 0x6B }
+        val announcement = IdentityAnnouncement("Attacker", attackerNoiseKey, otherSigningKey)
+        val packet = BitchatPacket(
+            type = MessageType.ANNOUNCE.value,
+            ttl = 7u,
+            senderID = unknownPeerID,
+            payload = announcement.encode()!!
+        ).also { it.signature = validSignature }
+
+        assertFalse(securityManager.validatePacket(packet, unknownPeerID))
+    }
+
+    @Test
+    fun `validatePacket rejects announce packet under a different routed sender`() {
+        val announcement = IdentityAnnouncement("Peer", otherNoiseKey, otherSigningKey)
+        val packet = BitchatPacket(
+            type = MessageType.ANNOUNCE.value,
+            ttl = 7u,
+            senderID = unknownPeerID,
+            payload = announcement.encode()!!
+        ).also { it.signature = validSignature }
+
+        assertFalse(securityManager.validatePacket(packet, otherPeerID))
     }
 
     @Test
@@ -326,6 +409,86 @@ class SecurityManagerTest {
         assertTrue("Fresh duplicate ANNOUNCE should be accepted", securityManager.validatePacket(packet3, unknownPeerID))
     }
 
+    @Test
+    fun `replacement message one sends response without evicting or falsely completing`() = runBlocking {
+        val response = byteArrayOf(0x31, 0x32)
+        fakeEncryptionService.handshakeResult = NoiseHandshakeProcessingResult(response, false)
+        val routed = handshakePacket(byteArrayOf(0x01, 0x02, 0x03))
+
+        val accepted = securityManager.handleNoiseHandshake(routed)
+
+        assertTrue(accepted)
+        assertTrue(fakeEncryptionService.removePeerCalls == 0)
+        verify(mockDelegate).sendHandshakeResponse(otherPeerID, response)
+        verify(mockDelegate, never()).onKeyExchangeCompleted(any(), any(), anyOrNull(), anyOrNull())
+    }
+
+    @Test
+    fun `identity mismatch preserves peer and does not poison retry or completion`() = runBlocking {
+        val routed = handshakePacket(byteArrayOf(0x41, 0x42, 0x43))
+        fakeEncryptionService.handshakeError = NoiseSessionError.PeerIdentityMismatch(
+            otherPeerID,
+            "0000000000000000"
+        )
+
+        assertFalse(securityManager.handleNoiseHandshake(routed))
+        assertTrue(fakeEncryptionService.removePeerCalls == 0)
+        verify(mockDelegate, never()).sendHandshakeResponse(any(), any())
+        verify(mockDelegate, never()).onKeyExchangeCompleted(any(), any(), anyOrNull(), anyOrNull())
+
+        fakeEncryptionService.handshakeError = null
+        fakeEncryptionService.handshakeResult = NoiseHandshakeProcessingResult(
+            response = null,
+            establishedNow = true,
+            authenticatedRemoteStaticKey = otherNoiseKey
+        )
+        assertTrue("Failed frames must not poison the processed-exchange cache", securityManager.handleNoiseHandshake(routed))
+        assertTrue(fakeEncryptionService.handshakeCalls == 2)
+        verify(mockDelegate).onKeyExchangeCompleted(
+            otherPeerID,
+            otherNoiseKey,
+            "direct-link",
+            "direct-link-token"
+        )
+    }
+
+    @Test
+    fun `completion callback fires only for the frame that establishes a bound session`() = runBlocking {
+        fakeEncryptionService.handshakeResult = NoiseHandshakeProcessingResult(
+            response = null,
+            establishedNow = true,
+            authenticatedRemoteStaticKey = otherNoiseKey
+        )
+        val routed = handshakePacket(byteArrayOf(0x51, 0x52, 0x53))
+
+        assertTrue(securityManager.handleNoiseHandshake(routed))
+
+        verify(mockDelegate, times(1)).onKeyExchangeCompleted(
+            otherPeerID,
+            otherNoiseKey,
+            "direct-link",
+            "direct-link-token"
+        )
+        verify(mockDelegate, never()).sendHandshakeResponse(any(), any())
+        assertTrue(fakeEncryptionService.removePeerCalls == 0)
+    }
+
+    @Test
+    fun `relayed completion does not authenticate the relay as the peer link`() = runBlocking {
+        fakeEncryptionService.handshakeResult = NoiseHandshakeProcessingResult(
+            response = null,
+            establishedNow = true,
+            authenticatedRemoteStaticKey = otherNoiseKey
+        )
+        val routed = handshakePacket(
+            payload = byteArrayOf(0x61, 0x62, 0x63),
+            ttl = 6u
+        )
+
+        assertTrue(securityManager.handleNoiseHandshake(routed))
+        verify(mockDelegate).onKeyExchangeCompleted(otherPeerID, otherNoiseKey, null, null)
+    }
+
     private fun setupKnownPeer(peerID: String, signingKey: ByteArray) {
         val info = PeerInfo(
             id = peerID,
@@ -339,4 +502,25 @@ class SecurityManagerTest {
         )
         whenever(mockDelegate.getPeerInfo(peerID)).thenReturn(info)
     }
+
+    private fun handshakePacket(payload: ByteArray, ttl: UByte = 7u): RoutedPacket {
+        val packet = BitchatPacket(
+            version = 1u,
+            type = MessageType.NOISE_HANDSHAKE.value,
+            senderID = otherPeerID.hexToBytes(),
+            recipientID = myPeerID.hexToBytes(),
+            timestamp = System.currentTimeMillis().toULong(),
+            payload = payload,
+            ttl = ttl
+        )
+        return RoutedPacket(
+            packet = packet,
+            peerID = otherPeerID,
+            relayAddress = "direct-link",
+            ingressLinkID = "direct-link-token"
+        )
+    }
+
+    private fun String.hexToBytes(): ByteArray =
+        chunked(2).map { it.toInt(16).toByte() }.toByteArray()
 }

@@ -104,19 +104,6 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         // Skip our own handshake messages
         if (peerID == myPeerID) return false
 
-        // If we already have an established session but the peer is initiating a new handshake,
-        // drop the existing session so we can re-establish cleanly.
-        var forcedRehandshake = false
-        if (encryptionService.hasEstablishedSession(peerID)) {
-            Log.d(TAG, "Received new Noise handshake from $peerID with an existing session. Dropping old session to re-handshake.")
-            try {
-                encryptionService.removePeer(peerID)
-                forcedRehandshake = true
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to remove existing Noise session for $peerID: ${e.message}")
-            }
-        }
-        
         if (packet.payload.isEmpty()) {
             Log.w(TAG, "Noise handshake packet has empty payload")
             return false
@@ -125,26 +112,38 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
         // Prevent duplicate handshake processing
         val exchangeKey = "$peerID-${packet.payload.sliceArray(0 until minOf(16, packet.payload.size)).contentHashCode()}"
         
-        if (!forcedRehandshake && processedKeyExchanges.contains(exchangeKey)) {
+        if (processedKeyExchanges.contains(exchangeKey)) {
             Log.d(TAG, "Already processed handshake: $exchangeKey")
             return false
         }
         Log.d(TAG, "Processing Noise handshake from $peerID (${packet.payload.size} bytes)")
-        processedKeyExchanges.add(exchangeKey)
         
         try {
-            // Process the Noise handshake through the updated EncryptionService
-            val response = encryptionService.processHandshakeMessage(packet.payload, peerID)
+            // The session manager preserves an existing transport in a separate responder-candidate
+            // flow and reports whether this exact frame completed authentication. Never infer that
+            // from ambient session state: a rejected replacement may leave the old session active.
+            val result = encryptionService.processHandshakeMessageWithResult(packet.payload, peerID)
+            processedKeyExchanges.add(exchangeKey)
             
-            if (response != null) {
+            if (result.response != null) {
                 Log.d(TAG, "Successfully processed Noise handshake from $peerID, sending response")
                 // Send handshake response through delegate
-                delegate?.sendHandshakeResponse(peerID, response)
+                delegate?.sendHandshakeResponse(peerID, result.response)
             }
-            // Check if session is now established (handshake complete)
-            if (encryptionService.hasEstablishedSession(peerID)) {
+            if (result.establishedNow) {
+                val authenticatedRemoteStaticKey = result.authenticatedRemoteStaticKey
+                if (authenticatedRemoteStaticKey == null) {
+                    Log.e(TAG, "Bound Noise completion for $peerID omitted its authenticated static key")
+                    return false
+                }
+                val isDirectIngress = packet.ttl == com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
                 Log.d(TAG, "✅ Noise handshake completed with $peerID")
-                delegate?.onKeyExchangeCompleted(peerID, packet.payload)
+                delegate?.onKeyExchangeCompleted(
+                    peerID = peerID,
+                    authenticatedRemoteStaticKey = authenticatedRemoteStaticKey,
+                    directRelayAddress = routed.relayAddress.takeIf { isDirectIngress },
+                    ingressLinkID = routed.ingressLinkID.takeIf { isDirectIngress }
+                )
             }
             return true
 
@@ -231,14 +230,44 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
      */
     private fun verifyPacketSignature(packet: BitchatPacket, peerID: String): Boolean {
         try {
-            // only verify ANNOUNCE, MESSAGE, and FILE_TRANSFER
+            // Public packets that mutate identity, presence, or user-visible state must prove the
+            // signing key learned from a verified announcement. LEAVE is included so an attacker
+            // cannot evict a claimed peer or amplify a forged departure through relay.
             if (MessageType.fromValue(packet.type) !in setOf(
                     MessageType.ANNOUNCE,
                     MessageType.MESSAGE,
-                    MessageType.FILE_TRANSFER
+                    MessageType.FILE_TRANSFER,
+                    MessageType.LEAVE
                 )) {
                 return true
             }
+
+            if (MessageType.fromValue(packet.type) == MessageType.ANNOUNCE) {
+                val announcement = AnnouncementIdentityValidator.verify(packet, peerID) { signature, data, key ->
+                    encryptionService.verifyEd25519Signature(signature, data, key)
+                } ?: run {
+                    Log.w(TAG, "Rejecting malformed, unbound, or invalidly signed ANNOUNCE from $peerID")
+                    return false
+                }
+
+                val existingPeer = delegate?.getPeerInfo(peerID)
+                if (
+                    existingPeer?.noisePublicKey != null &&
+                    !existingPeer.noisePublicKey!!.contentEquals(announcement.noisePublicKey)
+                ) {
+                    Log.w(TAG, "Rejecting ANNOUNCE Noise-key replacement for $peerID")
+                    return false
+                }
+                if (
+                    existingPeer?.signingPublicKey != null &&
+                    !existingPeer.signingPublicKey!!.contentEquals(announcement.signingPublicKey)
+                ) {
+                    Log.w(TAG, "Rejecting ANNOUNCE signing-key replacement without authenticated peer state for $peerID")
+                    return false
+                }
+                return true
+            }
+
             // 1. Mandatory Signature Check
             if (packet.signature == null) {
                 Log.w(TAG, "❌ Signature check for $peerID: NO_SIGNATURE (packet type ${packet.type})")
@@ -246,21 +275,8 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
             }
             
             // 2. Get Signing Public Key
-            var signingPublicKey: ByteArray? = null
-            
-            if (MessageType.fromValue(packet.type) == MessageType.ANNOUNCE) {
-                // Special Case: ANNOUNCE packets carry their own signing key
-                try {
-                    val announcement = com.bitchat.android.model.IdentityAnnouncement.decode(packet.payload)
-                    signingPublicKey = announcement?.signingPublicKey
-                } catch (e: Exception) {
-                    Log.w(TAG, "Failed to decode announcement for key extraction: ${e.message}")
-                }
-            } else {
-                // Standard Case: Get key from known peer info
-                val peerInfo = delegate?.getPeerInfo(peerID)
-                signingPublicKey = peerInfo?.signingPublicKey
-            }
+            val peerInfo = delegate?.getPeerInfo(peerID)
+            val signingPublicKey = peerInfo?.signingPublicKey
             
             if (signingPublicKey == null) {
                 // If we don't have a key (and it's not an announce), we can't verify.
@@ -410,7 +426,12 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
  * Delegate interface for security manager callbacks
  */
 interface SecurityManagerDelegate {
-    fun onKeyExchangeCompleted(peerID: String, peerPublicKeyData: ByteArray)
+    fun onKeyExchangeCompleted(
+        peerID: String,
+        authenticatedRemoteStaticKey: ByteArray,
+        directRelayAddress: String?,
+        ingressLinkID: String?
+    )
     fun sendHandshakeResponse(peerID: String, response: ByteArray)
     fun getPeerInfo(peerID: String): PeerInfo? // NEW: For signature verification
 }

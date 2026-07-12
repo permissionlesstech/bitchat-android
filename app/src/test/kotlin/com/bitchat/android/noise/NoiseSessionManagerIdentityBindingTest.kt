@@ -1,0 +1,217 @@
+package com.bitchat.android.noise
+
+import com.bitchat.android.noise.southernstorm.protocol.Noise
+import org.junit.After
+import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotSame
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
+import org.junit.Test
+
+class NoiseSessionManagerIdentityBindingTest {
+    private data class TestIdentity(
+        val privateKey: ByteArray,
+        val publicKey: ByteArray,
+        val peerID: String
+    )
+
+    private val managers = mutableListOf<NoiseSessionManager>()
+
+    @After
+    fun tearDown() {
+        managers.forEach(NoiseSessionManager::shutdown)
+    }
+
+    @Test
+    fun `valid derived identities establish in initiator and responder roles`() {
+        val alice = identity()
+        val bob = identity()
+        val aliceManager = manager(alice)
+        val bobManager = manager(bob)
+
+        completeHandshake(aliceManager, alice.peerID, bobManager, bob.peerID)
+
+        assertTrue(aliceManager.hasEstablishedSession(bob.peerID))
+        assertTrue(bobManager.hasEstablishedSession(alice.peerID))
+        assertArrayEquals(bob.publicKey, aliceManager.getRemoteStaticKey(bob.peerID))
+        assertArrayEquals(alice.publicKey, bobManager.getRemoteStaticKey(alice.peerID))
+
+        val plaintext = "bound transport".toByteArray()
+        val ciphertext = aliceManager.encrypt(plaintext, bob.peerID)
+        assertArrayEquals(plaintext, bobManager.decrypt(ciphertext, alice.peerID))
+    }
+
+    @Test
+    fun `initiator rejects remote static key before returning message three`() {
+        val alice = identity()
+        val bob = identity()
+        val victim = identity()
+        val aliceManager = manager(alice)
+        val bobManager = manager(bob)
+        var authenticatedCallbacks = 0
+        aliceManager.onSessionEstablished = { _, _ -> authenticatedCallbacks += 1 }
+
+        val message1 = aliceManager.initiateHandshake(victim.peerID)!!
+        val message2 = bobManager.processHandshakeMessage(alice.peerID, message1)!!
+
+        expectIdentityMismatch {
+            aliceManager.processHandshakeMessage(victim.peerID, message2)
+        }
+
+        assertFalse(aliceManager.hasEstablishedSession(victim.peerID))
+        assertNull(aliceManager.getSession(victim.peerID))
+        assertTrue("No authenticated callback may escape a mismatched initiator", authenticatedCallbacks == 0)
+    }
+
+    @Test
+    fun `responder rejects authenticated initiator key under a different claimed ID`() {
+        val alice = identity()
+        val bob = identity()
+        val victim = identity()
+        val aliceManager = manager(alice)
+        val bobManager = manager(bob)
+        var authenticatedCallbacks = 0
+        bobManager.onSessionEstablished = { _, _ -> authenticatedCallbacks += 1 }
+
+        val message1 = aliceManager.initiateHandshake(bob.peerID)!!
+        val message2 = bobManager.processHandshakeMessage(victim.peerID, message1)!!
+        val message3 = aliceManager.processHandshakeMessage(bob.peerID, message2)!!
+
+        expectIdentityMismatch {
+            bobManager.processHandshakeMessage(victim.peerID, message3)
+        }
+
+        assertFalse(bobManager.hasEstablishedSession(victim.peerID))
+        assertNull(bobManager.getSession(victim.peerID))
+        assertTrue("No authenticated callback may escape a mismatched responder", authenticatedCallbacks == 0)
+    }
+
+    @Test
+    fun `mismatched responder replacement preserves established session and transport keys`() {
+        val alice = identity()
+        val bob = identity()
+        val attacker = identity()
+        val aliceManager = manager(alice)
+        val bobManager = manager(bob)
+        val attackerManager = manager(attacker)
+        var aliceAuthenticatedCallbacks = 0
+        aliceManager.onSessionEstablished = { _, _ -> aliceAuthenticatedCallbacks += 1 }
+
+        completeHandshake(aliceManager, alice.peerID, bobManager, bob.peerID)
+        val originalSession = aliceManager.getSession(bob.peerID)
+        assertTrue(aliceAuthenticatedCallbacks == 1)
+
+        val attackerMessage1 = attackerManager.initiateHandshake(alice.peerID)!!
+        val aliceMessage2 = aliceManager.processHandshakeMessage(bob.peerID, attackerMessage1)!!
+        val attackerMessage3 = attackerManager.processHandshakeMessage(alice.peerID, aliceMessage2)!!
+
+        expectIdentityMismatch {
+            aliceManager.processHandshakeMessage(bob.peerID, attackerMessage3)
+        }
+
+        assertSame("Rejected candidate must not replace the working session", originalSession, aliceManager.getSession(bob.peerID))
+        assertTrue(aliceManager.hasEstablishedSession(bob.peerID))
+        assertArrayEquals(bob.publicKey, aliceManager.getRemoteStaticKey(bob.peerID))
+        assertTrue("Rejected replacement must not fire authentication callback", aliceAuthenticatedCallbacks == 1)
+
+        val plaintext = "original session survives".toByteArray()
+        val ciphertext = aliceManager.encrypt(plaintext, bob.peerID)
+        assertArrayEquals(plaintext, bobManager.decrypt(ciphertext, alice.peerID))
+
+        // The failed candidate must be fully removed so a later valid restart can replace cleanly.
+        val restartedBobManager = manager(bob)
+        val validMessage1 = restartedBobManager.initiateHandshake(alice.peerID)!!
+        val validMessage2 = aliceManager.processHandshakeMessage(bob.peerID, validMessage1)!!
+        val validMessage3 = restartedBobManager.processHandshakeMessage(alice.peerID, validMessage2)!!
+        assertNull(aliceManager.processHandshakeMessage(bob.peerID, validMessage3))
+        assertTrue(aliceAuthenticatedCallbacks == 2)
+
+        val retriedPlaintext = "valid retry promoted".toByteArray()
+        val retriedCiphertext = restartedBobManager.encrypt(retriedPlaintext, alice.peerID)
+        assertArrayEquals(retriedPlaintext, aliceManager.decrypt(retriedCiphertext, bob.peerID))
+    }
+
+    @Test
+    fun `valid responder replacement promotes only after bound handshake completes`() {
+        val alice = identity()
+        val bob = identity()
+        val aliceManager = manager(alice)
+        val originalBobManager = manager(bob)
+        var aliceAuthenticatedCallbacks = 0
+        aliceManager.onSessionEstablished = { _, _ -> aliceAuthenticatedCallbacks += 1 }
+
+        completeHandshake(aliceManager, alice.peerID, originalBobManager, bob.peerID)
+        val originalSession = aliceManager.getSession(bob.peerID)
+
+        // Simulate Bob restarting with the same persistent static identity and no session state.
+        val restartedBobManager = manager(bob)
+        val message1 = restartedBobManager.initiateHandshake(alice.peerID)!!
+        val message2 = aliceManager.processHandshakeMessage(bob.peerID, message1)!!
+        val message3 = restartedBobManager.processHandshakeMessage(alice.peerID, message2)!!
+        assertNull(aliceManager.processHandshakeMessage(bob.peerID, message3))
+
+        assertNotSame(originalSession, aliceManager.getSession(bob.peerID))
+        assertTrue(aliceManager.hasEstablishedSession(bob.peerID))
+        assertArrayEquals(bob.publicKey, aliceManager.getRemoteStaticKey(bob.peerID))
+        assertTrue(aliceAuthenticatedCallbacks == 2)
+
+        val plaintext = "replacement transport".toByteArray()
+        val ciphertext = restartedBobManager.encrypt(plaintext, alice.peerID)
+        assertArrayEquals(plaintext, aliceManager.decrypt(ciphertext, bob.peerID))
+    }
+
+    @Test
+    fun `peer ID derivation rejects malformed keys and non-wire claims`() {
+        val peer = identity()
+
+        assertTrue(NoisePeerIdentity.matchesClaimedPeerID(peer.peerID, peer.publicKey))
+        assertFalse(NoisePeerIdentity.matchesClaimedPeerID(peer.peerID.uppercase(), peer.publicKey))
+        assertFalse(NoisePeerIdentity.matchesClaimedPeerID("not-a-wire-id", peer.publicKey))
+        assertFalse(NoisePeerIdentity.matchesClaimedPeerID(peer.peerID, ByteArray(31)))
+        assertNull(NoisePeerIdentity.derivePeerID(ByteArray(31)))
+    }
+
+    private fun completeHandshake(
+        initiator: NoiseSessionManager,
+        initiatorPeerID: String,
+        responder: NoiseSessionManager,
+        responderPeerID: String
+    ) {
+        val message1 = initiator.initiateHandshake(responderPeerID)!!
+        val message2 = responder.processHandshakeMessage(initiatorPeerID, message1)!!
+        val message3 = initiator.processHandshakeMessage(responderPeerID, message2)!!
+        assertNull(responder.processHandshakeMessage(initiatorPeerID, message3))
+    }
+
+    private fun expectIdentityMismatch(block: () -> Unit) {
+        try {
+            block()
+            fail("Expected authenticated Noise key to be rejected for the claimed peer ID")
+        } catch (_: NoiseSessionError.PeerIdentityMismatch) {
+            // Expected.
+        }
+    }
+
+    private fun manager(identity: TestIdentity): NoiseSessionManager = NoiseSessionManager(
+        localStaticPrivateKey = identity.privateKey,
+        localStaticPublicKey = identity.publicKey,
+        localPeerID = identity.peerID
+    ).also { managers += it }
+
+    private fun identity(): TestIdentity {
+        val dh = Noise.createDH("25519")
+        return try {
+            dh.generateKeyPair()
+            val privateKey = ByteArray(32)
+            val publicKey = ByteArray(32)
+            dh.getPrivateKey(privateKey, 0)
+            dh.getPublicKey(publicKey, 0)
+            TestIdentity(privateKey, publicKey, NoisePeerIdentity.derivePeerID(publicKey)!!)
+        } finally {
+            dh.destroy()
+        }
+    }
+}

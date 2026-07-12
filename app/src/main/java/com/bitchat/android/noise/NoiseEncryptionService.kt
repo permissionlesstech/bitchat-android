@@ -194,11 +194,24 @@ class NoiseEncryptionService(private val context: Context) {
      */
     fun processHandshakeMessage(data: ByteArray, peerID: String): ByteArray? {
         return try {
-            sessionManager.processHandshakeMessage(peerID, data)
+            processHandshakeMessageWithResult(data, peerID).response
         } catch (e: Exception) {
             Log.e(TAG, "Failed to process handshake from $peerID: ${e.message}")
             null
         }
+    }
+
+    /**
+     * Typed handshake result for security-sensitive callers that must distinguish a null response
+     * from a newly authenticated session or a rejected handshake. Identity mismatch exceptions are
+     * intentionally propagated to the caller.
+     */
+    @Throws(Exception::class)
+    fun processHandshakeMessageWithResult(
+        data: ByteArray,
+        peerID: String
+    ): NoiseHandshakeProcessingResult {
+        return sessionManager.processHandshakeMessageWithResult(peerID, data)
     }
     
     /**
@@ -382,6 +395,20 @@ class NoiseEncryptionService(private val context: Context) {
         // Store fingerprint mapping via centralized manager
         // This is the ONLY place where fingerprints are stored - after successful Noise handshake
         fingerprintManager.storeFingerprintForPeer(peerID, remoteStaticKey)
+
+        // Preserve the canonical peerID -> npub index, but only after Noise proves possession of
+        // the static key. Announcement-time indexing was unsafe because a peer can copy another
+        // party's public Noise key without possessing its private key.
+        try {
+            com.bitchat.android.favorites.FavoritesPersistenceService.shared
+                .findNostrPubkey(remoteStaticKey)
+                ?.let { npub ->
+                    com.bitchat.android.favorites.FavoritesPersistenceService.shared
+                        .updateNostrPublicKeyForPeerID(peerID, npub)
+                }
+        } catch (_: Exception) {
+            // Favorites may not be initialized in isolated/background crypto tests.
+        }
         
         // Calculate fingerprint for logging and callback
         val fingerprint = calculateFingerprint(remoteStaticKey)

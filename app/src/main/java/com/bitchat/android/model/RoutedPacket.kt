@@ -12,5 +12,8 @@ data class RoutedPacket(
     val relayAddress: String? = null,     // Address it came from (for avoiding loopback)
     val transferId: String? = null,       // Optional stable transfer ID for progress tracking
     /** Exact fragments admitted during private-media prepare; never rebuild them at commit. */
-    val preparedPackets: List<BitchatPacket>? = null
+    val preparedPackets: List<BitchatPacket>? = null,
+    // Opaque, process-local ingress identity. Unlike relayAddress, this distinguishes replacement
+    // sockets for the same provisional peer and must never be serialized onto the mesh.
+    val ingressLinkID: String? = null
 )
