@@ -474,7 +474,10 @@ class NoiseSession(
             receiveCipher = cipherPair.getReceiver()
             
             // Extract handshake hash for channel binding
-            handshakeHash = activeHandshake.getHandshakeHash()
+            // getHandshakeHash() exposes the handshake state's backing array. Clone it before
+            // destroy() zeroizes that state, or every completed session appears to have the same
+            // all-zero channel-binding token.
+            handshakeHash = activeHandshake.getHandshakeHash().clone()
             
             // Clean up handshake state
             activeHandshake.destroy()

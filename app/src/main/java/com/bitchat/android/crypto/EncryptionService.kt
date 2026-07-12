@@ -8,6 +8,8 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.bitchat.android.noise.NoiseEncryptionService
 import com.bitchat.android.noise.NoiseHandshakeProcessingResult
+import com.bitchat.android.noise.AuthenticatedNoiseSession
+import com.bitchat.android.noise.NoiseDecryptionResult
 import org.bouncycastle.crypto.AsymmetricCipherKeyPair
 import org.bouncycastle.crypto.generators.Ed25519KeyPairGenerator
 import org.bouncycastle.crypto.params.Ed25519KeyGenerationParameters
@@ -191,6 +193,13 @@ open class EncryptionService(private val context: Context) {
         }
         return encrypted
     }
+
+    @Throws(Exception::class)
+    fun encryptForSession(
+        data: ByteArray,
+        peerID: String,
+        expectedSession: AuthenticatedNoiseSession
+    ): ByteArray = noiseService.encryptForSession(data, peerID, expectedSession)
     
     /**
      * Decrypt data from a specific peer using Noise transport encryption
@@ -202,6 +211,12 @@ open class EncryptionService(private val context: Context) {
             throw Exception("Failed to decrypt from $peerID")
         }
         return decrypted
+    }
+
+    @Throws(Exception::class)
+    fun decryptWithSession(data: ByteArray, peerID: String): NoiseDecryptionResult {
+        return noiseService.decryptWithSession(data, peerID)
+            ?: throw Exception("Failed generation-bound decryption from $peerID")
     }
     
     /**
@@ -263,11 +278,17 @@ open class EncryptionService(private val context: Context) {
      * authentication, not a self-certified identity payload.
      */
     fun getAuthenticatedRemoteStaticKey(peerID: String): ByteArray? {
-        if (!noiseService.hasEstablishedSession(peerID)) return null
-        return noiseService.getPeerPublicKeyData(peerID)
-            ?.takeIf { it.size == 32 }
-            ?.copyOf()
+        return getAuthenticatedSession(peerID)?.remoteStaticKey?.copyOf()
     }
+
+    fun getAuthenticatedSession(peerID: String): AuthenticatedNoiseSession? =
+        noiseService.getAuthenticatedSession(peerID)
+
+    fun withAuthenticatedSession(
+        peerID: String,
+        expectedSession: AuthenticatedNoiseSession,
+        action: () -> Boolean
+    ): Boolean = noiseService.withAuthenticatedSession(peerID, expectedSession, action)
     
     /**
      * Get current peer ID for a fingerprint (for peer ID rotation)

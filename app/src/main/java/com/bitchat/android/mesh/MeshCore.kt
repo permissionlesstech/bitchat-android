@@ -5,6 +5,8 @@ import android.util.Log
 import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatFilePacket
+import com.bitchat.android.model.AuthenticatedPeerState
+import com.bitchat.android.model.PeerCapabilities
 import com.bitchat.android.model.IdentityAnnouncement
 import com.bitchat.android.model.NoisePayload
 import com.bitchat.android.model.NoisePayloadType
@@ -51,18 +53,52 @@ class MeshCore(
 
     private val peerManager = PeerManager()
     val fragmentManager = FragmentManager()
-    private val privateMediaSecurity = PrivateMediaSecurityController(
-        peerInfoProvider = peerManager::getPeerInfo,
-        authenticatedRemoteStaticProvider = encryptionService::getAuthenticatedRemoteStaticKey,
-        pinStore = SecurePrivateMediaCapabilityPinStore(context)
-    )
+    private val authenticatedPeerStateStore = SecureAuthenticatedPeerStateStore(context)
+    private val authenticatedPeerState by lazy {
+        AuthenticatedPeerStateCoordinator(
+            scope = scope,
+            authenticatedSessionProvider = encryptionService::getAuthenticatedSession,
+            withAuthenticatedSession = encryptionService::withAuthenticatedSession,
+            store = authenticatedPeerStateStore,
+            localStateProvider = {
+                AuthenticatedPeerState(
+                    PeerCapabilities.LOCAL_SUPPORTED,
+                    requireNotNull(encryptionService.getSigningPublicKey())
+                )
+            },
+            applyAuthenticatedState = peerManager::applyAuthenticatedPeerState,
+            sendState = ::sendAuthenticatedPeerState,
+            onResolution = { peerID -> delegate?.didResolvePrivateMediaPolicy(peerID) }
+        )
+    }
+    private val privateMediaSecurity by lazy { PrivateMediaSecurityController(
+        authenticatedSessionProvider = encryptionService::getAuthenticatedSession,
+        peerStateStatusProvider = authenticatedPeerState::status,
+        isPrivateMediaPinned = authenticatedPeerState::isPrivateMediaPinned
+    ) }
     private val privateMediaPreparer by lazy {
         PrivateMediaTransferPreparer(
             senderID = MeshPacketUtils.hexStringToByteArray(myPeerID),
             ttl = maxTtl,
             policyProvider = privateMediaSecurity::sendPolicy,
-            encrypt = { plaintext, peerID ->
-                runCatching { encryptionService.encrypt(plaintext, peerID) }.getOrNull()
+            encrypt = { plaintext, peerID, authenticatedSession ->
+                try {
+                    PrivateMediaEncryptionResult.Success(
+                        encryptionService.encryptForSession(
+                            plaintext,
+                            peerID,
+                            authenticatedSession
+                        )
+                    )
+                } catch (_: com.bitchat.android.noise.NoiseSessionError.SessionGenerationChanged) {
+                    PrivateMediaEncryptionResult.GenerationChanged
+                } catch (_: com.bitchat.android.noise.NoiseSessionError.SessionNotFound) {
+                    PrivateMediaEncryptionResult.GenerationChanged
+                } catch (_: com.bitchat.android.noise.NoiseSessionError.SessionNotEstablished) {
+                    PrivateMediaEncryptionResult.GenerationChanged
+                } catch (_: Exception) {
+                    PrivateMediaEncryptionResult.Failed
+                }
             },
             finalizeRoutedAndSigned = ::routeAndSignPrivateMediaStrict,
             fragment = fragmentManager::createFragments
@@ -179,6 +215,7 @@ class MeshCore(
             }
 
             override fun onPeerRemoved(peerID: String) {
+                authenticatedPeerState.clear(peerID)
                 try { gossipSyncManager.removeAnnouncementForPeer(peerID) } catch (_: Exception) { }
                 try { encryptionService.removePeer(peerID) } catch (_: Exception) { }
                 try { peerManager.refreshPeerList() } catch (_: Exception) { }
@@ -189,9 +226,15 @@ class MeshCore(
             override fun onKeyExchangeCompleted(
                 peerID: String,
                 authenticatedRemoteStaticKey: ByteArray,
+                authenticatedSessionToken: ByteArray,
                 directRelayAddress: String?,
                 ingressLinkID: String?
             ) {
+                authenticatedPeerState.onSessionAuthenticated(
+                    peerID,
+                    authenticatedRemoteStaticKey,
+                    authenticatedSessionToken
+                )
                 if (directRelayAddress != null && ingressLinkID != null) {
                     hooks.onDirectNoiseAuthenticated?.invoke(
                         peerID,
@@ -222,6 +265,9 @@ class MeshCore(
             }
 
             override fun getPeerInfo(peerID: String): PeerInfo? = peerManager.getPeerInfo(peerID)
+
+            override fun getAuthenticatedSigningKey(noisePublicKey: ByteArray): ByteArray? =
+                authenticatedPeerState.persistedSigningKeyFor(noisePublicKey)
         }
 
         storeForwardManager.delegate = object : StoreForwardManagerDelegate {
@@ -285,10 +331,6 @@ class MeshCore(
                 )
             }
 
-            override fun onVerifiedAnnouncementProcessed(peerID: String) {
-                privateMediaSecurity.refreshAuthenticatedCapability(peerID)
-            }
-
             override fun sendPacket(packet: BitchatPacket) {
                 val signedPacket = signPacketBeforeBroadcast(packet)
                 dispatchGlobal(RoutedPacket(signedPacket))
@@ -310,13 +352,19 @@ class MeshCore(
                 return securityManager.encryptForPeer(data, recipientPeerID)
             }
 
-            override fun decryptFromPeer(encryptedData: ByteArray, senderPeerID: String): ByteArray? {
+            override fun decryptFromPeer(
+                encryptedData: ByteArray,
+                senderPeerID: String
+            ): com.bitchat.android.noise.NoiseDecryptionResult? {
                 return securityManager.decryptFromPeer(encryptedData, senderPeerID)
             }
 
             override fun verifyEd25519Signature(signature: ByteArray, data: ByteArray, publicKey: ByteArray): Boolean {
                 return encryptionService.verifyEd25519Signature(signature, data, publicKey)
             }
+
+            override fun getAuthenticatedSigningKey(noisePublicKey: ByteArray): ByteArray? =
+                authenticatedPeerState.persistedSigningKeyFor(noisePublicKey)
 
             override fun hasNoiseSession(peerID: String): Boolean {
                 return encryptionService.hasEstablishedSession(peerID)
@@ -332,6 +380,14 @@ class MeshCore(
                 } catch (_: Exception) {
                     null
                 }
+            }
+
+            override fun onAuthenticatedPeerStateReceived(
+                peerID: String,
+                state: AuthenticatedPeerState,
+                authenticatedSession: com.bitchat.android.noise.AuthenticatedNoiseSession
+            ) {
+                authenticatedPeerState.receive(peerID, state, authenticatedSession)
             }
 
             override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {
@@ -471,6 +527,32 @@ class MeshCore(
         }
     }
 
+    private fun sendAuthenticatedPeerState(
+        peerID: String,
+        state: AuthenticatedPeerState,
+        authenticatedSession: com.bitchat.android.noise.AuthenticatedNoiseSession
+    ): Boolean {
+        val plaintext = NoisePayload(NoisePayloadType.PEER_STATE, state.encode()).encode()
+        val ciphertext = securityManager.encryptForPeer(
+            plaintext,
+            peerID,
+            authenticatedSession
+        ) ?: return false
+        val packet = BitchatPacket(
+            version = if (ciphertext.size > 0xFFFF) 2u else 1u,
+            type = MessageType.NOISE_ENCRYPTED.value,
+            senderID = MeshPacketUtils.hexStringToByteArray(myPeerID),
+            recipientID = MeshPacketUtils.hexStringToByteArray(peerID),
+            timestamp = System.currentTimeMillis().toULong(),
+            payload = ciphertext,
+            ttl = maxTtl
+        )
+        val signed = signPacketBeforeBroadcast(packet)
+        if (signed.signature?.size != 64) return false
+        dispatchGlobal(RoutedPacket(signed))
+        return true
+    }
+
     fun sendFileBroadcast(file: BitchatFilePacket) {
         try {
             val payload = file.encode() ?: return
@@ -510,6 +592,7 @@ class MeshCore(
                 Log.i("MeshCore", "Private media needs a Noise handshake; initiating without sending")
                 initiateNoiseHandshake(recipientPeerID)
             }
+            PrivateMediaPreparation.AwaitingPeerState -> Unit
             is PrivateMediaPreparation.Rejected ->
                 Log.w("MeshCore", "Private media blocked: ${prepared.reason}")
         }
@@ -531,6 +614,8 @@ class MeshCore(
                 PrivateMediaPreparation.RequiresLegacyConsent(outcome.warning)
             PrivateMediaBuildOutcome.NeedsHandshake ->
                 PrivateMediaPreparation.NeedsHandshake
+            PrivateMediaBuildOutcome.AwaitingPeerState ->
+                PrivateMediaPreparation.AwaitingPeerState
             is PrivateMediaBuildOutcome.Rejected ->
                 PrivateMediaPreparation.Rejected(outcome.reason)
             is PrivateMediaBuildOutcome.Ready -> {

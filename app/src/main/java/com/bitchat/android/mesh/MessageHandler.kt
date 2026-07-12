@@ -3,6 +3,7 @@ package com.bitchat.android.mesh
 import android.util.Log
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
+import com.bitchat.android.model.AuthenticatedPeerState
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
@@ -59,11 +60,12 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         
         try {
             // Decrypt the message using the Noise service
-            val decryptedData = delegate?.decryptFromPeer(packet.payload, peerID)
-            if (decryptedData == null) {
+            val decryption = delegate?.decryptFromPeer(packet.payload, peerID)
+            if (decryption == null) {
                 Log.w(TAG, "Failed to decrypt Noise message from $peerID - may need handshake")
                 return
             }
+            val decryptedData = decryption.plaintext
             
             if (decryptedData.isEmpty()) {
                 Log.w(TAG, "Decrypted data is empty from $peerID")
@@ -143,6 +145,19 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
                         sendDeliveryAck(uniqueMsgId, peerID)
                     } else {
                         Log.w(TAG, "⚠️ Failed to decode encrypted file transfer from $peerID")
+                    }
+                }
+
+                com.bitchat.android.model.NoisePayloadType.PEER_STATE -> {
+                    val authenticatedState = AuthenticatedPeerState.decode(noisePayload.data)
+                    if (authenticatedState == null) {
+                        Log.w(TAG, "Dropping malformed authenticated peer state from ${peerID.take(8)}")
+                    } else {
+                        delegate?.onAuthenticatedPeerStateReceived(
+                            peerID,
+                            authenticatedState,
+                            decryption.authenticatedSession
+                        )
                     }
                 }
                 
@@ -245,6 +260,14 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         }
         if (announcement == null) {
             Log.w(TAG, "Rejecting malformed, unbound, or invalidly signed ANNOUNCE from ${peerID.take(8)}")
+            return AnnounceHandlingResult.Rejected
+        }
+
+        val persistedSigningKey = delegate?.getAuthenticatedSigningKey(announcement.noisePublicKey)
+        if (persistedSigningKey != null &&
+            !persistedSigningKey.contentEquals(announcement.signingPublicKey)
+        ) {
+            Log.w(TAG, "Rejecting ANNOUNCE Ed key that conflicts with authenticated peer state")
             return AnnounceHandlingResult.Rejected
         }
 
@@ -629,7 +652,6 @@ interface MessageHandlerDelegate {
         isVerified: Boolean,
         capabilities: com.bitchat.android.model.PeerCapabilities? = null
     ): Boolean
-    fun onVerifiedAnnouncementProcessed(peerID: String) {}
     
     // Packet operations
     fun sendPacket(packet: BitchatPacket)
@@ -639,13 +661,22 @@ interface MessageHandlerDelegate {
     // Cryptographic operations
     fun verifySignature(packet: BitchatPacket, peerID: String): Boolean
     fun encryptForPeer(data: ByteArray, recipientPeerID: String): ByteArray?
-    fun decryptFromPeer(encryptedData: ByteArray, senderPeerID: String): ByteArray?
+    fun decryptFromPeer(
+        encryptedData: ByteArray,
+        senderPeerID: String
+    ): com.bitchat.android.noise.NoiseDecryptionResult?
     fun verifyEd25519Signature(signature: ByteArray, data: ByteArray, publicKey: ByteArray): Boolean
+    fun getAuthenticatedSigningKey(noisePublicKey: ByteArray): ByteArray? = null
     
     // Noise protocol operations
     fun hasNoiseSession(peerID: String): Boolean
     fun initiateNoiseHandshake(peerID: String)
     fun processNoiseHandshakeMessage(payload: ByteArray, peerID: String): ByteArray?
+    fun onAuthenticatedPeerStateReceived(
+        peerID: String,
+        state: AuthenticatedPeerState,
+        authenticatedSession: com.bitchat.android.noise.AuthenticatedNoiseSession
+    ) {}
     
     // Message operations
     fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String?

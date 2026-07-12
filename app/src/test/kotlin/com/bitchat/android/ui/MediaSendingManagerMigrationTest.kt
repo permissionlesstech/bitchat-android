@@ -44,6 +44,7 @@ class MediaSendingManagerMigrationTest {
             state,
             MessageManager(state),
             mock(),
+            CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
             getMeshService = { mesh }
         )
         file = kotlin.io.path.createTempFile("private-media", ".jpg").toFile().apply {
@@ -57,28 +58,112 @@ class MediaSendingManagerMigrationTest {
     }
 
     @Test
-    fun `preflight rejection creates no local echo mapping or send`() {
+    fun `preflight rejection creates only a visible failure and no file echo or send`() {
         whenever(mesh.prepareFilePrivate(eq(peerID), any(), any(), eq(false)))
             .thenReturn(PrivateMediaPreparation.Rejected("too many fragments"))
 
         manager.sendImageNote(peerID, null, file.absolutePath)
 
-        assertTrue(state.privateChats.value[peerID].isNullOrEmpty())
+        val messages = state.privateChats.value[peerID].orEmpty()
+        assertEquals(1, messages.size)
+        assertTrue(messages.single().content.contains("too many fragments"))
+        assertTrue(messages.none { it.type == com.bitchat.android.model.BitchatMessageType.Image })
         assertEquals(null, manager.legacyPrivateMediaConsent.value)
         verify(mesh, never()).sendFilePrivate(any(), any())
     }
 
     @Test
-    fun `missing Noise session initiates one handshake without echo prompt or media send`() {
+    fun `pinned downgrade rejection is visible without a file echo or send`() {
+        whenever(mesh.prepareFilePrivate(eq(peerID), any(), any(), eq(false)))
+            .thenReturn(
+                PrivateMediaPreparation.Rejected(
+                    "Encrypted private media was previously pinned, but this session proved no support; send blocked"
+                )
+            )
+
+        manager.sendImageNote(peerID, null, file.absolutePath)
+
+        val messages = state.privateChats.value[peerID].orEmpty()
+        assertEquals(1, messages.size)
+        assertTrue(messages.single().content.contains("previously pinned"))
+        assertTrue(messages.none { it.type == com.bitchat.android.model.BitchatMessageType.Image })
+        verify(mesh, never()).sendFilePrivate(any(), any())
+    }
+
+    @Test
+    fun `missing Noise session retains first send and commits after proof resolution`() {
+        val commits = AtomicInteger(0)
         whenever(mesh.prepareFilePrivate(eq(peerID), any(), any(), eq(false)))
             .thenReturn(PrivateMediaPreparation.NeedsHandshake)
+            .thenAnswer { invocation ->
+                PrivateMediaPreparation.Ready(
+                    PreparedPrivateMediaTransfer(
+                        transferId = invocation.getArgument<String>(2),
+                        wireMode = PrivateMediaWireMode.ENCRYPTED_NOISE_0X20
+                    ) {
+                        commits.incrementAndGet()
+                        true
+                    }
+                )
+            }
 
         manager.sendImageNote(peerID, null, file.absolutePath)
 
         verify(mesh, times(1)).initiateNoiseHandshake(peerID)
-        verify(mesh, never()).sendFilePrivate(any(), any())
         assertTrue(state.privateChats.value[peerID].isNullOrEmpty())
         assertEquals(null, manager.legacyPrivateMediaConsent.value)
+
+        manager.retryPendingPrivateMedia(peerID)
+
+        assertEquals(1, commits.get())
+        assertEquals(1, state.privateChats.value[peerID]?.size)
+        verify(mesh, times(2)).prepareFilePrivate(eq(peerID), any(), any(), eq(false))
+        verify(mesh, never()).sendFilePrivate(any(), any())
+    }
+
+    @Test
+    fun `awaiting peer state retains send and watchdog resolution offers legacy consent`() {
+        whenever(mesh.prepareFilePrivate(eq(peerID), any(), any(), eq(false)))
+            .thenReturn(PrivateMediaPreparation.AwaitingPeerState)
+            .thenReturn(PrivateMediaPreparation.RequiresLegacyConsent("relay-visible warning"))
+
+        manager.sendImageNote(peerID, null, file.absolutePath)
+
+        verify(mesh, never()).initiateNoiseHandshake(peerID)
+        assertTrue(state.privateChats.value[peerID].isNullOrEmpty())
+        assertEquals(null, manager.legacyPrivateMediaConsent.value)
+
+        manager.retryPendingPrivateMedia(peerID)
+
+        assertNotNull(manager.legacyPrivateMediaConsent.value)
+        assertTrue(state.privateChats.value[peerID].isNullOrEmpty())
+    }
+
+    @Test
+    fun `reentrant proof resolution during preparation cannot lose first send intent`() {
+        val commits = AtomicInteger(0)
+        whenever(mesh.prepareFilePrivate(eq(peerID), any(), any(), eq(false)))
+            .thenAnswer {
+                manager.retryPendingPrivateMedia(peerID)
+                PrivateMediaPreparation.AwaitingPeerState
+            }
+            .thenAnswer { invocation ->
+                PrivateMediaPreparation.Ready(
+                    PreparedPrivateMediaTransfer(
+                        transferId = invocation.getArgument<String>(2),
+                        wireMode = PrivateMediaWireMode.ENCRYPTED_NOISE_0X20
+                    ) {
+                        commits.incrementAndGet()
+                        true
+                    }
+                )
+            }
+
+        manager.sendImageNote(peerID, null, file.absolutePath)
+
+        assertEquals(1, commits.get())
+        assertEquals(1, state.privateChats.value[peerID]?.size)
+        verify(mesh, times(2)).prepareFilePrivate(eq(peerID), any(), any(), eq(false))
     }
 
     @Test

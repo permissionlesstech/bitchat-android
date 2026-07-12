@@ -1,6 +1,7 @@
 package com.bitchat.android.mesh
 
 import android.util.Log
+import com.bitchat.android.model.AuthenticatedPeerState
 import com.bitchat.android.model.PeerCapabilities
 import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentHashMap
@@ -161,6 +162,37 @@ class PeerManager {
         hasVerifiedAnnouncement = true,
         verifiedAnnouncementNoisePublicKey = noisePublicKey.copyOf()
     )
+
+    /** Replace capability/Ed identity from Noise 0x21 in one peer-map mutation. */
+    @Synchronized
+    fun applyAuthenticatedPeerState(
+        peerID: String,
+        authenticatedNoisePublicKey: ByteArray,
+        state: AuthenticatedPeerState
+    ) {
+        val existing = peers[peerID]
+        val announcementMatchesAuthenticatedState = existing?.hasVerifiedAnnouncement == true &&
+            existing.verifiedAnnouncementNoisePublicKey?.contentEquals(authenticatedNoisePublicKey) == true &&
+            existing.signingPublicKey?.contentEquals(state.signingPublicKey) == true
+        val replacement = PeerInfo(
+            id = peerID,
+            // A copied-static preannouncement cannot retain its attacker-chosen display name once
+            // authenticated peer state proves a different Ed key.
+            nickname = existing?.nickname?.takeIf { announcementMatchesAuthenticatedState } ?: peerID,
+            isConnected = true,
+            isDirectConnection = existing?.isDirectConnection ?: false,
+            noisePublicKey = authenticatedNoisePublicKey.copyOf(),
+            signingPublicKey = state.signingPublicKey.copyOf(),
+            isVerifiedNickname = existing?.isVerifiedNickname == true && announcementMatchesAuthenticatedState,
+            lastSeen = System.currentTimeMillis(),
+            capabilities = state.capabilities,
+            hasVerifiedAnnouncement = announcementMatchesAuthenticatedState,
+            verifiedAnnouncementNoisePublicKey = authenticatedNoisePublicKey.copyOf()
+                .takeIf { announcementMatchesAuthenticatedState }
+        )
+        peers[peerID] = replacement
+        if (existing == null || existing != replacement) notifyPeerListUpdate()
+    }
 
     private fun updatePeerInfoInternal(
         peerID: String,

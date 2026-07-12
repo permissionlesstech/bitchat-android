@@ -1,5 +1,6 @@
 package com.bitchat.android.identity
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
@@ -7,6 +8,8 @@ import androidx.security.crypto.MasterKey
 import java.security.MessageDigest
 import android.util.Base64
 import android.util.Log
+import com.bitchat.android.model.AuthenticatedPeerState
+import com.bitchat.android.model.PeerCapabilities
 import com.bitchat.android.util.hexEncodedString
 import androidx.core.content.edit
 
@@ -33,6 +36,7 @@ class SecureIdentityStateManager {
         private const val KEY_CACHED_NOISE_FINGERPRINTS = "cached_noise_fingerprints"
         private const val KEY_CACHED_FINGERPRINT_NICKNAMES = "cached_fingerprint_nicknames"
         private const val KEY_PRIVATE_MEDIA_CAPABILITY_PINS = "private_media_capability_pins_v1"
+        private const val KEY_AUTHENTICATED_PEER_STATES = "authenticated_peer_states_v1"
 
         // BLE, Wi-Fi Aware, and Noise services each hold their own manager
         // instance over the same encrypted preferences. Serialize pin updates
@@ -317,25 +321,6 @@ class SecureIdentityStateManager {
 
     // MARK: - Authenticated private-media capability pins
 
-    /**
-     * Persist an HSTS-style private-media capability pin. The caller must
-     * derive [fingerprint] directly from a Noise-authenticated remote static
-     * key after matching it to a signature-verified announcement.
-     */
-    fun markPrivateMediaCapable(fingerprint: String) {
-        if (!isValidFingerprint(fingerprint)) return
-        synchronized(privateMediaPinsLock) {
-            // A controller that survived panic must never be able to restore a
-            // pin from an in-flight pre-wipe handshake callback.
-            if (privateMediaPinsEpochAtCreation != privateMediaPinsEpoch) return
-            val current = prefs.getStringSet(KEY_PRIVATE_MEDIA_CAPABILITY_PINS, emptySet())
-                ?.mapTo(mutableSetOf()) { it.lowercase() }
-                ?: mutableSetOf()
-            current.add(fingerprint.lowercase())
-            prefs.edit { putStringSet(KEY_PRIVATE_MEDIA_CAPABILITY_PINS, current) }
-        }
-    }
-
     fun isPrivateMediaCapable(fingerprint: String): Boolean {
         if (!isValidFingerprint(fingerprint)) return false
         return synchronized(privateMediaPinsLock) {
@@ -347,13 +332,64 @@ class SecureIdentityStateManager {
         }
     }
 
-    internal fun getPrivateMediaCapabilityPinsForTesting(): Set<String> =
-        synchronized(privateMediaPinsLock) {
-            if (privateMediaPinsEpochAtCreation != privateMediaPinsEpoch) {
-                return@synchronized emptySet()
+    /** Persist capabilities and Ed25519 key from a decoded Noise 0x21 proof in one edit. */
+    @SuppressLint("UseKtx")
+    fun storeAuthenticatedPeerState(
+        fingerprint: String,
+        state: AuthenticatedPeerState,
+        onCommitted: () -> Unit = {}
+    ): Boolean {
+        if (!isValidFingerprint(fingerprint) || state.signingPublicKey.size != 32) return false
+        val normalizedFingerprint = fingerprint.lowercase()
+        return synchronized(privateMediaPinsLock) {
+            // A controller that survived panic must not republish pre-wipe proof state.
+            if (privateMediaPinsEpochAtCreation != privateMediaPinsEpoch) return@synchronized false
+            val records = prefs.getStringSet(KEY_AUTHENTICATED_PEER_STATES, emptySet())
+                ?.toMutableSet() ?: mutableSetOf()
+            records.removeAll { it.startsWith("$normalizedFingerprint:") }
+            val capabilitiesHex = java.lang.Long.toUnsignedString(state.capabilities.rawValue, 16)
+            records.add(
+                "$normalizedFingerprint:$capabilitiesHex:${state.signingPublicKey.hexEncodedString()}"
+            )
+
+            val editor = prefs.edit().putStringSet(KEY_AUTHENTICATED_PEER_STATES, records)
+            if (state.capabilities.contains(PeerCapabilities.PRIVATE_MEDIA)) {
+                val pins = prefs.getStringSet(KEY_PRIVATE_MEDIA_CAPABILITY_PINS, emptySet())
+                    ?.mapTo(mutableSetOf()) { it.lowercase() } ?: mutableSetOf()
+                pins.add(normalizedFingerprint)
+                editor.putStringSet(KEY_PRIVATE_MEDIA_CAPABILITY_PINS, pins)
             }
-            prefs.getStringSet(KEY_PRIVATE_MEDIA_CAPABILITY_PINS, emptySet())?.toSet() ?: emptySet()
+            // This result is a security boundary: do not publish the Ed key in memory unless the
+            // encrypted identity record and its HSTS pin were durably committed together.
+            editor.commit().also { committed ->
+                if (committed) onCommitted()
+            }
         }
+    }
+
+    fun getAuthenticatedPeerState(fingerprint: String): AuthenticatedPeerState? {
+        if (!isValidFingerprint(fingerprint)) return null
+        return synchronized(privateMediaPinsLock) {
+            if (privateMediaPinsEpochAtCreation != privateMediaPinsEpoch) return@synchronized null
+            val prefix = "${fingerprint.lowercase()}:"
+            val record = prefs.getStringSet(KEY_AUTHENTICATED_PEER_STATES, emptySet())
+                ?.firstOrNull { it.startsWith(prefix) } ?: return@synchronized null
+            val fields = record.split(':', limit = 3)
+            if (fields.size != 3) return@synchronized null
+            val capabilities = runCatching {
+                PeerCapabilities(java.lang.Long.parseUnsignedLong(fields[1], 16))
+            }.getOrNull() ?: return@synchronized null
+            val signingKeyHex = fields[2]
+            if (!signingKeyHex.matches(Regex("^[0-9a-f]{64}$"))) return@synchronized null
+            val signingKey = runCatching {
+                signingKeyHex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+            }.getOrNull() ?: return@synchronized null
+            AuthenticatedPeerState(capabilities, signingKey)
+        }
+    }
+
+    fun getAuthenticatedSigningKey(fingerprint: String): ByteArray? =
+        getAuthenticatedPeerState(fingerprint)?.signingPublicKey?.copyOf()
     
     // MARK: - Peer ID Rotation Management (removed)
     // Android now derives peer ID from the persisted Noise identity fingerprint.
@@ -429,12 +465,15 @@ class SecureIdentityStateManager {
     /**
      * Clear all identity data (for panic mode)
      */
+    @SuppressLint("UseKtx")
     fun clearIdentityData() {
         try {
             synchronized(privateMediaPinsLock) {
                 privateMediaPinsEpoch += 1
                 privateMediaPinsEpochAtCreation = privateMediaPinsEpoch
-                prefs.edit().clear().apply()
+                if (!prefs.edit().clear().commit()) {
+                    Log.e(TAG, "Identity preference wipe could not be committed")
+                }
             }
             Log.w(TAG, "All identity data cleared")
         } catch (e: Exception) {

@@ -2,10 +2,15 @@ package com.bitchat.android.mesh
 
 import android.os.Build
 import com.bitchat.android.model.IdentityAnnouncement
+import com.bitchat.android.model.AuthenticatedPeerState
 import com.bitchat.android.model.BitchatFilePacket
+import com.bitchat.android.model.NoisePayload
+import com.bitchat.android.model.NoisePayloadType
 import com.bitchat.android.model.PeerCapabilities
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.noise.NoisePeerIdentity
+import com.bitchat.android.noise.AuthenticatedNoiseSession
+import com.bitchat.android.noise.NoiseDecryptionResult
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
@@ -38,6 +43,10 @@ class MessageHandlerTest {
     private val myPeerID = "1111222233334444"
     private val noiseKey = ByteArray(32) { 0x0B }
     private val peerID = NoisePeerIdentity.derivePeerID(noiseKey)!!
+    private val authenticatedSession = AuthenticatedNoiseSession(
+        noiseKey,
+        ByteArray(32) { 0x5D }
+    )
     private val nickname = "peer"
     private val signingKey = ByteArray(32) { 0x0A }
     private val signature = ByteArray(64) { 1 }
@@ -216,7 +225,9 @@ class MessageHandlerTest {
             )
             val prereleasePlaintext = byteArrayOf(0x09) + file.encode()!!
             val ciphertext = byteArrayOf(0x41, 0x42, 0x43)
-            whenever(delegate.decryptFromPeer(any(), eq(peerID))).thenReturn(prereleasePlaintext)
+            whenever(delegate.decryptFromPeer(any(), eq(peerID))).thenReturn(
+                NoiseDecryptionResult(prereleasePlaintext, authenticatedSession)
+            )
             whenever(delegate.getPeerNickname(peerID)).thenReturn(nickname)
             whenever(delegate.getMyNickname()).thenReturn("me")
             whenever(delegate.encryptForPeer(any(), eq(peerID))).thenReturn(byteArrayOf(0x55))
@@ -237,6 +248,41 @@ class MessageHandlerTest {
             verify(delegate).decryptFromPeer(ciphertext, peerID)
             verify(delegate).onMessageReceived(any())
         }
+    }
+
+    @Test
+    fun `valid encrypted peer state is delivered and malformed state is ignored`() = runBlocking {
+        val state = AuthenticatedPeerState(PeerCapabilities.PRIVATE_MEDIA, signingKey)
+        val validCiphertext = byteArrayOf(0x31)
+        val malformedCiphertext = byteArrayOf(0x32)
+        whenever(delegate.decryptFromPeer(validCiphertext, peerID)).thenReturn(
+            NoiseDecryptionResult(
+                NoisePayload(NoisePayloadType.PEER_STATE, state.encode()).encode(),
+                authenticatedSession
+            )
+        )
+        whenever(delegate.decryptFromPeer(malformedCiphertext, peerID)).thenReturn(
+            NoiseDecryptionResult(
+                NoisePayload(NoisePayloadType.PEER_STATE, byteArrayOf(0x01, 0x01)).encode(),
+                authenticatedSession
+            )
+        )
+        val base = BitchatPacket(
+            version = 1u,
+            type = MessageType.NOISE_ENCRYPTED.value,
+            senderID = peerID.hexToBytes(),
+            recipientID = myPeerID.hexToBytes(),
+            timestamp = System.currentTimeMillis().toULong(),
+            payload = validCiphertext,
+            ttl = 7u
+        )
+
+        handler.handleNoiseEncrypted(RoutedPacket(base, peerID, "direct-link"))
+        handler.handleNoiseEncrypted(
+            RoutedPacket(base.copy(payload = malformedCiphertext), peerID, "direct-link")
+        )
+
+        verify(delegate).onAuthenticatedPeerStateReceived(peerID, state, authenticatedSession)
     }
 
     @Test
@@ -303,6 +349,20 @@ class MessageHandlerTest {
     fun `ambient bound Noise session does not authorize signing key replacement`() = runBlocking {
         whenever(delegate.getPeerInfo(peerID)).thenReturn(peerInfo(signingPublicKey = ByteArray(32) { 0x44 }))
         whenever(delegate.hasNoiseSession(peerID)).thenReturn(true)
+        val packet = announcePacket(ageMs = 0)
+
+        val result = handler.handleAnnounce(RoutedPacket(packet, peerID, "direct-link"))
+
+        assertFalse(result)
+        verify(delegate, never()).updatePeerInfoFromVerifiedAnnouncement(
+            any(), any(), any(), any(), any(), anyOrNull()
+        )
+        Unit
+    }
+
+    @Test
+    fun `persisted authenticated Ed key rejects copied-static preannounce after restart`() = runBlocking {
+        whenever(delegate.getAuthenticatedSigningKey(any())).thenReturn(ByteArray(32) { 0x44 })
         val packet = announcePacket(ageMs = 0)
 
         val result = handler.handleAnnounce(RoutedPacket(packet, peerID, "direct-link"))

@@ -3,6 +3,7 @@ package com.bitchat.android.mesh
 import com.bitchat.android.model.BitchatFilePacket
 import com.bitchat.android.model.NoisePayload
 import com.bitchat.android.model.NoisePayloadType
+import com.bitchat.android.noise.AuthenticatedNoiseSession
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import java.util.concurrent.atomic.AtomicBoolean
@@ -30,6 +31,7 @@ sealed interface PrivateMediaPreparation {
     data class Ready(val transfer: PreparedPrivateMediaTransfer) : PrivateMediaPreparation
     data class RequiresLegacyConsent(val warning: String) : PrivateMediaPreparation
     data object NeedsHandshake : PrivateMediaPreparation
+    data object AwaitingPeerState : PrivateMediaPreparation
     data class Rejected(val reason: String) : PrivateMediaPreparation
 }
 
@@ -43,7 +45,14 @@ internal sealed interface PrivateMediaBuildOutcome {
     data class Ready(val built: BuiltPrivateMediaTransfer) : PrivateMediaBuildOutcome
     data class RequiresLegacyConsent(val warning: String) : PrivateMediaBuildOutcome
     data object NeedsHandshake : PrivateMediaBuildOutcome
+    data object AwaitingPeerState : PrivateMediaBuildOutcome
     data class Rejected(val reason: String) : PrivateMediaBuildOutcome
+}
+
+internal sealed interface PrivateMediaEncryptionResult {
+    data class Success(val ciphertext: ByteArray) : PrivateMediaEncryptionResult
+    data object GenerationChanged : PrivateMediaEncryptionResult
+    data object Failed : PrivateMediaEncryptionResult
 }
 
 /** Builds, routes, signs, and fragments exactly once before UI local echo. */
@@ -51,7 +60,11 @@ internal class PrivateMediaTransferPreparer(
     private val senderID: ByteArray,
     private val ttl: UByte,
     private val policyProvider: (String) -> PrivateMediaPolicyDecision,
-    private val encrypt: (ByteArray, String) -> ByteArray?,
+    private val encrypt: (
+        ByteArray,
+        String,
+        AuthenticatedNoiseSession
+    ) -> PrivateMediaEncryptionResult,
     private val finalizeRoutedAndSigned: (BitchatPacket) -> BitchatPacket?,
     private val fragment: (BitchatPacket, Int) -> List<BitchatPacket>,
     private val now: () -> ULong = { System.currentTimeMillis().toULong() }
@@ -61,10 +74,24 @@ internal class PrivateMediaTransferPreparer(
         recipientID: ByteArray,
         file: BitchatFilePacket,
         allowLegacyFallback: Boolean
+    ): PrivateMediaBuildOutcome = prepare(
+        recipientPeerID,
+        recipientID,
+        file,
+        allowLegacyFallback,
+        generationRetriesRemaining = 1
+    )
+
+    private fun prepare(
+        recipientPeerID: String,
+        recipientID: ByteArray,
+        file: BitchatFilePacket,
+        allowLegacyFallback: Boolean,
+        generationRetriesRemaining: Int
     ): PrivateMediaBuildOutcome {
         val policy = policyProvider(recipientPeerID)
         val mode = when (policy) {
-            PrivateMediaPolicyDecision.Encrypted -> PrivateMediaWireMode.ENCRYPTED_NOISE_0X20
+            is PrivateMediaPolicyDecision.Encrypted -> PrivateMediaWireMode.ENCRYPTED_NOISE_0X20
             PrivateMediaPolicyDecision.RequiresLegacyConsent -> {
                 if (!allowLegacyFallback) {
                     return PrivateMediaBuildOutcome.RequiresLegacyConsent(
@@ -77,6 +104,8 @@ internal class PrivateMediaTransferPreparer(
             }
             PrivateMediaPolicyDecision.NeedsHandshake ->
                 return PrivateMediaBuildOutcome.NeedsHandshake
+            PrivateMediaPolicyDecision.AwaitingPeerState ->
+                return PrivateMediaBuildOutcome.AwaitingPeerState
             is PrivateMediaPolicyDecision.Blocked ->
                 return PrivateMediaBuildOutcome.Rejected(policy.reason)
         }
@@ -87,13 +116,34 @@ internal class PrivateMediaTransferPreparer(
         val packet = when (mode) {
             PrivateMediaWireMode.ENCRYPTED_NOISE_0X20 -> {
                 val plaintext = NoisePayload(NoisePayloadType.FILE_TRANSFER, filePayload).encode()
-                val ciphertext = try {
-                    encrypt(plaintext, recipientPeerID)
+                val encryption = try {
+                    encrypt(
+                        plaintext,
+                        recipientPeerID,
+                        (policy as PrivateMediaPolicyDecision.Encrypted).authenticatedSession
+                    )
                 } catch (_: Exception) {
-                    null
-                } ?: return PrivateMediaBuildOutcome.Rejected(
-                    "The authenticated Noise session could not encrypt this file"
-                )
+                    PrivateMediaEncryptionResult.Failed
+                }
+                val ciphertext = when (encryption) {
+                    is PrivateMediaEncryptionResult.Success -> encryption.ciphertext
+                    PrivateMediaEncryptionResult.GenerationChanged -> {
+                        if (generationRetriesRemaining > 0) {
+                            return prepare(
+                                recipientPeerID,
+                                recipientID,
+                                file,
+                                allowLegacyFallback,
+                                generationRetriesRemaining - 1
+                            )
+                        }
+                        return PrivateMediaBuildOutcome.AwaitingPeerState
+                    }
+                    PrivateMediaEncryptionResult.Failed ->
+                        return PrivateMediaBuildOutcome.Rejected(
+                            "The authenticated Noise session could not encrypt this file"
+                        )
+                }
                 BitchatPacket(
                     version = if (ciphertext.size > 0xFFFF) 2u else 1u,
                     type = MessageType.NOISE_ENCRYPTED.value,

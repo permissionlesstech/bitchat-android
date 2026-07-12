@@ -5,6 +5,8 @@ import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.model.RoutedPacket
+import com.bitchat.android.noise.AuthenticatedNoiseSession
+import com.bitchat.android.noise.NoiseDecryptionResult
 import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.*
 import java.util.*
@@ -136,11 +138,19 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
                     Log.e(TAG, "Bound Noise completion for $peerID omitted its authenticated static key")
                     return false
                 }
+                val authenticatedSessionToken = result.authenticatedSessionToken
+                if (authenticatedSessionToken?.size != 32 ||
+                    authenticatedSessionToken.all { it == 0.toByte() }
+                ) {
+                    Log.e(TAG, "Bound Noise completion for $peerID omitted its generation token")
+                    return false
+                }
                 val isDirectIngress = packet.ttl == com.bitchat.android.util.AppConstants.MESSAGE_TTL_HOPS
                 Log.d(TAG, "✅ Noise handshake completed with $peerID")
                 delegate?.onKeyExchangeCompleted(
                     peerID = peerID,
                     authenticatedRemoteStaticKey = authenticatedRemoteStaticKey,
+                    authenticatedSessionToken = authenticatedSessionToken,
                     directRelayAddress = routed.relayAddress.takeIf { isDirectIngress },
                     ingressLinkID = routed.ingressLinkID.takeIf { isDirectIngress }
                 )
@@ -187,13 +197,24 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
             null
         }
     }
+
+    fun encryptForPeer(
+        data: ByteArray,
+        recipientPeerID: String,
+        expectedSession: AuthenticatedNoiseSession
+    ): ByteArray? = try {
+        encryptionService.encryptForSession(data, recipientPeerID, expectedSession)
+    } catch (e: Exception) {
+        Log.e(TAG, "Noise generation changed before encrypting for $recipientPeerID: ${e.message}")
+        null
+    }
     
     /**
      * Decrypt payload from specific peer
      */
-    fun decryptFromPeer(encryptedData: ByteArray, senderPeerID: String): ByteArray? {
+    fun decryptFromPeer(encryptedData: ByteArray, senderPeerID: String): NoiseDecryptionResult? {
         return try {
-            encryptionService.decrypt(encryptedData, senderPeerID)
+            encryptionService.decryptWithSession(encryptedData, senderPeerID)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to decrypt from $senderPeerID: ${e.message}")
             null
@@ -247,6 +268,14 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
                     encryptionService.verifyEd25519Signature(signature, data, key)
                 } ?: run {
                     Log.w(TAG, "Rejecting malformed, unbound, or invalidly signed ANNOUNCE from $peerID")
+                    return false
+                }
+
+                val persistedSigningKey = delegate?.getAuthenticatedSigningKey(announcement.noisePublicKey)
+                if (persistedSigningKey != null &&
+                    !persistedSigningKey.contentEquals(announcement.signingPublicKey)
+                ) {
+                    Log.w(TAG, "Rejecting ANNOUNCE Ed key that conflicts with authenticated peer state for $peerID")
                     return false
                 }
 
@@ -429,9 +458,11 @@ interface SecurityManagerDelegate {
     fun onKeyExchangeCompleted(
         peerID: String,
         authenticatedRemoteStaticKey: ByteArray,
+        authenticatedSessionToken: ByteArray,
         directRelayAddress: String?,
         ingressLinkID: String?
     )
     fun sendHandshakeResponse(peerID: String, response: ByteArray)
     fun getPeerInfo(peerID: String): PeerInfo? // NEW: For signature verification
+    fun getAuthenticatedSigningKey(noisePublicKey: ByteArray): ByteArray? = null
 }

@@ -10,6 +10,10 @@ import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 class NoiseSessionManagerIdentityBindingTest {
     private data class TestIdentity(
@@ -40,8 +44,12 @@ class NoiseSessionManagerIdentityBindingTest {
         assertArrayEquals(alice.publicKey, bobManager.getRemoteStaticKey(alice.peerID))
 
         val plaintext = "bound transport".toByteArray()
-        val ciphertext = aliceManager.encrypt(plaintext, bob.peerID)
-        assertArrayEquals(plaintext, bobManager.decrypt(ciphertext, alice.peerID))
+        val aliceSession = aliceManager.getAuthenticatedSession(bob.peerID)!!
+        val bobSession = bobManager.getAuthenticatedSession(alice.peerID)!!
+        val ciphertext = aliceManager.encryptForSession(plaintext, bob.peerID, aliceSession)
+        val decrypted = bobManager.decryptWithSession(ciphertext, alice.peerID)
+        assertArrayEquals(plaintext, decrypted.plaintext)
+        assertArrayEquals(bobSession.sessionToken, decrypted.authenticatedSession.sessionToken)
     }
 
     @Test
@@ -145,6 +153,7 @@ class NoiseSessionManagerIdentityBindingTest {
 
         completeHandshake(aliceManager, alice.peerID, originalBobManager, bob.peerID)
         val originalSession = aliceManager.getSession(bob.peerID)
+        val originalBinding = aliceManager.getAuthenticatedSession(bob.peerID)!!
 
         // Simulate Bob restarting with the same persistent static identity and no session state.
         val restartedBobManager = manager(bob)
@@ -157,10 +166,96 @@ class NoiseSessionManagerIdentityBindingTest {
         assertTrue(aliceManager.hasEstablishedSession(bob.peerID))
         assertArrayEquals(bob.publicKey, aliceManager.getRemoteStaticKey(bob.peerID))
         assertTrue(aliceAuthenticatedCallbacks == 2)
+        val replacementBinding = aliceManager.getAuthenticatedSession(bob.peerID)!!
+        assertFalse(originalBinding.sessionToken.contentEquals(replacementBinding.sessionToken))
+        try {
+            aliceManager.encryptForSession(
+                "stale generation".toByteArray(),
+                bob.peerID,
+                originalBinding
+            )
+            fail("Expected stale generation-bound encryption to be rejected")
+        } catch (_: NoiseSessionError.SessionGenerationChanged) {
+            // Expected.
+        }
 
         val plaintext = "replacement transport".toByteArray()
-        val ciphertext = restartedBobManager.encrypt(plaintext, alice.peerID)
+        val ciphertext = restartedBobManager.encryptForSession(
+            plaintext,
+            alice.peerID,
+            restartedBobManager.getAuthenticatedSession(alice.peerID)!!
+        )
         assertArrayEquals(plaintext, aliceManager.decrypt(ciphertext, bob.peerID))
+    }
+
+    @Test
+    fun `generation lease blocks replacement and rejects stale token afterward`() {
+        val alice = identity()
+        val bob = identity()
+        val aliceManager = manager(alice)
+        val originalBobManager = manager(bob)
+        completeHandshake(aliceManager, alice.peerID, originalBobManager, bob.peerID)
+        val originalBinding = aliceManager.getAuthenticatedSession(bob.peerID)!!
+
+        val restartedBobManager = manager(bob)
+        val message1 = restartedBobManager.initiateHandshake(alice.peerID)!!
+        val message2 = aliceManager.processHandshakeMessage(bob.peerID, message1)!!
+        val message3 = restartedBobManager.processHandshakeMessage(alice.peerID, message2)!!
+
+        val leaseEntered = CountDownLatch(1)
+        val releaseLease = CountDownLatch(1)
+        val replacementStarted = CountDownLatch(1)
+        val replacementCompleted = CountDownLatch(1)
+        val replacementFinished = AtomicBoolean(false)
+        val threadFailure = AtomicReference<Throwable?>(null)
+        val leaseThread = Thread {
+            try {
+                assertTrue(
+                    aliceManager.withAuthenticatedSession(bob.peerID, originalBinding) {
+                        leaseEntered.countDown()
+                        releaseLease.await(2, TimeUnit.SECONDS)
+                    }
+                )
+            } catch (error: Throwable) {
+                threadFailure.set(error)
+            }
+        }
+        val replacementThread = Thread {
+            try {
+                replacementStarted.countDown()
+                aliceManager.processHandshakeMessage(bob.peerID, message3)
+                replacementFinished.set(true)
+            } catch (error: Throwable) {
+                threadFailure.set(error)
+            } finally {
+                replacementCompleted.countDown()
+            }
+        }
+
+        leaseThread.start()
+        assertTrue(leaseEntered.await(1, TimeUnit.SECONDS))
+        replacementThread.start()
+        assertTrue(replacementStarted.await(1, TimeUnit.SECONDS))
+        try {
+            assertFalse(
+                "Replacement must wait while the old generation lease is active",
+                replacementCompleted.await(100, TimeUnit.MILLISECONDS)
+            )
+        } finally {
+            releaseLease.countDown()
+        }
+        leaseThread.join(2_000)
+        replacementThread.join(2_000)
+        assertTrue(replacementCompleted.await(1, TimeUnit.SECONDS))
+        threadFailure.get()?.let { throw it }
+        assertTrue(replacementFinished.get())
+
+        try {
+            aliceManager.encryptForSession(byteArrayOf(1), bob.peerID, originalBinding)
+            fail("Expected old token to be rejected after replacement")
+        } catch (_: NoiseSessionError.SessionGenerationChanged) {
+            // Expected.
+        }
     }
 
     @Test

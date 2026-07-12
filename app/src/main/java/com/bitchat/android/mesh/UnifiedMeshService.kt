@@ -358,6 +358,10 @@ class UnifiedMeshService(
         delegate?.didReceiveVerifyResponse(peerID, payload, timestampMs)
     }
 
+    override fun didResolvePrivateMediaPolicy(peerID: String) {
+        delegate?.didResolvePrivateMediaPolicy(peerID)
+    }
+
     override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {
         return delegate?.decryptChannelMessage(encryptedContent, channel)
     }

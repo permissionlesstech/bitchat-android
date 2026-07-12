@@ -131,7 +131,12 @@ class ChatViewModel(
     val verifiedFingerprints = verificationHandler.verifiedFingerprints
 
     // Media file sending manager
-    private val mediaSendingManager = MediaSendingManager(state, messageManager, channelManager) { mesh }
+    private val mediaSendingManager = MediaSendingManager(
+        state,
+        messageManager,
+        channelManager,
+        viewModelScope
+    ) { mesh }
     
     // Delegate handler for mesh callbacks
     private val meshDelegateHandler = MeshDelegateHandler(
@@ -930,6 +935,10 @@ class ChatViewModel(
 
     override fun didReceiveVerifyResponse(peerID: String, payload: ByteArray, timestampMs: Long) {
         verificationHandler.didReceiveVerifyResponse(peerID, payload)
+    }
+
+    override fun didResolvePrivateMediaPolicy(peerID: String) {
+        mediaSendingManager.retryPendingPrivateMedia(peerID)
     }
     
     override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {

@@ -1,6 +1,10 @@
 package com.bitchat.android.identity
 
 import android.content.Context
+import com.bitchat.android.model.AuthenticatedPeerState
+import com.bitchat.android.model.PeerCapabilities
+import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertEquals
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -33,18 +37,37 @@ class PrivateMediaCapabilityPinPersistenceTest {
     }
 
     @Test
-    fun `capability pin persists and panic identity wipe removes it`() {
-        manager.markPrivateMediaCapable(fingerprint)
+    fun `authenticated Ed key and capabilities persist rotate and clear atomically`() {
+        val firstKey = ByteArray(32) { 0x11 }
+        val rotatedKey = ByteArray(32) { 0x22 }
+        assertTrue(manager.storeAuthenticatedPeerState(
+            fingerprint,
+            AuthenticatedPeerState(PeerCapabilities.PRIVATE_MEDIA, firstKey)
+        ))
 
         val reloaded = SecureIdentityStateManager(prefs, testOnly = true)
+        assertArrayEquals(firstKey, reloaded.getAuthenticatedSigningKey(fingerprint))
+        assertEquals(
+            PeerCapabilities.PRIVATE_MEDIA,
+            reloaded.getAuthenticatedPeerState(fingerprint)?.capabilities
+        )
+        assertTrue(reloaded.isPrivateMediaCapable(fingerprint))
+
+        assertTrue(reloaded.storeAuthenticatedPeerState(
+            fingerprint,
+            AuthenticatedPeerState(PeerCapabilities.NONE, rotatedKey)
+        ))
+        assertArrayEquals(rotatedKey, reloaded.getAuthenticatedSigningKey(fingerprint))
+        // HSTS-style private-media history is not erased by a no-bit proof.
         assertTrue(reloaded.isPrivateMediaCapable(fingerprint))
 
         reloaded.clearIdentityData()
-        // Simulate an old BLE/Wi-Fi controller finishing a pre-panic callback
-        // after another manager performed the wipe.
-        manager.markPrivateMediaCapable(fingerprint)
+        assertFalse(manager.storeAuthenticatedPeerState(
+            fingerprint,
+            AuthenticatedPeerState(PeerCapabilities.PRIVATE_MEDIA, firstKey)
+        ))
         val afterPanic = SecureIdentityStateManager(prefs, testOnly = true)
+        assertEquals(null, afterPanic.getAuthenticatedPeerState(fingerprint))
         assertFalse(afterPanic.isPrivateMediaCapable(fingerprint))
-        assertTrue(afterPanic.getPrivateMediaCapabilityPinsForTesting().isEmpty())
     }
 }

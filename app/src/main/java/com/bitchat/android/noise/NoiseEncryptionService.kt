@@ -149,6 +149,15 @@ class NoiseEncryptionService(private val context: Context) {
     fun getPeerPublicKeyData(peerID: String): ByteArray? {
         return sessionManager.getRemoteStaticKey(peerID)
     }
+
+    fun getAuthenticatedSession(peerID: String): AuthenticatedNoiseSession? =
+        sessionManager.getAuthenticatedSession(peerID)
+
+    fun withAuthenticatedSession(
+        peerID: String,
+        expectedSession: AuthenticatedNoiseSession,
+        action: () -> Boolean
+    ): Boolean = sessionManager.withAuthenticatedSession(peerID, expectedSession, action)
     
     /**
      * Clear persistent identity (for panic mode)
@@ -247,6 +256,13 @@ class NoiseEncryptionService(private val context: Context) {
             null
         }
     }
+
+    @Throws(Exception::class)
+    fun encryptForSession(
+        data: ByteArray,
+        peerID: String,
+        expectedSession: AuthenticatedNoiseSession
+    ): ByteArray = sessionManager.encryptForSession(data, peerID, expectedSession)
     
     /**
      * Decrypt data from a specific peer using established Noise session
@@ -264,6 +280,14 @@ class NoiseEncryptionService(private val context: Context) {
             null
         }
     }
+
+    fun decryptWithSession(encryptedData: ByteArray, peerID: String): NoiseDecryptionResult? =
+        try {
+            sessionManager.decryptWithSession(encryptedData, peerID)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed generation-bound decryption from $peerID: ${e.message}")
+            null
+        }
     
     // MARK: - Peer Management
     

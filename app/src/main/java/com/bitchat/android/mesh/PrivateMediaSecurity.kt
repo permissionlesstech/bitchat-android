@@ -1,31 +1,15 @@
 package com.bitchat.android.mesh
 
-import android.content.Context
-import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.model.PeerCapabilities
-import java.security.MessageDigest
-
-internal interface PrivateMediaCapabilityPinStore {
-    fun contains(fingerprint: String): Boolean
-    fun insert(fingerprint: String)
-}
-
-internal class SecurePrivateMediaCapabilityPinStore(context: Context) :
-    PrivateMediaCapabilityPinStore {
-    private val identityState = SecureIdentityStateManager(context.applicationContext)
-
-    override fun contains(fingerprint: String): Boolean =
-        identityState.isPrivateMediaCapable(fingerprint)
-
-    override fun insert(fingerprint: String) {
-        identityState.markPrivateMediaCapable(fingerprint)
-    }
-}
+import com.bitchat.android.noise.AuthenticatedNoiseSession
 
 internal sealed interface PrivateMediaPolicyDecision {
-    data object Encrypted : PrivateMediaPolicyDecision
+    data class Encrypted(
+        val authenticatedSession: AuthenticatedNoiseSession
+    ) : PrivateMediaPolicyDecision
     data object RequiresLegacyConsent : PrivateMediaPolicyDecision
     data object NeedsHandshake : PrivateMediaPolicyDecision
+    data object AwaitingPeerState : PrivateMediaPolicyDecision
     data class Blocked(val reason: String) : PrivateMediaPolicyDecision
 }
 
@@ -35,71 +19,46 @@ internal sealed interface PrivateMediaPolicyDecision {
  * fingerprint. Announcements alone can never create a pin.
  */
 internal class PrivateMediaSecurityController(
-    private val peerInfoProvider: (String) -> PeerInfo?,
-    private val authenticatedRemoteStaticProvider: (String) -> ByteArray?,
-    private val pinStore: PrivateMediaCapabilityPinStore
+    private val authenticatedSessionProvider: (String) -> AuthenticatedNoiseSession?,
+    private val peerStateStatusProvider: (
+        String,
+        AuthenticatedNoiseSession
+    ) -> AuthenticatedPeerStateStatus,
+    private val isPrivateMediaPinned: (String) -> Boolean
 ) {
-    fun refreshAuthenticatedCapability(peerID: String): Boolean {
-        val remoteStatic = authenticatedRemoteStaticProvider(peerID)
-            ?.takeIf { it.size == 32 }
-            ?: return false
-        val peer = peerInfoProvider(peerID) ?: return false
-        if (!peer.hasVerifiedAnnouncement) return false
-        val announcedStatic = peer.verifiedAnnouncementNoisePublicKey ?: return false
-        if (!announcedStatic.contentEquals(remoteStatic)) return false
-        if (peer.capabilities?.contains(PeerCapabilities.PRIVATE_MEDIA) != true) return false
-
-        pinStore.insert(fingerprint(remoteStatic))
-        return true
-    }
-
     fun sendPolicy(peerID: String): PrivateMediaPolicyDecision {
-        val remoteStatic = authenticatedRemoteStaticProvider(peerID)
-            ?.takeIf { it.size == 32 }
+        val authenticatedSession = authenticatedSessionProvider(peerID)
+            ?.takeIf { it.remoteStaticKey.size == 32 && it.sessionToken.size == 32 }
             ?: return PrivateMediaPolicyDecision.NeedsHandshake
-        val authenticatedFingerprint = fingerprint(remoteStatic)
 
-        // Once a fingerprint has authenticated encrypted media support, never
-        // downgrade it because a later announce omits or clears the bit.
-        if (pinStore.contains(authenticatedFingerprint)) {
-            return PrivateMediaPolicyDecision.Encrypted
-        }
-
-        val peer = peerInfoProvider(peerID)
-            ?: return PrivateMediaPolicyDecision.Blocked(
-                "No signature-verified identity announcement is available"
-            )
-        if (!peer.hasVerifiedAnnouncement) {
-            return PrivateMediaPolicyDecision.Blocked(
-                "The peer identity announcement has not been verified"
-            )
-        }
-        val announcedStatic = peer.verifiedAnnouncementNoisePublicKey
-            ?: return PrivateMediaPolicyDecision.Blocked(
-                "The verified announcement did not contain a Noise identity"
-            )
-        if (!announcedStatic.contentEquals(remoteStatic)) {
-            return PrivateMediaPolicyDecision.Blocked(
-                "The authenticated Noise identity does not match the verified announcement"
-            )
-        }
-
-        return if (peer.capabilities?.contains(PeerCapabilities.PRIVATE_MEDIA) == true) {
-            pinStore.insert(authenticatedFingerprint)
-            PrivateMediaPolicyDecision.Encrypted
-        } else {
-            // Both a missing TLV and an explicitly empty bitfield are legacy.
-            PrivateMediaPolicyDecision.RequiresLegacyConsent
+        return when (val status = peerStateStatusProvider(peerID, authenticatedSession)) {
+            AuthenticatedPeerStateStatus.Awaiting -> PrivateMediaPolicyDecision.AwaitingPeerState
+            is AuthenticatedPeerStateStatus.Proven -> {
+                if (status.state.capabilities.contains(PeerCapabilities.PRIVATE_MEDIA)) {
+                    PrivateMediaPolicyDecision.Encrypted(authenticatedSession)
+                } else if (isPrivateMediaPinned(peerID)) {
+                    PrivateMediaPolicyDecision.Blocked(
+                        "Encrypted private media was previously pinned, but this session proved no support; send blocked"
+                    )
+                } else {
+                    PrivateMediaPolicyDecision.RequiresLegacyConsent
+                }
+            }
+            AuthenticatedPeerStateStatus.Missing ->
+                // A live crypto session can become visible just before its authenticated callback
+                // installs the coordinator generation. Never treat that gap as a watchdog timeout.
+                PrivateMediaPolicyDecision.AwaitingPeerState
+            AuthenticatedPeerStateStatus.TimedOut -> {
+                if (isPrivateMediaPinned(peerID)) {
+                    PrivateMediaPolicyDecision.Blocked(
+                        "Encrypted private media was previously pinned, but this session did not provide authenticated peer state"
+                    )
+                } else {
+                    // A Noise-capable old client that does not know 0x21 may use explicit one-shot
+                    // legacy consent after the five-second generation watchdog.
+                    PrivateMediaPolicyDecision.RequiresLegacyConsent
+                }
+            }
         }
     }
-
-    internal fun authenticatedFingerprint(peerID: String): String? =
-        authenticatedRemoteStaticProvider(peerID)
-            ?.takeIf { it.size == 32 }
-            ?.let(::fingerprint)
-
-    private fun fingerprint(publicKey: ByteArray): String =
-        MessageDigest.getInstance("SHA-256")
-            .digest(publicKey)
-            .joinToString("") { "%02x".format(it) }
 }

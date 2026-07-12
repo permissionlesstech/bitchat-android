@@ -12,6 +12,9 @@ import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 data class LegacyPrivateMediaConsentRequest(
     val requestId: String,
@@ -28,6 +31,7 @@ class MediaSendingManager(
     private val state: ChatState,
     private val messageManager: MessageManager,
     private val channelManager: ChannelManager,
+    private val scope: CoroutineScope,
     private val getMeshService: () -> MeshService
 ) {
     // Helper to get current mesh service (may change after panic clear)
@@ -36,6 +40,7 @@ class MediaSendingManager(
     companion object {
         private const val TAG = "MediaSendingManager"
         private const val MAX_FILE_SIZE = com.bitchat.android.util.AppConstants.Media.MAX_FILE_SIZE_BYTES // 50MB limit
+        private const val PENDING_PRIVATE_MEDIA_TIMEOUT_MS = 15_000L
     }
 
     // Track in-flight transfer progress: transferId -> messageId and reverse
@@ -56,6 +61,21 @@ class MediaSendingManager(
     )
 
     private var pendingPrivateMedia: PendingPrivateMedia? = null
+
+    private data class PendingAutomaticPrivateMedia(
+        val requestId: String,
+        val peerID: String,
+        val filePacket: BitchatFilePacket,
+        val filePath: String,
+        val messageType: BitchatMessageType,
+        val transferId: String,
+        val allowLegacyFallback: Boolean
+    )
+
+    private var pendingAutomaticPrivateMedia: PendingAutomaticPrivateMedia? = null
+    private var evaluatingAutomaticRequestId: String? = null
+    private var automaticRetryRequestedFor: String? = null
+    private var pendingAutomaticTimeoutRequestId: String? = null
 
     /**
      * Send a voice note (audio file)
@@ -213,61 +233,23 @@ class MediaSendingManager(
 
         Log.d(TAG, "📤 FILE_TRANSFER send (private): name='${filePacket.fileName}', size=${filePacket.fileSize}, mime='${filePacket.mimeType}', sha256=$contentHash, to=${toPeerID.take(8)} transferId=${transferId.take(16)}…")
 
-        when (val preparation = meshService.prepareFilePrivate(
-            recipientPeerID = toPeerID,
-            file = filePacket,
+        val pending = PendingAutomaticPrivateMedia(
+            requestId = UUID.randomUUID().toString(),
+            peerID = toPeerID,
+            filePacket = filePacket,
+            filePath = filePath,
+            messageType = messageType,
             transferId = transferId,
             allowLegacyFallback = false
-        )) {
-            is PrivateMediaPreparation.Ready -> commitPreparedPrivateFile(
-                preparation = preparation,
-                toPeerID = toPeerID,
-                filePath = filePath,
-                messageType = messageType,
-                transferId = transferId
+        )
+        if (!reserveAutomaticPending(pending)) {
+            addPrivateMediaSystemMessage(
+                toPeerID,
+                "Private media was not sent because another secure media send is still pending."
             )
-
-            is PrivateMediaPreparation.RequiresLegacyConsent -> {
-                val nickname = try {
-                    meshService.getPeerNicknames()[toPeerID]
-                } catch (_: Exception) {
-                    null
-                } ?: toPeerID.take(8)
-                val request = LegacyPrivateMediaConsentRequest(
-                    requestId = UUID.randomUUID().toString(),
-                    recipientNickname = nickname,
-                    fileName = filePacket.fileName,
-                    warning = preparation.warning
-                )
-                synchronized(pendingConsentLock) {
-                    if (pendingPrivateMedia != null) {
-                        Log.w(TAG, "A legacy private-media consent prompt is already pending")
-                        return
-                    }
-                    pendingPrivateMedia = PendingPrivateMedia(
-                        request,
-                        toPeerID,
-                        filePacket,
-                        filePath,
-                        messageType,
-                        transferId
-                    )
-                    _legacyPrivateMediaConsent.value = request
-                }
-            }
-
-            PrivateMediaPreparation.NeedsHandshake -> {
-                Log.i(TAG, "Private media needs a Noise handshake; initiating now, with no local echo")
-                try {
-                    meshService.initiateNoiseHandshake(toPeerID)
-                } catch (e: Exception) {
-                    Log.w(TAG, "Could not initiate private-media Noise handshake: ${e.message}")
-                }
-            }
-
-            is PrivateMediaPreparation.Rejected ->
-                Log.w(TAG, "Private media not sent: ${preparation.reason}")
+            return
         }
+        evaluateAutomaticPending(pending)
     }
 
     /**
@@ -277,32 +259,23 @@ class MediaSendingManager(
      */
     fun approveLegacyPrivateMedia(requestId: String) {
         val pending = consumePendingConsent(requestId) ?: return
-        when (val preparation = meshService.prepareFilePrivate(
-            recipientPeerID = pending.peerID,
-            file = pending.filePacket,
+        val automatic = PendingAutomaticPrivateMedia(
+            requestId = UUID.randomUUID().toString(),
+            peerID = pending.peerID,
+            filePacket = pending.filePacket,
+            filePath = pending.filePath,
+            messageType = pending.messageType,
             transferId = pending.transferId,
             allowLegacyFallback = true
-        )) {
-            is PrivateMediaPreparation.Ready -> commitPreparedPrivateFile(
-                preparation,
+        )
+        if (!reserveAutomaticPending(automatic)) {
+            addPrivateMediaSystemMessage(
                 pending.peerID,
-                pending.filePath,
-                pending.messageType,
-                pending.transferId
+                "Private media was not sent because another secure media send is still pending."
             )
-            is PrivateMediaPreparation.RequiresLegacyConsent ->
-                Log.w(TAG, "Legacy consent was consumed but policy still requested consent; send aborted")
-            PrivateMediaPreparation.NeedsHandshake -> {
-                Log.i(TAG, "Noise session disappeared before consent approval; initiating a new handshake")
-                try {
-                    meshService.initiateNoiseHandshake(pending.peerID)
-                } catch (e: Exception) {
-                    Log.w(TAG, "Could not re-initiate private-media Noise handshake: ${e.message}")
-                }
-            }
-            is PrivateMediaPreparation.Rejected ->
-                Log.w(TAG, "Private media policy changed before approval: ${preparation.reason}")
+            return
         }
+        evaluateAutomaticPending(automatic)
     }
 
     fun cancelLegacyPrivateMedia(requestId: String) {
@@ -312,8 +285,219 @@ class MediaSendingManager(
     fun clearPendingPrivateMediaConsent() {
         synchronized(pendingConsentLock) {
             pendingPrivateMedia = null
+            pendingAutomaticPrivateMedia = null
+            evaluatingAutomaticRequestId = null
+            automaticRetryRequestedFor = null
+            pendingAutomaticTimeoutRequestId = null
             _legacyPrivateMediaConsent.value = null
         }
+    }
+
+    /** Retry the exact first-send intent after peer-state proof or watchdog resolution. */
+    fun retryPendingPrivateMedia(peerID: String) {
+        scope.launch { retryPendingPrivateMediaOnScope(peerID) }
+    }
+
+    private fun retryPendingPrivateMediaOnScope(peerID: String) {
+        val pending = synchronized(pendingConsentLock) {
+            pendingAutomaticPrivateMedia
+                ?.takeIf { it.peerID == peerID }
+        } ?: return
+        evaluateAutomaticPending(pending)
+    }
+
+    private fun evaluateAutomaticPending(pending: PendingAutomaticPrivateMedia) {
+        val acquired = synchronized(pendingConsentLock) {
+            if (pendingAutomaticPrivateMedia?.requestId != pending.requestId) {
+                return@synchronized false
+            }
+            if (evaluatingAutomaticRequestId == pending.requestId) {
+                automaticRetryRequestedFor = pending.requestId
+                return@synchronized false
+            }
+            evaluatingAutomaticRequestId = pending.requestId
+            true
+        }
+        if (!acquired) return
+
+        while (true) {
+            val preparation = try {
+                meshService.prepareFilePrivate(
+                    recipientPeerID = pending.peerID,
+                    file = pending.filePacket,
+                    transferId = pending.transferId,
+                    allowLegacyFallback = pending.allowLegacyFallback
+                )
+            } catch (error: Exception) {
+                PrivateMediaPreparation.Rejected(
+                    error.message ?: "Secure private-media preparation failed"
+                )
+            }
+            val stillCurrent = synchronized(pendingConsentLock) {
+                pendingAutomaticPrivateMedia?.requestId == pending.requestId
+            }
+            if (stillCurrent) handlePrivatePreparation(preparation, pending)
+
+            val rerun = synchronized(pendingConsentLock) {
+                if (evaluatingAutomaticRequestId == pending.requestId) {
+                    evaluatingAutomaticRequestId = null
+                }
+                val requested = automaticRetryRequestedFor == pending.requestId &&
+                    pendingAutomaticPrivateMedia?.requestId == pending.requestId
+                if (automaticRetryRequestedFor == pending.requestId) {
+                    automaticRetryRequestedFor = null
+                }
+                if (requested) evaluatingAutomaticRequestId = pending.requestId
+                requested
+            }
+            if (!rerun) return
+        }
+    }
+
+    private fun handlePrivatePreparation(
+        preparation: PrivateMediaPreparation,
+        pending: PendingAutomaticPrivateMedia
+    ) {
+        when (preparation) {
+            is PrivateMediaPreparation.Ready -> {
+                clearAutomaticPending(pending.requestId)
+                commitPreparedPrivateFile(
+                    preparation,
+                    pending.peerID,
+                    pending.filePath,
+                    pending.messageType,
+                    pending.transferId
+                )
+            }
+
+            is PrivateMediaPreparation.RequiresLegacyConsent -> {
+                clearAutomaticPending(pending.requestId)
+                if (pending.allowLegacyFallback) {
+                    Log.w(TAG, "Legacy consent was consumed but policy still requested consent; send aborted")
+                    addPrivateMediaSystemMessage(
+                        pending.peerID,
+                        "Private media was not sent because its security policy changed."
+                    )
+                    return
+                }
+                val nickname = try {
+                    meshService.getPeerNicknames()[pending.peerID]
+                } catch (_: Exception) {
+                    null
+                } ?: pending.peerID.take(8)
+                val request = LegacyPrivateMediaConsentRequest(
+                    requestId = UUID.randomUUID().toString(),
+                    recipientNickname = nickname,
+                    fileName = pending.filePacket.fileName,
+                    warning = preparation.warning
+                )
+                synchronized(pendingConsentLock) {
+                    if (pendingPrivateMedia != null) {
+                        Log.w(TAG, "A legacy private-media consent prompt is already pending")
+                        return
+                    }
+                    pendingPrivateMedia = PendingPrivateMedia(
+                        request,
+                        pending.peerID,
+                        pending.filePacket,
+                        pending.filePath,
+                        pending.messageType,
+                        pending.transferId
+                    )
+                    _legacyPrivateMediaConsent.value = request
+                }
+            }
+
+            PrivateMediaPreparation.NeedsHandshake -> {
+                ensureAutomaticPendingTimeout(pending)
+                Log.i(TAG, "Private media needs a Noise handshake; retaining first-send intent")
+                try {
+                    meshService.initiateNoiseHandshake(pending.peerID)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Could not initiate private-media Noise handshake: ${e.message}")
+                }
+            }
+
+            PrivateMediaPreparation.AwaitingPeerState -> {
+                ensureAutomaticPendingTimeout(pending)
+                Log.i(TAG, "Private media is waiting for authenticated peer state; first-send intent retained")
+            }
+
+            is PrivateMediaPreparation.Rejected -> {
+                clearAutomaticPending(pending.requestId)
+                Log.w(TAG, "Private media not sent: ${preparation.reason}")
+                addPrivateMediaSystemMessage(
+                    pending.peerID,
+                    "Private media was not sent: ${preparation.reason}"
+                )
+            }
+        }
+    }
+
+    private fun reserveAutomaticPending(pending: PendingAutomaticPrivateMedia): Boolean =
+        synchronized(pendingConsentLock) {
+            if (pendingAutomaticPrivateMedia != null) return@synchronized false
+            pendingAutomaticPrivateMedia = pending
+            true
+        }
+
+    private fun ensureAutomaticPendingTimeout(pending: PendingAutomaticPrivateMedia) {
+        val shouldStart = synchronized(pendingConsentLock) {
+            if (pendingAutomaticPrivateMedia?.requestId != pending.requestId ||
+                pendingAutomaticTimeoutRequestId == pending.requestId
+            ) return@synchronized false
+            pendingAutomaticTimeoutRequestId = pending.requestId
+            true
+        }
+        if (!shouldStart) return
+        scope.launch {
+            delay(PENDING_PRIVATE_MEDIA_TIMEOUT_MS)
+            val expired = synchronized(pendingConsentLock) {
+                if (pendingAutomaticPrivateMedia?.requestId != pending.requestId) false
+                else {
+                    pendingAutomaticPrivateMedia = null
+                    if (automaticRetryRequestedFor == pending.requestId) {
+                        automaticRetryRequestedFor = null
+                    }
+                    if (pendingAutomaticTimeoutRequestId == pending.requestId) {
+                        pendingAutomaticTimeoutRequestId = null
+                    }
+                    true
+                }
+            }
+            if (expired) {
+                addPrivateMediaSystemMessage(
+                    pending.peerID,
+                    "Private media was not sent because secure session setup timed out."
+                )
+            }
+        }
+    }
+
+    private fun clearAutomaticPending(requestId: String) {
+        synchronized(pendingConsentLock) {
+            if (pendingAutomaticPrivateMedia?.requestId == requestId) {
+                pendingAutomaticPrivateMedia = null
+            }
+            if (automaticRetryRequestedFor == requestId) automaticRetryRequestedFor = null
+            if (pendingAutomaticTimeoutRequestId == requestId) {
+                pendingAutomaticTimeoutRequestId = null
+            }
+        }
+    }
+
+    private fun addPrivateMediaSystemMessage(peerID: String, text: String) {
+        messageManager.addPrivateMessageNoUnread(
+            peerID,
+            BitchatMessage(
+                sender = "system",
+                content = text,
+                timestamp = Date(),
+                isRelay = false,
+                isPrivate = true,
+                senderPeerID = peerID
+            )
+        )
     }
 
     private fun consumePendingConsent(requestId: String): PendingPrivateMedia? {
@@ -369,6 +553,10 @@ class MediaSendingManager(
                 messageTransferMap.remove(msg.id)
             }
             Log.w(TAG, "Prepared private-media commit failed; local echo rolled back")
+            addPrivateMediaSystemMessage(
+                toPeerID,
+                "Private media was not sent because the prepared transfer could not be committed."
+            )
             return
         }
         Log.d(TAG, "✅ Private media committed using ${preparation.transfer.wireMode}")

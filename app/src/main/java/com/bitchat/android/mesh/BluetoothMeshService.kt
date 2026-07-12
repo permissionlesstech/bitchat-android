@@ -4,6 +4,8 @@ import android.content.Context
 import android.util.Log
 import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.model.AuthenticatedPeerState
+import com.bitchat.android.model.PeerCapabilities
 import com.bitchat.android.protocol.MessagePadding
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.model.IdentityAnnouncement
@@ -50,18 +52,53 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     val myPeerID: String = encryptionService.getIdentityFingerprint().take(16)
     private val peerManager = PeerManager()
     private val fragmentManager = FragmentManager()
-    private val privateMediaSecurity = PrivateMediaSecurityController(
-        peerInfoProvider = peerManager::getPeerInfo,
-        authenticatedRemoteStaticProvider = encryptionService::getAuthenticatedRemoteStaticKey,
-        pinStore = SecurePrivateMediaCapabilityPinStore(context)
-    )
+    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val authenticatedPeerStateStore = SecureAuthenticatedPeerStateStore(context)
+    private val authenticatedPeerState by lazy {
+        AuthenticatedPeerStateCoordinator(
+            scope = serviceScope,
+            authenticatedSessionProvider = encryptionService::getAuthenticatedSession,
+            withAuthenticatedSession = encryptionService::withAuthenticatedSession,
+            store = authenticatedPeerStateStore,
+            localStateProvider = {
+                AuthenticatedPeerState(
+                    PeerCapabilities.LOCAL_SUPPORTED,
+                    requireNotNull(encryptionService.getSigningPublicKey())
+                )
+            },
+            applyAuthenticatedState = peerManager::applyAuthenticatedPeerState,
+            sendState = ::sendAuthenticatedPeerState,
+            onResolution = { peerID -> delegate?.didResolvePrivateMediaPolicy(peerID) }
+        )
+    }
+    private val privateMediaSecurity by lazy { PrivateMediaSecurityController(
+        authenticatedSessionProvider = encryptionService::getAuthenticatedSession,
+        peerStateStatusProvider = authenticatedPeerState::status,
+        isPrivateMediaPinned = authenticatedPeerState::isPrivateMediaPinned
+    ) }
     private val privateMediaPreparer by lazy {
         PrivateMediaTransferPreparer(
             senderID = hexStringToByteArray(myPeerID),
             ttl = MAX_TTL,
             policyProvider = privateMediaSecurity::sendPolicy,
-            encrypt = { plaintext, peerID ->
-                runCatching { encryptionService.encrypt(plaintext, peerID) }.getOrNull()
+            encrypt = { plaintext, peerID, authenticatedSession ->
+                try {
+                    PrivateMediaEncryptionResult.Success(
+                        encryptionService.encryptForSession(
+                            plaintext,
+                            peerID,
+                            authenticatedSession
+                        )
+                    )
+                } catch (_: com.bitchat.android.noise.NoiseSessionError.SessionGenerationChanged) {
+                    PrivateMediaEncryptionResult.GenerationChanged
+                } catch (_: com.bitchat.android.noise.NoiseSessionError.SessionNotFound) {
+                    PrivateMediaEncryptionResult.GenerationChanged
+                } catch (_: com.bitchat.android.noise.NoiseSessionError.SessionNotEstablished) {
+                    PrivateMediaEncryptionResult.GenerationChanged
+                } catch (_: Exception) {
+                    PrivateMediaEncryptionResult.Failed
+                }
             },
             finalizeRoutedAndSigned = ::routeAndSignPrivateMediaStrict,
             fragment = fragmentManager::createFragments
@@ -87,7 +124,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     var delegate: BluetoothMeshDelegate? = null
     
     // Coroutines
-    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var announceJob: Job? = null
     // Tracks whether this instance has been terminated via stopServices()
     private var terminated = false
@@ -218,6 +254,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 delegate?.didUpdatePeerList(peerIDs)
             }
             override fun onPeerRemoved(peerID: String) {
+                authenticatedPeerState.clear(peerID)
                 try { gossipSyncManager.removeAnnouncementForPeer(peerID) } catch (_: Exception) { }
                 // Remove from mesh graph topology to prevent routing through stale peers
                 try { com.bitchat.android.services.meshgraph.MeshGraphService.getInstance().removePeer(peerID) } catch (_: Exception) { }
@@ -237,9 +274,15 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             override fun onKeyExchangeCompleted(
                 peerID: String,
                 authenticatedRemoteStaticKey: ByteArray,
+                authenticatedSessionToken: ByteArray,
                 directRelayAddress: String?,
                 ingressLinkID: String?
             ) {
+                authenticatedPeerState.onSessionAuthenticated(
+                    peerID,
+                    authenticatedRemoteStaticKey,
+                    authenticatedSessionToken
+                )
                 // Send announcement and cached messages after key exchange
                 serviceScope.launch {
                     Log.d(TAG, "Key exchange completed with $peerID; sending follow-ups")
@@ -271,6 +314,9 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             override fun getPeerInfo(peerID: String): PeerInfo? {
                 return peerManager.getPeerInfo(peerID)
             }
+
+            override fun getAuthenticatedSigningKey(noisePublicKey: ByteArray): ByteArray? =
+                authenticatedPeerState.persistedSigningKeyFor(noisePublicKey)
         }
         
         // StoreForwardManager delegates
@@ -330,10 +376,6 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 )
             }
 
-            override fun onVerifiedAnnouncementProcessed(peerID: String) {
-                privateMediaSecurity.refreshAuthenticatedCapability(peerID)
-            }
-            
             // Packet operations
             override fun sendPacket(packet: BitchatPacket) {
                 // Sign the packet before broadcasting
@@ -358,13 +400,19 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 return securityManager.encryptForPeer(data, recipientPeerID)
             }
             
-            override fun decryptFromPeer(encryptedData: ByteArray, senderPeerID: String): ByteArray? {
+            override fun decryptFromPeer(
+                encryptedData: ByteArray,
+                senderPeerID: String
+            ): com.bitchat.android.noise.NoiseDecryptionResult? {
                 return securityManager.decryptFromPeer(encryptedData, senderPeerID)
             }
             
             override fun verifyEd25519Signature(signature: ByteArray, data: ByteArray, publicKey: ByteArray): Boolean {
                 return encryptionService.verifyEd25519Signature(signature, data, publicKey)
             }
+
+            override fun getAuthenticatedSigningKey(noisePublicKey: ByteArray): ByteArray? =
+                authenticatedPeerState.persistedSigningKeyFor(noisePublicKey)
             
             // Noise protocol operations
             override fun hasNoiseSession(peerID: String): Boolean {
@@ -407,6 +455,14 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                     Log.e(TAG, "Failed to process handshake message from $peerID: ${e.message}")
                     null
                 }
+            }
+
+            override fun onAuthenticatedPeerStateReceived(
+                peerID: String,
+                state: AuthenticatedPeerState,
+                authenticatedSession: com.bitchat.android.noise.AuthenticatedNoiseSession
+            ) {
+                authenticatedPeerState.receive(peerID, state, authenticatedSession)
             }
             
             // Message operations  
@@ -786,6 +842,32 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
     /**
      * Send a file over mesh as a broadcast MESSAGE (public mesh timeline/channels).
      */
+    private fun sendAuthenticatedPeerState(
+        peerID: String,
+        state: AuthenticatedPeerState,
+        authenticatedSession: com.bitchat.android.noise.AuthenticatedNoiseSession
+    ): Boolean {
+        val plaintext = NoisePayload(NoisePayloadType.PEER_STATE, state.encode()).encode()
+        val ciphertext = securityManager.encryptForPeer(
+            plaintext,
+            peerID,
+            authenticatedSession
+        ) ?: return false
+        val packet = BitchatPacket(
+            version = if (ciphertext.size > 0xFFFF) 2u else 1u,
+            type = MessageType.NOISE_ENCRYPTED.value,
+            senderID = hexStringToByteArray(myPeerID),
+            recipientID = hexStringToByteArray(peerID),
+            timestamp = System.currentTimeMillis().toULong(),
+            payload = ciphertext,
+            ttl = MAX_TTL
+        )
+        val signed = signPacketBeforeBroadcast(packet)
+        if (signed.signature?.size != 64) return false
+        broadcastRoutedPacket(RoutedPacket(signed))
+        return true
+    }
+
     fun sendFileBroadcast(file: com.bitchat.android.model.BitchatFilePacket) {
         try {
             Log.d(TAG, "📤 sendFileBroadcast: name=${file.fileName}, size=${file.fileSize}")
@@ -834,6 +916,7 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 Log.i(TAG, "Private media needs a Noise handshake; initiating without sending")
                 initiateNoiseHandshake(recipientPeerID)
             }
+            PrivateMediaPreparation.AwaitingPeerState -> Unit
             is PrivateMediaPreparation.Rejected ->
                 Log.w(TAG, "Private media blocked: ${prepared.reason}")
         }
@@ -855,6 +938,8 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
                 PrivateMediaPreparation.RequiresLegacyConsent(outcome.warning)
             PrivateMediaBuildOutcome.NeedsHandshake ->
                 PrivateMediaPreparation.NeedsHandshake
+            PrivateMediaBuildOutcome.AwaitingPeerState ->
+                PrivateMediaPreparation.AwaitingPeerState
             is PrivateMediaBuildOutcome.Rejected ->
                 PrivateMediaPreparation.Rejected(outcome.reason)
             is PrivateMediaBuildOutcome.Ready -> {
