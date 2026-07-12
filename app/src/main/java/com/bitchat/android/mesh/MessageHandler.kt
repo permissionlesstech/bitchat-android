@@ -3,7 +3,6 @@ package com.bitchat.android.mesh
 import android.util.Log
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
-import com.bitchat.android.model.IdentityAnnouncement
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
@@ -12,6 +11,11 @@ import com.bitchat.android.util.toHexString
 import kotlinx.coroutines.*
 import java.util.*
 import kotlin.random.Random
+
+sealed class AnnounceHandlingResult {
+    data class Accepted(val isFirst: Boolean) : AnnounceHandlingResult()
+    object Rejected : AnnounceHandlingResult()
+}
 
 /**
  * Handles processing of different message types
@@ -216,10 +220,14 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
      * Handle announce message with TLV decoding and signature verification - exactly like iOS
      */
     suspend fun handleAnnounce(routed: RoutedPacket): Boolean {
+        return (handleAnnounceWithResult(routed) as? AnnounceHandlingResult.Accepted)?.isFirst ?: false
+    }
+
+    suspend fun handleAnnounceWithResult(routed: RoutedPacket): AnnounceHandlingResult {
         val packet = routed.packet
         val peerID = routed.peerID ?: "unknown"
 
-        if (peerID == myPeerID) return false
+        if (peerID == myPeerID) return AnnounceHandlingResult.Rejected
 
         // Peers use wall-clock packet timestamps; tolerate moderate device clock skew
         // during identity learning, or later signed messages cannot be verified.
@@ -227,27 +235,20 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         val clockSkewMs = kotlin.math.abs(now - packet.timestamp.toLong())
         if (clockSkewMs > ANNOUNCE_CLOCK_SKEW_TOLERANCE_MS) {
             Log.w(TAG, "Ignoring ANNOUNCE from ${peerID.take(8)} with excessive clock skew (${clockSkewMs}ms > ${ANNOUNCE_CLOCK_SKEW_TOLERANCE_MS}ms)")
-            return false
+            return AnnounceHandlingResult.Rejected
         } else if (clockSkewMs > com.bitchat.android.util.AppConstants.Mesh.STALE_PEER_TIMEOUT_MS) {
             Log.w(TAG, "Accepting ANNOUNCE from ${peerID.take(8)} within clock skew tolerance (${clockSkewMs}ms)")
         }
         
-        // Try to decode as iOS-compatible IdentityAnnouncement with TLV format
-        val announcement = IdentityAnnouncement.decode(packet.payload)
+        val announcement = AnnouncementIdentityValidator.verify(packet, peerID) { signature, data, key ->
+            delegate?.verifyEd25519Signature(signature, data, key) ?: false
+        }
         if (announcement == null) {
-            Log.w(TAG, "Failed to decode announce from $peerID as iOS-compatible TLV format")
-            return false
+            Log.w(TAG, "Rejecting malformed, unbound, or invalidly signed ANNOUNCE from ${peerID.take(8)}")
+            return AnnounceHandlingResult.Rejected
         }
-        
-        // Verify packet signature using the announced signing public key
-        var verified = false
-        if (packet.signature != null) {
-            // Verify that the packet was signed by the signing private key corresponding to the announced signing public key
-            verified = delegate?.verifyEd25519Signature(packet.signature!!, packet.toBinaryDataForSigning()!!, announcement.signingPublicKey) ?: false
-            if (!verified) {
-                Log.w(TAG, "⚠️ Signature verification for announce failed ${peerID.take(8)}")
-            }
-        }
+
+        var verified = true
 
         // Check for existing peer with different noise public key
         // If existing peer has a different noise public key, do not consider this verified
@@ -258,10 +259,21 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
             verified = false
         }
 
+        if (
+            existingPeer?.signingPublicKey != null &&
+            !existingPeer.signingPublicKey!!.contentEquals(announcement.signingPublicKey)
+        ) {
+            Log.w(
+                TAG,
+                "Rejecting signing-key replacement for ${peerID.take(8)} without authenticated peer-state proof"
+            )
+            verified = false
+        }
+
         // Require verified announce; ignore otherwise (no backward compatibility)
         if (!verified) {
             Log.w(TAG, "❌ Ignoring unverified announce from ${peerID.take(8)}...")
-            return false
+            return AnnounceHandlingResult.Rejected
         }
         
         // Successfully decoded TLV format exactly like iOS
@@ -283,14 +295,6 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
             isVerified = true
         ) ?: false
 
-        // Update peer ID binding with noise public key for identity management
-        delegate?.updatePeerIDBinding(
-            newPeerID = peerID,
-            nickname = nickname,
-            publicKey = noisePublicKey,
-            previousPeerID = null
-        )
-        
         // Update mesh graph from gossip neighbors (only if TLV present)
         try {
             val neighborsOrNull = com.bitchat.android.services.meshgraph.GossipTLV.decodeNeighborsFromAnnouncementPayload(packet.payload)
@@ -299,7 +303,7 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         } catch (_: Exception) { }
 
         Log.d(TAG, "✅ Processed verified TLV announce: stored identity for $peerID")
-        return isFirstAnnounce
+        return AnnounceHandlingResult.Accepted(isFirstAnnounce)
     }
     
     /**
@@ -621,8 +625,6 @@ interface MessageHandlerDelegate {
     fun hasNoiseSession(peerID: String): Boolean
     fun initiateNoiseHandshake(peerID: String)
     fun processNoiseHandshakeMessage(payload: ByteArray, peerID: String): ByteArray?
-    fun updatePeerIDBinding(newPeerID: String, nickname: String,
-                           publicKey: ByteArray, previousPeerID: String?)
     
     // Message operations
     fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String?

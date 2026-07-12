@@ -41,8 +41,8 @@ class MeshCore(
 ) {
     data class Hooks(
         val onMessageReceived: ((BitchatMessage) -> Unit)? = null,
-        val onPeerIdBindingUpdated: ((String, String, ByteArray, String?) -> Unit)? = null,
         val onAnnounceProcessed: ((RoutedPacket, Boolean) -> Unit)? = null,
+        val onDirectNoiseAuthenticated: ((String, String, String, ByteArray) -> Unit)? = null,
         val readReceiptInterceptor: ((String, String) -> Boolean)? = null,
         val onReadReceiptSent: ((String) -> Unit)? = null,
         val announcementNicknameProvider: (() -> String?)? = null,
@@ -117,8 +117,20 @@ class MeshCore(
         packetProcessor.shutdown()
     }
 
-    fun processIncoming(packet: BitchatPacket, peerID: String?, relayAddress: String?) {
-        packetProcessor.processPacket(RoutedPacket(packet, peerID, relayAddress))
+    fun processIncoming(
+        packet: BitchatPacket,
+        peerID: String?,
+        relayAddress: String?,
+        ingressLinkID: String? = null
+    ) {
+        packetProcessor.processPacket(
+            RoutedPacket(
+                packet = packet,
+                peerID = peerID,
+                relayAddress = relayAddress,
+                ingressLinkID = ingressLinkID
+            )
+        )
     }
 
     fun sendFromBridge(packet: RoutedPacket) {
@@ -157,7 +169,20 @@ class MeshCore(
         }
 
         securityManager.delegate = object : SecurityManagerDelegate {
-            override fun onKeyExchangeCompleted(peerID: String, peerPublicKeyData: ByteArray) {
+            override fun onKeyExchangeCompleted(
+                peerID: String,
+                authenticatedRemoteStaticKey: ByteArray,
+                directRelayAddress: String?,
+                ingressLinkID: String?
+            ) {
+                if (directRelayAddress != null && ingressLinkID != null) {
+                    hooks.onDirectNoiseAuthenticated?.invoke(
+                        peerID,
+                        directRelayAddress,
+                        ingressLinkID,
+                        authenticatedRemoteStaticKey
+                    )
+                }
                 scope.launch {
                     delay(100)
                     sendAnnouncementToPeer(peerID)
@@ -280,19 +305,6 @@ class MeshCore(
                 }
             }
 
-            override fun updatePeerIDBinding(
-                newPeerID: String,
-                nickname: String,
-                publicKey: ByteArray,
-                previousPeerID: String?
-            ) {
-                peerManager.addOrUpdatePeer(newPeerID, nickname)
-                val fingerprint = peerManager.storeFingerprintForPeer(newPeerID, publicKey)
-                previousPeerID?.let { peerManager.removePeer(it) }
-                Log.d("MeshCore", "Updated peer ID binding: $newPeerID fp=${fingerprint.take(16)}")
-                hooks.onPeerIdBindingUpdated?.invoke(newPeerID, nickname, publicKey, previousPeerID)
-            }
-
             override fun decryptChannelMessage(encryptedContent: ByteArray, channel: String): String? {
                 return delegate?.decryptChannelMessage(encryptedContent, channel)
             }
@@ -352,12 +364,12 @@ class MeshCore(
                 scope.launch { messageHandler.handleNoiseEncrypted(routed) }
             }
 
-            override fun handleAnnounce(routed: RoutedPacket) {
-                scope.launch {
-                    val isFirst = messageHandler.handleAnnounce(routed)
-                    hooks.onAnnounceProcessed?.invoke(routed, isFirst)
-                    try { gossipSyncManager.onPublicPacketSeen(routed.packet) } catch (_: Exception) { }
-                }
+            override suspend fun handleAnnounce(routed: RoutedPacket): Boolean {
+                val result = messageHandler.handleAnnounceWithResult(routed)
+                if (result !is AnnounceHandlingResult.Accepted) return false
+                hooks.onAnnounceProcessed?.invoke(routed, result.isFirst)
+                try { gossipSyncManager.onPublicPacketSeen(routed.packet) } catch (_: Exception) { }
+                return true
             }
 
             override fun handleMessage(routed: RoutedPacket) {

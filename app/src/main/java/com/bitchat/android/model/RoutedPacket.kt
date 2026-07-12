@@ -10,5 +10,8 @@ data class RoutedPacket(
     val packet: BitchatPacket,
     val peerID: String? = null,           // Who sent it (parsed from packet.senderID)
     val relayAddress: String? = null,     // Address it came from (for avoiding loopback)
-    val transferId: String? = null        // Optional stable transfer ID for progress tracking
+    val transferId: String? = null,       // Optional stable transfer ID for progress tracking
+    // Opaque, process-local ingress identity. Unlike relayAddress, this distinguishes replacement
+    // sockets for the same provisional peer and must never be serialized onto the mesh.
+    val ingressLinkID: String? = null
 )

@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.bitchat.android.noise.NoiseEncryptionService
+import com.bitchat.android.noise.NoiseHandshakeProcessingResult
 import org.bouncycastle.crypto.AsymmetricCipherKeyPair
 import org.bouncycastle.crypto.generators.Ed25519KeyPairGenerator
 import org.bouncycastle.crypto.params.Ed25519KeyGenerationParameters
@@ -277,11 +278,24 @@ open class EncryptionService(private val context: Context) {
         Log.d(TAG, "🤝 Processing handshake message from $peerID")
         return noiseService.processHandshakeMessage(data, peerID)
     }
+
+    /**
+     * Process one Noise handshake frame while preserving whether this exact call authenticated a
+     * new session. Unlike the response-only compatibility API, binding failures are propagated.
+     */
+    @Throws(Exception::class)
+    open fun processHandshakeMessageWithResult(
+        data: ByteArray,
+        peerID: String
+    ): NoiseHandshakeProcessingResult {
+        Log.d(TAG, "🤝 Processing typed handshake message from $peerID")
+        return noiseService.processHandshakeMessageWithResult(data, peerID)
+    }
     
     /**
      * Remove a peer session (called when peer disconnects)
      */
-    fun removePeer(peerID: String) {
+    open fun removePeer(peerID: String) {
         establishedSessions.remove(peerID)
         noiseService.removePeer(peerID)
         onSessionLost?.invoke(peerID)

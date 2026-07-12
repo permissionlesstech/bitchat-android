@@ -3,6 +3,13 @@ package com.bitchat.android.noise
 import android.util.Log
 import java.util.concurrent.ConcurrentHashMap
 
+data class NoiseHandshakeProcessingResult(
+    val response: ByteArray?,
+    val establishedNow: Boolean,
+    /** The bound remote static key only when this exact call completed authentication. */
+    val authenticatedRemoteStaticKey: ByteArray? = null
+)
+
 /**
  * SIMPLIFIED Noise session manager - focuses on core functionality only
  */
@@ -19,6 +26,9 @@ class NoiseSessionManager(
     }
     
     private val sessions = ConcurrentHashMap<String, NoiseSession>()
+    // An inbound replacement handshake must prove its authenticated static-key binding before it
+    // can evict a working transport session. Keep responder candidates outside the active map.
+    private val responderCandidates = ConcurrentHashMap<String, NoiseSession>()
     
     // Callbacks
     var onSessionEstablished: ((String, ByteArray) -> Unit)? = null
@@ -29,8 +39,10 @@ class NoiseSessionManager(
     /**
      * Add new session for a peer
      */
+    @Synchronized
     fun addSession(peerID: String, session: NoiseSession) {
-        sessions[peerID] = session
+        val previous = sessions.put(peerID, session)
+        if (previous != null && previous !== session) previous.destroy()
         Log.d(TAG, "Added new session for $peerID")
     }
 
@@ -45,15 +57,17 @@ class NoiseSessionManager(
     /**
      * Remove session for a peer
      */
+    @Synchronized
     fun removeSession(peerID: String) {
-        sessions[peerID]?.destroy()
-        sessions.remove(peerID)
+        sessions.remove(peerID)?.destroy()
+        responderCandidates.remove(peerID)?.destroy()
         Log.d(TAG, "Removed session for $peerID")
     }
     
     /**
      * SIMPLIFIED: Initiate handshake - no tie breaker, just start
      */
+    @Synchronized
     fun initiateHandshake(peerID: String): ByteArray? {
         Log.d(TAG, "initiateHandshake($peerID)")
 
@@ -94,7 +108,7 @@ class NoiseSessionManager(
             Log.d(TAG, "Started handshake with $peerID as INITIATOR")
             return handshakeData
         } catch (e: Exception) {
-            sessions.remove(peerID)
+            if (sessions.remove(peerID, session)) session.destroy()
             throw e
         }
     }
@@ -103,61 +117,131 @@ class NoiseSessionManager(
      * Handle incoming handshake message
      */
     fun processHandshakeMessage(peerID: String, message: ByteArray): ByteArray? {
-        Log.d(TAG, "processHandshakeMessage($peerID, ${message.size} bytes)")
-        
-        try {
-            var session = getSession(peerID)
+        return processHandshakeMessageWithResult(peerID, message).response
+    }
 
-            // Collision handling: both sides initiated and we received message 1
-            if (session != null &&
-                session.isHandshaking() &&
-                session.isInitiatorRole() &&
-                message.size == HANDSHAKE_MESSAGE_1_SIZE
-            ) {
-                val shouldYield = localPeerID > peerID
-                if (shouldYield) {
-                    Log.d(TAG, "Handshake collision with $peerID; yielding to responder role")
-                    removeSession(peerID)
-                    session = null
+    @Synchronized
+    fun processHandshakeMessageWithResult(
+        peerID: String,
+        message: ByteArray
+    ): NoiseHandshakeProcessingResult {
+        Log.d(TAG, "processHandshakeMessage($peerID, ${message.size} bytes)")
+
+        var activeSession: NoiseSession? = null
+        var isReplacementCandidate = false
+        var establishedRemoteKey: ByteArray? = null
+        var response: ByteArray? = null
+
+        try {
+            val existingCandidate = responderCandidates[peerID]
+            if (existingCandidate != null) {
+                activeSession = if (message.size == HANDSHAKE_MESSAGE_1_SIZE) {
+                    responderCandidates.remove(peerID, existingCandidate)
+                    existingCandidate.destroy()
+                    createSession(peerID, isInitiator = false).also {
+                        responderCandidates[peerID] = it
+                    }
                 } else {
-                    Log.d(TAG, "Handshake collision with $peerID; keeping initiator role")
-                    return null
+                    existingCandidate
+                }
+                isReplacementCandidate = true
+            } else {
+                var session = getSession(peerID)
+
+                // Collision handling: both sides initiated and we received message 1.
+                if (session != null &&
+                    session.isHandshaking() &&
+                    session.isInitiatorRole() &&
+                    message.size == HANDSHAKE_MESSAGE_1_SIZE
+                ) {
+                    val shouldYield = localPeerID > peerID
+                    if (shouldYield) {
+                        Log.d(TAG, "Handshake collision with $peerID; yielding to responder role")
+                        if (sessions.remove(peerID, session)) session.destroy()
+                        session = null
+                    } else {
+                        Log.d(TAG, "Handshake collision with $peerID; keeping initiator role")
+                        return NoiseHandshakeProcessingResult(response = null, establishedNow = false)
+                    }
+                }
+
+                activeSession = when {
+                    session == null -> {
+                        Log.d(TAG, "Creating new RESPONDER session for $peerID")
+                        createSession(peerID, isInitiator = false).also { sessions[peerID] = it }
+                    }
+                    session.isEstablished() -> {
+                        Log.d(
+                            TAG,
+                            "Validating replacement handshake for $peerID while preserving active session"
+                        )
+                        isReplacementCandidate = true
+                        createSession(peerID, isInitiator = false).also {
+                            responderCandidates[peerID] = it
+                        }
+                    }
+                    session.isHandshaking() &&
+                        !session.isInitiatorRole() &&
+                        message.size == HANDSHAKE_MESSAGE_1_SIZE -> {
+                        // A restarted responder handshake can replace an incomplete session because
+                        // there is no working transport state to preserve.
+                        if (sessions.remove(peerID, session)) session.destroy()
+                        createSession(peerID, isInitiator = false).also { sessions[peerID] = it }
+                    }
+                    else -> session
                 }
             }
-            
-            // If no session exists, create one as responder
-            if (session == null) {
-                Log.d(TAG, "Creating new RESPONDER session for $peerID")
-                session = NoiseSession(
-                    peerID = peerID,
-                    isInitiator = false,
-                    localStaticPrivateKey = localStaticPrivateKey,
-                    localStaticPublicKey = localStaticPublicKey
-                )
-                addSession(peerID, session)
-            }
-            
-            // Process handshake message
-            val response = session.processHandshakeMessage(message)
-            
-            // Check if session is established
+
+            val session = activeSession ?: throw NoiseSessionError.InvalidState
+
+            response = session.processHandshakeMessage(message)
+
             if (session.isEstablished()) {
-                Log.d(TAG, "✅ Session ESTABLISHED with $peerID")
                 val remoteStaticKey = session.getRemoteStaticPublicKey()
-                if (remoteStaticKey != null) {
-                    onSessionEstablished?.invoke(peerID, remoteStaticKey)
+                    ?: throw NoiseSessionError.HandshakeFailed
+                val derivedPeerID = NoisePeerIdentity.derivePeerID(remoteStaticKey)
+                if (!NoisePeerIdentity.matchesClaimedPeerID(peerID, remoteStaticKey)) {
+                    throw NoiseSessionError.PeerIdentityMismatch(peerID, derivedPeerID)
                 }
+
+                if (isReplacementCandidate) {
+                    responderCandidates.remove(peerID, session)
+                    val previous = sessions.put(peerID, session)
+                    if (previous != null && previous !== session) previous.destroy()
+                }
+
+                establishedRemoteKey = remoteStaticKey
+                Log.d(TAG, "✅ Session ESTABLISHED with bound identity $peerID")
             }
-            
-            return response
-            
         } catch (e: Exception) {
+            val session = activeSession
+            if (session != null) {
+                if (isReplacementCandidate) {
+                    responderCandidates.remove(peerID, session)
+                } else {
+                    sessions.remove(peerID, session)
+                }
+                session.destroy()
+            }
             Log.e(TAG, "Handshake failed with $peerID: ${e.message}")
-            sessions.remove(peerID)
-            onSessionFailed?.invoke(peerID, e)
+            runCatching { onSessionFailed?.invoke(peerID, e) }
             throw e
         }
+
+        establishedRemoteKey?.let { onSessionEstablished?.invoke(peerID, it) }
+        return NoiseHandshakeProcessingResult(
+            response = response,
+            establishedNow = establishedRemoteKey != null,
+            authenticatedRemoteStaticKey = establishedRemoteKey?.clone()
+        )
     }
+
+    private fun createSession(peerID: String, isInitiator: Boolean): NoiseSession = NoiseSession(
+        peerID = peerID,
+        isInitiator = isInitiator,
+        localStaticPrivateKey = localStaticPrivateKey,
+        localStaticPublicKey = localStaticPublicKey
+    )
 
     private fun isHandshakeStale(session: NoiseSession, nowMs: Long): Boolean {
         val lastActivity = session.getLastHandshakeActivityMs() ?: session.getHandshakeStartMs()
@@ -239,6 +323,7 @@ class NoiseSessionManager(
     fun getDebugInfo(): String = buildString {
         appendLine("=== Noise Session Manager Debug ===")
         appendLine("Active sessions: ${sessions.size}")
+        appendLine("Responder candidates: ${responderCandidates.size}")
         appendLine("")
         
         if (sessions.isNotEmpty()) {
@@ -252,9 +337,12 @@ class NoiseSessionManager(
     /**
      * Shutdown manager and clean up all sessions
      */
+    @Synchronized
     fun shutdown() {
         sessions.values.forEach { it.destroy() }
+        responderCandidates.values.forEach { it.destroy() }
         sessions.clear()
+        responderCandidates.clear()
         Log.d(TAG, "Noise session manager shut down")
     }
 }
@@ -268,4 +356,7 @@ sealed class NoiseSessionError(message: String, cause: Throwable? = null) : Exce
     object InvalidState : NoiseSessionError("Session in invalid state")
     object HandshakeFailed : NoiseSessionError("Handshake failed")
     object AlreadyEstablished : NoiseSessionError("Session already established")
+    class PeerIdentityMismatch(claimedPeerID: String, derivedPeerID: String?) : NoiseSessionError(
+        "Authenticated Noise key derives to ${derivedPeerID ?: "invalid"}, not claimed peer $claimedPeerID"
+    )
 }

@@ -143,7 +143,7 @@ class PacketProcessor(private val myPeerID: String) {
         
         // Handle public packet types (no address check needed)
         when (messageType) {
-            MessageType.ANNOUNCE -> handleAnnounce(routed)
+            MessageType.ANNOUNCE -> validPacket = handleAnnounce(routed)
             MessageType.MESSAGE -> handleMessage(routed)
             MessageType.FILE_TRANSFER -> handleMessage(routed) // treat same routing path; parsing happens in handler
             MessageType.LEAVE -> handleLeave(routed)
@@ -197,10 +197,10 @@ class PacketProcessor(private val myPeerID: String) {
     /**
      * Handle announce message
      */
-    private suspend fun handleAnnounce(routed: RoutedPacket) {
+    private suspend fun handleAnnounce(routed: RoutedPacket): Boolean {
         val peerID = routed.peerID ?: "unknown"
         Log.d(TAG, "Processing announce from ${formatPeerForLog(peerID)}")
-        delegate?.handleAnnounce(routed)
+        return delegate?.handleAnnounce(routed) ?: false
     }
     
     /**
@@ -231,7 +231,14 @@ class PacketProcessor(private val myPeerID: String) {
         val reassembledPacket = delegate?.handleFragment(routed.packet)
         if (reassembledPacket != null) {
             Log.d(TAG, "Fragment reassembled, processing complete message")
-            handleReceivedPacket(RoutedPacket(reassembledPacket, routed.peerID, routed.relayAddress))
+            handleReceivedPacket(
+                RoutedPacket(
+                    packet = reassembledPacket,
+                    peerID = routed.peerID,
+                    relayAddress = routed.relayAddress,
+                    ingressLinkID = routed.ingressLinkID
+                )
+            )
         }
         
         // Fragment relay is now handled by centralized PacketRelayManager
@@ -314,7 +321,7 @@ interface PacketProcessorDelegate {
     // Message type handlers
     fun handleNoiseHandshake(routed: RoutedPacket): Boolean
     fun handleNoiseEncrypted(routed: RoutedPacket)
-    fun handleAnnounce(routed: RoutedPacket)
+    suspend fun handleAnnounce(routed: RoutedPacket): Boolean
     fun handleMessage(routed: RoutedPacket)
     fun handleLeave(routed: RoutedPacket)
     fun handleFragment(packet: BitchatPacket): BitchatPacket?
