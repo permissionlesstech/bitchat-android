@@ -11,7 +11,15 @@ for the recipient, and only then fragments the final outer packet.
 - Noise payload data: one complete encoded `BitchatFilePacket`.
 - Outer recipient: the target peer ID; never broadcast for private media.
 
-Do not allocate a second Noise payload type for this format.
+Prerelease iOS builds of #1434 briefly emitted the inner file type as `0x09`.
+Android accepts that value on decode and immediately canonicalizes it to
+`NoisePayloadType.FILE_TRANSFER`; every Android encode remains `0x20`. Do not
+allocate or emit a second Noise payload type for this format.
+
+The decode-only `0x09` alias may be removed only after every TestFlight/internal
+build that emitted it has expired and the project's minimum-supported-client
+policy excludes those builds. Track that release criterion explicitly; do not
+remove the alias on an arbitrary calendar date.
 
 ## Capability announcement
 
@@ -96,6 +104,8 @@ capability and bounded streaming design.
 
 - New Android to new iOS/Android: encrypted Noise `0x20` after authenticated
   capability promotion.
+- Prerelease iOS to new Android: encrypted Noise `0x09` is decoded,
+  canonicalized to `0x20`, and delivered during the migration window.
 - New Android to a verified older client: blocked until the user explicitly
   accepts one relay-visible signed raw `0x22` transfer.
 - Old clients receiving a new announcement: ignore TLV `0x05` and continue

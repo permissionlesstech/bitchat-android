@@ -27,8 +27,17 @@ enum class NoisePayloadType(val value: UByte) {
 
 
     companion object {
+        // #1434 prerelease iOS builds briefly emitted private files as 0x09. Keep this
+        // decode-only: every NoisePayload constructed by Android still encodes FILE_TRANSFER as
+        // its canonical 0x20 value, so the compatibility alias cannot leak into new traffic.
+        private val PRERELEASE_FILE_TRANSFER_RAW_VALUE = 0x09u.toUByte()
+
         fun fromValue(value: UByte): NoisePayloadType? {
-            return values().find { it.value == value }
+            return if (value == PRERELEASE_FILE_TRANSFER_RAW_VALUE) {
+                FILE_TRANSFER
+            } else {
+                values().find { it.value == value }
+            }
         }
     }
 }

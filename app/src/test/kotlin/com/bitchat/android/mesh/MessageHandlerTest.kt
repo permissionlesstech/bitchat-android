@@ -210,6 +210,40 @@ class MessageHandlerTest {
         }
     }
 
+    @Test
+    fun `encrypted prerelease iOS Noise 0x09 private media is delivered`() {
+        runBlocking {
+            val file = BitchatFilePacket(
+                fileName = "prerelease-ios.pdf",
+                fileSize = 4,
+                mimeType = "application/pdf",
+                content = byteArrayOf(1, 2, 3, 4)
+            )
+            val prereleasePlaintext = byteArrayOf(0x09) + file.encode()!!
+            val ciphertext = byteArrayOf(0x41, 0x42, 0x43)
+            whenever(delegate.decryptFromPeer(any(), eq(peerID))).thenReturn(prereleasePlaintext)
+            whenever(delegate.getPeerNickname(peerID)).thenReturn(nickname)
+            whenever(delegate.getMyNickname()).thenReturn("me")
+            whenever(delegate.encryptForPeer(any(), eq(peerID))).thenReturn(byteArrayOf(0x55))
+
+            val outerPacket = BitchatPacket(
+                version = 2u,
+                type = MessageType.NOISE_ENCRYPTED.value,
+                senderID = peerID.hexToBytes(),
+                recipientID = myPeerID.hexToBytes(),
+                timestamp = System.currentTimeMillis().toULong(),
+                payload = ciphertext,
+                signature = signature,
+                ttl = 7u
+            )
+
+            handler.handleNoiseEncrypted(RoutedPacket(outerPacket, peerID, "direct-link"))
+
+            verify(delegate).decryptFromPeer(ciphertext, peerID)
+            verify(delegate).onMessageReceived(any())
+        }
+    }
+
     private fun announcePacket(
         ageMs: Long,
         ttl: UByte = (AppConstants.MESSAGE_TTL_HOPS.toInt() - 1).toUByte(),

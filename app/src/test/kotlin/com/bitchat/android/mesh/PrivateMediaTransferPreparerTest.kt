@@ -48,6 +48,18 @@ class PrivateMediaTransferPreparerTest {
     }
 
     @Test
+    fun `prerelease iOS Noise 0x09 decodes as file transfer but re-encodes canonical 0x20`() {
+        val filePayload = file(3).encode()!!
+        val prereleasePayload = byteArrayOf(0x09) + filePayload
+
+        val decoded = NoisePayload.decode(prereleasePayload)
+
+        assertEquals(NoisePayloadType.FILE_TRANSFER, decoded?.type)
+        assertTrue(filePayload.contentEquals(decoded?.data))
+        assertEquals(0x20u.toUByte(), decoded!!.encode()[0].toUByte())
+    }
+
+    @Test
     fun `legacy mode requires consent and signing failure aborts`() {
         val noConsent = preparer(policy = PrivateMediaPolicyDecision.RequiresLegacyConsent)
             .prepare("peer", recipientID, file(64), false)
