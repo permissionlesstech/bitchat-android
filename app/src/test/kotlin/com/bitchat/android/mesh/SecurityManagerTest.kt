@@ -40,6 +40,7 @@ class SecurityManagerTest {
     open class FakeEncryptionService : EncryptionService(RuntimeEnvironment.getApplication()) {
         var shouldVerify: Boolean = true
         var lastVerifySignature: ByteArray? = null
+        var lastVerifyData: ByteArray? = null
         var lastVerifyKey: ByteArray? = null
 
         override fun initialize() {
@@ -48,6 +49,7 @@ class SecurityManagerTest {
 
         override fun verifyEd25519Signature(signature: ByteArray, data: ByteArray, publicKeyBytes: ByteArray): Boolean {
             lastVerifySignature = signature
+            lastVerifyData = data
             lastVerifyKey = publicKeyBytes
             
             // Simple logic: if configured to verify, check if signature matches validSignature
@@ -91,6 +93,44 @@ class SecurityManagerTest {
     }
 
     @Test
+    fun `verifySignature - verifies canonical packet with announced signing key`() {
+        setupKnownPeer(otherPeerID, otherSigningKey)
+        val packet = BitchatPacket(
+            version = 1u,
+            type = MessageType.FILE_TRANSFER.value,
+            senderID = MeshPacketUtils.hexStringToByteArray(otherPeerID),
+            recipientID = MeshPacketUtils.hexStringToByteArray(myPeerID),
+            timestamp = System.currentTimeMillis().toULong(),
+            payload = dummyPayload,
+            signature = validSignature,
+            ttl = 10u
+        )
+
+        assertTrue(securityManager.verifySignature(packet, otherPeerID))
+        assertTrue(fakeEncryptionService.lastVerifySignature.contentEquals(validSignature))
+        assertTrue(fakeEncryptionService.lastVerifyData.contentEquals(packet.toBinaryDataForSigning()))
+        assertTrue(fakeEncryptionService.lastVerifyKey.contentEquals(otherSigningKey))
+    }
+
+    @Test
+    fun `verifySignature - rejects missing signature and unknown signing key`() {
+        val unsigned = BitchatPacket(
+            version = 1u,
+            type = MessageType.FILE_TRANSFER.value,
+            senderID = MeshPacketUtils.hexStringToByteArray(otherPeerID),
+            recipientID = MeshPacketUtils.hexStringToByteArray(myPeerID),
+            timestamp = System.currentTimeMillis().toULong(),
+            payload = dummyPayload,
+            ttl = 10u
+        )
+        assertFalse(securityManager.verifySignature(unsigned, otherPeerID))
+
+        unsigned.signature = validSignature
+        whenever(mockDelegate.getPeerInfo(otherPeerID)).thenReturn(null)
+        assertFalse(securityManager.verifySignature(unsigned, otherPeerID))
+    }
+
+    @Test
     fun `validatePacket - rejects packet with invalid signature`() {
         setupKnownPeer(otherPeerID, otherSigningKey)
         
@@ -105,6 +145,22 @@ class SecurityManagerTest {
         val result = securityManager.validatePacket(packet, otherPeerID)
         
         assertFalse("Packet with invalid signature should be rejected", result)
+    }
+
+    @Test
+    fun `invalid packet does not poison duplicate detection for later valid packet`() {
+        setupKnownPeer(otherPeerID, otherSigningKey)
+        val packet = BitchatPacket(
+            type = MessageType.MESSAGE.value,
+            ttl = 10u,
+            senderID = otherPeerID,
+            payload = dummyPayload
+        )
+        packet.signature = invalidSignature
+        assertFalse(securityManager.validatePacket(packet, otherPeerID))
+
+        packet.signature = validSignature
+        assertTrue(securityManager.validatePacket(packet, otherPeerID))
     }
 
     @Test

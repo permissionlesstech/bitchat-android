@@ -5,8 +5,20 @@ import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatFilePacket
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
+import com.bitchat.android.mesh.PrivateMediaPreparation
 import java.util.Date
 import java.security.MessageDigest
+import java.util.UUID
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
+data class LegacyPrivateMediaConsentRequest(
+    val requestId: String,
+    val recipientNickname: String,
+    val fileName: String,
+    val warning: String
+)
 
 /**
  * Handles media file sending operations (voice notes, images, generic files)
@@ -29,6 +41,21 @@ class MediaSendingManager(
     // Track in-flight transfer progress: transferId -> messageId and reverse
     private val transferMessageMap = mutableMapOf<String, String>()
     private val messageTransferMap = mutableMapOf<String, String>()
+    private val pendingConsentLock = Any()
+    private val _legacyPrivateMediaConsent = MutableStateFlow<LegacyPrivateMediaConsentRequest?>(null)
+    val legacyPrivateMediaConsent: StateFlow<LegacyPrivateMediaConsentRequest?> =
+        _legacyPrivateMediaConsent.asStateFlow()
+
+    private data class PendingPrivateMedia(
+        val request: LegacyPrivateMediaConsentRequest,
+        val peerID: String,
+        val filePacket: BitchatFilePacket,
+        val filePath: String,
+        val messageType: BitchatMessageType,
+        val transferId: String
+    )
+
+    private var pendingPrivateMedia: PendingPrivateMedia? = null
 
     /**
      * Send a voice note (audio file)
@@ -186,8 +213,133 @@ class MediaSendingManager(
 
         Log.d(TAG, "📤 FILE_TRANSFER send (private): name='${filePacket.fileName}', size=${filePacket.fileSize}, mime='${filePacket.mimeType}', sha256=$contentHash, to=${toPeerID.take(8)} transferId=${transferId.take(16)}…")
 
+        when (val preparation = meshService.prepareFilePrivate(
+            recipientPeerID = toPeerID,
+            file = filePacket,
+            transferId = transferId,
+            allowLegacyFallback = false
+        )) {
+            is PrivateMediaPreparation.Ready -> commitPreparedPrivateFile(
+                preparation = preparation,
+                toPeerID = toPeerID,
+                filePath = filePath,
+                messageType = messageType,
+                transferId = transferId
+            )
+
+            is PrivateMediaPreparation.RequiresLegacyConsent -> {
+                val nickname = try {
+                    meshService.getPeerNicknames()[toPeerID]
+                } catch (_: Exception) {
+                    null
+                } ?: toPeerID.take(8)
+                val request = LegacyPrivateMediaConsentRequest(
+                    requestId = UUID.randomUUID().toString(),
+                    recipientNickname = nickname,
+                    fileName = filePacket.fileName,
+                    warning = preparation.warning
+                )
+                synchronized(pendingConsentLock) {
+                    if (pendingPrivateMedia != null) {
+                        Log.w(TAG, "A legacy private-media consent prompt is already pending")
+                        return
+                    }
+                    pendingPrivateMedia = PendingPrivateMedia(
+                        request,
+                        toPeerID,
+                        filePacket,
+                        filePath,
+                        messageType,
+                        transferId
+                    )
+                    _legacyPrivateMediaConsent.value = request
+                }
+            }
+
+            PrivateMediaPreparation.NeedsHandshake -> {
+                Log.i(TAG, "Private media needs a Noise handshake; initiating now, with no local echo")
+                try {
+                    meshService.initiateNoiseHandshake(toPeerID)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Could not initiate private-media Noise handshake: ${e.message}")
+                }
+            }
+
+            is PrivateMediaPreparation.Rejected ->
+                Log.w(TAG, "Private media not sent: ${preparation.reason}")
+        }
+    }
+
+    /**
+     * Consume consent exactly once, then re-run policy and final-packet
+     * admission. A capability pin appearing while the dialog was open upgrades
+     * this send to encrypted rather than forcing the legacy path.
+     */
+    fun approveLegacyPrivateMedia(requestId: String) {
+        val pending = consumePendingConsent(requestId) ?: return
+        when (val preparation = meshService.prepareFilePrivate(
+            recipientPeerID = pending.peerID,
+            file = pending.filePacket,
+            transferId = pending.transferId,
+            allowLegacyFallback = true
+        )) {
+            is PrivateMediaPreparation.Ready -> commitPreparedPrivateFile(
+                preparation,
+                pending.peerID,
+                pending.filePath,
+                pending.messageType,
+                pending.transferId
+            )
+            is PrivateMediaPreparation.RequiresLegacyConsent ->
+                Log.w(TAG, "Legacy consent was consumed but policy still requested consent; send aborted")
+            PrivateMediaPreparation.NeedsHandshake -> {
+                Log.i(TAG, "Noise session disappeared before consent approval; initiating a new handshake")
+                try {
+                    meshService.initiateNoiseHandshake(pending.peerID)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Could not re-initiate private-media Noise handshake: ${e.message}")
+                }
+            }
+            is PrivateMediaPreparation.Rejected ->
+                Log.w(TAG, "Private media policy changed before approval: ${preparation.reason}")
+        }
+    }
+
+    fun cancelLegacyPrivateMedia(requestId: String) {
+        consumePendingConsent(requestId)
+    }
+
+    fun clearPendingPrivateMediaConsent() {
+        synchronized(pendingConsentLock) {
+            pendingPrivateMedia = null
+            _legacyPrivateMediaConsent.value = null
+        }
+    }
+
+    private fun consumePendingConsent(requestId: String): PendingPrivateMedia? {
+        return synchronized(pendingConsentLock) {
+            val pending = pendingPrivateMedia
+            if (pending?.request?.requestId != requestId) return@synchronized null
+            pendingPrivateMedia = null
+            _legacyPrivateMediaConsent.value = null
+            pending
+        }
+    }
+
+    private fun commitPreparedPrivateFile(
+        preparation: PrivateMediaPreparation.Ready,
+        toPeerID: String,
+        filePath: String,
+        messageType: BitchatMessageType,
+        transferId: String
+    ) {
+        if (preparation.transfer.transferId != transferId) {
+            Log.e(TAG, "Prepared private-media transfer ID changed; send aborted")
+            return
+        }
+
         val msg = BitchatMessage(
-            id = java.util.UUID.randomUUID().toString().uppercase(), // Generate unique ID for each message
+            id = UUID.randomUUID().toString().uppercase(),
             sender = state.getNicknameValue() ?: "me",
             content = filePath,
             type = messageType,
@@ -197,23 +349,29 @@ class MediaSendingManager(
             recipientNickname = try { meshService.getPeerNicknames()[toPeerID] } catch (_: Exception) { null },
             senderPeerID = meshService.myPeerID
         )
-        
+
+        // Preparation already built and admitted the exact final packet. Map
+        // progress before commit so the first asynchronous event cannot race us.
         messageManager.addPrivateMessage(toPeerID, msg)
-        
         synchronized(transferMessageMap) {
             transferMessageMap[transferId] = msg.id
             messageTransferMap[msg.id] = transferId
         }
-        
-        // Seed progress so delivery icons render for media
         messageManager.updateMessageDeliveryStatus(
             msg.id,
             com.bitchat.android.model.DeliveryStatus.PartiallyDelivered(0, 100)
         )
-        
-        Log.d(TAG, "📤 Calling meshService.sendFilePrivate to $toPeerID")
-        meshService.sendFilePrivate(toPeerID, filePacket)
-        Log.d(TAG, "✅ File send completed successfully")
+
+        if (!preparation.transfer.commit()) {
+            messageManager.removeMessageById(msg.id)
+            synchronized(transferMessageMap) {
+                transferMessageMap.remove(transferId)
+                messageTransferMap.remove(msg.id)
+            }
+            Log.w(TAG, "Prepared private-media commit failed; local echo rolled back")
+            return
+        }
+        Log.d(TAG, "✅ Private media committed using ${preparation.transfer.wireMode}")
     }
 
     /**

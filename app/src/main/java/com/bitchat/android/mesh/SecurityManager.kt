@@ -71,15 +71,17 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
             Log.d(TAG, "Allowing duplicate ANNOUNCE from direct neighbor: $messageID")
         }
 
-        // Add to processed messages
-        processedMessages.add(messageID)
-        messageTimestamps[messageID] = currentTime
-        
         // Enforce mandatory signature verification
         if (!verifyPacketSignature(packet, peerID)) {
             Log.w(TAG, "Dropping packet from $peerID due to signature verification failure")
             return false
         }
+
+        // Record only authenticated packets. Recording an attacker-controlled
+        // invalid packet first would let it poison duplicate detection for a
+        // later legitimate packet with the same timestamp and payload.
+        processedMessages.add(messageID)
+        messageTimestamps[messageID] = currentTime
         
         Log.d(TAG, "Packet validation passed for $peerID, messageID: $messageID")
         return true
@@ -154,21 +156,13 @@ class SecurityManager(private val encryptionService: EncryptionService, private 
     }
 
     /**
-     * Verify packet signature
+     * Verify a packet signature against the signing key learned from the
+     * peer's verified announcement. Signatures cover the canonical packet,
+     * not only its payload; otherwise routing and recipient fields could be
+     * changed without invalidating the signature.
      */
     fun verifySignature(packet: BitchatPacket, peerID: String): Boolean {
-        return packet.signature?.let { signature ->
-            try {
-                val isValid = encryptionService.verify(signature, packet.payload, peerID)
-                if (!isValid) {
-                    Log.w(TAG, "Invalid signature for packet from $peerID")
-                }
-                isValid
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to verify signature from $peerID: ${e.message}")
-                false
-            }
-        } ?: true // No signature means verification passes
+        return verifyPacketSignature(packet, peerID)
     }
     
     /**

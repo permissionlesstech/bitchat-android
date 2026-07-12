@@ -275,13 +275,19 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
         val signingPublicKey = announcement.signingPublicKey
         
         // Update peer info with verification status through new method
-        val isFirstAnnounce = delegate?.updatePeerInfo(
+        val isFirstAnnounce = delegate?.updatePeerInfoFromVerifiedAnnouncement(
             peerID = peerID,
             nickname = nickname,
             noisePublicKey = noisePublicKey,
             signingPublicKey = signingPublicKey,
-            isVerified = true
+            isVerified = true,
+            capabilities = announcement.capabilities
         ) ?: false
+
+        // Promotion of security-sensitive capabilities happens only after the
+        // signature check above and must additionally bind to the authenticated
+        // Noise remote-static key in the transport service.
+        delegate?.onVerifiedAnnouncementProcessed(peerID)
 
         // Update peer ID binding with noise public key for identity management
         delegate?.updatePeerIDBinding(
@@ -438,14 +444,26 @@ class MessageHandler(private val myPeerID: String, private val appContext: andro
      */
     private suspend fun handlePrivateMessage(packet: BitchatPacket, peerID: String) {
         try {
-            // Verify signature if present
-            if (packet.signature != null && !delegate?.verifySignature(packet, peerID)!!) {
+            val isFileTransfer = com.bitchat.android.protocol.MessageType.fromValue(packet.type) ==
+                com.bitchat.android.protocol.MessageType.FILE_TRANSFER
+            val signatureIsValid = packet.signature != null &&
+                delegate?.verifySignature(packet, peerID) == true
+
+            // Migration fallback is visible to relays, so sender authenticity
+            // is mandatory. Never accept an unsigned directed raw file.
+            if (isFileTransfer && !signatureIsValid) {
+                Log.w(TAG, "Unsigned or invalid signed private file from $peerID")
+                return
+            }
+
+            // Preserve prior behavior for other directed packet types: verify
+            // a signature whenever one is present.
+            if (!isFileTransfer && packet.signature != null && !signatureIsValid) {
                 Log.w(TAG, "Invalid signature for private message from $peerID")
                 return
             }
 
             // Try file packet first (voice, image, etc.) and log outcome for FILE_TRANSFER
-            val isFileTransfer = com.bitchat.android.protocol.MessageType.fromValue(packet.type) == com.bitchat.android.protocol.MessageType.FILE_TRANSFER
             val file = com.bitchat.android.model.BitchatFilePacket.decode(packet.payload)
             if (file != null) {
                 if (isFileTransfer) {
@@ -604,7 +622,15 @@ interface MessageHandlerDelegate {
     fun getNetworkSize(): Int
     fun getMyNickname(): String?
     fun getPeerInfo(peerID: String): PeerInfo?
-    fun updatePeerInfo(peerID: String, nickname: String, noisePublicKey: ByteArray, signingPublicKey: ByteArray, isVerified: Boolean): Boolean
+    fun updatePeerInfoFromVerifiedAnnouncement(
+        peerID: String,
+        nickname: String,
+        noisePublicKey: ByteArray,
+        signingPublicKey: ByteArray,
+        isVerified: Boolean,
+        capabilities: com.bitchat.android.model.PeerCapabilities? = null
+    ): Boolean
+    fun onVerifiedAnnouncementProcessed(peerID: String) {}
     
     // Packet operations
     fun sendPacket(packet: BitchatPacket)

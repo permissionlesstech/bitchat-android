@@ -1,6 +1,7 @@
 package com.bitchat.android.mesh
 
 import android.util.Log
+import com.bitchat.android.model.PeerCapabilities
 import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
@@ -17,7 +18,11 @@ data class PeerInfo(
     var noisePublicKey: ByteArray?,
     var signingPublicKey: ByteArray?,      // NEW: Ed25519 public key for verification
     var isVerifiedNickname: Boolean,       // NEW: Verification status flag
-    var lastSeen: Long  // Using Long instead of Date for simplicity
+    var lastSeen: Long,  // Using Long instead of Date for simplicity
+    var capabilities: PeerCapabilities? = null, // null means a signed old-client announce omitted TLV 0x05
+    var hasVerifiedAnnouncement: Boolean = false,
+    /** Noise key that the preserved capability state was actually signed alongside. */
+    var verifiedAnnouncementNoisePublicKey: ByteArray? = null
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -39,6 +44,14 @@ data class PeerInfo(
         } else if (other.signingPublicKey != null) return false
         if (isVerifiedNickname != other.isVerifiedNickname) return false
         if (lastSeen != other.lastSeen) return false
+        if (capabilities != other.capabilities) return false
+        if (hasVerifiedAnnouncement != other.hasVerifiedAnnouncement) return false
+        val thisVerifiedAnnouncementKey = verifiedAnnouncementNoisePublicKey
+        val otherVerifiedAnnouncementKey = other.verifiedAnnouncementNoisePublicKey
+        if (thisVerifiedAnnouncementKey != null) {
+            if (otherVerifiedAnnouncementKey == null) return false
+            if (!thisVerifiedAnnouncementKey.contentEquals(otherVerifiedAnnouncementKey)) return false
+        } else if (otherVerifiedAnnouncementKey != null) return false
         
         return true
     }
@@ -52,6 +65,9 @@ data class PeerInfo(
         result = 31 * result + (signingPublicKey?.contentHashCode() ?: 0)
         result = 31 * result + isVerifiedNickname.hashCode()
         result = 31 * result + lastSeen.hashCode()
+        result = 31 * result + (capabilities?.hashCode() ?: 0)
+        result = 31 * result + hasVerifiedAnnouncement.hashCode()
+        result = 31 * result + (verifiedAnnouncementNoisePublicKey?.contentHashCode() ?: 0)
         return result
     }
 }
@@ -109,6 +125,53 @@ class PeerManager {
         signingPublicKey: ByteArray,
         isVerified: Boolean
     ): Boolean {
+        val existing = peers[peerID]
+        return updatePeerInfoInternal(
+            peerID = peerID,
+            nickname = nickname,
+            noisePublicKey = noisePublicKey,
+            signingPublicKey = signingPublicKey,
+            isVerified = isVerified,
+            capabilities = existing?.capabilities,
+            hasVerifiedAnnouncement = existing?.hasVerifiedAnnouncement == true,
+            verifiedAnnouncementNoisePublicKey = existing?.verifiedAnnouncementNoisePublicKey
+        )
+    }
+
+    /**
+     * Apply the exact capability state from a signature-verified announce.
+     * A null value is meaningful: the peer signed an old-format announce that
+     * omitted TLV 0x05. Normal peer refreshes use [updatePeerInfo] and retain
+     * the last signed capability state instead of accidentally erasing it.
+     */
+    fun updatePeerInfoFromVerifiedAnnouncement(
+        peerID: String,
+        nickname: String,
+        noisePublicKey: ByteArray,
+        signingPublicKey: ByteArray,
+        isVerified: Boolean,
+        capabilities: PeerCapabilities?
+    ): Boolean = updatePeerInfoInternal(
+        peerID = peerID,
+        nickname = nickname,
+        noisePublicKey = noisePublicKey,
+        signingPublicKey = signingPublicKey,
+        isVerified = isVerified,
+        capabilities = capabilities,
+        hasVerifiedAnnouncement = true,
+        verifiedAnnouncementNoisePublicKey = noisePublicKey.copyOf()
+    )
+
+    private fun updatePeerInfoInternal(
+        peerID: String,
+        nickname: String,
+        noisePublicKey: ByteArray,
+        signingPublicKey: ByteArray,
+        isVerified: Boolean,
+        capabilities: PeerCapabilities?,
+        hasVerifiedAnnouncement: Boolean,
+        verifiedAnnouncementNoisePublicKey: ByteArray?
+    ): Boolean {
         if (peerID == "unknown") return false
 
         fun keysMatch(a: ByteArray?, b: ByteArray?): Boolean {
@@ -125,6 +188,9 @@ class PeerManager {
         val noiseKeyChanged = existingPeer != null && !keysMatch(existingPeer.noisePublicKey, noisePublicKey)
         val signingKeyChanged = existingPeer != null && !keysMatch(existingPeer.signingPublicKey, signingPublicKey)
         val connectedChanged = existingPeer != null && existingPeer.isConnected != true
+        val capabilitiesChanged = existingPeer != null && existingPeer.capabilities != capabilities
+        val announcementStateChanged = existingPeer != null &&
+            existingPeer.hasVerifiedAnnouncement != hasVerifiedAnnouncement
         
         // Update or create peer info
         val peerInfo = PeerInfo(
@@ -135,7 +201,10 @@ class PeerManager {
             noisePublicKey = noisePublicKey,
             signingPublicKey = signingPublicKey,
             isVerifiedNickname = isVerified,
-            lastSeen = now
+            lastSeen = now,
+            capabilities = capabilities,
+            hasVerifiedAnnouncement = hasVerifiedAnnouncement,
+            verifiedAnnouncementNoisePublicKey = verifiedAnnouncementNoisePublicKey?.copyOf()
         )
         
         peers[peerID] = peerInfo
@@ -147,7 +216,8 @@ class PeerManager {
         val shouldNotify = when {
             isNewPeer && isVerified -> true
             wasVerified != isVerified -> true
-            nicknameChanged || noiseKeyChanged || signingKeyChanged || connectedChanged -> true
+            nicknameChanged || noiseKeyChanged || signingKeyChanged || connectedChanged ||
+                capabilitiesChanged || announcementStateChanged -> true
             else -> false
         }
 

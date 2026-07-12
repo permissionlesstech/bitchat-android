@@ -254,6 +254,19 @@ open class EncryptionService(private val context: Context) {
     fun getPeerFingerprint(peerID: String): String? {
         return noiseService.getPeerFingerprint(peerID)
     }
+
+    /**
+     * Return the remote static key authenticated by the live Noise handshake.
+     * This deliberately bypasses announcement and PeerFingerprintManager
+     * caches; callers making downgrade decisions must bind to live channel
+     * authentication, not a self-certified identity payload.
+     */
+    fun getAuthenticatedRemoteStaticKey(peerID: String): ByteArray? {
+        if (!noiseService.hasEstablishedSession(peerID)) return null
+        return noiseService.getPeerPublicKeyData(peerID)
+            ?.takeIf { it.size == 32 }
+            ?.copyOf()
+    }
     
     /**
      * Get current peer ID for a fingerprint (for peer ID rotation)

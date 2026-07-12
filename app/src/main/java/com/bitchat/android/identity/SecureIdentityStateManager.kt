@@ -18,7 +18,7 @@ import androidx.core.content.edit
  * - Secure storage using Android EncryptedSharedPreferences
  * - Fingerprint calculation and identity validation
  */
-class SecureIdentityStateManager(private val context: Context) {
+class SecureIdentityStateManager {
     
     companion object {
         private const val TAG = "SecureIdentityStateManager"
@@ -32,12 +32,24 @@ class SecureIdentityStateManager(private val context: Context) {
         private const val KEY_CACHED_PEER_NOISE_KEYS = "cached_peer_noise_keys"
         private const val KEY_CACHED_NOISE_FINGERPRINTS = "cached_noise_fingerprints"
         private const val KEY_CACHED_FINGERPRINT_NICKNAMES = "cached_fingerprint_nicknames"
+        private const val KEY_PRIVATE_MEDIA_CAPABILITY_PINS = "private_media_capability_pins_v1"
+
+        // BLE, Wi-Fi Aware, and Noise services each hold their own manager
+        // instance over the same encrypted preferences. Serialize pin updates
+        // process-wide so concurrent promotions cannot lose one another or
+        // race a panic wipe.
+        private val privateMediaPinsLock = Any()
+        private var privateMediaPinsEpoch = 0L
     }
     
     private val prefs: SharedPreferences
     private val lock = Any()
-    
-    init {
+    private var privateMediaPinsEpochAtCreation: Long
+
+    constructor(context: Context) {
+        privateMediaPinsEpochAtCreation = synchronized(privateMediaPinsLock) {
+            privateMediaPinsEpoch
+        }
         // Create master key for encryption
         val masterKey = MasterKey.Builder(context, MasterKey.DEFAULT_MASTER_KEY_ALIAS)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -51,6 +63,15 @@ class SecureIdentityStateManager(private val context: Context) {
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
         )
+    }
+
+    /** Test-only storage injection; production always uses encrypted prefs. */
+    internal constructor(prefs: SharedPreferences, testOnly: Boolean) {
+        require(testOnly) { "Plain SharedPreferences are test-only" }
+        privateMediaPinsEpochAtCreation = synchronized(privateMediaPinsLock) {
+            privateMediaPinsEpoch
+        }
+        this.prefs = prefs
     }
     
     // MARK: - Static Key Management
@@ -293,6 +314,46 @@ class SecureIdentityStateManager(private val context: Context) {
             prefs.edit { putStringSet(KEY_CACHED_FINGERPRINT_NICKNAMES, current) }
         }
     }
+
+    // MARK: - Authenticated private-media capability pins
+
+    /**
+     * Persist an HSTS-style private-media capability pin. The caller must
+     * derive [fingerprint] directly from a Noise-authenticated remote static
+     * key after matching it to a signature-verified announcement.
+     */
+    fun markPrivateMediaCapable(fingerprint: String) {
+        if (!isValidFingerprint(fingerprint)) return
+        synchronized(privateMediaPinsLock) {
+            // A controller that survived panic must never be able to restore a
+            // pin from an in-flight pre-wipe handshake callback.
+            if (privateMediaPinsEpochAtCreation != privateMediaPinsEpoch) return
+            val current = prefs.getStringSet(KEY_PRIVATE_MEDIA_CAPABILITY_PINS, emptySet())
+                ?.mapTo(mutableSetOf()) { it.lowercase() }
+                ?: mutableSetOf()
+            current.add(fingerprint.lowercase())
+            prefs.edit { putStringSet(KEY_PRIVATE_MEDIA_CAPABILITY_PINS, current) }
+        }
+    }
+
+    fun isPrivateMediaCapable(fingerprint: String): Boolean {
+        if (!isValidFingerprint(fingerprint)) return false
+        return synchronized(privateMediaPinsLock) {
+            if (privateMediaPinsEpochAtCreation != privateMediaPinsEpoch) {
+                return@synchronized false
+            }
+            prefs.getStringSet(KEY_PRIVATE_MEDIA_CAPABILITY_PINS, emptySet())
+                ?.any { it.equals(fingerprint, ignoreCase = true) } == true
+        }
+    }
+
+    internal fun getPrivateMediaCapabilityPinsForTesting(): Set<String> =
+        synchronized(privateMediaPinsLock) {
+            if (privateMediaPinsEpochAtCreation != privateMediaPinsEpoch) {
+                return@synchronized emptySet()
+            }
+            prefs.getStringSet(KEY_PRIVATE_MEDIA_CAPABILITY_PINS, emptySet())?.toSet() ?: emptySet()
+        }
     
     // MARK: - Peer ID Rotation Management (removed)
     // Android now derives peer ID from the persisted Noise identity fingerprint.
@@ -370,7 +431,11 @@ class SecureIdentityStateManager(private val context: Context) {
      */
     fun clearIdentityData() {
         try {
-            prefs.edit().clear().apply()
+            synchronized(privateMediaPinsLock) {
+                privateMediaPinsEpoch += 1
+                privateMediaPinsEpochAtCreation = privateMediaPinsEpoch
+                prefs.edit().clear().apply()
+            }
             Log.w(TAG, "All identity data cleared")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to clear identity data: ${e.message}")
