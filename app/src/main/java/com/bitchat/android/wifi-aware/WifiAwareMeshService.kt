@@ -1291,7 +1291,13 @@ class WifiAwareMeshService(private val context: Context) : MeshService, Transpor
             return
         }
 
-        connectionTracker.rebindPeerId(provisionalPeerId, canonicalPeerId, link.transport)
+        if (!connectionTracker.rebindPeerIdIfCurrent(provisionalPeerId, canonicalPeerId, link.transport)) {
+            Log.w(
+                TAG,
+                "Ignoring Noise link promotion for ${canonicalPeerId.take(8)}: provisional socket changed before rebind"
+            )
+            return
+        }
         handleToPeerId.forEach { (handle, peerId) ->
             if (peerId == provisionalPeerId) handleToPeerId[handle] = canonicalPeerId
         }

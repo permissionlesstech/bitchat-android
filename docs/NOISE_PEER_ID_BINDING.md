@@ -18,7 +18,10 @@ validation succeeds. A Wi-Fi discovery identity is not destructively rebound
 from a self-signed announce. A direct announce may start the canonical
 handshake, but the alias is promoted only when the exact, still-active socket
 delivers the Noise frame that completes bound authentication. A peer-ID-only
-or stale-socket callback cannot authorize that rebind.
+or stale-socket callback cannot authorize that rebind; the final
+expected-socket comparison and alias mutation are atomic with socket replacement.
+Promotion also refuses to displace a different live socket already authenticated
+under the canonical peer ID.
 
 Leave packets use the existing signed wire format and are accepted only when
 the signature matches the key learned from a verified announcement. Invalid or
