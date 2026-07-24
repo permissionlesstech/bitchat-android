@@ -14,15 +14,25 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,6 +61,7 @@ private data class RadarPeer(
     val opacity: Float
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RadarScreen(
     viewModel: ChatViewModel,
@@ -61,6 +72,11 @@ fun RadarScreen(
     val peerNicknames by viewModel.peerNicknames.collectAsStateWithLifecycle()
     val headingDegrees by rememberCompassHeadingDegrees(myLocation)
     val myNickname by viewModel.nickname.collectAsStateWithLifecycle()
+
+    val verifiedPeers by viewModel.verifiedLocationPeers.collectAsStateWithLifecycle(initialValue = emptySet())
+    val connectedPeers by viewModel.connectedPeers.collectAsStateWithLifecycle()
+    val incomingVerifyRequestPeer by viewModel.incomingLocationVerifyRequest.collectAsStateWithLifecycle()
+    var showPeersSheet by remember { mutableStateOf(false) }
 
     // Available zoom levels (in meters)
     val zoomLevels = listOf(5f, 10f, 25f, 50f, 100f, 250f, 500f, 1000f)
@@ -75,12 +91,13 @@ fun RadarScreen(
         }
     }
 
-    // Compute active peers list with distance, bearing, and opacity calculations
-    val activePeers = remember(myLocation, peerLocations, peerNicknames, selectedZoomLevel, tick) {
+    // Compute active peers list with distance, bearing, and opacity calculations (verified peers only)
+    val activePeers = remember(myLocation, peerLocations, peerNicknames, verifiedPeers, selectedZoomLevel, tick) {
         val mine = myLocation ?: return@remember emptyList<RadarPeer>()
         val now = System.currentTimeMillis()
 
         peerLocations.mapNotNull { (peerID, peerLoc) ->
+            if (!verifiedPeers.contains(peerID)) return@mapNotNull null // Only show verified peers!
             val ageMs = now - peerLoc.timestampMs
             if (ageMs >= 10 * 60 * 1000) return@mapNotNull null // Drop completely after 10 minutes
 
@@ -167,6 +184,38 @@ fun RadarScreen(
                         color = Color.White
                     )
                 }
+            }
+        }
+
+        // Top PEERS verification toggle button
+        Button(
+            onClick = { showPeersSheet = true },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color.White.copy(alpha = 0.12f),
+                contentColor = Color.White
+            ),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+            shape = RoundedCornerShape(20.dp),
+            border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.25f)),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(16.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Group,
+                    contentDescription = "Manage Peer Verification",
+                    tint = Color(0xFF00C851),
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "PEERS",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    color = Color.White
+                )
             }
         }
 
@@ -312,6 +361,166 @@ fun RadarScreen(
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                             fontFamily = FontFamily.Monospace
                         )
+                    }
+                }
+            }
+        }
+
+        // Incoming Verification Request Alert Dialog
+        val requestPeerID = incomingVerifyRequestPeer
+        if (requestPeerID != null) {
+            val requesterName = peerNicknames[requestPeerID] ?: requestPeerID.take(8)
+            AlertDialog(
+                onDismissRequest = { viewModel.rejectLocationVerificationRequest(requestPeerID) },
+                title = {
+                    Text(
+                        text = "LOCATION SHARE REQUEST",
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = Color(0xFF007AFF)
+                    )
+                },
+                text = {
+                    Text(
+                        text = "$requesterName wants to share live radar location with you. Do you accept?",
+                        color = Color.White,
+                        fontSize = 14.sp
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { viewModel.acceptLocationVerificationRequest(requestPeerID) },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00C851))
+                    ) {
+                        Text("ACCEPT", fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                },
+                dismissButton = {
+                    Button(
+                        onClick = { viewModel.rejectLocationVerificationRequest(requestPeerID) },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.8f))
+                    ) {
+                        Text("REJECT", fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                },
+                containerColor = Color(0xFF1C1C1E),
+                shape = RoundedCornerShape(16.dp)
+            )
+        }
+
+        // Mesh Peer Verification Bottom Sheet
+        if (showPeersSheet) {
+            ModalBottomSheet(
+                onDismissRequest = { showPeersSheet = false },
+                containerColor = Color(0xFF121212),
+                contentColor = Color.White
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp)
+                ) {
+                    Text(
+                        text = "NEARBY MESH PEERS",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        color = Color(0xFF007AFF)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Verify devices to share locations. Rejected requests have a 5-minute cooldown.",
+                        fontSize = 12.sp,
+                        color = Color.White.copy(alpha = 0.6f)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    if (connectedPeers.isEmpty()) {
+                        Text(
+                            text = "No mesh peers currently connected.",
+                            color = Color.Gray,
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(vertical = 16.dp)
+                        )
+                    } else {
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            items(connectedPeers) { peerID ->
+                                val peerName = peerNicknames[peerID] ?: peerID.take(8)
+                                val isVerified = verifiedPeers.contains(peerID)
+                                val remainingCooldownMs = viewModel.verifiedLocationStore.getRemainingCooldownMs(peerID)
+                                val canRequest = viewModel.verifiedLocationStore.canSendRequest(peerID)
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(8.dp))
+                                        .padding(12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = peerName,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                            fontSize = 14.sp
+                                        )
+                                        Text(
+                                            text = "ID: ${peerID.take(8)}",
+                                            fontSize = 11.sp,
+                                            color = Color.Gray,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                    }
+
+                                    when {
+                                        isVerified -> {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Check,
+                                                    contentDescription = "Verified",
+                                                    tint = Color(0xFF00C851),
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    text = "VERIFIED",
+                                                    color = Color(0xFF00C851),
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                        }
+                                        !canRequest -> {
+                                            val remainingSec = (remainingCooldownMs / 1000L).coerceAtLeast(1)
+                                            val min = remainingSec / 60
+                                            val sec = remainingSec % 60
+                                            Text(
+                                                text = "Cooldown (${min}m ${sec}s)",
+                                                color = Color.Red.copy(alpha = 0.8f),
+                                                fontSize = 12.sp,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                        }
+                                        else -> {
+                                            Button(
+                                                onClick = {
+                                                    viewModel.sendLocationVerificationRequest(peerID)
+                                                },
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF007AFF)),
+                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                            ) {
+                                                Text("REQUEST SHARE", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

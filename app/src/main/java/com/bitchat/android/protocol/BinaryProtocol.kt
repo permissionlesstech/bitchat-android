@@ -14,6 +14,7 @@ enum class MessageType(val value: UByte) {
     MESSAGE(0x02u),  // All user messages (private and broadcast)
     LEAVE(0x03u),
     LOCATION(0x05u), // Reserved for location telemetry / radar-style features
+    LOCATION_VERIFY(0x55u), // Location sharing authorization handshake (REQUEST, ACCEPT, REJECT)
     NOISE_HANDSHAKE(0x10u),  // Noise handshake
     NOISE_ENCRYPTED(0x11u),  // Noise encrypted transport message
     FRAGMENT(0x20u), // Fragmentation for large packets

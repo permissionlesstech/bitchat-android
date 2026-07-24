@@ -47,6 +47,18 @@ object AppStateStore {
     private val _peerLocations = MutableStateFlow<Map<String, TelemetryLocation>>(emptyMap())
     val peerLocations: StateFlow<Map<String, TelemetryLocation>> = _peerLocations.asStateFlow()
 
+    // Incoming location verification request peer ID
+    private val _incomingLocationVerifyRequest = MutableStateFlow<String?>(null)
+    val incomingLocationVerifyRequest: StateFlow<String?> = _incomingLocationVerifyRequest.asStateFlow()
+
+    fun showIncomingVerifyRequest(peerID: String) {
+        _incomingLocationVerifyRequest.value = peerID
+    }
+
+    fun clearIncomingVerifyRequest() {
+        _incomingLocationVerifyRequest.value = null
+    }
+
     fun setPeers(ids: List<String>) {
         synchronized(this) {
             _peers.value = ids.distinct()

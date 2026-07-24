@@ -150,7 +150,16 @@ class PacketProcessor(private val myPeerID: String) {
             MessageType.ANNOUNCE -> handleAnnounce(routed)
             MessageType.MESSAGE -> handleMessage(routed)
             MessageType.LOCATION -> {
-                // Location telemetry is a public packet type; decode and log for debugging.
+                val serviceContext = com.bitchat.android.service.MeshServiceHolder.meshService?.context
+                val isVerified = if (serviceContext != null) {
+                    com.bitchat.android.geohash.VerifiedLocationPeersStore.getInstance(serviceContext).isVerified(peerID)
+                } else false
+
+                if (!isVerified) {
+                    Log.d(TAG, "🔒 Dropped location telemetry from unverified peer ${formatPeerForLog(peerID)}")
+                    return
+                }
+
                 try {
                     val telemetry = LocationTelemetryPacket.decode(packet.payload)
                     if (telemetry != null) {
@@ -173,7 +182,6 @@ class PacketProcessor(private val myPeerID: String) {
                                     results
                                 )
                                 val distanceMeters = results[0]
-                                // results[1] is initial bearing (degrees) from start to end
                                 var bearing = results[1]
                                 if (bearing.isNaN()) bearing = 0f
                                 val bearingNorm = ((bearing % 360) + 360) % 360
@@ -198,10 +206,40 @@ class PacketProcessor(private val myPeerID: String) {
                             Log.w(TAG, "Error computing distance to ${formatPeerForLog(peerID)}: ${e.message}")
                         }
                     } else {
-                        Log.w(TAG, "Failed to decode LOCATION payload from ${formatPeerForLog(peerID)}")
+                        Log.w(TAG, "Failed to decode location telemetry payload from ${formatPeerForLog(peerID)}")
                     }
                 } catch (e: Exception) {
-                    Log.w(TAG, "Exception decoding LOCATION payload from ${formatPeerForLog(peerID)}: ${e.message}")
+                    Log.e(TAG, "Error decoding location payload from ${formatPeerForLog(peerID)}: ${e.message}", e)
+                }
+            }
+            MessageType.LOCATION_VERIFY -> {
+                try {
+                    val verify = com.bitchat.android.protocol.LocationVerifyPacket.decode(packet.payload)
+                    if (verify != null) {
+                        val serviceContext = com.bitchat.android.service.MeshServiceHolder.meshService?.context
+                        if (serviceContext != null) {
+                            val store = com.bitchat.android.geohash.VerifiedLocationPeersStore.getInstance(serviceContext)
+                            when (verify.action) {
+                                com.bitchat.android.protocol.LocationVerifyPacket.Action.REQUEST -> {
+                                    Log.i(TAG, "📩 Location verify REQUEST received from ${formatPeerForLog(peerID)}")
+                                    AppStateStore.showIncomingVerifyRequest(peerID)
+                                }
+                                com.bitchat.android.protocol.LocationVerifyPacket.Action.ACCEPT -> {
+                                    Log.i(TAG, "✅ Location verify ACCEPT received from ${formatPeerForLog(peerID)}")
+                                    store.addVerifiedPeer(peerID)
+                                    MeshServiceHolder.lastKnownLocation?.let { loc ->
+                                        MeshServiceHolder.meshService?.sendLocationTelemetry(loc)
+                                    }
+                                }
+                                com.bitchat.android.protocol.LocationVerifyPacket.Action.REJECT -> {
+                                    Log.w(TAG, "❌ Location verify REJECT received from ${formatPeerForLog(peerID)}")
+                                    store.recordRejection(peerID)
+                                }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to process LOCATION_VERIFY packet: ${e.message}", e)
                 }
             }
             MessageType.FILE_TRANSFER -> handleMessage(routed) // treat same routing path; parsing happens in handler

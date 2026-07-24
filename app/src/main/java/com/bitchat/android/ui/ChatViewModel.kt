@@ -1190,6 +1190,31 @@ class ChatViewModel(
      */
     fun colorForNostrPubkey(pubkeyHex: String, isDark: Boolean): androidx.compose.ui.graphics.Color {
         return geohashViewModel.colorForNostrPubkey(pubkeyHex, isDark)
-}
+    }
 
+    // MARK: - Location Verification Handshake Helpers
+
+    val verifiedLocationStore by lazy { com.bitchat.android.geohash.VerifiedLocationPeersStore.getInstance(getApplication()) }
+    val verifiedLocationPeers = verifiedLocationStore.verifiedPeersFlow
+    val incomingLocationVerifyRequest = AppStateStore.incomingLocationVerifyRequest
+
+    fun sendLocationVerificationRequest(peerID: String) {
+        if (!verifiedLocationStore.canSendRequest(peerID)) return
+        meshService.sendLocationVerifyPacket(peerID, com.bitchat.android.protocol.LocationVerifyPacket.Action.REQUEST)
+    }
+
+    fun acceptLocationVerificationRequest(peerID: String) {
+        verifiedLocationStore.addVerifiedPeer(peerID)
+        meshService.sendLocationVerifyPacket(peerID, com.bitchat.android.protocol.LocationVerifyPacket.Action.ACCEPT)
+        AppStateStore.clearIncomingVerifyRequest()
+        MeshServiceHolder.lastKnownLocation?.let { loc: android.location.Location ->
+            meshService.sendLocationTelemetry(loc)
+        }
+    }
+
+    fun rejectLocationVerificationRequest(peerID: String) {
+        verifiedLocationStore.recordRejection(peerID)
+        meshService.sendLocationVerifyPacket(peerID, com.bitchat.android.protocol.LocationVerifyPacket.Action.REJECT)
+        AppStateStore.clearIncomingVerifyRequest()
+    }
 }

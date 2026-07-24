@@ -37,7 +37,7 @@ import kotlin.random.Random
  * - BluetoothConnectionManager: BLE connections and GATT operations
  * - PacketProcessor: Incoming packet routing
  */
-class BluetoothMeshService(private val context: Context) : TransportBridgeService.TransportLayer {
+class BluetoothMeshService(val context: Context) : TransportBridgeService.TransportLayer {
     private val debugManager by lazy { try { com.bitchat.android.ui.debug.DebugSettingsManager.getInstance() } catch (e: Exception) { null } }
     
     companion object {
@@ -1468,7 +1468,22 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             packet
         }
     }
-    
+
+    fun sendLocationVerifyPacket(targetPeerID: String, action: com.bitchat.android.protocol.LocationVerifyPacket.Action) {
+        try {
+            val packet = com.bitchat.android.protocol.LocationVerifyPacket.buildPacket(
+                myPeerID = myPeerID,
+                targetPeerID = targetPeerID,
+                action = action
+            )
+            val signed = signPacketBeforeBroadcast(packet)
+            broadcastRoutedPacket(RoutedPacket(signed))
+            Log.d(TAG, "🔒 Sent location verify packet (${action.name}) to $targetPeerID")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error sending location verify packet to $targetPeerID: ${e.message}")
+        }
+    }
+
     // MARK: - Panic Mode Support
     
     /**
