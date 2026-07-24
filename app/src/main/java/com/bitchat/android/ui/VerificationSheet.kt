@@ -58,6 +58,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -92,10 +93,14 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.common.BitMatrix
 import com.google.zxing.qrcode.QRCodeWriter
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-
+import kotlin.coroutines.resume
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VerificationSheet(
@@ -329,11 +334,13 @@ private fun ScanTabContent(
     onScan: (String) -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val permissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
     var galleryMessage by remember { mutableStateOf<String?>(null) }
     var isScanningGallery by remember { mutableStateOf(false) }
     val noQrMessage = stringResource(R.string.verify_gallery_no_qr)
     val failedMessage = stringResource(R.string.verify_gallery_failed)
+    val onScanState = rememberUpdatedState(onScan)
 
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -341,10 +348,11 @@ private fun ScanTabContent(
         if (uri == null) return@rememberLauncherForActivityResult
         galleryMessage = null
         isScanningGallery = true
-        scanQrFromUri(context, uri) { result ->
+        scope.launch {
+            val result = scanQrFromUri(context, uri)
             isScanningGallery = false
             when (result) {
-                is GalleryQrResult.Success -> onScan(result.text)
+                is GalleryQrResult.Success -> onScanState.value(result.text)
                 GalleryQrResult.NoQrFound -> galleryMessage = noQrMessage
                 GalleryQrResult.Failed -> galleryMessage = failedMessage
             }
@@ -352,6 +360,8 @@ private fun ScanTabContent(
     }
 
     fun openGallery() {
+        // Clear any prior error before opening the picker (including cancel)
+        galleryMessage = null
         galleryLauncher.launch("image/*")
     }
 
@@ -527,44 +537,44 @@ private sealed class GalleryQrResult {
     data object Failed : GalleryQrResult()
 }
 
-private fun scanQrFromUri(
-    context: Context,
-    uri: Uri,
-    onResult: (GalleryQrResult) -> Unit
-) {
-    val mainHandler = Handler(Looper.getMainLooper())
-    fun deliver(result: GalleryQrResult) {
-        if (Looper.myLooper() == Looper.getMainLooper()) {
-            onResult(result)
-        } else {
-            mainHandler.post { onResult(result) }
+/**
+ * Load and decode a QR from a gallery URI off the main thread to avoid ANR/jank
+ * on large or cloud-backed images.
+ */
+private suspend fun scanQrFromUri(context: Context, uri: Uri): GalleryQrResult {
+    return withContext(Dispatchers.IO) {
+        val scanner = BarcodeScanning.getClient(
+            BarcodeScannerOptions.Builder()
+                .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
+                .build()
+        )
+        try {
+            val image = InputImage.fromFilePath(context, uri)
+            suspendCancellableCoroutine<GalleryQrResult> { cont ->
+                scanner.process(image)
+                    .addOnSuccessListener { barcodes ->
+                        val text = barcodes.firstOrNull()?.rawValue?.takeIf { it.isNotBlank() }
+                        if (cont.isActive) {
+                            cont.resume(
+                                if (text != null) GalleryQrResult.Success(text)
+                                else GalleryQrResult.NoQrFound
+                            )
+                        }
+                    }
+                    .addOnFailureListener { error ->
+                        Log.w("VerificationSheet", "Gallery QR scan failed: ${error.message}")
+                        if (cont.isActive) cont.resume(GalleryQrResult.Failed)
+                    }
+                    .addOnCompleteListener { scanner.close() }
+                cont.invokeOnCancellation {
+                    runCatching { scanner.close() }
+                }
+            }
+        } catch (e: Exception) {
+            Log.w("VerificationSheet", "Could not load gallery image: ${e.message}")
+            runCatching { scanner.close() }
+            GalleryQrResult.Failed
         }
-    }
-
-    val scanner = BarcodeScanning.getClient(
-        BarcodeScannerOptions.Builder()
-            .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
-            .build()
-    )
-    try {
-        val image = InputImage.fromFilePath(context, uri)
-        scanner.process(image)
-            .addOnSuccessListener { barcodes ->
-                val text = barcodes.firstOrNull()?.rawValue?.takeIf { it.isNotBlank() }
-                deliver(
-                    if (text != null) GalleryQrResult.Success(text)
-                    else GalleryQrResult.NoQrFound
-                )
-            }
-            .addOnFailureListener { error ->
-                Log.w("VerificationSheet", "Gallery QR scan failed: ${error.message}")
-                deliver(GalleryQrResult.Failed)
-            }
-            .addOnCompleteListener { scanner.close() }
-    } catch (e: Exception) {
-        Log.w("VerificationSheet", "Could not load gallery image: ${e.message}")
-        scanner.close()
-        deliver(GalleryQrResult.Failed)
     }
 }
 
