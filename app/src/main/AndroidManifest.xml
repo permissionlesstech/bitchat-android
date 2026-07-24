@@ -151,5 +151,12 @@
             android:label="Share BitChat"
             android:theme="@style/Theme.BitchatAndroid"
             android:launchMode="singleTop" />
+
+        <!-- Declare the foreground service type for WorkManager's foreground
+             service so the APK download worker can run as dataSync work -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
     </application>
 </manifest>

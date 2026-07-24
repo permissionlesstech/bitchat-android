@@ -185,6 +185,8 @@
   <string name="prepare_apk_required">Please prepare the app for sharing first.</string>
   <string name="prepare_apk_download_interrupted">Download interrupted</string>
   <string name="prepare_apk_download_cancelled">Download cancelled</string>
+  <string name="apk_download_notification_title">Downloading universal APK</string>
+  <string name="apk_download_channel_name">APK downloads</string>
 
   <!-- Hotspot Sharing -->
   <string name="hotspot_share_via">Share via Hotspot</string>
