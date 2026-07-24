@@ -252,66 +252,84 @@ class UniversalApkManager(private val context: Context) {
                 }
             }
 
-            val requestBuilder = Request.Builder()
-                .url(url)
-                .addHeader("User-Agent", "BitChat-Android")
+            // A temp file that already holds the full asset means the process
+            // died between download and verification. Requesting
+            // "Range: bytes=<size>-" for it would get HTTP 416 forever, so skip
+            // the network and let checksum/signature verification decide its fate.
+            if (expectedSize > 0 && existingBytes >= expectedSize) {
+                Log.d(TAG, "Temp file already complete ($existingBytes bytes), skipping to verification")
+            } else {
+                val requestBuilder = Request.Builder()
+                    .url(url)
+                    .addHeader("User-Agent", "BitChat-Android")
 
-            if (existingBytes > 0) {
-                requestBuilder.addHeader("Range", "bytes=$existingBytes-")
-                Log.d(TAG, "Added Range header: bytes=$existingBytes-")
-            }
-
-            val request = requestBuilder.build()
-
-            downloadClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful && response.code != 206) {
-                    return@withContext Result.failure(
-                        IOException("Download failed: ${response.code} ${response.message}")
-                    )
+                if (existingBytes > 0) {
+                    requestBuilder.addHeader("Range", "bytes=$existingBytes-")
+                    Log.d(TAG, "Added Range header: bytes=$existingBytes-")
                 }
 
-                val body = response.body
-                    ?: return@withContext Result.failure(IOException("Empty response body"))
+                val request = requestBuilder.build()
 
-                // Handle resume: 206 = partial content (append), 200 = full content (overwrite)
-                val append = response.code == 206
-                if (!append && existingBytes > 0) {
-                    Log.d(TAG, "Server didn't honor Range request, starting from scratch")
-                    existingBytes = 0
-                }
+                downloadClient.newCall(request).execute().use { response ->
+                    if (response.code == 416) {
+                        // Our offset is no longer valid for this asset; discard
+                        // the partial state so the retry starts from scratch.
+                        Log.w(TAG, "Server rejected resume range, restarting download")
+                        tempFile.delete()
+                        progressFile.delete()
+                        return@withContext Result.failure(
+                            IOException("Resume rejected by server. Download will restart.")
+                        )
+                    }
+                    if (!response.isSuccessful && response.code != 206) {
+                        return@withContext Result.failure(
+                            IOException("Download failed: ${response.code} ${response.message}")
+                        )
+                    }
 
-                // Save resume metadata
-                saveResumeInfo(url, expectedSize, release.versionName)
+                    val body = response.body
+                        ?: return@withContext Result.failure(IOException("Empty response body"))
 
-                // Report initial progress when resuming
-                if (existingBytes > 0 && expectedSize > 0) {
-                    val initialProgress = ((existingBytes * 100) / expectedSize).toInt()
-                    progressCallback?.invoke(initialProgress)
-                }
+                    // Handle resume: 206 = partial content (append), 200 = full content (overwrite)
+                    val append = response.code == 206
+                    if (!append && existingBytes > 0) {
+                        Log.d(TAG, "Server didn't honor Range request, starting from scratch")
+                        existingBytes = 0
+                    }
 
-                // Download with progress tracking
-                body.byteStream().use { input ->
-                    FileOutputStream(tempFile, append).use { output ->
-                        val buffer = ByteArray(BUFFER_SIZE)
-                        var bytesRead: Int
-                        var totalBytesRead = existingBytes
-                        var lastProgress = if (expectedSize > 0) ((existingBytes * 100) / expectedSize).toInt() else 0
+                    // Save resume metadata
+                    saveResumeInfo(url, expectedSize, release.versionName)
 
-                        while (input.read(buffer).also { bytesRead = it } != -1) {
-                            output.write(buffer, 0, bytesRead)
-                            totalBytesRead += bytesRead
+                    // Report initial progress when resuming
+                    if (existingBytes > 0 && expectedSize > 0) {
+                        val initialProgress = ((existingBytes * 100) / expectedSize).toInt()
+                        progressCallback?.invoke(initialProgress)
+                    }
 
-                            // Report progress
-                            if (expectedSize > 0) {
-                                val progress = ((totalBytesRead * 100) / expectedSize).toInt()
-                                if (progress != lastProgress) {
-                                    lastProgress = progress
-                                    progressCallback?.invoke(progress)
+                    // Download with progress tracking
+                    body.byteStream().use { input ->
+                        FileOutputStream(tempFile, append).use { output ->
+                            val buffer = ByteArray(BUFFER_SIZE)
+                            var bytesRead: Int
+                            var totalBytesRead = existingBytes
+                            var lastProgress = if (expectedSize > 0) ((existingBytes * 100) / expectedSize).toInt() else 0
+
+                            while (input.read(buffer).also { bytesRead = it } != -1) {
+                                output.write(buffer, 0, bytesRead)
+                                totalBytesRead += bytesRead
+
+                                // Report progress
+                                if (expectedSize > 0) {
+                                    val progress = ((totalBytesRead * 100) / expectedSize).toInt()
+                                    if (progress != lastProgress) {
+                                        lastProgress = progress
+                                        progressCallback?.invoke(progress)
+                                    }
                                 }
                             }
-                        }
 
-                        Log.d(TAG, "Download complete: ${totalBytesRead / 1024 / 1024}MB")
+                            Log.d(TAG, "Download complete: ${totalBytesRead / 1024 / 1024}MB")
+                        }
                     }
                 }
             }
