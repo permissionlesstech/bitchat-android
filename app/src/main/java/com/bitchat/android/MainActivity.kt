@@ -799,6 +799,12 @@ class MainActivity : OrientationAwareActivity() {
         if (pendingMeshForegroundServiceStart) {
             startMeshForegroundServiceBestEffort()
         }
+        com.bitchat.android.service.MeshServiceHolder.locationTelemetryManager?.setAppForegroundState(true)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        com.bitchat.android.service.MeshServiceHolder.locationTelemetryManager?.setAppForegroundState(false)
     }
     
     override fun onResume() {
@@ -913,7 +919,6 @@ class MainActivity : OrientationAwareActivity() {
         }
     }
 
-    
     override fun onDestroy() {
         super.onDestroy()
         

@@ -81,6 +81,9 @@ object MeshServiceHolder {
     @Volatile
     var lastKnownLocation: Location? = null
 
+    @Volatile
+    var locationTelemetryManager: LocationTelemetryManager? = null
+
     @Synchronized
     fun getOrCreate(context: Context): BluetoothMeshService {
         val existing = meshService

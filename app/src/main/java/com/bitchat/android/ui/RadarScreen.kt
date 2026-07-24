@@ -7,6 +7,7 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import androidx.compose.animation.core.*
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -852,5 +853,179 @@ private fun cardinalFromDegrees(bearing: Float): String {
         5 -> "SW"
         6 -> "W"
         else -> "NW"
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF050805)
+@Composable
+fun RadarScreenPreview() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF050805))
+            .padding(top = 16.dp)
+    ) {
+        // Dark green terminal grid overlay lines
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val gridSpacing = 40.dp.toPx()
+            val gridColor = Color(0xFF00FF66).copy(alpha = 0.03f)
+            var x = 0f
+            while (x < size.width) {
+                drawLine(gridColor, Offset(x, 0f), Offset(x, size.height))
+                x += gridSpacing
+            }
+            var y = 0f
+            while (y < size.height) {
+                drawLine(gridColor, Offset(0f, y), Offset(size.width, y))
+                y += gridSpacing
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp, start = 24.dp, end = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "bitchat radar",
+                color = Color(0xFF00FF66),
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                letterSpacing = 1.sp
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "peers detected: 2",
+                color = Color(0xFF4A7A66),
+                fontSize = 13.sp,
+                fontFamily = FontFamily.Monospace
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Information Pill
+            Row(
+                modifier = Modifier
+                    .background(Color(0xFF09140D), RoundedCornerShape(16.dp))
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .border(1.dp, Color(0xFF14301F), RoundedCornerShape(16.dp)),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "heading: 8° n  self: shlok",
+                    color = Color(0xFF4A7A66),
+                    fontSize = 13.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = "Verified Self",
+                    tint = Color(0xFF00FF66),
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp, vertical = 110.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            val dummyPeers = listOf(
+                RadarPeer("peer1", "alice", 45.0, 30.0, 1.0f),
+                RadarPeer("peer2", "bob", 80.0, 240.0, 0.8f)
+            )
+            RadarCanvasView(
+                peers = dummyPeers,
+                headingDegrees = 8f,
+                maxDistanceRange = 100.0
+            )
+        }
+
+        // Bottom Zoom Controls Panel
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "RANGE SCALE",
+                color = Color(0xFF4A7A66),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                letterSpacing = 2.sp
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Outer Card Container
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF09140D), RoundedCornerShape(16.dp))
+                    .border(1.dp, Color(0xFF14301F), RoundedCornerShape(16.dp))
+                    .padding(12.dp)
+            ) {
+                val row1 = listOf("5m", "10m", "25m", "50m")
+                val row2 = listOf("100m", "250m", "500km", "1km")
+
+                // Row 1
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceAround
+                ) {
+                    row1.forEach { label ->
+                        val isSelected = label == "100m"
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(40.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = label,
+                                color = if (isSelected) Color(0xFF00E5FF) else Color(0xFF4A7A66),
+                                fontSize = 13.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Row 2
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceAround
+                ) {
+                    row2.forEach { label ->
+                        val isSelected = label == "100m"
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(40.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = label,
+                                    color = if (isSelected) Color(0xFF00E5FF) else Color(0xFF4A7A66),
+                                    fontSize = 13.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

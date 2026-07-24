@@ -16,16 +16,23 @@ class LocationTelemetryManager(
 ) {
     companion object {
         private const val TAG = "LocationTelemetryMgr"
-        private const val UPDATE_INTERVAL_MS = 2_000L
-        private const val MIN_DISTANCE_METERS = 0f
+
+        // High-accuracy live mode for smooth foreground Radar tracking
+        private const val FOREGROUND_INTERVAL_MS = 1_500L
+        private const val FOREGROUND_MIN_DISTANCE_METERS = 0.5f
+
+        // Battery saver mode for background tracking
+        private const val BACKGROUND_INTERVAL_MS = 30_000L
+        private const val BACKGROUND_MIN_DISTANCE_METERS = 5.0f
     }
 
     private val locationProvider = SystemLocationProvider(context)
     private var isStarted = false
+    private var isForeground = true
 
     private val locationCallback: (Location) -> Unit = { location ->
         try {
-            Log.d(TAG, "📍 Live GPS update received: lat=${location.latitude}, lon=${location.longitude}, acc=${location.accuracy}m")
+            Log.d(TAG, "📍 GPS update received (inForeground=$isForeground): lat=${location.latitude}, lon=${location.longitude}, acc=${location.accuracy}m")
             try { MeshServiceHolder.lastKnownLocation = location } catch (_: Exception) { }
             AppStateStore.updateMyLocation(
                 latitude = location.latitude,
@@ -46,6 +53,7 @@ class LocationTelemetryManager(
             return
         }
         isStarted = true
+        MeshServiceHolder.locationTelemetryManager = this
 
         // Prime once at startup with cached location if available
         try {
@@ -56,18 +64,46 @@ class LocationTelemetryManager(
             }
         } catch (_: Exception) {}
 
-        // Register for continuous hardware GPS updates (every 2s / 0m movement)
-        Log.i(TAG, "Starting continuous GPS location tracking listener")
+        // Initial registration based on current foreground state
+        val initialInterval = if (isForeground) FOREGROUND_INTERVAL_MS else BACKGROUND_INTERVAL_MS
+        val initialMinDistance = if (isForeground) FOREGROUND_MIN_DISTANCE_METERS else BACKGROUND_MIN_DISTANCE_METERS
+
+        Log.i(TAG, "Starting GPS location tracking listener (interval=${initialInterval}ms, minDistance=${initialMinDistance}m)")
         locationProvider.requestLocationUpdates(
-            intervalMs = UPDATE_INTERVAL_MS,
-            minDistanceMeters = MIN_DISTANCE_METERS,
+            intervalMs = initialInterval,
+            minDistanceMeters = initialMinDistance,
             callback = locationCallback
         )
+    }
+
+    fun setAppForegroundState(inForeground: Boolean) {
+        if (isForeground == inForeground) return
+        isForeground = inForeground
+        if (!isStarted) return
+
+        if (inForeground) {
+            Log.i(TAG, "⚡ Switching location provider to FOREGROUND high-accuracy mode (1.5s interval)")
+            locationProvider.updateLocationRequestParams(
+                callback = locationCallback,
+                intervalMs = FOREGROUND_INTERVAL_MS,
+                minDistanceMeters = FOREGROUND_MIN_DISTANCE_METERS
+            )
+        } else {
+            Log.i(TAG, "🔋 Switching location provider to BACKGROUND battery-saver mode (30s interval + 5m filter)")
+            locationProvider.updateLocationRequestParams(
+                callback = locationCallback,
+                intervalMs = BACKGROUND_INTERVAL_MS,
+                minDistanceMeters = BACKGROUND_MIN_DISTANCE_METERS
+            )
+        }
     }
 
     fun stop() {
         if (!isStarted) return
         isStarted = false
+        if (MeshServiceHolder.locationTelemetryManager === this) {
+            MeshServiceHolder.locationTelemetryManager = null
+        }
         Log.i(TAG, "Stopping location tracking listener")
         locationProvider.removeLocationUpdates(locationCallback)
         locationProvider.cancel()

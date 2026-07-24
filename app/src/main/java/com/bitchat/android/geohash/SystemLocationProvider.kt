@@ -199,6 +199,30 @@ class SystemLocationProvider(private val context: Context) : LocationProvider {
         }
     }
 
+    @SuppressLint("MissingPermission")
+    fun updateLocationRequestParams(
+        callback: (Location) -> Unit,
+        intervalMs: Long,
+        minDistanceMeters: Float
+    ) {
+        val listener = synchronized(activeListeners) { activeListeners[callback] } ?: return
+        try {
+            locationManager.removeUpdates(listener)
+            if (hasLocationPermission() && locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                locationManager.requestLocationUpdates(
+                    LocationManager.GPS_PROVIDER,
+                    intervalMs,
+                    minDistanceMeters,
+                    listener,
+                    android.os.Looper.getMainLooper()
+                )
+                Log.d(TAG, "⚡ Dynamic GPS update: interval=${intervalMs}ms, minDistance=${minDistanceMeters}m")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating location request params: ${e.message}")
+        }
+    }
+
     override fun removeLocationUpdates(callback: (Location) -> Unit) {
         try {
             val listener = synchronized(activeListeners) {
