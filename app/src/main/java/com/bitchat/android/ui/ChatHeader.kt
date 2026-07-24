@@ -226,7 +226,8 @@ fun ChatHeaderContent(
     onTripleClick: () -> Unit,
     onShowAppInfo: () -> Unit,
     onLocationChannelsClick: () -> Unit,
-    onLocationNotesClick: () -> Unit
+    onLocationNotesClick: () -> Unit,
+    onTelemetryMapClick: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
@@ -250,6 +251,7 @@ fun ChatHeaderContent(
                 onSidebarClick = onSidebarClick,
                 onLocationChannelsClick = onLocationChannelsClick,
                 onLocationNotesClick = onLocationNotesClick,
+                onTelemetryMapClick = onTelemetryMapClick,
                 viewModel = viewModel
             )
         }
@@ -331,6 +333,7 @@ private fun MainHeader(
     onSidebarClick: () -> Unit,
     onLocationChannelsClick: () -> Unit,
     onLocationNotesClick: () -> Unit,
+    onTelemetryMapClick: () -> Unit,
     viewModel: ChatViewModel
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -429,6 +432,18 @@ private fun MainHeader(
                 viewModel = viewModel,
                 onClick = onLocationNotesClick
             )
+
+            IconButton(
+                onClick = onTelemetryMapClick,
+                modifier = Modifier.size(24.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Map,
+                    contentDescription = stringResource(R.string.cd_open_map),
+                    tint = colorScheme.onSurface.copy(alpha = 0.85f),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
 
             // Tor status dot when Tor is enabled
             TorStatusDot(

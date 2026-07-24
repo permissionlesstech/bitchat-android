@@ -66,6 +66,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
     var passwordInput by remember { mutableStateOf("") }
     var showLocationChannelsSheet by remember { mutableStateOf(false) }
     var showLocationNotesSheet by remember { mutableStateOf(false) }
+    var showTelemetryMapSheet by remember { mutableStateOf(false) }
     var showUserSheet by remember { mutableStateOf(false) }
     var selectedUserForSheet by remember { mutableStateOf("") }
     var selectedMessageForSheet by remember { mutableStateOf<BitchatMessage?>(null) }
@@ -252,7 +253,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
             onShowAppInfo = { viewModel.showAppInfo() },
             onPanicClear = { viewModel.panicClearAllData() },
             onLocationChannelsClick = { showLocationChannelsSheet = true },
-            onLocationNotesClick = { showLocationNotesSheet = true }
+            onLocationNotesClick = { showLocationNotesSheet = true },
+            onTelemetryMapClick = { showTelemetryMapSheet = true }
         )
 
         // Divider under header - positioned after status bar + header height
@@ -329,6 +331,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
         onLocationChannelsSheetDismiss = { showLocationChannelsSheet = false },
         showLocationNotesSheet = showLocationNotesSheet,
         onLocationNotesSheetDismiss = { showLocationNotesSheet = false },
+        showTelemetryMapSheet = showTelemetryMapSheet,
+        onTelemetryMapSheetDismiss = { showTelemetryMapSheet = false },
         showUserSheet = showUserSheet,
         onUserSheetDismiss = { 
             showUserSheet = false
@@ -419,7 +423,8 @@ private fun ChatFloatingHeader(
     onShowAppInfo: () -> Unit,
     onPanicClear: () -> Unit,
     onLocationChannelsClick: () -> Unit,
-    onLocationNotesClick: () -> Unit
+    onLocationNotesClick: () -> Unit,
+    onTelemetryMapClick: () -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val locationManager = remember { com.bitchat.android.geohash.LocationChannelManager.getInstance(context) }
@@ -452,7 +457,8 @@ private fun ChatFloatingHeader(
                         // Ensure location is loaded before showing sheet
                         locationManager.refreshChannels()
                         onLocationNotesClick()
-                    }
+                    },
+                    onTelemetryMapClick = onTelemetryMapClick
                 )
             },
             colors = TopAppBarDefaults.topAppBarColors(
@@ -478,6 +484,8 @@ private fun ChatDialogs(
     onLocationChannelsSheetDismiss: () -> Unit,
     showLocationNotesSheet: Boolean,
     onLocationNotesSheetDismiss: () -> Unit,
+    showTelemetryMapSheet: Boolean,
+    onTelemetryMapSheetDismiss: () -> Unit,
     showUserSheet: Boolean,
     onUserSheetDismiss: () -> Unit,
     selectedUserForSheet: String,
@@ -531,6 +539,14 @@ private fun ChatDialogs(
         LocationNotesSheetPresenter(
             viewModel = viewModel,
             onDismiss = onLocationNotesSheetDismiss
+        )
+    }
+
+    if (showTelemetryMapSheet) {
+        TelemetryMapSheet(
+            isPresented = showTelemetryMapSheet,
+            viewModel = viewModel,
+            onDismiss = onTelemetryMapSheetDismiss
         )
     }
     

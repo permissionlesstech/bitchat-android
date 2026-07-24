@@ -1,6 +1,7 @@
 package com.bitchat.android.service
 
 import android.content.Context
+import android.location.Location
 import com.bitchat.android.mesh.BluetoothMeshService
 import com.bitchat.android.mesh.UnifiedMeshService
 import com.bitchat.android.model.RoutedPacket
@@ -75,6 +76,10 @@ object MeshServiceHolder {
     @Volatile
     var unifiedMeshService: UnifiedMeshService? = null
         private set
+
+    // Last known location set by LocationTelemetryManager when a fresh fix is obtained
+    @Volatile
+    var lastKnownLocation: Location? = null
 
     @Synchronized
     fun getOrCreate(context: Context): BluetoothMeshService {

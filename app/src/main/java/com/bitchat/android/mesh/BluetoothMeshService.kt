@@ -1,6 +1,7 @@
 package com.bitchat.android.mesh
 
 import android.content.Context
+import android.location.Location
 import android.util.Log
 import com.bitchat.android.crypto.EncryptionService
 import com.bitchat.android.model.BitchatMessage
@@ -10,6 +11,7 @@ import com.bitchat.android.model.IdentityAnnouncement
 import com.bitchat.android.model.NoisePayload
 import com.bitchat.android.model.NoisePayloadType
 import com.bitchat.android.protocol.BitchatPacket
+import com.bitchat.android.protocol.LocationTelemetryPacket
 import com.bitchat.android.protocol.MessageType
 import com.bitchat.android.protocol.SpecialRecipients
 import com.bitchat.android.model.RequestSyncPacket
@@ -817,6 +819,29 @@ class BluetoothMeshService(private val context: Context) : TransportBridgeServic
             } catch (e: Exception) {
             Log.e(TAG, "❌ sendFileBroadcast failed: ${e.message}", e)
             Log.e(TAG, "❌ File: name=${file.fileName}, size=${file.fileSize}")
+        }
+    }
+
+    /**
+     * Broadcast a compact location telemetry packet.
+     */
+    fun sendLocationTelemetry(location: Location) {
+        serviceScope.launch {
+            try {
+                val packet = LocationTelemetryPacket.buildPacket(
+                    myPeerID = myPeerID,
+                    latitude = location.latitude,
+                    longitude = location.longitude,
+                    timestampMillis = location.time.takeIf { it > 0L } ?: System.currentTimeMillis()
+                )
+                broadcastRoutedPacket(RoutedPacket(packet))
+                Log.d(
+                    TAG,
+                    "📍 Sent location telemetry lat=${location.latitude}, lon=${location.longitude}, time=${packet.timestamp}"
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send location telemetry: ${e.message}", e)
+            }
         }
     }
 

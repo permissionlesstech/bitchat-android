@@ -26,6 +26,7 @@ import kotlinx.coroutines.launch
 import java.util.Date
 import kotlin.random.Random
 import com.bitchat.android.services.VerificationService
+import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.identity.SecureIdentityStateManager
 import com.bitchat.android.noise.NoiseSession
 import com.bitchat.android.nostr.GeohashAliasRegistry
@@ -189,6 +190,8 @@ class ChatViewModel(
     val geohashPeople: StateFlow<List<GeoPerson>> = state.geohashPeople
     val teleportedGeo: StateFlow<Set<String>> = state.teleportedGeo
     val geohashParticipantCounts: StateFlow<Map<String, Int>> = state.geohashParticipantCounts
+    val myTelemetryLocation: StateFlow<AppStateStore.TelemetryLocation?> = AppStateStore.myLocation
+    val peerTelemetryLocations: StateFlow<Map<String, AppStateStore.TelemetryLocation>> = AppStateStore.peerLocations
     val meshServiceFacade: MeshService
         get() = mesh
     val myPeerID: String

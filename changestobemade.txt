@@ -1,0 +1,67 @@
+
+
+### **AI Agent Master System Prompt: BitChat Modification for Radar Location Sharing**
+
+**Objective:**
+
+Modify the cloned `permissionlesstech/bitchat-android` repository. Instead of sending offline text messages, modify the core engine to broadcast and hop GPS telemetry data over the existing Bluetooth Low Energy (BLE) mesh network. Strip away the standard text chat UI and implement a sleek, pure black "Radar" canvas view that visualizes nearby friends' directions and straight-line distances relative to the user's live physical orientation.
+
+---
+
+### **Phase 1: Architecture Analysis & Protocol Injection**
+
+1. **Locate Network & Serialization Layers:** Identify the binary packet definitions, serialization logic, and packet type parsing mechanisms in the codebase (e.g., look for custom message codecs, `Packet`, or `Message` models).
+2. **Inject Custom Telemetry Packet Type:** Define a new packet protocol identifier: `MSG_TYPE_LOCATION = 0x05`.
+3. **Payload Structure:** Build a ultra-compact 12-byte binary payload for the packet:
+* `Latitude` (4 bytes, Float32)
+* `Longitude` (4 bytes, Float32)
+* `Timestamp` (4 bytes, Unix epoch time)
+
+
+4. **Preserve Rebroadcast Engine:** Ensure the existing multi-hop / store-and-forward flooding loop remains completely active. When a packet containing `MSG_TYPE_LOCATION` is scanned, the device must verify it, check sequence caching to avoid infinite loops, and automatically rebroadcast it, regardless of whether the sender is an accepted friend or a stranger.
+
+---
+
+### **Phase 2: Hardware GPS Integration**
+
+1. **Initialize FusedLocationProviderClient:** Integrate Android's Google Play Services Location API into the active foreground network service layer.
+2. **Background Telemetry Loop:** Create a background polling system that fetches the device’s high-precision outdoor coordinates every 45 seconds.
+3. **Broadcast Trigger:** Pack the current coordinates into the newly created `MSG_TYPE_LOCATION` packet framework along with the device's public identity signature, and invoke the native BitChat mesh broadcast loop.
+
+---
+
+### **Phase 3: Sensor Fusion Logic (Math Layer)**
+
+Create a stateless utility helper class `RadarMathEngine.kt` to calculate coordinate positions on a 2D grid relative to the user:
+
+1. **Distance calculation:** Implement the **Haversine formula** to get absolute meters between the user's location and the tracked friend's coordinates.
+2. **Bearing calculation:** Calculate the absolute bearing angle relative to true North.
+3. **Sensor Integration:** Hook into the Android `SensorManager` using `Sensor.TYPE_ROTATION_VECTOR` to fetch the device's current heading. Subtract the heading from the absolute bearing to compute the final relative coordinate angle on the viewport display:
+
+$$\text{Relative Angle} = \text{Absolute Bearing} - \text{Device Heading}$$
+
+
+
+---
+
+### **Phase 4: UI Redesign (The Black Radar Screen View)**
+
+1. **Clear Legacy Chat Components:** Deactivate or replace the application's default home layout views (text lists, input wrappers, channel grids).
+2. **Build Custom View Canvas:** Construct a high-performance custom `View` (or Compose `Canvas`) featuring a pure black background (`#000000`).
+3. **Draw Elements:**
+* Render low-opacity concentric reference circles centered at `(width/2, height/2)` mapped with distance scale bounds (e.g., 25m, 50m, 100m).
+* Render a steady bright blue dot at the exact center index `(0,0)` to represent the user.
+* Map nearby peers' metrics (`Distance` & `Relative Angle`) into Cartesian coordinates `(X, Y)`. Smooth out coordinate jumps with a basic **Linear Interpolation (Lerp)** filter over 300ms to eliminate visual jitter caused by noisy crowd GPS signals.
+* Render peers as bright red dots with text tags underneath showing their user name and distance indicator string (e.g. `"Rahul [34m]"`).
+
+
+4. **Data Expiry Handler:** Continually check incoming packet timestamps. Fade the peer dot opacity to 40% if no fresh location hop occurs within 3 minutes, and drop them completely after 10 minutes.
+
+---
+
+### **Execution Workflow Instructions for AI Agent:**
+
+* *Do not attempt to write the entire system simultaneously.*
+* **Step 1:** Scan the repository files, locate the existing network binary packet structures, and generate the code needed to inject `MSG_TYPE_LOCATION`. Confirm you have located the serialization codebase before writing logic.
+* **Step 2:** Write the location acquisition service and attach the packet broadcasting logic.
+* **Step 3:** Implement the geometric vector math and build the canvas view.

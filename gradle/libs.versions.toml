@@ -39,8 +39,7 @@ okhttp = "4.12.0"
 tor-android-binary = "0.4.4.6"
 
 
-# Google Play Services
-gms-location = "21.3.0"
+
 
 # Security
 security-crypto = "1.1.0-beta01"
@@ -108,8 +107,7 @@ tor-android-binary = { module = "org.torproject:tor-android-binary", version.ref
 
 # Tor (embed) intentionally not pinned yet; add once repo is chosen
 
-# Google Play Services
-gms-location = { module = "com.google.android.gms:play-services-location", version.ref = "gms-location" }
+
 
 # Security
 androidx-security-crypto = { module = "androidx.security:security-crypto", version.ref = "security-crypto" }

@@ -11,6 +11,12 @@ import kotlinx.coroutines.flow.asStateFlow
  * The foreground Mesh service updates this store; UI subscribes/hydrates from it.
  */
 object AppStateStore {
+    data class TelemetryLocation(
+        val latitude: Double,
+        val longitude: Double,
+        val timestampMs: Long
+    )
+
     // Global de-dup set by message id to avoid duplicate keys in Compose lists
     private val seenMessageIds = mutableSetOf<String>()
     private val seenPublicMessageKeys = mutableSetOf<String>()
@@ -32,6 +38,14 @@ object AppStateStore {
     // Channel messages by channel name
     private val _channelMessages = MutableStateFlow<Map<String, List<BitchatMessage>>>(emptyMap())
     val channelMessages: StateFlow<Map<String, List<BitchatMessage>>> = _channelMessages.asStateFlow()
+
+    // Last known local device location
+    private val _myLocation = MutableStateFlow<TelemetryLocation?>(null)
+    val myLocation: StateFlow<TelemetryLocation?> = _myLocation.asStateFlow()
+
+    // Latest location from each peer (keyed by peer ID)
+    private val _peerLocations = MutableStateFlow<Map<String, TelemetryLocation>>(emptyMap())
+    val peerLocations: StateFlow<Map<String, TelemetryLocation>> = _peerLocations.asStateFlow()
 
     fun setPeers(ids: List<String>) {
         synchronized(this) {
@@ -150,6 +164,20 @@ object AppStateStore {
         }
     }
 
+    fun updateMyLocation(latitude: Double, longitude: Double, timestampMs: Long = System.currentTimeMillis()) {
+        synchronized(this) {
+            _myLocation.value = TelemetryLocation(latitude, longitude, timestampMs)
+        }
+    }
+
+    fun updatePeerLocation(peerID: String, latitude: Double, longitude: Double, timestampMs: Long) {
+        synchronized(this) {
+            val map = _peerLocations.value.toMutableMap()
+            map[peerID] = TelemetryLocation(latitude, longitude, timestampMs)
+            _peerLocations.value = map
+        }
+    }
+
     // Clear all in-memory state (used for full app shutdown)
     fun clear() {
         synchronized(this) {
@@ -161,6 +189,8 @@ object AppStateStore {
             _publicMessages.value = emptyList()
             _privateMessages.value = emptyMap()
             _channelMessages.value = emptyMap()
+            _myLocation.value = null
+            _peerLocations.value = emptyMap()
         }
     }
 

@@ -234,6 +234,28 @@ class BinaryProtocolTest {
     }
 
     /**
+     * LOCATION packet type
+     *
+     * Verifies the new 0x05 packet type is recognized by the enum and
+     * survives a full binary round-trip. This is the simplest smoke test
+     * for adding a new top-level message type without changing any other
+     * protocol behavior.
+     */
+    @Test
+    fun `location packet type round-trips correctly`() {
+        val original = makePacket(
+            payload = "location-test".toByteArray(),
+            type = MessageType.LOCATION.value
+        )
+
+        val decoded = roundTrip(original)
+
+        assertEquals("type must match", MessageType.LOCATION.value, decoded.type)
+        assertEquals("fromValue must resolve", MessageType.LOCATION, MessageType.fromValue(decoded.type))
+        assertTrue("payload must survive round-trip", original.payload.contentEquals(decoded.payload))
+    }
+
+    /**
      * Large compressible payload triggers compression
      *
      * Creates a packet with a 500-byte repeating-text payload (well above

@@ -3,7 +3,11 @@ package com.bitchat.android.mesh
 import android.util.Log
 import com.bitchat.android.protocol.BitchatPacket
 import com.bitchat.android.protocol.MessageType
+import com.bitchat.android.protocol.LocationTelemetryPacket
 import com.bitchat.android.model.RoutedPacket
+import com.bitchat.android.service.MeshServiceHolder
+import com.bitchat.android.services.AppStateStore
+import android.location.Location as AndroidLocation
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.actor
@@ -145,6 +149,61 @@ class PacketProcessor(private val myPeerID: String) {
         when (messageType) {
             MessageType.ANNOUNCE -> handleAnnounce(routed)
             MessageType.MESSAGE -> handleMessage(routed)
+            MessageType.LOCATION -> {
+                // Location telemetry is a public packet type; decode and log for debugging.
+                try {
+                    val telemetry = LocationTelemetryPacket.decode(packet.payload)
+                    if (telemetry != null) {
+                        Log.d(TAG, "📍 Received location telemetry from ${formatPeerForLog(peerID)} lat=${telemetry.latitude}, lon=${telemetry.longitude}, time=${telemetry.timestampSeconds}")
+                        AppStateStore.updatePeerLocation(
+                            peerID = peerID,
+                            latitude = telemetry.latitude.toDouble(),
+                            longitude = telemetry.longitude.toDouble(),
+                            timestampMs = telemetry.timestampSeconds * 1000L
+                        )
+                        try {
+                            val myLoc = MeshServiceHolder.lastKnownLocation
+                            if (myLoc != null) {
+                                val results = FloatArray(3)
+                                AndroidLocation.distanceBetween(
+                                    myLoc.latitude,
+                                    myLoc.longitude,
+                                    telemetry.latitude.toDouble(),
+                                    telemetry.longitude.toDouble(),
+                                    results
+                                )
+                                val distanceMeters = results[0]
+                                // results[1] is initial bearing (degrees) from start to end
+                                var bearing = results[1]
+                                if (bearing.isNaN()) bearing = 0f
+                                val bearingNorm = ((bearing % 360) + 360) % 360
+                                val cardinal = when (((bearingNorm + 22.5) / 45).toInt() % 8) {
+                                    0 -> "N"
+                                    1 -> "NE"
+                                    2 -> "E"
+                                    3 -> "SE"
+                                    4 -> "S"
+                                    5 -> "SW"
+                                    6 -> "W"
+                                    else -> "NW"
+                                }
+                                Log.d(
+                                    TAG,
+                                    "📏 Distance to ${formatPeerForLog(peerID)} = ${distanceMeters} meters; 🧭 Bearing = ${"%.1f".format(bearingNorm)}° (${cardinal})"
+                                )
+                            } else {
+                                Log.d(TAG, "📏 My last known location unavailable; cannot compute distance")
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Error computing distance to ${formatPeerForLog(peerID)}: ${e.message}")
+                        }
+                    } else {
+                        Log.w(TAG, "Failed to decode LOCATION payload from ${formatPeerForLog(peerID)}")
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Exception decoding LOCATION payload from ${formatPeerForLog(peerID)}: ${e.message}")
+                }
+            }
             MessageType.FILE_TRANSFER -> handleMessage(routed) // treat same routing path; parsing happens in handler
             MessageType.LEAVE -> handleLeave(routed)
             MessageType.FRAGMENT -> handleFragment(routed)

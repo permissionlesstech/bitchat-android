@@ -115,6 +115,7 @@ class MeshForegroundService : Service() {
     private val scope = CoroutineScope(Dispatchers.Default + serviceJob)
     private var isInForeground: Boolean = false
     private var isShuttingDown: Boolean = false
+    private val locationTelemetryManager by lazy { LocationTelemetryManager(applicationContext, scope) }
 
     override fun onCreate() {
         super.onCreate()
@@ -144,6 +145,7 @@ class MeshForegroundService : Service() {
         when (intent?.action) {
             ACTION_STOP -> {
                 // Stop FGS and mesh cleanly
+                locationTelemetryManager.stop()
                 try { unifiedMeshService?.stopServices() ?: meshService?.stopServices() } catch (_: Exception) { }
                 try { MeshServiceHolder.clear() } catch (_: Exception) { }
                 try { stopForeground(true) } catch (_: Exception) { }
@@ -154,6 +156,7 @@ class MeshForegroundService : Service() {
             }
             ACTION_QUIT -> {
                 isShuttingDown = true
+                locationTelemetryManager.stop()
                 updateJob?.cancel()
                 updateJob = null
                 try { stopForeground(true) } catch (_: Exception) { }
@@ -243,6 +246,7 @@ class MeshForegroundService : Service() {
             android.util.Log.d("MeshForegroundService", "Ensuring mesh service is started")
             val service = MeshServiceHolder.getOrCreate(applicationContext)
             service.startServices()
+            locationTelemetryManager.start()
         } catch (e: Exception) {
             android.util.Log.e("MeshForegroundService", "Failed to start mesh service: ${e.message}")
         }
@@ -382,6 +386,7 @@ class MeshForegroundService : Service() {
     override fun onDestroy() {
         updateJob?.cancel()
         updateJob = null
+        locationTelemetryManager.stop()
         // Cancel the service coroutine scope to prevent leaks
         try { serviceJob.cancel() } catch (_: Exception) { }
         // Best-effort ensure we are not marked foreground
