@@ -33,6 +33,9 @@ class HotspotManager(private val context: Context) {
         // Group info polling interval
         private const val GROUP_INFO_POLL_INTERVAL_MILLIS = 1000L
 
+        // Give up if the group never forms within this window after creation succeeded
+        private const val GROUP_FORMATION_TIMEOUT_MILLIS = 15_000L
+
         // SSID and password configuration
         private const val SSID_PREFIX = "DIRECT-BC-" // BC for BitChat
         private const val SSID_SUFFIX_LENGTH = 8
@@ -190,8 +193,7 @@ class HotspotManager(private val context: Context) {
     private fun startWifiP2pFramework(attempt: Int) {
         if (attempt > MAX_FRAMEWORK_ATTEMPTS) {
             Log.e(TAG, "Failed to start P2P framework after $MAX_FRAMEWORK_ATTEMPTS attempts")
-            isStarting = false
-            callback?.onError("Failed to start hotspot. Please try again.")
+            failStartup("Failed to start hotspot. Please try again.")
             return
         }
 
@@ -273,9 +275,19 @@ class HotspotManager(private val context: Context) {
                 startWifiP2pFramework(attempt + 1)
             }, RETRY_DELAY_MILLIS)
         } else {
-            isStarting = false
-            callback?.onError("Failed to create hotspot: $reasonStr")
+            failStartup("Failed to create hotspot: $reasonStr")
         }
+    }
+
+    /**
+     * Terminal startup failure: release all resources (locks, receiver, handler
+     * callbacks) before notifying the callback, so a failed attempt doesn't leak
+     * and block subsequent attempts.
+     */
+    private fun failStartup(message: String) {
+        val cb = callback
+        stopHotspot()
+        cb?.onError(message)
     }
 
     /**
@@ -284,12 +296,25 @@ class HotspotManager(private val context: Context) {
     private fun startGroupInfoPolling() {
         requestGroupInfo()
 
+        // Keep polling even while the group info is still null — the first
+        // requestGroupInfo() after createGroup() can legitimately return null
+        // while the group is forming. Give up only after a timeout.
+        var elapsedMillis = 0L
         handler.postDelayed(object : Runnable {
             override fun run() {
-                if (channel != null && currentGroup != null) {
-                    requestGroupInfo()
-                    handler.postDelayed(this, GROUP_INFO_POLL_INTERVAL_MILLIS)
+                if (channel == null) return
+
+                elapsedMillis += GROUP_INFO_POLL_INTERVAL_MILLIS
+                if (currentGroup == null && !hasNotifiedStarted &&
+                    elapsedMillis >= GROUP_FORMATION_TIMEOUT_MILLIS
+                ) {
+                    Log.e(TAG, "Group never formed within ${GROUP_FORMATION_TIMEOUT_MILLIS}ms")
+                    failStartup("Hotspot failed to start. Please try again.")
+                    return
                 }
+
+                requestGroupInfo()
+                handler.postDelayed(this, GROUP_INFO_POLL_INTERVAL_MILLIS)
             }
         }, GROUP_INFO_POLL_INTERVAL_MILLIS)
     }
@@ -332,10 +357,10 @@ class HotspotManager(private val context: Context) {
         try {
             val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
             wakeLock = powerManager.newWakeLock(
-                PowerManager.FULL_WAKE_LOCK,
+                PowerManager.PARTIAL_WAKE_LOCK,
                 "BitChat:HotspotWakeLock"
             )
-            wakeLock?.acquire()
+            wakeLock?.acquire(30 * 60 * 1000L)
 
             val wifiManager = context.getSystemService(Context.WIFI_SERVICE) as android.net.wifi.WifiManager
             val lockType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
