@@ -1259,7 +1259,7 @@ class BinaryProtocolTest {
     }
 
     @Test
-    fun `legacy 11 MiB public file transfer is explicitly rejected by bounded decoder`() {
+    fun `new sender refuses legacy 11 MiB public file transfer before transmission`() {
         val content = ByteArray(11 * 1024 * 1024) { 0x41 }
         val filePayload = BitchatFilePacket(
             fileName = "legacy-11m.bin",
@@ -1281,15 +1281,9 @@ class BinaryProtocolTest {
             ),
             padding = false
         )
-        assertNotNull("A legacy sender can produce the highly-compressible wire packet", encoded)
-        assertTrue(
-            "The compressed wire body remains below the normal 10 MiB input cap",
-            encoded!!.size < com.bitchat.android.util.AppConstants.Protocol.MAX_PAYLOAD_LENGTH
-        )
-
         assertNull(
-            "The uniform bound intentionally rejects this legacy expansion until streaming admission exists",
-            BinaryProtocol.decode(encoded)
+            "Sender and receiver must enforce the same expanded-payload ceiling",
+            encoded
         )
     }
 

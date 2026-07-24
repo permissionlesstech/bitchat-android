@@ -129,7 +129,9 @@ object AppConstants {
     }
 
     object Media {
-        const val MAX_FILE_SIZE_BYTES: Long = 50L * 1024 * 1024
+        // A file is currently encoded into one protocol payload before BLE fragmentation.
+        // Reserve room for maximum filename/MIME TLVs and encryption envelope overhead.
+        const val MAX_FILE_SIZE_BYTES: Long = (10L * 1024 * 1024) - (132L * 1024)
     }
 
     object Services {

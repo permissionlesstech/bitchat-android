@@ -183,6 +183,9 @@ object BinaryProtocol {
     private const val SENDER_ID_SIZE = 8
     private const val RECIPIENT_ID_SIZE = 8
     private const val SIGNATURE_SIZE = 64
+    // Acquire before copying compressed input so queued decodes cannot each retain another
+    // near-limit payload while waiting for the inflater's single-flight lock.
+    private val compressedDecodeLock = Any()
 
     object Flags {
         const val HAS_RECIPIENT: UByte = 0x01u
@@ -200,6 +203,15 @@ object BinaryProtocol {
     
     fun encode(packet: BitchatPacket, padding: Boolean = true): ByteArray? {
         try {
+            val maxPayloadLength = com.bitchat.android.util.AppConstants.Protocol.MAX_PAYLOAD_LENGTH
+            if (packet.payload.size > maxPayloadLength) {
+                Log.w(
+                    "BinaryProtocol",
+                    "Cannot encode payload ${packet.payload.size} above receiver limit $maxPayloadLength"
+                )
+                return null
+            }
+
             // Try to compress payload if beneficial
             var payload = packet.payload
             var originalPayloadSize: Int? = null
@@ -466,9 +478,6 @@ object BinaryProtocol {
                     Log.w("BinaryProtocol", "Compressed payload has no deflate bytes")
                     return null
                 }
-                val compressedPayload = ByteArray(compressedSize)
-                buffer.get(compressedPayload)
-
                 // Security check: Compression bomb protection
                 val ratio = originalSize.toDouble() / compressedSize.toDouble()
                 if (ratio > 50_000.0) {
@@ -476,8 +485,13 @@ object BinaryProtocol {
                     return null
                 }
                 
-                // Decompress
-                val expandedPayload = decompress(compressedPayload, originalSize) ?: return null
+                // Copy and inflate single-flight. Acquiring before the copy bounds both the
+                // compressed input copy and expanded output allocation across concurrent decodes.
+                val expandedPayload = synchronized(compressedDecodeLock) {
+                    val compressedPayload = ByteArray(compressedSize)
+                    buffer.get(compressedPayload)
+                    decompress(compressedPayload, originalSize)
+                } ?: return null
                 if (expandedPayload.size != originalSize) {
                     Log.w(
                         "BinaryProtocol",

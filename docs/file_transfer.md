@@ -99,10 +99,11 @@ complete deflate stream. The `FILE_TRANSFER (0x22)` byte cannot safely grant a l
 attacker-controlled before packet signature verification, and the current receive pipeline must
 inflate before it can perform that verification.
 
-This intentionally means a legacy Android sender can produce a highly compressible public file
-between 10 MiB and the UI's 50 MiB send limit that the bounded decoder rejects. The hardening must
-therefore remain a rollout HOLD rather than silently ship as backward compatible. Grandfathering
-50 MiB also is not safe after only a type check: inflation allocates the declared payload and
+New Android senders cap files just below 10 MiB (reserving envelope overhead) and refuse to encode
+any payload above the receiver ceiling.
+Legacy Android senders can still produce a highly compressible public file between 10 MiB and their
+50 MiB UI limit that the bounded decoder rejects. Grandfathering 50 MiB is not safe after only a type
+check: inflation allocates the declared payload and
 `BitchatFilePacket.decode` currently copies the content again, creating a greater than 100 MiB peak
 for a maximum-size transfer.
 

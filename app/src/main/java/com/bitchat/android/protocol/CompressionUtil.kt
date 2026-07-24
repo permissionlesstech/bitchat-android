@@ -92,34 +92,39 @@ object CompressionUtil {
         }
 
         return synchronized(decompressionLock) {
-            // iOS COMPRESSION_ZLIB produces raw deflate format (no headers).
-            val rawResult = try {
-                inflateExact(compressedData, originalSize, nowrap = true)
-            } catch (e: Exception) {
-                Log.d(
-                    "CompressionUtil",
-                    "Raw deflate decompression failed: ${e.message}"
-                )
-                null
-            }
-
-            if (rawResult != null) {
-                rawResult
-            } else {
-                // Fallback after either a format error or an incomplete/wrong-sized raw stream:
-                // accept the zlib-wrapped form used by some older/mixed clients, but only when it
-                // independently satisfies the same exact-size and complete-stream checks.
+            if (looksLikeZlib(compressedData)) {
+                // A structurally valid zlib header selects the legacy wrapped format. Do not
+                // retry size/completion failures as raw deflate: that only doubles attacker work.
                 try {
                     inflateExact(compressedData, originalSize, nowrap = false)
-                } catch (fallbackException: Exception) {
-                    Log.e(
-                        "CompressionUtil",
-                        "Both raw deflate and zlib decompression failed: ${fallbackException.message}"
-                    )
+                } catch (zlibException: DataFormatException) {
+                    // A raw stream can coincidentally begin with a valid-looking zlib header.
+                    try {
+                        inflateExact(compressedData, originalSize, nowrap = true)
+                    } catch (rawException: DataFormatException) {
+                        Log.d("CompressionUtil", "Invalid zlib/raw deflate stream")
+                        null
+                    }
+                }
+            } else {
+                try {
+                    inflateExact(compressedData, originalSize, nowrap = true)
+                } catch (rawException: DataFormatException) {
+                    Log.d("CompressionUtil", "Invalid raw deflate stream")
                     null
                 }
             }
         }
+    }
+
+    /** RFC 1950 header check used to avoid speculative double inflation. */
+    private fun looksLikeZlib(data: ByteArray): Boolean {
+        if (data.size < 2) return false
+        val cmf = data[0].toInt() and 0xFF
+        val flg = data[1].toInt() and 0xFF
+        return (cmf and 0x0F) == 8 &&
+            (cmf ushr 4) <= 7 &&
+            ((cmf shl 8) or flg) % 31 == 0
     }
 
     /**
