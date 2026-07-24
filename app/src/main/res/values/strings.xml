@@ -278,6 +278,9 @@
   <string name="verify_qr_unavailable">qr unavailable</string>
   <string name="verify_camera_permission">camera permission is needed to scan qr codes</string>
   <string name="verify_request_camera">enable camera</string>
+  <string name="verify_scan_gallery">scan from gallery</string>
+  <string name="verify_gallery_no_qr">no qr code found in image</string>
+  <string name="verify_gallery_failed">could not read image</string>
   <string name="verify_paste_label">paste verification url</string>
   <string name="verify_validate">validate</string>
   <string name="verify_scanned">verification requested</string>
