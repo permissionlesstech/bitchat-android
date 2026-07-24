@@ -16,6 +16,14 @@ class SystemLocationProvider(private val context: Context) : LocationProvider {
 
     companion object {
         private const val TAG = "SystemLocationProvider"
+
+        // Reject fixes worse than this (meters). GPS outdoors is typically 3-15m;
+        // NETWORK_PROVIDER can be 50-2000m+, so this threshold effectively filters
+        // out bad network fixes while still allowing degraded-but-usable GPS fixes.
+        private const val MAX_ACCEPTABLE_ACCURACY_METERS = 50f
+
+        // How long to wait for a GPS fix before allowing a fallback.
+        private const val GPS_FALLBACK_WINDOW_MS = 15000L
     }
 
     private val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
@@ -31,6 +39,11 @@ class SystemLocationProvider(private val context: Context) : LocationProvider {
                 ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
     }
 
+    private fun isAcceptable(location: Location): Boolean {
+        // Some devices report accuracy == 0 for stale/garbage fixes; treat as unacceptable.
+        return location.hasAccuracy() && location.accuracy in 0.01f..MAX_ACCEPTABLE_ACCURACY_METERS
+    }
+
     @SuppressLint("MissingPermission")
     override fun getLastKnownLocation(callback: (Location?) -> Unit) {
         if (!hasLocationPermission()) {
@@ -42,11 +55,13 @@ class SystemLocationProvider(private val context: Context) : LocationProvider {
             var bestLocation: Location? = null
             val providers = locationManager.getProviders(true)
             for (provider in providers) {
-                val location = locationManager.getLastKnownLocation(provider)
-                if (location != null) {
-                    if (bestLocation == null || location.time > bestLocation.time) {
-                        bestLocation = location
-                    }
+                val location = locationManager.getLastKnownLocation(provider) ?: continue
+                // Pick by ACCURACY, not recency. A stale-but-accurate GPS fix beats
+                // a fresh-but-rough network fix for this app's purposes.
+                if (bestLocation == null ||
+                    (location.hasAccuracy() && (!bestLocation.hasAccuracy() || location.accuracy < bestLocation.accuracy))
+                ) {
+                    bestLocation = location
                 }
             }
             callback(bestLocation)
@@ -63,81 +78,76 @@ class SystemLocationProvider(private val context: Context) : LocationProvider {
             return
         }
 
-        try {
-            val providers = listOf(
-                LocationManager.GPS_PROVIDER,
-                LocationManager.NETWORK_PROVIDER,
-                LocationManager.PASSIVE_PROVIDER
-            )
+        if (!locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+            Log.w(TAG, "GPS provider not enabled")
+            callback(null)
+            return
+        }
 
-            var providerFound = false
-            for (provider in providers) {
-                if (locationManager.isProviderEnabled(provider)) {
-                    Log.d(TAG, "Requesting fresh location from $provider")
-                    
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        locationManager.getCurrentLocation(
-                            provider,
-                            null,
-                            context.mainExecutor
-                        ) { location ->
-                            callback(location)
-                        }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                locationManager.getCurrentLocation(
+                    LocationManager.GPS_PROVIDER,
+                    null,
+                    context.mainExecutor
+                ) { location ->
+                    if (location != null && isAcceptable(location)) {
+                        callback(location)
                     } else {
-                        // For older versions, use requestSingleUpdate with timeout mechanism
-                        val timeoutRunnable = Runnable {
-                            Log.w(TAG, "Location request timed out")
-                            synchronized(activeOneShotListeners) {
-                                val listener = activeOneShotListeners.remove(callback)
-                                activeOneShotRunnables.remove(callback)
-                                if (listener != null) {
-                                    try {
-                                        locationManager.removeUpdates(listener)
-                                    } catch (e: Exception) {
-                                        Log.e(TAG, "Error removing timed out listener: ${e.message}")
-                                    }
-                                }
+                        Log.w(TAG, "Fresh GPS fix rejected or null (accuracy=${location?.accuracy})")
+                        callback(null)
+                    }
+                }
+            } else {
+                val timeoutRunnable = Runnable {
+                    Log.w(TAG, "Location request timed out")
+                    synchronized(activeOneShotListeners) {
+                        val listener = activeOneShotListeners.remove(callback)
+                        activeOneShotRunnables.remove(callback)
+                        if (listener != null) {
+                            try {
+                                locationManager.removeUpdates(listener)
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error removing timed out listener: ${e.message}")
                             }
+                        }
+                    }
+                    callback(null)
+                }
+
+                val listener = object : LocationListener {
+                    override fun onLocationChanged(location: Location) {
+                        synchronized(activeOneShotListeners) {
+                            activeOneShotListeners.remove(callback)
+                            val runnable = activeOneShotRunnables.remove(callback)
+                            if (runnable != null) {
+                                handler.removeCallbacks(runnable)
+                            }
+                        }
+                        try {
+                            locationManager.removeUpdates(this)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error removing updates in callback: ${e.message}")
+                        }
+                        if (isAcceptable(location)) {
+                            callback(location)
+                        } else {
+                            Log.w(TAG, "Fresh GPS fix rejected (accuracy=${location.accuracy})")
                             callback(null)
                         }
-
-                        val listener = object : LocationListener {
-                            override fun onLocationChanged(location: Location) {
-                                synchronized(activeOneShotListeners) {
-                                    activeOneShotListeners.remove(callback)
-                                    val runnable = activeOneShotRunnables.remove(callback)
-                                    if (runnable != null) {
-                                        handler.removeCallbacks(runnable)
-                                    }
-                                }
-                                try {
-                                    locationManager.removeUpdates(this)
-                                } catch (e: Exception) {
-                                    Log.e(TAG, "Error removing updates in callback: ${e.message}")
-                                }
-                                callback(location)
-                            }
-                            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
-                            override fun onProviderEnabled(provider: String) {}
-                            override fun onProviderDisabled(provider: String) {}
-                        }
-
-                        synchronized(activeOneShotListeners) {
-                            activeOneShotListeners[callback] = listener
-                            activeOneShotRunnables[callback] = timeoutRunnable
-                        }
-                        
-                        locationManager.requestSingleUpdate(provider, listener, null)
-                        handler.postDelayed(timeoutRunnable, 30000L) // 30s timeout
                     }
-                    providerFound = true
-                    break
+                    override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+                    override fun onProviderEnabled(provider: String) {}
+                    override fun onProviderDisabled(provider: String) {}
                 }
-            }
 
-            if (!providerFound) {
-                Log.w(TAG, "No location providers available for fresh location")
-                callback(null)
+                synchronized(activeOneShotListeners) {
+                    activeOneShotListeners[callback] = listener
+                    activeOneShotRunnables[callback] = timeoutRunnable
+                }
+
+                locationManager.requestSingleUpdate(LocationManager.GPS_PROVIDER, listener, null)
+                handler.postDelayed(timeoutRunnable, GPS_FALLBACK_WINDOW_MS)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error requesting fresh location: ${e.message}")
@@ -156,36 +166,31 @@ class SystemLocationProvider(private val context: Context) : LocationProvider {
         try {
             val listener = object : LocationListener {
                 override fun onLocationChanged(location: Location) {
-                    callback(location)
+                    if (isAcceptable(location)) {
+                        callback(location)
+                    } else {
+                        Log.d(TAG, "Dropped low-accuracy update (accuracy=${location.accuracy})")
+                    }
                 }
                 override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
                 override fun onProviderEnabled(provider: String) {}
                 override fun onProviderDisabled(provider: String) {}
             }
 
-            // Store the listener so we can remove it later
             synchronized(activeListeners) {
                 activeListeners[callback] = listener
             }
 
-            val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
-            var registered = false
-            
-            for (provider in providers) {
-                if (locationManager.isProviderEnabled(provider)) {
-                    locationManager.requestLocationUpdates(
-                        provider,
-                        intervalMs,
-                        minDistanceMeters,
-                        listener
-                    )
-                    registered = true
-                    Log.d(TAG, "Registered updates for $provider")
-                }
-            }
-            
-            if (!registered) {
-                Log.w(TAG, "No providers enabled for continuous updates")
+            if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                locationManager.requestLocationUpdates(
+                    LocationManager.GPS_PROVIDER,
+                    intervalMs,
+                    minDistanceMeters,
+                    listener
+                )
+                Log.d(TAG, "Registered updates for GPS_PROVIDER")
+            } else {
+                Log.w(TAG, "GPS provider not enabled - no location updates will be delivered")
             }
 
         } catch (e: Exception) {
@@ -198,10 +203,12 @@ class SystemLocationProvider(private val context: Context) : LocationProvider {
             val listener = synchronized(activeListeners) {
                 activeListeners.remove(callback)
             }
-            
+
             if (listener != null) {
                 locationManager.removeUpdates(listener)
                 Log.d(TAG, "Removed location updates")
+            } else {
+                Log.w(TAG, "removeLocationUpdates: no matching listener found for callback")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error removing updates: ${e.message}")
@@ -210,7 +217,6 @@ class SystemLocationProvider(private val context: Context) : LocationProvider {
 
     override fun cancel() {
         try {
-            // Cancel continuous updates
             synchronized(activeListeners) {
                 for ((_, listener) in activeListeners) {
                     try { locationManager.removeUpdates(listener) } catch (_: Exception) {}
@@ -218,13 +224,12 @@ class SystemLocationProvider(private val context: Context) : LocationProvider {
                 activeListeners.clear()
             }
 
-            // Cancel one-shot requests
             synchronized(activeOneShotListeners) {
                 for ((_, listener) in activeOneShotListeners) {
                     try { locationManager.removeUpdates(listener) } catch (_: Exception) {}
                 }
                 activeOneShotListeners.clear()
-                
+
                 for ((_, runnable) in activeOneShotRunnables) {
                     handler.removeCallbacks(runnable)
                 }

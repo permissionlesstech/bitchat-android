@@ -40,7 +40,7 @@ class LocationTelemetryManager(
                         AppStateStore.updateMyLocation(
                             latitude = location.latitude,
                             longitude = location.longitude,
-                            timestampMs = location.time
+                            timestampMs = if (location.time > 0L) location.time else System.currentTimeMillis()
                         )
                         MeshServiceHolder.meshService?.sendLocationTelemetry(location)
                             ?: Log.w(TAG, "Mesh service unavailable; skipping location telemetry")

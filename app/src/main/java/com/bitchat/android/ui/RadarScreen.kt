@@ -1,6 +1,7 @@
 package com.bitchat.android.ui
 
 import android.content.Context
+import android.hardware.GeomagneticField
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -25,6 +26,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -40,8 +42,6 @@ private data class RadarPeer(
     val displayName: String,
     val distance: Double,
     val bearing: Double,
-    val xNorth: Float,
-    val yNorth: Float,
     val opacity: Float
 )
 
@@ -50,7 +50,7 @@ fun RadarScreen(viewModel: ChatViewModel) {
     val myLocation by viewModel.myTelemetryLocation.collectAsStateWithLifecycle()
     val peerLocations by viewModel.peerTelemetryLocations.collectAsStateWithLifecycle()
     val peerNicknames by viewModel.peerNicknames.collectAsStateWithLifecycle()
-    val headingDegrees by rememberCompassHeadingDegrees()
+    val headingDegrees by rememberCompassHeadingDegrees(myLocation)
     val myNickname by viewModel.nickname.collectAsStateWithLifecycle()
 
     // Available zoom levels (in meters)
@@ -93,15 +93,11 @@ fun RadarScreen(viewModel: ChatViewModel) {
                 peerLoc.latitude, peerLoc.longitude
             )
 
-            // Calculate xNorth and yNorth as absolute positions relative to true North
-            // We pass dummy values for maxRadius because we'll normalize it dynamically in UI
             RadarPeer(
                 peerID = peerID,
                 displayName = peerNicknames[peerID] ?: peerID.take(8),
                 distance = distance,
                 bearing = bearing,
-                xNorth = 0f, // will calculate relative coordinates inside drawing scope
-                yNorth = 0f,
                 opacity = opacity
             )
         }
@@ -292,146 +288,154 @@ private fun RadarCanvasView(
     val centerColor = Color(0xFF007AFF)
     val peerColor = Color(0xFFFF3B30)
 
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        val center = Offset(size.width / 2f, size.height / 2f)
-        val maxRadius = min(size.width, size.height) / 2f - 30.dp.toPx()
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val density = LocalDensity.current
+        val widthPx = with(density) { maxWidth.toPx() }
+        val heightPx = with(density) { maxHeight.toPx() }
+        val margin30DpPx = with(density) { 30.dp.toPx() }
+        val maxRadiusPx = (min(widthPx, heightPx) / 2f - margin30DpPx).coerceAtLeast(1f)
 
-        // 1. Draw Concentric Reference Rings
-        val rings = listOf(0.25f, 0.50f, 1.00f)
-        rings.forEach { ratio ->
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val center = Offset(size.width / 2f, size.height / 2f)
+            val maxRadius = maxRadiusPx
+
+            // 1. Draw Concentric Reference Rings
+            val rings = listOf(0.25f, 0.50f, 1.00f)
+            rings.forEach { ratio ->
+                drawCircle(
+                    color = ringColor,
+                    radius = maxRadius * ratio,
+                    center = center,
+                    style = Stroke(width = 1.dp.toPx())
+                )
+            }
+
+            // Draw crosshair axes
+            drawLine(ringColor.copy(alpha = 0.08f), Offset(center.x, center.y - maxRadius), Offset(center.x, center.y + maxRadius), strokeWidth = 1.dp.toPx())
+            drawLine(ringColor.copy(alpha = 0.08f), Offset(center.x - maxRadius, center.y), Offset(center.x + maxRadius, center.y), strokeWidth = 1.dp.toPx())
+
+            // 2. Draw Compass Cardinals (N, E, S, W) Rotating on the Outer Circle
+            val cardinalPoints = listOf(
+                "N" to 0.0,
+                "E" to 90.0,
+                "S" to 180.0,
+                "W" to 270.0
+            )
+            drawIntoCanvas { canvas ->
+                val nativeCanvas = canvas.nativeCanvas
+                val paint = android.graphics.Paint().apply {
+                    textSize = 12.sp.toPx()
+                    textAlign = android.graphics.Paint.Align.CENTER
+                    typeface = android.graphics.Typeface.create(android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.BOLD)
+                }
+                cardinalPoints.forEach { (label, trueBearing) ->
+                    val relativeAngle = RadarMathEngine.calculateRelativeAngle(trueBearing, headingDegrees.toDouble())
+                    val angleRad = Math.toRadians(relativeAngle)
+                    // Position cardinal just outside the max radius
+                    val cx = center.x + (sin(angleRad) * (maxRadius + 16.dp.toPx())).toFloat()
+                    val cy = center.y - (cos(angleRad) * (maxRadius + 16.dp.toPx())).toFloat()
+
+                    paint.color = if (label == "N") android.graphics.Color.RED else android.graphics.Color.WHITE
+                    // Adjust Y to center the text vertically
+                    val textY = cy - ((paint.descent() + paint.ascent()) / 2)
+                    nativeCanvas.drawText(label, cx, textY, paint)
+                }
+
+                // Draw ring distance indicators
+                val ringPaint = android.graphics.Paint().apply {
+                    color = ringTextColor
+                    textSize = 10.sp.toPx()
+                    textAlign = android.graphics.Paint.Align.LEFT
+                    alpha = 150
+                }
+                rings.forEach { ratio ->
+                    val distanceVal = (maxDistanceRange * ratio).toInt()
+                    val label = "${distanceVal}m"
+                    val rx = center.x + 6.dp.toPx()
+                    val ry = center.y - (maxRadius * ratio) - 4.dp.toPx()
+                    nativeCanvas.drawText(label, rx, ry, ringPaint)
+                }
+            }
+
+            // 3. Draw Local User in Center with Outer Glow Pulse
             drawCircle(
-                color = ringColor,
-                radius = maxRadius * ratio,
-                center = center,
-                style = Stroke(width = 1.dp.toPx())
+                color = centerColor.copy(alpha = 0.15f),
+                radius = 16.dp.toPx(),
+                center = center
+            )
+            drawCircle(
+                color = centerColor,
+                radius = 7.dp.toPx(),
+                center = center
+            )
+
+            // Draw Forward heading pointer (triangle pointing forward/up relative to phone direction)
+            val pointerY = center.y - maxRadius
+            drawCircle(
+                color = centerColor.copy(alpha = 0.8f),
+                radius = 4.dp.toPx(),
+                center = Offset(center.x, pointerY)
             )
         }
 
-        // Draw crosshair axes
-        drawLine(ringColor.copy(alpha = 0.08f), Offset(center.x, center.y - maxRadius), Offset(center.x, center.y + maxRadius), strokeWidth = 1.dp.toPx())
-        drawLine(ringColor.copy(alpha = 0.08f), Offset(center.x - maxRadius, center.y), Offset(center.x + maxRadius, center.y), strokeWidth = 1.dp.toPx())
+        // 4. Draw Peers with Animated North Coordinate and Heading Rotation (Sensor Fusion)
+        peers.forEach { peer ->
+            // Retrieve targeting positions relative to North using exact maxRadiusPx from BoxWithConstraints
+            val (targetX, targetY) = RadarMathEngine.toCartesian(
+                distance = peer.distance,
+                relativeAngleDegrees = peer.bearing,
+                maxDistance = maxDistanceRange,
+                maxRadius = maxRadiusPx.toDouble()
+            )
 
-        // 2. Draw Compass Cardinals (N, E, S, W) Rotating on the Outer Circle
-        val cardinalPoints = listOf(
-            "N" to 0.0,
-            "E" to 90.0,
-            "S" to 180.0,
-            "W" to 270.0
-        )
-        drawIntoCanvas { canvas ->
-            val nativeCanvas = canvas.nativeCanvas
-            val paint = android.graphics.Paint().apply {
-                textSize = 12.sp.toPx()
-                textAlign = android.graphics.Paint.Align.CENTER
-                typeface = android.graphics.Typeface.create(android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.BOLD)
-            }
-            cardinalPoints.forEach { (label, trueBearing) ->
-                val relativeAngle = (trueBearing - headingDegrees + 360.0) % 360.0
-                val angleRad = Math.toRadians(relativeAngle)
-                // Position cardinal just outside the max radius
-                val cx = center.x + (sin(angleRad) * (maxRadius + 16.dp.toPx())).toFloat()
-                val cy = center.y - (cos(angleRad) * (maxRadius + 16.dp.toPx())).toFloat()
+            AnimatePeerCoordinates(
+                peerID = peer.peerID,
+                xNorthTarget = targetX.toFloat(),
+                yNorthTarget = targetY.toFloat()
+            ) { animX, animY ->
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val center = Offset(size.width / 2f, size.height / 2f)
 
-                paint.color = if (label == "N") android.graphics.Color.RED else android.graphics.Color.WHITE
-                // Adjust Y to center the text vertically
-                val textY = cy - ((paint.descent() + paint.ascent()) / 2)
-                nativeCanvas.drawText(label, cx, textY, paint)
-            }
+                    // Rotate coordinate by negative device heading to align with screen viewpoint
+                    val theta = Math.toRadians(-headingDegrees.toDouble())
+                    val cosT = cos(theta)
+                    val sinT = sin(theta)
+                    val finalX = center.x + (animX * cosT - animY * sinT).toFloat()
+                    val finalY = center.y + (animX * sinT + animY * cosT).toFloat()
 
-            // Draw ring distance indicators
-            val ringPaint = android.graphics.Paint().apply {
-                color = ringTextColor
-                textSize = 10.sp.toPx()
-                textAlign = android.graphics.Paint.Align.LEFT
-                alpha = 150
-            }
-            rings.forEach { ratio ->
-                val distanceVal = (maxDistanceRange * ratio).toInt()
-                val label = "${distanceVal}m"
-                val rx = center.x + 6.dp.toPx()
-                val ry = center.y - (maxRadius * ratio) - 4.dp.toPx()
-                nativeCanvas.drawText(label, rx, ry, ringPaint)
-            }
-        }
+                    // Draw peer dot + halo glow
+                    drawCircle(
+                        color = peerColor.copy(alpha = peer.opacity * 0.2f),
+                        radius = 12.dp.toPx(),
+                        center = Offset(finalX, finalY)
+                    )
+                    drawCircle(
+                        color = peerColor.copy(alpha = peer.opacity),
+                        radius = 6.dp.toPx(),
+                        center = Offset(finalX, finalY)
+                    )
 
-        // 3. Draw Local User in Center with Outer Glow Pulse
-        drawCircle(
-            color = centerColor.copy(alpha = 0.15f),
-            radius = 16.dp.toPx(),
-            center = center
-        )
-        drawCircle(
-            color = centerColor,
-            radius = 7.dp.toPx(),
-            center = center
-        )
-
-        // Draw Forward heading pointer (triangle pointing forward/up relative to phone direction)
-        val pointerY = center.y - maxRadius
-        drawCircle(
-            color = centerColor.copy(alpha = 0.8f),
-            radius = 4.dp.toPx(),
-            center = Offset(center.x, pointerY)
-        )
-    }
-
-    // 4. Draw Peers with Animated North Coordinate and Heading Rotation (Sensor Fusion)
-    peers.forEach { peer ->
-        // Retrieve targeting positions relative to North
-        val (targetX, targetY) = RadarMathEngine.toCartesian(
-            distance = peer.distance,
-            relativeAngleDegrees = peer.bearing,
-            maxDistance = maxDistanceRange,
-            maxRadius = (min(LocalContext.current.resources.displayMetrics.widthPixels, LocalContext.current.resources.displayMetrics.heightPixels) / 2f - 30.dp.value * LocalContext.current.resources.displayMetrics.density).toDouble()
-        )
-
-        AnimatePeerCoordinates(
-            peerID = peer.peerID,
-            xNorthTarget = targetX.toFloat(),
-            yNorthTarget = targetY.toFloat()
-        ) { animX, animY ->
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val center = Offset(size.width / 2f, size.height / 2f)
-
-                // Rotate coordinate by negative device heading to align with screen viewpoint
-                val theta = Math.toRadians(-headingDegrees.toDouble())
-                val cosT = cos(theta)
-                val sinT = sin(theta)
-                val finalX = center.x + (animX * cosT - animY * sinT).toFloat()
-                val finalY = center.y + (animX * sinT + animY * cosT).toFloat()
-
-                // Draw peer dot + halo glow
-                drawCircle(
-                    color = peerColor.copy(alpha = peer.opacity * 0.2f),
-                    radius = 12.dp.toPx(),
-                    center = Offset(finalX, finalY)
-                )
-                drawCircle(
-                    color = peerColor.copy(alpha = peer.opacity),
-                    radius = 6.dp.toPx(),
-                    center = Offset(finalX, finalY)
-                )
-
-                // Draw label tag underneath
-                drawIntoCanvas { canvas ->
-                    val nativeCanvas = canvas.nativeCanvas
-                    val textPaint = android.graphics.Paint().apply {
-                        color = android.graphics.Color.WHITE
-                        textSize = 11.sp.toPx()
-                        textAlign = android.graphics.Paint.Align.CENTER
-                        typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
-                        alpha = (peer.opacity * 255).toInt()
+                    // Draw label tag underneath
+                    drawIntoCanvas { canvas ->
+                        val nativeCanvas = canvas.nativeCanvas
+                        val textPaint = android.graphics.Paint().apply {
+                            color = android.graphics.Color.WHITE
+                            textSize = 11.sp.toPx()
+                            textAlign = android.graphics.Paint.Align.CENTER
+                            typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+                            alpha = (peer.opacity * 255).toInt()
+                        }
+                        val shadowPaint = android.graphics.Paint(textPaint).apply {
+                            color = android.graphics.Color.BLACK
+                            style = android.graphics.Paint.Style.STROKE
+                            strokeWidth = 3.dp.toPx()
+                            alpha = (peer.opacity * 255).toInt()
+                        }
+                        val labelText = "${peer.displayName} [${peer.distance.toInt()}m]"
+                        val textY = finalY + 18.dp.toPx()
+                        nativeCanvas.drawText(labelText, finalX, textY, shadowPaint)
+                        nativeCanvas.drawText(labelText, finalX, textY, textPaint)
                     }
-                    val shadowPaint = android.graphics.Paint(textPaint).apply {
-                        color = android.graphics.Color.BLACK
-                        style = android.graphics.Paint.Style.STROKE
-                        strokeWidth = 3.dp.toPx()
-                        alpha = (peer.opacity * 255).toInt()
-                    }
-                    val labelText = "${peer.displayName} [${peer.distance.toInt()}m]"
-                    val textY = finalY + 18.dp.toPx()
-                    nativeCanvas.drawText(labelText, finalX, textY, shadowPaint)
-                    nativeCanvas.drawText(labelText, finalX, textY, textPaint)
                 }
             }
         }
@@ -459,28 +463,75 @@ private fun AnimatePeerCoordinates(
 }
 
 @Composable
-private fun rememberCompassHeadingDegrees(): State<Float> {
+private fun rememberCompassHeadingDegrees(myLocation: AppStateStore.TelemetryLocation?): State<Float> {
     val context = LocalContext.current
     val heading = remember { mutableStateOf(0f) }
     val sensorManager = remember {
         context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     }
 
-    DisposableEffect(sensorManager) {
+    DisposableEffect(sensorManager, myLocation) {
         val rotationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
         if (rotationSensor == null) {
             onDispose { }
         } else {
             val listener = object : SensorEventListener {
                 private val rotationMatrix = FloatArray(9)
+                private val remappedMatrix = FloatArray(9)
                 private val orientation = FloatArray(3)
 
                 override fun onSensorChanged(event: SensorEvent) {
                     if (event.sensor.type != Sensor.TYPE_ROTATION_VECTOR) return
                     SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
-                    SensorManager.getOrientation(rotationMatrix, orientation)
+
+                    val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as? android.view.WindowManager
+                    val displayRotation = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                        try { context.display?.rotation ?: android.view.Surface.ROTATION_0 } catch (_: Exception) { android.view.Surface.ROTATION_0 }
+                    } else {
+                        @Suppress("DEPRECATION")
+                        windowManager?.defaultDisplay?.rotation ?: android.view.Surface.ROTATION_0
+                    }
+
+                    var axisX = SensorManager.AXIS_X
+                    var axisY = SensorManager.AXIS_Y
+
+                    when (displayRotation) {
+                        android.view.Surface.ROTATION_90 -> {
+                            axisX = SensorManager.AXIS_Y
+                            axisY = SensorManager.AXIS_MINUS_X
+                        }
+                        android.view.Surface.ROTATION_180 -> {
+                            axisX = SensorManager.AXIS_MINUS_X
+                            axisY = SensorManager.AXIS_MINUS_Y
+                        }
+                        android.view.Surface.ROTATION_270 -> {
+                            axisX = SensorManager.AXIS_MINUS_Y
+                            axisY = SensorManager.AXIS_X
+                        }
+                    }
+
+                    SensorManager.remapCoordinateSystem(rotationMatrix, axisX, axisY, remappedMatrix)
+                    SensorManager.getOrientation(remappedMatrix, orientation)
                     val azimuthDeg = Math.toDegrees(orientation[0].toDouble()).toFloat()
-                    heading.value = normalizeDegrees(azimuthDeg)
+                    val normalizedAzimuth = normalizeDegrees(azimuthDeg)
+
+                    val declination = if (myLocation != null) {
+                        try {
+                            val geoField = GeomagneticField(
+                                myLocation.latitude.toFloat(),
+                                myLocation.longitude.toFloat(),
+                                0f,
+                                myLocation.timestampMs
+                            )
+                            geoField.declination
+                        } catch (_: Exception) {
+                            0f
+                        }
+                    } else {
+                        0f
+                    }
+
+                    heading.value = normalizeDegrees(normalizedAzimuth + declination)
                 }
 
                 override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit

@@ -159,7 +159,7 @@ class PacketProcessor(private val myPeerID: String) {
                             peerID = peerID,
                             latitude = telemetry.latitude.toDouble(),
                             longitude = telemetry.longitude.toDouble(),
-                            timestampMs = telemetry.timestampSeconds * 1000L
+                            timestampMs = if (telemetry.timestampSeconds > 0L) telemetry.timestampSeconds * 1000L else System.currentTimeMillis()
                         )
                         try {
                             val myLoc = MeshServiceHolder.lastKnownLocation
