@@ -219,9 +219,6 @@ class UniversalApkManager(private val context: Context) {
             Log.d(TAG, "Downloading from: $url")
             Log.d(TAG, "Expected size: ${expectedSize / 1024 / 1024}MB")
 
-            // Check available disk space before downloading
-            checkDiskSpace(expectedSize)
-
             val tempFile = File(cacheDir, "download_temp.apk")
 
             // Check for resumable download
@@ -240,6 +237,11 @@ class UniversalApkManager(private val context: Context) {
                     progressFile.delete()
                 }
             }
+
+            // Bytes already in the temp file have already consumed storage, so
+            // a resume only needs room for the remaining tail. Promotion is a
+            // rename and needs no extra space.
+            checkDiskSpace((expectedSize - existingBytes).coerceAtLeast(0))
 
             // A temp file that already holds the full asset means the process
             // died between download and verification. Requesting
